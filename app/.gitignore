@@ -6,6 +6,7 @@ lib/bridge_generated.io.dart
 native/src/bridge_generated.io.rs
 native/src/bridge_generated.rs
 native/src/bridge_generated.web.rs
+ios/Runner/bridge_generated.h
 
 # Created by https://www.toptal.com/developers/gitignore/api/flutter
 # Edit at https://www.toptal.com/developers/gitignore?templates=flutter
