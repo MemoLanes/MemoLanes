@@ -38,6 +38,11 @@ dependencies:
   flutter_rust_bridge: ^1.45.0
   meta: ^1.8.0
   uuid: ^3.0.7
+  location: ^5.0.2+1
+  provider: ^6.0.5
+  path_provider: ^2.0.15
+  mutex: ^3.0.1
+  share_plus: ^7.1.0
 
 dev_dependencies:
   flutter_test:
