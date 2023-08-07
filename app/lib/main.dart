@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:project_dv/gps.dart';
 import 'ffi.dart' if (dart.library.html) 'ffi_web.dart';
 
 void main() {
@@ -139,7 +140,8 @@ class _MyHomePageState extends State<MyHomePage> {
                     'Unknown OS';
                 return Text('$text ($release)', style: style);
               },
-            )
+            ),
+            const GPS()
           ],
         ),
       ),
