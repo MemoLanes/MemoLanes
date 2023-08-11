@@ -57,3 +57,23 @@ pub fn platform() -> Platform {
 pub fn rust_release_mode() -> bool {
     cfg!(not(debug_assertions))
 }
+
+use std::sync::OnceLock;
+
+struct MainState {}
+
+static MAIN_STATE: OnceLock<MainState> = OnceLock::new();
+
+pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: String) {
+    let mut already_initialized = true;
+    MAIN_STATE.get_or_init(|| {
+        already_initialized = false;
+        MainState {}
+    });
+    // TODO: check this value and return error when true
+    print!("{}", already_initialized);
+}
+
+fn get() -> &'static MainState {
+    MAIN_STATE.get().expect("main state is not initialized")
+}
