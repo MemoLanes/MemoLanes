@@ -6,7 +6,7 @@ import 'ffi.dart' if (dart.library.html) 'ffi_web.dart';
 void main() async {
   // This is required since we are doing things before calling `runApp`.
   WidgetsFlutterBinding.ensureInitialized();
-  // TODO: use `flutter_native_splash`
+  // TODO: Consider using `flutter_native_splash`
   await api.init(
       tempDir: (await getTemporaryDirectory()).path,
       docDir: (await getApplicationDocumentsDirectory()).path,

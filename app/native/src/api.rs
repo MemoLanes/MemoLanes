@@ -60,7 +60,11 @@ pub fn rust_release_mode() -> bool {
 
 use std::sync::OnceLock;
 
-struct MainState {}
+use crate::storage::Storage;
+
+struct MainState {
+    storage: Storage,
+}
 
 static MAIN_STATE: OnceLock<MainState> = OnceLock::new();
 
@@ -68,10 +72,14 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
     let mut already_initialized = true;
     MAIN_STATE.get_or_init(|| {
         already_initialized = false;
-        MainState {}
+        let storage = Storage::init(temp_dir, doc_dir, support_dir, cache_dir);
+        storage.init_logging();
+        info!("initialized");
+        MainState { storage }
     });
-    // TODO: check this value and return error when true
-    print!("{}", already_initialized);
+    if already_initialized {
+        warn!("`init` is called multiple times");
+    }
 }
 
 fn get() -> &'static MainState {
