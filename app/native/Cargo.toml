@@ -11,3 +11,6 @@ crate-type = ["cdylib", "staticlib"]
 [dependencies]
 anyhow = "1"
 flutter_rust_bridge = "1"
+log = "0.4.19"
+rusqlite = { version = "0.29.0", features = ["bundled"] }
+simplelog = "0.12.1"

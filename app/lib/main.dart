@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:project_dv/gps.dart';
 import 'ffi.dart' if (dart.library.html) 'ffi_web.dart';
 
-void main() {
+void main() async {
+  // This is required since we are doing things before calling `runApp`.
+  WidgetsFlutterBinding.ensureInitialized();
+  // TODO: Consider using `flutter_native_splash`
+  await api.init(
+      tempDir: (await getTemporaryDirectory()).path,
+      docDir: (await getApplicationDocumentsDirectory()).path,
+      supportDir: (await getApplicationSupportDirectory()).path,
+      cacheDir: (await getApplicationCacheDirectory()).path);
   runApp(const MyApp());
 }
 
