@@ -58,9 +58,13 @@ pub fn rust_release_mode() -> bool {
     cfg!(not(debug_assertions))
 }
 
+
+use std::path::Path;
 use std::sync::OnceLock;
+use std::fs::File;
 
 use crate::storage::Storage;
+use simplelog::{Config, LevelFilter, WriteLogger};
 
 struct MainState {
     storage: Storage,
@@ -68,12 +72,22 @@ struct MainState {
 
 static MAIN_STATE: OnceLock<MainState> = OnceLock::new();
 
+
 pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: String) {
     let mut already_initialized = true;
     MAIN_STATE.get_or_init(|| {
         already_initialized = false;
+
+        // init logging
+        let path = Path::new(&cache_dir).join("main.log");
+        WriteLogger::init(
+            LevelFilter::Info,
+            Config::default(),
+            File::create(path).unwrap(),
+        )
+        .expect("Failed to initialize logging");
+
         let storage = Storage::init(temp_dir, doc_dir, support_dir, cache_dir);
-        storage.init_logging();
         info!("initialized");
         MainState { storage }
     });
