@@ -60,36 +60,79 @@ fn open_db_and_run_migration(
 
 // This is an optional expert feature that should be off by default: storing raw GPS data with detailed tempstamp.
 struct RawDataDb {
-    conn: Mutex<Connection>,
+    conn: Connection,
 }
 
 impl RawDataDb {
     fn open(support_dir: &str) -> RawDataDb {
-        // better error handling
-        let conn = open_db_and_run_migration(support_dir, "raw_data.db", &vec![&(|tx| Ok(()))])
-            .expect("failed to open raw data db");
-        RawDataDb {conn : Mutex::new(conn)}
+        // TODO: better error handling
+        let conn = open_db_and_run_migration(
+            support_dir,
+            "raw_data.db",
+            /* TODO: migration */
+            &vec![],
+        )
+        .expect("failed to open raw data db");
+        RawDataDb { conn }
+    }
+}
+
+// The main database, we are likely to store a lot of protobuf bytes in it, less relational stuff.
+// Basically we will use it as a file system with better transaction support.
+struct MainDb {
+    conn: Connection,
+}
+
+impl MainDb {
+    fn open(support_dir: &str) -> MainDb {
+        // TODO: better error handling
+        let conn = open_db_and_run_migration(
+            support_dir,
+            "raw_data.db",
+            /* TODO: migration */
+            &vec![],
+        )
+        .expect("failed to open main db");
+        MainDb { conn }
     }
 }
 
 pub struct Storage {
-    _temp_dir: String, // Currently unused
-    _doc_dir: String,  // Currently unused
-    support_dir: String,
-    cache_dir: String,
-    raw_data_db: Option<RawDataDb> // `None` means disabled
+    main_db: Mutex<MainDb>,
+    raw_data_db: Mutex<Option<RawDataDb>>, // `None` means disabled
 }
 
 impl Storage {
-    pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: String) -> Self {
+    pub fn init(
+        _temp_dir: String,
+        _doc_dir: String,
+        support_dir: String,
+        _cache_dir: String,
+    ) -> Self {
+        let main_db = MainDb::open(&support_dir);
         let raw_data_db = RawDataDb::open(&support_dir);
         Storage {
-            _temp_dir: temp_dir,
-            _doc_dir: doc_dir,
-            support_dir,
-            cache_dir,
+            main_db: Mutex::new(main_db),
             // TODO: make this `None` by default
-            raw_data_db: Some(raw_data_db), 
+            raw_data_db: Mutex::new(Some(raw_data_db)),
         }
+    }
+
+    // TODO: do we need this?
+    pub fn flush(&self) -> Result<()> {
+        debug!("[storage] flushing");
+
+        let main_db = self.main_db.lock().unwrap();
+        main_db.conn.cache_flush()?;
+        drop(main_db);
+
+        let raw_data_db = self.raw_data_db.lock().unwrap();
+        match &*raw_data_db {
+            None => (),
+            Some(raw_data_db) => raw_data_db.conn.cache_flush()?,
+        }
+        drop(raw_data_db);
+
+        Ok(())
     }
 }

@@ -58,10 +58,9 @@ pub fn rust_release_mode() -> bool {
     cfg!(not(debug_assertions))
 }
 
-
+use std::fs::File;
 use std::path::Path;
 use std::sync::OnceLock;
-use std::fs::File;
 
 use crate::storage::Storage;
 use simplelog::{Config, LevelFilter, WriteLogger};
@@ -71,7 +70,6 @@ struct MainState {
 }
 
 static MAIN_STATE: OnceLock<MainState> = OnceLock::new();
-
 
 pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: String) {
     let mut already_initialized = true;
