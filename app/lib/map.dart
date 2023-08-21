@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:maplibre_gl/mapbox_gl.dart';
 import 'dart:ui';
 
+import 'ffi.dart' if (dart.library.html) 'ffi_web.dart';
+
 class MapUiBody extends StatefulWidget {
   const MapUiBody();
 
@@ -19,7 +21,7 @@ class MapUiBodyState extends State<MapUiBody> {
   );
 
   MaplibreMapController? mapController;
-  ByteData? image;
+  Uint8List? image;
   @override
   void initState() {
     super.initState();
@@ -50,7 +52,7 @@ class MapUiBodyState extends State<MapUiBody> {
     var controller = mapController;
     if (controller == null) return;
     final visiableRegion = await controller.getVisibleRegion();
-    image = await drawImage();
+    image = await api.renderMapOverlay();
     final topLeft = LatLng(
         visiableRegion.northeast.latitude, visiableRegion.southwest.longitude);
     final topRight = visiableRegion.northeast;
@@ -62,8 +64,7 @@ class MapUiBodyState extends State<MapUiBody> {
         topRight: topRight,
         bottomRight: bottomRight,
         bottomLeft: bottomLeft);
-    await controller.addImageSource(
-        "main-image-source", image!.buffer.asUint8List(), coordinates);
+    await controller.addImageSource("main-image-source", image!, coordinates);
     await controller.addImageLayer("main-image-layer", "main-image-source");
   }
 
@@ -72,7 +73,7 @@ class MapUiBodyState extends State<MapUiBody> {
     if (position == null) return;
     // final isMoving = mapController!.isCameraMoving;
     final visiableRegion = await mapController!.getVisibleRegion();
-    final zoom = position.zoom;
+    // final zoom = position.zoom;
     final topLeft = LatLng(
         visiableRegion.northeast.latitude, visiableRegion.southwest.longitude);
     final topRight = visiableRegion.northeast;
@@ -85,7 +86,7 @@ class MapUiBodyState extends State<MapUiBody> {
         bottomRight: bottomRight,
         bottomLeft: bottomLeft);
     await mapController?.updateImageSource(
-        "main-image-source", image!.buffer.asUint8List(), coordinates);
+        "main-image-source", image!, coordinates);
   }
 
   @override
