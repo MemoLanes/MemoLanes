@@ -4,7 +4,7 @@ use std::sync::OnceLock;
 
 use flutter_rust_bridge::ZeroCopyBuffer;
 use simplelog::{Config, LevelFilter, WriteLogger};
-use tiny_skia::{Color, Paint, PathBuilder, Pixmap, Transform, Stroke};
+use tiny_skia::{Color, Paint, PathBuilder, Pixmap, Stroke, Transform};
 
 use crate::storage::Storage;
 
@@ -69,16 +69,7 @@ pub fn tile_xy_to_lng_lat(x: i32, y: i32, zoom: f32) -> (f64, f64) {
     return (lng, lat);
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
-    }
-}
-
-// TODO: keep the info (tile_idx etc) about the last overlay somewhere and skip rendering 
+// TODO: keep the info (tile_idx etc) about the last overlay somewhere and skip rendering
 // if nothing changes (e.g. return `None` as `RenderResult`).
 pub fn render_map_overlay(
     // map view area (coordinates are in lat or lng)
@@ -113,11 +104,11 @@ pub fn render_map_overlay(
             // https://docs.rs/text-to-png/latest/text_to_png/ This is not so efficient but should
             // be good enough for debugging.
             let mut pb = PathBuilder::new();
-            pb.move_to((x*TILE_SIZE) as f32,( y*TILE_SIZE) as f32);
-            pb.line_to(((x+1)*TILE_SIZE) as f32, (y*TILE_SIZE) as f32);
-            pb.line_to(((x+1)*TILE_SIZE) as f32, ((y+1)*TILE_SIZE) as f32);
-            pb.line_to(((x)*TILE_SIZE) as f32, ((y+1)*TILE_SIZE) as f32);
-            pb.line_to((x*TILE_SIZE) as f32, (y*TILE_SIZE) as f32);
+            pb.move_to((x * TILE_SIZE) as f32, (y * TILE_SIZE) as f32);
+            pb.line_to(((x + 1) * TILE_SIZE) as f32, (y * TILE_SIZE) as f32);
+            pb.line_to(((x + 1) * TILE_SIZE) as f32, ((y + 1) * TILE_SIZE) as f32);
+            pb.line_to(((x) * TILE_SIZE) as f32, ((y + 1) * TILE_SIZE) as f32);
+            pb.line_to((x * TILE_SIZE) as f32, (y * TILE_SIZE) as f32);
             pb.close();
 
             let path = pb.finish().unwrap();
