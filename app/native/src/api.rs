@@ -3,9 +3,8 @@ use std::path::Path;
 use std::sync::OnceLock;
 
 use flutter_rust_bridge::ZeroCopyBuffer;
-use rusqlite::Transaction;
 use simplelog::{Config, LevelFilter, WriteLogger};
-use tiny_skia::{Color, Paint, PathBuilder, Pixmap, Rect, Transform, Stroke};
+use tiny_skia::{Color, Paint, PathBuilder, Pixmap, Transform, Stroke};
 
 use crate::storage::Storage;
 
