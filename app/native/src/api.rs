@@ -78,6 +78,8 @@ mod tests {
     }
 }
 
+// TODO: keep the info (tile_idx etc) about the last overlay somewhere and skip rendering 
+// if nothing changes (e.g. return `None` as `RenderResult`).
 pub fn render_map_overlay(
     // map view area (coordinates are in lat or lng)
     zoom: f32,
@@ -97,16 +99,19 @@ pub fn render_map_overlay(
     let (left_idx, top_idx) = lng_lat_to_tile_xy(left, top, zoom);
     let (right_idx, bottom_idx) = lng_lat_to_tile_xy(right, bottom, zoom);
 
-    // TODO: reuse resources?
     const TILE_SIZE: u32 = 128;
     let width_by_tile: u32 = (right_idx - left_idx + 1).try_into().unwrap();
     let height_by_tile: u32 = (bottom_idx - top_idx + 1).try_into().unwrap();
 
+    // TODO: reuse resurces?
     let mut pixmap = Pixmap::new(TILE_SIZE * width_by_tile, TILE_SIZE * height_by_tile).unwrap();
     pixmap.fill(Color::from_rgba8(0, 0, 0, 64));
 
     for x in 0..width_by_tile {
         for y in 0..height_by_tile {
+            // TODO: draw idx on the tile. Sadly, `tiny-skia` does not support this, we could use
+            // https://docs.rs/text-to-png/latest/text_to_png/ This is not so efficient but should
+            // be good enough for debugging.
             let mut pb = PathBuilder::new();
             pb.move_to((x*TILE_SIZE) as f32,( y*TILE_SIZE) as f32);
             pb.line_to(((x+1)*TILE_SIZE) as f32, (y*TILE_SIZE) as f32);

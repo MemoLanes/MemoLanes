@@ -37,6 +37,8 @@ class MapUiBodyState extends State<MapUiBody> {
   }
 
   void _triggerRefresh() async {
+    // TODO: this is buggy when view is at the meridian, or when the map is
+    // zoom out.
     if (!ready) return;
     var controller = mapController;
     if (controller == null) return;
@@ -49,6 +51,9 @@ class MapUiBodyState extends State<MapUiBody> {
     final right = visiableRegion.northeast.longitude;
     final bottom = visiableRegion.southwest.latitude;
 
+    // TODO: we use mutex to make sure only one rendering is happening at the
+    // same time, but what we really want is: if there are multiple request
+    // queuing up, only run the final one.
     await m.protect(() async {
       final renderResult = await api.renderMapOverlay(
           zoom: zoom, left: left, top: top, right: right, bottom: bottom);
