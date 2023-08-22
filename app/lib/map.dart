@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/mapbox_gl.dart';
+import 'package:mutex/mutex.dart';
 import 'dart:ui';
 
 import 'ffi.dart' if (dart.library.html) 'ffi_web.dart';
@@ -20,6 +21,9 @@ class MapUiBodyState extends State<MapUiBody> {
     zoom: 11.0,
   );
 
+  bool ready = false;
+  bool layerAdded = false;
+  final m = Mutex();
   MaplibreMapController? mapController;
   Uint8List? image;
   @override
@@ -27,66 +31,53 @@ class MapUiBodyState extends State<MapUiBody> {
     super.initState();
   }
 
-  Future<ByteData?> drawImage() async {
-    final recorder = PictureRecorder();
-    final canvas = Canvas(recorder,
-        Rect.fromPoints(const Offset(0.0, 0.0), const Offset(200.0, 200.0)));
-
-    final stroke = Paint()
-      ..color = const Color.fromARGB(128, 0, 0, 0)
-      ..style = PaintingStyle.fill;
-
-    canvas.drawRect(const Rect.fromLTWH(0.0, 0.0, 200.0, 200.0), stroke);
-
-    final picture = recorder.endRecording();
-    final img = await picture.toImage(200, 200);
-    return await img.toByteData(format: ImageByteFormat.png);
-  }
-
   void _onMapCreated(MaplibreMapController controller) async {
     controller.addListener(_onMapChanged);
     mapController = controller;
   }
 
-  _onStyleLoadedCallback() async {
+  void _triggerRefresh() async {
+    if (!ready) return;
     var controller = mapController;
     if (controller == null) return;
+    final zoom = controller.cameraPosition?.zoom;
+    if (zoom == null) return;
+    if (!zoom.isFinite) return;
     final visiableRegion = await controller.getVisibleRegion();
-    image = await api.renderMapOverlay();
-    final topLeft = LatLng(
-        visiableRegion.northeast.latitude, visiableRegion.southwest.longitude);
-    final topRight = visiableRegion.northeast;
-    final bottomRight = LatLng(
-        visiableRegion.southwest.latitude, visiableRegion.northeast.longitude);
-    final bottomLeft = visiableRegion.southwest;
-    final coordinates = LatLngQuad(
-        topLeft: topLeft,
-        topRight: topRight,
-        bottomRight: bottomRight,
-        bottomLeft: bottomLeft);
-    await controller.addImageSource("main-image-source", image!, coordinates);
-    await controller.addImageLayer("main-image-layer", "main-image-source");
+    final left = visiableRegion.southwest.longitude;
+    final top = visiableRegion.northeast.latitude;
+    final right = visiableRegion.northeast.longitude;
+    final bottom = visiableRegion.southwest.latitude;
+
+    await m.protect(() async {
+      final renderResult = await api.renderMapOverlay(
+          zoom: zoom, left: left, top: top, right: right, bottom: bottom);
+
+      final coordinates = LatLngQuad(
+        topLeft: LatLng(renderResult.top, renderResult.left),
+        topRight: LatLng(renderResult.top, renderResult.right),
+        bottomRight: LatLng(renderResult.bottom, renderResult.right),
+        bottomLeft: LatLng(renderResult.bottom, renderResult.left),
+      );
+      if (layerAdded) {
+        await mapController?.updateImageSource(
+            "main-image-source", renderResult.data, coordinates);
+      } else {
+        layerAdded = true;
+        await controller.addImageSource(
+            "main-image-source", renderResult.data, coordinates);
+        await controller.addImageLayer("main-image-layer", "main-image-source");
+      }
+    });
+  }
+
+  _onStyleLoadedCallback() async {
+    ready = true;
+    _triggerRefresh();
   }
 
   void _onMapChanged() async {
-    final position = mapController?.cameraPosition;
-    if (position == null) return;
-    // final isMoving = mapController!.isCameraMoving;
-    final visiableRegion = await mapController!.getVisibleRegion();
-    // final zoom = position.zoom;
-    final topLeft = LatLng(
-        visiableRegion.northeast.latitude, visiableRegion.southwest.longitude);
-    final topRight = visiableRegion.northeast;
-    final bottomRight = LatLng(
-        visiableRegion.southwest.latitude, visiableRegion.northeast.longitude);
-    final bottomLeft = visiableRegion.southwest;
-    final coordinates = LatLngQuad(
-        topLeft: topLeft,
-        topRight: topRight,
-        bottomRight: bottomRight,
-        bottomLeft: bottomLeft);
-    await mapController?.updateImageSource(
-        "main-image-source", image!, coordinates);
+    _triggerRefresh();
   }
 
   @override
