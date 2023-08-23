@@ -43,6 +43,11 @@ dependencies:
   path_provider: ^2.1.0
   mutex: ^3.0.1
   share_plus: ^7.1.0
+  maplibre_gl:
+    git:
+      # TODO: switch to the main stream one
+      url: https://github.com/CaviarChen/flutter-maplibre-gl
+      ref: fork
 
 dev_dependencies:
   flutter_test:
