@@ -24,7 +24,10 @@ fn basic() {
     let mut hasher = Sha1::new();
     hasher.update(&render_result.data.0);
     let result = hasher.finalize();
-    assert_eq!(result.encode_hex::<String>(), "3f97a9f76b3dd80bbac9d0b0b7cb30529afbe827");
+    assert_eq!(
+        result.encode_hex::<String>(),
+        "3f97a9f76b3dd80bbac9d0b0b7cb30529afbe827"
+    );
 
     // for human inspection
     let mut f = File::create("./tests/for_inspection/map_renderer_basic.png").unwrap();

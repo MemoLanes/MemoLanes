@@ -44,12 +44,8 @@ fn get() -> &'static MainState {
     MAIN_STATE.get().expect("main state is not initialized")
 }
 
-pub fn render_map_overlay(
-    zoom: f32,
-    left: f64,
-    top: f64,
-    right: f64,
-    bottom: f64,
-) -> RenderResult {
-    get().map_renderer.render_map_overlay(zoom, left, top, right, bottom)
+pub fn render_map_overlay(zoom: f32, left: f64, top: f64, right: f64, bottom: f64) -> RenderResult {
+    get()
+        .map_renderer
+        .render_map_overlay(zoom, left, top, right, bottom)
 }
