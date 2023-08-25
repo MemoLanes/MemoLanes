@@ -5,3 +5,4 @@ mod api;
 mod bridge_generated;
 
 mod storage;
+mod map_renderer;
