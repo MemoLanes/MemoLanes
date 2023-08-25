@@ -45,7 +45,6 @@ fn get() -> &'static MainState {
 }
 
 pub fn render_map_overlay(
-    // map view area (coordinates are in lat or lng)
     zoom: f32,
     left: f64,
     top: f64,
