@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:mutex/mutex.dart';
 import 'package:location/location.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'ffi.dart' if (dart.library.html) 'ffi_web.dart';
 
@@ -104,6 +105,58 @@ class GPS extends StatelessWidget {
   }
 }
 
+class ExportRawData extends StatefulWidget {
+  @override
+  _ExportRawDataState createState() => _ExportRawDataState();
+}
+
+class _ExportRawDataState extends State<ExportRawData> {
+  void _showDialog(List<RawDataFile> items) async {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Select an item'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: items.map((item) {
+                return ListTile(
+                  title: Text(item.name),
+                  onTap: () {
+                    Share.shareXFiles([XFile(item.path)]);
+                    Navigator.of(context).pop();
+                  },
+                );
+              }).toList(),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: () async {
+        var items = await api.listAllRawData();
+        _showDialog(items);
+      },
+      child: const Text('Export'),
+    );
+  }
+}
+
 class GPSPage extends StatelessWidget {
   const GPSPage({super.key});
 
@@ -120,6 +173,7 @@ class GPSPage extends StatelessWidget {
             onPressed: mainState.initializing ? null : mainState.toggle,
             child: Text(mainState.isRecording ? "Stop" : "Start"),
           ),
+          ExportRawData(),
         ],
       ),
     );

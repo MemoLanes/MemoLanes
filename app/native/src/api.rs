@@ -4,7 +4,7 @@ use std::sync::OnceLock;
 
 use simplelog::{Config, LevelFilter, WriteLogger};
 
-use crate::gps_processor;
+use crate::{gps_processor, storage};
 use crate::gps_processor::GpsProcessor;
 use crate::map_renderer::{MapRenderer, RenderResult};
 use crate::storage::Storage;
@@ -77,4 +77,8 @@ pub fn on_location_update(
     };
     let process_result = state.gps_processor.process(&raw_data);
     state.storage.record_gps_data(&raw_data, process_result);
+}
+
+pub fn list_all_raw_data() -> Vec<storage::RawDataFile> {
+    get().storage.list_all_raw_data()
 }
