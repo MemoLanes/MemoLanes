@@ -4,10 +4,10 @@ use std::sync::OnceLock;
 
 use simplelog::{Config, LevelFilter, WriteLogger};
 
-use crate::{gps_processor, storage};
 use crate::gps_processor::GpsProcessor;
 use crate::map_renderer::{MapRenderer, RenderResult};
 use crate::storage::Storage;
+use crate::{gps_processor, storage};
 
 struct MainState {
     storage: Storage,

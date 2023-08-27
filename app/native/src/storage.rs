@@ -69,8 +69,9 @@ fn open_db_and_run_migration(
 }
 
 /* This is an optional feature that should be off by default: storing raw GPS
-   data with detailed tempstamp. It will use a new file every time and data are
-   written in a simple csv format.
+   data with detailed tempstamp. It is designed for advanced user or debugging.
+   It stores data in a simple csv format and will be using a new file every time
+   the app starts.
 
    TODO: we should zstd all old data to reduce disk usage.
 */
