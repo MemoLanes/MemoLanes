@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:mutex/mutex.dart';
-import 'package:share_plus/share_plus.dart';
-import 'dart:io';
 import 'package:location/location.dart';
+import 'package:share_plus/share_plus.dart';
+
+import 'ffi.dart' if (dart.library.html) 'ffi_web.dart';
 
 class MainState extends ChangeNotifier {
   var initializing = true;
@@ -15,7 +15,6 @@ class MainState extends ChangeNotifier {
   var location = Location();
   StreamSubscription<LocationData>? locationSubscription;
   Mutex m = Mutex();
-  IOSink? dataCsvFileSink;
 
   init() {
     var result = () async {
@@ -56,59 +55,37 @@ class MainState extends ChangeNotifier {
         await location.enableBackgroundMode(enable: true);
         locationSubscription = location.onLocationChanged
             .listen((LocationData locationData) async {
-          if (dataCsvFileSink == null) {
-            final directory = await getApplicationDocumentsDirectory();
-            final path = directory.path;
-            dataCsvFileSink = File('$path/data.csv')
-                .openWrite(mode: FileMode.writeOnlyAppend);
-          }
-          // TODO: null?
-          var timestamp = locationData.time!.toInt();
+          var timestamp = locationData.time?.toInt();
+          if (timestamp == null) return;
           var now = DateTime.fromMillisecondsSinceEpoch(timestamp);
           message =
               ('[${now.toLocal()}]${locationData.latitude.toString()}, ${locationData.longitude.toString()} ${locationData.altitude.toString()} ~${locationData.accuracy.toString()}');
           notifyListeners();
 
-          dataCsvFileSink?.writeln(
-              '${now.toLocal()},${timestamp.toString()},${locationData.latitude.toString()},${locationData.longitude.toString()},${locationData.altitude.toString()},${locationData.accuracy.toString()}');
+          var latitude = locationData.latitude;
+          var longitude = locationData.longitude;
+          var timestampMs = locationData.time?.toInt();
+          var accuracy = locationData.accuracy;
+          if (latitude != null &&
+              longitude != null &&
+              timestampMs != null &&
+              accuracy != null) {
+            await api.onLocationUpdate(
+                latitude: latitude,
+                longitude: longitude,
+                timestampMs: timestampMs,
+                accuracy: accuracy,
+                altitude: locationData.altitude,
+                speed: locationData.speed);
+          }
         });
       } else {
         location.enableBackgroundMode(enable: false);
         await locationSubscription?.cancel();
 
         message = "";
-        await dataCsvFileSink?.flush();
-        await dataCsvFileSink?.close();
-        dataCsvFileSink = null;
       }
       notifyListeners();
-    });
-  }
-
-  void clearFile() async {
-    await m.protect(() async {
-      if (!isRecording) {
-        final directory = await getApplicationDocumentsDirectory();
-        final path = directory.path;
-        // override the old file
-        var file = File('$path/data.csv');
-        if (await file.exists()) {
-          await file.delete();
-        }
-      }
-    });
-  }
-
-  void exportFile() async {
-    await m.protect(() async {
-      if (!isRecording) {
-        final directory = await getApplicationDocumentsDirectory();
-        final path = directory.path;
-        var file = File('$path/data.csv');
-        if (await file.exists()) {
-          Share.shareXFiles([XFile('$path/data.csv')]);
-        }
-      }
     });
   }
 }
@@ -128,6 +105,58 @@ class GPS extends StatelessWidget {
   }
 }
 
+class ExportRawData extends StatefulWidget {
+  @override
+  _ExportRawDataState createState() => _ExportRawDataState();
+}
+
+class _ExportRawDataState extends State<ExportRawData> {
+  void _showDialog(List<RawDataFile> items) async {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Select an item'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: items.map((item) {
+                return ListTile(
+                  title: Text(item.name),
+                  onTap: () {
+                    Share.shareXFiles([XFile(item.path)]);
+                    Navigator.of(context).pop();
+                  },
+                );
+              }).toList(),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: () async {
+        var items = await api.listAllRawData();
+        _showDialog(items);
+      },
+      child: const Text('Export'),
+    );
+  }
+}
+
 class GPSPage extends StatelessWidget {
   const GPSPage({super.key});
 
@@ -144,14 +173,7 @@ class GPSPage extends StatelessWidget {
             onPressed: mainState.initializing ? null : mainState.toggle,
             child: Text(mainState.isRecording ? "Stop" : "Start"),
           ),
-          ElevatedButton(
-            onPressed: mainState.isRecording ? null : mainState.clearFile,
-            child: const Text("Clear File"),
-          ),
-          ElevatedButton(
-            onPressed: mainState.isRecording ? null : mainState.exportFile,
-            child: const Text("Export File"),
-          ),
+          ExportRawData(),
         ],
       ),
     );
