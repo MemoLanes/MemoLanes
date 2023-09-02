@@ -7,5 +7,7 @@ mod api;
 mod bridge_generated;
 
 pub mod gps_processor;
+mod main_db;
 pub mod map_renderer;
+mod protos;
 mod storage;

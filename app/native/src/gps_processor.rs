@@ -8,16 +8,30 @@ pub struct RawData {
 }
 
 #[derive(Copy, Clone)]
+#[repr(i8)]
 pub enum ProcessResult {
     Append = 0,
-    Ignore = 1,
-    NewSegment = 2,
-    NewJourney = 3,
+    NewSegment = 1,
+    // negative values are for ones that should not be stored in the
+    // `ongoing_journey` table.
+    Ignore = -1,
+    NewJourney = -2,
 }
 
 impl ProcessResult {
-    pub fn to_int(&self) -> u8 {
-        *self as u8
+    pub fn to_int(&self) -> i8 {
+        *self as i8
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::gps_processor::ProcessResult;
+
+    #[test]
+    fn to_int() {
+        assert_eq!(ProcessResult::NewSegment.to_int(), 1);
+        assert_eq!(ProcessResult::Ignore.to_int(), -1);
     }
 }
 

@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+message Header {
+  message Kind {
+    enum BuiltIn {
+      DEFAULT = 0;
+      FLIGHT = 1;
+    }
+
+    oneof Kind {
+      string custom_kind = 1;
+      BuiltIn build_in = 2;
+    }
+  }
+
+  string id = 1;
+  google.protobuf.Timestamp end_time = 2;
+  optional google.protobuf.Timestamp start_time = 3;
+  Kind kind = 4;
+  string note = 5;
+}
+
+message Data {
+  message TrackPoint {
+    double lat = 1;
+    double lng = 2;
+  }
+
+  message TrackSegmant {
+    repeated TrackPoint track_points = 1;
+  }
+
+  message Track {
+    repeated TrackSegmant track_segmants = 1;
+  }
+
+  oneof Data {
+    Track track = 1;
+    // TODO: bitmap
+  }
+}
