@@ -15,7 +15,6 @@ pub enum ProcessResult {
     // negative values are for ones that should not be stored in the
     // `ongoing_journey` table.
     Ignore = -1,
-    NewJourney = -2,
 }
 
 impl ProcessResult {
@@ -46,7 +45,6 @@ impl GpsProcessor {
         // TODO: implement this. A naive version could be:
         // 1. Ingore data with low accuracy
         // 2. If distance/time change is big (maybe also consider speed), start a new segment.
-        // 2. If distance/time change is way too big, start a new journey.
         ProcessResult::Append
     }
 }

@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::gps_processor::{self, ProcessResult};
 use crate::protos;
 
-/*  The main database, we are likely to store a lot of protobuf bytes in it,
+/* The main database, we are likely to store a lot of protobuf bytes in it,
 less relational stuff. Basically we will use it as a file system with better
 transaction support.
 
@@ -142,7 +142,7 @@ impl MainDb {
         Ok(())
     }
 
-    fn finalize_ongoing_journey(&mut self) -> Result<()> {
+    pub fn finalize_ongoing_journey(&mut self) -> Result<()> {
         let tx = self.conn.transaction()?;
         // `id` in `ongoing_journey` is auto incremented.
         let mut query = tx.prepare(
@@ -230,10 +230,6 @@ impl MainDb {
     ) -> Result<()> {
         match process_result {
             ProcessResult::Ignore => (),
-            ProcessResult::NewJourney => {
-                self.finalize_ongoing_journey()?;
-                self.append_ongoing_journey(raw_data, ProcessResult::Append)?;
-            }
             ProcessResult::Append | ProcessResult::NewSegment => {
                 self.append_ongoing_journey(raw_data, process_result)?;
             }
