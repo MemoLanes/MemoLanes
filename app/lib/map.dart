@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/mapbox_gl.dart';
 import 'package:mutex/mutex.dart';
-import 'dart:ui';
 
 import 'ffi.dart' if (dart.library.html) 'ffi_web.dart';
 
@@ -58,20 +57,23 @@ class MapUiBodyState extends State<MapUiBody> {
       final renderResult = await api.renderMapOverlay(
           zoom: zoom, left: left, top: top, right: right, bottom: bottom);
 
-      final coordinates = LatLngQuad(
-        topLeft: LatLng(renderResult.top, renderResult.left),
-        topRight: LatLng(renderResult.top, renderResult.right),
-        bottomRight: LatLng(renderResult.bottom, renderResult.right),
-        bottomLeft: LatLng(renderResult.bottom, renderResult.left),
-      );
-      if (layerAdded) {
-        await mapController?.updateImageSource(
-            "main-image-source", renderResult.data, coordinates);
-      } else {
-        layerAdded = true;
-        await controller.addImageSource(
-            "main-image-source", renderResult.data, coordinates);
-        await controller.addImageLayer("main-image-layer", "main-image-source");
+      if (renderResult != null) {
+        final coordinates = LatLngQuad(
+          topLeft: LatLng(renderResult.top, renderResult.left),
+          topRight: LatLng(renderResult.top, renderResult.right),
+          bottomRight: LatLng(renderResult.bottom, renderResult.right),
+          bottomLeft: LatLng(renderResult.bottom, renderResult.left),
+        );
+        if (layerAdded) {
+          await mapController?.updateImageSource(
+              "main-image-source", renderResult.data, coordinates);
+        } else {
+          layerAdded = true;
+          await controller.addImageSource(
+              "main-image-source", renderResult.data, coordinates);
+          await controller.addImageLayer(
+              "main-image-layer", "main-image-source");
+        }
       }
     });
   }
