@@ -1,13 +1,12 @@
 extern crate simplelog;
 use anyhow::Result;
-use chrono::Utc;
+use protobuf::{Message, MessageField};
 use rusqlite::{Connection, OptionalExtension, Transaction};
-use std::fs::File;
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::path::Path;
+use uuid::Uuid;
 
 use crate::gps_processor::{self, ProcessResult};
+use crate::protos;
 
 /*  The main database, we are likely to store a lot of protobuf bytes in it,
 less relational stuff. Basically we will use it as a file system with better
@@ -133,19 +132,94 @@ impl MainDb {
         assert!(process_result >= 0);
         let tx = self.conn.transaction()?;
         let sql = "INSERT INTO ongoing_journey (timestamp_sec, lat, lng, process_result) VALUES (?1, ?2, ?3, ?4);";
-        tx.execute(
-            sql,
-            (
-                raw_data.timestamp_ms / 1000,
-                raw_data.latitude,
-                raw_data.longitude,
-                process_result,
-            ),
-        )?;
+        tx.prepare_cached(sql)?.execute((
+            raw_data.timestamp_ms / 1000,
+            raw_data.latitude,
+            raw_data.longitude,
+            process_result,
+        ))?;
+        tx.commit()?;
         Ok(())
     }
 
     fn finalize_ongoing_journey(&mut self) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        // `id` in `ongoing_journey` is auto incremented.
+        let mut query = tx.prepare(
+            "SELECT (timestamp_sec, lat, lng, process_result) FROM ongoing_journey ORDER BY id;",
+        )?;
+        let results = query.query_map((), |row| {
+            let timestamp_sec: i64 = row.get(0)?;
+            let process_result: i8 = row.get(3)?;
+            let mut track_point = protos::journey::data::TrackPoint::new();
+            track_point.latitude = row.get(1)?;
+            track_point.longitude = row.get(1)?;
+            Ok((timestamp_sec, track_point, process_result))
+        })?;
+
+        let mut segmants = Vec::new();
+        let mut current_segment = Vec::new();
+
+        let mut start_timestamp_sec = None;
+        let mut end_timestamp_sec = None;
+        for result in results {
+            let (timestamp_sec, track_point, process_result) = result?;
+            end_timestamp_sec = Some(timestamp_sec);
+            if start_timestamp_sec.is_none() {
+                start_timestamp_sec = Some(timestamp_sec);
+            }
+            let need_break = process_result == ProcessResult::NewSegment.to_int();
+            if need_break && !current_segment.is_empty() {
+                let mut track_segmant = protos::journey::data::TrackSegmant::new();
+                track_segmant.track_points = current_segment;
+                segmants.push(track_segmant);
+                current_segment = Vec::new();
+            }
+            current_segment.push(track_point);
+        }
+        if !current_segment.is_empty() {
+            let mut track_segmant = protos::journey::data::TrackSegmant::new();
+            track_segmant.track_points = current_segment;
+            segmants.push(track_segmant);
+        }
+
+        drop(query);
+
+        // create new journey
+        if !segmants.is_empty() {
+            let end_timestamp_sec = end_timestamp_sec.unwrap();
+
+            let mut header = protos::journey::Header::new();
+            header.id = Uuid::new_v4().as_hyphenated().to_string();
+            header.end_timestamp_sec = end_timestamp_sec;
+            header.start_timestamp_sec = start_timestamp_sec;
+            // TODO: allow user to set this when recording?
+            let mut kind = protos::journey::header::Kind::new();
+            kind.set_build_in(protos::journey::header::kind::BuiltIn::DEFAULT);
+            header.kind = MessageField::some(kind);
+            header.note = None;
+
+            let mut track = protos::journey::data::Track::new();
+            track.track_segmants = segmants;
+            let mut data = protos::journey::Data::new();
+            data.set_track(track);
+
+            // TODO: before we stabilize the desgin, see what's the pro/con of
+            // compressing this with zstd. Naively I think our data is pretty
+            // compressible.
+            let header_bytes = header.write_to_bytes()?;
+            let data_bytes = data.write_to_bytes()?;
+
+            let sql = "INSERT INTO journey (id, end_timestamp_sec, header, data) VALUES (?1, ?2, ?3, ?4);";
+            tx.execute(
+                sql,
+                (&header.id, end_timestamp_sec, header_bytes, data_bytes),
+            )?;
+        }
+
+        tx.execute("DELETE FROM ongoing_journey", ())?;
+
+        tx.commit()?;
         Ok(())
     }
 

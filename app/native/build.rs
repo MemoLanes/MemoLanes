@@ -3,6 +3,8 @@ use std::process::Command;
 // need to install:
 // - `cargo install flutter_rust_bridge_codegen`
 fn main() {
+
+    println!("cargo:rerun-if-changed=src/protos/journey.proto");
     protobuf_codegen::Codegen::new()
     .pure()
     .out_dir("src/protos")

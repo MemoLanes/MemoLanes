@@ -1,7 +1,5 @@
 syntax = "proto3";
 
-import "google/protobuf/timestamp.proto";
-
 message Header {
   message Kind {
     enum BuiltIn {
@@ -16,16 +14,16 @@ message Header {
   }
 
   string id = 1;
-  google.protobuf.Timestamp end_time = 2;
-  optional google.protobuf.Timestamp start_time = 3;
+  int64 end_timestamp_sec = 2;
+  optional int64 start_timestamp_sec = 3;
   Kind kind = 4;
-  string note = 5;
+  optional string note = 5;
 }
 
 message Data {
   message TrackPoint {
-    double lat = 1;
-    double lng = 2;
+    double latitude = 1;
+    double longitude = 2;
   }
 
   message TrackSegmant {
