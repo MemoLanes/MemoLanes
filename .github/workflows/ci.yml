@@ -20,6 +20,10 @@ jobs:
           components: rustfmt, clippy
           
       # Rust
+      - name: Install flutter rust bridge
+        run: cargo install flutter_rust_bridge_codegen
+      - name: Codegen
+        run: flutter_rust_bridge_codegen
       - name: Check Rust format
         working-directory: app/native/src
         run: rustfmt --check lib.rs
