@@ -1,0 +1,39 @@
+name: CI
+
+on: [pull_request, workflow_dispatch]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Setup
+      - uses: actions/checkout@v3
+      - uses: subosito/flutter-action@v2
+      - uses: bluefireteam/melos-action@v2
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      # Rust
+      - name: Check Rust format
+        working-directory: ./app
+        run: rustfmt --check lib.rs
+      - name: Rust code analysis
+        run: cargo clippy -- -D warnings
+      - name: Run Rust tests
+        run: cargo test
+      - name: Build Rust code for Dart tests
+        run: cargo build -r
+
+      # Dart/Flutter
+      - name: Check Dart format
+        run: melos run check-format --no-select
+      - name: Dart code analysis
+        run: melos run analyze --no-select
+      - name: Run Dart tests
+        run: melos run test
