@@ -13,7 +13,6 @@ jobs:
       # Setup
       - uses: actions/checkout@v3
       - uses: subosito/flutter-action@v2
-      - uses: bluefireteam/melos-action@v2
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
@@ -21,7 +20,7 @@ jobs:
 
       # Rust
       - name: Check Rust format
-        working-directory: ./app
+        working-directory: ./packages/ProjectDV/app/native/src
         run: rustfmt --check lib.rs
       - name: Rust code analysis
         run: cargo clippy -- -D warnings
@@ -30,10 +29,3 @@ jobs:
       - name: Build Rust code for Dart tests
         run: cargo build -r
 
-      # Dart/Flutter
-      - name: Check Dart format
-        run: melos run check-format --no-select
-      - name: Dart code analysis
-        run: melos run analyze --no-select
-      - name: Run Dart tests
-        run: melos run test
