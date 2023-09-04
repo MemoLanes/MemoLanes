@@ -20,7 +20,7 @@ jobs:
 
       # Rust
       - name: Check Rust format
-        working-directory: ./packages/ProjectDV/app/native/src
+        working-directory: /app/native/src
         run: rustfmt --check lib.rs
       - name: Rust code analysis
         run: cargo clippy -- -D warnings
