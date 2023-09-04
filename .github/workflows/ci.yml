@@ -13,11 +13,12 @@ jobs:
       # Setup
       - uses: actions/checkout@v3
       - uses: subosito/flutter-action@v2
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          override: true
           components: rustfmt, clippy
-
+          
       # Rust
       - name: Check Rust format
         working-directory: app/native/src
