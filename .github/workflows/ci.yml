@@ -21,17 +21,17 @@ jobs:
         with:
           toolchain: stable
           override: true
-          components: rustfmt, clippy
+          components: rustfmt, clippy, cargo-expand, flutter_rust_bridge_codegen
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: "server"
           cache-on-failure: true
           
       # Rust
-      - name: Install flutter rust bridge
-        run: cargo install flutter_rust_bridge_codegen
-      - name: Install cargo-expand
-        run: cargo install cargo-expand
+      # - name: Install flutter rust bridge
+      #   run: cargo install flutter_rust_bridge_codegen
+      # - name: Install cargo-expand
+      #   run: cargo install cargo-expand
       - name: Codegen
         working-directory: ./app
         run: flutter_rust_bridge_codegen
