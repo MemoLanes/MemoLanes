@@ -27,6 +27,10 @@ jobs:
       - name: Codegen
         working-directory: app
         run: flutter_rust_bridge_codegen
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "server"
+          cache-on-failure: true
       - name: Check Rust format
         working-directory: app/native/src
         run: rustfmt --check lib.rs
