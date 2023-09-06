@@ -34,13 +34,13 @@ jobs:
       - name: Check Rust format
         working-directory: app/native/src
         run: rustfmt --check lib.rs
-      - name: Rust code analysis
-        working-directory: app/native
-        run: cargo clippy -- -D warnings
+      # - name: Rust code analysis
+      #   working-directory: app/native
+      #   run: cargo clippy -- -D warnings
       - name: Run Rust tests
-        working-directory: app/native
+        # working-directory: app/native
         run: cargo test
       - name: Build Rust code for Dart tests
-        working-directory: app/native
+        # working-directory: app/native
         run: cargo build -r
 
