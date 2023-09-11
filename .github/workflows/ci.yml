@@ -15,7 +15,7 @@ jobs:
     
     defaults:
       run:
-        working-directory: ./app/native
+        working-directory: ./app/native/src
 
     steps:
       # Setup
