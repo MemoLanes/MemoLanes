@@ -4,7 +4,7 @@ on:
   pull_request_target:
     paths:
       - ./app/native
-  workflow_run:
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
