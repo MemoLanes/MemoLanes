@@ -3,11 +3,8 @@ name: CI
 on: 
   pull_request_target:
     paths:
-      - ./app/native
+      - app/native
   workflow_dispatch:
-
-env:
-  CARGO_TERM_COLOR: always
 
 jobs:
   build_and_test:
@@ -15,7 +12,7 @@ jobs:
     
     defaults:
       run:
-        working-directory: ./app/native/src
+        working-directory: app/
 
     steps:
       # Setup
@@ -28,22 +25,26 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: "server"
+          workspaces: "app/native/"
           cache-on-failure: true
           
-      # Rust
+      # Flutter rust bridge
       - name: Install flutter rust bridge
         run: cargo install flutter_rust_bridge_codegen
-      - name: Install cargo-expand
-        run: cargo install cargo-expand
+      # - name: Install cargo-expand
+      #   run: cargo install cargo-expand
       - name: Codegen
-        working-directory: ./app
         run: flutter_rust_bridge_codegen
+
+      # Rust
       - name: Check Rust format
-        run: rustfmt --check lib.rs
+        working-directory: app/native
+        run: cargo fmt --all -- --check
+      - name: Cargo Check
+        working-directory: app/native
+        run: cargo check
       # - name: Rust code analysis
       #   run: cargo clippy -- -D warnings
       - name: Run Rust tests
+        working-directory: app/native
         run: cargo test
-      - name: Build Rust code for Dart tests
-        run: cargo build -r
