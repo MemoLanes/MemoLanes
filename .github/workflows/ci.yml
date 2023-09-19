@@ -29,11 +29,9 @@ jobs:
           cache-on-failure: true
           
       # Flutter rust bridge
-      - name: Install flutter rust bridge
-        run: cargo install flutter_rust_bridge_codegen
-      # - name: Install cargo-expand
-      #   run: cargo install cargo-expand
-      - name: Codegen
+      - name: Install codegen
+        run: cargo install cargo-expand && cargo install flutter_rust_bridge_codegen
+      - name: Run codegen
         run: flutter_rust_bridge_codegen
 
       # Rust
@@ -43,6 +41,7 @@ jobs:
       - name: Cargo Check
         working-directory: app/native
         run: cargo check
+      # TODO: fix the code and enable this  
       # - name: Rust code analysis
       #   run: cargo clippy -- -D warnings
       - name: Run Rust tests
