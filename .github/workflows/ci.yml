@@ -1,0 +1,49 @@
+name: CI
+
+on: 
+  pull_request_target:
+    paths:
+      - app/native
+  workflow_dispatch:
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: app/
+
+    steps:
+      # Setup
+      - uses: actions/checkout@v3
+      - uses: subosito/flutter-action@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "app/native/"
+          cache-on-failure: true
+          
+      # Flutter rust bridge
+      - name: Install codegen
+        run: cargo install cargo-expand && cargo install flutter_rust_bridge_codegen
+      - name: Run codegen
+        run: flutter_rust_bridge_codegen
+
+      # Rust
+      - name: Check Rust format
+        working-directory: app/native
+        run: cargo fmt --all -- --check
+      - name: Cargo Check
+        working-directory: app/native
+        run: cargo check
+      # TODO: fix the code and enable this  
+      # - name: Rust code analysis
+      #   run: cargo clippy -- -D warnings
+      - name: Run Rust tests
+        working-directory: app/native
+        run: cargo test
