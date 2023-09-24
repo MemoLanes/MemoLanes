@@ -51,33 +51,35 @@ impl RawDataRecorder {
             let filename = loop {
                 let filename =
                     Path::new(&self.dir).join(format!("gps-{}-{}.csv", timestamp_sec, i));
-                if !std::fs::metadata(&filename).is_ok() {
+                if std::fs::metadata(&filename).is_err() {
                     break filename;
                 }
                 i += 1;
             };
             let mut file = File::create(filename).unwrap();
-            file.write(
-                "timestamp_ms,latitude,longitude,accuarcy,altitude,speed,process_result\n"
-                    .as_bytes(),
-            )
-            .unwrap();
+            let _ = file
+                .write(
+                    "timestamp_ms,latitude,longitude,accuarcy,altitude,speed,process_result\n"
+                        .as_bytes(),
+                )
+                .unwrap();
             file
         });
-        file.write(
-            format!(
-                "{},{},{},{},{},{},{}\n",
-                raw_data.timestamp_ms,
-                raw_data.latitude,
-                raw_data.longitude,
-                raw_data.accuracy,
-                &raw_data.altitude.map(|x| x.to_string()).unwrap_or_default(),
-                &raw_data.speed.map(|x| x.to_string()).unwrap_or_default(),
-                process_result.to_int()
+        let _ = file
+            .write(
+                format!(
+                    "{},{},{},{},{},{},{}\n",
+                    raw_data.timestamp_ms,
+                    raw_data.latitude,
+                    raw_data.longitude,
+                    raw_data.accuracy,
+                    &raw_data.altitude.map(|x| x.to_string()).unwrap_or_default(),
+                    &raw_data.speed.map(|x| x.to_string()).unwrap_or_default(),
+                    process_result.to_int()
+                )
+                .as_bytes(),
             )
-            .as_bytes(),
-        )
-        .unwrap();
+            .unwrap();
     }
 }
 
@@ -109,12 +111,10 @@ impl Storage {
                 *raw_data_db = Some(RawDataRecorder::init(&self.support_dir));
                 debug!("[storage] raw data mod enabled");
             }
-        } else {
-            if raw_data_db.is_some() {
-                debug!("[storage] raw data mod disabled");
-                // `drop` should do the right thing and release all resources.
-                *raw_data_db = None;
-            }
+        } else if raw_data_db.is_some() {
+            debug!("[storage] raw data mod disabled");
+            // `drop` should do the right thing and release all resources.
+            *raw_data_db = None;
         }
     }
 

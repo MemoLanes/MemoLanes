@@ -4,6 +4,7 @@ use protobuf::{Message, MessageField};
 use rusqlite::{Connection, OptionalExtension, Transaction};
 use std::path::Path;
 use uuid::Uuid;
+use std::cmp::Ordering;
 
 use crate::gps_processor::{self, ProcessResult};
 use crate::protos;
@@ -22,6 +23,7 @@ two parts: header and data, so most common operation only need to fetch and
 deserialize the header.
 */
 
+#[allow(clippy::type_complexity)]
 fn open_db_and_run_migration(
     support_dir: &str,
     file_name: &str,
@@ -55,25 +57,29 @@ fn open_db_and_run_migration(
         "current version = {}, target_version = {}",
         version, target_version
     );
-    if version < target_version {
-        for i in (version)..target_version {
-            info!("running migration for version: {}", i + 1);
-            let f = migrations.get(i).unwrap();
-            f(&tx)?;
+    match version.cmp(&target_version) {
+        Ordering::Equal => (),
+        Ordering::Less => {
+            for i in (version)..target_version {
+                info!("running migration for version: {}", i + 1);
+                let f = migrations.get(i).unwrap();
+                f(&tx)?;
+            }
+            tx.execute(
+                "INSERT OR REPLACE INTO `db_metadata` (key, value) VALUES (?1, ?2)",
+                ("version", target_version.to_string()),
+            )?;
         }
-        tx.execute(
-            "INSERT OR REPLACE INTO `db_metadata` (key, value) VALUES (?1, ?2)",
-            ("version", target_version.to_string()),
-        )?;
-    } else if version > target_version {
-        bail!(
-            "version too high: current version = {}, target_version = {}",
-            version,
-            target_version
-        );
+        Ordering::Greater => {
+            bail!(
+                "version too high: current version = {}, target_version = {}",
+                version,
+                target_version
+            );
+        }
     }
     tx.commit()?;
-    return Ok(conn);
+    Ok(conn)
 }
 
 pub struct MainDb {
