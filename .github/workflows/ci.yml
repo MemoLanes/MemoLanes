@@ -44,6 +44,7 @@ jobs:
         working-directory: app/native
         run: cargo check
       - name: Rust code analysis
+        working-directory: app/native
         run: cargo clippy -- -D warnings
       - name: Run Rust tests
         working-directory: app/native
