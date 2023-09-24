@@ -4,6 +4,8 @@ on:
   pull_request_target:
     paths:
       - 'app/native/**'
+    branches: 
+      - main
   workflow_dispatch:
 
 jobs:
