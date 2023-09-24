@@ -41,9 +41,8 @@ jobs:
       - name: Cargo Check
         working-directory: app/native
         run: cargo check
-      # TODO: fix the code and enable this  
-      # - name: Rust code analysis
-      #   run: cargo clippy -- -D warnings
+      - name: Rust code analysis
+        run: cargo clippy -- -D warnings
       - name: Run Rust tests
         working-directory: app/native
         run: cargo test

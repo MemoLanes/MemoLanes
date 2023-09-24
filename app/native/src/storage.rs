@@ -2,6 +2,7 @@ extern crate simplelog;
 use anyhow::Result;
 use chrono::Utc;
 use rusqlite::{Connection, OptionalExtension, Transaction};
+use std::cmp::Ordering;
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -14,6 +15,7 @@ pub struct RawDataFile {
     pub path: String,
 }
 
+#[allow(clippy::type_complexity)]
 fn open_db_and_run_migration(
     support_dir: &str,
     file_name: &str,
@@ -47,25 +49,29 @@ fn open_db_and_run_migration(
         "current version = {}, target_version = {}",
         version, target_version
     );
-    if version < target_version {
-        for i in (version)..target_version {
-            info!("running migration for version: {}", i + 1);
-            let f = migrations.get(i).unwrap();
-            f(&tx)?;
+    match version.cmp(&target_version) {
+        Ordering::Equal => (),
+        Ordering::Less => {
+            for i in (version)..target_version {
+                info!("running migration for version: {}", i + 1);
+                let f = migrations.get(i).unwrap();
+                f(&tx)?;
+            }
+            tx.execute(
+                "INSERT OR REPLACE INTO `db_metadata` (key, value) VALUES (?1, ?2)",
+                ("version", target_version.to_string()),
+            )?;
         }
-        tx.execute(
-            "INSERT OR REPLACE INTO `db_metadata` (key, value) VALUES (?1, ?2)",
-            ("version", target_version.to_string()),
-        )?;
-    } else if version > target_version {
-        bail!(
-            "version too high: current version = {}, target_version = {}",
-            version,
-            target_version
-        );
+        Ordering::Greater => {
+            bail!(
+                "version too high: current version = {}, target_version = {}",
+                version,
+                target_version
+            );
+        }
     }
     tx.commit()?;
-    return Ok(conn);
+    Ok(conn)
 }
 
 /* This is an optional feature that should be off by default: storing raw GPS
@@ -102,33 +108,35 @@ impl RawDataRecorder {
             let filename = loop {
                 let filename =
                     Path::new(&self.dir).join(format!("gps-{}-{}.csv", timestamp_sec, i));
-                if !std::fs::metadata(&filename).is_ok() {
+                if std::fs::metadata(&filename).is_err() {
                     break filename;
                 }
                 i += 1;
             };
             let mut file = File::create(filename).unwrap();
-            file.write(
-                "timestamp_ms,latitude,longitude,accuarcy,altitude,speed,process_result\n"
-                    .as_bytes(),
-            )
-            .unwrap();
+            let _ = file
+                .write(
+                    "timestamp_ms,latitude,longitude,accuarcy,altitude,speed,process_result\n"
+                        .as_bytes(),
+                )
+                .unwrap();
             file
         });
-        file.write(
-            format!(
-                "{},{},{},{},{},{},{}\n",
-                raw_data.timestamp_ms,
-                raw_data.latitude,
-                raw_data.longitude,
-                raw_data.accuracy,
-                &raw_data.altitude.map(|x| x.to_string()).unwrap_or_default(),
-                &raw_data.speed.map(|x| x.to_string()).unwrap_or_default(),
-                process_result.to_int()
+        let _ = file
+            .write(
+                format!(
+                    "{},{},{},{},{},{},{}\n",
+                    raw_data.timestamp_ms,
+                    raw_data.latitude,
+                    raw_data.longitude,
+                    raw_data.accuracy,
+                    &raw_data.altitude.map(|x| x.to_string()).unwrap_or_default(),
+                    &raw_data.speed.map(|x| x.to_string()).unwrap_or_default(),
+                    process_result.to_int()
+                )
+                .as_bytes(),
             )
-            .as_bytes(),
-        )
-        .unwrap();
+            .unwrap();
     }
 }
 
@@ -176,12 +184,10 @@ impl Storage {
                 *raw_data_db = Some(RawDataRecorder::init(&self.support_dir));
                 debug!("[storage] raw data mod enabled");
             }
-        } else {
-            if raw_data_db.is_some() {
-                debug!("[storage] raw data mod disabled");
-                // `drop` should do the right thing and release all resources.
-                *raw_data_db = None;
-            }
+        } else if raw_data_db.is_some() {
+            debug!("[storage] raw data mod disabled");
+            // `drop` should do the right thing and release all resources.
+            *raw_data_db = None;
         }
     }
 
