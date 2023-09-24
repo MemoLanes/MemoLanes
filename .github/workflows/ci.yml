@@ -1,9 +1,11 @@
 name: CI
 
 on: 
-  pull_request_target:
+  pull_request:
     paths:
-      - app/native
+      - 'app/native/**'
+    branches: 
+      - main
   workflow_dispatch:
 
 jobs:
@@ -41,9 +43,9 @@ jobs:
       - name: Cargo Check
         working-directory: app/native
         run: cargo check
-      # TODO: fix the code and enable this  
-      # - name: Rust code analysis
-      #   run: cargo clippy -- -D warnings
+      - name: Rust code analysis
+        working-directory: app/native
+        run: cargo clippy -- -D warnings
       - name: Run Rust tests
         working-directory: app/native
         run: cargo test

@@ -16,7 +16,7 @@ fn lng_lat_to_tile_xy(lng: f64, lat: f64, zoom: f32) -> (i32, i32) {
     let lat_rad = (lat / 180.0) * std::f64::consts::PI;
     let x = ((lng + 180.0) / 360.0) * n;
     let y = (1.0 - ((lat_rad.tan() + 1.0 / lat_rad.cos()).ln() / std::f64::consts::PI)) / 2.0 * n;
-    return (x.floor() as i32, y.floor() as i32);
+    (x.floor() as i32, y.floor() as i32)
 }
 
 fn tile_xy_to_lng_lat(x: i32, y: i32, zoom: f32) -> (f64, f64) {
@@ -26,7 +26,7 @@ fn tile_xy_to_lng_lat(x: i32, y: i32, zoom: f32) -> (f64, f64) {
         std::f64::consts::PI * (1.0 - (2.0 * y as f64) / n),
     )) * 180.0)
         / std::f64::consts::PI;
-    return (lng, lat);
+    (lng, lat)
 }
 
 pub struct MapRenderer {}
