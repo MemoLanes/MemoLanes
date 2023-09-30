@@ -252,36 +252,27 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: fork
-      resolved-ref: f5cb8914c02e0f064a9322f88695a70718fb1ab6
-      url: "https://github.com/CaviarChen/flutter-maplibre-gl"
+      ref: main
+      resolved-ref: "5d4923986c981e4f0b5c366491c4aabb49bffd56"
+      url: "https://github.com/maplibre/flutter-maplibre-gl"
     source: git
     version: "0.16.0"
-  maplibre_gl_dart:
-    dependency: transitive
-    description:
-      path: "."
-      ref: "0.2.2"
-      resolved-ref: "24a48ecec0d07e02a0c51ced68a05f543d871583"
-      url: "https://github.com/m0nac0/maplibre-gl-dart.git"
-    source: git
-    version: "0.2.2"
   maplibre_gl_platform_interface:
     dependency: transitive
     description:
       path: maplibre_gl_platform_interface
-      ref: fork
-      resolved-ref: f5cb8914c02e0f064a9322f88695a70718fb1ab6
-      url: "https://github.com/CaviarChen/flutter-maplibre-gl.git"
+      ref: main
+      resolved-ref: "5d4923986c981e4f0b5c366491c4aabb49bffd56"
+      url: "https://github.com/maplibre/flutter-maplibre-gl.git"
     source: git
     version: "0.16.0"
   maplibre_gl_web:
     dependency: transitive
     description:
       path: maplibre_gl_web
-      ref: fork
-      resolved-ref: f5cb8914c02e0f064a9322f88695a70718fb1ab6
-      url: "https://github.com/CaviarChen/flutter-maplibre-gl.git"
+      ref: main
+      resolved-ref: "5d4923986c981e4f0b5c366491c4aabb49bffd56"
+      url: "https://github.com/maplibre/flutter-maplibre-gl.git"
     source: git
     version: "0.16.0"
   matcher:
