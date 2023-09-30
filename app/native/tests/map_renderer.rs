@@ -34,7 +34,6 @@ fn basic() {
     let mut f = File::create("./tests/for_inspection/map_renderer_basic.png").unwrap();
     f.write_all(&render_result.data.0).unwrap();
 
-    
     // a small move shouldn't trigger a re-render
     let render_result = map_renderer.maybe_render_map_overlay(
         11.0,
@@ -46,13 +45,6 @@ fn basic() {
     assert!(render_result.is_none());
 
     // but a bigger move will
-    let render_result = map_renderer.maybe_render_map_overlay(
-        11.0,
-        151.0,
-        -33.0,
-        151.0,
-        -33.0,
-    );
+    let render_result = map_renderer.maybe_render_map_overlay(11.0, 151.0, -33.0, 151.0, -33.0);
     assert!(render_result.is_some());
-
 }
