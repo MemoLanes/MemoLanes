@@ -126,9 +126,16 @@ impl MapRenderer {
         right: f64,
         bottom: f64,
     ) -> Option<RenderResult> {
+        // TODO: This doesn't really work when antimeridian is involved, see
+        // the upstream issue: https://github.com/maplibre/maplibre-native/issues/1681
         let zoom = zoom as i32;
         let (left_idx, top_idx) = lng_lat_to_tile_xy(left, top, zoom);
-        let (right_idx, bottom_idx) = lng_lat_to_tile_xy(right, bottom, zoom);
+        let (mut right_idx, bottom_idx) = lng_lat_to_tile_xy(right, bottom, zoom);
+
+        if right_idx < left_idx {
+            let n = f64::powi(2.0, zoom) as i32;
+            right_idx += n;
+        }
 
         let render_area = RenderArea {
             zoom,
