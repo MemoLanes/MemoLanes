@@ -85,7 +85,7 @@ impl RawDataRecorder {
 
 pub struct Storage {
     support_dir: String,
-    main_db: Mutex<MainDb>,
+    pub main_db: Mutex<MainDb>,
     raw_data_recorder: Mutex<Option<RawDataRecorder>>, // `None` means disabled
 }
 

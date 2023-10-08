@@ -113,10 +113,12 @@ impl MainDb {
                     data              BLOB    NOT NULL
                 );
                 CREATE INDEX end_time_index ON journey (
-                    end_time DESC
+                    end_timestamp_sec DESC
                 );
                 ";
-                tx.execute(sql, ())?;
+                for s in sql_split::split(sql) {
+                    tx.execute(&s, ())?;
+                }
                 Ok(())
             }],
         )
@@ -129,7 +131,7 @@ impl MainDb {
         Ok(())
     }
 
-    fn append_ongoing_journey(
+    pub fn append_ongoing_journey(
         &mut self,
         raw_data: &gps_processor::RawData,
         process_result: ProcessResult,
@@ -152,14 +154,14 @@ impl MainDb {
         let tx = self.conn.transaction()?;
         // `id` in `ongoing_journey` is auto incremented.
         let mut query = tx.prepare(
-            "SELECT (timestamp_sec, lat, lng, process_result) FROM ongoing_journey ORDER BY id;",
+            "SELECT timestamp_sec, lat, lng, process_result FROM ongoing_journey ORDER BY id;",
         )?;
         let results = query.query_map((), |row| {
             let timestamp_sec: i64 = row.get(0)?;
             let process_result: i8 = row.get(3)?;
             let mut track_point = protos::journey::data::TrackPoint::new();
             track_point.latitude = row.get(1)?;
-            track_point.longitude = row.get(1)?;
+            track_point.longitude = row.get(2)?;
             Ok((timestamp_sec, track_point, process_result))
         })?;
 
@@ -223,7 +225,7 @@ impl MainDb {
             )?;
         }
 
-        tx.execute("DELETE FROM ongoing_journey", ())?;
+        tx.execute("DELETE FROM ongoing_journey;", ())?;
 
         tx.commit()?;
         Ok(())

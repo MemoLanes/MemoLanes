@@ -1,3 +1,5 @@
+
+#[derive(Copy, Clone, Debug)]
 pub struct RawData {
     pub latitude: f64,
     pub longitude: f64,
