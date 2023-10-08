@@ -1,3 +1,4 @@
+#[derive(Copy, Clone, Debug)]
 pub struct RawData {
     pub latitude: f64,
     pub longitude: f64,
@@ -8,16 +9,29 @@ pub struct RawData {
 }
 
 #[derive(Copy, Clone)]
+#[repr(i8)]
 pub enum ProcessResult {
     Append = 0,
-    Ignore = 1,
-    NewSegment = 2,
-    NewJourney = 3,
+    NewSegment = 1,
+    // negative values are for ones that should not be stored in the
+    // `ongoing_journey` table.
+    Ignore = -1,
 }
 
 impl ProcessResult {
-    pub fn to_int(&self) -> u8 {
-        *self as u8
+    pub fn to_int(&self) -> i8 {
+        *self as i8
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::gps_processor::ProcessResult;
+
+    #[test]
+    fn to_int() {
+        assert_eq!(ProcessResult::NewSegment.to_int(), 1);
+        assert_eq!(ProcessResult::Ignore.to_int(), -1);
     }
 }
 
@@ -32,7 +46,6 @@ impl GpsProcessor {
         // TODO: implement this. A naive version could be:
         // 1. Ingore data with low accuracy
         // 2. If distance/time change is big (maybe also consider speed), start a new segment.
-        // 2. If distance/time change is way too big, start a new journey.
         ProcessResult::Append
     }
 }

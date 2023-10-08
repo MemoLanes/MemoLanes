@@ -28,7 +28,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: "app/native/"
-          cache-on-failure: true
           
       # Flutter rust bridge
       - name: Install codegen
@@ -48,4 +47,6 @@ jobs:
         run: cargo clippy -- -D warnings
       - name: Run Rust tests
         working-directory: app/native
-        run: cargo test
+        # TODO: get rid of `rm -rf target`
+        # not really sure what went wrong but: https://github.com/dtolnay/anyhow/issues/250
+        run: rm -rf target && cargo test -- --nocapture

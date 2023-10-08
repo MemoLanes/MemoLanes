@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+message Header {
+  message Kind {
+    enum BuiltIn {
+      DEFAULT = 0;
+      FLIGHT = 1;
+    }
+
+    oneof Kind {
+      string custom_kind = 1;
+      BuiltIn build_in = 2;
+    }
+  }
+
+  string id = 1;
+  int64 end_timestamp_sec = 2;
+  optional int64 start_timestamp_sec = 3;
+  Kind kind = 4;
+  optional string note = 5;
+}
+
+message Data {
+  message TrackPoint {
+    double latitude = 1;
+    double longitude = 2;
+  }
+
+  message TrackSegmant {
+    repeated TrackPoint track_points = 1;
+  }
+
+  message Track {
+    repeated TrackSegmant track_segmants = 1;
+  }
+
+  oneof Data {
+    Track track = 1;
+    // TODO: bitmap
+  }
+}

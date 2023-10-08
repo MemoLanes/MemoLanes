@@ -1,77 +1,20 @@
 extern crate simplelog;
 use anyhow::Result;
 use chrono::Utc;
-use rusqlite::{Connection, OptionalExtension, Transaction};
-use std::cmp::Ordering;
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use crate::gps_processor::{self, ProcessResult};
+use crate::main_db::MainDb;
+
+// TODO: error handling in this file is horrifying, we should think about what
+// is the right thing to do here.
 
 pub struct RawDataFile {
     pub name: String,
     pub path: String,
-}
-
-#[allow(clippy::type_complexity)]
-fn open_db_and_run_migration(
-    support_dir: &str,
-    file_name: &str,
-    migrations: &Vec<&dyn Fn(&Transaction) -> Result<()>>,
-) -> Result<Connection> {
-    debug!("open and run migration for {}", file_name);
-    let mut conn = rusqlite::Connection::open(Path::new(support_dir).join(file_name))?;
-    let tx = conn.transaction()?;
-    let create_db_metadata_sql = "
-    CREATE TABLE IF NOT EXISTS `db_metadata` (
-	`key`	TEXT NOT NULL,
-	`value`	TEXT,
-	PRIMARY KEY(`key`)
-    )";
-    tx.execute(create_db_metadata_sql, ())?;
-    let version_str: Option<String> = tx
-        .query_row(
-            "SELECT `value` FROM `db_metadata` WHERE key='version'",
-            [],
-            |row| row.get(0),
-        )
-        .optional()?;
-
-    let version = match version_str {
-        None => 0,
-        Some(s) => s.parse()?,
-    };
-
-    let target_version = migrations.len();
-    debug!(
-        "current version = {}, target_version = {}",
-        version, target_version
-    );
-    match version.cmp(&target_version) {
-        Ordering::Equal => (),
-        Ordering::Less => {
-            for i in (version)..target_version {
-                info!("running migration for version: {}", i + 1);
-                let f = migrations.get(i).unwrap();
-                f(&tx)?;
-            }
-            tx.execute(
-                "INSERT OR REPLACE INTO `db_metadata` (key, value) VALUES (?1, ?2)",
-                ("version", target_version.to_string()),
-            )?;
-        }
-        Ordering::Greater => {
-            bail!(
-                "version too high: current version = {}, target_version = {}",
-                version,
-                target_version
-            );
-        }
-    }
-    tx.commit()?;
-    Ok(conn)
 }
 
 /* This is an optional feature that should be off by default: storing raw GPS
@@ -140,25 +83,9 @@ impl RawDataRecorder {
     }
 }
 
-// The main database, we are likely to store a lot of protobuf bytes in it, less relational stuff.
-// Basically we will use it as a file system with better transaction support.
-struct MainDb {
-    conn: Connection,
-}
-
-impl MainDb {
-    fn open(support_dir: &str) -> MainDb {
-        // TODO: better error handling
-        let conn =
-            open_db_and_run_migration(support_dir, "main.db", /* TODO: migration */ &vec![])
-                .expect("failed to open main db");
-        MainDb { conn }
-    }
-}
-
 pub struct Storage {
     support_dir: String,
-    main_db: Mutex<MainDb>,
+    pub main_db: Mutex<MainDb>,
     raw_data_recorder: Mutex<Option<RawDataRecorder>>, // `None` means disabled
 }
 
@@ -200,6 +127,10 @@ impl Storage {
         if let Some(ref mut x) = *raw_data_recorder {
             x.record(raw_data, process_result);
         }
+        drop(raw_data_recorder);
+
+        let mut main_db = self.main_db.lock().unwrap();
+        main_db.record(raw_data, process_result).unwrap();
     }
 
     pub fn list_all_raw_data(&self) -> Vec<RawDataFile> {
@@ -224,7 +155,7 @@ impl Storage {
         debug!("[storage] flushing");
 
         let main_db = self.main_db.lock().unwrap();
-        main_db.conn.cache_flush()?;
+        main_db.flush()?;
         drop(main_db);
 
         let mut raw_data_recorder = self.raw_data_recorder.lock().unwrap();
