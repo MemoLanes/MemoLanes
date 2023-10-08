@@ -2,9 +2,9 @@ extern crate simplelog;
 use anyhow::Result;
 use protobuf::{Message, MessageField};
 use rusqlite::{Connection, OptionalExtension, Transaction};
+use std::cmp::Ordering;
 use std::path::Path;
 use uuid::Uuid;
-use std::cmp::Ordering;
 
 use crate::gps_processor::{self, ProcessResult};
 use crate::protos;
