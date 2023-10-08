@@ -110,7 +110,7 @@ impl MainDb {
                                               UNIQUE,
                     end_timestamp_sec INTEGER NOT NULL,
                     header            BLOB    NOT NULL,
-                    data              BLOB    NOT NULL
+                    data_zstd         BLOB    NOT NULL
                 );
                 CREATE INDEX end_time_index ON journey (
                     end_timestamp_sec DESC
@@ -215,16 +215,14 @@ impl MainDb {
             // TODO: we could have some additional post-processing of the track.
             // including path refinement + lossy compression.
 
-            // TODO: before we stabilize the desgin, see what's the pro/con of
-            // compressing this with zstd. Naively I think our data is pretty
-            // compressible.
+            // TODO: use stream api to save one allocation
             let header_bytes = header.write_to_bytes()?;
-            let data_bytes = data.write_to_bytes()?;
+            let data_zstd_bytes = zstd::encode_all(data.write_to_bytes()?.as_slice(), 3)?;
 
-            let sql = "INSERT INTO journey (id, end_timestamp_sec, header, data) VALUES (?1, ?2, ?3, ?4);";
+            let sql = "INSERT INTO journey (id, end_timestamp_sec, header, data_zstd) VALUES (?1, ?2, ?3, ?4);";
             tx.execute(
                 sql,
-                (&header.id, end_timestamp_sec, header_bytes, data_bytes),
+                (&header.id, end_timestamp_sec, header_bytes, data_zstd_bytes),
             )?;
         }
 
@@ -271,17 +269,15 @@ impl MainDb {
         Ok(results)
     }
 
-    pub fn get_journey(&mut self, id: &str) ->Result<protos::journey::Data> {
+    pub fn get_journey(&mut self, id: &str) -> Result<protos::journey::Data> {
         let tx = self.conn.transaction()?;
-        let mut query = tx.prepare(
-            "SELECT data FROM journey WHERE id = ?1;",
-        )?;
-        let result = query.query_row([id], |row| {
-            let data_bytes = row.get_ref(0)?.as_blob()?;
-            let data = protos::journey::Data::parse_from_bytes(data_bytes);
-            Ok(data)
-        }
-        )??;
+        let mut query = tx.prepare("SELECT data_zstd FROM journey WHERE id = ?1;")?;
+        let data_bytes = query.query_row([id], |row| {
+            let data_zstd_bytes = row.get_ref(0)?.as_blob()?;
+            // TODO: use stream api to save one allocation
+            Ok(zstd::decode_all(data_zstd_bytes))
+        })??;
+        let result = protos::journey::Data::parse_from_bytes(&data_bytes)?;
         Ok(result)
     }
 }
