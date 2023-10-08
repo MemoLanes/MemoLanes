@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::path::Path;
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
 use simplelog::{Config, LevelFilter, WriteLogger};
 
@@ -11,7 +11,7 @@ use crate::{gps_processor, storage};
 
 struct MainState {
     storage: Storage,
-    map_renderer: MapRenderer,
+    map_renderer: Mutex<MapRenderer>,
     gps_processor: GpsProcessor,
 }
 
@@ -39,7 +39,7 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
 
         MainState {
             storage,
-            map_renderer: MapRenderer::new(),
+            map_renderer: Mutex::new(MapRenderer::new()),
             gps_processor: GpsProcessor::new(),
         }
     });
@@ -52,10 +52,15 @@ fn get() -> &'static MainState {
     MAIN_STATE.get().expect("main state is not initialized")
 }
 
-pub fn render_map_overlay(zoom: f32, left: f64, top: f64, right: f64, bottom: f64) -> RenderResult {
-    get()
-        .map_renderer
-        .render_map_overlay(zoom, left, top, right, bottom)
+pub fn render_map_overlay(
+    zoom: f32,
+    left: f64,
+    top: f64,
+    right: f64,
+    bottom: f64,
+) -> Option<RenderResult> {
+    let mut map_renderer = get().map_renderer.lock().unwrap();
+    map_renderer.maybe_render_map_overlay(zoom, left, top, right, bottom)
 }
 
 pub fn on_location_update(
