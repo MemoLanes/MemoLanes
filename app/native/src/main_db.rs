@@ -218,8 +218,8 @@ impl MainDb {
             // TODO: we could have some additional post-processing of the track.
             // including path refinement + lossy compression.
 
-            // TODO: use stream api to save one allocation
             let header_bytes = header.write_to_bytes()?;
+            // TODO: use stream api to save one allocation
             let data_zstd_bytes =
                 zstd::encode_all(data.write_to_bytes()?.as_slice(), ZSTD_COMPRESS_LEVEL)?;
 
