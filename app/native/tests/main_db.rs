@@ -34,7 +34,8 @@ fn load_raw_gpx_data_for_test() -> Vec<gps_processor::RawData> {
 #[test]
 fn basic() {
     let test_data = load_raw_gpx_data_for_test();
-    print!("total test data: {}\n", test_data.len());
+    let num_of_gpx_data_in_input = test_data.len();
+    print!("total test data: {}\n", num_of_gpx_data_in_input);
 
     let temp_dir = TempDir::new("main_db-basic").unwrap();
     print!("temp dir: {:?}\n", temp_dir.path());
@@ -51,5 +52,15 @@ fn basic() {
     }
     main_db.finalize_ongoing_journey().unwrap();
 
-    // TODO: load back the finalized journey and make sure it is correct.
+    let journeys = main_db.list_all_journeys().unwrap();
+    assert_eq!(journeys.len(), 1);
+    let journey_id = &journeys[0].id;
+    let journey = main_db.get_journey(journey_id).unwrap();
+    let num_of_gpx_data = journey.track().track_segmants[0].track_points.len();
+    assert_eq!(num_of_gpx_data_in_input, num_of_gpx_data);
+
+    // without any more gpx data, should be no-op
+    main_db.finalize_ongoing_journey().unwrap();
+    assert_eq!(main_db.list_all_journeys().unwrap().len(), 1);
+
 }

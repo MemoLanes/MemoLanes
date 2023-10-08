@@ -247,4 +247,41 @@ impl MainDb {
         }
         Ok(())
     }
+
+    pub fn list_all_journeys(&mut self) -> Result<Vec<protos::journey::Header>> {
+        // TODO: we might need a different type for header data, one that is
+        // better than the protobuf one.
+
+        // TODO: cosndier storing the type of the journey, not in the header,
+        // but in a column in the table so we could:
+        // 1. filter based on it.
+        // 2. get it without loading the data.
+        let tx = self.conn.transaction()?;
+        let mut query = tx.prepare(
+            "SELECT header FROM journey ORDER BY end_timestamp_sec, id DESC;",
+            // use `id` to break tie
+        )?;
+        let mut rows = query.query(())?;
+        let mut results = Vec::new();
+        while let Some(row) = rows.next()? {
+            let header_bytes = row.get_ref(0)?.as_blob()?;
+            let header = protos::journey::Header::parse_from_bytes(header_bytes)?;
+            results.push(header)
+        }
+        Ok(results)
+    }
+
+    pub fn get_journey(&mut self, id: &str) ->Result<protos::journey::Data> {
+        let tx = self.conn.transaction()?;
+        let mut query = tx.prepare(
+            "SELECT data FROM journey WHERE id = ?1;",
+        )?;
+        let result = query.query_row([id], |row| {
+            let data_bytes = row.get_ref(0)?.as_blob()?;
+            let data = protos::journey::Data::parse_from_bytes(data_bytes);
+            Ok(data)
+        }
+        )??;
+        Ok(result)
+    }
 }
