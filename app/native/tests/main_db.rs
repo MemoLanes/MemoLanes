@@ -1,5 +1,6 @@
 use chrono::NaiveDateTime;
-use native::{gps_processor, main_db::MainDb};
+use native::{gps_processor, main_db, main_db::MainDb};
+use protobuf::Message;
 use tempdir::TempDir;
 
 fn load_raw_gpx_data_for_test() -> Vec<gps_processor::RawData> {
@@ -34,7 +35,8 @@ fn load_raw_gpx_data_for_test() -> Vec<gps_processor::RawData> {
 #[test]
 fn basic() {
     let test_data = load_raw_gpx_data_for_test();
-    print!("total test data: {}\n", test_data.len());
+    let num_of_gpx_data_in_input = test_data.len();
+    print!("total test data: {}\n", num_of_gpx_data_in_input);
 
     let temp_dir = TempDir::new("main_db-basic").unwrap();
     print!("temp dir: {:?}\n", temp_dir.path());
@@ -51,5 +53,31 @@ fn basic() {
     }
     main_db.finalize_ongoing_journey().unwrap();
 
-    // TODO: load back the finalized journey and make sure it is correct.
+    // validate the finalized journey
+    let journeys = main_db.list_all_journeys().unwrap();
+    assert_eq!(journeys.len(), 1);
+    let journey_id = &journeys[0].id;
+    let journey = main_db.get_journey(journey_id).unwrap();
+    let num_of_gpx_data = journey.track().track_segmants[0].track_points.len();
+    assert_eq!(num_of_gpx_data_in_input, num_of_gpx_data);
+
+    // benefit from zstd
+    let data_bytes = journey.write_to_bytes().unwrap();
+    let compressed_data_bytes =
+        zstd::encode_all(data_bytes.as_slice(), main_db::ZSTD_COMPRESS_LEVEL).unwrap();
+    let real_size = data_bytes.len();
+    let compressed_size = compressed_data_bytes.len();
+    print!(
+        "real size: {:.4}MB, compressed size: {:.4}MB\n",
+        real_size as f64 / 1024. / 1024.,
+        compressed_size as f64 / 1024. / 1024.
+    );
+    print!(
+        "compression rate: {:.2}\n",
+        compressed_size as f64 / real_size as f64
+    );
+
+    // without any more gpx data, should be no-op
+    main_db.finalize_ongoing_journey().unwrap();
+    assert_eq!(main_db.list_all_journeys().unwrap().len(), 1);
 }
