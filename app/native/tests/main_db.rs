@@ -1,5 +1,5 @@
 use chrono::NaiveDateTime;
-use native::{gps_processor, main_db::MainDb};
+use native::{gps_processor, main_db, main_db::MainDb};
 use protobuf::Message;
 use tempdir::TempDir;
 
@@ -63,7 +63,8 @@ fn basic() {
 
     // benefit from zstd
     let data_bytes = journey.write_to_bytes().unwrap();
-    let compressed_data_bytes = zstd::encode_all(data_bytes.as_slice(), 3).unwrap();
+    let compressed_data_bytes =
+        zstd::encode_all(data_bytes.as_slice(), main_db::ZSTD_COMPRESS_LEVEL).unwrap();
     let real_size = data_bytes.len();
     let compressed_size = compressed_data_bytes.len();
     print!(

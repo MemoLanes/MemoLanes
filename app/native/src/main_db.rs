@@ -23,6 +23,9 @@ two parts: header and data, so most common operation only need to fetch and
 deserialize the header.
 */
 
+// 3 is the zstd default
+pub const ZSTD_COMPRESS_LEVEL: i32 = 3;
+
 #[allow(clippy::type_complexity)]
 fn open_db_and_run_migration(
     support_dir: &str,
@@ -217,7 +220,8 @@ impl MainDb {
 
             // TODO: use stream api to save one allocation
             let header_bytes = header.write_to_bytes()?;
-            let data_zstd_bytes = zstd::encode_all(data.write_to_bytes()?.as_slice(), 3)?;
+            let data_zstd_bytes =
+                zstd::encode_all(data.write_to_bytes()?.as_slice(), ZSTD_COMPRESS_LEVEL)?;
 
             let sql = "INSERT INTO journey (id, end_timestamp_sec, header, data_zstd) VALUES (?1, ?2, ?3, ?4);";
             tx.execute(
