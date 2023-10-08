@@ -47,5 +47,6 @@ jobs:
         run: cargo clippy -- -D warnings
       - name: Run Rust tests
         working-directory: app/native
+        # TODO: get rid of `rm -rf target`
         # not really sure what went wrong but: https://github.com/dtolnay/anyhow/issues/250
-        run: rm -rf target && cargo test
+        run: rm -rf target && cargo test -- --nocapture

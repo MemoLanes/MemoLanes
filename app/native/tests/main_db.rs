@@ -1,5 +1,3 @@
-use std::{thread, time};
-
 use chrono::NaiveDateTime;
 use native::{gps_processor, main_db::MainDb};
 use tempdir::TempDir;
