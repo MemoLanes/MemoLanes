@@ -131,7 +131,7 @@ impl MainDb {
         Ok(())
     }
 
-    pub fn append_ongoing_journey(
+    fn append_ongoing_journey(
         &mut self,
         raw_data: &gps_processor::RawData,
         process_result: ProcessResult,

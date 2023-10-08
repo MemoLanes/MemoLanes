@@ -46,7 +46,7 @@ fn basic() {
             main_db = MainDb::open(temp_dir.path().to_str().unwrap());
         }
         main_db
-            .append_ongoing_journey(raw_data, gps_processor::ProcessResult::Append)
+            .record(raw_data, gps_processor::ProcessResult::Append)
             .unwrap();
     }
     main_db.finalize_ongoing_journey().unwrap();
