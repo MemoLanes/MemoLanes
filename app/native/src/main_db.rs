@@ -212,6 +212,9 @@ impl MainDb {
             let mut data = protos::journey::Data::new();
             data.set_track(track);
 
+            // TODO: we could have some additional post-processing of the track.
+            // including path refinement + lossy compression.
+
             // TODO: before we stabilize the desgin, see what's the pro/con of
             // compressing this with zstd. Naively I think our data is pretty
             // compressible.

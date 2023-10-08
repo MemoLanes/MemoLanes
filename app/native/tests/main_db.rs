@@ -52,4 +52,6 @@ fn basic() {
             .unwrap();
     }
     main_db.finalize_ongoing_journey().unwrap();
+
+    // TODO: load back the finalized journey and make sure it is correct.
 }
