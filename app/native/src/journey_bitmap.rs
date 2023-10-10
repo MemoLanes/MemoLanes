@@ -36,6 +36,24 @@ impl JourneyBitmap {
         }
         proto
     }
+
+    pub fn of_proto(proto: protos::journey::data::Bitmap) -> Self {
+        // TODO: reduce the amount of copy and allocation?
+        let mut t = JourneyBitmap::new();
+        for tile_proto in proto.tiles {
+            let mut tile = Tile::new(tile_proto.x as u16, tile_proto.y as u16);
+            for block_proto in tile_proto.blocks {
+                let block = Block::new_with_data(
+                    block_proto.x as u8,
+                    block_proto.y as u8,
+                    block_proto.data.try_into().unwrap(),
+                );
+                tile.blocks.insert((block.x, block.y), block);
+            }
+            t.tiles.insert((tile.x, tile.y), tile);
+        }
+        t
+    }
 }
 
 // TODO: maybe we don't need store (x,y) inside a tile/block.
