@@ -34,8 +34,24 @@ message Data {
     repeated TrackSegmant track_segmants = 1;
   }
 
+  message Block {
+    uint32 x = 1;
+    uint32 y = 2;
+    bytes data = 3;
+  }
+
+  message Tile {
+    uint32 x = 1;
+    uint32 y = 2;
+    repeated Block blocks = 3;
+  }
+
+  message Bitmap {
+    repeated Tile tiles = 1;
+  }
+
   oneof Data {
     Track track = 1;
-    // TODO: bitmap
+    Bitmap bitmap = 2;
   }
 }
