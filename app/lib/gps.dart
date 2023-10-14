@@ -171,7 +171,6 @@ class _RawDataSwitchState extends State<RawDataSwitch> {
   initState() {
     super.initState();
     api.getRawDataMode().then((value) => setState(() {
-          print("XXX {$value}");
           enabled = value;
         }));
   }
@@ -182,7 +181,6 @@ class _RawDataSwitchState extends State<RawDataSwitch> {
       value: enabled,
       activeColor: Colors.red,
       onChanged: (bool value) async {
-        print("YYY {$value}");
         await api.toggleRawDataMode(enable: value);
         setState(() {
           enabled = value;
