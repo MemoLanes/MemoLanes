@@ -3,7 +3,9 @@ use anyhow::Result;
 use protobuf::{Message, MessageField};
 use rusqlite::{Connection, OptionalExtension, Transaction};
 use std::cmp::Ordering;
+use std::error::Error;
 use std::path::Path;
+use std::str::FromStr;
 use uuid::Uuid;
 
 use crate::gps_processor::{self, ProcessResult};
@@ -117,6 +119,12 @@ impl MainDb {
                 );
                 CREATE INDEX end_time_index ON journey (
                     end_timestamp_sec DESC
+                );
+                CREATE TABLE setting (
+                    key               TEXT    PRIMARY KEY
+                                              NOT NULL
+                                              UNIQUE,
+                    value             TEXT
                 );
                 ";
                 for s in sql_split::split(sql) {
@@ -283,5 +291,61 @@ impl MainDb {
         })??;
         let result = protos::journey::Data::parse_from_bytes(&data_bytes)?;
         Ok(result)
+    }
+
+    fn get_setting<T: FromStr>(&mut self, setting: Setting) -> Result<Option<T>>
+    where
+        <T as FromStr>::Err: Error + Send + Sync + 'static,
+    {
+        let tx = self.conn.transaction()?;
+        let mut query = tx.prepare("SELECT value FROM setting WHERE key = ?1;")?;
+        let result: Option<String> = query
+            .query_row([setting.to_db_key()], |row| row.get(0))
+            .optional()?;
+        match result {
+            None => Ok(None),
+            Some(s) => {
+                let v = FromStr::from_str(&s)?;
+                Ok(Some(v))
+            }
+        }
+    }
+
+    pub fn get_setting_with_default<T: FromStr>(&mut self, setting: Setting, default: T) -> T
+    where
+        <T as FromStr>::Err: Error + Send + Sync + 'static,
+    {
+        match self.get_setting(setting) {
+            Ok(v) => v,
+            Err(error) => {
+                warn!(
+                    "[main_db.get_setting_with_default] setting:{:?}, error:{}",
+                    setting, error
+                );
+                None
+            }
+        }
+        .unwrap_or(default)
+    }
+
+    pub fn set_setting<T: ToString>(&mut self, setting: Setting, value: T) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        let sql = "INSERT OR REPLACE INTO setting (key, value) VALUES (?1, ?2);";
+        tx.execute(sql, (setting.to_db_key(), value.to_string()))?;
+        tx.commit()?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Setting {
+    RawDataMode,
+}
+
+impl Setting {
+    fn to_db_key(&self) -> &'static str {
+        match self {
+            Self::RawDataMode => "RAW_DATA_MODE",
+        }
     }
 }
