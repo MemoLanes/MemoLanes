@@ -84,19 +84,33 @@ fn basic() {
 
 #[test]
 fn setting() {
-    let temp_dir = TempDir::new("main_db-basic").unwrap();
+    let temp_dir = TempDir::new("main_db-setting").unwrap();
     print!("temp dir: {:?}\n", temp_dir.path());
 
     let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
     // default value
-    assert_eq!(main_db.get_setting_with_default(main_db::Setting::RawDataMode, false), false);
-    assert_eq!(main_db.get_setting_with_default(main_db::Setting::RawDataMode, true), true);
+    assert_eq!(
+        main_db.get_setting_with_default(main_db::Setting::RawDataMode, false),
+        false
+    );
+    assert_eq!(
+        main_db.get_setting_with_default(main_db::Setting::RawDataMode, true),
+        true
+    );
 
     // setting value
-    main_db.set_setting(main_db::Setting::RawDataMode, true).unwrap();
-    assert_eq!(main_db.get_setting_with_default(main_db::Setting::RawDataMode, false), true);
+    main_db
+        .set_setting(main_db::Setting::RawDataMode, true)
+        .unwrap();
+    assert_eq!(
+        main_db.get_setting_with_default(main_db::Setting::RawDataMode, false),
+        true
+    );
 
     // restart
     main_db = MainDb::open(temp_dir.path().to_str().unwrap());
-    assert_eq!(main_db.get_setting_with_default(main_db::Setting::RawDataMode, false), true);
+    assert_eq!(
+        main_db.get_setting_with_default(main_db::Setting::RawDataMode, false),
+        true
+    );
 }
