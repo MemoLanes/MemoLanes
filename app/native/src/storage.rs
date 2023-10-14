@@ -133,8 +133,8 @@ impl Storage {
     }
 
     pub fn get_raw_data_mode(&self) -> bool {
-        let raw_data_db = self.raw_data_recorder.lock().unwrap();
-        raw_data_db.is_some()
+        let raw_data_recorder = self.raw_data_recorder.lock().unwrap();
+        raw_data_recorder.is_some()
     }
 
     pub fn record_gps_data(

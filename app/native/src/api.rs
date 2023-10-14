@@ -34,9 +34,6 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
         let storage = Storage::init(temp_dir, doc_dir, support_dir, cache_dir);
         info!("initialized");
 
-        // TODO: make this `None` by default
-        storage.toggle_raw_data_mode(true);
-
         MainState {
             storage,
             map_renderer: Mutex::new(MapRenderer::new()),
