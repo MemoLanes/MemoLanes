@@ -343,7 +343,7 @@ pub enum Setting {
 }
 
 impl Setting {
-    fn to_db_key(&self) -> &'static str {
+    fn to_db_key(self) -> &'static str {
         match self {
             Self::RawDataMode => "RAW_DATA_MODE",
         }

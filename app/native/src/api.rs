@@ -89,6 +89,6 @@ pub fn get_raw_data_mode() -> bool {
     get().storage.get_raw_data_mode()
 }
 
-pub fn toggle_raw_data_mode(enable: bool) -> () {
+pub fn toggle_raw_data_mode(enable: bool) {
     get().storage.toggle_raw_data_mode(enable)
 }
