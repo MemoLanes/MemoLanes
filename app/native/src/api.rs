@@ -87,3 +87,11 @@ pub fn on_location_update(
 pub fn list_all_raw_data() -> Vec<storage::RawDataFile> {
     get().storage.list_all_raw_data()
 }
+
+pub fn get_raw_data_mode() -> bool {
+    get().storage.get_raw_data_mode()
+}
+
+pub fn toggle_raw_data_mode(enable: bool) -> () {
+    get().storage.toggle_raw_data_mode(enable)
+}
