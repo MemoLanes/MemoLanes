@@ -157,6 +157,39 @@ class _ExportRawDataState extends State<ExportRawData> {
   }
 }
 
+class RawDataSwitch extends StatefulWidget {
+  const RawDataSwitch({super.key});
+
+  @override
+  State<RawDataSwitch> createState() => _RawDataSwitchState();
+}
+
+class _RawDataSwitchState extends State<RawDataSwitch> {
+  bool enabled = false;
+
+  @override
+  initState() {
+    super.initState();
+    api.getRawDataMode().then((value) => setState(() {
+          enabled = value;
+        }));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Switch(
+      value: enabled,
+      activeColor: Colors.red,
+      onChanged: (bool value) async {
+        await api.toggleRawDataMode(enable: value);
+        setState(() {
+          enabled = value;
+        });
+      },
+    );
+  }
+}
+
 class GPSPage extends StatelessWidget {
   const GPSPage({super.key});
 
@@ -173,6 +206,8 @@ class GPSPage extends StatelessWidget {
             onPressed: mainState.initializing ? null : mainState.toggle,
             child: Text(mainState.isRecording ? "Stop" : "Start"),
           ),
+          Text("Raw data"),
+          RawDataSwitch(),
           ExportRawData(),
         ],
       ),

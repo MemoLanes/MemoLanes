@@ -96,26 +96,45 @@ impl Storage {
         support_dir: String,
         _cache_dir: String,
     ) -> Self {
-        let main_db = MainDb::open(&support_dir);
+        let mut main_db = MainDb::open(&support_dir);
+        let raw_data_recorder =
+            if main_db.get_setting_with_default(crate::main_db::Setting::RawDataMode, false) {
+                Some(RawDataRecorder::init(&support_dir))
+            } else {
+                None
+            };
         Storage {
             support_dir,
             main_db: Mutex::new(main_db),
-            raw_data_recorder: Mutex::new(None),
+            raw_data_recorder: Mutex::new(raw_data_recorder),
         }
     }
 
     pub fn toggle_raw_data_mode(&self, enable: bool) {
-        let mut raw_data_db = self.raw_data_recorder.lock().unwrap();
+        let mut raw_data_recorder = self.raw_data_recorder.lock().unwrap();
         if enable {
-            if raw_data_db.is_none() {
-                *raw_data_db = Some(RawDataRecorder::init(&self.support_dir));
+            if raw_data_recorder.is_none() {
+                *raw_data_recorder = Some(RawDataRecorder::init(&self.support_dir));
                 debug!("[storage] raw data mod enabled");
+                let mut main_db = self.main_db.lock().unwrap();
+                main_db
+                    .set_setting(crate::main_db::Setting::RawDataMode, true)
+                    .unwrap();
             }
-        } else if raw_data_db.is_some() {
+        } else if raw_data_recorder.is_some() {
             debug!("[storage] raw data mod disabled");
             // `drop` should do the right thing and release all resources.
-            *raw_data_db = None;
+            *raw_data_recorder = None;
+            let mut main_db = self.main_db.lock().unwrap();
+            main_db
+                .set_setting(crate::main_db::Setting::RawDataMode, false)
+                .unwrap();
         }
+    }
+
+    pub fn get_raw_data_mode(&self) -> bool {
+        let raw_data_recorder = self.raw_data_recorder.lock().unwrap();
+        raw_data_recorder.is_some()
     }
 
     pub fn record_gps_data(
