@@ -156,6 +156,9 @@ impl Storage {
         // TODO: this is way too naive, implement a better one.
         let dir = Path::new(&self.support_dir).join("raw_data/");
         let mut result = Vec::new();
+        if !dir.exists() {
+            return result;
+        }
         for path in std::fs::read_dir(dir).unwrap() {
             let file = path.unwrap();
             let filename = file.file_name().to_str().unwrap().to_string();
