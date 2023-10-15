@@ -206,8 +206,14 @@ class GPSPage extends StatelessWidget {
             onPressed: mainState.initializing ? null : mainState.toggle,
             child: Text(mainState.isRecording ? "Stop" : "Start"),
           ),
-          Text("Raw data"),
-          RawDataSwitch(),
+          ElevatedButton(
+            onPressed: () async {
+              await api.finalizeOngoingJourney();
+            },
+            child: const Text("Start a new journey"),
+          ),
+          const Text("Raw data"),
+          const RawDataSwitch(),
           ExportRawData(),
         ],
       ),

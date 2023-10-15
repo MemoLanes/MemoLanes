@@ -92,3 +92,7 @@ pub fn get_raw_data_mode() -> bool {
 pub fn toggle_raw_data_mode(enable: bool) {
     get().storage.toggle_raw_data_mode(enable)
 }
+
+pub fn finalize_ongoing_journey() {
+    get().storage.finalize_ongoing_journey()
+}
