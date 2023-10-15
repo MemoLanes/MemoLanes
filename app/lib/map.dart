@@ -1,12 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:maplibre_gl/mapbox_gl.dart';
+import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:mutex/mutex.dart';
 
 import 'ffi.dart' if (dart.library.html) 'ffi_web.dart';
 
 class MapUiBody extends StatefulWidget {
-  const MapUiBody();
+  const MapUiBody({super.key});
 
   @override
   State<StatefulWidget> createState() => MapUiBodyState();
