@@ -8,8 +8,7 @@ fn basic() {
     print!("total test data: {}\n", num_of_gpx_data_in_input);
     let mut gps_processor = GpsProcessor::new();
     for (i, raw_data) in test_data.iter().enumerate() {
-        let process_result =gps_processor.process(raw_data);
+        let process_result = gps_processor.process(raw_data);
         print!("{},", process_result.to_int())
     }
-
 }

@@ -37,19 +37,16 @@ mod tests {
 
 pub struct GpsProcessor {
     last_data: Option<RawData>,
-
 }
 
 impl GpsProcessor {
     pub fn new() -> Self {
-        GpsProcessor {
-            last_data: None,
-        }
+        GpsProcessor { last_data: None }
     }
 
     pub fn process(&mut self, _raw_data: &RawData) -> ProcessResult {
-        const  TIME_THRESHOLD: i64 = 30 * 1000;
-        const  HORIZONTAL_ACCURACY_THRESHOLD: f32 = 50.0;
+        const TIME_THRESHOLD: i64 = 30 * 1000;
+        const HORIZONTAL_ACCURACY_THRESHOLD: f32 = 50.0;
         let curr_data = _raw_data.clone();
         match self.last_data.take() {
             Some(last_data) => {

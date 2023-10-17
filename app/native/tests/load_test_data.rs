@@ -28,4 +28,4 @@ pub fn load_raw_gpx_data_for_test() -> Vec<gps_processor::RawData> {
         data.push(raw_data);
     }
     data
-}    
+}
