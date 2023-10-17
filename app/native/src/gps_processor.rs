@@ -48,17 +48,17 @@ impl GpsProcessor {
     }
 
     pub fn process(&mut self, _raw_data: &RawData) -> ProcessResult {
-        let time_threshold = 30 * 1000;
-        let horizontal_accuracy_threshold = 50.0;
+        const  TIME_THRESHOLD: i64 = 30 * 1000;
+        const  HORIZONTAL_ACCURACY_THRESHOLD: f32 = 50.0;
         let curr_data = _raw_data.clone();
         match self.last_data.take() {
             Some(last_data) => {
                 let time_diff = curr_data.timestamp_ms - last_data.timestamp_ms;
                 // Ignore the data if the precision is too small
-                if curr_data.accuracy > horizontal_accuracy_threshold {
+                if curr_data.accuracy > HORIZONTAL_ACCURACY_THRESHOLD {
                     self.last_data = None;
                     return ProcessResult::NewSegment;
-                } else if time_diff > time_threshold {
+                } else if time_diff > TIME_THRESHOLD {
                     self.last_data = Some(curr_data);
                     return ProcessResult::Ignore;
                 } else {

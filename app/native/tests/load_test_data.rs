@@ -1,7 +1,7 @@
 use chrono::NaiveDateTime;
-use native::{gps_processor::{self, GpsProcessor}};
+use native::gps_processor;
 
-fn load_raw_gpx_data_for_test() -> Vec<gps_processor::RawData> {
+pub fn load_raw_gpx_data_for_test() -> Vec<gps_processor::RawData> {
     let mut reader = csv::ReaderBuilder::new()
         .has_headers(true)
         .from_path("./tests/data/raw_gps_shanghai.csv")
@@ -28,21 +28,4 @@ fn load_raw_gpx_data_for_test() -> Vec<gps_processor::RawData> {
         data.push(raw_data);
     }
     data
-}
-
-#[test]
-fn basic() {
-    let test_data = load_raw_gpx_data_for_test();
-    let num_of_gpx_data_in_input = test_data.len();
-    print!("total test data: {}\n", num_of_gpx_data_in_input);
-    let mut gps_processor = GpsProcessor::new();
-    for (i, raw_data) in test_data.iter().enumerate() {
-        // if i > 1000 && i % 1000 == 0 {
-        //     // test restart
-        //     main_db = MainDb::open(temp_dir.path().to_str().unwrap());
-        // }
-        let process_result =gps_processor.process(raw_data);
-        print!("{},", process_result.to_int())
-    }
-
-}
+}    
