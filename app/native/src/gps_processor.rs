@@ -35,17 +35,42 @@ mod tests {
     }
 }
 
-pub struct GpsProcessor {}
+pub struct GpsProcessor {
+    last_data: Option<RawData>,
+
+}
 
 impl GpsProcessor {
     pub fn new() -> Self {
-        GpsProcessor {}
+        GpsProcessor {
+            last_data: None,
+        }
     }
 
-    pub fn process(&self, _raw_data: &RawData) -> ProcessResult {
-        // TODO: implement this. A naive version could be:
-        // 1. Ingore data with low accuracy
-        // 2. If distance/time change is big (maybe also consider speed), start a new segment.
-        ProcessResult::Append
+    pub fn process(&mut self, _raw_data: &RawData) -> ProcessResult {
+        let time_threshold = 30 * 1000;
+        let horizontal_accuracy_threshold = 50.0;
+        let curr_data = _raw_data.clone();
+        match self.last_data.take() {
+            Some(last_data) => {
+                let time_diff = curr_data.timestamp_ms - last_data.timestamp_ms;
+                // Ignore the data if the precision is too small
+                if curr_data.accuracy > horizontal_accuracy_threshold {
+                    self.last_data = None;
+                    return ProcessResult::NewSegment;
+                } else if time_diff > time_threshold {
+                    self.last_data = Some(curr_data);
+                    return ProcessResult::Ignore;
+                } else {
+                    self.last_data = Some(curr_data);
+                    return ProcessResult::Append;
+                }
+            }
+            None => {
+                // No last location information is directly considered trustworthy
+                self.last_data = Some(curr_data);
+                return ProcessResult::Append;
+            }
+        }
     }
 }
