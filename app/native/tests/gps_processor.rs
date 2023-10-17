@@ -1,4 +1,4 @@
-use native::gps_processor::GpsProcessor;
+use native::gps_processor::{GpsProcessor, ProcessResult};
 mod load_test_data;
 
 #[test]
@@ -11,4 +11,6 @@ fn basic() {
         let process_result = gps_processor.process(raw_data);
         print!("{},", process_result.to_int())
     }
+    assert_eq!(ProcessResult::NewSegment.to_int(), 1);
+    assert_eq!(ProcessResult::Ignore.to_int(), -1);
 }

@@ -24,17 +24,6 @@ impl ProcessResult {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::gps_processor::ProcessResult;
-
-    #[test]
-    fn to_int() {
-        assert_eq!(ProcessResult::NewSegment.to_int(), 1);
-        assert_eq!(ProcessResult::Ignore.to_int(), -1);
-    }
-}
-
 pub struct GpsProcessor {
     last_data: Option<RawData>,
 }
@@ -47,26 +36,26 @@ impl GpsProcessor {
     pub fn process(&mut self, _raw_data: &RawData) -> ProcessResult {
         const TIME_THRESHOLD: i64 = 30 * 1000;
         const HORIZONTAL_ACCURACY_THRESHOLD: f32 = 50.0;
-        let curr_data = _raw_data.clone();
+        let curr_data = *_raw_data;
         match self.last_data.take() {
             Some(last_data) => {
                 let time_diff = curr_data.timestamp_ms - last_data.timestamp_ms;
                 // Ignore the data if the precision is too small
                 if curr_data.accuracy > HORIZONTAL_ACCURACY_THRESHOLD {
                     self.last_data = None;
-                    return ProcessResult::NewSegment;
+                    ProcessResult::NewSegment
                 } else if time_diff > TIME_THRESHOLD {
                     self.last_data = Some(curr_data);
-                    return ProcessResult::Ignore;
+                    ProcessResult::Ignore
                 } else {
                     self.last_data = Some(curr_data);
-                    return ProcessResult::Append;
+                    ProcessResult::Append
                 }
             }
             None => {
                 // No last location information is directly considered trustworthy
                 self.last_data = Some(curr_data);
-                return ProcessResult::Append;
+                ProcessResult::Append
             }
         }
     }
