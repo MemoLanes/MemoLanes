@@ -34,8 +34,8 @@ impl GpsProcessor {
     }
 
     pub fn process(&mut self, raw_data: &RawData) -> ProcessResult {
-        const TIME_THRESHOLD: i64 = 30 * 1000;
-        const HORIZONTAL_ACCURACY_THRESHOLD: f32 = 50.0;
+        const TIME_THRESHOLD: i64 = 5 * 1000;
+        const HORIZONTAL_ACCURACY_THRESHOLD: f32 = 10.0;
         let curr_data = *raw_data;
         // Ignore the data if the precision is too small
         if curr_data.accuracy > HORIZONTAL_ACCURACY_THRESHOLD {
