@@ -1,6 +1,5 @@
-use std::collections::HashMap;
-
 use native::gps_processor::{GpsProcessor, ProcessResult, RawData};
+use std::collections::HashMap;
 mod load_test_data;
 
 #[test]
