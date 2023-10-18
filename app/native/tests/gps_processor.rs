@@ -85,8 +85,8 @@ fn test_append() {
     vec.push(RawData {
         latitude: 120.1639266,
         longitude: 30.271981,
-        timestamp_ms: 1697349122420,
-        accuracy: 3.9,
+        timestamp_ms: 1697349117449,
+        accuracy: 3.5,
         altitude: Some(75.6),
         speed: Some(0.18825254),
     });
