@@ -1,4 +1,4 @@
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct RawData {
     pub latitude: f64,
     pub longitude: f64,
@@ -8,7 +8,7 @@ pub struct RawData {
     pub speed: Option<f32>,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[repr(i8)]
 pub enum ProcessResult {
     Append = 0,
@@ -24,6 +24,17 @@ impl ProcessResult {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use crate::gps_processor::ProcessResult;
+
+    #[test]
+    fn to_int() {
+        assert_eq!(ProcessResult::NewSegment.to_int(), 1);
+        assert_eq!(ProcessResult::Ignore.to_int(), -1);
+    }
+}
+
 pub struct GpsProcessor {
     last_data: Option<RawData>,
 }
@@ -33,31 +44,30 @@ impl GpsProcessor {
         GpsProcessor { last_data: None }
     }
 
-    pub fn process(&mut self, raw_data: &RawData) -> ProcessResult {
-        const TIME_THRESHOLD: i64 = 5 * 1000;
-        const HORIZONTAL_ACCURACY_THRESHOLD: f32 = 10.0;
-        let curr_data = *raw_data;
-        // Ignore the data if the precision is too small
-        if curr_data.accuracy > HORIZONTAL_ACCURACY_THRESHOLD {
-            self.last_data = None;
+    pub fn process(&mut self, curr_data: &RawData) -> ProcessResult {
+        // TODO: the current implementation is still pretty naive.
+        // Things we could do:
+        // 1. tune the threshold, maybe use different values with different
+        //    devices/speed. Maybe maintain a state about how the user is moving.
+        // 2. ignore data that is too similar to the previous one or something
+        //    like that.
+        const TIME_THRESHOLD_IN_MS: i64 = 5 * 1000;
+        const ACCURACY_THRESHOLD: f32 = 10.0;
+        if curr_data.accuracy > ACCURACY_THRESHOLD {
             return ProcessResult::Ignore;
         }
-        match self.last_data.take() {
+        let result = match &self.last_data {
+            None => ProcessResult::NewSegment,
             Some(last_data) => {
-                let time_diff = curr_data.timestamp_ms - last_data.timestamp_ms;
-                if time_diff > TIME_THRESHOLD {
-                    self.last_data = Some(curr_data);
+                let time_diff_in_ms = curr_data.timestamp_ms - last_data.timestamp_ms;
+                if time_diff_in_ms > TIME_THRESHOLD_IN_MS {
                     ProcessResult::NewSegment
                 } else {
-                    self.last_data = Some(curr_data);
                     ProcessResult::Append
                 }
             }
-            None => {
-                // No last location information is directly considered trustworthy
-                self.last_data = Some(curr_data);
-                ProcessResult::NewSegment
-            }
-        }
+        };
+        self.last_data = Some(curr_data.clone());
+        result
     }
 }
