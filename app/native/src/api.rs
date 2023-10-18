@@ -12,7 +12,7 @@ use crate::{gps_processor, storage};
 struct MainState {
     storage: Storage,
     map_renderer: Mutex<MapRenderer>,
-    gps_processor: GpsProcessor,
+    gps_processor: Mutex<GpsProcessor>,
 }
 
 static MAIN_STATE: OnceLock<MainState> = OnceLock::new();
@@ -37,7 +37,7 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
         MainState {
             storage,
             map_renderer: Mutex::new(MapRenderer::new()),
-            gps_processor: GpsProcessor::new(),
+            gps_processor: Mutex::new(GpsProcessor::new()),
         }
     });
     if already_initialized {
@@ -77,7 +77,7 @@ pub fn on_location_update(
         altitude,
         speed,
     };
-    let process_result = state.gps_processor.process(&raw_data);
+    let process_result = state.gps_processor.lock().unwrap().process(&raw_data);
     state.storage.record_gps_data(&raw_data, process_result);
 }
 
