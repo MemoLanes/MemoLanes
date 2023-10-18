@@ -33,20 +33,21 @@ impl GpsProcessor {
         GpsProcessor { last_data: None }
     }
 
-    pub fn process(&mut self, _raw_data: &RawData) -> ProcessResult {
+    pub fn process(&mut self, raw_data: &RawData) -> ProcessResult {
         const TIME_THRESHOLD: i64 = 30 * 1000;
         const HORIZONTAL_ACCURACY_THRESHOLD: f32 = 50.0;
-        let curr_data = *_raw_data;
+        let curr_data = *raw_data;
+        // Ignore the data if the precision is too small
+        if curr_data.accuracy > HORIZONTAL_ACCURACY_THRESHOLD {
+            self.last_data = None;
+            return ProcessResult::Ignore;
+        }
         match self.last_data.take() {
             Some(last_data) => {
                 let time_diff = curr_data.timestamp_ms - last_data.timestamp_ms;
-                // Ignore the data if the precision is too small
-                if curr_data.accuracy > HORIZONTAL_ACCURACY_THRESHOLD {
-                    self.last_data = None;
-                    ProcessResult::NewSegment
-                } else if time_diff > TIME_THRESHOLD {
+                if time_diff > TIME_THRESHOLD {
                     self.last_data = Some(curr_data);
-                    ProcessResult::Ignore
+                    ProcessResult::NewSegment
                 } else {
                     self.last_data = Some(curr_data);
                     ProcessResult::Append
@@ -55,7 +56,7 @@ impl GpsProcessor {
             None => {
                 // No last location information is directly considered trustworthy
                 self.last_data = Some(curr_data);
-                ProcessResult::Append
+                ProcessResult::NewSegment
             }
         }
     }
