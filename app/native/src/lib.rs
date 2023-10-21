@@ -1,3 +1,5 @@
+// TODO: thinking about improving the folder structure.
+
 #![allow(clippy::new_without_default)]
 
 #[macro_use]
@@ -14,3 +16,4 @@ pub mod main_db;
 pub mod map_renderer;
 mod protos;
 pub mod storage;
+pub mod tile_renderer;

@@ -6,10 +6,15 @@ use std::collections::HashMap;
 
 use crate::protos;
 
+pub const TILE_WIDTH_OFFSET: i16 = 7;
+pub const BITMAP_WIDTH_OFFSET: i16 = 6;
+pub const BITMAP_WIDTH: u64 = 1 << BITMAP_WIDTH_OFFSET;
+pub const BITMAP_SIZE: usize = (BITMAP_WIDTH * BITMAP_WIDTH / 8) as usize;
+
 // we have 512*512 tiles, 128*128 blocks and a single block contains
 // a 64*64 bitmap.
 pub struct JourneyBitmap {
-    tiles: HashMap<(u16, u16), Tile>,
+    pub tiles: HashMap<(u16, u16), Tile>,
 }
 
 impl JourneyBitmap {
@@ -60,7 +65,7 @@ impl JourneyBitmap {
 pub struct Tile {
     x: u16,
     y: u16,
-    blocks: HashMap<(u8, u8), Block>,
+    pub blocks: HashMap<(u8, u8), Block>,
 }
 
 impl Tile {
@@ -76,11 +81,11 @@ impl Tile {
 pub struct Block {
     x: u8,
     y: u8,
-    data: [u8; 512],
+    data: [u8; BITMAP_SIZE],
 }
 
 impl Block {
-    pub fn new_with_data(x: u8, y: u8, data: [u8; 512]) -> Self {
+    pub fn new_with_data(x: u8, y: u8, data: [u8; BITMAP_SIZE]) -> Self {
         Self { x, y, data }
     }
 
