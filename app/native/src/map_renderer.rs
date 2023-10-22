@@ -70,8 +70,8 @@ impl MapRenderer {
 
                 let tile_pixmap = self.tile_renderer.render_pixmap(
                     journey_bitmap,
-                    x as u64,
-                    y as u64,
+                    render_area.left_idx as u64 + x as u64,
+                    render_area.top_idx as u64 + y as u64,
                     render_area.zoom as i16,
                 );
 
