@@ -307,14 +307,14 @@ impl Block {
                 x += 1;
                 // Deal with octants...
                 if p < 0 {
-                    p = p + 2 * dy0;
+                    p += 2 * dy0;
                 } else {
                     if quadrants13 {
-                        y = y + 1;
+                        y += 1;
                     } else {
-                        y = y - 1;
+                        y -= 1;
                     }
-                    p = p + 2 * (dy0 - dx0);
+                    p += 2 * (dy0 - dx0);
                 }
 
                 if x >= BITMAP_WIDTH || y >= BITMAP_WIDTH {
@@ -328,17 +328,17 @@ impl Block {
             // The line is Y-axis dominant
             // Rasterize the line
             while y < e {
-                y = y + 1;
+                y += 1;
                 // Deal with octants...
                 if p <= 0 {
-                    p = p + 2 * dx0;
+                    p += 2 * dx0;
                 } else {
                     if quadrants13 {
-                        x = x + 1;
+                        x += 1;
                     } else {
-                        x = x - 1;
+                        x -= 1;
                     }
-                    p = p + 2 * (dx0 - dy0);
+                    p += 2 * (dx0 - dy0);
                 }
 
                 if y >= BITMAP_WIDTH || x >= BITMAP_WIDTH {
