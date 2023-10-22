@@ -63,7 +63,7 @@ impl JourneyBitmap {
         t
     }
 
-    // NOTE: `add_line` is charry picked from: https://github.com/tavimori/fogcore/blob/57adea9f3eb704198c02417a52a5298ef14489de/src/fogmaps.rs
+    // NOTE: `add_line` is cherry picked from: https://github.com/tavimori/fogcore/blob/57adea9f3eb704198c02417a52a5298ef14489de/src/fogmaps.rs
     // TODO: clean up the code:
     //       - make sure we are using the consistent and correct one of `u64`/`i64`/`i32`.
     //       - get rid of `println`.
