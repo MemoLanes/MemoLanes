@@ -45,7 +45,9 @@ impl GpsProcessor {
     }
 
     // the `f` here just a trick to avoid additional copy of `RawData`, one
-    // could argue that this is over optimization. ¯\_(ツ)_/¯
+    // could argue that this is over optimization (this does make the control
+    // flow of this code a lot more complicated, so maybe we shouldn't do this).
+    //  ¯\_(ツ)_/¯
     pub fn process<F>(&mut self, curr_data: RawData, f: F)
     where
         F: FnOnce(&Option<RawData>, &RawData, ProcessResult) -> (),
@@ -73,7 +75,10 @@ impl GpsProcessor {
                 }
             }
         };
+
         f(&self.last_data, &curr_data, result);
-        self.last_data = Some(curr_data);
+        if result != ProcessResult::Ignore {
+            self.last_data = Some(curr_data);
+        }
     }
 }
