@@ -5,14 +5,13 @@ use std::sync::{Mutex, OnceLock};
 use simplelog::{Config, LevelFilter, WriteLogger};
 
 use crate::gps_processor::GpsProcessor;
-use crate::journey_bitmap::JourneyBitmap;
 use crate::map_renderer::{MapRenderer, RenderResult};
 use crate::storage::Storage;
-use crate::{gps_processor, storage};
+use crate::{gps_processor, merged_journey_manager, storage};
 
 struct MainState {
     storage: Storage,
-    map_renderer: Mutex<MapRenderer>,
+    map_renderer: Mutex<Option<MapRenderer>>,
     gps_processor: Mutex<GpsProcessor>,
 }
 
@@ -37,7 +36,7 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
 
         MainState {
             storage,
-            map_renderer: Mutex::new(MapRenderer::new(JourneyBitmap::new())),
+            map_renderer: Mutex::new(None),
             gps_processor: Mutex::new(GpsProcessor::new()),
         }
     });
@@ -57,8 +56,18 @@ pub fn render_map_overlay(
     right: f64,
     bottom: f64,
 ) -> Option<RenderResult> {
-    let mut map_renderer = get().map_renderer.lock().unwrap();
-    map_renderer.maybe_render_map_overlay(zoom, left, top, right, bottom)
+    let state = get();
+    let mut map_renderer = state.map_renderer.lock().unwrap();
+
+    map_renderer
+        .get_or_insert_with(|| {
+            let mut main_db = state.storage.main_db.lock().unwrap();
+            // TODO: error handling?
+            let journey_bitmap =
+                merged_journey_manager::get_latest_including_ongoing(&mut main_db).unwrap();
+            MapRenderer::new(journey_bitmap)
+        })
+        .maybe_render_map_overlay(zoom, left, top, right, bottom)
 }
 
 pub fn on_location_update(
