@@ -1,6 +1,8 @@
 use flutter_rust_bridge::ZeroCopyBuffer;
 use tiny_skia::{Color, Paint, PathBuilder, Pixmap, Stroke, Transform};
 
+use crate::utils;
+
 pub struct RenderResult {
     // coordinates are in lat or lng
     pub left: f64,
@@ -8,25 +10,6 @@ pub struct RenderResult {
     pub right: f64,
     pub bottom: f64,
     pub data: ZeroCopyBuffer<Vec<u8>>,
-}
-
-// https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
-fn lng_lat_to_tile_xy(lng: f64, lat: f64, zoom: i32) -> (i32, i32) {
-    let n = f64::powi(2.0, zoom);
-    let lat_rad = (lat / 180.0) * std::f64::consts::PI;
-    let x = ((lng + 180.0) / 360.0) * n;
-    let y = (1.0 - ((lat_rad.tan() + 1.0 / lat_rad.cos()).ln() / std::f64::consts::PI)) / 2.0 * n;
-    (x.floor() as i32, y.floor() as i32)
-}
-
-fn tile_xy_to_lng_lat(x: i32, y: i32, zoom: i32) -> (f64, f64) {
-    let n = f64::powi(2.0, zoom);
-    let lng = (x as f64 / n) * 360.0 - 180.0;
-    let lat = (f64::atan(f64::sinh(
-        std::f64::consts::PI * (1.0 - (2.0 * y as f64) / n),
-    )) * 180.0)
-        / std::f64::consts::PI;
-    (lng, lat)
 }
 
 #[derive(PartialEq, Eq)]
@@ -101,8 +84,8 @@ impl MapRenderer {
         let bytes = pixmap.encode_png().unwrap();
 
         let (overlay_left, overlay_top) =
-            tile_xy_to_lng_lat(render_area.left_idx, render_area.top_idx, render_area.zoom);
-        let (overlay_right, overlay_bottom) = tile_xy_to_lng_lat(
+            utils::tile_xy_to_lng_lat(render_area.left_idx, render_area.top_idx, render_area.zoom);
+        let (overlay_right, overlay_bottom) = utils::tile_xy_to_lng_lat(
             render_area.right_idx + 1,
             render_area.bottom_idx + 1,
             render_area.zoom,
@@ -129,8 +112,8 @@ impl MapRenderer {
         // TODO: This doesn't really work when antimeridian is involved, see
         // the upstream issue: https://github.com/maplibre/maplibre-native/issues/1681
         let zoom = zoom as i32;
-        let (left_idx, top_idx) = lng_lat_to_tile_xy(left, top, zoom);
-        let (mut right_idx, bottom_idx) = lng_lat_to_tile_xy(right, bottom, zoom);
+        let (left_idx, top_idx) = utils::lng_lat_to_tile_xy(left, top, zoom);
+        let (mut right_idx, bottom_idx) = utils::lng_lat_to_tile_xy(right, bottom, zoom);
 
         if right_idx < left_idx {
             let n = f64::powi(2.0, zoom) as i32;
