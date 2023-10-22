@@ -4,11 +4,13 @@ use std::sync::{Mutex, OnceLock};
 
 use simplelog::{Config, LevelFilter, WriteLogger};
 
-use crate::gps_processor::GpsProcessor;
+use crate::gps_processor::{GpsProcessor, ProcessResult};
 use crate::map_renderer::{MapRenderer, RenderResult};
 use crate::storage::Storage;
 use crate::{gps_processor, merged_journey_manager, storage};
 
+// TODO: we have way too many locking here and now it is hard to track.
+//  e.g. we could mess up with the order and cause a deadlock
 struct MainState {
     storage: Storage,
     map_renderer: Mutex<Option<MapRenderer>>,
@@ -87,8 +89,30 @@ pub fn on_location_update(
         altitude,
         speed,
     };
-    let process_result = state.gps_processor.lock().unwrap().process(&raw_data);
-    state.storage.record_gps_data(&raw_data, process_result);
+    let mut gps_processor = state.gps_processor.lock().unwrap();
+    let mut map_renderer = state.map_renderer.lock().unwrap();
+    gps_processor.process(raw_data, |last_data, curr_data, process_result| {
+        let line_to_add = match process_result {
+            ProcessResult::Ignore => None,
+            ProcessResult::NewSegment => Some((curr_data, curr_data)),
+            ProcessResult::Append => {
+                let start = last_data.as_ref().unwrap_or(curr_data);
+                Some((start, curr_data))
+            }
+        };
+        match map_renderer.as_mut() {
+            None => (),
+            Some(map_renderer) => match line_to_add {
+                None => (),
+                Some((start, end)) => {
+                    map_renderer.update(|journey_bitmap| {
+                        journey_bitmap.add_line(start.longitude, start.latitude, end.longitude, end.latitude);
+                    });
+                }
+            },
+        }
+        state.storage.record_gps_data(curr_data, process_result);
+    });
 }
 
 pub fn list_all_raw_data() -> Vec<storage::RawDataFile> {
