@@ -5,6 +5,7 @@ use std::sync::{Mutex, OnceLock};
 use simplelog::{Config, LevelFilter, WriteLogger};
 
 use crate::gps_processor::GpsProcessor;
+use crate::journey_bitmap::JourneyBitmap;
 use crate::map_renderer::{MapRenderer, RenderResult};
 use crate::storage::Storage;
 use crate::{gps_processor, storage};
@@ -13,6 +14,8 @@ struct MainState {
     storage: Storage,
     map_renderer: Mutex<MapRenderer>,
     gps_processor: Mutex<GpsProcessor>,
+    // TODO: replace this with a real one.
+    tmp_empty_journey_bitmap: JourneyBitmap,
 }
 
 static MAIN_STATE: OnceLock<MainState> = OnceLock::new();
@@ -38,6 +41,7 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
             storage,
             map_renderer: Mutex::new(MapRenderer::new()),
             gps_processor: Mutex::new(GpsProcessor::new()),
+            tmp_empty_journey_bitmap: JourneyBitmap::new(),
         }
     });
     if already_initialized {
@@ -56,8 +60,16 @@ pub fn render_map_overlay(
     right: f64,
     bottom: f64,
 ) -> Option<RenderResult> {
-    let mut map_renderer = get().map_renderer.lock().unwrap();
-    map_renderer.maybe_render_map_overlay(zoom, left, top, right, bottom)
+    let state = get();
+    let mut map_renderer = state.map_renderer.lock().unwrap();
+    map_renderer.maybe_render_map_overlay(
+        &state.tmp_empty_journey_bitmap,
+        zoom,
+        left,
+        top,
+        right,
+        bottom,
+    )
 }
 
 pub fn on_location_update(

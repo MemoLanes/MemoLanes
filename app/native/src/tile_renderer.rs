@@ -6,7 +6,7 @@ use crate::journey_bitmap::{BITMAP_WIDTH, BITMAP_WIDTH_OFFSET, TILE_WIDTH_OFFSET
 use tiny_skia;
 
 const TILE_ZOOM: i16 = 9;
-const DEFAULT_VIEW_SIZE_POWER: i16 = 8; // default view size is 2^8 = 256
+pub const DEFAULT_VIEW_SIZE_POWER: i16 = 8; // default view size is 2^8 = 256
 
 // we have 512*512 tiles, 128*128 blocks and a single block contains a 64*64 bitmap.
 pub struct TileRenderer {
