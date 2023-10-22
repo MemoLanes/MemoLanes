@@ -1,7 +1,11 @@
 use flutter_rust_bridge::ZeroCopyBuffer;
-use tiny_skia::{Color, Paint, PathBuilder, Pixmap, Stroke, Transform};
+use tiny_skia::{Color, Pixmap, PixmapPaint, Transform};
 
-use crate::utils;
+use crate::{
+    journey_bitmap::JourneyBitmap,
+    tile_renderer::{self, TileRenderer},
+    utils,
+};
 
 pub struct RenderResult {
     // coordinates are in lat or lng
@@ -22,17 +26,23 @@ struct RenderArea {
 }
 
 pub struct MapRenderer {
+    tile_renderer: TileRenderer,
     current_render_area: Option<RenderArea>,
 }
 
 impl MapRenderer {
     pub fn new() -> Self {
         MapRenderer {
+            tile_renderer: TileRenderer::new(),
             current_render_area: None,
         }
     }
 
-    fn render_map_overlay(&self, render_area: &RenderArea) -> RenderResult {
+    fn render_map_overlay(
+        &self,
+        journey_bitmap: &JourneyBitmap,
+        render_area: &RenderArea,
+    ) -> RenderResult {
         // TODO: Change render backend. Right now we are using `tiny-skia`,
         // it should work just fine and we don't really need fancy features.
         // However, it is mostly a research project and does not feel like production ready,
@@ -41,7 +51,7 @@ impl MapRenderer {
         // now is that it is pure rust, so we don't need to think about how to build depenceies
         // for various platform.
 
-        const TILE_SIZE: u32 = 128;
+        const TILE_SIZE: u32 = 1 << tile_renderer::DEFAULT_VIEW_SIZE_POWER;
         let width_by_tile: u32 = (render_area.right_idx - render_area.left_idx + 1)
             .try_into()
             .unwrap();
@@ -56,25 +66,20 @@ impl MapRenderer {
 
         for x in 0..width_by_tile {
             for y in 0..height_by_tile {
-                // TODO: draw idx on the tile. Sadly, `tiny-skia` does not support this, we could use
-                // https://docs.rs/text-to-png/latest/text_to_png/ This is not so efficient but should
-                // be good enough for debugging.
-                let mut pb = PathBuilder::new();
-                pb.move_to((x * TILE_SIZE) as f32, (y * TILE_SIZE) as f32);
-                pb.line_to(((x + 1) * TILE_SIZE) as f32, (y * TILE_SIZE) as f32);
-                pb.line_to(((x + 1) * TILE_SIZE) as f32, ((y + 1) * TILE_SIZE) as f32);
-                pb.line_to(((x) * TILE_SIZE) as f32, ((y + 1) * TILE_SIZE) as f32);
-                pb.line_to((x * TILE_SIZE) as f32, (y * TILE_SIZE) as f32);
-                pb.close();
+                // TODO: cache?
 
-                let path = pb.finish().unwrap();
+                let tile_pixmap = self.tile_renderer.render_pixmap(
+                    journey_bitmap,
+                    x as u64,
+                    y as u64,
+                    render_area.zoom as i16,
+                );
 
-                let mut paint = Paint::default();
-                paint.set_color_rgba8(0, 0, 0, 128);
-                pixmap.stroke_path(
-                    &path,
-                    &paint,
-                    &Stroke::default(),
+                pixmap.draw_pixmap(
+                    (x * TILE_SIZE) as i32,
+                    (y * TILE_SIZE) as i32,
+                    tile_pixmap.as_ref(),
+                    &PixmapPaint::default(),
                     Transform::identity(),
                     None,
                 );
@@ -102,6 +107,7 @@ impl MapRenderer {
 
     pub fn maybe_render_map_overlay(
         &mut self,
+        journey_bitmap: &JourneyBitmap,
         // map view area (coordinates are in lat or lng)
         zoom: f32,
         left: f64,
@@ -131,7 +137,7 @@ impl MapRenderer {
             // same, nothing to do
             None
         } else {
-            let render_result = self.render_map_overlay(&render_area);
+            let render_result = self.render_map_overlay(journey_bitmap, &render_area);
             self.current_render_area = Some(render_area);
             Some(render_result)
         }
