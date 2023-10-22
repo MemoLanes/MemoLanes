@@ -17,3 +17,4 @@ pub mod map_renderer;
 mod protos;
 pub mod storage;
 pub mod tile_renderer;
+mod utils;

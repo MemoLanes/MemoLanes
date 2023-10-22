@@ -1,4 +1,5 @@
 // cherry picked from https://github.com/tavimori/fogcore/blob/c965ca5bff830924520fb156171e6bedefd39e5d/src/renderer.rs
+// TODO: clean up the code
 
 use crate::journey_bitmap::{Block, JourneyBitmap, Tile};
 use crate::journey_bitmap::{BITMAP_WIDTH, BITMAP_WIDTH_OFFSET, TILE_WIDTH_OFFSET};
