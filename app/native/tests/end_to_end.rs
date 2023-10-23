@@ -41,7 +41,7 @@ fn basic() {
             test_utils::assert_image(
                 &render_result.data.0,
                 "end_to_end_basic_0",
-                "8ce27434a51ffe663045e6191d09c041ca0de610",
+                "2b7cd2dc29fffbe036e208b04c9bc46298a7e12e",
             );
         }
     }
@@ -51,6 +51,6 @@ fn basic() {
     test_utils::assert_image(
         &render_result.data.0,
         "end_to_end_basic_1",
-        "8ce27434a51ffe663045e6191d09c041ca0de610",
+        "fb9a5c4ed17780375b1bd409423e2e5e4ec65bd0",
     );
 }
