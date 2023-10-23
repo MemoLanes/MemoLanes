@@ -1,6 +1,6 @@
 use native::gps_processor::{GpsProcessor, ProcessResult, RawData};
 use std::collections::HashMap;
-mod load_test_data;
+mod test_utils;
 
 #[test]
 fn first_data() {
@@ -89,7 +89,7 @@ fn time_difference() {
 fn run_though_test_data() {
     let mut gps_processor = GpsProcessor::new();
     let mut counter = HashMap::new();
-    for data in load_test_data::load_raw_gpx_data_for_test() {
+    for data in test_utils::load_raw_gpx_data_for_test() {
         gps_processor.process(data, |_, _, result| {
             counter.entry(result).and_modify(|c| *c += 1).or_insert(1);
         });

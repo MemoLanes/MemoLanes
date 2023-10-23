@@ -1,5 +1,8 @@
 use chrono::NaiveDateTime;
+use hex::ToHex;
 use native::gps_processor;
+use sha1::{Digest, Sha1};
+use std::{fs::File, io::Write};
 
 pub fn load_raw_gpx_data_for_test() -> Vec<gps_processor::RawData> {
     let mut reader = csv::ReaderBuilder::new()
@@ -28,4 +31,24 @@ pub fn load_raw_gpx_data_for_test() -> Vec<gps_processor::RawData> {
         data.push(raw_data);
     }
     data
+}
+
+pub fn assert_image(
+    data: &Vec<u8>,
+    name_for_inspection_file: &'static str,
+    expect_hash: &'static str,
+) {
+    // for human inspection
+    let mut f = File::create(format!(
+        "./tests/for_inspection/{}.png",
+        name_for_inspection_file
+    ))
+    .unwrap();
+    f.write_all(data).unwrap();
+
+    // capture image changes
+    let mut hasher = Sha1::new();
+    hasher.update(data);
+    let result = hasher.finalize();
+    assert_eq!(result.encode_hex::<String>(), expect_hash);
 }

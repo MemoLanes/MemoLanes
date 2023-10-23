@@ -1,9 +1,5 @@
-use std::{fs::File, io::Write};
-
 use native::{journey_bitmap::JourneyBitmap, map_renderer::*};
-
-use hex::ToHex;
-use sha1::{Digest, Sha1};
+mod test_utils;
 
 #[test]
 fn basic() {
@@ -24,17 +20,10 @@ fn basic() {
     assert_eq!(render_result.right, 151.34765625);
     assert_eq!(render_result.bottom, -34.016241889667015);
 
-    // for human inspection
-    let mut f = File::create("./tests/for_inspection/map_renderer_basic.png").unwrap();
-    f.write_all(&render_result.data.0).unwrap();
-
-    // capture image changes
-    let mut hasher = Sha1::new();
-    hasher.update(&render_result.data.0);
-    let result = hasher.finalize();
-    assert_eq!(
-        result.encode_hex::<String>(),
-        "2f55c28e9757b76d9b20efc600127eac9b3432f2"
+    test_utils::assert_image(
+        &render_result.data.0,
+        "map_renderer_basic",
+        "2f55c28e9757b76d9b20efc600127eac9b3432f2",
     );
 
     // a small move shouldn't trigger a re-render

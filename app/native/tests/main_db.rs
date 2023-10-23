@@ -1,11 +1,11 @@
 use native::{gps_processor, main_db, main_db::MainDb};
 use protobuf::Message;
 use tempdir::TempDir;
-mod load_test_data;
+mod test_utils;
 
 #[test]
 fn basic() {
-    let test_data = load_test_data::load_raw_gpx_data_for_test();
+    let test_data = test_utils::load_raw_gpx_data_for_test();
     let num_of_gpx_data_in_input = test_data.len();
     print!("total test data: {}\n", num_of_gpx_data_in_input);
 

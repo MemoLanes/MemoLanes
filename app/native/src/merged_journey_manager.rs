@@ -25,7 +25,8 @@ fn add_track_segmants_to_journey_bitmap(
 ) {
     for track_segmant in track_segmants {
         for (i, point) in track_segmant.track_points.iter().enumerate() {
-            let prev = &track_segmant.track_points[0.max(i - 1)];
+            let prev_idx = if i >= 1 { i - 1 } else { 0 };
+            let prev = &track_segmant.track_points[prev_idx];
             journey_bitmap.add_line(
                 prev.longitude,
                 prev.latitude,
