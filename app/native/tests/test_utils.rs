@@ -21,8 +21,8 @@ pub fn load_raw_gpx_data_for_test() -> Vec<gps_processor::RawData> {
             .timestamp_millis();
 
         let raw_data = gps_processor::RawData {
-            latitude: row.get(0).unwrap().parse().unwrap(),
-            longitude: row.get(1).unwrap().parse().unwrap(),
+            longitude: row.get(0).unwrap().parse().unwrap(),
+            latitude: row.get(1).unwrap().parse().unwrap(),
             altitude: Some(row.get(2).unwrap().parse().unwrap()),
             timestamp_ms,
             accuracy: row.get(4).unwrap().parse().unwrap(),
