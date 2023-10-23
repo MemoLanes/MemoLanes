@@ -7,10 +7,10 @@ mod load_test_data;
 fn basic() {
     let test_data = load_test_data::load_raw_gpx_data_for_test();
     let num_of_gpx_data_in_input = test_data.len();
-    print!("total test data: {}\n", num_of_gpx_data_in_input);
+    println!("total test data: {}", num_of_gpx_data_in_input);
 
     let temp_dir = TempDir::new("main_db-basic").unwrap();
-    print!("temp dir: {:?}\n", temp_dir.path());
+    println!("temp dir: {:?}", temp_dir.path());
 
     let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
     for (i, raw_data) in test_data.iter().enumerate() {
@@ -38,13 +38,13 @@ fn basic() {
         zstd::encode_all(data_bytes.as_slice(), main_db::ZSTD_COMPRESS_LEVEL).unwrap();
     let real_size = data_bytes.len();
     let compressed_size = compressed_data_bytes.len();
-    print!(
-        "real size: {:.4}MB, compressed size: {:.4}MB\n",
+    println!(
+        "real size: {:.4}MB, compressed size: {:.4}MB",
         real_size as f64 / 1024. / 1024.,
         compressed_size as f64 / 1024. / 1024.
     );
-    print!(
-        "compression rate: {:.2}\n",
+    println!(
+        "compression rate: {:.2}",
         compressed_size as f64 / real_size as f64
     );
 
@@ -58,30 +58,18 @@ fn setting() {
     use main_db::Setting;
 
     let temp_dir = TempDir::new("main_db-setting").unwrap();
-    print!("temp dir: {:?}\n", temp_dir.path());
+    println!("temp dir: {:?}", temp_dir.path());
 
     let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
     // default value
-    assert_eq!(
-        main_db.get_setting_with_default(Setting::RawDataMode, false),
-        false
-    );
-    assert_eq!(
-        main_db.get_setting_with_default(Setting::RawDataMode, true),
-        true
-    );
+    assert!(!main_db.get_setting_with_default(Setting::RawDataMode, false));
+    assert!(main_db.get_setting_with_default(Setting::RawDataMode, true));
 
     // setting value
     main_db.set_setting(Setting::RawDataMode, true).unwrap();
-    assert_eq!(
-        main_db.get_setting_with_default(Setting::RawDataMode, false),
-        true
-    );
+    assert!(main_db.get_setting_with_default(Setting::RawDataMode, false));
 
     // restart
     main_db = MainDb::open(temp_dir.path().to_str().unwrap());
-    assert_eq!(
-        main_db.get_setting_with_default(main_db::Setting::RawDataMode, false),
-        true
-    );
+    assert!(main_db.get_setting_with_default(main_db::Setting::RawDataMode, false));
 }

@@ -8,9 +8,9 @@ use crate::{protos, utils};
 
 pub const TILE_WIDTH_OFFSET: i16 = 7;
 const MAP_WIDTH_OFFSET: i16 = 9;
-const TILE_WIDTH: u64 = 1 << TILE_WIDTH_OFFSET;
+const TILE_WIDTH: i64 = 1 << TILE_WIDTH_OFFSET;
 pub const BITMAP_WIDTH_OFFSET: i16 = 6;
-pub const BITMAP_WIDTH: u64 = 1 << BITMAP_WIDTH_OFFSET;
+pub const BITMAP_WIDTH: i64 = 1 << BITMAP_WIDTH_OFFSET;
 pub const BITMAP_SIZE: usize = (BITMAP_WIDTH * BITMAP_WIDTH / 8) as usize;
 const ALL_OFFSET: i16 = TILE_WIDTH_OFFSET + BITMAP_WIDTH_OFFSET;
 
@@ -63,7 +63,7 @@ impl JourneyBitmap {
         t
     }
 
-    // NOTE: `add_line` is cherry picked from: https://github.com/tavimori/fogcore/blob/57adea9f3eb704198c02417a52a5298ef14489de/src/fogmaps.rs
+    // NOTE: `add_line` is cherry picked from: https://github.com/tavimori/fogcore/blob/9b880f8ed97e0ce3cb315c881b81fb315cf956e3/src/fogmaps.rs
     // TODO: clean up the code:
     //       - make sure we are using the consistent and correct one of `u64`/`i64`/`i32`.
     //       - get rid of `println`.
@@ -74,10 +74,13 @@ impl JourneyBitmap {
     pub fn add_line(&mut self, start_lng: f64, start_lat: f64, end_lng: f64, end_lat: f64) {
         println!("[{},{}] to [{},{}]", start_lng, start_lat, end_lng, end_lat);
 
-        let (x0, y0) =
-            utils::lng_lat_to_tile_xy(start_lng, start_lat, (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32);
+        let (x0, y0) = utils::lng_lat_to_tile_x_y(
+            start_lng,
+            start_lat,
+            (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32,
+        );
         let (x1, y1) =
-            utils::lng_lat_to_tile_xy(end_lng, end_lat, (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32);
+            utils::lng_lat_to_tile_x_y(end_lng, end_lat, (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32);
 
         // Iterators, counters required by algorithm
         // Calculate line deltas
@@ -93,10 +96,10 @@ impl JourneyBitmap {
         if dy0 <= dx0 {
             let (mut x, mut y, xe) = if dx >= 0 {
                 // Line is drawn left to right
-                (x0 as u64, y0 as u64, x1 as u64)
+                (x0 as i64, y0 as i64, x1 as i64)
             } else {
                 // Line is drawn right to left (swap ends)
-                (x1 as u64, y1 as u64, x0 as u64)
+                (x1 as i64, y1 as i64, x0 as i64)
             };
             while x < xe {
                 let (tile_x, tile_y) = (x >> ALL_OFFSET, y >> ALL_OFFSET);
@@ -123,10 +126,10 @@ impl JourneyBitmap {
             // The line is Y-axis dominant
             let (mut x, mut y, ye) = if dy >= 0 {
                 // Line is drawn bottom to top
-                (x0 as u64, y0 as u64, y1 as u64)
+                (x0 as i64, y0 as i64, y1 as i64)
             } else {
                 // Line is drawn top to bottom
-                (x1 as u64, y1 as u64, y0 as u64)
+                (x1 as i64, y1 as i64, y0 as i64)
             };
             println!("y {} ye {}", y, ye);
             while y < ye {
@@ -173,22 +176,24 @@ impl Tile {
     #[allow(clippy::too_many_arguments)]
     fn add_line(
         &mut self,
-        x: u64,
-        y: u64,
-        e: u64,
+        x: i64,
+        y: i64,
+        e: i64,
         p: i64,
         dx0: i64,
         dy0: i64,
         xaxis: bool,
         quadrants13: bool,
-    ) -> (u64, u64, i64) {
+    ) -> (i64, i64, i64) {
         let mut p = p;
         let mut x = x;
         let mut y = y;
         if xaxis {
             // Rasterize the line
             while x < e {
-                if x >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH || y >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH
+                if x >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH
+                    || y >> BITMAP_WIDTH_OFFSET < 0
+                    || y >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH
                 {
                     break;
                 }
@@ -217,7 +222,9 @@ impl Tile {
         } else {
             // Rasterize the line
             while y < e {
-                if y >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH || x >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH
+                if y >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH
+                    || x >> BITMAP_WIDTH_OFFSET < 0
+                    || x >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH
                 {
                     break;
                 }
@@ -273,7 +280,7 @@ impl Block {
         (self.data[i + j * 8] & (1 << bit_offset)) != 0
     }
 
-    fn set_point(&mut self, x: u64, y: u64, val: bool) {
+    fn set_point(&mut self, x: u8, y: u8, val: bool) {
         let bit_offset = 7 - (x % 8);
         let i = (x / 8) as usize;
         let j = (y) as usize;
@@ -286,21 +293,20 @@ impl Block {
     #[allow(clippy::too_many_arguments)]
     fn add_line(
         &mut self,
-        x: u64,
-        y: u64,
-        e: u64,
+        x: i64,
+        y: i64,
+        e: i64,
         p: i64,
         dx0: i64,
         dy0: i64,
         xaxis: bool,
         quadrants13: bool,
-    ) -> (u64, u64, i64) {
-        // console.log(`subblock draw: x:${x}, y:${y}, e:${e}`);
+    ) -> (i64, i64, i64) {
         // Draw the first pixel
         let mut p = p;
         let mut x = x;
         let mut y = y;
-        self.set_point(x, y, true);
+        self.set_point(x as u8, y as u8, true);
         if xaxis {
             // Rasterize the line
             while x < e {
@@ -317,12 +323,12 @@ impl Block {
                     p += 2 * (dy0 - dx0);
                 }
 
-                if x >= BITMAP_WIDTH || y >= BITMAP_WIDTH {
+                if x >= BITMAP_WIDTH || !(0..BITMAP_WIDTH).contains(&y) {
                     break;
                 }
                 // Draw pixel from line span at
                 // currently rasterized position
-                self.set_point(x, y, true);
+                self.set_point(x as u8, y as u8, true);
             }
         } else {
             // The line is Y-axis dominant
@@ -341,12 +347,12 @@ impl Block {
                     p += 2 * (dx0 - dy0);
                 }
 
-                if y >= BITMAP_WIDTH || x >= BITMAP_WIDTH {
+                if y >= BITMAP_WIDTH || !(0..BITMAP_WIDTH).contains(&x) {
                     break;
                 }
                 // Draw pixel from line span at
                 // currently rasterized position
-                self.set_point(x, y, true);
+                self.set_point(x as u8, y as u8, true);
             }
         }
         (x, y, p)

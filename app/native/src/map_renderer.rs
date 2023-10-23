@@ -89,8 +89,8 @@ impl MapRenderer {
         let bytes = pixmap.encode_png().unwrap();
 
         let (overlay_left, overlay_top) =
-            utils::tile_xy_to_lng_lat(render_area.left_idx, render_area.top_idx, render_area.zoom);
-        let (overlay_right, overlay_bottom) = utils::tile_xy_to_lng_lat(
+            utils::tile_x_y_to_lng_lat(render_area.left_idx, render_area.top_idx, render_area.zoom);
+        let (overlay_right, overlay_bottom) = utils::tile_x_y_to_lng_lat(
             render_area.right_idx + 1,
             render_area.bottom_idx + 1,
             render_area.zoom,
@@ -118,8 +118,8 @@ impl MapRenderer {
         // TODO: This doesn't really work when antimeridian is involved, see
         // the upstream issue: https://github.com/maplibre/maplibre-native/issues/1681
         let zoom = zoom as i32;
-        let (left_idx, top_idx) = utils::lng_lat_to_tile_xy(left, top, zoom);
-        let (mut right_idx, bottom_idx) = utils::lng_lat_to_tile_xy(right, bottom, zoom);
+        let (left_idx, top_idx) = utils::lng_lat_to_tile_x_y(left, top, zoom);
+        let (mut right_idx, bottom_idx) = utils::lng_lat_to_tile_x_y(right, bottom, zoom);
 
         if right_idx < left_idx {
             let n = f64::powi(2.0, zoom) as i32;
