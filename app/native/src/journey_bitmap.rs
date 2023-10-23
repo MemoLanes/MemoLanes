@@ -290,6 +290,7 @@ impl Block {
     }
 
     // a modified Bresenham algorithm with initialized error from upper layer
+    #[allow(clippy::too_many_arguments)]
     fn add_line(
         &mut self,
         x: i64,
@@ -309,20 +310,20 @@ impl Block {
         if xaxis {
             // Rasterize the line
             while x < e {
-                x = x + 1;
+                x += 1;
                 // Deal with octants...
                 if p < 0 {
-                    p = p + 2 * dy0;
+                    p += 2 * dy0;
                 } else {
                     if quadrants13 {
-                        y = y + 1;
+                        y += 1;
                     } else {
-                        y = y - 1;
+                        y -= 1;
                     }
-                    p = p + 2 * (dy0 - dx0);
+                    p += 2 * (dy0 - dx0);
                 }
 
-                if x >= BITMAP_WIDTH || y < 0 || y >= BITMAP_WIDTH {
+                if x >= BITMAP_WIDTH || !(0..BITMAP_WIDTH).contains(&y) {
                     break;
                 }
                 // Draw pixel from line span at
@@ -333,20 +334,20 @@ impl Block {
             // The line is Y-axis dominant
             // Rasterize the line
             while y < e {
-                y = y + 1;
+                y += 1;
                 // Deal with octants...
                 if p <= 0 {
-                    p = p + 2 * dx0;
+                    p += 2 * dx0;
                 } else {
                     if quadrants13 {
-                        x = x + 1;
+                        x += 1;
                     } else {
-                        x = x - 1;
+                        x -= 1;
                     }
-                    p = p + 2 * (dx0 - dy0);
+                    p += 2 * (dx0 - dy0);
                 }
 
-                if y >= BITMAP_WIDTH || x < 0 || x >= BITMAP_WIDTH {
+                if y >= BITMAP_WIDTH || !(0..BITMAP_WIDTH).contains(&x) {
                     break;
                 }
                 // Draw pixel from line span at
