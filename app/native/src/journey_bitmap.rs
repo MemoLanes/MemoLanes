@@ -8,9 +8,9 @@ use crate::{protos, utils};
 
 pub const TILE_WIDTH_OFFSET: i16 = 7;
 const MAP_WIDTH_OFFSET: i16 = 9;
-const TILE_WIDTH: u64 = 1 << TILE_WIDTH_OFFSET;
+const TILE_WIDTH: i64 = 1 << TILE_WIDTH_OFFSET;
 pub const BITMAP_WIDTH_OFFSET: i16 = 6;
-pub const BITMAP_WIDTH: u64 = 1 << BITMAP_WIDTH_OFFSET;
+pub const BITMAP_WIDTH: i64 = 1 << BITMAP_WIDTH_OFFSET;
 pub const BITMAP_SIZE: usize = (BITMAP_WIDTH * BITMAP_WIDTH / 8) as usize;
 const ALL_OFFSET: i16 = TILE_WIDTH_OFFSET + BITMAP_WIDTH_OFFSET;
 
@@ -96,10 +96,10 @@ impl JourneyBitmap {
         if dy0 <= dx0 {
             let (mut x, mut y, xe) = if dx >= 0 {
                 // Line is drawn left to right
-                (x0 as u64, y0 as u64, x1 as u64)
+                (x0 as i64, y0 as i64, x1 as i64)
             } else {
                 // Line is drawn right to left (swap ends)
-                (x1 as u64, y1 as u64, x0 as u64)
+                (x1 as i64, y1 as i64, x0 as i64)
             };
             while x < xe {
                 let (tile_x, tile_y) = (x >> ALL_OFFSET, y >> ALL_OFFSET);
@@ -126,10 +126,10 @@ impl JourneyBitmap {
             // The line is Y-axis dominant
             let (mut x, mut y, ye) = if dy >= 0 {
                 // Line is drawn bottom to top
-                (x0 as u64, y0 as u64, y1 as u64)
+                (x0 as i64, y0 as i64, y1 as i64)
             } else {
                 // Line is drawn top to bottom
-                (x1 as u64, y1 as u64, y0 as u64)
+                (x1 as i64, y1 as i64, y0 as i64)
             };
             println!("y {} ye {}", y, ye);
             while y < ye {
@@ -176,22 +176,24 @@ impl Tile {
     #[allow(clippy::too_many_arguments)]
     fn add_line(
         &mut self,
-        x: u64,
-        y: u64,
-        e: u64,
+        x: i64,
+        y: i64,
+        e: i64,
         p: i64,
         dx0: i64,
         dy0: i64,
         xaxis: bool,
         quadrants13: bool,
-    ) -> (u64, u64, i64) {
+    ) -> (i64, i64, i64) {
         let mut p = p;
         let mut x = x;
         let mut y = y;
         if xaxis {
             // Rasterize the line
             while x < e {
-                if x >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH || y >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH
+                if x >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH
+                    || y >> BITMAP_WIDTH_OFFSET < 0
+                    || y >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH
                 {
                     break;
                 }
@@ -220,7 +222,9 @@ impl Tile {
         } else {
             // Rasterize the line
             while y < e {
-                if y >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH || x >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH
+                if y >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH
+                    || x >> BITMAP_WIDTH_OFFSET < 0
+                    || x >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH
                 {
                     break;
                 }
@@ -276,7 +280,7 @@ impl Block {
         (self.data[i + j * 8] & (1 << bit_offset)) != 0
     }
 
-    fn set_point(&mut self, x: u64, y: u64, val: bool) {
+    fn set_point(&mut self, x: u8, y: u8, val: bool) {
         let bit_offset = 7 - (x % 8);
         let i = (x / 8) as usize;
         let j = (y) as usize;
@@ -286,70 +290,68 @@ impl Block {
     }
 
     // a modified Bresenham algorithm with initialized error from upper layer
-    #[allow(clippy::too_many_arguments)]
     fn add_line(
         &mut self,
-        x: u64,
-        y: u64,
-        e: u64,
+        x: i64,
+        y: i64,
+        e: i64,
         p: i64,
         dx0: i64,
         dy0: i64,
         xaxis: bool,
         quadrants13: bool,
-    ) -> (u64, u64, i64) {
-        // console.log(`subblock draw: x:${x}, y:${y}, e:${e}`);
+    ) -> (i64, i64, i64) {
         // Draw the first pixel
         let mut p = p;
         let mut x = x;
         let mut y = y;
-        self.set_point(x, y, true);
+        self.set_point(x as u8, y as u8, true);
         if xaxis {
             // Rasterize the line
             while x < e {
-                x += 1;
+                x = x + 1;
                 // Deal with octants...
                 if p < 0 {
-                    p += 2 * dy0;
+                    p = p + 2 * dy0;
                 } else {
                     if quadrants13 {
-                        y += 1;
+                        y = y + 1;
                     } else {
-                        y -= 1;
+                        y = y - 1;
                     }
-                    p += 2 * (dy0 - dx0);
+                    p = p + 2 * (dy0 - dx0);
                 }
 
-                if x >= BITMAP_WIDTH || y >= BITMAP_WIDTH {
+                if x >= BITMAP_WIDTH || y < 0 || y >= BITMAP_WIDTH {
                     break;
                 }
                 // Draw pixel from line span at
                 // currently rasterized position
-                self.set_point(x, y, true);
+                self.set_point(x as u8, y as u8, true);
             }
         } else {
             // The line is Y-axis dominant
             // Rasterize the line
             while y < e {
-                y += 1;
+                y = y + 1;
                 // Deal with octants...
                 if p <= 0 {
-                    p += 2 * dx0;
+                    p = p + 2 * dx0;
                 } else {
                     if quadrants13 {
-                        x += 1;
+                        x = x + 1;
                     } else {
-                        x -= 1;
+                        x = x - 1;
                     }
-                    p += 2 * (dx0 - dy0);
+                    p = p + 2 * (dx0 - dy0);
                 }
 
-                if y >= BITMAP_WIDTH || x >= BITMAP_WIDTH {
+                if y >= BITMAP_WIDTH || x < 0 || x >= BITMAP_WIDTH {
                     break;
                 }
                 // Draw pixel from line span at
                 // currently rasterized position
-                self.set_point(x, y, true);
+                self.set_point(x as u8, y as u8, true);
             }
         }
         (x, y, p)

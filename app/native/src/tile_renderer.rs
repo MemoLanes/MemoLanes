@@ -243,8 +243,8 @@ impl TileRenderer {
                 for j in 0..(1 << std::cmp::max(dot_num_power, 0)) {
                     let (dot_x, dot_y) = (dot_start_x + i, dot_start_y + j);
                     if block.is_visited(dot_x as u8, dot_y as u8) {
-                        debug_assert!(dot_x < BITMAP_WIDTH);
-                        debug_assert!(dot_y < BITMAP_WIDTH);
+                        debug_assert!(dot_x < BITMAP_WIDTH as u64);
+                        debug_assert!(dot_y < BITMAP_WIDTH as u64);
                         let (offset_x, offset_y) = if block_dot_width_power >= 0 {
                             (i << block_dot_width_power, j << block_dot_width_power)
                         } else {
