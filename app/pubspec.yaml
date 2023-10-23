@@ -47,9 +47,6 @@ dependencies:
     git:
       url: https://github.com/maplibre/flutter-maplibre-gl
       ref: main
-dependency_overrides:
-# TODO: https://github.com/fluttercommunity/plus_plugins/issues/2137
-  uuid: 4.1.0
 
 dev_dependencies:
   flutter_test:

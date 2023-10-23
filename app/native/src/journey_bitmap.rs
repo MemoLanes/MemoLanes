@@ -74,10 +74,13 @@ impl JourneyBitmap {
     pub fn add_line(&mut self, start_lng: f64, start_lat: f64, end_lng: f64, end_lat: f64) {
         println!("[{},{}] to [{},{}]", start_lng, start_lat, end_lng, end_lat);
 
-        let (x0, y0) =
-            utils::lng_lat_to_tile_xy(start_lng, start_lat, (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32);
+        let (x0, y0) = utils::lng_lat_to_tile_x_y(
+            start_lng,
+            start_lat,
+            (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32,
+        );
         let (x1, y1) =
-            utils::lng_lat_to_tile_xy(end_lng, end_lat, (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32);
+            utils::lng_lat_to_tile_x_y(end_lng, end_lat, (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32);
 
         // Iterators, counters required by algorithm
         // Calculate line deltas
