@@ -142,7 +142,7 @@ impl MapRenderer {
 
     pub fn update<F>(&mut self, f: F)
     where
-        F: Fn(&mut JourneyBitmap) -> (),
+        F: Fn(&mut JourneyBitmap),
     {
         f(&mut self.journey_bitmap);
         // TODO: we should improve the cache invalidation rule

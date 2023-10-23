@@ -7,7 +7,7 @@ use tempdir::TempDir;
 #[test]
 fn basic() {
     let temp_dir = TempDir::new("end_to_end-basic").unwrap();
-    print!("temp dir: {:?}\n", temp_dir.path());
+    println!("temp dir: {:?}", temp_dir.path());
 
     let sub_folder = |sub| {
         let path = temp_dir.path().join(sub);

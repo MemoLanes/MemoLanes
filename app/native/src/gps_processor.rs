@@ -50,7 +50,7 @@ impl GpsProcessor {
     //  ¯\_(ツ)_/¯
     pub fn process<F>(&mut self, curr_data: RawData, f: F)
     where
-        F: FnOnce(&Option<RawData>, &RawData, ProcessResult) -> (),
+        F: FnOnce(&Option<RawData>, &RawData, ProcessResult),
     {
         // TODO: the current implementation is still pretty naive.
         // Things we could do:

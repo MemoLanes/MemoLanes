@@ -14,7 +14,7 @@ fn first_data() {
         speed: Some(0.6028665),
     };
     gps_processor.process(data, |last_data, curr_data, result| {
-        assert_eq!(last_data.is_none(), true);
+        assert!(last_data.is_none());
         assert_eq!(curr_data.altitude.unwrap(), 10.);
         assert_eq!(ProcessResult::NewSegment, result);
     });
