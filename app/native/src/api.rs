@@ -106,7 +106,12 @@ pub fn on_location_update(
                 None => (),
                 Some((start, end)) => {
                     map_renderer.update(|journey_bitmap| {
-                        journey_bitmap.add_line(start.longitude, start.latitude, end.longitude, end.latitude);
+                        journey_bitmap.add_line(
+                            start.longitude,
+                            start.latitude,
+                            end.longitude,
+                            end.latitude,
+                        );
                     });
                 }
             },
