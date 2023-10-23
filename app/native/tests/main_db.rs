@@ -62,22 +62,14 @@ fn setting() {
 
     let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
     // default value
-    assert!(
-        !main_db.get_setting_with_default(Setting::RawDataMode, false)
-    );
-    assert!(
-        main_db.get_setting_with_default(Setting::RawDataMode, true)
-    );
+    assert!(!main_db.get_setting_with_default(Setting::RawDataMode, false));
+    assert!(main_db.get_setting_with_default(Setting::RawDataMode, true));
 
     // setting value
     main_db.set_setting(Setting::RawDataMode, true).unwrap();
-    assert!(
-        main_db.get_setting_with_default(Setting::RawDataMode, false)
-    );
+    assert!(main_db.get_setting_with_default(Setting::RawDataMode, false));
 
     // restart
     main_db = MainDb::open(temp_dir.path().to_str().unwrap());
-    assert!(
-        main_db.get_setting_with_default(main_db::Setting::RawDataMode, false)
-    );
+    assert!(main_db.get_setting_with_default(main_db::Setting::RawDataMode, false));
 }
