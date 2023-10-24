@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:mutex/mutex.dart';
+import 'dart:async';
 
 import 'ffi.dart' if (dart.library.html) 'ffi_web.dart';
 
@@ -25,9 +26,18 @@ class MapUiBodyState extends State<MapUiBody> {
   final m = Mutex();
   MaplibreMapController? mapController;
   Uint8List? image;
+  Timer? timer;
+
   @override
   void initState() {
     super.initState();
+    timer = Timer.periodic(
+        const Duration(seconds: 1),
+        (Timer _) =>
+            // TODO: constantly calling `_triggerRefresh` isn't too bad, becuase
+            // it doesn't do much if nothing is changed. However, this doesn't
+            // mean we couldn't do something better.
+            _triggerRefresh());
   }
 
   void _onMapCreated(MaplibreMapController controller) async {
@@ -90,6 +100,7 @@ class MapUiBodyState extends State<MapUiBody> {
   @override
   void dispose() {
     mapController?.removeListener(_onMapChanged);
+    timer?.cancel();
     super.dispose();
   }
 

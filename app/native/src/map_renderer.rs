@@ -27,22 +27,20 @@ struct RenderArea {
 
 pub struct MapRenderer {
     tile_renderer: TileRenderer,
+    journey_bitmap: JourneyBitmap,
     current_render_area: Option<RenderArea>,
 }
 
 impl MapRenderer {
-    pub fn new() -> Self {
+    pub fn new(journey_bitmap: JourneyBitmap) -> Self {
         MapRenderer {
             tile_renderer: TileRenderer::new(),
+            journey_bitmap,
             current_render_area: None,
         }
     }
 
-    fn render_map_overlay(
-        &self,
-        journey_bitmap: &JourneyBitmap,
-        render_area: &RenderArea,
-    ) -> RenderResult {
+    fn render_map_overlay(&self, render_area: &RenderArea) -> RenderResult {
         // TODO: Change render backend. Right now we are using `tiny-skia`,
         // it should work just fine and we don't really need fancy features.
         // However, it is mostly a research project and does not feel like production ready,
@@ -69,7 +67,7 @@ impl MapRenderer {
                 // TODO: cache?
 
                 let tile_pixmap = self.tile_renderer.render_pixmap(
-                    journey_bitmap,
+                    &self.journey_bitmap,
                     render_area.left_idx as u64 + x as u64,
                     render_area.top_idx as u64 + y as u64,
                     render_area.zoom as i16,
@@ -107,7 +105,6 @@ impl MapRenderer {
 
     pub fn maybe_render_map_overlay(
         &mut self,
-        journey_bitmap: &JourneyBitmap,
         // map view area (coordinates are in lat or lng)
         zoom: f32,
         left: f64,
@@ -137,9 +134,18 @@ impl MapRenderer {
             // same, nothing to do
             None
         } else {
-            let render_result = self.render_map_overlay(journey_bitmap, &render_area);
+            let render_result = self.render_map_overlay(&render_area);
             self.current_render_area = Some(render_area);
             Some(render_result)
         }
+    }
+
+    pub fn update<F>(&mut self, f: F)
+    where
+        F: Fn(&mut JourneyBitmap),
+    {
+        f(&mut self.journey_bitmap);
+        // TODO: we should improve the cache invalidation rule
+        self.current_render_area = None;
     }
 }

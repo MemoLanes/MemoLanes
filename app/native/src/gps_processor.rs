@@ -44,7 +44,14 @@ impl GpsProcessor {
         GpsProcessor { last_data: None }
     }
 
-    pub fn process(&mut self, curr_data: &RawData) -> ProcessResult {
+    // the `f` here just a trick to avoid additional copy of `RawData`, one
+    // could argue that this is over optimization (this does make the control
+    // flow of this code a lot more complicated, so maybe we shouldn't do this).
+    //  ¯\_(ツ)_/¯
+    pub fn process<F>(&mut self, curr_data: RawData, f: F)
+    where
+        F: FnOnce(&Option<RawData>, &RawData, ProcessResult),
+    {
         // TODO: the current implementation is still pretty naive.
         // Things we could do:
         // 1. tune the threshold, maybe use different values with different
@@ -53,21 +60,25 @@ impl GpsProcessor {
         //    like that.
         const TIME_THRESHOLD_IN_MS: i64 = 5 * 1000;
         const ACCURACY_THRESHOLD: f32 = 10.0;
-        if curr_data.accuracy > ACCURACY_THRESHOLD {
-            return ProcessResult::Ignore;
-        }
-        let result = match &self.last_data {
-            None => ProcessResult::NewSegment,
-            Some(last_data) => {
-                let time_diff_in_ms = curr_data.timestamp_ms - last_data.timestamp_ms;
-                if time_diff_in_ms > TIME_THRESHOLD_IN_MS {
-                    ProcessResult::NewSegment
-                } else {
-                    ProcessResult::Append
+        let result = if curr_data.accuracy > ACCURACY_THRESHOLD {
+            ProcessResult::Ignore
+        } else {
+            match &self.last_data {
+                None => ProcessResult::NewSegment,
+                Some(last_data) => {
+                    let time_diff_in_ms = curr_data.timestamp_ms - last_data.timestamp_ms;
+                    if time_diff_in_ms > TIME_THRESHOLD_IN_MS {
+                        ProcessResult::NewSegment
+                    } else {
+                        ProcessResult::Append
+                    }
                 }
             }
         };
-        self.last_data = Some(curr_data.clone());
-        result
+
+        f(&self.last_data, &curr_data, result);
+        if result != ProcessResult::Ignore {
+            self.last_data = Some(curr_data);
+        }
     }
 }

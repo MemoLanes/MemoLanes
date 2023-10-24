@@ -161,8 +161,9 @@ impl MainDb {
         Ok(())
     }
 
-    pub fn finalize_ongoing_journey(&mut self) -> Result<()> {
-        let tx = self.conn.transaction()?;
+    fn get_ongoing_journey_internal(
+        tx: &Transaction,
+    ) -> Result<Option<(i64, i64, Vec<protos::journey::data::TrackSegmant>)>> {
         // `id` in `ongoing_journey` is auto incremented.
         let mut query = tx.prepare(
             "SELECT timestamp_sec, lat, lng, process_result FROM ongoing_journey ORDER BY id;",
@@ -202,40 +203,59 @@ impl MainDb {
             segmants.push(track_segmant);
         }
 
-        drop(query);
-
-        // create new journey
-        if !segmants.is_empty() {
+        if segmants.is_empty() {
+            Ok(None)
+        } else {
+            // must be `Some`
+            let start_timestamp_sec = start_timestamp_sec.unwrap();
             let end_timestamp_sec = end_timestamp_sec.unwrap();
+            Ok(Some((start_timestamp_sec, end_timestamp_sec, segmants)))
+        }
+    }
 
-            let mut header = protos::journey::Header::new();
-            header.id = Uuid::new_v4().as_hyphenated().to_string();
-            header.end_timestamp_sec = end_timestamp_sec;
-            header.start_timestamp_sec = start_timestamp_sec;
-            // TODO: allow user to set this when recording?
-            let mut kind = protos::journey::header::Kind::new();
-            kind.set_build_in(protos::journey::header::kind::BuiltIn::DEFAULT);
-            header.kind = MessageField::some(kind);
-            header.note = None;
+    pub fn get_ongoing_journey(
+        &mut self,
+    ) -> Result<Option<(i64, i64, Vec<protos::journey::data::TrackSegmant>)>> {
+        let tx = self.conn.transaction()?;
+        Self::get_ongoing_journey_internal(&tx)
+    }
 
-            let mut track = protos::journey::data::Track::new();
-            track.track_segmants = segmants;
-            let mut data = protos::journey::Data::new();
-            data.set_track(track);
+    pub fn finalize_ongoing_journey(&mut self) -> Result<()> {
+        let tx = self.conn.transaction()?;
 
-            // TODO: we could have some additional post-processing of the track.
-            // including path refinement + lossy compression.
+        match Self::get_ongoing_journey_internal(&tx)? {
+            None => (),
+            Some((start_timestamp_sec, end_timestamp_sec, segmants)) => {
+                // create new journey
+                let mut header = protos::journey::Header::new();
+                header.id = Uuid::new_v4().as_hyphenated().to_string();
+                header.end_timestamp_sec = end_timestamp_sec;
+                header.start_timestamp_sec = Some(start_timestamp_sec);
+                // TODO: allow user to set this when recording?
+                let mut kind = protos::journey::header::Kind::new();
+                kind.set_build_in(protos::journey::header::kind::BuiltIn::DEFAULT);
+                header.kind = MessageField::some(kind);
+                header.note = None;
 
-            let header_bytes = header.write_to_bytes()?;
-            // TODO: use stream api to save one allocation
-            let data_zstd_bytes =
-                zstd::encode_all(data.write_to_bytes()?.as_slice(), ZSTD_COMPRESS_LEVEL)?;
+                let mut track = protos::journey::data::Track::new();
+                track.track_segmants = segmants;
+                let mut data = protos::journey::Data::new();
+                data.set_track(track);
 
-            let sql = "INSERT INTO journey (id, end_timestamp_sec, header, data_zstd) VALUES (?1, ?2, ?3, ?4);";
-            tx.execute(
-                sql,
-                (&header.id, end_timestamp_sec, header_bytes, data_zstd_bytes),
-            )?;
+                // TODO: we could have some additional post-processing of the track.
+                // including path refinement + lossy compression.
+
+                let header_bytes = header.write_to_bytes()?;
+                // TODO: use stream api to save one allocation
+                let data_zstd_bytes =
+                    zstd::encode_all(data.write_to_bytes()?.as_slice(), ZSTD_COMPRESS_LEVEL)?;
+
+                let sql = "INSERT INTO journey (id, end_timestamp_sec, header, data_zstd) VALUES (?1, ?2, ?3, ?4);";
+                tx.execute(
+                    sql,
+                    (&header.id, end_timestamp_sec, header_bytes, data_zstd_bytes),
+                )?;
+            }
         }
 
         tx.execute("DELETE FROM ongoing_journey;", ())?;
