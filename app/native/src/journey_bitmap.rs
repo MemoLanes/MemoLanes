@@ -64,17 +64,14 @@ impl JourneyBitmap {
         t
     }
 
-    // NOTE: `add_line` is cherry picked from: https://github.com/tavimori/fogcore/blob/9b880f8ed97e0ce3cb315c881b81fb315cf956e3/src/fogmaps.rs
+    // NOTE: `add_line` is cherry picked from: https://github.com/tavimori/fogcore/blob/d0888508e25652164742db8e7d879e651b6607d7/src/fogmaps.rs
     // TODO: clean up the code:
     //       - make sure we are using the consistent and correct one of `u64`/`i64`/`i32`.
-    //       - get rid of `println`.
     //       - better variable naming.
     //       - reduce code duplications.
     // TODO: handle antimeridian.
     // TODO: add test.
     pub fn add_line(&mut self, start_lng: f64, start_lat: f64, end_lng: f64, end_lat: f64) {
-        println!("[{},{}] to [{},{}]", start_lng, start_lat, end_lng, end_lat);
-
         let (mut x0, y0) = utils::lng_lat_to_tile_x_y(
             start_lng,
             start_lat,
@@ -113,7 +110,6 @@ impl JourneyBitmap {
             while x < xe {
                 // tile_x is not rounded, it may exceed the antimeridian
                 let (tile_x, tile_y) = (x >> ALL_OFFSET, y >> ALL_OFFSET);
-                println!("accessing tile {}-{}", tile_x, tile_y);
                 let tile = self
                     .tiles
                     .entry(((tile_x % MAP_WIDTH) as u16, tile_y as u16))
@@ -130,7 +126,6 @@ impl JourneyBitmap {
                 );
                 x += tile_x << ALL_OFFSET;
                 y += tile_y << ALL_OFFSET;
-                println!("tile draw: tile_x: {}, tile_y: {}", tile_x, tile_y);
             }
         } else {
             // The line is Y-axis dominant
@@ -141,11 +136,9 @@ impl JourneyBitmap {
                 // Line is drawn top to bottom
                 (x1 as i64, y1 as i64, y0 as i64)
             };
-            println!("y {} ye {}", y, ye);
             while y < ye {
                 // tile_x is not rounded, it may exceed the antimeridian
                 let (tile_x, tile_y) = (x >> ALL_OFFSET, y >> ALL_OFFSET);
-                println!("accessing tile {}-{}", tile_x, tile_y);
                 let tile = self
                     .tiles
                     .entry(((tile_x % MAP_WIDTH) as u16, tile_y as u16))
@@ -162,7 +155,6 @@ impl JourneyBitmap {
                 );
                 x += tile_x << ALL_OFFSET;
                 y += tile_y << ALL_OFFSET;
-                println!("tile draw: tile_x: {}, tile_y: {}", tile_x, tile_y);
             }
         }
     }
