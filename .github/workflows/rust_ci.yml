@@ -1,7 +1,9 @@
-name: CI
+name: Rust CI
 
 on: 
   push:
+    paths:
+      - 'app/native/**'
     branches:
       - main
   pull_request:
