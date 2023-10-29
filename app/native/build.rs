@@ -12,11 +12,19 @@ fn main() {
         .run_from_script();
 
     println!("cargo:rerun-if-changed=src/api.rs");
-    let output = Command::new("flutter_rust_bridge_codegen")
-        .current_dir("..")
+    let frb_codegen_installed = Command::new("flutter_rust_bridge_codegen")
+        .arg("--version")
         .output()
-        .expect("Failed to execute binary");
-    if !output.status.success() {
-        panic!("{:?}", output)
+        .is_ok();
+    if frb_codegen_installed {
+        let output = Command::new("flutter_rust_bridge_codegen")
+            .current_dir("..")
+            .output()
+            .expect("Failed to execute binary");
+        if !output.status.success() {
+            panic!("{:?}", output)
+        }
+    } else {
+        println!("cargo:warning=`flutter_rust_bridge_codegen` is not installed, skipping running the codegen.");
     }
 }
