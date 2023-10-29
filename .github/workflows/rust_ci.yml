@@ -3,11 +3,13 @@ name: Rust CI
 on: 
   push:
     paths:
+      - '.github/workflows/rust_ci.yml'
       - 'app/native/**'
     branches:
       - main
   pull_request:
     paths:
+      - '.github/workflows/rust_ci.yml'
       - 'app/native/**'
     branches: 
       - main
