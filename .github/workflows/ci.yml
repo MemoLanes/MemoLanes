@@ -29,12 +29,12 @@ jobs:
           workspaces: "app/native/"
           
       # Rust
-      - name: Check Rust format
-        working-directory: app/native
-        run: cargo fmt --all -- --check
       - name: Cargo Check
         working-directory: app/native
         run: cargo check
+      - name: Check Rust format
+        working-directory: app/native
+        run: cargo fmt --all -- --check
       - name: Rust code analysis
         working-directory: app/native
         run: cargo clippy -- -D warnings
