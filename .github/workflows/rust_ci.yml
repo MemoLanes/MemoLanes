@@ -1,8 +1,15 @@
-name: CI
+name: Rust CI
 
 on: 
+  push:
+    paths:
+      - '.github/workflows/rust_ci.yml'
+      - 'app/native/**'
+    branches:
+      - main
   pull_request:
     paths:
+      - '.github/workflows/rust_ci.yml'
       - 'app/native/**'
     branches: 
       - main
@@ -19,7 +26,6 @@ jobs:
     steps:
       # Setup
       - uses: actions/checkout@v3
-      - uses: subosito/flutter-action@v2
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -29,24 +35,16 @@ jobs:
         with:
           workspaces: "app/native/"
           
-      # Flutter rust bridge
-      - name: Install codegen
-        run: cargo install cargo-expand && cargo install flutter_rust_bridge_codegen
-      - name: Run codegen
-        run: flutter_rust_bridge_codegen
-
       # Rust
-      - name: Check Rust format
-        working-directory: app/native
-        run: cargo fmt --all -- --check
       - name: Cargo Check
         working-directory: app/native
         run: cargo check
+      - name: Check Rust format
+        working-directory: app/native
+        run: cargo fmt --all -- --check
       - name: Rust code analysis
         working-directory: app/native
         run: cargo clippy -- -D warnings
       - name: Run Rust tests
         working-directory: app/native
-        # TODO: get rid of `rm -rf target`
-        # not really sure what went wrong but: https://github.com/dtolnay/anyhow/issues/250
-        run: rm -rf target && cargo test -- --nocapture
+        run: cargo test -- --nocapture
