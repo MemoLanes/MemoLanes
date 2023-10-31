@@ -97,7 +97,6 @@ impl MainDb {
         let conn = open_db_and_run_migration(
             support_dir,
             "main.db",
-            /* TODO: migration */
             &vec![&|tx| {
                 let sql = "
                 CREATE TABLE ongoing_journey (
