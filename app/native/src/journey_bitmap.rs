@@ -69,8 +69,6 @@ impl JourneyBitmap {
     //       - make sure we are using the consistent and correct one of `u64`/`i64`/`i32`.
     //       - better variable naming.
     //       - reduce code duplications.
-    // TODO: handle antimeridian.
-    // TODO: add test.
     pub fn add_line(&mut self, start_lng: f64, start_lat: f64, end_lng: f64, end_lat: f64) {
         let (mut x0, y0) = utils::lng_lat_to_tile_x_y(
             start_lng,
