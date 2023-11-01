@@ -1,11 +1,13 @@
 extern crate simplelog;
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use protobuf::{Message, MessageField};
 use rusqlite::{Connection, OptionalExtension, Transaction};
 use std::cmp::Ordering;
 use std::error::Error;
 use std::path::Path;
 use std::str::FromStr;
+use strum_macros::EnumIter;
 use uuid::Uuid;
 
 use crate::gps_processor::{self, ProcessResult};
@@ -27,6 +29,87 @@ deserialize the header.
 
 // 3 is the zstd default
 pub const ZSTD_COMPRESS_LEVEL: i32 = 3;
+
+#[derive(Copy, Clone, Debug, EnumIter, PartialEq, Eq, Hash)]
+#[repr(i8)]
+pub enum JourneyType {
+    Track = 0,
+    Bitmap = 1,
+}
+
+impl JourneyType {
+    pub fn to_int(&self) -> i8 {
+        *self as i8
+    }
+
+    pub fn of_int(i: i8) -> Result<Self> {
+        match i {
+            0 => Ok(JourneyType::Track),
+            1 => Ok(JourneyType::Bitmap),
+            _ => bail!("Invalid int for `JourneyType` {}", i),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::JourneyType;
+    use strum::IntoEnumIterator;
+
+    #[test]
+    fn int_conversion() {
+        for type_ in JourneyType::iter() {
+            assert_eq!(
+                type_,
+                JourneyType::of_int(JourneyType::to_int(&type_)).unwrap()
+            )
+        }
+    }
+}
+
+pub enum JourneyKind {
+    Default,
+    Flight,
+    Custom(String),
+}
+
+impl JourneyKind {
+    pub fn to_proto(self) -> protos::journey::header::Kind {
+        use protos::journey::header::{kind, Kind};
+        let mut kind = Kind::new();
+        match self {
+            JourneyKind::Default => kind.set_build_in(kind::BuiltIn::DEFAULT),
+            JourneyKind::Flight => kind.set_build_in(kind::BuiltIn::FLIGHT),
+            JourneyKind::Custom(str) => kind.set_custom_kind(str),
+        };
+        kind
+    }
+
+    pub fn of_proto(mut proto: protos::journey::header::Kind) -> Self {
+        use protos::journey::header::kind;
+        if proto.has_build_in() {
+            match proto.build_in() {
+                kind::BuiltIn::DEFAULT => JourneyKind::Default,
+                kind::BuiltIn::FLIGHT => JourneyKind::Flight,
+            }
+        } else {
+            JourneyKind::Custom(proto.take_custom_kind())
+        }
+    }
+}
+
+pub struct JourneyInfo {
+    pub id: String,
+    pub version: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: Option<DateTime<Utc>>,
+    pub end: DateTime<Utc>,
+    pub start: Option<DateTime<Utc>>,
+    pub journey_kind: JourneyKind,
+    pub note: Option<String>,
+    // `journey_type` is not from the header
+    pub journey_type: JourneyType,
+}
 
 #[allow(clippy::type_complexity)]
 fn open_db_and_run_migration(
@@ -113,6 +196,7 @@ impl MainDb {
                                               NOT NULL
                                               UNIQUE,
                     end_timestamp_sec INTEGER NOT NULL,
+                    type              INTEGER NOT NULL,
                     header            BLOB    NOT NULL,
                     data_zstd         BLOB    NOT NULL
                 );
@@ -228,12 +312,15 @@ impl MainDb {
                 // create new journey
                 let mut header = protos::journey::Header::new();
                 header.id = Uuid::new_v4().as_hyphenated().to_string();
+                // we use id + version as the equality check, version can be any
+                // string (e.g. uuid) but a short random should be good enough.
+                header.version = random_string::generate(16, random_string::charsets::ALPHANUMERIC);
+                header.created_at_timestamp_sec = Utc::now().timestamp();
+                header.updated_at_timestamp_sec = None;
                 header.end_timestamp_sec = end_timestamp_sec;
                 header.start_timestamp_sec = Some(start_timestamp_sec);
                 // TODO: allow user to set this when recording?
-                let mut kind = protos::journey::header::Kind::new();
-                kind.set_build_in(protos::journey::header::kind::BuiltIn::DEFAULT);
-                header.kind = MessageField::some(kind);
+                header.kind = MessageField::some(JourneyKind::Default.to_proto());
                 header.note = None;
 
                 let mut track = protos::journey::data::Track::new();
@@ -249,10 +336,16 @@ impl MainDb {
                 let data_zstd_bytes =
                     zstd::encode_all(data.write_to_bytes()?.as_slice(), ZSTD_COMPRESS_LEVEL)?;
 
-                let sql = "INSERT INTO journey (id, end_timestamp_sec, header, data_zstd) VALUES (?1, ?2, ?3, ?4);";
+                let sql = "INSERT INTO journey (id, end_timestamp_sec, type, header, data_zstd) VALUES (?1, ?2, ?3, ?4, ?5);";
                 tx.execute(
                     sql,
-                    (&header.id, end_timestamp_sec, header_bytes, data_zstd_bytes),
+                    (
+                        &header.id,
+                        end_timestamp_sec,
+                        JourneyType::Track.to_int(),
+                        header_bytes,
+                        data_zstd_bytes,
+                    ),
                 )?;
             }
         }
@@ -277,25 +370,36 @@ impl MainDb {
         Ok(())
     }
 
-    pub fn list_all_journeys(&mut self) -> Result<Vec<protos::journey::Header>> {
-        // TODO: we might need a different type for header data, one that is
-        // better than the protobuf one.
-
-        // TODO: cosndier storing the type of the journey, not in the header,
-        // but in a column in the table so we could:
-        // 1. filter based on it.
-        // 2. get it without loading the data.
+    pub fn list_all_journeys(&mut self) -> Result<Vec<JourneyInfo>> {
         let tx = self.conn.transaction()?;
         let mut query = tx.prepare(
-            "SELECT header FROM journey ORDER BY end_timestamp_sec, id DESC;",
+            "SELECT header, type FROM journey ORDER BY end_timestamp_sec, id DESC;",
             // use `id` to break tie
         )?;
         let mut rows = query.query(())?;
         let mut results = Vec::new();
         while let Some(row) = rows.next()? {
             let header_bytes = row.get_ref(0)?.as_blob()?;
-            let header = protos::journey::Header::parse_from_bytes(header_bytes)?;
-            results.push(header)
+            let journey_type = JourneyType::of_int(row.get(1)?)?;
+            let mut header = protos::journey::Header::parse_from_bytes(header_bytes)?;
+            results.push(JourneyInfo {
+                id: header.id,
+                version: header.version,
+                created_at: DateTime::from_timestamp(header.created_at_timestamp_sec, 0).unwrap(),
+                updated_at: header
+                    .updated_at_timestamp_sec
+                    .and_then(|sec| DateTime::from_timestamp(sec, 0)),
+                end: DateTime::from_timestamp(header.end_timestamp_sec, 0).unwrap(),
+                start: header
+                    .start_timestamp_sec
+                    .and_then(|sec| DateTime::from_timestamp(sec, 0)),
+                journey_kind: JourneyKind::of_proto(match header.kind.take() {
+                    None => bail!("Missing `kind`"),
+                    Some(kind) => kind,
+                }),
+                note: header.note,
+                journey_type,
+            })
         }
         Ok(results)
     }

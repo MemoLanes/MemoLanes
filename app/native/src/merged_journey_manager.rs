@@ -41,8 +41,8 @@ pub fn get_latest_including_ongoing(main_db: &mut MainDb) -> Result<JourneyBitma
     let mut journey_bitmap = JourneyBitmap::new();
 
     // finalized journeys
-    for header in main_db.list_all_journeys()? {
-        let journey = main_db.get_journey(&header.id)?;
+    for journey_info in main_db.list_all_journeys()? {
+        let journey = main_db.get_journey(&journey_info.id)?;
         if journey.has_bitmap() {
             panic!("unimplemented");
         } else if journey.has_track() {
