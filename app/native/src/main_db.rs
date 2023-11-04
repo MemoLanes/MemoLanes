@@ -100,7 +100,7 @@ impl JourneyKind {
 
 pub struct JourneyInfo {
     pub id: String,
-    pub version: String,
+    pub revision: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: Option<DateTime<Utc>>,
     pub end: DateTime<Utc>,
@@ -312,9 +312,9 @@ impl MainDb {
                 // create new journey
                 let mut header = protos::journey::Header::new();
                 header.id = Uuid::new_v4().as_hyphenated().to_string();
-                // we use id + version as the equality check, version can be any
+                // we use id + revision as the equality check, revision can be any
                 // string (e.g. uuid) but a short random should be good enough.
-                header.version = random_string::generate(16, random_string::charsets::ALPHANUMERIC);
+                header.revision = random_string::generate(8, random_string::charsets::ALPHANUMERIC);
                 header.created_at_timestamp_sec = Utc::now().timestamp();
                 header.updated_at_timestamp_sec = None;
                 header.end_timestamp_sec = end_timestamp_sec;
@@ -384,7 +384,7 @@ impl MainDb {
             let mut header = protos::journey::Header::parse_from_bytes(header_bytes)?;
             results.push(JourneyInfo {
                 id: header.id,
-                version: header.version,
+                revision: header.revision,
                 created_at: DateTime::from_timestamp(header.created_at_timestamp_sec, 0).unwrap(),
                 updated_at: header
                     .updated_at_timestamp_sec
