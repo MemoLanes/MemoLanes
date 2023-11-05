@@ -143,13 +143,13 @@ pub fn archive_all_as_zip<T: Write + Seek>(main_db: &mut MainDb, writer: &mut T)
     // TODO: pick a file extension
     zip.start_file("metadata.xxm", default_options)?;
     // TODO: pick a magic header
-    zip.write(&['X' as u8, 'X' as u8, 'M' as u8])?;
+    zip.write_all(&['X' as u8, 'X' as u8, 'M' as u8])?;
     // version num
-    zip.write(&[1])?;
+    zip.write_all(&[1])?;
     // metadata size
-    zip.write(&(metadata_bytes.len() as u32).to_be_bytes())?;
+    zip.write_all(&(metadata_bytes.len() as u32).to_be_bytes())?;
     // content
-    zip.write(&metadata_bytes)?;
+    zip.write_all(&metadata_bytes)?;
 
     // writing section data
     for (_, section_id, journeys) in &to_process {
@@ -172,12 +172,12 @@ pub fn archive_all_as_zip<T: Write + Seek>(main_db: &mut MainDb, writer: &mut T)
 
         zip.start_file(section_id.clone(), default_options)?;
         // TODO: pick a magic header
-        zip.write(&['X' as u8, 'X' as u8, 'S' as u8])?;
+        zip.write_all(&['X' as u8, 'X' as u8, 'S' as u8])?;
         // version num
-        zip.write(&[1])?;
+        zip.write_all(&[1])?;
         // write header
-        zip.write(&(section_header_bytes.len() as u32).to_be_bytes())?;
-        zip.write(&section_header_bytes)?;
+        zip.write_all(&(section_header_bytes.len() as u32).to_be_bytes())?;
+        zip.write_all(&section_header_bytes)?;
 
         // write data entries
         for j in journeys {
@@ -188,8 +188,8 @@ pub fn archive_all_as_zip<T: Write + Seek>(main_db: &mut MainDb, writer: &mut T)
             let data_entry_bytes =
                 zstd::encode_all(data_entry.write_to_bytes()?.as_slice(), ZSTD_COMPRESS_LEVEL)?;
 
-            zip.write(&(data_entry_bytes.len() as u32).to_be_bytes())?;
-            zip.write(&data_entry_bytes)?;
+            zip.write_all(&(data_entry_bytes.len() as u32).to_be_bytes())?;
+            zip.write_all(&data_entry_bytes)?;
         }
     }
 
