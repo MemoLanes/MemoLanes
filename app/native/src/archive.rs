@@ -67,8 +67,8 @@ mod tests {
     fn order() {
         let ym = |year, month| YearMonth { year, month };
         assert_eq!(ym(2000, 10), ym(2000, 10));
-        assert_eq!(ym(2000, 10) > ym(2000, 9), true);
-        assert_eq!(ym(1999, 12) < ym(2000, 9), true);
+        assert!(ym(2000, 10) > ym(2000, 9));
+        assert!(ym(1999, 12) < ym(2000, 9));
     }
 }
 
@@ -85,7 +85,7 @@ pub fn archive_all_as_zip<T: Write + Seek>(main_db: &mut MainDb, writer: &mut T)
         };
         group_by_year_month
             .entry(year_month)
-            .or_insert_with(|| Vec::new())
+            .or_insert_with(Vec::new)
             .push(journey);
     }
     for (_, journeys) in group_by_year_month.iter_mut() {
@@ -143,7 +143,7 @@ pub fn archive_all_as_zip<T: Write + Seek>(main_db: &mut MainDb, writer: &mut T)
     // TODO: pick a file extension
     zip.start_file("metadata.xxm", default_options)?;
     // TODO: pick a magic header
-    zip.write_all(&['X' as u8, 'X' as u8, 'M' as u8])?;
+    zip.write_all(&[b'X', b'X', b'M'])?;
     // version num
     zip.write_all(&[1])?;
     // metadata size
@@ -172,7 +172,7 @@ pub fn archive_all_as_zip<T: Write + Seek>(main_db: &mut MainDb, writer: &mut T)
 
         zip.start_file(section_id.clone(), default_options)?;
         // TODO: pick a magic header
-        zip.write_all(&['X' as u8, 'X' as u8, 'S' as u8])?;
+        zip.write_all(&[b'X', b'X', b'S'])?;
         // version num
         zip.write_all(&[1])?;
         // write header
