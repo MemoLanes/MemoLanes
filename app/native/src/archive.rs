@@ -76,12 +76,11 @@ fn write_proto_as_compressed_block<W: Write, M: protobuf::Message>(
     // 3 is the zstd default
     const ZSTD_COMPRESS_LEVEL: i32 = 3;
 
-    let size = message.compute_size() as u32;
-    writer.write_all(&size.to_be_bytes())?;
-
     // TODO: use streaming to avoid one extra allocation
     let buf = message.write_to_bytes()?;
     let buf = zstd::encode_all(buf.as_slice(), ZSTD_COMPRESS_LEVEL)?;
+
+    writer.write_all(&buf.len().to_be_bytes())?;
     writer.write_all(&buf)?;
     Ok(())
 }
