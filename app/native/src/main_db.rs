@@ -348,7 +348,7 @@ impl MainDb {
             None => (),
             Some((start_timestamp_sec, end_timestamp_sec, segmants)) => {
                 // create new journey
-                // TODO: consider use `JourneyInfo::to_proto`
+                // TODO: consider using `JourneyInfo::to_proto`
                 let mut header = protos::journey::Header::new();
                 header.id = Uuid::new_v4().as_hyphenated().to_string();
                 // we use id + revision as the equality check, revision can be any

@@ -7,7 +7,7 @@ use std::{
 use anyhow::Result;
 use chrono::{Datelike, Utc};
 use hex::ToHex;
-use protobuf::{EnumOrUnknown, Message};
+use protobuf::EnumOrUnknown;
 use protos::archive::Metadata;
 use sha1::{Digest, Sha1};
 
@@ -18,10 +18,6 @@ use crate::{
         archive::{metadata, section_header::journey_info, SectionDataEntry, SectionHeader},
     },
 };
-
-// TODO: maybe we want a higher one for archive
-// 3 is the zstd default
-const ZSTD_COMPRESS_LEVEL: i32 = 3;
 
 /* The persistent exchange data format for finalized journeys.
    The high level design is: a metadata file + a set of files each contains a
@@ -70,6 +66,24 @@ mod tests {
         assert!(ym(2000, 10) > ym(2000, 9));
         assert!(ym(1999, 12) < ym(2000, 9));
     }
+}
+
+fn write_proto_as_compressed_block<W: Write, M: protobuf::Message>(
+    writer: &mut W,
+    message: M,
+) -> Result<()> {
+    // TODO: maybe we want a higher one for archive
+    // 3 is the zstd default
+    const ZSTD_COMPRESS_LEVEL: i32 = 3;
+
+    let size = message.compute_size() as u32;
+    writer.write_all(&size.to_be_bytes());
+
+    // TODO: use streaming to avoid one extra allocation
+    let buf = message.write_to_bytes()?;
+    let buf = zstd::encode_all(buf.as_slice(), ZSTD_COMPRESS_LEVEL)?;
+    writer.write_all(&buf)?;
+    Ok(())
 }
 
 pub fn archive_all_as_zip<T: Write + Seek>(main_db: &mut MainDb, writer: &mut T) -> Result<()> {
@@ -135,21 +149,15 @@ pub fn archive_all_as_zip<T: Write + Seek>(main_db: &mut MainDb, writer: &mut T)
         metadata_proto.section_infos.push(section_info)
     }
 
-    let metadata_bytes = zstd::encode_all(
-        metadata_proto.write_to_bytes()?.as_slice(),
-        ZSTD_COMPRESS_LEVEL,
-    )?;
-
     // TODO: pick a file extension
     zip.start_file("metadata.xxm", default_options)?;
     // TODO: pick a magic header
     zip.write_all(&[b'X', b'X', b'M'])?;
     // version num
     zip.write_all(&[1])?;
-    // metadata size
-    zip.write_all(&(metadata_bytes.len() as u32).to_be_bytes())?;
-    // content
-    zip.write_all(&metadata_bytes)?;
+
+    // metadata
+    write_proto_as_compressed_block(&mut zip, metadata_proto)?;
 
     // writing section data
     for (_, section_id, journeys) in &to_process {
@@ -165,10 +173,6 @@ pub fn archive_all_as_zip<T: Write + Seek>(main_db: &mut MainDb, writer: &mut T)
             journey_info.header.0 = Some(Box::new(j.clone().to_proto()));
             section_header.journey_info.push(journey_info);
         }
-        let section_header_bytes = zstd::encode_all(
-            section_header.write_to_bytes()?.as_slice(),
-            ZSTD_COMPRESS_LEVEL,
-        )?;
 
         zip.start_file(section_id.clone(), default_options)?;
         // TODO: pick a magic header
@@ -176,8 +180,7 @@ pub fn archive_all_as_zip<T: Write + Seek>(main_db: &mut MainDb, writer: &mut T)
         // version num
         zip.write_all(&[1])?;
         // write header
-        zip.write_all(&(section_header_bytes.len() as u32).to_be_bytes())?;
-        zip.write_all(&section_header_bytes)?;
+        write_proto_as_compressed_block(&mut zip, section_header)?;
 
         // write data entries
         for j in journeys {
@@ -185,11 +188,7 @@ pub fn archive_all_as_zip<T: Write + Seek>(main_db: &mut MainDb, writer: &mut T)
             let mut data_entry = SectionDataEntry::new();
             data_entry.data.0 = Some(Box::new(journey_data));
 
-            let data_entry_bytes =
-                zstd::encode_all(data_entry.write_to_bytes()?.as_slice(), ZSTD_COMPRESS_LEVEL)?;
-
-            zip.write_all(&(data_entry_bytes.len() as u32).to_be_bytes())?;
-            zip.write_all(&data_entry_bytes)?;
+            write_proto_as_compressed_block(&mut zip, data_entry)?;
         }
     }
 

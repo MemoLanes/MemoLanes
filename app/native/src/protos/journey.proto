@@ -51,6 +51,7 @@ message Data {
     repeated Block blocks = 3;
   }
 
+  // TODO: we need to make sure `Bitmap` is not too big for protobuf.
   message Bitmap {
     repeated Tile tiles = 1;
   }
