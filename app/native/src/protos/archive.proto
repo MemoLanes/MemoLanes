@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package archive;
+
+import "journey.proto";
+
+message Metadata {
+    enum Kind {
+        FULL_ARCHIVE = 0;
+        PARTIAL_EXPORT = 1;
+        GENERATED_FOR_IMPORT = 2;
+    }
+    message SectionInfo {
+        string section_id = 1;
+        int64 first_journey_timestamp_sec = 2;
+        int64 last_journey_timestamp_sec = 3;
+        uint32 num_of_journeys = 4;
+    }
+
+  int64 created_at_timestamp_sec = 1;
+  repeated SectionInfo section_infos = 2;
+  optional Kind kind = 3;
+  optional string note = 4;
+}
+
+message SectionHeader {
+    message JourneyInfo {
+        enum Type {
+            TRACK = 0;
+            BITMAP = 1;
+        }
+        journey.Header header = 1;
+        Type type = 2;
+    }
+
+    string section_id = 1;
+    repeated JourneyInfo journey_info = 2;
+}
+
+message SectionDataEntry {
+    journey.Data data = 1;
+}

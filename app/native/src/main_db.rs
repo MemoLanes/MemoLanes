@@ -67,6 +67,7 @@ mod tests {
     }
 }
 
+#[derive(Clone)]
 pub enum JourneyKind {
     Default,
     Flight,
@@ -98,6 +99,7 @@ impl JourneyKind {
     }
 }
 
+#[derive(Clone)]
 pub struct JourneyInfo {
     pub id: String,
     pub revision: String,
@@ -109,6 +111,42 @@ pub struct JourneyInfo {
     pub note: Option<String>,
     // `journey_type` is not from the header
     pub journey_type: JourneyType,
+}
+
+impl JourneyInfo {
+    pub fn of_proto(mut proto: protos::journey::Header, journey_type: JourneyType) -> Result<Self> {
+        Ok(JourneyInfo {
+            id: proto.id,
+            revision: proto.revision,
+            created_at: DateTime::from_timestamp(proto.created_at_timestamp_sec, 0).unwrap(),
+            updated_at: proto
+                .updated_at_timestamp_sec
+                .and_then(|sec| DateTime::from_timestamp(sec, 0)),
+            end: DateTime::from_timestamp(proto.end_timestamp_sec, 0).unwrap(),
+            start: proto
+                .start_timestamp_sec
+                .and_then(|sec| DateTime::from_timestamp(sec, 0)),
+            journey_kind: JourneyKind::of_proto(match proto.kind.take() {
+                None => bail!("Missing `kind`"),
+                Some(kind) => kind,
+            }),
+            note: proto.note,
+            journey_type,
+        })
+    }
+
+    pub fn to_proto(self) -> protos::journey::Header {
+        let mut proto = protos::journey::Header::new();
+        proto.id = self.id;
+        proto.revision = self.revision;
+        proto.created_at_timestamp_sec = self.created_at.timestamp();
+        proto.updated_at_timestamp_sec = self.updated_at.map(|x| x.timestamp());
+        proto.end_timestamp_sec = self.end.timestamp();
+        proto.start_timestamp_sec = self.start.map(|x| x.timestamp());
+        proto.kind.0 = Some(Box::new(self.journey_kind.to_proto()));
+        proto.note = self.note;
+        proto
+    }
 }
 
 #[allow(clippy::type_complexity)]
@@ -310,6 +348,7 @@ impl MainDb {
             None => (),
             Some((start_timestamp_sec, end_timestamp_sec, segmants)) => {
                 // create new journey
+                // TODO: consider use `JourneyInfo::to_proto`
                 let mut header = protos::journey::Header::new();
                 header.id = Uuid::new_v4().as_hyphenated().to_string();
                 // we use id + revision as the equality check, revision can be any
@@ -381,25 +420,8 @@ impl MainDb {
         while let Some(row) = rows.next()? {
             let header_bytes = row.get_ref(0)?.as_blob()?;
             let journey_type = JourneyType::of_int(row.get(1)?)?;
-            let mut header = protos::journey::Header::parse_from_bytes(header_bytes)?;
-            results.push(JourneyInfo {
-                id: header.id,
-                revision: header.revision,
-                created_at: DateTime::from_timestamp(header.created_at_timestamp_sec, 0).unwrap(),
-                updated_at: header
-                    .updated_at_timestamp_sec
-                    .and_then(|sec| DateTime::from_timestamp(sec, 0)),
-                end: DateTime::from_timestamp(header.end_timestamp_sec, 0).unwrap(),
-                start: header
-                    .start_timestamp_sec
-                    .and_then(|sec| DateTime::from_timestamp(sec, 0)),
-                journey_kind: JourneyKind::of_proto(match header.kind.take() {
-                    None => bail!("Missing `kind`"),
-                    Some(kind) => kind,
-                }),
-                note: header.note,
-                journey_type,
-            })
+            let header = protos::journey::Header::parse_from_bytes(header_bytes)?;
+            results.push(JourneyInfo::of_proto(header, journey_type)?);
         }
         Ok(results)
     }
