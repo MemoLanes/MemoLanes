@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+package journey;
+
 message Header {
   message Kind {
     enum BuiltIn {
@@ -14,7 +16,7 @@ message Header {
   }
 
   string id = 1;
-  string version = 2;
+  string revision = 2;
   int64 created_at_timestamp_sec = 3;
   optional int64 updated_at_timestamp_sec = 4;
   int64 end_timestamp_sec = 5;
@@ -49,6 +51,7 @@ message Data {
     repeated Block blocks = 3;
   }
 
+  // TODO: we need to make sure `Bitmap` is not too big for protobuf.
   message Bitmap {
     repeated Tile tiles = 1;
   }

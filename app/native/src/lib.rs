@@ -10,6 +10,7 @@ extern crate anyhow;
 pub mod api;
 mod bridge_generated;
 
+pub mod archive;
 pub mod gps_processor;
 pub mod journey_bitmap;
 pub mod main_db;
