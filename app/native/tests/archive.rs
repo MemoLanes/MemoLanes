@@ -19,6 +19,7 @@ fn basic() {
             .record(raw_data, gps_processor::ProcessResult::Append)
             .unwrap();
     }
+    main_db.finalize_ongoing_journey().unwrap();
 
     let mut file = File::create(temp_dir.path().join("archive.zip")).unwrap();
     archive::archive_all_as_zip(&mut main_db, &mut file).unwrap();
