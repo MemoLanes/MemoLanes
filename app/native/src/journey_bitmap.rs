@@ -157,7 +157,7 @@ impl JourneyBitmap {
             }
         }
     }
-    pub fn merge(&mut self, journey_bitmap: JourneyBitmap) -> () {
+    pub fn merge(&mut self, journey_bitmap: JourneyBitmap) {
         for (key, tile) in journey_bitmap.tiles {
             let t = self.tiles.get_mut(&key);
             match t {
