@@ -2,7 +2,7 @@
 #![allow(dead_code)]
 
 use itertools::Itertools;
-use std::collections::HashMap;
+use std::{collections::HashMap, error::Error, ops::BitOr};
 
 use crate::{protos, utils};
 
@@ -17,6 +17,7 @@ const ALL_OFFSET: i16 = TILE_WIDTH_OFFSET + BITMAP_WIDTH_OFFSET;
 
 // we have 512*512 tiles, 128*128 blocks and a single block contains
 // a 64*64 bitmap.
+#[derive(Debug)]
 pub struct JourneyBitmap {
     pub tiles: HashMap<(u16, u16), Tile>,
 }
@@ -64,6 +65,7 @@ impl JourneyBitmap {
         t
     }
 
+<<<<<<< Updated upstream
     // NOTE: `add_line` is cherry picked from: https://github.com/tavimori/fogcore/blob/d0888508e25652164742db8e7d879e651b6607d7/src/fogmaps.rs
     // TODO: clean up the code:
     //       - make sure we are using the consistent and correct one of `u64`/`i64`/`i32`.
@@ -156,9 +158,44 @@ impl JourneyBitmap {
             }
         }
     }
+=======
+    pub fn merge(&mut self,journey_bitmap:JourneyBitmap)->(){
+        for (key,tile) in journey_bitmap.tiles { 
+            let t=self.tiles.get_mut(&key);
+            match t {
+                None=>{
+                    //不存在，则插入
+                    self.tiles.insert(key, tile);
+                },
+                Some(tile_self)=>{
+                    //存在，则尝试合并blocks
+                    for (key_block,block) in tile.blocks {
+                        let b = tile_self.blocks.get_mut(&key_block);
+                        match b {
+                            None=>{
+                                //不存在block，则加入
+                                tile_self.blocks.insert(key_block, block);
+                            },
+                            Some(block_self)=>{
+                                //存在，则尝试合并其data
+                                for i in 0..block.data.len(){
+                                    block_self.data[i] = block_self.data[i].bitor(block.data[i]);
+                                }
+                            }
+                        }
+                    }
+                }
+            }                    
+        }
+    }
+
+
+    
+>>>>>>> Stashed changes
 }
 
 // TODO: maybe we don't need store (x,y) inside a tile/block.
+#[derive(Debug)]
 pub struct Tile {
     x: u16,
     y: u16,
@@ -255,6 +292,7 @@ impl Tile {
     }
 }
 
+#[derive(Debug)]
 pub struct Block {
     x: u8,
     y: u8,

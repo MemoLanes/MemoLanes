@@ -7,8 +7,13 @@ extern crate log;
 #[macro_use]
 extern crate anyhow;
 
+<<<<<<< Updated upstream
 pub mod api;
 mod bridge_generated;
+=======
+mod api;
+// mod bridge_generated;
+>>>>>>> Stashed changes
 
 pub mod archive;
 pub mod gps_processor;
