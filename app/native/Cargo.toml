@@ -21,20 +21,17 @@ uuid = { version = "1.4", features = ["v4", "fast-rng", "macro-diagnostics"] }
 sql_split = "0.1.1"
 zstd = "0.12"
 itertools = "0.11.0"
-<<<<<<< Updated upstream
 strum = "0.25"
 strum_macros = "0.25"
 random-string = "1.0"
 zip = "0.6"
-=======
 rand="0.8.5"
-
-[dev-dependencies]
->>>>>>> Stashed changes
 sha1 = "0.10.5"
 hex = "0.4.3"
 
 [dev-dependencies]
+sha1 = "0.10.5"
+hex = "0.4.3"
 tempdir = "0.3.7"
 csv = "1.1"
 rand="0.8.5"

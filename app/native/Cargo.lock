@@ -701,11 +701,8 @@ dependencies = [
  "log",
  "protobuf",
  "protobuf-codegen",
-<<<<<<< Updated upstream
- "random-string",
-=======
  "rand 0.8.5",
->>>>>>> Stashed changes
+ "random-string",
  "rusqlite",
  "sha1",
  "simplelog",

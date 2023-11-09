@@ -1,4 +1,4 @@
-// use std::process::Command;
+ use std::process::Command;
 
 // need to install:
 // - `cargo install flutter_rust_bridge_codegen`
@@ -13,7 +13,6 @@ fn main() {
         .input("src/protos/archive.proto")
         .run_from_script();
 
-<<<<<<< Updated upstream
     println!("cargo:rerun-if-changed=src/api.rs");
     let frb_codegen_installed = Command::new("flutter_rust_bridge_codegen")
         .arg("--version")
@@ -40,14 +39,4 @@ fn main() {
     } else {
         println!("cargo:warning=`flutter_rust_bridge_codegen` is not installed, skipping running the codegen.");
     }
-=======
-    //println!("cargo:rerun-if-changed=src/api.rs");
-    // let output = Command::new("flutter_rust_bridge_codegen")
-    //     .current_dir("..")
-    //     .output()
-    //     .expect("Failed to execute binary");
-    // if !output.status.success() {
-    //     panic!("{:?}", output)
-    // }
->>>>>>> Stashed changes
 }

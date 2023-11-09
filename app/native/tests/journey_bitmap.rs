@@ -1,4 +1,3 @@
-<<<<<<< Updated upstream
 use native::{journey_bitmap::JourneyBitmap, map_renderer::MapRenderer};
 mod test_utils;
 
@@ -27,7 +26,6 @@ fn add_line_cross_antimeridian() {
         "3eb61d8bae656e73894b54c1cd009046caf6f75f",
     );
 }
-=======
 use std::collections::HashMap;
 
 use native::journey_bitmap::{JourneyBitmap, Tile, Block};
@@ -98,4 +96,3 @@ fn gen_data(len:u8)->Vec<u8>{
     }
     data
 }
->>>>>>> Stashed changes

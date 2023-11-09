@@ -65,7 +65,6 @@ impl JourneyBitmap {
         t
     }
 
-<<<<<<< Updated upstream
     // NOTE: `add_line` is cherry picked from: https://github.com/tavimori/fogcore/blob/d0888508e25652164742db8e7d879e651b6607d7/src/fogmaps.rs
     // TODO: clean up the code:
     //       - make sure we are using the consistent and correct one of `u64`/`i64`/`i32`.
@@ -158,7 +157,6 @@ impl JourneyBitmap {
             }
         }
     }
-=======
     pub fn merge(&mut self,journey_bitmap:JourneyBitmap)->(){
         for (key,tile) in journey_bitmap.tiles { 
             let t=self.tiles.get_mut(&key);
@@ -191,7 +189,6 @@ impl JourneyBitmap {
 
 
     
->>>>>>> Stashed changes
 }
 
 // TODO: maybe we don't need store (x,y) inside a tile/block.
