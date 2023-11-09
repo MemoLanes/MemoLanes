@@ -2,7 +2,7 @@
 #![allow(dead_code)]
 
 use itertools::Itertools;
-use std::{collections::HashMap, error::Error, ops::BitOr};
+use std::{collections::HashMap, ops::BitOr};
 
 use crate::{protos, utils};
 
