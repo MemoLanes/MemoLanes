@@ -1,4 +1,4 @@
- use std::process::Command;
+use std::process::Command;
 
 // need to install:
 // - `cargo install flutter_rust_bridge_codegen`
