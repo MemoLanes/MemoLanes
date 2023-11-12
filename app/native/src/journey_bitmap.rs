@@ -1,6 +1,3 @@
-// TODO: remove this
-#![allow(dead_code)]
-
 use itertools::Itertools;
 use std::{collections::HashMap, ops::BitOr};
 
