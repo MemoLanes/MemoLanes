@@ -26,73 +26,30 @@ fn add_line_cross_antimeridian() {
         "3eb61d8bae656e73894b54c1cd009046caf6f75f",
     );
 }
-//use std::collections::HashMap;
-
-use native::journey_bitmap::{Block, Tile};
-use rand::prelude::*;
 
 #[test]
-fn test_merge() {
-    println!("-----test merge------");
+fn merge() {
+    let start_lng = 151.1435370795134;
+    let start_lat = -33.793291910360125;
+    let end_lng = 151.2783692841415;
+    let end_lat = -33.943600147192235;
 
-    let mut j1: JourneyBitmap = JourneyBitmap::new();
-    for i in 0..2 {
-        let t = gen_tile(i + 1, i + 1, 2, 5);
-        let k = ((i + 1) as u16, (i + 1) as u16);
-        j1.tiles.insert(k, t);
-    }
-    println!("{:?}", j1);
+    let mut journey_bitmap = JourneyBitmap::new();
+    journey_bitmap.add_line(start_lng, start_lat, end_lng, end_lat);
 
-    let mut j2 = JourneyBitmap::new();
-    for i in 0..1 {
-        let t = gen_tile(i + 1, i + 1, 1, 6);
-        let k = ((i + 1) as u16, (i + 1) as u16);
-        j2.tiles.insert(k, t);
-    }
-    println!("{:?}", j2);
+    let mut other_journey_bitmap = JourneyBitmap::new();
+    other_journey_bitmap.add_line(start_lng, end_lat, end_lng, start_lat);
 
-    j1.merge(j2);
-    println!("{:?}", j1);
+    journey_bitmap.merge(other_journey_bitmap);
 
-    println!("------end-----");
-}
+    let mut map_renderer = MapRenderer::new(journey_bitmap);
 
-fn gen_tile(x: u8, y: u8, count_block: u8, val_block: u8) -> Tile {
-    let mut tile = Tile::new(x as u16, y as u16);
-
-    for i in 0..count_block {
-        let b_x = x + val_block + i;
-        let b_y = y + val_block + i;
-        let block = gen_block(b_x, b_y);
-        tile.blocks.insert((b_x, b_y), block);
-    }
-
-    tile
-}
-
-fn gen_block(x: u8, y: u8) -> Block {
-    let data = gen_data_rand_512();
-    let block = Block::new_with_data(x, y, data);
-    block
-}
-
-fn gen_data_rand_512() -> [u8; 512] {
-    let mut data: [u8; 512] = [0; 512];
-    let mut rng = rand::thread_rng();
-    for i in 0..512 {
-        let r: u8 = rng.gen_range(0..=1);
-        data[i] = r;
-    }
-    data
-}
-
-#[warn(dead_code)]
-fn gen_data(len: u8) -> Vec<u8> {
-    let mut rng = rand::thread_rng();
-    let mut data = vec![];
-    for _ in 0..len {
-        let r: u8 = rng.gen_range(0..=1);
-        data.push(r);
-    }
-    data
+    let render_result = map_renderer
+        .maybe_render_map_overlay(12.0, start_lng, start_lat, end_lng, end_lat)
+        .unwrap();
+    test_utils::assert_image(
+        &render_result.data.0,
+        "journey_bitmap_merge",
+        "cd60e35e3fce1c113b10ca2635eacd658ff225be",
+    );
 }

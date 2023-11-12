@@ -157,27 +157,23 @@ impl JourneyBitmap {
             }
         }
     }
-    pub fn merge(&mut self, journey_bitmap: JourneyBitmap) {
-        for (key, tile) in journey_bitmap.tiles {
-            let t = self.tiles.get_mut(&key);
-            match t {
+
+    pub fn merge(&mut self, other_journey_bitmap: JourneyBitmap) {
+        for (key, other_tile) in other_journey_bitmap.tiles {
+            match self.tiles.get_mut(&key) {
                 None => {
-                    //不存在，则插入
-                    self.tiles.insert(key, tile);
+                    self.tiles.insert(key, other_tile);
                 }
-                Some(tile_self) => {
-                    //存在，则尝试合并blocks
-                    for (key_block, block) in tile.blocks {
-                        let b = tile_self.blocks.get_mut(&key_block);
-                        match b {
+                Some(self_tile) => {
+                    for (key, other_block) in other_tile.blocks {
+                        match self_tile.blocks.get_mut(&key) {
                             None => {
-                                //不存在block，则加入
-                                tile_self.blocks.insert(key_block, block);
+                                self_tile.blocks.insert(key, other_block);
                             }
-                            Some(block_self) => {
-                                //存在，则尝试合并其data
-                                for i in 0..block.data.len() {
-                                    block_self.data[i] = block_self.data[i].bitor(block.data[i]);
+                            Some(self_block) => {
+                                for i in 0..other_block.data.len() {
+                                    self_block.data[i] =
+                                        self_block.data[i].bitor(other_block.data[i]);
                                 }
                             }
                         }
