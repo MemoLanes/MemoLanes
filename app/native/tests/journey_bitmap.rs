@@ -26,3 +26,30 @@ fn add_line_cross_antimeridian() {
         "3eb61d8bae656e73894b54c1cd009046caf6f75f",
     );
 }
+
+#[test]
+fn merge() {
+    let start_lng = 151.1435370795134;
+    let start_lat = -33.793291910360125;
+    let end_lng = 151.2783692841415;
+    let end_lat = -33.943600147192235;
+
+    let mut journey_bitmap = JourneyBitmap::new();
+    journey_bitmap.add_line(start_lng, start_lat, end_lng, end_lat);
+
+    let mut other_journey_bitmap = JourneyBitmap::new();
+    other_journey_bitmap.add_line(start_lng, end_lat, end_lng, start_lat);
+
+    journey_bitmap.merge(other_journey_bitmap);
+
+    let mut map_renderer = MapRenderer::new(journey_bitmap);
+
+    let render_result = map_renderer
+        .maybe_render_map_overlay(12.0, start_lng, start_lat, end_lng, end_lat)
+        .unwrap();
+    test_utils::assert_image(
+        &render_result.data.0,
+        "journey_bitmap_merge",
+        "cd60e35e3fce1c113b10ca2635eacd658ff225be",
+    );
+}

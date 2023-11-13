@@ -1,8 +1,5 @@
-// TODO: remove this
-#![allow(dead_code)]
-
 use itertools::Itertools;
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::BitOr};
 
 use crate::{protos, utils};
 
@@ -17,6 +14,7 @@ const ALL_OFFSET: i16 = TILE_WIDTH_OFFSET + BITMAP_WIDTH_OFFSET;
 
 // we have 512*512 tiles, 128*128 blocks and a single block contains
 // a 64*64 bitmap.
+#[derive(Debug)]
 pub struct JourneyBitmap {
     pub tiles: HashMap<(u16, u16), Tile>,
 }
@@ -156,9 +154,35 @@ impl JourneyBitmap {
             }
         }
     }
+
+    pub fn merge(&mut self, other_journey_bitmap: JourneyBitmap) {
+        for (key, other_tile) in other_journey_bitmap.tiles {
+            match self.tiles.get_mut(&key) {
+                None => {
+                    self.tiles.insert(key, other_tile);
+                }
+                Some(self_tile) => {
+                    for (key, other_block) in other_tile.blocks {
+                        match self_tile.blocks.get_mut(&key) {
+                            None => {
+                                self_tile.blocks.insert(key, other_block);
+                            }
+                            Some(self_block) => {
+                                for i in 0..other_block.data.len() {
+                                    self_block.data[i] =
+                                        self_block.data[i].bitor(other_block.data[i]);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 // TODO: maybe we don't need store (x,y) inside a tile/block.
+#[derive(Debug)]
 pub struct Tile {
     x: u16,
     y: u16,
@@ -255,6 +279,7 @@ impl Tile {
     }
 }
 
+#[derive(Debug)]
 pub struct Block {
     x: u8,
     y: u8,
