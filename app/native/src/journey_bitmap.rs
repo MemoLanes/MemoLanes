@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use std::{collections::HashMap, ops::BitOr};
+use std::{collections::HashMap, ops::{BitOr, BitAnd, Not}, borrow::BorrowMut};
 
 use crate::{protos, utils};
 
@@ -179,6 +179,80 @@ impl JourneyBitmap {
             }
         }
     }
+
+    pub fn difference(&mut self,other_journey_bitmap: JourneyBitmap){
+        for (key_tile, other_tile) in other_journey_bitmap.tiles {
+            match self.tiles.get_mut(&key_tile) {
+                Some(self_tile) => {                
+                    for (key, other_block) in other_tile.blocks {
+                        match self_tile.blocks.get_mut(&key) {
+                            Some(self_block) => {
+                                for i in 0..other_block.data.len() {
+                                    self_block.data[i] =
+                                        self_block.data[i].bitand(other_block.data[i].not());
+                                }                                
+                                if Self::is_zero_data(self_block.data) {
+                                    self_tile.blocks.remove(&key);
+                                }
+                            }
+                            None=>{}
+                        }
+                    }
+                    if self_tile.blocks.is_empty() {
+                        self.tiles.remove(&key_tile);
+                    }
+                }
+                None => {}
+            }
+        }
+    }
+
+    fn is_zero_data(data:[u8;BITMAP_SIZE])->bool{
+        for d in data {
+            if d>0 {
+                return false
+            }
+        }
+        true
+    }
+
+    pub fn intersection(&mut self,other_journey_bitmap: JourneyBitmap){
+        let mut valid_tile_keys:Vec<(u16,u16)>=Vec::new();
+        let mut valid_block_keys:Vec<(u8,u8)>=Vec::new();
+
+        for (key_tile, other_tile) in other_journey_bitmap.tiles {
+            match self.tiles.get_mut(&key_tile) {
+                Some(self_tile) => {   
+                    valid_tile_keys.push(key_tile);   
+                    for (key, other_block) in other_tile.blocks {
+                        match self_tile.blocks.get_mut(&key) {
+                            Some(self_block) => {
+                                valid_block_keys.push(key);   
+                                println!("{:?}",self_block);
+                                println!("{:?}",other_block);
+
+                                for i in 0..other_block.data.len() {
+                                    println!("self_block: {:#010b}",self_block.data[i]);
+                                    println!("other_block: {:#010b}",other_block.data[i]);
+                                    self_block.data[i] =
+                                        self_block.data[i].bitand(other_block.data[i]);
+
+                                    println!("after_and: {:#010b}",self_block.data[i]);
+                                }                                
+                            }
+                            None=>{}
+                        }
+                    }
+                    self_tile.blocks.retain(|key,_|valid_block_keys.contains(key));  
+                    valid_block_keys.clear(); 
+                    println!("{:?}",self_tile.blocks.len());                                 
+                }
+                None => {}
+            }
+        }
+       self.tiles.retain(|key,_|valid_tile_keys.contains(key));
+    }    
+
 }
 
 // TODO: maybe we don't need store (x,y) inside a tile/block.

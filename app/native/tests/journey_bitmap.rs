@@ -1,4 +1,4 @@
-use native::{journey_bitmap::JourneyBitmap, map_renderer::MapRenderer};
+use native::{journey_bitmap::JourneyBitmap, map_renderer::{MapRenderer, RenderResult}};
 mod test_utils;
 
 #[test]
@@ -51,5 +51,59 @@ fn merge() {
         &render_result.data.0,
         "journey_bitmap_merge",
         "cd60e35e3fce1c113b10ca2635eacd658ff225be",
+    );
+}
+
+#[test]
+fn difference(){
+    let start_lng = 151.1435370795134;
+    let start_lat = -33.793291910360125;
+    let end_lng = 151.2783692841415;
+    let end_lat = -33.943600147192235;
+
+    let mut journey_bitmap:JourneyBitmap=JourneyBitmap::new();
+    journey_bitmap.add_line(start_lng, start_lat, end_lng, end_lat);
+
+    let mut other_jb:JourneyBitmap=JourneyBitmap::new();
+    other_jb.add_line(start_lng, end_lat, end_lng, start_lat);
+
+    journey_bitmap.difference(other_jb);
+
+    let mut map_renderer:MapRenderer = MapRenderer::new(journey_bitmap);
+
+    let render_result = map_renderer
+        .maybe_render_map_overlay(12.0, start_lng, start_lat, end_lng, end_lat)
+        .unwrap();
+    test_utils::assert_image(
+        &render_result.data.0,
+        "journey_bitmap_difference",
+        "1371a1b757bf3cbf7ac973e26eb7685917a7942d",
+    );
+}
+
+#[test]
+fn intersection(){
+    let start_lng = 151.1435370795134;
+    let start_lat = -33.793291910360125;
+    let end_lng = 151.2783692841415;
+    let end_lat = -33.943600147192235;
+
+    let mut journey_bitmap:JourneyBitmap=JourneyBitmap::new();
+    journey_bitmap.add_line(start_lng, start_lat, end_lng, end_lat);
+
+    let mut other_jb:JourneyBitmap=JourneyBitmap::new();
+    other_jb.add_line(start_lng, end_lat, end_lng, start_lat);
+
+    journey_bitmap.intersection(other_jb);
+
+    let mut map_renderer:MapRenderer = MapRenderer::new(journey_bitmap);
+
+    let render_result = map_renderer
+        .maybe_render_map_overlay(12.0, start_lng, start_lat, end_lng, end_lat)
+        .unwrap();
+    test_utils::assert_image(
+        &render_result.data.0,
+        "journey_bitmap_intersection",
+        "1371a1b757bf3cbf7ac973e26eb7685917a7942d",
     );
 }
