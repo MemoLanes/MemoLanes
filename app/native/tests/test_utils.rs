@@ -45,6 +45,7 @@ pub fn assert_image(
     ))
     .unwrap();
     f.write_all(data).unwrap();
+    drop(f);
 
     // capture image changes
     let mut hasher = Sha1::new();
