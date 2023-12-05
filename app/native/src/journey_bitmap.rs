@@ -195,7 +195,7 @@ impl JourneyBitmap {
                                     self_block.data[i] =
                                         self_block.data[i].bitand(other_block.data[i].not());
                                 }
-                                if Self::is_zero_data(self_block.data) {
+                                if self_block.is_empty() {
                                     self_tile.blocks.remove(&key);
                                 }
                             }
@@ -211,52 +211,26 @@ impl JourneyBitmap {
         }
     }
 
-    fn is_zero_data(data: [u8; BITMAP_SIZE]) -> bool {
-        for d in data {
-            if d > 0 {
-                return false;
-            }
-        }
-        true
-    }
-
     pub fn intersection(&mut self, other_journey_bitmap: JourneyBitmap) {
-        let mut valid_tile_keys: Vec<(u16, u16)> = Vec::new();
-        let mut valid_block_keys: Vec<(u8, u8)> = Vec::new();
-
-        for (key_tile, other_tile) in other_journey_bitmap.tiles {
-            match self.tiles.get_mut(&key_tile) {
-                Some(self_tile) => {
-                    valid_tile_keys.push(key_tile);
-                    for (key, other_block) in other_tile.blocks {
-                        match self_tile.blocks.get_mut(&key) {
-                            Some(self_block) => {
-                                valid_block_keys.push(key);
-                                println!("{:?}", self_block);
-                                println!("{:?}", other_block);
-
+        self.tiles.retain(
+            |tile_key, tile| match other_journey_bitmap.tiles.get(tile_key) {
+                None => false,
+                Some(other_tile) => {
+                    tile.blocks
+                        .retain(|block_key, block| match other_tile.blocks.get(block_key) {
+                            None => false,
+                            Some(other_block) => {
                                 for i in 0..other_block.data.len() {
-                                    println!("self_block: {:#010b}", self_block.data[i]);
-                                    println!("other_block: {:#010b}", other_block.data[i]);
-                                    self_block.data[i] =
-                                        self_block.data[i].bitand(other_block.data[i]);
-
-                                    println!("after_and: {:#010b}", self_block.data[i]);
+                                    block.data[i] =
+                                        block.data[i].bitand(other_block.data[i]);
                                 }
+                                !block.is_empty()
                             }
-                            None => {}
-                        }
-                    }
-                    self_tile
-                        .blocks
-                        .retain(|key, _| valid_block_keys.contains(key));
-                    valid_block_keys.clear();
-                    println!("{:?}", self_tile.blocks.len());
+                        });
+                    !tile.blocks.is_empty()
                 }
-                None => {}
-            }
-        }
-        self.tiles.retain(|key, _| valid_tile_keys.contains(key));
+            },
+        );
     }
 }
 
@@ -376,6 +350,15 @@ impl Block {
 
     pub fn new_with_data(x: u8, y: u8, data: [u8; BITMAP_SIZE]) -> Self {
         Self { x, y, data }
+    }
+
+    fn is_empty(&self) -> bool {
+        for i in self.data {
+            if i != 0 {
+                return false;
+            }
+        }
+        return true;
     }
 
     pub fn is_visited(&self, x: u8, y: u8) -> bool {
