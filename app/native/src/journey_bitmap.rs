@@ -1,5 +1,8 @@
 use itertools::Itertools;
-use std::{collections::HashMap, ops::BitOr};
+use std::{
+    collections::HashMap,
+    ops::{BitAnd, BitOr, Not},
+};
 
 use crate::{protos, utils};
 
@@ -14,7 +17,7 @@ const ALL_OFFSET: i16 = TILE_WIDTH_OFFSET + BITMAP_WIDTH_OFFSET;
 
 // we have 512*512 tiles, 128*128 blocks and a single block contains
 // a 64*64 bitmap.
-#[derive(Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct JourneyBitmap {
     pub tiles: HashMap<(u16, u16), Tile>,
 }
@@ -179,10 +182,52 @@ impl JourneyBitmap {
             }
         }
     }
+
+    pub fn difference(&mut self, other_journey_bitmap: JourneyBitmap) {
+        for (tile_key, other_tile) in other_journey_bitmap.tiles {
+            if let Some(tile) = self.tiles.get_mut(&tile_key) {
+                for (block_key, other_block) in other_tile.blocks {
+                    if let Some(block) = tile.blocks.get_mut(&block_key) {
+                        for i in 0..other_block.data.len() {
+                            block.data[i] = block.data[i].bitand(other_block.data[i].not());
+                        }
+                        if block.is_empty() {
+                            tile.blocks.remove(&block_key);
+                        }
+                    }
+                }
+
+                if tile.blocks.is_empty() {
+                    self.tiles.remove(&tile_key);
+                }
+            }
+        }
+    }
+
+    pub fn intersection(&mut self, other_journey_bitmap: JourneyBitmap) {
+        self.tiles.retain(
+            |tile_key, tile| match other_journey_bitmap.tiles.get(tile_key) {
+                None => false,
+                Some(other_tile) => {
+                    tile.blocks
+                        .retain(|block_key, block| match other_tile.blocks.get(block_key) {
+                            None => false,
+                            Some(other_block) => {
+                                for i in 0..other_block.data.len() {
+                                    block.data[i] = block.data[i].bitand(other_block.data[i]);
+                                }
+                                !block.is_empty()
+                            }
+                        });
+                    !tile.blocks.is_empty()
+                }
+            },
+        );
+    }
 }
 
 // TODO: maybe we don't need store (x,y) inside a tile/block.
-#[derive(Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct Tile {
     x: u16,
     y: u16,
@@ -279,7 +324,7 @@ impl Tile {
     }
 }
 
-#[derive(Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct Block {
     x: u8,
     y: u8,
@@ -297,6 +342,15 @@ impl Block {
 
     pub fn new_with_data(x: u8, y: u8, data: [u8; BITMAP_SIZE]) -> Self {
         Self { x, y, data }
+    }
+
+    fn is_empty(&self) -> bool {
+        for i in self.data {
+            if i != 0 {
+                return false;
+            }
+        }
+        true
     }
 
     pub fn is_visited(&self, x: u8, y: u8) -> bool {
