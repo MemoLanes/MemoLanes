@@ -184,9 +184,9 @@ impl JourneyBitmap {
     }
 
     pub fn difference(&mut self, other_journey_bitmap: JourneyBitmap) {
-        for (key_tile, other_tile) in other_journey_bitmap.tiles {            
+        for (key_tile, other_tile) in other_journey_bitmap.tiles {
             if let Some(self_tile) = self.tiles.get_mut(&key_tile) {
-                for (key, other_block) in other_tile.blocks {                    
+                for (key, other_block) in other_tile.blocks {
                     if let Some(self_block) = self_tile.blocks.get_mut(&key) {
                         for i in 0..other_block.data.len() {
                             self_block.data[i] =
@@ -195,13 +195,13 @@ impl JourneyBitmap {
                         if self_block.is_empty() {
                             self_tile.blocks.remove(&key);
                         }
-                    }                    
+                    }
                 }
 
                 if self_tile.blocks.is_empty() {
                     self.tiles.remove(&key_tile);
                 }
-            }            
+            }
         }
     }
 
