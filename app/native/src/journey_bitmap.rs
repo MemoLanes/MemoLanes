@@ -189,8 +189,7 @@ impl JourneyBitmap {
                 for (block_key, other_block) in other_tile.blocks {
                     if let Some(block) = tile.blocks.get_mut(&block_key) {
                         for i in 0..other_block.data.len() {
-                            block.data[i] =
-                                block.data[i].bitand(other_block.data[i].not());
+                            block.data[i] = block.data[i].bitand(other_block.data[i].not());
                         }
                         if block.is_empty() {
                             tile.blocks.remove(&block_key);
