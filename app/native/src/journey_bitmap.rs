@@ -1,6 +1,5 @@
 use itertools::Itertools;
 use std::{
-    borrow::BorrowMut,
     collections::HashMap,
     ops::{BitAnd, BitOr, Not},
 };
@@ -186,27 +185,22 @@ impl JourneyBitmap {
 
     pub fn difference(&mut self, other_journey_bitmap: JourneyBitmap) {
         for (tile_key, other_tile) in other_journey_bitmap.tiles {
-            match self.tiles.get_mut(&tile_key) {
-                Some(tile) => {
-                    for (block_key, other_block) in other_tile.blocks {
-                        match tile.blocks.get_mut(&block_key) {
-                            Some(block) => {
-                                for i in 0..other_block.data.len() {
-                                    block.data[i] =
-                                        block.data[i].bitand(other_block.data[i].not());
-                                }
-                                if block.is_empty() {
-                                    tile.blocks.remove(&block_key);
-                                }
-                            }
-                            None => {}
+            if let Some(tile) = self.tiles.get_mut(&tile_key) {
+                for (block_key, other_block) in other_tile.blocks {
+                    if let Some(block) = tile.blocks.get_mut(&block_key) {
+                        for i in 0..other_block.data.len() {
+                            block.data[i] =
+                                block.data[i].bitand(other_block.data[i].not());
+                        }
+                        if block.is_empty() {
+                            tile.blocks.remove(&block_key);
                         }
                     }
-                    if tile.blocks.is_empty() {
-                        self.tiles.remove(&tile_key);
-                    }
                 }
-                None => {}
+
+                if tile.blocks.is_empty() {
+                    self.tiles.remove(&tile_key);
+                }
             }
         }
     }
@@ -221,8 +215,7 @@ impl JourneyBitmap {
                             None => false,
                             Some(other_block) => {
                                 for i in 0..other_block.data.len() {
-                                    block.data[i] =
-                                        block.data[i].bitand(other_block.data[i]);
+                                    block.data[i] = block.data[i].bitand(other_block.data[i]);
                                 }
                                 !block.is_empty()
                             }
@@ -358,7 +351,7 @@ impl Block {
                 return false;
             }
         }
-        return true;
+        true
     }
 
     pub fn is_visited(&self, x: u8, y: u8) -> bool {
