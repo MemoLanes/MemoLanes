@@ -221,8 +221,7 @@ impl JourneyBitmap {
                             None => false,
                             Some(other_block) => {
                                 for i in 0..other_block.data.len() {
-                                    block.data[i] =
-                                        block.data[i].bitand(other_block.data[i]);
+                                    block.data[i] = block.data[i].bitand(other_block.data[i]);
                                 }
                                 !block.is_empty()
                             }
