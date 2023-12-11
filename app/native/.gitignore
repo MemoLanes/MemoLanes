@@ -14,5 +14,3 @@ target/
 *.pdb
 
 # End of https://www.toptal.com/developers/gitignore/api/rust
-
-.lh/
