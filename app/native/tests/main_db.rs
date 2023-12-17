@@ -1,6 +1,7 @@
+pub mod test_utils;
+
 use native::{gps_processor, journey_data::JourneyData, main_db, main_db::MainDb};
 use tempdir::TempDir;
-mod test_utils;
 
 #[test]
 fn basic() {

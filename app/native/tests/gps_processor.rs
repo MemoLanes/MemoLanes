@@ -1,6 +1,7 @@
+pub mod test_utils;
+
 use native::gps_processor::{GpsProcessor, ProcessResult, RawData};
 use std::collections::HashMap;
-mod test_utils;
 
 #[test]
 fn first_data() {
