@@ -320,7 +320,8 @@ impl MainDb {
     pub fn get_journey(&mut self, id: &str) -> Result<JourneyData> {
         let tx = self.conn.transaction()?;
         let mut query = tx.prepare("SELECT type, data FROM journey WHERE id = ?1;")?;
-        let result = query.query_row([id], |row| {
+        
+        query.query_row([id], |row| {
             let type_ = row.get_ref(0)?.as_i64()?;
             let f = || {
                 let journey_type = JourneyType::of_int(i8::try_from(type_)?)?;
@@ -328,8 +329,7 @@ impl MainDb {
                 JourneyData::deserialize(data, journey_type)
             };
             Ok(f())
-        })?;
-        result
+        })?
     }
 
     fn get_setting<T: FromStr>(&mut self, setting: Setting) -> Result<Option<T>>
