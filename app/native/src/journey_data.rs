@@ -56,7 +56,7 @@ pub fn deserialize_journey_vector<T: Read>(mut reader: T) -> Result<JourneyVecto
     }
 
     // data is compressed as a whole
-    let mut decoder = zstd::stream::read::Decoder::new(reader)?;
+    let mut decoder = zstd::Decoder::new(reader)?;
     let segments_count: u64 = decoder.read_varint()?;
     let mut track_segments = Vec::with_capacity(segments_count as usize);
     for _ in 0..segments_count {
