@@ -103,6 +103,8 @@ pub fn serialize_journey_bitmap<T: Write>(
     for (x, y) in journey_bitmap.tiles.keys().sorted() {
         let tile = journey_bitmap.tiles.get(&(*x, *y)).unwrap();
         let serialized_tile = serialize_tile(tile)?;
+        writer.write_all(&x.to_be_bytes())?;
+        writer.write_all(&y.to_be_bytes())?;
         // Also write down the size of the tile so we could load the bitmap
         // without eagerly deserialize all tiles.
         writer.write_all(&(serialized_tile.len() as u64).encode_var_vec())?;
