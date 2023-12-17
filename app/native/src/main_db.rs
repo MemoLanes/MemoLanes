@@ -7,10 +7,10 @@ use std::cmp::Ordering;
 use std::error::Error;
 use std::path::Path;
 use std::str::FromStr;
-use strum_macros::EnumIter;
 use uuid::Uuid;
 
 use crate::gps_processor::{self, ProcessResult};
+use crate::journey_data::JourneyType;
 use crate::protos;
 
 /* The main database, we are likely to store a lot of protobuf bytes in it,
@@ -29,43 +29,6 @@ deserialize the header.
 
 // 3 is the zstd default
 pub const ZSTD_COMPRESS_LEVEL: i32 = 3;
-
-#[derive(Copy, Clone, Debug, EnumIter, PartialEq, Eq, Hash)]
-#[repr(i8)]
-pub enum JourneyType {
-    Track = 0,
-    Bitmap = 1,
-}
-
-impl JourneyType {
-    pub fn to_int(&self) -> i8 {
-        *self as i8
-    }
-
-    pub fn of_int(i: i8) -> Result<Self> {
-        match i {
-            0 => Ok(JourneyType::Track),
-            1 => Ok(JourneyType::Bitmap),
-            _ => bail!("Invalid int for `JourneyType` {}", i),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::JourneyType;
-    use strum::IntoEnumIterator;
-
-    #[test]
-    fn int_conversion() {
-        for type_ in JourneyType::iter() {
-            assert_eq!(
-                type_,
-                JourneyType::of_int(JourneyType::to_int(&type_)).unwrap()
-            )
-        }
-    }
-}
 
 #[derive(Clone)]
 pub enum JourneyKind {
@@ -381,7 +344,7 @@ impl MainDb {
                     (
                         &header.id,
                         end_timestamp_sec,
-                        JourneyType::Track.to_int(),
+                        JourneyType::Vector.to_int(),
                         header_bytes,
                         data_zstd_bytes,
                     ),

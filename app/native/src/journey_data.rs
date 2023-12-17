@@ -1,4 +1,5 @@
 use std::io::{Read, Write};
+use strum_macros::EnumIter;
 
 use anyhow::Result;
 use integer_encoding::*;
@@ -7,6 +8,43 @@ use crate::{
     journey_bitmap::JourneyBitmap,
     journey_vector::{JourneyVector, TrackPoint, TrackSegment},
 };
+
+#[derive(Copy, Clone, Debug, EnumIter, PartialEq, Eq, Hash)]
+#[repr(i8)]
+pub enum JourneyType {
+    Vector = 0,
+    Bitmap = 1,
+}
+
+impl JourneyType {
+    pub fn to_int(&self) -> i8 {
+        *self as i8
+    }
+
+    pub fn of_int(i: i8) -> Result<Self> {
+        match i {
+            0 => Ok(JourneyType::Vector),
+            1 => Ok(JourneyType::Bitmap),
+            _ => bail!("Invalid int for `JourneyType` {}", i),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::JourneyType;
+    use strum::IntoEnumIterator;
+
+    #[test]
+    fn int_conversion() {
+        for type_ in JourneyType::iter() {
+            assert_eq!(
+                type_,
+                JourneyType::of_int(JourneyType::to_int(&type_)).unwrap()
+            )
+        }
+    }
+}
 
 pub enum JourneyData {
     Vector(JourneyVector),
@@ -77,7 +115,27 @@ pub fn deserialize_journey_vector<T: Read>(mut reader: T) -> Result<JourneyVecto
 }
 
 impl JourneyData {
-    pub fn serialize() {}
+    pub fn serialize<T: Write>(journey_data: &JourneyData, writer: T) -> Result<()> {
+        match journey_data {
+            JourneyData::Vector(vector) => {
+                serialize_journey_vector(vector, writer)?;
+            }
+            JourneyData::Bitmap(_bitmap) => {
+                panic!("TODO")
+            }
+        };
+        Ok(())
+    }
 
-    pub fn deserialize() {}
+    pub fn deserialize<T: Read>(reader: T, journey_type: JourneyType) -> Result<JourneyData> {
+        match journey_type {
+            JourneyType::Vector => {
+                let vector = deserialize_journey_vector(reader)?;
+                Ok(JourneyData::Vector(vector))
+            }
+            JourneyType::Bitmap => {
+                panic!("TODO")
+            }
+        }
+    }
 }

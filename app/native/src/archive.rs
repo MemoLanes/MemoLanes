@@ -12,11 +12,11 @@ use protos::archive::Metadata;
 use sha1::{Digest, Sha1};
 
 use crate::{
-    main_db::{JourneyType, MainDb},
+    main_db::MainDb,
     protos::{
         self,
         archive::{metadata, section_header::journey_info, SectionDataEntry, SectionHeader},
-    },
+    }, journey_data::JourneyType,
 };
 
 /* The persistent exchange data format for finalized journeys.
@@ -166,7 +166,7 @@ pub fn archive_all_as_zip<T: Write + Seek>(main_db: &mut MainDb, writer: &mut T)
             let mut journey_info = protos::archive::section_header::JourneyInfo::new();
             journey_info.type_ = EnumOrUnknown::new(match j.journey_type {
                 JourneyType::Bitmap => journey_info::Type::BITMAP,
-                JourneyType::Track => journey_info::Type::TRACK,
+                JourneyType::Vector => journey_info::Type::TRACK,
             });
             // TODO: we could avoid this `clone`
             journey_info.header.0 = Some(Box::new(j.clone().to_proto()));
