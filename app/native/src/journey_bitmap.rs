@@ -284,7 +284,7 @@ impl Tile {
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct Block {
-    data: [u8; BITMAP_SIZE],
+    pub data: [u8; BITMAP_SIZE],
 }
 
 impl Block {
