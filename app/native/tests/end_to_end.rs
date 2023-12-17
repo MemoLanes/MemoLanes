@@ -1,7 +1,8 @@
+pub mod test_utils;
+
 use std::fs;
 
 use native::api;
-mod test_utils;
 use tempdir::TempDir;
 
 #[test]

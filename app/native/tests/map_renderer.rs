@@ -1,5 +1,6 @@
+pub mod test_utils;
+
 use native::{journey_bitmap::JourneyBitmap, map_renderer::*};
-mod test_utils;
 
 #[test]
 fn basic() {
