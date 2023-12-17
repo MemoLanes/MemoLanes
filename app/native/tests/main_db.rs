@@ -1,4 +1,4 @@
-use native::{gps_processor, main_db, main_db::MainDb};
+use native::{gps_processor, journey_data::JourneyData, main_db, main_db::MainDb};
 use protobuf::Message;
 use tempdir::TempDir;
 mod test_utils;
@@ -28,25 +28,30 @@ fn basic() {
     let journeys = main_db.list_all_journeys().unwrap();
     assert_eq!(journeys.len(), 1);
     let journey_id = &journeys[0].id;
-    let journey = main_db.get_journey(journey_id).unwrap();
-    let num_of_gpx_data = journey.track().track_segmants[0].track_points.len();
+    let journey_data = main_db.get_journey(journey_id).unwrap();
+    let journey_vector = match journey_data {
+        JourneyData::Vector(vector) => vector,
+        JourneyData::Bitmap(_) => panic!("invalid"),
+    };
+    let num_of_gpx_data = journey_vector.track_segments[0].track_points.len();
     assert_eq!(num_of_gpx_data_in_input, num_of_gpx_data);
 
-    // benefit from zstd
-    let data_bytes = journey.write_to_bytes().unwrap();
-    let compressed_data_bytes =
-        zstd::encode_all(data_bytes.as_slice(), main_db::ZSTD_COMPRESS_LEVEL).unwrap();
-    let real_size = data_bytes.len();
-    let compressed_size = compressed_data_bytes.len();
-    println!(
-        "real size: {:.4}MB, compressed size: {:.4}MB",
-        real_size as f64 / 1024. / 1024.,
-        compressed_size as f64 / 1024. / 1024.
-    );
-    println!(
-        "compression rate: {:.2}",
-        compressed_size as f64 / real_size as f64
-    );
+    // TODO:XXX
+    // // benefit from zstd
+    // let data_bytes = journey.write_to_bytes().unwrap();
+    // let compressed_data_bytes =
+    //     zstd::encode_all(data_bytes.as_slice(), main_db::ZSTD_COMPRESS_LEVEL).unwrap();
+    // let real_size = data_bytes.len();
+    // let compressed_size = compressed_data_bytes.len();
+    // println!(
+    //     "real size: {:.4}MB, compressed size: {:.4}MB",
+    //     real_size as f64 / 1024. / 1024.,
+    //     compressed_size as f64 / 1024. / 1024.
+    // );
+    // println!(
+    //     "compression rate: {:.2}",
+    //     compressed_size as f64 / real_size as f64
+    // );
 
     // without any more gpx data, should be no-op
     main_db.finalize_ongoing_journey().unwrap();

@@ -12,11 +12,12 @@ use protos::archive::Metadata;
 use sha1::{Digest, Sha1};
 
 use crate::{
+    journey_data::JourneyType,
     main_db::MainDb,
     protos::{
         self,
         archive::{metadata, section_header::journey_info, SectionDataEntry, SectionHeader},
-    }, journey_data::JourneyType,
+    },
 };
 
 /* The persistent exchange data format for finalized journeys.
@@ -183,9 +184,10 @@ pub fn archive_all_as_zip<T: Write + Seek>(main_db: &mut MainDb, writer: &mut T)
 
         // write data entries
         for j in journeys {
-            let journey_data = main_db.get_journey(&j.id)?;
-            let mut data_entry = SectionDataEntry::new();
-            data_entry.data.0 = Some(Box::new(journey_data));
+            // TODO: this need to be rewritten
+            let _journey_data = main_db.get_journey(&j.id)?;
+            let data_entry = SectionDataEntry::new();
+            // data_entry.data.0 = Some(Box::new(journey_data));
 
             write_proto_as_compressed_block(&mut zip, data_entry)?;
         }
