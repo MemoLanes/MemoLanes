@@ -25,5 +25,5 @@ message Metadata {
 
 message SectionHeader {
     string section_id = 1;
-    repeated journey.Header journey_header = 2;
+    repeated journey.Header journey_headers = 2;
 }

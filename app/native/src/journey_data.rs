@@ -76,8 +76,8 @@ pub fn deserialize_journey_vector<T: Read>(mut reader: T) -> Result<JourneyVecto
 }
 
 impl JourneyData {
-    pub fn serialize<T: Write>(journey_data: &JourneyData, writer: T) -> Result<()> {
-        match journey_data {
+    pub fn serialize<T: Write>(&self, writer: T) -> Result<()> {
+        match self {
             JourneyData::Vector(vector) => {
                 serialize_journey_vector(vector, writer)?;
             }
