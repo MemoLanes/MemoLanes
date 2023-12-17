@@ -1,4 +1,5 @@
-mod test_utils;
+pub mod test_utils;
+
 use native::{archive, gps_processor, main_db::MainDb};
 use std::fs::File;
 use tempdir::TempDir;
