@@ -16,14 +16,17 @@ implemented here.
 // history, we could clear some but not all cache, and re-construct these
 //  outdated ones reasonably quickly.
 
-use crate::{journey_bitmap::JourneyBitmap, main_db::MainDb, protos::journey::data::TrackSegmant};
+use crate::{
+    journey_bitmap::JourneyBitmap, journey_data::JourneyData, journey_vector::JourneyVector,
+    main_db::MainDb,
+};
 use anyhow::Result;
 
-fn add_track_segmants_to_journey_bitmap(
+fn add_journey_vector_to_journey_bitmap(
     journey_bitmap: &mut JourneyBitmap,
-    track_segmants: &Vec<TrackSegmant>,
+    journey_vector: &JourneyVector,
 ) {
-    for track_segmant in track_segmants {
+    for track_segmant in &journey_vector.track_segments {
         for (i, point) in track_segmant.track_points.iter().enumerate() {
             let prev_idx = if i >= 1 { i - 1 } else { 0 };
             let prev = &track_segmant.track_points[prev_idx];
@@ -41,23 +44,23 @@ pub fn get_latest_including_ongoing(main_db: &mut MainDb) -> Result<JourneyBitma
     let mut journey_bitmap = JourneyBitmap::new();
 
     // finalized journeys
-    for journey_info in main_db.list_all_journeys()? {
-        let journey = main_db.get_journey(&journey_info.id)?;
-        if journey.has_bitmap() {
-            panic!("unimplemented");
-        } else if journey.has_track() {
-            add_track_segmants_to_journey_bitmap(
-                &mut journey_bitmap,
-                &journey.track().track_segmants,
-            );
+    for journey_header in main_db.list_all_journeys()? {
+        let journey_data = main_db.get_journey(&journey_header.id)?;
+        match journey_data {
+            JourneyData::Bitmap(_bitmap) => {
+                panic!("unimplemented");
+            }
+            JourneyData::Vector(vector) => {
+                add_journey_vector_to_journey_bitmap(&mut journey_bitmap, &vector);
+            }
         }
     }
 
     // ongoing journey
     match main_db.get_ongoing_journey()? {
         None => (),
-        Some((_, _, track_segmants)) => {
-            add_track_segmants_to_journey_bitmap(&mut journey_bitmap, &track_segmants);
+        Some((_, _, journey_vector)) => {
+            add_journey_vector_to_journey_bitmap(&mut journey_bitmap, &journey_vector);
         }
     }
 

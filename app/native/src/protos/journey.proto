@@ -15,49 +15,18 @@ message Header {
     }
   }
 
+  enum Type {
+    Vector = 0;
+    BITMAP = 1;
+  }
+
   string id = 1;
   string revision = 2;
   int64 created_at_timestamp_sec = 3;
   optional int64 updated_at_timestamp_sec = 4;
   int64 end_timestamp_sec = 5;
   optional int64 start_timestamp_sec = 6;
-  Kind kind = 7;
-  optional string note = 8;
-}
-
-message Data {
-  message TrackPoint {
-    double latitude = 1;
-    double longitude = 2;
-  }
-
-  message TrackSegmant {
-    repeated TrackPoint track_points = 1;
-  }
-
-  message Track {
-    repeated TrackSegmant track_segmants = 1;
-  }
-
-  message Block {
-    uint32 x = 1;
-    uint32 y = 2;
-    bytes data = 3;
-  }
-
-  message Tile {
-    uint32 x = 1;
-    uint32 y = 2;
-    repeated Block blocks = 3;
-  }
-
-  // TODO: we need to make sure `Bitmap` is not too big for protobuf.
-  message Bitmap {
-    repeated Tile tiles = 1;
-  }
-
-  oneof Data {
-    Track track = 1;
-    Bitmap bitmap = 2;
-  }
+  Type type = 7;
+  Kind kind = 8;
+  optional string note = 9;
 }

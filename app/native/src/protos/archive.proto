@@ -24,19 +24,6 @@ message Metadata {
 }
 
 message SectionHeader {
-    message JourneyInfo {
-        enum Type {
-            TRACK = 0;
-            BITMAP = 1;
-        }
-        journey.Header header = 1;
-        Type type = 2;
-    }
-
     string section_id = 1;
-    repeated JourneyInfo journey_info = 2;
-}
-
-message SectionDataEntry {
-    journey.Data data = 1;
+    repeated journey.Header journey_headers = 2;
 }

@@ -1,10 +1,9 @@
-use itertools::Itertools;
 use std::{
     collections::HashMap,
     ops::{BitAnd, BitOr, Not},
 };
 
-use crate::{protos, utils};
+use crate::utils;
 
 pub const TILE_WIDTH_OFFSET: i16 = 7;
 const MAP_WIDTH_OFFSET: i16 = 9;
@@ -27,40 +26,6 @@ impl JourneyBitmap {
         Self {
             tiles: HashMap::new(),
         }
-    }
-
-    pub fn to_proto(&self) -> protos::journey::data::Bitmap {
-        let mut proto = protos::journey::data::Bitmap::new();
-        for (tile_coord, tile) in self.tiles.iter().sorted_by_key(|x| x.0) {
-            let mut tile_proto = protos::journey::data::Tile::new();
-            tile_proto.x = tile_coord.0 as u32;
-            tile_proto.y = tile_coord.1 as u32;
-            for (block_coord, block) in tile.blocks.iter().sorted_by_key(|x| x.0) {
-                let mut block_proto = protos::journey::data::Block::new();
-                block_proto.x = block_coord.0 as u32;
-                block_proto.y = block_coord.1 as u32;
-                block_proto.data = block.data.to_vec();
-                tile_proto.blocks.push(block_proto);
-            }
-            proto.tiles.push(tile_proto);
-        }
-        proto
-    }
-
-    pub fn of_proto(proto: protos::journey::data::Bitmap) -> Self {
-        // TODO: reduce the amount of copy and allocation?
-        let mut t = JourneyBitmap::new();
-        for tile_proto in proto.tiles {
-            let mut tile = Tile::new();
-            for block_proto in tile_proto.blocks {
-                let block = Block::new_with_data(block_proto.data.try_into().unwrap());
-                tile.blocks
-                    .insert((block_proto.x as u8, block_proto.y as u8), block);
-            }
-            t.tiles
-                .insert((tile_proto.x as u16, tile_proto.y as u16), tile);
-        }
-        t
     }
 
     // NOTE: `add_line` is cherry picked from: https://github.com/tavimori/fogcore/blob/d0888508e25652164742db8e7d879e651b6607d7/src/fogmaps.rs

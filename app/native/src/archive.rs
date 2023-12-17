@@ -1,22 +1,19 @@
+use anyhow::Result;
+use chrono::{Datelike, Utc};
+use hex::ToHex;
+use integer_encoding::*;
+use protobuf::EnumOrUnknown;
+use sha1::{Digest, Sha1};
 use std::{
     cmp::Ordering,
     collections::HashMap,
     io::{Seek, Write},
 };
 
-use anyhow::Result;
-use chrono::{Datelike, Utc};
-use hex::ToHex;
-use protobuf::EnumOrUnknown;
-use protos::archive::Metadata;
-use sha1::{Digest, Sha1};
-
 use crate::{
-    main_db::{JourneyType, MainDb},
-    protos::{
-        self,
-        archive::{metadata, section_header::journey_info, SectionDataEntry, SectionHeader},
-    },
+    journey_data,
+    main_db::MainDb,
+    protos::archive::{metadata, Metadata, SectionHeader},
 };
 
 /* The persistent exchange data format for finalized journeys.
@@ -68,21 +65,20 @@ mod tests {
     }
 }
 
+fn write_bytes_with_size_header<T: Write>(writer: &mut T, buf: &[u8]) -> Result<()> {
+    writer.write_all(&(buf.len() as u64).encode_var_vec())?;
+    writer.write_all(buf)?;
+    Ok(())
+}
+
 fn write_proto_as_compressed_block<W: Write, M: protobuf::Message>(
     writer: &mut W,
     message: M,
 ) -> Result<()> {
-    // TODO: maybe we want a higher one for archive
-    // 3 is the zstd default
-    const ZSTD_COMPRESS_LEVEL: i32 = 3;
-
     // TODO: use streaming to avoid one extra allocation
     let buf = message.write_to_bytes()?;
-    let buf = zstd::encode_all(buf.as_slice(), ZSTD_COMPRESS_LEVEL)?;
-
-    writer.write_all(&buf.len().to_be_bytes())?;
-    writer.write_all(&buf)?;
-    Ok(())
+    let buf = zstd::encode_all(buf.as_slice(), journey_data::ZSTD_COMPRESS_LEVEL)?;
+    write_bytes_with_size_header(writer, &buf)
 }
 
 pub fn archive_all_as_zip<T: Write + Seek>(main_db: &mut MainDb, writer: &mut T) -> Result<()> {
@@ -163,14 +159,7 @@ pub fn archive_all_as_zip<T: Write + Seek>(main_db: &mut MainDb, writer: &mut T)
         let mut section_header = SectionHeader::new();
         section_header.section_id = section_id.clone();
         for j in journeys {
-            let mut journey_info = protos::archive::section_header::JourneyInfo::new();
-            journey_info.type_ = EnumOrUnknown::new(match j.journey_type {
-                JourneyType::Bitmap => journey_info::Type::BITMAP,
-                JourneyType::Track => journey_info::Type::TRACK,
-            });
-            // TODO: we could avoid this `clone`
-            journey_info.header.0 = Some(Box::new(j.clone().to_proto()));
-            section_header.journey_info.push(journey_info);
+            section_header.journey_headers.push(j.clone().to_proto());
         }
 
         zip.start_file(section_id.clone(), default_options)?;
@@ -183,11 +172,12 @@ pub fn archive_all_as_zip<T: Write + Seek>(main_db: &mut MainDb, writer: &mut T)
 
         // write data entries
         for j in journeys {
+            // TODO: maybe we want to just take the bytes from db without doing
+            // a roundtrip.
             let journey_data = main_db.get_journey(&j.id)?;
-            let mut data_entry = SectionDataEntry::new();
-            data_entry.data.0 = Some(Box::new(journey_data));
-
-            write_proto_as_compressed_block(&mut zip, data_entry)?;
+            let mut buf = Vec::new();
+            journey_data.serialize(&mut buf)?;
+            write_bytes_with_size_header(&mut zip, &buf)?;
         }
     }
 

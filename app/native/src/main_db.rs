@@ -1,16 +1,18 @@
 extern crate simplelog;
 use anyhow::Result;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use protobuf::{Message, MessageField};
 use rusqlite::{Connection, OptionalExtension, Transaction};
 use std::cmp::Ordering;
 use std::error::Error;
 use std::path::Path;
 use std::str::FromStr;
-use strum_macros::EnumIter;
 use uuid::Uuid;
 
 use crate::gps_processor::{self, ProcessResult};
+use crate::journey_data::{self, JourneyData};
+use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
+use crate::journey_vector::{JourneyVector, TrackPoint, TrackSegment};
 use crate::protos;
 
 /* The main database, we are likely to store a lot of protobuf bytes in it,
@@ -29,125 +31,6 @@ deserialize the header.
 
 // 3 is the zstd default
 pub const ZSTD_COMPRESS_LEVEL: i32 = 3;
-
-#[derive(Copy, Clone, Debug, EnumIter, PartialEq, Eq, Hash)]
-#[repr(i8)]
-pub enum JourneyType {
-    Track = 0,
-    Bitmap = 1,
-}
-
-impl JourneyType {
-    pub fn to_int(&self) -> i8 {
-        *self as i8
-    }
-
-    pub fn of_int(i: i8) -> Result<Self> {
-        match i {
-            0 => Ok(JourneyType::Track),
-            1 => Ok(JourneyType::Bitmap),
-            _ => bail!("Invalid int for `JourneyType` {}", i),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::JourneyType;
-    use strum::IntoEnumIterator;
-
-    #[test]
-    fn int_conversion() {
-        for type_ in JourneyType::iter() {
-            assert_eq!(
-                type_,
-                JourneyType::of_int(JourneyType::to_int(&type_)).unwrap()
-            )
-        }
-    }
-}
-
-#[derive(Clone)]
-pub enum JourneyKind {
-    Default,
-    Flight,
-    Custom(String),
-}
-
-impl JourneyKind {
-    pub fn to_proto(self) -> protos::journey::header::Kind {
-        use protos::journey::header::{kind, Kind};
-        let mut kind = Kind::new();
-        match self {
-            JourneyKind::Default => kind.set_build_in(kind::BuiltIn::DEFAULT),
-            JourneyKind::Flight => kind.set_build_in(kind::BuiltIn::FLIGHT),
-            JourneyKind::Custom(str) => kind.set_custom_kind(str),
-        };
-        kind
-    }
-
-    pub fn of_proto(mut proto: protos::journey::header::Kind) -> Self {
-        use protos::journey::header::kind;
-        if proto.has_build_in() {
-            match proto.build_in() {
-                kind::BuiltIn::DEFAULT => JourneyKind::Default,
-                kind::BuiltIn::FLIGHT => JourneyKind::Flight,
-            }
-        } else {
-            JourneyKind::Custom(proto.take_custom_kind())
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct JourneyInfo {
-    pub id: String,
-    pub revision: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: Option<DateTime<Utc>>,
-    pub end: DateTime<Utc>,
-    pub start: Option<DateTime<Utc>>,
-    pub journey_kind: JourneyKind,
-    pub note: Option<String>,
-    // `journey_type` is not from the header
-    pub journey_type: JourneyType,
-}
-
-impl JourneyInfo {
-    pub fn of_proto(mut proto: protos::journey::Header, journey_type: JourneyType) -> Result<Self> {
-        Ok(JourneyInfo {
-            id: proto.id,
-            revision: proto.revision,
-            created_at: DateTime::from_timestamp(proto.created_at_timestamp_sec, 0).unwrap(),
-            updated_at: proto
-                .updated_at_timestamp_sec
-                .and_then(|sec| DateTime::from_timestamp(sec, 0)),
-            end: DateTime::from_timestamp(proto.end_timestamp_sec, 0).unwrap(),
-            start: proto
-                .start_timestamp_sec
-                .and_then(|sec| DateTime::from_timestamp(sec, 0)),
-            journey_kind: JourneyKind::of_proto(match proto.kind.take() {
-                None => bail!("Missing `kind`"),
-                Some(kind) => kind,
-            }),
-            note: proto.note,
-            journey_type,
-        })
-    }
-
-    pub fn to_proto(self) -> protos::journey::Header {
-        let mut proto = protos::journey::Header::new();
-        proto.id = self.id;
-        proto.revision = self.revision;
-        proto.created_at_timestamp_sec = self.created_at.timestamp();
-        proto.updated_at_timestamp_sec = self.updated_at.map(|x| x.timestamp());
-        proto.end_timestamp_sec = self.end.timestamp();
-        proto.start_timestamp_sec = self.start.map(|x| x.timestamp());
-        proto.kind.0 = Some(Box::new(self.journey_kind.to_proto()));
-        proto.note = self.note;
-        proto
-    }
-}
 
 #[allow(clippy::type_complexity)]
 fn open_db_and_run_migration(
@@ -236,7 +119,7 @@ impl MainDb {
                     end_timestamp_sec INTEGER NOT NULL,
                     type              INTEGER NOT NULL,
                     header            BLOB    NOT NULL,
-                    data_zstd         BLOB    NOT NULL
+                    data              BLOB    NOT NULL
                 );
                 CREATE INDEX end_time_index ON journey (
                     end_timestamp_sec DESC
@@ -282,9 +165,7 @@ impl MainDb {
         Ok(())
     }
 
-    fn get_ongoing_journey_internal(
-        tx: &Transaction,
-    ) -> Result<Option<(i64, i64, Vec<protos::journey::data::TrackSegmant>)>> {
+    fn get_ongoing_journey_internal(tx: &Transaction) -> Result<Option<(i64, i64, JourneyVector)>> {
         // `id` in `ongoing_journey` is auto incremented.
         let mut query = tx.prepare(
             "SELECT timestamp_sec, lat, lng, process_result FROM ongoing_journey ORDER BY id;",
@@ -292,10 +173,14 @@ impl MainDb {
         let results = query.query_map((), |row| {
             let timestamp_sec: i64 = row.get(0)?;
             let process_result: i8 = row.get(3)?;
-            let mut track_point = protos::journey::data::TrackPoint::new();
-            track_point.latitude = row.get(1)?;
-            track_point.longitude = row.get(2)?;
-            Ok((timestamp_sec, track_point, process_result))
+            Ok((
+                timestamp_sec,
+                TrackPoint {
+                    latitude: row.get(1)?,
+                    longitude: row.get(2)?,
+                },
+                process_result,
+            ))
         })?;
 
         let mut segmants = Vec::new();
@@ -311,17 +196,17 @@ impl MainDb {
             }
             let need_break = process_result == ProcessResult::NewSegment.to_int();
             if need_break && !current_segment.is_empty() {
-                let mut track_segmant = protos::journey::data::TrackSegmant::new();
-                track_segmant.track_points = current_segment;
-                segmants.push(track_segmant);
+                segmants.push(TrackSegment {
+                    track_points: current_segment,
+                });
                 current_segment = Vec::new();
             }
             current_segment.push(track_point);
         }
         if !current_segment.is_empty() {
-            let mut track_segmant = protos::journey::data::TrackSegmant::new();
-            track_segmant.track_points = current_segment;
-            segmants.push(track_segmant);
+            segmants.push(TrackSegment {
+                track_points: current_segment,
+            });
         }
 
         if segmants.is_empty() {
@@ -330,13 +215,17 @@ impl MainDb {
             // must be `Some`
             let start_timestamp_sec = start_timestamp_sec.unwrap();
             let end_timestamp_sec = end_timestamp_sec.unwrap();
-            Ok(Some((start_timestamp_sec, end_timestamp_sec, segmants)))
+            Ok(Some((
+                start_timestamp_sec,
+                end_timestamp_sec,
+                JourneyVector {
+                    track_segments: segmants,
+                },
+            )))
         }
     }
 
-    pub fn get_ongoing_journey(
-        &mut self,
-    ) -> Result<Option<(i64, i64, Vec<protos::journey::data::TrackSegmant>)>> {
+    pub fn get_ongoing_journey(&mut self) -> Result<Option<(i64, i64, JourneyVector)>> {
         let tx = self.conn.transaction()?;
         Self::get_ongoing_journey_internal(&tx)
     }
@@ -346,7 +235,7 @@ impl MainDb {
 
         match Self::get_ongoing_journey_internal(&tx)? {
             None => (),
-            Some((start_timestamp_sec, end_timestamp_sec, segmants)) => {
+            Some((start_timestamp_sec, end_timestamp_sec, journey_vector)) => {
                 // create new journey
                 // TODO: consider using `JourneyInfo::to_proto`
                 let mut header = protos::journey::Header::new();
@@ -362,28 +251,23 @@ impl MainDb {
                 header.kind = MessageField::some(JourneyKind::Default.to_proto());
                 header.note = None;
 
-                let mut track = protos::journey::data::Track::new();
-                track.track_segmants = segmants;
-                let mut data = protos::journey::Data::new();
-                data.set_track(track);
-
                 // TODO: we could have some additional post-processing of the track.
                 // including path refinement + lossy compression.
 
                 let header_bytes = header.write_to_bytes()?;
                 // TODO: use stream api to save one allocation
-                let data_zstd_bytes =
-                    zstd::encode_all(data.write_to_bytes()?.as_slice(), ZSTD_COMPRESS_LEVEL)?;
+                let mut data = Vec::new();
+                journey_data::serialize_journey_vector(&journey_vector, &mut data)?;
 
-                let sql = "INSERT INTO journey (id, end_timestamp_sec, type, header, data_zstd) VALUES (?1, ?2, ?3, ?4, ?5);";
+                let sql = "INSERT INTO journey (id, end_timestamp_sec, type, header, data) VALUES (?1, ?2, ?3, ?4, ?5);";
                 tx.execute(
                     sql,
                     (
                         &header.id,
                         end_timestamp_sec,
-                        JourneyType::Track.to_int(),
+                        JourneyType::Vector.to_int(),
                         header_bytes,
-                        data_zstd_bytes,
+                        data,
                     ),
                 )?;
             }
@@ -409,7 +293,7 @@ impl MainDb {
         Ok(())
     }
 
-    pub fn list_all_journeys(&mut self) -> Result<Vec<JourneyInfo>> {
+    pub fn list_all_journeys(&mut self) -> Result<Vec<JourneyHeader>> {
         let tx = self.conn.transaction()?;
         let mut query = tx.prepare(
             "SELECT header, type FROM journey ORDER BY end_timestamp_sec, id DESC;",
@@ -420,22 +304,32 @@ impl MainDb {
         while let Some(row) = rows.next()? {
             let header_bytes = row.get_ref(0)?.as_blob()?;
             let journey_type = JourneyType::of_int(row.get(1)?)?;
-            let header = protos::journey::Header::parse_from_bytes(header_bytes)?;
-            results.push(JourneyInfo::of_proto(header, journey_type)?);
+            let header =
+                JourneyHeader::of_proto(protos::journey::Header::parse_from_bytes(header_bytes)?)?;
+            if header.journey_type != journey_type {
+                bail!(
+                    "Invalid DB state, `journey_type` miss match. id: {}.",
+                    header.id
+                );
+            }
+            results.push(header);
         }
         Ok(results)
     }
 
-    pub fn get_journey(&mut self, id: &str) -> Result<protos::journey::Data> {
+    pub fn get_journey(&mut self, id: &str) -> Result<JourneyData> {
         let tx = self.conn.transaction()?;
-        let mut query = tx.prepare("SELECT data_zstd FROM journey WHERE id = ?1;")?;
-        let data_bytes = query.query_row([id], |row| {
-            let data_zstd_bytes = row.get_ref(0)?.as_blob()?;
-            // TODO: use stream api to save one allocation
-            Ok(zstd::decode_all(data_zstd_bytes))
-        })??;
-        let result = protos::journey::Data::parse_from_bytes(&data_bytes)?;
-        Ok(result)
+        let mut query = tx.prepare("SELECT type, data FROM journey WHERE id = ?1;")?;
+
+        query.query_row([id], |row| {
+            let type_ = row.get_ref(0)?.as_i64()?;
+            let f = || {
+                let journey_type = JourneyType::of_int(i8::try_from(type_)?)?;
+                let data = row.get_ref(1)?.as_blob()?;
+                JourneyData::deserialize(data, journey_type)
+            };
+            Ok(f())
+        })?
     }
 
     fn get_setting<T: FromStr>(&mut self, setting: Setting) -> Result<Option<T>>
