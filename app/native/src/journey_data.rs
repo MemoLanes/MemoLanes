@@ -1,50 +1,13 @@
 use std::io::{Read, Write};
-use strum_macros::EnumIter;
 
 use anyhow::Result;
 use integer_encoding::*;
 
 use crate::{
     journey_bitmap::JourneyBitmap,
+    journey_header::JourneyType,
     journey_vector::{JourneyVector, TrackPoint, TrackSegment},
 };
-
-#[derive(Copy, Clone, Debug, EnumIter, PartialEq, Eq, Hash)]
-#[repr(i8)]
-pub enum JourneyType {
-    Vector = 0,
-    Bitmap = 1,
-}
-
-impl JourneyType {
-    pub fn to_int(&self) -> i8 {
-        *self as i8
-    }
-
-    pub fn of_int(i: i8) -> Result<Self> {
-        match i {
-            0 => Ok(JourneyType::Vector),
-            1 => Ok(JourneyType::Bitmap),
-            _ => bail!("Invalid int for `JourneyType` {}", i),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::JourneyType;
-    use strum::IntoEnumIterator;
-
-    #[test]
-    fn int_conversion() {
-        for type_ in JourneyType::iter() {
-            assert_eq!(
-                type_,
-                JourneyType::of_int(JourneyType::to_int(&type_)).unwrap()
-            )
-        }
-    }
-}
 
 pub enum JourneyData {
     Vector(JourneyVector),
@@ -65,7 +28,7 @@ pub fn serialize_journey_vector<T: Write>(
     writer.write_all(&JOURNEY_VECTOR_MAGIC_HEADER)?;
 
     // data is compressed as a whole
-    let mut encoder = zstd::stream::write::Encoder::new(writer, ZSTD_COMPRESS_LEVEL)?;
+    let mut encoder = zstd::stream::write::Encoder::new(writer, ZSTD_COMPRESS_LEVEL)?.auto_finish();
     encoder.write_all(&(journey_vector.track_segments.len() as u64).encode_var_vec())?;
     for track_segmant in &journey_vector.track_segments {
         encoder.write_all(&(track_segmant.track_points.len() as u64).encode_var_vec())?;

@@ -1,5 +1,4 @@
 use native::{gps_processor, journey_data::JourneyData, main_db, main_db::MainDb};
-use protobuf::Message;
 use tempdir::TempDir;
 mod test_utils;
 

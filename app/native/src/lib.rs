@@ -14,6 +14,7 @@ pub mod archive;
 pub mod gps_processor;
 pub mod journey_bitmap;
 pub mod journey_data;
+pub mod journey_header;
 pub mod journey_vector;
 pub mod main_db;
 pub mod map_renderer;

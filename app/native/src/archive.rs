@@ -5,20 +5,11 @@ use std::{
 };
 
 use anyhow::Result;
-use chrono::{Datelike, Utc};
+use chrono::Datelike;
 use hex::ToHex;
-use protobuf::EnumOrUnknown;
-use protos::archive::Metadata;
 use sha1::{Digest, Sha1};
 
-use crate::{
-    journey_data::JourneyType,
-    main_db::MainDb,
-    protos::{
-        self,
-        archive::{metadata, section_header::journey_info, SectionDataEntry, SectionHeader},
-    },
-};
+use crate::main_db::MainDb;
 
 /* The persistent exchange data format for finalized journeys.
    The high level design is: a metadata file + a set of files each contains a
@@ -69,7 +60,7 @@ mod tests {
     }
 }
 
-fn write_proto_as_compressed_block<W: Write, M: protobuf::Message>(
+fn _write_proto_as_compressed_block<W: Write, M: protobuf::Message>(
     writer: &mut W,
     message: M,
 ) -> Result<()> {
@@ -86,7 +77,7 @@ fn write_proto_as_compressed_block<W: Write, M: protobuf::Message>(
     Ok(())
 }
 
-pub fn archive_all_as_zip<T: Write + Seek>(main_db: &mut MainDb, writer: &mut T) -> Result<()> {
+pub fn archive_all_as_zip<T: Write + Seek>(main_db: &mut MainDb, _writer: &mut T) -> Result<()> {
     let all_journeys = main_db.list_all_journeys()?;
 
     // group journeys into sections and sort them(by end time and tie
@@ -129,70 +120,71 @@ pub fn archive_all_as_zip<T: Write + Seek>(main_db: &mut MainDb, writer: &mut T)
     }
     to_process.sort_by_key(|x| x.0);
 
-    // start writing files
-    let mut zip = zip::ZipWriter::new(writer);
-    // we already compress data inside the file, do no need to do it in zip.
-    let default_options =
-        zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+    // TODO: THIS NEED TO BE REWRITTEN
 
-    // writing metadata
-    let mut metadata_proto = Metadata::new();
-    metadata_proto.created_at_timestamp_sec = Utc::now().timestamp();
-    metadata_proto.kind = Some(EnumOrUnknown::new(metadata::Kind::FULL_ARCHIVE));
-    metadata_proto.note = None;
-    for (_, section_id, journeys) in &to_process {
-        let mut section_info = metadata::SectionInfo::new();
-        section_info.first_journey_timestamp_sec = journeys.first().unwrap().end.timestamp();
-        section_info.last_journey_timestamp_sec = journeys.last().unwrap().end.timestamp();
-        section_info.section_id = section_id.clone();
-        section_info.num_of_journeys = journeys.len() as u32;
-        metadata_proto.section_infos.push(section_info)
-    }
+    // // start writing files
+    // let mut zip = zip::ZipWriter::new(writer);
+    // // we already compress data inside the file, do no need to do it in zip.
+    // let default_options =
+    //     zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
-    // TODO: pick a file extension
-    zip.start_file("metadata.xxm", default_options)?;
-    // TODO: pick a magic header
-    zip.write_all(&[b'X', b'X', b'M'])?;
-    // version num
-    zip.write_all(&[1])?;
+    // // writing metadata
+    // let mut metadata_proto = Metadata::new();
+    // metadata_proto.created_at_timestamp_sec = Utc::now().timestamp();
+    // metadata_proto.kind = Some(EnumOrUnknown::new(metadata::Kind::FULL_ARCHIVE));
+    // metadata_proto.note = None;
+    // for (_, section_id, journeys) in &to_process {
+    //     let mut section_info = metadata::SectionInfo::new();
+    //     section_info.first_journey_timestamp_sec = journeys.first().unwrap().end.timestamp();
+    //     section_info.last_journey_timestamp_sec = journeys.last().unwrap().end.timestamp();
+    //     section_info.section_id = section_id.clone();
+    //     section_info.num_of_journeys = journeys.len() as u32;
+    //     metadata_proto.section_infos.push(section_info)
+    // }
 
-    // metadata
-    write_proto_as_compressed_block(&mut zip, metadata_proto)?;
+    // // TODO: pick a file extension
+    // zip.start_file("metadata.xxm", default_options)?;
+    // // TODO: pick a magic header
+    // zip.write_all(&[b'X', b'X', b'M'])?;
+    // // version num
+    // zip.write_all(&[1])?;
 
-    // writing section data
-    for (_, section_id, journeys) in &to_process {
-        let mut section_header = SectionHeader::new();
-        section_header.section_id = section_id.clone();
-        for j in journeys {
-            let mut journey_info = protos::archive::section_header::JourneyInfo::new();
-            journey_info.type_ = EnumOrUnknown::new(match j.journey_type {
-                JourneyType::Bitmap => journey_info::Type::BITMAP,
-                JourneyType::Vector => journey_info::Type::TRACK,
-            });
-            // TODO: we could avoid this `clone`
-            journey_info.header.0 = Some(Box::new(j.clone().to_proto()));
-            section_header.journey_info.push(journey_info);
-        }
+    // // metadata
+    // write_proto_as_compressed_block(&mut zip, metadata_proto)?;
 
-        zip.start_file(section_id.clone(), default_options)?;
-        // TODO: pick a magic header
-        zip.write_all(&[b'X', b'X', b'S'])?;
-        // version num
-        zip.write_all(&[1])?;
-        // write header
-        write_proto_as_compressed_block(&mut zip, section_header)?;
+    // // writing section data
+    // for (_, section_id, journeys) in &to_process {
+    //     let mut section_header = SectionHeader::new();
+    //     section_header.section_id = section_id.clone();
+    //     for j in journeys {
+    //         let mut journey_info = protos::archive::section_header::JourneyInfo::new();
+    //         journey_info.type_ = EnumOrUnknown::new(match j.journey_type {
+    //             JourneyType::Bitmap => journey_info::Type::BITMAP,
+    //             JourneyType::Vector => journey_info::Type::TRACK,
+    //         });
+    //         // TODO: we could avoid this `clone`
+    //         journey_info.header.0 = Some(Box::new(j.clone().to_proto()));
+    //         section_header.journey_info.push(journey_info);
+    //     }
 
-        // write data entries
-        for j in journeys {
-            // TODO: this need to be rewritten
-            let _journey_data = main_db.get_journey(&j.id)?;
-            let data_entry = SectionDataEntry::new();
-            // data_entry.data.0 = Some(Box::new(journey_data));
+    //     zip.start_file(section_id.clone(), default_options)?;
+    //     // TODO: pick a magic header
+    //     zip.write_all(&[b'X', b'X', b'S'])?;
+    //     // version num
+    //     zip.write_all(&[1])?;
+    //     // write header
+    //     write_proto_as_compressed_block(&mut zip, section_header)?;
 
-            write_proto_as_compressed_block(&mut zip, data_entry)?;
-        }
-    }
+    //     // write data entries
+    //     for j in journeys {
+    //         let _journey_data = main_db.get_journey(&j.id)?;
+    //         let data_entry = SectionDataEntry::new();
+    //         // data_entry.data.0 = Some(Box::new(journey_data));
 
-    zip.finish()?;
+    //         write_proto_as_compressed_block(&mut zip, data_entry)?;
+    //     }
+    // }
+
+    // zip.finish()?;
     Ok(())
 }

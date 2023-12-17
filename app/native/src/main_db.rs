@@ -1,6 +1,6 @@
 extern crate simplelog;
 use anyhow::Result;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use protobuf::{Message, MessageField};
 use rusqlite::{Connection, OptionalExtension, Transaction};
 use std::cmp::Ordering;
@@ -10,7 +10,8 @@ use std::str::FromStr;
 use uuid::Uuid;
 
 use crate::gps_processor::{self, ProcessResult};
-use crate::journey_data::{self, JourneyData, JourneyType};
+use crate::journey_data::{self, JourneyData};
+use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::journey_vector::{JourneyVector, TrackPoint, TrackSegment};
 use crate::protos;
 
@@ -30,88 +31,6 @@ deserialize the header.
 
 // 3 is the zstd default
 pub const ZSTD_COMPRESS_LEVEL: i32 = 3;
-
-#[derive(Clone)]
-pub enum JourneyKind {
-    Default,
-    Flight,
-    Custom(String),
-}
-
-impl JourneyKind {
-    pub fn to_proto(self) -> protos::journey::header::Kind {
-        use protos::journey::header::{kind, Kind};
-        let mut kind = Kind::new();
-        match self {
-            JourneyKind::Default => kind.set_build_in(kind::BuiltIn::DEFAULT),
-            JourneyKind::Flight => kind.set_build_in(kind::BuiltIn::FLIGHT),
-            JourneyKind::Custom(str) => kind.set_custom_kind(str),
-        };
-        kind
-    }
-
-    pub fn of_proto(mut proto: protos::journey::header::Kind) -> Self {
-        use protos::journey::header::kind;
-        if proto.has_build_in() {
-            match proto.build_in() {
-                kind::BuiltIn::DEFAULT => JourneyKind::Default,
-                kind::BuiltIn::FLIGHT => JourneyKind::Flight,
-            }
-        } else {
-            JourneyKind::Custom(proto.take_custom_kind())
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct JourneyInfo {
-    pub id: String,
-    pub revision: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: Option<DateTime<Utc>>,
-    pub end: DateTime<Utc>,
-    pub start: Option<DateTime<Utc>>,
-    pub journey_kind: JourneyKind,
-    pub note: Option<String>,
-    // `journey_type` is not from the header
-    pub journey_type: JourneyType,
-}
-
-impl JourneyInfo {
-    pub fn of_proto(mut proto: protos::journey::Header, journey_type: JourneyType) -> Result<Self> {
-        Ok(JourneyInfo {
-            id: proto.id,
-            revision: proto.revision,
-            created_at: DateTime::from_timestamp(proto.created_at_timestamp_sec, 0).unwrap(),
-            updated_at: proto
-                .updated_at_timestamp_sec
-                .and_then(|sec| DateTime::from_timestamp(sec, 0)),
-            end: DateTime::from_timestamp(proto.end_timestamp_sec, 0).unwrap(),
-            start: proto
-                .start_timestamp_sec
-                .and_then(|sec| DateTime::from_timestamp(sec, 0)),
-            journey_kind: JourneyKind::of_proto(match proto.kind.take() {
-                None => bail!("Missing `kind`"),
-                Some(kind) => kind,
-            }),
-            note: proto.note,
-            journey_type,
-        })
-    }
-
-    pub fn to_proto(self) -> protos::journey::Header {
-        let mut proto = protos::journey::Header::new();
-        proto.id = self.id;
-        proto.revision = self.revision;
-        proto.created_at_timestamp_sec = self.created_at.timestamp();
-        proto.updated_at_timestamp_sec = self.updated_at.map(|x| x.timestamp());
-        proto.end_timestamp_sec = self.end.timestamp();
-        proto.start_timestamp_sec = self.start.map(|x| x.timestamp());
-        proto.kind.0 = Some(Box::new(self.journey_kind.to_proto()));
-        proto.note = self.note;
-        proto
-    }
-}
 
 #[allow(clippy::type_complexity)]
 fn open_db_and_run_migration(
@@ -374,7 +293,7 @@ impl MainDb {
         Ok(())
     }
 
-    pub fn list_all_journeys(&mut self) -> Result<Vec<JourneyInfo>> {
+    pub fn list_all_journeys(&mut self) -> Result<Vec<JourneyHeader>> {
         let tx = self.conn.transaction()?;
         let mut query = tx.prepare(
             "SELECT header, type FROM journey ORDER BY end_timestamp_sec, id DESC;",
@@ -385,8 +304,15 @@ impl MainDb {
         while let Some(row) = rows.next()? {
             let header_bytes = row.get_ref(0)?.as_blob()?;
             let journey_type = JourneyType::of_int(row.get(1)?)?;
-            let header = protos::journey::Header::parse_from_bytes(header_bytes)?;
-            results.push(JourneyInfo::of_proto(header, journey_type)?);
+            let header =
+                JourneyHeader::of_proto(protos::journey::Header::parse_from_bytes(header_bytes)?)?;
+            if header.journey_type != journey_type {
+                bail!(
+                    "Invalid DB state, `journey_type` miss match. id: {}.",
+                    header.id
+                );
+            }
+            results.push(header);
         }
         Ok(results)
     }
