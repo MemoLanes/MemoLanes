@@ -13,6 +13,8 @@ mod bridge_generated;
 pub mod archive;
 pub mod gps_processor;
 pub mod journey_bitmap;
+pub mod journey_data;
+pub mod journey_vector;
 pub mod main_db;
 pub mod map_renderer;
 mod merged_journey_manager;
