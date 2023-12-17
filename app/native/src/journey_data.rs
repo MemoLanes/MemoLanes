@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use anyhow::{Ok, Result};
+use anyhow::Result;
 use integer_encoding::*;
 use itertools::Itertools;
 
