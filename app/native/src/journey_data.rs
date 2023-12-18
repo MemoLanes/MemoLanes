@@ -118,11 +118,11 @@ pub fn serialize_journey_bitmap<T: Write>(
         // deserializing the whole block.
         // A bitmap seems more efficient for this case.
         let mut block_keys =
-            [0 as u8; (journey_bitmap::TILE_WIDTH * journey_bitmap::TILE_WIDTH / 8) as usize];
+            [0_u8; (journey_bitmap::TILE_WIDTH * journey_bitmap::TILE_WIDTH / 8) as usize];
         for (x, y) in tile.blocks.keys() {
             let i = block_key_to_index(*x, *y);
             let byte_index = (i / 8) as usize;
-            block_keys[byte_index] = block_keys[byte_index] | 1 << (i % 8);
+            block_keys[byte_index] |= 1 << (i % 8);
         }
         encoder.write_all(&block_keys)?;
 
