@@ -5,7 +5,7 @@ use integer_encoding::*;
 use itertools::Itertools;
 
 use crate::{
-    journey_bitmap::{JourneyBitmap, Tile},
+    journey_bitmap::{self, JourneyBitmap, Tile},
     journey_header::JourneyType,
     journey_vector::{JourneyVector, TrackPoint, TrackSegment},
 };
@@ -78,6 +78,35 @@ pub fn deserialize_journey_vector<T: Read>(mut reader: T) -> Result<JourneyVecto
     Ok(JourneyVector { track_segments })
 }
 
+fn block_key_to_index(x: u8, y: u8) -> u16 {
+    assert!(x < journey_bitmap::TILE_WIDTH as u8);
+    assert!(y < journey_bitmap::TILE_WIDTH as u8);
+    x as u16 * journey_bitmap::TILE_WIDTH as u16 + y as u16
+}
+
+fn block_index_to_key(i: u16) -> (u8, u8) {
+    let x = (i / journey_bitmap::TILE_WIDTH as u16) as u8;
+    let y = (i % journey_bitmap::TILE_WIDTH as u16) as u8;
+    (x, y)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::journey_data::*;
+
+    #[test]
+    fn block_key_conversion() {
+        assert_eq!(block_key_to_index(0, 0), (0));
+        assert_eq!(block_index_to_key(0), (0, 0));
+
+        assert_eq!(block_key_to_index(127, 127), (16383));
+        assert_eq!(block_index_to_key(16383), (127, 127));
+
+        assert_eq!(block_key_to_index(64, 17), (8209));
+        assert_eq!(block_index_to_key(8209), (64, 17));
+    }
+}
+
 pub fn serialize_journey_bitmap<T: Write>(
     journey_bitmap: &JourneyBitmap,
     mut writer: T,
@@ -85,13 +114,29 @@ pub fn serialize_journey_bitmap<T: Write>(
     let serialize_tile = |tile: &Tile| -> Result<Vec<u8>> {
         let mut buf = Vec::new();
         let mut encoder = zstd::Encoder::new(&mut buf, ZSTD_COMPRESS_LEVEL)?.auto_finish();
-        encoder.write_all(&(tile.blocks.len() as u64).encode_var_vec())?;
-        for (x, y) in tile.blocks.keys().sorted() {
-            let block = tile.blocks.get(&(*x, *y)).unwrap();
-            encoder.write_all(&x.to_be_bytes())?;
-            encoder.write_all(&y.to_be_bytes())?;
-            encoder.write_all(&block.data)?;
+        // We put all block ids in front so we could get all blocks without
+        // deserializing the whole block.
+        // A bitmap seems more efficient for this case.
+        let mut block_keys =
+            [0 as u8; (journey_bitmap::TILE_WIDTH * journey_bitmap::TILE_WIDTH / 8) as usize];
+        for (x, y) in tile.blocks.keys() {
+            let i = block_key_to_index(*x, *y);
+            let byte_index = (i / 8) as usize;
+            block_keys[byte_index] = block_keys[byte_index] | 1 << (i % 8);
         }
+        encoder.write_all(&block_keys)?;
+
+        // write each block in the right order
+        for byte_index in 0..block_keys.len() {
+            for offset in 0..8 {
+                if block_keys[byte_index & (1 << offset)] == 1 {
+                    let (x, y) = block_index_to_key((byte_index * 8 + offset) as u16);
+                    let block = tile.blocks.get(&(x, y)).unwrap();
+                    encoder.write_all(&block.data)?;
+                }
+            }
+        }
+
         drop(encoder);
         Ok(buf)
     };
