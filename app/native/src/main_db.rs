@@ -1,7 +1,7 @@
 extern crate simplelog;
 use anyhow::Result;
-use chrono::Utc;
-use protobuf::{Message, MessageField};
+use chrono::{DateTime, Utc};
+use protobuf::Message;
 use rusqlite::{Connection, OptionalExtension, Transaction};
 use std::cmp::Ordering;
 use std::error::Error;
@@ -165,7 +165,9 @@ impl MainDb {
         Ok(())
     }
 
-    fn get_ongoing_journey_internal(tx: &Transaction) -> Result<Option<(i64, i64, JourneyVector)>> {
+    fn get_ongoing_journey_internal(
+        tx: &Transaction,
+    ) -> Result<Option<(DateTime<Utc>, DateTime<Utc>, JourneyVector)>> {
         // `id` in `ongoing_journey` is auto incremented.
         let mut query = tx.prepare(
             "SELECT timestamp_sec, lat, lng, process_result FROM ongoing_journey ORDER BY id;",
@@ -213,11 +215,11 @@ impl MainDb {
             Ok(None)
         } else {
             // must be `Some`
-            let start_timestamp_sec = start_timestamp_sec.unwrap();
-            let end_timestamp_sec = end_timestamp_sec.unwrap();
+            let start = DateTime::from_timestamp(start_timestamp_sec.unwrap(), 0).unwrap();
+            let end = DateTime::from_timestamp(end_timestamp_sec.unwrap(), 0).unwrap();
             Ok(Some((
-                start_timestamp_sec,
-                end_timestamp_sec,
+                start,
+                end,
                 JourneyVector {
                     track_segments: segmants,
                 },
@@ -225,7 +227,9 @@ impl MainDb {
         }
     }
 
-    pub fn get_ongoing_journey(&mut self) -> Result<Option<(i64, i64, JourneyVector)>> {
+    pub fn get_ongoing_journey(
+        &mut self,
+    ) -> Result<Option<(DateTime<Utc>, DateTime<Utc>, JourneyVector)>> {
         let tx = self.conn.transaction()?;
         Self::get_ongoing_journey_internal(&tx)
     }
@@ -235,27 +239,28 @@ impl MainDb {
 
         match Self::get_ongoing_journey_internal(&tx)? {
             None => (),
-            Some((start_timestamp_sec, end_timestamp_sec, journey_vector)) => {
+            Some((start, end, journey_vector)) => {
                 // create new journey
-                // TODO: consider using `JourneyInfo::to_proto`
-                let mut header = protos::journey::Header::new();
-                header.id = Uuid::new_v4().as_hyphenated().to_string();
-                // we use id + revision as the equality check, revision can be any
-                // string (e.g. uuid) but a short random should be good enough.
-                header.revision = random_string::generate(8, random_string::charsets::ALPHANUMERIC);
-                header.created_at_timestamp_sec = Utc::now().timestamp();
-                header.updated_at_timestamp_sec = None;
-                header.end_timestamp_sec = end_timestamp_sec;
-                header.start_timestamp_sec = Some(start_timestamp_sec);
-                // TODO: allow user to set this when recording?
-                header.kind = MessageField::some(JourneyKind::Default.to_proto());
-                header.note = None;
+                let header = JourneyHeader {
+                    id: Uuid::new_v4().as_hyphenated().to_string(),
+                    // we use id + revision as the equality check, revision can be any
+                    // string (e.g. uuid) but a short random should be good enough.
+                    revision: random_string::generate(8, random_string::charsets::ALPHANUMERIC),
+                    created_at: Utc::now(),
+                    updated_at: None,
+                    end: end,
+                    start: Some(start),
+                    journey_type: JourneyType::Vector,
+                    // TODO: allow user to set this when recording?
+                    journey_kind: JourneyKind::Default,
+                    note: None,
+                }
+                .to_proto();
 
                 // TODO: we could have some additional post-processing of the track.
                 // including path refinement + lossy compression.
 
                 let header_bytes = header.write_to_bytes()?;
-                // TODO: use stream api to save one allocation
                 let mut data = Vec::new();
                 journey_data::serialize_journey_vector(&journey_vector, &mut data)?;
 
@@ -264,7 +269,7 @@ impl MainDb {
                     sql,
                     (
                         &header.id,
-                        end_timestamp_sec,
+                        header.end_timestamp_sec,
                         JourneyType::Vector.to_int(),
                         header_bytes,
                         data,
