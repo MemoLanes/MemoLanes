@@ -246,6 +246,7 @@ impl MainDb {
                 end,
                 journey_vector,
             }) => {
+                let journey_type = JourneyType::Vector;
                 // create new journey
                 let header = JourneyHeader {
                     id: Uuid::new_v4().as_hyphenated().to_string(),
@@ -256,7 +257,7 @@ impl MainDb {
                     updated_at: None,
                     end,
                     start: Some(start),
-                    journey_type: JourneyType::Vector,
+                    journey_type,
                     // TODO: allow user to set this when recording?
                     journey_kind: JourneyKind::Default,
                     note: None,
@@ -276,7 +277,7 @@ impl MainDb {
                     (
                         &header.id,
                         header.end_timestamp_sec,
-                        JourneyType::Vector.to_int(),
+                        journey_type.to_int(),
                         header_bytes,
                         data,
                     ),
