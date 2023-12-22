@@ -95,6 +95,12 @@ pub struct MainDb {
     conn: Connection,
 }
 
+pub struct OngoingJourney {
+    pub start: DateTime<Utc>,
+    pub end: DateTime<Utc>,
+    pub journey_vector: JourneyVector,
+}
+
 impl MainDb {
     pub fn open(support_dir: &str) -> MainDb {
         // TODO: better error handling
@@ -165,9 +171,7 @@ impl MainDb {
         Ok(())
     }
 
-    fn get_ongoing_journey_internal(
-        tx: &Transaction,
-    ) -> Result<Option<(DateTime<Utc>, DateTime<Utc>, JourneyVector)>> {
+    fn get_ongoing_journey_internal(tx: &Transaction) -> Result<Option<OngoingJourney>> {
         // `id` in `ongoing_journey` is auto incremented.
         let mut query = tx.prepare(
             "SELECT timestamp_sec, lat, lng, process_result FROM ongoing_journey ORDER BY id;",
@@ -217,19 +221,17 @@ impl MainDb {
             // must be `Some`
             let start = DateTime::from_timestamp(start_timestamp_sec.unwrap(), 0).unwrap();
             let end = DateTime::from_timestamp(end_timestamp_sec.unwrap(), 0).unwrap();
-            Ok(Some((
+            Ok(Some(OngoingJourney {
                 start,
                 end,
-                JourneyVector {
+                journey_vector: JourneyVector {
                     track_segments: segmants,
                 },
-            )))
+            }))
         }
     }
 
-    pub fn get_ongoing_journey(
-        &mut self,
-    ) -> Result<Option<(DateTime<Utc>, DateTime<Utc>, JourneyVector)>> {
+    pub fn get_ongoing_journey(&mut self) -> Result<Option<OngoingJourney>> {
         let tx = self.conn.transaction()?;
         Self::get_ongoing_journey_internal(&tx)
     }
@@ -239,7 +241,11 @@ impl MainDb {
 
         match Self::get_ongoing_journey_internal(&tx)? {
             None => (),
-            Some((start, end, journey_vector)) => {
+            Some(OngoingJourney {
+                start,
+                end,
+                journey_vector,
+            }) => {
                 // create new journey
                 let header = JourneyHeader {
                     id: Uuid::new_v4().as_hyphenated().to_string(),
@@ -248,7 +254,7 @@ impl MainDb {
                     revision: random_string::generate(8, random_string::charsets::ALPHANUMERIC),
                     created_at: Utc::now(),
                     updated_at: None,
-                    end: end,
+                    end,
                     start: Some(start),
                     journey_type: JourneyType::Vector,
                     // TODO: allow user to set this when recording?

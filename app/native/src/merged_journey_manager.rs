@@ -57,8 +57,11 @@ pub fn get_latest_including_ongoing(main_db: &mut MainDb) -> Result<JourneyBitma
     // ongoing journey
     match main_db.get_ongoing_journey()? {
         None => (),
-        Some((_, _, journey_vector)) => {
-            add_journey_vector_to_journey_bitmap(&mut journey_bitmap, &journey_vector);
+        Some(ongoing_journey) => {
+            add_journey_vector_to_journey_bitmap(
+                &mut journey_bitmap,
+                &ongoing_journey.journey_vector,
+            );
         }
     }
 
