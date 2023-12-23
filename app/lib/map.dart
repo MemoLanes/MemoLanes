@@ -111,6 +111,8 @@ class MapUiBodyState extends State<MapUiBody> {
       onStyleLoadedCallback: _onStyleLoadedCallback,
       initialCameraPosition: _kInitialPosition,
       trackCameraPosition: true,
+      myLocationEnabled: true,
+      myLocationTrackingMode: MyLocationTrackingMode.Tracking,
       myLocationRenderMode: MyLocationRenderMode.NORMAL,
     );
 
