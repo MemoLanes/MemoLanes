@@ -106,6 +106,8 @@ class GPS extends StatelessWidget {
 }
 
 class ExportRawData extends StatefulWidget {
+  const ExportRawData({super.key});
+
   @override
   _ExportRawDataState createState() => _ExportRawDataState();
 }
@@ -214,7 +216,7 @@ class GPSPage extends StatelessWidget {
           ),
           const Text("Raw data"),
           const RawDataSwitch(),
-          ExportRawData(),
+          const ExportRawData(),
         ],
       ),
     );
