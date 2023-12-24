@@ -1,9 +1,9 @@
-import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:mutex/mutex.dart';
-import 'package:location/location.dart';
+import 'package:background_location/background_location.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'ffi.dart' if (dart.library.html) 'ffi_web.dart';
@@ -12,30 +12,44 @@ class MainState extends ChangeNotifier {
   var initializing = true;
   var isRecording = false;
   var message = "";
-  var location = Location();
-  StreamSubscription<LocationData>? locationSubscription;
   Mutex m = Mutex();
 
   init() {
     var result = () async {
-      bool serviceEnabled;
-      PermissionStatus permissionGranted;
+      // TODO: handle all cases
+      await Permission.locationAlways.request();
 
-      serviceEnabled = await location.serviceEnabled();
-      if (!serviceEnabled) {
-        serviceEnabled = await location.requestService();
-        if (!serviceEnabled) {
-          return Future.error('Location services are disabled.');
-        }
-      }
+      await BackgroundLocation.setAndroidNotification(
+        title: "Notification title",
+        message: "Notification message",
+        icon: "@mipmap/ic_launcher",
+      );
+      // 1 update/sec seems to be a reasonable value. I believe Guru Map is also
+      // using this value.
+      await BackgroundLocation.setAndroidConfiguration(1000);
+      await BackgroundLocation.startLocationService(distanceFilter: 0);
+      // TODO: not yet tested on iOS
+      BackgroundLocation.getLocationUpdates((location) async {
+        var timestamp = location.time?.toInt();
+        if (timestamp == null) return;
+        var time = DateTime.fromMillisecondsSinceEpoch(timestamp);
+        message =
+            ('[${time.toLocal()}]${location.latitude.toString()}, ${location.longitude.toString()} ${location.altitude.toString()} ~${location.accuracy.toString()}');
+        notifyListeners();
 
-      permissionGranted = await location.hasPermission();
-      if (permissionGranted == PermissionStatus.denied) {
-        permissionGranted = await location.requestPermission();
-        if (permissionGranted != PermissionStatus.granted) {
-          return Future.error('Location permissions are denied');
+        var latitude = location.latitude;
+        var longitude = location.longitude;
+        var accuracy = location.accuracy;
+        if (latitude != null && longitude != null && accuracy != null) {
+          await api.onLocationUpdate(
+              latitude: latitude,
+              longitude: longitude,
+              timestampMs: timestamp,
+              accuracy: accuracy,
+              altitude: location.altitude,
+              speed: location.speed);
         }
-      }
+      });
 
       initializing = false;
       notifyListeners();
@@ -52,37 +66,9 @@ class MainState extends ChangeNotifier {
     await m.protect(() async {
       isRecording = !isRecording;
       if (isRecording) {
-        await location.enableBackgroundMode(enable: true);
-        locationSubscription = location.onLocationChanged
-            .listen((LocationData locationData) async {
-          var timestamp = locationData.time?.toInt();
-          if (timestamp == null) return;
-          var now = DateTime.fromMillisecondsSinceEpoch(timestamp);
-          message =
-              ('[${now.toLocal()}]${locationData.latitude.toString()}, ${locationData.longitude.toString()} ${locationData.altitude.toString()} ~${locationData.accuracy.toString()}');
-          notifyListeners();
-
-          var latitude = locationData.latitude;
-          var longitude = locationData.longitude;
-          var timestampMs = locationData.time?.toInt();
-          var accuracy = locationData.accuracy;
-          if (latitude != null &&
-              longitude != null &&
-              timestampMs != null &&
-              accuracy != null) {
-            await api.onLocationUpdate(
-                latitude: latitude,
-                longitude: longitude,
-                timestampMs: timestampMs,
-                accuracy: accuracy,
-                altitude: locationData.altitude,
-                speed: locationData.speed);
-          }
-        });
+        BackgroundLocation.startLocationService();
       } else {
-        location.enableBackgroundMode(enable: false);
-        await locationSubscription?.cancel();
-
+        BackgroundLocation.stopLocationService();
         message = "";
       }
       notifyListeners();
