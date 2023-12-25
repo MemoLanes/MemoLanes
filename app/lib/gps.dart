@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
@@ -19,6 +18,9 @@ class MainState extends ChangeNotifier {
       // TODO: handle all cases
       await Permission.locationAlways.request();
 
+      isRecording = false;
+      await BackgroundLocation.stopLocationService();
+
       await BackgroundLocation.setAndroidNotification(
         title: "Notification title",
         message: "Notification message",
@@ -28,8 +30,10 @@ class MainState extends ChangeNotifier {
       // using this value.
       await BackgroundLocation.setAndroidConfiguration(1000);
       await BackgroundLocation.startLocationService(distanceFilter: 0);
+
       // TODO: not yet tested on iOS
       BackgroundLocation.getLocationUpdates((location) async {
+        if (!isRecording) return;
         var timestamp = location.time?.toInt();
         if (timestamp == null) return;
         var time = DateTime.fromMillisecondsSinceEpoch(timestamp);
@@ -66,9 +70,11 @@ class MainState extends ChangeNotifier {
     await m.protect(() async {
       isRecording = !isRecording;
       if (isRecording) {
-        BackgroundLocation.startLocationService();
+        //To ensure that previously started services have been stopped, if desired
+        await BackgroundLocation.stopLocationService();
+        await BackgroundLocation.startLocationService();
       } else {
-        BackgroundLocation.stopLocationService();
+        await BackgroundLocation.stopLocationService();
         message = "";
       }
       notifyListeners();
