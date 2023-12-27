@@ -38,7 +38,7 @@ dependencies:
   flutter_rust_bridge: ^1.82.3
   meta: ^1.8.0
   uuid: ^4.1.0
-  background_location: ^0.11.8
+  geolocator: ^10.1.0
   provider: ^6.0.5
   path_provider: ^2.1.0
   mutex: ^3.0.1

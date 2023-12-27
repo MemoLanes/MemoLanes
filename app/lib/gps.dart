@@ -1,59 +1,101 @@
+import 'dart:async';
+import 'dart:developer';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:mutex/mutex.dart';
-import 'package:background_location/background_location.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'ffi.dart' if (dart.library.html) 'ffi_web.dart';
 
+/// `PokeGeolocatorTask` is a hacky workround on Android.
+/// The behvior we observe is that the position stream from geolocator will
+/// randomly pauses so updates are delayed or missed even when holding the
+/// wakelock. However, if there something request the location, even if it is in
+/// another app, the stream will resume. So the hack is to poke the geolocator
+/// frequently.
+class PokeGeolocatorTask {
+  // TODO: Test on iOS
+  bool running = false;
+  PokeGeolocatorTask();
+
+  factory PokeGeolocatorTask.start() {
+    var task = PokeGeolocatorTask();
+    task.running = true;
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      task._loop();
+    }
+    return task;
+  }
+
+  _loop() async {
+    await Future.delayed(const Duration(seconds: 5));
+    // we don't care about the result
+    if (running) {
+      print("XXX");
+      await Geolocator.getCurrentPosition(
+              timeLimit: const Duration(seconds: 10))
+          .then((_) => null)
+          .catchError((_) => null);
+      _loop();
+    }
+  }
+
+  cancel() {
+    running = false;
+  }
+}
+
 class MainState extends ChangeNotifier {
   var initializing = true;
   var isRecording = false;
+  LocationSettings? locationSettings;
+  StreamSubscription<Position>? positionStream;
+  PokeGeolocatorTask? pokeGeolocatorTask;
   var message = "";
   Mutex m = Mutex();
 
   init() {
     var result = () async {
       // TODO: handle all cases
-      await Permission.locationAlways.request();
+      var permissionStatus = await Permission.locationAlways.request();
+      log("permissionStatus: $permissionStatus");
 
-      isRecording = false;
-      await BackgroundLocation.stopLocationService();
-
-      await BackgroundLocation.setAndroidNotification(
-        title: "Notification title",
-        message: "Notification message",
-        icon: "@mipmap/ic_launcher",
-      );
-      // 1 update/sec seems to be a reasonable value. I believe Guru Map is also
-      // using this value.
-      await BackgroundLocation.setAndroidConfiguration(1000);
-      await BackgroundLocation.startLocationService(distanceFilter: 0);
-
-      // TODO: not yet tested on iOS
-      BackgroundLocation.getLocationUpdates((location) async {
-        if (!isRecording) return;
-        var timestamp = location.time?.toInt();
-        if (timestamp == null) return;
-        var time = DateTime.fromMillisecondsSinceEpoch(timestamp);
-        message =
-            ('[${time.toLocal()}]${location.latitude.toString()}, ${location.longitude.toString()} ${location.altitude.toString()} ~${location.accuracy.toString()}');
-        notifyListeners();
-
-        var latitude = location.latitude;
-        var longitude = location.longitude;
-        var accuracy = location.accuracy;
-        if (latitude != null && longitude != null && accuracy != null) {
-          await api.onLocationUpdate(
-              latitude: latitude,
-              longitude: longitude,
-              timestampMs: timestamp,
-              accuracy: accuracy,
-              altitude: location.altitude,
-              speed: location.speed);
-        }
-      });
+      var accuracy = LocationAccuracy.best;
+      var distanceFilter = 0;
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        locationSettings = AndroidSettings(
+            accuracy: accuracy,
+            distanceFilter: distanceFilter,
+            forceLocationManager: false,
+            // 1 sec feels like a reasonable interval
+            intervalDuration: const Duration(seconds: 1),
+            foregroundNotificationConfig: const ForegroundNotificationConfig(
+              notificationText:
+                  "Example app will continue to receive your position even when you aren't using it",
+              notificationTitle: "Running in Background",
+              enableWakeLock: false,
+            ));
+      } else if (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS) {
+        // TODO: not tested on iOS, it is likely that we need to tweak the
+        // settings.
+        locationSettings = AppleSettings(
+          accuracy: accuracy,
+          activityType: ActivityType.fitness,
+          distanceFilter: distanceFilter,
+          pauseLocationUpdatesAutomatically: true,
+          showBackgroundLocationIndicator: false,
+        );
+      } else {
+        locationSettings = LocationSettings(
+          accuracy: accuracy,
+          distanceFilter: distanceFilter,
+        );
+      }
 
       initializing = false;
       notifyListeners();
@@ -70,11 +112,36 @@ class MainState extends ChangeNotifier {
     await m.protect(() async {
       isRecording = !isRecording;
       if (isRecording) {
-        //To ensure that previously started services have been stopped, if desired
-        await BackgroundLocation.stopLocationService();
-        await BackgroundLocation.startLocationService();
+        if (positionStream == null) {
+          pokeGeolocatorTask ??= PokeGeolocatorTask.start();
+          positionStream =
+              Geolocator.getPositionStream(locationSettings: locationSettings)
+                  .listen((Position? position) async {
+            if (!isRecording) return;
+            if (position == null) return;
+            message =
+                ('[${position.timestamp.toLocal()}]${position.latitude.toString()}, ${position.longitude.toString()} ${position.altitude.toString()} ~${position.accuracy.toString()}');
+            notifyListeners();
+
+            print("YYY: ${position.timestamp}");
+
+            var latitude = position.latitude;
+            var longitude = position.longitude;
+            var accuracy = position.accuracy;
+            await api.onLocationUpdate(
+                latitude: latitude,
+                longitude: longitude,
+                timestampMs: position.timestamp.millisecondsSinceEpoch,
+                accuracy: accuracy,
+                altitude: position.altitude,
+                speed: position.speed);
+          });
+        }
       } else {
-        await BackgroundLocation.stopLocationService();
+        await positionStream?.cancel();
+        positionStream = null;
+        pokeGeolocatorTask?.cancel();
+        pokeGeolocatorTask = null;
         message = "";
       }
       notifyListeners();
