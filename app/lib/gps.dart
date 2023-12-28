@@ -33,11 +33,10 @@ class PokeGeolocatorTask {
 
   _loop() async {
     await Future.delayed(const Duration(seconds: 5));
-    // we don't care about the result
     if (running) {
-      print("XXX");
       await Geolocator.getCurrentPosition(
               timeLimit: const Duration(seconds: 10))
+          // we don't care about the result
           .then((_) => null)
           .catchError((_) => null);
       _loop();
@@ -122,8 +121,6 @@ class MainState extends ChangeNotifier {
             message =
                 ('[${position.timestamp.toLocal()}]${position.latitude.toString()}, ${position.longitude.toString()} ${position.altitude.toString()} ~${position.accuracy.toString()}');
             notifyListeners();
-
-            print("YYY: ${position.timestamp}");
 
             var latitude = position.latitude;
             var longitude = position.longitude;
