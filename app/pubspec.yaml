@@ -38,15 +38,16 @@ dependencies:
   flutter_rust_bridge: ^1.82.3
   meta: ^1.8.0
   uuid: ^4.1.0
-  location: ^5.0.2+1
+  geolocator: ^10.1.0
   provider: ^6.0.5
   path_provider: ^2.1.0
   mutex: ^3.0.1
-  share_plus: ^7.2.0
+  share_plus: ^7.2.1
   maplibre_gl:
     git:
       url: https://github.com/maplibre/flutter-maplibre-gl
       ref: main
+  permission_handler: ^11.1.0
 
 dev_dependencies:
   flutter_test:

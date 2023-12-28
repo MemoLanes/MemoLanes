@@ -1,40 +1,99 @@
 import 'dart:async';
+import 'dart:developer';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:mutex/mutex.dart';
-import 'package:location/location.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'ffi.dart' if (dart.library.html) 'ffi_web.dart';
 
+/// `PokeGeolocatorTask` is a hacky workround on Android.
+/// The behvior we observe is that the position stream from geolocator will
+/// randomly pauses so updates are delayed or missed even when holding the
+/// wakelock. However, if there something request the location, even if it is in
+/// another app, the stream will resume. So the hack is to poke the geolocator
+/// frequently.
+class PokeGeolocatorTask {
+  // TODO: Test on iOS
+  bool running = false;
+  PokeGeolocatorTask();
+
+  factory PokeGeolocatorTask.start() {
+    var task = PokeGeolocatorTask();
+    task.running = true;
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      task._loop();
+    }
+    return task;
+  }
+
+  _loop() async {
+    await Future.delayed(const Duration(seconds: 5));
+    if (running) {
+      await Geolocator.getCurrentPosition(
+              timeLimit: const Duration(seconds: 10))
+          // we don't care about the result
+          .then((_) => null)
+          .catchError((_) => null);
+      _loop();
+    }
+  }
+
+  cancel() {
+    running = false;
+  }
+}
+
 class MainState extends ChangeNotifier {
   var initializing = true;
   var isRecording = false;
+  LocationSettings? locationSettings;
+  StreamSubscription<Position>? positionStream;
+  PokeGeolocatorTask? pokeGeolocatorTask;
   var message = "";
-  var location = Location();
-  StreamSubscription<LocationData>? locationSubscription;
   Mutex m = Mutex();
 
   init() {
     var result = () async {
-      bool serviceEnabled;
-      PermissionStatus permissionGranted;
+      // TODO: handle all cases
+      var permissionStatus = await Permission.locationAlways.request();
+      log("permissionStatus: $permissionStatus");
 
-      serviceEnabled = await location.serviceEnabled();
-      if (!serviceEnabled) {
-        serviceEnabled = await location.requestService();
-        if (!serviceEnabled) {
-          return Future.error('Location services are disabled.');
-        }
-      }
-
-      permissionGranted = await location.hasPermission();
-      if (permissionGranted == PermissionStatus.denied) {
-        permissionGranted = await location.requestPermission();
-        if (permissionGranted != PermissionStatus.granted) {
-          return Future.error('Location permissions are denied');
-        }
+      var accuracy = LocationAccuracy.best;
+      var distanceFilter = 0;
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        locationSettings = AndroidSettings(
+            accuracy: accuracy,
+            distanceFilter: distanceFilter,
+            forceLocationManager: false,
+            // 1 sec feels like a reasonable interval
+            intervalDuration: const Duration(seconds: 1),
+            foregroundNotificationConfig: const ForegroundNotificationConfig(
+              notificationText:
+                  "Example app will continue to receive your position even when you aren't using it",
+              notificationTitle: "Running in Background",
+              enableWakeLock: false,
+            ));
+      } else if (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS) {
+        // TODO: not tested on iOS, it is likely that we need to tweak the
+        // settings.
+        locationSettings = AppleSettings(
+          accuracy: accuracy,
+          activityType: ActivityType.fitness,
+          distanceFilter: distanceFilter,
+          pauseLocationUpdatesAutomatically: true,
+          showBackgroundLocationIndicator: false,
+        );
+      } else {
+        locationSettings = LocationSettings(
+          accuracy: accuracy,
+          distanceFilter: distanceFilter,
+        );
       }
 
       initializing = false;
@@ -52,37 +111,34 @@ class MainState extends ChangeNotifier {
     await m.protect(() async {
       isRecording = !isRecording;
       if (isRecording) {
-        await location.enableBackgroundMode(enable: true);
-        locationSubscription = location.onLocationChanged
-            .listen((LocationData locationData) async {
-          var timestamp = locationData.time?.toInt();
-          if (timestamp == null) return;
-          var now = DateTime.fromMillisecondsSinceEpoch(timestamp);
-          message =
-              ('[${now.toLocal()}]${locationData.latitude.toString()}, ${locationData.longitude.toString()} ${locationData.altitude.toString()} ~${locationData.accuracy.toString()}');
-          notifyListeners();
+        if (positionStream == null) {
+          pokeGeolocatorTask ??= PokeGeolocatorTask.start();
+          positionStream =
+              Geolocator.getPositionStream(locationSettings: locationSettings)
+                  .listen((Position? position) async {
+            if (!isRecording) return;
+            if (position == null) return;
+            message =
+                ('[${position.timestamp.toLocal()}]${position.latitude.toString()}, ${position.longitude.toString()} ${position.altitude.toString()} ~${position.accuracy.toString()}');
+            notifyListeners();
 
-          var latitude = locationData.latitude;
-          var longitude = locationData.longitude;
-          var timestampMs = locationData.time?.toInt();
-          var accuracy = locationData.accuracy;
-          if (latitude != null &&
-              longitude != null &&
-              timestampMs != null &&
-              accuracy != null) {
+            var latitude = position.latitude;
+            var longitude = position.longitude;
+            var accuracy = position.accuracy;
             await api.onLocationUpdate(
                 latitude: latitude,
                 longitude: longitude,
-                timestampMs: timestampMs,
+                timestampMs: position.timestamp.millisecondsSinceEpoch,
                 accuracy: accuracy,
-                altitude: locationData.altitude,
-                speed: locationData.speed);
-          }
-        });
+                altitude: position.altitude,
+                speed: position.speed);
+          });
+        }
       } else {
-        location.enableBackgroundMode(enable: false);
-        await locationSubscription?.cancel();
-
+        await positionStream?.cancel();
+        positionStream = null;
+        pokeGeolocatorTask?.cancel();
+        pokeGeolocatorTask = null;
         message = "";
       }
       notifyListeners();
@@ -106,6 +162,8 @@ class GPS extends StatelessWidget {
 }
 
 class ExportRawData extends StatefulWidget {
+  const ExportRawData({super.key});
+
   @override
   _ExportRawDataState createState() => _ExportRawDataState();
 }
@@ -214,7 +272,7 @@ class GPSPage extends StatelessWidget {
           ),
           const Text("Raw data"),
           const RawDataSwitch(),
-          ExportRawData(),
+          const ExportRawData(),
         ],
       ),
     );
