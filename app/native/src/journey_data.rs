@@ -130,7 +130,7 @@ pub fn serialize_journey_bitmap<T: Write>(
         // write each block in the right order
         for byte_index in 0..block_keys.len() {
             for offset in 0..8 {                
-                if block_keys[byte_index] & (1 << offset) == 1 {
+                if block_keys[byte_index] & (1 << offset) != 0 {
                     let (x, y) = block_index_to_key((byte_index * 8 + offset) as u16);                                                            
                     match tile.blocks.get(&(x, y)) {
                         Some(block)=>{
@@ -210,7 +210,7 @@ fn deserialize_tile<T:Read>(reader:T)->Result<Tile>{
 
     for byte_index in 0..block_keys.len() {
         for offset in 0..8 {
-            if block_keys[byte_index] & (1 << offset) == 1 {
+            if block_keys[byte_index] & (1 << offset) != 0 {
                 let (x, y) = block_index_to_key((byte_index * 8 + offset) as u16);                
                 let mut block_data = [0_u8;journey_bitmap::BITMAP_SIZE];                
                 decoder.read_exact(&mut block_data)?;
