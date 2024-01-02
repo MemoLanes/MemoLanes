@@ -1,11 +1,11 @@
 use std::io::{Read, Write};
 
-use anyhow::{Result, Ok};
+use anyhow::{Ok, Result};
 use integer_encoding::*;
 use itertools::Itertools;
 
 use crate::{
-    journey_bitmap::{self, JourneyBitmap, Tile, Block},
+    journey_bitmap::{self, Block, JourneyBitmap, Tile},
     journey_header::JourneyType,
     journey_vector::{JourneyVector, TrackPoint, TrackSegment},
 };
@@ -124,19 +124,19 @@ pub fn serialize_journey_bitmap<T: Write>(
             let byte_index = (i / 8) as usize;
             block_keys[byte_index] |= 1 << (i % 8);
         }
-        encoder.write_all(&block_keys)?; 
+        encoder.write_all(&block_keys)?;
 
         //let mut n=0;
         // write each block in the right order
         for byte_index in 0..block_keys.len() {
-            for offset in 0..8 {                
+            for offset in 0..8 {
                 if block_keys[byte_index] & (1 << offset) != 0 {
-                    let (x, y) = block_index_to_key((byte_index * 8 + offset) as u16);                                                            
+                    let (x, y) = block_index_to_key((byte_index * 8 + offset) as u16);
                     // match tile.blocks.get(&(x, y)) {
                     //     Some(block)=>{
                     //         println!("block write success,x={},y={}",x,y);
                     //         n+=1;
-                    //         encoder.write_all(&block.data)?;                            
+                    //         encoder.write_all(&block.data)?;
                     //     },
                     //     None=>{
                     //         println!("failed x={},y={}",x,y);
@@ -144,7 +144,7 @@ pub fn serialize_journey_bitmap<T: Write>(
                     // }
                     let block = tile.blocks.get(&(x, y)).unwrap();
                     encoder.write_all(&block.data)?;
-                }            
+                }
             }
         }
         //println!("n={}",n);
@@ -171,7 +171,7 @@ pub fn serialize_journey_bitmap<T: Write>(
     Ok(())
 }
 
-pub fn deserialize_journey_bitmap<T:Read>(mut reader: T)->Result<JourneyBitmap>{
+pub fn deserialize_journey_bitmap<T: Read>(mut reader: T) -> Result<JourneyBitmap> {
     let mut magic_header: [u8; 2] = [0; 2];
     reader.read_exact(&mut magic_header)?;
     if magic_header != JOURNEY_BITMAP_MAGIC_HEADER {
@@ -182,40 +182,41 @@ pub fn deserialize_journey_bitmap<T:Read>(mut reader: T)->Result<JourneyBitmap>{
         );
     }
 
-    let mut journey_bitmap=JourneyBitmap::new();      
-    let tiles_count:u64 = reader.read_varint()?;
+    let mut journey_bitmap = JourneyBitmap::new();
+    let tiles_count: u64 = reader.read_varint()?;
     for _ in 0..tiles_count {
         let mut buf: [u8; 2] = [0; 2];
         reader.read_exact(&mut buf)?;
-        let x_tile=u16::from_be_bytes(buf);
+        let x_tile = u16::from_be_bytes(buf);
 
         reader.read_exact(&mut buf)?;
-        let y_tile=u16::from_be_bytes(buf);
+        let y_tile = u16::from_be_bytes(buf);
 
-        let tile_data_len:u64 = reader.read_varint()?;        
-        let mut buf_tile=vec![0_u8;tile_data_len as usize];
-        reader.read_exact(&mut buf_tile)?;               
+        let tile_data_len: u64 = reader.read_varint()?;
+        let mut buf_tile = vec![0_u8; tile_data_len as usize];
+        reader.read_exact(&mut buf_tile)?;
         let tile = deserialize_tile(buf_tile.as_slice())?;
-        journey_bitmap.tiles.insert((x_tile,y_tile), tile);
+        journey_bitmap.tiles.insert((x_tile, y_tile), tile);
     }
 
     Ok(journey_bitmap)
 }
 
-fn deserialize_tile<T:Read>(reader:T)->Result<Tile>{
+fn deserialize_tile<T: Read>(reader: T) -> Result<Tile> {
     let mut decoder = zstd::Decoder::new(reader)?;
-    let mut tile=Tile::new();
-    let mut block_keys =[0_u8; (journey_bitmap::TILE_WIDTH * journey_bitmap::TILE_WIDTH / 8) as usize];
+    let mut tile = Tile::new();
+    let mut block_keys =
+        [0_u8; (journey_bitmap::TILE_WIDTH * journey_bitmap::TILE_WIDTH / 8) as usize];
     decoder.read_exact(&mut block_keys)?;
 
     for byte_index in 0..block_keys.len() {
         for offset in 0..8 {
             if block_keys[byte_index] & (1 << offset) != 0 {
-                let (x, y) = block_index_to_key((byte_index * 8 + offset) as u16);                
-                let mut block_data = [0_u8;journey_bitmap::BITMAP_SIZE];                
+                let (x, y) = block_index_to_key((byte_index * 8 + offset) as u16);
+                let mut block_data = [0_u8; journey_bitmap::BITMAP_SIZE];
                 decoder.read_exact(&mut block_data)?;
                 let block = Block::new_with_data(block_data);
-                tile.blocks.insert((x,y), block);
+                tile.blocks.insert((x, y), block);
             }
         }
     }
@@ -235,7 +236,7 @@ impl JourneyData {
     pub fn deserialize<T: Read>(reader: T, journey_type: JourneyType) -> Result<JourneyData> {
         match journey_type {
             JourneyType::Vector => Ok(JourneyData::Vector(deserialize_journey_vector(reader)?)),
-            JourneyType::Bitmap => Ok(JourneyData::Bitmap(deserialize_journey_bitmap(reader)?))
+            JourneyType::Bitmap => Ok(JourneyData::Bitmap(deserialize_journey_bitmap(reader)?)),
         }
     }
 }
