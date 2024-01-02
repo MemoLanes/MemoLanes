@@ -128,7 +128,8 @@ pub fn serialize_journey_bitmap<T: Write>(
 
         //let mut n=0;
         // write each block in the right order
-        for byte_index in 0..block_keys.len() {
+        // for byte_index in 0..block_keys.len() {
+        for (byte_index, _val) in block_keys.iter().enumerate() {    
             for offset in 0..8 {
                 if block_keys[byte_index] & (1 << offset) != 0 {
                     let (x, y) = block_index_to_key((byte_index * 8 + offset) as u16);
@@ -209,7 +210,8 @@ fn deserialize_tile<T: Read>(reader: T) -> Result<Tile> {
         [0_u8; (journey_bitmap::TILE_WIDTH * journey_bitmap::TILE_WIDTH / 8) as usize];
     decoder.read_exact(&mut block_keys)?;
 
-    for byte_index in 0..block_keys.len() {
+    //for byte_index in 0..block_keys.len() {
+    for (byte_index, _val) in block_keys.iter().enumerate() {
         for offset in 0..8 {
             if block_keys[byte_index] & (1 << offset) != 0 {
                 let (x, y) = block_index_to_key((byte_index * 8 + offset) as u16);
