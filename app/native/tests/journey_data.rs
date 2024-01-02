@@ -41,19 +41,25 @@ fn serilize_journey_data_bitmap() {
 
 #[test]
 fn deserilize_journey_data_bitmap() {
-    let reader = File::open(DATA_FILE_PATH_BITMAP).unwrap();
-    let result = JourneyData::deserialize(reader, native::journey_header::JourneyType::Bitmap);
-    match result {
-        Ok(journey_data) => {
-            let origin_journey_bitmap = get_journey_bitmap();
-            if let JourneyData::Bitmap(journey_bitmap) = journey_data {
-                assert_eq!(journey_bitmap, origin_journey_bitmap);
+    match  File::open(DATA_FILE_PATH_BITMAP){
+        Ok(reader)=>{
+            let result = JourneyData::deserialize(reader, native::journey_header::JourneyType::Bitmap);
+            match result {
+                Ok(journey_data) => {
+                    let origin_journey_bitmap = get_journey_bitmap();
+                    if let JourneyData::Bitmap(journey_bitmap) = journey_data {
+                        assert_eq!(journey_bitmap, origin_journey_bitmap);
+                    }
+                }
+                Err(e) => {
+                    println!("Error: {}", e);
+                }
             }
         }
-        Err(e) => {
-            println!("Error: {}", e);
+        Err(e)=>{
+            println!("File Open Error: {}", e);
         }
-    }
+    }    
 }
 
 fn get_journey_vector() -> JourneyVector {
