@@ -1,9 +1,10 @@
 pub mod test_utils;
 
 use std::fs::File;
-use native::{journey_bitmap::JourneyBitmap,journey_data::JourneyData};
+use native::{journey_bitmap::JourneyBitmap,journey_data::JourneyData, journey_vector::{JourneyVector, self, TrackPoint, TrackSegment}};
 
-const DATA_FILE_PATH:&str ="./tests/for_inspection/data.dat";
+const DATA_FILE_PATH_BITMAP:&str ="./tests/for_inspection/data_bitmap.dat";
+const DATA_FILE_PATH_VECTOR:&str ="./tests/for_inspection/data_vector.dat";
 
 
 const START_LNG: f64 = 151.1435370795134;
@@ -22,51 +23,64 @@ fn draw_line2(journey_bitmap: &mut JourneyBitmap) {
 
 fn get_journey_bitmap()->JourneyBitmap{
     let mut journey_bitmap = JourneyBitmap::new();
-
-    // // Melbourne to Hawaii
-    // let (start_lng, start_lat, end_lng, end_lat) =
-    //     (144.847737, 37.6721702, -160.3644029, 21.3186185);
-    // journey_bitmap.add_line(start_lng, start_lat, end_lng, end_lat);
-
-    // // Hawaii to Guan
-    // let (start_lng, start_lat, end_lng, end_lat) =
-    //     (-160.3644029, 21.3186185, 121.4708788, 9.4963078);
-    // journey_bitmap.add_line(start_lng, start_lat, end_lng, end_lat);
     
     draw_line1(&mut journey_bitmap);
-    // draw_line2(&mut journey_bitmap);
+    draw_line2(&mut journey_bitmap);
 
     journey_bitmap
 }
 
 #[test]
 fn serilize_journey_data_bitmap(){      
-    let f=File::create(DATA_FILE_PATH).unwrap();
+    let f=File::create(DATA_FILE_PATH_BITMAP).unwrap();
     let _=JourneyData::Bitmap(get_journey_bitmap()).serialize(f);  
 }
 
 #[test]
 fn deserilize_journey_data_bitmap(){
-    let reader_result = File::open(DATA_FILE_PATH);
-    match reader_result {
-        Ok(reader)=>{
-            let result = JourneyData::deserialize(reader, native::journey_header::JourneyType::Bitmap);
-            match result {
-                Ok(journey_data)=>{
-                    let origin_journey_bitmap=get_journey_bitmap();
-                    if let JourneyData::Bitmap(journey_bitmap)=journey_data{
-                        assert_eq!(journey_bitmap,origin_journey_bitmap);
-                    }
-                },
-                Err(e)=>{
-                    println!("Error: {}", e);
-                }
-            }    
+    let reader = File::open(DATA_FILE_PATH_BITMAP).unwrap();
+    let result = JourneyData::deserialize(reader, native::journey_header::JourneyType::Bitmap);
+    match result {
+        Ok(journey_data)=>{
+            let origin_journey_bitmap=get_journey_bitmap();
+            if let JourneyData::Bitmap(journey_bitmap)=journey_data{
+                assert_eq!(journey_bitmap,origin_journey_bitmap);
+            }
         },
         Err(e)=>{
-            println!("File Open Error: {}", e);
+            println!("Error: {}", e);
         }
-    }
+    } 
+}
 
-    
+fn get_journey_vector()->JourneyVector{
+    let track_point1 = TrackPoint{latitude:START_LAT,longitude:START_LNG};
+    let track_point2=TrackPoint{latitude:END_LAT,longitude:END_LNG};   
+    let track_segment= TrackSegment{track_points:vec![track_point1,track_point2]};
+    JourneyVector{track_segments:vec![track_segment]}
+}
+
+#[test]
+fn serilize_journey_data_vector(){
+    let f=File::create(DATA_FILE_PATH_VECTOR).unwrap();
+    let _=JourneyData::Vector(get_journey_vector()).serialize(f);
+}
+
+#[test]
+fn deserialize_journey_vector(){
+    let reader = File::open(DATA_FILE_PATH_VECTOR).unwrap();
+    let result = JourneyData::deserialize(reader, native::journey_header::JourneyType::Vector);
+    match result {
+        Ok(journey_data)=>{
+            let origin_journey_vector=get_journey_vector();
+            if let JourneyData::Vector(journey_vector)=journey_data{
+                // println!("{:#?}",journey_vector);
+                // println!("{:#?}",origin_journey_vector);
+                assert_eq!(journey_vector,origin_journey_vector);                
+            }
+        },
+        Err(e)=>{
+            println!("Error: {}", e);
+        }
+    } 
 }
