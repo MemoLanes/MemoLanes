@@ -5,16 +5,16 @@ packages:
     dependency: transitive
     description:
       name: archive
-      sha256: "7b875fd4a20b165a3084bd2d210439b22ebc653f21cea4842729c0c30c82596b"
-      url: "https://pub.dev"
+      sha256: "22600aa1e926be775fa5fe7e6894e7fb3df9efda8891c73f70fb3262399a432d"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
-    version: "3.4.9"
+    version: "3.4.10"
   args:
     dependency: transitive
     description:
       name: args
       sha256: eef6c46b622e0494a36c5a12d10d77fb4e855501a91c1b9ef9339326e58f0596
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "2.4.2"
   async:
@@ -22,7 +22,7 @@ packages:
     description:
       name: async
       sha256: "947bfcf187f74dbc5e146c9eb9c0f10c9f8b30743e341481c1e2ed3ecc18c20c"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "2.11.0"
   boolean_selector:
@@ -30,7 +30,7 @@ packages:
     description:
       name: boolean_selector
       sha256: "6cfb5af12253eaf2b368f07bacc5a80d1301a071c73360d746b7f2e32d762c66"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "2.1.1"
   build_cli_annotations:
@@ -38,7 +38,7 @@ packages:
     description:
       name: build_cli_annotations
       sha256: b59d2769769efd6c9ff6d4c4cede0be115a566afc591705c2040b707534b1172
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "2.1.0"
   characters:
@@ -46,7 +46,7 @@ packages:
     description:
       name: characters
       sha256: "04a925763edad70e8443c99234dc3328f442e811f1d8fd1a72f1c8ad0f69a605"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "1.3.0"
   cli_util:
@@ -54,7 +54,7 @@ packages:
     description:
       name: cli_util
       sha256: c05b7406fdabc7a49a3929d4af76bcaccbbffcbcdcf185b082e1ae07da323d19
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "0.4.1"
   clock:
@@ -62,7 +62,7 @@ packages:
     description:
       name: clock
       sha256: cb6d7f03e1de671e34607e909a7213e31d7752be4fb66a86d29fe1eb14bfb5cf
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "1.1.1"
   collection:
@@ -70,7 +70,7 @@ packages:
     description:
       name: collection
       sha256: ee67cb0715911d28db6bf4af1026078bd6f0128b07a5f66fb2ed94ec6783c09a
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "1.18.0"
   convert:
@@ -78,7 +78,7 @@ packages:
     description:
       name: convert
       sha256: "0f08b14755d163f6e2134cb58222dd25ea2a2ee8a195e53983d57c075324d592"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "3.1.1"
   cross_file:
@@ -86,7 +86,7 @@ packages:
     description:
       name: cross_file
       sha256: fedaadfa3a6996f75211d835aaeb8fede285dae94262485698afd832371b9a5e
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "0.3.3+8"
   crypto:
@@ -94,7 +94,7 @@ packages:
     description:
       name: crypto
       sha256: ff625774173754681d66daaf4a448684fb04b78f902da9cb3d308c19cc5e8bab
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "3.0.3"
   cupertino_icons:
@@ -102,7 +102,7 @@ packages:
     description:
       name: cupertino_icons
       sha256: d57953e10f9f8327ce64a508a355f0b1ec902193f66288e8cb5070e7c47eeb2d
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "1.0.6"
   fake_async:
@@ -110,7 +110,7 @@ packages:
     description:
       name: fake_async
       sha256: "511392330127add0b769b75a987850d136345d9227c6b94c96a04cf4a391bf78"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "1.3.1"
   ffi:
@@ -118,23 +118,23 @@ packages:
     description:
       name: ffi
       sha256: "7bf0adc28a23d395f19f3f1eb21dd7cfd1dd9f8e1c50051c069122e6853bc878"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "2.1.0"
   ffigen:
     dependency: "direct dev"
     description:
       name: ffigen
-      sha256: "0a4e9c5437c5c4600fa583141508beaf90fe29b58b0fd7437a9b022cda228747"
-      url: "https://pub.dev"
+      sha256: "3a80687577e7e51ba915114742f389a128e8aa241c52ce69a0f70aecb8e14365"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
-    version: "10.0.0"
+    version: "9.0.1"
   file:
     dependency: transitive
     description:
       name: file
       sha256: "5fc22d7c25582e38ad9a8515372cd9a93834027aacf1801cf01164dac0ffa08c"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "7.0.0"
   flutter:
@@ -147,7 +147,7 @@ packages:
     description:
       name: flutter_lints
       sha256: e2a421b7e59244faef694ba7b30562e489c2b489866e505074eb005cd7060db7
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "3.0.1"
   flutter_rust_bridge:
@@ -155,7 +155,7 @@ packages:
     description:
       name: flutter_rust_bridge
       sha256: "02720226035257ad0b571c1256f43df3e1556a499f6bcb004849a0faaa0e87f0"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "1.82.6"
   flutter_test:
@@ -173,7 +173,7 @@ packages:
     description:
       name: geolocator
       sha256: e946395fc608842bb2f6c914807e9183f86f3cb787f6b8f832753e5251036f02
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "10.1.0"
   geolocator_android:
@@ -181,7 +181,7 @@ packages:
     description:
       name: geolocator_android
       sha256: "741579fa6c9e412984d2bdb2fbaa54e3c3f7587c60aeacfe6e058358a11f40f8"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "4.4.0"
   geolocator_apple:
@@ -189,7 +189,7 @@ packages:
     description:
       name: geolocator_apple
       sha256: "1d938e2462cc5145c1402f89d49e70b60a2a51b89fb57414ced71417f1f479b1"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "2.3.3"
   geolocator_platform_interface:
@@ -197,7 +197,7 @@ packages:
     description:
       name: geolocator_platform_interface
       sha256: "6c8d494d6948757c56720b778af742f6973f31fca1f702a7539b8917e4a2468a"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "4.2.0"
   geolocator_web:
@@ -205,7 +205,7 @@ packages:
     description:
       name: geolocator_web
       sha256: "59083f7e0871b78299918d92bf930a14377f711d2d1156c558cd5ebae6c20d58"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "2.2.0"
   geolocator_windows:
@@ -213,7 +213,7 @@ packages:
     description:
       name: geolocator_windows
       sha256: a92fae29779d5c6dc60e8411302f5221ade464968fe80a36d330e80a71f087af
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "0.2.2"
   glob:
@@ -221,7 +221,7 @@ packages:
     description:
       name: glob
       sha256: "0e7014b3b7d4dac1ca4d6114f82bf1782ee86745b9b42a92c9289c23d8a0ab63"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "2.1.2"
   http:
@@ -229,7 +229,7 @@ packages:
     description:
       name: http
       sha256: d4872660c46d929f6b8a9ef4e7a7eff7e49bbf0c4ec3f385ee32df5119175139
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "1.1.2"
   http_parser:
@@ -237,7 +237,7 @@ packages:
     description:
       name: http_parser
       sha256: "2aa08ce0341cc9b354a498388e30986515406668dbcc4f7c950c3e715496693b"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "4.0.2"
   image:
@@ -245,23 +245,23 @@ packages:
     description:
       name: image
       sha256: "028f61960d56f26414eb616b48b04eb37d700cbe477b7fb09bf1d7ce57fd9271"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "4.1.3"
   js:
     dependency: transitive
     description:
       name: js
-      sha256: f2c445dce49627136094980615a031419f7f3eb393237e4ecd97ac15dea343f3
-      url: "https://pub.dev"
+      sha256: cf7243a0c29626284ada2add68a33f5b1102affe3509393e75136e0f6616bd68
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
-    version: "0.6.7"
+    version: "0.6.8"
   lints:
     dependency: transitive
     description:
       name: lints
       sha256: cbf8d4b858bb0134ef3ef87841abdf8d63bfc255c266b7bf6b39daa1085c4290
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "3.0.0"
   logging:
@@ -269,7 +269,7 @@ packages:
     description:
       name: logging
       sha256: "623a88c9594aa774443aa3eb2d41807a48486b5613e67599fb4c41c0ad47c340"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "1.2.0"
   maplibre_gl:
@@ -304,7 +304,7 @@ packages:
     description:
       name: matcher
       sha256: "1803e76e6653768d64ed8ff2e1e67bea3ad4b923eb5c56a295c3e634bad5960e"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "0.12.16"
   material_color_utilities:
@@ -312,7 +312,7 @@ packages:
     description:
       name: material_color_utilities
       sha256: "9528f2f296073ff54cb9fee677df673ace1218163c3bc7628093e7eed5203d41"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "0.5.0"
   meta:
@@ -320,7 +320,7 @@ packages:
     description:
       name: meta
       sha256: a6e590c838b18133bb482a2745ad77c5bb7715fb0451209e1a7567d416678b8e
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "1.10.0"
   mime:
@@ -328,7 +328,7 @@ packages:
     description:
       name: mime
       sha256: e4ff8e8564c03f255408decd16e7899da1733852a9110a58fe6d1b817684a63e
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "1.0.4"
   mutex:
@@ -336,7 +336,7 @@ packages:
     description:
       name: mutex
       sha256: "8827da25de792088eb33e572115a5eb0d61d61a3c01acbc8bcbe76ed78f1a1f2"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "3.1.0"
   nested:
@@ -344,7 +344,7 @@ packages:
     description:
       name: nested
       sha256: "03bac4c528c64c95c722ec99280375a6f2fc708eec17c7b3f07253b626cd2a20"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "1.0.0"
   package_config:
@@ -352,7 +352,7 @@ packages:
     description:
       name: package_config
       sha256: "1c5b77ccc91e4823a5af61ee74e6b972db1ef98c2ff5a18d3161c982a55448bd"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "2.1.0"
   path:
@@ -360,7 +360,7 @@ packages:
     description:
       name: path
       sha256: "8829d8a55c13fc0e37127c29fedf290c102f4e40ae94ada574091fe0ff96c917"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "1.8.3"
   path_provider:
@@ -368,7 +368,7 @@ packages:
     description:
       name: path_provider
       sha256: a1aa8aaa2542a6bc57e381f132af822420216c80d4781f7aa085ca3229208aaa
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "2.1.1"
   path_provider_android:
@@ -376,7 +376,7 @@ packages:
     description:
       name: path_provider_android
       sha256: "477184d672607c0a3bf68fbbf601805f92ef79c82b64b4d6eb318cbca4c48668"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "2.2.2"
   path_provider_foundation:
@@ -384,7 +384,7 @@ packages:
     description:
       name: path_provider_foundation
       sha256: "19314d595120f82aca0ba62787d58dde2cc6b5df7d2f0daf72489e38d1b57f2d"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "2.3.1"
   path_provider_linux:
@@ -392,7 +392,7 @@ packages:
     description:
       name: path_provider_linux
       sha256: f7a1fe3a634fe7734c8d3f2766ad746ae2a2884abe22e241a8b301bf5cac3279
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "2.2.1"
   path_provider_platform_interface:
@@ -400,7 +400,7 @@ packages:
     description:
       name: path_provider_platform_interface
       sha256: "94b1e0dd80970c1ce43d5d4e050a9918fce4f4a775e6142424c30a29a363265c"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "2.1.1"
   path_provider_windows:
@@ -408,7 +408,7 @@ packages:
     description:
       name: path_provider_windows
       sha256: "8bc9f22eee8690981c22aa7fc602f5c85b497a6fb2ceb35ee5a5e5ed85ad8170"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "2.2.1"
   permission_handler:
@@ -416,7 +416,7 @@ packages:
     description:
       name: permission_handler
       sha256: "860c6b871c94c78e202dc69546d4d8fd84bd59faeb36f8fb9888668a53ff4f78"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "11.1.0"
   permission_handler_android:
@@ -424,7 +424,7 @@ packages:
     description:
       name: permission_handler_android
       sha256: "2f1bec180ee2f5665c22faada971a8f024761f632e93ddc23310487df52dcfa6"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "12.0.1"
   permission_handler_apple:
@@ -432,7 +432,7 @@ packages:
     description:
       name: permission_handler_apple
       sha256: "1a816084338ada8d574b1cb48390e6e8b19305d5120fe3a37c98825bacc78306"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "9.2.0"
   permission_handler_html:
@@ -440,7 +440,7 @@ packages:
     description:
       name: permission_handler_html
       sha256: "11b762a8c123dced6461933a88ea1edbbe036078c3f9f41b08886e678e7864df"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "0.1.0+2"
   permission_handler_platform_interface:
@@ -448,7 +448,7 @@ packages:
     description:
       name: permission_handler_platform_interface
       sha256: d87349312f7eaf6ce0adaf668daf700ac5b06af84338bd8b8574dfbd93ffe1a1
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "4.0.2"
   permission_handler_windows:
@@ -456,7 +456,7 @@ packages:
     description:
       name: permission_handler_windows
       sha256: "1e8640c1e39121128da6b816d236e714d2cf17fac5a105dd6acdd3403a628004"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "0.2.0"
   petitparser:
@@ -464,7 +464,7 @@ packages:
     description:
       name: petitparser
       sha256: c15605cd28af66339f8eb6fbe0e541bfe2d1b72d5825efc6598f3e0a31b9ad27
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "6.0.2"
   platform:
@@ -472,7 +472,7 @@ packages:
     description:
       name: platform
       sha256: "0a279f0707af40c890e80b1e9df8bb761694c074ba7e1d4ab1bc4b728e200b59"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "3.1.3"
   plugin_platform_interface:
@@ -480,7 +480,7 @@ packages:
     description:
       name: plugin_platform_interface
       sha256: f4f88d4a900933e7267e2b353594774fc0d07fb072b47eedcd5b54e1ea3269f8
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "2.1.7"
   pointycastle:
@@ -488,7 +488,7 @@ packages:
     description:
       name: pointycastle
       sha256: "7c1e5f0d23c9016c5bbd8b1473d0d3fb3fc851b876046039509e18e0c7485f2c"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "3.7.3"
   pool:
@@ -496,7 +496,7 @@ packages:
     description:
       name: pool
       sha256: "20fe868b6314b322ea036ba325e6fc0711a22948856475e2c2b6306e8ab39c2a"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "1.5.1"
   provider:
@@ -504,7 +504,7 @@ packages:
     description:
       name: provider
       sha256: "9a96a0a19b594dbc5bf0f1f27d2bc67d5f95957359b461cd9feb44ed6ae75096"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "6.1.1"
   puppeteer:
@@ -512,7 +512,7 @@ packages:
     description:
       name: puppeteer
       sha256: eedeaae6ec5d2e54f9ae22ab4d6b3dda2e8791c356cc783046d06c287ffe11d8
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "3.6.0"
   quiver:
@@ -520,7 +520,7 @@ packages:
     description:
       name: quiver
       sha256: b1c1ac5ce6688d77f65f3375a9abb9319b3cb32486bdc7a1e0fdf004d7ba4e47
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "3.2.1"
   share_plus:
@@ -528,7 +528,7 @@ packages:
     description:
       name: share_plus
       sha256: f74fc3f1cbd99f39760182e176802f693fa0ec9625c045561cfad54681ea93dd
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "7.2.1"
   share_plus_platform_interface:
@@ -536,7 +536,7 @@ packages:
     description:
       name: share_plus_platform_interface
       sha256: df08bc3a07d01f5ea47b45d03ffcba1fa9cd5370fb44b3f38c70e42cced0f956
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "3.3.1"
   shelf:
@@ -544,7 +544,7 @@ packages:
     description:
       name: shelf
       sha256: ad29c505aee705f41a4d8963641f91ac4cee3c8fad5947e033390a7bd8180fa4
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "1.4.1"
   shelf_static:
@@ -552,7 +552,7 @@ packages:
     description:
       name: shelf_static
       sha256: a41d3f53c4adf0f57480578c1d61d90342cd617de7fc8077b1304643c2d85c1e
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "1.1.2"
   shelf_web_socket:
@@ -560,7 +560,7 @@ packages:
     description:
       name: shelf_web_socket
       sha256: "9ca081be41c60190ebcb4766b2486a7d50261db7bd0f5d9615f2d653637a84c1"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "1.0.4"
   sky_engine:
@@ -573,7 +573,7 @@ packages:
     description:
       name: source_span
       sha256: "53e943d4206a5e30df338fd4c6e7a077e02254531b138a15aec3bd143c1a8b3c"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "1.10.0"
   sprintf:
@@ -581,7 +581,7 @@ packages:
     description:
       name: sprintf
       sha256: "1fc9ffe69d4df602376b52949af107d8f5703b77cda567c4d7d86a0693120f23"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "7.0.0"
   stack_trace:
@@ -589,7 +589,7 @@ packages:
     description:
       name: stack_trace
       sha256: "73713990125a6d93122541237550ee3352a2d84baad52d375a4cad2eb9b7ce0b"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "1.11.1"
   stream_channel:
@@ -597,7 +597,7 @@ packages:
     description:
       name: stream_channel
       sha256: ba2aa5d8cc609d96bbb2899c28934f9e1af5cddbd60a827822ea467161eb54e7
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "2.1.2"
   string_scanner:
@@ -605,7 +605,7 @@ packages:
     description:
       name: string_scanner
       sha256: "556692adab6cfa87322a115640c11f13cb77b3f076ddcc5d6ae3c20242bedcde"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "1.2.0"
   term_glyph:
@@ -613,7 +613,7 @@ packages:
     description:
       name: term_glyph
       sha256: a29248a84fbb7c79282b40b8c72a1209db169a2e0542bce341da992fe1bc7e84
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "1.2.1"
   test_api:
@@ -621,7 +621,7 @@ packages:
     description:
       name: test_api
       sha256: "5c2f730018264d276c20e4f1503fd1308dfbbae39ec8ee63c5236311ac06954b"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "0.6.1"
   tuple:
@@ -629,7 +629,7 @@ packages:
     description:
       name: tuple
       sha256: a97ce2013f240b2f3807bcbaf218765b6f301c3eff91092bcfa23a039e7dd151
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "2.0.2"
   typed_data:
@@ -637,7 +637,7 @@ packages:
     description:
       name: typed_data
       sha256: facc8d6582f16042dd49f2463ff1bd6e2c9ef9f3d5da3d9b087e244a7b564b3c
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "1.3.2"
   url_launcher_linux:
@@ -645,7 +645,7 @@ packages:
     description:
       name: url_launcher_linux
       sha256: ab360eb661f8879369acac07b6bb3ff09d9471155357da8443fd5d3cf7363811
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "3.1.1"
   url_launcher_platform_interface:
@@ -653,7 +653,7 @@ packages:
     description:
       name: url_launcher_platform_interface
       sha256: "980e8d9af422f477be6948bdfb68df8433be71f5743a188968b0c1b887807e50"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "2.2.0"
   url_launcher_web:
@@ -661,7 +661,7 @@ packages:
     description:
       name: url_launcher_web
       sha256: "7286aec002c8feecc338cc33269e96b73955ab227456e9fb2a91f7fab8a358e9"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "2.2.2"
   url_launcher_windows:
@@ -669,7 +669,7 @@ packages:
     description:
       name: url_launcher_windows
       sha256: ecf9725510600aa2bb6d7ddabe16357691b6d2805f66216a97d1b881e21beff7
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "3.1.1"
   uuid:
@@ -677,7 +677,7 @@ packages:
     description:
       name: uuid
       sha256: "22c94e5ad1e75f9934b766b53c742572ee2677c56bc871d850a57dad0f82127f"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "4.2.2"
   vector_math:
@@ -685,7 +685,7 @@ packages:
     description:
       name: vector_math
       sha256: "80b3257d1492ce4d091729e3a67a60407d227c27241d6927be0130c98e741803"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "2.1.4"
   web:
@@ -693,7 +693,7 @@ packages:
     description:
       name: web
       sha256: afe077240a270dcfd2aafe77602b4113645af95d0ad31128cc02bce5ac5d5152
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "0.3.0"
   web_socket_channel:
@@ -701,7 +701,7 @@ packages:
     description:
       name: web_socket_channel
       sha256: d88238e5eac9a42bb43ca4e721edba3c08c6354d4a53063afaa568516217621b
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "2.4.0"
   win32:
@@ -709,7 +709,7 @@ packages:
     description:
       name: win32
       sha256: b0f37db61ba2f2e9b7a78a1caece0052564d1bc70668156cf3a29d676fe4e574
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "5.1.1"
   xdg_directories:
@@ -717,7 +717,7 @@ packages:
     description:
       name: xdg_directories
       sha256: "589ada45ba9e39405c198fe34eb0f607cddb2108527e658136120892beac46d2"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "1.0.3"
   xml:
@@ -725,7 +725,7 @@ packages:
     description:
       name: xml
       sha256: b015a8ad1c488f66851d762d3090a21c600e479dc75e68328c52774040cf9226
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "6.5.0"
   yaml:
@@ -733,7 +733,7 @@ packages:
     description:
       name: yaml
       sha256: "75769501ea3489fca56601ff33454fe45507ea3bfb014161abc3b43ae25989d5"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "3.1.2"
   yaml_edit:
@@ -741,7 +741,7 @@ packages:
     description:
       name: yaml_edit
       sha256: "1579d4a0340a83cf9e4d580ea51a16329c916973bffd5bd4b45e911b25d46bfd"
-      url: "https://pub.dev"
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "2.1.1"
 sdks:
