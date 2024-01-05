@@ -58,8 +58,8 @@ pub fn serialize_journey_vector<T: Write>(
     Ok(())
 }
 
-pub fn deserialize_journey_vector<T: Read>(reader: &mut T) -> Result<JourneyVector> {
-    validate_magic_header(reader, &JOURNEY_VECTOR_MAGIC_HEADER)?;
+pub fn deserialize_journey_vector<T: Read>(mut reader: T) -> Result<JourneyVector> {
+    validate_magic_header(&mut reader, &JOURNEY_VECTOR_MAGIC_HEADER)?;
 
     // data is compressed as a whole
     let mut decoder = zstd::Decoder::new(reader)?;
@@ -164,7 +164,7 @@ pub fn serialize_journey_bitmap<T: Write>(
     Ok(())
 }
 
-fn deserialize_tile<T: Read>(reader: &mut T) -> Result<Tile> {
+fn deserialize_tile<T: Read>(reader: T) -> Result<Tile> {
     let mut decoder = zstd::Decoder::new(reader)?;
     let mut tile = Tile::new();
     let mut block_keys =
@@ -186,8 +186,8 @@ fn deserialize_tile<T: Read>(reader: &mut T) -> Result<Tile> {
     Ok(tile)
 }
 
-pub fn deserialize_journey_bitmap<T: Read>(reader: &mut T) -> Result<JourneyBitmap> {
-    validate_magic_header(reader, &JOURNEY_BITMAP_MAGIC_HEADER)?;
+pub fn deserialize_journey_bitmap<T: Read>(mut reader: T) -> Result<JourneyBitmap> {
+    validate_magic_header(&mut reader, &JOURNEY_BITMAP_MAGIC_HEADER)?;
 
     let mut journey_bitmap = JourneyBitmap::new();
     let tiles_count: u64 = reader.read_varint()?;
@@ -200,7 +200,7 @@ pub fn deserialize_journey_bitmap<T: Read>(reader: &mut T) -> Result<JourneyBitm
         let tile_y = u16::from_be_bytes(buf);
 
         let tile_data_len: u64 = reader.read_varint()?;
-        let tile = deserialize_tile(&mut reader.take(tile_data_len))?;
+        let tile = deserialize_tile(reader.by_ref().take(tile_data_len))?;
         journey_bitmap.tiles.insert((tile_x, tile_y), tile);
     }
 
@@ -216,14 +216,10 @@ impl JourneyData {
         Ok(())
     }
 
-    pub fn deserialize<T: Read>(mut reader: T, journey_type: JourneyType) -> Result<JourneyData> {
+    pub fn deserialize<T: Read>(reader: T, journey_type: JourneyType) -> Result<JourneyData> {
         match journey_type {
-            JourneyType::Vector => Ok(JourneyData::Vector(deserialize_journey_vector(
-                &mut reader,
-            )?)),
-            JourneyType::Bitmap => Ok(JourneyData::Bitmap(deserialize_journey_bitmap(
-                &mut reader,
-            )?)),
+            JourneyType::Vector => Ok(JourneyData::Vector(deserialize_journey_vector(reader)?)),
+            JourneyType::Bitmap => Ok(JourneyData::Bitmap(deserialize_journey_bitmap(reader)?)),
         }
     }
 }
