@@ -126,29 +126,15 @@ pub fn serialize_journey_bitmap<T: Write>(
         }
         encoder.write_all(&block_keys)?;
 
-        //let mut n=0;
-        // write each block in the right order
-        // for byte_index in 0..block_keys.len() {
         for (byte_index, _val) in block_keys.iter().enumerate() {
             for offset in 0..8 {
                 if block_keys[byte_index] & (1 << offset) != 0 {
                     let (x, y) = block_index_to_key((byte_index * 8 + offset) as u16);
-                    // match tile.blocks.get(&(x, y)) {
-                    //     Some(block)=>{
-                    //         println!("block write success,x={},y={}",x,y);
-                    //         n+=1;
-                    //         encoder.write_all(&block.data)?;
-                    //     },
-                    //     None=>{
-                    //         println!("failed x={},y={}",x,y);
-                    //     }
-                    // }
                     let block = tile.blocks.get(&(x, y)).unwrap();
                     encoder.write_all(&block.data)?;
                 }
             }
         }
-        //println!("n={}",n);
 
         drop(encoder);
         Ok(buf)
@@ -210,7 +196,6 @@ fn deserialize_tile<T: Read>(reader: T) -> Result<Tile> {
         [0_u8; (journey_bitmap::TILE_WIDTH * journey_bitmap::TILE_WIDTH / 8) as usize];
     decoder.read_exact(&mut block_keys)?;
 
-    //for byte_index in 0..block_keys.len() {
     for (byte_index, _val) in block_keys.iter().enumerate() {
         for offset in 0..8 {
             if block_keys[byte_index] & (1 << offset) != 0 {

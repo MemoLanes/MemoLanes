@@ -5,10 +5,7 @@ use native::{
     journey_data::JourneyData,
     journey_vector::{JourneyVector, TrackPoint, TrackSegment},
 };
-use std::fs::File;
-
-const DATA_FILE_PATH_BITMAP: &str = "./tests/for_inspection/data_bitmap.dat";
-const DATA_FILE_PATH_VECTOR: &str = "./tests/for_inspection/data_vector.dat";
+use std::io::Cursor;
 
 const START_LNG: f64 = 151.1435370795134;
 const START_LAT: f64 = -33.793291910360125;
@@ -34,31 +31,24 @@ fn get_journey_bitmap() -> JourneyBitmap {
 }
 
 #[test]
-fn serilize_journey_data_bitmap() {
-    let f = File::create(DATA_FILE_PATH_BITMAP).unwrap();
-    let _ = JourneyData::Bitmap(get_journey_bitmap()).serialize(f);
-}
+fn serilize_deserilize_journey_data_bitmap() {
+    let mut buf: Vec<u8> = Vec::new();
+    let writer_cursor = Cursor::new(&mut buf);
+    let _ = JourneyData::Bitmap(get_journey_bitmap()).serialize(writer_cursor);
+    println!("bitmap serilize success");
 
-#[test]
-fn deserilize_journey_data_bitmap() {
-    match File::open(DATA_FILE_PATH_BITMAP) {
-        Ok(reader) => {
-            let result =
-                JourneyData::deserialize(reader, native::journey_header::JourneyType::Bitmap);
-            match result {
-                Ok(journey_data) => {
-                    let origin_journey_bitmap = get_journey_bitmap();
-                    if let JourneyData::Bitmap(journey_bitmap) = journey_data {
-                        assert_eq!(journey_bitmap, origin_journey_bitmap);
-                    }
-                }
-                Err(e) => {
-                    println!("Error: {}", e);
-                }
+    let reader_cursor = Cursor::new(buf);
+    let result =
+        JourneyData::deserialize(reader_cursor, native::journey_header::JourneyType::Bitmap);
+    match result {
+        Ok(journey_data) => {
+            let origin_journey_bitmap = get_journey_bitmap();
+            if let JourneyData::Bitmap(journey_bitmap) = journey_data {
+                assert_eq!(journey_bitmap, origin_journey_bitmap);
             }
         }
         Err(e) => {
-            println!("File Open Error: {}", e);
+            println!("Error: {}", e);
         }
     }
 }
@@ -81,31 +71,24 @@ fn get_journey_vector() -> JourneyVector {
 }
 
 #[test]
-fn serilize_journey_data_vector() {
-    let f = File::create(DATA_FILE_PATH_VECTOR).unwrap();
-    let _ = JourneyData::Vector(get_journey_vector()).serialize(f);
-}
+fn serilize_deserialize_journey_data_vector() {
+    let mut buf: Vec<u8> = Vec::new();
+    let writer_cursor = Cursor::new(&mut buf);
+    let _ = JourneyData::Vector(get_journey_vector()).serialize(writer_cursor);
+    println!("vector serilize success");
 
-#[test]
-fn deserialize_journey_vector() {
-    match File::open(DATA_FILE_PATH_VECTOR) {
-        Ok(reader) => {
-            let result =
-                JourneyData::deserialize(reader, native::journey_header::JourneyType::Vector);
-            match result {
-                Ok(journey_data) => {
-                    let origin_journey_vector = get_journey_vector();
-                    if let JourneyData::Vector(journey_vector) = journey_data {
-                        assert_eq!(journey_vector, origin_journey_vector);
-                    }
-                }
-                Err(e) => {
-                    println!("Error: {}", e);
-                }
+    let reader_cursor = Cursor::new(buf);
+    let result =
+        JourneyData::deserialize(reader_cursor, native::journey_header::JourneyType::Vector);
+    match result {
+        Ok(journey_data) => {
+            let origin_journey_vector = get_journey_vector();
+            if let JourneyData::Vector(journey_vector) = journey_data {
+                assert_eq!(journey_vector, origin_journey_vector);
             }
         }
         Err(e) => {
-            println!("File Open Error: {}", e);
+            println!("Error: {}", e);
         }
     }
 }
