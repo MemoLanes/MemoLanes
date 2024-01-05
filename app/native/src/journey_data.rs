@@ -218,7 +218,9 @@ impl JourneyData {
 
     pub fn deserialize<T: Read>(mut reader: T, journey_type: JourneyType) -> Result<JourneyData> {
         match journey_type {
-            JourneyType::Vector => Ok(JourneyData::Vector(deserialize_journey_vector(&mut reader)?)),
+            JourneyType::Vector => Ok(JourneyData::Vector(deserialize_journey_vector(
+                &mut reader,
+            )?)),
             JourneyType::Bitmap => Ok(JourneyData::Bitmap(deserialize_journey_bitmap(
                 &mut reader,
             )?)),
