@@ -353,6 +353,8 @@ typedef DartPort = ffi.Int64;
 
 const int TILE_WIDTH_OFFSET = 7;
 
+const int TILE_WIDTH = 128;
+
 const int BITMAP_WIDTH_OFFSET = 6;
 
 const int BITMAP_WIDTH = 64;

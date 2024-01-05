@@ -8,7 +8,7 @@ use crate::utils;
 pub const TILE_WIDTH_OFFSET: i16 = 7;
 const MAP_WIDTH_OFFSET: i16 = 9;
 const MAP_WIDTH: i64 = 1 << MAP_WIDTH_OFFSET;
-const TILE_WIDTH: i64 = 1 << TILE_WIDTH_OFFSET;
+pub const TILE_WIDTH: i64 = 1 << TILE_WIDTH_OFFSET;
 pub const BITMAP_WIDTH_OFFSET: i16 = 6;
 pub const BITMAP_WIDTH: i64 = 1 << BITMAP_WIDTH_OFFSET;
 pub const BITMAP_SIZE: usize = (BITMAP_WIDTH * BITMAP_WIDTH / 8) as usize;
@@ -284,7 +284,7 @@ impl Tile {
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct Block {
-    data: [u8; BITMAP_SIZE],
+    pub data: [u8; BITMAP_SIZE],
 }
 
 impl Block {
