@@ -59,7 +59,7 @@ pub fn load_fow_sync_data(zip_file_path: &str) -> Result<(JourneyBitmap, Option<
         let filename = Path::file_name(Path::new(&filename))
             .and_then(|x| x.to_str())
             .unwrap_or("");
-        if filename.is_empty() || filename.starts_with(".") || file.is_dir() {
+        if filename.is_empty() || filename.starts_with('.') || file.is_dir() {
             continue;
         }
         match FoWTileId::from_filename(filename) {
