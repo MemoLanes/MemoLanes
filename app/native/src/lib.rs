@@ -12,6 +12,7 @@ mod bridge_generated;
 
 pub mod archive;
 pub mod gps_processor;
+pub mod import_data;
 pub mod journey_bitmap;
 pub mod journey_data;
 pub mod journey_header;
