@@ -97,5 +97,12 @@ pub fn load_fow_sync_data(zip_file_path: &str) -> Result<(JourneyBitmap, Option<
         Some(warnings.join("\n"))
     };
 
-    Ok((journey_bitmap, warnings))
+    if journey_bitmap.tiles.is_empty() {
+        Err(anyhow!(
+            "empty data. warnings: {}",
+            warnings.unwrap_or("".to_owned())
+        ))
+    } else {
+        Ok((journey_bitmap, warnings))
+    }
 }
