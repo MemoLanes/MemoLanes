@@ -1,7 +1,7 @@
 use std::{fs::File, io::Read, path::Path};
 
 use anyhow::Result;
-use flate2::read::DeflateDecoder;
+use flate2::read::ZlibDecoder;
 
 use crate::journey_bitmap::{self, Block, JourneyBitmap, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH};
 
@@ -59,15 +59,15 @@ pub fn load_fow_sync_data(zip_file_path: &str) -> Result<(JourneyBitmap, Option<
         let filename = Path::file_name(Path::new(&filename))
             .and_then(|x| x.to_str())
             .unwrap_or("");
-        if filename.is_empty() {
+        if filename.is_empty() || filename.starts_with(".") || file.is_dir() {
             continue;
         }
         match FoWTileId::from_filename(filename) {
-            None => warnings.push(format!("unexpected file: {}", filename)),
+            None => warnings.push(format!("unexpected file: {}", file.name())),
             Some(id) => {
                 let mut tile = journey_bitmap::Tile::new();
                 let mut data = Vec::new();
-                DeflateDecoder::new(file).read_to_end(&mut data)?;
+                ZlibDecoder::new(file).read_to_end(&mut data)?;
 
                 let header = &data[0..TILE_HEADER_SIZE];
                 for i in 0..TILE_HEADER_LEN {
