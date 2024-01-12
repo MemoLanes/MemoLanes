@@ -27,6 +27,7 @@ zip = "0.6"
 sha1 = "0.10.5"
 hex = "0.4.3"
 integer-encoding = "4.0.0"
+flate2 = "1.0.28"
 
 [dev-dependencies]
 tempdir = "0.3.7"

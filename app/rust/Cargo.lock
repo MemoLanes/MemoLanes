@@ -1191,6 +1191,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "csv",
+ "flate2",
  "flutter_rust_bridge",
  "hex",
  "integer-encoding",

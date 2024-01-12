@@ -4,13 +4,13 @@ on:
   push:
     paths:
       - '.github/workflows/rust_ci.yml'
-      - 'app/native/**'
+      - 'app/rust/**'
     branches:
       - main
   pull_request:
     paths:
       - '.github/workflows/rust_ci.yml'
-      - 'app/native/**'
+      - 'app/rust/**'
     branches: 
       - main
   workflow_dispatch:
@@ -33,18 +33,18 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: "app/native/"
+          workspaces: "app/rust/"
           
       # Rust
       - name: Cargo Check
-        working-directory: app/native
+        working-directory: app/rust
         run: cargo check
       - name: Check Rust format
-        working-directory: app/native
+        working-directory: app/rust
         run: cargo fmt --all -- --check
       - name: Rust code analysis
-        working-directory: app/native
+        working-directory: app/rust
         run: cargo clippy -- -D warnings
       - name: Run Rust tests
-        working-directory: app/native
+        working-directory: app/rust
         run: cargo test -- --nocapture
