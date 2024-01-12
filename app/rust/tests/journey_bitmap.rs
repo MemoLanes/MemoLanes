@@ -123,3 +123,22 @@ fn intersection_and_difference_produce_empty() {
         assert_eq!(journey_bitmap, JourneyBitmap::new());
     }
 }
+
+#[test]
+fn serialization() {
+    let mut journey_bitmap = JourneyBitmap::new();
+    draw_line1(&mut journey_bitmap);
+    draw_line2(&mut journey_bitmap);
+    draw_line3(&mut journey_bitmap);
+    draw_line4(&mut journey_bitmap);
+    let journey_data = JourneyData::Bitmap(journey_bitmap);
+
+    let mut buf = Vec::new();
+    journey_data.serialize(&mut buf).unwrap();
+
+    println!("size: {}", buf.len());
+
+    let journey_data_roundtrip =
+        JourneyData::deserialize(buf.as_slice(), JourneyType::Bitmap).unwrap();
+    assert_eq!(journey_data, journey_data_roundtrip);
+}
