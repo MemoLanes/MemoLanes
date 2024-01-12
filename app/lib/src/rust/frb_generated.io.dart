@@ -562,6 +562,8 @@ final class wire_cst_list_raw_data_file extends ffi.Struct {
 
 const int TILE_WIDTH_OFFSET = 7;
 
+const int TILE_WIDTH = 128;
+
 const int BITMAP_WIDTH_OFFSET = 6;
 
 const int BITMAP_WIDTH = 64;

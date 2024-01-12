@@ -1,4 +1,4 @@
-use native::import_data;
+use rust_lib::import_data;
 
 #[test]
 fn load_fow_sync_data() {

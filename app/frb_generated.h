@@ -12,6 +12,10 @@ typedef struct _Dart_Handle* Dart_Handle;
 
 #define TILE_WIDTH_OFFSET 7
 
+#define MAP_WIDTH (1 << MAP_WIDTH_OFFSET)
+
+#define TILE_WIDTH (1 << TILE_WIDTH_OFFSET)
+
 #define BITMAP_WIDTH_OFFSET 6
 
 #define BITMAP_WIDTH (1 << BITMAP_WIDTH_OFFSET)
