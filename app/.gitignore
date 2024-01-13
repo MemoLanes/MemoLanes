@@ -1,3 +1,8 @@
+# flutter rust bridge generated files
+lib/src/rust
+rust/src/frb_generated.*
+frb_generated.h
+
 # Miscellaneous
 *.class
 *.log
