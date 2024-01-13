@@ -13,7 +13,7 @@ fn main() {
         .input("src/protos/archive.proto")
         .run_from_script();
 
-    // println!("cargo:rerun-if-changed=src/api/*");
+    println!("cargo:rerun-if-changed=src/api/*");
     let frb_codegen_installed = Command::new("flutter_rust_bridge_codegen")
         .arg("--version")
         .output()

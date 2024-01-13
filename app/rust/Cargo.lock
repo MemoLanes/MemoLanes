@@ -51,9 +51,9 @@ dependencies = [
 
 [[package]]
 name = "allo-isolate"
-version = "0.1.22"
+version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2ad11546cc848f5e627a2d00f9b3281e96bbe2e124c7ccc193d00ac1d6d953a"
+checksum = "4aa254bc7b5f54f7ec5c361ee263cb5c757fc19ce6b81ab2727f38c12d8e9a8d"
 dependencies = [
  "anyhow",
  "atomic",
@@ -464,9 +464,9 @@ dependencies = [
 
 [[package]]
 name = "flutter_rust_bridge"
-version = "2.0.0-dev.16"
+version = "2.0.0-dev.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fd4e2417307d40caa7d227e0d1908ebacc1631661905e91a56a56e140391fd3"
+checksum = "3adf5df60baf888f5cf944144e5a283dfd53f589d52d38f5262b73bb275dad62"
 dependencies = [
  "allo-isolate",
  "android_logger",
@@ -497,9 +497,9 @@ dependencies = [
 
 [[package]]
 name = "flutter_rust_bridge_macros"
-version = "2.0.0-dev.16"
+version = "2.0.0-dev.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "151438f3bb8779422ffc5b8d3d74214dfa1eb3c6916a0e9a9daef409b613c78f"
+checksum = "c788d84060539bb6799324601877b1d10a113665de597b0e036b088c9ac709e5"
 
 [[package]]
 name = "fuchsia-cprng"
