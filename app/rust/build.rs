@@ -29,6 +29,7 @@ fn main() {
     // issue with the rust cache on github action that I don't fully understand.
     // See: https://github.com/CaviarChen/ProjectDV/pull/22
     if frb_codegen_installed {
+        println!("cargo:rustc-cfg=flutterbuild");
         let output = Command::new("flutter_rust_bridge_codegen")
             .arg("generate")
             .current_dir("..")
@@ -39,6 +40,5 @@ fn main() {
         }
     } else {
         println!("cargo:warning=`flutter_rust_bridge_codegen` is not installed, skipping running the codegen.");
-        println!("cargo:rustc-cfg=noflutter");
     }
 }
