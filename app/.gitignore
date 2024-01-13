@@ -1,5 +1,5 @@
 # flutter rust bridge generated files
-lib/src/rust
+lib/src/rust/**/*.dart
 rust/src/frb_generated.*
 frb_generated.h
 
