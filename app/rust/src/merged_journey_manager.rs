@@ -43,27 +43,29 @@ fn add_journey_vector_to_journey_bitmap(
 pub fn get_latest_including_ongoing(main_db: &mut MainDb) -> Result<JourneyBitmap> {
     let mut journey_bitmap = JourneyBitmap::new();
 
-    // finalized journeys
-    for journey_header in main_db.list_all_journeys()? {
-        let journey_data = main_db.get_journey(&journey_header.id)?;
-        match journey_data {
-            JourneyData::Bitmap(bitmap) => journey_bitmap.merge(bitmap),
-            JourneyData::Vector(vector) => {
-                add_journey_vector_to_journey_bitmap(&mut journey_bitmap, &vector);
+    main_db.with_txn(|txn| {
+        // finalized journeys
+        for journey_header in txn.list_all_journeys()? {
+            let journey_data = txn.get_journey(&journey_header.id)?;
+            match journey_data {
+                JourneyData::Bitmap(bitmap) => journey_bitmap.merge(bitmap),
+                JourneyData::Vector(vector) => {
+                    add_journey_vector_to_journey_bitmap(&mut journey_bitmap, &vector);
+                }
             }
         }
-    }
 
-    // ongoing journey
-    match main_db.get_ongoing_journey()? {
-        None => (),
-        Some(ongoing_journey) => {
-            add_journey_vector_to_journey_bitmap(
-                &mut journey_bitmap,
-                &ongoing_journey.journey_vector,
-            );
+        // ongoing journey
+        match txn.get_ongoing_journey()? {
+            None => (),
+            Some(ongoing_journey) => {
+                add_journey_vector_to_journey_bitmap(
+                    &mut journey_bitmap,
+                    &ongoing_journey.journey_vector,
+                );
+            }
         }
-    }
 
-    Ok(journey_bitmap)
+        Ok(journey_bitmap)
+    })
 }

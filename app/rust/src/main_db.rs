@@ -91,89 +91,14 @@ fn open_db_and_run_migration(
     Ok(conn)
 }
 
-pub struct MainDb {
-    conn: Connection,
+pub struct Txn<'a> {
+    db_txn: rusqlite::Transaction<'a>,
 }
 
-pub struct OngoingJourney {
-    pub start: DateTime<Utc>,
-    pub end: DateTime<Utc>,
-    pub journey_vector: JourneyVector,
-}
-
-impl MainDb {
-    pub fn open(support_dir: &str) -> MainDb {
-        // TODO: better error handling
-        let conn = open_db_and_run_migration(
-            support_dir,
-            "main.db",
-            &vec![&|tx| {
-                let sql = "
-                CREATE TABLE ongoing_journey (
-                    id             INTEGER PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-                    timestamp_sec  INTEGER NOT NULL,
-                    lat            REAL    NOT NULL,
-                    lng            REAL    NOT NULL,
-                    process_result INTEGER NOT NULL
-                );
-                CREATE TABLE journey (
-                    id                TEXT    PRIMARY KEY
-                                              NOT NULL
-                                              UNIQUE,
-                    end_timestamp_sec INTEGER NOT NULL,
-                    type              INTEGER NOT NULL,
-                    header            BLOB    NOT NULL,
-                    data              BLOB    NOT NULL
-                );
-                CREATE INDEX end_time_index ON journey (
-                    end_timestamp_sec DESC
-                );
-                CREATE TABLE setting (
-                    key               TEXT    PRIMARY KEY
-                                              NOT NULL
-                                              UNIQUE,
-                    value             TEXT
-                );
-                ";
-                for s in sql_split::split(sql) {
-                    tx.execute(&s, ())?;
-                }
-                Ok(())
-            }],
-        )
-        .expect("failed to open main db");
-        MainDb { conn }
-    }
-
-    pub fn flush(&self) -> Result<()> {
-        self.conn.cache_flush()?;
-        Ok(())
-    }
-
-    fn append_ongoing_journey(
-        &mut self,
-        raw_data: &gps_processor::RawData,
-        process_result: ProcessResult,
-    ) -> Result<()> {
-        let process_result = process_result.to_int();
-        assert!(process_result >= 0);
-        let tx = self.conn.transaction()?;
-        let sql = "INSERT INTO ongoing_journey (timestamp_sec, lat, lng, process_result) VALUES (?1, ?2, ?3, ?4);";
-        tx.prepare_cached(sql)?.execute((
-            raw_data.timestamp_ms / 1000,
-            raw_data.latitude,
-            raw_data.longitude,
-            process_result,
-        ))?;
-        tx.commit()?;
-        Ok(())
-    }
-
-    fn get_ongoing_journey_internal(tx: &Transaction) -> Result<Option<OngoingJourney>> {
+impl Txn<'_> {
+    pub fn get_ongoing_journey(&self) -> Result<Option<OngoingJourney>> {
         // `id` in `ongoing_journey` is auto incremented.
-        let mut query = tx.prepare(
+        let mut query = self.db_txn.prepare(
             "SELECT timestamp_sec, lat, lng, process_result FROM ongoing_journey ORDER BY id;",
         )?;
         let results = query.query_map((), |row| {
@@ -231,15 +156,8 @@ impl MainDb {
         }
     }
 
-    pub fn get_ongoing_journey(&mut self) -> Result<Option<OngoingJourney>> {
-        let tx = self.conn.transaction()?;
-        Self::get_ongoing_journey_internal(&tx)
-    }
-
-    pub fn finalize_ongoing_journey(&mut self) -> Result<()> {
-        let tx = self.conn.transaction()?;
-
-        match Self::get_ongoing_journey_internal(&tx)? {
+    pub fn finalize_ongoing_journey(&self) -> Result<()> {
+        match self.get_ongoing_journey()? {
             None => (),
             Some(OngoingJourney {
                 start,
@@ -272,7 +190,7 @@ impl MainDb {
                 journey_data::serialize_journey_vector(&journey_vector, &mut data)?;
 
                 let sql = "INSERT INTO journey (id, end_timestamp_sec, type, header, data) VALUES (?1, ?2, ?3, ?4, ?5);";
-                tx.execute(
+                self.db_txn.execute(
                     sql,
                     (
                         &header.id,
@@ -285,29 +203,13 @@ impl MainDb {
             }
         }
 
-        tx.execute("DELETE FROM ongoing_journey;", ())?;
+        self.db_txn.execute("DELETE FROM ongoing_journey;", ())?;
 
-        tx.commit()?;
         Ok(())
     }
 
-    pub fn record(
-        &mut self,
-        raw_data: &gps_processor::RawData,
-        process_result: ProcessResult,
-    ) -> Result<()> {
-        match process_result {
-            ProcessResult::Ignore => (),
-            ProcessResult::Append | ProcessResult::NewSegment => {
-                self.append_ongoing_journey(raw_data, process_result)?;
-            }
-        }
-        Ok(())
-    }
-
-    pub fn list_all_journeys(&mut self) -> Result<Vec<JourneyHeader>> {
-        let tx = self.conn.transaction()?;
-        let mut query = tx.prepare(
+    pub fn list_all_journeys(&self) -> Result<Vec<JourneyHeader>> {
+        let mut query = self.db_txn.prepare(
             "SELECT header, type FROM journey ORDER BY end_timestamp_sec, id DESC;",
             // use `id` to break tie
         )?;
@@ -329,9 +231,10 @@ impl MainDb {
         Ok(results)
     }
 
-    pub fn get_journey(&mut self, id: &str) -> Result<JourneyData> {
-        let tx = self.conn.transaction()?;
-        let mut query = tx.prepare("SELECT type, data FROM journey WHERE id = ?1;")?;
+    pub fn get_journey(&self, id: &str) -> Result<JourneyData> {
+        let mut query = self
+            .db_txn
+            .prepare("SELECT type, data FROM journey WHERE id = ?1;")?;
 
         query.query_row([id], |row| {
             let type_ = row.get_ref(0)?.as_i64()?;
@@ -342,6 +245,113 @@ impl MainDb {
             };
             Ok(f())
         })?
+    }
+}
+
+pub struct MainDb {
+    conn: Connection,
+}
+
+pub struct OngoingJourney {
+    pub start: DateTime<Utc>,
+    pub end: DateTime<Utc>,
+    pub journey_vector: JourneyVector,
+}
+
+impl MainDb {
+    pub fn open(support_dir: &str) -> MainDb {
+        // TODO: better error handling
+        let conn = open_db_and_run_migration(
+            support_dir,
+            "main.db",
+            &vec![&|tx| {
+                let sql = "
+                CREATE TABLE ongoing_journey (
+                    id             INTEGER PRIMARY KEY AUTOINCREMENT
+                                        UNIQUE
+                                        NOT NULL,
+                    timestamp_sec  INTEGER NOT NULL,
+                    lat            REAL    NOT NULL,
+                    lng            REAL    NOT NULL,
+                    process_result INTEGER NOT NULL
+                );
+                CREATE TABLE journey (
+                    id                TEXT    PRIMARY KEY
+                                              NOT NULL
+                                              UNIQUE,
+                    end_timestamp_sec INTEGER NOT NULL,
+                    type              INTEGER NOT NULL,
+                    header            BLOB    NOT NULL,
+                    data              BLOB    NOT NULL
+                );
+                CREATE INDEX end_time_index ON journey (
+                    end_timestamp_sec DESC
+                );
+                CREATE TABLE setting (
+                    key               TEXT    PRIMARY KEY
+                                              NOT NULL
+                                              UNIQUE,
+                    value             TEXT
+                );
+                ";
+                for s in sql_split::split(sql) {
+                    tx.execute(&s, ())?;
+                }
+                Ok(())
+            }],
+        )
+        .expect("failed to open main db");
+        MainDb { conn }
+    }
+
+    pub fn with_txn<F, O>(&mut self, f: F) -> Result<O>
+    where
+        F: FnOnce(&Txn) -> Result<O>,
+    {
+        let txn = Txn {
+            db_txn: self.conn.transaction()?,
+        };
+        let output = f(&txn)?;
+        txn.db_txn.commit()?;
+        Ok(output)
+    }
+
+    pub fn flush(&self) -> Result<()> {
+        self.conn.cache_flush()?;
+        Ok(())
+    }
+
+    fn append_ongoing_journey(
+        &mut self,
+        raw_data: &gps_processor::RawData,
+        process_result: ProcessResult,
+    ) -> Result<()> {
+        let process_result = process_result.to_int();
+        assert!(process_result >= 0);
+        let tx = self.conn.transaction()?;
+        let sql = "INSERT INTO ongoing_journey (timestamp_sec, lat, lng, process_result) VALUES (?1, ?2, ?3, ?4);";
+        tx.prepare_cached(sql)?.execute((
+            raw_data.timestamp_ms / 1000,
+            raw_data.latitude,
+            raw_data.longitude,
+            process_result,
+        ))?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn record(
+        &mut self,
+        raw_data: &gps_processor::RawData,
+        process_result: ProcessResult,
+    ) -> Result<()> {
+        match process_result {
+            ProcessResult::Ignore => (),
+            ProcessResult::Append | ProcessResult::NewSegment => {
+                self.append_ongoing_journey(raw_data, process_result)?;
+            }
+        }
+        Ok(())
     }
 
     fn get_setting<T: FromStr>(&mut self, setting: Setting) -> Result<Option<T>>
