@@ -5,9 +5,10 @@ extern crate log;
 #[macro_use]
 extern crate anyhow;
 
-pub mod api;
+#[cfg(not(noflutter))]
 mod frb_generated; /* AUTO INJECTED BY flutter_rust_bridge. This line may not be accurate, and you can change it according to your needs. */
 
+pub mod api;
 pub mod archive;
 pub mod gps_processor;
 pub mod import_data;
