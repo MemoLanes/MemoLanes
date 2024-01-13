@@ -1,6 +1,9 @@
 pub mod test_utils;
 
-use rust_lib::{journey_bitmap::JourneyBitmap, map_renderer::MapRenderer, journey_data::JourneyData, journey_header::JourneyType};
+use rust_lib::{
+    journey_bitmap::JourneyBitmap, journey_data::JourneyData, journey_header::JourneyType,
+    map_renderer::MapRenderer,
+};
 
 #[test]
 fn add_line_cross_antimeridian() {
