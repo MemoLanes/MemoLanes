@@ -1,5 +1,2 @@
-//
-// Do not put code in `mod.rs`, but put in e.g. `simple.rs`.
-//
-
+#[allow(clippy::module_inception)]
 pub mod api;
