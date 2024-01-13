@@ -5,11 +5,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:project_dv/src/rust/api/api.dart';
+import 'package:project_dv/src/rust/storage.dart';
 import 'package:provider/provider.dart';
 import 'package:mutex/mutex.dart';
 import 'package:share_plus/share_plus.dart';
 
-import 'ffi.dart' if (dart.library.html) 'ffi_web.dart';
+// import 'ffi.dart' if (dart.library.html) 'ffi_web.dart';
 
 /// `PokeGeolocatorTask` is a hacky workround on Android.
 /// The behvior we observe is that the position stream from geolocator will
@@ -125,7 +127,7 @@ class MainState extends ChangeNotifier {
             var latitude = position.latitude;
             var longitude = position.longitude;
             var accuracy = position.accuracy;
-            await api.onLocationUpdate(
+            await onLocationUpdate(
                 latitude: latitude,
                 longitude: longitude,
                 timestampMs: position.timestamp.millisecondsSinceEpoch,
@@ -207,7 +209,7 @@ class _ExportRawDataState extends State<ExportRawData> {
   Widget build(BuildContext context) {
     return ElevatedButton(
       onPressed: () async {
-        var items = await api.listAllRawData();
+        var items = await listAllRawData();
         _showDialog(items);
       },
       child: const Text('Export'),
@@ -228,7 +230,7 @@ class _RawDataSwitchState extends State<RawDataSwitch> {
   @override
   initState() {
     super.initState();
-    api.getRawDataMode().then((value) => setState(() {
+    getRawDataMode().then((value) => setState(() {
           enabled = value;
         }));
   }
@@ -239,7 +241,7 @@ class _RawDataSwitchState extends State<RawDataSwitch> {
       value: enabled,
       activeColor: Colors.red,
       onChanged: (bool value) async {
-        await api.toggleRawDataMode(enable: value);
+        await toggleRawDataMode(enable: value);
         setState(() {
           enabled = value;
         });
@@ -266,7 +268,7 @@ class GPSPage extends StatelessWidget {
           ),
           ElevatedButton(
             onPressed: () async {
-              await api.finalizeOngoingJourney();
+              await finalizeOngoingJourney();
             },
             child: const Text("Start a new journey"),
           ),

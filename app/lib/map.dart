@@ -2,9 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:mutex/mutex.dart';
+import 'package:project_dv/src/rust/api/api.dart';
 import 'dart:async';
-
-import 'ffi.dart' if (dart.library.html) 'ffi_web.dart';
 
 class MapUiBody extends StatefulWidget {
   const MapUiBody({super.key});
@@ -64,7 +63,7 @@ class MapUiBodyState extends State<MapUiBody> {
     // same time, but what we really want is: if there are multiple request
     // queuing up, only run the final one.
     await m.protect(() async {
-      final renderResult = await api.renderMapOverlay(
+      final renderResult = await renderMapOverlay(
           zoom: zoom, left: left, top: top, right: right, bottom: bottom);
 
       if (renderResult != null) {

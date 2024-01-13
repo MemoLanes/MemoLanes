@@ -1,9 +1,4 @@
-rust_input:
-  - native/src/api.rs
-dart_output:
-  - lib/bridge_generated.dart
-c_output:
-  - ios/Runner/bridge_generated.h
-dart_decl_output: lib/bridge_definitions.dart
+rust_input: rust/src/api/**/*.rs
+dart_output: lib/src/rust
+c_output: frb_generated.h
 dart_format_line_length: 80
-wasm: true
