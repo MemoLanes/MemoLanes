@@ -159,7 +159,7 @@ impl Txn<'_> {
     pub fn insert_journey(&self, header: JourneyHeader, data: JourneyData) -> Result<()> {
         let journey_type = header.journey_type;
         if journey_type != data.type_() {
-            bail!("[insert_journy] Mismatch journy type")
+            bail!("[insert_journey] Mismatch journey type")
         }
         let end_timestamp_sec = header.end.timestamp();
         let id = header.id.clone();

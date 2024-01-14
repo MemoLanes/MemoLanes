@@ -1,5 +1,5 @@
 /* We store journey one by one, but for a lot of use cases such as rendering, we
-need to merge all journys into one `journey_bitmap`. Relavent functionailties is
+need to merge all journeys into one `journey_bitmap`. Relavent functionailties is
 implemented here.
 */
 
@@ -8,7 +8,7 @@ implemented here.
 // To improve this, we should build some kind of cache:
 // V0: we should keep a cache on disk for all finalized journeys. So on startup,
 // it just need to load the cache and append things from the current ongoing
-// journy which should be small.
+// journey which should be small.
 // V1: we might need multiple caches for different layer (e.g. one for flight,
 // one for land).
 // V2: we might need multiple caches keyed by `(start_time, end_time]`, and
