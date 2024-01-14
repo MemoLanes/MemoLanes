@@ -208,6 +208,13 @@ pub fn deserialize_journey_bitmap<T: Read>(mut reader: T) -> Result<JourneyBitma
 }
 
 impl JourneyData {
+    pub fn type_(&self) -> JourneyType {
+        match self {
+            JourneyData::Vector(_) => JourneyType::Vector,
+            JourneyData::Bitmap(_) => JourneyType::Bitmap,
+        }
+    }
+
     pub fn serialize<T: Write>(&self, writer: T) -> Result<()> {
         match self {
             JourneyData::Vector(vector) => serialize_journey_vector(vector, writer)?,

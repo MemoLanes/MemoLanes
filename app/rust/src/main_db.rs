@@ -10,7 +10,7 @@ use std::str::FromStr;
 use uuid::Uuid;
 
 use crate::gps_processor::{self, ProcessResult};
-use crate::journey_data::{self, JourneyData};
+use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::journey_vector::{JourneyVector, TrackPoint, TrackSegment};
 use crate::protos;
@@ -156,6 +156,59 @@ impl Txn<'_> {
         }
     }
 
+    pub fn insert_journey(&self, header: JourneyHeader, data: JourneyData) -> Result<()> {
+        let journey_type = header.journey_type;
+        if journey_type != data.type_() {
+            bail!("[insert_journy] Mismatch journy type")
+        }
+        let end_timestamp_sec = header.end.timestamp();
+        let id = header.id.clone();
+
+        let header_bytes = header.to_proto().write_to_bytes()?;
+        let mut data_bytes = Vec::new();
+        data.serialize(&mut data_bytes)?;
+
+        let sql = "INSERT INTO journey (id, end_timestamp_sec, type, header, data) VALUES (?1, ?2, ?3, ?4, ?5);";
+        self.db_txn.execute(
+            sql,
+            (
+                &id,
+                end_timestamp_sec,
+                journey_type.to_int(),
+                header_bytes,
+                data_bytes,
+            ),
+        )?;
+        Ok(())
+    }
+
+    pub fn create_and_insert_journey(
+        &self,
+        start: Option<DateTime<Utc>>,
+        end: DateTime<Utc>,
+        created_at: Option<DateTime<Utc>>,
+        journey_kind: JourneyKind,
+        note: Option<String>,
+        journey_data: JourneyData,
+    ) -> Result<()> {
+        let journey_type = journey_data.type_();
+        // create new journey
+        let header = JourneyHeader {
+            id: Uuid::new_v4().as_hyphenated().to_string(),
+            // we use id + revision as the equality check, revision can be any
+            // string (e.g. uuid) but a short random should be good enough.
+            revision: random_string::generate(8, random_string::charsets::ALPHANUMERIC),
+            created_at: created_at.unwrap_or(Utc::now()),
+            updated_at: None,
+            end,
+            start,
+            journey_type,
+            journey_kind,
+            note,
+        };
+        self.insert_journey(header, journey_data)
+    }
+
     pub fn finalize_ongoing_journey(&self) -> Result<()> {
         match self.get_ongoing_journey()? {
             None => (),
@@ -164,41 +217,19 @@ impl Txn<'_> {
                 end,
                 journey_vector,
             }) => {
-                let journey_type = JourneyType::Vector;
-                // create new journey
-                let header = JourneyHeader {
-                    id: Uuid::new_v4().as_hyphenated().to_string(),
-                    // we use id + revision as the equality check, revision can be any
-                    // string (e.g. uuid) but a short random should be good enough.
-                    revision: random_string::generate(8, random_string::charsets::ALPHANUMERIC),
-                    created_at: Utc::now(),
-                    updated_at: None,
-                    end,
-                    start: Some(start),
-                    journey_type,
-                    // TODO: allow user to set this when recording?
-                    journey_kind: JourneyKind::Default,
-                    note: None,
-                }
-                .to_proto();
-
                 // TODO: we could have some additional post-processing of the track.
                 // including path refinement + lossy compression.
 
-                let header_bytes = header.write_to_bytes()?;
-                let mut data = Vec::new();
-                journey_data::serialize_journey_vector(&journey_vector, &mut data)?;
+                // TODO: allow user to set this when recording?
+                let journey_kind = JourneyKind::Default;
 
-                let sql = "INSERT INTO journey (id, end_timestamp_sec, type, header, data) VALUES (?1, ?2, ?3, ?4, ?5);";
-                self.db_txn.execute(
-                    sql,
-                    (
-                        &header.id,
-                        header.end_timestamp_sec,
-                        journey_type.to_int(),
-                        header_bytes,
-                        data,
-                    ),
+                self.create_and_insert_journey(
+                    Some(start),
+                    end,
+                    None,
+                    journey_kind,
+                    None,
+                    JourneyData::Vector(journey_vector),
                 )?;
             }
         }
