@@ -16,11 +16,31 @@ implemented here.
 // history, we could clear some but not all cache, and re-construct these
 //  outdated ones reasonably quickly.
 
+// current cache design
+// read data
+// 1. in api.rs, obtain locks for main db and cache db
+// 2. check cache presence and validity by comparing timestamps between app's and cache db's
+// (this cache timestamp can also be cached in the manager)
+// 3. a. if no, then fetch from main db, store it to cache db and return bitmap
+// 3. a. 1, currently main db provides a de-serialized result, which has to be serialized again for cache db
+// TODO: so a better way is main db returns a blob, manager insert it directly to cache db, and then de-serialized for app
+// 3.b. if yes, then fetch from cache db and return
+
+// write data
+// 1. app keeps the latest timestamp when it updates bitmap related data in main db
+// (This means finalize any ongoing journey?)
+// 2. This new timestamp implicitly out-dates cache's timestamp
+// 3. Question: when to GC cache db? after write? after read? async?
+
+// TODO: add tests for cache db
+
 use crate::{
-    journey_bitmap::JourneyBitmap, journey_data::JourneyData, journey_vector::JourneyVector,
-    main_db::MainDb,
+    journey_bitmap::JourneyBitmap, journey_data::JourneyData, journey_vector::JourneyVector, journey_header::JourneyType,
+    main_db::MainDb, cache_db::{self, CacheDb},
 };
 use anyhow::Result;
+use std::io::Read;
+use chrono::{DateTime, Utc};
 
 fn add_journey_vector_to_journey_bitmap(
     journey_bitmap: &mut JourneyBitmap,
@@ -40,7 +60,55 @@ fn add_journey_vector_to_journey_bitmap(
     }
 }
 
-pub fn get_latest_including_ongoing(main_db: &mut MainDb) -> Result<JourneyBitmap> {
+pub fn get_latest_including_ongoing_from_cache(cache_db: &mut CacheDb) -> Result<JourneyBitmap> {
+    let mut journey_bitmap = JourneyBitmap::new();
+    cache_db.with_txn(|txn|{
+            let journey_data = txn.get_journey()?;
+            match journey_data {
+                JourneyData::Bitmap(bitmap) => journey_bitmap.merge(bitmap),
+                JourneyData::Vector(vector) => {
+                    add_journey_vector_to_journey_bitmap(&mut journey_bitmap, &vector);
+                }
+            }
+        
+            Ok(journey_bitmap)
+    })
+}
+
+pub fn get_latest_including_ongoing(main_db: &mut MainDb, cache_db: &mut CacheDb) -> Result<JourneyBitmap, std::io::Error> {
+    if let Ok(journey_bitmap) = get_latest_including_ongoing_from_cache(cache_db) {
+        if !journey_bitmap.tiles.is_empty() {
+            // If found and not empty, return it immediately
+            return Ok(journey_bitmap);
+        }
+    }
+    
+    let mut journey_bitmap = get_latest_including_ongoing_from_maindb(main_db).unwrap();
+
+    // Serialize and write to the cache
+    let journey_data = JourneyData::Bitmap(journey_bitmap);
+    let mut buf = Vec::new();
+    journey_data.serialize(&mut buf).unwrap();
+
+    // TODO: use last updated timestamp 
+    //let current_timestamp = Utc::now();
+
+    cache_db.with_txn(|txn| {
+        // Insert the current timestamp and serialized data into the database
+        match txn.insert_journey_bitmap_blob(buf) {
+            Ok(_) => Ok(()), // If everything is fine, return Ok(())
+            Err(e) => Err(e), // Propagate the error if any
+        }
+    });
+
+
+    match journey_data {
+        JourneyData::Bitmap(journey_bitmap) => Ok(journey_bitmap),
+        _ => Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Expected bitmap data").into()),
+    }
+}
+
+pub fn get_latest_including_ongoing_from_maindb(main_db: &mut MainDb) -> Result<JourneyBitmap> {
     let mut journey_bitmap = JourneyBitmap::new();
 
     main_db.with_txn(|txn| {
