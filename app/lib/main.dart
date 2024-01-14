@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:project_dv/gps.dart';
+import 'package:project_dv/import.dart';
 import 'package:project_dv/map.dart';
 import 'package:project_dv/src/rust/api/api.dart';
 import 'package:project_dv/src/rust/frb_generated.dart';
@@ -78,6 +79,7 @@ class _MyHomePageState extends State<MyHomePage> {
           mainAxisAlignment: MainAxisAlignment.start,
           children: <Widget>[
             GPS(),
+            ImportUI(),
             Expanded(
               child: MapUiBody(),
             ),

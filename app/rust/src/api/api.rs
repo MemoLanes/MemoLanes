@@ -2,12 +2,16 @@ use std::fs::File;
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 
+use anyhow::{Ok, Result};
+use chrono::Utc;
 use simplelog::{Config, LevelFilter, WriteLogger};
 
 use crate::gps_processor::{GpsProcessor, ProcessResult};
+use crate::journey_data::JourneyData;
+use crate::journey_header::JourneyKind;
 use crate::map_renderer::{MapRenderer, RenderResult};
 use crate::storage::Storage;
-use crate::{gps_processor, merged_journey_manager, storage};
+use crate::{gps_processor, import_data, merged_journey_manager, storage};
 
 // TODO: we have way too many locking here and now it is hard to track.
 //  e.g. we could mess up with the order and cause a deadlock
@@ -134,4 +138,22 @@ pub fn toggle_raw_data_mode(enable: bool) {
 
 pub fn finalize_ongoing_journey() {
     get().storage.finalize_ongoing_journey()
+}
+
+pub fn import_fow_data(zip_file_path: String) -> Result<()> {
+    // TODO: This is really naive, mostly just a demo. We need to get real
+    // values from users.
+    let (journey_bitmap, _warnings) = import_data::load_fow_sync_data(&zip_file_path)?;
+    let mut main_db = get().storage.main_db.lock().unwrap();
+    main_db.with_txn(|txn| {
+        txn.create_and_insert_journey(
+            None,
+            Utc::now(),
+            None,
+            JourneyKind::Default,
+            None,
+            JourneyData::Bitmap(journey_bitmap),
+        )
+    })?;
+    Ok(())
 }
