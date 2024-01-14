@@ -14,13 +14,17 @@ fn basic() {
     let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
     for (i, raw_data) in test_data.iter().enumerate() {
         if i > 1000 && i % 1000 == 0 {
-            main_db.finalize_ongoing_journey().unwrap();
+            main_db
+                .with_txn(|txn| txn.finalize_ongoing_journey())
+                .unwrap();
         }
         main_db
             .record(raw_data, gps_processor::ProcessResult::Append)
             .unwrap();
     }
-    main_db.finalize_ongoing_journey().unwrap();
+    main_db
+        .with_txn(|txn| txn.finalize_ongoing_journey())
+        .unwrap();
 
     let mut file = File::create(temp_dir.path().join("archive.zip")).unwrap();
     archive::archive_all_as_zip(&mut main_db, &mut file).unwrap();

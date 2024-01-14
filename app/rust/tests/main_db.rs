@@ -22,13 +22,18 @@ fn basic() {
             .record(raw_data, gps_processor::ProcessResult::Append)
             .unwrap();
     }
-    main_db.finalize_ongoing_journey().unwrap();
+    main_db
+        .with_txn(|txn| txn.finalize_ongoing_journey())
+        .unwrap();
 
     // validate the finalized journey
-    let journeys = main_db.list_all_journeys().unwrap();
+    let journeys = main_db.with_txn(|txn| txn.list_all_journeys()).unwrap();
     assert_eq!(journeys.len(), 1);
     let journey_id = &journeys[0].id;
-    let journey_data = main_db.get_journey(journey_id).unwrap();
+    let journey_data = main_db
+        .with_txn(|txn| txn.get_journey(&journey_id))
+        .unwrap();
+
     let journey_vector = match &journey_data {
         JourneyData::Vector(vector) => vector,
         JourneyData::Bitmap(_) => panic!("invalid"),
@@ -58,8 +63,16 @@ fn basic() {
     );
 
     // without any more gpx data, should be no-op
-    main_db.finalize_ongoing_journey().unwrap();
-    assert_eq!(main_db.list_all_journeys().unwrap().len(), 1);
+    main_db
+        .with_txn(|txn| txn.finalize_ongoing_journey())
+        .unwrap();
+    assert_eq!(
+        main_db
+            .with_txn(|txn| txn.list_all_journeys())
+            .unwrap()
+            .len(),
+        1
+    );
 }
 
 #[test]

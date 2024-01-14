@@ -1,5 +1,5 @@
 /* We store journey one by one, but for a lot of use cases such as rendering, we
-need to merge all journys into one `journey_bitmap`. Relavent functionailties is
+need to merge all journeys into one `journey_bitmap`. Relavent functionailties is
 implemented here.
 */
 
@@ -8,7 +8,7 @@ implemented here.
 // To improve this, we should build some kind of cache:
 // V0: we should keep a cache on disk for all finalized journeys. So on startup,
 // it just need to load the cache and append things from the current ongoing
-// journy which should be small.
+// journey which should be small.
 // V1: we might need multiple caches for different layer (e.g. one for flight,
 // one for land).
 // V2: we might need multiple caches keyed by `(start_time, end_time]`, and
@@ -43,27 +43,29 @@ fn add_journey_vector_to_journey_bitmap(
 pub fn get_latest_including_ongoing(main_db: &mut MainDb) -> Result<JourneyBitmap> {
     let mut journey_bitmap = JourneyBitmap::new();
 
-    // finalized journeys
-    for journey_header in main_db.list_all_journeys()? {
-        let journey_data = main_db.get_journey(&journey_header.id)?;
-        match journey_data {
-            JourneyData::Bitmap(bitmap) => journey_bitmap.merge(bitmap),
-            JourneyData::Vector(vector) => {
-                add_journey_vector_to_journey_bitmap(&mut journey_bitmap, &vector);
+    main_db.with_txn(|txn| {
+        // finalized journeys
+        for journey_header in txn.list_all_journeys()? {
+            let journey_data = txn.get_journey(&journey_header.id)?;
+            match journey_data {
+                JourneyData::Bitmap(bitmap) => journey_bitmap.merge(bitmap),
+                JourneyData::Vector(vector) => {
+                    add_journey_vector_to_journey_bitmap(&mut journey_bitmap, &vector);
+                }
             }
         }
-    }
 
-    // ongoing journey
-    match main_db.get_ongoing_journey()? {
-        None => (),
-        Some(ongoing_journey) => {
-            add_journey_vector_to_journey_bitmap(
-                &mut journey_bitmap,
-                &ongoing_journey.journey_vector,
-            );
+        // ongoing journey
+        match txn.get_ongoing_journey()? {
+            None => (),
+            Some(ongoing_journey) => {
+                add_journey_vector_to_journey_bitmap(
+                    &mut journey_bitmap,
+                    &ongoing_journey.journey_vector,
+                );
+            }
         }
-    }
 
-    Ok(journey_bitmap)
+        Ok(journey_bitmap)
+    })
 }
