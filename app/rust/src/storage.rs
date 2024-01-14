@@ -8,6 +8,7 @@ use std::sync::Mutex;
 
 use crate::gps_processor::{self, ProcessResult};
 use crate::main_db::MainDb;
+use crate::cache_db::CacheDb;
 
 // TODO: error handling in this file is horrifying, we should think about what
 // is the right thing to do here.
@@ -87,6 +88,8 @@ pub struct Storage {
     support_dir: String,
     pub main_db: Mutex<MainDb>,
     raw_data_recorder: Mutex<Option<RawDataRecorder>>, // `None` means disabled
+    cache_dir: String,
+    pub cache_db: Mutex<CacheDb>
 }
 
 impl Storage {
@@ -94,9 +97,10 @@ impl Storage {
         _temp_dir: String,
         _doc_dir: String,
         support_dir: String,
-        _cache_dir: String,
+        cache_dir: String,
     ) -> Self {
         let mut main_db = MainDb::open(&support_dir);
+        let mut cache_db = CacheDb::open(&cache_dir);
         let raw_data_recorder =
             if main_db.get_setting_with_default(crate::main_db::Setting::RawDataMode, false) {
                 Some(RawDataRecorder::init(&support_dir))
@@ -107,6 +111,8 @@ impl Storage {
             support_dir,
             main_db: Mutex::new(main_db),
             raw_data_recorder: Mutex::new(raw_data_recorder),
+            cache_dir,
+            cache_db: Mutex::new(cache_db)
         }
     }
 
