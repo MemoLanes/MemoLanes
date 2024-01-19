@@ -38,11 +38,6 @@ jobs:
 
       - name: Get Flutter Dependencies
         run: flutter pub get
-        
-      - name: frb Codegen
-        working-directory: app
-        run: flutter_rust_bridge_codegen generate
-
 
       # Rust
       - name: Cargo Check
