@@ -51,14 +51,13 @@ dependencies = [
 
 [[package]]
 name = "allo-isolate"
-version = "0.1.23"
+version = "0.1.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4aa254bc7b5f54f7ec5c361ee263cb5c757fc19ce6b81ab2727f38c12d8e9a8d"
+checksum = "f2f5a5fd28223e6f3cafb7d9cd685f51eafdd71d33ca1229f8316925d5957240"
 dependencies = [
  "anyhow",
  "atomic",
  "backtrace",
- "chrono",
 ]
 
 [[package]]
@@ -464,19 +463,16 @@ dependencies = [
 
 [[package]]
 name = "flutter_rust_bridge"
-version = "2.0.0-dev.18"
+version = "2.0.0-dev.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3adf5df60baf888f5cf944144e5a283dfd53f589d52d38f5262b73bb275dad62"
+checksum = "0884cd29529a68f0d6777ba900603235e0e1c9bec5d70c1cc5cfff1d19fa7aee"
 dependencies = [
  "allo-isolate",
  "android_logger",
  "anyhow",
- "backtrace",
  "build-target",
  "bytemuck",
  "byteorder",
- "cc",
- "chrono",
  "console_error_panic_hook",
  "dart-sys-fork",
  "delegate-attr",
@@ -484,10 +480,7 @@ dependencies = [
  "futures",
  "js-sys",
  "lazy_static",
- "libc",
- "log",
  "oslog",
- "parking_lot",
  "threadpool",
  "tokio",
  "wasm-bindgen",
@@ -497,9 +490,9 @@ dependencies = [
 
 [[package]]
 name = "flutter_rust_bridge_macros"
-version = "2.0.0-dev.18"
+version = "2.0.0-dev.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c788d84060539bb6799324601877b1d10a113665de597b0e036b088c9ac709e5"
+checksum = "c2eecca8714f428baf56c1abd07e7342b83e927fa7cb19ef15a066ce8d27dd53"
 
 [[package]]
 name = "fuchsia-cprng"
@@ -804,16 +797,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4cd1a83af159aa67994778be9070f0ae1bd732942279cabb14f86f986a21456"
 
 [[package]]
-name = "lock_api"
-version = "0.4.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c168f8615b12bc01f9c17e2eb0cc07dcae1940121185446edc3744920e8ef45"
-dependencies = [
- "autocfg",
- "scopeguard",
-]
-
-[[package]]
 name = "log"
 version = "0.4.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -887,29 +870,6 @@ dependencies = [
  "cc",
  "dashmap",
  "log",
-]
-
-[[package]]
-name = "parking_lot"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3742b2c103b9f06bc9fff0a37ff4912935851bee6d36f3c02bcc755bcfec228f"
-dependencies = [
- "lock_api",
- "parking_lot_core",
-]
-
-[[package]]
-name = "parking_lot_core"
-version = "0.9.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c42a9226546d68acdd9c0a280d17ce19bfe27a46bf68784e4066115788d008e"
-dependencies = [
- "cfg-if",
- "libc",
- "redox_syscall",
- "smallvec",
- "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -1243,12 +1203,6 @@ name = "ryu"
 version = "1.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f98d2aa92eebf49b69786be48e4477826b256916e84a57ff2a4f21923b48eb4c"
-
-[[package]]
-name = "scopeguard"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
 name = "serde"
