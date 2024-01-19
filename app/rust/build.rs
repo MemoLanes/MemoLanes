@@ -13,8 +13,6 @@ fn main() {
         .input("src/protos/archive.proto")
         .run_from_script();
 
-    
-
     println!("cargo:rerun-if-changed=src/api/*");
     let frb_codegen_installed = Command::new("flutter_rust_bridge_codegen")
         .arg("--version")
@@ -31,7 +29,7 @@ fn main() {
         if !output.status.success() {
             panic!("{:?}", output)
         }
-    }else if fs::metadata("src/frb_generated.rs").is_ok() {
+    } else if fs::metadata("src/frb_generated.rs").is_ok() {
         println!("cargo:rustc-cfg=flutterbuild");
     }
 }
