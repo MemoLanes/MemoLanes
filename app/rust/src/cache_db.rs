@@ -1,14 +1,14 @@
 extern crate simplelog;
+use anyhow::{bail, Result};
 use rusqlite::{Connection, OptionalExtension, Transaction};
-use anyhow::{Result, bail};
 use std::cmp::Ordering;
 use std::path::Path;
-use protobuf::Message;
 
 use crate::journey_data::JourneyData;
-use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
+use crate::journey_header::JourneyType;
 
 // Function to open the database and run migrations
+#[allow(clippy::type_complexity)]
 fn open_db_and_run_migration(
     cache_dir: &str,
     file_name: &str,
@@ -75,15 +75,10 @@ pub struct Txn<'a> {
 
 impl Txn<'_> {
     // Method to insert journey bitmap blob
-    pub fn insert_journey_bitmap_blob(
-        &self,
-        date_bytes: Vec<u8>,
-    ) -> Result<()> {
+    pub fn insert_journey_bitmap_blob(&self, date_bytes: Vec<u8>) -> Result<()> {
         let sql = "INSERT INTO journey_cache (data) VALUES (?1);";
-        self.db_txn.execute(
-            sql,
-            &[&date_bytes],
-        )?;
+        self.db_txn.execute(sql, [&date_bytes])?;
+
         Ok(())
     }
 
@@ -91,10 +86,10 @@ impl Txn<'_> {
     pub fn get_journey(&self) -> Result<JourneyData> {
         let mut query = self
             .db_txn
-            .prepare("SELECT data FROM journey_cache ORDER BY id DESC LIMIT 1;")?;
-    
+            .prepare("SELECT * FROM journey_cache ORDER BY id DESC LIMIT 1;")?;
+
         query.query_row((), |row| {
-            let type_ = row.get_ref(0)?.as_i64()?;
+            let _type_ = row.get_ref(0)?.as_i64()?;
             let f = || {
                 let data = row.get_ref(1)?.as_blob()?;
                 JourneyData::deserialize(data, JourneyType::Bitmap)
@@ -102,7 +97,6 @@ impl Txn<'_> {
             Ok(f())
         })?
     }
-    
 }
 
 // CacheDb structure
@@ -112,10 +106,10 @@ pub struct CacheDb {
 
 impl CacheDb {
     // Method to open and return a CacheDb instance
-    pub fn open(cache_dir: &str) -> CacheDb{
+    pub fn open(cache_dir: &str) -> CacheDb {
         let conn = open_db_and_run_migration(
             cache_dir,
-            "cache.db",  // Corrected file name
+            "cache.db",
             &vec![&|tx| {
                 let sql = "
                     CREATE TABLE journey_cache (

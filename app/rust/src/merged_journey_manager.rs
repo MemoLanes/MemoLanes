@@ -35,12 +35,11 @@ implemented here.
 // TODO: add tests for cache db
 
 use crate::{
-    journey_bitmap::JourneyBitmap, journey_data::JourneyData, journey_vector::JourneyVector, journey_header::JourneyType,
-    main_db::MainDb, cache_db::{self, CacheDb},
+    cache_db::CacheDb, journey_bitmap::JourneyBitmap, journey_data::JourneyData,
+    journey_vector::JourneyVector, main_db::MainDb,
 };
 use anyhow::Result;
-use std::io::Read;
-use chrono::{DateTime, Utc};
+use std::io::{Error, ErrorKind};
 
 fn add_journey_vector_to_journey_bitmap(
     journey_bitmap: &mut JourneyBitmap,
@@ -62,49 +61,47 @@ fn add_journey_vector_to_journey_bitmap(
 
 pub fn get_latest_including_ongoing_from_cache(cache_db: &mut CacheDb) -> Result<JourneyBitmap> {
     let mut journey_bitmap = JourneyBitmap::new();
-    cache_db.with_txn(|txn|{
-            let journey_data = txn.get_journey()?;
-            match journey_data {
-                JourneyData::Bitmap(bitmap) => journey_bitmap.merge(bitmap),
-                JourneyData::Vector(vector) => {
-                    add_journey_vector_to_journey_bitmap(&mut journey_bitmap, &vector);
-                }
-            }
-        
-            Ok(journey_bitmap)
+    cache_db.with_txn(|txn| {
+        let journey_data = txn.get_journey()?;
+        match journey_data {
+            JourneyData::Bitmap(bitmap) => journey_bitmap.merge(bitmap),
+            _ => return Err(Error::new(ErrorKind::InvalidData, "Expected bitmap data").into()),
+        }
+
+        Ok(journey_bitmap)
     })
 }
 
-pub fn get_latest_including_ongoing(main_db: &mut MainDb, cache_db: &mut CacheDb) -> Result<JourneyBitmap, std::io::Error> {
+pub fn get_latest_including_ongoing(
+    main_db: &mut MainDb,
+    cache_db: &mut CacheDb,
+) -> Result<JourneyBitmap> {
     if let Ok(journey_bitmap) = get_latest_including_ongoing_from_cache(cache_db) {
         if !journey_bitmap.tiles.is_empty() {
             // If found and not empty, return it immediately
             return Ok(journey_bitmap);
         }
     }
-    
-    let mut journey_bitmap = get_latest_including_ongoing_from_maindb(main_db).unwrap();
+
+    let journey_bitmap = get_latest_including_ongoing_from_maindb(main_db).unwrap();
 
     // Serialize and write to the cache
     let journey_data = JourneyData::Bitmap(journey_bitmap);
     let mut buf = Vec::new();
     journey_data.serialize(&mut buf).unwrap();
 
-    // TODO: use last updated timestamp 
+    // TODO: use last updated timestamp
     //let current_timestamp = Utc::now();
 
     cache_db.with_txn(|txn| {
-        // Insert the current timestamp and serialized data into the database
-        match txn.insert_journey_bitmap_blob(buf) {
-            Ok(_) => Ok(()), // If everything is fine, return Ok(())
-            Err(e) => Err(e), // Propagate the error if any
-        }
-    });
-
+        // serialized data into the cache database
+        txn.insert_journey_bitmap_blob(buf)?;
+        Ok(())
+    })?;
 
     match journey_data {
         JourneyData::Bitmap(journey_bitmap) => Ok(journey_bitmap),
-        _ => Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Expected bitmap data").into()),
+        _ => Err(Error::new(ErrorKind::InvalidData, "Expected bitmap data").into()),
     }
 }
 
