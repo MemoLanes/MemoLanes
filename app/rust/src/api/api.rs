@@ -157,3 +157,8 @@ pub fn import_fow_data(zip_file_path: String) -> Result<()> {
     })?;
     Ok(())
 }
+
+pub fn list_all_journeys() -> Result<Vec<JourneyHeader>> {
+    let mut main_db = state.storage.main_db.lock().unwrap();
+    main_db::list_all_journeys()
+}
