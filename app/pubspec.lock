@@ -178,10 +178,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_rust_bridge
-      sha256: "3df894cf265ea22f565405d84156e134052f26d8f4a8f431534a9203b07c09f9"
+      sha256: "1c393258b098b04bfe1e708c97b44f5090710195342ac73a18e2ff47578467a1"
       url: "https://pub.dev"
     source: hosted
-    version: "2.0.0-dev.20"
+    version: "2.0.0-dev.18"
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -285,7 +285,7 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: "1e66cb7c6bb8f0c755bcf2e6c52958a63c1f759a"
+      resolved-ref: acb428a005efd9832a0a8e7ef0945f899dfb3ca5
       url: "https://github.com/maplibre/flutter-maplibre-gl"
     source: git
     version: "0.18.0"
@@ -294,7 +294,7 @@ packages:
     description:
       path: maplibre_gl_platform_interface
       ref: main
-      resolved-ref: "1e66cb7c6bb8f0c755bcf2e6c52958a63c1f759a"
+      resolved-ref: acb428a005efd9832a0a8e7ef0945f899dfb3ca5
       url: "https://github.com/maplibre/flutter-maplibre-gl.git"
     source: git
     version: "0.18.0"
@@ -303,7 +303,7 @@ packages:
     description:
       path: maplibre_gl_web
       ref: main
-      resolved-ref: "1e66cb7c6bb8f0c755bcf2e6c52958a63c1f759a"
+      resolved-ref: acb428a005efd9832a0a8e7ef0945f899dfb3ca5
       url: "https://github.com/maplibre/flutter-maplibre-gl.git"
     source: git
     version: "0.18.0"
