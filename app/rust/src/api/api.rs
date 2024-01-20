@@ -72,7 +72,8 @@ pub fn render_map_overlay(
             let mut cache_db = state.storage.cache_db.lock().unwrap();
             // TODO: error handling?
             let journey_bitmap =
-                merged_journey_manager::get_latest_including_ongoing(&mut main_db, &mut cache_db).unwrap();
+                merged_journey_manager::get_latest_including_ongoing(&mut main_db, &mut cache_db)
+                    .unwrap();
             MapRenderer::new(journey_bitmap)
         })
         .maybe_render_map_overlay(zoom, left, top, right, bottom)
