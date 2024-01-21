@@ -1,6 +1,4 @@
-use std::fs;
-// need to install:
-// - `cargo install flutter_rust_bridge_codegen`
+use std::{fs, io::Write};
 fn main() {
     println!("cargo:rerun-if-changed=src/protos/journey.proto");
     println!("cargo:rerun-if-changed=src/protos/archive.proto");
@@ -12,7 +10,10 @@ fn main() {
         .input("src/protos/archive.proto")
         .run_from_script();
 
-    if fs::metadata("src/frb_generated.rs").is_ok() {
-        println!("cargo:rustc-cfg=flutterbuild");
+    if fs::metadata("src/frb_generated.rs").is_err() {
+        fs::File::create("src/frb_generated.rs")
+            .unwrap()
+            .flush()
+            .expect("failed to create frb_generated.rs");
     }
 }
