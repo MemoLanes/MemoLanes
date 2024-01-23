@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:project_dv/gps.dart';
 import 'package:project_dv/import.dart';
+import 'package:project_dv/journey.dart';
 import 'package:project_dv/map.dart';
 import 'package:project_dv/src/rust/api/api.dart';
 import 'package:project_dv/src/rust/frb_generated.dart';
@@ -70,22 +71,35 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-      ),
-      body: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: <Widget>[
-            GPS(),
-            ImportUI(),
-            Expanded(
-              child: MapUiBody(),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+          appBar: AppBar(
+            bottom: const TabBar(
+              tabs: [
+                Tab(icon: Icon(Icons.home)),
+                Tab(icon: Icon(Icons.map)),
+              ],
             ),
-          ],
-        ),
-      ),
+            title: Text(widget.title),
+          ),
+          body: const TabBarView(
+            children: [
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: <Widget>[
+                    GPS(),
+                    ImportUI(),
+                    Expanded(
+                      child: MapUiBody(),
+                    ),
+                  ],
+                ),
+              ),
+              Center(child: JourneyUiBody())
+            ],
+          )),
     );
   }
 }
