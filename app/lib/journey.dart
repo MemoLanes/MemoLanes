@@ -1,24 +1,35 @@
+import 'dart:ffi';
+
 import 'package:flutter/material.dart';
+import 'package:project_dv/src/rust/api/api.dart';
 
 class JourneyUiBody extends StatelessWidget {
   const JourneyUiBody();
 
   @override
   Widget build(BuildContext context) {
-    //下划线widget预定义以供复用。
-    Widget divider1 = Divider(
-      color: Colors.blue,
-    );
-    Widget divider2 = Divider(color: Colors.green);
-    return ListView.separated(
-      itemCount: 10,
-      //列表项构造器
-      itemBuilder: (BuildContext context, int index) {
-        return ListTile(title: Text("$index"));
-      },
-      //分割器构造器
-      separatorBuilder: (BuildContext context, int index) {
-        return index % 2 == 0 ? divider1 : divider2;
+    return FutureBuilder<List<SimpleJourneyHeader>>(
+      future: listAllJourneys(),
+      builder: (BuildContext context,
+          AsyncSnapshot<List<SimpleJourneyHeader>> snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return CircularProgressIndicator(); // Display a loading indicator while the future is being resolved
+        } else if (snapshot.hasError) {
+          return Text(
+              'Error: ${snapshot.error}'); // Display an error message if the future completes with an error
+        } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+          return ListView.builder(
+            itemCount: snapshot.data!.length,
+            itemBuilder: (BuildContext context, int index) {
+              return ListTile(
+                title: Text(snapshot.data![index].id),
+                subtitle: Text(snapshot.data![index].end.toString()),
+              );
+            },
+          );
+        } else {
+          return Container(); // Show nothing if the list is null or empty
+        }
       },
     );
   }

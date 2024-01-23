@@ -3,7 +3,7 @@ use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 
 use anyhow::{Ok, Result};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use simplelog::{Config, LevelFilter, WriteLogger};
 
 use crate::gps_processor::{GpsProcessor, ProcessResult};
@@ -158,7 +158,25 @@ pub fn import_fow_data(zip_file_path: String) -> Result<()> {
     Ok(())
 }
 
-pub fn list_all_journeys() -> Result<Vec<JourneyHeader>> {
-    let mut main_db = state.storage.main_db.lock().unwrap();
-    main_db::list_all_journeys()
+//TODO: use JourneyHeader
+pub struct SimpleJourneyHeader {
+    pub id: String,
+    pub revision: String,
+    pub start: Option<DateTime<Utc>>,
+    pub end: DateTime<Utc>
+}
+
+pub fn list_all_journeys() -> Result<Vec<SimpleJourneyHeader>> {
+    let mut main_db = get().storage.main_db.lock().unwrap();
+    let journeys = main_db.with_txn(|txn| txn.list_all_journeys())?;
+    Ok(journeys
+        .into_iter()
+        .map(|x| SimpleJourneyHeader {
+            id: x.id,
+            revision: x.revision,
+            start: x.start,
+            end: x.end
+        })
+        .collect())
+
 }
