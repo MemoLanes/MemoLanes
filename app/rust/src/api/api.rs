@@ -163,7 +163,7 @@ pub struct SimpleJourneyHeader {
     pub id: String,
     pub revision: String,
     pub start: Option<DateTime<Utc>>,
-    pub end: DateTime<Utc>
+    pub end: DateTime<Utc>,
 }
 
 pub fn list_all_journeys() -> Result<Vec<SimpleJourneyHeader>> {
@@ -175,8 +175,7 @@ pub fn list_all_journeys() -> Result<Vec<SimpleJourneyHeader>> {
             id: x.id,
             revision: x.revision,
             start: x.start,
-            end: x.end
+            end: x.end,
         })
         .collect())
-
 }
