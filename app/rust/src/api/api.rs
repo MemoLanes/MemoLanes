@@ -158,7 +158,7 @@ pub fn import_fow_data(zip_file_path: String) -> Result<()> {
     Ok(())
 }
 
-//TODO: use JourneyHeader
+//TODO: Use `JourneyHeader` directly when frb codegen can handle `JourneyKind`.
 pub struct SimpleJourneyHeader {
     pub id: String,
     pub revision: String,
