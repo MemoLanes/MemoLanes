@@ -25,7 +25,7 @@ pub fn load_raw_gpx_data_for_test() -> Vec<gps_processor::RawData> {
             latitude: row.get(1).unwrap().parse().unwrap(),
             altitude: Some(row.get(2).unwrap().parse().unwrap()),
             timestamp_ms,
-            accuracy: row.get(4).unwrap().parse().unwrap(),
+            accuracy: Some(row.get(4).unwrap().parse().unwrap()),
             speed: Some(row.get(6).unwrap().parse().unwrap()),
         };
         data.push(raw_data);

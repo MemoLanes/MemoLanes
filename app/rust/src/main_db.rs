@@ -12,8 +12,8 @@ use uuid::Uuid;
 use crate::gps_processor::{self, ProcessResult};
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
-use crate::journey_vector::{JourneyVector, TrackPoint, TrackSegment};
-use crate::protos;
+use crate::journey_vector::{JourneyVector, TrackPoint};
+use crate::{protos, utils};
 
 /* The main database, we are likely to store a lot of protobuf bytes in it,
 less relational stuff. Basically we will use it as a file system with better
@@ -113,47 +113,7 @@ impl Txn<'_> {
                 process_result,
             ))
         })?;
-
-        let mut segmants = Vec::new();
-        let mut current_segment = Vec::new();
-
-        let mut start_timestamp_sec = None;
-        let mut end_timestamp_sec = None;
-        for result in results {
-            let (timestamp_sec, track_point, process_result) = result?;
-            end_timestamp_sec = Some(timestamp_sec);
-            if start_timestamp_sec.is_none() {
-                start_timestamp_sec = Some(timestamp_sec);
-            }
-            let need_break = process_result == ProcessResult::NewSegment.to_int();
-            if need_break && !current_segment.is_empty() {
-                segmants.push(TrackSegment {
-                    track_points: current_segment,
-                });
-                current_segment = Vec::new();
-            }
-            current_segment.push(track_point);
-        }
-        if !current_segment.is_empty() {
-            segmants.push(TrackSegment {
-                track_points: current_segment,
-            });
-        }
-
-        if segmants.is_empty() {
-            Ok(None)
-        } else {
-            // must be `Some`
-            let start = DateTime::from_timestamp(start_timestamp_sec.unwrap(), 0).unwrap();
-            let end = DateTime::from_timestamp(end_timestamp_sec.unwrap(), 0).unwrap();
-            Ok(Some(OngoingJourney {
-                start,
-                end,
-                journey_vector: JourneyVector {
-                    track_segments: segmants,
-                },
-            }))
-        }
+        utils::process_segment(results.map(|x| x.map_err(|x| x.into())))
     }
 
     pub fn insert_journey(&self, header: JourneyHeader, data: JourneyData) -> Result<()> {

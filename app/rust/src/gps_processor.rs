@@ -3,7 +3,7 @@ pub struct RawData {
     pub latitude: f64,
     pub longitude: f64,
     pub timestamp_ms: i64,
-    pub accuracy: f32,
+    pub accuracy: Option<f32>,
     pub altitude: Option<f32>,
     pub speed: Option<f32>,
 }
@@ -60,22 +60,26 @@ impl GpsProcessor {
         //    like that.
         const TIME_THRESHOLD_IN_MS: i64 = 5 * 1000;
         const ACCURACY_THRESHOLD: f32 = 10.0;
-        let result = if curr_data.accuracy > ACCURACY_THRESHOLD {
-            ProcessResult::Ignore
-        } else {
-            match &self.last_data {
-                None => ProcessResult::NewSegment,
-                Some(last_data) => {
-                    let time_diff_in_ms = curr_data.timestamp_ms - last_data.timestamp_ms;
-                    if time_diff_in_ms > TIME_THRESHOLD_IN_MS {
-                        ProcessResult::NewSegment
-                    } else {
-                        ProcessResult::Append
+        let result = match curr_data.accuracy {
+            Some(accuracy) => {
+                if accuracy > ACCURACY_THRESHOLD {
+                    ProcessResult::Ignore
+                } else {
+                    match &self.last_data {
+                        None => ProcessResult::NewSegment,
+                        Some(last_data) => {
+                            let time_diff_in_ms = curr_data.timestamp_ms - last_data.timestamp_ms;
+                            if time_diff_in_ms > TIME_THRESHOLD_IN_MS {
+                                ProcessResult::NewSegment
+                            } else {
+                                ProcessResult::Append
+                            }
+                        }
                     }
                 }
             }
+            None => ProcessResult::Append,
         };
-
         f(&self.last_data, &curr_data, result);
         if result != ProcessResult::Ignore {
             self.last_data = Some(curr_data);

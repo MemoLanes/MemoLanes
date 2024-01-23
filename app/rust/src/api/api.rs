@@ -80,7 +80,7 @@ pub fn on_location_update(
     latitude: f64,
     longitude: f64,
     timestamp_ms: i64,
-    accuracy: f32,
+    accuracy: Option<f32>,
     altitude: Option<f32>,
     speed: Option<f32>,
 ) {

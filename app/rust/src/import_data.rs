@@ -1,9 +1,15 @@
-use std::{fs::File, io::Read, path::Path};
-
-use anyhow::Result;
-use flate2::read::ZlibDecoder;
-
 use crate::journey_bitmap::{self, Block, JourneyBitmap, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH};
+use crate::{
+    gps_processor::{self, GpsProcessor},
+    journey_vector::{JourneyVector, TrackPoint},
+    utils,
+};
+use anyhow::{Error, Ok, Result};
+use chrono::{DateTime, Local, Utc};
+use flate2::read::ZlibDecoder;
+use gpx::read;
+use kml::{Kml, KmlReader};
+use std::{fs::File, io::BufReader, io::Read, path::Path};
 
 struct FoWTileId {
     x: u16,
@@ -105,4 +111,162 @@ pub fn load_fow_sync_data(zip_file_path: &str) -> Result<(JourneyBitmap, Option<
     } else {
         Ok((journey_bitmap, warnings))
     }
+}
+
+pub fn load_gpx(file_path: &str, filter_switch: bool) -> Result<(JourneyVector, Option<String>)> {
+    let mut warnings: Vec<String> = Vec::new();
+    let mut segmants = Vec::new();
+    let mut gps_processor = GpsProcessor::new();
+    let gpx_data = read(BufReader::new(File::open(file_path)?))?;
+    for track in &gpx_data.tracks {
+        for segment in &track.segments {
+            let points = segment.points.iter().map(|point| {
+                let timestamp = match &point.time {
+                    Some(time) => {
+                        DateTime::<Utc>::from(DateTime::parse_from_rfc3339(&time.format()?)?)
+                    }
+                    None => {
+                        warnings.push("timestamp data found".to_string());
+                        Local::now().into()
+                    }
+                };
+                let mut process_result = 0;
+                if filter_switch {
+                    gps_processor.process(
+                        gps_processor::RawData {
+                            latitude: point.point().y(),
+                            longitude: point.point().x(),
+                            timestamp_ms: timestamp.timestamp_millis(),
+                            accuracy: point.hdop.as_ref().map(|hdop| *hdop as f32),
+                            altitude: point.elevation.map(|value| value as f32),
+                            speed: point.speed.map(|value| value as f32),
+                        },
+                        |_last_data, _curr_dataa, result| {
+                            process_result = result.to_int();
+                        },
+                    );
+                }
+                Ok((
+                    timestamp.timestamp(),
+                    TrackPoint {
+                        latitude: point.point().y(),
+                        longitude: point.point().x(),
+                    },
+                    process_result,
+                ))
+            });
+            let journey_vector = match utils::process_segment(points)? {
+                Some(ongoing_journey) => ongoing_journey.journey_vector,
+                None => return Err(Error::msg("No data found")),
+            };
+            segmants.extend(journey_vector.track_segments)
+        }
+    }
+
+    let warnings = if warnings.is_empty() {
+        None
+    } else {
+        Some(warnings.join("\n"))
+    };
+    Ok((
+        JourneyVector {
+            track_segments: segmants,
+        },
+        warnings,
+    ))
+}
+
+pub fn load_kml(file_path: &str, filter_switch: bool) -> Result<(JourneyVector, Option<String>)> {
+    {
+        let mut warnings: Vec<String> = Vec::new();
+        let mut gps_processor = GpsProcessor::new();
+        let kml_data =
+            KmlReader::<_, f64>::from_reader(BufReader::new(File::open(file_path)?)).read()?;
+        let mut whens = Vec::new();
+        let mut coords = Vec::new();
+        flatten_kml(vec![kml_data])
+            .into_iter()
+            .filter_map(|k| match k {
+                Kml::Placemark(p) => Some(p.children),
+                _ => None,
+            })
+            .flat_map(|arr| arr.into_iter().filter(|e| e.name == "Track"))
+            .for_each(|e| {
+                e.children.into_iter().for_each(|e| {
+                    if e.name == "when" {
+                        whens.push(e.content);
+                    } else if e.name == "coord" {
+                        coords.push(e.content);
+                    }
+                })
+            });
+        let mut points: Vec<Result<(i64, TrackPoint, i8)>> = Vec::new();
+        if whens.len() == coords.len() {
+            for i in 0..whens.len() {
+                let timestamp = match &whens[i] {
+                    Some(time) => DateTime::<Utc>::from(DateTime::parse_from_rfc3339(time)?),
+                    None => {
+                        warnings.push(format!("timestamp data found:{}", i));
+                        continue;
+                    }
+                };
+                let splitted: Vec<&str> = match &coords[i] {
+                    Some(coord) => coord.split_whitespace().collect(),
+                    None => {
+                        warnings.push(format!("coord data error:{}", i));
+                        continue;
+                    }
+                };
+                let latitude = splitted[1].parse::<f64>()?;
+                let longitude = splitted[0].parse::<f64>()?;
+
+                let altitude = Some(splitted[2].parse::<f32>()?);
+                let mut process_result = 0;
+                if filter_switch {
+                    gps_processor.process(
+                        gps_processor::RawData {
+                            latitude,
+                            longitude,
+                            altitude,
+                            timestamp_ms: timestamp.timestamp_millis(),
+                            accuracy: Option::None,
+                            speed: Option::None,
+                        },
+                        |_last_data, _curr_dataa, result| {
+                            process_result = result.to_int();
+                        },
+                    );
+                }
+                points.push(Ok((
+                    timestamp.timestamp(),
+                    TrackPoint {
+                        latitude,
+                        longitude,
+                    },
+                    process_result,
+                )))
+            }
+        }
+        let journey_vector = match utils::process_segment(points.into_iter())? {
+            Some(ongoing_journey) => ongoing_journey.journey_vector,
+            None => return Err(Error::msg("No data found")),
+        };
+        let warnings = if warnings.is_empty() {
+            None
+        } else {
+            Some(warnings.join("\n"))
+        };
+        Ok((journey_vector, warnings))
+    }
+}
+
+fn flatten_kml(kml: Vec<Kml>) -> Vec<Kml> {
+    kml.into_iter()
+        .flat_map(|k| match k {
+            Kml::KmlDocument(d) => flatten_kml(d.elements),
+            Kml::Document { attrs: _, elements } => flatten_kml(elements),
+            Kml::Folder { attrs: _, elements } => flatten_kml(elements),
+            k => vec![k],
+        })
+        .collect()
 }
