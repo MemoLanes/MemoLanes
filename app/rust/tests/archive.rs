@@ -1,7 +1,8 @@
 pub mod test_utils;
 
 use rust_lib::{archive, gps_processor, main_db::MainDb};
-use std::fs::File;
+use core::arch;
+use std::{fs::File, path::Path};
 use tempdir::TempDir;
 
 #[test]
@@ -25,7 +26,23 @@ fn basic() {
     main_db
         .with_txn(|txn| txn.finalize_ongoing_journey())
         .unwrap();
-
-    let mut file = File::create(temp_dir.path().join("archive.zip")).unwrap();
+            
+    let mut file = File::create(temp_dir.path().join("archive.zip")).unwrap();    
     archive::archive_all_as_zip(&mut main_db, &mut file).unwrap();
+}
+
+#[test]
+fn recover(){
+    let zip_file_path = "./tests/data/archive.zip";    
+    let temp_dir = TempDir::new("main_db-recover").unwrap();
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    match archive::recover_archive_file(zip_file_path,&mut main_db) {
+        Ok(())=>{
+            println!("recover success");
+        },
+        Err(e)=>{
+            println!("错误：{}",e);
+        }
+    }
+    
 }
