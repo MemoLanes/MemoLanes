@@ -221,7 +221,7 @@ impl Txn<'_> {
                 // including path refinement + lossy compression.
 
                 // TODO: allow user to set this when recording?
-                let journey_kind = JourneyKind::Default;
+                let journey_kind = JourneyKind::DefaultKind;
 
                 self.create_and_insert_journey(
                     Some(start),
