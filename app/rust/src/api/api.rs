@@ -3,12 +3,12 @@ use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 
 use anyhow::{Ok, Result};
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use simplelog::{Config, LevelFilter, WriteLogger};
 
 use crate::gps_processor::{GpsProcessor, ProcessResult};
 use crate::journey_data::JourneyData;
-use crate::journey_header::JourneyKind;
+use crate::journey_header::{JourneyHeader, JourneyKind};
 use crate::map_renderer::{MapRenderer, RenderResult};
 use crate::storage::Storage;
 use crate::{gps_processor, import_data, merged_journey_manager, storage};
@@ -150,7 +150,7 @@ pub fn import_fow_data(zip_file_path: String) -> Result<()> {
             None,
             Utc::now(),
             None,
-            JourneyKind::Default,
+            JourneyKind::DefaultKind,
             None,
             JourneyData::Bitmap(journey_bitmap),
         )
@@ -158,24 +158,7 @@ pub fn import_fow_data(zip_file_path: String) -> Result<()> {
     Ok(())
 }
 
-//TODO: Use `JourneyHeader` directly when frb codegen can handle `JourneyKind`.
-pub struct SimpleJourneyHeader {
-    pub id: String,
-    pub revision: String,
-    pub start: Option<DateTime<Utc>>,
-    pub end: DateTime<Utc>,
-}
-
-pub fn list_all_journeys() -> Result<Vec<SimpleJourneyHeader>> {
+pub fn list_all_journeys() -> Result<Vec<JourneyHeader>> {
     let mut main_db = get().storage.main_db.lock().unwrap();
-    let journeys = main_db.with_txn(|txn| txn.list_all_journeys())?;
-    Ok(journeys
-        .into_iter()
-        .map(|x| SimpleJourneyHeader {
-            id: x.id,
-            revision: x.revision,
-            start: x.start,
-            end: x.end,
-        })
-        .collect())
+    main_db.with_txn(|txn| txn.list_all_journeys())
 }
