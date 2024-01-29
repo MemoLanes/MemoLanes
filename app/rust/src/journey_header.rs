@@ -58,7 +58,7 @@ mod tests {
     }
 }
 
-#[derive(Clone,Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum JourneyKind {
     DefaultKind,
     Flight,
@@ -90,7 +90,7 @@ impl JourneyKind {
     }
 }
 
-#[derive(Clone,Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct JourneyHeader {
     pub id: String,
     pub revision: String,
