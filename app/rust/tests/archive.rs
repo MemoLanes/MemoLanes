@@ -6,7 +6,7 @@ use tempdir::TempDir;
 
 #[test]
 fn basic() {
-    let test_error_zip=false;
+    let test_error_zip = false;
     let test_data = test_utils::load_raw_gpx_data_for_test();
 
     let temp_dir = TempDir::new("main_db-basic").unwrap();
@@ -26,33 +26,37 @@ fn basic() {
     main_db
         .with_txn(|txn| txn.finalize_ongoing_journey())
         .unwrap();
-            
-    let journeys = main_db.with_txn(|txn|{txn.list_all_journeys()}).unwrap();
-    let mut journey_datas:Vec<JourneyData>=Vec::new();
+
+    let journeys = main_db.with_txn(|txn| txn.list_all_journeys()).unwrap();
+    let mut journey_datas: Vec<JourneyData> = Vec::new();
     for journey in journeys.clone().into_iter() {
-        let journey_data = main_db.with_txn(|txn|{txn.get_journey(&journey.id)}).unwrap();
+        let journey_data = main_db
+            .with_txn(|txn| txn.get_journey(&journey.id))
+            .unwrap();
         journey_datas.push(journey_data);
     }
     let zip_file_path = temp_dir.path().join("archive.zip");
-    let mut file = File::create(zip_file_path.clone()).unwrap(); 
-    if !test_error_zip{
+    let mut file = File::create(zip_file_path.clone()).unwrap();
+    if !test_error_zip {
         archive::archive_all_as_zip(&mut main_db, &mut file).unwrap();
     }
- 
-    match archive::recover_archive_file(zip_file_path.to_str().unwrap(),&mut main_db){
-        Ok(_)=>{},
-        Err(e)=>{
-            println!("{}",e);
+
+    match archive::recover_archive_file(zip_file_path.to_str().unwrap(), &mut main_db) {
+        Ok(_) => {}
+        Err(e) => {
+            println!("{}", e);
         }
     }
 
-    let recover_journeys = main_db.with_txn(|txn|{txn.list_all_journeys()}).unwrap();
-    assert_eq!(journeys,recover_journeys);
+    let recover_journeys = main_db.with_txn(|txn| txn.list_all_journeys()).unwrap();
+    assert_eq!(journeys, recover_journeys);
 
-    let mut recover_journey_datas:Vec<JourneyData>=Vec::new();
+    let mut recover_journey_datas: Vec<JourneyData> = Vec::new();
     for journey in journeys {
-        let journey_data = main_db.with_txn(|txn|{txn.get_journey(&journey.id)}).unwrap();
+        let journey_data = main_db
+            .with_txn(|txn| txn.get_journey(&journey.id))
+            .unwrap();
         recover_journey_datas.push(journey_data);
     }
-    assert_eq!(journey_datas,recover_journey_datas);    
+    assert_eq!(journey_datas, recover_journey_datas);
 }
