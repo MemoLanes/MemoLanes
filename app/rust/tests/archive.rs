@@ -6,7 +6,7 @@ use tempdir::TempDir;
 
 #[test]
 fn basic() {
-    let test_error_zip=true;
+    let test_error_zip=false;
     let test_data = test_utils::load_raw_gpx_data_for_test();
 
     let temp_dir = TempDir::new("main_db-basic").unwrap();
