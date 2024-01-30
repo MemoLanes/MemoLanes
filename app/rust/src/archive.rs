@@ -36,30 +36,28 @@ const SECTION_MAGIC_HEADER: [u8; 3] = [b'X', b'X', b'S'];
 
 // TODO: support archive/export a seleted set of journeys instead of everything.
 
-// TODO: support recover from archive file. i.e. replace all journeys in the
-// main db with journeys in the archive file.
 pub fn recover_archive_file(zip_file_path: &str, main_db: &mut MainDb) -> Result<()> {
+    let mut zip = zip::ZipArchive::new(File::open(zip_file_path)?)?;
+    let mut file = zip.by_name("metadata.xxm")?;
+    let mut magic_header: [u8; 3] = [0; 3];
+    file.read_exact(&mut magic_header)?;
+    if magic_header != METADATA_MAGIC_HEADER {
+        bail!(
+            "Invalid magic header, expect: {:?}, got: {:?}",
+            METADATA_MAGIC_HEADER,
+            &magic_header
+        );
+    };
+    let mut version_number: [u8; 1] = [0; 1];
+    file.read_exact(&mut version_number)?;
+
+    let len: u64 = file.read_varint()?;
+    let mut decoder = zstd::Decoder::new(file.take(len))?;
+    let metadata_proto: Metadata = Message::parse_from_reader(&mut decoder)?;
+    drop(decoder);
+
     main_db.with_txn(|txn| {
         txn.clear_journeys()?;
-
-        let mut zip = zip::ZipArchive::new(File::open(zip_file_path)?)?;
-        let mut file = zip.by_name("metadata.xxm")?;
-        let mut magic_header: [u8; 3] = [0; 3];
-        file.read_exact(&mut magic_header)?;
-        if magic_header != METADATA_MAGIC_HEADER {
-            bail!(
-                "Invalid magic header, expect: {:?}, got: {:?}",
-                METADATA_MAGIC_HEADER,
-                &magic_header
-            );
-        };
-        let mut version_number: [u8; 1] = [0; 1];
-        file.read_exact(&mut version_number)?;
-
-        let _len: u64 = file.read_varint()?;
-        let decoder_data: Vec<u8> = zstd::decode_all(file)?;
-        let metadata_proto: Metadata = Message::parse_from_bytes(&decoder_data)?;
-
         for section_info in metadata_proto.section_infos {
             let mut file = zip.by_name(&section_info.section_id)?;
             let mut magic_header: [u8; 3] = [0; 3];
@@ -74,8 +72,9 @@ pub fn recover_archive_file(zip_file_path: &str, main_db: &mut MainDb) -> Result
             let mut version_number: [u8; 1] = [0; 1];
             file.read_exact(&mut version_number)?;
             let len: u64 = file.read_varint()?;
-            let decoder_data: Vec<u8> = zstd::decode_all(file.by_ref().take(len))?;
-            let section_header: SectionHeader = Message::parse_from_bytes(&decoder_data)?;
+            let mut decoder = zstd::Decoder::new(file.by_ref().take(len))?;
+            let section_header: SectionHeader = Message::parse_from_reader(&mut decoder)?;
+            drop(decoder);
 
             for header in section_header.journey_headers {
                 let len: u64 = file.read_varint()?;
