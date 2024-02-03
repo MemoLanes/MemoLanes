@@ -156,6 +156,11 @@ impl Txn<'_> {
         }
     }
 
+    pub fn clear_journeys(&self) -> Result<()> {
+        self.db_txn.execute("DELETE FROM journey;", ())?;
+        Ok(())
+    }
+
     pub fn insert_journey(&self, header: JourneyHeader, data: JourneyData) -> Result<()> {
         let journey_type = header.journey_type;
         if journey_type != data.type_() {

@@ -1,17 +1,15 @@
 pub mod test_utils;
 
-use rust_lib::{archive, gps_processor, main_db::MainDb};
-use std::fs::File;
+use chrono::Utc;
+use rust_lib::{
+    archive, gps_processor, import_data, journey_data::JourneyData, journey_header::JourneyHeader,
+    main_db::MainDb,
+};
+use std::{fs::File, io::Write};
 use tempdir::TempDir;
 
-#[test]
-fn basic() {
+fn add_vector_journeys(main_db: &mut MainDb) {
     let test_data = test_utils::load_raw_gpx_data_for_test();
-
-    let temp_dir = TempDir::new("main_db-basic").unwrap();
-    println!("temp dir: {:?}", temp_dir.path());
-
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
     for (i, raw_data) in test_data.iter().enumerate() {
         if i > 1000 && i % 1000 == 0 {
             main_db
@@ -25,7 +23,75 @@ fn basic() {
     main_db
         .with_txn(|txn| txn.finalize_ongoing_journey())
         .unwrap();
+}
 
-    let mut file = File::create(temp_dir.path().join("archive.zip")).unwrap();
+fn add_bitmap_journey(main_db: &mut MainDb) {
+    let (bitmap, _warnings) = import_data::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
+    main_db
+        .with_txn(|txn| {
+            txn.create_and_insert_journey(
+                None,
+                Utc::now(),
+                None,
+                rust_lib::journey_header::JourneyKind::DefaultKind,
+                None,
+                JourneyData::Bitmap(bitmap),
+            )
+        })
+        .unwrap()
+}
+
+fn all_journeys(main_db: &mut MainDb) -> Vec<(JourneyHeader, JourneyData)> {
+    let journey_headers = main_db.with_txn(|txn| txn.list_all_journeys()).unwrap();
+    let mut journeys = Vec::new();
+    for journey_header in journey_headers.into_iter() {
+        let journey_data = main_db
+            .with_txn(|txn| txn.get_journey(&journey_header.id))
+            .unwrap();
+        journeys.push((journey_header, journey_data));
+    }
+    journeys
+}
+
+#[test]
+fn archive_and_recover() {
+    let temp_dir = TempDir::new("main_db-basic").unwrap();
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+
+    add_vector_journeys(&mut main_db);
+    add_bitmap_journey(&mut main_db);
+
+    let all_journeys_before = all_journeys(&mut main_db);
+
+    let zip_file_path = temp_dir.path().join("archive.zip");
+    let mut file = File::create(&zip_file_path).unwrap();
     archive::archive_all_as_zip(&mut main_db, &mut file).unwrap();
+    drop(file);
+
+    // Do something to change things in `main_db`.
+    add_bitmap_journey(&mut main_db);
+    assert_ne!(all_journeys_before, all_journeys(&mut main_db));
+
+    // recover
+    archive::recover_archive_file(zip_file_path.to_str().unwrap(), &mut main_db).unwrap();
+    assert_eq!(all_journeys_before, all_journeys(&mut main_db));
+}
+
+#[test]
+fn recover_from_broken_archive_and_roll_back() {
+    let temp_dir = TempDir::new("main_db-basic").unwrap();
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+
+    add_bitmap_journey(&mut main_db);
+
+    let all_journeys_before = all_journeys(&mut main_db);
+
+    let zip_file_path = temp_dir.path().join("archive.zip");
+    let mut file = File::create(&zip_file_path).unwrap();
+    file.write_all("hello".as_bytes()).unwrap();
+    drop(file);
+
+    // recover
+    assert!(archive::recover_archive_file(zip_file_path.to_str().unwrap(), &mut main_db).is_err());
+    assert_eq!(all_journeys_before, all_journeys(&mut main_db));
 }

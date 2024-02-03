@@ -1,17 +1,19 @@
-use anyhow::Result;
+use anyhow::{Ok, Result};
 use chrono::{Datelike, Utc};
 use hex::ToHex;
 use integer_encoding::*;
-use protobuf::EnumOrUnknown;
+use protobuf::{EnumOrUnknown, Message};
 use sha1::{Digest, Sha1};
 use std::{
     cmp::Ordering,
     collections::HashMap,
-    io::{Seek, Write},
+    fs::File,
+    io::{Read, Seek, Write},
 };
 
 use crate::{
-    journey_data,
+    journey_data::{self, JourneyData},
+    journey_header::JourneyHeader,
     main_db::MainDb,
     protos::archive::{metadata, Metadata, SectionHeader},
 };
@@ -26,13 +28,68 @@ use crate::{
    to update the latest file.
 */
 
+const METADATA_MAGIC_HEADER: [u8; 3] = [b'X', b'X', b'M'];
+const SECTION_MAGIC_HEADER: [u8; 3] = [b'X', b'X', b'S'];
+
 // TODO: support incremetnal archiving by loading the previous metadata, we need
 // this for syncing.
 
 // TODO: support archive/export a seleted set of journeys instead of everything.
 
-// TODO: support recover from archive file. i.e. replace all journeys in the
-// main db with journeys in the archive file.
+pub fn recover_archive_file(zip_file_path: &str, main_db: &mut MainDb) -> Result<()> {
+    let mut zip = zip::ZipArchive::new(File::open(zip_file_path)?)?;
+    let mut file = zip.by_name("metadata.xxm")?;
+    let mut magic_header: [u8; 3] = [0; 3];
+    file.read_exact(&mut magic_header)?;
+    if magic_header != METADATA_MAGIC_HEADER {
+        bail!(
+            "Invalid magic header, expect: {:?}, got: {:?}",
+            METADATA_MAGIC_HEADER,
+            &magic_header
+        );
+    };
+    let mut version_number: [u8; 1] = [0; 1];
+    file.read_exact(&mut version_number)?;
+
+    let len: u64 = file.read_varint()?;
+    let mut decoder = zstd::Decoder::new(file.take(len))?;
+    let metadata_proto: Metadata = Message::parse_from_reader(&mut decoder)?;
+    drop(decoder);
+
+    main_db.with_txn(|txn| {
+        txn.clear_journeys()?;
+        for section_info in metadata_proto.section_infos {
+            let mut file = zip.by_name(&section_info.section_id)?;
+            let mut magic_header: [u8; 3] = [0; 3];
+            file.read_exact(&mut magic_header)?;
+            if magic_header != SECTION_MAGIC_HEADER {
+                bail!(
+                    "Invalid magic header, expect: {:?}, got: {:?}",
+                    SECTION_MAGIC_HEADER,
+                    &magic_header
+                );
+            };
+            let mut version_number: [u8; 1] = [0; 1];
+            file.read_exact(&mut version_number)?;
+            let len: u64 = file.read_varint()?;
+            let mut decoder = zstd::Decoder::new(file.by_ref().take(len))?;
+            let section_header: SectionHeader = Message::parse_from_reader(&mut decoder)?;
+            drop(decoder);
+
+            for header in section_header.journey_headers {
+                let len: u64 = file.read_varint()?;
+                let mut buf = vec![0_u8; len as usize];
+                file.read_exact(&mut buf)?;
+
+                let journey_header = JourneyHeader::of_proto(header)?;
+                let journey_data =
+                    JourneyData::deserialize(buf.as_slice(), journey_header.journey_type)?;
+                txn.insert_journey(journey_header, journey_data)?;
+            }
+        }
+        Ok(())
+    })
+}
 
 // TODO: support import from archive file. i.e. inserting new journeys from a
 // give archive file. If there are journeys with conflicting id, skip them if
