@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:project_dv/gps.dart';
+import 'package:project_dv/gps_page.dart';
+import 'package:project_dv/gps_recording_state.dart';
 import 'package:project_dv/import.dart';
 import 'package:project_dv/journey.dart';
 import 'package:project_dv/map.dart';
 import 'package:project_dv/src/rust/api/api.dart';
 import 'package:project_dv/src/rust/frb_generated.dart';
+import 'package:provider/provider.dart';
 
 void main() async {
   // This is required since we are doing things before calling `runApp`.
@@ -17,7 +19,14 @@ void main() async {
       docDir: (await getApplicationDocumentsDirectory()).path,
       supportDir: (await getApplicationSupportDirectory()).path,
       cacheDir: (await getApplicationCacheDirectory()).path);
-  runApp(const MyApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => GpsRecordingState()),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -84,12 +93,13 @@ class _MyHomePageState extends State<MyHomePage> {
             title: Text(widget.title),
           ),
           body: const TabBarView(
+            physics: NeverScrollableScrollPhysics(),
             children: [
               Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.start,
                   children: <Widget>[
-                    GPS(),
+                    GPSPage(),
                     ImportUI(),
                     Expanded(
                       child: MapUiBody(),
