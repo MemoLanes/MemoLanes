@@ -176,4 +176,3 @@ pub fn recover_from_archive(zip_file_path: String) -> Result<()> {
     archive::recover_archive_file(&zip_file_path, &mut main_db)?;
     Ok(())
 }
-
