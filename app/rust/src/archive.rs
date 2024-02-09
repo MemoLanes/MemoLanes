@@ -28,8 +28,8 @@ use crate::{
    to update the latest file.
 */
 
-const METADATA_MAGIC_HEADER: [u8; 3] = [b'X', b'X', b'M'];
-const SECTION_MAGIC_HEADER: [u8; 3] = [b'X', b'X', b'S'];
+const METADATA_MAGIC_HEADER: [u8; 3] = [b'M', b'L', b'M'];
+const SECTION_MAGIC_HEADER: [u8; 3] = [b'M', b'L', b'S'];
 
 // TODO: support incremetnal archiving by loading the previous metadata, we need
 // this for syncing.
