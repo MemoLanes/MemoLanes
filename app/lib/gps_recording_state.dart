@@ -103,10 +103,6 @@ class GpsRecordingState extends ChangeNotifier {
   }
 
   Future<bool> _hasLocationPermission() async {
-    var a = await Permission.locationAlways.isGranted;
-    var b = await Permission.locationWhenInUse.isGranted;
-    print(a);
-    print(b);
     return await Permission.locationAlways.isGranted ||
         await Permission.locationWhenInUse.isGranted;
   }

@@ -3,7 +3,7 @@ import 'package:project_dv/src/rust/api/api.dart';
 import 'package:project_dv/src/rust/journey_header.dart';
 
 class JourneyUiBody extends StatelessWidget {
-  const JourneyUiBody();
+  const JourneyUiBody({super.key});
 
   @override
   Widget build(BuildContext context) {

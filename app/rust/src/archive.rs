@@ -28,8 +28,8 @@ use crate::{
    to update the latest file.
 */
 
-const METADATA_MAGIC_HEADER: [u8; 3] = [b'X', b'X', b'M'];
-const SECTION_MAGIC_HEADER: [u8; 3] = [b'X', b'X', b'S'];
+const METADATA_MAGIC_HEADER: [u8; 3] = [b'M', b'L', b'M'];
+const SECTION_MAGIC_HEADER: [u8; 3] = [b'M', b'L', b'S'];
 
 // TODO: support incremetnal archiving by loading the previous metadata, we need
 // this for syncing.
@@ -204,8 +204,7 @@ pub fn archive_all_as_zip<T: Write + Seek>(main_db: &mut MainDb, writer: &mut T)
 
         // TODO: pick a file extension
         zip.start_file("metadata.xxm", default_options)?;
-        // TODO: pick a magic header
-        zip.write_all(&[b'X', b'X', b'M'])?;
+        zip.write_all(&METADATA_MAGIC_HEADER)?;
         // version num
         zip.write_all(&[1])?;
 
@@ -221,8 +220,7 @@ pub fn archive_all_as_zip<T: Write + Seek>(main_db: &mut MainDb, writer: &mut T)
             }
 
             zip.start_file(section_id.clone(), default_options)?;
-            // TODO: pick a magic header
-            zip.write_all(&[b'X', b'X', b'S'])?;
+            zip.write_all(&SECTION_MAGIC_HEADER)?;
             // version num
             zip.write_all(&[1])?;
             // write header
