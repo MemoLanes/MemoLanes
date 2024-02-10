@@ -117,9 +117,9 @@ class GpsRecordingState extends ChangeNotifier {
         latestPosition = null;
       } else {
         if (!await _hasLocationPermission()) {
-          await Permission.locationAlways.request();
+          await Permission.locationWhenInUse.request();
           if (!await _hasLocationPermission()) {
-            throw const FormatException("Location permission not granted");
+            throw Exception("Location permission not granted");
           }
         }
         _pokeGeolocatorTask ??= _PokeGeolocatorTask.start();
