@@ -76,6 +76,15 @@ pub fn render_map_overlay(
         .maybe_render_map_overlay(zoom, left, top, right, bottom)
 }
 
+pub fn reset_map_renderer() {
+    let state = get();
+    let mut map_renderer = state.map_renderer.lock().unwrap();
+
+    if let Some(map_renderer) = &mut *map_renderer {
+        map_renderer.reset();
+    }
+}
+
 pub fn on_location_update(
     latitude: f64,
     longitude: f64,

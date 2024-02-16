@@ -147,4 +147,8 @@ impl MapRenderer {
         // TODO: we should improve the cache invalidation rule
         self.current_render_area = None;
     }
+
+    pub fn reset(&mut self) {
+        self.current_render_area = None;
+    }
 }
