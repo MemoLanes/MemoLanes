@@ -38,7 +38,7 @@ fn basic() {
         } else if i == 2000 {
             // we have both ongoing journey and finalized journey at this point
             let render_result =
-                api::render_map_overlay(11.0, 121.39, 31.3146, 121.55, 31.18).unwrap();
+                api::render_map_overlay(11.0, 121.39, 31.3146, 121.55, 31.18, false).unwrap();
             test_utils::assert_image(
                 &render_result.data,
                 "end_to_end_basic_0",
@@ -48,7 +48,8 @@ fn basic() {
     }
 
     // this should cover real time update
-    let render_result = api::render_map_overlay(11.0, 121.39, 31.3146, 121.55, 31.18).unwrap();
+    let render_result =
+        api::render_map_overlay(11.0, 121.39, 31.3146, 121.55, 31.18, false).unwrap();
     test_utils::assert_image(
         &render_result.data,
         "end_to_end_basic_1",

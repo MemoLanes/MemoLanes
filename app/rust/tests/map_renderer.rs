@@ -14,7 +14,7 @@ fn basic() {
     let mut map_renderer = MapRenderer::new(journey_bitmap);
 
     let render_result =
-        map_renderer.maybe_render_map_overlay(11.0, start_lng, start_lat, end_lng, end_lat);
+        map_renderer.maybe_render_map_overlay(11.0, start_lng, start_lat, end_lng, end_lat, false);
     let render_result = render_result.unwrap();
     assert_eq!(render_result.left, 150.99609375);
     assert_eq!(render_result.top, -33.72433966174759);
@@ -34,10 +34,12 @@ fn basic() {
         -33.79329191036,
         151.278369284,
         -33.94360014719,
+        false,
     );
     assert!(render_result.is_none());
 
     // but a bigger move will
-    let render_result = map_renderer.maybe_render_map_overlay(11.0, 151.0, -33.0, 151.0, -33.0);
+    let render_result =
+        map_renderer.maybe_render_map_overlay(11.0, 151.0, -33.0, 151.0, -33.0, false);
     assert!(render_result.is_some());
 }
