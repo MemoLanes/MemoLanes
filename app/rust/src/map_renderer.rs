@@ -130,7 +130,7 @@ impl MapRenderer {
             right_idx,
             bottom_idx,
         };
-        if Some(&render_area) == self.current_render_area.as_ref() && do_not_skip {
+        if Some(&render_area) == self.current_render_area.as_ref() && !do_not_skip {
             // same, nothing to do
             None
         } else {
