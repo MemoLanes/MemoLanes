@@ -21,11 +21,10 @@ class MapUiBodyState extends State<MapUiBody> {
   bool ready = false;
   bool layerAdded = false;
   Completer? requireRefresh = Completer();
-  bool doNotSkipNextRefresh = false;
   MaplibreMapController? mapController;
   Timer? timer;
 
-  Future<void> _doActualRefresh(bool doNotSkip) async {
+  Future<void> _doActualRefresh() async {
     // TODO: this is buggy when view is at the meridian, or when the map is
     // zoom out.
     if (!ready) return;
@@ -42,12 +41,12 @@ class MapUiBodyState extends State<MapUiBody> {
     final bottom = visiableRegion.southwest.latitude;
 
     final renderResult = await renderMapOverlay(
-        zoom: zoom,
-        left: left,
-        top: top,
-        right: right,
-        bottom: bottom,
-        doNotSkip: doNotSkip);
+      zoom: zoom,
+      left: left,
+      top: top,
+      right: right,
+      bottom: bottom,
+    );
 
     if (renderResult != null) {
       final coordinates = LatLngQuad(
@@ -69,15 +68,14 @@ class MapUiBodyState extends State<MapUiBody> {
   }
 
   void _refreshLoop() async {
+    await resetMapRenderer();
     while (true) {
       await requireRefresh?.future;
       if (requireRefresh == null) return;
       // make it ready for the next request
       requireRefresh = Completer();
-      var doNotSkip = doNotSkipNextRefresh;
-      doNotSkipNextRefresh = false;
 
-      await _doActualRefresh(doNotSkip);
+      await _doActualRefresh();
     }
   }
 
@@ -90,7 +88,7 @@ class MapUiBodyState extends State<MapUiBody> {
             // TODO: constantly calling `_triggerRefresh` isn't too bad, becuase
             // it doesn't do much if nothing is changed. However, this doesn't
             // mean we couldn't do something better.
-            _triggerRefresh(false));
+            _triggerRefresh());
     _refreshLoop();
   }
 
@@ -99,10 +97,7 @@ class MapUiBodyState extends State<MapUiBody> {
     mapController = controller;
   }
 
-  void _triggerRefresh(bool doNotSkip) async {
-    if (doNotSkip) {
-      doNotSkipNextRefresh = true;
-    }
+  void _triggerRefresh() async {
     if (requireRefresh?.isCompleted == false) {
       requireRefresh?.complete();
     }
@@ -110,11 +105,11 @@ class MapUiBodyState extends State<MapUiBody> {
 
   _onStyleLoadedCallback() async {
     ready = true;
-    _triggerRefresh(true);
+    _triggerRefresh();
   }
 
   void _onMapChanged() async {
-    _triggerRefresh(false);
+    _triggerRefresh();
   }
 
   @override

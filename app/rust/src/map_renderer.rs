@@ -110,7 +110,6 @@ impl MapRenderer {
         top: f64,
         right: f64,
         bottom: f64,
-        do_not_skip: bool,
     ) -> Option<RenderResult> {
         // TODO: This doesn't really work when antimeridian is involved, see
         // the upstream issue: https://github.com/maplibre/maplibre-native/issues/1681
@@ -130,7 +129,7 @@ impl MapRenderer {
             right_idx,
             bottom_idx,
         };
-        if Some(&render_area) == self.current_render_area.as_ref() && !do_not_skip {
+        if Some(&render_area) == self.current_render_area.as_ref() {
             // same, nothing to do
             None
         } else {
@@ -146,6 +145,10 @@ impl MapRenderer {
     {
         f(&mut self.journey_bitmap);
         // TODO: we should improve the cache invalidation rule
+        self.current_render_area = None;
+    }
+
+    pub fn reset(&mut self) {
         self.current_render_area = None;
     }
 }

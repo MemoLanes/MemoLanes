@@ -61,7 +61,6 @@ pub fn render_map_overlay(
     top: f64,
     right: f64,
     bottom: f64,
-    do_not_skip: bool,
 ) -> Option<RenderResult> {
     let state = get();
     let mut map_renderer = state.map_renderer.lock().unwrap();
@@ -74,7 +73,16 @@ pub fn render_map_overlay(
                 merged_journey_manager::get_latest_including_ongoing(&mut main_db).unwrap();
             MapRenderer::new(journey_bitmap)
         })
-        .maybe_render_map_overlay(zoom, left, top, right, bottom, do_not_skip)
+        .maybe_render_map_overlay(zoom, left, top, right, bottom)
+}
+
+pub fn reset_map_renderer() {
+    let state = get();
+    let mut map_renderer = state.map_renderer.lock().unwrap();
+
+    if let Some(map_renderer) = &mut *map_renderer {
+        map_renderer.reset();
+    }
 }
 
 pub fn on_location_update(
