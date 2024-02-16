@@ -1,7 +1,5 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
-import 'package:mutex/mutex.dart';
 import 'package:project_dv/src/rust/api/api.dart';
 import 'dart:async';
 
@@ -22,10 +20,66 @@ class MapUiBodyState extends State<MapUiBody> {
 
   bool ready = false;
   bool layerAdded = false;
-  final m = Mutex();
+  Completer? requireRefresh = Completer();
+  bool doNotSkipNextRefresh = false;
   MaplibreMapController? mapController;
-  Uint8List? image;
   Timer? timer;
+
+  Future<void> _doActualRefresh(bool doNotSkip) async {
+    // TODO: this is buggy when view is at the meridian, or when the map is
+    // zoom out.
+    if (!ready) return;
+    var controller = mapController;
+    if (controller == null) return;
+
+    final zoom = controller.cameraPosition?.zoom;
+    if (zoom == null) return;
+    if (!zoom.isFinite) return;
+    final visiableRegion = await controller.getVisibleRegion();
+    final left = visiableRegion.southwest.longitude;
+    final top = visiableRegion.northeast.latitude;
+    final right = visiableRegion.northeast.longitude;
+    final bottom = visiableRegion.southwest.latitude;
+
+    final renderResult = await renderMapOverlay(
+        zoom: zoom,
+        left: left,
+        top: top,
+        right: right,
+        bottom: bottom,
+        doNotSkip: doNotSkip);
+
+    if (renderResult != null) {
+      final coordinates = LatLngQuad(
+        topLeft: LatLng(renderResult.top, renderResult.left),
+        topRight: LatLng(renderResult.top, renderResult.right),
+        bottomRight: LatLng(renderResult.bottom, renderResult.right),
+        bottomLeft: LatLng(renderResult.bottom, renderResult.left),
+      );
+      if (layerAdded) {
+        await mapController?.updateImageSource(
+            "main-image-source", renderResult.data, coordinates);
+      } else {
+        layerAdded = true;
+        await controller.addImageSource(
+            "main-image-source", renderResult.data, coordinates);
+        await controller.addImageLayer("main-image-layer", "main-image-source");
+      }
+    }
+  }
+
+  void _refreshLoop() async {
+    while (true) {
+      await requireRefresh?.future;
+      if (requireRefresh == null) return;
+      // make it ready for the next request
+      requireRefresh = Completer();
+      var doNotSkip = doNotSkipNextRefresh;
+      doNotSkipNextRefresh = false;
+
+      await _doActualRefresh(doNotSkip);
+    }
+  }
 
   @override
   void initState() {
@@ -36,7 +90,8 @@ class MapUiBodyState extends State<MapUiBody> {
             // TODO: constantly calling `_triggerRefresh` isn't too bad, becuase
             // it doesn't do much if nothing is changed. However, this doesn't
             // mean we couldn't do something better.
-            _triggerRefresh());
+            _triggerRefresh(false));
+    _refreshLoop();
   }
 
   void _onMapCreated(MaplibreMapController controller) async {
@@ -44,62 +99,32 @@ class MapUiBodyState extends State<MapUiBody> {
     mapController = controller;
   }
 
-  void _triggerRefresh() async {
-    // TODO: this is buggy when view is at the meridian, or when the map is
-    // zoom out.
-    if (!ready) return;
-    var controller = mapController;
-    if (controller == null) return;
-    final zoom = controller.cameraPosition?.zoom;
-    if (zoom == null) return;
-    if (!zoom.isFinite) return;
-    final visiableRegion = await controller.getVisibleRegion();
-    final left = visiableRegion.southwest.longitude;
-    final top = visiableRegion.northeast.latitude;
-    final right = visiableRegion.northeast.longitude;
-    final bottom = visiableRegion.southwest.latitude;
-
-    // TODO: we use mutex to make sure only one rendering is happening at the
-    // same time, but what we really want is: if there are multiple request
-    // queuing up, only run the final one.
-    await m.protect(() async {
-      final renderResult = await renderMapOverlay(
-          zoom: zoom, left: left, top: top, right: right, bottom: bottom);
-
-      if (renderResult != null) {
-        final coordinates = LatLngQuad(
-          topLeft: LatLng(renderResult.top, renderResult.left),
-          topRight: LatLng(renderResult.top, renderResult.right),
-          bottomRight: LatLng(renderResult.bottom, renderResult.right),
-          bottomLeft: LatLng(renderResult.bottom, renderResult.left),
-        );
-        if (layerAdded) {
-          await mapController?.updateImageSource(
-              "main-image-source", renderResult.data, coordinates);
-        } else {
-          layerAdded = true;
-          await controller.addImageSource(
-              "main-image-source", renderResult.data, coordinates);
-          await controller.addImageLayer(
-              "main-image-layer", "main-image-source");
-        }
-      }
-    });
+  void _triggerRefresh(bool doNotSkip) async {
+    if (doNotSkip) {
+      doNotSkipNextRefresh = true;
+    }
+    if (requireRefresh?.isCompleted == false) {
+      requireRefresh?.complete();
+    }
   }
 
   _onStyleLoadedCallback() async {
     ready = true;
-    _triggerRefresh();
+    _triggerRefresh(true);
   }
 
   void _onMapChanged() async {
-    _triggerRefresh();
+    _triggerRefresh(false);
   }
 
   @override
   void dispose() {
     mapController?.removeListener(_onMapChanged);
     timer?.cancel();
+    if (requireRefresh?.isCompleted == false) {
+      requireRefresh?.complete();
+    }
+    requireRefresh = null;
     super.dispose();
   }
 
