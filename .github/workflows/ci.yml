@@ -34,12 +34,16 @@ jobs:
           workspaces: "app/rust/"
       - uses: cargo-bins/cargo-binstall@main
       - name: Install flutter_rust_bridge_codegen
-        run: cargo binstall -y --force --no-track 'cargo-expand' && cargo binstall -y --force --no-track 'flutter_rust_bridge_codegen@2.0.0-dev.18'  
+        run: cargo binstall -y --force --no-track 'cargo-expand' && cargo binstall -y --force --no-track 'flutter_rust_bridge_codegen@2.0.0-dev.22'  
 
       - name: Get Flutter Dependencies
         run: flutter pub get
 
-      - name: frb Codegen
+      - name: Get Rust Dependencies
+        working-directory: app/rust
+        run: cargo fetch
+
+      - name: FRB Codegen
         working-directory: app
         run: flutter_rust_bridge_codegen generate
 

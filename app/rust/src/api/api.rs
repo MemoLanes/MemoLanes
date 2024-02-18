@@ -8,7 +8,7 @@ use simplelog::{Config, LevelFilter, WriteLogger};
 
 use crate::gps_processor::{GpsProcessor, ProcessResult};
 use crate::journey_data::JourneyData;
-use crate::journey_header::JourneyKind;
+use crate::journey_header::{JourneyHeader, JourneyKind};
 use crate::map_renderer::{MapRenderer, RenderResult};
 use crate::storage::Storage;
 use crate::{gps_processor, import_data, merged_journey_manager, storage};
@@ -150,10 +150,15 @@ pub fn import_fow_data(zip_file_path: String) -> Result<()> {
             None,
             Utc::now(),
             None,
-            JourneyKind::Default,
+            JourneyKind::DefaultKind,
             None,
             JourneyData::Bitmap(journey_bitmap),
         )
     })?;
     Ok(())
+}
+
+pub fn list_all_journeys() -> Result<Vec<JourneyHeader>> {
+    let mut main_db = get().storage.main_db.lock().unwrap();
+    main_db.with_txn(|txn| txn.list_all_journeys())
 }

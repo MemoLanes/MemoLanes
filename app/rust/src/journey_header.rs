@@ -58,9 +58,9 @@ mod tests {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum JourneyKind {
-    Default,
+    DefaultKind,
     Flight,
     Custom(String),
 }
@@ -70,7 +70,7 @@ impl JourneyKind {
         use protos::journey::header::{kind, Kind};
         let mut kind = Kind::new();
         match self {
-            JourneyKind::Default => kind.set_build_in(kind::BuiltIn::DEFAULT),
+            JourneyKind::DefaultKind => kind.set_build_in(kind::BuiltIn::DEFAULT),
             JourneyKind::Flight => kind.set_build_in(kind::BuiltIn::FLIGHT),
             JourneyKind::Custom(str) => kind.set_custom_kind(str),
         };
@@ -81,7 +81,7 @@ impl JourneyKind {
         use protos::journey::header::kind;
         if proto.has_build_in() {
             match proto.build_in() {
-                kind::BuiltIn::DEFAULT => JourneyKind::Default,
+                kind::BuiltIn::DEFAULT => JourneyKind::DefaultKind,
                 kind::BuiltIn::FLIGHT => JourneyKind::Flight,
             }
         } else {
@@ -90,7 +90,7 @@ impl JourneyKind {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct JourneyHeader {
     pub id: String,
     pub revision: String,

@@ -116,6 +116,11 @@ impl Txn<'_> {
         utils::process_segment(results.map(|x| x.map_err(|x| x.into())))
     }
 
+    pub fn clear_journeys(&self) -> Result<()> {
+        self.db_txn.execute("DELETE FROM journey;", ())?;
+        Ok(())
+    }
+
     pub fn insert_journey(&self, header: JourneyHeader, data: JourneyData) -> Result<()> {
         let journey_type = header.journey_type;
         if journey_type != data.type_() {
@@ -181,7 +186,7 @@ impl Txn<'_> {
                 // including path refinement + lossy compression.
 
                 // TODO: allow user to set this when recording?
-                let journey_kind = JourneyKind::Default;
+                let journey_kind = JourneyKind::DefaultKind;
 
                 self.create_and_insert_journey(
                     Some(start),

@@ -10,7 +10,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 [dependencies]
 anyhow = { version = "1", features = ["backtrace"] }
 chrono = "0.4.26"
-flutter_rust_bridge = "=2.0.0-dev.18"
+flutter_rust_bridge = { version = "=2.0.0-dev.22", features = ["chrono"] }
 log = "0.4.19"
 rusqlite = { version = "0.29.0", features = ["bundled"] }
 simplelog = "0.12.1"
