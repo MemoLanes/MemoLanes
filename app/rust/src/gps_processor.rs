@@ -60,25 +60,25 @@ impl GpsProcessor {
         //    like that.
         const TIME_THRESHOLD_IN_MS: i64 = 5 * 1000;
         const ACCURACY_THRESHOLD: f32 = 10.0;
-        let result = match curr_data.accuracy {
-            Some(accuracy) => {
-                if accuracy > ACCURACY_THRESHOLD {
-                    ProcessResult::Ignore
-                } else {
-                    match &self.last_data {
-                        None => ProcessResult::NewSegment,
-                        Some(last_data) => {
-                            let time_diff_in_ms = curr_data.timestamp_ms - last_data.timestamp_ms;
-                            if time_diff_in_ms > TIME_THRESHOLD_IN_MS {
-                                ProcessResult::NewSegment
-                            } else {
-                                ProcessResult::Append
-                            }
-                        }
+        let should_ignore = match curr_data.accuracy {
+            Some(accuracy) => accuracy > ACCURACY_THRESHOLD,
+            None => false,
+        };
+
+        let result = if should_ignore {
+            ProcessResult::Ignore
+        } else {
+            match &self.last_data {
+                None => ProcessResult::NewSegment,
+                Some(last_data) => {
+                    let time_diff_in_ms = curr_data.timestamp_ms - last_data.timestamp_ms;
+                    if time_diff_in_ms > TIME_THRESHOLD_IN_MS {
+                        ProcessResult::NewSegment
+                    } else {
+                        ProcessResult::Append
                     }
                 }
             }
-            None => ProcessResult::Append,
         };
         f(&self.last_data, &curr_data, result);
         if result != ProcessResult::Ignore {
