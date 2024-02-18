@@ -11,7 +11,7 @@ use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind};
 use crate::map_renderer::{MapRenderer, RenderResult};
 use crate::storage::Storage;
-use crate::{gps_processor, import_data, merged_journey_manager, storage};
+use crate::{archive, gps_processor, import_data, merged_journey_manager, storage};
 
 // TODO: we have way too many locking here and now it is hard to track.
 //  e.g. we could mess up with the order and cause a deadlock
@@ -74,6 +74,15 @@ pub fn render_map_overlay(
             MapRenderer::new(journey_bitmap)
         })
         .maybe_render_map_overlay(zoom, left, top, right, bottom)
+}
+
+pub fn reset_map_renderer() {
+    let state = get();
+    let mut map_renderer = state.map_renderer.lock().unwrap();
+
+    if let Some(map_renderer) = &mut *map_renderer {
+        map_renderer.reset();
+    }
 }
 
 pub fn on_location_update(
@@ -161,4 +170,18 @@ pub fn import_fow_data(zip_file_path: String) -> Result<()> {
 pub fn list_all_journeys() -> Result<Vec<JourneyHeader>> {
     let mut main_db = get().storage.main_db.lock().unwrap();
     main_db.with_txn(|txn| txn.list_all_journeys())
+}
+
+pub fn generate_full_archive(target_filepath: String) -> Result<()> {
+    let mut main_db = get().storage.main_db.lock().unwrap();
+    let mut file = File::create(target_filepath)?;
+    archive::archive_all_as_zip(&mut main_db, &mut file)?;
+    drop(file);
+    Ok(())
+}
+
+pub fn recover_from_archive(zip_file_path: String) -> Result<()> {
+    let mut main_db = get().storage.main_db.lock().unwrap();
+    archive::recover_archive_file(&zip_file_path, &mut main_db)?;
+    Ok(())
 }

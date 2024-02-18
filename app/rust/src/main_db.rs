@@ -36,7 +36,7 @@ pub const ZSTD_COMPRESS_LEVEL: i32 = 3;
 fn open_db_and_run_migration(
     support_dir: &str,
     file_name: &str,
-    migrations: &Vec<&dyn Fn(&Transaction) -> Result<()>>,
+    migrations: &[&dyn Fn(&Transaction) -> Result<()>],
 ) -> Result<Connection> {
     debug!("open and run migration for {}", file_name);
     let mut conn = rusqlite::Connection::open(Path::new(support_dir).join(file_name))?;
@@ -260,7 +260,7 @@ impl MainDb {
         let conn = open_db_and_run_migration(
             support_dir,
             "main.db",
-            &vec![&|tx| {
+            &[&|tx| {
                 let sql = "
                 CREATE TABLE ongoing_journey (
                     id             INTEGER PRIMARY KEY AUTOINCREMENT
