@@ -9,11 +9,11 @@ use std::path::Path;
 use std::str::FromStr;
 use uuid::Uuid;
 
-use crate::gps_processor::{self, ProcessResult};
+use crate::gps_processor::{self, ProcessResult, RawSegmentData};
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::journey_vector::{JourneyVector, TrackPoint};
-use crate::{protos, utils};
+use crate::protos;
 
 /* The main database, we are likely to store a lot of protobuf bytes in it,
 less relational stuff. Basically we will use it as a file system with better
@@ -104,16 +104,16 @@ impl Txn<'_> {
         let results = query.query_map((), |row| {
             let timestamp_sec: i64 = row.get(0)?;
             let process_result: i8 = row.get(3)?;
-            Ok((
+            Ok(RawSegmentData {
                 timestamp_sec,
-                TrackPoint {
+                track_point: TrackPoint {
                     latitude: row.get(1)?,
                     longitude: row.get(2)?,
                 },
-                process_result,
-            ))
+                process_result: process_result.into(),
+            })
         })?;
-        utils::process_segment(results.map(|x| x.map_err(|x| x.into())))
+        gps_processor::process_segment(results.map(|x| x.map_err(|x| x.into())))
     }
 
     pub fn clear_journeys(&self) -> Result<()> {

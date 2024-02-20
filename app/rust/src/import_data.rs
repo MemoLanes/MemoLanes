@@ -1,8 +1,8 @@
+use crate::gps_processor::RawSegmentData;
 use crate::journey_bitmap::{self, Block, JourneyBitmap, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH};
 use crate::{
     gps_processor::{self, GpsProcessor},
     journey_vector::{JourneyVector, TrackPoint},
-    utils,
 };
 use anyhow::{Error, Ok, Result};
 use chrono::{DateTime, Local, Utc};
@@ -146,18 +146,18 @@ pub fn load_gpx(file_path: &str, filter_switch: bool) -> Result<(JourneyVector, 
                         },
                     );
                 }
-                Ok((
-                    timestamp.timestamp(),
-                    TrackPoint {
+                Ok(RawSegmentData {
+                    timestamp_sec: timestamp.timestamp(),
+                    track_point: TrackPoint {
                         latitude: point.point().y(),
                         longitude: point.point().x(),
                     },
-                    process_result,
-                ))
+                    process_result: process_result.into(),
+                })
             });
-            let journey_vector = match utils::process_segment(points)? {
+            let journey_vector = match gps_processor::process_segment(points)? {
                 Some(ongoing_journey) => ongoing_journey.journey_vector,
-                None => return Err(Error::msg("No data found")),
+                None => continue,
             };
             segmants.extend(journey_vector.track_segments)
         }
@@ -200,7 +200,7 @@ pub fn load_kml(file_path: &str, filter_switch: bool) -> Result<(JourneyVector, 
                     }
                 })
             });
-        let mut points: Vec<Result<(i64, TrackPoint, i8)>> = Vec::new();
+        let mut points: Vec<Result<RawSegmentData>> = Vec::new();
         if whens.len() == coords.len() {
             for i in 0..whens.len() {
                 let timestamp = match &whens[i] {
@@ -237,17 +237,17 @@ pub fn load_kml(file_path: &str, filter_switch: bool) -> Result<(JourneyVector, 
                         },
                     );
                 }
-                points.push(Ok((
-                    timestamp.timestamp(),
-                    TrackPoint {
+                points.push(Ok(RawSegmentData {
+                    timestamp_sec: timestamp.timestamp(),
+                    track_point: TrackPoint {
                         latitude,
                         longitude,
                     },
-                    process_result,
-                )))
+                    process_result: process_result.into(),
+                }))
             }
         }
-        let journey_vector = match utils::process_segment(points.into_iter())? {
+        let journey_vector = match gps_processor::process_segment(points.into_iter())? {
             Some(ongoing_journey) => ongoing_journey.journey_vector,
             None => return Err(Error::msg("No data found")),
         };
