@@ -1,6 +1,6 @@
 pub mod test_utils;
 
-use rust_lib::gps_processor::{GpsProcessor, ProcessResult, RawData};
+use memolanes_core::gps_processor::{GpsProcessor, ProcessResult, RawData};
 use std::collections::HashMap;
 
 #[test]

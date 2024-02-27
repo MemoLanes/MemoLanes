@@ -1,6 +1,6 @@
 pub mod test_utils;
 
-use rust_lib::{gps_processor, journey_data::JourneyData, main_db, main_db::MainDb};
+use memolanes_core::{gps_processor, journey_data::JourneyData, main_db, main_db::MainDb};
 use tempdir::TempDir;
 
 #[test]
