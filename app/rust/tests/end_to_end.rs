@@ -2,7 +2,7 @@ pub mod test_utils;
 
 use std::fs;
 
-use rust_lib::api::api;
+use memolanes_core::api::api;
 use tempdir::TempDir;
 
 #[test]

@@ -1,6 +1,6 @@
 pub mod test_utils;
 
-use rust_lib::{
+use memolanes_core::{
     journey_bitmap::JourneyBitmap, journey_data::JourneyData, journey_header::JourneyType,
     map_renderer::MapRenderer,
 };
