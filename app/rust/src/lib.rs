@@ -11,6 +11,7 @@ pub mod api;
 pub mod archive;
 pub mod gps_processor;
 pub mod import_data;
+pub mod export_data;
 pub mod journey_bitmap;
 pub mod journey_data;
 pub mod journey_header;
