@@ -180,10 +180,13 @@ impl Storage {
     }
 
     pub fn finalize_ongoing_journey(&self) {
+        let cache_db = self.cache_db.lock().unwrap();
         let mut main_db = self.main_db.lock().unwrap();
         main_db
             .with_txn(|txn| txn.finalize_ongoing_journey())
-            .unwrap()
+            .unwrap();
+        // v0 just deletes cached bitmap for any change
+        cache_db.delete_cached_journey().unwrap()
     }
 
     // TODO: do we need this?

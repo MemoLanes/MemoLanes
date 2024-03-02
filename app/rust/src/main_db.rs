@@ -9,6 +9,7 @@ use std::path::Path;
 use std::str::FromStr;
 use uuid::Uuid;
 
+use crate::cache_db::CacheDb;
 use crate::gps_processor::{self, ProcessResult};
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
@@ -241,6 +242,11 @@ impl Txn<'_> {
 
         self.db_txn.execute("DELETE FROM ongoing_journey;", ())?;
 
+        Ok(())
+    }
+
+    pub fn clear_cache(cache_db: &CacheDb) -> Result<()> {
+        cache_db.delete_cached_journey()?;
         Ok(())
     }
 

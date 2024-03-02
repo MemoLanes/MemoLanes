@@ -1,7 +1,6 @@
 use chrono::NaiveDateTime;
 use hex::ToHex;
-use memolanes_core::gps_processor;
-use rust_lib::{gps_processor, journey_bitmap::JourneyBitmap};
+use memolanes_core::{gps_processor, journey_bitmap::JourneyBitmap};
 use sha1::{Digest, Sha1};
 use std::{convert::Infallible, fs::File, io::Write};
 

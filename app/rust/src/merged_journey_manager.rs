@@ -59,53 +59,59 @@ fn add_journey_vector_to_journey_bitmap(
     }
 }
 
-pub fn get_latest_including_ongoing_from_cache(cache_db: &mut CacheDb) -> Result<JourneyBitmap> {
+pub fn get_latest_including_ongoing(
+    main_db: &mut MainDb,
+    cache_db: &mut CacheDb,
+) -> Result<JourneyBitmap> {
+    let ongoing_journey_bitmap = get_ongoing_from_maindb(main_db).unwrap();
+    let mut journey_bitmap = match get_finalized_from_cachedb(cache_db) {
+        Ok(bitmap) => bitmap,
+        Err(e) => {
+            if e.to_string() == "Query returned no rows" {
+                // If no rows found in cache, fetch from main db and cache the result
+                println!("No journey data found in the cache.");
+                let fetched_bitmap = get_finalized_from_maindb(main_db)?;
+                insert_cachedb(cache_db, fetched_bitmap.clone());
+                fetched_bitmap
+            } else {
+                println!("Unexpected error when retrieving cached data: {:?}", e);
+                return Err(e.into());
+            }
+        }
+    };
+
+    journey_bitmap.merge(ongoing_journey_bitmap);
+    Ok(journey_bitmap)
+}
+
+pub fn insert_cachedb(cache_db: &mut CacheDb, journey_bitmap: JourneyBitmap) {
+    // Serialize and write to the cache
+    let journey_data = JourneyData::Bitmap(journey_bitmap);
+    let mut buf = Vec::new();
+    journey_data.serialize(&mut buf).unwrap();
+    cache_db.insert_journey_bitmap(buf).unwrap()
+}
+
+pub fn get_ongoing_from_maindb(main_db: &mut MainDb) -> Result<JourneyBitmap> {
     let mut journey_bitmap = JourneyBitmap::new();
-    cache_db.with_txn(|txn| {
-        let journey_data = txn.get_journey()?;
-        match journey_data {
-            JourneyData::Bitmap(bitmap) => journey_bitmap.merge(bitmap),
-            _ => return Err(Error::new(ErrorKind::InvalidData, "Expected bitmap data").into()),
+
+    main_db.with_txn(|txn| {
+        // ongoing journey
+        match txn.get_ongoing_journey()? {
+            None => (),
+            Some(ongoing_journey) => {
+                add_journey_vector_to_journey_bitmap(
+                    &mut journey_bitmap,
+                    &ongoing_journey.journey_vector,
+                );
+            }
         }
 
         Ok(journey_bitmap)
     })
 }
 
-pub fn get_latest_including_ongoing(
-    main_db: &mut MainDb,
-    cache_db: &mut CacheDb,
-) -> Result<JourneyBitmap> {
-    if let Ok(journey_bitmap) = get_latest_including_ongoing_from_cache(cache_db) {
-        if !journey_bitmap.tiles.is_empty() {
-            // If found and not empty, return it immediately
-            return Ok(journey_bitmap);
-        }
-    }
-
-    let journey_bitmap = get_latest_including_ongoing_from_maindb(main_db).unwrap();
-
-    // Serialize and write to the cache
-    let journey_data = JourneyData::Bitmap(journey_bitmap);
-    let mut buf = Vec::new();
-    journey_data.serialize(&mut buf).unwrap();
-
-    // TODO: use last updated timestamp
-    //let current_timestamp = Utc::now();
-
-    cache_db.with_txn(|txn| {
-        // serialized data into the cache database
-        txn.insert_journey_bitmap_blob(buf)?;
-        Ok(())
-    })?;
-
-    match journey_data {
-        JourneyData::Bitmap(journey_bitmap) => Ok(journey_bitmap),
-        _ => Err(Error::new(ErrorKind::InvalidData, "Expected bitmap data").into()),
-    }
-}
-
-pub fn get_latest_including_ongoing_from_maindb(main_db: &mut MainDb) -> Result<JourneyBitmap> {
+pub fn get_finalized_from_maindb(main_db: &mut MainDb) -> Result<JourneyBitmap> {
     let mut journey_bitmap = JourneyBitmap::new();
 
     main_db.with_txn(|txn| {
@@ -120,17 +126,17 @@ pub fn get_latest_including_ongoing_from_maindb(main_db: &mut MainDb) -> Result<
             }
         }
 
-        // ongoing journey
-        match txn.get_ongoing_journey()? {
-            None => (),
-            Some(ongoing_journey) => {
-                add_journey_vector_to_journey_bitmap(
-                    &mut journey_bitmap,
-                    &ongoing_journey.journey_vector,
-                );
-            }
-        }
-
         Ok(journey_bitmap)
     })
+}
+
+pub fn get_finalized_from_cachedb(cache_db: &mut CacheDb) -> Result<JourneyBitmap> {
+    let mut journey_bitmap = JourneyBitmap::new();
+    let journey_data = cache_db.get_journey()?;
+    match journey_data {
+        JourneyData::Bitmap(bitmap) => journey_bitmap.merge(bitmap),
+        _ => return Err(Error::new(ErrorKind::InvalidData, "Expected bitmap data").into()),
+    }
+
+    Ok(journey_bitmap)
 }
