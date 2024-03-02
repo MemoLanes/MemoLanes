@@ -19,20 +19,15 @@ implemented here.
 // current cache design
 // read data
 // 1. in api.rs, obtain locks for main db and cache db
-// 2. check cache presence and validity by comparing timestamps between app's and cache db's
-// (this cache timestamp can also be cached in the manager)
-// 3. a. if no, then fetch from main db, store it to cache db and return bitmap
-// 3. a. 1, currently main db provides a de-serialized result, which has to be serialized again for cache db
-// TODO: so a better way is main db returns a blob, manager insert it directly to cache db, and then de-serialized for app
-// 3.b. if yes, then fetch from cache db and return
+// 2. try to fetch bitmap from cache db
+// 3.a. if no, then fetch bitmap from main db, store it to cache db
+// 3.b. if yes, use cached bitmap
+// 4. merge bitmap with ongoing journey
 
 // write data
-// 1. app keeps the latest timestamp when it updates bitmap related data in main db
-// (This means finalize any ongoing journey?)
-// 2. This new timestamp implicitly out-dates cache's timestamp
-// 3. Question: when to GC cache db? after write? after read? async?
-
-// TODO: add tests for cache db
+// 1. When a journey is finalized in storage, it will be inserted into main db with txn
+// 2. for V0, we simply delete cached bitmap
+// TODO: more fine-grained deletes for cache
 
 use crate::{
     cache_db::CacheDb, journey_bitmap::JourneyBitmap, journey_data::JourneyData,
