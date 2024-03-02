@@ -70,7 +70,7 @@ pub fn get_latest_including_ongoing(
                 fetched_bitmap
             } else {
                 debug!("Unexpected error when retrieving cached data: {:?}", e);
-                return Err(e.into());
+                return Err(e);
             }
         }
     };
