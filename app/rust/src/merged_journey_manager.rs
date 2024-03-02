@@ -64,12 +64,12 @@ pub fn get_latest_including_ongoing(
         Err(e) => {
             if e.to_string() == "Query returned no rows" {
                 // If no rows found in cache, fetch from main db and cache the result
-                println!("No journey data found in the cache.");
+                debug!("No journey data found in the cache.");
                 let fetched_bitmap = get_finalized_from_maindb(main_db)?;
                 insert_cachedb(cache_db, fetched_bitmap.clone());
                 fetched_bitmap
             } else {
-                println!("Unexpected error when retrieving cached data: {:?}", e);
+                debug!("Unexpected error when retrieving cached data: {:?}", e);
                 return Err(e.into());
             }
         }
