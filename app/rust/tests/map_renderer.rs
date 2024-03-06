@@ -1,6 +1,6 @@
 pub mod test_utils;
 
-use rust_lib::{journey_bitmap::JourneyBitmap, map_renderer::*};
+use memolanes_core::{journey_bitmap::JourneyBitmap, map_renderer::*};
 
 #[test]
 fn basic() {

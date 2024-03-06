@@ -1,6 +1,6 @@
 use chrono::NaiveDateTime;
 use hex::ToHex;
-use rust_lib::gps_processor;
+use memolanes_core::gps_processor;
 use sha1::{Digest, Sha1};
 use std::{fs::File, io::Write};
 

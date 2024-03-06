@@ -1,4 +1,4 @@
-use rust_lib::import_data;
+use memolanes_core::import_data;
 
 #[test]
 fn load_fow_sync_data() {

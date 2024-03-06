@@ -1,7 +1,7 @@
 pub mod test_utils;
 
 use chrono::Utc;
-use rust_lib::{
+use memolanes_core::{
     archive, gps_processor, import_data, journey_data::JourneyData, journey_header::JourneyHeader,
     main_db::MainDb,
 };
@@ -33,7 +33,7 @@ fn add_bitmap_journey(main_db: &mut MainDb) {
                 None,
                 Utc::now(),
                 None,
-                rust_lib::journey_header::JourneyKind::DefaultKind,
+                memolanes_core::journey_header::JourneyKind::DefaultKind,
                 None,
                 JourneyData::Bitmap(bitmap),
             )
