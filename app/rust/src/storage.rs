@@ -88,8 +88,7 @@ pub struct Storage {
     support_dir: String,
     pub main_db: Mutex<MainDb>,
     raw_data_recorder: Mutex<Option<RawDataRecorder>>, // `None` means disabled
-    #[allow(dead_code)]
-    cache_dir: String,          // stored for future usage
+    _cache_dir: String,
     pub cache_db: Mutex<CacheDb>,
 }
 
@@ -112,7 +111,7 @@ impl Storage {
             support_dir,
             main_db: Mutex::new(main_db),
             raw_data_recorder: Mutex::new(raw_data_recorder),
-            cache_dir,
+            _cache_dir: cache_dir,
             cache_db: Mutex::new(cache_db),
         }
     }
