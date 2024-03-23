@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Utc};
 use protobuf::EnumOrUnknown;
 use strum_macros::EnumIter;
 
@@ -94,7 +94,7 @@ impl JourneyKind {
 pub struct JourneyHeader {
     pub id: String,
     pub revision: String,
-    pub journey_date: NaiveDate,
+    pub journey_date: chrono::NaiveDate,
     pub created_at: DateTime<Utc>,
     pub updated_at: Option<DateTime<Utc>>,
     pub start: Option<DateTime<Utc>>,
