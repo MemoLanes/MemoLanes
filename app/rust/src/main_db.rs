@@ -190,6 +190,7 @@ impl Txn<'_> {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn create_and_insert_journey(
         &self,
         journey_date: NaiveDate,
