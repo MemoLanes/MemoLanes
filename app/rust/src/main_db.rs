@@ -13,7 +13,7 @@ use crate::gps_processor::{self, ProcessResult};
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::journey_vector::{JourneyVector, TrackPoint, TrackSegment};
-use crate::protos;
+use crate::{protos, utils};
 
 /* The main database, we are likely to store a lot of protobuf bytes in it,
 less relational stuff. Basically we will use it as a file system with better
@@ -166,19 +166,22 @@ impl Txn<'_> {
         if journey_type != data.type_() {
             bail!("[insert_journey] Mismatch journey type")
         }
-        let end_timestamp_sec = header.end.timestamp();
         let id = header.id.clone();
+        let journey_date = utils::date_to_days_since_epoch(header.journey_date);
+        // use start time first, then fallback to endtime
+        let timestamp_for_ordering = header.start.unwrap_or(header.end).timestamp();
 
         let header_bytes = header.to_proto().write_to_bytes()?;
         let mut data_bytes = Vec::new();
         data.serialize(&mut data_bytes)?;
 
-        let sql = "INSERT INTO journey (id, end_timestamp_sec, type, header, data) VALUES (?1, ?2, ?3, ?4, ?5);";
+        let sql = "INSERT INTO journey (id, journey_date, timestamp_for_ordering, type, header, data) VALUES (?1, ?2, ?3, ?4, ?5, ?6);";
         self.db_txn.execute(
             sql,
             (
                 &id,
-                end_timestamp_sec,
+                journey_date,
+                timestamp_for_ordering,
                 journey_type.to_int(),
                 header_bytes,
                 data_bytes,
@@ -249,7 +252,7 @@ impl Txn<'_> {
 
     pub fn list_all_journeys(&self) -> Result<Vec<JourneyHeader>> {
         let mut query = self.db_txn.prepare(
-            "SELECT header, type FROM journey ORDER BY end_timestamp_sec, id DESC;",
+            "SELECT header, type FROM journey ORDER BY journey_date, timestamp_for_ordering, id DESC;",
             // use `id` to break tie
         )?;
         let mut rows = query.query(())?;
@@ -318,13 +321,15 @@ impl MainDb {
                     id                TEXT    PRIMARY KEY
                                               NOT NULL
                                               UNIQUE,
-                    end_timestamp_sec INTEGER NOT NULL,
+                    journey_date      INTEGER NOT NULL, -- days since epoch
+                    timestamp_for_ordering
+                                      INTEGER,          -- start time (fallback to end time)
                     type              INTEGER NOT NULL,
                     header            BLOB    NOT NULL,
                     data              BLOB    NOT NULL
                 );
-                CREATE INDEX end_time_index ON journey (
-                    end_timestamp_sec DESC
+                CREATE INDEX journey_date_index ON journey (
+                    journey_date DESC
                 );
                 CREATE TABLE setting (
                     key               TEXT    PRIMARY KEY
