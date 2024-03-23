@@ -1,6 +1,6 @@
 extern crate simplelog;
 use anyhow::Result;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use protobuf::Message;
 use rusqlite::{Connection, OptionalExtension, Transaction};
 use std::cmp::Ordering;
@@ -189,6 +189,7 @@ impl Txn<'_> {
 
     pub fn create_and_insert_journey(
         &self,
+        journey_date: NaiveDate,
         start: Option<DateTime<Utc>>,
         end: DateTime<Utc>,
         created_at: Option<DateTime<Utc>>,
@@ -203,6 +204,7 @@ impl Txn<'_> {
             // we use id + revision as the equality check, revision can be any
             // string (e.g. uuid) but a short random should be good enough.
             revision: random_string::generate(8, random_string::charsets::ALPHANUMERIC),
+            journey_date,
             created_at: created_at.unwrap_or(Utc::now()),
             updated_at: None,
             end,
@@ -229,6 +231,7 @@ impl Txn<'_> {
                 let journey_kind = JourneyKind::DefaultKind;
 
                 self.create_and_insert_journey(
+                    end.date_naive(),
                     Some(start),
                     end,
                     None,

@@ -22,10 +22,13 @@ message Header {
 
   string id = 1;
   string revision = 2;
-  int64 created_at_timestamp_sec = 3;
-  optional int64 updated_at_timestamp_sec = 4;
-  int64 end_timestamp_sec = 5;
-  optional int64 start_timestamp_sec = 6;
+  // TODO: after migration, make `journy_date`` not optional and `end` optional
+  optional int32 journey_date__days_since_epoch = 10;
+  int64 created_at__timestamp_sec = 3;
+  optional int64 updated_at__timestamp_sec = 4;
+  // TODO: consider add timezone for `start` and `end`.
+  optional int64 start__timestamp_sec = 6;
+  int64 end__timestamp_sec = 5;
   Type type = 7;
   Kind kind = 8;
   optional string note = 9;
