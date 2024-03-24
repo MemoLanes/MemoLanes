@@ -890,6 +890,7 @@ dependencies = [
  "integer-encoding",
  "itertools",
  "kml",
+ "lazy_static",
  "log",
  "protobuf",
  "protobuf-codegen",

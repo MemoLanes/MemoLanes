@@ -4,6 +4,8 @@
 extern crate log;
 #[macro_use]
 extern crate anyhow;
+#[macro_use]
+extern crate lazy_static;
 
 mod frb_generated; /* AUTO INJECTED BY flutter_rust_bridge. This line may not be accurate, and you can change it according to your needs. */
 
