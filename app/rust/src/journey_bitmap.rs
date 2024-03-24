@@ -1,4 +1,5 @@
 use std::{
+    clone::Clone,
     collections::HashMap,
     ops::{BitAnd, BitOr, Not},
 };
@@ -16,7 +17,7 @@ const ALL_OFFSET: i16 = TILE_WIDTH_OFFSET + BITMAP_WIDTH_OFFSET;
 
 // we have 512*512 tiles, 128*128 blocks and a single block contains
 // a 64*64 bitmap.
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct JourneyBitmap {
     pub tiles: HashMap<(u16, u16), Tile>,
 }
@@ -189,7 +190,7 @@ impl JourneyBitmap {
     }
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Tile {
     pub blocks: HashMap<(u8, u8), Block>,
 }
@@ -282,7 +283,7 @@ impl Tile {
     }
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Block {
     pub data: [u8; BITMAP_SIZE],
 }
