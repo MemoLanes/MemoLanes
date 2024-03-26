@@ -14,7 +14,7 @@ fn first_data() {
         altitude: Some(10.),
         speed: Some(0.6028665),
     };
-    gps_processor.process(data, |last_data, curr_data, result| {
+    gps_processor.preprocess(data, |last_data, curr_data, result| {
         assert!(last_data.is_none());
         assert_eq!(curr_data.altitude.unwrap(), 10.);
         assert_eq!(ProcessResult::NewSegment, result);
@@ -32,7 +32,7 @@ fn ignore() {
         altitude: Some(10.),
         speed: Some(0.6028665),
     };
-    gps_processor.process(data, |_, _, result| {
+    gps_processor.preprocess(data, |_, _, result| {
         assert_eq!(ProcessResult::Ignore, result);
     });
 }
@@ -41,7 +41,7 @@ fn ignore() {
 fn time_difference() {
     let mut gps_processor = GpsProcessor::new();
 
-    gps_processor.process(
+    gps_processor.preprocess(
         RawData {
             latitude: 120.163856,
             longitude: 30.2719716,
@@ -53,7 +53,7 @@ fn time_difference() {
         |_, _, _| {},
     );
 
-    gps_processor.process(
+    gps_processor.preprocess(
         RawData {
             latitude: 120.1639266,
             longitude: 30.271981,
@@ -69,7 +69,7 @@ fn time_difference() {
         },
     );
 
-    gps_processor.process(
+    gps_processor.preprocess(
         RawData {
             latitude: 120.163856,
             longitude: 30.2719716,
@@ -91,7 +91,7 @@ fn run_though_test_data() {
     let mut gps_processor = GpsProcessor::new();
     let mut counter = HashMap::new();
     for data in test_utils::load_raw_gpx_data_for_test() {
-        gps_processor.process(data, |_, _, result| {
+        gps_processor.preprocess(data, |_, _, result| {
             counter.entry(result).and_modify(|c| *c += 1).or_insert(1);
         });
     }

@@ -9,7 +9,7 @@ use std::path::Path;
 use std::str::FromStr;
 use uuid::Uuid;
 
-use crate::gps_processor::{self, ProcessResult, RawSegmentData};
+use crate::gps_processor::{self, ProcessResult, PreprocessedData};
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::journey_vector::{JourneyVector, TrackPoint};
@@ -102,9 +102,9 @@ impl Txn<'_> {
             "SELECT timestamp_sec, lat, lng, process_result FROM ongoing_journey ORDER BY id;",
         )?;
         let results = query.query_map((), |row| {
-            let timestamp_sec: i64 = row.get(0)?;
+            let timestamp_sec: Option<i64> = row.get(0)?;
             let process_result: i8 = row.get(3)?;
-            Ok(RawSegmentData {
+            Ok(PreprocessedData {
                 timestamp_sec,
                 track_point: TrackPoint {
                     latitude: row.get(1)?,
@@ -113,7 +113,7 @@ impl Txn<'_> {
                 process_result: process_result.into(),
             })
         })?;
-        gps_processor::process_segment(results.map(|x| x.map_err(|x| x.into())))
+        gps_processor::build_vector_journey(results.map(|x| x.map_err(|x| x.into())))
     }
 
     pub fn clear_journeys(&self) -> Result<()> {
@@ -195,9 +195,12 @@ impl Txn<'_> {
                 let journey_kind = JourneyKind::DefaultKind;
 
                 self.create_and_insert_journey(
-                    end.date_naive(),
-                    Some(start),
-                    end,
+                    // In practice, `end` could never be none but just in case ...
+                    // TODO: I think we want local time zone here
+                    end.unwrap_or(Utc::now()).date_naive(),
+                    start,
+                    // TODO: `end` will be optional
+                    end.unwrap(),
                     None,
                     journey_kind,
                     None,
@@ -256,8 +259,8 @@ pub struct MainDb {
 }
 
 pub struct OngoingJourney {
-    pub start: DateTime<Utc>,
-    pub end: DateTime<Utc>,
+    pub start: Option<DateTime<Utc>>,
+    pub end: Option<DateTime<Utc>>,
     pub journey_vector: JourneyVector,
 }
 
@@ -273,7 +276,7 @@ impl MainDb {
                     id             INTEGER PRIMARY KEY AUTOINCREMENT
                                         UNIQUE
                                         NOT NULL,
-                    timestamp_sec  INTEGER NOT NULL,
+                    timestamp_sec  INTEGER,
                     lat            REAL    NOT NULL,
                     lng            REAL    NOT NULL,
                     process_result INTEGER NOT NULL
@@ -336,7 +339,7 @@ impl MainDb {
         let tx = self.conn.transaction()?;
         let sql = "INSERT INTO ongoing_journey (timestamp_sec, lat, lng, process_result) VALUES (?1, ?2, ?3, ?4);";
         tx.prepare_cached(sql)?.execute((
-            raw_data.timestamp_ms / 1000,
+            raw_data.timestamp_ms.map(|x| x / 1000),
             raw_data.latitude,
             raw_data.longitude,
             process_result,

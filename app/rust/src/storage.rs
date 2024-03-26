@@ -69,7 +69,7 @@ impl RawDataRecorder {
             .write(
                 format!(
                     "{},{},{},{},{},{},{}\n",
-                    raw_data.timestamp_ms,
+                    raw_data.timestamp_ms.unwrap_or_default(),
                     raw_data.latitude,
                     raw_data.longitude,
                     raw_data.accuracy.map(|x| x.to_string()).unwrap_or_default(),
