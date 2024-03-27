@@ -7,50 +7,12 @@ import 'package:permission_handler/permission_handler.dart';
 
 import 'package:project_dv/src/rust/api/api.dart';
 
-/// `PokeGeolocatorTask` is a hacky workround on Android.
-/// The behvior we observe is that the position stream from geolocator will
-/// randomly pauses so updates are delayed or missed even when holding the
-/// wakelock. However, if there something request the location, even if it is in
-/// another app, the stream will resume. So the hack is to poke the geolocator
-/// frequently.
-class _PokeGeolocatorTask {
-  // TODO: Test on iOS
-  bool running = false;
-  _PokeGeolocatorTask();
-
-  factory _PokeGeolocatorTask.start() {
-    var task = _PokeGeolocatorTask();
-    task.running = true;
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      task._loop();
-    }
-    return task;
-  }
-
-  _loop() async {
-    await Future.delayed(const Duration(seconds: 5));
-    if (running) {
-      await Geolocator.getCurrentPosition(
-              timeLimit: const Duration(seconds: 10))
-          // we don't care about the result
-          .then((_) => null)
-          .catchError((_) => null);
-      _loop();
-    }
-  }
-
-  cancel() {
-    running = false;
-  }
-}
-
 class GpsRecordingState extends ChangeNotifier {
   var isRecording = false;
   Position? latestPosition;
 
   LocationSettings? _locationSettings;
   StreamSubscription<Position>? _positionStream;
-  _PokeGeolocatorTask? _pokeGeolocatorTask;
   final Mutex _m = Mutex();
 
   GpsRecordingState() {
@@ -102,9 +64,8 @@ class GpsRecordingState extends ChangeNotifier {
         speed: position.speed);
   }
 
-  Future<bool> _hasLocationPermission() async {
-    return await Permission.locationAlways.isGranted ||
-        await Permission.locationWhenInUse.isGranted;
+  Future<bool> _hasNotificationsPermission() async {
+    return await Permission.notification.isGranted;
   }
 
   void toggle() async {
@@ -112,17 +73,41 @@ class GpsRecordingState extends ChangeNotifier {
       if (isRecording) {
         await _positionStream?.cancel();
         _positionStream = null;
-        _pokeGeolocatorTask?.cancel();
-        _pokeGeolocatorTask = null;
         latestPosition = null;
       } else {
-        if (!await _hasLocationPermission()) {
-          await Permission.locationWhenInUse.request();
-          if (!await _hasLocationPermission()) {
-            throw Exception("Location permission not granted");
+        if (!await _hasNotificationsPermission()) {
+          await Permission.notification.request();
+          if (!await _hasNotificationsPermission()) {
+            throw Exception("notification permission not granted");
           }
         }
-        _pokeGeolocatorTask ??= _PokeGeolocatorTask.start();
+
+        /// if GPS service is enabled
+        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (!serviceEnabled) {
+          /// Location services are not enabled, ask the user to enable location services
+          var res = await Geolocator.openLocationSettings();
+          if (!res) {
+            /// refused
+            return;
+          }
+        }
+
+        /// Getting Permissions
+        LocationPermission permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          /// Previous access to device location denied, reapply permission
+          permission = await Geolocator.requestPermission();
+          if (permission == LocationPermission.denied ||
+              permission == LocationPermission.deniedForever) {
+            /// Rejected again
+            return;
+          }
+        } else if (permission == LocationPermission.deniedForever) {
+          /// Previously permissions were permanently denied, open the app permissions settings page
+          await Geolocator.openAppSettings();
+          return;
+        }
         _positionStream ??=
             Geolocator.getPositionStream(locationSettings: _locationSettings)
                 .listen((Position? position) async {
