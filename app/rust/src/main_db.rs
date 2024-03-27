@@ -9,7 +9,7 @@ use std::path::Path;
 use std::str::FromStr;
 use uuid::Uuid;
 
-use crate::gps_processor::{self, ProcessResult, PreprocessedData};
+use crate::gps_processor::{self, PreprocessedData, ProcessResult};
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::journey_vector::{JourneyVector, TrackPoint};

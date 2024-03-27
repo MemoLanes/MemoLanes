@@ -9,7 +9,7 @@ fn first_data() {
     let data = RawData {
         latitude: 120.163856,
         longitude: 30.2719716,
-        timestamp_ms: 1697349116449,
+        timestamp_ms: Some(1697349116449),
         accuracy: Some(3.9),
         altitude: Some(10.),
         speed: Some(0.6028665),
@@ -27,7 +27,7 @@ fn ignore() {
     let data = RawData {
         latitude: 120.163856,
         longitude: 30.2719716,
-        timestamp_ms: 1697349116449,
+        timestamp_ms: Some(1697349116449),
         accuracy: Some(300.0),
         altitude: Some(10.),
         speed: Some(0.6028665),
@@ -45,7 +45,7 @@ fn time_difference() {
         RawData {
             latitude: 120.163856,
             longitude: 30.2719716,
-            timestamp_ms: 1697349116449,
+            timestamp_ms: Some(1697349116449),
             accuracy: Some(3.9),
             altitude: Some(10.),
             speed: Some(0.6028665),
@@ -57,7 +57,7 @@ fn time_difference() {
         RawData {
             latitude: 120.1639266,
             longitude: 30.271981,
-            timestamp_ms: 1697349117449,
+            timestamp_ms: Some(1697349117449),
             accuracy: Some(3.5),
             altitude: Some(20.),
             speed: Some(0.18825254),
@@ -73,7 +73,7 @@ fn time_difference() {
         RawData {
             latitude: 120.163856,
             longitude: 30.2719716,
-            timestamp_ms: 1698349116449,
+            timestamp_ms: Some(1698349116449),
             accuracy: Some(3.9),
             altitude: Some(30.),
             speed: Some(0.6028665),

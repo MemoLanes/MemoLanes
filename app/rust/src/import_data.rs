@@ -190,7 +190,7 @@ pub fn load_kml(file_path: &str, run_preprocessor: bool) -> Result<JourneyVector
 
         let timestamp = match when {
             None => None,
-            Some(when) => Some(DateTime::<Utc>::from(DateTime::parse_from_rfc3339(&when)?)),
+            Some(when) => Some(DateTime::<Utc>::from(DateTime::parse_from_rfc3339(when)?)),
         };
 
         Ok(Some(gps_processor::RawData {
@@ -227,7 +227,7 @@ pub fn load_kml(file_path: &str, run_preprocessor: bool) -> Result<JourneyVector
                 coord_list.push(e.content);
             }
         });
-        let missing_timestamp = when_list.len() == 0;
+        let missing_timestamp = when_list.is_empty();
         if !missing_timestamp && when_list.len() != coord_list.len() {
             vec![Err(anyhow!(
                 "number of `when` does not match number of coord. when = {}, coord = {}",
