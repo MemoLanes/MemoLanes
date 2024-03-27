@@ -179,97 +179,60 @@ pub fn load_gpx(file_path: &str, run_preprocessor: bool) -> Result<JourneyVector
     load_vector_data(raw_data_segments, run_preprocessor)
 }
 
-// pub fn load_kml(file_path: &str, filter_switch: bool) -> Result<(JourneyVector, Option<String>)> {
-//     {
-//         let mut warnings: Vec<String> = Vec::new();
-//         let mut gps_processor = GpsProcessor::new();
-//         let kml_data =
-//             KmlReader::<_, f64>::from_reader(BufReader::new(File::open(file_path)?)).read()?;
-//         let mut whens = Vec::new();
-//         let mut coords = Vec::new();
-//         flatten_kml(vec![kml_data])
-//             .into_iter()
-//             .filter_map(|k| match k {
-//                 Kml::Placemark(p) => Some(p.children),
-//                 _ => None,
-//             })
-//             .flat_map(|arr| arr.into_iter().filter(|e| e.name == "Track"))
-//             .for_each(|e| {
-//                 e.children.into_iter().for_each(|e| {
-//                     if e.name == "when" {
-//                         whens.push(e.content);
-//                     } else if e.name == "coord" {
-//                         coords.push(e.content);
-//                     }
-//                 })
-//             });
-//         let mut points: Vec<Result<PreprocessedData>> = Vec::new();
-//         if whens.len() == coords.len() {
-//             for i in 0..whens.len() {
-//                 let timestamp = match &whens[i] {
-//                     Some(time) => DateTime::<Utc>::from(DateTime::parse_from_rfc3339(time)?),
-//                     None => {
-//                         warnings.push(format!("timestamp data found:{}", i));
-//                         continue;
-//                     }
-//                 };
-//                 let splitted: Vec<&str> = match &coords[i] {
-//                     Some(coord) => coord.split_whitespace().collect(),
-//                     None => {
-//                         warnings.push(format!("coord data error:{}", i));
-//                         continue;
-//                     }
-//                 };
-//                 let latitude = splitted[1].parse::<f64>()?;
-//                 let longitude = splitted[0].parse::<f64>()?;
+pub fn load_kml(file_path: &str, run_preprocessor: bool) -> Result<JourneyVector> {
+    let kml_data =
+        KmlReader::<_, f64>::from_reader(BufReader::new(File::open(file_path)?)).read()?;
+    let mut whens = Vec::new();
+    let mut coords = Vec::new();
+    let mut warnings: Vec<String> = Vec::new();
+    flatten_kml(vec![kml_data])
+        .into_iter()
+        .filter_map(|k| match k {
+            Kml::Placemark(p) => Some(p.children),
+            _ => None,
+        })
+        .flat_map(|arr| arr.into_iter().filter(|e| e.name == "Track"))
+        .for_each(|e| {
+            e.children.into_iter().for_each(|e| {
+                if e.name == "when" {
+                    whens.push(e.content);
+                } else if e.name == "coord" {
+                    coords.push(e.content);
+                }
+            })
+        });
+    let mut raw_data_segments = Vec::new();
 
-//                 let altitude = Some(splitted[2].parse::<f32>()?);
-//                 let mut process_result = 0;
-//                 if filter_switch {
-//                     gps_processor.preprocess(
-//                         gps_processor::RawData {
-//                             latitude,
-//                             longitude,
-//                             altitude,
-//                             timestamp_ms: timestamp.timestamp_millis(),
-//                             accuracy: Option::None,
-//                             speed: Option::None,
-//                         },
-//                         |_last_data, _curr_dataa, result| {
-//                             process_result = result.to_int();
-//                         },
-//                     );
-//                 }
-//                 points.push(Ok(PreprocessedData {
-//                     timestamp_sec: timestamp.timestamp(),
-//                     track_point: TrackPoint {
-//                         latitude,
-//                         longitude,
-//                     },
-//                     process_result: process_result.into(),
-//                 }))
-//             }
-//         }
-//         let journey_vector = match gps_processor::build_vector_journey(points.into_iter())? {
-//             Some(ongoing_journey) => ongoing_journey.journey_vector,
-//             None => return Err(Error::msg("No data found")),
-//         };
-//         let warnings = if warnings.is_empty() {
-//             None
-//         } else {
-//             Some(warnings.join("\n"))
-//         };
-//         Ok((journey_vector, warnings))
-//     }
-// }
+    for (when, coord) in whens.iter().zip(coords.iter()) {
+        let splitted: Vec<&str> = match &coord {
+            Some(coord) => coord.split_whitespace().collect(),
+            None => {
+                continue;
+            }
+        };
+        let timestamp = match &when {
+            Some(time) => Some(DateTime::<Utc>::from(DateTime::parse_from_rfc3339(&time)?)),
+            None => None,
+        };
+        raw_data_segments.push(Ok(gps_processor::RawData {
+            latitude: splitted[1].parse::<f64>()?,
+            longitude: splitted[0].parse::<f64>()?,
+            timestamp_ms: timestamp.map(|x| x.timestamp_millis()),
+            accuracy: None,
+            altitude: Some(splitted[2].parse::<f32>()?),
+            speed: None,
+        }))
+    }
+    load_vector_data(raw_data_segments.into_iter(), run_preprocessor)
+}
 
-// fn flatten_kml(kml: Vec<Kml>) -> Vec<Kml> {
-//     kml.into_iter()
-//         .flat_map(|k| match k {
-//             Kml::KmlDocument(d) => flatten_kml(d.elements),
-//             Kml::Document { attrs: _, elements } => flatten_kml(elements),
-//             Kml::Folder { attrs: _, elements } => flatten_kml(elements),
-//             k => vec![k],
-//         })
-//         .collect()
-// }
+fn flatten_kml(kml: Vec<Kml>) -> Vec<Kml> {
+    kml.into_iter()
+        .flat_map(|k| match k {
+            Kml::KmlDocument(d) => flatten_kml(d.elements),
+            Kml::Document { attrs: _, elements } => flatten_kml(elements),
+            Kml::Folder { attrs: _, elements } => flatten_kml(elements),
+            k => vec![k],
+        })
+        .collect()
+}
