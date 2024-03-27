@@ -4,11 +4,13 @@ use crate::{
     gps_processor::{self, GpsProcessor},
     journey_vector::{JourneyVector, TrackPoint},
 };
-use anyhow::{Error, Ok, Result};
+use anyhow::{Error, Result};
 use chrono::{DateTime, Utc};
 use flate2::read::ZlibDecoder;
 use gpx::read;
 use kml::{Kml, KmlReader};
+use std::result::Result::Ok;
+use std::vec;
 use std::{fs::File, io::BufReader, io::Read, path::Path};
 
 struct FoWTileId {
@@ -180,59 +182,88 @@ pub fn load_gpx(file_path: &str, run_preprocessor: bool) -> Result<JourneyVector
 }
 
 pub fn load_kml(file_path: &str, run_preprocessor: bool) -> Result<JourneyVector> {
+    let parse_line = |coord: &Option<String>, when: &Option<String>| {
+        let coord: Vec<&str> = match coord {
+            Some(coord) => coord.split_whitespace().collect(),
+            None => return Ok(None),
+        };
+
+        let timestamp = match when {
+            None => None,
+            Some(when) => Some(DateTime::<Utc>::from(DateTime::parse_from_rfc3339(&when)?)),
+        };
+
+        Ok(Some(gps_processor::RawData {
+            latitude: coord[1].parse::<f64>()?,
+            longitude: coord[0].parse::<f64>()?,
+            timestamp_ms: timestamp.map(|x| x.timestamp_millis()),
+            accuracy: None,
+            altitude: if coord.len() >= 3 {
+                Some(coord[2].parse::<f32>()?)
+            } else {
+                None
+            },
+            speed: None,
+        }))
+    };
+
     let kml_data =
         KmlReader::<_, f64>::from_reader(BufReader::new(File::open(file_path)?)).read()?;
-    let mut whens = Vec::new();
-    let mut coords = Vec::new();
-    let mut warnings: Vec<String> = Vec::new();
-    flatten_kml(vec![kml_data])
+    let segments = flatten_kml(kml_data)
         .into_iter()
         .filter_map(|k| match k {
             Kml::Placemark(p) => Some(p.children),
             _ => None,
         })
-        .flat_map(|arr| arr.into_iter().filter(|e| e.name == "Track"))
-        .for_each(|e| {
-            e.children.into_iter().for_each(|e| {
-                if e.name == "when" {
-                    whens.push(e.content);
-                } else if e.name == "coord" {
-                    coords.push(e.content);
-                }
-            })
-        });
-    let mut raw_data_segments = Vec::new();
+        .flat_map(|arr| arr.into_iter().filter(|e| e.name == "Track"));
 
-    for (when, coord) in whens.iter().zip(coords.iter()) {
-        let splitted: Vec<&str> = match &coord {
-            Some(coord) => coord.split_whitespace().collect(),
-            None => {
-                continue;
+    let raw_data_segments = segments.map(|segment| {
+        let mut when_list = Vec::new();
+        let mut coord_list = Vec::new();
+        segment.children.into_iter().for_each(|e| {
+            if e.name == "when" {
+                when_list.push(e.content);
+            } else if e.name == "coord" {
+                coord_list.push(e.content);
             }
-        };
-        let timestamp = match &when {
-            Some(time) => Some(DateTime::<Utc>::from(DateTime::parse_from_rfc3339(&time)?)),
-            None => None,
-        };
-        raw_data_segments.push(Ok(gps_processor::RawData {
-            latitude: splitted[1].parse::<f64>()?,
-            longitude: splitted[0].parse::<f64>()?,
-            timestamp_ms: timestamp.map(|x| x.timestamp_millis()),
-            accuracy: None,
-            altitude: Some(splitted[2].parse::<f32>()?),
-            speed: None,
-        }))
-    }
-    load_vector_data(raw_data_segments.into_iter(), run_preprocessor)
+        });
+        let missing_timestamp = when_list.len() == 0;
+        if !missing_timestamp && when_list.len() != coord_list.len() {
+            vec![Err(anyhow!(
+                "number of `when` does not match number of coord. when = {}, coord = {}",
+                when_list.len(),
+                coord_list.len()
+            ))]
+            .into_iter()
+        } else {
+            let mut raw_data_list = Vec::new();
+            for i in 0..coord_list.len() {
+                match parse_line(
+                    &coord_list[i],
+                    if missing_timestamp {
+                        &None
+                    } else {
+                        &when_list[i]
+                    },
+                ) {
+                    Ok(None) => (),
+                    Ok(Some(data)) => raw_data_list.push(Ok(data)),
+                    Err(err) => raw_data_list.push(Err(err)),
+                };
+            }
+            raw_data_list.into_iter()
+        }
+    });
+    load_vector_data(raw_data_segments, run_preprocessor)
 }
 
-fn flatten_kml(kml: Vec<Kml>) -> Vec<Kml> {
-    kml.into_iter()
-        .flat_map(|k| match k {
-            Kml::KmlDocument(d) => flatten_kml(d.elements),
-            Kml::Document { attrs: _, elements } => flatten_kml(elements),
-            Kml::Folder { attrs: _, elements } => flatten_kml(elements),
-            k => vec![k],
-        })
-        .collect()
+fn flatten_kml(kml: Kml) -> Vec<Kml> {
+    let flatten_elements =
+        |elements: Vec<Kml>| elements.into_iter().flat_map(flatten_kml).collect();
+    match kml {
+        Kml::KmlDocument(d) => flatten_elements(d.elements),
+        Kml::Document { attrs: _, elements } => flatten_elements(elements),
+        Kml::Folder { attrs: _, elements } => flatten_elements(elements),
+        k => vec![k],
+    }
 }
