@@ -9,10 +9,10 @@ use std::path::Path;
 use std::str::FromStr;
 use uuid::Uuid;
 
-use crate::gps_processor::{self, ProcessResult};
+use crate::gps_processor::{self, PreprocessedData, ProcessResult};
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
-use crate::journey_vector::{JourneyVector, TrackPoint, TrackSegment};
+use crate::journey_vector::{JourneyVector, TrackPoint};
 use crate::{protos, utils};
 
 /* The main database, we are likely to store a lot of protobuf bytes in it,
@@ -102,58 +102,18 @@ impl Txn<'_> {
             "SELECT timestamp_sec, lat, lng, process_result FROM ongoing_journey ORDER BY id;",
         )?;
         let results = query.query_map((), |row| {
-            let timestamp_sec: i64 = row.get(0)?;
+            let timestamp_sec: Option<i64> = row.get(0)?;
             let process_result: i8 = row.get(3)?;
-            Ok((
+            Ok(PreprocessedData {
                 timestamp_sec,
-                TrackPoint {
+                track_point: TrackPoint {
                     latitude: row.get(1)?,
                     longitude: row.get(2)?,
                 },
-                process_result,
-            ))
+                process_result: process_result.into(),
+            })
         })?;
-
-        let mut segmants = Vec::new();
-        let mut current_segment = Vec::new();
-
-        let mut start_timestamp_sec = None;
-        let mut end_timestamp_sec = None;
-        for result in results {
-            let (timestamp_sec, track_point, process_result) = result?;
-            end_timestamp_sec = Some(timestamp_sec);
-            if start_timestamp_sec.is_none() {
-                start_timestamp_sec = Some(timestamp_sec);
-            }
-            let need_break = process_result == ProcessResult::NewSegment.to_int();
-            if need_break && !current_segment.is_empty() {
-                segmants.push(TrackSegment {
-                    track_points: current_segment,
-                });
-                current_segment = Vec::new();
-            }
-            current_segment.push(track_point);
-        }
-        if !current_segment.is_empty() {
-            segmants.push(TrackSegment {
-                track_points: current_segment,
-            });
-        }
-
-        if segmants.is_empty() {
-            Ok(None)
-        } else {
-            // must be `Some`
-            let start = DateTime::from_timestamp(start_timestamp_sec.unwrap(), 0).unwrap();
-            let end = DateTime::from_timestamp(end_timestamp_sec.unwrap(), 0).unwrap();
-            Ok(Some(OngoingJourney {
-                start,
-                end,
-                journey_vector: JourneyVector {
-                    track_segments: segmants,
-                },
-            }))
-        }
+        gps_processor::build_vector_journey(results.map(|x| x.map_err(|x| x.into())))
     }
 
     pub fn clear_journeys(&self) -> Result<()> {
@@ -235,9 +195,12 @@ impl Txn<'_> {
                 let journey_kind = JourneyKind::DefaultKind;
 
                 self.create_and_insert_journey(
-                    end.date_naive(),
-                    Some(start),
-                    end,
+                    // In practice, `end` could never be none but just in case ...
+                    // TODO: I think we want local time zone here
+                    end.unwrap_or(Utc::now()).date_naive(),
+                    start,
+                    // TODO: `end` will be optional
+                    end.unwrap(),
                     None,
                     journey_kind,
                     None,
@@ -296,8 +259,8 @@ pub struct MainDb {
 }
 
 pub struct OngoingJourney {
-    pub start: DateTime<Utc>,
-    pub end: DateTime<Utc>,
+    pub start: Option<DateTime<Utc>>,
+    pub end: Option<DateTime<Utc>>,
     pub journey_vector: JourneyVector,
 }
 
@@ -313,7 +276,7 @@ impl MainDb {
                     id             INTEGER PRIMARY KEY AUTOINCREMENT
                                         UNIQUE
                                         NOT NULL,
-                    timestamp_sec  INTEGER NOT NULL,
+                    timestamp_sec  INTEGER,
                     lat            REAL    NOT NULL,
                     lng            REAL    NOT NULL,
                     process_result INTEGER NOT NULL
@@ -376,7 +339,7 @@ impl MainDb {
         let tx = self.conn.transaction()?;
         let sql = "INSERT INTO ongoing_journey (timestamp_sec, lat, lng, process_result) VALUES (?1, ?2, ?3, ?4);";
         tx.prepare_cached(sql)?.execute((
-            raw_data.timestamp_ms / 1000,
+            raw_data.timestamp_ms.map(|x| x / 1000),
             raw_data.latitude,
             raw_data.longitude,
             process_result,

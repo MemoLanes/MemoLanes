@@ -97,14 +97,14 @@ pub fn on_location_update(
     let raw_data = gps_processor::RawData {
         latitude,
         longitude,
-        timestamp_ms,
-        accuracy,
+        timestamp_ms: Some(timestamp_ms),
+        accuracy: Some(accuracy),
         altitude,
         speed,
     };
     let mut gps_processor = state.gps_processor.lock().unwrap();
     let mut map_renderer = state.map_renderer.lock().unwrap();
-    gps_processor.process(raw_data, |last_data, curr_data, process_result| {
+    gps_processor.preprocess(raw_data, |last_data, curr_data, process_result| {
         let line_to_add = match process_result {
             ProcessResult::Ignore => None,
             ProcessResult::NewSegment => Some((curr_data, curr_data)),

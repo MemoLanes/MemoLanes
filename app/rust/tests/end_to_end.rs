@@ -27,8 +27,8 @@ fn basic() {
         api::on_location_update(
             raw_data.latitude,
             raw_data.longitude,
-            raw_data.timestamp_ms,
-            raw_data.accuracy,
+            raw_data.timestamp_ms.unwrap(),
+            raw_data.accuracy.unwrap(),
             raw_data.altitude,
             raw_data.speed,
         );
