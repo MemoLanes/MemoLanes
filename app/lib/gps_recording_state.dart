@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mutex/mutex.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -64,10 +66,6 @@ class GpsRecordingState extends ChangeNotifier {
         speed: position.speed);
   }
 
-  Future<bool> _hasNotificationsPermission() async {
-    return await Permission.notification.isGranted;
-  }
-
   void toggle() async {
     await _m.protect(() async {
       if (isRecording) {
@@ -75,9 +73,10 @@ class GpsRecordingState extends ChangeNotifier {
         _positionStream = null;
         latestPosition = null;
       } else {
-        if (!await _hasNotificationsPermission()) {
+        if (!await Permission.notification.isGranted) {
           await Permission.notification.request();
-          if (!await _hasNotificationsPermission()) {
+          if (!await Permission.notification.isGranted) {
+            Fluttertoast.showToast(msg: "notification permission not granted");
             throw Exception("notification permission not granted");
           }
         }
@@ -89,7 +88,8 @@ class GpsRecordingState extends ChangeNotifier {
           var res = await Geolocator.openLocationSettings();
           if (!res) {
             /// refused
-            return;
+            Fluttertoast.showToast(msg: "Location services not enabled");
+            throw Exception("Location services not enabled");
           }
         }
 
@@ -101,12 +101,14 @@ class GpsRecordingState extends ChangeNotifier {
           if (permission == LocationPermission.denied ||
               permission == LocationPermission.deniedForever) {
             /// Rejected again
-            return;
+            Fluttertoast.showToast(msg: "Location permission not granted");
+            throw Exception("Location permission not granted");
           }
         } else if (permission == LocationPermission.deniedForever) {
           /// Previously permissions were permanently denied, open the app permissions settings page
+          Fluttertoast.showToast(msg: "Please allow location permissions");
           await Geolocator.openAppSettings();
-          return;
+          throw Exception("Location permission not granted");
         }
         _positionStream ??=
             Geolocator.getPositionStream(locationSettings: _locationSettings)
