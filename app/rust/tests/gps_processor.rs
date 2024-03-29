@@ -84,6 +84,22 @@ fn time_difference() {
             assert_eq!(ProcessResult::NewSegment, result);
         },
     );
+
+    gps_processor.preprocess(
+        RawData {
+            latitude: 120.163856,
+            longitude: 30.2719716,
+            timestamp_ms: Some(1697349116449),
+            accuracy: Some(3.9),
+            altitude: Some(10.),
+            speed: Some(0.6028665),
+        },
+        |last_data, curr_data, result| {
+            assert_eq!(last_data.as_ref().unwrap().altitude.unwrap(), 30.);
+            assert_eq!(curr_data.altitude.unwrap(), 10.);
+            assert_eq!(ProcessResult::Ignore, result);
+        },
+    );
 }
 
 #[test]
