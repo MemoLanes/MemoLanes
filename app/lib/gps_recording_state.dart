@@ -31,7 +31,7 @@ class GpsRecordingState extends ChangeNotifier {
             notificationText:
                 "Example app will continue to receive your position even when you aren't using it",
             notificationTitle: "Running in Background",
-            enableWakeLock: false,
+            setOngoing: true,
           ));
     } else if (defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS) {
@@ -73,42 +73,43 @@ class GpsRecordingState extends ChangeNotifier {
         _positionStream = null;
         latestPosition = null;
       } else {
-        if (!await Permission.notification.isGranted) {
-          await Permission.notification.request();
+        try {
           if (!await Permission.notification.isGranted) {
-            Fluttertoast.showToast(msg: "notification permission not granted");
-            throw Exception("notification permission not granted");
+            await Permission.notification.request();
+            if (!await Permission.notification.isGranted) {
+              throw "notification permission not granted";
+            }
           }
-        }
 
-        /// if GPS service is enabled
-        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-        if (!serviceEnabled) {
-          /// Location services are not enabled, ask the user to enable location services
-          var res = await Geolocator.openLocationSettings();
-          if (!res) {
-            /// refused
-            Fluttertoast.showToast(msg: "Location services not enabled");
-            throw Exception("Location services not enabled");
+          /// if GPS service is enabled
+          bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+          if (!serviceEnabled) {
+            /// Location services are not enabled, ask the user to enable location services
+            var res = await Geolocator.openLocationSettings();
+            if (!res) {
+              /// refused
+              throw "Location services not enabled";
+            }
           }
-        }
 
-        /// Getting Permissions
-        LocationPermission permission = await Geolocator.checkPermission();
-        if (permission == LocationPermission.denied) {
-          /// Previous access to device location denied, reapply permission
-          permission = await Geolocator.requestPermission();
-          if (permission == LocationPermission.denied ||
-              permission == LocationPermission.deniedForever) {
-            /// Rejected again
-            Fluttertoast.showToast(msg: "Location permission not granted");
-            throw Exception("Location permission not granted");
+          /// Getting Permissions
+          LocationPermission permission = await Geolocator.checkPermission();
+          if (permission == LocationPermission.denied) {
+            /// Previous access to device location denied, reapply permission
+            permission = await Geolocator.requestPermission();
+            if (permission == LocationPermission.denied ||
+                permission == LocationPermission.deniedForever) {
+              /// Rejected again
+              throw "Location permission not granted";
+            }
+          } else if (permission == LocationPermission.deniedForever) {
+            /// Previously permissions were permanently denied, open the app permissions settings page
+            await Geolocator.openAppSettings();
+            throw "Please allow location permissions";
           }
-        } else if (permission == LocationPermission.deniedForever) {
-          /// Previously permissions were permanently denied, open the app permissions settings page
-          Fluttertoast.showToast(msg: "Please allow location permissions");
-          await Geolocator.openAppSettings();
-          throw Exception("Location permission not granted");
+        } catch (e) {
+          Fluttertoast.showToast(msg: e.toString());
+          return;
         }
         _positionStream ??=
             Geolocator.getPositionStream(locationSettings: _locationSettings)
