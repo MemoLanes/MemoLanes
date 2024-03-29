@@ -96,7 +96,9 @@ impl GpsProcessor {
                     {
                         None => ProcessResult::Append,
                         Some(time_diff_in_ms) => {
-                            if time_diff_in_ms > TIME_THRESHOLD_IN_MS {
+                            if time_diff_in_ms < 0 {
+                                ProcessResult::Ignore
+                            } else if time_diff_in_ms > TIME_THRESHOLD_IN_MS {
                                 ProcessResult::NewSegment
                             } else {
                                 ProcessResult::Append
