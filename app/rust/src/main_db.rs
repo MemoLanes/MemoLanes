@@ -1,6 +1,6 @@
 extern crate simplelog;
 use anyhow::Result;
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Local, NaiveDate, Utc};
 use protobuf::Message;
 use rusqlite::{Connection, OptionalExtension, Transaction};
 use std::cmp::Ordering;
@@ -129,7 +129,7 @@ impl Txn<'_> {
         let id = header.id.clone();
         let journey_date = utils::date_to_days_since_epoch(header.journey_date);
         // use start time first, then fallback to endtime
-        let timestamp_for_ordering = header.start.unwrap_or(header.end).timestamp();
+        let timestamp_for_ordering = header.start.or(header.end).map(|x| x.timestamp());
 
         let header_bytes = header.to_proto().write_to_bytes()?;
         let mut data_bytes = Vec::new();
@@ -155,7 +155,7 @@ impl Txn<'_> {
         &self,
         journey_date: NaiveDate,
         start: Option<DateTime<Utc>>,
-        end: DateTime<Utc>,
+        end: Option<DateTime<Utc>>,
         created_at: Option<DateTime<Utc>>,
         journey_kind: JourneyKind,
         note: Option<String>,
@@ -196,11 +196,10 @@ impl Txn<'_> {
 
                 self.create_and_insert_journey(
                     // In practice, `end` could never be none but just in case ...
-                    // TODO: I think we want local time zone here
-                    end.unwrap_or(Utc::now()).date_naive(),
+                    // TODO: Maybe we want better journey date strategy
+                    end.unwrap_or(Utc::now()).with_timezone(&Local).date_naive(),
                     start,
-                    // TODO: `end` will be optional
-                    end.unwrap(),
+                    end,
                     None,
                     journey_kind,
                     None,
