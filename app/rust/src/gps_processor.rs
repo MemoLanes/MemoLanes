@@ -97,6 +97,13 @@ impl GpsProcessor {
                         None => ProcessResult::Append,
                         Some(time_diff_in_ms) => {
                             if time_diff_in_ms < 0 {
+                                // NOTE: We could get a location update from a while ago and
+                                // it can mess up the track. So we simply just drop these. If
+                                // this turns out to be not good enough, our options are:
+                                // 1. having a small buffer for updates, and sort events in
+                                // the buffer; or
+                                // 2. store these out of order events else where and add them
+                                // back in `finalize_journey`.
                                 ProcessResult::Ignore
                             } else if time_diff_in_ms > TIME_THRESHOLD_IN_MS {
                                 ProcessResult::NewSegment
