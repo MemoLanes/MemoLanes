@@ -1,6 +1,6 @@
 extern crate simplelog;
 use anyhow::Result;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use protobuf::Message;
 use rusqlite::{Connection, OptionalExtension, Transaction};
 use std::cmp::Ordering;
@@ -9,11 +9,11 @@ use std::path::Path;
 use std::str::FromStr;
 use uuid::Uuid;
 
-use crate::gps_processor::{self, ProcessResult};
+use crate::gps_processor::{self, PreprocessedData, ProcessResult};
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
-use crate::journey_vector::{JourneyVector, TrackPoint, TrackSegment};
-use crate::protos;
+use crate::journey_vector::{JourneyVector, TrackPoint};
+use crate::{protos, utils};
 
 /* The main database, we are likely to store a lot of protobuf bytes in it,
 less relational stuff. Basically we will use it as a file system with better
@@ -102,58 +102,18 @@ impl Txn<'_> {
             "SELECT timestamp_sec, lat, lng, process_result FROM ongoing_journey ORDER BY id;",
         )?;
         let results = query.query_map((), |row| {
-            let timestamp_sec: i64 = row.get(0)?;
+            let timestamp_sec: Option<i64> = row.get(0)?;
             let process_result: i8 = row.get(3)?;
-            Ok((
+            Ok(PreprocessedData {
                 timestamp_sec,
-                TrackPoint {
+                track_point: TrackPoint {
                     latitude: row.get(1)?,
                     longitude: row.get(2)?,
                 },
-                process_result,
-            ))
+                process_result: process_result.into(),
+            })
         })?;
-
-        let mut segmants = Vec::new();
-        let mut current_segment = Vec::new();
-
-        let mut start_timestamp_sec = None;
-        let mut end_timestamp_sec = None;
-        for result in results {
-            let (timestamp_sec, track_point, process_result) = result?;
-            end_timestamp_sec = Some(timestamp_sec);
-            if start_timestamp_sec.is_none() {
-                start_timestamp_sec = Some(timestamp_sec);
-            }
-            let need_break = process_result == ProcessResult::NewSegment.to_int();
-            if need_break && !current_segment.is_empty() {
-                segmants.push(TrackSegment {
-                    track_points: current_segment,
-                });
-                current_segment = Vec::new();
-            }
-            current_segment.push(track_point);
-        }
-        if !current_segment.is_empty() {
-            segmants.push(TrackSegment {
-                track_points: current_segment,
-            });
-        }
-
-        if segmants.is_empty() {
-            Ok(None)
-        } else {
-            // must be `Some`
-            let start = DateTime::from_timestamp(start_timestamp_sec.unwrap(), 0).unwrap();
-            let end = DateTime::from_timestamp(end_timestamp_sec.unwrap(), 0).unwrap();
-            Ok(Some(OngoingJourney {
-                start,
-                end,
-                journey_vector: JourneyVector {
-                    track_segments: segmants,
-                },
-            }))
-        }
+        gps_processor::build_vector_journey(results.map(|x| x.map_err(|x| x.into())))
     }
 
     pub fn clear_journeys(&self) -> Result<()> {
@@ -166,19 +126,22 @@ impl Txn<'_> {
         if journey_type != data.type_() {
             bail!("[insert_journey] Mismatch journey type")
         }
-        let end_timestamp_sec = header.end.timestamp();
         let id = header.id.clone();
+        let journey_date = utils::date_to_days_since_epoch(header.journey_date);
+        // use start time first, then fallback to endtime
+        let timestamp_for_ordering = header.start.unwrap_or(header.end).timestamp();
 
         let header_bytes = header.to_proto().write_to_bytes()?;
         let mut data_bytes = Vec::new();
         data.serialize(&mut data_bytes)?;
 
-        let sql = "INSERT INTO journey (id, end_timestamp_sec, type, header, data) VALUES (?1, ?2, ?3, ?4, ?5);";
+        let sql = "INSERT INTO journey (id, journey_date, timestamp_for_ordering, type, header, data) VALUES (?1, ?2, ?3, ?4, ?5, ?6);";
         self.db_txn.execute(
             sql,
             (
                 &id,
-                end_timestamp_sec,
+                journey_date,
+                timestamp_for_ordering,
                 journey_type.to_int(),
                 header_bytes,
                 data_bytes,
@@ -187,8 +150,10 @@ impl Txn<'_> {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn create_and_insert_journey(
         &self,
+        journey_date: NaiveDate,
         start: Option<DateTime<Utc>>,
         end: DateTime<Utc>,
         created_at: Option<DateTime<Utc>>,
@@ -203,6 +168,7 @@ impl Txn<'_> {
             // we use id + revision as the equality check, revision can be any
             // string (e.g. uuid) but a short random should be good enough.
             revision: random_string::generate(8, random_string::charsets::ALPHANUMERIC),
+            journey_date,
             created_at: created_at.unwrap_or(Utc::now()),
             updated_at: None,
             end,
@@ -229,8 +195,12 @@ impl Txn<'_> {
                 let journey_kind = JourneyKind::DefaultKind;
 
                 self.create_and_insert_journey(
-                    Some(start),
-                    end,
+                    // In practice, `end` could never be none but just in case ...
+                    // TODO: I think we want local time zone here
+                    end.unwrap_or(Utc::now()).date_naive(),
+                    start,
+                    // TODO: `end` will be optional
+                    end.unwrap(),
                     None,
                     journey_kind,
                     None,
@@ -246,7 +216,7 @@ impl Txn<'_> {
 
     pub fn list_all_journeys(&self) -> Result<Vec<JourneyHeader>> {
         let mut query = self.db_txn.prepare(
-            "SELECT header, type FROM journey ORDER BY end_timestamp_sec, id DESC;",
+            "SELECT header, type FROM journey ORDER BY journey_date, timestamp_for_ordering, id DESC;",
             // use `id` to break tie
         )?;
         let mut rows = query.query(())?;
@@ -289,8 +259,8 @@ pub struct MainDb {
 }
 
 pub struct OngoingJourney {
-    pub start: DateTime<Utc>,
-    pub end: DateTime<Utc>,
+    pub start: Option<DateTime<Utc>>,
+    pub end: Option<DateTime<Utc>>,
     pub journey_vector: JourneyVector,
 }
 
@@ -306,7 +276,7 @@ impl MainDb {
                     id             INTEGER PRIMARY KEY AUTOINCREMENT
                                         UNIQUE
                                         NOT NULL,
-                    timestamp_sec  INTEGER NOT NULL,
+                    timestamp_sec  INTEGER,
                     lat            REAL    NOT NULL,
                     lng            REAL    NOT NULL,
                     process_result INTEGER NOT NULL
@@ -315,13 +285,15 @@ impl MainDb {
                     id                TEXT    PRIMARY KEY
                                               NOT NULL
                                               UNIQUE,
-                    end_timestamp_sec INTEGER NOT NULL,
+                    journey_date      INTEGER NOT NULL, -- days since epoch
+                    timestamp_for_ordering
+                                      INTEGER,          -- start time (fallback to end time)
                     type              INTEGER NOT NULL,
                     header            BLOB    NOT NULL,
                     data              BLOB    NOT NULL
                 );
-                CREATE INDEX end_time_index ON journey (
-                    end_timestamp_sec DESC
+                CREATE INDEX journey_date_index ON journey (
+                    journey_date DESC
                 );
                 CREATE TABLE setting (
                     key               TEXT    PRIMARY KEY
@@ -367,7 +339,7 @@ impl MainDb {
         let tx = self.conn.transaction()?;
         let sql = "INSERT INTO ongoing_journey (timestamp_sec, lat, lng, process_result) VALUES (?1, ?2, ?3, ?4);";
         tx.prepare_cached(sql)?.execute((
-            raw_data.timestamp_ms / 1000,
+            raw_data.timestamp_ms.map(|x| x / 1000),
             raw_data.latitude,
             raw_data.longitude,
             process_result,

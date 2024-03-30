@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use protobuf::EnumOrUnknown;
 use strum_macros::EnumIter;
 
-use crate::protos;
+use crate::{protos, utils};
 
 #[derive(Copy, Clone, Debug, EnumIter, PartialEq, Eq, Hash)]
 #[repr(i8)]
@@ -94,10 +94,11 @@ impl JourneyKind {
 pub struct JourneyHeader {
     pub id: String,
     pub revision: String,
+    pub journey_date: chrono::NaiveDate,
     pub created_at: DateTime<Utc>,
     pub updated_at: Option<DateTime<Utc>>,
-    pub end: DateTime<Utc>,
     pub start: Option<DateTime<Utc>>,
+    pub end: DateTime<Utc>,
     pub journey_type: JourneyType,
     pub journey_kind: JourneyKind,
     pub note: Option<String>,
@@ -109,16 +110,24 @@ impl JourneyHeader {
             .type_
             .enum_value()
             .map_err(|x| anyhow!("Unknown proto journey type: {}", x))?;
+        let end = DateTime::from_timestamp(proto.end__timestamp_sec, 0).unwrap();
+        // TODO: We only need this during the "migration". We should drop it later (we could drop it because we haven't
+        // make any promise on stability).
+        let journey_date = match proto.journey_date__days_since_epoch {
+            None => end.date_naive(),
+            Some(days) => utils::date_of_days_since_epoch(days).unwrap(),
+        };
         Ok(JourneyHeader {
             id: proto.id,
             revision: proto.revision,
-            created_at: DateTime::from_timestamp(proto.created_at_timestamp_sec, 0).unwrap(),
+            journey_date,
+            created_at: DateTime::from_timestamp(proto.created_at__timestamp_sec, 0).unwrap(),
             updated_at: proto
-                .updated_at_timestamp_sec
+                .updated_at__timestamp_sec
                 .and_then(|sec| DateTime::from_timestamp(sec, 0)),
-            end: DateTime::from_timestamp(proto.end_timestamp_sec, 0).unwrap(),
+            end,
             start: proto
-                .start_timestamp_sec
+                .start__timestamp_sec
                 .and_then(|sec| DateTime::from_timestamp(sec, 0)),
             journey_type: JourneyType::of_proto(journey_type),
             journey_kind: JourneyKind::of_proto(match proto.kind.take() {
@@ -133,10 +142,12 @@ impl JourneyHeader {
         let mut proto = protos::journey::Header::new();
         proto.id = self.id;
         proto.revision = self.revision;
-        proto.created_at_timestamp_sec = self.created_at.timestamp();
-        proto.updated_at_timestamp_sec = self.updated_at.map(|x| x.timestamp());
-        proto.end_timestamp_sec = self.end.timestamp();
-        proto.start_timestamp_sec = self.start.map(|x| x.timestamp());
+        proto.journey_date__days_since_epoch =
+            Some(utils::date_to_days_since_epoch(self.journey_date));
+        proto.created_at__timestamp_sec = self.created_at.timestamp();
+        proto.updated_at__timestamp_sec = self.updated_at.map(|x| x.timestamp());
+        proto.end__timestamp_sec = self.end.timestamp();
+        proto.start__timestamp_sec = self.start.map(|x| x.timestamp());
         proto.type_ = EnumOrUnknown::new(self.journey_type.to_proto());
         proto.kind.0 = Some(Box::new(self.journey_kind.to_proto()));
         proto.note = self.note;

@@ -11,3 +11,27 @@ fn load_fow_sync_data() {
         "Some(\"unexpected file: Sync/garbage_2\")"
     );
 }
+
+#[test]
+pub fn import_gpx() {
+    let vector = import_data::load_gpx("./tests/data/raw_gps_laojunshan.gpx", false).unwrap();
+    let tracks = vector.track_segments;
+    assert_eq!(tracks.len(), 1);
+    let points = tracks
+        .into_iter()
+        .flat_map(|t| t.track_points.into_iter())
+        .into_iter();
+    assert_eq!(points.count(), 2945);
+}
+
+#[test]
+pub fn import_kml() {
+    let vector = import_data::load_kml("./tests/data/raw_gps_laojunshan.kml", false).unwrap();
+    let tracks = vector.track_segments;
+    assert_eq!(tracks.len(), 1);
+    let points = tracks
+        .into_iter()
+        .flat_map(|t| t.track_points.into_iter())
+        .into_iter();
+    assert_eq!(points.count(), 1651);
+}

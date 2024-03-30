@@ -3,7 +3,7 @@ use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 
 use anyhow::{Ok, Result};
-use chrono::Utc;
+use chrono::{Local, Utc};
 use simplelog::{Config, LevelFilter, WriteLogger};
 
 use crate::gps_processor::{GpsProcessor, ProcessResult};
@@ -97,14 +97,14 @@ pub fn on_location_update(
     let raw_data = gps_processor::RawData {
         latitude,
         longitude,
-        timestamp_ms,
-        accuracy,
+        timestamp_ms: Some(timestamp_ms),
+        accuracy: Some(accuracy),
         altitude,
         speed,
     };
     let mut gps_processor = state.gps_processor.lock().unwrap();
     let mut map_renderer = state.map_renderer.lock().unwrap();
-    gps_processor.process(raw_data, |last_data, curr_data, process_result| {
+    gps_processor.preprocess(raw_data, |last_data, curr_data, process_result| {
         let line_to_add = match process_result {
             ProcessResult::Ignore => None,
             ProcessResult::NewSegment => Some((curr_data, curr_data)),
@@ -156,6 +156,7 @@ pub fn import_fow_data(zip_file_path: String) -> Result<()> {
     let mut main_db = get().storage.main_db.lock().unwrap();
     main_db.with_txn(|txn| {
         txn.create_and_insert_journey(
+            Local::now().date_naive(),
             None,
             Utc::now(),
             None,

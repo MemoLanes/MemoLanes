@@ -30,6 +30,7 @@ integer-encoding = "4.0.0"
 flate2 = "1.0.28"
 gpx = "0.9.1"
 kml = "0.8.4"
+lazy_static = "1.4.0"
 geo-types = "0.7.13"
 
 [dev-dependencies]
