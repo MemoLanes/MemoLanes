@@ -147,8 +147,8 @@ pub fn archive_all_as_zip<T: Write + Seek>(main_db: &mut MainDb, writer: &mut T)
         let mut group_by_year_month = HashMap::new();
         for journey in all_journeys {
             let year_month = YearMonth {
-                year: journey.end.year() as i16,
-                month: journey.end.month() as u8,
+                year: journey.journey_date.year() as i16,
+                month: journey.journey_date.month() as u8,
             };
             group_by_year_month
                 .entry(year_month)
@@ -195,8 +195,6 @@ pub fn archive_all_as_zip<T: Write + Seek>(main_db: &mut MainDb, writer: &mut T)
         metadata_proto.note = None;
         for (_, section_id, journeys) in &to_process {
             let mut section_info = metadata::SectionInfo::new();
-            section_info.first_journey_timestamp_sec = journeys.first().unwrap().end.timestamp();
-            section_info.last_journey_timestamp_sec = journeys.last().unwrap().end.timestamp();
             section_info.section_id = section_id.clone();
             section_info.num_of_journeys = journeys.len() as u32;
             metadata_proto.section_infos.push(section_info)
