@@ -3,7 +3,7 @@ use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 
 use anyhow::{Ok, Result};
-use chrono::{Local, Utc};
+use chrono::Local;
 use simplelog::{Config, LevelFilter, WriteLogger};
 
 use crate::gps_processor::{GpsProcessor, ProcessResult};
@@ -158,7 +158,7 @@ pub fn import_fow_data(zip_file_path: String) -> Result<()> {
         txn.create_and_insert_journey(
             Local::now().date_naive(),
             None,
-            Utc::now(),
+            None,
             None,
             JourneyKind::DefaultKind,
             None,

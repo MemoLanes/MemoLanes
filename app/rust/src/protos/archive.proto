@@ -12,8 +12,6 @@ message Metadata {
     }
     message SectionInfo {
         string section_id = 1;
-        int64 first_journey_timestamp_sec = 2;
-        int64 last_journey_timestamp_sec = 3;
         uint32 num_of_journeys = 4;
     }
 
