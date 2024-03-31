@@ -116,6 +116,27 @@ impl Txn<'_> {
         gps_processor::build_vector_journey(results.map(|x| x.map_err(|x| x.into())))
     }
 
+    pub fn get_lastest_timestamp_of_ongoing_journey(&self) -> Result<Option<DateTime<Utc>>> {
+        // `id` in `ongoing_journey` is auto incremented.
+        let mut query = self
+            .db_txn
+            .prepare("SELECT timestamp_sec FROM ongoing_journey ORDER BY id DESC LIMIT 1;")?;
+        let timestamp_sec = query
+            .query_row((), |row| {
+                // `timestamp_sec` cannot be null
+                let timestamp_sec: i64 = row.get(0)?;
+                Ok(timestamp_sec)
+            })
+            .optional()?;
+        match timestamp_sec {
+            None => Ok(None),
+            Some(timestamp_sec) => {
+                let timestamp = DateTime::from_timestamp(timestamp_sec, 0).unwrap();
+                Ok(Some(timestamp))
+            }
+        }
+    }
+
     pub fn clear_journeys(&self) -> Result<()> {
         self.db_txn.execute("DELETE FROM journey;", ())?;
         Ok(())
@@ -180,9 +201,9 @@ impl Txn<'_> {
         self.insert_journey(header, journey_data)
     }
 
-    pub fn finalize_ongoing_journey(&self) -> Result<()> {
-        match self.get_ongoing_journey()? {
-            None => (),
+    pub fn finalize_ongoing_journey(&self) -> Result<bool> {
+        let new_journey_added = match self.get_ongoing_journey()? {
+            None => false,
             Some(OngoingJourney {
                 start,
                 end,
@@ -205,12 +226,17 @@ impl Txn<'_> {
                     None,
                     JourneyData::Vector(journey_vector),
                 )?;
+                true
             }
-        }
+        };
 
         self.db_txn.execute("DELETE FROM ongoing_journey;", ())?;
+        self.db_txn.execute(
+            "DELETE FROM sqlite_sequence WHERE name='ongoing_journey';",
+            (),
+        )?;
 
-        Ok(())
+        Ok(new_journey_added)
     }
 
     pub fn list_all_journeys(&self) -> Result<Vec<JourneyHeader>> {
@@ -360,6 +386,11 @@ impl MainDb {
         }
         Ok(())
     }
+
+    // pub fn try_auto_finalize_journy(&mut self) -> Result<bool> {
+
+    //     Ok(false)
+    // }
 
     fn get_setting<T: FromStr>(&mut self, setting: Setting) -> Result<Option<T>>
     where
