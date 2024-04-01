@@ -172,13 +172,6 @@ impl Storage {
         result
     }
 
-    pub fn finalize_ongoing_journey(&self) {
-        let mut main_db = self.main_db.lock().unwrap();
-        let _: bool = main_db
-            .with_txn(|txn| txn.finalize_ongoing_journey())
-            .unwrap();
-    }
-
     // TODO: do we need this?
     pub fn _flush(&self) -> Result<()> {
         debug!("[storage] flushing");

@@ -387,10 +387,31 @@ impl MainDb {
         Ok(())
     }
 
-    // pub fn try_auto_finalize_journy(&mut self) -> Result<bool> {
-
-    //     Ok(false)
-    // }
+    pub fn try_auto_finalize_journy(&mut self) -> Result<bool> {
+        self.with_txn(
+            |txn| match txn.get_lastest_timestamp_of_ongoing_journey()? {
+                None => Ok(false),
+                Some(latest_timestamp) => {
+                    // TODO: the current logic is naive
+                    // NOTE: this logic is not called very frequently
+                    let latest = latest_timestamp.with_timezone(&Local);
+                    let now = Local::now();
+                    let try_finalize = if latest.date_naive() == now.date_naive() {
+                        // 2 hours
+                        now.timestamp() - latest.timestamp() >= 2 * 60 * 60
+                    } else {
+                        // 2 minutes
+                        now.timestamp() - latest.timestamp() >= 2 * 60
+                    };
+                    if try_finalize {
+                        txn.finalize_ongoing_journey()
+                    } else {
+                        Ok(false)
+                    }
+                }
+            },
+        )
+    }
 
     fn get_setting<T: FromStr>(&mut self, setting: Setting) -> Result<Option<T>>
     where
