@@ -47,7 +47,7 @@ impl RawDataRecorder {
         &mut self,
         raw_data: &gps_processor::RawData,
         process_result: ProcessResult,
-        recevied_time: i64,
+        recevied_timestamp_ms: i64,
     ) {
         // TODO: better error handling
         let file = self.file.get_or_insert_with(|| {
@@ -64,7 +64,7 @@ impl RawDataRecorder {
             let mut file = File::create(filename).unwrap();
             let _ = file
                 .write(
-                    "timestamp_ms,recevied_time,latitude,longitude,accuarcy,altitude,speed,process_result\n"
+                    "timestamp_ms,recevied_timestamp_ms,latitude,longitude,accuarcy,altitude,speed,process_result\n"
                         .as_bytes(),
                 )
                 .unwrap();
@@ -75,7 +75,7 @@ impl RawDataRecorder {
                 format!(
                     "{},{},{},{},{},{},{},{}\n",
                     raw_data.timestamp_ms.unwrap_or_default(),
-                    recevied_time,
+                    recevied_timestamp_ms,
                     raw_data.latitude,
                     raw_data.longitude,
                     raw_data.accuracy.map(|x| x.to_string()).unwrap_or_default(),
@@ -147,11 +147,11 @@ impl Storage {
         &self,
         raw_data: &gps_processor::RawData,
         process_result: ProcessResult,
-        recevied_time: i64,
+        recevied_timestamp_ms: i64,
     ) {
         let mut raw_data_recorder = self.raw_data_recorder.lock().unwrap();
         if let Some(ref mut x) = *raw_data_recorder {
-            x.record(raw_data, process_result, recevied_time);
+            x.record(raw_data, process_result, recevied_timestamp_ms);
         }
         drop(raw_data_recorder);
 

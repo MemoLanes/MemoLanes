@@ -85,14 +85,15 @@ pub fn reset_map_renderer() {
     }
 }
 
-pub fn on_location_update(mut raw_data_list: Vec<gps_processor::RawData>, recevied_time: i64) {
+pub fn on_location_update(mut raw_data_list: Vec<gps_processor::RawData>, recevied_timestamp_ms: i64) {
     let state = get();
-    if raw_data_list.len() > 1 {
-        raw_data_list.sort_by(|a, b| b.timestamp_ms.cmp(&a.timestamp_ms));
-    }
+    // NOTE: On Android, we might recevied a batch of location updates that are out of order.
+    // Not very sure why yet.
+    raw_data_list.sort_by(|a, b| b.timestamp_ms.cmp(&a.timestamp_ms));
     raw_data_list.into_iter().for_each(|raw_data| {
         let mut gps_processor = state.gps_processor.lock().unwrap();
         let mut map_renderer = state.map_renderer.lock().unwrap();
+        // TODO: more batching updates
         gps_processor.preprocess(raw_data, |last_data, curr_data, process_result| {
             let line_to_add = match process_result {
                 ProcessResult::Ignore => None,
@@ -120,7 +121,7 @@ pub fn on_location_update(mut raw_data_list: Vec<gps_processor::RawData>, recevi
             }
             state
                 .storage
-                .record_gps_data(curr_data, process_result, recevied_time);
+                .record_gps_data(curr_data, process_result, recevied_timestamp_ms);
         });
     });
 }
