@@ -8,6 +8,7 @@ import 'package:mutex/mutex.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:async/async.dart';
 import 'package:project_dv/src/rust/api/api.dart';
+import 'package:project_dv/src/rust/gps_processor.dart';
 
 class AutoJourneyFinalizer {
   AutoJourneyFinalizer() {
@@ -79,27 +80,29 @@ class GpsRecordingState extends ChangeNotifier {
   Future<void> _onLocationUpdate(List<Position> positionList) async {
     if (!isRecording || positionList.isEmpty) return;
     notifyListeners();
-    positionList.sort((a, b) => a.timestamp.compareTo(b.timestamp));
     latestPosition = positionList.last;
-    for (Position position in positionList) {
-      await onLocationUpdate(
-          latitude: position.latitude,
-          longitude: position.longitude,
-          timestampMs: position.timestamp.millisecondsSinceEpoch,
-          accuracy: position.accuracy,
-          altitude: position.altitude,
-          speed: position.speed);
-    }
+    List<RawData> rawDataList = positionList
+        .map((position) => RawData(
+            latitude: position.latitude,
+            longitude: position.longitude,
+            timestampMs: position.timestamp.millisecondsSinceEpoch,
+            accuracy: position.accuracy,
+            altitude: position.altitude,
+            speed: position.speed))
+        .toList();
+    await onLocationUpdate(
+        rawDataList: rawDataList,
+        receviedTime: DateTime.now().millisecondsSinceEpoch);
   }
 
   bool addData(Position position) {
     dataList.add(position);
     restartableTimer ??= RestartableTimer(
-        Duration(milliseconds: 200),
-        () {
-          readData();
-        },
-      );
+      Duration(milliseconds: 200),
+      () {
+        readData();
+      },
+    );
     restartableTimer?.reset();
     return true;
   }
