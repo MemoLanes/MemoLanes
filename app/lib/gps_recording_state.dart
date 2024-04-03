@@ -1,13 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mutex/mutex.dart';
 import 'package:permission_handler/permission_handler.dart';
-
+import 'package:async/async.dart';
 import 'package:project_dv/src/rust/api/api.dart';
+import 'package:project_dv/src/rust/gps_processor.dart';
 
 class AutoJourneyFinalizer {
   AutoJourneyFinalizer() {
@@ -37,6 +37,14 @@ class GpsRecordingState extends ChangeNotifier {
   final Mutex _m = Mutex();
   final AutoJourneyFinalizer _autoJourneyFinalizer = AutoJourneyFinalizer();
 
+  // NOTE: we noticed that on Andorid, location updates may delivered in batches,
+  // updates within the same batch can be out of order, so we try to batch them
+  // back together using this buffer. The rust code will sort updates for each
+  // batch.
+  RestartableTimer? _positionBufferFlushTimer;
+  final List<Position> _positionBuffer = [];
+  DateTime? _positionBufferFirstElementReceivedTime;
+
   GpsRecordingState() {
     var accuracy = LocationAccuracy.best;
     var distanceFilter = 0;
@@ -52,6 +60,7 @@ class GpsRecordingState extends ChangeNotifier {
                 "Example app will continue to receive your position even when you aren't using it",
             notificationTitle: "Running in Background",
             setOngoing: true,
+            enableWakeLock: true,
           ));
     } else if (defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS) {
@@ -72,18 +81,42 @@ class GpsRecordingState extends ChangeNotifier {
     }
   }
 
-  Future<void> _onLocationUpdate(Position position) async {
+  void _onPositionUpdate(Position position) {
     if (!isRecording) return;
+    _positionBuffer.add(position);
+    _positionBufferFirstElementReceivedTime ??= DateTime.now();
+    if (_positionBufferFlushTimer == null) {
+      _positionBufferFlushTimer = RestartableTimer(
+        const Duration(milliseconds: 100),
+        _flushPositionBuffer,
+      );
+    } else {
+      _positionBufferFlushTimer?.reset();
+    }
+
     latestPosition = position;
     notifyListeners();
+  }
+
+  Future<void> _flushPositionBuffer() async {
+    if (_positionBuffer.isEmpty) return;
+
+    List<RawData> rawDataList = _positionBuffer
+        .map((position) => RawData(
+            latitude: position.latitude,
+            longitude: position.longitude,
+            timestampMs: position.timestamp.millisecondsSinceEpoch,
+            accuracy: position.accuracy,
+            altitude: position.altitude,
+            speed: position.speed))
+        .toList();
+    int receviedTimestampMs =
+        _positionBufferFirstElementReceivedTime!.millisecondsSinceEpoch;
+    _positionBufferFirstElementReceivedTime = null;
+    _positionBuffer.clear();
 
     await onLocationUpdate(
-        latitude: position.latitude,
-        longitude: position.longitude,
-        timestampMs: position.timestamp.millisecondsSinceEpoch,
-        accuracy: position.accuracy,
-        altitude: position.altitude,
-        speed: position.speed);
+        rawDataList: rawDataList, receviedTimestampMs: receviedTimestampMs);
   }
 
   void toggle() async {
@@ -93,6 +126,9 @@ class GpsRecordingState extends ChangeNotifier {
         await _positionStream?.cancel();
         _positionStream = null;
         latestPosition = null;
+        _positionBufferFlushTimer?.cancel();
+        _positionBufferFlushTimer = null;
+        await _flushPositionBuffer();
       } else {
         try {
           if (!await Permission.notification.isGranted) {
@@ -136,7 +172,7 @@ class GpsRecordingState extends ChangeNotifier {
             Geolocator.getPositionStream(locationSettings: _locationSettings)
                 .listen((Position? position) async {
           if (position != null) {
-            await _onLocationUpdate(position);
+            _onPositionUpdate(position);
           }
         });
       }
