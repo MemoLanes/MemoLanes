@@ -110,13 +110,13 @@ class GpsRecordingState extends ChangeNotifier {
             altitude: position.altitude,
             speed: position.speed))
         .toList();
-    int receviedTime =
+    int receviedTimestampMs =
         _positionBufferFirstElementReceivedTime!.millisecondsSinceEpoch;
     _positionBufferFirstElementReceivedTime = null;
     _positionBuffer.clear();
 
     await onLocationUpdate(
-        rawDataList: rawDataList, receviedTime: receviedTime);
+        rawDataList: rawDataList, receviedTimestampMs: receviedTimestampMs);
   }
 
   void toggle() async {
