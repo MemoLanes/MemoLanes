@@ -6,7 +6,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mutex/mutex.dart';
 import 'package:permission_handler/permission_handler.dart';
-
+import 'package:async/async.dart';
 import 'package:project_dv/src/rust/api/api.dart';
 
 class GpsRecordingState extends ChangeNotifier {
@@ -16,6 +16,9 @@ class GpsRecordingState extends ChangeNotifier {
   LocationSettings? _locationSettings;
   StreamSubscription<Position>? _positionStream;
   final Mutex _m = Mutex();
+
+  RestartableTimer? restartableTimer;
+  List<Position> dataList = [];
 
   GpsRecordingState() {
     var accuracy = LocationAccuracy.best;
@@ -32,6 +35,7 @@ class GpsRecordingState extends ChangeNotifier {
                 "Example app will continue to receive your position even when you aren't using it",
             notificationTitle: "Running in Background",
             setOngoing: true,
+            enableWakeLock: true,
           ));
     } else if (defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS) {
@@ -52,24 +56,48 @@ class GpsRecordingState extends ChangeNotifier {
     }
   }
 
-  Future<void> _onLocationUpdate(Position position) async {
-    if (!isRecording) return;
-    latestPosition = position;
+  Future<void> _onLocationUpdate(List<Position> positionList) async {
+    if (!isRecording || positionList.isEmpty) return;
     notifyListeners();
+    positionList.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    latestPosition = positionList.last;
+    for (Position position in positionList) {
+      await onLocationUpdate(
+          latitude: position.latitude,
+          longitude: position.longitude,
+          timestampMs: position.timestamp.millisecondsSinceEpoch,
+          accuracy: position.accuracy,
+          altitude: position.altitude,
+          speed: position.speed);
+    }
+  }
 
-    await onLocationUpdate(
-        latitude: position.latitude,
-        longitude: position.longitude,
-        timestampMs: position.timestamp.millisecondsSinceEpoch,
-        accuracy: position.accuracy,
-        altitude: position.altitude,
-        speed: position.speed);
+  bool addData(Position position) {
+    dataList.add(position);
+    if (restartableTimer == null) {
+      restartableTimer = RestartableTimer(
+        Duration(milliseconds: 200),
+        () {
+          readData();
+        },
+      );
+    }
+    restartableTimer?.reset();
+    return true;
+  }
+
+  void readData() {
+    List<Position> tmpList = dataList;
+    this.dataList = [];
+    _onLocationUpdate(tmpList);
   }
 
   void toggle() async {
     await _m.protect(() async {
       if (isRecording) {
         await _positionStream?.cancel();
+        restartableTimer?.cancel();
+        readData();
         _positionStream = null;
         latestPosition = null;
       } else {
@@ -115,7 +143,7 @@ class GpsRecordingState extends ChangeNotifier {
             Geolocator.getPositionStream(locationSettings: _locationSettings)
                 .listen((Position? position) async {
           if (position != null) {
-            await _onLocationUpdate(position);
+            await addData(position);
           }
         });
       }
