@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:project_dv/gps_recording_state.dart';
 import 'package:project_dv/src/rust/api/api.dart';
 import 'package:project_dv/src/rust/storage.dart';
@@ -117,7 +118,9 @@ class GPSPage extends StatelessWidget {
           ),
           ElevatedButton(
             onPressed: () async {
-              await finalizeOngoingJourney();
+              if (await finalizeOngoingJourney()) {
+                Fluttertoast.showToast(msg: "New journey added");
+              }
             },
             child: const Text("Start a new journey"),
           ),

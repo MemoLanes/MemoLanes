@@ -145,8 +145,14 @@ pub fn toggle_raw_data_mode(enable: bool) {
     get().storage.toggle_raw_data_mode(enable)
 }
 
-pub fn finalize_ongoing_journey() {
-    get().storage.finalize_ongoing_journey()
+pub fn finalize_ongoing_journey() -> Result<bool> {
+    let mut main_db = get().storage.main_db.lock().unwrap();
+    main_db.with_txn(|txn| txn.finalize_ongoing_journey())
+}
+
+pub fn try_auto_finalize_journy() -> Result<bool> {
+    let mut main_db = get().storage.main_db.lock().unwrap();
+    main_db.try_auto_finalize_journy()
 }
 
 pub fn import_fow_data(zip_file_path: String) -> Result<()> {
