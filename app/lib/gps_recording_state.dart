@@ -9,6 +9,25 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:async/async.dart';
 import 'package:project_dv/src/rust/api/api.dart';
 
+class AutoJourneyFinalizer {
+  AutoJourneyFinalizer() {
+    _start();
+  }
+
+  void _start() async {
+    await tryOnce();
+    Timer.periodic(const Duration(minutes: 5), (timer) async {
+      await tryOnce();
+    });
+  }
+
+  Future<void> tryOnce() async {
+    if (await tryAutoFinalizeJourny()) {
+      Fluttertoast.showToast(msg: "New journey added");
+    }
+  }
+}
+
 class GpsRecordingState extends ChangeNotifier {
   var isRecording = false;
   Position? latestPosition;
@@ -16,6 +35,7 @@ class GpsRecordingState extends ChangeNotifier {
   LocationSettings? _locationSettings;
   StreamSubscription<Position>? _positionStream;
   final Mutex _m = Mutex();
+  final AutoJourneyFinalizer _autoJourneyFinalizer = AutoJourneyFinalizer();
 
   RestartableTimer? restartableTimer;
   List<Position> dataList = [];
@@ -94,6 +114,7 @@ class GpsRecordingState extends ChangeNotifier {
 
   void toggle() async {
     await _m.protect(() async {
+      await _autoJourneyFinalizer.tryOnce();
       if (isRecording) {
         await _positionStream?.cancel();
         restartableTimer?.cancel();

@@ -1,6 +1,11 @@
 pub mod test_utils;
 
-use memolanes_core::{gps_processor, journey_data::JourneyData, main_db, main_db::MainDb};
+use chrono::DateTime;
+use memolanes_core::{
+    gps_processor::{self, RawData},
+    journey_data::JourneyData,
+    main_db::{self, MainDb},
+};
 use tempdir::TempDir;
 
 #[test]
@@ -94,4 +99,46 @@ fn setting() {
     // restart
     main_db = MainDb::open(temp_dir.path().to_str().unwrap());
     assert!(main_db.get_setting_with_default(main_db::Setting::RawDataMode, false));
+}
+
+#[test]
+fn get_lastest_timestamp_of_ongoing_journey() {
+    let temp_dir = TempDir::new("main_db-get_lastest_timestamp_of_ongoing_journey").unwrap();
+    println!("temp dir: {:?}", temp_dir.path());
+
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let result = main_db
+        .with_txn(|txn| txn.get_lastest_timestamp_of_ongoing_journey())
+        .unwrap();
+    assert_eq!(result, None);
+    main_db
+        .record(
+            &RawData {
+                latitude: 120.163856,
+                longitude: 30.2719716,
+                timestamp_ms: Some(1697349116449),
+                accuracy: None,
+                altitude: None,
+                speed: None,
+            },
+            gps_processor::ProcessResult::Append,
+        )
+        .unwrap();
+    main_db
+        .record(
+            &RawData {
+                latitude: 120.163856,
+                longitude: 30.2719716,
+                timestamp_ms: Some(1697349117000),
+                accuracy: None,
+                altitude: None,
+                speed: None,
+            },
+            gps_processor::ProcessResult::Append,
+        )
+        .unwrap();
+    let result = main_db
+        .with_txn(|txn| txn.get_lastest_timestamp_of_ongoing_journey())
+        .unwrap();
+    assert_eq!(result, DateTime::from_timestamp(1697349117, 0));
 }

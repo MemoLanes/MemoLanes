@@ -34,7 +34,7 @@ fn basic() {
         );
 
         if i == 1000 {
-            api::finalize_ongoing_journey();
+            let _: bool = api::finalize_ongoing_journey().unwrap();
         } else if i == 2000 {
             // we have both ongoing journey and finalized journey at this point
             let render_result =
