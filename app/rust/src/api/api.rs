@@ -85,7 +85,10 @@ pub fn reset_map_renderer() {
     }
 }
 
-pub fn on_location_update(mut raw_data_list: Vec<gps_processor::RawData>, recevied_timestamp_ms: i64) {
+pub fn on_location_update(
+    mut raw_data_list: Vec<gps_processor::RawData>,
+    recevied_timestamp_ms: i64,
+) {
     let state = get();
     // NOTE: On Android, we might recevied a batch of location updates that are out of order.
     // Not very sure why yet.
