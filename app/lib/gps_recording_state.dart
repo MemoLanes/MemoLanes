@@ -94,21 +94,19 @@ class GpsRecordingState extends ChangeNotifier {
 
   bool addData(Position position) {
     dataList.add(position);
-    if (restartableTimer == null) {
-      restartableTimer = RestartableTimer(
+    restartableTimer ??= RestartableTimer(
         Duration(milliseconds: 200),
         () {
           readData();
         },
       );
-    }
     restartableTimer?.reset();
     return true;
   }
 
   void readData() {
     List<Position> tmpList = dataList;
-    this.dataList = [];
+    dataList = [];
     _onLocationUpdate(tmpList);
   }
 
