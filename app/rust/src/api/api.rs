@@ -86,50 +86,46 @@ pub fn reset_map_renderer() {
 }
 
 pub fn on_location_update(
-    latitude: f64,
-    longitude: f64,
-    timestamp_ms: i64,
-    accuracy: f32,
-    altitude: Option<f32>,
-    speed: Option<f32>,
+    mut raw_data_list: Vec<gps_processor::RawData>,
+    recevied_timestamp_ms: i64,
 ) {
     let state = get();
-    let raw_data = gps_processor::RawData {
-        latitude,
-        longitude,
-        timestamp_ms: Some(timestamp_ms),
-        accuracy: Some(accuracy),
-        altitude,
-        speed,
-    };
-    let mut gps_processor = state.gps_processor.lock().unwrap();
-    let mut map_renderer = state.map_renderer.lock().unwrap();
-    gps_processor.preprocess(raw_data, |last_data, curr_data, process_result| {
-        let line_to_add = match process_result {
-            ProcessResult::Ignore => None,
-            ProcessResult::NewSegment => Some((curr_data, curr_data)),
-            ProcessResult::Append => {
-                let start = last_data.as_ref().unwrap_or(curr_data);
-                Some((start, curr_data))
-            }
-        };
-        match map_renderer.as_mut() {
-            None => (),
-            Some(map_renderer) => match line_to_add {
-                None => (),
-                Some((start, end)) => {
-                    map_renderer.update(|journey_bitmap| {
-                        journey_bitmap.add_line(
-                            start.longitude,
-                            start.latitude,
-                            end.longitude,
-                            end.latitude,
-                        );
-                    });
+    // NOTE: On Android, we might recevied a batch of location updates that are out of order.
+    // Not very sure why yet.
+    raw_data_list.sort_by(|a, b| b.timestamp_ms.cmp(&a.timestamp_ms));
+    raw_data_list.into_iter().for_each(|raw_data| {
+        let mut gps_processor = state.gps_processor.lock().unwrap();
+        let mut map_renderer = state.map_renderer.lock().unwrap();
+        // TODO: more batching updates
+        gps_processor.preprocess(raw_data, |last_data, curr_data, process_result| {
+            let line_to_add = match process_result {
+                ProcessResult::Ignore => None,
+                ProcessResult::NewSegment => Some((curr_data, curr_data)),
+                ProcessResult::Append => {
+                    let start = last_data.as_ref().unwrap_or(curr_data);
+                    Some((start, curr_data))
                 }
-            },
-        }
-        state.storage.record_gps_data(curr_data, process_result);
+            };
+            match map_renderer.as_mut() {
+                None => (),
+                Some(map_renderer) => match line_to_add {
+                    None => (),
+                    Some((start, end)) => {
+                        map_renderer.update(|journey_bitmap| {
+                            journey_bitmap.add_line(
+                                start.longitude,
+                                start.latitude,
+                                end.longitude,
+                                end.latitude,
+                            );
+                        });
+                    }
+                },
+            }
+            state
+                .storage
+                .record_gps_data(curr_data, process_result, recevied_timestamp_ms);
+        });
     });
 }
 
@@ -145,8 +141,14 @@ pub fn toggle_raw_data_mode(enable: bool) {
     get().storage.toggle_raw_data_mode(enable)
 }
 
-pub fn finalize_ongoing_journey() {
-    get().storage.finalize_ongoing_journey()
+pub fn finalize_ongoing_journey() -> Result<bool> {
+    let mut main_db = get().storage.main_db.lock().unwrap();
+    main_db.with_txn(|txn| txn.finalize_ongoing_journey())
+}
+
+pub fn try_auto_finalize_journy() -> Result<bool> {
+    let mut main_db = get().storage.main_db.lock().unwrap();
+    main_db.try_auto_finalize_journy()
 }
 
 pub fn import_fow_data(zip_file_path: String) -> Result<()> {

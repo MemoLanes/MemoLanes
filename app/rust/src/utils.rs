@@ -37,7 +37,7 @@ pub fn date_of_days_since_epoch(days: i32) -> Option<NaiveDate> {
 
 #[cfg(test)]
 mod tests {
-    use chrono::NaiveDate;
+    use chrono::{FixedOffset, NaiveDate, TimeZone, Utc};
 
     use crate::utils::{date_of_days_since_epoch, date_to_days_since_epoch};
 
@@ -52,5 +52,15 @@ mod tests {
         check(1970, 1, 1, 0);
         check(2024, 2, 29, 19782);
         check(1938, 8, 23, -11454);
+    }
+
+    #[test]
+    fn naive_date_is_local_date() {
+        let utc = Utc.with_ymd_and_hms(2024, 3, 31, 23, 0, 0).unwrap();
+        assert_eq!(utc.to_rfc3339(), "2024-03-31T23:00:00+00:00");
+        let plus8 = utc.with_timezone(&FixedOffset::east_opt(8 * 3600).unwrap());
+        assert_eq!(plus8.to_rfc3339(), "2024-04-01T07:00:00+08:00");
+        assert_eq!(utc.date_naive().to_string(), "2024-03-31");
+        assert_eq!(plus8.date_naive().to_string(), "2024-04-01");
     }
 }

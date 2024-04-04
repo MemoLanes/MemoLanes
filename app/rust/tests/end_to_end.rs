@@ -2,7 +2,7 @@ pub mod test_utils;
 
 use std::fs;
 
-use memolanes_core::api::api;
+use memolanes_core::{api::api, gps_processor::RawData};
 use tempdir::TempDir;
 
 #[test]
@@ -25,16 +25,18 @@ fn basic() {
 
     for (i, raw_data) in test_utils::load_raw_gpx_data_for_test().iter().enumerate() {
         api::on_location_update(
-            raw_data.latitude,
-            raw_data.longitude,
+            vec![RawData {
+                latitude: raw_data.latitude,
+                longitude: raw_data.longitude,
+                timestamp_ms: raw_data.timestamp_ms,
+                accuracy: raw_data.accuracy,
+                altitude: raw_data.altitude,
+                speed: raw_data.speed,
+            }],
             raw_data.timestamp_ms.unwrap(),
-            raw_data.accuracy.unwrap(),
-            raw_data.altitude,
-            raw_data.speed,
         );
-
         if i == 1000 {
-            api::finalize_ongoing_journey();
+            let _: bool = api::finalize_ongoing_journey().unwrap();
         } else if i == 2000 {
             // we have both ongoing journey and finalized journey at this point
             let render_result =
