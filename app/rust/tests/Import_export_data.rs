@@ -1,4 +1,4 @@
-use memolanes_core::import_data;
+use memolanes_core::{export_data, import_data};
 
 #[test]
 fn load_fow_sync_data() {
@@ -13,15 +13,29 @@ fn load_fow_sync_data() {
 }
 
 #[test]
-pub fn import_gpx() {
-    let vector = import_data::load_gpx("./tests/data/raw_gps_laojunshan.gpx", false).unwrap();
-    let tracks = vector.track_segments;
-    assert_eq!(tracks.len(), 1);
-    let points = tracks
+pub fn gpx() {
+    let vector1 = import_data::load_gpx("./tests/data/raw_gps_laojunshan.gpx", false).unwrap();
+    let gpx_data = export_data::journey_vector_to_gpx(&vector1).unwrap();
+    let vector2 = import_data::gpx_to_journey_vector(gpx_data, false).unwrap();
+    let tracks1 = vector1.track_segments;
+    let tracks2 = vector2.track_segments;
+
+    assert_eq!(tracks1.len(), 1);
+    assert_eq!(tracks2.len(), tracks1.len());
+
+    let points1 = tracks1
         .into_iter()
         .flat_map(|t| t.track_points.into_iter())
-        .into_iter();
-    assert_eq!(points.count(), 2945);
+        .into_iter()
+        .count();
+    let points2 = tracks2
+        .into_iter()
+        .flat_map(|t| t.track_points.into_iter())
+        .into_iter()
+        .count();
+
+    assert_eq!(points1, 2945);
+    assert_eq!(points2, points1);
 }
 
 #[test]
