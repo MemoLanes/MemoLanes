@@ -92,7 +92,7 @@ pub fn on_location_update(
     let state = get();
     // NOTE: On Android, we might recevied a batch of location updates that are out of order.
     // Not very sure why yet.
-    raw_data_list.sort_by(|a, b| b.timestamp_ms.cmp(&a.timestamp_ms));
+    raw_data_list.sort_by(|a, b| a.timestamp_ms.cmp(&b.timestamp_ms));
     raw_data_list.into_iter().for_each(|raw_data| {
         let mut gps_processor = state.gps_processor.lock().unwrap();
         let mut map_renderer = state.map_renderer.lock().unwrap();

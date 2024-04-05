@@ -1,8 +1,7 @@
 pub mod test_utils;
-
-use std::fs;
-
 use memolanes_core::{api::api, gps_processor::RawData};
+use rand::{seq::SliceRandom, thread_rng};
+use std::fs;
 use tempdir::TempDir;
 
 #[test]
@@ -23,7 +22,10 @@ fn basic() {
         sub_folder("cache/"),
     );
 
-    for (i, raw_data) in test_utils::load_raw_gpx_data_for_test().iter().enumerate() {
+    let mut raw_data_list = test_utils::load_raw_gpx_data_for_test();
+    let (first_elements, remaining_elements) = raw_data_list.split_at_mut(2000);
+
+    for (i, raw_data) in first_elements.iter().enumerate() {
         api::on_location_update(
             vec![RawData {
                 latitude: raw_data.latitude,
@@ -48,6 +50,9 @@ fn basic() {
             );
         }
     }
+
+    remaining_elements.shuffle(&mut thread_rng());
+    api::on_location_update(remaining_elements.to_vec(), 1695150531000);
 
     // this should cover real time update
     let render_result = api::render_map_overlay(11.0, 121.39, 31.3146, 121.55, 31.18).unwrap();
