@@ -32,6 +32,7 @@ gpx = "0.9.1"
 kml = "0.8.4"
 lazy_static = "1.4.0"
 geo-types = "0.7.13"
+maplit = { version = "1.0", default-features = false }
 
 [dev-dependencies]
 tempdir = "0.3.7"

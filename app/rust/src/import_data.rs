@@ -7,7 +7,7 @@ use crate::{
 use anyhow::{Error, Result};
 use chrono::{DateTime, Utc};
 use flate2::read::ZlibDecoder;
-use gpx::{read, Gpx};
+use gpx::read;
 use kml::{Kml, KmlReader};
 use std::result::Result::Ok;
 use std::vec;
@@ -158,16 +158,6 @@ fn load_vector_data(
 
 pub fn load_gpx(file_path: &str, run_preprocessor: bool) -> Result<JourneyVector> {
     let gpx_data = read(BufReader::new(File::open(file_path)?))?;
-    gpx_to_journey_vector(gpx_data, run_preprocessor)
-}
-
-pub fn load_kml(file_path: &str, run_preprocessor: bool) -> Result<JourneyVector> {
-    let kml_data =
-        KmlReader::<_, f64>::from_reader(BufReader::new(File::open(file_path)?)).read()?;
-    kml_to_journey_vector(kml_data, run_preprocessor)
-}
-
-pub fn gpx_to_journey_vector(gpx_data: Gpx, run_preprocessor: bool) -> Result<JourneyVector> {
     let raw_data_segments = gpx_data.tracks.iter().flat_map(|track| {
         track.segments.iter().map(|segment| {
             segment.points.iter().map(|point| {
@@ -191,7 +181,10 @@ pub fn gpx_to_journey_vector(gpx_data: Gpx, run_preprocessor: bool) -> Result<Jo
     load_vector_data(raw_data_segments, run_preprocessor)
 }
 
-pub fn kml_to_journey_vector(kml_data: Kml, run_preprocessor: bool) -> Result<JourneyVector> {
+pub fn load_kml(file_path: &str, run_preprocessor: bool) -> Result<JourneyVector> {
+    let kml_data =
+        KmlReader::<_, f64>::from_reader(BufReader::new(File::open(file_path)?)).read()?;
+
     let parse_line = |coord: &Option<String>, when: &Option<String>| {
         let coord: Vec<&str> = match coord {
             Some(coord) => coord.split_whitespace().collect(),
@@ -204,8 +197,8 @@ pub fn kml_to_journey_vector(kml_data: Kml, run_preprocessor: bool) -> Result<Jo
         };
 
         Ok(Some(gps_processor::RawData {
-            latitude: coord[1].parse::<f64>()?,
-            longitude: coord[0].parse::<f64>()?,
+            latitude: coord[0].parse::<f64>()?,
+            longitude: coord[1].parse::<f64>()?,
             timestamp_ms: timestamp.map(|x| x.timestamp_millis()),
             accuracy: None,
             altitude: if coord.len() >= 3 {
