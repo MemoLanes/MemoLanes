@@ -159,6 +159,9 @@ class GpsRecordingState extends ChangeNotifier {
               /// Rejected again
               throw "Location permission not granted";
             }
+            if (permission == LocationPermission.whileInUse){
+              await Permission.locationAlways.request();
+            }
           } else if (permission == LocationPermission.deniedForever) {
             /// Previously permissions were permanently denied, open the app permissions settings page
             await Geolocator.openAppSettings();
