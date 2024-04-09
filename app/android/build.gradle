@@ -1,3 +1,4 @@
+
 buildscript {
     ext.kotlin_version = '1.8.10'
     repositories {
@@ -10,7 +11,18 @@ buildscript {
     }
 }
 
+def dartEne = []
+if (project.hasProperty('dart-defines')) {
+    dartEne = dartEne + project.property('dart-defines')
+            .split(',')
+            .collectEntries { entry ->
+                def pair = new String(entry.decodeBase64(), 'UTF-8').split('=')
+                [(pair.first()): pair.last()]
+            }
+}
+
 allprojects {
+    project.SDK_REGISTRY_TOKEN = dartEne['MAPBOX_SDK_REGISTRY_TOKEN']
     repositories {
         google()
         mavenCentral()
