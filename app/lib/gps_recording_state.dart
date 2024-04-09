@@ -119,6 +119,48 @@ class GpsRecordingState extends ChangeNotifier {
         rawDataList: rawDataList, receviedTimestampMs: receviedTimestampMs);
   }
 
+  Future<bool> checkPermission() async {
+    try {
+      if (!await Permission.notification.isGranted) {
+        return false;
+      }
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        return false;
+      }
+      if (!(await Geolocator.checkPermission() == LocationPermission.always)) {
+        return false;
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<void> requestPermission() async {
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      if (!await Geolocator.openLocationSettings()) {
+        throw "Location services not enabled";
+      }
+    }
+
+    if (!await Permission.notification.isGranted) {
+      await Permission.notification.request();
+      if (!await Permission.notification.isGranted) {
+        throw "notification permission not granted";
+      }
+    }
+
+    LocationPermission permission = await Geolocator.requestPermission();
+    if (permission == LocationPermission.whileInUse) {
+      await Permission.locationAlways.request();
+      permission = await Geolocator.checkPermission();
+    }
+    if (permission != LocationPermission.always) {
+      await Geolocator.openAppSettings();
+      throw "Please allow location permissions";
+    }
+  }
+
   void toggle() async {
     await _m.protect(() async {
       await _autoJourneyFinalizer.tryOnce();
@@ -131,38 +173,8 @@ class GpsRecordingState extends ChangeNotifier {
         await _flushPositionBuffer();
       } else {
         try {
-          if (!await Permission.notification.isGranted) {
-            await Permission.notification.request();
-            if (!await Permission.notification.isGranted) {
-              throw "notification permission not granted";
-            }
-          }
-
-          /// if GPS service is enabled
-          bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-          if (!serviceEnabled) {
-            /// Location services are not enabled, ask the user to enable location services
-            var res = await Geolocator.openLocationSettings();
-            if (!res) {
-              /// refused
-              throw "Location services not enabled";
-            }
-          }
-
-          /// Getting Permissions
-          LocationPermission permission = await Geolocator.checkPermission();
-          if (permission == LocationPermission.denied) {
-            /// Previous access to device location denied, reapply permission
-            permission = await Geolocator.requestPermission();
-            if (permission == LocationPermission.denied ||
-                permission == LocationPermission.deniedForever) {
-              /// Rejected again
-              throw "Location permission not granted";
-            }
-          } else if (permission == LocationPermission.deniedForever) {
-            /// Previously permissions were permanently denied, open the app permissions settings page
-            await Geolocator.openAppSettings();
-            throw "Please allow location permissions";
+          if (!await checkPermission()) {
+            await requestPermission();
           }
         } catch (e) {
           Fluttertoast.showToast(msg: e.toString());
