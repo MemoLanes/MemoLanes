@@ -78,7 +78,7 @@ impl GpsProcessor {
 
         // TODO: we need distance filter
         const TIME_THRESHOLD_IN_MS: i64 = 5 * 1000;
-        const ACCURACY_THRESHOLD: f32 = 10.0;
+        const ACCURACY_THRESHOLD: f32 = 12.0;
         let should_ignore = match curr_data.accuracy {
             Some(accuracy) => accuracy > ACCURACY_THRESHOLD,
             None => false,
