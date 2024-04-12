@@ -41,7 +41,7 @@ dependencies:
   flutter_rust_bridge: 2.0.0-dev.24
   meta: ^1.8.0
   uuid: ^4.1.0
-  geolocator: ^10.1.0
+  geolocator: ^11.0.0
   provider: ^6.0.5
   path_provider: ^2.1.0
   mutex: ^3.0.1
@@ -54,6 +54,13 @@ dependencies:
   file_picker: ^6.1.1
   freezed_annotation: ^2.4.1
   fluttertoast: ^8.2.4
+
+dependency_overrides:
+  geolocator_android:
+    git:
+      url: https://github.com/MemoLanes/flutter-geolocator
+      ref: main
+      path: geolocator_android
 
 dev_dependencies:
   flutter_test:

@@ -28,6 +28,43 @@ class AutoJourneyFinalizer {
   }
 }
 
+/// `PokeGeolocatorTask` is a hacky workround on Android.
+/// The behvior we observe is that the position stream from geolocator will
+/// randomly pauses so updates are delayed and come in as a batch later.
+/// However, if there something request the location, even if it is in
+/// another app, the stream will resume. So the hack is to poke the geolocator
+/// frequently.
+class _PokeGeolocatorTask {
+  // TODO: Test on iOS
+  bool running = false;
+  _PokeGeolocatorTask();
+
+  factory _PokeGeolocatorTask.start() {
+    var task = _PokeGeolocatorTask();
+    task.running = true;
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      task._loop();
+    }
+    return task;
+  }
+
+  _loop() async {
+    await Future.delayed(const Duration(minutes: 1));
+    if (running) {
+      await Geolocator.getCurrentPosition(
+              timeLimit: const Duration(seconds: 10))
+          // we don't care about the result
+          .then((_) => null)
+          .catchError((_) => null);
+      _loop();
+    }
+  }
+
+  cancel() {
+    running = false;
+  }
+}
+
 class GpsRecordingState extends ChangeNotifier {
   var isRecording = false;
   Position? latestPosition;
@@ -36,6 +73,7 @@ class GpsRecordingState extends ChangeNotifier {
   StreamSubscription<Position>? _positionStream;
   final Mutex _m = Mutex();
   final AutoJourneyFinalizer _autoJourneyFinalizer = AutoJourneyFinalizer();
+  _PokeGeolocatorTask? _pokeGeolocatorTask;
 
   // NOTE: we noticed that on Andorid, location updates may delivered in batches,
   // updates within the same batch can be out of order, so we try to batch them
@@ -166,6 +204,8 @@ class GpsRecordingState extends ChangeNotifier {
       await _autoJourneyFinalizer.tryOnce();
       if (isRecording) {
         await _positionStream?.cancel();
+        _pokeGeolocatorTask?.cancel();
+        _pokeGeolocatorTask = null;
         _positionStream = null;
         latestPosition = null;
         _positionBufferFlushTimer?.cancel();
@@ -180,6 +220,7 @@ class GpsRecordingState extends ChangeNotifier {
           Fluttertoast.showToast(msg: e.toString());
           return;
         }
+        _pokeGeolocatorTask ??= _PokeGeolocatorTask.start();
         _positionStream ??=
             Geolocator.getPositionStream(locationSettings: _locationSettings)
                 .listen((Position? position) async {
