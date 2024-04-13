@@ -60,9 +60,8 @@ fn setup_x86_64_android_workaround() {
             }
             Err(_) => {
                 println!(
-                    "cargo:warning=ANDROID_NDK_HOME system environment variable not \
-                    found, if you need to compile x86_64 android version, \
-                    please set this environment variable"
+                    "cargo:warning=ANDROID_NDK_HOME system environment variable is not set, \
+                    try to set it if you have issue compiling the android version on x86_64."
                 );
             }
         };
