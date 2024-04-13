@@ -33,12 +33,15 @@ def generate_token_dart(token_content):
 
 if __name__ == "__main__":
     data = {}
-    with open(".env", 'r') as file:
-        for line in file:
-            line = line.strip()
-            if '=' in line:
-                key, value = line.split('=')
-                data[key.strip()] = value.strip()
+    env_path = ".env"
+    if os.path.isfile(env_path):
+        with open(".env", 'r') as file:
+            for line in file:
+                if '=' in line:
+                    key, value = line.strip().split('=')
+                    data[key.strip()] = value.strip()
+    else:
+        print(".env not found, generating empty files")
 
     generate_netrc("api.mapbox.com", "mapbox", data["MAPBOX-SDK-REGISTRY-TOKEN"])
     generate_gradle_token(data["MAPBOX-SDK-REGISTRY-TOKEN"])
