@@ -8,6 +8,8 @@ use crate::{
 
 pub struct RenderResult {
     // coordinates are in lat or lng
+    pub width: u32,
+    pub height: u32,
     pub left: f64,
     pub top: f64,
     pub right: f64,
@@ -94,6 +96,8 @@ impl MapRenderer {
         );
 
         RenderResult {
+            width: pixmap.width(),
+            height: pixmap.height(),
             top: overlay_top,
             left: overlay_left,
             right: overlay_right,

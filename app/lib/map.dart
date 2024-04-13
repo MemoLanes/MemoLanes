@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:project_dv/src/rust/api/api.dart';
 import 'dart:async';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:project_dv/token.dart';
 
 class MapUiBody extends StatefulWidget {
   const MapUiBody({super.key});
@@ -11,34 +12,37 @@ class MapUiBody extends StatefulWidget {
 }
 
 class MapUiBodyState extends State<MapUiBody> {
-  MapUiBodyState();
+  static const String overlayLayerId = "overlay-layer";
+  static const String overlayImageSourceId = "overlay-image-source";
 
-  static const CameraPosition _kInitialPosition = CameraPosition(
-    target: LatLng(-33.852, 151.211),
-    zoom: 11.0,
-  );
+  MapUiBodyState() {
+    // TODO: Kinda want the default implementation is maplibre instead of mapbox.
+    // However maplibre is very buggy + lack of global view +
+    // cannot handle antimeridian well.
+    MapboxOptions.setAccessToken(token["MAPBOX-ACCESS-TOKEN"]);
+  }
 
-  bool ready = false;
+  MapboxMap? mapboxMap;
   bool layerAdded = false;
   Completer? requireRefresh = Completer();
-  MaplibreMapController? mapController;
   Timer? timer;
 
   Future<void> _doActualRefresh() async {
-    // TODO: this is buggy when view is at the meridian, or when the map is
-    // zoom out.
-    if (!ready) return;
-    var controller = mapController;
-    if (controller == null) return;
+    var mapboxMap = this.mapboxMap;
+    if (mapboxMap == null) return;
 
-    final zoom = controller.cameraPosition?.zoom;
-    if (zoom == null) return;
-    if (!zoom.isFinite) return;
-    final visiableRegion = await controller.getVisibleRegion();
-    final left = visiableRegion.southwest.longitude;
-    final top = visiableRegion.northeast.latitude;
-    final right = visiableRegion.northeast.longitude;
-    final bottom = visiableRegion.southwest.latitude;
+    final cameraState = await mapboxMap.getCameraState();
+    final zoom = cameraState.zoom;
+    final coordinateBounds = await mapboxMap.coordinateBoundsForCamera(
+        CameraOptions(
+            center: cameraState.center, zoom: zoom, pitch: cameraState.pitch));
+    final northeast = coordinateBounds.northeast['coordinates'] as List;
+    final southwest = coordinateBounds.southwest['coordinates'] as List;
+
+    final left = southwest[0];
+    final top = northeast[1];
+    final right = northeast[0];
+    final bottom = southwest[1];
 
     final renderResult = await renderMapOverlay(
       zoom: zoom,
@@ -49,20 +53,34 @@ class MapUiBodyState extends State<MapUiBody> {
     );
 
     if (renderResult != null) {
-      final coordinates = LatLngQuad(
-        topLeft: LatLng(renderResult.top, renderResult.left),
-        topRight: LatLng(renderResult.top, renderResult.right),
-        bottomRight: LatLng(renderResult.bottom, renderResult.right),
-        bottomLeft: LatLng(renderResult.bottom, renderResult.left),
-      );
+      final coordinates = [
+        [renderResult.left, renderResult.top],
+        [renderResult.right, renderResult.top],
+        [renderResult.right, renderResult.bottom],
+        [renderResult.left, renderResult.bottom]
+      ];
+      final image = MbxImage(
+          width: renderResult.width,
+          height: renderResult.height,
+          data: renderResult.data);
+
       if (layerAdded) {
-        await mapController?.updateImageSource(
-            "main-image-source", renderResult.data, coordinates);
+        await Future.wait([
+          mapboxMap.style
+              .updateStyleImageSourceImage(overlayImageSourceId, image),
+          mapboxMap.style.setStyleSourceProperty(
+              overlayImageSourceId, "coordinates", coordinates)
+        ]);
       } else {
         layerAdded = true;
-        await controller.addImageSource(
-            "main-image-source", renderResult.data, coordinates);
-        await controller.addImageLayer("main-image-layer", "main-image-source");
+        await mapboxMap.style.addSource(
+            ImageSource(id: overlayImageSourceId, coordinates: coordinates));
+        await mapboxMap.style.addLayer(RasterLayer(
+          id: overlayLayerId,
+          sourceId: overlayImageSourceId,
+        ));
+        await mapboxMap.style
+            .updateStyleImageSourceImage(overlayImageSourceId, image);
       }
     }
   }
@@ -92,29 +110,14 @@ class MapUiBodyState extends State<MapUiBody> {
     _refreshLoop();
   }
 
-  void _onMapCreated(MaplibreMapController controller) async {
-    controller.addListener(_onMapChanged);
-    mapController = controller;
-  }
-
   void _triggerRefresh() async {
     if (requireRefresh?.isCompleted == false) {
       requireRefresh?.complete();
     }
   }
 
-  _onStyleLoadedCallback() async {
-    ready = true;
-    _triggerRefresh();
-  }
-
-  void _onMapChanged() async {
-    _triggerRefresh();
-  }
-
   @override
   void dispose() {
-    mapController?.removeListener(_onMapChanged);
     timer?.cancel();
     if (requireRefresh?.isCompleted == false) {
       requireRefresh?.complete();
@@ -123,18 +126,36 @@ class MapUiBodyState extends State<MapUiBody> {
     super.dispose();
   }
 
+  _onMapCreated(MapboxMap mapboxMap) async {
+    await mapboxMap.gestures
+        .updateSettings(GesturesSettings(pitchEnabled: false));
+    await mapboxMap.location.updateSettings(LocationComponentSettings(
+      enabled: true,
+      pulsingEnabled: true,
+    ));
+    this.mapboxMap = mapboxMap;
+  }
+
+  _onCameraChangeListener(CameraChangedEventData event) {
+    _triggerRefresh();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final MaplibreMap maplibreMap = MaplibreMap(
+    return Scaffold(
+        body: (MapWidget(
+      key: const ValueKey("mapWidget"),
       onMapCreated: _onMapCreated,
-      onStyleLoadedCallback: _onStyleLoadedCallback,
-      initialCameraPosition: _kInitialPosition,
-      trackCameraPosition: true,
-      myLocationEnabled: true,
-      myLocationTrackingMode: MyLocationTrackingMode.Tracking,
-      myLocationRenderMode: MyLocationRenderMode.NORMAL,
-    );
-
-    return maplibreMap;
+      onCameraChangeListener: _onCameraChangeListener,
+      styleUri: MapboxStyles.OUTDOORS,
+      cameraOptions: CameraOptions(
+          // TODO: According to this: https://github.com/mapbox/mapbox-maps-flutter/issues/248
+          // We need to implement our own location tracking. Basically we need 3 kinds of state and 1 button.
+          // State: 1.Display_location_and_camera_tracking / 2.Display_location_only / 3.Off.
+          // The button will toggle between 1/2 -> 3 or 3 -> 1.
+          // When user touched the map, then the state will stay as 3 or change from 3 to 2.
+          center: Point(coordinates: Position(-80.1263, 25.7845)).toJson(),
+          zoom: 12.0),
+    )));
   }
 }
