@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:project_dv/src/rust/api/api.dart';
 import 'dart:async';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'main.dart';
 
 class MapUiBody extends StatefulWidget {
   const MapUiBody({super.key});
@@ -15,7 +16,7 @@ class MapUiBodyState extends State<MapUiBody> {
   static const String overlayImageSourceId = "overlay-image-source";
 
   MapUiBodyState() {
-    MapboxOptions.setAccessToken("MAPBOX-ACCESS-TOKEN");
+    MapboxOptions.setAccessToken(EnvironmentConfig.accessToken);
   }
 
   bool ready = false;
