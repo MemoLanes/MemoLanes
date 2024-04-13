@@ -20,7 +20,6 @@ class MapUiBodyState extends State<MapUiBody> {
         const String.fromEnvironment('MAPBOX_ACCESS_TOKEN'));
   }
 
-  bool ready = false;
   MapboxMap? mapboxMap;
   bool layerAdded = false;
   Completer? requireRefresh = Completer();
@@ -29,11 +28,6 @@ class MapUiBodyState extends State<MapUiBody> {
   Future<void> _doActualRefresh() async {
     var mapboxMap = this.mapboxMap;
     if (mapboxMap == null) return;
-    if (!ready) {
-      if ((await mapboxMap.style.getSource(overlayImageSourceId)) == null) {
-        return;
-      }
-    }
 
     final cameraState = await mapboxMap.getCameraState();
     final zoom = cameraState.zoom;
@@ -74,8 +68,6 @@ class MapUiBodyState extends State<MapUiBody> {
         mapboxMap.style.setStyleSourceProperty(
             overlayImageSourceId, "coordinates", coordinates)
       ]);
-
-      ready = true;
     }
   }
 
@@ -121,7 +113,6 @@ class MapUiBodyState extends State<MapUiBody> {
   }
 
   _onMapCreated(MapboxMap mapboxMap) async {
-    this.mapboxMap = mapboxMap;
     await mapboxMap.gestures
         .updateSettings(GesturesSettings(pitchEnabled: false));
     await mapboxMap.location.updateSettings(LocationComponentSettings(
@@ -139,6 +130,7 @@ class MapUiBodyState extends State<MapUiBody> {
       id: overlayLayerId,
       sourceId: overlayImageSourceId,
     ));
+    this.mapboxMap = mapboxMap;
   }
 
   _onCameraChangeListener(CameraChangedEventData event) {
