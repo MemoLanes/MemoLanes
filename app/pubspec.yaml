@@ -51,6 +51,7 @@ dependencies:
   freezed_annotation: ^2.4.1
   fluttertoast: ^8.2.4
   mapbox_maps_flutter: ^1.1.0-rc.1
+  flutter_dotenv: ^5.1.0
 
 dependency_overrides:
   geolocator_android:
@@ -78,6 +79,8 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  assets:
+    - .env
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

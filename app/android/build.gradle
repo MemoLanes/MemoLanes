@@ -11,18 +11,16 @@ buildscript {
     }
 }
 
-def dartEne = []
-if (project.hasProperty('dart-defines')) {
-    dartEne = dartEne + project.property('dart-defines')
-            .split(',')
-            .collectEntries { entry ->
-                def pair = new String(entry.decodeBase64(), 'UTF-8').split('=')
-                [(pair.first()): pair.last()]
-            }
+def SDK_REGISTRY_TOKEN = ""
+File file = file('token')
+if (file.exists()) {
+    SDK_REGISTRY_TOKEN =file.text
+} else {
+    println "REGISTRY_TOKEN not found"
 }
 
 allprojects {
-    project.SDK_REGISTRY_TOKEN = dartEne['MAPBOX_SDK_REGISTRY_TOKEN']
+    project.SDK_REGISTRY_TOKEN = SDK_REGISTRY_TOKEN
     repositories {
         google()
         mavenCentral()

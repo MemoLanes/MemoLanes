@@ -8,12 +8,14 @@ import 'package:project_dv/map.dart';
 import 'package:project_dv/src/rust/api/api.dart';
 import 'package:project_dv/src/rust/frb_generated.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
   // This is required since we are doing things before calling `runApp`.
   WidgetsFlutterBinding.ensureInitialized();
   // TODO: Consider using `flutter_native_splash`
   await RustLib.init();
+  await dotenv.load(fileName: ".env");
   await init(
       tempDir: (await getTemporaryDirectory()).path,
       docDir: (await getApplicationDocumentsDirectory()).path,

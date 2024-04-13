@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:project_dv/src/rust/api/api.dart';
 import 'dart:async';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
@@ -16,9 +17,8 @@ class MapUiBodyState extends State<MapUiBody> {
   static const String overlayImageSourceId = "overlay-image-source";
 
   MapUiBodyState() {
-    MapboxOptions.setAccessToken(
-        const String.fromEnvironment('MAPBOX_ACCESS_TOKEN'));
-  }
+    MapboxOptions.setAccessToken(dotenv.env['MAPBOX-ACCESS-TOKEN']!);
+   }
 
   MapboxMap? mapboxMap;
   bool layerAdded = false;
