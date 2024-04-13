@@ -29,10 +29,6 @@ void main() async {
   );
 }
 
-class EnvironmentConfig {
-  static const accessToken = String.fromEnvironment('MAPBOX_ACCESS_TOKEN');
-}
-
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
 

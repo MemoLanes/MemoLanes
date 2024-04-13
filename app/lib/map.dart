@@ -16,7 +16,8 @@ class MapUiBodyState extends State<MapUiBody> {
   static const String overlayImageSourceId = "overlay-image-source";
 
   MapUiBodyState() {
-    MapboxOptions.setAccessToken(EnvironmentConfig.accessToken);
+    MapboxOptions.setAccessToken(
+        const String.fromEnvironment('MAPBOX_ACCESS_TOKEN'));
   }
 
   bool ready = false;
@@ -31,8 +32,6 @@ class MapUiBodyState extends State<MapUiBody> {
     if (!ready) {
       if ((await mapboxMap.style.getSource(overlayImageSourceId)) == null) {
         return;
-      } else {
-        ready = true;
       }
     }
 
@@ -75,6 +74,8 @@ class MapUiBodyState extends State<MapUiBody> {
         mapboxMap.style.setStyleSourceProperty(
             overlayImageSourceId, "coordinates", coordinates)
       ]);
+
+      ready = true;
     }
   }
 
@@ -121,6 +122,12 @@ class MapUiBodyState extends State<MapUiBody> {
 
   _onMapCreated(MapboxMap mapboxMap) async {
     this.mapboxMap = mapboxMap;
+    await mapboxMap.gestures
+        .updateSettings(GesturesSettings(pitchEnabled: false));
+    await mapboxMap.location.updateSettings(LocationComponentSettings(
+      enabled: true,
+      pulsingEnabled: true,
+    ));
     await mapboxMap.style
         .addSource(ImageSource(id: overlayImageSourceId, coordinates: [
       [0, 0],
@@ -145,8 +152,13 @@ class MapUiBodyState extends State<MapUiBody> {
       key: const ValueKey("mapWidget"),
       onMapCreated: _onMapCreated,
       onCameraChangeListener: _onCameraChangeListener,
+      styleUri: MapboxStyles.OUTDOORS,
       cameraOptions: CameraOptions(
-          // TODO: recent location?
+          // TODO: According to this: https://github.com/mapbox/mapbox-maps-flutter/issues/248
+          // We need to implement our own location tracking. Basically we need 3 kinds of state and 1 button.
+          // State: 1.Display_location_and_camera_tracking / 2.Display_location_only / 3.Off.
+          // The button will toggle between 1/2 -> 3 or 3 -> 1.
+          // When user touched the map, then the state will stay as 3 or change from 3 to 2.
           center: Point(coordinates: Position(-80.1263, 25.7845)).toJson(),
           zoom: 12.0),
     )));
