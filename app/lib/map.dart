@@ -16,8 +16,11 @@ class MapUiBodyState extends State<MapUiBody> {
   static const String overlayImageSourceId = "overlay-image-source";
 
   MapUiBodyState() {
+    // TODO: Kinda want the default implementation is maplibre instead of mapbox.
+    // However maplibre is very buggy + lack of global view +
+    // cannot handle antimeridian well.
     MapboxOptions.setAccessToken(token["MAPBOX-ACCESS-TOKEN"]);
-   }
+  }
 
   MapboxMap? mapboxMap;
   bool layerAdded = false;
@@ -56,17 +59,29 @@ class MapUiBodyState extends State<MapUiBody> {
         [renderResult.right, renderResult.bottom],
         [renderResult.left, renderResult.bottom]
       ];
+      final image = MbxImage(
+          width: renderResult.width,
+          height: renderResult.height,
+          data: renderResult.data);
 
-      await Future.wait([
-        mapboxMap.style.updateStyleImageSourceImage(
-            overlayImageSourceId,
-            MbxImage(
-                width: renderResult.width,
-                height: renderResult.height,
-                data: renderResult.data)),
-        mapboxMap.style.setStyleSourceProperty(
-            overlayImageSourceId, "coordinates", coordinates)
-      ]);
+      if (layerAdded) {
+        await Future.wait([
+          mapboxMap.style
+              .updateStyleImageSourceImage(overlayImageSourceId, image),
+          mapboxMap.style.setStyleSourceProperty(
+              overlayImageSourceId, "coordinates", coordinates)
+        ]);
+      } else {
+        layerAdded = true;
+        await mapboxMap.style.addSource(
+            ImageSource(id: overlayImageSourceId, coordinates: coordinates));
+        await mapboxMap.style.addLayer(RasterLayer(
+          id: overlayLayerId,
+          sourceId: overlayImageSourceId,
+        ));
+        await mapboxMap.style
+            .updateStyleImageSourceImage(overlayImageSourceId, image);
+      }
     }
   }
 
@@ -117,17 +132,6 @@ class MapUiBodyState extends State<MapUiBody> {
     await mapboxMap.location.updateSettings(LocationComponentSettings(
       enabled: true,
       pulsingEnabled: true,
-    ));
-    await mapboxMap.style
-        .addSource(ImageSource(id: overlayImageSourceId, coordinates: [
-      [0, 0],
-      [0, 0],
-      [0, 0],
-      [0, 0]
-    ]));
-    await mapboxMap.style.addLayer(RasterLayer(
-      id: overlayLayerId,
-      sourceId: overlayImageSourceId,
     ));
     this.mapboxMap = mapboxMap;
   }

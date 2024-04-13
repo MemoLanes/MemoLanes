@@ -46,7 +46,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
-/android/token
+/android/mapbox-sdk-registry-token
 /.netrc
 /.env
 /lib/token.dart

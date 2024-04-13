@@ -493,10 +493,10 @@ packages:
     dependency: "direct main"
     description:
       name: mapbox_maps_flutter
-      sha256: "2836541b964560f49b64efb46107788b6ddd9450edae15a4898f55582a323a95"
+      sha256: "09372c3ca04b54684f06fd80abb11e6f1a4ca8d87fbfcf477ff0dbaa8b6b091a"
       url: "https://pub.dev"
     source: hosted
-    version: "1.1.0-rc.1"
+    version: "1.1.0"
   matcher:
     dependency: transitive
     description:

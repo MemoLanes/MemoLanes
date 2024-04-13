@@ -18,7 +18,7 @@ password {password}
 
 def generate_gradle_token(token_content):
     script_dir = os.path.dirname(os.path.realpath(__file__))
-    token_path = os.path.join(script_dir, "android/token")
+    token_path = os.path.join(script_dir, "android/mapbox-sdk-registry-token")
     with open(token_path, "w") as file:
         file.write(token_content)
     print(f"token file generated at: {token_path}")
@@ -38,9 +38,8 @@ if __name__ == "__main__":
             line = line.strip()
             if '=' in line:
                 key, value = line.split('=')
-                key = key.strip()
-                value = value.strip()
-                data[key] = value
-        generate_netrc("api.mapbox.com", "mapbox", data["MAPBOX-SDK-REGISTRY-TOKEN"])
-        generate_gradle_token(data["MAPBOX-SDK-REGISTRY-TOKEN"])
-        generate_token_dart(data["MAPBOX-ACCESS-TOKEN"])
+                data[key.strip()] = value.strip()
+
+    generate_netrc("api.mapbox.com", "mapbox", data["MAPBOX-SDK-REGISTRY-TOKEN"])
+    generate_gradle_token(data["MAPBOX-SDK-REGISTRY-TOKEN"])
+    generate_token_dart(data["MAPBOX-ACCESS-TOKEN"])
