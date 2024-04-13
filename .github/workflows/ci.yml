@@ -47,6 +47,10 @@ jobs:
         working-directory: app
         run: flutter_rust_bridge_codegen generate
 
+      - name: ENV Codegen
+        working-directory: app
+        run: python envgen.py
+
       # Rust
       - name: Cargo Check
         working-directory: app/rust
