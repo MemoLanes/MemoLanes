@@ -1,5 +1,5 @@
-import json
 import os
+from collections import defaultdict 
 
 def generate_netrc(machine, login, password):
     netrc_content = f"""
@@ -42,6 +42,7 @@ if __name__ == "__main__":
                     data[key.strip()] = value.strip()
     else:
         print(".env not found, generating empty files")
+        data = defaultdict(str)
 
     generate_netrc("api.mapbox.com", "mapbox", data["MAPBOX-SDK-REGISTRY-TOKEN"])
     generate_gradle_token(data["MAPBOX-SDK-REGISTRY-TOKEN"])
