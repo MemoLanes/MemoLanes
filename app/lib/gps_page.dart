@@ -105,7 +105,7 @@ class GPSPage extends StatelessWidget {
     var message = "";
     if (position != null) {
       message =
-          '[${position.timestamp.toLocal()}]${position.latitude.toString()}, ${position.longitude.toString()} ${position.altitude.toString()} ~${position.accuracy.toString()}';
+          '[${position.timestamp.toLocal()}]${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)} ~${position.accuracy.toStringAsFixed(1)}';
     }
     return Center(
       child: Column(

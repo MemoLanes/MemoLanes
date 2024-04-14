@@ -21,8 +21,10 @@ class JourneyUiBody extends StatelessWidget {
             itemCount: snapshot.data!.length,
             itemBuilder: (BuildContext context, int index) {
               return ListTile(
-                title: Text(snapshot.data![index].id),
-                subtitle: Text(snapshot.data![index].end.toString()),
+                // TODO: the `toString()` below does not work.
+                title: Text(snapshot.data![index].journeyDate.toString()),
+                subtitle: Text(
+                    snapshot.data![index].start?.toLocal().toString() ?? ""),
               );
             },
           );
