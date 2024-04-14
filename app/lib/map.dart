@@ -199,7 +199,7 @@ class MapUiBodyState extends State<MapUiBody> {
       mapboxMap?.flyTo(
           CameraOptions(
               center: Point(coordinates: position!).toJson(),
-              zoom: 12.0
+              zoom: 14.0
           ),
           null);
     }catch (e) {
