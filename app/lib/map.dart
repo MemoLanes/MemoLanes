@@ -175,6 +175,7 @@ class MapUiBodyState extends State<MapUiBody> {
 
   _onMapLoadedListener(MapLoadedEventData data) {
     _refreshTrackLocation();
+    updateCamera();
   }
 
   _gpsButton() {
