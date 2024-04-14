@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:project_dv/src/rust/api/api.dart';
 import 'dart:async';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
@@ -191,6 +192,25 @@ class MapUiBodyState extends State<MapUiBody> {
   // State: 1.Display_location_and_camera_tracking / 2.Display_location_only / 3.Off.
   // The button will toggle between 1/2 -> 3 or 3 -> 1.
   // When user touched the map, then the state will stay as 3 or change from 1 to 2.
+
+  _refreshTrackLocation() async {
+    try {
+      final position = await mapboxMap?.style.getPuckPosition();
+      mapboxMap?.flyTo(
+          CameraOptions(
+              center: Point(coordinates: position!).toJson(),
+              zoom: 12.0
+          ),
+          null);
+    }catch (e) {
+      trackTimer?.cancel();
+      setState(() {
+        trackingMode = TrackingMode.Off;
+      });
+      Fluttertoast.showToast(msg: "No final orientation");
+    }
+  }
+
   updateCamera() async {
     if (trackingMode == TrackingMode.Display_and_tracking) {
       await mapboxMap?.location
@@ -198,13 +218,7 @@ class MapUiBodyState extends State<MapUiBody> {
       trackTimer?.cancel();
       if (trackingMode == TrackingMode.Display_and_tracking) {
         trackTimer  = Timer.periodic(const Duration(seconds: 1), (timer) async {
-          final position = await mapboxMap?.style.getPuckPosition();
-          mapboxMap?.flyTo(
-              CameraOptions(
-                  center: Point(coordinates: position!).toJson(),
-                  zoom: 12.0
-              ),
-              null);
+          _refreshTrackLocation();
         });
         return;
       }
