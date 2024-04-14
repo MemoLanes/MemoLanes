@@ -152,8 +152,8 @@ class MapUiBodyState extends State<MapUiBody> {
   _onMapScrollListener(ScreenCoordinate coordinate) {
     if (trackingMode == TrackingMode.Display_and_tracking) {
       trackingMode = TrackingMode.Display_only;
+      updateCamera();
     }
-    updateCamera();
   }
 
   _gpsButton() {
