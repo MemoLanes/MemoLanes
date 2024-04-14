@@ -1,9 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:project_dv/src/rust/api/api.dart';
 import 'dart:async';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:project_dv/token.dart';
-import 'package:project_dv/utils.dart';
 
 class MapUiBody extends StatefulWidget {
   const MapUiBody({super.key});
@@ -16,6 +16,19 @@ enum TrackingMode {
   Display_and_tracking,
   Display_only,
   Off,
+}
+
+extension PuckPosition on StyleManager {
+  Future<Position> getPuckPosition() async {
+    Layer? layer;
+    if (Platform.isAndroid) {
+      layer = await getLayer("mapbox-location-indicator-layer");
+    } else {
+      layer = await getLayer("puck");
+    }
+    final location = (layer as LocationIndicatorLayer).location;
+    return Position(location![1]!, location[0]!);
+  }
 }
 
 class MapUiBodyState extends State<MapUiBody> {
@@ -151,18 +164,27 @@ class MapUiBodyState extends State<MapUiBody> {
 
   _onMapScrollListener(ScreenCoordinate coordinate) {
     if (trackingMode == TrackingMode.Display_and_tracking) {
-      trackingMode = TrackingMode.Display_only;
+      _triggerRefresh();
+      setState(() {
+        trackingMode = TrackingMode.Display_only;
+      });
       updateCamera();
     }
   }
 
-  _gpsButton() {
-    if (trackingMode == TrackingMode.Off) {
-      trackingMode = TrackingMode.Display_and_tracking;
-    } else {
-      trackingMode = TrackingMode.Off;
-    }
+  _onStyleLoadedCallback(StyleLoadedEventData data) {
     updateCamera();
+  }
+
+  _gpsButton() {
+    setState(() {
+      if (trackingMode == TrackingMode.Off) {
+        trackingMode = TrackingMode.Display_and_tracking;
+      } else {
+        trackingMode = TrackingMode.Off;
+      }
+      updateCamera();
+    });
   }
 
   // We need to implement our own location tracking. Basically we need 3 kinds of state and 1 button.
@@ -173,14 +195,19 @@ class MapUiBodyState extends State<MapUiBody> {
     if (trackingMode == TrackingMode.Display_and_tracking) {
       await mapboxMap?.location
           .updateSettings(LocationComponentSettings(enabled: true));
-      Position? position = await mapboxMap?.style.getPuckPosition();
-      await mapboxMap?.setCamera(CameraOptions(
-        center: Point(coordinates: position!).toJson(),
-      ));
-      trackTimer ??= Timer.periodic(const Duration(seconds: 1), (Timer _) {
-        updateCamera();
-      });
-      return;
+      trackTimer?.cancel();
+      if (trackingMode == TrackingMode.Display_and_tracking) {
+        trackTimer  = Timer.periodic(const Duration(seconds: 1), (timer) async {
+          final position = await mapboxMap?.style.getPuckPosition();
+          mapboxMap?.flyTo(
+              CameraOptions(
+                  center: Point(coordinates: position!).toJson(),
+                  zoom: 12.0
+              ),
+              null);
+        });
+        return;
+      }
     }
 
     if (trackingMode == TrackingMode.Display_only) {
@@ -197,24 +224,25 @@ class MapUiBodyState extends State<MapUiBody> {
 
   @override
   Widget build(BuildContext context) {
-    updateCamera();
     return Scaffold(
       body: (MapWidget(
         key: const ValueKey("mapWidget"),
         onMapCreated: _onMapCreated,
         onCameraChangeListener: _onCameraChangeListener,
         onScrollListener: _onMapScrollListener,
+        onStyleLoadedListener: _onStyleLoadedCallback,
         styleUri: MapboxStyles.OUTDOORS,
-        cameraOptions: CameraOptions(
-            zoom: 12.0),
+        cameraOptions: CameraOptions(zoom: 12.0),
       )),
       floatingActionButton: FloatingActionButton(
         child: Icon(
           trackingMode == TrackingMode.Off
-              ? Icons.gps_not_fixed
-              : Icons.gps_fixed,
-          color: Colors.blue,
+              ? Icons.near_me_disabled
+              : Icons.near_me,
+          color: Colors.black,
         ),
+        backgroundColor:
+            trackingMode == TrackingMode.Off ? Colors.grey : Colors.blue,
         onPressed: () {
           _gpsButton();
         },
