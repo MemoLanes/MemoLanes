@@ -173,8 +173,8 @@ class MapUiBodyState extends State<MapUiBody> {
     }
   }
 
-  _onStyleLoadedCallback(StyleLoadedEventData data) {
-    updateCamera();
+  _onMapLoadedListener(MapLoadedEventData data) {
+    _refreshTrackLocation();
   }
 
   _gpsButton() {
@@ -198,11 +198,9 @@ class MapUiBodyState extends State<MapUiBody> {
       final position = await mapboxMap?.style.getPuckPosition();
       mapboxMap?.flyTo(
           CameraOptions(
-              center: Point(coordinates: position!).toJson(),
-              zoom: 14.0
-          ),
+              center: Point(coordinates: position!).toJson(), zoom: 14.0),
           null);
-    }catch (e) {
+    } catch (e) {
       trackTimer?.cancel();
       setState(() {
         trackingMode = TrackingMode.Off;
@@ -217,14 +215,14 @@ class MapUiBodyState extends State<MapUiBody> {
       await mapboxMap?.location
           .updateSettings(LocationComponentSettings(enabled: true));
       if (trackingMode == TrackingMode.Display_and_tracking) {
-        trackTimer  = Timer.periodic(const Duration(seconds: 1), (timer) async {
+        trackTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
           _refreshTrackLocation();
         });
       }
-    }else if (trackingMode == TrackingMode.Display_only) {
+    } else if (trackingMode == TrackingMode.Display_only) {
       await mapboxMap?.location
           .updateSettings(LocationComponentSettings(enabled: true));
-    }else if (trackingMode == TrackingMode.Off) {
+    } else if (trackingMode == TrackingMode.Off) {
       await mapboxMap?.location
           .updateSettings(LocationComponentSettings(enabled: false));
     }
@@ -238,13 +236,14 @@ class MapUiBodyState extends State<MapUiBody> {
         onMapCreated: _onMapCreated,
         onCameraChangeListener: _onCameraChangeListener,
         onScrollListener: _onMapScrollListener,
-        onStyleLoadedListener: _onStyleLoadedCallback,
+        onMapLoadedListener: _onMapLoadedListener,
         styleUri: MapboxStyles.OUTDOORS,
         cameraOptions: CameraOptions(zoom: 12.0),
       )),
       floatingActionButton: FloatingActionButton(
-        backgroundColor:
-            trackingMode == TrackingMode.Off ? Colors.grey : Colors.blue,
+        backgroundColor: trackingMode == TrackingMode.Display_and_tracking
+            ? Colors.blue
+            : Colors.grey,
         onPressed: () {
           _gpsButton();
         },
