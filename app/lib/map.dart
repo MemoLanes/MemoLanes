@@ -212,28 +212,22 @@ class MapUiBodyState extends State<MapUiBody> {
   }
 
   updateCamera() async {
+    trackTimer?.cancel();
     if (trackingMode == TrackingMode.Display_and_tracking) {
       await mapboxMap?.location
           .updateSettings(LocationComponentSettings(enabled: true));
-      trackTimer?.cancel();
       if (trackingMode == TrackingMode.Display_and_tracking) {
         trackTimer  = Timer.periodic(const Duration(seconds: 1), (timer) async {
           _refreshTrackLocation();
         });
-        return;
       }
-    }
-
-    if (trackingMode == TrackingMode.Display_only) {
+    }else if (trackingMode == TrackingMode.Display_only) {
       await mapboxMap?.location
           .updateSettings(LocationComponentSettings(enabled: true));
-    }
-
-    if (trackingMode == TrackingMode.Off) {
+    }else if (trackingMode == TrackingMode.Off) {
       await mapboxMap?.location
           .updateSettings(LocationComponentSettings(enabled: false));
     }
-    trackTimer?.cancel();
   }
 
   @override
