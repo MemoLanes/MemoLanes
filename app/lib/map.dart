@@ -249,17 +249,17 @@ class MapUiBodyState extends State<MapUiBody> {
         cameraOptions: CameraOptions(zoom: 12.0),
       )),
       floatingActionButton: FloatingActionButton(
+        backgroundColor:
+            trackingMode == TrackingMode.Off ? Colors.grey : Colors.blue,
+        onPressed: () {
+          _gpsButton();
+        },
         child: Icon(
           trackingMode == TrackingMode.Off
               ? Icons.near_me_disabled
               : Icons.near_me,
           color: Colors.black,
         ),
-        backgroundColor:
-            trackingMode == TrackingMode.Off ? Colors.grey : Colors.blue,
-        onPressed: () {
-          _gpsButton();
-        },
       ),
     );
   }
