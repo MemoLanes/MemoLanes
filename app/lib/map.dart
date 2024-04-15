@@ -14,9 +14,9 @@ class MapUiBody extends StatefulWidget {
 }
 
 enum TrackingMode {
-  Display_and_tracking,
-  Display_only,
-  Off,
+  displayAndTracking,
+  displayOnly,
+  off,
 }
 
 extension PuckPosition on StyleManager {
@@ -48,7 +48,7 @@ class MapUiBodyState extends State<MapUiBody> {
   Completer? requireRefresh = Completer();
   Timer? timer;
   Timer? trackTimer;
-  TrackingMode trackingMode = TrackingMode.Display_and_tracking;
+  TrackingMode trackingMode = TrackingMode.displayAndTracking;
 
   Future<void> _doActualRefresh() async {
     var mapboxMap = this.mapboxMap;
@@ -152,10 +152,6 @@ class MapUiBodyState extends State<MapUiBody> {
   _onMapCreated(MapboxMap mapboxMap) async {
     await mapboxMap.gestures
         .updateSettings(GesturesSettings(pitchEnabled: false));
-    await mapboxMap.location.updateSettings(LocationComponentSettings(
-      enabled: true,
-      pulsingEnabled: true,
-    ));
     this.mapboxMap = mapboxMap;
   }
 
@@ -164,10 +160,10 @@ class MapUiBodyState extends State<MapUiBody> {
   }
 
   _onMapScrollListener(ScreenCoordinate coordinate) {
-    if (trackingMode == TrackingMode.Display_and_tracking) {
+    if (trackingMode == TrackingMode.displayAndTracking) {
       _triggerRefresh();
       setState(() {
-        trackingMode = TrackingMode.Display_only;
+        trackingMode = TrackingMode.displayOnly;
       });
       updateCamera();
     }
@@ -178,52 +174,40 @@ class MapUiBodyState extends State<MapUiBody> {
     updateCamera();
   }
 
-  _gpsButton() {
+  _trackingModeButton() async {
     setState(() {
-      if (trackingMode == TrackingMode.Off) {
-        trackingMode = TrackingMode.Display_and_tracking;
+      if (trackingMode == TrackingMode.off) {
+        trackingMode = TrackingMode.displayAndTracking;
       } else {
-        trackingMode = TrackingMode.Off;
+        trackingMode = TrackingMode.off;
       }
-      updateCamera();
     });
+    await updateCamera();
   }
-
-  // We need to implement our own location tracking. Basically we need 3 kinds of state and 1 button.
-  // State: 1.Display_location_and_camera_tracking / 2.Display_location_only / 3.Off.
-  // The button will toggle between 1/2 -> 3 or 3 -> 1.
-  // When user touched the map, then the state will stay as 3 or change from 1 to 2.
 
   _refreshTrackLocation() async {
     try {
       final position = await mapboxMap?.style.getPuckPosition();
-      mapboxMap?.flyTo(
+      await mapboxMap?.flyTo(
           CameraOptions(
               center: Point(coordinates: position!).toJson(), zoom: 14.0),
           null);
     } catch (e) {
-      trackTimer?.cancel();
-      setState(() {
-        trackingMode = TrackingMode.Off;
-      });
-      Fluttertoast.showToast(msg: "No final orientation");
+      // just best effort
     }
   }
 
   updateCamera() async {
     trackTimer?.cancel();
-    if (trackingMode == TrackingMode.Display_and_tracking) {
-      await mapboxMap?.location
-          .updateSettings(LocationComponentSettings(enabled: true));
-      if (trackingMode == TrackingMode.Display_and_tracking) {
-        trackTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-          _refreshTrackLocation();
-        });
-      }
-    } else if (trackingMode == TrackingMode.Display_only) {
-      await mapboxMap?.location
-          .updateSettings(LocationComponentSettings(enabled: true));
-    } else if (trackingMode == TrackingMode.Off) {
+    if (trackingMode == TrackingMode.displayAndTracking) {
+      trackTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+        _refreshTrackLocation();
+      });
+      await mapboxMap?.location.updateSettings(
+          LocationComponentSettings(enabled: true, pulsingEnabled: true));
+    } else if (trackingMode == TrackingMode.displayOnly) {
+      // nothing to do here, we always get here from `displayAndTracking`.
+    } else if (trackingMode == TrackingMode.off) {
       await mapboxMap?.location
           .updateSettings(LocationComponentSettings(enabled: false));
     }
@@ -242,14 +226,12 @@ class MapUiBodyState extends State<MapUiBody> {
         cameraOptions: CameraOptions(zoom: 12.0),
       )),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: trackingMode == TrackingMode.Display_and_tracking
+        backgroundColor: trackingMode == TrackingMode.displayAndTracking
             ? Colors.blue
             : Colors.grey,
-        onPressed: () {
-          _gpsButton();
-        },
+        onPressed: _trackingModeButton,
         child: Icon(
-          trackingMode == TrackingMode.Off
+          trackingMode == TrackingMode.off
               ? Icons.near_me_disabled
               : Icons.near_me,
           color: Colors.black,
