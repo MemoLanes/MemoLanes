@@ -1,10 +1,7 @@
 use tiny_skia::{Color, Pixmap, PixmapPaint, Transform};
 
 use crate::{
-    journey_bitmap::JourneyBitmap,
-    tile_renderer::TileRenderer,
-    utils,
-    blur::gaussian_blur,
+    blur::gaussian_blur, journey_bitmap::JourneyBitmap, tile_renderer::TileRenderer, utils,
 };
 
 pub struct RenderResult {
@@ -39,7 +36,10 @@ impl MapRenderer {
         Self::new_with_tile_renderer(journey_bitmap, tile_renderer)
     }
 
-    pub fn new_with_tile_renderer(journey_bitmap: JourneyBitmap, tile_renderer: TileRenderer) -> Self {
+    pub fn new_with_tile_renderer(
+        journey_bitmap: JourneyBitmap,
+        tile_renderer: TileRenderer,
+    ) -> Self {
         Self {
             tile_renderer,
             journey_bitmap,
