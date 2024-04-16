@@ -4,6 +4,7 @@ use crate::{
     journey_bitmap::JourneyBitmap,
     tile_renderer::TileRenderer,
     utils,
+    blur::gaussian_blur,
 };
 
 pub struct RenderResult {
@@ -89,6 +90,15 @@ impl MapRenderer {
                 );
             }
         }
+
+        let width = pixmap.width();
+        let height = pixmap.height();
+        gaussian_blur(
+            pixmap.data_mut(),
+            width.try_into().unwrap(),
+            height.try_into().unwrap(),
+            1.0,
+        );
 
         let bytes = pixmap.encode_png().unwrap();
 
