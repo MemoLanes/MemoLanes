@@ -40,6 +40,10 @@ impl TileRenderer {
         self.view_size_power = power;
     }
 
+    pub fn get_tile_size_power(&self) -> i16 {
+        self.view_size_power
+    }
+
     /// Render a given location of FogMap data onto a Pixmap.
     ///
     /// * `journey_bitmap`: an instance of JourneyBitmap.

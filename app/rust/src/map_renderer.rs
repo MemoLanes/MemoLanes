@@ -2,7 +2,7 @@ use tiny_skia::{Color, Pixmap, PixmapPaint, Transform};
 
 use crate::{
     journey_bitmap::JourneyBitmap,
-    tile_renderer::{self, TileRenderer},
+    tile_renderer::TileRenderer,
     utils,
 };
 
@@ -34,8 +34,13 @@ pub struct MapRenderer {
 
 impl MapRenderer {
     pub fn new(journey_bitmap: JourneyBitmap) -> Self {
-        MapRenderer {
-            tile_renderer: TileRenderer::new(),
+        let tile_renderer = TileRenderer::new();
+        Self::new_with_tile_renderer(journey_bitmap, tile_renderer)
+    }
+
+    pub fn new_with_tile_renderer(journey_bitmap: JourneyBitmap, tile_renderer: TileRenderer) -> Self {
+        Self {
+            tile_renderer,
             journey_bitmap,
             current_render_area: None,
         }
@@ -50,7 +55,7 @@ impl MapRenderer {
         // now is that it is pure rust, so we don't need to think about how to build depenceies
         // for various platform.
 
-        const TILE_SIZE: u32 = 1 << tile_renderer::DEFAULT_VIEW_SIZE_POWER;
+        let tile_size: u32 = 1 << self.tile_renderer.get_tile_size_power();
         let width_by_tile: u32 = (render_area.right_idx - render_area.left_idx + 1)
             .try_into()
             .unwrap();
@@ -60,7 +65,7 @@ impl MapRenderer {
 
         // TODO: reuse resurces?
         let mut pixmap =
-            Pixmap::new(TILE_SIZE * width_by_tile, TILE_SIZE * height_by_tile).unwrap();
+            Pixmap::new(tile_size * width_by_tile, tile_size * height_by_tile).unwrap();
         pixmap.fill(Color::from_rgba8(0, 0, 0, 64));
 
         for x in 0..width_by_tile {
@@ -75,8 +80,8 @@ impl MapRenderer {
                 );
 
                 pixmap.draw_pixmap(
-                    (x * TILE_SIZE) as i32,
-                    (y * TILE_SIZE) as i32,
+                    (x * tile_size) as i32,
+                    (y * tile_size) as i32,
                     tile_pixmap.as_ref(),
                     &PixmapPaint::default(),
                     Transform::identity(),
