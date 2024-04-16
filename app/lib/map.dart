@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:project_dv/src/rust/api/api.dart';
 import 'dart:async';
@@ -9,6 +10,25 @@ class MapUiBody extends StatefulWidget {
 
   @override
   State<StatefulWidget> createState() => MapUiBodyState();
+}
+
+enum TrackingMode {
+  displayAndTracking,
+  displayOnly,
+  off,
+}
+
+extension PuckPosition on StyleManager {
+  Future<Position> getPuckPosition() async {
+    Layer? layer;
+    if (Platform.isAndroid) {
+      layer = await getLayer("mapbox-location-indicator-layer");
+    } else {
+      layer = await getLayer("puck");
+    }
+    final location = (layer as LocationIndicatorLayer).location;
+    return Position(location![1]!, location[0]!);
+  }
 }
 
 class MapUiBodyState extends State<MapUiBody> {
@@ -26,6 +46,8 @@ class MapUiBodyState extends State<MapUiBody> {
   bool layerAdded = false;
   Completer? requireRefresh = Completer();
   Timer? timer;
+  Timer? trackTimer;
+  TrackingMode trackingMode = TrackingMode.displayAndTracking;
 
   Future<void> _doActualRefresh() async {
     var mapboxMap = this.mapboxMap;
@@ -129,10 +151,6 @@ class MapUiBodyState extends State<MapUiBody> {
   _onMapCreated(MapboxMap mapboxMap) async {
     await mapboxMap.gestures
         .updateSettings(GesturesSettings(pitchEnabled: false));
-    await mapboxMap.location.updateSettings(LocationComponentSettings(
-      enabled: true,
-      pulsingEnabled: true,
-    ));
     this.mapboxMap = mapboxMap;
   }
 
@@ -140,22 +158,84 @@ class MapUiBodyState extends State<MapUiBody> {
     _triggerRefresh();
   }
 
+  _onMapScrollListener(ScreenCoordinate coordinate) {
+    if (trackingMode == TrackingMode.displayAndTracking) {
+      _triggerRefresh();
+      setState(() {
+        trackingMode = TrackingMode.displayOnly;
+      });
+      updateCamera();
+    }
+  }
+
+  _onMapLoadedListener(MapLoadedEventData data) {
+    _refreshTrackLocation();
+    updateCamera();
+  }
+
+  _trackingModeButton() async {
+    setState(() {
+      if (trackingMode == TrackingMode.off) {
+        trackingMode = TrackingMode.displayAndTracking;
+      } else {
+        trackingMode = TrackingMode.off;
+      }
+    });
+    await updateCamera();
+  }
+
+  _refreshTrackLocation() async {
+    try {
+      final position = await mapboxMap?.style.getPuckPosition();
+      await mapboxMap?.flyTo(
+          CameraOptions(
+              center: Point(coordinates: position!).toJson(), zoom: 14.0),
+          null);
+    } catch (e) {
+      // just best effort
+    }
+  }
+
+  updateCamera() async {
+    trackTimer?.cancel();
+    if (trackingMode == TrackingMode.displayAndTracking) {
+      trackTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+        _refreshTrackLocation();
+      });
+      await mapboxMap?.location.updateSettings(
+          LocationComponentSettings(enabled: true, pulsingEnabled: true));
+    } else if (trackingMode == TrackingMode.displayOnly) {
+      // nothing to do here, we always get here from `displayAndTracking`.
+    } else if (trackingMode == TrackingMode.off) {
+      await mapboxMap?.location
+          .updateSettings(LocationComponentSettings(enabled: false));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        body: (MapWidget(
-      key: const ValueKey("mapWidget"),
-      onMapCreated: _onMapCreated,
-      onCameraChangeListener: _onCameraChangeListener,
-      styleUri: MapboxStyles.OUTDOORS,
-      cameraOptions: CameraOptions(
-          // TODO: According to this: https://github.com/mapbox/mapbox-maps-flutter/issues/248
-          // We need to implement our own location tracking. Basically we need 3 kinds of state and 1 button.
-          // State: 1.Display_location_and_camera_tracking / 2.Display_location_only / 3.Off.
-          // The button will toggle between 1/2 -> 3 or 3 -> 1.
-          // When user touched the map, then the state will stay as 3 or change from 3 to 2.
-          center: Point(coordinates: Position(-80.1263, 25.7845)).toJson(),
-          zoom: 12.0),
-    )));
+      body: (MapWidget(
+        key: const ValueKey("mapWidget"),
+        onMapCreated: _onMapCreated,
+        onCameraChangeListener: _onCameraChangeListener,
+        onScrollListener: _onMapScrollListener,
+        onMapLoadedListener: _onMapLoadedListener,
+        styleUri: MapboxStyles.OUTDOORS,
+        cameraOptions: CameraOptions(zoom: 12.0),
+      )),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: trackingMode == TrackingMode.displayAndTracking
+            ? Colors.blue
+            : Colors.grey,
+        onPressed: _trackingModeButton,
+        child: Icon(
+          trackingMode == TrackingMode.off
+              ? Icons.near_me_disabled
+              : Icons.near_me,
+          color: Colors.black,
+        ),
+      ),
+    );
   }
 }
