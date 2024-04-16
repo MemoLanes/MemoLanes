@@ -5,7 +5,6 @@ use memolanes_core::import_data;
 use memolanes_core::tile_renderer::TileRenderer;
 use memolanes_core::{journey_bitmap::JourneyBitmap, map_renderer::*};
 use tiny_skia;
-// use fastblur::gaussian_blur;
 
 #[test]
 fn basic() {
@@ -29,7 +28,7 @@ fn basic() {
     test_utils::assert_image(
         &render_result.data,
         "map_renderer_basic",
-        "2f55c28e9757b76d9b20efc600127eac9b3432f2",
+        "5fcedc1814910bb5c34ef3b50378fe29a5128fe0",
     );
 
     // a small move shouldn't trigger a re-render
@@ -71,12 +70,13 @@ fn blurred_rendering() {
     test_utils::assert_image(
         &render_result.data,
         "map_render_better_graphics",
-        "027a75d45416cdc470d9f7c3fd2660a50f89aa45",
+        "faa6152ccbf40d954fc23fb3e4f94700c24fa347",
     );
 
     let mut pixmap = tiny_skia::Pixmap::decode_png(&render_result.data).unwrap();
     let pixmap_data = pixmap.data_mut();
 
+    // double blurred
     gaussian_blur(
         pixmap_data,
         render_result.width.try_into().unwrap(),
@@ -89,6 +89,6 @@ fn blurred_rendering() {
     test_utils::assert_image(
         &image_blurred,
         "map_render_blurred",
-        "a094374b53efc13d475c97d20f2796b3cc4d1969",
+        "149066384e71e6b03316c46e88eddc86dc53f921",
     );
 }
