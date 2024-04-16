@@ -84,10 +84,6 @@ fn blurred_rendering() {
         2.0,
     );
 
-    // let pixmap_blurred = tiny_skia::Pixmap::from_vec(
-    //     pixmap_data.to_vec(),
-    //     tiny_skia::IntSize::from_wh(render_result.width, render_result.height).unwrap()
-    // ).unwrap();
     let image_blurred = pixmap.encode_png().unwrap();
 
     test_utils::assert_image(
@@ -95,40 +91,4 @@ fn blurred_rendering() {
         "map_render_blurred",
         "a094374b53efc13d475c97d20f2796b3cc4d1969",
     );
-
-    // let mut rgb = Vec::with_capacity(pixmap_data.len()/4);
-    // let mut a = Vec::with_capacity(pixmap_data.len()/4);
-
-    // for chunk in pixmap_data.chunks(4) {
-    //     rgb.push([chunk[0], chunk[1], chunk[2]]);
-    //     a.push(chunk[3]);
-    // }
-
-    // gaussian_blur(
-    //     &mut rgb,
-    //     render_result.width.try_into().unwrap(),
-    //     render_result.height.try_into().unwrap(),
-    //     2.0
-    // );
-
-    // let mut combined = Vec::with_capacity(pixmap_data.len());
-
-    // for i in 0..a.len() {
-    //     combined.push(rgb[i][0]);
-    //     combined.push(rgb[i][1]);
-    //     combined.push(rgb[i][2]);
-    //     combined.push(a[i]);
-    // }
-
-    // let pixmap_blurred = tiny_skia::Pixmap::from_vec(
-    //     combined,
-    //     tiny_skia::IntSize::from_wh(render_result.width, render_result.height).unwrap()
-    // ).unwrap();
-    // let image_blurred = pixmap_blurred.encode_png().unwrap();
-
-    // test_utils::assert_image(
-    //     &image_blurred,
-    //     "map_render_blurred",
-    //     "a094374b53efc13d475c97d20f2796b3cc4d1969",
-    // );
 }
