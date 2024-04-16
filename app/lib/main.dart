@@ -9,6 +9,7 @@ import 'package:project_dv/src/rust/api/api.dart';
 import 'package:project_dv/src/rust/frb_generated.dart';
 import 'package:provider/provider.dart';
 
+
 void main() async {
   // This is required since we are doing things before calling `runApp`.
   WidgetsFlutterBinding.ensureInitialized();
