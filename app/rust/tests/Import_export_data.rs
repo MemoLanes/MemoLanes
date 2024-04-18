@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use memolanes_core::{export_data, import_data};
 
 #[test]
@@ -28,15 +29,13 @@ pub fn gpx() {
         .into_iter()
         .flat_map(|t| t.track_points.into_iter())
         .into_iter()
-        .count();
+        .collect_vec();
     let points2 = tracks2
         .into_iter()
         .flat_map(|t| t.track_points.into_iter())
         .into_iter()
-        .count();
-
-    assert_eq!(points1, 2945);
-    assert_eq!(points2, points1);
+        .collect_vec();
+    assert_eq!(points1, points2);
 }
 
 #[test]

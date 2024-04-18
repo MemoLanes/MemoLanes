@@ -182,9 +182,6 @@ pub fn load_gpx(file_path: &str, run_preprocessor: bool) -> Result<JourneyVector
 }
 
 pub fn load_kml(file_path: &str, run_preprocessor: bool) -> Result<JourneyVector> {
-    let kml_data =
-        KmlReader::<_, f64>::from_reader(BufReader::new(File::open(file_path)?)).read()?;
-
     let parse_line = |coord: &Option<String>, when: &Option<String>| {
         let coord: Vec<&str> = match coord {
             Some(coord) => coord.split_whitespace().collect(),
@@ -209,6 +206,10 @@ pub fn load_kml(file_path: &str, run_preprocessor: bool) -> Result<JourneyVector
             speed: None,
         }))
     };
+
+    let kml_data =
+        KmlReader::<_, f64>::from_reader(BufReader::new(File::open(file_path)?)).read()?;
+
     let segments = flatten_kml(kml_data)
         .into_iter()
         .filter_map(|k| match k {

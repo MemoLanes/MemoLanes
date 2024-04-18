@@ -3,8 +3,7 @@ use anyhow::{Ok, Result};
 use geo_types::Point;
 use gpx::{Gpx, GpxVersion, Track, TrackSegment, Waypoint};
 use kml::{Kml, KmlDocument, KmlWriter};
-use maplit::hashmap;
-use std::fs;
+use std::{collections::HashMap, fs};
 
 pub fn journey_vector_to_gpx_file(file_path: &str, journey_vector: &JourneyVector) -> Result<()> {
     let mut segments = Vec::new();
@@ -36,21 +35,12 @@ pub fn journey_vector_to_gpx_file(file_path: &str, journey_vector: &JourneyVecto
     };
 
     let file = fs::File::create(file_path)?;
-    // You can give it anything that implements `std::io::Write`.
     gpx::write(&gpx, file)?;
     Ok(())
 }
 
 pub fn journey_vector_to_kml_file(file_path: &str, journey_vector: &JourneyVector) -> Result<()> {
-    let style_id = "lineStyle1";
     let style = kml::types::Style {
-        id: Some(style_id.to_owned()),
-        line: Some(kml::types::LineStyle {
-            id: Some("lineStyle1".to_owned()),
-            color: "C8F39621".to_owned(),
-            width: 5.,
-            ..kml::types::LineStyle::default()
-        }),
         ..kml::types::Style::default()
     };
 
@@ -79,9 +69,6 @@ pub fn journey_vector_to_kml_file(file_path: &str, journey_vector: &JourneyVecto
 
         let placemark = kml::types::Placemark {
             name: Some("export".to_string()),
-            attrs: hashmap! {
-                "styleUrl".to_owned() => format!("lineStyle1"),
-            },
             children: vec![kml::types::Element {
                 name: "gx:Track".to_owned(),
                 content: None,
@@ -111,17 +98,29 @@ pub fn write_kml_document(
 ) -> Result<()> {
     let document = KmlDocument::<f64> {
         version: kml::KmlVersion::V22,
-        attrs: hashmap! {
-            "xmlns".to_owned()      => "http://www.opengis.net/kml/2.2".to_owned(),
-            "xmlns:gx".to_owned()   => "http://www.google.com/kml/ext/2.2".to_owned(),
-            "xmlns:kml".to_owned()  => "http://www.opengis.net/kml/2.2".to_owned(),
-            "xmlns:atom".to_owned() => "http://www.w3.org/2005/Atom".to_owned(),
-        },
+        attrs: HashMap::from([
+            (
+                "xmlns".to_owned(),
+                "http://www.opengis.net/kml/2.2".to_owned(),
+            ),
+            (
+                "xmlns:gx".to_owned(),
+                "http://www.google.com/kml/ext/2.2".to_owned(),
+            ),
+            (
+                "xmlns:kml".to_owned(),
+                "http://www.opengis.net/kml/2.2".to_owned(),
+            ),
+            (
+                "xmlns:atom".to_owned(),
+                "http://www.w3.org/2005/Atom".to_owned(),
+            ),
+        ]),
         elements: vec![Kml::Folder {
-            attrs: hashmap! {
-                "name".to_owned()        => name,
-                "description".to_owned() => description,
-            },
+            attrs: HashMap::from([
+                ("name".to_owned(), name),
+                ("description".to_owned(), description.to_owned()),
+            ]),
             elements,
         }],
     };
