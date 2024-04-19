@@ -625,9 +625,9 @@ dependencies = [
 
 [[package]]
 name = "geo-types"
-version = "0.7.12"
+version = "0.7.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "567495020b114f1ce9bed679b29975aa0bfae06ac22beacd5cfde5dabe7b05d6"
+checksum = "9ff16065e5720f376fbced200a5ae0f47ace85fd70b7e54269790281353b6d61"
 dependencies = [
  "approx",
  "num-traits",
@@ -885,6 +885,7 @@ dependencies = [
  "csv",
  "flate2",
  "flutter_rust_bridge",
+ "geo-types",
  "gpx",
  "hex",
  "integer-encoding",
