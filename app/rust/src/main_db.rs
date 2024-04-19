@@ -241,7 +241,7 @@ impl Txn<'_> {
 
     pub fn list_all_journeys(&self) -> Result<Vec<JourneyHeader>> {
         let mut query = self.db_txn.prepare(
-            "SELECT header, type FROM journey ORDER BY journey_date, timestamp_for_ordering, id DESC;",
+            "SELECT header, type FROM journey ORDER BY journey_date DESC, timestamp_for_ordering DESC, id;",
             // use `id` to break tie
         )?;
         let mut rows = query.query(())?;
