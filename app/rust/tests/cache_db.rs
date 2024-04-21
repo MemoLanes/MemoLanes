@@ -1,6 +1,6 @@
 pub mod test_utils;
 
-use memolanes_core::{cache_db::CacheDb, journey_bitmap::JourneyBitmap, journey_data::JourneyData};
+use memolanes_core::{cache_db::CacheDb, journey_data::JourneyData};
 use tempdir::TempDir;
 
 use crate::test_utils::draw_sample_bitmap;
@@ -25,34 +25,28 @@ fn basic() {
     // validate the cached journey
     let mut journey_cache = cache_db.get_journey().unwrap();
 
-    assert_eq!(journey_data, journey_cache);
-
-    let mut journey_bitmap_from_cache = JourneyBitmap::new();
+    let journey_bitmap = draw_sample_bitmap().unwrap();
     match journey_cache {
-        JourneyData::Bitmap(bitmap) => journey_bitmap_from_cache.merge(bitmap),
+        Some(journey_cache) => assert_eq!(journey_bitmap, journey_cache),
         _ => panic!("Expected bitmap data"),
     }
 
-    let journey_bitmap = draw_sample_bitmap().unwrap();
-    assert_eq!(journey_bitmap, journey_bitmap_from_cache);
-
     // test delete
     cache_db.delete_cached_journey().unwrap();
-    let res_cache_db = cache_db.get_journey();
-    match res_cache_db {
-        Err(e) => {
-            if e.to_string() != "Query returned no rows" {
-                panic!("Unexpected error when retrieving cached data: {:?}", e);
-            }
-        }
-        _ => {
-            panic!("Cache shold be deleted")
-        }
-    };
+    let result = cache_db.get_journey();
+    match result {
+        Ok(None) => (),
+        Ok(Some(_)) => panic!("Expected no bitmap but found one."),
+        Err(e) => panic!("Expected no bitmap but encountered an error: {}", e),
+    }
 
     let mut buf1 = Vec::new();
     journey_data.serialize(&mut buf1).unwrap();
     cache_db.insert_journey_bitmap(buf1).unwrap();
     journey_cache = cache_db.get_journey().unwrap();
-    assert_eq!(journey_data, journey_cache);
+    let journey_bitmap = draw_sample_bitmap().unwrap();
+    match journey_cache {
+        Some(journey_cache) => assert_eq!(journey_bitmap, journey_cache),
+        _ => panic!("Expected bitmap data"),
+    }
 }
