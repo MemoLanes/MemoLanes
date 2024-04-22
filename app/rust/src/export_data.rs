@@ -5,6 +5,11 @@ use gpx::{Gpx, GpxVersion, Track, TrackSegment, Waypoint};
 use kml::{Kml, KmlDocument, KmlWriter};
 use std::{collections::HashMap, fs};
 
+pub enum ExportType {
+    GPX = 0,
+    KML = 1,
+}
+
 // TODO: Pull in more metadata to the exported files, e.g. timestamp, note, etc
 // For most things, we could put them as custom attributes. The timestamp is a
 // bit annoying. Ideally I don't want to fake data (e.g. generating timestamps

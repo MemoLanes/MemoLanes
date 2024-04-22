@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:project_dv/src/rust/api/api.dart';
 import 'package:project_dv/src/rust/api/utils.dart';
 import 'package:project_dv/src/rust/journey_header.dart';
+import 'package:project_dv/journey_info.dart';
 
 class JourneyUiBody extends StatelessWidget {
   const JourneyUiBody({super.key});
@@ -25,6 +26,13 @@ class JourneyUiBody extends StatelessWidget {
                     naiveDateToString(date: snapshot.data![index].journeyDate)),
                 subtitle: Text(
                     snapshot.data![index].start?.toLocal().toString() ?? ""),
+                onTap: (){
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (context) {
+                      return JourneyInfoPage(journeyHeader: snapshot.data![index],);
+                    },
+                  ));
+                },
               );
             },
           );

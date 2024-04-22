@@ -6,12 +6,13 @@ use anyhow::{Ok, Result};
 use chrono::Local;
 use simplelog::{Config, LevelFilter, WriteLogger};
 
+use crate::export_data::ExportType;
 use crate::gps_processor::{GpsProcessor, ProcessResult};
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind};
 use crate::map_renderer::{MapRenderer, RenderResult};
 use crate::storage::Storage;
-use crate::{archive, gps_processor, import_data, merged_journey_manager, storage};
+use crate::{archive, export_data, gps_processor, import_data, merged_journey_manager, storage};
 
 // TODO: we have way too many locking here and now it is hard to track.
 //  e.g. we could mess up with the order and cause a deadlock
@@ -184,6 +185,31 @@ pub fn generate_full_archive(target_filepath: String) -> Result<()> {
     archive::archive_all_as_zip(&mut main_db, &mut file)?;
     drop(file);
     Ok(())
+}
+
+pub fn export_journey(
+    target_filepath: String,
+    journey_id: String,
+    export_type: ExportType,
+) -> Result<()> {
+    let mut main_db = get().storage.main_db.lock().unwrap();
+    let file = File::create(&target_filepath)?;
+    let journey_data = main_db.with_txn(|txn| txn.get_journey(&journey_id))?;
+    match journey_data {
+        JourneyData::Bitmap(_bitmap) => Err(anyhow!("Data type error")),
+        JourneyData::Vector(vector) => {
+            match export_type {
+                ExportType::GPX => {
+                    let _ = export_data::journey_vector_to_gpx_file(&target_filepath, &vector);
+                }
+                ExportType::KML => {
+                    let _ = export_data::journey_vector_to_kml_file(&target_filepath, &vector);
+                }
+            }
+            drop(file);
+            Ok(())
+        }
+    }
 }
 
 pub fn recover_from_archive(zip_file_path: String) -> Result<()> {
