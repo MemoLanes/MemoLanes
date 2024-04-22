@@ -200,10 +200,10 @@ pub fn export_journey(
         JourneyData::Vector(vector) => {
             match export_type {
                 ExportType::GPX => {
-                    let _ = export_data::journey_vector_to_gpx_file(&target_filepath, &vector);
+                    export_data::journey_vector_to_gpx_file(&target_filepath, &vector)?;
                 }
                 ExportType::KML => {
-                    let _ = export_data::journey_vector_to_kml_file(&target_filepath, &vector);
+                    export_data::journey_vector_to_kml_file(&target_filepath, &vector)?;
                 }
             }
             drop(file);
