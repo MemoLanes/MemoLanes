@@ -22,7 +22,7 @@ class ArchiveUiBody extends StatelessWidget {
               },
             ));
           },
-          child: const Text("Import FoW data"),
+          child: const Text("Import data"),
         ),
         ElevatedButton(
           onPressed: () async {

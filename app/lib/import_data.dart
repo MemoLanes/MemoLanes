@@ -16,7 +16,7 @@ class _ImportDataPage extends State<ImportDataPage> {
   DateTime? _endTime;
   final TextEditingController _noteController = TextEditingController();
 
-  Future<DateTime> selectDateAndTime(BuildContext context) async {
+  Future<DateTime?> selectDateAndTime(BuildContext context) async {
     DateTime? selectedDateTime = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
@@ -38,11 +38,10 @@ class _ImportDataPage extends State<ImportDataPage> {
           selectedTime.hour,
           selectedTime.minute,
         );
-
         return selectedDateTime;
       }
     }
-    return DateTime.now();
+    return null;
   }
 
   @override
@@ -61,10 +60,10 @@ class _ImportDataPage extends State<ImportDataPage> {
                 text: _startTime != null ? fmt.format(_startTime!) : '',
               ),
               onTap: () async {
-                DateTime time = await selectDateAndTime(context);
-                setState(() {
-                  _startTime = time;
-                });
+                DateTime? time = await selectDateAndTime(context);
+                  setState(() {
+                    _startTime = time;
+                  });
               },
               decoration: const InputDecoration(
                 label: Text("startTime"),
@@ -78,7 +77,7 @@ class _ImportDataPage extends State<ImportDataPage> {
                     : '',
               ),
               onTap: () async {
-                DateTime time = await selectDateAndTime(context);
+                DateTime? time = await selectDateAndTime(context);
                 setState(() {
                   _endTime = time;
                 });
@@ -104,7 +103,7 @@ class _ImportDataPage extends State<ImportDataPage> {
                   }
                 }
               },
-              child: const Text("Import FoW data"),
+              child: const Text("FoW data"),
             ),
           ],
         ),
