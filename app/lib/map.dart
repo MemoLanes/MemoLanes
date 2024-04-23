@@ -186,14 +186,11 @@ class MapUiBodyState extends State<MapUiBody> {
 
   _refreshTrackLocation() async {
     try {
-      double? zoom = 0;
+      double? zoom;
       final position = await mapboxMap?.style.getPuckPosition();
       CameraState? cameraState = await mapboxMap?.getCameraState();
       if (cameraState != null) {
-        print(cameraState.zoom);
-        if (cameraState.zoom > 10.5) {
-          zoom = null;
-        } else {
+        if (cameraState.zoom < 10.5) {
           zoom = 16.0;
         }
       }
