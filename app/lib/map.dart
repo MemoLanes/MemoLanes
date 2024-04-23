@@ -124,11 +124,11 @@ class MapUiBodyState extends State<MapUiBody> {
     super.initState();
     timer = Timer.periodic(
         const Duration(seconds: 1),
-        (Timer _) =>
-            // TODO: constantly calling `_triggerRefresh` isn't too bad, becuase
-            // it doesn't do much if nothing is changed. However, this doesn't
-            // mean we couldn't do something better.
-            _triggerRefresh());
+            (Timer _) =>
+        // TODO: constantly calling `_triggerRefresh` isn't too bad, becuase
+        // it doesn't do much if nothing is changed. However, this doesn't
+        // mean we couldn't do something better.
+        _triggerRefresh());
     _refreshLoop();
   }
 
@@ -186,10 +186,17 @@ class MapUiBodyState extends State<MapUiBody> {
 
   _refreshTrackLocation() async {
     try {
+      double? zoom;
       final position = await mapboxMap?.style.getPuckPosition();
+      CameraState? cameraState = await mapboxMap?.getCameraState();
+      if (cameraState != null) {
+        if (cameraState.zoom < 10.5) {
+          zoom = 16.0;
+        }
+      }
       await mapboxMap?.flyTo(
           CameraOptions(
-              center: Point(coordinates: position!).toJson(), zoom: 14.0),
+              center: Point(coordinates: position!).toJson(), zoom: zoom),
           null);
     } catch (e) {
       // just best effort
@@ -222,7 +229,6 @@ class MapUiBodyState extends State<MapUiBody> {
         onScrollListener: _onMapScrollListener,
         onMapLoadedListener: _onMapLoadedListener,
         styleUri: MapboxStyles.OUTDOORS,
-        cameraOptions: CameraOptions(zoom: 12.0),
       )),
       floatingActionButton: FloatingActionButton(
         backgroundColor: trackingMode == TrackingMode.displayAndTracking
