@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:project_dv/src/rust/api/api.dart';
 import 'package:share_plus/share_plus.dart';
+import 'import_data.dart';
 
 class ArchiveUiBody extends StatelessWidget {
   const ArchiveUiBody({super.key});
@@ -15,14 +16,11 @@ class ArchiveUiBody extends StatelessWidget {
       children: [
         ElevatedButton(
           onPressed: () async {
-            var result = await FilePicker.platform
-                .pickFiles(type: FileType.custom, allowedExtensions: ['zip']);
-            if (result != null) {
-              var path = result.files.single.path;
-              if (path != null) {
-                await importFowData(zipFilePath: path);
-              }
-            }
+            Navigator.push(context, MaterialPageRoute(
+              builder: (context) {
+                return const ImportDataPage();
+              },
+            ));
           },
           child: const Text("Import FoW data"),
         ),
