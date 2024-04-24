@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/intl.dart';
 import 'package:project_dv/src/rust/api/api.dart';
+import 'package:project_dv/src/rust/import_data.dart';
 
 class ImportDataPage extends StatefulWidget {
   const ImportDataPage({super.key});
@@ -15,6 +19,55 @@ class _ImportDataPage extends State<ImportDataPage> {
   DateTime? _startTime;
   DateTime? _endTime;
   final TextEditingController _noteController = TextEditingController();
+  ImportType _importType = ImportType.fow;
+  bool _runPreprocessor = false;
+
+  String getExtension(ImportType type) {
+    if (type == ImportType.fow) {
+      return "zip";
+    }
+    if (type == ImportType.gpx) {
+      return "gpx";
+    }
+    if (type == ImportType.kml) {
+      return "kml";
+    }
+    return "";
+  }
+
+  _importData() async {
+    {
+      var extension = getExtension(_importType);
+      FilePickerResult? result;
+      try {
+        result = await FilePicker.platform
+            .pickFiles(type: FileType.custom, allowedExtensions: [extension]);
+      } on PlatformException {
+        result = await FilePicker.platform.pickFiles(type: FileType.any);
+      } catch (e) {
+        rethrow;
+      }
+      if (result != null) {
+        final path = result.files.single.path;
+        final fileExtension = path?.split('.').last.toLowerCase();
+
+        if (fileExtension != extension ){
+          Fluttertoast.showToast(msg: "file type error");
+          return;
+        }
+        if (path != null ) {
+          await importData(
+              zipFilePath: path,
+              startTime: _startTime,
+              endTime: _endTime,
+              note: _noteController.text,
+              importType: _importType!,
+              runPreprocessor: _runPreprocessor,
+          );
+        }
+      }
+    }
+  }
 
   Future<DateTime?> selectDateAndTime(BuildContext context) async {
     DateTime? selectedDateTime = await showDatePicker(
@@ -61,9 +114,9 @@ class _ImportDataPage extends State<ImportDataPage> {
               ),
               onTap: () async {
                 DateTime? time = await selectDateAndTime(context);
-                  setState(() {
-                    _startTime = time;
-                  });
+                setState(() {
+                  _startTime = time;
+                });
               },
               decoration: const InputDecoration(
                 label: Text("startTime"),
@@ -72,9 +125,7 @@ class _ImportDataPage extends State<ImportDataPage> {
             TextField(
               readOnly: true,
               controller: TextEditingController(
-                text: _endTime != null
-                    ? fmt.format(_endTime!)
-                    : '',
+                text: _endTime != null ? fmt.format(_endTime!) : '',
               ),
               onTap: () async {
                 DateTime? time = await selectDateAndTime(context);
@@ -92,18 +143,51 @@ class _ImportDataPage extends State<ImportDataPage> {
                 label: Text("note"),
               ),
             ),
-            ElevatedButton(
-              onPressed: () async {
-                var result = await FilePicker.platform.pickFiles(
-                    type: FileType.custom, allowedExtensions: ['zip']);
-                if (result != null) {
-                  var path = result.files.single.path;
-                  if (path != null) {
-                    await importFowData(zipFilePath: path);
-                  }
-                }
+            RadioListTile<ImportType>(
+              value: ImportType.kml,
+              title: const Text('kml'),
+              groupValue: _importType,
+              onChanged: (value) {
+                setState(() {
+                  _importType = value!;
+                });
               },
-              child: const Text("FoW data"),
+            ),
+            RadioListTile<ImportType>(
+              value: ImportType.gpx,
+              title: const Text('gpx'),
+              groupValue: _importType,
+              onChanged: (value) {
+                setState(() {
+                  _importType = value!;
+                });
+              },
+            ),
+            RadioListTile<ImportType>(
+              value: ImportType.fow,
+              title: const Text('FoW'),
+              groupValue: _importType,
+              onChanged: (value) {
+                setState(() {
+                  _importType = value!;
+                });
+              },
+            ),
+            Switch(
+              value: _runPreprocessor,
+              onChanged: (value) {
+                setState(() {
+                  _runPreprocessor = value;
+                });
+              },
+            ),
+            Text(
+              _runPreprocessor ? 'Preprocessor is ON' : 'Preprocessor is OFF',
+              style: TextStyle(fontSize: 18.0),
+            ),
+            ElevatedButton(
+              onPressed: _importData,
+              child: const Text("import data"),
             ),
           ],
         ),

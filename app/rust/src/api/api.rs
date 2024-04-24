@@ -3,10 +3,11 @@ use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 
 use anyhow::{Ok, Result};
-use chrono::Local;
+use chrono::{DateTime, Local, Utc};
 use simplelog::{Config, LevelFilter, WriteLogger};
 
 use crate::gps_processor::{GpsProcessor, ProcessResult};
+use crate::import_data::ImportType;
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind};
 use crate::map_renderer::{MapRenderer, RenderResult};
@@ -168,6 +169,43 @@ pub fn import_fow_data(zip_file_path: String) -> Result<()> {
             JourneyKind::DefaultKind,
             None,
             JourneyData::Bitmap(journey_bitmap),
+        )
+    })?;
+    Ok(())
+}
+
+pub fn import_data(
+    zip_file_path: String,
+    import_type: ImportType,
+    start_time: Option<DateTime<Utc>>,
+    end_time: Option<DateTime<Utc>>,
+    note: Option<String>,
+    run_preprocessor: Option<bool>,
+) -> Result<()> {
+    let journey_data = match import_type {
+        ImportType::GPX => JourneyData::Vector(import_data::load_gpx(
+            &zip_file_path,
+            run_preprocessor.unwrap_or(false),
+        )?),
+        ImportType::KML => JourneyData::Vector(import_data::load_kml(
+            &zip_file_path,
+            run_preprocessor.unwrap_or(false),
+        )?),
+        ImportType::FOW => {
+            let (journey_bitmap, _warnings) = import_data::load_fow_sync_data(&zip_file_path)?;
+            JourneyData::Bitmap(journey_bitmap)
+        }
+    };
+    let mut main_db = get().storage.main_db.lock().unwrap();
+    main_db.with_txn(|txn| {
+        txn.create_and_insert_journey(
+            Local::now().date_naive(),
+            start_time,
+            end_time,
+            None,
+            JourneyKind::DefaultKind,
+            note,
+            journey_data,
         )
     })?;
     Ok(())
