@@ -155,25 +155,6 @@ pub fn try_auto_finalize_journy() -> Result<bool> {
     main_db.try_auto_finalize_journy()
 }
 
-pub fn import_fow_data(zip_file_path: String) -> Result<()> {
-    // TODO: This is really naive, mostly just a demo. We need to get real
-    // values from users.
-    let (journey_bitmap, _warnings) = import_data::load_fow_sync_data(&zip_file_path)?;
-    let mut main_db = get().storage.main_db.lock().unwrap();
-    main_db.with_txn(|txn| {
-        txn.create_and_insert_journey(
-            Local::now().date_naive(),
-            None,
-            None,
-            None,
-            JourneyKind::DefaultKind,
-            None,
-            JourneyData::Bitmap(journey_bitmap),
-        )
-    })?;
-    Ok(())
-}
-
 pub fn import_data(
     zip_file_path: String,
     import_type: ImportType,
