@@ -61,7 +61,7 @@ class _ImportDataPage extends State<ImportDataPage> {
               startTime: _startTime,
               endTime: _endTime,
               note: _noteController.text,
-              importType: _importType!,
+              importType: _importType,
               runPreprocessor: _runPreprocessor,
           );
         }
