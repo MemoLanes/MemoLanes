@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:project_dv/src/rust/api/api.dart';
+import 'package:project_dv/src/rust/api/utils.dart';
 import 'package:project_dv/src/rust/export_data.dart';
 import 'package:project_dv/src/rust/journey_header.dart';
 import 'package:share_plus/share_plus.dart';
@@ -47,12 +48,14 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
             Text(
-                "Start Time:${widget.journeyHeader.start != null ? fmt.format(widget.journeyHeader.start!) : ""}"),
+                "Journey Date: ${naiveDateToString(date: widget.journeyHeader.journeyDate)}"),
             Text(
-                "End Time:${widget.journeyHeader.end != null ? fmt.format(widget.journeyHeader.end!) : ""}"),
-            Text("Created At:${fmt.format(widget.journeyHeader.createdAt)}"),
-            Text("Revision:${widget.journeyHeader.revision}"),
-            Text("Note:${widget.journeyHeader.note}"),
+                "Start Time: ${widget.journeyHeader.start != null ? fmt.format(widget.journeyHeader.start!) : ""}"),
+            Text(
+                "End Time: ${widget.journeyHeader.end != null ? fmt.format(widget.journeyHeader.end!) : ""}"),
+            Text("Created At: ${fmt.format(widget.journeyHeader.createdAt)}"),
+            Text("Revision: ${widget.journeyHeader.revision}"),
+            Text("Note: ${widget.journeyHeader.note}"),
             Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
               ElevatedButton(
                 onPressed:

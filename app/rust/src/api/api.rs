@@ -2,17 +2,15 @@ use std::fs::File;
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 
-use anyhow::{Ok, Result};
-use chrono::Local;
-use simplelog::{Config, LevelFilter, WriteLogger};
-
-use crate::export_data::ExportType;
 use crate::gps_processor::{GpsProcessor, ProcessResult};
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind};
 use crate::map_renderer::{MapRenderer, RenderResult};
 use crate::storage::Storage;
 use crate::{archive, export_data, gps_processor, import_data, merged_journey_manager, storage};
+use anyhow::{Ok, Result};
+use chrono::Local;
+use simplelog::{Config, LevelFilter, WriteLogger};
 
 // TODO: we have way too many locking here and now it is hard to track.
 //  e.g. we could mess up with the order and cause a deadlock
@@ -187,26 +185,30 @@ pub fn generate_full_archive(target_filepath: String) -> Result<()> {
     Ok(())
 }
 
+pub enum ExportType {
+    GPX = 0,
+    KML = 1,
+}
+
 pub fn export_journey(
     target_filepath: String,
     journey_id: String,
     export_type: ExportType,
 ) -> Result<()> {
     let mut main_db = get().storage.main_db.lock().unwrap();
-    let file = File::create(&target_filepath)?;
+    let mut file = File::create(&target_filepath)?;
     let journey_data = main_db.with_txn(|txn| txn.get_journey(&journey_id))?;
     match journey_data {
         JourneyData::Bitmap(_bitmap) => Err(anyhow!("Data type error")),
         JourneyData::Vector(vector) => {
             match export_type {
                 ExportType::GPX => {
-                    export_data::journey_vector_to_gpx_file(&target_filepath, &vector)?;
+                    export_data::journey_vector_to_gpx_file(&vector, &mut file)?;
                 }
                 ExportType::KML => {
-                    export_data::journey_vector_to_kml_file(&target_filepath, &vector)?;
+                    export_data::journey_vector_to_kml_file(&vector, &mut file)?;
                 }
             }
-            drop(file);
             Ok(())
         }
     }
