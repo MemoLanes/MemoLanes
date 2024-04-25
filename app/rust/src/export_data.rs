@@ -63,13 +63,13 @@ pub fn journey_vector_to_kml_file<T: Write + Seek>(
         let mut gx_coords = Vec::new();
         track_segment.track_points.iter().for_each(|point| {
             coords.push(kml::types::Coord {
-                x: point.latitude,
-                y: point.longitude,
+                x: point.longitude,
+                y: point.latitude,
                 z: None,
             });
             gx_coords.push(kml::types::Element {
                 name: "gx:coord".to_owned(),
-                content: Some(format!("{} {} {}", point.latitude, point.longitude, 0)),
+                content: Some(format!("{} {} {}", point.longitude, point.latitude, 0)),
                 ..kml::types::Element::default()
             })
         });

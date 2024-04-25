@@ -194,8 +194,8 @@ pub fn load_kml(file_path: &str, run_preprocessor: bool) -> Result<JourneyVector
         };
 
         Ok(Some(gps_processor::RawData {
-            latitude: coord[0].parse::<f64>()?,
-            longitude: coord[1].parse::<f64>()?,
+            latitude: coord[1].parse::<f64>()?,
+            longitude: coord[0].parse::<f64>()?,
             timestamp_ms: timestamp.map(|x| x.timestamp_millis()),
             accuracy: None,
             altitude: if coord.len() >= 3 {

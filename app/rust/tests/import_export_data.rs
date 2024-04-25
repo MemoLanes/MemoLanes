@@ -1,7 +1,7 @@
 use std::fs::File;
 
 use itertools::Itertools;
-use memolanes_core::{export_data, import_data};
+use memolanes_core::{export_data, import_data, journey_vector::TrackPoint};
 
 #[test]
 fn load_fow_sync_data() {
@@ -40,6 +40,8 @@ pub fn gpx() {
         .flat_map(|t| t.track_points.into_iter())
         .into_iter()
         .collect_vec();
+
+    assert_eq!(points1.len(), 2945);
     assert_eq!(points1, points2);
 }
 
@@ -63,13 +65,13 @@ pub fn kml() {
         .into_iter()
         .flat_map(|t| t.track_points.into_iter())
         .into_iter()
-        .count();
+        .collect_vec();
     let points2 = tracks2
         .into_iter()
         .flat_map(|t| t.track_points.into_iter())
         .into_iter()
-        .count();
+        .collect_vec();
 
-    assert_eq!(points1, 1651);
-    assert_eq!(points2, points1);
+    assert_eq!(points1.len(), 1651);
+    assert_eq!(points1, points2);
 }
