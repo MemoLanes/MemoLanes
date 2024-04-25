@@ -1,8 +1,7 @@
 pub mod test_utils;
-
+use memolanes_core::{api::api, gps_processor::RawData};
+use rand::{seq::SliceRandom, thread_rng};
 use std::fs;
-
-use memolanes_core::api::api;
 use tempdir::TempDir;
 
 #[test]
@@ -23,18 +22,23 @@ fn basic() {
         sub_folder("cache/"),
     );
 
-    for (i, raw_data) in test_utils::load_raw_gpx_data_for_test().iter().enumerate() {
-        api::on_location_update(
-            raw_data.latitude,
-            raw_data.longitude,
-            raw_data.timestamp_ms.unwrap(),
-            raw_data.accuracy.unwrap(),
-            raw_data.altitude,
-            raw_data.speed,
-        );
+    let mut raw_data_list = test_utils::load_raw_gpx_data_for_test();
+    let (first_elements, remaining_elements) = raw_data_list.split_at_mut(2000);
 
+    for (i, raw_data) in first_elements.iter().enumerate() {
+        api::on_location_update(
+            vec![RawData {
+                latitude: raw_data.latitude,
+                longitude: raw_data.longitude,
+                timestamp_ms: raw_data.timestamp_ms,
+                accuracy: raw_data.accuracy,
+                altitude: raw_data.altitude,
+                speed: raw_data.speed,
+            }],
+            raw_data.timestamp_ms.unwrap(),
+        );
         if i == 1000 {
-            api::finalize_ongoing_journey();
+            let _: bool = api::finalize_ongoing_journey().unwrap();
         } else if i == 2000 {
             // we have both ongoing journey and finalized journey at this point
             let render_result =
@@ -47,11 +51,14 @@ fn basic() {
         }
     }
 
+    remaining_elements.shuffle(&mut thread_rng());
+    api::on_location_update(remaining_elements.to_vec(), 1695150531000);
+
     // this should cover real time update
     let render_result = api::render_map_overlay(11.0, 121.39, 31.3146, 121.55, 31.18).unwrap();
     test_utils::assert_image(
         &render_result.data,
         "end_to_end_basic_1",
-        "fb9a5c4ed17780375b1bd409423e2e5e4ec65bd0",
+        "6f38e6b7b9301a7332a50155d4557c8cfa0ebf2d",
     );
 }

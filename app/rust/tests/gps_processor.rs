@@ -112,6 +112,6 @@ fn run_though_test_data() {
         });
     }
     assert_eq!(counter[&ProcessResult::NewSegment], 8);
-    assert_eq!(counter[&ProcessResult::Append], 3574);
-    assert_eq!(counter[&ProcessResult::Ignore], 36);
+    assert_eq!(counter[&ProcessResult::Append], 3577);
+    assert_eq!(counter[&ProcessResult::Ignore], 33);
 }
