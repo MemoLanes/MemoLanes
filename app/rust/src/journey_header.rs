@@ -1,5 +1,6 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
+use flutter_rust_bridge::frb;
 use protobuf::EnumOrUnknown;
 use strum_macros::EnumIter;
 
@@ -91,6 +92,7 @@ impl JourneyKind {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+#[frb(non_opaque)]
 pub struct JourneyHeader {
     pub id: String,
     pub revision: String,
