@@ -5,7 +5,6 @@ use gpx::{Gpx, GpxVersion, Track, TrackSegment, Waypoint};
 use kml::{Kml, KmlDocument, KmlWriter};
 use std::{
     collections::HashMap,
-    fs,
     io::{Seek, Write},
 };
 
