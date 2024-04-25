@@ -1,7 +1,7 @@
 use std::fs::File;
 
 use itertools::Itertools;
-use memolanes_core::{export_data, import_data, journey_vector::TrackPoint};
+use memolanes_core::{export_data, import_data};
 
 #[test]
 fn load_fow_sync_data() {
