@@ -47,6 +47,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
             Text(
+                "Journey ID: ${widget.journeyHeader.id}"),
+            Text(
                 "Journey Date: ${naiveDateToString(date: widget.journeyHeader.journeyDate)}"),
             Text(
                 "Start Time: ${widget.journeyHeader.start != null ? fmt.format(widget.journeyHeader.start!) : ""}"),
