@@ -196,11 +196,11 @@ pub fn export_journey(
     export_type: ExportType,
 ) -> Result<()> {
     let mut main_db = get().storage.main_db.lock().unwrap();
-    let mut file = File::create(target_filepath)?;
     let journey_data = main_db.with_txn(|txn| txn.get_journey(&journey_id))?;
     match journey_data {
         JourneyData::Bitmap(_bitmap) => Err(anyhow!("Data type error")),
         JourneyData::Vector(vector) => {
+            let mut file = File::create(target_filepath)?;
             match export_type {
                 ExportType::GPX => {
                     export_data::journey_vector_to_gpx_file(&vector, &mut file)?;
