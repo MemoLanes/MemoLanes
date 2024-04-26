@@ -1,4 +1,7 @@
+use flutter_rust_bridge::frb;
+
 #[derive(Debug, PartialEq)]
+#[frb(opaque)]
 pub struct JourneyVector {
     pub track_segments: Vec<TrackSegment>,
 }

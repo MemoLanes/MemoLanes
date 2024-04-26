@@ -7,7 +7,7 @@ use crate::{
 use anyhow::{Error, Result};
 use chrono::{DateTime, Utc};
 use flate2::read::ZlibDecoder;
-use gpx::read;
+use gpx::{read, Time};
 use kml::{Kml, KmlReader};
 use std::result::Result::Ok;
 use std::vec;
@@ -156,17 +156,24 @@ fn load_vector_data(
     Ok(journey_vector)
 }
 
-pub fn load_gpx(file_path: &str, run_preprocessor: bool) -> Result<JourneyVector> {
+pub fn load_gpx(
+    file_path: &str,
+    run_preprocessor: bool,
+) -> Result<(JourneyVector, Option<DateTime<Utc>>, Option<DateTime<Utc>>)> {
+    let convert_to_timestamp = |time: &Option<Time>| -> Result<Option<DateTime<Utc>>> {
+        let timestamp: Option<DateTime<Utc>> = match &time {
+            Some(t) => Some(DateTime::<Utc>::from(DateTime::parse_from_rfc3339(
+                &t.format()?,
+            )?)),
+            None => None,
+        };
+        Ok(timestamp)
+    };
     let gpx_data = read(BufReader::new(File::open(file_path)?))?;
     let raw_data_segments = gpx_data.tracks.iter().flat_map(|track| {
         track.segments.iter().map(|segment| {
             segment.points.iter().map(|point| {
-                let timestamp = match &point.time {
-                    Some(time) => Some(DateTime::<Utc>::from(DateTime::parse_from_rfc3339(
-                        &time.format()?,
-                    )?)),
-                    None => None,
-                };
+                let timestamp = convert_to_timestamp(&point.time)?;
                 Ok(gps_processor::RawData {
                     latitude: point.point().y(),
                     longitude: point.point().x(),
@@ -178,10 +185,36 @@ pub fn load_gpx(file_path: &str, run_preprocessor: bool) -> Result<JourneyVector
             })
         })
     });
-    load_vector_data(raw_data_segments, run_preprocessor)
+
+    let mut start_time = None;
+    let mut end_time = None;
+
+    if let Some(track) = gpx_data.tracks.first() {
+        if let Some(segment) = track.segments.first() {
+            if let Some(first_point) = segment.points.first() {
+                start_time = convert_to_timestamp(&first_point.time)?;
+            }
+        }
+    }
+    if let Some(track) = gpx_data.tracks.last() {
+        if let Some(segment) = track.segments.last() {
+            if let Some(last_point) = segment.points.last() {
+                end_time = convert_to_timestamp(&last_point.time)?;
+            }
+        }
+    }
+
+    Ok((
+        load_vector_data(raw_data_segments, run_preprocessor)?,
+        start_time,
+        end_time,
+    ))
 }
 
-pub fn load_kml(file_path: &str, run_preprocessor: bool) -> Result<JourneyVector> {
+pub fn load_kml(
+    file_path: &str,
+    run_preprocessor: bool,
+) -> Result<(JourneyVector, Option<DateTime<Utc>>, Option<DateTime<Utc>>)> {
     let parse_line = |coord: &Option<String>, when: &Option<String>| {
         let coord: Vec<&str> = match coord {
             Some(coord) => coord.split_whitespace().collect(),
@@ -207,6 +240,14 @@ pub fn load_kml(file_path: &str, run_preprocessor: bool) -> Result<JourneyVector
         }))
     };
 
+    let convert_to_timestamp = |time: &Option<String>| -> Result<Option<DateTime<Utc>>> {
+        let timestamp: Option<DateTime<Utc>> = match &time {
+            Some(t) => Some(DateTime::<Utc>::from(DateTime::parse_from_rfc3339(&t)?)),
+            None => None,
+        };
+        Ok(timestamp)
+    };
+
     let kml_data =
         KmlReader::<_, f64>::from_reader(BufReader::new(File::open(file_path)?)).read()?;
 
@@ -218,7 +259,9 @@ pub fn load_kml(file_path: &str, run_preprocessor: bool) -> Result<JourneyVector
         })
         .flat_map(|arr| arr.into_iter().filter(|e| e.name == "Track"));
 
-    let raw_data_segments = segments.map(|segment| {
+    let mut start_time = None;
+    let mut end_time = None;
+    let raw_data_segments = segments.enumerate().map(|(index, segment)| {
         let mut when_list = Vec::new();
         let mut coord_list = Vec::new();
         segment.children.into_iter().for_each(|e| {
@@ -238,6 +281,26 @@ pub fn load_kml(file_path: &str, run_preprocessor: bool) -> Result<JourneyVector
             .into_iter()
         } else {
             let mut raw_data_list = Vec::new();
+            if index == 0 {
+                if let Some(string) = when_list.first() {
+                    if let Ok(time) = convert_to_timestamp(string) {
+                        start_time = time
+                    }
+                }
+            }
+
+            if let Some(string) = when_list.last() {
+                if let Ok(Some(time)) = convert_to_timestamp(string) {
+                    if let Some(latest) = end_time {
+                        if time > latest {
+                            end_time = Some(time);
+                        }
+                    } else {
+                        end_time = Some(time);
+                    }
+                }
+            }
+
             for i in 0..coord_list.len() {
                 match parse_line(
                     &coord_list[i],
@@ -255,7 +318,12 @@ pub fn load_kml(file_path: &str, run_preprocessor: bool) -> Result<JourneyVector
             raw_data_list.into_iter()
         }
     });
-    load_vector_data(raw_data_segments, run_preprocessor)
+
+    Ok((
+        load_vector_data(raw_data_segments, run_preprocessor)?,
+        start_time,
+        end_time,
+    ))
 }
 
 fn flatten_kml(kml: Kml) -> Vec<Kml> {

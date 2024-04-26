@@ -17,13 +17,15 @@ fn load_fow_sync_data() {
 
 #[test]
 pub fn gpx() {
-    let vector1 = import_data::load_gpx("./tests/data/raw_gps_laojunshan.gpx", false).unwrap();
+    let (vector1, start_time, end_time) =
+        import_data::load_gpx("./tests/data/raw_gps_laojunshan.gpx", false).unwrap();
     export_data::journey_vector_to_gpx_file(
         &vector1,
         &mut File::create("./tests/for_inspection/laojunshan.gpx").unwrap(),
     )
     .unwrap();
-    let vector2 = import_data::load_gpx("./tests/for_inspection/laojunshan.gpx", false).unwrap();
+    let (vector2, _, _) =
+        import_data::load_gpx("./tests/for_inspection/laojunshan.gpx", false).unwrap();
     let tracks1 = vector1.track_segments;
     let tracks2 = vector2.track_segments;
 
@@ -43,18 +45,22 @@ pub fn gpx() {
 
     assert_eq!(points1.len(), 2945);
     assert_eq!(points1, points2);
+    assert_eq!(start_time.unwrap().timestamp_millis(), 1696383677000);
+    assert_eq!(end_time.unwrap().timestamp_millis(), 1696386835000);
 }
 
 #[test]
 pub fn kml() {
-    let vector1 = import_data::load_kml("./tests/data/raw_gps_laojunshan.kml", false).unwrap();
+    let (vector1, start_time, end_time) =
+        import_data::load_kml("./tests/data/raw_gps_laojunshan.kml", false).unwrap();
 
     export_data::journey_vector_to_kml_file(
         &vector1,
         &mut File::create("./tests/for_inspection/laojunshan.kml").unwrap(),
     )
     .unwrap();
-    let vector2 = import_data::load_kml("./tests/for_inspection/laojunshan.kml", false).unwrap();
+    let (vector2, _, _) =
+        import_data::load_kml("./tests/for_inspection/laojunshan.kml", false).unwrap();
     let tracks1 = vector1.track_segments;
     let tracks2 = vector2.track_segments;
 
@@ -74,4 +80,6 @@ pub fn kml() {
 
     assert_eq!(points1.len(), 1651);
     assert_eq!(points1, points2);
+    assert_eq!(start_time.unwrap().timestamp_millis(), 1696383677000);
+    assert_eq!(end_time.unwrap().timestamp_millis(), 1696386835000);
 }

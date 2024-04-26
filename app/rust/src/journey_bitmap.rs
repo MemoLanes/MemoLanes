@@ -1,9 +1,9 @@
+use crate::utils;
+use flutter_rust_bridge::frb;
 use std::{
     collections::HashMap,
     ops::{BitAnd, BitOr, Not},
 };
-
-use crate::utils;
 
 pub const TILE_WIDTH_OFFSET: i16 = 7;
 const MAP_WIDTH_OFFSET: i16 = 9;
@@ -17,6 +17,7 @@ const ALL_OFFSET: i16 = TILE_WIDTH_OFFSET + BITMAP_WIDTH_OFFSET;
 // we have 512*512 tiles, 128*128 blocks and a single block contains
 // a 64*64 bitmap.
 #[derive(PartialEq, Eq, Debug)]
+#[frb(opaque)]
 pub struct JourneyBitmap {
     pub tiles: HashMap<(u16, u16), Tile>,
 }

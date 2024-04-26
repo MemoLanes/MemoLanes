@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/intl.dart';
 import 'package:project_dv/src/rust/api/api.dart';
-import 'package:project_dv/src/rust/import_data.dart';
 
 class ImportDataPage extends StatefulWidget {
   const ImportDataPage({super.key});
@@ -21,6 +20,7 @@ class _ImportDataPage extends State<ImportDataPage> {
   final TextEditingController _noteController = TextEditingController();
   ImportType _importType = ImportType.fow;
   bool _runPreprocessor = false;
+  JourneyInfo? journeyInfo;
 
   String getExtension(ImportType type) {
     if (type == ImportType.fow) {
@@ -35,8 +35,8 @@ class _ImportDataPage extends State<ImportDataPage> {
     return "";
   }
 
-  _importData() async {
-    {
+  _readData() async {
+
       var extension = getExtension(_importType);
       FilePickerResult? result;
       try {
@@ -56,17 +56,24 @@ class _ImportDataPage extends State<ImportDataPage> {
           return;
         }
         if (path != null ) {
-          await importData(
-              zipFilePath: path,
-              startTime: _startTime,
-              endTime: _endTime,
-              note: _noteController.text,
+          journeyInfo = await readImportData(
+              filePath: path,
               importType: _importType,
               runPreprocessor: _runPreprocessor,
           );
+          if (journeyInfo !=null){
+            setState(() {
+              _startTime = journeyInfo?.startTime;
+              _endTime = journeyInfo?.endTime;
+            });
+          }
+
         }
       }
-    }
+
+  }
+
+  _saveData() async {
   }
 
   Future<DateTime?> selectDateAndTime(BuildContext context) async {
@@ -186,8 +193,12 @@ class _ImportDataPage extends State<ImportDataPage> {
               style: TextStyle(fontSize: 18.0),
             ),
             ElevatedButton(
-              onPressed: _importData,
-              child: const Text("import data"),
+              onPressed: _readData,
+              child: const Text("read data"),
+            ),
+            ElevatedButton(
+              onPressed: _saveData,
+              child: const Text("save data"),
             ),
           ],
         ),

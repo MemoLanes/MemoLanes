@@ -2,10 +2,12 @@ use crate::gps_processor::{GpsProcessor, ProcessResult};
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind};
 use crate::map_renderer::{MapRenderer, RenderResult};
+use crate::protos::journey;
 use crate::storage::Storage;
 use crate::{archive, export_data, gps_processor, import_data, merged_journey_manager, storage};
 use anyhow::{Ok, Result};
 use chrono::{DateTime, Local, Utc};
+use flutter_rust_bridge::frb;
 use simplelog::{Config, LevelFilter, WriteLogger};
 use std::fs::File;
 use std::path::Path;
@@ -158,41 +160,70 @@ pub enum ImportType {
     FOW = 2,
 }
 
-pub fn import_data(
-    zip_file_path: String,
-    import_type: ImportType,
-    start_time: Option<DateTime<Utc>>,
-    end_time: Option<DateTime<Utc>>,
-    note: Option<String>,
-    run_preprocessor: Option<bool>,
-) -> Result<()> {
-    let journey_data = match import_type {
-        ImportType::GPX => JourneyData::Vector(import_data::load_gpx(
-            &zip_file_path,
-            run_preprocessor.unwrap_or(false),
-        )?),
-        ImportType::KML => JourneyData::Vector(import_data::load_kml(
-            &zip_file_path,
-            run_preprocessor.unwrap_or(false),
-        )?),
-        ImportType::FOW => {
-            let (journey_bitmap, _warnings) = import_data::load_fow_sync_data(&zip_file_path)?;
-            JourneyData::Bitmap(journey_bitmap)
-        }
-    };
+#[frb(non_opaque)]
+pub struct JourneyInfo {
+    pub start_time: Option<DateTime<Utc>>,
+    pub end_time: Option<DateTime<Utc>>,
+    pub journey_header: Option<JourneyHeader>,
+    pub journey_data: Option<JourneyData>,
+    pub note: Option<String>,
+}
+
+pub fn save_import_journey(journey_info: JourneyInfo) -> Result<()> {
     let mut main_db = get().storage.main_db.lock().unwrap();
+
+    let journey_date = match journey_info.start_time {
+        Some(start_time) => start_time.date_naive(),
+        None => Local::now().date_naive(),
+    };
+
+    let journey_data = match journey_info.journey_data {
+        Some(data) => data,
+        None => return Err(anyhow!("Journey Data error")),
+    };
+
     main_db.with_txn(|txn| {
         txn.create_and_insert_journey(
-            Local::now().date_naive(),
-            start_time,
-            end_time,
+            journey_date,
+            journey_info.start_time,
+            journey_info.end_time,
             None,
             JourneyKind::DefaultKind,
-            note,
+            journey_info.note,
             journey_data,
         )
     })?;
     Ok(())
+}
+
+pub fn read_import_data(
+    file_path: String,
+    import_type: ImportType,
+    run_preprocessor: Option<bool>,
+) -> Result<JourneyInfo> {
+    let (journey_data, start_time, end_time) = match import_type {
+        ImportType::GPX => {
+            let (journey_vector, start_time, end_time) =
+                import_data::load_gpx(&file_path, run_preprocessor.unwrap_or(false))?;
+            (JourneyData::Vector(journey_vector), start_time, end_time)
+        }
+        ImportType::KML => {
+            let (journey_vector, start_time, end_time) =
+                import_data::load_gpx(&file_path, run_preprocessor.unwrap_or(false))?;
+            (JourneyData::Vector(journey_vector), start_time, end_time)
+        }
+        ImportType::FOW => {
+            let (journey_bitmap, _warnings) = import_data::load_fow_sync_data(&file_path)?;
+            (JourneyData::Bitmap(journey_bitmap), None, None)
+        }
+    };
+    Ok(JourneyInfo {
+        journey_header: None,
+        journey_data: Some(journey_data),
+        start_time: start_time,
+        end_time: end_time,
+        note: None,
+    })
 }
 
 pub fn list_all_journeys() -> Result<Vec<JourneyHeader>> {
