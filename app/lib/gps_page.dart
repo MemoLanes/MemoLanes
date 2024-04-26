@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:project_dv/gps_recording_state.dart';
 import 'package:project_dv/src/rust/api/api.dart';
 import 'package:project_dv/src/rust/storage.dart';
@@ -104,7 +105,7 @@ class GPSPage extends StatelessWidget {
     var message = "";
     if (position != null) {
       message =
-          '[${position.timestamp.toLocal()}]${position.latitude.toString()}, ${position.longitude.toString()} ${position.altitude.toString()} ~${position.accuracy.toString()}';
+          '[${position.timestamp.toLocal()}]${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)} ~${position.accuracy.toStringAsFixed(1)}';
     }
     return Center(
       child: Column(
@@ -117,7 +118,9 @@ class GPSPage extends StatelessWidget {
           ),
           ElevatedButton(
             onPressed: () async {
-              await finalizeOngoingJourney();
+              if (await finalizeOngoingJourney()) {
+                Fluttertoast.showToast(msg: "New journey added");
+              }
             },
             child: const Text("Start a new journey"),
           ),

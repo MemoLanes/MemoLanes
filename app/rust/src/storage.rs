@@ -44,7 +44,12 @@ impl RawDataRecorder {
         }
     }
 
-    fn record(&mut self, raw_data: &gps_processor::RawData, process_result: ProcessResult) {
+    fn record(
+        &mut self,
+        raw_data: &gps_processor::RawData,
+        process_result: ProcessResult,
+        recevied_timestamp_ms: i64,
+    ) {
         // TODO: better error handling
         let file = self.file.get_or_insert_with(|| {
             let timestamp_sec = Utc::now().timestamp_micros() / 1000000;
@@ -60,7 +65,7 @@ impl RawDataRecorder {
             let mut file = File::create(filename).unwrap();
             let _ = file
                 .write(
-                    "timestamp_ms,latitude,longitude,accuarcy,altitude,speed,process_result\n"
+                    "timestamp_ms,recevied_timestamp_ms,latitude,longitude,accuarcy,altitude,speed,process_result\n"
                         .as_bytes(),
                 )
                 .unwrap();
@@ -69,11 +74,12 @@ impl RawDataRecorder {
         let _ = file
             .write(
                 format!(
-                    "{},{},{},{},{},{},{}\n",
-                    raw_data.timestamp_ms,
+                    "{},{},{},{},{},{},{},{}\n",
+                    raw_data.timestamp_ms.unwrap_or_default(),
+                    recevied_timestamp_ms,
                     raw_data.latitude,
                     raw_data.longitude,
-                    raw_data.accuracy,
+                    raw_data.accuracy.map(|x| x.to_string()).unwrap_or_default(),
                     &raw_data.altitude.map(|x| x.to_string()).unwrap_or_default(),
                     &raw_data.speed.map(|x| x.to_string()).unwrap_or_default(),
                     process_result.to_int()
@@ -147,10 +153,11 @@ impl Storage {
         &self,
         raw_data: &gps_processor::RawData,
         process_result: ProcessResult,
+        recevied_timestamp_ms: i64,
     ) {
         let mut raw_data_recorder = self.raw_data_recorder.lock().unwrap();
         if let Some(ref mut x) = *raw_data_recorder {
-            x.record(raw_data, process_result);
+            x.record(raw_data, process_result, recevied_timestamp_ms);
         }
         drop(raw_data_recorder);
 
@@ -176,16 +183,6 @@ impl Storage {
             }
         }
         result
-    }
-
-    pub fn finalize_ongoing_journey(&self) {
-        let cache_db = self.cache_db.lock().unwrap();
-        let mut main_db = self.main_db.lock().unwrap();
-        main_db
-            .with_txn(|txn| txn.finalize_ongoing_journey())
-            .unwrap();
-        // v0 just deletes cached bitmap for any change
-        cache_db.delete_cached_journey().unwrap()
     }
 
     // TODO: do we need this?

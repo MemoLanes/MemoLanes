@@ -30,8 +30,9 @@ fn add_bitmap_journey(main_db: &mut MainDb) {
     main_db
         .with_txn(|txn| {
             txn.create_and_insert_journey(
+                Utc::now().date_naive(),
                 None,
-                Utc::now(),
+                None,
                 None,
                 memolanes_core::journey_header::JourneyKind::DefaultKind,
                 None,
