@@ -13,12 +13,6 @@ use std::result::Result::Ok;
 use std::vec;
 use std::{fs::File, io::BufReader, io::Read, path::Path};
 
-pub enum ImportType {
-    GPX = 0,
-    KML = 1,
-    FOW = 2,
-}
-
 struct FoWTileId {
     x: u16,
     y: u16,

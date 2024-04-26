@@ -1,21 +1,15 @@
-use std::fs::File;
-use std::path::Path;
-use std::sync::{Mutex, OnceLock};
-
-use anyhow::{Ok, Result};
-use chrono::{DateTime, Local, Utc};
-use simplelog::{Config, LevelFilter, WriteLogger};
-
 use crate::gps_processor::{GpsProcessor, ProcessResult};
-use crate::import_data::ImportType;
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind};
 use crate::map_renderer::{MapRenderer, RenderResult};
 use crate::storage::Storage;
 use crate::{archive, export_data, gps_processor, import_data, merged_journey_manager, storage};
 use anyhow::{Ok, Result};
-use chrono::Local;
+use chrono::{DateTime, Local, Utc};
 use simplelog::{Config, LevelFilter, WriteLogger};
+use std::fs::File;
+use std::path::Path;
+use std::sync::{Mutex, OnceLock};
 
 // TODO: we have way too many locking here and now it is hard to track.
 //  e.g. we could mess up with the order and cause a deadlock
@@ -156,6 +150,12 @@ pub fn finalize_ongoing_journey() -> Result<bool> {
 pub fn try_auto_finalize_journy() -> Result<bool> {
     let mut main_db = get().storage.main_db.lock().unwrap();
     main_db.try_auto_finalize_journy()
+}
+
+pub enum ImportType {
+    GPX = 0,
+    KML = 1,
+    FOW = 2,
 }
 
 pub fn import_data(
