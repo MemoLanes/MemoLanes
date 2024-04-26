@@ -1,10 +1,11 @@
 extern crate simplelog;
 use anyhow::Result;
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, Error as RusqliteError};
 use std::path::Path;
+use std::io::Cursor;
 
-use crate::journey_data::JourneyData;
-use crate::journey_header::JourneyType;
+use crate::journey_data::deserialize_journey_bitmap;
+use crate::journey_bitmap::JourneyBitmap;
 
 // Function to open the database and run migrations
 #[allow(clippy::type_complexity)]
@@ -41,17 +42,26 @@ impl CacheDb {
         Ok(())
     }
 
-    // Method to get the last journey
-    pub fn get_journey(&self) -> Result<JourneyData> {
+    pub fn get_journey(&self) -> Result<Option<JourneyBitmap>> {
         let query = "SELECT * FROM journey_cache ORDER BY id DESC LIMIT 1;";
-        self.conn.query_row(query, params![], |row| {
-            let _type_ = row.get_ref(0)?.as_i64()?;
-            let f = || {
-                let data = row.get_ref(1)?.as_blob()?;
-                JourneyData::deserialize(data, JourneyType::Bitmap)
-            };
-            Ok(f())
-        })?
+        let result = self.conn.query_row(query, params![], |row| {
+            let _journey_type = row.get_ref(0)?.as_i64()?;
+            let data = row.get_ref(1)?.as_blob()?;
+            Ok(data.to_vec())
+        });
+
+        match result {
+            Ok(data) => {
+                let cursor = Cursor::new(data);
+                let journey_bitmap = deserialize_journey_bitmap(cursor);
+                match journey_bitmap {
+                    Ok(bitmap) => Ok(Some(bitmap)),
+                    Err(e) => Err(e.into())
+                }
+            },
+            Err(RusqliteError::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
     }
 
     // Method to insert journey bitmap blob

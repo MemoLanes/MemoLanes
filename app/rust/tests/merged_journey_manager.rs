@@ -1,7 +1,7 @@
 pub mod test_utils;
 use chrono::Utc;
 use memolanes_core::{
-    cache_db::CacheDb, journey_bitmap::JourneyBitmap, journey_data::JourneyData, main_db::MainDb,
+    cache_db::CacheDb, journey_data::JourneyData, main_db::MainDb,
     merged_journey_manager,
 };
 use tempdir::TempDir;
@@ -33,19 +33,12 @@ fn basic() {
         })
         .unwrap();
 
-    let journey_cache = cache_db.get_journey();
-    match journey_cache {
-        Err(e) => {
-            if e.to_string() == "Query returned no rows" {
-                println!("No journey data found in the cache.");
-            } else {
-                panic!("Unexpected error when retrieving cached data: {:?}", e);
-            }
-        }
-        _ => {
-            panic!("Cache Db should start empty")
-        }
-    };
+    let result = cache_db.get_journey();
+    match result {
+        Ok(None) => (),
+        Ok(Some(_)) => panic!("Expected no bitmap but found one."),
+        Err(e) => panic!("Expected no bitmap but encountered an error: {}", e),
+    }
 
     // Result from main db, but also fill cache db
     let stored_bitmap =
@@ -54,13 +47,11 @@ fn basic() {
     assert_eq!(journey_bitmap, stored_bitmap);
 
     // validate the cached journey
-    let cached_data = cache_db.get_journey().unwrap();
+    let cached_bitmap = cache_db.get_journey().unwrap();
 
-    let mut cached_bitmap = JourneyBitmap::new();
-    match cached_data {
-        JourneyData::Bitmap(bitmap) => cached_bitmap.merge(bitmap),
+    match cached_bitmap {
+        Some(cached_bitmap) => assert_eq!(journey_bitmap, cached_bitmap),
         _ => panic!("Expected bitmap data"),
     }
 
-    assert_eq!(journey_bitmap, cached_bitmap);
 }

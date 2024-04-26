@@ -34,7 +34,6 @@ use crate::{
     journey_vector::JourneyVector, main_db::MainDb,
 };
 use anyhow::Result;
-use std::io::{Error, ErrorKind};
 
 fn add_journey_vector_to_journey_bitmap(
     journey_bitmap: &mut JourneyBitmap,
@@ -60,21 +59,18 @@ pub fn get_latest_including_ongoing(
 ) -> Result<JourneyBitmap> {
     let ongoing_journey_bitmap = get_ongoing_from_maindb(main_db).unwrap();
     let mut journey_bitmap = match get_finalized_from_cachedb(cache_db) {
-        Ok(bitmap) => bitmap,
+        Ok(Some(bitmap)) => bitmap,
+        Ok(None) => {
+            debug!("No journey data found in the cache.");
+            let fetched_bitmap = get_finalized_from_maindb(main_db)?;
+            insert_cachedb(cache_db, fetched_bitmap.clone());
+            fetched_bitmap
+        },
         Err(e) => {
-            if e.to_string() == "Query returned no rows" {
-                // If no rows found in cache, fetch from main db and cache the result
-                debug!("No journey data found in the cache.");
-                let fetched_bitmap = get_finalized_from_maindb(main_db)?;
-                insert_cachedb(cache_db, fetched_bitmap.clone());
-                fetched_bitmap
-            } else {
-                debug!("Unexpected error when retrieving cached data: {:?}", e);
-                return Err(e);
-            }
+            debug!("Unexpected error when retrieving cached data: {:?}", e);
+            return Err(e);
         }
     };
-
     journey_bitmap.merge(ongoing_journey_bitmap);
     Ok(journey_bitmap)
 }
@@ -125,13 +121,6 @@ pub fn get_finalized_from_maindb(main_db: &mut MainDb) -> Result<JourneyBitmap> 
     })
 }
 
-pub fn get_finalized_from_cachedb(cache_db: &mut CacheDb) -> Result<JourneyBitmap> {
-    let mut journey_bitmap = JourneyBitmap::new();
-    let journey_data = cache_db.get_journey()?;
-    match journey_data {
-        JourneyData::Bitmap(bitmap) => journey_bitmap.merge(bitmap),
-        _ => return Err(Error::new(ErrorKind::InvalidData, "Expected bitmap data").into()),
-    }
-
-    Ok(journey_bitmap)
+pub fn get_finalized_from_cachedb(cache_db: &mut CacheDb) -> Result<Option<JourneyBitmap>> {
+    cache_db.get_journey()
 }
