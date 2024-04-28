@@ -19,8 +19,6 @@ use crate::{journey_bitmap::JourneyBitmap, journey_data};
 // history, we could clear some but not all cache, and re-construct these
 //  outdated ones reasonably quickly.
 
-// Function to open the database and run migrations
-#[allow(clippy::type_complexity)]
 fn open_db(cache_dir: &str, file_name: &str, sql: &str) -> Result<Connection> {
     // TODO: maybe we want versioning or at least detect versioning issue
     // so we could rebuilt it.
