@@ -10,7 +10,7 @@ use crate::{journey_bitmap::JourneyBitmap, journey_data};
 // when there is a update to any finalized journey in main db.
 // To improve this, we should:
 // V1: we want more fine-grained cache invalidation/update rules. e.g. If we are
-// only append new finalized journey, then we could just merge that single 
+// only append new finalized journey, then we could just merge that single
 // journey with the existing cache.
 // V2: we might need multiple caches for different layer (e.g. one for flight,
 // one for land).
