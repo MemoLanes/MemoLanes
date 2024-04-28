@@ -8,7 +8,7 @@ use std::sync::Mutex;
 
 use crate::cache_db::CacheDb;
 use crate::gps_processor::{self, ProcessResult};
-use crate::main_db::{self, MainDb, Txn};
+use crate::main_db::{self, MainDb};
 
 // TODO: error handling in this file is horrifying, we should think about what
 // is the right thing to do here.

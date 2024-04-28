@@ -146,21 +146,22 @@ pub fn toggle_raw_data_mode(enable: bool) {
 }
 
 pub fn finalize_ongoing_journey() -> Result<bool> {
-    let mut main_db = get().storage.main_db.lock().unwrap();
-    main_db.with_txn(|txn| txn.finalize_ongoing_journey())
+    get()
+        .storage
+        .with_db_txn(|txn| txn.finalize_ongoing_journey())
 }
 
 pub fn try_auto_finalize_journy() -> Result<bool> {
-    let mut main_db = get().storage.main_db.lock().unwrap();
-    main_db.try_auto_finalize_journy()
+    get()
+        .storage
+        .with_db_txn(|txn| txn.try_auto_finalize_journy())
 }
 
 pub fn import_fow_data(zip_file_path: String) -> Result<()> {
     // TODO: This is really naive, mostly just a demo. We need to get real
     // values from users.
     let (journey_bitmap, _warnings) = import_data::load_fow_sync_data(&zip_file_path)?;
-    let mut main_db = get().storage.main_db.lock().unwrap();
-    main_db.with_txn(|txn| {
+    get().storage.with_db_txn(|txn| {
         txn.create_and_insert_journey(
             Local::now().date_naive(),
             None,
@@ -170,19 +171,18 @@ pub fn import_fow_data(zip_file_path: String) -> Result<()> {
             None,
             JourneyData::Bitmap(journey_bitmap),
         )
-    })?;
-    Ok(())
+    })
 }
 
 pub fn list_all_journeys() -> Result<Vec<JourneyHeader>> {
-    let mut main_db = get().storage.main_db.lock().unwrap();
-    main_db.with_txn(|txn| txn.list_all_journeys())
+    get().storage.with_db_txn(|txn| txn.list_all_journeys())
 }
 
 pub fn generate_full_archive(target_filepath: String) -> Result<()> {
-    let mut main_db = get().storage.main_db.lock().unwrap();
     let mut file = File::create(target_filepath)?;
-    archive::archive_all_as_zip(&mut main_db, &mut file)?;
+    get()
+        .storage
+        .with_db_txn(|txn| archive::archive_all_as_zip(txn, &mut file))?;
     drop(file);
     Ok(())
 }
@@ -197,8 +197,9 @@ pub fn export_journey(
     journey_id: String,
     export_type: ExportType,
 ) -> Result<()> {
-    let mut main_db = get().storage.main_db.lock().unwrap();
-    let journey_data = main_db.with_txn(|txn| txn.get_journey(&journey_id))?;
+    let journey_data = get()
+        .storage
+        .with_db_txn(|txn| txn.get_journey(&journey_id))?;
     match journey_data {
         JourneyData::Bitmap(_bitmap) => Err(anyhow!("Data type error")),
         JourneyData::Vector(vector) => {
@@ -217,7 +218,8 @@ pub fn export_journey(
 }
 
 pub fn recover_from_archive(zip_file_path: String) -> Result<()> {
-    let mut main_db = get().storage.main_db.lock().unwrap();
-    archive::recover_archive_file(&zip_file_path, &mut main_db)?;
+    get()
+        .storage
+        .with_db_txn(|txn| archive::recover_archive_file(&zip_file_path, txn))?;
     Ok(())
 }
