@@ -16,13 +16,13 @@ fn open_db(cache_dir: &str, file_name: &str, sql: &str) -> Result<Connection> {
     Ok(conn)
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub enum JourneyCacheKey {
     All,
 }
 
 impl JourneyCacheKey {
-    fn to_db_string(self) -> String {
+    fn to_db_string(&self) -> String {
         match self {
             Self::All => "A".to_owned(),
         }

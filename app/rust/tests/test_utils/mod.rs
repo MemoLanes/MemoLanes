@@ -2,7 +2,7 @@ use chrono::NaiveDateTime;
 use hex::ToHex;
 use memolanes_core::{gps_processor, journey_bitmap::JourneyBitmap};
 use sha1::{Digest, Sha1};
-use std::{convert::Infallible, fs::File, io::Write};
+use std::{fs::File, io::Write};
 
 pub fn load_raw_gpx_data_for_test() -> Vec<gps_processor::RawData> {
     let mut reader = csv::ReaderBuilder::new()
@@ -74,12 +74,11 @@ fn draw_line4(journey_bitmap: &mut JourneyBitmap) {
     journey_bitmap.add_line(START_LNG, MID_LAT, END_LNG, MID_LAT)
 }
 
-pub fn draw_sample_bitmap() -> Result<JourneyBitmap, Infallible> {
+pub fn draw_sample_bitmap() -> JourneyBitmap {
     let mut journey_bitmap = JourneyBitmap::new();
     draw_line1(&mut journey_bitmap);
     draw_line2(&mut journey_bitmap);
     draw_line3(&mut journey_bitmap);
     draw_line4(&mut journey_bitmap);
-
-    Ok(journey_bitmap)
+    journey_bitmap
 }
