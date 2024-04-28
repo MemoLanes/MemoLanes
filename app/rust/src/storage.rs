@@ -8,7 +8,7 @@ use std::sync::Mutex;
 
 use crate::cache_db::CacheDb;
 use crate::gps_processor::{self, ProcessResult};
-use crate::main_db::MainDb;
+use crate::main_db::{self, MainDb, Txn};
 
 // TODO: error handling in this file is horrifying, we should think about what
 // is the right thing to do here.
@@ -92,10 +92,11 @@ impl RawDataRecorder {
 
 pub struct Storage {
     support_dir: String,
-    pub main_db: Mutex<MainDb>,
     raw_data_recorder: Mutex<Option<RawDataRecorder>>, // `None` means disabled
     _cache_dir: String,
-    pub cache_db: Mutex<CacheDb>,
+    // NOTE: both db are deliberately hidden so all operations need to go
+    // through `Storage` to make sure they are in sync.
+    dbs: Mutex<(MainDb, CacheDb)>,
 }
 
 impl Storage {
@@ -115,11 +116,24 @@ impl Storage {
             };
         Storage {
             support_dir,
-            main_db: Mutex::new(main_db),
             raw_data_recorder: Mutex::new(raw_data_recorder),
             _cache_dir: cache_dir,
-            cache_db: Mutex::new(cache_db),
+            dbs: Mutex::new((main_db, cache_db)),
         }
+    }
+
+    pub fn with_db_txn<F, O>(&mut self, f: F) -> Result<O>
+    where
+        F: FnOnce(&main_db::Txn) -> Result<O>,
+    {
+        let mut dbs = self.dbs.lock().unwrap();
+        dbs.0.with_txn(|txn| {
+            let output = f(&txn)?;
+            if txn.reset_cache {
+                dbs.1.clear_journey_cache()?
+            }
+            Ok(output)
+        })
     }
 
     pub fn toggle_raw_data_mode(&self, enable: bool) {
@@ -128,7 +142,7 @@ impl Storage {
             if raw_data_recorder.is_none() {
                 *raw_data_recorder = Some(RawDataRecorder::init(&self.support_dir));
                 debug!("[storage] raw data mod enabled");
-                let mut main_db = self.main_db.lock().unwrap();
+                let mut main_db = self.dbs.lock().unwrap().0;
                 main_db
                     .set_setting(crate::main_db::Setting::RawDataMode, true)
                     .unwrap();
@@ -137,7 +151,7 @@ impl Storage {
             debug!("[storage] raw data mod disabled");
             // `drop` should do the right thing and release all resources.
             *raw_data_recorder = None;
-            let mut main_db = self.main_db.lock().unwrap();
+            let mut main_db = self.dbs.lock().unwrap().0;
             main_db
                 .set_setting(crate::main_db::Setting::RawDataMode, false)
                 .unwrap();
@@ -161,7 +175,7 @@ impl Storage {
         }
         drop(raw_data_recorder);
 
-        let mut main_db = self.main_db.lock().unwrap();
+        let mut main_db = self.dbs.lock().unwrap().0;
         main_db.record(raw_data, process_result).unwrap();
     }
 
@@ -189,9 +203,10 @@ impl Storage {
     pub fn _flush(&self) -> Result<()> {
         debug!("[storage] flushing");
 
-        let main_db = self.main_db.lock().unwrap();
-        main_db.flush()?;
-        drop(main_db);
+        let dbs = self.dbs.lock().unwrap();
+        dbs.0.flush()?;
+        dbs.1.flush()?;
+        drop(dbs);
 
         let mut raw_data_recorder = self.raw_data_recorder.lock().unwrap();
         if let Some(ref mut x) = *raw_data_recorder {

@@ -1,11 +1,9 @@
 extern crate simplelog;
 use anyhow::Result;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension};
 use std::path::Path;
 
-use crate::journey_bitmap::{self, JourneyBitmap};
-use crate::journey_data::{self, JourneyData};
-use crate::journey_header::JourneyType;
+use crate::{journey_bitmap::JourneyBitmap, journey_data};
 
 // Function to open the database and run migrations
 #[allow(clippy::type_complexity)]

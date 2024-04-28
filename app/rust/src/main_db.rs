@@ -93,8 +93,12 @@ fn open_db_and_run_migration(
 
 pub struct Txn<'a> {
     db_txn: rusqlite::Transaction<'a>,
+    // TODO: in cache db v1, we want to improve the granularity.
+    pub reset_cache: bool,
 }
 
+// NOTE: the `Txn` here is not only for making operation atomic, the `storage`
+// will also use this to make sure the `cache_db` is in sync.
 impl Txn<'_> {
     pub fn get_ongoing_journey(&self) -> Result<Option<OngoingJourney>> {
         // `id` in `ongoing_journey` is auto incremented.
@@ -139,6 +143,7 @@ impl Txn<'_> {
 
     pub fn clear_journeys(&self) -> Result<()> {
         self.db_txn.execute("DELETE FROM journey;", ())?;
+        self.reset_cache = true;
         Ok(())
     }
 
@@ -168,6 +173,7 @@ impl Txn<'_> {
                 data_bytes,
             ),
         )?;
+        self.reset_cache = true;
         Ok(())
     }
 
@@ -277,6 +283,31 @@ impl Txn<'_> {
             Ok(f())
         })?
     }
+
+    // TODO: consider moving this to `storage.rs`
+    pub fn try_auto_finalize_journy(&mut self) -> Result<bool> {
+        match self.get_lastest_timestamp_of_ongoing_journey()? {
+            None => Ok(false),
+            Some(latest_timestamp) => {
+                // TODO: the current logic is naive
+                // NOTE: this logic is not called very frequently
+                let latest = latest_timestamp.with_timezone(&Local);
+                let now = Local::now();
+                let try_finalize = if latest.date_naive() == now.date_naive() {
+                    // 2 hours
+                    now.timestamp() - latest.timestamp() >= 2 * 60 * 60
+                } else {
+                    // 2 minutes
+                    now.timestamp() - latest.timestamp() >= 2 * 60
+                };
+                if try_finalize {
+                    self.finalize_ongoing_journey()
+                } else {
+                    Ok(false)
+                }
+            }
+        }
+    }
 }
 
 pub struct MainDb {
@@ -343,6 +374,7 @@ impl MainDb {
     {
         let txn = Txn {
             db_txn: self.conn.transaction()?,
+            reset_cache: false,
         };
         let output = f(&txn)?;
         txn.db_txn.commit()?;
@@ -353,6 +385,11 @@ impl MainDb {
         self.conn.cache_flush()?;
         Ok(())
     }
+
+    /* NOTE:
+      Only operations that: do NOT need transactionality AND do NOT affects
+      `cache_db` can be put outside `Txn`. Be extra careful.
+    */
 
     fn append_ongoing_journey(
         &mut self,
@@ -385,32 +422,6 @@ impl MainDb {
             }
         }
         Ok(())
-    }
-
-    pub fn try_auto_finalize_journy(&mut self) -> Result<bool> {
-        self.with_txn(
-            |txn| match txn.get_lastest_timestamp_of_ongoing_journey()? {
-                None => Ok(false),
-                Some(latest_timestamp) => {
-                    // TODO: the current logic is naive
-                    // NOTE: this logic is not called very frequently
-                    let latest = latest_timestamp.with_timezone(&Local);
-                    let now = Local::now();
-                    let try_finalize = if latest.date_naive() == now.date_naive() {
-                        // 2 hours
-                        now.timestamp() - latest.timestamp() >= 2 * 60 * 60
-                    } else {
-                        // 2 minutes
-                        now.timestamp() - latest.timestamp() >= 2 * 60
-                    };
-                    if try_finalize {
-                        txn.finalize_ongoing_journey()
-                    } else {
-                        Ok(false)
-                    }
-                }
-            },
-        )
     }
 
     fn get_setting<T: FromStr>(&mut self, setting: Setting) -> Result<Option<T>>
