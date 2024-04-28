@@ -36,7 +36,7 @@ const SECTION_MAGIC_HEADER: [u8; 3] = [b'M', b'L', b'S'];
 
 // TODO: support archive/export a seleted set of journeys instead of everything.
 
-pub fn recover_archive_file(zip_file_path: &str, txn: &mut main_db::Txn) -> Result<()> {
+pub fn recover_archive_file(txn: &mut main_db::Txn, zip_file_path: &str) -> Result<()> {
     let mut zip = zip::ZipArchive::new(File::open(zip_file_path)?)?;
     let mut file = zip.by_name("metadata.xxm")?;
     let mut magic_header: [u8; 3] = [0; 3];

@@ -22,13 +22,13 @@ pub enum JourneyCacheKey {
 }
 
 impl JourneyCacheKey {
-    fn to_string(&self) -> String {
+    fn to_db_string(self) -> String {
         match self {
             Self::All => "A".to_owned(),
         }
     }
 
-    fn _of_string(str: &str) -> Self {
+    fn _of_db_string(str: &str) -> Self {
         match str {
             "A" => Self::All,
             _ => panic!("Invalid `JourneyCacheKey`, str = {}", str),
@@ -67,7 +67,7 @@ impl CacheDb {
             .prepare("SELECT data FROM `journey_cache` WHERE key = ?1;")?;
 
         let data = query
-            .query_row([key.to_string()], |row| {
+            .query_row([key.to_db_string()], |row| {
                 let data = row.get_ref(0)?.as_blob()?;
                 Ok(journey_data::deserialize_journey_bitmap(data))
             })
@@ -88,7 +88,7 @@ impl CacheDb {
         journey_data::serialize_journey_bitmap(journey_bitmap, &mut data)?;
         self.conn.execute(
             "INSERT OR REPLACE INTO `journey_cache` (key, data) VALUES (?1, ?2)",
-            (key.to_string(), &data),
+            (key.to_db_string(), &data),
         )?;
         Ok(())
     }

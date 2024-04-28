@@ -222,6 +222,6 @@ pub fn export_journey(
 pub fn recover_from_archive(zip_file_path: String) -> Result<()> {
     get()
         .storage
-        .with_db_txn(|txn| archive::recover_archive_file(&zip_file_path, txn))?;
+        .with_db_txn(|txn| archive::recover_archive_file(txn, &zip_file_path))?;
     Ok(())
 }

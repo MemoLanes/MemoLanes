@@ -135,8 +135,8 @@ impl Storage {
     {
         let mut dbs = self.dbs.lock().unwrap();
         let (ref mut main_db, ref cache_db) = *dbs;
-        main_db.with_txn(|mut txn| {
-            let output = f(&mut txn)?;
+        main_db.with_txn(|txn| {
+            let output = f(txn)?;
             if txn.reset_cache {
                 cache_db.clear_journey_cache()?;
                 let mut main_map_renderer_need_to_reload =
@@ -153,7 +153,7 @@ impl Storage {
             if raw_data_recorder.is_none() {
                 *raw_data_recorder = Some(RawDataRecorder::init(&self.support_dir));
                 debug!("[storage] raw data mod enabled");
-                let ref mut main_db = self.dbs.lock().unwrap().0;
+                let main_db = &mut self.dbs.lock().unwrap().0;
                 main_db
                     .set_setting(crate::main_db::Setting::RawDataMode, true)
                     .unwrap();
@@ -162,7 +162,7 @@ impl Storage {
             debug!("[storage] raw data mod disabled");
             // `drop` should do the right thing and release all resources.
             *raw_data_recorder = None;
-            let ref mut main_db = self.dbs.lock().unwrap().0;
+            let main_db = &mut self.dbs.lock().unwrap().0;
             main_db
                 .set_setting(crate::main_db::Setting::RawDataMode, false)
                 .unwrap();
@@ -186,7 +186,7 @@ impl Storage {
         }
         drop(raw_data_recorder);
 
-        let ref mut main_db = self.dbs.lock().unwrap().0;
+        let main_db = &mut self.dbs.lock().unwrap().0;
         main_db.record(raw_data, process_result).unwrap();
     }
 
