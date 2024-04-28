@@ -7,7 +7,7 @@ use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind};
 use crate::map_renderer::{MapRenderer, RenderResult};
 use crate::storage::Storage;
-use crate::{archive, export_data, gps_processor, import_data, merged_journey_manager, storage};
+use crate::{archive, export_data, gps_processor, import_data, storage};
 use anyhow::{Ok, Result};
 use chrono::Local;
 use simplelog::{Config, LevelFilter, WriteLogger};
@@ -63,15 +63,17 @@ pub fn render_map_overlay(
 ) -> Option<RenderResult> {
     let state = get();
     let mut map_renderer = state.map_renderer.lock().unwrap();
+    if state.storage.main_map_renderer_need_to_reload() {
+        *map_renderer = None;
+    }
 
     map_renderer
         .get_or_insert_with(|| {
-            let mut main_db = state.storage.main_db.lock().unwrap();
-            let mut cache_db = state.storage.cache_db.lock().unwrap();
             // TODO: error handling?
-            let journey_bitmap =
-                merged_journey_manager::get_latest_including_ongoing(&mut main_db, &mut cache_db)
-                    .unwrap();
+            let journey_bitmap = state
+                .storage
+                .get_latest_bitmap_for_main_map_renderer()
+                .unwrap();
             MapRenderer::new(journey_bitmap)
         })
         .maybe_render_map_overlay(zoom, left, top, right, bottom)

@@ -21,7 +21,7 @@ pub mod journey_header;
 pub mod journey_vector;
 pub mod main_db;
 pub mod map_renderer;
-pub mod merged_journey_manager;
+pub mod merged_journey_builder;
 mod protos;
 pub mod storage;
 pub mod tile_renderer;

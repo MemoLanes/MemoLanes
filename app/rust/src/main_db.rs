@@ -141,13 +141,13 @@ impl Txn<'_> {
         }
     }
 
-    pub fn clear_journeys(&self) -> Result<()> {
+    pub fn clear_journeys(&mut self) -> Result<()> {
         self.db_txn.execute("DELETE FROM journey;", ())?;
         self.reset_cache = true;
         Ok(())
     }
 
-    pub fn insert_journey(&self, header: JourneyHeader, data: JourneyData) -> Result<()> {
+    pub fn insert_journey(&mut self, header: JourneyHeader, data: JourneyData) -> Result<()> {
         let journey_type = header.journey_type;
         if journey_type != data.type_() {
             bail!("[insert_journey] Mismatch journey type")
@@ -179,7 +179,7 @@ impl Txn<'_> {
 
     #[allow(clippy::too_many_arguments)]
     pub fn create_and_insert_journey(
-        &self,
+        &mut self,
         journey_date: NaiveDate,
         start: Option<DateTime<Utc>>,
         end: Option<DateTime<Utc>>,
@@ -207,7 +207,7 @@ impl Txn<'_> {
         self.insert_journey(header, journey_data)
     }
 
-    pub fn finalize_ongoing_journey(&self) -> Result<bool> {
+    pub fn finalize_ongoing_journey(&mut self) -> Result<bool> {
         let new_journey_added = match self.get_ongoing_journey()? {
             None => false,
             Some(OngoingJourney {
@@ -370,13 +370,13 @@ impl MainDb {
 
     pub fn with_txn<F, O>(&mut self, f: F) -> Result<O>
     where
-        F: FnOnce(&Txn) -> Result<O>,
+        F: FnOnce(&mut Txn) -> Result<O>,
     {
-        let txn = Txn {
+        let mut txn = Txn {
             db_txn: self.conn.transaction()?,
             reset_cache: false,
         };
-        let output = f(&txn)?;
+        let output = f(&mut txn)?;
         txn.db_txn.commit()?;
         Ok(output)
     }

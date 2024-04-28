@@ -8,7 +8,9 @@ use std::sync::Mutex;
 
 use crate::cache_db::CacheDb;
 use crate::gps_processor::{self, ProcessResult};
+use crate::journey_bitmap::JourneyBitmap;
 use crate::main_db::{self, MainDb};
+use crate::merged_journey_builder;
 
 // TODO: error handling in this file is horrifying, we should think about what
 // is the right thing to do here.
@@ -94,9 +96,13 @@ pub struct Storage {
     support_dir: String,
     raw_data_recorder: Mutex<Option<RawDataRecorder>>, // `None` means disabled
     _cache_dir: String,
+    // TODO: I feel the abstraction between `dbs`, `merged_journey_builder`, and
+    // `main_map_renderer_need_to_reload` is a bit bad. We should refactor it,
+    // but maybe do that when we know more.
     // NOTE: both db are deliberately hidden so all operations need to go
     // through `Storage` to make sure they are in sync.
     dbs: Mutex<(MainDb, CacheDb)>,
+    main_map_renderer_need_to_reload: Mutex<bool>,
 }
 
 impl Storage {
@@ -119,18 +125,23 @@ impl Storage {
             raw_data_recorder: Mutex::new(raw_data_recorder),
             _cache_dir: cache_dir,
             dbs: Mutex::new((main_db, cache_db)),
+            main_map_renderer_need_to_reload: Mutex::new(true),
         }
     }
 
-    pub fn with_db_txn<F, O>(&mut self, f: F) -> Result<O>
+    pub fn with_db_txn<F, O>(&self, f: F) -> Result<O>
     where
-        F: FnOnce(&main_db::Txn) -> Result<O>,
+        F: FnOnce(&mut main_db::Txn) -> Result<O>,
     {
         let mut dbs = self.dbs.lock().unwrap();
-        dbs.0.with_txn(|txn| {
-            let output = f(&txn)?;
+        let (ref mut main_db, ref cache_db) = *dbs;
+        main_db.with_txn(|mut txn| {
+            let output = f(&mut txn)?;
             if txn.reset_cache {
-                dbs.1.clear_journey_cache()?
+                cache_db.clear_journey_cache()?;
+                let mut main_map_renderer_need_to_reload =
+                    self.main_map_renderer_need_to_reload.lock().unwrap();
+                *main_map_renderer_need_to_reload = true;
             }
             Ok(output)
         })
@@ -142,7 +153,7 @@ impl Storage {
             if raw_data_recorder.is_none() {
                 *raw_data_recorder = Some(RawDataRecorder::init(&self.support_dir));
                 debug!("[storage] raw data mod enabled");
-                let mut main_db = self.dbs.lock().unwrap().0;
+                let ref mut main_db = self.dbs.lock().unwrap().0;
                 main_db
                     .set_setting(crate::main_db::Setting::RawDataMode, true)
                     .unwrap();
@@ -151,7 +162,7 @@ impl Storage {
             debug!("[storage] raw data mod disabled");
             // `drop` should do the right thing and release all resources.
             *raw_data_recorder = None;
-            let mut main_db = self.dbs.lock().unwrap().0;
+            let ref mut main_db = self.dbs.lock().unwrap().0;
             main_db
                 .set_setting(crate::main_db::Setting::RawDataMode, false)
                 .unwrap();
@@ -175,7 +186,7 @@ impl Storage {
         }
         drop(raw_data_recorder);
 
-        let mut main_db = self.dbs.lock().unwrap().0;
+        let ref mut main_db = self.dbs.lock().unwrap().0;
         main_db.record(raw_data, process_result).unwrap();
     }
 
@@ -197,6 +208,28 @@ impl Storage {
             }
         }
         result
+    }
+
+    pub fn main_map_renderer_need_to_reload(&self) -> bool {
+        let main_map_renderer_need_to_reload =
+            self.main_map_renderer_need_to_reload.lock().unwrap();
+        *main_map_renderer_need_to_reload
+    }
+
+    pub fn get_latest_bitmap_for_main_map_renderer(&self) -> Result<JourneyBitmap> {
+        let mut dbs = self.dbs.lock().unwrap();
+        let (ref mut main_db, ref cache_db) = *dbs;
+        // passing `main_db` to `get_latest_including_ongoing` directly is fine
+        // becuase it only reads `main_db`.
+        let journey_bitmap =
+            merged_journey_builder::get_latest_including_ongoing(main_db, cache_db)?;
+        drop(dbs);
+
+        let mut main_map_renderer_need_to_reload =
+            self.main_map_renderer_need_to_reload.lock().unwrap();
+        *main_map_renderer_need_to_reload = false;
+
+        Ok(journey_bitmap)
     }
 
     // TODO: do we need this?

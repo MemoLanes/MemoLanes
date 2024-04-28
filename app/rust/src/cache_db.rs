@@ -28,7 +28,7 @@ impl JourneyCacheKey {
         }
     }
 
-    fn of_string(str: &str) -> Self {
+    fn _of_string(str: &str) -> Self {
         match str {
             "A" => Self::All,
             _ => panic!("Invalid `JourneyCacheKey`, str = {}", str),
