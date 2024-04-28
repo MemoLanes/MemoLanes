@@ -3,32 +3,6 @@ need to merge all journeys into one `journey_bitmap`. Relavent functionailties i
 implemented here.
 */
 
-// TODO: Right now, we just compute everything on demand and this is very slow
-// because it needs to go though every existing journey.
-// To improve this, we should build some kind of cache:
-// V0: we should keep a cache on disk for all finalized journeys. So on startup,
-// it just need to load the cache and append things from the current ongoing
-// journey which should be small.
-// V1: we might need multiple caches for different layer (e.g. one for flight,
-// one for land).
-// V2: we might need multiple caches keyed by `(start_time, end_time]`, and
-// have one per year or one per month. So when there is an update to the
-// history, we could clear some but not all cache, and re-construct these
-//  outdated ones reasonably quickly.
-
-// current cache design
-// read data
-// 1. in api.rs, obtain locks for main db and cache db
-// 2. try to fetch bitmap from cache db
-// 3.a. if no, then fetch bitmap from main db, store it to cache db
-// 3.b. if yes, use cached bitmap
-// 4. merge bitmap with ongoing journey
-
-// write data
-// 1. When a journey is finalized in storage, it will be inserted into main db with txn
-// 2. for V0, we simply delete cached bitmap
-// TODO: more fine-grained deletes for cache
-
 use crate::{
     cache_db::{CacheDb, JourneyCacheKey},
     journey_bitmap::JourneyBitmap,

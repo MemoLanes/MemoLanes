@@ -5,6 +5,20 @@ use std::path::Path;
 
 use crate::{journey_bitmap::JourneyBitmap, journey_data};
 
+// TODO: Right now, we keep a cache of all finalized journeys (and fallback to
+// compute it by merging all journeys in main db). We clear this cache entirely
+// when there is a update to any finalized journey in main db.
+// To improve this, we should:
+// V1: we want more fine-grained cache invalidation/update rules. e.g. If we are
+// only append new finalized journey, then we could just merge that single 
+// journey with the existing cache.
+// V2: we might need multiple caches for different layer (e.g. one for flight,
+// one for land).
+// V3: we might need multiple caches keyed by `(start_time, end_time]`, and
+// have one per year or one per month. So when there is an update to the
+// history, we could clear some but not all cache, and re-construct these
+//  outdated ones reasonably quickly.
+
 // Function to open the database and run migrations
 #[allow(clippy::type_complexity)]
 fn open_db(cache_dir: &str, file_name: &str, sql: &str) -> Result<Connection> {
