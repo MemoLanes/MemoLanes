@@ -74,6 +74,18 @@ class _ImportDataPage extends State<ImportDataPage> {
   }
 
   _saveData() async {
+    Fluttertoast.showToast(msg: _noteController.text);
+    if (journeyInfo != null) {
+      await saveImportJourney(
+          journeyInfo: JourneyInfo(
+              startTime: _startTime,
+              endTime: _endTime,
+              note: _noteController.text,
+              journeyData: journeyInfo!.journeyData));
+      Fluttertoast.showToast(msg: "Import successful");
+    } else {
+      Fluttertoast.showToast(msg: "JourneyData is empty");
+    }
   }
 
   Future<DateTime?> selectDateAndTime(BuildContext context) async {

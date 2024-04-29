@@ -1,5 +1,7 @@
+use crate::api::api::JourneyInfo;
 use crate::gps_processor::{PreprocessedData, ProcessResult, RawData};
 use crate::journey_bitmap::{self, Block, JourneyBitmap, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH};
+use crate::journey_data::JourneyData;
 use crate::{
     gps_processor::{self, GpsProcessor},
     journey_vector::{JourneyVector, TrackPoint},
@@ -156,10 +158,7 @@ fn load_vector_data(
     Ok(journey_vector)
 }
 
-pub fn load_gpx(
-    file_path: &str,
-    run_preprocessor: bool,
-) -> Result<(JourneyVector, Option<DateTime<Utc>>, Option<DateTime<Utc>>)> {
+pub fn load_gpx(file_path: &str, run_preprocessor: bool) -> Result<JourneyInfo> {
     let convert_to_timestamp = |time: &Option<Time>| -> Result<Option<DateTime<Utc>>> {
         let timestamp: Option<DateTime<Utc>> = match &time {
             Some(t) => Some(DateTime::<Utc>::from(DateTime::parse_from_rfc3339(
@@ -204,17 +203,19 @@ pub fn load_gpx(
         }
     }
 
-    Ok((
-        load_vector_data(raw_data_segments, run_preprocessor)?,
+    Ok(JourneyInfo {
+        journey_header: None,
+        journey_data: Some(JourneyData::Vector(load_vector_data(
+            raw_data_segments,
+            run_preprocessor,
+        )?)),
         start_time,
         end_time,
-    ))
+        note: None,
+    })
 }
 
-pub fn load_kml(
-    file_path: &str,
-    run_preprocessor: bool,
-) -> Result<(JourneyVector, Option<DateTime<Utc>>, Option<DateTime<Utc>>)> {
+pub fn load_kml(file_path: &str, run_preprocessor: bool) -> Result<JourneyInfo> {
     let parse_line = |coord: &Option<String>, when: &Option<String>| {
         let coord: Vec<&str> = match coord {
             Some(coord) => coord.split_whitespace().collect(),
@@ -242,7 +243,7 @@ pub fn load_kml(
 
     let convert_to_timestamp = |time: &Option<String>| -> Result<Option<DateTime<Utc>>> {
         let timestamp: Option<DateTime<Utc>> = match &time {
-            Some(t) => Some(DateTime::<Utc>::from(DateTime::parse_from_rfc3339(&t)?)),
+            Some(str) => Some(DateTime::<Utc>::from(DateTime::parse_from_rfc3339(str)?)),
             None => None,
         };
         Ok(timestamp)
@@ -319,11 +320,16 @@ pub fn load_kml(
         }
     });
 
-    Ok((
-        load_vector_data(raw_data_segments, run_preprocessor)?,
+    Ok(JourneyInfo {
+        journey_header: None,
+        journey_data: Some(JourneyData::Vector(load_vector_data(
+            raw_data_segments,
+            run_preprocessor,
+        )?)),
         start_time,
         end_time,
-    ))
+        note: None,
+    })
 }
 
 fn flatten_kml(kml: Kml) -> Vec<Kml> {
