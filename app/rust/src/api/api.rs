@@ -4,7 +4,7 @@ use crate::journey_header::{JourneyHeader, JourneyKind};
 use crate::map_renderer::{MapRenderer, RenderResult};
 use crate::protos::journey;
 use crate::storage::Storage;
-use crate::{archive, export_data, gps_processor, import_data, merged_journey_manager, storage};
+use crate::{archive, export_data, gps_processor, import_data, journey_bitmap, storage};
 use anyhow::{Ok, Result};
 use chrono::{DateTime, Local, Utc};
 use flutter_rust_bridge::frb;
@@ -64,13 +64,17 @@ pub fn render_map_overlay(
 ) -> Option<RenderResult> {
     let state = get();
     let mut map_renderer = state.map_renderer.lock().unwrap();
+    if state.storage.main_map_renderer_need_to_reload() {
+        *map_renderer = None;
+    }
 
     map_renderer
         .get_or_insert_with(|| {
-            let mut main_db = state.storage.main_db.lock().unwrap();
             // TODO: error handling?
-            let journey_bitmap =
-                merged_journey_manager::get_latest_including_ongoing(&mut main_db).unwrap();
+            let journey_bitmap = state
+                .storage
+                .get_latest_bitmap_for_main_map_renderer()
+                .unwrap();
             MapRenderer::new(journey_bitmap)
         })
         .maybe_render_map_overlay(zoom, left, top, right, bottom)
@@ -145,13 +149,15 @@ pub fn toggle_raw_data_mode(enable: bool) {
 }
 
 pub fn finalize_ongoing_journey() -> Result<bool> {
-    let mut main_db = get().storage.main_db.lock().unwrap();
-    main_db.with_txn(|txn| txn.finalize_ongoing_journey())
+    get()
+        .storage
+        .with_db_txn(|txn| txn.finalize_ongoing_journey())
 }
 
 pub fn try_auto_finalize_journy() -> Result<bool> {
-    let mut main_db = get().storage.main_db.lock().unwrap();
-    main_db.try_auto_finalize_journy()
+    get()
+        .storage
+        .with_db_txn(|txn| txn.try_auto_finalize_journy())
 }
 
 pub enum ImportType {
@@ -182,17 +188,17 @@ pub fn save_import_journey(journey_info: JourneyInfo) -> Result<()> {
         None => return Err(anyhow!("Journey Data error")),
     };
 
-    main_db.with_txn(|txn| {
+    get().storage.with_db_txn(|txn| {
         txn.create_and_insert_journey(
             journey_date,
             journey_info.start_time,
             journey_info.end_time,
             None,
             JourneyKind::DefaultKind,
-            journey_info.note,
-            journey_data,
+            None,
+            JourneyData::Bitmap(journey_bitmap),
         )
-    })?;
+    });
     Ok(())
 }
 
@@ -227,14 +233,14 @@ pub fn read_import_data(
 }
 
 pub fn list_all_journeys() -> Result<Vec<JourneyHeader>> {
-    let mut main_db = get().storage.main_db.lock().unwrap();
-    main_db.with_txn(|txn| txn.list_all_journeys())
+    get().storage.with_db_txn(|txn| txn.list_all_journeys())
 }
 
 pub fn generate_full_archive(target_filepath: String) -> Result<()> {
-    let mut main_db = get().storage.main_db.lock().unwrap();
     let mut file = File::create(target_filepath)?;
-    archive::archive_all_as_zip(&mut main_db, &mut file)?;
+    get()
+        .storage
+        .with_db_txn(|txn| archive::archive_all_as_zip(txn, &mut file))?;
     drop(file);
     Ok(())
 }
@@ -249,8 +255,9 @@ pub fn export_journey(
     journey_id: String,
     export_type: ExportType,
 ) -> Result<()> {
-    let mut main_db = get().storage.main_db.lock().unwrap();
-    let journey_data = main_db.with_txn(|txn| txn.get_journey(&journey_id))?;
+    let journey_data = get()
+        .storage
+        .with_db_txn(|txn| txn.get_journey(&journey_id))?;
     match journey_data {
         JourneyData::Bitmap(_bitmap) => Err(anyhow!("Data type error")),
         JourneyData::Vector(vector) => {
@@ -269,7 +276,8 @@ pub fn export_journey(
 }
 
 pub fn recover_from_archive(zip_file_path: String) -> Result<()> {
-    let mut main_db = get().storage.main_db.lock().unwrap();
-    archive::recover_archive_file(&zip_file_path, &mut main_db)?;
+    get()
+        .storage
+        .with_db_txn(|txn| archive::recover_archive_file(txn, &zip_file_path))?;
     Ok(())
 }

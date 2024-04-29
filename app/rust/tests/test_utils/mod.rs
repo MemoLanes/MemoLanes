@@ -1,6 +1,6 @@
 use chrono::NaiveDateTime;
 use hex::ToHex;
-use memolanes_core::gps_processor;
+use memolanes_core::{gps_processor, journey_bitmap::JourneyBitmap};
 use sha1::{Digest, Sha1};
 use std::{fs::File, io::Write};
 
@@ -52,4 +52,33 @@ pub fn assert_image(
     hasher.update(data);
     let result = hasher.finalize();
     assert_eq!(result.encode_hex::<String>(), expect_hash);
+}
+
+const START_LNG: f64 = 151.1435370795134;
+const START_LAT: f64 = -33.793291910360125;
+const END_LNG: f64 = 151.2783692841415;
+const END_LAT: f64 = -33.943600147192235;
+const MID_LNG: f64 = (START_LNG + END_LNG) / 2.;
+const MID_LAT: f64 = (START_LAT + END_LAT) / 2.;
+
+fn draw_line1(journey_bitmap: &mut JourneyBitmap) {
+    journey_bitmap.add_line(START_LNG, START_LAT, END_LNG, END_LAT)
+}
+fn draw_line2(journey_bitmap: &mut JourneyBitmap) {
+    journey_bitmap.add_line(START_LNG, END_LAT, END_LNG, START_LAT);
+}
+fn draw_line3(journey_bitmap: &mut JourneyBitmap) {
+    journey_bitmap.add_line(MID_LNG, START_LAT, MID_LNG, END_LAT)
+}
+fn draw_line4(journey_bitmap: &mut JourneyBitmap) {
+    journey_bitmap.add_line(START_LNG, MID_LAT, END_LNG, MID_LAT)
+}
+
+pub fn draw_sample_bitmap() -> JourneyBitmap {
+    let mut journey_bitmap = JourneyBitmap::new();
+    draw_line1(&mut journey_bitmap);
+    draw_line2(&mut journey_bitmap);
+    draw_line3(&mut journey_bitmap);
+    draw_line4(&mut journey_bitmap);
+    journey_bitmap
 }
