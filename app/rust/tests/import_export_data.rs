@@ -1,12 +1,8 @@
-use std::fs::File;
-
-use anyhow::Ok;
 use itertools::Itertools;
 use memolanes_core::{
-    api::api::JourneyInfo,
-    export_data, import_data, journey_data,
-    journey_vector::{self, JourneyVector},
+    api::api::JourneyInfo, export_data, import_data, journey_data, journey_vector::JourneyVector,
 };
+use std::fs::File;
 
 #[test]
 fn load_fow_sync_data() {
@@ -31,6 +27,8 @@ fn journey_info_to_journey_vector(journey_info: JourneyInfo) -> JourneyVector {
 #[test]
 pub fn gpx() {
     let journey_info = import_data::load_gpx("./tests/data/raw_gps_laojunshan.gpx", false).unwrap();
+    let start_time = journey_info.start_time.unwrap().timestamp_millis();
+    let end_time = journey_info.end_time.unwrap().timestamp_millis();
     let vector1 = journey_info_to_journey_vector(journey_info);
     export_data::journey_vector_to_gpx_file(
         &vector1,
@@ -59,19 +57,15 @@ pub fn gpx() {
 
     assert_eq!(points1.len(), 2945);
     assert_eq!(points1, points2);
-    assert_eq!(
-        journey_info.start_time.unwrap().timestamp_millis(),
-        1696383677000
-    );
-    assert_eq!(
-        journey_info.end_time.unwrap().timestamp_millis(),
-        1696386835000
-    );
+    assert_eq!(start_time, 1696383677000);
+    assert_eq!(end_time, 1696386835000);
 }
 
 #[test]
 pub fn kml() {
     let journey_info = import_data::load_kml("./tests/data/raw_gps_laojunshan.kml", false).unwrap();
+    let start_time = journey_info.start_time.unwrap().timestamp_millis();
+    let end_time = journey_info.end_time.unwrap().timestamp_millis();
     let vector1 = journey_info_to_journey_vector(journey_info);
 
     export_data::journey_vector_to_kml_file(
@@ -101,12 +95,6 @@ pub fn kml() {
 
     assert_eq!(points1.len(), 1651);
     assert_eq!(points1, points2);
-    assert_eq!(
-        journey_info.start_time.unwrap().timestamp_millis(),
-        1696383677000
-    );
-    assert_eq!(
-        journey_info.end_time.unwrap().timestamp_millis(),
-        1696386835000
-    );
+    assert_eq!(start_time, 1696383677000);
+    assert_eq!(end_time, 1696386835000);
 }
