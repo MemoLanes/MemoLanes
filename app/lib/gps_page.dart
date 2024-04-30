@@ -33,6 +33,14 @@ class _ExportRawDataState extends State<ExportRawData> {
                     Share.shareXFiles([XFile(item.path)]);
                     Navigator.of(context).pop();
                   },
+                  onLongPress: () {
+                    showDialogFunction(() async {
+                      await deleteRawDataFile(filename: item.name);
+                      Navigator.of(context).pop();
+                      items = await listAllRawData();
+                      (context as Element).markNeedsBuild();
+                    });
+                  },
                 );
               }).toList(),
             ),
@@ -44,6 +52,27 @@ class _ExportRawDataState extends State<ExportRawData> {
                 Navigator.of(context).pop();
               },
             ),
+          ],
+        );
+      },
+    );
+  }
+
+  showDialogFunction(fn){
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text(""),
+          content: const Text("Delete？"),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(onPressed: fn, child: const Text("Yes")),
           ],
         );
       },

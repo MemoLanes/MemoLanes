@@ -1,7 +1,7 @@
 extern crate simplelog;
-use anyhow::Result;
+use anyhow::{Ok, Result};
 use chrono::Utc;
-use std::fs::File;
+use std::fs::{remove_file, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -30,6 +30,7 @@ pub struct RawDataFile {
 struct RawDataRecorder {
     dir: PathBuf,
     file: Option<File>,
+    name: Option<String>,
 }
 
 impl RawDataRecorder {
@@ -37,7 +38,11 @@ impl RawDataRecorder {
         // TODO: better error handling
         let dir = Path::new(support_dir).join("raw_data/");
         std::fs::create_dir_all(&dir).unwrap();
-        RawDataRecorder { dir, file: None }
+        RawDataRecorder {
+            dir,
+            file: None,
+            name: None,
+        }
     }
 
     fn flush(&mut self) {
@@ -56,39 +61,39 @@ impl RawDataRecorder {
         let file = self.file.get_or_insert_with(|| {
             let timestamp_sec = Utc::now().timestamp_micros() / 1000000;
             let mut i = 0;
-            let filename = loop {
-                let filename =
-                    Path::new(&self.dir).join(format!("gps-{}-{}.csv", timestamp_sec, i));
-                if std::fs::metadata(&filename).is_err() {
-                    break filename;
+            let (path,filename) = loop {
+                let filename = format!("gps-{}-{}.csv", timestamp_sec, i);
+                let path =
+                    Path::new(&self.dir).join(&filename);
+                if std::fs::metadata(&path).is_err() {
+                    break (path,filename);
                 }
                 i += 1;
             };
-            let mut file = File::create(filename).unwrap();
+            let mut file = File::create(path).unwrap();
             let _ = file
                 .write(
                     "timestamp_ms,recevied_timestamp_ms,latitude,longitude,accuarcy,altitude,speed,process_result\n"
                         .as_bytes(),
                 )
                 .unwrap();
+            self.name =  Some(filename);
             file
         });
-        let _ = file
-            .write(
-                format!(
-                    "{},{},{},{},{},{},{},{}\n",
-                    raw_data.timestamp_ms.unwrap_or_default(),
-                    recevied_timestamp_ms,
-                    raw_data.latitude,
-                    raw_data.longitude,
-                    raw_data.accuracy.map(|x| x.to_string()).unwrap_or_default(),
-                    &raw_data.altitude.map(|x| x.to_string()).unwrap_or_default(),
-                    &raw_data.speed.map(|x| x.to_string()).unwrap_or_default(),
-                    process_result.to_int()
-                )
-                .as_bytes(),
+        let _ = file.write(
+            format!(
+                "{},{},{},{},{},{},{},{}\n",
+                raw_data.timestamp_ms.unwrap_or_default(),
+                recevied_timestamp_ms,
+                raw_data.latitude,
+                raw_data.longitude,
+                raw_data.accuracy.map(|x| x.to_string()).unwrap_or_default(),
+                &raw_data.altitude.map(|x| x.to_string()).unwrap_or_default(),
+                &raw_data.speed.map(|x| x.to_string()).unwrap_or_default(),
+                process_result.to_int()
             )
-            .unwrap();
+            .as_bytes(),
+        );
     }
 }
 
@@ -172,6 +177,25 @@ impl Storage {
     pub fn get_raw_data_mode(&self) -> bool {
         let raw_data_recorder = self.raw_data_recorder.lock().unwrap();
         raw_data_recorder.is_some()
+    }
+
+    pub fn delete_raw_data_file(&self, file_name: String) -> Result<()> {
+        let mut raw_data_recorder = self.raw_data_recorder.lock().unwrap();
+        remove_file(
+            Path::new(&self.support_dir)
+                .join("raw_data/")
+                .join(&file_name),
+        )?;
+        if let Some(ref mut x) = *raw_data_recorder {
+            if let Some(name) = &x.name {
+                if name == &file_name {
+                    x.file = None;
+                    x.name = None;
+                }
+            }
+        }
+        drop(raw_data_recorder);
+        Ok(())
     }
 
     pub fn record_gps_data(
