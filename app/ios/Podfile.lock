@@ -113,14 +113,14 @@ SPEC CHECKSUMS:
   DKPhotoGallery: fdfad5125a9fdda9cc57df834d49df790dbb4179
   file_picker: 15fd9539e4eb735dc54bae8c0534a7a9511a03de
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
-  fluttertoast: fafc4fa4d01a6a9e4f772ecd190ffa525e9e2d9c
+  fluttertoast: 9f2f8e81bb5ce18facb9748d7855bf5a756fe3db
   geolocator_apple: 6cbaf322953988e009e5ecb481f07efece75c450
   mapbox_maps_flutter: 0425c56f1f51fe8c46069a9e03f1027e3ade35d7
   MapboxCommon: e6d0d15f1e34278e21bae28bdc548d378757b51e
   MapboxCoreMaps: 0e3eab0bd5787e833d48261fa1d01f356d6c4ad8
   MapboxMaps: 5aba2ba70a85d08e0ea00ad011ca3d2965e69a59
   path_provider_foundation: 3784922295ac71e43754bd15e0653ccfd36a147c
-  permission_handler_apple: 036b856153a2b1f61f21030ff725f3e6fece2b78
+  permission_handler_apple: 9878588469a2b0d0fc1e048d9f43605f92e6cec2
   rust_builder: 06c007d2993fe78fac952c4fb967ac1dfd0522c0
   SDWebImage: fc8f2d48bbfd72ef39d70e981bd24a3f3be53fec
   share_plus: c3fef564749587fc939ef86ffb283ceac0baf9f5
@@ -128,6 +128,6 @@ SPEC CHECKSUMS:
   Toast: 1f5ea13423a1e6674c4abdac5be53587ae481c4e
   Turf: aa2ede4298009639d10db36aba1a7ebaad072a5e
 
-PODFILE CHECKSUM: 6828fbe8f019c096e2ff524af6df7553ef93cf8d
+PODFILE CHECKSUM: adb9687c2ee1453b6cb5c1cd206f0d206a36d0e8
 
-COCOAPODS: 1.12.1
+COCOAPODS: 1.15.2
