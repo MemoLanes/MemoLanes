@@ -2,94 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:project_dv/gps_recording_state.dart';
 import 'package:project_dv/src/rust/api/api.dart';
-import 'package:project_dv/src/rust/storage.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
-
-// import 'ffi.dart' if (dart.library.html) 'ffi_web.dart';
-
-class ExportRawData extends StatefulWidget {
-  const ExportRawData({super.key});
-
-  @override
-  _ExportRawDataState createState() => _ExportRawDataState();
-}
-
-class _ExportRawDataState extends State<ExportRawData> {
-  void _showDialog(List<RawDataFile> items) async {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Select an item'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: items.map((item) {
-                return ListTile(
-                  title: Text(item.name),
-                  onTap: () {
-                    Share.shareXFiles([XFile(item.path)]);
-                    Navigator.of(context).pop();
-                  },
-                  onLongPress: () {
-                    showDialogFunction(() async {
-                      await deleteRawDataFile(filename: item.name);
-                      Navigator.of(context).pop();
-                      items = await listAllRawData();
-                      (context as Element).markNeedsBuild();
-                    });
-                  },
-                );
-              }).toList(),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  showDialogFunction(fn){
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text(""),
-          content: const Text("Delete？"),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Cancel'),
-            ),
-            TextButton(onPressed: fn, child: const Text("Yes")),
-          ],
-        );
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: () async {
-        var items = await listAllRawData();
-        _showDialog(items);
-      },
-      child: const Text('Export'),
-    );
-  }
-}
 
 class RawDataSwitch extends StatefulWidget {
   const RawDataSwitch({super.key});
@@ -155,7 +68,6 @@ class GPSPage extends StatelessWidget {
           ),
           const Text("Raw data"),
           const RawDataSwitch(),
-          const ExportRawData(),
         ],
       ),
     );
