@@ -1,7 +1,11 @@
-use tiny_skia::{Color, Pixmap, PixmapPaint, Transform};
+use tiny_skia::{Pixmap, PixmapPaint, Transform};
 
 use crate::{
-    blur::gaussian_blur, journey_bitmap::JourneyBitmap, tile_renderer::TileRenderer, utils,
+    // blur::gaussian_blur, graphics::color_dilation,
+    graphics::color_dilation2,
+    journey_bitmap::JourneyBitmap,
+    tile_renderer::TileRenderer,
+    utils,
 };
 
 pub struct RenderResult {
@@ -28,6 +32,7 @@ pub struct MapRenderer {
     tile_renderer: TileRenderer,
     journey_bitmap: JourneyBitmap,
     current_render_area: Option<RenderArea>,
+    dilation_radius: usize,
 }
 
 impl MapRenderer {
@@ -44,7 +49,12 @@ impl MapRenderer {
             tile_renderer,
             journey_bitmap,
             current_render_area: None,
+            dilation_radius: 0,
         }
+    }
+
+    pub fn set_dilation_radius(&mut self, radius: usize) {
+        self.dilation_radius = radius;
     }
 
     fn render_map_overlay(&self, render_area: &RenderArea) -> RenderResult {
@@ -67,7 +77,9 @@ impl MapRenderer {
         // TODO: reuse resurces?
         let mut pixmap =
             Pixmap::new(tile_size * width_by_tile, tile_size * height_by_tile).unwrap();
-        pixmap.fill(Color::from_rgba8(0, 0, 0, 64));
+
+        // color must be set to the tile renderer directly upon its creation
+        // pixmap.fill(Color::from_rgba8(0, 0, 0, 64));
 
         for x in 0..width_by_tile {
             for y in 0..height_by_tile {
@@ -93,12 +105,32 @@ impl MapRenderer {
 
         let width = pixmap.width();
         let height = pixmap.height();
-        gaussian_blur(
-            pixmap.data_mut(),
-            width.try_into().unwrap(),
-            height.try_into().unwrap(),
-            1.0,
-        );
+
+        if self.dilation_radius > 0 {
+            let color = self.tile_renderer.fg_color();
+            // TODO: further comparison required
+            // color_dilation(
+            //     pixmap.pixels_mut(),
+            //     width.try_into().unwrap(),
+            //     height.try_into().unwrap(),
+            //     color,
+            //     self.dilation_radius,
+            // );
+            color_dilation2(
+                pixmap.pixels_mut(),
+                width.try_into().unwrap(),
+                height.try_into().unwrap(),
+                color,
+            );
+        }
+
+        // TODO: blur or not?
+        // gaussian_blur(
+        //     pixmap.data_mut(),
+        //     width.try_into().unwrap(),
+        //     height.try_into().unwrap(),
+        //     1.0,
+        // );
 
         let bytes = pixmap.encode_png().unwrap();
 

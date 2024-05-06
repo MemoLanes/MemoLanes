@@ -1,6 +1,7 @@
 pub mod test_utils;
 
-use memolanes_core::blur::gaussian_blur;
+// use memolanes_core::blur::gaussian_blur;
+use memolanes_core::graphics::color_dilation;
 use memolanes_core::import_data;
 use memolanes_core::tile_renderer::TileRenderer;
 use memolanes_core::{journey_bitmap::JourneyBitmap, map_renderer::*};
@@ -51,12 +52,15 @@ fn blurred_rendering() {
     let (journey_bitmap, _warnings) =
         import_data::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
 
-    let mut tile_renderer = TileRenderer::new();
-    tile_renderer.set_bg_color(tiny_skia::Color::from_rgba8(245, 240, 229, 255));
-    // tile_renderer.set_bg_color(tiny_skia::Color::from_rgba8(245, 50, 229, 255));
-    tile_renderer.set_fg_color(tiny_skia::Color::from_rgba8(110, 0, 0, 255));
-    // tile_renderer.set_fg_color(tiny_skia::Color::from_rgba8(110, 190, 80, 255));
+    let fg_color_prgba = tiny_skia::PremultipliedColorU8::from_rgba(110, 0, 0, 255).unwrap();
+
+    let tile_renderer = TileRenderer::new_with_color(
+        fg_color_prgba,
+        tiny_skia::PremultipliedColorU8::from_rgba(245, 240, 229, 255).unwrap(),
+    );
+
     let mut map_renderer = MapRenderer::new_with_tile_renderer(journey_bitmap, tile_renderer);
+    map_renderer.set_dilation_radius(1);
 
     let left_lng = 109.369177;
     let bottom_lat = 18.227972;
@@ -70,25 +74,36 @@ fn blurred_rendering() {
     test_utils::assert_image(
         &render_result.data,
         "map_render_better_graphics",
-        "faa6152ccbf40d954fc23fb3e4f94700c24fa347",
+        "249b2b8fc1d1b8602f446c86d40a36bc37452ae2",
     );
 
     let mut pixmap = tiny_skia::Pixmap::decode_png(&render_result.data).unwrap();
-    let pixmap_data = pixmap.data_mut();
+    // let pixmap_data = pixmap.data_mut();
+
+    let width = pixmap.width();
+    let height = pixmap.height();
+
+    color_dilation(
+        pixmap.pixels_mut(),
+        width.try_into().unwrap(),
+        height.try_into().unwrap(),
+        fg_color_prgba,
+        1,
+    );
 
     // double blurred
-    gaussian_blur(
-        pixmap_data,
-        render_result.width.try_into().unwrap(),
-        render_result.height.try_into().unwrap(),
-        2.0,
-    );
+    // gaussian_blur(
+    //     pixmap_data,
+    //     render_result.width.try_into().unwrap(),
+    //     render_result.height.try_into().unwrap(),
+    //     2.0,
+    // );
 
     let image_blurred = pixmap.encode_png().unwrap();
 
     test_utils::assert_image(
         &image_blurred,
         "map_render_blurred",
-        "149066384e71e6b03316c46e88eddc86dc53f921",
+        "a21739c323af6cc8074b30371278447bdb593d2f",
     );
 }
