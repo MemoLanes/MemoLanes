@@ -2,16 +2,15 @@ use std::fs::File;
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 
-use anyhow::{Ok, Result};
-use chrono::Local;
-use simplelog::{Config, LevelFilter, WriteLogger};
-
 use crate::gps_processor::{GpsProcessor, ProcessResult};
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind};
 use crate::map_renderer::{MapRenderer, RenderResult};
 use crate::storage::Storage;
-use crate::{archive, gps_processor, import_data, merged_journey_manager, storage};
+use crate::{archive, export_data, gps_processor, import_data, storage};
+use anyhow::{Ok, Result};
+use chrono::Local;
+use simplelog::{Config, LevelFilter, WriteLogger};
 
 // TODO: we have way too many locking here and now it is hard to track.
 //  e.g. we could mess up with the order and cause a deadlock
@@ -64,11 +63,18 @@ pub fn render_map_overlay(
 ) -> Option<RenderResult> {
     let state = get();
     let mut map_renderer = state.map_renderer.lock().unwrap();
+    if state.storage.main_map_renderer_need_to_reload() {
+        *map_renderer = None;
+    }
 
     map_renderer
         .get_or_insert_with(|| {
-            let mut main_db = state.storage.main_db.lock().unwrap();
             // TODO: error handling?
+            let journey_bitmap = state
+                .storage
+                .get_latest_bitmap_for_main_map_renderer()
+                .unwrap();
+            MapRenderer::new(journey_bitmap)
             let journey_bitmap =
                 merged_journey_manager::get_latest_including_ongoing(&mut main_db).unwrap();
             let mut map_renderer = MapRenderer::new(journey_bitmap);
@@ -147,21 +153,22 @@ pub fn toggle_raw_data_mode(enable: bool) {
 }
 
 pub fn finalize_ongoing_journey() -> Result<bool> {
-    let mut main_db = get().storage.main_db.lock().unwrap();
-    main_db.with_txn(|txn| txn.finalize_ongoing_journey())
+    get()
+        .storage
+        .with_db_txn(|txn| txn.finalize_ongoing_journey())
 }
 
 pub fn try_auto_finalize_journy() -> Result<bool> {
-    let mut main_db = get().storage.main_db.lock().unwrap();
-    main_db.try_auto_finalize_journy()
+    get()
+        .storage
+        .with_db_txn(|txn| txn.try_auto_finalize_journy())
 }
 
 pub fn import_fow_data(zip_file_path: String) -> Result<()> {
     // TODO: This is really naive, mostly just a demo. We need to get real
     // values from users.
     let (journey_bitmap, _warnings) = import_data::load_fow_sync_data(&zip_file_path)?;
-    let mut main_db = get().storage.main_db.lock().unwrap();
-    main_db.with_txn(|txn| {
+    get().storage.with_db_txn(|txn| {
         txn.create_and_insert_journey(
             Local::now().date_naive(),
             None,
@@ -171,25 +178,55 @@ pub fn import_fow_data(zip_file_path: String) -> Result<()> {
             None,
             JourneyData::Bitmap(journey_bitmap),
         )
-    })?;
-    Ok(())
+    })
 }
 
 pub fn list_all_journeys() -> Result<Vec<JourneyHeader>> {
-    let mut main_db = get().storage.main_db.lock().unwrap();
-    main_db.with_txn(|txn| txn.list_all_journeys())
+    get().storage.with_db_txn(|txn| txn.list_all_journeys())
 }
 
 pub fn generate_full_archive(target_filepath: String) -> Result<()> {
-    let mut main_db = get().storage.main_db.lock().unwrap();
     let mut file = File::create(target_filepath)?;
-    archive::archive_all_as_zip(&mut main_db, &mut file)?;
+    get()
+        .storage
+        .with_db_txn(|txn| archive::archive_all_as_zip(txn, &mut file))?;
     drop(file);
     Ok(())
 }
 
+pub enum ExportType {
+    GPX = 0,
+    KML = 1,
+}
+
+pub fn export_journey(
+    target_filepath: String,
+    journey_id: String,
+    export_type: ExportType,
+) -> Result<()> {
+    let journey_data = get()
+        .storage
+        .with_db_txn(|txn| txn.get_journey(&journey_id))?;
+    match journey_data {
+        JourneyData::Bitmap(_bitmap) => Err(anyhow!("Data type error")),
+        JourneyData::Vector(vector) => {
+            let mut file = File::create(target_filepath)?;
+            match export_type {
+                ExportType::GPX => {
+                    export_data::journey_vector_to_gpx_file(&vector, &mut file)?;
+                }
+                ExportType::KML => {
+                    export_data::journey_vector_to_kml_file(&vector, &mut file)?;
+                }
+            }
+            Ok(())
+        }
+    }
+}
+
 pub fn recover_from_archive(zip_file_path: String) -> Result<()> {
-    let mut main_db = get().storage.main_db.lock().unwrap();
-    archive::recover_archive_file(&zip_file_path, &mut main_db)?;
+    get()
+        .storage
+        .with_db_txn(|txn| archive::recover_archive_file(txn, &zip_file_path))?;
     Ok(())
 }

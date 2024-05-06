@@ -34,7 +34,7 @@ jobs:
           workspaces: "app/rust/"
       - uses: cargo-bins/cargo-binstall@main
       - name: Install flutter_rust_bridge_codegen
-        run: cargo binstall -y --force --no-track 'cargo-expand' && cargo binstall -y --force --no-track 'flutter_rust_bridge_codegen@2.0.0-dev.24'  
+        run: cargo binstall -y --force --no-track 'cargo-expand' && cargo binstall -y --force --no-track 'flutter_rust_bridge_codegen@2.0.0-dev.32'  
 
       - name: Setup Token
         working-directory: app

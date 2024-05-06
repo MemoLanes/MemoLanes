@@ -209,6 +209,7 @@ pub fn load_kml(file_path: &str, run_preprocessor: bool) -> Result<JourneyVector
 
     let kml_data =
         KmlReader::<_, f64>::from_reader(BufReader::new(File::open(file_path)?)).read()?;
+
     let segments = flatten_kml(kml_data)
         .into_iter()
         .filter_map(|k| match k {

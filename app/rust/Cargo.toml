@@ -10,7 +10,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 [dependencies]
 anyhow = { version = "1", features = ["backtrace"] }
 chrono = "0.4.26"
-flutter_rust_bridge = { version = "=2.0.0-dev.24", features = ["chrono"] }
+flutter_rust_bridge = { version = "=2.0.0-dev.32", features = ["chrono"] }
 log = "0.4.19"
 rusqlite = { version = "0.29.0", features = ["bundled"] }
 simplelog = "0.12.1"
@@ -31,6 +31,7 @@ flate2 = "1.0.28"
 gpx = "0.9.1"
 kml = "0.8.4"
 lazy_static = "1.4.0"
+geo-types = "0.7.13"
 
 [dev-dependencies]
 tempdir = "0.3.7"
