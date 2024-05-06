@@ -74,9 +74,6 @@ pub fn render_map_overlay(
                 .storage
                 .get_latest_bitmap_for_main_map_renderer()
                 .unwrap();
-            MapRenderer::new(journey_bitmap)
-            let journey_bitmap =
-                merged_journey_manager::get_latest_including_ongoing(&mut main_db).unwrap();
             let mut map_renderer = MapRenderer::new(journey_bitmap);
             map_renderer.set_dilation_radius(1);
             map_renderer
