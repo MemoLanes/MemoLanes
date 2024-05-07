@@ -3,6 +3,39 @@ import 'package:project_dv/src/rust/api/api.dart';
 import 'package:project_dv/src/rust/storage.dart';
 import 'package:share_plus/share_plus.dart';
 
+class RawDataSwitch extends StatefulWidget {
+  const RawDataSwitch({super.key});
+
+  @override
+  State<RawDataSwitch> createState() => _RawDataSwitchState();
+}
+
+class _RawDataSwitchState extends State<RawDataSwitch> {
+  bool enabled = false;
+
+  @override
+  initState() {
+    super.initState();
+    getRawDataMode().then((value) => setState(() {
+          enabled = value;
+        }));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Switch(
+      value: enabled,
+      activeColor: Colors.red,
+      onChanged: (bool value) async {
+        await toggleRawDataMode(enable: value);
+        setState(() {
+          enabled = value;
+        });
+      },
+    );
+  }
+}
+
 class RawDataBody extends StatefulWidget {
   const RawDataBody({super.key});
 
@@ -49,29 +82,32 @@ class _RawDataBody extends State<RawDataBody> {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      shrinkWrap: false,
-      //沿竖直方向上布局
-      scrollDirection: Axis.vertical,
-      padding: const EdgeInsets.fromLTRB(0, 30, 0, 30),
-      children: items.map((item) {
-        return ListTile(
-            leading: const Icon(Icons.description),
-            title: Text(item.name),
-            onTap: () {
-              Share.shareXFiles([XFile(item.path)]);
-            },
-            trailing: ElevatedButton(
-              onPressed: () async {
-                showDialogFunction(() async {
-                  await deleteRawDataFile(filename: item.name);
-                  _loadList();
-                  Navigator.of(context).pop();
-                });
+    return Column(children: [
+      const Text("Raw Data Mode"),
+      const RawDataSwitch(),
+      Expanded(
+          child: ListView(
+        shrinkWrap: true,
+        scrollDirection: Axis.vertical,
+        children: items.map((item) {
+          return ListTile(
+              leading: const Icon(Icons.description),
+              title: Text(item.name),
+              onTap: () {
+                Share.shareXFiles([XFile(item.path)]);
               },
-              child: const Icon(Icons.delete),
-            ));
-      }).toList(),
-    );
+              trailing: ElevatedButton(
+                onPressed: () async {
+                  showDialogFunction(() async {
+                    Navigator.of(context).pop();
+                    await deleteRawDataFile(filename: item.name);
+                    _loadList();
+                  });
+                },
+                child: const Icon(Icons.delete),
+              ));
+        }).toList(),
+      ))
+    ]);
   }
 }

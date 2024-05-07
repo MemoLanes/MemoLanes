@@ -4,39 +4,6 @@ import 'package:project_dv/gps_recording_state.dart';
 import 'package:project_dv/src/rust/api/api.dart';
 import 'package:provider/provider.dart';
 
-class RawDataSwitch extends StatefulWidget {
-  const RawDataSwitch({super.key});
-
-  @override
-  State<RawDataSwitch> createState() => _RawDataSwitchState();
-}
-
-class _RawDataSwitchState extends State<RawDataSwitch> {
-  bool enabled = false;
-
-  @override
-  initState() {
-    super.initState();
-    getRawDataMode().then((value) => setState(() {
-          enabled = value;
-        }));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Switch(
-      value: enabled,
-      activeColor: Colors.red,
-      onChanged: (bool value) async {
-        await toggleRawDataMode(enable: value);
-        setState(() {
-          enabled = value;
-        });
-      },
-    );
-  }
-}
-
 class GPSPage extends StatelessWidget {
   const GPSPage({super.key});
 
@@ -67,7 +34,6 @@ class GPSPage extends StatelessWidget {
             child: const Text("Start a new journey"),
           ),
           const Text("Raw data"),
-          const RawDataSwitch(),
         ],
       ),
     );
