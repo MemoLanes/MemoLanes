@@ -77,7 +77,7 @@ impl RawDataRecorder {
                 .unwrap();
             (file,filename)
         });
-        file.write(
+        file.write_all(
             format!(
                 "{},{},{},{},{},{},{},{}\n",
                 raw_data.timestamp_ms.unwrap_or_default(),
