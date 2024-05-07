@@ -357,10 +357,10 @@ packages:
     description:
       path: geolocator_android
       ref: main
-      resolved-ref: "226c5af0facc3c8b1ab8f83a557490a2b342911f"
+      resolved-ref: "5c51b3bbd56e3ae2f3b1920efac79cad95e4cb66"
       url: "https://github.com/MemoLanes/flutter-geolocator"
     source: git
-    version: "4.5.4"
+    version: "4.5.5"
   geolocator_apple:
     dependency: transitive
     description:
