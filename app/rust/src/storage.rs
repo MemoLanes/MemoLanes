@@ -29,8 +29,7 @@ pub struct RawDataFile {
 */
 struct RawDataRecorder {
     dir: PathBuf,
-    file: Option<File>,
-    name: Option<String>,
+    file_and_name: Option<(File, String)>,
 }
 
 impl RawDataRecorder {
@@ -40,14 +39,13 @@ impl RawDataRecorder {
         std::fs::create_dir_all(&dir).unwrap();
         RawDataRecorder {
             dir,
-            file: None,
-            name: None,
+            file_and_name: None,
         }
     }
 
     fn flush(&mut self) {
-        if let Some(ref mut file) = self.file {
-            file.flush().unwrap()
+        if let Some(ref mut file_and_name) = self.file_and_name {
+            file_and_name.0.flush().unwrap()
         }
     }
 
@@ -58,7 +56,7 @@ impl RawDataRecorder {
         recevied_timestamp_ms: i64,
     ) {
         // TODO: better error handling
-        let file = self.file.get_or_insert_with(|| {
+        let (file, _) = self.file_and_name.get_or_insert_with(|| {
             let timestamp_sec = Utc::now().timestamp_micros() / 1000000;
             let mut i = 0;
             let (path,filename) = loop {
@@ -77,10 +75,9 @@ impl RawDataRecorder {
                         .as_bytes(),
                 )
                 .unwrap();
-            self.name =  Some(filename);
-            file
+            (file,filename)
         });
-        let _ = file.write(
+        file.write(
             format!(
                 "{},{},{},{},{},{},{},{}\n",
                 raw_data.timestamp_ms.unwrap_or_default(),
@@ -93,7 +90,7 @@ impl RawDataRecorder {
                 process_result.to_int()
             )
             .as_bytes(),
-        );
+        ).unwrap();
     }
 }
 
@@ -179,22 +176,20 @@ impl Storage {
         raw_data_recorder.is_some()
     }
 
-    pub fn delete_raw_data_file(&self, file_name: String) -> Result<()> {
+    pub fn delete_raw_data_file(&self, filename: String) -> Result<()> {
         let mut raw_data_recorder = self.raw_data_recorder.lock().unwrap();
-        remove_file(
-            Path::new(&self.support_dir)
-                .join("raw_data/")
-                .join(&file_name),
-        )?;
         if let Some(ref mut x) = *raw_data_recorder {
-            if let Some(name) = &x.name {
-                if name == &file_name {
-                    x.file = None;
-                    x.name = None;
+            if let Some((_, current_writing_filename)) = &x.file_and_name {
+                if current_writing_filename == &filename {
+                    x.file_and_name = None;
                 }
             }
         }
-        drop(raw_data_recorder);
+        remove_file(
+            Path::new(&self.support_dir)
+                .join("raw_data/")
+                .join(&filename),
+        )?;
         Ok(())
     }
 
