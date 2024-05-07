@@ -90,7 +90,8 @@ impl RawDataRecorder {
                 process_result.to_int()
             )
             .as_bytes(),
-        ).unwrap();
+        )
+        .unwrap();
     }
 }
 
