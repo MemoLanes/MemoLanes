@@ -145,6 +145,10 @@ pub fn get_raw_data_mode() -> bool {
     get().storage.get_raw_data_mode()
 }
 
+pub fn delete_raw_data_file(filename: String) -> Result<()> {
+    get().storage.delete_raw_data_file(filename)
+}
+
 pub fn toggle_raw_data_mode(enable: bool) {
     get().storage.toggle_raw_data_mode(enable)
 }

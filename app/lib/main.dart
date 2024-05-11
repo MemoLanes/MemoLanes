@@ -5,6 +5,7 @@ import 'package:project_dv/gps_page.dart';
 import 'package:project_dv/gps_recording_state.dart';
 import 'package:project_dv/journey.dart';
 import 'package:project_dv/map.dart';
+import 'package:project_dv/raw_data.dart';
 import 'package:project_dv/src/rust/api/api.dart';
 import 'package:project_dv/src/rust/frb_generated.dart';
 import 'package:provider/provider.dart';
@@ -82,7 +83,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
           appBar: AppBar(
             bottom: const TabBar(
@@ -90,6 +91,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 Tab(icon: Icon(Icons.home)),
                 Tab(icon: Icon(Icons.map)),
                 Tab(icon: Icon(Icons.archive)),
+                Tab(icon: Icon(Icons.description)),
               ],
             ),
             title: Text(widget.title),
@@ -109,7 +111,8 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
               ),
               Center(child: JourneyUiBody()),
-              Center(child: ArchiveUiBody())
+              Center(child: ArchiveUiBody()),
+              Center(child: RawDataBody())
             ],
           )),
     );
