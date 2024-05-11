@@ -32,6 +32,8 @@ gpx = "0.9.1"
 kml = "0.8.4"
 lazy_static = "1.4.0"
 geo-types = "0.7.13"
+imageproc = "0.24.0"
+image = "0.25.1"
 
 [dev-dependencies]
 tempdir = "0.3.7"

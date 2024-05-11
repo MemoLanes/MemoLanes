@@ -11,7 +11,6 @@ mod frb_generated; /* AUTO INJECTED BY flutter_rust_bridge. This line may not be
 
 pub mod api;
 pub mod archive;
-pub mod blur;
 pub mod cache_db;
 pub mod export_data;
 pub mod gps_processor;

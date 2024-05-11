@@ -1,3 +1,7 @@
+use image;
+use image::{ImageBuffer, Rgba};
+use imageproc::filter::gaussian_blur_f32;
+use std::io::Cursor;
 use tiny_skia::{Pixmap, PixmapPaint, Transform};
 
 use crate::{
@@ -49,7 +53,7 @@ impl MapRenderer {
             tile_renderer,
             journey_bitmap,
             current_render_area: None,
-            dilation_radius: 0,
+            dilation_radius: 1,
         }
     }
 
@@ -77,9 +81,7 @@ impl MapRenderer {
         // TODO: reuse resurces?
         let mut pixmap =
             Pixmap::new(tile_size * width_by_tile, tile_size * height_by_tile).unwrap();
-
         // color must be set to the tile renderer directly upon its creation
-        // pixmap.fill(Color::from_rgba8(0, 0, 0, 64));
 
         for x in 0..width_by_tile {
             for y in 0..height_by_tile {
@@ -108,14 +110,6 @@ impl MapRenderer {
 
         if self.dilation_radius > 0 {
             let color = self.tile_renderer.fg_color();
-            // TODO: further comparison required
-            // color_dilation(
-            //     pixmap.pixels_mut(),
-            //     width.try_into().unwrap(),
-            //     height.try_into().unwrap(),
-            //     color,
-            //     self.dilation_radius,
-            // );
             color_dilation2(
                 pixmap.pixels_mut(),
                 width.try_into().unwrap(),
@@ -124,15 +118,21 @@ impl MapRenderer {
             );
         }
 
-        // TODO: blur or not?
-        // gaussian_blur(
-        //     pixmap.data_mut(),
-        //     width.try_into().unwrap(),
-        //     height.try_into().unwrap(),
-        //     1.0,
-        // );
+        // use imageproc to blur the pixmap, currently the imageproc library requires full ownership
+        let img: ImageBuffer<Rgba<u8>, Vec<u8>> =
+            ImageBuffer::from_raw(width, height, pixmap.data().to_vec())
+                .expect("Error converting buffer to ImageBuffer");
+        let blurred_image = gaussian_blur_f32(&img, 0.7);
 
-        let bytes = pixmap.encode_png().unwrap();
+        let mut png_buffer = Vec::new();
+        let mut cursor = Cursor::new(&mut png_buffer);
+
+        blurred_image
+            .write_to(&mut cursor, image::ImageFormat::Png)
+            .unwrap();
+
+        // use the following code if blur is disabled.
+        // let bytes = pixmap.encode_png().unwrap();
 
         let (overlay_left, overlay_top) =
             utils::tile_x_y_to_lng_lat(render_area.left_idx, render_area.top_idx, render_area.zoom);
@@ -149,7 +149,7 @@ impl MapRenderer {
             left: overlay_left,
             right: overlay_right,
             bottom: overlay_bottom,
-            data: bytes,
+            data: png_buffer,
         }
     }
 

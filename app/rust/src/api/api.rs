@@ -74,9 +74,7 @@ pub fn render_map_overlay(
                 .storage
                 .get_latest_bitmap_for_main_map_renderer()
                 .unwrap();
-            let mut map_renderer = MapRenderer::new(journey_bitmap);
-            map_renderer.set_dilation_radius(1);
-            map_renderer
+            MapRenderer::new(journey_bitmap)
         })
         .maybe_render_map_overlay(zoom, left, top, right, bottom)
 }
