@@ -1,6 +1,8 @@
 pub mod test_utils;
-
 use memolanes_core::{journey_bitmap::JourneyBitmap, map_renderer::*};
+
+#[macro_use]
+extern crate assert_float_eq;
 
 #[test]
 fn basic() {
@@ -14,22 +16,22 @@ fn basic() {
     let mut map_renderer = MapRenderer::new(journey_bitmap);
 
     let render_result =
-        map_renderer.maybe_render_map_overlay(11.0, start_lng, start_lat, end_lng, end_lat);
+        map_renderer.maybe_render_map_overlay(11, start_lng, start_lat, end_lng, end_lat);
     let render_result = render_result.unwrap();
-    assert_eq!(render_result.left, 150.99609375);
-    assert_eq!(render_result.top, -33.72433966174759);
-    assert_eq!(render_result.right, 151.34765625);
-    assert_eq!(render_result.bottom, -34.016241889667015);
+    assert_f64_near!(render_result.left, 150.8203125);
+    assert_f64_near!(render_result.top, -33.578014746143985);
+    assert_f64_near!(render_result.right, 151.5234375);
+    assert_f64_near!(render_result.bottom, -34.16181816123038);
 
     test_utils::assert_image(
         &render_result.data,
         "map_renderer_basic",
-        "2f55c28e9757b76d9b20efc600127eac9b3432f2",
+        "df0ef4aa3953cbe503babb56f133d7d11eecba6e",
     );
 
     // a small move shouldn't trigger a re-render
     let render_result = map_renderer.maybe_render_map_overlay(
-        11.0,
+        11,
         151.143537079,
         -33.79329191036,
         151.278369284,
@@ -38,6 +40,6 @@ fn basic() {
     assert!(render_result.is_none());
 
     // but a bigger move will
-    let render_result = map_renderer.maybe_render_map_overlay(11.0, 151.0, -33.0, 151.0, -33.0);
+    let render_result = map_renderer.maybe_render_map_overlay(11, 151.0, -33.0, 151.0, -33.0);
     assert!(render_result.is_some());
 }
