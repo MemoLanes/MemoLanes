@@ -22,7 +22,7 @@ fn add_line_cross_antimeridian() {
     let mut map_renderer = MapRenderer::new(journey_bitmap);
 
     let render_result = map_renderer
-        .maybe_render_map_overlay(0.0, -170.0, 80.0, 170.0, -80.0)
+        .maybe_render_map_overlay(0, -170.0, 80.0, 170.0, -80.0)
         .unwrap();
     test_utils::assert_image(
         &render_result.data,
@@ -69,12 +69,12 @@ fn merge_with_render() {
     let mut map_renderer = MapRenderer::new(journey_bitmap);
 
     let render_result = map_renderer
-        .maybe_render_map_overlay(12.0, START_LNG, START_LAT, END_LNG, END_LAT)
+        .maybe_render_map_overlay(12, START_LNG, START_LAT, END_LNG, END_LAT)
         .unwrap();
     test_utils::assert_image(
         &render_result.data,
         "journey_bitmap_merge_with_render",
-        "6caa6866b72bf572c6f410925998a12b61c6bb8e",
+        "b4f917aa08d90e528bd58c156377ec4e4dfb3124",
     );
 }
 

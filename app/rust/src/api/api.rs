@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::fs::File;
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
@@ -61,6 +62,8 @@ pub fn render_map_overlay(
     right: f64,
     bottom: f64,
 ) -> Option<RenderResult> {
+    // TODO: right now the quality of zoom = 1 is really bad.
+    let zoom = max(zoom as i32, 2);
     let state = get();
     let mut map_renderer = state.map_renderer.lock().unwrap();
     if state.storage.main_map_renderer_need_to_reload() {

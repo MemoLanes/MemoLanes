@@ -33,7 +33,6 @@ class GPSPage extends StatelessWidget {
             },
             child: const Text("Start a new journey"),
           ),
-          const Text("Raw data"),
         ],
       ),
     );

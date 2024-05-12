@@ -1,15 +1,12 @@
 use image;
 use image::{ImageBuffer, Rgba};
 use imageproc::filter::gaussian_blur_f32;
+use std::cmp::{max, min};
 use std::io::Cursor;
 use tiny_skia::{Pixmap, PixmapPaint, Transform};
 
 use crate::{
-    // blur::gaussian_blur, graphics::color_dilation,
-    graphics::color_dilation2,
-    journey_bitmap::JourneyBitmap,
-    tile_renderer::TileRenderer,
-    utils,
+    graphics::color_dilation2, journey_bitmap::JourneyBitmap, tile_renderer::TileRenderer, utils,
 };
 
 pub struct RenderResult {
@@ -131,9 +128,6 @@ impl MapRenderer {
             .write_to(&mut cursor, image::ImageFormat::Png)
             .unwrap();
 
-        // use the following code if blur is disabled.
-        // let bytes = pixmap.encode_png().unwrap();
-
         let (overlay_left, overlay_top) =
             utils::tile_x_y_to_lng_lat(render_area.left_idx, render_area.top_idx, render_area.zoom);
         let (overlay_right, overlay_bottom) = utils::tile_x_y_to_lng_lat(
@@ -156,7 +150,7 @@ impl MapRenderer {
     pub fn maybe_render_map_overlay(
         &mut self,
         // map view area (coordinates are in lat or lng)
-        zoom: f32,
+        zoom: i32,
         left: f64,
         top: f64,
         right: f64,
@@ -164,13 +158,26 @@ impl MapRenderer {
     ) -> Option<RenderResult> {
         // TODO: This doesn't really work when antimeridian is involved, see
         // the upstream issue: https://github.com/maplibre/maplibre-native/issues/1681
-        let zoom = zoom as i32;
-        let (left_idx, top_idx) = utils::lng_lat_to_tile_x_y(left, top, zoom);
-        let (mut right_idx, bottom_idx) = utils::lng_lat_to_tile_x_y(right, bottom, zoom);
+        let (mut left_idx, mut top_idx) = utils::lng_lat_to_tile_x_y(left, top, zoom);
+        let (mut right_idx, mut bottom_idx) = utils::lng_lat_to_tile_x_y(right, bottom, zoom);
 
-        if right_idx < left_idx {
-            let n = f64::powi(2.0, zoom) as i32;
-            right_idx += n;
+        // TODO: There is a hack to make sure we always cover a bit bigger to
+        // avoid the gap between user move to new area and drawing that area.
+        let n = f64::powi(2.0, zoom) as i32;
+        top_idx = max(top_idx - 1, 0);
+        bottom_idx = min(bottom_idx + 1, n - 1);
+        left_idx -= 1;
+        right_idx += 1;
+        if (right_idx - left_idx).abs() >= n {
+            left_idx = 0;
+            right_idx = n - 1;
+        } else {
+            if left_idx < 0 {
+                left_idx += n;
+            }
+            while right_idx < left_idx {
+                right_idx += n;
+            }
         }
 
         let render_area = RenderArea {
