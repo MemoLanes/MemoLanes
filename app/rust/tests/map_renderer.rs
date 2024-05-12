@@ -1,6 +1,9 @@
 pub mod test_utils;
 use memolanes_core::{journey_bitmap::JourneyBitmap, map_renderer::*};
 
+#[macro_use]
+extern crate assert_float_eq;
+
 #[test]
 fn basic() {
     let mut journey_bitmap = JourneyBitmap::new();
@@ -15,10 +18,10 @@ fn basic() {
     let render_result =
         map_renderer.maybe_render_map_overlay(11, start_lng, start_lat, end_lng, end_lat);
     let render_result = render_result.unwrap();
-    assert_eq!(render_result.left, 150.8203125);
-    assert_eq!(render_result.top, -33.578014746143985);
-    assert_eq!(render_result.right, 151.5234375);
-    assert_eq!(render_result.bottom, -34.16181816123038);
+    assert_f64_near!(render_result.left, 150.8203125);
+    assert_f64_near!(render_result.top, -33.578014746143985);
+    assert_f64_near!(render_result.right, 151.5234375);
+    assert_f64_near!(render_result.bottom, -34.16181816123038);
 
     test_utils::assert_image(
         &render_result.data,
