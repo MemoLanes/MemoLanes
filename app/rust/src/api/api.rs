@@ -1,4 +1,3 @@
-use std::cmp::max;
 use crate::gps_processor::{GpsProcessor, ProcessResult};
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind};
@@ -9,6 +8,7 @@ use anyhow::{Ok, Result};
 use chrono::{DateTime, Local, Utc};
 use flutter_rust_bridge::frb;
 use simplelog::{Config, LevelFilter, WriteLogger};
+use std::cmp::max;
 use std::fs::File;
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
