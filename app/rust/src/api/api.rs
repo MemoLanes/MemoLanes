@@ -1,3 +1,4 @@
+use std::cmp::max;
 use crate::gps_processor::{GpsProcessor, ProcessResult};
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind};
@@ -61,6 +62,8 @@ pub fn render_map_overlay(
     right: f64,
     bottom: f64,
 ) -> Option<RenderResult> {
+    // TODO: right now the quality of zoom = 1 is really bad.
+    let zoom = max(zoom as i32, 2);
     let state = get();
     let mut map_renderer = state.map_renderer.lock().unwrap();
     if state.storage.main_map_renderer_need_to_reload() {
@@ -141,6 +144,10 @@ pub fn list_all_raw_data() -> Vec<storage::RawDataFile> {
 
 pub fn get_raw_data_mode() -> bool {
     get().storage.get_raw_data_mode()
+}
+
+pub fn delete_raw_data_file(filename: String) -> Result<()> {
+    get().storage.delete_raw_data_file(filename)
 }
 
 pub fn toggle_raw_data_mode(enable: bool) {

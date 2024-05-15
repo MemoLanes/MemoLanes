@@ -192,7 +192,7 @@ pub fn archive_all_as_zip<T: Write + Seek>(txn: &main_db::Txn, writer: &mut T) -
     metadata_proto.note = None;
     for (_, section_id, journeys) in &to_process {
         let mut section_info = metadata::SectionInfo::new();
-        section_info.section_id = section_id.clone();
+        section_info.section_id.clone_from(section_id);
         section_info.num_of_journeys = journeys.len() as u32;
         metadata_proto.section_infos.push(section_info)
     }
@@ -209,7 +209,7 @@ pub fn archive_all_as_zip<T: Write + Seek>(txn: &main_db::Txn, writer: &mut T) -
     // writing section data
     for (_, section_id, journeys) in &to_process {
         let mut section_header = SectionHeader::new();
-        section_header.section_id = section_id.clone();
+        section_header.section_id.clone_from(section_id);
         for j in journeys {
             section_header.journey_headers.push(j.clone().to_proto());
         }

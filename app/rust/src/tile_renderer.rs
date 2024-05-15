@@ -4,23 +4,24 @@
 use crate::journey_bitmap::{Block, JourneyBitmap, Tile};
 use crate::journey_bitmap::{BITMAP_WIDTH, BITMAP_WIDTH_OFFSET, TILE_WIDTH_OFFSET};
 use tiny_skia;
+use tiny_skia::PremultipliedColorU8;
 
 const TILE_ZOOM: i16 = 9;
-pub const DEFAULT_VIEW_SIZE_POWER: i16 = 8; // default view size is 2^8 = 256
+pub const DEFAULT_VIEW_SIZE_POWER: i16 = 9; // default view size is 2^8 = 256
 
 // we have 512*512 tiles, 128*128 blocks and a single block contains a 64*64 bitmap.
 pub struct TileRenderer {
     view_size_power: i16,
-    bg_color_prgba: tiny_skia::PremultipliedColorU8,
-    fg_color_prgba: tiny_skia::PremultipliedColorU8,
+    bg_color_prgba: PremultipliedColorU8,
+    fg_color_prgba: PremultipliedColorU8,
 }
 
 impl TileRenderer {
     pub fn new() -> Self {
         let opacity = 0.5;
         let alpha = (opacity * 255.0) as u8;
-        let bg_color_prgba = tiny_skia::PremultipliedColorU8::from_rgba(0, 0, 0, alpha).unwrap();
-        let fg_color_prgba = tiny_skia::PremultipliedColorU8::TRANSPARENT;
+        let bg_color_prgba = PremultipliedColorU8::from_rgba(0, 0, 0, alpha).unwrap();
+        let fg_color_prgba = PremultipliedColorU8::TRANSPARENT;
         Self {
             view_size_power: DEFAULT_VIEW_SIZE_POWER,
             bg_color_prgba,
@@ -28,16 +29,30 @@ impl TileRenderer {
         }
     }
 
-    pub fn set_fg_color(&mut self, color: tiny_skia::Color) {
-        self.fg_color_prgba = color.to_color_u8().premultiply();
+    pub fn new_with_color(fg_color: PremultipliedColorU8, bg_color: PremultipliedColorU8) -> Self {
+        let fg_color_prgba = fg_color;
+        let bg_color_prgba = bg_color;
+        Self {
+            view_size_power: DEFAULT_VIEW_SIZE_POWER,
+            bg_color_prgba,
+            fg_color_prgba,
+        }
     }
 
-    pub fn set_bg_color(&mut self, color: tiny_skia::Color) {
-        self.bg_color_prgba = color.to_color_u8().premultiply();
+    pub fn fg_color(&self) -> PremultipliedColorU8 {
+        self.fg_color_prgba
+    }
+
+    pub fn bg_color(&self) -> PremultipliedColorU8 {
+        self.bg_color_prgba
     }
 
     pub fn set_tile_size_power(&mut self, power: i16) {
         self.view_size_power = power;
+    }
+
+    pub fn get_tile_size_power(&self) -> i16 {
+        self.view_size_power
     }
 
     /// Render a given location of FogMap data onto a Pixmap.
