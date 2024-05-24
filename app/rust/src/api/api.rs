@@ -239,3 +239,26 @@ pub fn recover_from_archive(zip_file_path: String) -> Result<()> {
         .with_db_txn(|txn| archive::recover_archive_file(txn, &zip_file_path))?;
     Ok(())
 }
+
+#[derive(Debug)]
+pub struct DeviceInfo {
+    pub manufacturer: Option<String>,
+    pub model: Option<String>,
+    pub system_version: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct AppInfo {
+    pub package_name: String,
+    pub version: String,
+    pub build_number: String,
+}
+
+pub fn delayed_init(device_info: &DeviceInfo, app_info: &AppInfo) {
+    info!(
+        "[delayedInit] {:?}, {:?}, commit_hash = {}",
+        device_info,
+        app_info,
+        short_commit_hash()
+    );
+}
