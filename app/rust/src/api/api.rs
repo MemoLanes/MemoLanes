@@ -3,15 +3,17 @@ use std::fs::File;
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 
+use anyhow::{Ok, Result};
+use chrono::Local;
+use flutter_rust_bridge::frb;
+use simplelog::{Config, LevelFilter, WriteLogger};
+
 use crate::gps_processor::{GpsProcessor, ProcessResult};
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind};
 use crate::map_renderer::{MapRenderer, RenderResult};
 use crate::storage::Storage;
 use crate::{archive, export_data, gps_processor, import_data, storage};
-use anyhow::{Ok, Result};
-use chrono::Local;
-use simplelog::{Config, LevelFilter, WriteLogger};
 
 // TODO: we have way too many locking here and now it is hard to track.
 //  e.g. we could mess up with the order and cause a deadlock
@@ -22,6 +24,11 @@ struct MainState {
 }
 
 static MAIN_STATE: OnceLock<MainState> = OnceLock::new();
+
+#[frb(sync)]
+pub fn short_commit_hash() -> String {
+    env!("SHORT_COMMIT_HASH").to_string()
+}
 
 pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: String) {
     let mut already_initialized = true;

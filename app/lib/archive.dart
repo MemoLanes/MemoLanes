@@ -57,7 +57,8 @@ class ArchiveUiBody extends StatelessWidget {
             }
           },
           child: const Text("Reset & Recover"),
-        )
+        ),
+        Text("Version: ${shortCommitHash()}"),
       ],
     );
   }
