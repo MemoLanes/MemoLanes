@@ -141,6 +141,7 @@ class MapUiBodyState extends State<MapUiBody> {
   @override
   void dispose() {
     timer?.cancel();
+    trackTimer?.cancel();
     if (requireRefresh?.isCompleted == false) {
       requireRefresh?.complete();
     }
