@@ -155,7 +155,7 @@ impl Txn<'_> {
         if changes == 1 {
             Ok(())
         } else {
-            Err(anyhow!("not exist id."))
+            Err(anyhow!("Failed to find journey with id = {}", id))
         }
     }
 

@@ -6,6 +6,11 @@ on:
       - main
     paths:
       - 'app/**'
+  push:
+    branches: 
+      - main
+    paths:
+      - 'app/**'
   workflow_dispatch:
 
 jobs:
