@@ -1,12 +1,11 @@
-name: CI
+name: App
 
 on: 
-  push:
-    branches:
-      - main
   pull_request:
     branches: 
       - main
+    paths:
+      - 'app/**'
   workflow_dispatch:
 
 jobs:

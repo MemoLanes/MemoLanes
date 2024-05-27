@@ -52,6 +52,8 @@ dependencies:
   fluttertoast: ^8.2.5
   mapbox_maps_flutter: ^1.1.0
   intl: ^0.19.0
+  package_info_plus: ^8.0.0
+  device_info_plus: ^10.1.0
 
 dependency_overrides:
   geolocator_android:
