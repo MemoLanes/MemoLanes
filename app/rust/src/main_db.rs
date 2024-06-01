@@ -147,6 +147,18 @@ impl Txn<'_> {
         Ok(())
     }
 
+    pub fn delect_journey(&mut self, id: &str) -> Result<()> {
+        let changes = self
+            .db_txn
+            .execute("DELETE FROM journey WHERE id = ?1;", (id,))?;
+        self.reset_cache = true;
+        if changes == 1 {
+            Ok(())
+        } else {
+            Err(anyhow!("Failed to find journey with id = {}", id))
+        }
+    }
+
     pub fn insert_journey(&mut self, header: JourneyHeader, data: JourneyData) -> Result<()> {
         let journey_type = header.journey_type;
         if journey_type != data.type_() {
