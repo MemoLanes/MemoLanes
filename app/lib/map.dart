@@ -58,8 +58,8 @@ class MapUiBodyState extends State<MapUiBody> {
     final coordinateBounds = await mapboxMap.coordinateBoundsForCamera(
         CameraOptions(
             center: cameraState.center, zoom: zoom, pitch: cameraState.pitch));
-    final northeast = coordinateBounds.northeast['coordinates'] as List;
-    final southwest = coordinateBounds.southwest['coordinates'] as List;
+    final northeast = coordinateBounds.northeast.coordinates;
+    final southwest = coordinateBounds.southwest.coordinates;
 
     final left = southwest[0];
     final top = northeast[1];
@@ -68,10 +68,10 @@ class MapUiBodyState extends State<MapUiBody> {
 
     final renderResult = await renderMapOverlay(
       zoom: zoom,
-      left: left,
-      top: top,
-      right: right,
-      bottom: bottom,
+      left: left!.toDouble(),
+      top: top!.toDouble(),
+      right: right!.toDouble(),
+      bottom: bottom!.toDouble(),
     );
 
     if (renderResult != null) {
@@ -124,11 +124,11 @@ class MapUiBodyState extends State<MapUiBody> {
     super.initState();
     timer = Timer.periodic(
         const Duration(seconds: 1),
-            (Timer _) =>
-        // TODO: constantly calling `_triggerRefresh` isn't too bad, becuase
-        // it doesn't do much if nothing is changed. However, this doesn't
-        // mean we couldn't do something better.
-        _triggerRefresh());
+        (Timer _) =>
+            // TODO: constantly calling `_triggerRefresh` isn't too bad, becuase
+            // it doesn't do much if nothing is changed. However, this doesn't
+            // mean we couldn't do something better.
+            _triggerRefresh());
     _refreshLoop();
   }
 
@@ -159,7 +159,7 @@ class MapUiBodyState extends State<MapUiBody> {
     _triggerRefresh();
   }
 
-  _onMapScrollListener(ScreenCoordinate coordinate) {
+  _onMapScrollListener(MapContentGestureContext context) {
     if (trackingMode == TrackingMode.displayAndTracking) {
       _triggerRefresh();
       setState(() {
@@ -196,8 +196,7 @@ class MapUiBodyState extends State<MapUiBody> {
         }
       }
       await mapboxMap?.flyTo(
-          CameraOptions(
-              center: Point(coordinates: position!).toJson(), zoom: zoom),
+          CameraOptions(center: Point(coordinates: position!), zoom: zoom),
           null);
     } catch (e) {
       // just best effort
