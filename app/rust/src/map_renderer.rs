@@ -58,7 +58,7 @@ impl MapRenderer {
         self.dilation_radius = radius;
     }
 
-    fn render_map_overlay(&self, render_area: &RenderArea) -> RenderResult {
+    fn render_map_overlay(&mut self, render_area: &RenderArea) -> RenderResult {
         // TODO: Change render backend. Right now we are using `tiny-skia`,
         // it should work just fine and we don't really need fancy features.
         // However, it is mostly a research project and does not feel like production ready,
