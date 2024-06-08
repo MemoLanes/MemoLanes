@@ -1,9 +1,11 @@
+﻿import 'dart:async';
 import 'dart:io';
+
 import 'package:flutter/material.dart';
-import 'package:project_dv/src/rust/api/api.dart';
-import 'dart:async';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:project_dv/src/rust/api/api.dart';
 import 'package:project_dv/token.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MapUiBody extends StatefulWidget {
   const MapUiBody({super.key});
@@ -48,6 +50,8 @@ class MapUiBodyState extends State<MapUiBody> {
   Timer? timer;
   Timer? trackTimer;
   TrackingMode trackingMode = TrackingMode.displayAndTracking;
+
+  CameraOptions? _defaultCameraOptions;
 
   Future<void> _doActualRefresh() async {
     var mapboxMap = this.mapboxMap;
@@ -130,11 +134,37 @@ class MapUiBodyState extends State<MapUiBody> {
             // mean we couldn't do something better.
             _triggerRefresh());
     _refreshLoop();
+    _initCameraOptions();
   }
 
   void _triggerRefresh() async {
     if (requireRefresh?.isCompleted == false) {
       requireRefresh?.complete();
+    }
+  }
+
+  void _initCameraOptions() async {
+    CameraOptions? cameraOptions;
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    double? latitude = prefs.getDouble("latitude");
+    double? longitude = prefs.getDouble("longitude");
+    double? zoom = prefs.getDouble("zoom");
+    if (latitude != null && longitude != null) {
+      Point point = Point(coordinates: Position(longitude, latitude));
+      setState(() {
+        cameraOptions = CameraOptions(center: point, zoom: zoom ?? 14);
+      });
+    }
+    setState(() {
+      _defaultCameraOptions = cameraOptions ?? CameraOptions();
+    });
+  }
+
+  void _setZoomCache() async {
+    CameraState? cameraState = await mapboxMap?.getCameraState();
+    if (cameraState != null) {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      prefs.setDouble("zoom", cameraState.zoom);
     }
   }
 
@@ -157,6 +187,7 @@ class MapUiBodyState extends State<MapUiBody> {
 
   _onCameraChangeListener(CameraChangedEventData event) {
     _triggerRefresh();
+    _setZoomCache();
   }
 
   _onMapScrollListener(MapContentGestureContext context) {
@@ -221,27 +252,32 @@ class MapUiBodyState extends State<MapUiBody> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: (MapWidget(
-        key: const ValueKey("mapWidget"),
-        onMapCreated: _onMapCreated,
-        onCameraChangeListener: _onCameraChangeListener,
-        onScrollListener: _onMapScrollListener,
-        onMapLoadedListener: _onMapLoadedListener,
-        styleUri: MapboxStyles.OUTDOORS,
-      )),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: trackingMode == TrackingMode.displayAndTracking
-            ? Colors.blue
-            : Colors.grey,
-        onPressed: _trackingModeButton,
-        child: Icon(
-          trackingMode == TrackingMode.off
-              ? Icons.near_me_disabled
-              : Icons.near_me,
-          color: Colors.black,
+    if (_defaultCameraOptions == null) {
+      return const CircularProgressIndicator();
+    } else {
+      return Scaffold(
+        body: (MapWidget(
+          key: const ValueKey("mapWidget"),
+          onMapCreated: _onMapCreated,
+          onCameraChangeListener: _onCameraChangeListener,
+          onScrollListener: _onMapScrollListener,
+          onMapLoadedListener: _onMapLoadedListener,
+          styleUri: MapboxStyles.OUTDOORS,
+          cameraOptions: _defaultCameraOptions,
+        )),
+        floatingActionButton: FloatingActionButton(
+          backgroundColor: trackingMode == TrackingMode.displayAndTracking
+              ? Colors.blue
+              : Colors.grey,
+          onPressed: _trackingModeButton,
+          child: Icon(
+            trackingMode == TrackingMode.off
+                ? Icons.near_me_disabled
+                : Icons.near_me,
+            color: Colors.black,
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
 }

@@ -1,13 +1,14 @@
 import 'dart:async';
 
+import 'package:async/async.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mutex/mutex.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:async/async.dart';
 import 'package:project_dv/src/rust/api/api.dart';
 import 'package:project_dv/src/rust/gps_processor.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AutoJourneyFinalizer {
   AutoJourneyFinalizer() {
@@ -15,8 +16,10 @@ class AutoJourneyFinalizer {
   }
 
   void _start() async {
+    _setLocationCache();
     await tryOnce();
     Timer.periodic(const Duration(minutes: 5), (timer) async {
+      _setLocationCache();
       await tryOnce();
     });
   }
@@ -24,6 +27,15 @@ class AutoJourneyFinalizer {
   Future<void> tryOnce() async {
     if (await tryAutoFinalizeJourny()) {
       Fluttertoast.showToast(msg: "New journey added");
+    }
+  }
+
+  Future<void> _setLocationCache() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    Position? position = await Geolocator.getLastKnownPosition();
+    if (position != null){
+      prefs.setDouble("latitude", position.latitude);
+      prefs.setDouble("longitude", position.longitude);
     }
   }
 }
@@ -116,6 +128,15 @@ class GpsRecordingState extends ChangeNotifier {
         accuracy: accuracy,
         distanceFilter: distanceFilter,
       );
+    }
+    getRecordStateCache();
+  }
+
+  void getRecordStateCache() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    bool? recordState = prefs.getBool("recordState");
+    if (recordState != null && isRecording != recordState){
+      toggle();
     }
   }
 
@@ -230,6 +251,8 @@ class GpsRecordingState extends ChangeNotifier {
         });
       }
       isRecording = !isRecording;
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      prefs.setBool("recordState", isRecording);
       notifyListeners();
     });
   }
