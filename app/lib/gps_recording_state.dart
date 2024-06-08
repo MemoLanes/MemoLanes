@@ -33,7 +33,7 @@ class AutoJourneyFinalizer {
   Future<void> _setLocationCache() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     Position? position = await Geolocator.getLastKnownPosition();
-    if (position != null){
+    if (position != null) {
       prefs.setDouble("latitude", position.latitude);
       prefs.setDouble("longitude", position.longitude);
     }
@@ -49,6 +49,7 @@ class AutoJourneyFinalizer {
 class _PokeGeolocatorTask {
   // TODO: Test on iOS
   bool running = false;
+
   _PokeGeolocatorTask();
 
   factory _PokeGeolocatorTask.start() {
@@ -129,15 +130,20 @@ class GpsRecordingState extends ChangeNotifier {
         distanceFilter: distanceFilter,
       );
     }
-    getRecordStateCache();
+    _getRecordStateCache();
   }
 
-  void getRecordStateCache() async {
+  void _getRecordStateCache() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     bool? recordState = prefs.getBool("recordState");
-    if (recordState != null && isRecording != recordState){
+    if (recordState != null && isRecording != recordState) {
       toggle();
     }
+  }
+
+  void _setRecordStateCache(bool isRecording) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    prefs.setBool("recordState", isRecording);
   }
 
   void _onPositionUpdate(Position position) {
@@ -251,8 +257,7 @@ class GpsRecordingState extends ChangeNotifier {
         });
       }
       isRecording = !isRecording;
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      prefs.setBool("recordState", isRecording);
+      _setRecordStateCache(isRecording);
       notifyListeners();
     });
   }
