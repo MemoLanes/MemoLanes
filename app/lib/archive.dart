@@ -10,19 +10,55 @@ import 'import_data.dart';
 class ArchiveUiBody extends StatelessWidget {
   const ArchiveUiBody({super.key});
 
+  Future<String?> _selectData(ImportType? importType) async {
+    FilePickerResult? result;
+    if (importType != null && ImportType.fow == importType) {
+      result = await FilePicker.platform
+          .pickFiles(type: FileType.custom, allowedExtensions: ['zip']);
+    } else {
+      result = await FilePicker.platform.pickFiles(type: FileType.any);
+    }
+    if (result != null) {
+      final path = result.files.single.path!;
+      return path;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         ElevatedButton(
           onPressed: () async {
-            Navigator.push(context, MaterialPageRoute(
-              builder: (context) {
-                return const ImportDataPage();
-              },
-            ));
+            String? path = await _selectData(null);
+            if (path != null) {
+              Navigator.push(context, MaterialPageRoute(
+                builder: (context) {
+                  return ImportDataPage(
+                    path: path,
+                  );
+                },
+              ));
+            }
           },
-          child: const Text("Import data"),
+          child: const Text("Import KML/GPX data"),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            String? path = await _selectData(ImportType.fow);
+            if (path != null) {
+              Navigator.push(context, MaterialPageRoute(
+                builder: (context) {
+                  return ImportDataPage(
+                    path: path,
+                    importType: ImportType.fow,
+                  );
+                },
+              ));
+            }
+          },
+          child: const Text("Import FOW data"),
         ),
         ElevatedButton(
           onPressed: () async {

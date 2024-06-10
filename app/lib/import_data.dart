@@ -1,13 +1,15 @@
 import 'dart:async';
-import 'package:file_picker/file_picker.dart';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/intl.dart';
 import 'package:project_dv/src/rust/api/api.dart';
 
 class ImportDataPage extends StatefulWidget {
-  const ImportDataPage({super.key});
+  const ImportDataPage({super.key, required this.path, this.importType});
+
+  final String path;
+  final ImportType? importType;
 
   @override
   State<ImportDataPage> createState() => _ImportDataPage();
@@ -18,63 +20,47 @@ class _ImportDataPage extends State<ImportDataPage> {
   DateTime? _startTime;
   DateTime? _endTime;
   final TextEditingController _noteController = TextEditingController();
-  ImportType _importType = ImportType.fow;
   bool _runPreprocessor = false;
   JourneyInfo? journeyInfo;
 
-  String getExtension(ImportType type) {
-    if (type == ImportType.fow) {
-      return "zip";
-    }
-    if (type == ImportType.gpx) {
-      return "gpx";
-    }
-    if (type == ImportType.kml) {
-      return "kml";
-    }
-    return "";
+  @override
+  void initState() {
+    super.initState();
+    _readData(widget.path);
   }
 
-  _readData() async {
+  ImportType? getType(String fileExtension) {
+    switch (fileExtension) {
+      case "zip":
+        return ImportType.fow;
+      case "gpx":
+        return ImportType.gpx;
+      case "kml":
+        return ImportType.kml;
+      default:
+        Fluttertoast.showToast(msg: "Invalid file type selected");
+        Navigator.pop(context);
+    }
+    return null;
+  }
 
-      var extension = getExtension(_importType);
-      FilePickerResult? result;
-      try {
-        result = await FilePicker.platform
-            .pickFiles(type: FileType.custom, allowedExtensions: [extension]);
-      } on PlatformException {
-        result = await FilePicker.platform.pickFiles(type: FileType.any);
-      } catch (e) {
-        rethrow;
-      }
-      if (result != null) {
-        final path = result.files.single.path;
-        final fileExtension = path?.split('.').last.toLowerCase();
-
-        if (fileExtension != extension ){
-          Fluttertoast.showToast(msg: "file type error");
-          return;
-        }
-        if (path != null ) {
-          journeyInfo = await readImportData(
-              filePath: path,
-              importType: _importType,
-              runPreprocessor: _runPreprocessor,
-          );
-          if (journeyInfo !=null){
-            setState(() {
-              _startTime = journeyInfo?.startTime;
-              _endTime = journeyInfo?.endTime;
-            });
-          }
-
-        }
-      }
-
+  _readData(path) async {
+    ImportType? type = widget.importType;
+    type ??= getType(widget.path.split('.').last.toLowerCase());
+    journeyInfo = await readImportData(
+      filePath: path,
+      importType: type!,
+      runPreprocessor: _runPreprocessor,
+    );
+    if (journeyInfo != null) {
+      setState(() {
+        _startTime = journeyInfo?.startTime;
+        _endTime = journeyInfo?.endTime;
+      });
+    }
   }
 
   _saveData() async {
-    Fluttertoast.showToast(msg: _noteController.text);
     if (journeyInfo != null) {
       await saveImportJourney(
           journeyInfo: JourneyInfo(
@@ -162,36 +148,6 @@ class _ImportDataPage extends State<ImportDataPage> {
                 label: Text("note"),
               ),
             ),
-            RadioListTile<ImportType>(
-              value: ImportType.kml,
-              title: const Text('kml'),
-              groupValue: _importType,
-              onChanged: (value) {
-                setState(() {
-                  _importType = value!;
-                });
-              },
-            ),
-            RadioListTile<ImportType>(
-              value: ImportType.gpx,
-              title: const Text('gpx'),
-              groupValue: _importType,
-              onChanged: (value) {
-                setState(() {
-                  _importType = value!;
-                });
-              },
-            ),
-            RadioListTile<ImportType>(
-              value: ImportType.fow,
-              title: const Text('FoW'),
-              groupValue: _importType,
-              onChanged: (value) {
-                setState(() {
-                  _importType = value!;
-                });
-              },
-            ),
             Switch(
               value: _runPreprocessor,
               onChanged: (value) {
@@ -203,10 +159,6 @@ class _ImportDataPage extends State<ImportDataPage> {
             Text(
               _runPreprocessor ? 'Preprocessor is ON' : 'Preprocessor is OFF',
               style: TextStyle(fontSize: 18.0),
-            ),
-            ElevatedButton(
-              onPressed: _readData,
-              child: const Text("read data"),
             ),
             ElevatedButton(
               onPressed: _saveData,
