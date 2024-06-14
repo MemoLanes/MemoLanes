@@ -2,6 +2,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart' as geolocator;
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:project_dv/src/rust/api/api.dart';
 import 'package:project_dv/token.dart';
@@ -36,6 +37,8 @@ extension PuckPosition on StyleManager {
 class MapUiBodyState extends State<MapUiBody> {
   static const String overlayLayerId = "overlay-layer";
   static const String overlayImageSourceId = "overlay-image-source";
+  static const String zoomCacheKey = "mapWidget.zoom";
+  static const String TrackCacheKey = "mapWidget.track";
 
   MapUiBodyState() {
     // TODO: Kinda want the default implementation is maplibre instead of mapbox.
@@ -146,13 +149,14 @@ class MapUiBodyState extends State<MapUiBody> {
   void _initCameraOptions() async {
     CameraOptions? cameraOptions;
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    double? latitude = prefs.getDouble("latitude");
-    double? longitude = prefs.getDouble("longitude");
-    double? zoom = prefs.getDouble("zoom");
-    if (latitude != null && longitude != null) {
-      Point point = Point(coordinates: Position(longitude, latitude));
+    geolocator.Position? position =
+        await geolocator.Geolocator.getLastKnownPosition();
+    if (position != null) {
+      Point point =
+          Point(coordinates: Position(position.longitude, position.latitude));
       setState(() {
-        cameraOptions = CameraOptions(center: point, zoom: zoom ?? 14);
+        cameraOptions = CameraOptions(
+            center: point, zoom: prefs.getDouble(zoomCacheKey) ?? 14);
       });
     }
     setState(() {
@@ -164,7 +168,24 @@ class MapUiBodyState extends State<MapUiBody> {
     CameraState? cameraState = await mapboxMap?.getCameraState();
     if (cameraState != null) {
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      prefs.setDouble("zoom", cameraState.zoom);
+      prefs.setDouble(zoomCacheKey, cameraState.zoom);
+    }
+  }
+
+  _setTrackingMode() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    prefs.setString(TrackCacheKey, trackingMode.toString());
+  }
+
+  _getTrackingMode() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? recordState = prefs.getString(TrackCacheKey);
+    if (recordState != null) {
+      setState(() {
+        trackingMode = TrackingMode.values.firstWhere(
+            (e) => e.toString() == recordState,
+            orElse: () => TrackingMode.displayAndTracking);
+      });
     }
   }
 
@@ -183,6 +204,7 @@ class MapUiBodyState extends State<MapUiBody> {
     await mapboxMap.gestures
         .updateSettings(GesturesSettings(pitchEnabled: false));
     this.mapboxMap = mapboxMap;
+    await _getTrackingMode();
   }
 
   _onCameraChangeListener(CameraChangedEventData event) {
@@ -198,6 +220,7 @@ class MapUiBodyState extends State<MapUiBody> {
       });
       updateCamera();
     }
+    _setTrackingMode();
   }
 
   _onMapLoadedListener(MapLoadedEventData data) {
@@ -213,6 +236,7 @@ class MapUiBodyState extends State<MapUiBody> {
         trackingMode = TrackingMode.off;
       }
     });
+    _setTrackingMode();
     await updateCamera();
   }
 
@@ -236,18 +260,24 @@ class MapUiBodyState extends State<MapUiBody> {
 
   updateCamera() async {
     trackTimer?.cancel();
-    if (trackingMode == TrackingMode.displayAndTracking) {
-      trackTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-        _refreshTrackLocation();
-      });
-      await mapboxMap?.location.updateSettings(
-          LocationComponentSettings(enabled: true, pulsingEnabled: true));
-    } else if (trackingMode == TrackingMode.displayOnly) {
-      // nothing to do here, we always get here from `displayAndTracking`.
-    } else if (trackingMode == TrackingMode.off) {
-      await mapboxMap?.location
-          .updateSettings(LocationComponentSettings(enabled: false));
+    LocationComponentSettings locationSettings;
+    switch (trackingMode) {
+      case TrackingMode.displayAndTracking:
+        trackTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+          _refreshTrackLocation();
+        });
+        locationSettings =
+            LocationComponentSettings(enabled: true, pulsingEnabled: true);
+        break;
+      case TrackingMode.displayOnly:
+        locationSettings =
+            LocationComponentSettings(enabled: true, pulsingEnabled: true);
+        break;
+      case TrackingMode.off:
+        locationSettings = LocationComponentSettings(enabled: false);
+        break;
     }
+    await mapboxMap?.location.updateSettings(locationSettings);
   }
 
   @override

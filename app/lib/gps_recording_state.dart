@@ -16,10 +16,8 @@ class AutoJourneyFinalizer {
   }
 
   void _start() async {
-    _setLocationCache();
     await tryOnce();
     Timer.periodic(const Duration(minutes: 5), (timer) async {
-      _setLocationCache();
       await tryOnce();
     });
   }
@@ -30,14 +28,6 @@ class AutoJourneyFinalizer {
     }
   }
 
-  Future<void> _setLocationCache() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    Position? position = await Geolocator.getLastKnownPosition();
-    if (position != null) {
-      prefs.setDouble("latitude", position.latitude);
-      prefs.setDouble("longitude", position.longitude);
-    }
-  }
 }
 
 /// `PokeGeolocatorTask` is a hacky workround on Android.
@@ -79,6 +69,7 @@ class _PokeGeolocatorTask {
 }
 
 class GpsRecordingState extends ChangeNotifier {
+  static const String recordStateCacheKey = "gpsRecord.state";
   var isRecording = false;
   Position? latestPosition;
 
@@ -135,7 +126,7 @@ class GpsRecordingState extends ChangeNotifier {
 
   void _getRecordStateCache() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    bool? recordState = prefs.getBool("recordState");
+    bool? recordState = prefs.getBool(recordStateCacheKey);
     if (recordState != null && isRecording != recordState) {
       toggle();
     }
@@ -143,7 +134,7 @@ class GpsRecordingState extends ChangeNotifier {
 
   void _setRecordStateCache(bool isRecording) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    prefs.setBool("recordState", isRecording);
+    prefs.setBool(recordStateCacheKey, isRecording);
   }
 
   void _onPositionUpdate(Position position) {
