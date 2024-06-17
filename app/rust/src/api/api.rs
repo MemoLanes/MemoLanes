@@ -3,14 +3,15 @@ use std::fs::File;
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 
-use anyhow::{ Ok, Result};
-use chrono::Utc;
+use anyhow::{Ok, Result};
 use chrono::{DateTime, Local};
+use chrono::{NaiveDate, Utc};
 use flutter_rust_bridge::frb;
 use simplelog::{Config, LevelFilter, WriteLogger};
 
 use crate::gps_processor::{GpsProcessor, ProcessResult, RawData};
 use crate::import_data::ReadData;
+use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind};
 use crate::journey_vector::JourneyVector;
@@ -20,10 +21,11 @@ use crate::{archive, export_data, gps_processor, import_data, storage};
 
 // TODO: we have way too many locking here and now it is hard to track.
 //  e.g. we could mess up with the order and cause a deadlock
-struct MainState {
-    storage: Storage,
-    map_renderer: Mutex<Option<MapRenderer>>,
-    gps_processor: Mutex<GpsProcessor>,
+#[frb(ignore)]
+pub struct MainState {
+    pub storage: Storage,
+    pub map_renderer: Mutex<Option<MapRenderer>>,
+    pub gps_processor: Mutex<GpsProcessor>,
 }
 
 static MAIN_STATE: OnceLock<MainState> = OnceLock::new();
@@ -61,7 +63,8 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
     }
 }
 
-fn get() -> &'static MainState {
+#[frb(ignore)]
+pub fn get() -> &'static MainState {
     MAIN_STATE.get().expect("main state is not initialized")
 }
 
@@ -176,76 +179,59 @@ pub fn try_auto_finalize_journy() -> Result<bool> {
         .with_db_txn(|txn| txn.try_auto_finalize_journy())
 }
 
-pub enum ImportType {
-    GPX = 0,
-    KML = 1,
-    FOW = 2,
-}
+// fn convert_vec_to_nested_iterator(
+//     data_segments: Vec<Result<RawData>>,
+// ) -> impl Iterator<Item = impl Iterator<Item = Result<RawData>>> {
+//     data_segments
+//         .into_iter()
+//         .map(|raw_data_result| raw_data_result.map(|raw_data| Ok(raw_data)).into_iter())
+// }
 
-#[derive(Debug)]
-#[frb(non_opaque)]
-pub struct JourneyInfo {
-    pub journey_date:Option<DateTime<Utc>>,
-    pub start_time: Option<DateTime<Utc>>,
-    pub end_time: Option<DateTime<Utc>>,
-    pub data: ReadData,
-    pub note: Option<String>,
-}
+// pub fn save_import_journey(journey_info: JourneyInfo, run_preprocessor: bool) -> Result<()> {
+//     let journey_date = journey_info.journey_date.date_naive();
+//     let rawdata = match journey_info.data {
+//         ReadData::RawData(rawdata) => {
+//             let journey_vector: JourneyVector =
+//                 import_data::load_vector_data(rawdata.into_iter(), run_preprocessor)?;
+//         }
+//         ReadData::JourneyData(_) => todo!(),
+//     };
 
-fn convert_vec_to_nested_iterator(
-    data_segments: Vec<Result<RawData>>,
-) -> impl Iterator<Item = impl Iterator<Item = Result<RawData>>> {
-    data_segments
-        .into_iter()
-        .map(|raw_data_result| raw_data_result.map(|raw_data| Ok(raw_data)).into_iter())
-}
+//     // let journey_vector: JourneyVector = import_data::load_vector_data(journey_info.data, run_preprocessor)?;
 
-pub fn save_import_journey(journey_info: JourneyInfo, run_preprocessor: bool) -> Result<()> {
-    let journey_date = journey_info
-        .journey_date
-        .date_naive();
-    let rawdata = match journey_info.data {
-        ReadData::RawData(rawdata) => {
-            let journey_vector: JourneyVector = import_data::load_vector_data(rawdata.into_iter(), run_preprocessor)?;
-        },
-        ReadData::JourneyData(_) => todo!(),
-    };
+//     let journey_data: JourneyData = JourneyData::Vector(journey_vector);
+//     get().storage.with_db_txn(|txn| {
+//         txn.create_and_insert_journey(
+//             journey_date,
+//             journey_info.start_time,
+//             journey_info.end_time,
+//             None,
+//             JourneyKind::DefaultKind,
+//             journey_info.note,
+//             journey_data,
+//         )
+//     })?;
+//     Ok(())
+// }
 
-    // let journey_vector: JourneyVector = import_data::load_vector_data(journey_info.data, run_preprocessor)?;
-
-    let journey_data: JourneyData = JourneyData::Vector(journey_vector);
-    get().storage.with_db_txn(|txn| {
-        txn.create_and_insert_journey(
-            journey_date,
-            journey_info.start_time,
-            journey_info.end_time,
-            None,
-            JourneyKind::DefaultKind,
-            journey_info.note,
-            journey_data
-        )
-    })?;
-    Ok(())
-}
-
-pub fn read_import_data(file_path: String, import_type: ImportType) -> Result<JourneyInfo> {
-    let journey_info = match import_type {
-        ImportType::GPX => import_data::load_gpx(&file_path)?,
-        ImportType::KML => import_data::load_kml(&file_path)?,
-        ImportType::FOW => {
-            let (journey_bitmap, _warnings) = import_data::load_fow_sync_data(&file_path)?;
-            JourneyInfo {
-                data: ReadData::JourneyData(journey_bitmap),
-                journey_date: Utc::now(),
-                start_time: None,
-                end_time: None,
-                journey_header: None,
-                note: None,
-            }
-        }
-    };
-    Ok(journey_info)
-}
+// pub fn read_import_data(file_path: String, import_type: ImportType) -> Result<JourneyInfo> {
+//     let journey_info = match import_type {
+//         ImportType::GPX => import_data::load_gpx(&file_path)?,
+//         ImportType::KML => import_data::load_kml(&file_path)?,
+//         ImportType::FOW => {
+//             let (journey_bitmap, _warnings) = import_data::load_fow_sync_data(&file_path)?;
+//             JourneyInfo {
+//                 data: ReadData::JourneyData(journey_bitmap),
+//                 journey_date: Utc::now(),
+//                 start_time: None,
+//                 end_time: None,
+//                 journey_header: None,
+//                 note: None,
+//             }
+//         }
+//     };
+//     Ok(journey_info)
+// }
 
 pub fn list_all_journeys() -> Result<Vec<JourneyHeader>> {
     get().storage.with_db_txn(|txn| txn.list_all_journeys())

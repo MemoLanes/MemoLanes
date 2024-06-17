@@ -349,3 +349,36 @@ fn flatten_kml(kml: Kml) -> Vec<Kml> {
         k => vec![k],
     }
 }
+
+pub fn journey_vector_from_raw_data(
+    raw_data: Vec<Vec<RawData>>,
+    run_preprocessor: bool,
+) -> Option<JourneyVector> {
+    let mut gps_processor = GpsProcessor::new();
+    // raw_data_list.map(move |x| {
+    //     x.map(|curr_data| {
+    //         let process_result = if run_preprocessor {
+    //             // This is ugly but fine
+    //             let mut result = ProcessResult::Append;
+    //             gps_processor.preprocess(curr_data.clone(), |_last_data, _curr_data, result_| {
+    //                 result = result_
+    //             });
+    //             result
+    //         } else {
+    //             ProcessResult::Append
+    //         };
+
+    //         PreprocessedData {
+    //             timestamp_sec: curr_data.timestamp_ms.map(|x| x / 1000),
+    //             track_point: TrackPoint {
+    //                 latitude: curr_data.latitude,
+    //                 longitude: curr_data.longitude,
+    //             },
+    //             process_result,
+    //         }
+    //     })
+    // });
+
+    gps_processor::build_vector_journey(preprocessed_data)
+        .expect("Impossible, `preprocessed_data` does not contain error")
+}
