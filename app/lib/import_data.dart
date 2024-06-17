@@ -19,8 +19,10 @@ class _ImportDataPage extends State<ImportDataPage> {
   final fmt = DateFormat('yyyy-MM-dd HH:mm:ss');
   DateTime? _startTime;
   DateTime? _endTime;
+  DateTime? _journeyDate;
   final TextEditingController _noteController = TextEditingController();
   bool _runPreprocessor = false;
+  bool loadCompleted = false;
   JourneyInfo? journeyInfo;
 
   @override
@@ -56,19 +58,25 @@ class _ImportDataPage extends State<ImportDataPage> {
       setState(() {
         _startTime = journeyInfo?.startTime;
         _endTime = journeyInfo?.endTime;
+        _journeyDate = journeyInfo?.journeyDate;
       });
     }
+    setState(() {
+      loadCompleted = true;
+    });
   }
 
   _saveData() async {
     if (journeyInfo != null) {
       await saveImportJourney(
           journeyInfo: JourneyInfo(
+              journeyDate: _journeyDate,
               startTime: _startTime,
               endTime: _endTime,
               note: _noteController.text,
               journeyData: journeyInfo!.journeyData));
       Fluttertoast.showToast(msg: "Import successful");
+      Navigator.pop(context);
     } else {
       Fluttertoast.showToast(msg: "JourneyData is empty");
     }
@@ -102,71 +110,90 @@ class _ImportDataPage extends State<ImportDataPage> {
     return null;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text("Import Data"),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextField(
-              readOnly: true,
-              controller: TextEditingController(
-                text: _startTime != null ? fmt.format(_startTime!) : '',
-              ),
-              onTap: () async {
-                DateTime? time = await selectDateAndTime(context);
-                setState(() {
-                  _startTime = time;
-                });
-              },
-              decoration: const InputDecoration(
-                label: Text("startTime"),
-              ),
-            ),
-            TextField(
-              readOnly: true,
-              controller: TextEditingController(
-                text: _endTime != null ? fmt.format(_endTime!) : '',
-              ),
-              onTap: () async {
-                DateTime? time = await selectDateAndTime(context);
-                setState(() {
-                  _endTime = time;
-                });
-              },
-              decoration: const InputDecoration(
-                label: Text("endTime"),
-              ),
-            ),
-            TextField(
-              controller: _noteController,
-              decoration: const InputDecoration(
-                label: Text("note"),
-              ),
-            ),
-            Switch(
-              value: _runPreprocessor,
-              onChanged: (value) {
-                setState(() {
-                  _runPreprocessor = value;
-                });
-              },
-            ),
-            Text(
-              _runPreprocessor ? 'Preprocessor is ON' : 'Preprocessor is OFF',
-              style: TextStyle(fontSize: 18.0),
-            ),
-            ElevatedButton(
-              onPressed: _saveData,
-              child: const Text("save data"),
-            ),
-          ],
+  _infoEdit(){
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        TextField(
+          readOnly: true,
+          controller: TextEditingController(
+            text: _startTime != null ? fmt.format(_startTime!) : '',
+          ),
+          onTap: () async {
+            DateTime? time = await selectDateAndTime(context);
+            setState(() {
+              _startTime = time;
+            });
+          },
+          decoration: const InputDecoration(
+            label: Text("startTime"),
+          ),
         ),
-      ),
+        TextField(
+          readOnly: true,
+          controller: TextEditingController(
+            text: _endTime != null ? fmt.format(_endTime!) : '',
+          ),
+          onTap: () async {
+            DateTime? time = await selectDateAndTime(context);
+            setState(() {
+              _endTime = time;
+            });
+          },
+          decoration: const InputDecoration(
+            label: Text("endTime"),
+          ),
+        ),
+        TextField(
+          readOnly: true,
+          controller: TextEditingController(
+            text: _journeyDate != null ? fmt.format(_journeyDate!) : '',
+          ),
+          onTap: () async {
+            DateTime? time = await selectDateAndTime(context);
+            setState(() {
+              _journeyDate = time;
+            });
+          },
+          decoration: const InputDecoration(
+            label: Text("journeyDate"),
+          ),
+        ),
+        TextField(
+          controller: _noteController,
+          decoration: const InputDecoration(
+            label: Text("note"),
+          ),
+        ),
+        Switch(
+          value: _runPreprocessor,
+          onChanged: (value) {
+            setState(() {
+              _runPreprocessor = value;
+            });
+          },
+        ),
+        Text(
+          _runPreprocessor ? 'Preprocessor is ON' : 'Preprocessor is OFF',
+          style: TextStyle(fontSize: 18.0),
+        ),
+        ElevatedButton(
+          onPressed: _saveData,
+          child: const Text("save data"),
+        ),
+      ],
     );
   }
+
+  @override
+  Widget build(BuildContext context) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text("Import Data"),
+        ),
+        body: Center(
+          child: loadCompleted == false?const CircularProgressIndicator():_infoEdit(),
+        ),
+      );
+    }
 }
