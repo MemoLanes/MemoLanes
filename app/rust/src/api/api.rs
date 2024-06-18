@@ -174,60 +174,6 @@ pub fn try_auto_finalize_journy() -> Result<bool> {
         .with_db_txn(|txn| txn.try_auto_finalize_journy())
 }
 
-// fn convert_vec_to_nested_iterator(
-//     data_segments: Vec<Result<RawData>>,
-// ) -> impl Iterator<Item = impl Iterator<Item = Result<RawData>>> {
-//     data_segments
-//         .into_iter()
-//         .map(|raw_data_result| raw_data_result.map(|raw_data| Ok(raw_data)).into_iter())
-// }
-
-// pub fn save_import_journey(journey_info: JourneyInfo, run_preprocessor: bool) -> Result<()> {
-//     let journey_date = journey_info.journey_date.date_naive();
-//     let rawdata = match journey_info.data {
-//         ReadData::RawData(rawdata) => {
-//             let journey_vector: JourneyVector =
-//                 import_data::load_vector_data(rawdata.into_iter(), run_preprocessor)?;
-//         }
-//         ReadData::JourneyData(_) => todo!(),
-//     };
-
-//     // let journey_vector: JourneyVector = import_data::load_vector_data(journey_info.data, run_preprocessor)?;
-
-//     let journey_data: JourneyData = JourneyData::Vector(journey_vector);
-//     get().storage.with_db_txn(|txn| {
-//         txn.create_and_insert_journey(
-//             journey_date,
-//             journey_info.start_time,
-//             journey_info.end_time,
-//             None,
-//             JourneyKind::DefaultKind,
-//             journey_info.note,
-//             journey_data,
-//         )
-//     })?;
-//     Ok(())
-// }
-
-// pub fn read_import_data(file_path: String, import_type: ImportType) -> Result<JourneyInfo> {
-//     let journey_info = match import_type {
-//         ImportType::GPX => import_data::load_gpx(&file_path)?,
-//         ImportType::KML => import_data::load_kml(&file_path)?,
-//         ImportType::FOW => {
-//             let (journey_bitmap, _warnings) = import_data::load_fow_sync_data(&file_path)?;
-//             JourneyInfo {
-//                 data: ReadData::JourneyData(journey_bitmap),
-//                 journey_date: Utc::now(),
-//                 start_time: None,
-//                 end_time: None,
-//                 journey_header: None,
-//                 note: None,
-//             }
-//         }
-//     };
-//     Ok(journey_info)
-// }
-
 pub fn list_all_journeys() -> Result<Vec<JourneyHeader>> {
     get().storage.with_db_txn(|txn| txn.list_all_journeys())
 }
