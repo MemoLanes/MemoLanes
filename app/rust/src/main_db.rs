@@ -147,7 +147,7 @@ impl Txn<'_> {
         Ok(())
     }
 
-    pub fn delect_journey(&mut self, id: &str) -> Result<()> {
+    pub fn delete_journey(&mut self, id: &str) -> Result<()> {
         let changes = self
             .db_txn
             .execute("DELETE FROM journey WHERE id = ?1;", (id,))?;
