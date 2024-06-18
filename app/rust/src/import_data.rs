@@ -1,11 +1,10 @@
-use crate::api::api::JourneyInfo;
 use crate::gps_processor::{PreprocessedData, ProcessResult, RawData};
 use crate::journey_bitmap::{self, Block, JourneyBitmap, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH};
 use crate::{
     gps_processor::{self, GpsProcessor},
     journey_vector::{JourneyVector, TrackPoint},
 };
-use anyhow::{Error, Result};
+use anyhow::Result;
 use chrono::{DateTime, Utc};
 use flate2::read::ZlibDecoder;
 use flutter_rust_bridge::frb;
@@ -124,48 +123,7 @@ pub fn load_fow_sync_data(zip_file_path: &str) -> Result<(JourneyBitmap, Option<
     }
 }
 
-// TODO: we need to return the timestamp to outside
-pub fn load_vector_data(
-    raw_data_segments: impl Iterator<Item = impl Iterator<Item = Result<RawData>>>,
-    run_preprocessor: bool,
-) -> Result<JourneyVector> {
-    let preprocessed_data = raw_data_segments.flat_map(|raw_data_list| {
-        // We need a new processor for each new segment. We want the first one to be `NewSegment`.
-        let mut gps_processor = GpsProcessor::new();
-        raw_data_list.map(move |x| {
-            x.map(|curr_data| {
-                let process_result = if run_preprocessor {
-                    // This is ugly but fine
-                    let mut result = ProcessResult::Append;
-                    gps_processor
-                        .preprocess(curr_data.clone(), |_last_data, _curr_data, result_| {
-                            result = result_
-                        });
-                    result
-                } else {
-                    ProcessResult::Append
-                };
-
-                PreprocessedData {
-                    timestamp_sec: curr_data.timestamp_ms.map(|x| x / 1000),
-                    track_point: TrackPoint {
-                        latitude: curr_data.latitude,
-                        longitude: curr_data.longitude,
-                    },
-                    process_result,
-                }
-            })
-        })
-    });
-
-    let journey_vector = match gps_processor::build_vector_journey(preprocessed_data)? {
-        Some(ongoing_journey) => ongoing_journey.journey_vector,
-        None => return Err(Error::msg("No data found")),
-    };
-    Ok(journey_vector)
-}
-
-pub fn load_gpx(file_path: &str) -> Result<JourneyInfo> {
+pub fn load_gpx(file_path: &str) -> Result<Vec<Vec<RawData>>> {
     let convert_to_timestamp = |time: &Option<Time>| -> Result<Option<DateTime<Utc>>> {
         let timestamp: Option<DateTime<Utc>> = match &time {
             Some(t) => Some(DateTime::<Utc>::from(DateTime::parse_from_rfc3339(
@@ -176,54 +134,32 @@ pub fn load_gpx(file_path: &str) -> Result<JourneyInfo> {
         Ok(timestamp)
     };
     let gpx_data = read(BufReader::new(File::open(file_path)?))?;
-    let raw_data_segments: Vec<Result<RawData>> = gpx_data
-        .tracks
-        .iter()
-        .flat_map(|track| {
-            track.segments.iter().flat_map(|segment| {
-                segment.points.iter().map(|point| {
-                    let timestamp = convert_to_timestamp(&point.time)?;
-                    Ok(gps_processor::RawData {
-                        latitude: point.point().y(),
-                        longitude: point.point().x(),
-                        timestamp_ms: timestamp.map(|x| x.timestamp_millis()),
-                        accuracy: point.hdop.map(|hdop| hdop as f32),
-                        altitude: point.elevation.map(|value| value as f32),
-                        speed: point.speed.map(|value| value as f32),
-                    })
-                })
-            })
-        })
-        .collect();
-
-    let mut start_time = None;
-    let mut end_time = None;
-
-    if let Some(track) = gpx_data.tracks.first() {
-        if let Some(segment) = track.segments.first() {
-            if let Some(first_point) = segment.points.first() {
-                start_time = convert_to_timestamp(&first_point.time)?;
+    let mut raw_vector_data: Vec<Vec<RawData>> = Vec::new();
+    for track in gpx_data.tracks {
+        for segment in track.segments {
+            let mut raw_vector_data_segment: Vec<RawData> = Vec::new();
+            for point in segment.points {
+                let timestamp = convert_to_timestamp(&point.time)?;
+                raw_vector_data_segment.push(gps_processor::RawData {
+                    latitude: point.point().y(),
+                    longitude: point.point().x(),
+                    timestamp_ms: timestamp.map(|x| x.timestamp_millis()),
+                    accuracy: point.hdop.map(|hdop| hdop as f32),
+                    altitude: point.elevation.map(|value| value as f32),
+                    speed: point.speed.map(|value| value as f32),
+                });
+            }
+            if !raw_vector_data_segment.is_empty() {
+                raw_vector_data.push(raw_vector_data_segment);
             }
         }
     }
-    if let Some(track) = gpx_data.tracks.last() {
-        if let Some(segment) = track.segments.last() {
-            if let Some(last_point) = segment.points.last() {
-                end_time = convert_to_timestamp(&last_point.time)?;
-            }
-        }
-    }
-    Ok(JourneyInfo {
-        data: ReadData::RawData(raw_data_segments),
-        start_time,
-        end_time,
-        journey_date: start_time,
-        note: None,
-    })
+
+    Ok(raw_vector_data)
 }
 
-pub fn load_kml(file_path: &str) -> Result<JourneyInfo> {
-    let parse_line = |coord: &Option<String>, when: &Option<String>| {
+pub fn load_kml(file_path: &str) -> Result<Vec<Vec<RawData>>> {
+    let parse_line = |coord: &Option<String>, when: &Option<String>| -> Result<Option<RawData>> {
         let coord: Vec<&str> = match coord {
             Some(coord) => coord.split_whitespace().collect(),
             None => return Ok(None),
@@ -248,14 +184,6 @@ pub fn load_kml(file_path: &str) -> Result<JourneyInfo> {
         }))
     };
 
-    let convert_to_timestamp = |time: &Option<String>| -> Result<Option<DateTime<Utc>>> {
-        let timestamp: Option<DateTime<Utc>> = match &time {
-            Some(str) => Some(DateTime::<Utc>::from(DateTime::parse_from_rfc3339(str)?)),
-            None => None,
-        };
-        Ok(timestamp)
-    };
-
     let kml_data =
         KmlReader::<_, f64>::from_reader(BufReader::new(File::open(file_path)?)).read()?;
 
@@ -267,76 +195,49 @@ pub fn load_kml(file_path: &str) -> Result<JourneyInfo> {
         })
         .flat_map(|arr| arr.into_iter().filter(|e| e.name == "Track"));
 
-    let mut start_time = None;
-    let mut end_time = None;
-    let raw_data_segments: Vec<Result<RawData>> = segments
-        .enumerate()
-        .flat_map(|(index, segment)| {
-            let mut when_list = Vec::new();
-            let mut coord_list = Vec::new();
-            segment.children.iter().for_each(|e| {
-                if e.name == "when" {
-                    when_list.push(e.content.clone());
-                } else if e.name == "coord" {
-                    coord_list.push(e.content.clone());
-                }
-            });
-            let missing_timestamp = when_list.is_empty();
-            if !missing_timestamp && when_list.len() != coord_list.len() {
-                vec![Err(anyhow!(
-                    "number of `when` does not match number of `coord`. when = {}, coord = {}",
-                    when_list.len(),
-                    coord_list.len()
-                ))]
-                .into_iter()
-            } else {
-                let mut raw_data_list = Vec::new();
-                if index == 0 {
-                    if let Some(string) = when_list.first() {
-                        if let Ok(time) = convert_to_timestamp(string) {
-                            start_time = time;
-                        }
-                    }
-                }
+    let mut raw_vector_data: Vec<Vec<RawData>> = Vec::new();
 
-                if let Some(string) = when_list.last() {
-                    if let Ok(Some(time)) = convert_to_timestamp(string) {
-                        if let Some(latest) = end_time {
-                            if time > latest {
-                                end_time = Some(time);
-                            }
-                        } else {
-                            end_time = Some(time);
-                        }
-                    }
-                }
-
-                for i in 0..coord_list.len() {
-                    match parse_line(
-                        &coord_list[i],
-                        if missing_timestamp {
-                            &None
-                        } else {
-                            &when_list[i]
-                        },
-                    ) {
-                        Ok(None) => (),
-                        Ok(Some(data)) => raw_data_list.push(Ok(data)),
-                        Err(err) => raw_data_list.push(Err(err)),
-                    }
-                }
-                raw_data_list.into_iter()
+    for segment in segments {
+        let mut when_list = Vec::new();
+        let mut coord_list = Vec::new();
+        segment.children.iter().for_each(|e| {
+            if e.name == "when" {
+                when_list.push(e.content.clone());
+            } else if e.name == "coord" {
+                coord_list.push(e.content.clone());
             }
-        })
-        .collect();
+        });
 
-    Ok(JourneyInfo {
-        data: ReadData::RawData(raw_data_segments),
-        start_time,
-        end_time,
-        journey_date: start_time,
-        note: None,
-    })
+        let missing_timestamp = when_list.is_empty();
+        if !missing_timestamp && when_list.len() != coord_list.len() {
+            return Err(anyhow!(
+                "number of `when` does not match number of `coord`. when = {}, coord = {}",
+                when_list.len(),
+                coord_list.len()
+            ));
+        }
+
+        let mut raw_vector_data_segment: Vec<RawData> = Vec::new();
+        for i in 0..coord_list.len() {
+            let parse_result = parse_line(
+                &coord_list[i],
+                if missing_timestamp {
+                    &None
+                } else {
+                    &when_list[i]
+                },
+            )?;
+            match parse_result {
+                None => (),
+                Some(raw_data) => raw_vector_data_segment.push(raw_data),
+            }
+        }
+        if !raw_vector_data_segment.is_empty() {
+            raw_vector_data.push(raw_vector_data_segment);
+        }
+    }
+
+    Ok(raw_vector_data)
 }
 
 fn flatten_kml(kml: Kml) -> Vec<Kml> {
@@ -354,31 +255,39 @@ pub fn journey_vector_from_raw_data(
     raw_data: Vec<Vec<RawData>>,
     run_preprocessor: bool,
 ) -> Option<JourneyVector> {
-    let mut gps_processor = GpsProcessor::new();
-    // raw_data_list.map(move |x| {
-    //     x.map(|curr_data| {
-    //         let process_result = if run_preprocessor {
-    //             // This is ugly but fine
-    //             let mut result = ProcessResult::Append;
-    //             gps_processor.preprocess(curr_data.clone(), |_last_data, _curr_data, result_| {
-    //                 result = result_
-    //             });
-    //             result
-    //         } else {
-    //             ProcessResult::Append
-    //         };
+    let processed_data = match run_preprocessor {
+        _ => raw_data.into_iter().flat_map(move |x| {
+            // we handle each segment separately
+            let mut gps_processor = GpsProcessor::new();
+            x.into_iter().map(move |raw_data| {
+                let process_result = if run_preprocessor {
+                    // This is ugly but fine
+                    let mut result = ProcessResult::Append;
+                    gps_processor
+                        .preprocess(raw_data.clone(), |_last_data, _curr_data, result_| {
+                            result = result_
+                        });
+                    result
+                } else {
+                    ProcessResult::Append
+                };
 
-    //         PreprocessedData {
-    //             timestamp_sec: curr_data.timestamp_ms.map(|x| x / 1000),
-    //             track_point: TrackPoint {
-    //                 latitude: curr_data.latitude,
-    //                 longitude: curr_data.longitude,
-    //             },
-    //             process_result,
-    //         }
-    //     })
-    // });
+                Ok(PreprocessedData {
+                    timestamp_sec: raw_data.timestamp_ms.map(|x| x / 1000),
+                    track_point: TrackPoint {
+                        latitude: raw_data.latitude,
+                        longitude: raw_data.longitude,
+                    },
+                    process_result,
+                })
+            })
+        }),
+    };
 
-    gps_processor::build_vector_journey(preprocessed_data)
+    match gps_processor::build_vector_journey(processed_data)
         .expect("Impossible, `preprocessed_data` does not contain error")
+    {
+        None => None,
+        Some(ongoing_journey) => Some(ongoing_journey.journey_vector),
+    }
 }

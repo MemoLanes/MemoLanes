@@ -4,20 +4,15 @@ use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 
 use anyhow::{Ok, Result};
-use chrono::{DateTime, Local};
-use chrono::{NaiveDate, Utc};
 use flutter_rust_bridge::frb;
 use simplelog::{Config, LevelFilter, WriteLogger};
 
-use crate::gps_processor::{GpsProcessor, ProcessResult, RawData};
-use crate::import_data::ReadData;
-use crate::journey_bitmap::JourneyBitmap;
+use crate::gps_processor::{GpsProcessor, ProcessResult};
 use crate::journey_data::JourneyData;
-use crate::journey_header::{JourneyHeader, JourneyKind};
-use crate::journey_vector::JourneyVector;
+use crate::journey_header::JourneyHeader;
 use crate::map_renderer::{MapRenderer, RenderResult};
 use crate::storage::Storage;
-use crate::{archive, export_data, gps_processor, import_data, storage};
+use crate::{archive, export_data, gps_processor, storage};
 
 // TODO: we have way too many locking here and now it is hard to track.
 //  e.g. we could mess up with the order and cause a deadlock
