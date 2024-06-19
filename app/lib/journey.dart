@@ -61,22 +61,14 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
                   title: Text(naiveDateToString(date: item.journeyDate)),
                   subtitle: Text(item.start?.toLocal().toString() ?? ""),
                   onTap: () {
-                    Navigator.push(context, MaterialPageRoute(
-                      builder: (context) {
-                        return JourneyInfoPage(journeyHeader: item,);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) {
+                            return JourneyInfoPage(journeyHeader: item,);
                       },
-                    ));
+                    )).then((refresh)=>refresh?_loadList():null);
                   },
-                  trailing: ElevatedButton(
-                    onPressed: () async {
-                      showDialogFunction(() async {
-                        Navigator.of(context).pop();
-                        await deleteJourney(id: item.id);
-                        _loadList();
-                      });
-                    },
-                    child: const Icon(Icons.delete),
-                  ));
+              );
             }).toList(),
           ))
     ]);
