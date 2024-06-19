@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:project_dv/journey.dart';
 import 'package:project_dv/src/rust/api/api.dart';
 import 'package:project_dv/src/rust/api/utils.dart';
 import 'package:project_dv/src/rust/journey_header.dart';
@@ -68,8 +67,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            Text(
-                "Journey ID: ${widget.journeyHeader.id}"),
+            Text("Journey ID: ${widget.journeyHeader.id}"),
             Text(
                 "Journey Date: ${naiveDateToString(date: widget.journeyHeader.journeyDate)}"),
             Text(
