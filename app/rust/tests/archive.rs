@@ -42,8 +42,8 @@ fn add_bitmap_journey(main_db: &mut MainDb) {
         .unwrap()
 }
 
-fn delect_journey(main_db: &mut MainDb, id: &str) {
-    main_db.with_txn(|txn| txn.delect_journey(id)).unwrap()
+fn delete_journey(main_db: &mut MainDb, id: &str) {
+    main_db.with_txn(|txn| txn.delete_journey(id)).unwrap()
 }
 
 fn all_journeys(main_db: &mut MainDb) -> Vec<(JourneyHeader, JourneyData)> {
@@ -108,7 +108,7 @@ fn recover_from_broken_archive_and_roll_back() {
 }
 
 #[test]
-fn add_and_delect_journey() {
+fn add_and_delete_journey() {
     let temp_dir = TempDir::new("main_db-basic").unwrap();
     let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
 
@@ -119,7 +119,7 @@ fn add_and_delect_journey() {
 
     all_journeys_before
         .into_iter()
-        .for_each(|(header, _)| delect_journey(&mut main_db, header.id.as_str()));
+        .for_each(|(header, _)| delete_journey(&mut main_db, header.id.as_str()));
 
     assert_eq!(all_journeys(&mut main_db).len(), 0);
 }
