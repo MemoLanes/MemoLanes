@@ -53,25 +53,25 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
     return Column(children: [
       Expanded(
           child: ListView(
-            shrinkWrap: true,
-            scrollDirection: Axis.vertical,
-            children: items.map((item) {
-              return ListTile(
-                  leading: const Icon(Icons.description),
-                  title: Text(naiveDateToString(date: item.journeyDate)),
-                  subtitle: Text(item.start?.toLocal().toString() ?? ""),
-                  onTap: () {
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) {
-                            return JourneyInfoPage(journeyHeader: item,);
-                      },
-                    )).then((refresh)=>refresh?_loadList():null);
-                  },
-              );
-            }).toList(),
-          ))
+        shrinkWrap: true,
+        scrollDirection: Axis.vertical,
+        children: items.map((item) {
+          return ListTile(
+            leading: const Icon(Icons.description),
+            title: Text(naiveDateToString(date: item.journeyDate)),
+            subtitle: Text(item.start?.toLocal().toString() ?? ""),
+            onTap: () {
+              Navigator.push(context, MaterialPageRoute(
+                builder: (context) {
+                  return JourneyInfoPage(
+                    journeyHeader: item,
+                  );
+                },
+              )).then((refresh) => refresh ? _loadList() : null);
+            },
+          );
+        }).toList(),
+      ))
     ]);
   }
 }
-
