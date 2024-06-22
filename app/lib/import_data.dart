@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/intl.dart';
-import 'package:project_dv/src/rust/api/api.dart';
+import 'package:project_dv/src/rust/api/import.dart';
 
 class ImportDataPage extends StatefulWidget {
   const ImportDataPage({super.key, required this.path, this.importType});
@@ -15,6 +15,8 @@ class ImportDataPage extends StatefulWidget {
   State<ImportDataPage> createState() => _ImportDataPage();
 }
 
+enum ImportType { fow, kml, gpx }
+
 class _ImportDataPage extends State<ImportDataPage> {
   final fmt = DateFormat('yyyy-MM-dd HH:mm:ss');
   DateTime? _startTime;
@@ -23,42 +25,71 @@ class _ImportDataPage extends State<ImportDataPage> {
   final TextEditingController _noteController = TextEditingController();
   bool _runPreprocessor = false;
   bool loadCompleted = false;
+  late ImportType importType;
   JourneyInfo? journeyInfo;
+  RawBitmapData? rawBitmapData;
+  RawVectorData? rawVectorData;
 
   @override
   void initState() {
     super.initState();
+    if (widget.importType != null) {
+      importType = widget.importType!;
+    } else {
+      try {
+        importType = getType(widget.path.split('.').last.toLowerCase());
+      } catch (e) {
+        Fluttertoast.showToast(msg: "Invalid file type selected");
+        Navigator.pop(context);
+        return;
+      }
+    }
     _readData(widget.path);
   }
 
-  ImportType? getType(String fileExtension) {
+  ImportType getType(String fileExtension) {
+    ImportType importType;
     switch (fileExtension) {
-      case "zip":
-        return ImportType.fow;
       case "gpx":
-        return ImportType.gpx;
+        importType = ImportType.gpx;
       case "kml":
-        return ImportType.kml;
+        importType = ImportType.kml;
       default:
-        Fluttertoast.showToast(msg: "Invalid file type selected");
-        Navigator.pop(context);
+        throw "Invalid file type selected";
     }
-    return null;
+    return importType;
   }
 
   _readData(path) async {
-    ImportType? type = widget.importType;
-    type ??= getType(widget.path.split('.').last.toLowerCase());
-    journeyInfo = await readImportData(
-      filePath: path,
-      importType: type!,
-      runPreprocessor: _runPreprocessor,
-    );
+    try {
+      switch (importType) {
+        case ImportType.fow:
+          var (JourneyInfo journeyInfo, RawBitmapData rawBitmapData) =
+              await loadFowSyncData(filePath: path);
+          this.journeyInfo = journeyInfo;
+          this.rawBitmapData = rawBitmapData;
+          break;
+        case ImportType.kml:
+          var (JourneyInfo journeyInfo, RawVectorData rawVectorData) =
+              await loadKml(filePath: path);
+          this.journeyInfo = journeyInfo;
+          this.rawVectorData = rawVectorData;
+          break;
+        case ImportType.gpx:
+          var (JourneyInfo journeyInfo, RawVectorData rawVectorData) =
+              await loadGpx(filePath: path);
+          this.journeyInfo = journeyInfo;
+          this.rawVectorData = rawVectorData;
+          break;
+      }
+    } catch (e) {
+      Fluttertoast.showToast(msg: "Data parsing failed");
+      Navigator.pop(context);
+    }
     if (journeyInfo != null) {
       setState(() {
         _startTime = journeyInfo?.startTime;
         _endTime = journeyInfo?.endTime;
-        _journeyDate = journeyInfo?.journeyDate;
       });
     }
     setState(() {
@@ -67,19 +98,20 @@ class _ImportDataPage extends State<ImportDataPage> {
   }
 
   _saveData() async {
-    if (journeyInfo != null) {
-      await saveImportJourney(
-          journeyInfo: JourneyInfo(
-              journeyDate: _journeyDate,
-              startTime: _startTime,
-              endTime: _endTime,
-              note: _noteController.text,
-              journeyData: journeyInfo!.journeyData));
-      Fluttertoast.showToast(msg: "Import successful");
-      Navigator.pop(context);
-    } else {
+    if (journeyInfo == null) {
       Fluttertoast.showToast(msg: "JourneyData is empty");
+      return;
     }
+    if (rawVectorData != null) {
+      await importVector(
+          journeyInfo: journeyInfo!,
+          vectorData: rawVectorData!,
+          runPreprocessor: _runPreprocessor);
+    } else if (rawBitmapData != null) {
+      await importBitmap(journeyInfo: journeyInfo!, bitmapData: rawBitmapData!);
+    }
+    Fluttertoast.showToast(msg: "Import successful");
+    Navigator.pop(context);
   }
 
   Future<DateTime?> selectDateAndTime(BuildContext context) async {
@@ -110,7 +142,7 @@ class _ImportDataPage extends State<ImportDataPage> {
     return null;
   }
 
-  _infoEdit(){
+  _infoEdit() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -165,18 +197,24 @@ class _ImportDataPage extends State<ImportDataPage> {
             label: Text("note"),
           ),
         ),
-        Switch(
-          value: _runPreprocessor,
-          onChanged: (value) {
-            setState(() {
-              _runPreprocessor = value;
-            });
-          },
-        ),
-        Text(
-          _runPreprocessor ? 'Preprocessor is ON' : 'Preprocessor is OFF',
-          style: TextStyle(fontSize: 18.0),
-        ),
+        importType == ImportType.fow
+            ? Container()
+            : Column(children: [
+                Switch(
+                  value: _runPreprocessor,
+                  onChanged: (value) {
+                    setState(() {
+                      _runPreprocessor = value;
+                    });
+                  },
+                ),
+                Text(
+                  _runPreprocessor
+                      ? 'Preprocessor is ON'
+                      : 'Preprocessor is OFF',
+                  style: TextStyle(fontSize: 18.0),
+                )
+              ]),
         ElevatedButton(
           onPressed: _saveData,
           child: const Text("save data"),
@@ -187,13 +225,24 @@ class _ImportDataPage extends State<ImportDataPage> {
 
   @override
   Widget build(BuildContext context) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text("Import Data"),
-        ),
-        body: Center(
-          child: loadCompleted == false?const CircularProgressIndicator():_infoEdit(),
-        ),
-      );
-    }
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Import Data"),
+      ),
+      body: Center(
+        child: loadCompleted == false
+            ? const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    "Reading data, please wait",
+                    style: TextStyle(fontSize: 22.0),
+                  ),
+                  CircularProgressIndicator()
+                ],
+              )
+            : _infoEdit(),
+      ),
+    );
+  }
 }

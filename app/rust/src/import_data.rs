@@ -1,3 +1,4 @@
+use crate::api::import::JourneyInfo;
 use crate::gps_processor::{PreprocessedData, ProcessResult, RawData};
 use crate::journey_bitmap::{self, Block, JourneyBitmap, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH};
 use crate::{
@@ -5,7 +6,7 @@ use crate::{
     journey_vector::{JourneyVector, TrackPoint},
 };
 use anyhow::Result;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Local, TimeZone, Utc};
 use flate2::read::ZlibDecoder;
 use flutter_rust_bridge::frb;
 use gpx::{read, Time};
@@ -255,39 +256,64 @@ pub fn journey_vector_from_raw_data(
     raw_data: Vec<Vec<RawData>>,
     run_preprocessor: bool,
 ) -> Option<JourneyVector> {
-    let processed_data = match run_preprocessor {
-        _ => raw_data.into_iter().flat_map(move |x| {
-            // we handle each segment separately
-            let mut gps_processor = GpsProcessor::new();
-            x.into_iter().map(move |raw_data| {
-                let process_result = if run_preprocessor {
-                    // This is ugly but fine
-                    let mut result = ProcessResult::Append;
-                    gps_processor
-                        .preprocess(raw_data.clone(), |_last_data, _curr_data, result_| {
-                            result = result_
-                        });
-                    result
-                } else {
-                    ProcessResult::Append
-                };
+    let processed_data = raw_data.into_iter().flat_map(move |x| {
+        // we handle each segment separately
+        let mut gps_processor = GpsProcessor::new();
+        x.into_iter().map(move |raw_data| {
+            let process_result = if run_preprocessor {
+                // This is ugly but fine
+                let mut result = ProcessResult::Append;
+                gps_processor.preprocess(raw_data.clone(), |_last_data, _curr_data, result_| {
+                    result = result_
+                });
+                result
+            } else {
+                ProcessResult::Append
+            };
 
-                Ok(PreprocessedData {
-                    timestamp_sec: raw_data.timestamp_ms.map(|x| x / 1000),
-                    track_point: TrackPoint {
-                        latitude: raw_data.latitude,
-                        longitude: raw_data.longitude,
-                    },
-                    process_result,
-                })
+            Ok(PreprocessedData {
+                timestamp_sec: raw_data.timestamp_ms.map(|x| x / 1000),
+                track_point: TrackPoint {
+                    latitude: raw_data.latitude,
+                    longitude: raw_data.longitude,
+                },
+                process_result,
             })
-        }),
-    };
+        })
+    });
 
     match gps_processor::build_vector_journey(processed_data)
         .expect("Impossible, `preprocessed_data` does not contain error")
     {
         None => None,
         Some(ongoing_journey) => Some(ongoing_journey.journey_vector),
+    }
+}
+
+pub fn journey_info_from_raw_vector_data(raw_vector_data: &[Vec<RawData>]) -> JourneyInfo {
+    let time_from_raw_data = |raw_data: &RawData| {
+        raw_data
+            .timestamp_ms
+            .and_then(|timestamp_ms| Utc.timestamp_millis_opt(timestamp_ms).single())
+    };
+    let start_time = raw_vector_data
+        .first()
+        .and_then(|x| x.first())
+        .and_then(time_from_raw_data);
+
+    let end_time = raw_vector_data
+        .last()
+        .and_then(|x| x.last())
+        .and_then(time_from_raw_data);
+
+    let local_date_from_time = start_time
+        .or(end_time)
+        .map(|time| time.with_timezone(&Local).date_naive());
+
+    JourneyInfo {
+        journey_date: local_date_from_time.unwrap_or_else(|| Local::now().date_naive()),
+        start_time,
+        end_time,
+        note: None,
     }
 }

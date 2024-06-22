@@ -1,9 +1,12 @@
 use anyhow::Result;
-use chrono::{DateTime, Local, NaiveDate, TimeZone, Utc};
+use chrono::{DateTime, Local, Utc};
 use flutter_rust_bridge::frb;
 
 use crate::{
-    gps_processor::RawData, import_data, journey_bitmap::JourneyBitmap, journey_data::JourneyData,
+    gps_processor::RawData,
+    import_data::{self, journey_info_from_raw_vector_data},
+    journey_bitmap::JourneyBitmap,
+    journey_data::JourneyData,
     journey_header::JourneyKind,
 };
 
@@ -12,7 +15,7 @@ use super::api;
 #[derive(Debug)]
 #[frb(non_opaque)]
 pub struct JourneyInfo {
-    pub journey_date: NaiveDate,
+    pub journey_date: chrono::NaiveDate,
     pub start_time: Option<DateTime<Utc>>,
     pub end_time: Option<DateTime<Utc>>,
     pub note: Option<String>,
@@ -42,34 +45,6 @@ pub fn load_fow_sync_data(file_path: String) -> Result<(JourneyInfo, RawBitmapDa
             data: journey_bitmap,
         },
     ))
-}
-
-fn journey_info_from_raw_vector_data(raw_vector_data: &Vec<Vec<RawData>>) -> JourneyInfo {
-    let time_from_raw_data = |raw_data: &RawData| {
-        raw_data
-            .timestamp_ms
-            .and_then(|timestamp_ms| Utc.timestamp_millis_opt(timestamp_ms).single())
-    };
-    let start_time = raw_vector_data
-        .first()
-        .and_then(|x| x.first())
-        .and_then(time_from_raw_data);
-
-    let end_time = raw_vector_data
-        .last()
-        .and_then(|x| x.last())
-        .and_then(time_from_raw_data);
-
-    let local_date_from_time = start_time
-        .or(end_time)
-        .map(|time| time.with_timezone(&Local).date_naive());
-
-    JourneyInfo {
-        journey_date: local_date_from_time.unwrap_or_else(|| Local::now().date_naive()),
-        start_time,
-        end_time,
-        note: None,
-    }
 }
 
 // TODO: Consider just detect file type here so we can merge the two functions below.
