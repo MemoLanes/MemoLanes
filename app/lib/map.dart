@@ -37,8 +37,10 @@ extension PuckPosition on StyleManager {
 class MapUiBodyState extends State<MapUiBody> {
   static const String overlayLayerId = "overlay-layer";
   static const String overlayImageSourceId = "overlay-image-source";
-  static const String zoomCacheKey = "mapWidget.zoom";
-  static const String TrackCacheKey = "mapWidget.track";
+  static const String trackCacheKey = "mapWidget.track";
+  static const String lngCacheKey = "mapWidget.camera.lng";
+  static const String latCacheKey = "mapWidget.camera.lat";
+  static const String zoomCacheKey = "mapWidget.camera.zoom";
 
   MapUiBodyState() {
     // TODO: Kinda want the default implementation is maplibre instead of mapbox.
@@ -147,39 +149,53 @@ class MapUiBodyState extends State<MapUiBody> {
   }
 
   void _initCameraOptions() async {
-    CameraOptions? cameraOptions;
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    geolocator.Position? position =
+    Point? point;
+
+    geolocator.Position? lastKnownPosition =
         await geolocator.Geolocator.getLastKnownPosition();
-    if (position != null) {
-      Point point =
-          Point(coordinates: Position(position.longitude, position.latitude));
-      setState(() {
-        cameraOptions = CameraOptions(
-            center: point, zoom: prefs.getDouble(zoomCacheKey) ?? 14);
-      });
+
+    if (lastKnownPosition != null) {
+      point = Point(
+          coordinates: Position(
+              lastKnownPosition.longitude, lastKnownPosition.latitude));
+    } else {
+      double? lng = prefs.getDouble(lngCacheKey);
+      double? lat = prefs.getDouble(latCacheKey);
+      if (lng != null && lat != null) {
+        point = Point(coordinates: Position(lng, lat));
+      }
     }
+
     setState(() {
-      _defaultCameraOptions = cameraOptions ?? CameraOptions();
+      double zoom = prefs.getDouble(zoomCacheKey) ?? 14;
+      _defaultCameraOptions = point != null
+          ? CameraOptions(center: point, zoom: zoom)
+          : CameraOptions();
     });
   }
 
-  void _setZoomCache() async {
+  void _setCameraCache() async {
     CameraState? cameraState = await mapboxMap?.getCameraState();
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    Position? position = await mapboxMap?.style.getPuckPosition();
     if (cameraState != null) {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
       prefs.setDouble(zoomCacheKey, cameraState.zoom);
+    }
+    if (position != null) {
+      prefs.setDouble(lngCacheKey, position.lng.toDouble());
+      prefs.setDouble(latCacheKey, position.lat.toDouble());
     }
   }
 
   _setTrackingMode() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    prefs.setString(TrackCacheKey, trackingMode.toString());
+    prefs.setString(trackCacheKey, trackingMode.toString());
   }
 
   _getTrackingMode() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? recordState = prefs.getString(TrackCacheKey);
+    String? recordState = prefs.getString(trackCacheKey);
     if (recordState != null) {
       setState(() {
         trackingMode = TrackingMode.values.firstWhere(
@@ -209,7 +225,7 @@ class MapUiBodyState extends State<MapUiBody> {
 
   _onCameraChangeListener(CameraChangedEventData event) {
     _triggerRefresh();
-    _setZoomCache();
+    _setCameraCache();
   }
 
   _onMapScrollListener(MapContentGestureContext context) {
