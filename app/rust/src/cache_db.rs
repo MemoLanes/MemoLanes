@@ -128,4 +128,8 @@ impl CacheDb {
         self.conn.execute("DELETE FROM journey_cache;", [])?;
         Ok(())
     }
+
+    pub fn merge_journey_cache($self) -> Result<()> {
+        
+    }
 }

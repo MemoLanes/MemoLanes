@@ -190,6 +190,7 @@ pub fn import_fow_data(zip_file_path: String) -> Result<()> {
             JourneyKind::DefaultKind,
             None,
             JourneyData::Bitmap(journey_bitmap),
+            false
         )
     })
 }

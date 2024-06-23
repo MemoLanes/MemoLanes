@@ -95,6 +95,7 @@ pub struct Txn<'a> {
     db_txn: rusqlite::Transaction<'a>,
     // TODO: in cache db v1, we want to improve the granularity.
     pub reset_cache: bool,
+    pub merge_cache: bool
 }
 
 // NOTE: the `Txn` here is not only for making operation atomic, the `storage`
@@ -144,6 +145,7 @@ impl Txn<'_> {
     pub fn clear_journeys(&mut self) -> Result<()> {
         self.db_txn.execute("DELETE FROM journey;", ())?;
         self.reset_cache = true;
+        self.merge_cache = false;
         Ok(())
     }
 
@@ -152,6 +154,7 @@ impl Txn<'_> {
             .db_txn
             .execute("DELETE FROM journey WHERE id = ?1;", (id,))?;
         self.reset_cache = true;
+        self.merge_cache = false;
         if changes == 1 {
             Ok(())
         } else {
@@ -159,7 +162,7 @@ impl Txn<'_> {
         }
     }
 
-    pub fn insert_journey(&mut self, header: JourneyHeader, data: JourneyData) -> Result<()> {
+    pub fn insert_journey(&mut self, header: JourneyHeader, data: JourneyData, merge_cache: bool) -> Result<()> {
         let journey_type = header.journey_type;
         if journey_type != data.type_() {
             bail!("[insert_journey] Mismatch journey type")
@@ -185,7 +188,9 @@ impl Txn<'_> {
                 data_bytes,
             ),
         )?;
-        self.reset_cache = true;
+
+        self.merge_cache = merge_cache;
+        self.reset_cache = !merge_cache;
         Ok(())
     }
 
@@ -199,6 +204,7 @@ impl Txn<'_> {
         journey_kind: JourneyKind,
         note: Option<String>,
         journey_data: JourneyData,
+        merge_cache: bool
     ) -> Result<()> {
         let journey_type = journey_data.type_();
         // create new journey
@@ -216,7 +222,7 @@ impl Txn<'_> {
             journey_kind,
             note,
         };
-        self.insert_journey(header, journey_data)
+        self.insert_journey(header, journey_data, merge_cache)
     }
 
     pub fn finalize_ongoing_journey(&mut self) -> Result<bool> {
@@ -243,6 +249,7 @@ impl Txn<'_> {
                     journey_kind,
                     None,
                     JourneyData::Vector(journey_vector),
+                    true
                 )?;
                 true
             }
@@ -387,6 +394,7 @@ impl MainDb {
         let mut txn = Txn {
             db_txn: self.conn.transaction()?,
             reset_cache: false,
+            merge_cache: false
         };
         let output = f(&mut txn)?;
         txn.db_txn.commit()?;
