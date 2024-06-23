@@ -12,6 +12,7 @@ import 'package:project_dv/raw_data.dart';
 import 'package:project_dv/src/rust/api/api.dart' as api;
 import 'package:project_dv/src/rust/frb_generated.dart';
 import 'package:provider/provider.dart';
+import 'package:badges/badges.dart' as badges;
 
 void delayedInit() {
   Future.delayed(const Duration(milliseconds: 2000), () async {
@@ -110,9 +111,17 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  bool _showUpdateNotificationDot = false;
+
   @override
   void initState() {
     super.initState();
+  }
+
+  void _toggleNotificationDot() {
+    setState(() {
+      _showUpdateNotificationDot = !_showUpdateNotificationDot;
+    });
   }
 
   @override
@@ -121,12 +130,39 @@ class _MyHomePageState extends State<MyHomePage> {
       length: 4,
       child: Scaffold(
           appBar: AppBar(
-            bottom: const TabBar(
+            bottom: TabBar(
               tabs: [
-                Tab(icon: Icon(Icons.home)),
-                Tab(icon: Icon(Icons.map)),
-                Tab(icon: Icon(Icons.archive)),
-                Tab(icon: Icon(Icons.description)),
+                const Tab(icon: Icon(Icons.home)),
+                const Tab(icon: Icon(Icons.map)),
+                // Tab(icon: Icon(Icons.archive)),
+                Tab(
+                  child: badges.Badge(
+                    badgeStyle: badges.BadgeStyle(
+                      shape: badges.BadgeShape.square,
+                      borderRadius: BorderRadius.circular(5),
+                      padding: const EdgeInsets.all(2),
+                      badgeGradient: const badges.BadgeGradient.linear(
+                        colors: [
+                          Colors.purple,
+                          Colors.blue,
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    position: badges.BadgePosition.topEnd(top: -12, end: -20),
+                    badgeContent: const Text(
+                      'NEW',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold),
+                    ),
+                    showBadge: _showUpdateNotificationDot,
+                    child: const Icon(Icons.archive),
+                  ),
+                ),
+                const Tab(icon: Icon(Icons.description)),
               ],
             ),
             title: Text(widget.title),
