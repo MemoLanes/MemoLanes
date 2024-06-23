@@ -8,7 +8,6 @@ use crate::{
 use anyhow::Result;
 use chrono::{DateTime, Local, TimeZone, Utc};
 use flate2::read::ZlibDecoder;
-use flutter_rust_bridge::frb;
 use gpx::{read, Time};
 use kml::{Kml, KmlReader};
 use std::result::Result::Ok;
@@ -18,13 +17,6 @@ use std::{fs::File, io::BufReader, io::Read, path::Path};
 struct FoWTileId {
     x: u16,
     y: u16,
-}
-
-#[derive(Debug)]
-#[frb(opaque)]
-pub enum ReadData {
-    RawData(Vec<Result<RawData>>),
-    JourneyData(JourneyBitmap),
 }
 
 impl FoWTileId {
