@@ -37,6 +37,7 @@ fn add_bitmap_journey(main_db: &mut MainDb) {
                 memolanes_core::journey_header::JourneyKind::DefaultKind,
                 None,
                 JourneyData::Bitmap(bitmap),
+                false
             )
         })
         .unwrap()
