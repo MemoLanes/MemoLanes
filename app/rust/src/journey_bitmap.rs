@@ -1,5 +1,4 @@
 use crate::utils;
-use flutter_rust_bridge::frb;
 use std::{
     clone::Clone,
     collections::HashMap,
@@ -18,7 +17,6 @@ const ALL_OFFSET: i16 = TILE_WIDTH_OFFSET + BITMAP_WIDTH_OFFSET;
 // we have 512*512 tiles, 128*128 blocks and a single block contains
 // a 64*64 bitmap.
 #[derive(PartialEq, Eq, Debug, Clone)]
-#[frb(opaque)]
 pub struct JourneyBitmap {
     pub tiles: HashMap<(u16, u16), Tile>,
 }
