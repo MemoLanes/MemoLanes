@@ -1,3 +1,5 @@
+use std::{ffi::OsStr, path::Path};
+
 use anyhow::Result;
 use chrono::{DateTime, Local, Utc};
 use flutter_rust_bridge::frb;
@@ -47,19 +49,19 @@ pub fn load_fow_sync_data(file_path: String) -> Result<(JourneyInfo, RawBitmapDa
     ))
 }
 
-// TODO: Consider just detect file type here so we can merge the two functions below.
-pub fn load_gpx(file_path: String) -> Result<(JourneyInfo, RawVectorData)> {
-    let raw_vecotr_data = import_data::load_gpx(&file_path)?;
-    Ok((
-        journey_info_from_raw_vector_data(&raw_vecotr_data),
-        RawVectorData {
-            data: raw_vecotr_data,
-        },
-    ))
-}
+pub fn load_gpx_or_kml(file_path: String) -> Result<(JourneyInfo, RawVectorData)> {
+    let raw_vecotr_data = match Path::new(&file_path)
+        .extension()
+        .and_then(OsStr::to_str)
+        .map(|x| x.to_lowercase())
+        .as_ref()
+        .map(|x| x.as_str())
+    {
+        Some("gpx") => import_data::load_gpx(&file_path)?,
+        Some("kml") => import_data::load_kml(&file_path)?,
+        extension => return Err(anyhow!("Unknown extension: {:?}", extension)),
+    };
 
-pub fn load_kml(file_path: String) -> Result<(JourneyInfo, RawVectorData)> {
-    let raw_vecotr_data = import_data::load_kml(&file_path)?;
     Ok((
         journey_info_from_raw_vector_data(&raw_vecotr_data),
         RawVectorData {

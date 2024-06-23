@@ -193,11 +193,11 @@ pub fn load_kml(file_path: &str) -> Result<Vec<Vec<RawData>>> {
     for segment in segments {
         let mut when_list = Vec::new();
         let mut coord_list = Vec::new();
-        segment.children.iter().for_each(|e| {
+        segment.children.into_iter().for_each(|e| {
             if e.name == "when" {
-                when_list.push(e.content.clone());
+                when_list.push(e.content);
             } else if e.name == "coord" {
-                coord_list.push(e.content.clone());
+                coord_list.push(e.content);
             }
         });
 

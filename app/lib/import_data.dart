@@ -3,81 +3,51 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/intl.dart';
-import 'package:project_dv/src/rust/api/import.dart';
+import 'package:project_dv/src/rust/api/import.dart' as import_api;
 
 class ImportDataPage extends StatefulWidget {
-  const ImportDataPage({super.key, required this.path, this.importType});
+  const ImportDataPage(
+      {super.key, required this.path, required this.importType});
 
   final String path;
-  final ImportType? importType;
+  final ImportType importType;
 
   @override
   State<ImportDataPage> createState() => _ImportDataPage();
 }
 
-enum ImportType { fow, kml, gpx }
+enum ImportType { fow, gpxOrKml }
 
 class _ImportDataPage extends State<ImportDataPage> {
-  final fmt = DateFormat('yyyy-MM-dd HH:mm:ss');
+  final _dateFmt = DateFormat('yyyy-MM-dd HH:mm:ss');
   DateTime? _startTime;
   DateTime? _endTime;
   DateTime? _journeyDate;
   final TextEditingController _noteController = TextEditingController();
   bool _runPreprocessor = false;
   bool loadCompleted = false;
-  late ImportType importType;
-  JourneyInfo? journeyInfo;
-  RawBitmapData? rawBitmapData;
-  RawVectorData? rawVectorData;
+  import_api.JourneyInfo? journeyInfo;
+  import_api.RawBitmapData? rawBitmapData;
+  import_api.RawVectorData? rawVectorData;
 
   @override
   void initState() {
     super.initState();
-    if (widget.importType != null) {
-      importType = widget.importType!;
-    } else {
-      try {
-        importType = getType(widget.path.split('.').last.toLowerCase());
-      } catch (e) {
-        Fluttertoast.showToast(msg: "Invalid file type selected");
-        Navigator.pop(context);
-        return;
-      }
-    }
     _readData(widget.path);
-  }
-
-  ImportType getType(String fileExtension) {
-    ImportType importType;
-    switch (fileExtension) {
-      case "gpx":
-        importType = ImportType.gpx;
-      case "kml":
-        importType = ImportType.kml;
-      default:
-        throw "Invalid file type selected";
-    }
-    return importType;
   }
 
   _readData(path) async {
     try {
-      switch (importType) {
+      switch (widget.importType) {
         case ImportType.fow:
-          var (JourneyInfo journeyInfo, RawBitmapData rawBitmapData) =
-              await loadFowSyncData(filePath: path);
+          var (journeyInfo, rawBitmapData) =
+              await import_api.loadFowSyncData(filePath: path);
           this.journeyInfo = journeyInfo;
           this.rawBitmapData = rawBitmapData;
           break;
-        case ImportType.kml:
-          var (JourneyInfo journeyInfo, RawVectorData rawVectorData) =
-              await loadKml(filePath: path);
-          this.journeyInfo = journeyInfo;
-          this.rawVectorData = rawVectorData;
-          break;
-        case ImportType.gpx:
-          var (JourneyInfo journeyInfo, RawVectorData rawVectorData) =
-              await loadGpx(filePath: path);
+        case ImportType.gpxOrKml:
+          var (journeyInfo, rawVectorData) =
+              await import_api.loadGpxOrKml(filePath: path);
           this.journeyInfo = journeyInfo;
           this.rawVectorData = rawVectorData;
           break;
@@ -103,14 +73,16 @@ class _ImportDataPage extends State<ImportDataPage> {
       return;
     }
     if (rawVectorData != null) {
-      await importVector(
+      await import_api.importVector(
           journeyInfo: journeyInfo!,
           vectorData: rawVectorData!,
           runPreprocessor: _runPreprocessor);
     } else if (rawBitmapData != null) {
-      await importBitmap(journeyInfo: journeyInfo!, bitmapData: rawBitmapData!);
+      await import_api.importBitmap(
+          journeyInfo: journeyInfo!, bitmapData: rawBitmapData!);
     }
     Fluttertoast.showToast(msg: "Import successful");
+    if (!context.mounted) return null;
     Navigator.pop(context);
   }
 
@@ -123,6 +95,7 @@ class _ImportDataPage extends State<ImportDataPage> {
     );
 
     if (selectedDateTime != null) {
+      if (!context.mounted) return null;
       TimeOfDay? selectedTime = await showTimePicker(
         context: context,
         initialTime: TimeOfDay.now(),
@@ -149,7 +122,7 @@ class _ImportDataPage extends State<ImportDataPage> {
         TextField(
           readOnly: true,
           controller: TextEditingController(
-            text: _startTime != null ? fmt.format(_startTime!) : '',
+            text: _startTime != null ? _dateFmt.format(_startTime!) : '',
           ),
           onTap: () async {
             DateTime? time = await selectDateAndTime(context);
@@ -158,13 +131,13 @@ class _ImportDataPage extends State<ImportDataPage> {
             });
           },
           decoration: const InputDecoration(
-            label: Text("startTime"),
+            label: Text("Start time:"),
           ),
         ),
         TextField(
           readOnly: true,
           controller: TextEditingController(
-            text: _endTime != null ? fmt.format(_endTime!) : '',
+            text: _endTime != null ? _dateFmt.format(_endTime!) : '',
           ),
           onTap: () async {
             DateTime? time = await selectDateAndTime(context);
@@ -173,13 +146,13 @@ class _ImportDataPage extends State<ImportDataPage> {
             });
           },
           decoration: const InputDecoration(
-            label: Text("endTime"),
+            label: Text("End time:"),
           ),
         ),
         TextField(
           readOnly: true,
           controller: TextEditingController(
-            text: _journeyDate != null ? fmt.format(_journeyDate!) : '',
+            text: _journeyDate != null ? _dateFmt.format(_journeyDate!) : '',
           ),
           onTap: () async {
             DateTime? time = await selectDateAndTime(context);
@@ -188,16 +161,16 @@ class _ImportDataPage extends State<ImportDataPage> {
             });
           },
           decoration: const InputDecoration(
-            label: Text("journeyDate"),
+            label: Text("Journey date:"),
           ),
         ),
         TextField(
           controller: _noteController,
           decoration: const InputDecoration(
-            label: Text("note"),
+            label: Text("Note:"),
           ),
         ),
-        importType == ImportType.fow
+        widget.importType == ImportType.fow
             ? Container()
             : Column(children: [
                 Switch(
@@ -212,12 +185,12 @@ class _ImportDataPage extends State<ImportDataPage> {
                   _runPreprocessor
                       ? 'Preprocessor is ON'
                       : 'Preprocessor is OFF',
-                  style: TextStyle(fontSize: 18.0),
+                  style: const TextStyle(fontSize: 18.0),
                 )
               ]),
         ElevatedButton(
           onPressed: _saveData,
-          child: const Text("save data"),
+          child: const Text("Save Data"),
         ),
       ],
     );
