@@ -54,8 +54,7 @@ pub fn load_gpx_or_kml(file_path: String) -> Result<(JourneyInfo, RawVectorData)
         .extension()
         .and_then(OsStr::to_str)
         .map(|x| x.to_lowercase())
-        .as_ref()
-        .map(|x| x.as_str())
+        .as_deref()
     {
         Some("gpx") => import_data::load_gpx(&file_path)?,
         Some("kml") => import_data::load_kml(&file_path)?,
