@@ -102,7 +102,7 @@ class UpdateNotifier extends ChangeNotifier {
   bool hasUpdateNotification = false;
   String? updateUrl;
 
-  void updateNotification(String? url) {
+  void setUpdateUrl(String? url) {
     if (url != null) {
       hasUpdateNotification = true;
       updateUrl = url;

@@ -56,12 +56,14 @@ void main() async {
       docDir: (await getApplicationDocumentsDirectory()).path,
       supportDir: (await getApplicationSupportDirectory()).path,
       cacheDir: (await getApplicationCacheDirectory()).path);
+  var updateNotifier = UpdateNotifier();
   delayedInit();
+  var gpsRecordingState = GpsRecordingState();
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (context) => GpsRecordingState()),
-        ChangeNotifierProvider(create: (context) => UpdateNotifier()),
+        ChangeNotifierProvider(create: (context) => gpsRecordingState),
+        ChangeNotifierProvider(create: (context) => updateNotifier),
       ],
       child: const MyApp(),
     ),
