@@ -157,6 +157,10 @@ pub fn delete_raw_data_file(filename: String) -> Result<()> {
     get().storage.delete_raw_data_file(filename)
 }
 
+pub fn delete_journey(id: &str) -> Result<()> {
+    get().storage.with_db_txn(|txn| txn.delete_journey(id))
+}
+
 pub fn toggle_raw_data_mode(enable: bool) {
     get().storage.toggle_raw_data_mode(enable)
 }
