@@ -4,51 +4,31 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:project_dv/src/rust/api/api.dart';
+import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class ArchiveUiBody extends StatelessWidget {
-  const ArchiveUiBody({super.key});
+class SettingsBody extends StatefulWidget {
+  const SettingsBody({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: HomeScreen(),
-    );
-  }
+  State<SettingsBody> createState() => _SettingsBodyState();
 }
 
-class HomeScreen extends StatefulWidget {
-  @override
-  _HomeScreenState createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  bool _isButtonVisible = false;
-  String? _url;
-
-  _launchUrl(url) async {
-    final url_ = Uri.parse(url);
-    if (await canLaunchUrl(url_)) {
-      await launchUrl(url_);
+class _SettingsBodyState extends State<SettingsBody> {
+  _launchUrl(String updateUrl) async {
+    final url = Uri.parse(updateUrl);
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url);
     } else {
-      throw 'Could not launch $url';
+      throw 'Could not launch $updateUrl';
     }
   }
 
-  _newVersionNotification(url) async {
-    setState(() {
-      if (url != null) {
-        _isButtonVisible = true;
-        _url = url;
-      } else {
-        _isButtonVisible = false;
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
+    var updateNotifer = context.watch<UpdateNotifier>();
+
     return Column(
       children: [
         ElevatedButton(
@@ -96,10 +76,10 @@ class _HomeScreenState extends State<HomeScreen> {
           },
           child: const Text("Reset & Recover"),
         ),
-        if (_isButtonVisible)
+        if (updateNotifer.hasUpdateNotification)
           ElevatedButton(
             onPressed: () async {
-              _launchUrl(_url);
+              _launchUrl(updateNotifer.updateUrl.toString());
             },
             child: const Text("Update"),
           ),
@@ -115,5 +95,20 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ],
     );
+  }
+}
+
+class UpdateNotifier extends ChangeNotifier {
+  bool hasUpdateNotification = false;
+  String? updateUrl;
+
+  void updateNotification(String? url) {
+    if (url != null) {
+      hasUpdateNotification = true;
+      updateUrl = url;
+    } else {
+      hasUpdateNotification = false;
+    }
+    notifyListeners();
   }
 }

@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:project_dv/archive.dart';
+import 'package:project_dv/settings.dart';
 import 'package:project_dv/gps_page.dart';
 import 'package:project_dv/gps_recording_state.dart';
 import 'package:project_dv/journey.dart';
@@ -61,6 +61,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (context) => GpsRecordingState()),
+        ChangeNotifierProvider(create: (context) => UpdateNotifier()),
       ],
       child: const MyApp(),
     ),
@@ -111,17 +112,9 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  bool _showUpdateNotificationDot = false;
-
   @override
   void initState() {
     super.initState();
-  }
-
-  void _toggleNotificationDot() {
-    setState(() {
-      _showUpdateNotificationDot = !_showUpdateNotificationDot;
-    });
   }
 
   @override
@@ -134,7 +127,6 @@ class _MyHomePageState extends State<MyHomePage> {
               tabs: [
                 const Tab(icon: Icon(Icons.home)),
                 const Tab(icon: Icon(Icons.map)),
-                // Tab(icon: Icon(Icons.archive)),
                 Tab(
                   child: badges.Badge(
                     badgeStyle: badges.BadgeStyle(
@@ -158,8 +150,9 @@ class _MyHomePageState extends State<MyHomePage> {
                           fontSize: 10,
                           fontWeight: FontWeight.bold),
                     ),
-                    showBadge: _showUpdateNotificationDot,
-                    child: const Icon(Icons.archive),
+                    showBadge:
+                        context.watch<UpdateNotifier>().hasUpdateNotification,
+                    child: const Icon(Icons.settings),
                   ),
                 ),
                 const Tab(icon: Icon(Icons.description)),
@@ -182,7 +175,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
               ),
               Center(child: JourneyUiBody()),
-              Center(child: ArchiveUiBody()),
+              Center(child: SettingsBody()),
               Center(child: RawDataBody())
             ],
           )),
