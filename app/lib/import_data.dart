@@ -86,19 +86,23 @@ class _ImportDataPage extends State<ImportDataPage> {
     Navigator.pop(context);
   }
 
-  Future<DateTime?> selectDateAndTime(BuildContext context) async {
+  Future<DateTime?> selectDateAndTime(
+      BuildContext context, DateTime? datetime) async {
+    DateTime initialDate = datetime ??= DateTime.now();
     DateTime? selectedDateTime = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: initialDate,
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
     );
+    TimeOfDay initialTime =
+        TimeOfDay(hour: initialDate.hour, minute: initialDate.minute);
 
     if (selectedDateTime != null) {
       if (!context.mounted) return null;
       TimeOfDay? selectedTime = await showTimePicker(
         context: context,
-        initialTime: TimeOfDay.now(),
+        initialTime: initialTime,
       );
 
       if (selectedTime != null) {
@@ -125,10 +129,12 @@ class _ImportDataPage extends State<ImportDataPage> {
             text: _startTime != null ? _dateFmt.format(_startTime!) : '',
           ),
           onTap: () async {
-            DateTime? time = await selectDateAndTime(context);
-            setState(() {
-              _startTime = time;
-            });
+            DateTime? time = await selectDateAndTime(context, _startTime);
+            if (time != null) {
+              setState(() {
+                _startTime = time;
+              });
+            }
           },
           decoration: const InputDecoration(
             label: Text("Start time:"),
@@ -140,10 +146,12 @@ class _ImportDataPage extends State<ImportDataPage> {
             text: _endTime != null ? _dateFmt.format(_endTime!) : '',
           ),
           onTap: () async {
-            DateTime? time = await selectDateAndTime(context);
-            setState(() {
-              _endTime = time;
-            });
+            DateTime? time = await selectDateAndTime(context, _endTime);
+            if (time != null) {
+              setState(() {
+                _endTime = time;
+              });
+            }
           },
           decoration: const InputDecoration(
             label: Text("End time:"),
@@ -155,10 +163,12 @@ class _ImportDataPage extends State<ImportDataPage> {
             text: _journeyDate != null ? _dateFmt.format(_journeyDate!) : '',
           ),
           onTap: () async {
-            DateTime? time = await selectDateAndTime(context);
-            setState(() {
-              _journeyDate = time;
-            });
+            DateTime? time = await selectDateAndTime(context, _journeyDate);
+            if (time != null) {
+              setState(() {
+                _journeyDate = time;
+              });
+            }
           },
           decoration: const InputDecoration(
             label: Text("Journey date:"),
