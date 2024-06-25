@@ -27,7 +27,7 @@ class _SettingsBodyState extends State<SettingsBody> {
 
   @override
   Widget build(BuildContext context) {
-    var updateNotifer = context.watch<UpdateNotifier>();
+    var updateUrl = context.watch<UpdateNotifier>().updateUrl;
 
     return Column(
       children: [
@@ -76,10 +76,10 @@ class _SettingsBodyState extends State<SettingsBody> {
           },
           child: const Text("Reset & Recover"),
         ),
-        if (updateNotifer.hasUpdateNotification())
+        if (updateUrl != null)
           ElevatedButton(
             onPressed: () async {
-              _launchUrl(updateNotifer.updateUrl.toString());
+              _launchUrl(updateUrl);
             },
             child: const Text(
               "Update",
