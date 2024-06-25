@@ -19,7 +19,7 @@ class _SettingsBodyState extends State<SettingsBody> {
   _launchUrl(String updateUrl) async {
     final url = Uri.parse(updateUrl);
     if (await canLaunchUrl(url)) {
-      await launchUrl(url);
+      await launchUrl(url, mode: LaunchMode.externalApplication);
     } else {
       throw 'Could not launch $updateUrl';
     }
@@ -76,12 +76,15 @@ class _SettingsBodyState extends State<SettingsBody> {
           },
           child: const Text("Reset & Recover"),
         ),
-        if (updateNotifer.hasUpdateNotification)
+        if (updateNotifer.hasUpdateNotification())
           ElevatedButton(
             onPressed: () async {
               _launchUrl(updateNotifer.updateUrl.toString());
             },
-            child: const Text("Update"),
+            child: const Text(
+              "Update",
+              style: TextStyle(color: Colors.red),
+            ),
           ),
         Text(
           "Version: ${shortCommitHash()}",
@@ -99,16 +102,14 @@ class _SettingsBodyState extends State<SettingsBody> {
 }
 
 class UpdateNotifier extends ChangeNotifier {
-  bool hasUpdateNotification = false;
   String? updateUrl;
 
   void setUpdateUrl(String? url) {
-    if (url != null) {
-      hasUpdateNotification = true;
-      updateUrl = url;
-    } else {
-      hasUpdateNotification = false;
-    }
+    updateUrl = url;
     notifyListeners();
+  }
+
+  bool hasUpdateNotification() {
+    return updateUrl != null;
   }
 }

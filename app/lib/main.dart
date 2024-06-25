@@ -153,7 +153,7 @@ class _MyHomePageState extends State<MyHomePage> {
                           fontWeight: FontWeight.bold),
                     ),
                     showBadge:
-                        context.watch<UpdateNotifier>().hasUpdateNotification,
+                        context.watch<UpdateNotifier>().hasUpdateNotification(),
                     child: const Icon(Icons.settings),
                   ),
                 ),
