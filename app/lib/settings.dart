@@ -4,13 +4,31 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:project_dv/src/rust/api/api.dart';
+import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-class ArchiveUiBody extends StatelessWidget {
-  const ArchiveUiBody({super.key});
+class SettingsBody extends StatefulWidget {
+  const SettingsBody({super.key});
+
+  @override
+  State<SettingsBody> createState() => _SettingsBodyState();
+}
+
+class _SettingsBodyState extends State<SettingsBody> {
+  _launchUrl(String updateUrl) async {
+    final url = Uri.parse(updateUrl);
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      throw 'Could not launch $updateUrl';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    var updateNotifer = context.watch<UpdateNotifier>();
+
     return Column(
       children: [
         ElevatedButton(
@@ -58,8 +76,40 @@ class ArchiveUiBody extends StatelessWidget {
           },
           child: const Text("Reset & Recover"),
         ),
-        Text("Version: ${shortCommitHash()}"),
+        if (updateNotifer.hasUpdateNotification())
+          ElevatedButton(
+            onPressed: () async {
+              _launchUrl(updateNotifer.updateUrl.toString());
+            },
+            child: const Text(
+              "Update",
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        Text(
+          "Version: ${shortCommitHash()}",
+          style: const TextStyle(
+            fontSize: 12.0,
+            fontWeight: FontWeight.normal,
+            color: Colors.black87,
+            fontStyle: FontStyle.normal,
+            decoration: TextDecoration.none,
+          ),
+        ),
       ],
     );
+  }
+}
+
+class UpdateNotifier extends ChangeNotifier {
+  String? updateUrl;
+
+  void setUpdateUrl(String? url) {
+    updateUrl = url;
+    notifyListeners();
+  }
+
+  bool hasUpdateNotification() {
+    return updateUrl != null;
   }
 }
