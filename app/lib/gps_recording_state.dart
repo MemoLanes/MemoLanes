@@ -27,7 +27,6 @@ class AutoJourneyFinalizer {
       Fluttertoast.showToast(msg: "New journey added");
     }
   }
-
 }
 
 /// `PokeGeolocatorTask` is a hacky workround on Android.
@@ -69,7 +68,7 @@ class _PokeGeolocatorTask {
 }
 
 class GpsRecordingState extends ChangeNotifier {
-  static const String recordStateCacheKey = "gpsRecord.state";
+  static const String isRecordingPrefsKey = "GpsRecordingState.isRecording";
   var isRecording = false;
   Position? latestPosition;
 
@@ -121,20 +120,20 @@ class GpsRecordingState extends ChangeNotifier {
         distanceFilter: distanceFilter,
       );
     }
-    _getRecordStateCache();
+    _recoverIsRecordingState();
   }
 
-  void _getRecordStateCache() async {
+  void _recoverIsRecordingState() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    bool? recordState = prefs.getBool(recordStateCacheKey);
+    bool? recordState = prefs.getBool(isRecordingPrefsKey);
     if (recordState != null && isRecording != recordState) {
       toggle();
     }
   }
 
-  void _setRecordStateCache(bool isRecording) async {
+  void _saveIsRecordingState(bool isRecording) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    prefs.setBool(recordStateCacheKey, isRecording);
+    prefs.setBool(isRecordingPrefsKey, isRecording);
   }
 
   void _onPositionUpdate(Position position) {
@@ -248,7 +247,7 @@ class GpsRecordingState extends ChangeNotifier {
         });
       }
       isRecording = !isRecording;
-      _setRecordStateCache(isRecording);
+      _saveIsRecordingState(isRecording);
       notifyListeners();
     });
   }
