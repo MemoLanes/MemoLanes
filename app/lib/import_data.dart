@@ -19,7 +19,8 @@ class ImportDataPage extends StatefulWidget {
 enum ImportType { fow, gpxOrKml }
 
 class _ImportDataPage extends State<ImportDataPage> {
-  final _dateFmt = DateFormat('yyyy-MM-dd HH:mm:ss');
+  final DateFormat dateTimeFormat = DateFormat('yyyy-MM-dd HH:mm:ss');
+  final DateFormat dateFormat = DateFormat("yyyy-MM-dd");
   DateTime? _startTime;
   DateTime? _endTime;
   DateTime? _journeyDate;
@@ -57,9 +58,11 @@ class _ImportDataPage extends State<ImportDataPage> {
       Navigator.pop(context);
     }
     if (journeyInfo != null) {
+      DateTime journeyDate = dateFormat.parse(journeyInfo!.journeyDate);
       setState(() {
         _startTime = journeyInfo?.startTime;
         _endTime = journeyInfo?.endTime;
+        _journeyDate = journeyDate;
       });
     }
     setState(() {
@@ -68,18 +71,28 @@ class _ImportDataPage extends State<ImportDataPage> {
   }
 
   _saveData() async {
-    if (journeyInfo == null) {
+    if (rawVectorData == null && rawVectorData == null) {
       Fluttertoast.showToast(msg: "JourneyData is empty");
       return;
     }
+    if (_journeyDate == null) {
+      Fluttertoast.showToast(msg: "JourneyDate is empty");
+      return;
+    }
+    import_api.JourneyInfo saveInfo = import_api.JourneyInfo(
+        journeyDate: DateFormat('yyyy-MM-dd').format(_journeyDate!),
+        startTime: _startTime,
+        endTime: _endTime,
+        note: _noteController.text);
+
     if (rawVectorData != null) {
       await import_api.importVector(
-          journeyInfo: journeyInfo!,
+          journeyInfo: saveInfo,
           vectorData: rawVectorData!,
           runPreprocessor: _runPreprocessor);
     } else if (rawBitmapData != null) {
       await import_api.importBitmap(
-          journeyInfo: journeyInfo!, bitmapData: rawBitmapData!);
+          journeyInfo: saveInfo, bitmapData: rawBitmapData!);
     }
     Fluttertoast.showToast(msg: "Import successful");
     if (!context.mounted) return null;
@@ -95,6 +108,7 @@ class _ImportDataPage extends State<ImportDataPage> {
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
     );
+
     TimeOfDay initialTime =
         TimeOfDay(hour: initialDate.hour, minute: initialDate.minute);
 
@@ -126,7 +140,7 @@ class _ImportDataPage extends State<ImportDataPage> {
         TextField(
           readOnly: true,
           controller: TextEditingController(
-            text: _startTime != null ? _dateFmt.format(_startTime!) : '',
+            text: _startTime != null ? dateTimeFormat.format(_startTime!) : '',
           ),
           onTap: () async {
             DateTime? time = await selectDateAndTime(context, _startTime);
@@ -143,7 +157,7 @@ class _ImportDataPage extends State<ImportDataPage> {
         TextField(
           readOnly: true,
           controller: TextEditingController(
-            text: _endTime != null ? _dateFmt.format(_endTime!) : '',
+            text: _endTime != null ? dateTimeFormat.format(_endTime!) : '',
           ),
           onTap: () async {
             DateTime? time = await selectDateAndTime(context, _endTime);
@@ -160,10 +174,15 @@ class _ImportDataPage extends State<ImportDataPage> {
         TextField(
           readOnly: true,
           controller: TextEditingController(
-            text: _journeyDate != null ? _dateFmt.format(_journeyDate!) : '',
+            text: _journeyDate != null ? dateFormat.format(_journeyDate!) : '',
           ),
           onTap: () async {
-            DateTime? time = await selectDateAndTime(context, _journeyDate);
+            DateTime? time = await showDatePicker(
+              context: context,
+              initialDate: _journeyDate,
+              firstDate: DateTime(2020),
+              lastDate: DateTime(2030),
+            );
             if (time != null) {
               setState(() {
                 _journeyDate = time;
