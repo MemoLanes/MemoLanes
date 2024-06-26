@@ -146,6 +146,13 @@ impl Storage {
                     self.main_map_renderer_need_to_reload.lock().unwrap();
                 *main_map_renderer_need_to_reload = true;
             }
+            else if txn.merge_cache {
+                // in case of cache merge, do not clear cache
+                cache_db.merge_journey_cache()?;
+                let mut main_map_renderer_need_to_reload =
+                    self.main_map_renderer_need_to_reload.lock().unwrap();
+                *main_map_renderer_need_to_reload = true;
+            }
             Ok(output)
         })
     }
