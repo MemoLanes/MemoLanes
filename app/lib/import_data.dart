@@ -26,7 +26,7 @@ class _ImportDataPage extends State<ImportDataPage> {
   DateTime? _journeyDate;
   final TextEditingController _noteController = TextEditingController();
   bool _runPreprocessor = false;
-  bool loadCompleted = false;
+  bool isLoaded = false;
   import_api.JourneyInfo? journeyInfo;
   import_api.RawBitmapData? rawBitmapData;
   import_api.RawVectorData? rawVectorData;
@@ -66,7 +66,7 @@ class _ImportDataPage extends State<ImportDataPage> {
       });
     }
     setState(() {
-      loadCompleted = true;
+      isLoaded = true;
     });
   }
 
@@ -232,7 +232,7 @@ class _ImportDataPage extends State<ImportDataPage> {
         title: const Text("Import Data"),
       ),
       body: Center(
-        child: loadCompleted == false
+        child: isLoaded == false
             ? const Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
