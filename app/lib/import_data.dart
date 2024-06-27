@@ -232,7 +232,7 @@ class _ImportDataPage extends State<ImportDataPage> {
         title: const Text("Import Data"),
       ),
       body: Center(
-        child: isLoaded == false
+        child: isLoaded
             ? const Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
