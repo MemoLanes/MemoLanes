@@ -1,10 +1,9 @@
+use crate::utils;
 use std::{
     clone::Clone,
     collections::HashMap,
     ops::{BitAnd, BitOr, Not},
 };
-
-use crate::utils;
 
 pub const TILE_WIDTH_OFFSET: i16 = 7;
 const MAP_WIDTH_OFFSET: i16 = 9;

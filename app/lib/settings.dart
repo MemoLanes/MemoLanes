@@ -8,6 +8,8 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'import_data.dart';
+
 class SettingsBody extends StatefulWidget {
   const SettingsBody({super.key});
 
@@ -25,6 +27,29 @@ class _SettingsBodyState extends State<SettingsBody> {
     }
   }
 
+  Future<void> _selectImportFile(
+      BuildContext context, ImportType importType) async {
+    // TODO: FilePicker is weird and `allowedExtensions` does not really work.
+    // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
+    // List<String> allowedExtensions;
+    // if (importType == ImportType.fow) {
+    //   allowedExtensions = ['zip'];
+    // } else {
+    //   allowedExtensions = ['kml', 'gpx'];
+    // }
+
+    final result = await FilePicker.platform.pickFiles(type: FileType.any);
+    final path = result?.files.single.path;
+    if (path != null && context.mounted) {
+      Navigator.push(context, MaterialPageRoute(builder: (context) {
+        return ImportDataPage(
+          path: path,
+          importType: importType,
+        );
+      }));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     var updateNotifer = context.watch<UpdateNotifier>();
@@ -33,14 +58,13 @@ class _SettingsBodyState extends State<SettingsBody> {
       children: [
         ElevatedButton(
           onPressed: () async {
-            var result = await FilePicker.platform
-                .pickFiles(type: FileType.custom, allowedExtensions: ['zip']);
-            if (result != null) {
-              var path = result.files.single.path;
-              if (path != null) {
-                await importFowData(zipFilePath: path);
-              }
-            }
+            _selectImportFile(context, ImportType.gpxOrKml);
+          },
+          child: const Text("Import KML/GPX data"),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            _selectImportFile(context, ImportType.fow);
           },
           child: const Text("Import FoW data"),
         ),
@@ -63,10 +87,10 @@ class _SettingsBodyState extends State<SettingsBody> {
         ),
         ElevatedButton(
           onPressed: () async {
-            var result = await FilePicker.platform
-                // TODO: have no idea why but the commented out line doesn't work
-                // .pickFiles(type: FileType.custom, allowedExtensions: ['mldx']);
-                .pickFiles(type: FileType.any);
+            // TODO: FilePicker is weird and `allowedExtensions` does not really work.
+            // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
+            var result =
+                await FilePicker.platform.pickFiles(type: FileType.any);
             if (result != null) {
               var path = result.files.single.path;
               if (path != null) {
