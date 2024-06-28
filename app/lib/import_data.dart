@@ -21,6 +21,7 @@ enum ImportType { fow, gpxOrKml }
 class _ImportDataPage extends State<ImportDataPage> {
   final DateFormat dateTimeFormat = DateFormat('yyyy-MM-dd HH:mm:ss');
   final DateFormat dateFormat = DateFormat("yyyy-MM-dd");
+  final DateTime firstDate = DateTime(1990);
   DateTime? _startTime;
   DateTime? _endTime;
   DateTime? _journeyDate;
@@ -58,11 +59,10 @@ class _ImportDataPage extends State<ImportDataPage> {
       Navigator.pop(context);
     }
     if (journeyInfo != null) {
-      DateTime journeyDate = dateFormat.parse(journeyInfo!.journeyDate);
       setState(() {
         _startTime = journeyInfo?.startTime;
         _endTime = journeyInfo?.endTime;
-        _journeyDate = journeyDate;
+        _journeyDate = dateFormat.parse(journeyInfo!.journeyDate);
       });
     }
     setState(() {
@@ -79,11 +79,15 @@ class _ImportDataPage extends State<ImportDataPage> {
       Fluttertoast.showToast(msg: "JourneyDate is empty");
       return;
     }
+    String? note = _noteController.text;
+    if (note.isEmpty) {
+      note = null;
+    }
     import_api.JourneyInfo saveInfo = import_api.JourneyInfo(
         journeyDate: DateFormat('yyyy-MM-dd').format(_journeyDate!),
         startTime: _startTime,
         endTime: _endTime,
-        note: _noteController.text);
+        note: note);
 
     if (rawVectorData != null) {
       await import_api.importVector(
@@ -101,16 +105,17 @@ class _ImportDataPage extends State<ImportDataPage> {
 
   Future<DateTime?> selectDateAndTime(
       BuildContext context, DateTime? datetime) async {
-    DateTime initialDate = datetime ??= DateTime.now();
+    final now = DateTime.now();
+    datetime ??= now;
     DateTime? selectedDateTime = await showDatePicker(
       context: context,
-      initialDate: initialDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
+      initialDate: datetime,
+      firstDate: firstDate,
+      lastDate: now,
     );
 
     TimeOfDay initialTime =
-        TimeOfDay(hour: initialDate.hour, minute: initialDate.minute);
+        TimeOfDay(hour: datetime.hour, minute: datetime.minute);
 
     if (selectedDateTime != null) {
       if (!context.mounted) return null;
@@ -180,8 +185,8 @@ class _ImportDataPage extends State<ImportDataPage> {
             DateTime? time = await showDatePicker(
               context: context,
               initialDate: _journeyDate,
-              firstDate: DateTime(2020),
-              lastDate: DateTime(2030),
+              firstDate: firstDate,
+              lastDate: DateTime.now(),
             );
             if (time != null) {
               setState(() {
@@ -232,7 +237,7 @@ class _ImportDataPage extends State<ImportDataPage> {
         title: const Text("Import Data"),
       ),
       body: Center(
-        child: isLoaded
+        child: !isLoaded
             ? const Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
