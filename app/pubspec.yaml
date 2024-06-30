@@ -47,7 +47,7 @@ dependencies:
   mutex: ^3.1.0
   share_plus: ^9.0.0
   permission_handler: ^11.3.1
-  file_picker: ^8.0.3
+  file_picker: ^8.0.5
   freezed_annotation: ^2.4.1
   fluttertoast: ^8.2.5
   mapbox_maps_flutter: ^2.0.0

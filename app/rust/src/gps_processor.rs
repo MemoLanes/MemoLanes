@@ -4,7 +4,7 @@ use crate::{
 };
 use anyhow::Result;
 use chrono::DateTime;
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RawData {
     pub latitude: f64,
     pub longitude: f64,
