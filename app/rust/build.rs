@@ -4,7 +4,9 @@ use std::process::Command;
 use std::{fs, io::Write};
 
 fn main() {
-    println!("cargo:rerun-if-changed=../../.git/HEAD");
+    // There are articles on internet suggest `.git/HEAD` is enough, which I 
+    // doubt.
+    println!("cargo:rerun-if-changed=../../.git");
     let short_commit_hash = String::from_utf8(
         Command::new("git")
             .args(["rev-parse", "--short", "HEAD"])
