@@ -31,7 +31,7 @@ extension PuckPosition on StyleManager {
   }
 }
 
-class MapUiBodyState extends State<MapUiBody> {
+class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
   static const String overlayLayerId = "overlay-layer";
   static const String overlayImageSourceId = "overlay-image-source";
 
@@ -45,7 +45,7 @@ class MapUiBodyState extends State<MapUiBody> {
   MapboxMap? mapboxMap;
   bool layerAdded = false;
   Completer? requireRefresh = Completer();
-  Timer? timer;
+  Timer? refreshTimer;
   Timer? trackTimer;
   TrackingMode trackingMode = TrackingMode.displayAndTracking;
 
@@ -86,6 +86,8 @@ class MapUiBodyState extends State<MapUiBody> {
           height: renderResult.height,
           data: renderResult.data);
 
+      if (!mounted) return;
+      // TODO: we kinda need transaction to avoid flickering
       if (layerAdded) {
         await Future.wait([
           mapboxMap.style
@@ -119,34 +121,51 @@ class MapUiBodyState extends State<MapUiBody> {
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    timer = Timer.periodic(
-        const Duration(seconds: 1),
-        (Timer _) =>
-            // TODO: constantly calling `_triggerRefresh` isn't too bad, becuase
-            // it doesn't do much if nothing is changed. However, this doesn't
-            // mean we couldn't do something better.
-            _triggerRefresh());
-    _refreshLoop();
-  }
-
   void _triggerRefresh() async {
     if (requireRefresh?.isCompleted == false) {
       requireRefresh?.complete();
     }
   }
 
+  void initRefershTimerIfNecessary() {
+    refreshTimer ??= Timer.periodic(const Duration(seconds: 1), (Timer _) {
+      _triggerRefresh();
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    initRefershTimerIfNecessary();
+    _refreshLoop();
+  }
+
   @override
   void dispose() {
-    timer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    refreshTimer?.cancel();
     trackTimer?.cancel();
     if (requireRefresh?.isCompleted == false) {
       requireRefresh?.complete();
     }
     requireRefresh = null;
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // TODO: we could consider clean up more resources, especially when
+    // recording. We take the partical wake lock for that.
+    if (state == AppLifecycleState.resumed) {
+      initRefershTimerIfNecessary();
+      setupTrackingMode();
+    } else if (state == AppLifecycleState.paused) {
+      refreshTimer?.cancel();
+      refreshTimer = null;
+      trackTimer?.cancel();
+      trackTimer = null;
+    }
   }
 
   _onMapCreated(MapboxMap mapboxMap) async {
@@ -165,13 +184,12 @@ class MapUiBodyState extends State<MapUiBody> {
       setState(() {
         trackingMode = TrackingMode.displayOnly;
       });
-      updateCamera();
+      setupTrackingMode();
     }
   }
 
   _onMapLoadedListener(MapLoadedEventData data) {
-    _refreshTrackLocation();
-    updateCamera();
+    setupTrackingMode();
   }
 
   _trackingModeButton() async {
@@ -182,32 +200,28 @@ class MapUiBodyState extends State<MapUiBody> {
         trackingMode = TrackingMode.off;
       }
     });
-    await updateCamera();
+    await setupTrackingMode();
   }
 
-  _refreshTrackLocation() async {
-    try {
-      double? zoom;
-      final position = await mapboxMap?.style.getPuckPosition();
-      CameraState? cameraState = await mapboxMap?.getCameraState();
-      if (cameraState != null) {
-        if (cameraState.zoom < 10.5) {
-          zoom = 16.0;
-        }
-      }
-      await mapboxMap?.flyTo(
-          CameraOptions(center: Point(coordinates: position!), zoom: zoom),
-          null);
-    } catch (e) {
-      // just best effort
-    }
-  }
-
-  updateCamera() async {
+  setupTrackingMode() async {
     trackTimer?.cancel();
     if (trackingMode == TrackingMode.displayAndTracking) {
       trackTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-        _refreshTrackLocation();
+        try {
+          double? zoom;
+          final position = await mapboxMap?.style.getPuckPosition();
+          CameraState? cameraState = await mapboxMap?.getCameraState();
+          if (cameraState != null) {
+            if (cameraState.zoom < 10.5) {
+              zoom = 16.0;
+            }
+          }
+          await mapboxMap?.flyTo(
+              CameraOptions(center: Point(coordinates: position!), zoom: zoom),
+              null);
+        } catch (e) {
+          // just best effort
+        }
       });
       await mapboxMap?.location.updateSettings(
           LocationComponentSettings(enabled: true, pulsingEnabled: true));
