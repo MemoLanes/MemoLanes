@@ -59,11 +59,6 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
   static const String overlayImageSourceId = "overlay-image-source";
   static const String mainMapStatePrefsKey = "MainMap.mapState";
 
-  static const String trackCacheKey = "mapWidget.track";
-  static const String lngCacheKey = "mapWidget.camera.lng";
-  static const String latCacheKey = "mapWidget.camera.lat";
-  static const String zoomCacheKey = "mapWidget.camera.zoom";
-
   MapUiBodyState() {
     // TODO: Kinda want the default implementation is maplibre instead of mapbox.
     // However maplibre is very buggy + lack of global view +
@@ -212,36 +207,6 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
     });
   }
 
-  void _setCameraCache() async {
-    CameraState? cameraState = await mapboxMap?.getCameraState();
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    Position? position = await mapboxMap?.style.getPuckPosition();
-    if (cameraState != null) {
-      prefs.setDouble(zoomCacheKey, cameraState.zoom);
-    }
-    if (position != null) {
-      prefs.setDouble(lngCacheKey, position.lng.toDouble());
-      prefs.setDouble(latCacheKey, position.lat.toDouble());
-    }
-  }
-
-  _setTrackingMode() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    prefs.setString(trackCacheKey, trackingMode.toString());
-  }
-
-  _getTrackingMode() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? recordState = prefs.getString(trackCacheKey);
-    if (recordState != null) {
-      setState(() {
-        trackingMode = TrackingMode.values.firstWhere(
-            (e) => e.toString() == recordState,
-            orElse: () => TrackingMode.displayAndTracking);
-      });
-    }
-  }
-
   void _initRefershTimerIfNecessary() {
     refreshTimer ??= Timer.periodic(const Duration(seconds: 1), (Timer _) {
       _triggerRefresh();
@@ -289,12 +254,10 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
     await mapboxMap.gestures
         .updateSettings(GesturesSettings(pitchEnabled: false));
     this.mapboxMap = mapboxMap;
-    await _getTrackingMode();
   }
 
   _onCameraChangeListener(CameraChangedEventData event) {
     _triggerRefresh();
-    _setCameraCache();
   }
 
   _onMapScrollListener(MapContentGestureContext context) {
@@ -305,7 +268,6 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
       });
       setupTrackingMode();
     }
-    _setTrackingMode();
   }
 
   _onMapLoadedListener(MapLoadedEventData data) {
@@ -320,7 +282,6 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
         trackingMode = TrackingMode.off;
       }
     });
-    _setTrackingMode();
     await setupTrackingMode();
   }
 
