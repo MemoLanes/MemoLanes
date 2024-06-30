@@ -2,7 +2,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart' as geolocator;
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:memolanes/src/rust/api/api.dart';
 import 'package:memolanes/token.dart';
@@ -191,17 +190,8 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
       cameraOptions.center =
           Point(coordinates: Position(mapState.lng, mapState.lat));
     } else {
-      geolocator.Position? lastKnownPosition =
-          await geolocator.Geolocator.getLastKnownPosition();
-      if (lastKnownPosition != null) {
-        cameraOptions.zoom = 16;
-        cameraOptions.center = Point(
-            coordinates: Position(
-                lastKnownPosition.longitude, lastKnownPosition.latitude));
-      } else {
-        // nothing we can use, just look at the whole earth
-        cameraOptions.zoom = 2;
-      }
+      // nothing we can use, just look at the whole earth
+      cameraOptions.zoom = 2;
     }
 
     setState(() {
