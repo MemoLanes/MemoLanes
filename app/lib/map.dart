@@ -1,24 +1,44 @@
 ﻿import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart' as geolocator;
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:project_dv/src/rust/api/api.dart';
 import 'package:project_dv/token.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:json_annotation/json_annotation.dart';
+
+part 'map.g.dart';
+
+enum TrackingMode {
+  displayAndTracking,
+  displayOnly,
+  off,
+}
+
+// TODO: `dart run build_runner build` is needed for generating `map.g.dart`,
+// we should automate this.
+@JsonSerializable()
+class MapState {
+  MapState(this.trackingMode, this.zoom, this.lng, this.lat, this.bearing);
+
+  TrackingMode trackingMode;
+  double zoom;
+  double lng;
+  double lat;
+  double bearing;
+
+  factory MapState.fromJson(Map<String, dynamic> json) =>
+      _$MapStateFromJson(json);
+  Map<String, dynamic> toJson() => _$MapStateToJson(this);
+}
 
 class MapUiBody extends StatefulWidget {
   const MapUiBody({super.key});
 
   @override
   State<StatefulWidget> createState() => MapUiBodyState();
-}
-
-enum TrackingMode {
-  displayAndTracking,
-  displayOnly,
-  off,
 }
 
 extension PuckPosition on StyleManager {
@@ -37,6 +57,8 @@ extension PuckPosition on StyleManager {
 class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
   static const String overlayLayerId = "overlay-layer";
   static const String overlayImageSourceId = "overlay-image-source";
+  static const String mainMapStatePrefsKey = "MainMap.mapState";
+
   static const String trackCacheKey = "mapWidget.track";
   static const String lngCacheKey = "mapWidget.camera.lng";
   static const String latCacheKey = "mapWidget.camera.lat";
@@ -56,7 +78,7 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
   Timer? trackTimer;
   TrackingMode trackingMode = TrackingMode.displayAndTracking;
 
-  CameraOptions? _defaultCameraOptions;
+  CameraOptions? _initialCameraOptions;
 
   Future<void> _doActualRefresh() async {
     var mapboxMap = this.mapboxMap;
@@ -119,6 +141,7 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
   }
 
   void _refreshLoop() async {
+    _initRefershTimerIfNecessary();
     await resetMapRenderer();
     while (true) {
       await requireRefresh?.future;
@@ -136,30 +159,56 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
     }
   }
 
-  void _initCameraOptions() async {
+  void _saveMapState() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    Point? point;
+    CameraState? cameraState = await mapboxMap?.getCameraState();
+    if (cameraState == null) return;
+    final mapState = MapState(
+      trackingMode,
+      cameraState.zoom,
+      cameraState.center.coordinates.lng.toDouble(),
+      cameraState.center.coordinates.lat.toDouble(),
+      cameraState.bearing,
+    );
+    prefs.setString(mainMapStatePrefsKey, jsonEncode(mapState.toJson()));
+  }
 
-    geolocator.Position? lastKnownPosition =
-        await geolocator.Geolocator.getLastKnownPosition();
+  void _loadMapState() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    MapState? mapState;
+    final mapStateString = prefs.getString(mainMapStatePrefsKey);
+    if (mapStateString != null) {
+      try {
+        mapState = MapState.fromJson(jsonDecode(mapStateString));
+      } catch (_) {
+        // best effort
+      }
+    }
 
-    if (lastKnownPosition != null) {
-      point = Point(
-          coordinates: Position(
-              lastKnownPosition.longitude, lastKnownPosition.latitude));
+    var cameraOptions = CameraOptions();
+
+    if (mapState != null) {
+      trackingMode = mapState.trackingMode;
+      cameraOptions.bearing = mapState.bearing;
+      cameraOptions.zoom = mapState.zoom;
+      cameraOptions.center =
+          Point(coordinates: Position(mapState.lng, mapState.lat));
     } else {
-      double? lng = prefs.getDouble(lngCacheKey);
-      double? lat = prefs.getDouble(latCacheKey);
-      if (lng != null && lat != null) {
-        point = Point(coordinates: Position(lng, lat));
+      geolocator.Position? lastKnownPosition =
+          await geolocator.Geolocator.getLastKnownPosition();
+      if (lastKnownPosition != null) {
+        cameraOptions.zoom = 16;
+        cameraOptions.center = Point(
+            coordinates: Position(
+                lastKnownPosition.longitude, lastKnownPosition.latitude));
+      } else {
+        // nothing we can use, just look at the whole earth
+        cameraOptions.zoom = 2;
       }
     }
 
     setState(() {
-      double zoom = prefs.getDouble(zoomCacheKey) ?? 14;
-      _defaultCameraOptions = point != null
-          ? CameraOptions(center: point, zoom: zoom)
-          : CameraOptions();
+      _initialCameraOptions = cameraOptions;
     });
   }
 
@@ -193,7 +242,7 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
     }
   }
 
-  void initRefershTimerIfNecessary() {
+  void _initRefershTimerIfNecessary() {
     refreshTimer ??= Timer.periodic(const Duration(seconds: 1), (Timer _) {
       _triggerRefresh();
     });
@@ -203,13 +252,13 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    initRefershTimerIfNecessary();
+    _loadMapState();
     _refreshLoop();
-    _initCameraOptions();
   }
 
   @override
   void dispose() {
+    _saveMapState();
     WidgetsBinding.instance.removeObserver(this);
     refreshTimer?.cancel();
     trackTimer?.cancel();
@@ -225,9 +274,10 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
     // TODO: we could consider clean up more resources, especially when
     // recording. We take the partical wake lock for that.
     if (state == AppLifecycleState.resumed) {
-      initRefershTimerIfNecessary();
+      _initRefershTimerIfNecessary();
       setupTrackingMode();
     } else if (state == AppLifecycleState.paused) {
+      _saveMapState();
       refreshTimer?.cancel();
       refreshTimer = null;
       trackTimer?.cancel();
@@ -313,7 +363,7 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    if (_defaultCameraOptions == null) {
+    if (_initialCameraOptions == null) {
       return const CircularProgressIndicator();
     } else {
       return Scaffold(
@@ -324,7 +374,7 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
           onScrollListener: _onMapScrollListener,
           onMapLoadedListener: _onMapLoadedListener,
           styleUri: MapboxStyles.OUTDOORS,
-          cameraOptions: _defaultCameraOptions,
+          cameraOptions: _initialCameraOptions,
         )),
         floatingActionButton: FloatingActionButton(
           backgroundColor: trackingMode == TrackingMode.displayAndTracking
