@@ -86,6 +86,8 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
           height: renderResult.height,
           data: renderResult.data);
 
+      if (!mounted) return;
+      // TODO: we kinda need transaction to avoid flickering
       if (layerAdded) {
         await Future.wait([
           mapboxMap.style
