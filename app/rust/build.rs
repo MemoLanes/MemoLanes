@@ -4,8 +4,7 @@ use std::process::Command;
 use std::{fs, io::Write};
 
 fn main() {
-    setup_x86_64_android_workaround();
-
+    println!("cargo:rerun-if-changed=../../.git/HEAD");
     let short_commit_hash = String::from_utf8(
         Command::new("git")
             .args(["rev-parse", "--short", "HEAD"])
@@ -38,6 +37,8 @@ fn main() {
         `flutter_rust_bridge_codegen generate` to get a real one."
         );
     }
+
+    setup_x86_64_android_workaround();
 }
 
 /// Adds a temporary workaround for an issue with the Rust compiler and Android
