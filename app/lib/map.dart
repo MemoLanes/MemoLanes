@@ -191,17 +191,8 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
       cameraOptions.center =
           Point(coordinates: Position(mapState.lng, mapState.lat));
     } else {
-      geolocator.Position? lastKnownPosition =
-          await geolocator.Geolocator.getLastKnownPosition();
-      if (lastKnownPosition != null) {
-        cameraOptions.zoom = 16;
-        cameraOptions.center = Point(
-            coordinates: Position(
-                lastKnownPosition.longitude, lastKnownPosition.latitude));
-      } else {
-        // nothing we can use, just look at the whole earth
-        cameraOptions.zoom = 2;
-      }
+      // nothing we can use, just look at the whole earth
+      cameraOptions.zoom = 2;
     }
 
     setState(() {
