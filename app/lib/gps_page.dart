@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:project_dv/gps_recording_state.dart';
-import 'package:project_dv/src/rust/api/api.dart';
+import 'package:memolanes/gps_recording_state.dart';
+import 'package:memolanes/src/rust/api/api.dart';
 import 'package:provider/provider.dart';
 
 class GPSPage extends StatelessWidget {

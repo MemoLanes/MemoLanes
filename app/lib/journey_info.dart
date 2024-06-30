@@ -2,9 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:project_dv/src/rust/api/api.dart';
-import 'package:project_dv/src/rust/api/utils.dart';
-import 'package:project_dv/src/rust/journey_header.dart';
+import 'package:memolanes/src/rust/api/api.dart';
+import 'package:memolanes/src/rust/api/utils.dart';
+import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:share_plus/share_plus.dart';
 
 class JourneyInfoPage extends StatefulWidget {

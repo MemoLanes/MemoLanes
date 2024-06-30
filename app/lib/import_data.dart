@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/intl.dart';
-import 'package:project_dv/src/rust/api/import.dart' as import_api;
+import 'package:memolanes/src/rust/api/import.dart' as import_api;
 
 class ImportDataPage extends StatefulWidget {
   const ImportDataPage(

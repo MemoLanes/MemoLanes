@@ -4,8 +4,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart' as geolocator;
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
-import 'package:project_dv/src/rust/api/api.dart';
-import 'package:project_dv/token.dart';
+import 'package:memolanes/src/rust/api/api.dart';
+import 'package:memolanes/token.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:json_annotation/json_annotation.dart';
 
