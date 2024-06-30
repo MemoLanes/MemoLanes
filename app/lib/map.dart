@@ -154,6 +154,8 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
     }
   }
 
+  // TODO: We don't enough time to save if the app got killed. Losing data here
+  // is fine but we could consider saving every minute or so.
   void _saveMapState() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     CameraState? cameraState = await mapboxMap?.getCameraState();
