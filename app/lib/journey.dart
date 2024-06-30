@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:project_dv/src/rust/api/api.dart';
-import 'package:project_dv/src/rust/api/utils.dart';
-import 'package:project_dv/src/rust/journey_header.dart';
-import 'package:project_dv/journey_info.dart';
+import 'package:memolanes/src/rust/api/api.dart';
+import 'package:memolanes/src/rust/api/utils.dart';
+import 'package:memolanes/src/rust/journey_header.dart';
+import 'package:memolanes/journey_info.dart';
 
 class JourneyUiBody extends StatefulWidget {
   const JourneyUiBody({super.key});
