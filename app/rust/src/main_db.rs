@@ -95,7 +95,7 @@ pub struct Txn<'a> {
     db_txn: rusqlite::Transaction<'a>,
     // TODO: in cache db v1, we want to improve the granularity.
     pub reset_cache: bool,
-    pub merge_cache: bool
+    pub merge_cache: bool,
 }
 
 // NOTE: the `Txn` here is not only for making operation atomic, the `storage`
@@ -162,7 +162,12 @@ impl Txn<'_> {
         }
     }
 
-    pub fn insert_journey(&mut self, header: JourneyHeader, data: JourneyData, merge_cache: bool) -> Result<()> {
+    pub fn insert_journey(
+        &mut self,
+        header: JourneyHeader,
+        data: JourneyData,
+        merge_cache: bool,
+    ) -> Result<()> {
         let journey_type = header.journey_type;
         if journey_type != data.type_() {
             bail!("[insert_journey] Mismatch journey type")
@@ -204,7 +209,7 @@ impl Txn<'_> {
         journey_kind: JourneyKind,
         note: Option<String>,
         journey_data: JourneyData,
-        merge_cache: bool
+        merge_cache: bool,
     ) -> Result<()> {
         let journey_type = journey_data.type_();
         // create new journey
@@ -249,7 +254,7 @@ impl Txn<'_> {
                     journey_kind,
                     None,
                     JourneyData::Vector(journey_vector),
-                    true
+                    true,
                 )?;
                 true
             }
@@ -285,6 +290,20 @@ impl Txn<'_> {
             results.push(header);
         }
         Ok(results)
+    }
+
+    pub fn get_latest_finalized_journey(&self) -> Result<JourneyData> {
+        let mut query = self
+            .db_txn
+            .prepare("SELECT data FROM journey ORDER BY timestamp_for_ordering DESC LIMIT 1;")?;
+
+        query.query_row([], |row| {
+            let f = || {
+                let data = row.get_ref(0)?.as_blob()?;
+                JourneyData::deserialize(data, JourneyType::Vector)
+            };
+            Ok(f())
+        })?
     }
 
     pub fn get_journey(&self, id: &str) -> Result<JourneyData> {
@@ -394,7 +413,7 @@ impl MainDb {
         let mut txn = Txn {
             db_txn: self.conn.transaction()?,
             reset_cache: false,
-            merge_cache: false
+            merge_cache: false,
         };
         let output = f(&mut txn)?;
         txn.db_txn.commit()?;
