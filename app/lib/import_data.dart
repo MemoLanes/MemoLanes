@@ -71,7 +71,7 @@ class _ImportDataPage extends State<ImportDataPage> {
   }
 
   _saveData() async {
-    if (rawVectorData == null && rawVectorData == null) {
+    if (rawVectorData == null && rawBitmapData == null) {
       Fluttertoast.showToast(msg: "JourneyData is empty");
       return;
     }
