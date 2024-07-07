@@ -53,15 +53,11 @@ extension PuckPosition on StyleManager {
 }
 
 class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
-  static const String overlayLayerId = "overlay-layer";
-  static const String overlayImageSourceId = "overlay-image-source";
   static const String mainMapStatePrefsKey = "MainMap.mapState";
 
   MapUiBodyState();
 
   MapController? mapController;
-  bool layerAdded = false;
-  Completer? requireRefresh = Completer();
   Timer? refreshTimer;
   Timer? trackTimer;
   TrackingMode trackingMode = TrackingMode.displayAndTracking;
@@ -133,10 +129,6 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     refreshTimer?.cancel();
     trackTimer?.cancel();
-    if (requireRefresh?.isCompleted == false) {
-      requireRefresh?.complete();
-    }
-    requireRefresh = null;
     super.dispose();
   }
 
