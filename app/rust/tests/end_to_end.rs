@@ -24,6 +24,7 @@ fn basic() {
 
     let mut raw_data_list = test_utils::load_raw_gpx_data_for_test();
     let (first_elements, remaining_elements) = raw_data_list.split_at_mut(2000);
+    let mut map_renderer_proxy = api::get_map_renderer_proxy_for_main_map();
 
     for (i, raw_data) in first_elements.iter().enumerate() {
         api::on_location_update(
@@ -41,8 +42,9 @@ fn basic() {
             let _: bool = api::finalize_ongoing_journey().unwrap();
         } else if i == 2000 {
             // we have both ongoing journey and finalized journey at this point
-            let render_result =
-                api::render_map_overlay(11.0, 121.39, 31.3146, 121.55, 31.18).unwrap();
+            let render_result = map_renderer_proxy
+                .render_map_overlay(11.0, 121.39, 31.3146, 121.55, 31.18)
+                .unwrap();
             test_utils::assert_image(
                 &render_result.data,
                 "end_to_end_basic_0",
@@ -55,7 +57,9 @@ fn basic() {
     api::on_location_update(remaining_elements.to_vec(), 1695150531000);
 
     // this should cover real time update
-    let render_result = api::render_map_overlay(11.0, 121.39, 31.3146, 121.55, 31.18).unwrap();
+    let render_result = map_renderer_proxy
+        .render_map_overlay(11.0, 121.39, 31.3146, 121.55, 31.18)
+        .unwrap();
     test_utils::assert_image(
         &render_result.data,
         "end_to_end_basic_1",

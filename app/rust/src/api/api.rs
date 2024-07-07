@@ -63,40 +63,70 @@ pub fn get() -> &'static MainState {
     MAIN_STATE.get().expect("main state is not initialized")
 }
 
-pub fn render_map_overlay(
-    zoom: f32,
-    left: f64,
-    top: f64,
-    right: f64,
-    bottom: f64,
-) -> Option<RenderResult> {
-    // TODO: right now the quality of zoom = 1 is really bad.
-    let zoom = max(zoom as i32, 2);
-    let state = get();
-    let mut map_renderer = state.map_renderer.lock().unwrap();
-    if state.storage.main_map_renderer_need_to_reload() {
-        *map_renderer = None;
-    }
-
-    map_renderer
-        .get_or_insert_with(|| {
-            // TODO: error handling?
-            let journey_bitmap = state
-                .storage
-                .get_latest_bitmap_for_main_map_renderer()
-                .unwrap();
-            MapRenderer::new(journey_bitmap)
-        })
-        .maybe_render_map_overlay(zoom, left, top, right, bottom)
+#[frb(opaque)]
+pub enum MapRendererProxy {
+    MainMap,
+    Simple(MapRenderer),
 }
 
-pub fn reset_map_renderer() {
-    let state = get();
-    let mut map_renderer = state.map_renderer.lock().unwrap();
+impl MapRendererProxy {
+    pub fn render_map_overlay(
+        &mut self,
+        zoom: f32,
+        left: f64,
+        top: f64,
+        right: f64,
+        bottom: f64,
+    ) -> Option<RenderResult> {
+        // TODO: right now the quality of zoom = 1 is really bad.
+        let zoom = max(zoom as i32, 2);
 
-    if let Some(map_renderer) = &mut *map_renderer {
-        map_renderer.reset();
+        match self {
+            Self::MainMap => {
+                // TODO: now that we have `MapRendererProxy`, we should rethink the logic below.
+                let state = get();
+                let mut map_renderer = state.map_renderer.lock().unwrap();
+                if state.storage.main_map_renderer_need_to_reload() {
+                    *map_renderer = None;
+                }
+
+                map_renderer
+                    .get_or_insert_with(|| {
+                        // TODO: error handling?
+                        let journey_bitmap = state
+                            .storage
+                            .get_latest_bitmap_for_main_map_renderer()
+                            .unwrap();
+                        MapRenderer::new(journey_bitmap)
+                    })
+                    .maybe_render_map_overlay(zoom, left, top, right, bottom)
+            }
+            Self::Simple(map_renderer) => {
+                map_renderer.maybe_render_map_overlay(zoom, left, top, right, bottom)
+            }
+        }
     }
+
+    pub fn reset_map_renderer(&mut self) {
+        match self {
+            Self::MainMap => {
+                let state = get();
+                let mut map_renderer = state.map_renderer.lock().unwrap();
+
+                if let Some(map_renderer) = &mut *map_renderer {
+                    map_renderer.reset();
+                }
+            }
+            Self::Simple(map_renderer) => {
+                map_renderer.reset();
+            }
+        }
+    }
+}
+
+#[frb(sync)]
+pub fn get_map_renderer_proxy_for_main_map() -> MapRendererProxy {
+    MapRendererProxy::MainMap
 }
 
 pub fn on_location_update(
