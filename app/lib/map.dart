@@ -3,8 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
-import 'package:memolanes/src/rust/api/api.dart';
-import 'package:memolanes/token.dart';
+import 'package:memolanes/component/base_map.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:json_annotation/json_annotation.dart';
 
@@ -58,14 +57,9 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
   static const String overlayImageSourceId = "overlay-image-source";
   static const String mainMapStatePrefsKey = "MainMap.mapState";
 
-  MapUiBodyState() {
-    // TODO: Kinda want the default implementation is maplibre instead of mapbox.
-    // However maplibre is very buggy + lack of global view +
-    // cannot handle antimeridian well.
-    MapboxOptions.setAccessToken(token["MAPBOX-ACCESS-TOKEN"]);
-  }
+  MapUiBodyState();
 
-  MapboxMap? mapboxMap;
+  MapController? mapController;
   bool layerAdded = false;
   Completer? requireRefresh = Completer();
   Timer? refreshTimer;
@@ -74,90 +68,11 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
 
   CameraOptions? _initialCameraOptions;
 
-  Future<void> _doActualRefresh() async {
-    var mapboxMap = this.mapboxMap;
-    if (mapboxMap == null) return;
-
-    final cameraState = await mapboxMap.getCameraState();
-    final zoom = cameraState.zoom;
-    final coordinateBounds = await mapboxMap.coordinateBoundsForCamera(
-        CameraOptions(
-            center: cameraState.center, zoom: zoom, pitch: cameraState.pitch));
-    final northeast = coordinateBounds.northeast.coordinates;
-    final southwest = coordinateBounds.southwest.coordinates;
-
-    final left = southwest[0];
-    final top = northeast[1];
-    final right = northeast[0];
-    final bottom = southwest[1];
-
-    final renderResult = await renderMapOverlay(
-      zoom: zoom,
-      left: left!.toDouble(),
-      top: top!.toDouble(),
-      right: right!.toDouble(),
-      bottom: bottom!.toDouble(),
-    );
-
-    if (renderResult != null) {
-      final coordinates = [
-        [renderResult.left, renderResult.top],
-        [renderResult.right, renderResult.top],
-        [renderResult.right, renderResult.bottom],
-        [renderResult.left, renderResult.bottom]
-      ];
-      final image = MbxImage(
-          width: renderResult.width,
-          height: renderResult.height,
-          data: renderResult.data);
-
-      if (!mounted) return;
-      // TODO: we kinda need transaction to avoid flickering
-      if (layerAdded) {
-        await Future.wait([
-          mapboxMap.style
-              .updateStyleImageSourceImage(overlayImageSourceId, image),
-          mapboxMap.style.setStyleSourceProperty(
-              overlayImageSourceId, "coordinates", coordinates)
-        ]);
-      } else {
-        layerAdded = true;
-        await mapboxMap.style.addSource(
-            ImageSource(id: overlayImageSourceId, coordinates: coordinates));
-        await mapboxMap.style.addLayer(RasterLayer(
-          id: overlayLayerId,
-          sourceId: overlayImageSourceId,
-        ));
-        await mapboxMap.style
-            .updateStyleImageSourceImage(overlayImageSourceId, image);
-      }
-    }
-  }
-
-  void _refreshLoop() async {
-    _initRefershTimerIfNecessary();
-    await resetMapRenderer();
-    while (true) {
-      await requireRefresh?.future;
-      if (requireRefresh == null) return;
-      // make it ready for the next request
-      requireRefresh = Completer();
-
-      await _doActualRefresh();
-    }
-  }
-
-  void _triggerRefresh() async {
-    if (requireRefresh?.isCompleted == false) {
-      requireRefresh?.complete();
-    }
-  }
-
   // TODO: We don't enough time to save if the app got killed. Losing data here
   // is fine but we could consider saving every minute or so.
   void _saveMapState() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    CameraState? cameraState = await mapboxMap?.getCameraState();
+    CameraState? cameraState = await mapController?.mapboxMap.getCameraState();
     if (cameraState == null) return;
     final mapState = MapState(
       trackingMode,
@@ -201,7 +116,7 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
 
   void _initRefershTimerIfNecessary() {
     refreshTimer ??= Timer.periodic(const Duration(seconds: 1), (Timer _) {
-      _triggerRefresh();
+      mapController?.triggerRefresh();
     });
   }
 
@@ -210,7 +125,6 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadMapState();
-    _refreshLoop();
   }
 
   @override
@@ -242,28 +156,18 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
     }
   }
 
-  _onMapCreated(MapboxMap mapboxMap) async {
-    await mapboxMap.gestures
-        .updateSettings(GesturesSettings(pitchEnabled: false));
-    this.mapboxMap = mapboxMap;
-  }
-
-  _onCameraChangeListener(CameraChangedEventData event) {
-    _triggerRefresh();
+  _onMapCreated(MapController mapController) async {
+    this.mapController = mapController;
+    setupTrackingMode();
   }
 
   _onMapScrollListener(MapContentGestureContext context) {
     if (trackingMode == TrackingMode.displayAndTracking) {
-      _triggerRefresh();
       setState(() {
         trackingMode = TrackingMode.displayOnly;
       });
       setupTrackingMode();
     }
-  }
-
-  _onMapLoadedListener(MapLoadedEventData data) {
-    setupTrackingMode();
   }
 
   _trackingModeButton() async {
@@ -285,14 +189,16 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
         trackTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
           try {
             double? zoom;
-            final position = await mapboxMap?.style.getPuckPosition();
-            CameraState? cameraState = await mapboxMap?.getCameraState();
+            final position =
+                await mapController?.mapboxMap.style.getPuckPosition();
+            CameraState? cameraState =
+                await mapController?.mapboxMap.getCameraState();
             if (cameraState != null) {
               if (cameraState.zoom < 10.5) {
                 zoom = 16.0;
               }
             }
-            await mapboxMap?.flyTo(
+            await mapController?.mapboxMap.flyTo(
                 CameraOptions(
                     center: Point(coordinates: position!), zoom: zoom),
                 null);
@@ -311,23 +217,21 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
         locationSettings = LocationComponentSettings(enabled: false);
         break;
     }
-    await mapboxMap?.location.updateSettings(locationSettings);
+    await mapController?.mapboxMap.location.updateSettings(locationSettings);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_initialCameraOptions == null) {
+    final initialCameraOptions = _initialCameraOptions;
+    if (initialCameraOptions == null) {
       return const CircularProgressIndicator();
     } else {
       return Scaffold(
-        body: (MapWidget(
+        body: (BaseMap(
           key: const ValueKey("mapWidget"),
+          initialCameraOptions: initialCameraOptions,
           onMapCreated: _onMapCreated,
-          onCameraChangeListener: _onCameraChangeListener,
           onScrollListener: _onMapScrollListener,
-          onMapLoadedListener: _onMapLoadedListener,
-          styleUri: MapboxStyles.OUTDOORS,
-          cameraOptions: _initialCameraOptions,
         )),
         floatingActionButton: FloatingActionButton(
           backgroundColor: trackingMode == TrackingMode.displayAndTracking
