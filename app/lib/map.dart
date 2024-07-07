@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:memolanes/component/base_map.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:json_annotation/json_annotation.dart';
 
 part 'map.g.dart';
@@ -215,12 +216,14 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final initialCameraOptions = _initialCameraOptions;
+    final mapRendererProxy = api.getMapRendererProxyForMainMap();
     if (initialCameraOptions == null) {
       return const CircularProgressIndicator();
     } else {
       return Scaffold(
         body: (BaseMap(
           key: const ValueKey("mapWidget"),
+          mapRendererProxy: mapRendererProxy,
           initialCameraOptions: initialCameraOptions,
           onMapCreated: _onMapCreated,
           onScrollListener: _onMapScrollListener,

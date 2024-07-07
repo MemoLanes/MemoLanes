@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
-import 'package:memolanes/src/rust/api/api.dart';
+import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/token.dart';
 
 class MapController {
@@ -12,11 +12,13 @@ class MapController {
 }
 
 class BaseMap extends StatefulWidget {
+  final api.MapRendererProxy mapRendererProxy;
   final CameraOptions initialCameraOptions;
   final void Function(MapController mapController) onMapCreated;
   final OnMapScrollListener? onScrollListener;
   const BaseMap(
       {super.key,
+      required this.mapRendererProxy,
       required this.initialCameraOptions,
       required this.onMapCreated,
       this.onScrollListener});
@@ -57,7 +59,7 @@ class BaseMapState extends State<BaseMap> {
     final right = northeast[0];
     final bottom = southwest[1];
 
-    final renderResult = await renderMapOverlay(
+    final renderResult = await widget.mapRendererProxy.renderMapOverlay(
       zoom: zoom,
       left: left!.toDouble(),
       top: top!.toDouble(),
@@ -101,7 +103,7 @@ class BaseMapState extends State<BaseMap> {
   }
 
   void _refreshLoop() async {
-    await resetMapRenderer();
+    await widget.mapRendererProxy.resetMapRenderer();
     while (true) {
       await requireRefresh?.future;
       if (requireRefresh == null) return;
