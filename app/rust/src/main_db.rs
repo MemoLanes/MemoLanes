@@ -210,10 +210,9 @@ impl Txn<'_> {
         journey_data: JourneyData,
     ) -> Result<()> {
         let journey_type = journey_data.type_();
-        let journey_id = Uuid::new_v4().as_hyphenated().to_string();
         // create new journey
         let header = JourneyHeader {
-            id: journey_id.clone(),
+            id: Uuid::new_v4().as_hyphenated().to_string(),
             // we use id + revision as the equality check, revision can be any
             // string (e.g. uuid) but a short random should be good enough.
             revision: random_string::generate(8, random_string::charsets::ALPHANUMERIC),
