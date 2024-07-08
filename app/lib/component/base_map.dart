@@ -14,13 +14,13 @@ class MapController {
 class BaseMap extends StatefulWidget {
   final api.MapRendererProxy mapRendererProxy;
   final CameraOptions initialCameraOptions;
-  final void Function(MapController mapController) onMapCreated;
+  final void Function(MapController mapController)? onMapCreated;
   final OnMapScrollListener? onScrollListener;
   const BaseMap(
       {super.key,
       required this.mapRendererProxy,
       required this.initialCameraOptions,
-      required this.onMapCreated,
+      this.onMapCreated,
       this.onScrollListener});
 
   @override
@@ -140,7 +140,10 @@ class BaseMapState extends State<BaseMap> {
         .updateSettings(GesturesSettings(pitchEnabled: false));
     final mapController = MapController(mapboxMap, _triggerRefresh);
     _mapController = mapController;
-    widget.onMapCreated(mapController);
+    final onMapCreated = widget.onMapCreated;
+    if (onMapCreated != null) {
+      onMapCreated(mapController);
+    }
   }
 
   _onCameraChangeListener(CameraChangedEventData event) {

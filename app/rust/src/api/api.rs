@@ -8,11 +8,12 @@ use flutter_rust_bridge::frb;
 use simplelog::{Config, LevelFilter, WriteLogger};
 
 use crate::gps_processor::{GpsProcessor, ProcessResult};
+use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_data::JourneyData;
 use crate::journey_header::JourneyHeader;
 use crate::map_renderer::{MapRenderer, RenderResult};
 use crate::storage::Storage;
-use crate::{archive, export_data, gps_processor, storage};
+use crate::{archive, export_data, gps_processor, merged_journey_builder, storage};
 
 // TODO: we have way too many locking here and now it is hard to track.
 //  e.g. we could mess up with the order and cause a deadlock
@@ -129,6 +130,24 @@ pub fn get_map_renderer_proxy_for_main_map() -> MapRendererProxy {
     MapRendererProxy::MainMap
 }
 
+pub fn get_map_renderer_proxy_for_journey(journey_id: &str) -> Result<MapRendererProxy> {
+    let journey_data = get()
+        .storage
+        .with_db_txn(|txn| txn.get_journey(&journey_id))?;
+
+    let journey_bitmap = match journey_data {
+        JourneyData::Bitmap(bitmap) => bitmap,
+        JourneyData::Vector(vector) => {
+            let mut bitmap = JourneyBitmap::new();
+            merged_journey_builder::add_journey_vector_to_journey_bitmap(&mut bitmap, &vector);
+            bitmap
+        }
+    };
+
+    let map_renderer =  MapRenderer::new(journey_bitmap);
+    Ok(MapRendererProxy::Simple(map_renderer))
+}
+
 pub fn on_location_update(
     mut raw_data_list: Vec<gps_processor::RawData>,
     recevied_timestamp_ms: i64,
@@ -188,8 +207,10 @@ pub fn delete_raw_data_file(filename: String) -> Result<()> {
     get().storage.delete_raw_data_file(filename)
 }
 
-pub fn delete_journey(id: &str) -> Result<()> {
-    get().storage.with_db_txn(|txn| txn.delete_journey(id))
+pub fn delete_journey(journey_id: &str) -> Result<()> {
+    get()
+        .storage
+        .with_db_txn(|txn| txn.delete_journey(journey_id))
 }
 
 pub fn toggle_raw_data_mode(enable: bool) {
