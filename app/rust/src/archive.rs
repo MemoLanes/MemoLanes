@@ -83,7 +83,7 @@ pub fn recover_archive_file(txn: &mut main_db::Txn, zip_file_path: &str) -> Resu
             let journey_header = JourneyHeader::of_proto(header)?;
             let journey_data =
                 JourneyData::deserialize(buf.as_slice(), journey_header.journey_type)?;
-            txn.insert_journey(journey_header, journey_data, false)?;
+            txn.insert_journey(journey_header, journey_data)?;
         }
     }
     Ok(())

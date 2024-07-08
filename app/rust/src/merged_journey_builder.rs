@@ -8,7 +8,7 @@ use crate::{
     journey_bitmap::JourneyBitmap,
     journey_data::JourneyData,
     journey_vector::JourneyVector,
-    main_db::MainDb,
+    main_db::{Action, MainDb},
 };
 use anyhow::Result;
 
@@ -63,7 +63,7 @@ pub fn get_latest_including_ongoing(
         // NOTE: Calling to `main_db.with_txn` directly without going through
         // `storage` is fine here because we are not modifying main db here.
         // But just to make sure:
-        assert!(!txn.reset_cache);
+        assert!(matches!(txn.action, Action::None));
         Ok(journey_bitmap)
     })
 }
