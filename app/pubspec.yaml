@@ -57,6 +57,9 @@ dependencies:
   url_launcher: ^6.3.0
   badges: ^3.1.2
   shared_preferences: ^2.2.3
+  flutter_localization: ^0.2.0
+  flutter_localizations:
+    sdk: flutter
 
 dependency_overrides:
   geolocator_android:
@@ -90,6 +93,7 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  generate: true
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -1,0 +1,11 @@
+{
+  "@@locale": "en",
+  "start": "Start",
+  "@start": {
+    "description": "The text of start button"
+  },
+  "stop": "Stop",
+  "@stop": {
+    "description": "The text of stop button"
+  }
+}

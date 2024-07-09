@@ -3,6 +3,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/gps_recording_state.dart';
 import 'package:memolanes/src/rust/api/api.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class GPSPage extends StatelessWidget {
   const GPSPage({super.key});
@@ -23,7 +24,9 @@ class GPSPage extends StatelessWidget {
           Text(gpsRecordingState.isRecording ? "Recording" : "Idle"),
           ElevatedButton(
             onPressed: gpsRecordingState.toggle,
-            child: Text(gpsRecordingState.isRecording ? "Stop" : "Start"),
+            child: Text(gpsRecordingState.isRecording
+                ? AppLocalizations.of(context)!.stop
+                : AppLocalizations.of(context)!.start),
           ),
           ElevatedButton(
             onPressed: () async {
