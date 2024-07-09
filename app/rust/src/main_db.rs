@@ -169,9 +169,16 @@ impl Txn<'_> {
         if journey_type != data.type_() {
             bail!("[insert_journey] Mismatch journey type")
         }
-        self.action = Action::Merge {
-            journey_ids: vec![header.id.clone()],
-        };
+        match &mut self.action {
+            Action::Merge { journey_ids } => {
+                journey_ids.push(header.id.clone());
+            }
+            _ => {
+                self.action = Action::Merge {
+                    journey_ids: vec![header.id.clone()],
+                };
+            }
+        }
 
         let id = header.id.clone();
         let journey_date = utils::date_to_days_since_epoch(header.journey_date);
@@ -287,20 +294,6 @@ impl Txn<'_> {
             results.push(header);
         }
         Ok(results)
-    }
-
-    pub fn get_latest_finalized_journey(&self) -> Result<JourneyData> {
-        let mut query = self
-            .db_txn
-            .prepare("SELECT data FROM journey ORDER BY timestamp_for_ordering DESC LIMIT 1;")?;
-
-        query.query_row([], |row| {
-            let f = || {
-                let data = row.get_ref(0)?.as_blob()?;
-                JourneyData::deserialize(data, JourneyType::Vector)
-            };
-            Ok(f())
-        })?
     }
 
     pub fn get_journey(&self, id: &str) -> Result<JourneyData> {

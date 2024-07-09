@@ -154,7 +154,7 @@ impl Storage {
                     }
                 }
                 Action::None => {
-                    return Err(anyhow::anyhow!("Failed to match cache policy"));
+                    return Ok(output);
                 }
             }
 
