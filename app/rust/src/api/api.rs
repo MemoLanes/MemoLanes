@@ -144,7 +144,7 @@ pub fn get_map_renderer_proxy_for_journey(journey_id: &str) -> Result<MapRendere
         }
     };
 
-    let map_renderer =  MapRenderer::new(journey_bitmap);
+    let map_renderer = MapRenderer::new(journey_bitmap);
     Ok(MapRendererProxy::Simple(map_renderer))
 }
 

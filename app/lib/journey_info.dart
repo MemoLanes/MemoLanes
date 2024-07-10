@@ -120,9 +120,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                 child: const Text("delete"),
               ),
             ]),
-            Container(
-              // TODO: I just don't understand flutter layout, need to fix.
-              height: 400.0,
+            Expanded(
               child: _mapRendererProxy == null
                   ? (const CircularProgressIndicator())
                   : (BaseMap(
