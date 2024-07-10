@@ -133,7 +133,7 @@ pub fn get_map_renderer_proxy_for_main_map() -> MapRendererProxy {
 pub fn get_map_renderer_proxy_for_journey(journey_id: &str) -> Result<MapRendererProxy> {
     let journey_data = get()
         .storage
-        .with_db_txn(|txn| txn.get_journey(&journey_id))?;
+        .with_db_txn(|txn| txn.get_journey(journey_id))?;
 
     let journey_bitmap = match journey_data {
         JourneyData::Bitmap(bitmap) => bitmap,
