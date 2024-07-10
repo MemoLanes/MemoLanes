@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:memolanes/component/base_map.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:memolanes/src/rust/api/api.dart';
+import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:share_plus/share_plus.dart';
@@ -18,12 +20,25 @@ class JourneyInfoPage extends StatefulWidget {
 
 class _JourneyInfoPage extends State<JourneyInfoPage> {
   final fmt = DateFormat('yyyy-MM-dd HH:mm:ss');
+  api.MapRendererProxy? _mapRendererProxy;
 
-  _export(JourneyHeader journeyHeader, ExportType exportType) async {
+  @override
+  void initState() {
+    super.initState();
+    api
+        .getMapRendererProxyForJourney(journeyId: widget.journeyHeader.id)
+        .then((mapRendererProxy) {
+      setState(() {
+        _mapRendererProxy = mapRendererProxy;
+      });
+    });
+  }
+
+  _export(JourneyHeader journeyHeader, api.ExportType exportType) async {
     var tmpDir = await getTemporaryDirectory();
     var filepath =
         "${tmpDir.path}/${journeyHeader.revision}.${exportType.name}";
-    await exportJourney(
+    await api.exportJourney(
         targetFilepath: filepath,
         journeyId: journeyHeader.id,
         exportType: exportType);
@@ -59,6 +74,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
 
   @override
   Widget build(BuildContext context) {
+    final _mapRendererProxy = this._mapRendererProxy;
     return Scaffold(
       appBar: AppBar(
         title: const Text("Journey Info"),
@@ -79,24 +95,24 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
             Text("Note: ${widget.journeyHeader.note}"),
             Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
               ElevatedButton(
-                onPressed:
-                    widget.journeyHeader.journeyType == JourneyType.vector
-                        ? () => _export(widget.journeyHeader, ExportType.kml)
-                        : null,
+                onPressed: widget.journeyHeader.journeyType ==
+                        JourneyType.vector
+                    ? () => _export(widget.journeyHeader, api.ExportType.kml)
+                    : null,
                 child: const Text("export KML"),
               ),
               ElevatedButton(
-                onPressed:
-                    widget.journeyHeader.journeyType == JourneyType.vector
-                        ? () => _export(widget.journeyHeader, ExportType.gpx)
-                        : null,
+                onPressed: widget.journeyHeader.journeyType ==
+                        JourneyType.vector
+                    ? () => _export(widget.journeyHeader, api.ExportType.gpx)
+                    : null,
                 child: const Text("export GPX"),
               ),
               ElevatedButton(
                 onPressed: () async {
                   showDialogFunction(() async {
                     Navigator.of(context).pop();
-                    await deleteJourney(id: widget.journeyHeader.id);
+                    await api.deleteJourney(journeyId: widget.journeyHeader.id);
                     if (!context.mounted) return;
                     Navigator.pop(context, true);
                   });
@@ -104,6 +120,16 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                 child: const Text("delete"),
               ),
             ]),
+            Expanded(
+              child: _mapRendererProxy == null
+                  ? (const CircularProgressIndicator())
+                  : (BaseMap(
+                      key: const ValueKey("mapWidget"),
+                      mapRendererProxy: _mapRendererProxy,
+                      // TODO: get a reasonable camera option from the journey data.
+                      initialCameraOptions: CameraOptions(),
+                    )),
+            )
           ],
         ),
       ),

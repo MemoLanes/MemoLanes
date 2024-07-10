@@ -67,7 +67,8 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
                     journeyHeader: item,
                   );
                 },
-              )).then((refresh) => refresh ? _loadList() : null);
+              )).then((refresh) =>
+                  (refresh != null && refresh) ? _loadList() : null);
             },
           );
         }).toList(),
