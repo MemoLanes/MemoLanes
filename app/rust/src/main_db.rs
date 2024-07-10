@@ -173,10 +173,8 @@ impl Txn<'_> {
             Action::Merge { journey_ids } => {
                 journey_ids.push(header.id.clone());
             }
-            _ => {
-                self.action = Action::Merge {
-                    journey_ids: vec![header.id.clone()],
-                };
+            Action::None | Action::CompleteRebuilt => {
+                // Do nothing if it's None or CompleteRebuilt
             }
         }
 

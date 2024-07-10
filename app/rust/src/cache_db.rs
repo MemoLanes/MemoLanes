@@ -133,16 +133,18 @@ impl CacheDb {
         Ok(())
     }
 
-    pub fn merge_journey_cache(&self, key: &JourneyCacheKey, journey: &JourneyData) -> Result<()> {
-        let journey_vector = match journey {
-            JourneyData::Vector(_vector) => Ok(_vector),
-            JourneyData::Bitmap(_bitmap) => Err(anyhow!("Data type error")),
-        }?;
-
+    pub fn merge_journey_cache(&self, key: &JourneyCacheKey, journey: JourneyData) -> Result<()> {
         let journey_bitmap = match self.get_journey_cache(key)? {
-            Some(mut _bitmap) => {
-                add_journey_vector_to_journey_bitmap(&mut _bitmap, journey_vector);
-                _bitmap
+            Some(mut cache_bitmap) => {
+                match journey {
+                    JourneyData::Vector(_vector) => {
+                        add_journey_vector_to_journey_bitmap(&mut cache_bitmap, &_vector);
+                    }
+                    JourneyData::Bitmap(_bitmap) => {
+                        cache_bitmap.merge(_bitmap);
+                    }
+                }
+                cache_bitmap
             }
             None => return Ok(()),
         };

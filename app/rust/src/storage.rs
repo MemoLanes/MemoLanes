@@ -149,7 +149,7 @@ impl Storage {
                     for journey_id in journey_ids {
                         cache_db.merge_journey_cache(
                             &JourneyCacheKey::All,
-                            &txn.get_journey(journey_id)?,
+                            txn.get_journey(journey_id)?,
                         )?;
                     }
                 }
