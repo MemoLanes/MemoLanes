@@ -137,11 +137,11 @@ impl CacheDb {
         let journey_bitmap = match self.get_journey_cache(key)? {
             Some(mut cache_bitmap) => {
                 match journey {
-                    JourneyData::Vector(_vector) => {
-                        add_journey_vector_to_journey_bitmap(&mut cache_bitmap, &_vector);
+                    JourneyData::Vector(vector) => {
+                        add_journey_vector_to_journey_bitmap(&mut cache_bitmap, &vector);
                     }
-                    JourneyData::Bitmap(_bitmap) => {
-                        cache_bitmap.merge(_bitmap);
+                    JourneyData::Bitmap(bitmap) => {
+                        cache_bitmap.merge(bitmap);
                     }
                 }
                 cache_bitmap

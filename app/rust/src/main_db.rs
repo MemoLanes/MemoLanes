@@ -170,11 +170,16 @@ impl Txn<'_> {
             bail!("[insert_journey] Mismatch journey type")
         }
         match &mut self.action {
+            Action::None => {
+                self.action = Action::Merge {
+                    journey_ids: vec![header.id.clone()],
+                };
+            }
             Action::Merge { journey_ids } => {
                 journey_ids.push(header.id.clone());
             }
-            Action::None | Action::CompleteRebuilt => {
-                // Do nothing if it's None or CompleteRebuilt
+            Action::CompleteRebuilt => {
+                // Do nothing if CompleteRebuilt
             }
         }
 
