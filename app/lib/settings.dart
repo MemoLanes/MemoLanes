@@ -7,6 +7,7 @@ import 'package:memolanes/src/rust/api/api.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:memolanes/extensions/l10n_context.dart';
 
 import 'import_data.dart';
 
@@ -60,13 +61,13 @@ class _SettingsBodyState extends State<SettingsBody> {
           onPressed: () async {
             _selectImportFile(context, ImportType.gpxOrKml);
           },
-          child: const Text("Import KML/GPX data"),
+          child: Text(context.l10n.importData),
         ),
         ElevatedButton(
           onPressed: () async {
             _selectImportFile(context, ImportType.fow);
           },
-          child: const Text("Import FoW data"),
+          child: Text(context.l10n.importFowData),
         ),
         ElevatedButton(
           onPressed: () async {
@@ -83,7 +84,7 @@ class _SettingsBodyState extends State<SettingsBody> {
               // don't care about error
             }
           },
-          child: const Text("Archive All"),
+          child: Text(context.l10n.archive),
         ),
         ElevatedButton(
           onPressed: () async {
@@ -98,16 +99,16 @@ class _SettingsBodyState extends State<SettingsBody> {
               }
             }
           },
-          child: const Text("Reset & Recover"),
+          child: Text(context.l10n.reset),
         ),
         if (updateUrl != null)
           ElevatedButton(
             onPressed: () async {
               _launchUrl(updateUrl);
             },
-            child: const Text(
-              "Update",
-              style: TextStyle(color: Colors.red),
+            child: Text(
+              context.l10n.update,
+              style: const TextStyle(color: Colors.red),
             ),
           ),
         Text(

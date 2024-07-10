@@ -3,7 +3,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/gps_recording_state.dart';
 import 'package:memolanes/src/rust/api/api.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:memolanes/extensions/l10n_context.dart';
 
 class GPSPage extends StatelessWidget {
   const GPSPage({super.key});
@@ -21,12 +21,14 @@ class GPSPage extends StatelessWidget {
       child: Column(
         children: [
           Text(message),
-          Text(gpsRecordingState.isRecording ? "Recording" : "Idle"),
+          Text(gpsRecordingState.isRecording
+              ? context.l10n.recording
+              : context.l10n.idle),
           ElevatedButton(
             onPressed: gpsRecordingState.toggle,
             child: Text(gpsRecordingState.isRecording
-                ? AppLocalizations.of(context)!.stop
-                : AppLocalizations.of(context)!.start),
+                ? context.l10n.stop
+                : context.l10n.start),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -34,7 +36,7 @@ class GPSPage extends StatelessWidget {
                 Fluttertoast.showToast(msg: "New journey added");
               }
             },
-            child: const Text("Start a new journey"),
+            child: Text(context.l10n.startNewJourney),
           ),
         ],
       ),

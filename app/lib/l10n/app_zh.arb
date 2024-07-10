@@ -1,5 +1,20 @@
 {
   "@@locale": "zh",
   "start": "开始",
-  "stop": "结束"
+  "stop": "结束",
+  "startNewJourney": "开启一段新的旅程",
+  "recording": "记录中",
+  "idle": "空闲",
+  "startTime": "开始时间:",
+  "endTime": "结束时间:",
+  "journeyDate": "旅途日期",
+  "note": "备注",
+  "delete": "删除",
+  "exportKML": "导出 KML",
+  "exportGPX": "导出 GPX",
+  "importData": "导入",
+  "importFowData": "导入Fow",
+  "reset": "重置",
+  "archive": "备份",
+  "update": "更新"
 }

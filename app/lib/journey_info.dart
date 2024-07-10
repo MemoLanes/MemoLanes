@@ -6,6 +6,7 @@ import 'package:memolanes/src/rust/api/api.dart';
 import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:memolanes/extensions/l10n_context.dart';
 
 class JourneyInfoPage extends StatefulWidget {
   const JourneyInfoPage({super.key, required this.journeyHeader});
@@ -83,14 +84,14 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                     widget.journeyHeader.journeyType == JourneyType.vector
                         ? () => _export(widget.journeyHeader, ExportType.kml)
                         : null,
-                child: const Text("export KML"),
+                child: Text(context.l10n.exportKML),
               ),
               ElevatedButton(
                 onPressed:
                     widget.journeyHeader.journeyType == JourneyType.vector
                         ? () => _export(widget.journeyHeader, ExportType.gpx)
                         : null,
-                child: const Text("export GPX"),
+                child: Text(context.l10n.exportGPX),
               ),
               ElevatedButton(
                 onPressed: () async {
@@ -101,7 +102,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                     Navigator.pop(context, true);
                   });
                 },
-                child: const Text("delete"),
+                child: Text(context.l10n.delete),
               ),
             ]),
           ],

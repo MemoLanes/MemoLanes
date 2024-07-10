@@ -62,6 +62,9 @@ ehthumbs_vista.db
 # Folder config file
 [Dd]esktop.ini
 
+# .vscode folder
+.vscode/
+
 # Recycle Bin used on file shares
 $RECYCLE.BIN/
 
