@@ -6,10 +6,10 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use crate::cache_db::CacheDb;
+use crate::cache_db::{CacheDb, JourneyCacheKey};
 use crate::gps_processor::{self, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
-use crate::main_db::{self, MainDb};
+use crate::main_db::{self, Action, MainDb};
 use crate::merged_journey_builder;
 
 // TODO: error handling in this file is horrifying, we should think about what
@@ -140,12 +140,29 @@ impl Storage {
         let (ref mut main_db, ref cache_db) = *dbs;
         main_db.with_txn(|txn| {
             let output = f(txn)?;
-            if txn.reset_cache {
-                cache_db.clear_journey_cache()?;
-                let mut main_map_renderer_need_to_reload =
-                    self.main_map_renderer_need_to_reload.lock().unwrap();
-                *main_map_renderer_need_to_reload = true;
+
+            match &txn.action {
+                None => (),
+                Some(action) => {
+                    match action {
+                        Action::CompleteRebuilt => {
+                            cache_db.clear_journey_cache()?;
+                        }
+                        Action::Merge { journey_ids } => {
+                            for journey_id in journey_ids {
+                                cache_db.merge_journey_cache(
+                                    &JourneyCacheKey::All,
+                                    txn.get_journey(journey_id)?,
+                                )?;
+                            }
+                        }
+                    };
+                    let mut main_map_renderer_need_to_reload =
+                        self.main_map_renderer_need_to_reload.lock().unwrap();
+                    *main_map_renderer_need_to_reload = true;
+                }
             }
+
             Ok(output)
         })
     }

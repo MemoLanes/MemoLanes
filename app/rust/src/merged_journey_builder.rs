@@ -63,7 +63,7 @@ pub fn get_latest_including_ongoing(
         // NOTE: Calling to `main_db.with_txn` directly without going through
         // `storage` is fine here because we are not modifying main db here.
         // But just to make sure:
-        assert!(!txn.reset_cache);
+        assert_eq!(txn.action, None);
         Ok(journey_bitmap)
     })
 }
