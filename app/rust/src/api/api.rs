@@ -4,23 +4,24 @@ use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 
 use anyhow::{Ok, Result};
-use chrono::Local;
 use flutter_rust_bridge::frb;
 use simplelog::{Config, LevelFilter, WriteLogger};
 
 use crate::gps_processor::{GpsProcessor, ProcessResult};
+use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_data::JourneyData;
-use crate::journey_header::{JourneyHeader, JourneyKind};
+use crate::journey_header::JourneyHeader;
 use crate::map_renderer::{MapRenderer, RenderResult};
 use crate::storage::Storage;
-use crate::{archive, export_data, gps_processor, import_data, storage};
+use crate::{archive, export_data, gps_processor, merged_journey_builder, storage};
 
 // TODO: we have way too many locking here and now it is hard to track.
 //  e.g. we could mess up with the order and cause a deadlock
-struct MainState {
-    storage: Storage,
-    map_renderer: Mutex<Option<MapRenderer>>,
-    gps_processor: Mutex<GpsProcessor>,
+#[frb(ignore)]
+pub struct MainState {
+    pub storage: Storage,
+    pub map_renderer: Mutex<Option<MapRenderer>>,
+    pub gps_processor: Mutex<GpsProcessor>,
 }
 
 static MAIN_STATE: OnceLock<MainState> = OnceLock::new();
@@ -58,44 +59,93 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
     }
 }
 
-fn get() -> &'static MainState {
+#[frb(ignore)]
+pub fn get() -> &'static MainState {
     MAIN_STATE.get().expect("main state is not initialized")
 }
 
-pub fn render_map_overlay(
-    zoom: f32,
-    left: f64,
-    top: f64,
-    right: f64,
-    bottom: f64,
-) -> Option<RenderResult> {
-    // TODO: right now the quality of zoom = 1 is really bad.
-    let zoom = max(zoom as i32, 2);
-    let state = get();
-    let mut map_renderer = state.map_renderer.lock().unwrap();
-    if state.storage.main_map_renderer_need_to_reload() {
-        *map_renderer = None;
-    }
-
-    map_renderer
-        .get_or_insert_with(|| {
-            // TODO: error handling?
-            let journey_bitmap = state
-                .storage
-                .get_latest_bitmap_for_main_map_renderer()
-                .unwrap();
-            MapRenderer::new(journey_bitmap)
-        })
-        .maybe_render_map_overlay(zoom, left, top, right, bottom)
+#[frb(opaque)]
+pub enum MapRendererProxy {
+    MainMap,
+    Simple(MapRenderer),
 }
 
-pub fn reset_map_renderer() {
-    let state = get();
-    let mut map_renderer = state.map_renderer.lock().unwrap();
+impl MapRendererProxy {
+    pub fn render_map_overlay(
+        &mut self,
+        zoom: f32,
+        left: f64,
+        top: f64,
+        right: f64,
+        bottom: f64,
+    ) -> Option<RenderResult> {
+        // TODO: right now the quality of zoom = 1 is really bad.
+        let zoom = max(zoom as i32, 2);
 
-    if let Some(map_renderer) = &mut *map_renderer {
-        map_renderer.reset();
+        match self {
+            Self::MainMap => {
+                // TODO: now that we have `MapRendererProxy`, we should rethink the logic below.
+                let state = get();
+                let mut map_renderer = state.map_renderer.lock().unwrap();
+                if state.storage.main_map_renderer_need_to_reload() {
+                    *map_renderer = None;
+                }
+
+                map_renderer
+                    .get_or_insert_with(|| {
+                        // TODO: error handling?
+                        let journey_bitmap = state
+                            .storage
+                            .get_latest_bitmap_for_main_map_renderer()
+                            .unwrap();
+                        MapRenderer::new(journey_bitmap)
+                    })
+                    .maybe_render_map_overlay(zoom, left, top, right, bottom)
+            }
+            Self::Simple(map_renderer) => {
+                map_renderer.maybe_render_map_overlay(zoom, left, top, right, bottom)
+            }
+        }
     }
+
+    pub fn reset_map_renderer(&mut self) {
+        match self {
+            Self::MainMap => {
+                let state = get();
+                let mut map_renderer = state.map_renderer.lock().unwrap();
+
+                if let Some(map_renderer) = &mut *map_renderer {
+                    map_renderer.reset();
+                }
+            }
+            Self::Simple(map_renderer) => {
+                map_renderer.reset();
+            }
+        }
+    }
+}
+
+#[frb(sync)]
+pub fn get_map_renderer_proxy_for_main_map() -> MapRendererProxy {
+    MapRendererProxy::MainMap
+}
+
+pub fn get_map_renderer_proxy_for_journey(journey_id: &str) -> Result<MapRendererProxy> {
+    let journey_data = get()
+        .storage
+        .with_db_txn(|txn| txn.get_journey(journey_id))?;
+
+    let journey_bitmap = match journey_data {
+        JourneyData::Bitmap(bitmap) => bitmap,
+        JourneyData::Vector(vector) => {
+            let mut bitmap = JourneyBitmap::new();
+            merged_journey_builder::add_journey_vector_to_journey_bitmap(&mut bitmap, &vector);
+            bitmap
+        }
+    };
+
+    let map_renderer = MapRenderer::new(journey_bitmap);
+    Ok(MapRendererProxy::Simple(map_renderer))
 }
 
 pub fn on_location_update(
@@ -157,8 +207,10 @@ pub fn delete_raw_data_file(filename: String) -> Result<()> {
     get().storage.delete_raw_data_file(filename)
 }
 
-pub fn delete_journey(id: &str) -> Result<()> {
-    get().storage.with_db_txn(|txn| txn.delete_journey(id))
+pub fn delete_journey(journey_id: &str) -> Result<()> {
+    get()
+        .storage
+        .with_db_txn(|txn| txn.delete_journey(journey_id))
 }
 
 pub fn toggle_raw_data_mode(enable: bool) {
@@ -175,23 +227,6 @@ pub fn try_auto_finalize_journy() -> Result<bool> {
     get()
         .storage
         .with_db_txn(|txn| txn.try_auto_finalize_journy())
-}
-
-pub fn import_fow_data(zip_file_path: String) -> Result<()> {
-    // TODO: This is really naive, mostly just a demo. We need to get real
-    // values from users.
-    let (journey_bitmap, _warnings) = import_data::load_fow_sync_data(&zip_file_path)?;
-    get().storage.with_db_txn(|txn| {
-        txn.create_and_insert_journey(
-            Local::now().date_naive(),
-            None,
-            None,
-            None,
-            JourneyKind::DefaultKind,
-            None,
-            JourneyData::Bitmap(journey_bitmap),
-        )
-    })
 }
 
 pub fn list_all_journeys() -> Result<Vec<JourneyHeader>> {

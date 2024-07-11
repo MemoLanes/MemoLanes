@@ -1,13 +1,14 @@
 import 'dart:async';
 
+import 'package:async/async.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mutex/mutex.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:async/async.dart';
-import 'package:project_dv/src/rust/api/api.dart';
-import 'package:project_dv/src/rust/gps_processor.dart';
+import 'package:memolanes/src/rust/api/api.dart';
+import 'package:memolanes/src/rust/gps_processor.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AutoJourneyFinalizer {
   AutoJourneyFinalizer() {
@@ -37,6 +38,7 @@ class AutoJourneyFinalizer {
 class _PokeGeolocatorTask {
   // TODO: Test on iOS
   bool running = false;
+
   _PokeGeolocatorTask();
 
   factory _PokeGeolocatorTask.start() {
@@ -66,6 +68,7 @@ class _PokeGeolocatorTask {
 }
 
 class GpsRecordingState extends ChangeNotifier {
+  static const String isRecordingPrefsKey = "GpsRecordingState.isRecording";
   var isRecording = false;
   Position? latestPosition;
 
@@ -117,6 +120,20 @@ class GpsRecordingState extends ChangeNotifier {
         distanceFilter: distanceFilter,
       );
     }
+    _recoverIsRecordingState();
+  }
+
+  void _recoverIsRecordingState() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    bool? recordState = prefs.getBool(isRecordingPrefsKey);
+    if (recordState != null && isRecording != recordState) {
+      toggle();
+    }
+  }
+
+  void _saveIsRecordingState(bool isRecording) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    prefs.setBool(isRecordingPrefsKey, isRecording);
   }
 
   void _onPositionUpdate(Position position) {
@@ -230,6 +247,7 @@ class GpsRecordingState extends ChangeNotifier {
         });
       }
       isRecording = !isRecording;
+      _saveIsRecordingState(isRecording);
       notifyListeners();
     });
   }

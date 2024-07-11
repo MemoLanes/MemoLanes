@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:project_dv/src/rust/api/api.dart';
-import 'package:project_dv/src/rust/storage.dart';
+import 'package:memolanes/src/rust/api/api.dart';
+import 'package:memolanes/src/rust/storage.dart';
 import 'package:share_plus/share_plus.dart';
 
 class RawDataSwitch extends StatefulWidget {

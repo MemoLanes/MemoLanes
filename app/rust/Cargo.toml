@@ -28,7 +28,8 @@ sha1 = "0.10.5"
 hex = "0.4.3"
 integer-encoding = "4.0.0"
 flate2 = "1.0.28"
-gpx = "0.9.1"
+# https://github.com/georust/gpx/issues/105
+gpx = { git = "https://github.com/MemoLanes/gpx.git", branch = "relax-parsing" }
 kml = "0.8.4"
 lazy_static = "1.4.0"
 geo-types = "0.7.13"

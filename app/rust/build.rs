@@ -4,6 +4,19 @@ use std::process::Command;
 use std::{fs, io::Write};
 
 fn main() {
+    // There are articles on internet suggest `.git/HEAD` is enough, which I
+    // doubt.
+    println!("cargo:rerun-if-changed=../../.git");
+    let short_commit_hash = String::from_utf8(
+        Command::new("git")
+            .args(["rev-parse", "--short", "HEAD"])
+            .output()
+            .unwrap()
+            .stdout,
+    )
+    .unwrap();
+    println!("cargo:rustc-env=SHORT_COMMIT_HASH={}", short_commit_hash);
+
     println!("cargo:rerun-if-changed=src/protos/journey.proto");
     println!("cargo:rerun-if-changed=src/protos/archive.proto");
     protobuf_codegen::Codegen::new()
@@ -26,16 +39,6 @@ fn main() {
         `flutter_rust_bridge_codegen generate` to get a real one."
         );
     }
-
-    let short_commit_hash = String::from_utf8(
-        Command::new("git")
-            .args(["rev-parse", "--short", "HEAD"])
-            .output()
-            .unwrap()
-            .stdout,
-    )
-    .unwrap();
-    println!("cargo:rustc-env=SHORT_COMMIT_HASH={}", short_commit_hash);
 
     setup_x86_64_android_workaround();
 }
