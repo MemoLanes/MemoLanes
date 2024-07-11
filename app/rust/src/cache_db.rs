@@ -138,20 +138,15 @@ impl CacheDb {
             Some(mut cache_bitmap) => {
                 match journey {
                     JourneyData::Vector(vector) => {
-                        add_journey_vector_to_journey_bitmap(&mut cache_bitmap, &vector);
+                        add_journey_vector_to_journey_bitmap(&mut cache_bitmap, &vector)
                     }
-                    JourneyData::Bitmap(bitmap) => {
-                        cache_bitmap.merge(bitmap);
-                    }
+                    JourneyData::Bitmap(bitmap) => cache_bitmap.merge(bitmap),
                 }
                 cache_bitmap
             }
             None => return Ok(()),
         };
-
         // Update the journey cache with the new or merged bitmap
-        self.set_journey_cache(key, &journey_bitmap)?;
-
-        Ok(())
+        self.set_journey_cache(key, &journey_bitmap)
     }
 }

@@ -142,25 +142,26 @@ impl Storage {
             let output = f(txn)?;
 
             match &txn.action {
-                Action::CompleteRebuilt => {
-                    cache_db.clear_journey_cache()?;
-                }
-                Action::Merge { journey_ids } => {
-                    for journey_id in journey_ids {
-                        cache_db.merge_journey_cache(
-                            &JourneyCacheKey::All,
-                            txn.get_journey(journey_id)?,
-                        )?;
-                    }
-                }
-                Action::None => {
-                    return Ok(output);
+                None => (),
+                Some(action) => {
+                    match action {
+                        Action::CompleteRebuilt => {
+                            cache_db.clear_journey_cache()?;
+                        }
+                        Action::Merge { journey_ids } => {
+                            for journey_id in journey_ids {
+                                cache_db.merge_journey_cache(
+                                    &JourneyCacheKey::All,
+                                    txn.get_journey(journey_id)?,
+                                )?;
+                            }
+                        }
+                    };
+                    let mut main_map_renderer_need_to_reload =
+                        self.main_map_renderer_need_to_reload.lock().unwrap();
+                    *main_map_renderer_need_to_reload = true;
                 }
             }
-
-            let mut main_map_renderer_need_to_reload =
-                self.main_map_renderer_need_to_reload.lock().unwrap();
-            *main_map_renderer_need_to_reload = true;
 
             Ok(output)
         })

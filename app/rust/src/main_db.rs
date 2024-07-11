@@ -93,11 +93,10 @@ fn open_db_and_run_migration(
 
 pub struct Txn<'a> {
     db_txn: rusqlite::Transaction<'a>,
-    pub action: Action,
+    pub action: Option<Action>,
 }
 
 pub enum Action {
-    None,
     Merge { journey_ids: Vec<String> },
     CompleteRebuilt,
 }
@@ -148,7 +147,7 @@ impl Txn<'_> {
 
     pub fn clear_journeys(&mut self) -> Result<()> {
         self.db_txn.execute("DELETE FROM journey;", ())?;
-        self.action = Action::CompleteRebuilt;
+        self.action = Some(Action::CompleteRebuilt);
         Ok(())
     }
 
@@ -156,7 +155,7 @@ impl Txn<'_> {
         let changes = self
             .db_txn
             .execute("DELETE FROM journey WHERE id = ?1;", (id,))?;
-        self.action = Action::CompleteRebuilt;
+        self.action = Some(Action::CompleteRebuilt);
         if changes == 1 {
             Ok(())
         } else {
@@ -169,20 +168,6 @@ impl Txn<'_> {
         if journey_type != data.type_() {
             bail!("[insert_journey] Mismatch journey type")
         }
-        match &mut self.action {
-            Action::None => {
-                self.action = Action::Merge {
-                    journey_ids: vec![header.id.clone()],
-                };
-            }
-            Action::Merge { journey_ids } => {
-                journey_ids.push(header.id.clone());
-            }
-            Action::CompleteRebuilt => {
-                // Do nothing if CompleteRebuilt
-            }
-        }
-
         let id = header.id.clone();
         let journey_date = utils::date_to_days_since_epoch(header.journey_date);
         // use start time first, then fallback to endtime
@@ -204,6 +189,13 @@ impl Txn<'_> {
                 data_bytes,
             ),
         )?;
+
+        match self.action.get_or_insert(Action::Merge {
+            journey_ids: vec![],
+        }) {
+            Action::Merge { journey_ids } => journey_ids.push(id),
+            Action::CompleteRebuilt => (),
+        }
 
         Ok(())
     }
@@ -405,7 +397,7 @@ impl MainDb {
     {
         let mut txn = Txn {
             db_txn: self.conn.transaction()?,
-            action: Action::None,
+            action: None,
         };
         let output = f(&mut txn)?;
         txn.db_txn.commit()?;
