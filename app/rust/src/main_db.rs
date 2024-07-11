@@ -96,6 +96,7 @@ pub struct Txn<'a> {
     pub action: Option<Action>,
 }
 
+#[derive(PartialEq, Eq, Debug)]
 pub enum Action {
     Merge { journey_ids: Vec<String> },
     CompleteRebuilt,
