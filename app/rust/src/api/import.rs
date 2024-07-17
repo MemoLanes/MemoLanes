@@ -17,7 +17,7 @@ use super::api;
 #[derive(Debug)]
 #[frb(non_opaque)]
 pub struct JourneyInfo {
-    pub journey_date: String,
+    pub journey_date: NaiveDate,
     pub start_time: Option<DateTime<Utc>>,
     pub end_time: Option<DateTime<Utc>>,
     pub note: Option<String>,
@@ -36,7 +36,7 @@ pub struct RawVectorData {
 pub fn load_fow_sync_data(file_path: String) -> Result<(JourneyInfo, RawBitmapData)> {
     let (journey_bitmap, _warnings) = import_data::load_fow_sync_data(&file_path)?;
     let journey_info = JourneyInfo {
-        journey_date: Local::now().date_naive().format("%Y-%m-%d").to_string(),
+        journey_date: Local::now().date_naive(),
         start_time: None,
         end_time: None,
         note: None,
@@ -70,11 +70,9 @@ pub fn load_gpx_or_kml(file_path: String) -> Result<(JourneyInfo, RawVectorData)
 }
 
 fn import(journey_info: JourneyInfo, journey_data: JourneyData) -> Result<()> {
-    let journey_date = NaiveDate::parse_from_str(&journey_info.journey_date, "%Y-%m-%d")
-        .unwrap_or_else(|_| Local::now().naive_local().date());
     api::get().storage.with_db_txn(|txn| {
         txn.create_and_insert_journey(
-            journey_date,
+            journey_info.journey_date,
             journey_info.start_time,
             journey_info.end_time,
             None,
