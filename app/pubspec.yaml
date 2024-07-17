@@ -38,7 +38,7 @@ dependencies:
   cupertino_icons: ^1.0.2
   rust_builder:
     path: rust_builder
-  flutter_rust_bridge: 2.0.0-dev.32
+  flutter_rust_bridge: 2.1.0
   meta: ^1.12.0
   uuid: ^4.4.0
   geolocator: ^12.0.0

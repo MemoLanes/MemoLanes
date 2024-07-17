@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/intl.dart';
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
+import 'package:memolanes/src/rust/api/utils.dart';
 
 class ImportDataPage extends StatefulWidget {
   const ImportDataPage(
@@ -62,7 +63,8 @@ class _ImportDataPage extends State<ImportDataPage> {
       setState(() {
         _startTime = journeyInfo?.startTime;
         _endTime = journeyInfo?.endTime;
-        _journeyDate = dateFormat.parse(journeyInfo!.journeyDate);
+        _journeyDate =
+            dateFormat.parse(naiveDateToString(date: journeyInfo!.journeyDate));
       });
     }
     setState(() {
@@ -84,7 +86,8 @@ class _ImportDataPage extends State<ImportDataPage> {
       note = null;
     }
     import_api.JourneyInfo saveInfo = import_api.JourneyInfo(
-        journeyDate: DateFormat('yyyy-MM-dd').format(_journeyDate!),
+        journeyDate: naiveDateOfString(
+            str: DateFormat('yyyy-MM-dd').format(_journeyDate!)),
         startTime: _startTime,
         endTime: _endTime,
         note: note);

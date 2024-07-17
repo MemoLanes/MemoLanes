@@ -26,6 +26,11 @@ pub struct MainState {
 
 static MAIN_STATE: OnceLock<MainState> = OnceLock::new();
 
+#[frb(ignore)]
+pub fn get() -> &'static MainState {
+    MAIN_STATE.get().expect("main state is not initialized")
+}
+
 #[frb(sync)]
 pub fn short_commit_hash() -> String {
     env!("SHORT_COMMIT_HASH").to_string()
@@ -57,11 +62,6 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
     if already_initialized {
         warn!("`init` is called multiple times");
     }
-}
-
-#[frb(ignore)]
-pub fn get() -> &'static MainState {
-    MAIN_STATE.get().expect("main state is not initialized")
 }
 
 #[frb(opaque)]

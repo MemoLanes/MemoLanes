@@ -304,7 +304,7 @@ pub fn journey_info_from_raw_vector_data(raw_vector_data: &[Vec<RawData>]) -> Jo
 
     let journey_date = local_date_from_time.unwrap_or_else(|| Local::now().date_naive());
     JourneyInfo {
-        journey_date: journey_date.format("%Y-%m-%d").to_string(),
+        journey_date,
         start_time,
         end_time,
         note: None,
