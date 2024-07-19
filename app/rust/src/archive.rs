@@ -183,7 +183,7 @@ pub fn archive_all_as_zip<T: Write + Seek>(txn: &main_db::Txn, writer: &mut T) -
     let mut zip = zip::ZipWriter::new(writer);
     // we already compress data inside the file, do no need to do it in zip.
     let default_options =
-        zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+        zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
     // writing metadata
     let mut metadata_proto = Metadata::new();
