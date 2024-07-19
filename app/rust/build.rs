@@ -39,5 +39,4 @@ fn main() {
         `flutter_rust_bridge_codegen generate` to get a real one."
         );
     }
-
 }
