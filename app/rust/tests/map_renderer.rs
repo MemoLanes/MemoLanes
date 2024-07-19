@@ -26,7 +26,7 @@ fn basic() {
     test_utils::assert_image(
         &render_result.data,
         "map_renderer_basic",
-        "df0ef4aa3953cbe503babb56f133d7d11eecba6e",
+        "9899c549ceb1e6af68905894eec43119cf15c958",
     );
 
     // a small move shouldn't trigger a re-render
