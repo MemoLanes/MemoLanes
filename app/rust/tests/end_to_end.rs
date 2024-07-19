@@ -63,6 +63,6 @@ fn basic() {
     test_utils::assert_image(
         &render_result.data,
         "end_to_end_basic_1",
-        "b53b0236d4c3a538b80ac3700a5e2ca6e701b868",
+        "82632d3d7fd4c97af51c7b1cabd0b2dec294441e",
     );
 }
