@@ -168,8 +168,7 @@ impl GpsProcessor {
                         // let's consider (speed) distance now
                         let time_in_sec =
                             time_diff_in_ms.unwrap_or(TIME_THRESHOLD_IN_MS) as f64 / 1000.0;
-                        let speed =
-                            curr_data.haversine_distance(&last_data) / time_in_sec.max(0.01);
+                        let speed = curr_data.haversine_distance(last_data) / time_in_sec.max(0.01);
                         if speed < SPEED_THRESHOLD {
                             ProcessResult::Append
                         } else {
