@@ -80,6 +80,30 @@ fn time_difference() {
 }
 
 #[test]
+fn speed() {
+    let mut gps_processor = GpsProcessor::new();
+    let data = RawData {
+        latitude: 120.163856,
+        longitude: 30.2719716,
+        timestamp_ms: Some(1697349116000),
+        accuracy: None,
+        altitude: None,
+        speed: None,
+    };
+    assert_eq!(gps_processor.preprocess(&data), ProcessResult::NewSegment);
+
+    let data = RawData {
+        latitude: 125.0,
+        longitude: 30.2719716,
+        timestamp_ms: Some(1697349117000),
+        accuracy: None,
+        altitude: None,
+        speed: None,
+    };
+    assert_eq!(gps_processor.preprocess(&data), ProcessResult::NewSegment);
+}
+
+#[test]
 fn run_though_test_data() {
     let mut gps_processor = GpsProcessor::new();
     let mut counter = HashMap::new();
@@ -88,6 +112,6 @@ fn run_though_test_data() {
         counter.entry(result).and_modify(|c| *c += 1).or_insert(1);
     }
     assert_eq!(counter[&ProcessResult::NewSegment], 8);
-    assert_eq!(counter[&ProcessResult::Append], 3577);
-    assert_eq!(counter[&ProcessResult::Ignore], 33);
+    assert_eq!(counter[&ProcessResult::Append], 3595);
+    assert_eq!(counter[&ProcessResult::Ignore], 15);
 }
