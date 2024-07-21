@@ -61,14 +61,11 @@ impl GpsProcessor {
         GpsProcessor { last_data: None }
     }
 
-    // the `f` here just a trick to avoid additional copy of `RawData`, one
-    // could argue that this is over optimization (this does make the control
-    // flow of this code a lot more complicated, so maybe we shouldn't do this).
-    //  ¯\_(ツ)_/¯
-    pub fn preprocess<F>(&mut self, curr_data: RawData, f: F)
-    where
-        F: FnOnce(&Option<RawData>, &RawData, ProcessResult),
-    {
+    pub fn last_data(&self) -> Option<RawData> {
+        self.last_data.clone()
+    }
+
+    pub fn preprocess(&mut self, curr_data: &RawData) -> ProcessResult {
         // TODO: the current implementation is still pretty naive.
         // Things we could do:
         // 1. tune the threshold, maybe use different values with different
@@ -115,10 +112,10 @@ impl GpsProcessor {
                 }
             }
         };
-        f(&self.last_data, &curr_data, result);
         if result != ProcessResult::Ignore {
-            self.last_data = Some(curr_data);
-        }
+            self.last_data = Some(curr_data.clone());
+        };
+        result
     }
 }
 

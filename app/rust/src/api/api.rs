@@ -163,35 +163,35 @@ pub fn on_location_update(
     raw_data_list.sort_by(|a, b| a.timestamp_ms.cmp(&b.timestamp_ms));
     raw_data_list.into_iter().for_each(|raw_data| {
         // TODO: more batching updates
-        gps_processor.preprocess(raw_data, |last_data, curr_data, process_result| {
-            let line_to_add = match process_result {
-                ProcessResult::Ignore => None,
-                ProcessResult::NewSegment => Some((curr_data, curr_data)),
-                ProcessResult::Append => {
-                    let start = last_data.as_ref().unwrap_or(curr_data);
-                    Some((start, curr_data))
-                }
-            };
-            match map_renderer.as_mut() {
-                None => (),
-                Some(map_renderer) => match line_to_add {
-                    None => (),
-                    Some((start, end)) => {
-                        map_renderer.update(|journey_bitmap| {
-                            journey_bitmap.add_line(
-                                start.longitude,
-                                start.latitude,
-                                end.longitude,
-                                end.latitude,
-                            );
-                        });
-                    }
-                },
+        let last_data = gps_processor.last_data();
+        let process_result = gps_processor.preprocess(&raw_data);
+        let line_to_add = match process_result {
+            ProcessResult::Ignore => None,
+            ProcessResult::NewSegment => Some((&raw_data, &raw_data)),
+            ProcessResult::Append => {
+                let start = last_data.as_ref().unwrap_or(&raw_data);
+                Some((start, &raw_data))
             }
-            state
-                .storage
-                .record_gps_data(curr_data, process_result, recevied_timestamp_ms);
-        });
+        };
+        match map_renderer.as_mut() {
+            None => (),
+            Some(map_renderer) => match line_to_add {
+                None => (),
+                Some((start, end)) => {
+                    map_renderer.update(|journey_bitmap| {
+                        journey_bitmap.add_line(
+                            start.longitude,
+                            start.latitude,
+                            end.longitude,
+                            end.latitude,
+                        );
+                    });
+                }
+            },
+        }
+        state
+            .storage
+            .record_gps_data(&raw_data, process_result, recevied_timestamp_ms);
     });
 }
 

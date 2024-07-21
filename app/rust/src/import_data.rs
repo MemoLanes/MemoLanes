@@ -253,12 +253,7 @@ pub fn journey_vector_from_raw_data(
         let mut gps_processor = GpsProcessor::new();
         x.into_iter().map(move |raw_data| {
             let process_result = if run_preprocessor {
-                // This is ugly but fine
-                let mut result = ProcessResult::Append;
-                gps_processor.preprocess(raw_data.clone(), |_last_data, _curr_data, result_| {
-                    result = result_
-                });
-                result
+                gps_processor.preprocess(&raw_data)
             } else {
                 ProcessResult::Append
             };
