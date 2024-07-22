@@ -123,14 +123,14 @@ impl GpsProcessor {
         // 1. Tune the threshold, maybe use different values with different
         //    devices/speed. Maybe maintain a state about how the user is moving.
         // 2. Ignore data that is too similar to the previous one or something
-        //    like that. (Maybe having a moving and a stationary state, 
+        //    like that. (Maybe having a moving and a stationary state,
         //    automatically switching between these).
-        // 
+        //
         // Something to note:
-        // * Accuracy is not well defined. The unit is meters but: On android, 
+        // * Accuracy is not well defined. The unit is meters but: On android,
         //  it is the radius of this location at the 68th percentile confidence
-        //  level. On iOS, it is not specified in document. It seems the 
-        //  accuaracy is always poor (higher in value) on iOS, maybe it is using 
+        //  level. On iOS, it is not specified in document. It seems the
+        //  accuaracy is always poor (higher in value) on iOS, maybe it is using
         //  95th percentile. I am not use, no one is normalizing this value, we
         // might need to use different threshold and tune it ourselves.
         //
