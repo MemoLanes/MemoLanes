@@ -4,8 +4,14 @@ import 'package:memolanes/gps_recording_state.dart';
 import 'package:memolanes/src/rust/api/api.dart';
 import 'package:provider/provider.dart';
 
-class GPSPage extends StatelessWidget {
+class GPSPage extends StatefulWidget {
   const GPSPage({super.key});
+  @override
+  State<GPSPage> createState() => _GPSPageStatePage();
+}
+
+class _GPSPageStatePage extends State<GPSPage> {
+  bool isNotStarted = true;
 
   @override
   Widget build(BuildContext context) {
@@ -22,17 +28,43 @@ class GPSPage extends StatelessWidget {
           Text(message),
           Text(gpsRecordingState.isRecording ? "Recording" : "Idle"),
           ElevatedButton(
-            onPressed: gpsRecordingState.toggle,
-            child: Text(gpsRecordingState.isRecording ? "Stop" : "Start"),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (await finalizeOngoingJourney()) {
-                Fluttertoast.showToast(msg: "New journey added");
-              }
-            },
-            child: const Text("Start a new journey"),
-          ),
+              onPressed: () async {
+                setState(() {
+                  isNotStarted = false;
+                });
+                gpsRecordingState.toggle();
+              },
+              child: Text(isNotStarted
+                  ? "Start"
+                  : (gpsRecordingState.isRecording ? "Pause" : "Continue"))),
+          if (!isNotStarted)
+            ElevatedButton(
+              onPressed: () async {
+                setState(() {
+                  isNotStarted = true;
+                  gpsRecordingState.isRecording = false;
+                });
+                bool result = await finalizeOngoingJourney();
+                if (result) {
+                  Fluttertoast.showToast(msg: "New journey added");
+                } else {
+                  Fluttertoast.showToast(msg: "No journey detected");
+                }
+              },
+              child: const Text("Stop"),
+            )
+          // ElevatedButton(
+          //   onPressed: gpsRecordingState.toggle,
+          //   child: Text(gpsRecordingState.isRecording ? "Stop" : "Start"),
+          // ),
+          // ElevatedButton(
+          //   onPressed: () async {
+          //     if (await finalizeOngoingJourney()) {
+          //       Fluttertoast.showToast(msg: "New journey added");
+          //     }
+          //   },
+          //   child: const Text("Start a new journey"),
+          // ),
         ],
       ),
     );
