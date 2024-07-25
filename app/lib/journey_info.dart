@@ -87,10 +87,11 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
             Text(
                 "Journey Date: ${naiveDateToString(date: widget.journeyHeader.journeyDate)}"),
             Text(
-                "Start Time: ${widget.journeyHeader.start != null ? fmt.format(widget.journeyHeader.start!) : ""}"),
+                "Start Time: ${widget.journeyHeader.start != null ? fmt.format(widget.journeyHeader.start!.toLocal()) : ""}"),
             Text(
-                "End Time: ${widget.journeyHeader.end != null ? fmt.format(widget.journeyHeader.end!) : ""}"),
-            Text("Created At: ${fmt.format(widget.journeyHeader.createdAt)}"),
+                "End Time: ${widget.journeyHeader.end != null ? fmt.format(widget.journeyHeader.end!.toLocal()) : ""}"),
+            Text(
+                "Created At: ${fmt.format(widget.journeyHeader.createdAt.toLocal())}"),
             Text("Revision: ${widget.journeyHeader.revision}"),
             Text("Note: ${widget.journeyHeader.note}"),
             Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
