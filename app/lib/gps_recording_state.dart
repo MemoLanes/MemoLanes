@@ -218,6 +218,7 @@ class GpsRecordingState extends ChangeNotifier {
       Fluttertoast.showToast(msg: "New journey added");
       if (status == GpsRecordingStatus.paused) {
         status = GpsRecordingStatus.none;
+        notifyListeners();
       }
     }
   }
