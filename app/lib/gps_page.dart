@@ -1,40 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/gps_recording_state.dart';
-import 'package:memolanes/src/rust/api/api.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-class GPSPage extends StatefulWidget {
-  const GPSPage({super.key});
-  @override
-  State<GPSPage> createState() => _GPSPageStatePage();
-}
-
-class _GPSPageStatePage extends State<GPSPage> {
-  bool isNotStarted = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadState();
-  }
-
-  Future<void> _loadState() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    bool? startState = prefs.getBool('isNotStarted');
-    if (startState != null && startState != isNotStarted) {
-      setState(() {
-        isNotStarted = startState;
-      });
-    }
-  }
-
-  Future<void> _saveState() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isNotStarted', isNotStarted);
-  }
-
+class GPSPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var gpsRecordingState = context.watch<GpsRecordingState>();
@@ -49,56 +17,53 @@ class _GPSPageStatePage extends State<GPSPage> {
       child: Column(
         children: [
           Text(message),
-          Text(gpsRecordingState.isRecording ? "Recording" : "Idle"),
-          ElevatedButton(
-              onPressed: () async {
-                setState(() {
-                  if (isNotStarted) {
-                    isNotStarted = false;
-                    if (!gpsRecordingState.isRecording) {
-                      gpsRecordingState.toggle();
-                    }
-                  } else {
-                    gpsRecordingState.toggle();
-                  }
-                });
-
-                await _saveState();
-              },
-              child: Text(isNotStarted
-                  ? "Start"
-                  : (gpsRecordingState.isRecording ? "Pause" : "Continue"))),
-          if (!isNotStarted)
-            ElevatedButton(
-              onPressed: () async {
-                setState(() {
-                  isNotStarted = true;
-                });
-                if (gpsRecordingState.isRecording) {
-                  gpsRecordingState.toggle();
-                }
-                await _saveState();
-                bool result = await finalizeOngoingJourney();
-                if (result) {
-                  Fluttertoast.showToast(msg: "New journey added");
-                } else {
-                  Fluttertoast.showToast(msg: "No journey detected");
-                }
-              },
-              child: const Text("Stop"),
-            )
-          // ElevatedButton(
-          //   onPressed: gpsRecordingState.toggle,
-          //   child: Text(gpsRecordingState.isRecording ? "Stop" : "Start"),
-          // ),
-          // ElevatedButton(
-          //   onPressed: () async {
-          //     if (await finalizeOngoingJourney()) {
-          //       Fluttertoast.showToast(msg: "New journey added");
-          //     }
-          //   },
-          //   child: const Text("Start a new journey"),
-          // ),
+          Text(gpsRecordingState.status == GpsRecordingStatus.recording
+              ? "Recording"
+              : "Idle"),
+          Builder(
+            builder: (BuildContext context) {
+              if (gpsRecordingState.status == GpsRecordingStatus.none) {
+                return ElevatedButton(
+                    onPressed: () async {
+                      gpsRecordingState
+                          .changeState(GpsRecordingStatus.recording);
+                    },
+                    child: const Text("Start new journey"));
+              } else if (gpsRecordingState.status ==
+                  GpsRecordingStatus.recording) {
+                return Column(children: [
+                  ElevatedButton(
+                      onPressed: () async {
+                        gpsRecordingState
+                            .changeState(GpsRecordingStatus.paused);
+                      },
+                      child: const Text("Pause")),
+                  ElevatedButton(
+                      onPressed: () async {
+                        gpsRecordingState.changeState(GpsRecordingStatus.none);
+                      },
+                      child: const Text("Stop")),
+                ]);
+              } else if (gpsRecordingState.status ==
+                  GpsRecordingStatus.paused) {
+                return Column(children: [
+                  ElevatedButton(
+                      onPressed: () async {
+                        gpsRecordingState
+                            .changeState(GpsRecordingStatus.recording);
+                      },
+                      child: const Text("Resume")),
+                  ElevatedButton(
+                      onPressed: () async {
+                        gpsRecordingState.changeState(GpsRecordingStatus.none);
+                      },
+                      child: const Text("Stop")),
+                ]);
+              }
+              // This is actually dead code
+              return Container();
+            },
+          )
         ],
       ),
     );
