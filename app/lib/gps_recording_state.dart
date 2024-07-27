@@ -216,6 +216,10 @@ class GpsRecordingState extends ChangeNotifier {
       // It seems this does not wait for the result on iOS, and always
       // permission is not strictly required.
       await Permission.locationAlways.request();
+      if (await Permission.locationAlways.isPermanentlyDenied) {
+        Fluttertoast.showToast(
+            msg: "Location always permission is recommended");
+      }
     }
   }
 
