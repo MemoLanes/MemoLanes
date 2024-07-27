@@ -229,6 +229,13 @@ pub fn try_auto_finalize_journy() -> Result<bool> {
         .with_db_txn(|txn| txn.try_auto_finalize_journy())
 }
 
+pub fn has_ongoing_journey() -> Result<bool> {
+    Ok(get()
+        .storage
+        .with_db_txn(|txn| txn.get_lastest_timestamp_of_ongoing_journey())?
+        .is_some())
+}
+
 pub fn list_all_journeys() -> Result<Vec<JourneyHeader>> {
     get().storage.with_db_txn(|txn| txn.list_all_journeys())
 }

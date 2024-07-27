@@ -6,28 +6,9 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mutex/mutex.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:memolanes/src/rust/api/api.dart';
+import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/gps_processor.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-class AutoJourneyFinalizer {
-  AutoJourneyFinalizer() {
-    _start();
-  }
-
-  void _start() async {
-    await tryOnce();
-    Timer.periodic(const Duration(minutes: 5), (timer) async {
-      await tryOnce();
-    });
-  }
-
-  Future<void> tryOnce() async {
-    if (await tryAutoFinalizeJourny()) {
-      Fluttertoast.showToast(msg: "New journey added");
-    }
-  }
-}
 
 /// `PokeGeolocatorTask` is a hacky workround on Android.
 /// The behvior we observe is that the position stream from geolocator will
@@ -67,15 +48,16 @@ class _PokeGeolocatorTask {
   }
 }
 
+enum GpsRecordingStatus { none, recording, paused }
+
 class GpsRecordingState extends ChangeNotifier {
   static const String isRecordingPrefsKey = "GpsRecordingState.isRecording";
-  var isRecording = false;
+  var status = GpsRecordingStatus.none;
   Position? latestPosition;
 
   LocationSettings? _locationSettings;
   StreamSubscription<Position>? _positionStream;
   final Mutex _m = Mutex();
-  final AutoJourneyFinalizer _autoJourneyFinalizer = AutoJourneyFinalizer();
   _PokeGeolocatorTask? _pokeGeolocatorTask;
 
   // NOTE: we noticed that on Andorid, location updates may delivered in batches,
@@ -120,24 +102,38 @@ class GpsRecordingState extends ChangeNotifier {
         distanceFilter: distanceFilter,
       );
     }
-    _recoverIsRecordingState();
+    _initState();
   }
 
-  void _recoverIsRecordingState() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    bool? recordState = prefs.getBool(isRecordingPrefsKey);
-    if (recordState != null && isRecording != recordState) {
-      toggle();
-    }
+  void _initState() async {
+    await _m.protect(() async {
+      await _tryFinalizeJourneyWithoutLock();
+      Timer.periodic(const Duration(minutes: 5), (timer) async {
+        await _m.protect(() async {
+          await _tryFinalizeJourneyWithoutLock();
+        });
+      });
+
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      bool? recordState = prefs.getBool(isRecordingPrefsKey);
+      if (recordState != null && recordState == true) {
+        await _changeStateWithoutLock(GpsRecordingStatus.recording);
+      } else {
+        if (await api.hasOngoingJourney()) {
+          status = GpsRecordingStatus.paused;
+        }
+      }
+      notifyListeners();
+    });
   }
 
-  void _saveIsRecordingState(bool isRecording) async {
+  void _saveIsRecordingState() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    prefs.setBool(isRecordingPrefsKey, isRecording);
+    prefs.setBool(isRecordingPrefsKey, status == GpsRecordingStatus.recording);
   }
 
   void _onPositionUpdate(Position position) {
-    if (!isRecording) return;
+    if (status != GpsRecordingStatus.recording) return;
     _positionBuffer.add(position);
     _positionBufferFirstElementReceivedTime ??= DateTime.now();
     if (_positionBufferFlushTimer == null) {
@@ -170,11 +166,11 @@ class GpsRecordingState extends ChangeNotifier {
     _positionBufferFirstElementReceivedTime = null;
     _positionBuffer.clear();
 
-    await onLocationUpdate(
+    await api.onLocationUpdate(
         rawDataList: rawDataList, receviedTimestampMs: receviedTimestampMs);
   }
 
-  Future<bool> checkPermission() async {
+  Future<bool> _checkPermission() async {
     try {
       if (!await Permission.notification.isGranted) {
         return false;
@@ -191,7 +187,7 @@ class GpsRecordingState extends ChangeNotifier {
     }
   }
 
-  Future<void> requestPermission() async {
+  Future<void> _requestPermission() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
       if (!await Geolocator.openLocationSettings()) {
         throw "Location services not enabled";
@@ -216,39 +212,69 @@ class GpsRecordingState extends ChangeNotifier {
     }
   }
 
-  void toggle() async {
-    await _m.protect(() async {
-      await _autoJourneyFinalizer.tryOnce();
-      if (isRecording) {
-        await _positionStream?.cancel();
-        _pokeGeolocatorTask?.cancel();
-        _pokeGeolocatorTask = null;
-        _positionStream = null;
-        latestPosition = null;
-        _positionBufferFlushTimer?.cancel();
-        _positionBufferFlushTimer = null;
-        await _flushPositionBuffer();
-      } else {
-        try {
-          if (!await checkPermission()) {
-            await requestPermission();
-          }
-        } catch (e) {
-          Fluttertoast.showToast(msg: e.toString());
-          return;
-        }
-        _pokeGeolocatorTask ??= _PokeGeolocatorTask.start();
-        _positionStream ??=
-            Geolocator.getPositionStream(locationSettings: _locationSettings)
-                .listen((Position? position) async {
-          if (position != null) {
-            _onPositionUpdate(position);
-          }
-        });
+  Future<void> _tryFinalizeJourneyWithoutLock() async {
+    // TODO: I think we want this to be configurable
+    if (await api.tryAutoFinalizeJourny()) {
+      Fluttertoast.showToast(msg: "New journey added");
+      if (status == GpsRecordingStatus.paused) {
+        status = GpsRecordingStatus.none;
+        notifyListeners();
       }
-      isRecording = !isRecording;
-      _saveIsRecordingState(isRecording);
-      notifyListeners();
+    }
+  }
+
+  Future<void> _changeStateWithoutLock(GpsRecordingStatus to) async {
+    if (status == to) return;
+
+    if (status == GpsRecordingStatus.recording &&
+        to != GpsRecordingStatus.recording) {
+      // stop recording
+      await _positionStream?.cancel();
+      _pokeGeolocatorTask?.cancel();
+      _pokeGeolocatorTask = null;
+      _positionStream = null;
+      latestPosition = null;
+      _positionBufferFlushTimer?.cancel();
+      _positionBufferFlushTimer = null;
+      await _flushPositionBuffer();
+    }
+
+    if (to == GpsRecordingStatus.recording) {
+      // start recording
+      try {
+        if (!await _checkPermission()) {
+          await _requestPermission();
+        }
+      } catch (e) {
+        Fluttertoast.showToast(msg: e.toString());
+        return;
+      }
+      _pokeGeolocatorTask ??= _PokeGeolocatorTask.start();
+      _positionStream ??=
+          Geolocator.getPositionStream(locationSettings: _locationSettings)
+              .listen((Position? position) async {
+        if (position != null) {
+          _onPositionUpdate(position);
+        }
+      });
+    }
+
+    if (to == GpsRecordingStatus.none) {
+      if (await api.finalizeOngoingJourney()) {
+        Fluttertoast.showToast(msg: "New journey added");
+      } else {
+        Fluttertoast.showToast(msg: "No journey detected");
+      }
+    }
+
+    status = to;
+    _saveIsRecordingState();
+    notifyListeners();
+  }
+
+  Future<void> changeState(GpsRecordingStatus to) async {
+    await _m.protect(() async {
+      await _changeStateWithoutLock(to);
     });
   }
 }
