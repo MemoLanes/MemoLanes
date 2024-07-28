@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/gps_recording_state.dart';
+import 'package:memolanes/utils.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:memolanes/src/rust/api/api.dart';
 import 'package:provider/provider.dart';
@@ -53,6 +55,7 @@ class _SettingsBodyState extends State<SettingsBody> {
   @override
   Widget build(BuildContext context) {
     var updateUrl = context.watch<UpdateNotifier>().updateUrl;
+    var gpsRecordingState = context.watch<GpsRecordingState>();
 
     return Column(
       children: [
@@ -64,12 +67,20 @@ class _SettingsBodyState extends State<SettingsBody> {
         ),
         ElevatedButton(
           onPressed: () async {
-            _selectImportFile(context, ImportType.fow);
+            await showInfoDialog(context,
+                "This is an experimental feature and only supports zip compressed Fog of World Sync folder.\n\nPlease try not to import large amount of data or multiple datasets. A better import tool will be released in the future.");
+            if (!context.mounted) return;
+            await _selectImportFile(context, ImportType.fow);
           },
           child: const Text("Import FoW data"),
         ),
         ElevatedButton(
           onPressed: () async {
+            if (gpsRecordingState.status != GpsRecordingStatus.none) {
+              await showInfoDialog(context,
+                  "Please stop the current ongoing journey before archiving.");
+              return;
+            }
             var tmpDir = await getTemporaryDirectory();
             var ts = DateTime.now().millisecondsSinceEpoch;
             var filepath = "${tmpDir.path}/${ts.toString()}.mldx";
@@ -87,6 +98,14 @@ class _SettingsBodyState extends State<SettingsBody> {
         ),
         ElevatedButton(
           onPressed: () async {
+            if (gpsRecordingState.status != GpsRecordingStatus.none) {
+              await showInfoDialog(context,
+                  "Please stop the current ongoing journey before restoring.");
+              return;
+            }
+            // TODO: only show the below dialog if there is data.
+            await showInfoDialog(context,
+                "You will lose all the current data in the app.\nConsider archive your data before restoring.");
             // TODO: FilePicker is weird and `allowedExtensions` does not really work.
             // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
             var result =
@@ -98,7 +117,7 @@ class _SettingsBodyState extends State<SettingsBody> {
               }
             }
           },
-          child: const Text("Reset & Recover"),
+          child: const Text("Reset & Restore"),
         ),
         if (updateUrl != null)
           ElevatedButton(

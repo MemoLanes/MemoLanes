@@ -18,7 +18,7 @@ use crate::{archive, export_data, gps_processor, merged_journey_builder, storage
 // TODO: we have way too many locking here and now it is hard to track.
 //  e.g. we could mess up with the order and cause a deadlock
 #[frb(ignore)]
-pub struct MainState {
+pub(super) struct MainState {
     pub storage: Storage,
     pub map_renderer: Mutex<Option<MapRenderer>>,
     pub gps_processor: Mutex<GpsProcessor>,

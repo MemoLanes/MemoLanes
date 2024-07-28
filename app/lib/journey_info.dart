@@ -51,6 +51,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     }
   }
 
+  // TODO: Consider merge this one with the one in `utils.dart`
   showDialogFunction(fn) {
     showDialog(
       context: context,
@@ -74,7 +75,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
 
   @override
   Widget build(BuildContext context) {
-    final _mapRendererProxy = this._mapRendererProxy;
+    final mapRendererProxy = _mapRendererProxy;
     return Scaffold(
       appBar: AppBar(
         title: const Text("Journey Info"),
@@ -122,11 +123,11 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
               ),
             ]),
             Expanded(
-              child: _mapRendererProxy == null
+              child: mapRendererProxy == null
                   ? (const CircularProgressIndicator())
                   : (BaseMap(
                       key: const ValueKey("mapWidget"),
-                      mapRendererProxy: _mapRendererProxy,
+                      mapRendererProxy: mapRendererProxy,
                       // TODO: get a reasonable camera option from the journey data.
                       initialCameraOptions: CameraOptions(),
                     )),
