@@ -178,7 +178,8 @@ class GpsRecordingState extends ChangeNotifier {
       if (!await Geolocator.isLocationServiceEnabled()) {
         return false;
       }
-      if (!(await Geolocator.checkPermission() == LocationPermission.always)) {
+      if (!(await Permission.location.isGranted ||
+          await Permission.locationAlways.isGranted)) {
         return false;
       }
       return true;
@@ -188,27 +189,42 @@ class GpsRecordingState extends ChangeNotifier {
   }
 
   Future<void> _requestPermission() async {
+    // TODO: I think there are still a lot we could improve here:
+    // 1. more guidance?
+    // 2. Using dialog instead of toast for some cases.
+    // 3. more granular permissions?
     if (!await Geolocator.isLocationServiceEnabled()) {
       if (!await Geolocator.openLocationSettings()) {
         throw "Location services not enabled";
       }
     }
 
+    if (await Permission.location.isPermanentlyDenied ||
+        await Permission.notification.isPermanentlyDenied) {
+      await Geolocator.openAppSettings();
+      throw "Please allow location & notification permissions";
+    }
+
     if (!await Permission.notification.isGranted) {
-      await Permission.notification.request();
-      if (!await Permission.notification.isGranted) {
+      if (!await Permission.notification.request().isGranted) {
         throw "notification permission not granted";
       }
     }
 
-    LocationPermission permission = await Geolocator.requestPermission();
-    if (permission == LocationPermission.whileInUse) {
-      await Permission.locationAlways.request();
-      permission = await Geolocator.checkPermission();
+    if (!await Permission.location.isGranted) {
+      if (!await Permission.location.request().isGranted) {
+        throw "location permission not granted";
+      }
     }
-    if (permission != LocationPermission.always) {
-      await Geolocator.openAppSettings();
-      throw "Please allow location permissions";
+
+    if (!await Permission.locationAlways.isGranted) {
+      // It seems this does not wait for the result on iOS, and always
+      // permission is not strictly required.
+      await Permission.locationAlways.request();
+      if (await Permission.locationAlways.isPermanentlyDenied) {
+        Fluttertoast.showToast(
+            msg: "Location always permission is recommended");
+      }
     }
   }
 
