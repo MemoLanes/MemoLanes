@@ -68,7 +68,7 @@ class _SettingsBodyState extends State<SettingsBody> {
         ElevatedButton(
           onPressed: () async {
             await showInfoDialog(context,
-                "This is an experimental feature and only supports zip compressed Fog of World Sync folder.\n\nPlease try not to import large amount or multiple dataset. A better import tool will be released in the future.");
+                "This is an experimental feature and only supports zip compressed Fog of World Sync folder.\n\nPlease try not to import large amount of data or multiple datasets. A better import tool will be released in the future.");
             if (!context.mounted) return;
             await _selectImportFile(context, ImportType.fow);
           },
