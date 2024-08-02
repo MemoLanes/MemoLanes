@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:memolanes/gps_recording_state.dart';
 import 'package:provider/provider.dart';
+import 'package:memolanes/extensions/l10n_context.dart';
 
 class GPSPage extends StatelessWidget {
   @override
@@ -18,8 +19,8 @@ class GPSPage extends StatelessWidget {
         children: [
           Text(message),
           Text(gpsRecordingState.status == GpsRecordingStatus.recording
-              ? "Recording"
-              : "Idle"),
+              ? context.l10n.gpsRecording
+              : context.l10n.gpsIdle),
           Builder(
             builder: (BuildContext context) {
               if (gpsRecordingState.status == GpsRecordingStatus.none) {
@@ -28,7 +29,7 @@ class GPSPage extends StatelessWidget {
                       gpsRecordingState
                           .changeState(GpsRecordingStatus.recording);
                     },
-                    child: const Text("Start new journey"));
+                    child: Text(context.l10n.gpsStartNewJourney));
               } else if (gpsRecordingState.status ==
                   GpsRecordingStatus.recording) {
                 return Column(children: [
@@ -37,12 +38,12 @@ class GPSPage extends StatelessWidget {
                         gpsRecordingState
                             .changeState(GpsRecordingStatus.paused);
                       },
-                      child: const Text("Pause")),
+                      child: Text(context.l10n.gpsPause)),
                   ElevatedButton(
                       onPressed: () async {
                         gpsRecordingState.changeState(GpsRecordingStatus.none);
                       },
-                      child: const Text("Stop")),
+                      child: Text(context.l10n.gpsStop)),
                 ]);
               } else if (gpsRecordingState.status ==
                   GpsRecordingStatus.paused) {
@@ -52,12 +53,12 @@ class GPSPage extends StatelessWidget {
                         gpsRecordingState
                             .changeState(GpsRecordingStatus.recording);
                       },
-                      child: const Text("Resume")),
+                      child: Text(context.l10n.gpsRusme)),
                   ElevatedButton(
                       onPressed: () async {
                         gpsRecordingState.changeState(GpsRecordingStatus.none);
                       },
-                      child: const Text("Stop")),
+                      child: Text(context.l10n.gpsStop)),
                 ]);
               }
               // This is actually dead code
