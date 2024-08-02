@@ -16,6 +16,10 @@
 # .nfs files are created when an open file is removed but is still being accessed
 .nfs*
 
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+.vscode/
 ### macOS ###
 # General
 .DS_Store

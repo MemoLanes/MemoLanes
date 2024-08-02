@@ -3,7 +3,11 @@ use anyhow::Result;
 use rusqlite::{Connection, OptionalExtension};
 use std::path::Path;
 
-use crate::{journey_bitmap::JourneyBitmap, journey_data};
+use crate::{
+    journey_bitmap::JourneyBitmap,
+    journey_data::{self, JourneyData},
+    merged_journey_builder::add_journey_vector_to_journey_bitmap,
+};
 
 // TODO: Right now, we keep a cache of all finalized journeys (and fallback to
 // compute it by merging all journeys in main db). We clear this cache entirely
@@ -127,5 +131,22 @@ impl CacheDb {
         // TODO: in v1, use more fine-grained delete with year/month
         self.conn.execute("DELETE FROM journey_cache;", [])?;
         Ok(())
+    }
+
+    pub fn merge_journey_cache(&self, key: &JourneyCacheKey, journey: JourneyData) -> Result<()> {
+        let journey_bitmap = match self.get_journey_cache(key)? {
+            Some(mut cache_bitmap) => {
+                match journey {
+                    JourneyData::Vector(vector) => {
+                        add_journey_vector_to_journey_bitmap(&mut cache_bitmap, &vector)
+                    }
+                    JourneyData::Bitmap(bitmap) => cache_bitmap.merge(bitmap),
+                }
+                cache_bitmap
+            }
+            None => return Ok(()),
+        };
+        // Update the journey cache with the new or merged bitmap
+        self.set_journey_cache(key, &journey_bitmap)
     }
 }

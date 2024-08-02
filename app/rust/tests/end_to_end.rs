@@ -26,6 +26,7 @@ fn basic() {
     let (first_elements, remaining_elements) = raw_data_list.split_at_mut(2000);
     let mut map_renderer_proxy = api::get_map_renderer_proxy_for_main_map();
 
+    assert!(!api::has_ongoing_journey().unwrap());
     for (i, raw_data) in first_elements.iter().enumerate() {
         api::on_location_update(
             vec![RawData {
@@ -39,6 +40,7 @@ fn basic() {
             raw_data.timestamp_ms.unwrap(),
         );
         if i == 1000 {
+            assert!(api::has_ongoing_journey().unwrap());
             let _: bool = api::finalize_ongoing_journey().unwrap();
         } else if i == 2000 {
             // we have both ongoing journey and finalized journey at this point
@@ -63,6 +65,6 @@ fn basic() {
     test_utils::assert_image(
         &render_result.data,
         "end_to_end_basic_1",
-        "b53b0236d4c3a538b80ac3700a5e2ca6e701b868",
+        "28deac2c1e1766af941efad51153c6f5533f775e",
     );
 }

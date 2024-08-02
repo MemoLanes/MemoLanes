@@ -93,8 +93,13 @@ fn open_db_and_run_migration(
 
 pub struct Txn<'a> {
     db_txn: rusqlite::Transaction<'a>,
-    // TODO: in cache db v1, we want to improve the granularity.
-    pub reset_cache: bool,
+    pub action: Option<Action>,
+}
+
+#[derive(PartialEq, Eq, Debug)]
+pub enum Action {
+    Merge { journey_ids: Vec<String> },
+    CompleteRebuilt,
 }
 
 // NOTE: the `Txn` here is not only for making operation atomic, the `storage`
@@ -143,7 +148,7 @@ impl Txn<'_> {
 
     pub fn clear_journeys(&mut self) -> Result<()> {
         self.db_txn.execute("DELETE FROM journey;", ())?;
-        self.reset_cache = true;
+        self.action = Some(Action::CompleteRebuilt);
         Ok(())
     }
 
@@ -151,7 +156,7 @@ impl Txn<'_> {
         let changes = self
             .db_txn
             .execute("DELETE FROM journey WHERE id = ?1;", (id,))?;
-        self.reset_cache = true;
+        self.action = Some(Action::CompleteRebuilt);
         if changes == 1 {
             Ok(())
         } else {
@@ -185,7 +190,14 @@ impl Txn<'_> {
                 data_bytes,
             ),
         )?;
-        self.reset_cache = true;
+
+        match self.action.get_or_insert(Action::Merge {
+            journey_ids: vec![],
+        }) {
+            Action::Merge { journey_ids } => journey_ids.push(id),
+            Action::CompleteRebuilt => (),
+        }
+
         Ok(())
     }
 
@@ -386,7 +398,7 @@ impl MainDb {
     {
         let mut txn = Txn {
             db_txn: self.conn.transaction()?,
-            reset_cache: false,
+            action: None,
         };
         let output = f(&mut txn)?;
         txn.db_txn.commit()?;

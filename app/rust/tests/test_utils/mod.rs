@@ -18,6 +18,7 @@ pub fn load_raw_gpx_data_for_test() -> Vec<gps_processor::RawData> {
         let datetime_str = &datetime_str[..datetime_str.len() - 3]; // Remove the "+00" offset from the end
         let timestamp_ms = NaiveDateTime::parse_from_str(datetime_str, "%Y/%m/%d %H:%M:%S%.3f")
             .unwrap()
+            .and_utc()
             .timestamp_millis();
 
         let raw_data = gps_processor::RawData {

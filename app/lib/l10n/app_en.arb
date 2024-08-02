@@ -1,20 +1,29 @@
 {
   "@@locale": "en",
-  "start": "Start",
-  "stop": "Stop",
-  "startNewJourney": "Start a new journey",
-  "recording": "recording",
-  "idle": "idle",
-  "startTime": "Start time:",
-  "endTime": "End time:",
-  "journeyDate": "Journey date",
-  "note": "Note",
-  "delete": "delete",
-  "exportKML": "export KML",
-  "exportGPX": "export GPX",
-  "importData": "Import KML/GPX data",
-  "importFowData": "Improt FoW data",
-  "reset": "Reset&Recover",
-  "archive": "Archive All",
-  "update": "Update"
+  "@_COMMON": {
+  },
+  "commonDelete": "Delete",
+  "commonNote": "Note",
+  "commonStartTime": "Start time:",
+  "commonEndTime": "End time:",
+  "commonJourneyDate": "Journey date",
+  "@_GPS_PAGE": {
+  },
+  "gpsPause": "Pause",
+  "gpsStop": "Stop",
+  "gpsRusme": "Rusme",
+  "gpsRecording": "recording",
+  "gpsIdle": "idle",
+  "gpsStartNewJourney": "Start a new journey",
+  "@_IMPORT_EXPORT": {
+  },
+  "ieExportKML": "export KML",
+  "ieExportGPX": "export GPX",
+  "ieImportData": "Import KML/GPX data",
+  "ieImportFowData": "Improt FoW data",
+  "@_SEETINGS_PAGE": {
+  },
+  "settingsReset": "Reset&Recover",
+  "settingsArchive": "Archive All",
+  "settingsUpdate": "Update"
 }

@@ -165,23 +165,23 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             title: Text(widget.title),
           ),
-          body: const TabBarView(
-            physics: NeverScrollableScrollPhysics(),
+          body: TabBarView(
+            physics: const NeverScrollableScrollPhysics(),
             children: [
               Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.start,
                   children: <Widget>[
                     GPSPage(),
-                    Expanded(
+                    const Expanded(
                       child: MapUiBody(),
                     ),
                   ],
                 ),
               ),
-              Center(child: JourneyUiBody()),
-              Center(child: SettingsBody()),
-              Center(child: RawDataBody())
+              const Center(child: JourneyUiBody()),
+              const Center(child: SettingsBody()),
+              const Center(child: RawDataBody())
             ],
           )),
     );

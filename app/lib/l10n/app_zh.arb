@@ -1,20 +1,29 @@
 {
   "@@locale": "zh",
-  "start": "开始",
-  "stop": "结束",
-  "startNewJourney": "开启一段新的旅程",
-  "recording": "记录中",
-  "idle": "空闲",
-  "startTime": "开始时间:",
-  "endTime": "结束时间:",
-  "journeyDate": "旅途日期",
-  "note": "备注",
-  "delete": "删除",
-  "exportKML": "导出 KML",
-  "exportGPX": "导出 GPX",
-  "importData": "导入",
-  "importFowData": "导入Fow",
-  "reset": "重置",
-  "archive": "备份",
-  "update": "更新"
+  "@_COMMON": {
+  },
+  "commonDelete": "删除",
+  "commonNote": "备注",
+  "commonStartTime": "开始时间:",
+  "commonEndTime": "结束时间:",
+  "commonJourneyDate": "旅途日期",
+  "@_GPS_PAGE": {
+  },
+  "gpsPause": "暂停",
+  "gpsStop": "结束",
+  "gpsRusme": "恢复",
+  "gpsRecording": "记录中",
+  "gpsIdle": "空闲",
+  "gpsStartNewJourney": "开始一段新的旅程",
+  "@_IMPORT_EXPORT": {
+  },
+  "ieExportKML": "导出为 KML",
+  "ieExportGPX": "导出为 GPX",
+  "ieImportData": "导入 KML/GPX",
+  "ieImportFowData": "导入 Fow",
+  "@_SEETINGS_PAGE": {
+  },
+  "settingsReset": "重置",
+  "settingsArchive": "备份",
+  "settingsUpdate": "更新"
 }

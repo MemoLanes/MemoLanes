@@ -253,12 +253,7 @@ pub fn journey_vector_from_raw_data(
         let mut gps_processor = GpsProcessor::new();
         x.into_iter().map(move |raw_data| {
             let process_result = if run_preprocessor {
-                // This is ugly but fine
-                let mut result = ProcessResult::Append;
-                gps_processor.preprocess(raw_data.clone(), |_last_data, _curr_data, result_| {
-                    result = result_
-                });
-                result
+                gps_processor.preprocess(&raw_data)
             } else {
                 ProcessResult::Append
             };
@@ -304,7 +299,7 @@ pub fn journey_info_from_raw_vector_data(raw_vector_data: &[Vec<RawData>]) -> Jo
 
     let journey_date = local_date_from_time.unwrap_or_else(|| Local::now().date_naive());
     JourneyInfo {
-        journey_date: journey_date.format("%Y-%m-%d").to_string(),
+        journey_date,
         start_time,
         end_time,
         note: None,

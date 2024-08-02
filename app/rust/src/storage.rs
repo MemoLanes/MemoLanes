@@ -6,10 +6,10 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use crate::cache_db::CacheDb;
+use crate::cache_db::{CacheDb, JourneyCacheKey};
 use crate::gps_processor::{self, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
-use crate::main_db::{self, MainDb};
+use crate::main_db::{self, Action, MainDb};
 use crate::merged_journey_builder;
 
 // TODO: error handling in this file is horrifying, we should think about what
@@ -49,12 +49,7 @@ impl RawDataRecorder {
         }
     }
 
-    fn record(
-        &mut self,
-        raw_data: &gps_processor::RawData,
-        process_result: ProcessResult,
-        recevied_timestamp_ms: i64,
-    ) {
+    fn record(&mut self, raw_data: &gps_processor::RawData, recevied_timestamp_ms: i64) {
         // TODO: better error handling
         let (file, _) = self.file_and_name.get_or_insert_with(|| {
             let timestamp_sec = Utc::now().timestamp_micros() / 1000000;
@@ -71,7 +66,7 @@ impl RawDataRecorder {
             let mut file = File::create(path).unwrap();
             let _ = file
                 .write(
-                    "timestamp_ms,recevied_timestamp_ms,latitude,longitude,accuarcy,altitude,speed,process_result\n"
+                    "timestamp_ms,recevied_timestamp_ms,latitude,longitude,accuarcy,altitude,speed\n"
                         .as_bytes(),
                 )
                 .unwrap();
@@ -79,15 +74,14 @@ impl RawDataRecorder {
         });
         file.write_all(
             format!(
-                "{},{},{},{},{},{},{},{}\n",
+                "{},{},{},{},{},{},{}\n",
                 raw_data.timestamp_ms.unwrap_or_default(),
                 recevied_timestamp_ms,
                 raw_data.latitude,
                 raw_data.longitude,
                 raw_data.accuracy.map(|x| x.to_string()).unwrap_or_default(),
                 &raw_data.altitude.map(|x| x.to_string()).unwrap_or_default(),
-                &raw_data.speed.map(|x| x.to_string()).unwrap_or_default(),
-                process_result.to_int()
+                &raw_data.speed.map(|x| x.to_string()).unwrap_or_default()
             )
             .as_bytes(),
         )
@@ -140,12 +134,29 @@ impl Storage {
         let (ref mut main_db, ref cache_db) = *dbs;
         main_db.with_txn(|txn| {
             let output = f(txn)?;
-            if txn.reset_cache {
-                cache_db.clear_journey_cache()?;
-                let mut main_map_renderer_need_to_reload =
-                    self.main_map_renderer_need_to_reload.lock().unwrap();
-                *main_map_renderer_need_to_reload = true;
+
+            match &txn.action {
+                None => (),
+                Some(action) => {
+                    match action {
+                        Action::CompleteRebuilt => {
+                            cache_db.clear_journey_cache()?;
+                        }
+                        Action::Merge { journey_ids } => {
+                            for journey_id in journey_ids {
+                                cache_db.merge_journey_cache(
+                                    &JourneyCacheKey::All,
+                                    txn.get_journey(journey_id)?,
+                                )?;
+                            }
+                        }
+                    };
+                    let mut main_map_renderer_need_to_reload =
+                        self.main_map_renderer_need_to_reload.lock().unwrap();
+                    *main_map_renderer_need_to_reload = true;
+                }
             }
+
             Ok(output)
         })
     }
@@ -202,7 +213,7 @@ impl Storage {
     ) {
         let mut raw_data_recorder = self.raw_data_recorder.lock().unwrap();
         if let Some(ref mut x) = *raw_data_recorder {
-            x.record(raw_data, process_result, recevied_timestamp_ms);
+            x.record(raw_data, recevied_timestamp_ms);
         }
         drop(raw_data_recorder);
 
