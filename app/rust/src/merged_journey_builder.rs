@@ -8,9 +8,10 @@ use crate::{
     journey_bitmap::JourneyBitmap,
     journey_data::JourneyData,
     journey_vector::JourneyVector,
-    main_db::MainDb,
+    main_db::{self, MainDb},
 };
 use anyhow::Result;
+use chrono::NaiveDate;
 
 pub fn add_journey_vector_to_journey_bitmap(
     journey_bitmap: &mut JourneyBitmap,
@@ -30,25 +31,42 @@ pub fn add_journey_vector_to_journey_bitmap(
     }
 }
 
+// TODO: This is going to be very slow.
+fn get_range_internal(
+    txn: &mut main_db::Txn,
+    from_date_inclusive: Option<NaiveDate>,
+    to_date_inclusive: Option<NaiveDate>,
+) -> Result<JourneyBitmap> {
+    let mut journey_bitmap = JourneyBitmap::new();
+    for journey_header in txn.query_journeys(from_date_inclusive, to_date_inclusive)? {
+        let journey_data = txn.get_journey(&journey_header.id)?;
+        match journey_data {
+            JourneyData::Bitmap(bitmap) => journey_bitmap.merge(bitmap),
+            JourneyData::Vector(vector) => {
+                add_journey_vector_to_journey_bitmap(&mut journey_bitmap, &vector);
+            }
+        }
+    }
+    Ok(journey_bitmap)
+}
+
+pub fn get_range(
+    txn: &mut main_db::Txn,
+    from_date_inclusive: NaiveDate,
+    to_date_inclusive: NaiveDate,
+) -> Result<JourneyBitmap> {
+    get_range_internal(txn, Some(from_date_inclusive), Some(to_date_inclusive))
+}
+
 pub fn get_latest_including_ongoing(
     main_db: &mut MainDb,
     cache_db: &CacheDb,
 ) -> Result<JourneyBitmap> {
     main_db.with_txn(|txn| {
         // getting finalized journeys
-        let mut journey_bitmap =
-            cache_db.get_journey_cache_or_compute(&JourneyCacheKey::All, || {
-                let mut journey_bitmap = JourneyBitmap::new();
-                for journey_header in txn.query_journeys(None, None)? {
-                    let journey_data = txn.get_journey(&journey_header.id)?;
-                    match journey_data {
-                        JourneyData::Bitmap(bitmap) => journey_bitmap.merge(bitmap),
-                        JourneyData::Vector(vector) => {
-                            add_journey_vector_to_journey_bitmap(&mut journey_bitmap, &vector);
-                        }
-                    }
-                }
-                Ok(journey_bitmap)
+        let mut journey_bitmap = cache_db
+            .get_journey_cache_or_compute(&JourneyCacheKey::All, || {
+                get_range_internal(txn, None, None)
             })?;
 
         // append remaining ongoing parts

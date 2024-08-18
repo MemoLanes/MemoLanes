@@ -269,7 +269,7 @@ impl Txn<'_> {
         Ok(new_journey_added)
     }
 
-    // TODO: we should consider disallow unbounded queries. Keeping all 
+    // TODO: we should consider disallow unbounded queries. Keeping all
     // `JourneyHeader` in memory might be a little bit too much.
     pub fn query_journeys(
         &self,
@@ -347,10 +347,10 @@ impl Txn<'_> {
         }
     }
 
-    pub fn first_journey_date(&self) -> Result<Option<NaiveDate>> {
+    pub fn earliest_journey_date(&self) -> Result<Option<NaiveDate>> {
         let mut query = self
             .db_txn
-            .prepare("SELECT MIN(journey_date) FROM journey;")?;
+            .prepare("SELECT journey_date FROM journey ORDER BY journey_date LIMIT 1;")?;
         Ok(query
             .query_row((), |row| Ok(utils::date_of_days_since_epoch(row.get(0)?)))
             .optional()?)

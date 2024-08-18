@@ -171,6 +171,11 @@ fn journey_query() {
         .unwrap()
     };
 
+    assert_eq!(
+        main_db.with_txn(|txn| txn.earliest_journey_date()).unwrap(),
+        None
+    );
+
     main_db
         .with_txn(|txn| {
             add_empty_journey(txn, "2024-08-01");
@@ -182,8 +187,37 @@ fn journey_query() {
         })
         .unwrap();
 
-    assert_eq!(main_db.with_txn(|txn| txn.query_journeys(None, None)).unwrap().len(), 5);
-    assert_eq!(main_db.with_txn(|txn| txn.query_journeys(Some(date("2024-08-06")), None)).unwrap().len(), 3);
-    assert_eq!(main_db.with_txn(|txn| txn.query_journeys(Some(date("2024-08-06")), Some(date("2024-08-06")))).unwrap().len(), 2);
-    assert_eq!(main_db.with_txn(|txn| txn.query_journeys(None, Some(date("2024-08-05")))).unwrap().len(), 2);
+    assert_eq!(
+        main_db.with_txn(|txn| txn.earliest_journey_date()).unwrap(),
+        Some(date("2024-08-01"))
+    );
+
+    assert_eq!(
+        main_db
+            .with_txn(|txn| txn.query_journeys(None, None))
+            .unwrap()
+            .len(),
+        5
+    );
+    assert_eq!(
+        main_db
+            .with_txn(|txn| txn.query_journeys(Some(date("2024-08-06")), None))
+            .unwrap()
+            .len(),
+        3
+    );
+    assert_eq!(
+        main_db
+            .with_txn(|txn| txn.query_journeys(Some(date("2024-08-06")), Some(date("2024-08-06"))))
+            .unwrap()
+            .len(),
+        2
+    );
+    assert_eq!(
+        main_db
+            .with_txn(|txn| txn.query_journeys(None, Some(date("2024-08-05"))))
+            .unwrap()
+            .len(),
+        2
+    );
 }
