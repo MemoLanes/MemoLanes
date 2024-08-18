@@ -237,7 +237,7 @@ pub fn has_ongoing_journey() -> Result<bool> {
 }
 
 pub fn list_all_journeys() -> Result<Vec<JourneyHeader>> {
-    get().storage.with_db_txn(|txn| txn.query_journeys())
+    get().storage.with_db_txn(|txn| txn.query_journeys(None, None))
 }
 
 pub fn generate_full_archive(target_filepath: String) -> Result<()> {

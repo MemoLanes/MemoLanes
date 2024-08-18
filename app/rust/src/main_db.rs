@@ -269,12 +269,24 @@ impl Txn<'_> {
         Ok(new_journey_added)
     }
 
-    pub fn query_journeys(&self) -> Result<Vec<JourneyHeader>> {
+    pub fn query_journeys(
+        &self,
+        from_date_inclusive: Option<NaiveDate>,
+        to_date_inclusive: Option<NaiveDate>,
+    ) -> Result<Vec<JourneyHeader>> {
         let mut query = self.db_txn.prepare(
             "SELECT header, type FROM journey WHERE journey_date >= (?1) AND journey_date <= (?2) ORDER BY journey_date DESC, timestamp_for_ordering DESC, id;",
             // use `id` to break tie
         )?;
-        let mut rows = query.query((i32::MIN, i32::MAX))?;
+        let from = match from_date_inclusive {
+            None => i32::MIN,
+            Some(from_date) => utils::date_to_days_since_epoch(from_date),
+        };
+        let to = match to_date_inclusive {
+            None => i32::MAX,
+            Some(to_date) => utils::date_to_days_since_epoch(to_date),
+        };
+        let mut rows = query.query((from, to))?;
         let mut results = Vec::new();
         while let Some(row) = rows.next()? {
             let header_bytes = row.get_ref(0)?.as_blob()?;
