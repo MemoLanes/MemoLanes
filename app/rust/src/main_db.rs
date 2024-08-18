@@ -269,6 +269,8 @@ impl Txn<'_> {
         Ok(new_journey_added)
     }
 
+    // TODO: we should consider disallow unbounded queries. Keeping all 
+    // `JourneyHeader` in memory might be a little bit too much.
     pub fn query_journeys(
         &self,
         from_date_inclusive: Option<NaiveDate>,
