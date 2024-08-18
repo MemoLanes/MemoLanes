@@ -31,8 +31,9 @@ pub fn date_to_days_since_epoch(date: NaiveDate) -> i32 {
     date.num_days_from_ce() - *EPOCH_NUM_OF_DAYS_FROM_CE
 }
 
-pub fn date_of_days_since_epoch(days: i32) -> Option<NaiveDate> {
+pub fn date_of_days_since_epoch(days: i32) -> NaiveDate {
     NaiveDate::from_num_days_from_ce_opt(days + *EPOCH_NUM_OF_DAYS_FROM_CE)
+        .expect("Invalid num of days")
 }
 
 #[cfg(test)]
@@ -47,7 +48,7 @@ mod tests {
             let date = NaiveDate::from_ymd_opt(y, m, d).unwrap();
             let days = date_to_days_since_epoch(date);
             assert_eq!(days, expected_days);
-            assert_eq!(date, date_of_days_since_epoch(days).unwrap());
+            assert_eq!(date, date_of_days_since_epoch(days));
         };
         check(1970, 1, 1, 0);
         check(2024, 2, 29, 19782);

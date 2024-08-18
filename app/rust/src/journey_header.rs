@@ -115,8 +115,7 @@ impl JourneyHeader {
         Ok(JourneyHeader {
             id: proto.id,
             revision: proto.revision,
-            journey_date: utils::date_of_days_since_epoch(proto.journey_date__days_since_epoch)
-                .unwrap(),
+            journey_date: utils::date_of_days_since_epoch(proto.journey_date__days_since_epoch),
             created_at: DateTime::from_timestamp(proto.created_at__timestamp_sec, 0).unwrap(),
             updated_at: proto
                 .updated_at__timestamp_sec

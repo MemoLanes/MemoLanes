@@ -32,7 +32,7 @@ fn basic() {
         .unwrap();
 
     // validate the finalized journey
-    let journeys = main_db.with_txn(|txn| txn.list_all_journeys()).unwrap();
+    let journeys = main_db.with_txn(|txn| txn.query_journeys()).unwrap();
     assert_eq!(journeys.len(), 1);
     let journey_id = &journeys[0].id;
     let journey_data = main_db
@@ -73,7 +73,7 @@ fn basic() {
         .unwrap();
     assert_eq!(
         main_db
-            .with_txn(|txn| txn.list_all_journeys())
+            .with_txn(|txn| txn.query_journeys())
             .unwrap()
             .len(),
         1

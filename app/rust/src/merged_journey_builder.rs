@@ -39,7 +39,7 @@ pub fn get_latest_including_ongoing(
         let mut journey_bitmap =
             cache_db.get_journey_cache_or_compute(&JourneyCacheKey::All, || {
                 let mut journey_bitmap = JourneyBitmap::new();
-                for journey_header in txn.list_all_journeys()? {
+                for journey_header in txn.query_journeys()? {
                     let journey_data = txn.get_journey(&journey_header.id)?;
                     match journey_data {
                         JourneyData::Bitmap(bitmap) => journey_bitmap.merge(bitmap),
