@@ -1,9 +1,11 @@
 pub mod test_utils;
 
-use chrono::DateTime;
+use chrono::{DateTime, NaiveDate};
 use memolanes_core::{
     gps_processor::{self, RawData},
     journey_data::JourneyData,
+    journey_header::JourneyKind,
+    journey_vector::JourneyVector,
     main_db::{self, MainDb},
 };
 use tempdir::TempDir;
@@ -32,7 +34,9 @@ fn basic() {
         .unwrap();
 
     // validate the finalized journey
-    let journeys = main_db.with_txn(|txn| txn.list_all_journeys()).unwrap();
+    let journeys = main_db
+        .with_txn(|txn| txn.query_journeys(None, None))
+        .unwrap();
     assert_eq!(journeys.len(), 1);
     let journey_id = &journeys[0].id;
     let journey_data = main_db
@@ -73,7 +77,7 @@ fn basic() {
         .unwrap();
     assert_eq!(
         main_db
-            .with_txn(|txn| txn.list_all_journeys())
+            .with_txn(|txn| txn.query_journeys(None, None))
             .unwrap()
             .len(),
         1
@@ -141,4 +145,79 @@ fn get_lastest_timestamp_of_ongoing_journey() {
         .with_txn(|txn| txn.get_lastest_timestamp_of_ongoing_journey())
         .unwrap();
     assert_eq!(result, DateTime::from_timestamp(1697349117, 0));
+}
+
+#[test]
+fn journey_query() {
+    let temp_dir = TempDir::new("main_db-journey_query").unwrap();
+    println!("temp dir: {:?}", temp_dir.path());
+
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+
+    let date = |str| NaiveDate::parse_from_str(str, "%Y-%m-%d").unwrap();
+
+    let add_empty_journey = |txn: &mut main_db::Txn, journey_date_str| {
+        txn.create_and_insert_journey(
+            date(journey_date_str),
+            None,
+            None,
+            None,
+            JourneyKind::DefaultKind,
+            None,
+            JourneyData::Vector(JourneyVector {
+                track_segments: vec![],
+            }),
+        )
+        .unwrap()
+    };
+
+    assert_eq!(
+        main_db.with_txn(|txn| txn.earliest_journey_date()).unwrap(),
+        None
+    );
+
+    main_db
+        .with_txn(|txn| {
+            add_empty_journey(txn, "2024-08-01");
+            add_empty_journey(txn, "2024-08-05");
+            add_empty_journey(txn, "2024-08-06");
+            add_empty_journey(txn, "2024-08-06");
+            add_empty_journey(txn, "2024-08-10");
+            Ok(())
+        })
+        .unwrap();
+
+    assert_eq!(
+        main_db.with_txn(|txn| txn.earliest_journey_date()).unwrap(),
+        Some(date("2024-08-01"))
+    );
+
+    assert_eq!(
+        main_db
+            .with_txn(|txn| txn.query_journeys(None, None))
+            .unwrap()
+            .len(),
+        5
+    );
+    assert_eq!(
+        main_db
+            .with_txn(|txn| txn.query_journeys(Some(date("2024-08-06")), None))
+            .unwrap()
+            .len(),
+        3
+    );
+    assert_eq!(
+        main_db
+            .with_txn(|txn| txn.query_journeys(Some(date("2024-08-06")), Some(date("2024-08-06"))))
+            .unwrap()
+            .len(),
+        2
+    );
+    assert_eq!(
+        main_db
+            .with_txn(|txn| txn.query_journeys(None, Some(date("2024-08-05"))))
+            .unwrap()
+            .len(),
+        2
+    );
 }

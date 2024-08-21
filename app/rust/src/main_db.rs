@@ -269,12 +269,26 @@ impl Txn<'_> {
         Ok(new_journey_added)
     }
 
-    pub fn list_all_journeys(&self) -> Result<Vec<JourneyHeader>> {
+    // TODO: we should consider disallow unbounded queries. Keeping all
+    // `JourneyHeader` in memory might be a little bit too much.
+    pub fn query_journeys(
+        &self,
+        from_date_inclusive: Option<NaiveDate>,
+        to_date_inclusive: Option<NaiveDate>,
+    ) -> Result<Vec<JourneyHeader>> {
         let mut query = self.db_txn.prepare(
-            "SELECT header, type FROM journey ORDER BY journey_date DESC, timestamp_for_ordering DESC, id;",
+            "SELECT header, type FROM journey WHERE journey_date >= (?1) AND journey_date <= (?2) ORDER BY journey_date DESC, timestamp_for_ordering DESC, id;",
             // use `id` to break tie
         )?;
-        let mut rows = query.query(())?;
+        let from = match from_date_inclusive {
+            None => i32::MIN,
+            Some(from_date) => utils::date_to_days_since_epoch(from_date),
+        };
+        let to = match to_date_inclusive {
+            None => i32::MAX,
+            Some(to_date) => utils::date_to_days_since_epoch(to_date),
+        };
+        let mut rows = query.query((from, to))?;
         let mut results = Vec::new();
         while let Some(row) = rows.next()? {
             let header_bytes = row.get_ref(0)?.as_blob()?;
@@ -331,6 +345,15 @@ impl Txn<'_> {
                 }
             }
         }
+    }
+
+    pub fn earliest_journey_date(&self) -> Result<Option<NaiveDate>> {
+        let mut query = self
+            .db_txn
+            .prepare("SELECT journey_date FROM journey ORDER BY journey_date LIMIT 1;")?;
+        Ok(query
+            .query_row((), |row| Ok(utils::date_of_days_since_epoch(row.get(0)?)))
+            .optional()?)
     }
 }
 

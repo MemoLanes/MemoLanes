@@ -4,6 +4,7 @@ use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 
 use anyhow::{Ok, Result};
+use chrono::NaiveDate;
 use flutter_rust_bridge::frb;
 use simplelog::{Config, LevelFilter, WriteLogger};
 
@@ -130,6 +131,24 @@ pub fn get_map_renderer_proxy_for_main_map() -> MapRendererProxy {
     MapRendererProxy::MainMap
 }
 
+#[frb(sync)]
+pub fn get_empty_map_renderer_proxy() -> MapRendererProxy {
+    let journey_bitmap = JourneyBitmap::new();
+    let map_renderer = MapRenderer::new(journey_bitmap);
+    MapRendererProxy::Simple(map_renderer)
+}
+
+pub fn get_map_renderer_proxy_for_journey_date_range(
+    from_date_inclusive: NaiveDate,
+    to_date_inclusive: NaiveDate,
+) -> Result<MapRendererProxy> {
+    let journey_bitmap = get().storage.with_db_txn(|txn| {
+        merged_journey_builder::get_range(txn, from_date_inclusive, to_date_inclusive)
+    })?;
+    let map_renderer = MapRenderer::new(journey_bitmap);
+    Ok(MapRendererProxy::Simple(map_renderer))
+}
+
 pub fn get_map_renderer_proxy_for_journey(journey_id: &str) -> Result<MapRendererProxy> {
     let journey_data = get()
         .storage
@@ -237,7 +256,9 @@ pub fn has_ongoing_journey() -> Result<bool> {
 }
 
 pub fn list_all_journeys() -> Result<Vec<JourneyHeader>> {
-    get().storage.with_db_txn(|txn| txn.list_all_journeys())
+    get()
+        .storage
+        .with_db_txn(|txn| txn.query_journeys(None, None))
 }
 
 pub fn generate_full_archive(target_filepath: String) -> Result<()> {
@@ -307,4 +328,8 @@ pub fn delayed_init(device_info: &DeviceInfo, app_info: &AppInfo) {
         app_info,
         short_commit_hash()
     );
+}
+
+pub fn earliest_journey_date() -> Result<Option<NaiveDate>> {
+    get().storage.with_db_txn(|txn| txn.earliest_journey_date())
 }

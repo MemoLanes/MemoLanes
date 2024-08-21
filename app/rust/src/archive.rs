@@ -137,7 +137,7 @@ fn write_proto_as_compressed_block<W: Write, M: protobuf::Message>(
 }
 
 pub fn archive_all_as_zip<T: Write + Seek>(txn: &main_db::Txn, writer: &mut T) -> Result<()> {
-    let all_journeys = txn.list_all_journeys()?;
+    let all_journeys = txn.query_journeys(None, None)?;
 
     // group journeys into sections and sort them(by end time and tie
     // break by id, the deterministic ordering is important).
