@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -59,6 +60,8 @@ class BaseMapState extends State<BaseMap> {
     final right = northeast[0];
     final bottom = southwest[1];
 
+    print("do actual refresh");
+
     final renderResult = await widget.mapRendererProxy.renderMapOverlay(
       zoom: zoom,
       left: left!.toDouble(),
@@ -100,6 +103,12 @@ class BaseMapState extends State<BaseMap> {
             .updateStyleImageSourceImage(overlayImageSourceId, image);
       }
     }
+  }
+
+  @override
+  void didUpdateWidget(BaseMap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _triggerRefresh();
   }
 
   void _refreshLoop() async {

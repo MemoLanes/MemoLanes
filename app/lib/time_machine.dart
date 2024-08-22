@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:memolanes/component/base_map.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/utils.dart';
 
@@ -11,13 +13,16 @@ class TimeMachineUIBody extends StatefulWidget {
 }
 
 class _TimeMachineUIBodyState extends State<TimeMachineUIBody> {
-  final DateFormat dateFormat = DateFormat("yyyy-MM-dd");
-  DateTime? earliestJourneyDate;
+  final DateFormat _dateFormat = DateFormat("yyyy-MM-dd");
+  DateTime? _earliestJourneyDate;
 
-  DateTime fromDateInclusive = DateTime.now();
-  DateTime toDateInclusive = DateTime.now();
+  DateTime _fromDateInclusive = DateTime.now();
+  DateTime _toDateInclusive = DateTime.now();
 
-  bool loading = false;
+  bool _loading = false;
+  bool _changed = true;
+
+  api.MapRendererProxy? _mapRendererProxy;
 
   @override
   void initState() {
@@ -26,8 +31,8 @@ class _TimeMachineUIBodyState extends State<TimeMachineUIBody> {
     api.earliestJourneyDate().then((value) {
       if (value != null) {
         setState(() {
-          earliestJourneyDate =
-              dateFormat.parse(naiveDateToString(date: value));
+          _earliestJourneyDate =
+              _dateFormat.parse(naiveDateToString(date: value));
         });
       }
     });
@@ -35,11 +40,22 @@ class _TimeMachineUIBodyState extends State<TimeMachineUIBody> {
 
   @override
   Widget build(BuildContext context) {
-    var earliestJourneyDate = this.earliestJourneyDate;
+    var earliestJourneyDate = _earliestJourneyDate;
     if (earliestJourneyDate == null) {
       return const Center(
           child: Text('No Data', style: TextStyle(fontSize: 24)));
     }
+
+    var mapRendererProxy = _mapRendererProxy;
+    var mapComponent = (mapRendererProxy == null)
+        ? Container()
+        : BaseMap(
+            key: const ValueKey("mapWidget"),
+            mapRendererProxy: mapRendererProxy,
+            // TODO: get a reasonable camera option from the journey bitmap.
+            initialCameraOptions: CameraOptions(),
+          );
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
@@ -51,17 +67,18 @@ class _TimeMachineUIBodyState extends State<TimeMachineUIBody> {
           TextField(
             readOnly: true,
             controller: TextEditingController(
-                text: dateFormat.format(fromDateInclusive)),
+                text: _dateFormat.format(_fromDateInclusive)),
             onTap: () async {
               DateTime? time = await showDatePicker(
                 context: context,
-                initialDate: fromDateInclusive,
+                initialDate: _fromDateInclusive,
                 firstDate: earliestJourneyDate,
                 lastDate: DateTime.now(),
               );
               if (time != null) {
                 setState(() {
-                  fromDateInclusive = time;
+                  _changed = true;
+                  _fromDateInclusive = time;
                 });
               }
             },
@@ -71,18 +88,19 @@ class _TimeMachineUIBodyState extends State<TimeMachineUIBody> {
           ),
           TextField(
             readOnly: true,
-            controller:
-                TextEditingController(text: dateFormat.format(toDateInclusive)),
+            controller: TextEditingController(
+                text: _dateFormat.format(_toDateInclusive)),
             onTap: () async {
               DateTime? time = await showDatePicker(
                 context: context,
-                initialDate: toDateInclusive,
+                initialDate: _toDateInclusive,
                 firstDate: earliestJourneyDate,
                 lastDate: DateTime.now(),
               );
               if (time != null) {
                 setState(() {
-                  toDateInclusive = time;
+                  _changed = true;
+                  _toDateInclusive = time;
                 });
               }
             },
@@ -93,19 +111,29 @@ class _TimeMachineUIBodyState extends State<TimeMachineUIBody> {
           Container(
               padding: const EdgeInsets.all(10),
               child: ElevatedButton(
-                  onPressed: (loading
+                  onPressed: ((_loading || !_changed)
                       ? null
                       : () async {
                           setState(() {
-                            loading = true;
+                            _loading = true;
+                            _changed = false;
                           });
+                          var mapRendererProxy =
+                              await api.getMapRendererProxyForJourneyDateRange(
+                                  fromDateInclusive: naiveDateOfString(
+                                      str: _dateFormat
+                                          .format(_fromDateInclusive)),
+                                  toDateInclusive: naiveDateOfString(
+                                      str: _dateFormat
+                                          .format(_toDateInclusive)));
                           setState(() {
-                            loading = false;
+                            _mapRendererProxy = mapRendererProxy;
+                            _loading = false;
                           });
                         }),
-                  child: const Text("View"))),
-          const Expanded(
-            child: Text("aaaa"),
+                  child: Text(_loading ? "Loading" : "View"))),
+          Expanded(
+            child: mapComponent,
           ),
         ],
       ),
