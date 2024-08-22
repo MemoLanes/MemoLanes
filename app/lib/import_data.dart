@@ -86,8 +86,7 @@ class _ImportDataPage extends State<ImportDataPage> {
       note = null;
     }
     import_api.JourneyInfo saveInfo = import_api.JourneyInfo(
-        journeyDate: naiveDateOfString(
-            str: DateFormat('yyyy-MM-dd').format(_journeyDate!)),
+        journeyDate: naiveDateOfString(str: dateFormat.format(_journeyDate!)),
         startTime: _startTime,
         endTime: _endTime,
         note: note);

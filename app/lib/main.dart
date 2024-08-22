@@ -1,6 +1,7 @@
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/time_machine.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:memolanes/settings.dart';
@@ -122,12 +123,13 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Scaffold(
           appBar: AppBar(
             bottom: TabBar(
               tabs: [
                 const Tab(icon: Icon(Icons.home)),
+                const Tab(icon: Icon(Icons.update)),
                 const Tab(icon: Icon(Icons.map)),
                 Tab(
                   child: badges.Badge(
@@ -176,9 +178,10 @@ class _MyHomePageState extends State<MyHomePage> {
                   ],
                 ),
               ),
+              const Center(child: TimeMachineUIBody()),
               const Center(child: JourneyUiBody()),
               const Center(child: SettingsBody()),
-              const Center(child: RawDataBody())
+              const Center(child: RawDataBody()),
             ],
           )),
     );

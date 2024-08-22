@@ -102,6 +102,12 @@ class BaseMapState extends State<BaseMap> {
     }
   }
 
+  @override
+  void didUpdateWidget(BaseMap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _triggerRefresh();
+  }
+
   void _refreshLoop() async {
     await widget.mapRendererProxy.resetMapRenderer();
     while (true) {
