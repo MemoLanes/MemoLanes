@@ -143,7 +143,7 @@ SPEC CHECKSUMS:
   MapboxCoreMaps: bd097795c5ae4f002181769e7151474a33ce878a
   MapboxMaps: fc1b2ab98563d0157ba01f6e4a2fd8a8af556d92
   package_info_plus: 58f0028419748fad15bf008b270aaa8e54380b1c
-  path_provider_foundation: 3784922295ac71e43754bd15e0653ccfd36a147c
+  path_provider_foundation: 2b6b4c569c0fb62ec74538f866245ac84301af46
   permission_handler_apple: 9878588469a2b0d0fc1e048d9f43605f92e6cec2
   rust_builder: 06c007d2993fe78fac952c4fb967ac1dfd0522c0
   SDWebImage: 8a6b7b160b4d710e2a22b6900e25301075c34cb3
