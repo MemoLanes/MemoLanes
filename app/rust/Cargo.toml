@@ -12,7 +12,7 @@ anyhow = { version = "1.0", features = ["backtrace"] }
 chrono = "0.4"
 flutter_rust_bridge = { version = "=2.3.0", features = ["chrono"] }
 log = "0.4"
-rusqlite = { version = "0.31", features = ["bundled"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
 simplelog = "0.12"
 tiny-skia = "0.11"
 protobuf = "3.5"
@@ -23,7 +23,7 @@ itertools = "0.13"
 strum = "0.26"
 strum_macros = "0.26"
 random-string = "1.1"
-zip = "2.1"
+zip = "2.2"
 sha1 = "0.10"
 hex = "0.4"
 integer-encoding = "4.0"
