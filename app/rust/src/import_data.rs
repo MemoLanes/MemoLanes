@@ -13,6 +13,8 @@ use kml::{Kml, KmlReader};
 use std::result::Result::Ok;
 use std::vec;
 use std::{fs::File, io::BufReader, io::Read, path::Path};
+use flutter_rust_bridge::for_generated::futures::future::ok;
+use kml::types::{Element, Geometry};
 
 struct FoWTileId {
     x: u16,
@@ -152,6 +154,17 @@ pub fn load_gpx(file_path: &str) -> Result<Vec<Vec<RawData>>> {
 }
 
 pub fn load_kml(file_path: &str) -> Result<Vec<Vec<RawData>>> {
+    let kml_data =
+        KmlReader::<_, f64>::from_reader(BufReader::new(File::open(file_path)?)).read()?;
+    let flatten_data = flatten_kml(kml_data);
+    let mut raw_vector_data = read_track(&flatten_data)?;
+    if raw_vector_data.len() == 0 {
+        raw_vector_data = read_line_string(&flatten_data)?
+    }
+    Ok(raw_vector_data)
+}
+
+fn read_track(flatten_data: &Vec<Kml>) -> Result<Vec<Vec<RawData>>> {
     let parse_line = |coord: &Option<String>, when: &Option<String>| -> Result<Option<RawData>> {
         let coord: Vec<&str> = match coord {
             Some(coord) => coord.split_whitespace().collect(),
@@ -177,13 +190,10 @@ pub fn load_kml(file_path: &str) -> Result<Vec<Vec<RawData>>> {
         }))
     };
 
-    let kml_data =
-        KmlReader::<_, f64>::from_reader(BufReader::new(File::open(file_path)?)).read()?;
-
-    let segments = flatten_kml(kml_data)
-        .into_iter()
+    let segments = flatten_data
+        .iter()
         .filter_map(|k| match k {
-            Kml::Placemark(p) => Some(p.children),
+            Kml::Placemark(p) => Some(&p.children),
             _ => None,
         })
         .flat_map(|arr| arr.into_iter().filter(|e| e.name == "Track"));
@@ -193,11 +203,11 @@ pub fn load_kml(file_path: &str) -> Result<Vec<Vec<RawData>>> {
     for segment in segments {
         let mut when_list = Vec::new();
         let mut coord_list = Vec::new();
-        segment.children.into_iter().for_each(|e| {
+        &segment.children.iter().for_each(|e| {
             if e.name == "when" {
-                when_list.push(e.content);
+                when_list.push(&e.content);
             } else if e.name == "coord" {
-                coord_list.push(e.content);
+                coord_list.push(&e.content);
             }
         });
 
@@ -230,6 +240,31 @@ pub fn load_kml(file_path: &str) -> Result<Vec<Vec<RawData>>> {
         }
     }
 
+    Ok(raw_vector_data)
+}
+
+fn read_line_string(flatten_data: &Vec<Kml>) -> Result<Vec<Vec<RawData>>> {
+    let mut raw_vector_data: Vec<Vec<RawData>> = Vec::new();
+    flatten_data
+        .iter()
+        .for_each(|k| {
+            let mut raw_vector_data_segment: Vec<RawData> = Vec::new();
+            if let Kml::Placemark(p) = k {
+                if let Some(Geometry::LineString(p)) = &p.geometry {
+                    p.coords.iter().for_each(|coord| {
+                        raw_vector_data_segment.push(RawData {
+                            latitude: coord.x,
+                            longitude: coord.y,
+                            timestamp_ms: None,
+                            accuracy: None,
+                            altitude: None,
+                            speed: None,
+                        });
+                    });
+                }
+            }
+            raw_vector_data.push(raw_vector_data_segment);
+        });
     Ok(raw_vector_data)
 }
 
