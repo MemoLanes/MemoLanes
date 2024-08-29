@@ -92,7 +92,7 @@ impl RawDataRecorder {
 pub struct Storage {
     support_dir: String,
     raw_data_recorder: Mutex<Option<RawDataRecorder>>, // `None` means disabled
-    _cache_dir: String,
+    pub cache_dir: String,
     // TODO: I feel the abstraction between `dbs`, `merged_journey_builder`, and
     // `main_map_renderer_need_to_reload` is a bit bad. We should refactor it,
     // but maybe do that when we know more.
@@ -120,7 +120,7 @@ impl Storage {
         Storage {
             support_dir,
             raw_data_recorder: Mutex::new(raw_data_recorder),
-            _cache_dir: cache_dir,
+            cache_dir: cache_dir,
             dbs: Mutex::new((main_db, cache_db)),
             main_map_renderer_need_to_reload: Mutex::new(true),
         }

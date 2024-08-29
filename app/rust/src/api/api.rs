@@ -1,17 +1,16 @@
 use std::cmp::max;
 use std::fs::File;
-use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 
 use anyhow::{Ok, Result};
 use chrono::NaiveDate;
 use flutter_rust_bridge::frb;
-use simplelog::{Config, LevelFilter, WriteLogger};
 
 use crate::gps_processor::{GpsProcessor, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_data::JourneyData;
 use crate::journey_header::JourneyHeader;
+use crate::logs;
 use crate::map_renderer::{MapRenderer, RenderResult};
 use crate::storage::Storage;
 use crate::{archive, export_data, gps_processor, merged_journey_builder, storage};
@@ -43,13 +42,7 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
         already_initialized = false;
 
         // init logging
-        let path = Path::new(&cache_dir).join("main.log");
-        WriteLogger::init(
-            LevelFilter::Info,
-            Config::default(),
-            File::create(path).unwrap(),
-        )
-        .expect("Failed to initialize logging");
+        logs::init(&cache_dir).expect("Failed to initialize logging");
 
         let storage = Storage::init(temp_dir, doc_dir, support_dir, cache_dir);
         info!("initialized");
@@ -332,4 +325,9 @@ pub fn delayed_init(device_info: &DeviceInfo, app_info: &AppInfo) {
 
 pub fn earliest_journey_date() -> Result<Option<NaiveDate>> {
     get().storage.with_db_txn(|txn| txn.earliest_journey_date())
+}
+
+pub fn export_logs(target_file_path: String) -> Result<()> {
+    logs::export(&get().storage.cache_dir, &target_file_path)?;
+    Ok(())
 }
