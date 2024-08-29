@@ -41,7 +41,7 @@ PODS:
     - Toast
   - geolocator_apple (1.2.0):
     - Flutter
-  - mapbox_maps_flutter (2.2.0):
+  - mapbox_maps_flutter (2.2.1):
     - Flutter
     - MapboxMaps (~> 11.6.0)
     - Turf (= 2.8.0)
@@ -138,7 +138,7 @@ SPEC CHECKSUMS:
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
   fluttertoast: e9a18c7be5413da53898f660530c56f35edfba9c
   geolocator_apple: 6cbaf322953988e009e5ecb481f07efece75c450
-  mapbox_maps_flutter: d853261834ff2a87f716e5c4beb150bca3f4cb65
+  mapbox_maps_flutter: 943324063065b4ef15e146be95ed87f5bae1a6ba
   MapboxCommon: 6008e74b1312a093dec291497a036fc8b47f344f
   MapboxCoreMaps: bd097795c5ae4f002181769e7151474a33ce878a
   MapboxMaps: fc1b2ab98563d0157ba01f6e4a2fd8a8af556d92
