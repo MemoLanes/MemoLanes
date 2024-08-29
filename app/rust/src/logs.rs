@@ -1,5 +1,7 @@
 use std::{
-    fs::{self, File}, io, path::Path
+    fs::{self, File},
+    io,
+    path::Path,
 };
 
 use anyhow::Result;
@@ -24,7 +26,7 @@ pub fn init(cache_dir: &str) -> Result<()> {
 }
 
 pub fn export(cache_dir: &str, target_file_path: &str) -> Result<()> {
-    let mut zip = zip::ZipWriter::new(File::open(target_file_path)?);
+    let mut zip = zip::ZipWriter::new(File::create(target_file_path)?);
     let default_options =
         zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
@@ -33,7 +35,7 @@ pub fn export(cache_dir: &str, target_file_path: &str) -> Result<()> {
         if let Some(entry) = entry.ok() {
             let path = entry.path();
             if path.is_file() {
-                if let Some(name) = path.strip_prefix(&log_folder)?.to_str() {
+                if let Some(name) = path.strip_prefix(&cache_dir)?.to_str() {
                     zip.start_file(name, default_options)?;
                     let mut log_file = File::open(path)?;
                     io::copy(&mut log_file, &mut zip)?;
