@@ -10,7 +10,7 @@ use file_rotate::{
     suffix::{AppendTimestamp, FileLimit},
     {ContentLimit, FileRotate},
 };
-use simplelog::{Config, LevelFilter, WriteLogger};
+use simplelog::{ConfigBuilder, LevelFilter, WriteLogger};
 
 pub fn init(cache_dir: &str) -> Result<()> {
     let path = Path::new(cache_dir).join("logs/main.log");
@@ -21,7 +21,8 @@ pub fn init(cache_dir: &str) -> Result<()> {
         Compression::None,
         None,
     );
-    WriteLogger::init(LevelFilter::Info, Config::default(), log)?;
+    let config = ConfigBuilder::new().set_time_format_rfc3339().build();
+    WriteLogger::init(LevelFilter::Info, config, log)?;
     Ok(())
 }
 
