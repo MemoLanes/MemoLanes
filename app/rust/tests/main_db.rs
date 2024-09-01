@@ -39,9 +39,7 @@ fn basic() {
         .unwrap();
     assert_eq!(journeys.len(), 1);
     let journey_id = &journeys[0].id;
-    let journey_data = main_db
-        .with_txn(|txn| txn.get_journey(journey_id))
-        .unwrap();
+    let journey_data = main_db.with_txn(|txn| txn.get_journey(journey_id)).unwrap();
 
     let journey_vector = match &journey_data {
         JourneyData::Vector(vector) => vector,
