@@ -33,7 +33,7 @@ pub fn export(cache_dir: &str, target_file_path: &str) -> Result<()> {
 
     let log_folder = Path::new(cache_dir).join("logs/");
     for entry in fs::read_dir(&log_folder)? {
-        if let Some(entry) = entry.ok() {
+        if let Ok(entry) = entry {
             let path = entry.path();
             if path.is_file() {
                 if let Some(name) = path.strip_prefix(&cache_dir)?.to_str() {

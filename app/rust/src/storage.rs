@@ -120,7 +120,7 @@ impl Storage {
         Storage {
             support_dir,
             raw_data_recorder: Mutex::new(raw_data_recorder),
-            cache_dir: cache_dir,
+            cache_dir,
             dbs: Mutex::new((main_db, cache_db)),
             main_map_renderer_need_to_reload: Mutex::new(true),
         }

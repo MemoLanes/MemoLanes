@@ -302,6 +302,7 @@ pub fn recover_from_archive(zip_file_path: String) -> Result<()> {
 
 #[derive(Debug)]
 pub struct DeviceInfo {
+    pub is_physical_device: bool,
     pub manufacturer: Option<String>,
     pub model: Option<String>,
     pub system_version: Option<String>,
