@@ -255,6 +255,7 @@ pub fn list_all_journeys() -> Result<Vec<JourneyHeader>> {
 }
 
 pub fn generate_full_archive(target_filepath: String) -> Result<()> {
+    info!("generating full archive");
     let mut file = File::create(target_filepath)?;
     get()
         .storage
@@ -294,6 +295,7 @@ pub fn export_journey(
 }
 
 pub fn recover_from_archive(zip_file_path: String) -> Result<()> {
+    info!("Recovering from archive");
     get()
         .storage
         .with_db_txn(|txn| archive::recover_archive_file(txn, &zip_file_path))?;
