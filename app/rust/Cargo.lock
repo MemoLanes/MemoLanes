@@ -655,6 +655,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "file-rotate"
+version = "0.7.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7a3ed82142801f5b1363f7d463963d114db80f467e860b1cd82228eaebc627a0"
+dependencies = [
+ "chrono",
+ "flate2",
+]
+
+[[package]]
 name = "flate2"
 version = "1.0.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1257,6 +1267,7 @@ dependencies = [
  "assert_float_eq",
  "chrono",
  "csv",
+ "file-rotate",
  "flate2",
  "flutter_rust_bridge",
  "geo-types",

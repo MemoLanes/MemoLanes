@@ -96,23 +96,6 @@ fn block_index_to_key(i: u16) -> (u8, u8) {
     (x, y)
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::journey_data::*;
-
-    #[test]
-    fn block_key_conversion() {
-        assert_eq!(block_key_to_index(0, 0), (0));
-        assert_eq!(block_index_to_key(0), (0, 0));
-
-        assert_eq!(block_key_to_index(127, 127), (16383));
-        assert_eq!(block_index_to_key(16383), (127, 127));
-
-        assert_eq!(block_key_to_index(64, 17), (8209));
-        assert_eq!(block_index_to_key(8209), (64, 17));
-    }
-}
-
 pub fn serialize_journey_bitmap<T: Write>(
     journey_bitmap: &JourneyBitmap,
     mut writer: T,
@@ -228,5 +211,22 @@ impl JourneyData {
             JourneyType::Vector => Ok(JourneyData::Vector(deserialize_journey_vector(reader)?)),
             JourneyType::Bitmap => Ok(JourneyData::Bitmap(deserialize_journey_bitmap(reader)?)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::journey_data::*;
+
+    #[test]
+    fn block_key_conversion() {
+        assert_eq!(block_key_to_index(0, 0), (0));
+        assert_eq!(block_index_to_key(0), (0, 0));
+
+        assert_eq!(block_key_to_index(127, 127), (16383));
+        assert_eq!(block_index_to_key(16383), (127, 127));
+
+        assert_eq!(block_key_to_index(64, 17), (8209));
+        assert_eq!(block_index_to_key(8209), (64, 17));
     }
 }

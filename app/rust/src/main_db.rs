@@ -153,6 +153,7 @@ impl Txn<'_> {
     }
 
     pub fn delete_journey(&mut self, id: &str) -> Result<()> {
+        info!("Deleting journey: id={}", id);
         let changes = self
             .db_txn
             .execute("DELETE FROM journey WHERE id = ?1;", (id,))?;
@@ -170,6 +171,7 @@ impl Txn<'_> {
             bail!("[insert_journey] Mismatch journey type")
         }
         let id = header.id.clone();
+        info!("Adding new journey: id={}", &id);
         let journey_date = utils::date_to_days_since_epoch(header.journey_date);
         // use start time first, then fallback to endtime
         let timestamp_for_ordering = header.start.or(header.end).map(|x| x.timestamp());
@@ -266,6 +268,10 @@ impl Txn<'_> {
             (),
         )?;
 
+        info!(
+            "Ongoing journey finalized: new_journey_added={}",
+            new_journey_added
+        );
         Ok(new_journey_added)
     }
 
@@ -338,6 +344,10 @@ impl Txn<'_> {
                     // 2 minutes
                     now.timestamp() - latest.timestamp() >= 2 * 60
                 };
+                info!(
+                    "Auto finalize ongoing journey: latest={}, now={}, try_finalize={}",
+                    latest, now, try_finalize
+                );
                 if try_finalize {
                     self.finalize_ongoing_journey()
                 } else {

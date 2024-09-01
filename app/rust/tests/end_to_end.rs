@@ -67,4 +67,7 @@ fn basic() {
         "end_to_end_basic_1",
         "28deac2c1e1766af941efad51153c6f5533f775e",
     );
+
+    // try export logs
+    api::export_logs("./tests/for_inspection/end_to_end_basic-logs.zip".to_string()).unwrap();
 }
