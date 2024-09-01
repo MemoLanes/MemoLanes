@@ -32,17 +32,15 @@ pub fn export(cache_dir: &str, target_file_path: &str) -> Result<()> {
         zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
     let log_folder = Path::new(cache_dir).join("logs/");
-    for entry in fs::read_dir(&log_folder)? {
-        if let Ok(entry) = entry {
-            let path = entry.path();
-            if path.is_file() {
-                if let Some(name) = path.strip_prefix(&cache_dir)?.to_str() {
-                    zip.start_file(name, default_options)?;
-                    let mut log_file = File::open(path)?;
-                    io::copy(&mut log_file, &mut zip)?;
-                }
+    for entry in (fs::read_dir(&log_folder)?).flatten() {
+        let path = entry.path();
+        if path.is_file() {
+            if let Some(name) = path.strip_prefix(cache_dir)?.to_str() {
+                zip.start_file(name, default_options)?;
+                let mut log_file = File::open(path)?;
+                io::copy(&mut log_file, &mut zip)?;
             }
-        };
+        }
     }
 
     zip.finish()?;
