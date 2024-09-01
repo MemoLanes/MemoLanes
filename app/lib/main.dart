@@ -50,10 +50,13 @@ void delayedInit(UpdateNotifier updateNotifier) {
             packageName: packageInfo.packageName,
             version: packageInfo.version,
             buildNumber: packageInfo.buildNumber));
-    doWork() async {}
+    doWork() async {
+      // TODO: for future use
+    }
 
     await doWork();
     Timer.periodic(const Duration(minutes: 10), (_) async {
+      await api.tenMinutesHeartbeat();
       await doWork();
     });
   });

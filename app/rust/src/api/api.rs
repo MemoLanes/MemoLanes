@@ -332,3 +332,7 @@ pub fn export_logs(target_file_path: String) -> Result<()> {
     logs::export(&get().storage.cache_dir, &target_file_path)?;
     Ok(())
 }
+
+pub fn ten_minutes_heartbeat() {
+    info!("10 minutes heartbeat");
+}
