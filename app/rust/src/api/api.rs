@@ -144,21 +144,15 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
     Ok(MapRendererProxy::Simple(map_renderer))
 }
 
-pub fn get_camera_option_from_journey(journey_bitmap: &JourneyBitmap) -> (f64, f64) {
+fn get_camera_option_from_journey(journey_bitmap: &JourneyBitmap) -> (f64, f64) {
     let (mut tile_x, mut tile_y) =  (0i32, 0i32);
     let (mut block_x, mut block_y) =  (0i32, 0i32);
     // get a visited point in given journey_bitmap  block.is_visited()
     'outer: for (tile_pos, tile) in &journey_bitmap.tiles {
         for (block_pos, block) in &tile.blocks {
-            for x in 0..63 {
-                for y in 0..63 {
-                    if block.is_visited(x, y) {
-                        (tile_x, tile_y) = (tile_pos.0 as i32, tile_pos.1 as i32);
-                        (block_x, block_y) = (block_pos.0 as i32, block_pos.1 as i32);
-                        break 'outer;
-                    }
-                }
-            }
+            (tile_x, tile_y) = (tile_pos.0 as i32, tile_pos.1 as i32);
+            (block_x, block_y) = (block_pos.0 as i32, block_pos.1 as i32);
+            break 'outer;
         }
     }
 
