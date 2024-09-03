@@ -29,11 +29,20 @@ struct RenderArea {
     bottom_idx: i32,
 }
 
+#[derive(Debug)]
+pub struct CameraOption{
+    pub zoom : f64,
+    pub lng  : f64,
+    pub lat  : f64,
+    pub bearing : f64,
+}
+
 pub struct MapRenderer {
     tile_renderer: TileRenderer,
     journey_bitmap: JourneyBitmap,
     current_render_area: Option<RenderArea>,
     dilation_radius: usize,
+    camera_option: CameraOption,
 }
 
 impl MapRenderer {
@@ -51,11 +60,21 @@ impl MapRenderer {
             journey_bitmap,
             current_render_area: None,
             dilation_radius: 1,
+            camera_option: CameraOption{
+                zoom: 1.0,
+                lng: 0.0,
+                lat: 0.0,
+                bearing: 0.0,
+            },
         }
     }
 
     pub fn set_dilation_radius(&mut self, radius: usize) {
         self.dilation_radius = radius;
+    }
+
+    pub fn set_camera_option(&mut self, new_camera_option: CameraOption) {
+        self.camera_option = new_camera_option;
     }
 
     fn render_map_overlay(&self, render_area: &RenderArea) -> RenderResult {
