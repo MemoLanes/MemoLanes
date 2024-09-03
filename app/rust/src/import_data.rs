@@ -9,12 +9,11 @@ use anyhow::Result;
 use chrono::{DateTime, Local, TimeZone, Utc};
 use flate2::read::ZlibDecoder;
 use gpx::{read, Time};
+use kml::types::Geometry;
 use kml::{Kml, KmlReader};
 use std::result::Result::Ok;
 use std::vec;
 use std::{fs::File, io::BufReader, io::Read, path::Path};
-use flutter_rust_bridge::for_generated::futures::future::ok;
-use kml::types::{Element, Geometry};
 
 struct FoWTileId {
     x: u16,
@@ -158,13 +157,13 @@ pub fn load_kml(file_path: &str) -> Result<Vec<Vec<RawData>>> {
         KmlReader::<_, f64>::from_reader(BufReader::new(File::open(file_path)?)).read()?;
     let flatten_data = flatten_kml(kml_data);
     let mut raw_vector_data = read_track(&flatten_data)?;
-    if raw_vector_data.len() == 0 {
+    if raw_vector_data.is_empty() {
         raw_vector_data = read_line_string(&flatten_data)?
     }
     Ok(raw_vector_data)
 }
 
-fn read_track(flatten_data: &Vec<Kml>) -> Result<Vec<Vec<RawData>>> {
+fn read_track(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
     let parse_line = |coord: &Option<String>, when: &Option<String>| -> Result<Option<RawData>> {
         let coord: Vec<&str> = match coord {
             Some(coord) => coord.split_whitespace().collect(),
@@ -196,14 +195,14 @@ fn read_track(flatten_data: &Vec<Kml>) -> Result<Vec<Vec<RawData>>> {
             Kml::Placemark(p) => Some(&p.children),
             _ => None,
         })
-        .flat_map(|arr| arr.into_iter().filter(|e| e.name == "Track"));
+        .flat_map(|arr| arr.iter().filter(|e| e.name == "Track"));
 
     let mut raw_vector_data: Vec<Vec<RawData>> = Vec::new();
 
     for segment in segments {
         let mut when_list = Vec::new();
         let mut coord_list = Vec::new();
-        &segment.children.iter().for_each(|e| {
+        segment.children.iter().for_each(|e| {
             if e.name == "when" {
                 when_list.push(&e.content);
             } else if e.name == "coord" {
@@ -223,11 +222,11 @@ fn read_track(flatten_data: &Vec<Kml>) -> Result<Vec<Vec<RawData>>> {
         let mut raw_vector_data_segment: Vec<RawData> = Vec::new();
         for i in 0..coord_list.len() {
             let parse_result = parse_line(
-                &coord_list[i],
+                coord_list[i],
                 if missing_timestamp {
                     &None
                 } else {
-                    &when_list[i]
+                    when_list[i]
                 },
             )?;
             match parse_result {
@@ -243,28 +242,26 @@ fn read_track(flatten_data: &Vec<Kml>) -> Result<Vec<Vec<RawData>>> {
     Ok(raw_vector_data)
 }
 
-fn read_line_string(flatten_data: &Vec<Kml>) -> Result<Vec<Vec<RawData>>> {
+fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
     let mut raw_vector_data: Vec<Vec<RawData>> = Vec::new();
-    flatten_data
-        .iter()
-        .for_each(|k| {
-            let mut raw_vector_data_segment: Vec<RawData> = Vec::new();
-            if let Kml::Placemark(p) = k {
-                if let Some(Geometry::LineString(p)) = &p.geometry {
-                    p.coords.iter().for_each(|coord| {
-                        raw_vector_data_segment.push(RawData {
-                            latitude: coord.x,
-                            longitude: coord.y,
-                            timestamp_ms: None,
-                            accuracy: None,
-                            altitude: None,
-                            speed: None,
-                        });
+    flatten_data.iter().for_each(|k| {
+        let mut raw_vector_data_segment: Vec<RawData> = Vec::new();
+        if let Kml::Placemark(p) = k {
+            if let Some(Geometry::LineString(p)) = &p.geometry {
+                p.coords.iter().for_each(|coord| {
+                    raw_vector_data_segment.push(RawData {
+                        latitude: coord.x,
+                        longitude: coord.y,
+                        timestamp_ms: None,
+                        accuracy: None,
+                        altitude: None,
+                        speed: None,
                     });
-                }
+                });
             }
-            raw_vector_data.push(raw_vector_data_segment);
-        });
+        }
+        raw_vector_data.push(raw_vector_data_segment);
+    });
     Ok(raw_vector_data)
 }
 
