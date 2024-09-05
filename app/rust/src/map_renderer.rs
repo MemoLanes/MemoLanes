@@ -29,7 +29,7 @@ struct RenderArea {
     bottom_idx: i32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CameraOption{
     pub zoom : f64,
     pub lng  : f64,
@@ -75,6 +75,10 @@ impl MapRenderer {
 
     pub fn set_camera_option(&mut self, new_camera_option: CameraOption) {
         self.camera_option = new_camera_option;
+    }
+    
+    pub fn get_camera_option(&self) -> CameraOption {
+        self.camera_option.clone()
     }
 
     fn render_map_overlay(&self, render_area: &RenderArea) -> RenderResult {
