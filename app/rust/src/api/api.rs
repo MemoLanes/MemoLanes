@@ -6,14 +6,12 @@ use anyhow::{Ok, Result};
 use chrono::NaiveDate;
 use flutter_rust_bridge::frb;
 
-use crate::utils;
 use crate::gps_processor::{GpsProcessor, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
-use crate::journey_bitmap::{TILE_WIDTH_OFFSET, MAP_WIDTH_OFFSET, TILE_WIDTH};
 use crate::journey_data::JourneyData;
 use crate::journey_header::JourneyHeader;
 use crate::logs;
-use crate::map_renderer::{MapRenderer, RenderResult, CameraOption};
+use crate::map_renderer::{MapRenderer, RenderResult};
 use crate::storage::Storage;
 use crate::{archive, export_data, gps_processor, merged_journey_builder, storage};
 
@@ -119,17 +117,6 @@ impl MapRendererProxy {
             }
         }
     }
-
-    pub fn get_camera_option(&self) -> Option<CameraOption> {
-        match self {
-            Self::MainMap => {
-                let state = get();
-                let map_renderer = state.map_renderer.lock().unwrap();
-                map_renderer.as_ref().map(|map_renderer| map_renderer.get_camera_option())
-            }
-            Self::Simple(map_renderer) => Some(map_renderer.get_camera_option()),
-        }
-    }
 }
 
 #[frb(sync)]
@@ -155,30 +142,6 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
     Ok(MapRendererProxy::Simple(map_renderer))
 }
 
-fn get_camera_option_from_journey(journey_bitmap: &JourneyBitmap) -> Result<CameraOption> {
-    let (mut tile_x, mut tile_y) =  (0i32, 0i32);
-    let (mut block_x, mut block_y) =  (0i32, 0i32);
-    // currently use the first valid block (top left) in given journey_bitmap  
-    'outer: for (tile_pos, tile) in &journey_bitmap.tiles {
-        for (block_pos, _block) in &tile.blocks {
-            (tile_x, tile_y) = (tile_pos.0 as i32, tile_pos.1 as i32);
-            (block_x, block_y) = (block_pos.0 as i32, block_pos.1 as i32);
-            break 'outer;
-        }
-    }
-
-    let blockzoomed_x : i32 = TILE_WIDTH as i32 * tile_x + block_x;
-    let blockzoomed_y : i32 = TILE_WIDTH as i32 * tile_y + block_y;
-    let (lng, lat) = utils::tile_x_y_to_lng_lat(blockzoomed_x, blockzoomed_y, (TILE_WIDTH_OFFSET + MAP_WIDTH_OFFSET).into());
-    let journey_camera_option = CameraOption {
-        zoom: 16.0,
-        lng,
-        lat,
-        bearing: 0.0,
-    };
-    Ok(journey_camera_option)
-}
-
 pub fn get_map_renderer_proxy_for_journey(journey_id: &str) -> Result<MapRendererProxy> {
     let journey_data = get()
         .storage
@@ -193,9 +156,7 @@ pub fn get_map_renderer_proxy_for_journey(journey_id: &str) -> Result<MapRendere
         }
     };
 
-    let journey_camera_option = get_camera_option_from_journey(&journey_bitmap).unwrap(); // get camera option from journey
-    let mut map_renderer = MapRenderer::new(journey_bitmap);
-    MapRenderer::set_camera_option(&mut map_renderer, journey_camera_option);
+    let map_renderer = MapRenderer::new(journey_bitmap);
     Ok(MapRendererProxy::Simple(map_renderer))
 }
 
