@@ -8,13 +8,13 @@ use crate::{
 use anyhow::Result;
 use chrono::{DateTime, Local, TimeZone, Utc};
 use flate2::read::ZlibDecoder;
+use flutter_rust_bridge::for_generated::futures::future::ok;
 use gpx::{read, Time};
+use kml::types::{Element, Geometry};
 use kml::{Kml, KmlReader};
 use std::result::Result::Ok;
 use std::vec;
 use std::{fs::File, io::BufReader, io::Read, path::Path};
-use flutter_rust_bridge::for_generated::futures::future::ok;
-use kml::types::{Element, Geometry};
 
 struct FoWTileId {
     x: u16,
@@ -245,26 +245,24 @@ fn read_track(flatten_data: &Vec<Kml>) -> Result<Vec<Vec<RawData>>> {
 
 fn read_line_string(flatten_data: &Vec<Kml>) -> Result<Vec<Vec<RawData>>> {
     let mut raw_vector_data: Vec<Vec<RawData>> = Vec::new();
-    flatten_data
-        .iter()
-        .for_each(|k| {
-            let mut raw_vector_data_segment: Vec<RawData> = Vec::new();
-            if let Kml::Placemark(p) = k {
-                if let Some(Geometry::LineString(p)) = &p.geometry {
-                    p.coords.iter().for_each(|coord| {
-                        raw_vector_data_segment.push(RawData {
-                            latitude: coord.x,
-                            longitude: coord.y,
-                            timestamp_ms: None,
-                            accuracy: None,
-                            altitude: None,
-                            speed: None,
-                        });
+    flatten_data.iter().for_each(|k| {
+        let mut raw_vector_data_segment: Vec<RawData> = Vec::new();
+        if let Kml::Placemark(p) = k {
+            if let Some(Geometry::LineString(p)) = &p.geometry {
+                p.coords.iter().for_each(|coord| {
+                    raw_vector_data_segment.push(RawData {
+                        latitude: coord.y,
+                        longitude: coord.x,
+                        timestamp_ms: None,
+                        accuracy: None,
+                        altitude: None,
+                        speed: None,
                     });
-                }
+                });
             }
-            raw_vector_data.push(raw_vector_data_segment);
-        });
+        }
+        raw_vector_data.push(raw_vector_data_segment);
+    });
     Ok(raw_vector_data)
 }
 
