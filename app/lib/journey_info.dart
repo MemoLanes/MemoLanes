@@ -21,15 +21,22 @@ class JourneyInfoPage extends StatefulWidget {
 class _JourneyInfoPage extends State<JourneyInfoPage> {
   final fmt = DateFormat('yyyy-MM-dd HH:mm:ss');
   api.MapRendererProxy? _mapRendererProxy;
+  CameraOptions _cameraOptions = CameraOptions();
 
   @override
   void initState() {
     super.initState();
     api
         .getMapRendererProxyForJourney(journeyId: widget.journeyHeader.id)
-        .then((mapRendererProxy) {
+        .then((mapRendererProxyAndCameraOption) {
       setState(() {
-        _mapRendererProxy = mapRendererProxy;
+        _mapRendererProxy = mapRendererProxyAndCameraOption.$1;
+        var cameraOption = mapRendererProxyAndCameraOption.$2;
+        if (cameraOption != null) {
+          _cameraOptions.zoom = cameraOption.zoom;
+          _cameraOptions.center =
+              Point(coordinates: Position(cameraOption.lng, cameraOption.lat));
+        }
       });
     });
   }
@@ -128,8 +135,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                   : (BaseMap(
                       key: const ValueKey("mapWidget"),
                       mapRendererProxy: mapRendererProxy,
-                      // TODO: get a reasonable camera option from the journey data.
-                      initialCameraOptions: CameraOptions(),
+                      initialCameraOptions: _cameraOptions,
                     )),
             )
           ],
