@@ -338,11 +338,11 @@ impl Txn<'_> {
                 let latest = latest_timestamp.with_timezone(&Local);
                 let now = Local::now();
                 let try_finalize = if latest.date_naive() == now.date_naive() {
-                    // 2 hours
-                    now.timestamp() - latest.timestamp() >= 2 * 60 * 60
+                    // 6 hours
+                    now.timestamp() - latest.timestamp() >= 6 * 60 * 60
                 } else {
-                    // 2 minutes
-                    now.timestamp() - latest.timestamp() >= 2 * 60
+                    // 15 minutes
+                    now.timestamp() - latest.timestamp() >= 15 * 60
                 };
                 info!(
                     "Auto finalize ongoing journey: latest={}, now={}, try_finalize={}",
