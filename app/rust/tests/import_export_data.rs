@@ -61,7 +61,10 @@ pub fn kml_track() {
     const EXPORT_PATH: &str = "./tests/for_inspection/laojunshan.kml";
     let raw_vecotr_data1 = import_data::load_kml(IMPORT_PATH).unwrap();
     let journey_info = import_data::journey_info_from_raw_vector_data(&raw_vecotr_data1);
-    let start_time = journey_info.start_time.unwrap_or_default().timestamp_millis();
+    let start_time = journey_info
+        .start_time
+        .unwrap_or_default()
+        .timestamp_millis();
     let end_time = journey_info.end_time.unwrap_or_default().timestamp_millis();
     let vector1 = import_data::journey_vector_from_raw_data(raw_vecotr_data1, false).unwrap();
 
@@ -96,7 +99,10 @@ pub fn kml_line_string() {
     const EXPORT_PATH: &str = "./tests/for_inspection/2024-08-24-2104.kml";
     let raw_vecotr_data1 = import_data::load_kml(IMPORT_PATH).unwrap();
     let journey_info = import_data::journey_info_from_raw_vector_data(&raw_vecotr_data1);
-    let start_time = journey_info.start_time.unwrap_or_default().timestamp_millis();
+    let start_time = journey_info
+        .start_time
+        .unwrap_or_default()
+        .timestamp_millis();
     let end_time = journey_info.end_time.unwrap_or_default().timestamp_millis();
     let vector1 = import_data::journey_vector_from_raw_data(raw_vecotr_data1, false).unwrap();
 
