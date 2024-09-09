@@ -1,20 +1,21 @@
-use crate::api::import::JourneyInfo;
-use crate::gps_processor::{PreprocessedData, ProcessResult, RawData};
-use crate::journey_bitmap::{self, Block, JourneyBitmap, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH};
+use std::{fs::File, io::BufReader, io::Read, path::Path};
+use std::result::Result::Ok;
+use std::vec;
+
+use anyhow::Result;
+use chrono::{DateTime, Local, TimeZone, Utc};
+use flate2::read::ZlibDecoder;
+use gpx::{read, Time};
+use kml::{Kml, KmlReader};
+use kml::types::Geometry;
+
 use crate::{
     gps_processor::{self, GpsProcessor},
     journey_vector::{JourneyVector, TrackPoint},
 };
-use anyhow::Result;
-use chrono::{DateTime, Local, TimeZone, Utc};
-use flate2::read::ZlibDecoder;
-use flutter_rust_bridge::for_generated::futures::future::ok;
-use gpx::{read, Time};
-use kml::types::{Element, Geometry};
-use kml::{Kml, KmlReader};
-use std::result::Result::Ok;
-use std::vec;
-use std::{fs::File, io::BufReader, io::Read, path::Path};
+use crate::api::import::JourneyInfo;
+use crate::gps_processor::{PreprocessedData, ProcessResult, RawData};
+use crate::journey_bitmap::{self, BITMAP_SIZE, Block, JourneyBitmap, MAP_WIDTH, TILE_WIDTH};
 
 struct FoWTileId {
     x: u16,
@@ -203,7 +204,7 @@ fn read_track(flatten_data: &Vec<Kml>) -> Result<Vec<Vec<RawData>>> {
     for segment in segments {
         let mut when_list = Vec::new();
         let mut coord_list = Vec::new();
-        &segment.children.iter().for_each(|e| {
+        let _ = &segment.children.iter().for_each(|e| {
             if e.name == "when" {
                 when_list.push(&e.content);
             } else if e.name == "coord" {
