@@ -119,6 +119,23 @@ class _SettingsBodyState extends State<SettingsBody> {
           },
           child: const Text("Reset & Restore"),
         ),
+        ElevatedButton(
+          onPressed: () async {
+            var tmpDir = await getTemporaryDirectory();
+            var ts = DateTime.now().millisecondsSinceEpoch;
+            var filepath = "${tmpDir.path}/${ts.toString()}.zip";
+            await exportLogs(targetFilePath: filepath);
+            await Share.shareXFiles([XFile(filepath)]);
+            try {
+              var file = File(filepath);
+              await file.delete();
+            } catch (e) {
+              print(e);
+              // don't care about error
+            }
+          },
+          child: const Text("Export Logs"),
+        ),
         if (updateUrl != null)
           ElevatedButton(
             onPressed: () async {

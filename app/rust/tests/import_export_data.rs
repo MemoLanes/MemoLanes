@@ -37,12 +37,10 @@ pub fn gpx() {
     let points1 = tracks1
         .into_iter()
         .flat_map(|t| t.track_points.into_iter())
-        .into_iter()
         .collect_vec();
     let points2 = tracks2
         .into_iter()
         .flat_map(|t| t.track_points.into_iter())
-        .into_iter()
         .collect_vec();
 
     assert_eq!(points1.len(), 2945);
@@ -80,12 +78,10 @@ pub fn kml_track() {
     let points1 = tracks1
         .into_iter()
         .flat_map(|t| t.track_points.into_iter())
-        .into_iter()
         .collect_vec();
     let points2 = tracks2
         .into_iter()
         .flat_map(|t| t.track_points.into_iter())
-        .into_iter()
         .collect_vec();
 
     assert_eq!(points1.len(), 1651);

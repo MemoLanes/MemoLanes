@@ -35,6 +35,7 @@ lazy_static = "1.5"
 geo-types = "0.7"
 imageproc = "0.25"
 image = "0.25"
+file-rotate = "0.7.6"
 
 [dev-dependencies]
 tempdir = "0.3"

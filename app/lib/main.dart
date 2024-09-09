@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -15,28 +17,32 @@ import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:provider/provider.dart';
 import 'package:badges/badges.dart' as badges;
 
-void delayedInit() {
+void delayedInit(UpdateNotifier updateNotifier) {
   Future.delayed(const Duration(milliseconds: 2000), () async {
     DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
     String? manufacturer;
     String? model;
     String? systemVersion;
+    bool isPhysicalDevice = false;
     if (defaultTargetPlatform == TargetPlatform.android) {
       var androidInfo = await deviceInfo.androidInfo;
       manufacturer = androidInfo.manufacturer;
       model = androidInfo.model;
       systemVersion = androidInfo.version.release;
+      isPhysicalDevice = androidInfo.isPhysicalDevice;
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
       var iosInfo = await deviceInfo.iosInfo;
       manufacturer = "Apple";
       model = iosInfo.utsname.machine;
       systemVersion = iosInfo.systemVersion;
+      isPhysicalDevice = iosInfo.isPhysicalDevice;
     }
 
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
 
     await api.delayedInit(
         deviceInfo: api.DeviceInfo(
+            isPhysicalDevice: isPhysicalDevice,
             manufacturer: manufacturer,
             model: model,
             systemVersion: systemVersion),
@@ -44,6 +50,15 @@ void delayedInit() {
             packageName: packageInfo.packageName,
             version: packageInfo.version,
             buildNumber: packageInfo.buildNumber));
+    doWork() async {
+      // TODO: for future use
+    }
+
+    await doWork();
+    Timer.periodic(const Duration(minutes: 10), (_) async {
+      await api.tenMinutesHeartbeat();
+      await doWork();
+    });
   });
 }
 
@@ -58,7 +73,7 @@ void main() async {
       supportDir: (await getApplicationSupportDirectory()).path,
       cacheDir: (await getApplicationCacheDirectory()).path);
   var updateNotifier = UpdateNotifier();
-  delayedInit();
+  delayedInit(updateNotifier);
   var gpsRecordingState = GpsRecordingState();
   runApp(
     MultiProvider(
