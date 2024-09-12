@@ -2,6 +2,9 @@ use itertools::Itertools;
 use memolanes_core::{export_data, import_data};
 use std::fs::File;
 
+#[macro_use]
+extern crate assert_float_eq;
+
 #[test]
 fn load_fow_sync_data() {
     let (bitmap_1, warnings_1) = import_data::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
@@ -92,12 +95,6 @@ pub fn kml_line_string() {
     const IMPORT_PATH: &str = "./tests/data/2024-08-24-2104.kml";
     const EXPORT_PATH: &str = "./tests/for_inspection/2024-08-24-2104.kml";
     let raw_vecotr_data1 = import_data::load_kml(IMPORT_PATH).unwrap();
-    let journey_info = import_data::journey_info_from_raw_vector_data(&raw_vecotr_data1);
-    let start_time = journey_info
-        .start_time
-        .unwrap_or_default()
-        .timestamp_millis();
-    let end_time = journey_info.end_time.unwrap_or_default().timestamp_millis();
     let vector1 = import_data::journey_vector_from_raw_data(raw_vecotr_data1, false).unwrap();
 
     export_data::journey_vector_to_kml_file(&vector1, &mut File::create(EXPORT_PATH).unwrap())
@@ -123,6 +120,6 @@ pub fn kml_line_string() {
 
     assert_eq!(points1.len(), 10);
     assert_eq!(points1, points2);
-    assert_eq!(start_time, 0);
-    assert_eq!(end_time, 0);
+    assert_f64_near!(points1[0].latitude, 36.6986802655);
+    assert_f64_near!(points1[0].longitude, 117.1179554744);
 }
