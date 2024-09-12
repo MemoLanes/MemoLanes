@@ -48,16 +48,10 @@ pub fn gpx() {
     assert_eq!(start_time, 1696383677000);
     assert_eq!(end_time, 1696386835000);
 }
-#[test]
-pub fn test() {
-    const IMPORT_PATH: &str = "./tests/data/20240722 Sf To Vc.kml";
-    let raw_vecotr_data1 = import_data::load_kml(IMPORT_PATH);
-    println!("{:?}", raw_vecotr_data1)
-}
 
 #[test]
 pub fn kml_track() {
-    const IMPORT_PATH: &str = "./tests/data//raw_gps_laojunshan.kml";
+    const IMPORT_PATH: &str = "./tests/data/raw_gps_laojunshan.kml";
     const EXPORT_PATH: &str = "./tests/for_inspection/laojunshan.kml";
     let raw_vecotr_data1 = import_data::load_kml(IMPORT_PATH).unwrap();
     let journey_info = import_data::journey_info_from_raw_vector_data(&raw_vecotr_data1);
