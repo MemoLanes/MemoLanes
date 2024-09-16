@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -16,12 +17,14 @@ class BaseMap extends StatefulWidget {
   final CameraOptions initialCameraOptions;
   final void Function(MapController mapController)? onMapCreated;
   final OnMapScrollListener? onScrollListener;
+  final OnCameraChangeListener? onCameraChangeListener;
   const BaseMap(
       {super.key,
       required this.mapRendererProxy,
       required this.initialCameraOptions,
       this.onMapCreated,
-      this.onScrollListener});
+      this.onScrollListener,
+      this.onCameraChangeListener});
 
   @override
   State<StatefulWidget> createState() => BaseMapState();
@@ -154,6 +157,10 @@ class BaseMapState extends State<BaseMap> {
 
   _onCameraChangeListener(CameraChangedEventData event) {
     _triggerRefresh();
+    final onCameraChange = widget.onCameraChangeListener;
+    if (onCameraChange != null) {
+      onCameraChange(event);
+    }
   }
 
   @override
