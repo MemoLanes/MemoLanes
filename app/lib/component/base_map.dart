@@ -43,6 +43,7 @@ class BaseMapState extends State<BaseMap> {
 
   MapController? _mapController;
   bool layerAdded = false;
+  Timer? cameraChangeTimer;
   Completer? requireRefresh = Completer();
 
   Future<void> _doActualRefresh() async {
@@ -159,7 +160,12 @@ class BaseMapState extends State<BaseMap> {
     _triggerRefresh();
     final onCameraChange = widget.onCameraChangeListener;
     if (onCameraChange != null) {
-      onCameraChange(event);
+      if (cameraChangeTimer != null && cameraChangeTimer!.isActive) {
+        cameraChangeTimer?.cancel();
+      }
+      cameraChangeTimer = Timer(const Duration(milliseconds: 50), () {
+        onCameraChange(event);
+      });
     }
   }
 

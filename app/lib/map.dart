@@ -195,19 +195,19 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
       case TrackingMode.displayAndTracking:
         trackTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
           try {
-            double? zoom;
+            double? setZoom;
             final position =
                 await mapController?.mapboxMap.style.getPuckPosition();
             CameraState? cameraState =
                 await mapController?.mapboxMap.getCameraState();
             if (cameraState != null) {
               if (cameraState.zoom < 10.5) {
-                zoom = 16.0;
+                setZoom = zoom = 16.0;
               }
             }
             await mapController?.mapboxMap.flyTo(
                 CameraOptions(
-                    center: Point(coordinates: position!), zoom: zoom),
+                    center: Point(coordinates: position!), zoom: setZoom),
                 null);
           } catch (e) {
             // just best effort
