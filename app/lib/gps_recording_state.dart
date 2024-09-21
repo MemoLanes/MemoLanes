@@ -10,32 +10,30 @@ import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/gps_processor.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// `PokeGeolocatorTask` is a hacky workround on Android.
+/// `PokeGeolocatorTask` is a hacky workround.
 /// The behvior we observe is that the position stream from geolocator will
 /// randomly pauses so updates are delayed and come in as a batch later.
 /// However, if there something request the location, even if it is in
 /// another app, the stream will resume. So the hack is to poke the geolocator
 /// frequently.
 class _PokeGeolocatorTask {
-  // TODO: Test on iOS
-  bool running = false;
+  bool _running = false;
+  LocationSettings? _locationSettings;
 
-  _PokeGeolocatorTask();
+  _PokeGeolocatorTask._();
 
-  factory _PokeGeolocatorTask.start() {
-    var task = _PokeGeolocatorTask();
-    task.running = true;
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      task._loop();
-    }
-    return task;
+  factory _PokeGeolocatorTask.start(LocationSettings? locationSettings) {
+    var self = _PokeGeolocatorTask._();
+    self._running = true;
+    self._locationSettings = locationSettings;
+    self._loop();
+    return self;
   }
 
   _loop() async {
     await Future.delayed(const Duration(minutes: 1));
-    if (running) {
-      await Geolocator.getCurrentPosition(
-              timeLimit: const Duration(seconds: 10))
+    if (_running) {
+      await Geolocator.getCurrentPosition(locationSettings: _locationSettings)
           // we don't care about the result
           .then((_) => null)
           .catchError((_) => null);
@@ -44,7 +42,7 @@ class _PokeGeolocatorTask {
   }
 
   cancel() {
-    running = false;
+    _running = false;
   }
 }
 
@@ -265,7 +263,7 @@ class GpsRecordingState extends ChangeNotifier {
         Fluttertoast.showToast(msg: e.toString());
         return;
       }
-      _pokeGeolocatorTask ??= _PokeGeolocatorTask.start();
+      _pokeGeolocatorTask ??= _PokeGeolocatorTask.start(_locationSettings);
       _positionStream ??=
           Geolocator.getPositionStream(locationSettings: _locationSettings)
               .listen((Position? position) async {
