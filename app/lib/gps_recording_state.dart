@@ -17,22 +17,22 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// another app, the stream will resume. So the hack is to poke the geolocator
 /// frequently.
 class _PokeGeolocatorTask {
-  bool running = false;
+  bool _running = false;
   LocationSettings? _locationSettings;
 
-  _PokeGeolocatorTask();
+  _PokeGeolocatorTask._();
 
   factory _PokeGeolocatorTask.start(LocationSettings? locationSettings) {
-    var task = _PokeGeolocatorTask();
-    task.running = true;
-    task._locationSettings = locationSettings;
-    task._loop();
-    return task;
+    var self = _PokeGeolocatorTask._();
+    self._running = true;
+    self._locationSettings = locationSettings;
+    self._loop();
+    return self;
   }
 
   _loop() async {
-    await Future.delayed(const Duration(minutes: 4));
-    if (running) {
+    await Future.delayed(const Duration(minutes: 1));
+    if (_running) {
       await Geolocator.getCurrentPosition(locationSettings: _locationSettings)
           // we don't care about the result
           .then((_) => null)
@@ -42,7 +42,7 @@ class _PokeGeolocatorTask {
   }
 
   cancel() {
-    running = false;
+    _running = false;
   }
 }
 
