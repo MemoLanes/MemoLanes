@@ -56,24 +56,25 @@ class _PokeGeolocatorTask {
 // killed during recording.
 class _UnexpectedCloseNotifier {
   bool _alertScheduled = false;
-  GpsRecordingState _state;
+  final GpsRecordingState _state;
 
   _UnexpectedCloseNotifier._(this._state);
 
-  static start(GpsRecordingState state) {
-    if (!Platform.isIOS) return;
+  static _UnexpectedCloseNotifier? start(GpsRecordingState state) {
+    if (!Platform.isIOS) return null;
 
     var self = _UnexpectedCloseNotifier._(state);
     () async {
       await self._scheduleNotification();
       Timer.periodic(const Duration(seconds: 4), (timer) async {
-        await self._cancelNotification();
+        await self.cancelNotification();
         await self._scheduleNotification();
       });
     }();
+    return self;
   }
 
-  _cancelNotification() async {
+  cancelNotification() async {
     if (_alertScheduled) {
       var notification = NotificationHandler.instance;
       await notification.flutterLocalNotificationsPlugin
@@ -111,6 +112,7 @@ class GpsRecordingState extends ChangeNotifier {
   StreamSubscription<Position>? _positionStream;
   final Mutex _m = Mutex();
   _PokeGeolocatorTask? _pokeGeolocatorTask;
+  _UnexpectedCloseNotifier? _unexpectedCloseNotifier;
 
   // NOTE: we noticed that on Andorid, location updates may delivered in batches,
   // updates within the same batch can be out of order, so we try to batch them
@@ -154,7 +156,7 @@ class GpsRecordingState extends ChangeNotifier {
         distanceFilter: distanceFilter,
       );
     }
-    _UnexpectedCloseNotifier.start(this);
+    _unexpectedCloseNotifier = _UnexpectedCloseNotifier.start(this);
     _initState();
   }
 
@@ -299,6 +301,7 @@ class GpsRecordingState extends ChangeNotifier {
         to != GpsRecordingStatus.recording) {
       // stop recording
       await _positionStream?.cancel();
+      await _unexpectedCloseNotifier?.cancelNotification();
       _pokeGeolocatorTask?.cancel();
       _pokeGeolocatorTask = null;
       _positionStream = null;
