@@ -77,7 +77,7 @@ void main() async {
       cacheDir: (await getApplicationCacheDirectory()).path);
   var updateNotifier = UpdateNotifier();
   delayedInit(updateNotifier);
-  await NotificationHandler.instance().initialize();
+  await NotificationHandler.instance.initialize();
   var gpsRecordingState = GpsRecordingState();
   tz.initializeTimeZones();
   runApp(
@@ -191,10 +191,6 @@ class _MyHomePageState extends State<MyHomePage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.start,
                   children: <Widget>[
-                    ElevatedButton(
-                      onPressed: _showNotification,
-                      child: Text("Show Notification"),
-                    ),
                     GPSPage(),
                     const Expanded(
                       child: MapUiBody(),
@@ -210,6 +206,4 @@ class _MyHomePageState extends State<MyHomePage> {
           )),
     );
   }
-
-  Future<void> _showNotification() async {}
 }

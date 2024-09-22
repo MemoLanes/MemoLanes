@@ -75,7 +75,7 @@ class _UnexpectedCloseNotifier {
 
   _cancelNotification() async {
     if (_alertScheduled) {
-      var notification = NotificationHandler.instance();
+      var notification = NotificationHandler.instance;
       await notification.flutterLocalNotificationsPlugin
           .cancel(notification.alertUnexpectedClosedId);
       _alertScheduled = false;
@@ -83,14 +83,13 @@ class _UnexpectedCloseNotifier {
   }
 
   _scheduleNotification() async {
-    var notification = NotificationHandler.instance();
+    var notification = NotificationHandler.instance;
     await notification.flutterLocalNotificationsPlugin.zonedSchedule(
       notification.alertUnexpectedClosedId,
       'Recording was unexpectedly stopped',
       'Recording was unexpectedly stopped, please restart the app.',
       tz.TZDateTime.now(tz.local).add(const Duration(seconds: 5)),
       notification.alertPlatformChannelSpecifics,
-      androidScheduleMode: AndroidScheduleMode.inexact,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );
@@ -152,7 +151,7 @@ class GpsRecordingState extends ChangeNotifier {
         distanceFilter: distanceFilter,
       );
     }
-    _UnexpectedCloseNotifier.start();
+    _UnexpectedCloseNotifier.start(this);
     _initState();
   }
 

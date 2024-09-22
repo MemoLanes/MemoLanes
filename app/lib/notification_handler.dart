@@ -1,12 +1,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationHandler {
-  static NotificationHandler? _instance;
-
-  factory NotificationHandler.instance() {
-    _instance ??= NotificationHandler._();
-    return _instance!;
-  }
+  static final NotificationHandler instance = NotificationHandler._();
 
   FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
