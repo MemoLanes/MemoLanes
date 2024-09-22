@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/notification_handler.dart';
 import 'package:memolanes/time_machine.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
@@ -16,6 +17,8 @@ import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:provider/provider.dart';
 import 'package:badges/badges.dart' as badges;
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 void delayedInit(UpdateNotifier updateNotifier) {
   Future.delayed(const Duration(milliseconds: 2000), () async {
@@ -74,7 +77,9 @@ void main() async {
       cacheDir: (await getApplicationCacheDirectory()).path);
   var updateNotifier = UpdateNotifier();
   delayedInit(updateNotifier);
+  await NotificationHandler.instance().initialize();
   var gpsRecordingState = GpsRecordingState();
+  tz.initializeTimeZones();
   runApp(
     MultiProvider(
       providers: [
@@ -186,6 +191,10 @@ class _MyHomePageState extends State<MyHomePage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.start,
                   children: <Widget>[
+                    ElevatedButton(
+                      onPressed: _showNotification,
+                      child: Text("Show Notification"),
+                    ),
                     GPSPage(),
                     const Expanded(
                       child: MapUiBody(),
@@ -201,4 +210,6 @@ class _MyHomePageState extends State<MyHomePage> {
           )),
     );
   }
+
+  Future<void> _showNotification() async {}
 }

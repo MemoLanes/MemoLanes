@@ -1,14 +1,19 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:async/async.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:memolanes/notification_handler.dart';
 import 'package:mutex/mutex.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/gps_processor.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 /// `PokeGeolocatorTask` is a hacky workround.
 /// The behvior we observe is that the position stream from geolocator will
@@ -43,6 +48,53 @@ class _PokeGeolocatorTask {
 
   cancel() {
     _running = false;
+  }
+}
+
+// Notify the user that the recording was unexpectedly stopped on iOS.
+// On Android, this does not work, and we achive this by using foreground task.
+// On iOS we rely on this to make sure user will be notified when the app is
+// killed during recording.
+class _UnexpectedCloseNotifier {
+  _UnexpectedCloseNotifier._();
+  bool _alertScheduled = false;
+  static start(GpsRecordingState state) {
+    if (!Platform.isIOS) return;
+
+    var self = _UnexpectedCloseNotifier._();
+    () async {
+      await self._scheduleNotification();
+      Timer.periodic(const Duration(seconds: 4), (timer) async {
+        await self._cancelNotification();
+        if (state.status == GpsRecordingStatus.recording) {
+          await self._scheduleNotification();
+        }
+      });
+    }();
+  }
+
+  _cancelNotification() async {
+    if (_alertScheduled) {
+      var notification = NotificationHandler.instance();
+      await notification.flutterLocalNotificationsPlugin
+          .cancel(notification.alertUnexpectedClosedId);
+      _alertScheduled = false;
+    }
+  }
+
+  _scheduleNotification() async {
+    var notification = NotificationHandler.instance();
+    await notification.flutterLocalNotificationsPlugin.zonedSchedule(
+      notification.alertUnexpectedClosedId,
+      'Recording was unexpectedly stopped',
+      'Recording was unexpectedly stopped, please restart the app.',
+      tz.TZDateTime.now(tz.local).add(const Duration(seconds: 5)),
+      notification.alertPlatformChannelSpecifics,
+      androidScheduleMode: AndroidScheduleMode.inexact,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+    );
+    _alertScheduled = true;
   }
 }
 
@@ -100,6 +152,7 @@ class GpsRecordingState extends ChangeNotifier {
         distanceFilter: distanceFilter,
       );
     }
+    _UnexpectedCloseNotifier.start();
     _initState();
   }
 
