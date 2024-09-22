@@ -12,7 +12,6 @@ import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/gps_processor.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
 /// `PokeGeolocatorTask` is a hacky workround.
@@ -56,19 +55,20 @@ class _PokeGeolocatorTask {
 // On iOS we rely on this to make sure user will be notified when the app is
 // killed during recording.
 class _UnexpectedCloseNotifier {
-  _UnexpectedCloseNotifier._();
   bool _alertScheduled = false;
+  GpsRecordingState _state;
+
+  _UnexpectedCloseNotifier._(this._state);
+
   static start(GpsRecordingState state) {
     if (!Platform.isIOS) return;
 
-    var self = _UnexpectedCloseNotifier._();
+    var self = _UnexpectedCloseNotifier._(state);
     () async {
       await self._scheduleNotification();
       Timer.periodic(const Duration(seconds: 4), (timer) async {
         await self._cancelNotification();
-        if (state.status == GpsRecordingStatus.recording) {
-          await self._scheduleNotification();
-        }
+        await self._scheduleNotification();
       });
     }();
   }
@@ -83,6 +83,9 @@ class _UnexpectedCloseNotifier {
   }
 
   _scheduleNotification() async {
+    if (_state.status != GpsRecordingStatus.recording) return;
+    if (_alertScheduled) return;
+
     var notification = NotificationHandler.instance;
     await notification.flutterLocalNotificationsPlugin.zonedSchedule(
       notification.alertUnexpectedClosedId,
