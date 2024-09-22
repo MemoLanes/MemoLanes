@@ -68,6 +68,7 @@ void main() async {
   // This is required since we are doing things before calling `runApp`.
   WidgetsFlutterBinding.ensureInitialized();
   // TODO: Consider using `flutter_native_splash`
+  tz.initializeTimeZones();
   await RustLib.init();
   await api.init(
       tempDir: (await getTemporaryDirectory()).path,
@@ -78,7 +79,6 @@ void main() async {
   delayedInit(updateNotifier);
   await NotificationHandler.instance.initialize();
   var gpsRecordingState = GpsRecordingState();
-  tz.initializeTimeZones();
   runApp(
     MultiProvider(
       providers: [
