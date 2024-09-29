@@ -1,12 +1,13 @@
 ﻿import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:json_annotation/json_annotation.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:memolanes/component/base_map.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:json_annotation/json_annotation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 part 'map.g.dart';
 
@@ -61,6 +62,7 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
   MapController? mapController;
   Timer? refreshTimer;
   Timer? trackTimer;
+  double zoom = -1;
   TrackingMode trackingMode = TrackingMode.displayAndTracking;
 
   CameraOptions? _initialCameraOptions;
@@ -96,6 +98,7 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
     var cameraOptions = CameraOptions();
 
     if (mapState != null) {
+      zoom = mapState.zoom;
       trackingMode = mapState.trackingMode;
       cameraOptions.bearing = mapState.bearing;
       cameraOptions.zoom = mapState.zoom;
@@ -154,13 +157,24 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
     setupTrackingMode();
   }
 
-  _onMapScrollListener(MapContentGestureContext context) {
+  void _onMapScrollListener(MapContentGestureContext context) {
     if (trackingMode == TrackingMode.displayAndTracking) {
-      setState(() {
-        trackingMode = TrackingMode.displayOnly;
-      });
-      setupTrackingMode();
+      updateTrackingMode(TrackingMode.displayOnly);
     }
+  }
+
+  void _onCameraChangeListener(CameraChangedEventData eventData) async {
+    if (trackingMode == TrackingMode.displayAndTracking &&
+        await updateZoomFromCamera()) {
+      updateTrackingMode(TrackingMode.displayOnly);
+    }
+  }
+
+  void updateTrackingMode(TrackingMode newMode) {
+    setState(() {
+      trackingMode = newMode;
+    });
+    setupTrackingMode();
   }
 
   _trackingModeButton() async {
@@ -181,19 +195,19 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
       case TrackingMode.displayAndTracking:
         trackTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
           try {
-            double? zoom;
+            double? setZoom;
             final position =
                 await mapController?.mapboxMap.style.getPuckPosition();
             CameraState? cameraState =
                 await mapController?.mapboxMap.getCameraState();
             if (cameraState != null) {
               if (cameraState.zoom < 10.5) {
-                zoom = 16.0;
+                setZoom = zoom = 16.0;
               }
             }
             await mapController?.mapboxMap.flyTo(
                 CameraOptions(
-                    center: Point(coordinates: position!), zoom: zoom),
+                    center: Point(coordinates: position!), zoom: setZoom),
                 null);
           } catch (e) {
             // just best effort
@@ -210,7 +224,19 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
         locationSettings = LocationComponentSettings(enabled: false);
         break;
     }
+    await updateZoomFromCamera();
     await mapController?.mapboxMap.location.updateSettings(locationSettings);
+  }
+
+  Future<bool> updateZoomFromCamera() async {
+    final CameraState? cameraState =
+        await mapController?.mapboxMap.getCameraState();
+
+    if (cameraState != null && zoom != cameraState.zoom) {
+      zoom = cameraState.zoom;
+      return true;
+    }
+    return false;
   }
 
   @override
@@ -227,6 +253,7 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
           initialCameraOptions: initialCameraOptions,
           onMapCreated: _onMapCreated,
           onScrollListener: _onMapScrollListener,
+          onCameraChangeListener: _onCameraChangeListener,
         )),
         floatingActionButton: FloatingActionButton(
           backgroundColor: trackingMode == TrackingMode.displayAndTracking
