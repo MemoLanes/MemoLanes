@@ -7,7 +7,7 @@ use tiny_skia;
 use tiny_skia::PremultipliedColorU8;
 
 const TILE_ZOOM: i16 = 9;
-pub const DEFAULT_VIEW_SIZE_POWER: i16 = 9; // default view size is 2^8 = 256
+pub const DEFAULT_VIEW_SIZE_POWER: i16 = 10; // default view size is 2^8 = 256
 
 // we have 512*512 tiles, 128*128 blocks and a single block contains a 64*64 bitmap.
 pub struct TileRenderer {

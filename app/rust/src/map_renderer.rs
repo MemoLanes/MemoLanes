@@ -1,12 +1,11 @@
-use image;
-use image::{ImageBuffer, Rgba};
-use imageproc::filter::gaussian_blur_f32;
 use std::cmp::{max, min};
-use std::io::Cursor;
 use tiny_skia::{Pixmap, PixmapPaint, Transform};
+use tiny_skia::IntSize;
+use tokio::runtime::Runtime;
 
 use crate::{
-    graphics::color_dilation2, journey_bitmap::JourneyBitmap, tile_renderer::TileRenderer, utils,
+    journey_bitmap::JourneyBitmap, tile_renderer::TileRenderer, utils,
+    graphics::GpuProcessor,
 };
 
 pub struct RenderResult {
@@ -33,6 +32,7 @@ pub struct MapRenderer {
     tile_renderer: TileRenderer,
     journey_bitmap: JourneyBitmap,
     current_render_area: Option<RenderArea>,
+    gpu_processor: Option<GpuProcessor>,
     dilation_radius: usize,
 }
 
@@ -46,10 +46,16 @@ impl MapRenderer {
         journey_bitmap: JourneyBitmap,
         tile_renderer: TileRenderer,
     ) -> Self {
+        // TODO: make tilesize in map renderer
+        let tile_size: u32 = 1 << tile_renderer.get_tile_size_power();
+        let gpu_processor = Runtime::new()
+                .unwrap()
+                .block_on(async move { GpuProcessor::new(tile_size, tile_size).await });
         Self {
             tile_renderer,
             journey_bitmap,
             current_render_area: None,
+            gpu_processor: Some(gpu_processor),
             dilation_radius: 1,
         }
     }
@@ -91,42 +97,31 @@ impl MapRenderer {
                     render_area.zoom as i16,
                 );
 
+                let processed_tile_pixmap_data = {
+                    if let Some(gpu_processor) = &self.gpu_processor {
+                        let rt = Runtime::new().unwrap();
+                        rt.block_on(gpu_processor.process_frame_async(tile_pixmap.data()))
+                    } else {
+                        tile_pixmap.data().to_vec()
+                    }
+                };
+
+                let processed_tile_pixmap = Pixmap::from_vec(
+                    processed_tile_pixmap_data,
+                    IntSize::from_wh(tile_size, tile_size).unwrap(),
+                )
+                .unwrap();
+
                 pixmap.draw_pixmap(
                     (x * tile_size) as i32,
                     (y * tile_size) as i32,
-                    tile_pixmap.as_ref(),
+                    processed_tile_pixmap.as_ref(),
                     &PixmapPaint::default(),
                     Transform::identity(),
                     None,
                 );
             }
         }
-
-        let width = pixmap.width();
-        let height = pixmap.height();
-
-        if self.dilation_radius > 0 {
-            let color = self.tile_renderer.fg_color();
-            color_dilation2(
-                pixmap.pixels_mut(),
-                width.try_into().unwrap(),
-                height.try_into().unwrap(),
-                color,
-            );
-        }
-
-        // use imageproc to blur the pixmap, currently the imageproc library requires full ownership
-        let img: ImageBuffer<Rgba<u8>, Vec<u8>> =
-            ImageBuffer::from_raw(width, height, pixmap.data().to_vec())
-                .expect("Error converting buffer to ImageBuffer");
-        let blurred_image = gaussian_blur_f32(&img, 0.7);
-
-        let mut png_buffer = Vec::new();
-        let mut cursor = Cursor::new(&mut png_buffer);
-
-        blurred_image
-            .write_to(&mut cursor, image::ImageFormat::Png)
-            .unwrap();
 
         let (overlay_left, overlay_top) =
             utils::tile_x_y_to_lng_lat(render_area.left_idx, render_area.top_idx, render_area.zoom);
@@ -143,7 +138,7 @@ impl MapRenderer {
             left: overlay_left,
             right: overlay_right,
             bottom: overlay_bottom,
-            data: png_buffer,
+            data: pixmap.encode_png().unwrap(),
         }
     }
 
