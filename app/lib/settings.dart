@@ -105,7 +105,7 @@ class _SettingsBodyState extends State<SettingsBody> {
             }
             // TODO: only show the below dialog if there is data.
             await showInfoDialog(context,
-                "You will lose all the current data in the app.\nConsider archive your data before restoring.");
+                "Try to import archived data and check conflicts");
             // TODO: FilePicker is weird and `allowedExtensions` does not really work.
             // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
             var result =
@@ -117,7 +117,7 @@ class _SettingsBodyState extends State<SettingsBody> {
               }
             }
           },
-          child: const Text("Reset & Restore"),
+          child: const Text("Import Archived data"),
         ),
         ElevatedButton(
           onPressed: () async {

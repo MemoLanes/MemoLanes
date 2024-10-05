@@ -179,13 +179,21 @@ impl Txn<'_> {
                 if existing_header.revision == header.revision {
                     bail!("Journey with ID {} already exists", &header.id);
                 } else {
-                    bail!("Journey with ID {} already exists but with a different revision", &header.id);
+                    bail!(
+                        "Journey with ID {} already exists but with a different revision",
+                        &header.id
+                    );
                 }
             }
             Err(e) => {
                 // Check if the error is due to ID doesn't exist
-                if e.downcast_ref::<rusqlite::Error>() == Some(&rusqlite::Error::QueryReturnedNoRows) {
-                    info!("No existing journey found for id={}, proceed to insert new journey", id);
+                if e.downcast_ref::<rusqlite::Error>()
+                    == Some(&rusqlite::Error::QueryReturnedNoRows) 
+                {
+                    info!(
+                        "No existing journey found for id={}, proceed to insert new journey",
+                        id
+                    );
                 } else {
                     return Err(e);
                 }
@@ -332,16 +340,17 @@ impl Txn<'_> {
         Ok(results)
     }
 
-    pub fn get_header(&self, id: &str) -> Result<JourneyHeader>{
+    pub fn get_header(&self, id: &str) -> Result<JourneyHeader> {
         let mut query = self
-        .db_txn
-        .prepare("SELECT header FROM journey WHERE id = ?1;")?;
+            .db_txn
+            .prepare("SELECT header FROM journey WHERE id = ?1;")?;
 
-         query.query_row([id], |row| {
+        query.query_row([id], |row| {
             let header_bytes = row.get_ref(0)?.as_blob()?;
             let f = || {
-                let header =
-                JourneyHeader::of_proto(protos::journey::Header::parse_from_bytes(header_bytes)?)?;
+                let header = JourneyHeader::of_proto(protos::journey::Header::parse_from_bytes(
+                    header_bytes,
+                )?)?;
                 Ok(header)
             };
             Ok(f())
