@@ -95,14 +95,16 @@ class GpsRecordingState extends ChangeNotifier {
           ));
     } else if (defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS) {
-      // TODO: not tested on iOS, it is likely that we need to tweak the
-      // settings.
       _locationSettings = AppleSettings(
         accuracy: accuracy,
-        activityType: ActivityType.fitness,
         distanceFilter: distanceFilter,
-        pauseLocationUpdatesAutomatically: true,
+        // TODO: we should try to make use of `pauseLocationUpdatesAutomatically`.
+        // According to doc "After a pause occurs, it’s your responsibility to
+        // restart location services again".
+        activityType: ActivityType.other,
+        pauseLocationUpdatesAutomatically: false,
         showBackgroundLocationIndicator: false,
+        allowBackgroundLocationUpdates: false,
       );
     } else {
       _locationSettings = LocationSettings(
