@@ -54,6 +54,8 @@ PODS:
     - MapboxCommon (= 24.6.0)
     - MapboxCoreMaps (= 11.6.0)
     - Turf (= 2.8.0)
+  - notification_when_app_is_killed (0.0.1):
+    - Flutter
   - package_info_plus (0.4.5):
     - Flutter
   - path_provider_foundation (0.0.1):
@@ -85,6 +87,7 @@ DEPENDENCIES:
   - fluttertoast (from `.symlinks/plugins/fluttertoast/ios`)
   - geolocator_apple (from `.symlinks/plugins/geolocator_apple/ios`)
   - mapbox_maps_flutter (from `.symlinks/plugins/mapbox_maps_flutter/ios`)
+  - notification_when_app_is_killed (from `.symlinks/plugins/notification_when_app_is_killed/ios`)
   - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
   - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
   - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
@@ -120,6 +123,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/geolocator_apple/ios"
   mapbox_maps_flutter:
     :path: ".symlinks/plugins/mapbox_maps_flutter/ios"
+  notification_when_app_is_killed:
+    :path: ".symlinks/plugins/notification_when_app_is_killed/ios"
   package_info_plus:
     :path: ".symlinks/plugins/package_info_plus/ios"
   path_provider_foundation:
@@ -148,6 +153,7 @@ SPEC CHECKSUMS:
   MapboxCommon: 6008e74b1312a093dec291497a036fc8b47f344f
   MapboxCoreMaps: bd097795c5ae4f002181769e7151474a33ce878a
   MapboxMaps: fc1b2ab98563d0157ba01f6e4a2fd8a8af556d92
+  notification_when_app_is_killed: 8a0eb9075cced52e07b0e7c0744f46c953c5b9fd
   package_info_plus: 58f0028419748fad15bf008b270aaa8e54380b1c
   path_provider_foundation: 2b6b4c569c0fb62ec74538f866245ac84301af46
   permission_handler_apple: 9878588469a2b0d0fc1e048d9f43605f92e6cec2
