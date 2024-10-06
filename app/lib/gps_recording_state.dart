@@ -104,7 +104,7 @@ class GpsRecordingState extends ChangeNotifier {
         activityType: ActivityType.other,
         pauseLocationUpdatesAutomatically: false,
         showBackgroundLocationIndicator: false,
-        allowBackgroundLocationUpdates: false,
+        allowBackgroundLocationUpdates: true,
       );
     } else {
       _locationSettings = LocationSettings(
