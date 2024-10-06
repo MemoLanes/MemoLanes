@@ -188,7 +188,7 @@ impl Txn<'_> {
             Err(e) => {
                 // Check if the error is due to ID doesn't exist
                 if e.downcast_ref::<rusqlite::Error>()
-                    == Some(&rusqlite::Error::QueryReturnedNoRows) 
+                    == Some(&rusqlite::Error::QueryReturnedNoRows)
                 {
                     info!(
                         "No existing journey found for id={}, proceed to insert new journey",

@@ -104,8 +104,8 @@ class _SettingsBodyState extends State<SettingsBody> {
               return;
             }
             // TODO: only show the below dialog if there is data.
-            await showInfoDialog(context,
-                "Try to import archived data and check conflicts");
+            //await showInfoDialog(context,
+            //    "You will lose all the current data in the app.\nConsider archive your data before restoring.");
             // TODO: FilePicker is weird and `allowedExtensions` does not really work.
             // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
             var result =
@@ -113,7 +113,15 @@ class _SettingsBodyState extends State<SettingsBody> {
             if (result != null) {
               var path = result.files.single.path;
               if (path != null) {
-                await recoverFromArchive(zipFilePath: path);
+                try {
+                  await recoverFromArchive(zipFilePath: path);
+                } catch (e) {
+                  if (e.toString().contains("Journey with ID")) {
+                    await showInfoDialog(context, "Duplicate journey ID found. Only data with new ID will be imported.");
+                  } else {
+                    await showInfoDialog(context, "An error occurred while importing data.");
+                  }
+                }
               }
             }
           },
