@@ -36,6 +36,9 @@ geo-types = "0.7"
 imageproc = "0.25"
 image = "0.25"
 file-rotate = "0.7.6"
+wgpu = "22.1.0"
+tokio = { version = "1.40.0", features = ["rt", "sync"] }
+bytemuck = "1.17.0"
 
 [dev-dependencies]
 tempdir = "0.3"
@@ -45,4 +48,3 @@ assert_float_eq = "1.1"
 
 [build-dependencies]
 protobuf-codegen = "3.5"
-
