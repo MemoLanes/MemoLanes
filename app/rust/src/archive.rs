@@ -56,7 +56,7 @@ pub fn recover_archive_file(txn: &mut main_db::Txn, zip_file_path: &str) -> Resu
     let metadata_proto: Metadata = Message::parse_from_reader(&mut decoder)?;
     drop(decoder);
 
-    txn.clear_journeys()?;
+    //txn.clear_journeys()?;
     for section_info in metadata_proto.section_infos {
         let mut file = zip.by_name(&section_info.section_id)?;
         let mut magic_header: [u8; 3] = [0; 3];
