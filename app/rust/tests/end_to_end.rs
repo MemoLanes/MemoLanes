@@ -65,7 +65,7 @@ fn basic() {
     test_utils::assert_image(
         &render_result.data,
         "end_to_end_basic_1",
-        "28deac2c1e1766af941efad51153c6f5533f775e",
+        "f27638e57e8dbf39a2a6cbc3b26ac63115a3766e",
     );
 
     // try export logs

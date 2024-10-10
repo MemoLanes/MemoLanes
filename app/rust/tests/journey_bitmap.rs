@@ -27,7 +27,7 @@ fn add_line_cross_antimeridian() {
     test_utils::assert_image(
         &render_result.data,
         "journey_bitmap_add_line_cross_antimeridian",
-        "145eea4b32a992d1d12764eba9dac91e717cabff",
+        "9c50ecfda02989a0f25ee721e7e1478fb8d2aad3",
     );
 }
 
@@ -74,7 +74,7 @@ fn merge_with_render() {
     test_utils::assert_image(
         &render_result.data,
         "journey_bitmap_merge_with_render",
-        "d4ac4e44b3a4fd00ed121dc0c768cc2750d4cc7c",
+        "6352d5c71e8b531c789f545ff34de46cb8619a0f",
     );
 }
 
