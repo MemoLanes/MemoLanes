@@ -61,7 +61,7 @@ fn all_journeys(main_db: &mut MainDb) -> Vec<(JourneyHeader, JourneyData)> {
 }
 
 #[test]
-fn archive_and_recover() {
+fn import_and_check_archive() {
     let temp_dir = TempDir::new("main_db-basic").unwrap();
     let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
 
@@ -76,20 +76,35 @@ fn archive_and_recover() {
         .with_txn(|txn| archive::archive_all_as_zip(txn, &mut file))
         .unwrap();
     drop(file);
-
-    // Do something to change things in `main_db`.
-    add_bitmap_journey(&mut main_db);
-    assert_ne!(all_journeys_before, all_journeys(&mut main_db));
-
-    // recover
     main_db
-        .with_txn(|txn| archive::recover_archive_file(txn, zip_file_path.to_str().unwrap()))
+        .with_txn(|txn| txn.clear_journeys())
+        .unwrap();
+
+    main_db
+        .with_txn(|txn| archive::import_archive_file(txn, zip_file_path.to_str().unwrap()))
+        .unwrap();
+    assert_eq!(all_journeys_before, all_journeys(&mut main_db));
+}
+
+
+#[test]
+fn reset_and_check_archive() {
+    let temp_dir = TempDir::new("main_db-basic").unwrap();
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+
+    let all_journeys_before = all_journeys(&mut main_db);
+
+    add_vector_journeys(&mut main_db);
+    add_bitmap_journey(&mut main_db);
+
+    main_db
+        .with_txn(|txn| archive::reset_archive_file(txn))
         .unwrap();
     assert_eq!(all_journeys_before, all_journeys(&mut main_db));
 }
 
 #[test]
-fn recover_from_broken_archive_and_roll_back() {
+fn import_broken_archive_and_roll_back() {
     let temp_dir = TempDir::new("main_db-basic").unwrap();
     let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
 
@@ -104,7 +119,7 @@ fn recover_from_broken_archive_and_roll_back() {
 
     // recover
     assert!(main_db
-        .with_txn(|txn| archive::recover_archive_file(txn, zip_file_path.to_str().unwrap()))
+        .with_txn(|txn| archive::import_archive_file(txn, zip_file_path.to_str().unwrap()))
         .is_err());
     assert_eq!(all_journeys_before, all_journeys(&mut main_db));
 }
