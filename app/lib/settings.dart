@@ -100,12 +100,23 @@ class _SettingsBodyState extends State<SettingsBody> {
           onPressed: () async {
             if (gpsRecordingState.status != GpsRecordingStatus.none) {
               await showInfoDialog(context,
-                  "Please stop the current ongoing journey before restoring.");
+                  "Please stop the current ongoing journey before resetting.");
+              return;
+            }
+            await showInfoDialog(context,
+                  "All journey data is cleared.");
+            await resetArchive();
+          },
+          child: const Text("Reset All Data"),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            if (gpsRecordingState.status != GpsRecordingStatus.none) {
+              await showInfoDialog(context,
+                  "Please stop the current ongoing journey before importing.");
               return;
             }
             // TODO: only show the below dialog if there is data.
-            //await showInfoDialog(context,
-            //    "You will lose all the current data in the app.\nConsider archive your data before restoring.");
             // TODO: FilePicker is weird and `allowedExtensions` does not really work.
             // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
             var result =
@@ -114,13 +125,9 @@ class _SettingsBodyState extends State<SettingsBody> {
               var path = result.files.single.path;
               if (path != null) {
                 try {
-                  await recoverFromArchive(zipFilePath: path);
+                  await importArchive(zipFilePath: path);
                 } catch (e) {
-                  if (e.toString().contains("Journey with ID")) {
-                    await showInfoDialog(context, "Duplicate journey ID found. Only data with new ID will be imported.");
-                  } else {
-                    await showInfoDialog(context, "An error occurred while importing data.");
-                  }
+                  await showInfoDialog(context, e.toString());
                 }
               }
             }

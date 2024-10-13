@@ -36,7 +36,13 @@ const SECTION_MAGIC_HEADER: [u8; 3] = [b'M', b'L', b'S'];
 
 // TODO: support archive/export a seleted set of journeys instead of everything.
 
-pub fn recover_archive_file(txn: &mut main_db::Txn, zip_file_path: &str) -> Result<()> {
+pub fn reset_archive_file(txn: &mut main_db::Txn) -> Result<()> {
+    txn.clear_journeys()?;
+    Ok(())
+}
+
+
+pub fn import_archive_file(txn: &mut main_db::Txn, zip_file_path: &str) -> Result<()> {
     let mut zip = zip::ZipArchive::new(File::open(zip_file_path)?)?;
     let mut file = zip.by_name("metadata.xxm")?;
     let mut magic_header: [u8; 3] = [0; 3];
@@ -56,7 +62,6 @@ pub fn recover_archive_file(txn: &mut main_db::Txn, zip_file_path: &str) -> Resu
     let metadata_proto: Metadata = Message::parse_from_reader(&mut decoder)?;
     drop(decoder);
 
-    //txn.clear_journeys()?;
     for section_info in metadata_proto.section_infos {
         let mut file = zip.by_name(&section_info.section_id)?;
         let mut magic_header: [u8; 3] = [0; 3];
