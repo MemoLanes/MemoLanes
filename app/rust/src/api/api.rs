@@ -339,9 +339,7 @@ pub fn export_journey(
 
 pub fn reset_archive() -> Result<()> {
     info!("Reset Archived Data");
-    get()
-        .storage
-        .with_db_txn(archive::reset_archive_file)?;
+    get().storage.with_db_txn(archive::reset_archive_file)?;
     Ok(())
 }
 
