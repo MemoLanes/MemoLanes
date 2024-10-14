@@ -182,6 +182,7 @@ impl Txn<'_> {
                         "Journey with ID {} already exists with the same revision, skip insert",
                         &header.id
                     );
+                    return Ok(());
                 } else {
                     bail!(
                         "Journey with ID {} already exists but with a different revision",

@@ -341,7 +341,7 @@ pub fn reset_archive() -> Result<()> {
     info!("Reset Archived Data");
     get()
         .storage
-        .with_db_txn(|txn| archive::reset_archive_file(txn))?;
+        .with_db_txn(archive::reset_archive_file)?;
     Ok(())
 }
 
