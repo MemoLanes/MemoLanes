@@ -41,7 +41,6 @@ pub fn reset_archive_file(txn: &mut main_db::Txn) -> Result<()> {
     Ok(())
 }
 
-
 pub fn import_archive_file(txn: &mut main_db::Txn, zip_file_path: &str) -> Result<()> {
     let mut zip = zip::ZipArchive::new(File::open(zip_file_path)?)?;
     let mut file = zip.by_name("metadata.xxm")?;

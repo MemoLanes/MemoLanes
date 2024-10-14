@@ -343,8 +343,8 @@ impl Txn<'_> {
 
     pub fn get_header(&self, id: &str) -> Result<Option<JourneyHeader>> {
         let mut query = self
-        .db_txn
-        .prepare("SELECT header FROM journey WHERE id = ?1;")?;
+            .db_txn
+            .prepare("SELECT header FROM journey WHERE id = ?1;")?;
 
         let header_bytes_result = query.query_row([id], |row| {
             let header_bytes = row.get_ref(0)?.as_blob()?;
@@ -353,11 +353,13 @@ impl Txn<'_> {
 
         match header_bytes_result {
             Ok(header_bytes) => {
-                let header = JourneyHeader::of_proto(protos::journey::Header::parse_from_bytes(&header_bytes)?)?;
+                let header = JourneyHeader::of_proto(protos::journey::Header::parse_from_bytes(
+                    &header_bytes,
+                )?)?;
                 Ok(Some(header))
-            },
+            }
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None), // No rows found with the given id
-            Err(e) => Err(e.into()), // Other rusqlite errors
+            Err(e) => Err(e.into()),                               // Other rusqlite errors
         }
     }
 

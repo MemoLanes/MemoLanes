@@ -76,16 +76,13 @@ fn import_and_check_archive() {
         .with_txn(|txn| archive::archive_all_as_zip(txn, &mut file))
         .unwrap();
     drop(file);
-    main_db
-        .with_txn(|txn| txn.clear_journeys())
-        .unwrap();
+    main_db.with_txn(|txn| txn.clear_journeys()).unwrap();
 
     main_db
         .with_txn(|txn| archive::import_archive_file(txn, zip_file_path.to_str().unwrap()))
         .unwrap();
     assert_eq!(all_journeys_before, all_journeys(&mut main_db));
 }
-
 
 #[test]
 fn reset_and_check_archive() {
