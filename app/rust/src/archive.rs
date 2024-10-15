@@ -36,7 +36,7 @@ const SECTION_MAGIC_HEADER: [u8; 3] = [b'M', b'L', b'S'];
 
 // TODO: support archive/export a seleted set of journeys instead of everything.
 
-// TODO: consider return more detail about this import: e.g. how many journeys 
+// TODO: consider return more detail about this import: e.g. how many journeys
 // are added, how many are skipped.
 pub fn import_archive_file(txn: &mut main_db::Txn, zip_file_path: &str) -> Result<()> {
     let mut zip = zip::ZipArchive::new(File::open(zip_file_path)?)?;
