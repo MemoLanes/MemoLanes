@@ -94,20 +94,33 @@ class _SettingsBodyState extends State<SettingsBody> {
               // don't care about error
             }
           },
-          child: const Text("Archive All"),
+          child: const Text("Archive all (mldx file)"),
         ),
         ElevatedButton(
           onPressed: () async {
             if (gpsRecordingState.status != GpsRecordingStatus.none) {
               await showInfoDialog(context,
-                  "Please stop the current ongoing journey before resetting.");
+                  "Please stop the current ongoing journey before deleting all journeys.");
               return;
             }
-            await showInfoDialog(context,
-                  "All journey data is cleared.");
-            await resetArchive();
+            if (!await showInfoDialog(
+                context,
+                "This will delete all journeys in this app. Are you sure?",
+                true)) {
+              return;
+            }
+            try {
+              await deleteAllJourneys();
+              if (context.mounted) {
+                await showInfoDialog(context, "All journeys are deleted.");
+              }
+            } catch (e) {
+              if (context.mounted) {
+                await showInfoDialog(context, e.toString());
+              }
+            }
           },
-          child: const Text("Reset All Data"),
+          child: const Text("Delete all journeys"),
         ),
         ElevatedButton(
           onPressed: () async {
@@ -127,12 +140,14 @@ class _SettingsBodyState extends State<SettingsBody> {
                 try {
                   await importArchive(zipFilePath: path);
                 } catch (e) {
-                  await showInfoDialog(context, e.toString());
+                  if (context.mounted) {
+                    await showInfoDialog(context, e.toString());
+                  }
                 }
               }
             }
           },
-          child: const Text("Import Archived data"),
+          child: const Text("Import archive (mldx file)"),
         ),
         ElevatedButton(
           onPressed: () async {

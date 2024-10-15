@@ -337,10 +337,9 @@ pub fn export_journey(
     }
 }
 
-pub fn reset_archive() -> Result<()> {
-    info!("Reset Archived Data");
-    get().storage.with_db_txn(archive::reset_archive_file)?;
-    Ok(())
+pub fn delete_all_journeys() -> Result<()> {
+    info!("Delete all journeys");
+    get().storage.with_db_txn(|txn| txn.delete_all_journeys())
 }
 
 pub fn import_archive(zip_file_path: String) -> Result<()> {

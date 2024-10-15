@@ -36,11 +36,8 @@ const SECTION_MAGIC_HEADER: [u8; 3] = [b'M', b'L', b'S'];
 
 // TODO: support archive/export a seleted set of journeys instead of everything.
 
-pub fn reset_archive_file(txn: &mut main_db::Txn) -> Result<()> {
-    txn.clear_journeys()?;
-    Ok(())
-}
-
+// TODO: consider return more detail about this import: e.g. how many journeys 
+// are added, how many are skipped.
 pub fn import_archive_file(txn: &mut main_db::Txn, zip_file_path: &str) -> Result<()> {
     let mut zip = zip::ZipArchive::new(File::open(zip_file_path)?)?;
     let mut file = zip.by_name("metadata.xxm")?;
@@ -92,10 +89,6 @@ pub fn import_archive_file(txn: &mut main_db::Txn, zip_file_path: &str) -> Resul
     }
     Ok(())
 }
-
-// TODO: support import from archive file. i.e. inserting new journeys from a
-// give archive file. If there are journeys with conflicting id, skip them if
-// the revision is the same and error if otherwise.
 
 // TODO: support conflict resolvation by asking user what to do.
 

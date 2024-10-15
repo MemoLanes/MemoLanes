@@ -146,7 +146,8 @@ impl Txn<'_> {
         }
     }
 
-    pub fn clear_journeys(&mut self) -> Result<()> {
+    pub fn delete_all_journeys(&mut self) -> Result<()> {
+        info!("Deleting all journeys");
         self.db_txn.execute("DELETE FROM journey;", ())?;
         self.action = Some(Action::CompleteRebuilt);
         Ok(())
@@ -165,19 +166,17 @@ impl Txn<'_> {
         }
     }
 
+    // TODO: consider return structured result so the caller know if it is skipped or other cases
     pub fn insert_journey(&mut self, header: JourneyHeader, data: JourneyData) -> Result<()> {
         let journey_type = header.journey_type;
         if journey_type != data.type_() {
             bail!("[insert_journey] Mismatch journey type")
         }
         let id = header.id.clone();
-        info!("Adding new journey: id={}", &id);
 
-        match self.get_header(&id) {
-            Ok(Some(existing_header)) => {
-                // If successfully retrieve the header, check the revision
+        match self.get_journey_header(&id)? {
+            Some(existing_header) => {
                 if existing_header.revision == header.revision {
-                    // If the revision is the same, skip the insert
                     info!(
                         "Journey with ID {} already exists with the same revision, skip insert",
                         &header.id
@@ -190,15 +189,11 @@ impl Txn<'_> {
                     );
                 }
             }
-            Ok(None) => {
-                // If no existing header, continue to insert
+            None => {
                 info!(
                     "No existing journey found for id={}, proceed to insert new journey",
                     id
                 );
-            }
-            Err(e) => {
-                return Err(e);
             }
         }
 
@@ -342,25 +337,24 @@ impl Txn<'_> {
         Ok(results)
     }
 
-    pub fn get_header(&self, id: &str) -> Result<Option<JourneyHeader>> {
+    pub fn get_journey_header(&self, id: &str) -> Result<Option<JourneyHeader>> {
         let mut query = self
             .db_txn
             .prepare("SELECT header FROM journey WHERE id = ?1;")?;
 
-        let header_bytes_result = query.query_row([id], |row| {
-            let header_bytes = row.get_ref(0)?.as_blob()?;
-            Ok(header_bytes.to_vec())
-        });
+        let header_proto_result = query
+            .query_row([id], |row| {
+                let header_bytes = row.get_ref(0)?.as_blob()?;
+                Ok(protos::journey::Header::parse_from_bytes(header_bytes))
+            })
+            .optional()?;
 
-        match header_bytes_result {
-            Ok(header_bytes) => {
-                let header = JourneyHeader::of_proto(protos::journey::Header::parse_from_bytes(
-                    &header_bytes,
-                )?)?;
+        match header_proto_result {
+            Some(header_proto_result) => {
+                let header = JourneyHeader::of_proto(header_proto_result?)?;
                 Ok(Some(header))
             }
-            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None), // No rows found with the given id
-            Err(e) => Err(e.into()),                               // Other rusqlite errors
+            None => Ok(None),
         }
     }
 
