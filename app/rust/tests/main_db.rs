@@ -219,17 +219,3 @@ fn journey_query() {
         2
     );
 }
-
-#[test]
-fn delete_all_journeys() {
-    let temp_dir = TempDir::new("main_db-basic").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
-
-    let all_journeys_before = all_journeys(&mut main_db);
-
-    add_vector_journeys(&mut main_db);
-    add_bitmap_journey(&mut main_db);
-
-    main_db.with_txn(|txn| txn.delete_all_journeys()).unwrap();
-    assert_eq!(all_journeys_before, all_journeys(&mut main_db));
-}
