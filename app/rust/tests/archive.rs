@@ -42,10 +42,6 @@ fn add_bitmap_journey(main_db: &mut MainDb) {
         .unwrap()
 }
 
-fn delete_journey(main_db: &mut MainDb, id: &str) {
-    main_db.with_txn(|txn| txn.delete_journey(id)).unwrap()
-}
-
 fn all_journeys(main_db: &mut MainDb) -> Vec<(JourneyHeader, JourneyData)> {
     let journey_headers = main_db
         .with_txn(|txn| txn.query_journeys(None, None))
@@ -61,8 +57,67 @@ fn all_journeys(main_db: &mut MainDb) -> Vec<(JourneyHeader, JourneyData)> {
 }
 
 #[test]
-fn archive_and_recover() {
-    let temp_dir = TempDir::new("main_db-basic").unwrap();
+fn archive_and_import() {
+    let temp_dir = TempDir::new("archive-archive_and_import").unwrap();
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+
+    add_vector_journeys(&mut main_db);
+    add_bitmap_journey(&mut main_db);
+
+    let all_journeys_before = all_journeys(&mut main_db);
+
+    let zip_file_path = temp_dir.path().join("archive.zip");
+    let mut file = File::create(&zip_file_path).unwrap();
+    main_db
+        .with_txn(|txn| archive::archive_all_as_zip(txn, &mut file))
+        .unwrap();
+    drop(file);
+    main_db.with_txn(|txn| txn.delete_all_journeys()).unwrap();
+
+    main_db
+        .with_txn(|txn| archive::import_archive_file(txn, zip_file_path.to_str().unwrap()))
+        .unwrap();
+    assert_eq!(all_journeys_before, all_journeys(&mut main_db));
+}
+
+#[test]
+fn delete_all_journeys() {
+    let temp_dir = TempDir::new("archive-delete_all_journeys").unwrap();
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+
+    let all_journeys_before = all_journeys(&mut main_db);
+
+    add_vector_journeys(&mut main_db);
+    add_bitmap_journey(&mut main_db);
+
+    main_db.with_txn(|txn| txn.delete_all_journeys()).unwrap();
+    assert_eq!(all_journeys_before, all_journeys(&mut main_db));
+}
+
+#[test]
+fn import_broken_archive_and_roll_back() {
+    let temp_dir = TempDir::new("archive-import_broken_archive_and_roll_back").unwrap();
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+
+    add_bitmap_journey(&mut main_db);
+
+    let all_journeys_before = all_journeys(&mut main_db);
+
+    let zip_file_path = temp_dir.path().join("archive.zip");
+    let mut file = File::create(&zip_file_path).unwrap();
+    file.write_all("hello".as_bytes()).unwrap();
+    drop(file);
+
+    // recover
+    assert!(main_db
+        .with_txn(|txn| archive::import_archive_file(txn, zip_file_path.to_str().unwrap()))
+        .is_err());
+    assert_eq!(all_journeys_before, all_journeys(&mut main_db));
+}
+
+#[test]
+fn import_skips_existing_journeys() {
+    let temp_dir = TempDir::new("archive-import_skips_existing_journeys").unwrap();
     let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
 
     add_vector_journeys(&mut main_db);
@@ -77,51 +132,18 @@ fn archive_and_recover() {
         .unwrap();
     drop(file);
 
-    // Do something to change things in `main_db`.
-    add_bitmap_journey(&mut main_db);
-    assert_ne!(all_journeys_before, all_journeys(&mut main_db));
-
-    // recover
+    // let's delete one journey
     main_db
-        .with_txn(|txn| archive::recover_archive_file(txn, zip_file_path.to_str().unwrap()))
+        .with_txn(|txn| txn.delete_journey(&all_journeys_before[0].0.id))
+        .unwrap();
+    assert_eq!(
+        all_journeys(&mut main_db).len(),
+        all_journeys_before.len() - 1
+    );
+
+    // import the archive again, it should skip all exisiting journeys but import the deleted one
+    main_db
+        .with_txn(|txn| archive::import_archive_file(txn, zip_file_path.to_str().unwrap()))
         .unwrap();
     assert_eq!(all_journeys_before, all_journeys(&mut main_db));
-}
-
-#[test]
-fn recover_from_broken_archive_and_roll_back() {
-    let temp_dir = TempDir::new("main_db-basic").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
-
-    add_bitmap_journey(&mut main_db);
-
-    let all_journeys_before = all_journeys(&mut main_db);
-
-    let zip_file_path = temp_dir.path().join("archive.zip");
-    let mut file = File::create(&zip_file_path).unwrap();
-    file.write_all("hello".as_bytes()).unwrap();
-    drop(file);
-
-    // recover
-    assert!(main_db
-        .with_txn(|txn| archive::recover_archive_file(txn, zip_file_path.to_str().unwrap()))
-        .is_err());
-    assert_eq!(all_journeys_before, all_journeys(&mut main_db));
-}
-
-#[test]
-fn add_and_delete_journey() {
-    let temp_dir = TempDir::new("main_db-basic").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
-
-    add_vector_journeys(&mut main_db);
-    add_bitmap_journey(&mut main_db);
-
-    let all_journeys_before = all_journeys(&mut main_db);
-
-    all_journeys_before
-        .into_iter()
-        .for_each(|(header, _)| delete_journey(&mut main_db, header.id.as_str()));
-
-    assert_eq!(all_journeys(&mut main_db).len(), 0);
 }

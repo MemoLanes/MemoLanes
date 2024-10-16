@@ -94,18 +94,36 @@ class _SettingsBodyState extends State<SettingsBody> {
               // don't care about error
             }
           },
-          child: const Text("Archive All"),
+          child: const Text("Archive all (mldx file)"),
         ),
         ElevatedButton(
           onPressed: () async {
             if (gpsRecordingState.status != GpsRecordingStatus.none) {
               await showInfoDialog(context,
-                  "Please stop the current ongoing journey before restoring.");
+                  "Please stop the current ongoing journey before deleting all journeys.");
               return;
             }
-            // TODO: only show the below dialog if there is data.
-            await showInfoDialog(context,
-                "You will lose all the current data in the app.\nConsider archive your data before restoring.");
+            if (!await showInfoDialog(
+                context,
+                "This will delete all journeys in this app. Are you sure?",
+                true)) {
+              return;
+            }
+            try {
+              await deleteAllJourneys();
+              if (context.mounted) {
+                await showInfoDialog(context, "All journeys are deleted.");
+              }
+            } catch (e) {
+              if (context.mounted) {
+                await showInfoDialog(context, e.toString());
+              }
+            }
+          },
+          child: const Text("Delete all journeys"),
+        ),
+        ElevatedButton(
+          onPressed: () async {
             // TODO: FilePicker is weird and `allowedExtensions` does not really work.
             // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
             var result =
@@ -113,11 +131,17 @@ class _SettingsBodyState extends State<SettingsBody> {
             if (result != null) {
               var path = result.files.single.path;
               if (path != null) {
-                await recoverFromArchive(zipFilePath: path);
+                try {
+                  await importArchive(zipFilePath: path);
+                } catch (e) {
+                  if (context.mounted) {
+                    await showInfoDialog(context, e.toString());
+                  }
+                }
               }
             }
           },
-          child: const Text("Reset & Restore"),
+          child: const Text("Import archive (mldx file)"),
         ),
         ElevatedButton(
           onPressed: () async {

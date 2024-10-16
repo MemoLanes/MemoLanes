@@ -337,11 +337,16 @@ pub fn export_journey(
     }
 }
 
-pub fn recover_from_archive(zip_file_path: String) -> Result<()> {
-    info!("Recovering from archive");
+pub fn delete_all_journeys() -> Result<()> {
+    info!("Delete all journeys");
+    get().storage.with_db_txn(|txn| txn.delete_all_journeys())
+}
+
+pub fn import_archive(zip_file_path: String) -> Result<()> {
+    info!("Import Archived Data");
     get()
         .storage
-        .with_db_txn(|txn| archive::recover_archive_file(txn, &zip_file_path))?;
+        .with_db_txn(|txn| archive::import_archive_file(txn, &zip_file_path))?;
     Ok(())
 }
 
