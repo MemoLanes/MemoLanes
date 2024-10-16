@@ -124,12 +124,6 @@ class _SettingsBodyState extends State<SettingsBody> {
         ),
         ElevatedButton(
           onPressed: () async {
-            if (gpsRecordingState.status != GpsRecordingStatus.none) {
-              await showInfoDialog(context,
-                  "Please stop the current ongoing journey before importing.");
-              return;
-            }
-            // TODO: only show the below dialog if there is data.
             // TODO: FilePicker is weird and `allowedExtensions` does not really work.
             // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
             var result =
