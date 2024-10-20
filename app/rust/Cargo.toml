@@ -10,12 +10,12 @@ crate-type = ["lib", "cdylib", "staticlib"]
 [dependencies]
 anyhow = { version = "1.0", features = ["backtrace"] }
 chrono = "0.4"
-flutter_rust_bridge = { version = "=2.3.0", features = ["chrono"] }
+flutter_rust_bridge = { version = "=2.5.0", features = ["chrono"] }
 log = "0.4"
 rusqlite = { version = "0.32", features = ["bundled"] }
 simplelog = "0.12"
 tiny-skia = "0.11"
-protobuf = "3.5"
+protobuf = "3.6"
 uuid = { version = "1.10", features = ["v4", "fast-rng", "macro-diagnostics"] }
 sql_split = "0.1"
 zstd = "0.13"
@@ -47,4 +47,5 @@ rand = "0.8"
 assert_float_eq = "1.1"
 
 [build-dependencies]
-protobuf-codegen = "3.5"
+protobuf-codegen = "3.6"
+

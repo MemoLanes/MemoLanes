@@ -1,18 +1,17 @@
 import 'dart:async';
-import 'dart:io' show Platform;
 
 import 'package:async/async.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:memolanes/notification_handler.dart';
 import 'package:mutex/mutex.dart';
+import 'package:notification_when_app_is_killed/model/args_for_ios.dart';
+import 'package:notification_when_app_is_killed/model/args_for_kill_notification.dart';
+import 'package:notification_when_app_is_killed/notification_when_app_is_killed.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/gps_processor.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/timezone.dart' as tz;
 
 /// `PokeGeolocatorTask` is a hacky workround.
 /// The behvior we observe is that the position stream from geolocator will
@@ -50,57 +49,6 @@ class _PokeGeolocatorTask {
   }
 }
 
-// Notify the user that the recording was unexpectedly stopped on iOS.
-// On Android, this does not work, and we achive this by using foreground task.
-// On iOS we rely on this to make sure user will be notified when the app is
-// killed during recording.
-class _UnexpectedCloseNotifier {
-  bool _alertScheduled = false;
-  final GpsRecordingState _state;
-
-  _UnexpectedCloseNotifier._(this._state);
-
-  static _UnexpectedCloseNotifier? start(GpsRecordingState state) {
-    if (!Platform.isIOS) return null;
-
-    var self = _UnexpectedCloseNotifier._(state);
-    () async {
-      await self._scheduleNotification();
-      Timer.periodic(const Duration(seconds: 4), (timer) async {
-        await self.cancelNotification();
-        await self._scheduleNotification();
-      });
-    }();
-    return self;
-  }
-
-  cancelNotification() async {
-    if (_alertScheduled) {
-      var notification = NotificationHandler.instance;
-      await notification.flutterLocalNotificationsPlugin
-          .cancel(notification.alertUnexpectedClosedId);
-      _alertScheduled = false;
-    }
-  }
-
-  _scheduleNotification() async {
-    if (_state.status != GpsRecordingStatus.recording) return;
-    if (_alertScheduled) return;
-
-    var notification = NotificationHandler.instance;
-    await notification.flutterLocalNotificationsPlugin.zonedSchedule(
-      notification.alertUnexpectedClosedId,
-      'Recording was unexpectedly stopped',
-      'Recording was unexpectedly stopped, please restart the app.',
-      tz.TZDateTime.now(tz.local).add(const Duration(seconds: 5)),
-      notification.alertPlatformChannelSpecifics,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-    );
-    _alertScheduled = true;
-  }
-}
-
 enum GpsRecordingStatus { none, recording, paused }
 
 class GpsRecordingState extends ChangeNotifier {
@@ -112,7 +60,6 @@ class GpsRecordingState extends ChangeNotifier {
   StreamSubscription<Position>? _positionStream;
   final Mutex _m = Mutex();
   _PokeGeolocatorTask? _pokeGeolocatorTask;
-  _UnexpectedCloseNotifier? _unexpectedCloseNotifier;
 
   // NOTE: we noticed that on Andorid, location updates may delivered in batches,
   // updates within the same batch can be out of order, so we try to batch them
@@ -121,6 +68,13 @@ class GpsRecordingState extends ChangeNotifier {
   RestartableTimer? _positionBufferFlushTimer;
   final List<Position> _positionBuffer = [];
   DateTime? _positionBufferFirstElementReceivedTime;
+
+  // Notify the user that the recording was unexpectedly stopped on iOS.
+  // On Android, this does not work, and we achive this by using foreground task.
+  // On iOS we rely on this to make sure user will be notified when the app is
+  // killed during recording.
+  // The app is a little hacky so I minted: https://github.com/flutter/flutter/issues/156139
+  final _notificationWhenAppIsKilledPlugin = NotificationWhenAppIsKilled();
 
   GpsRecordingState() {
     var accuracy = LocationAccuracy.best;
@@ -141,14 +95,16 @@ class GpsRecordingState extends ChangeNotifier {
           ));
     } else if (defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS) {
-      // TODO: not tested on iOS, it is likely that we need to tweak the
-      // settings.
       _locationSettings = AppleSettings(
         accuracy: accuracy,
-        activityType: ActivityType.fitness,
         distanceFilter: distanceFilter,
-        pauseLocationUpdatesAutomatically: true,
+        // TODO: we should try to make use of `pauseLocationUpdatesAutomatically`.
+        // According to doc "After a pause occurs, it’s your responsibility to
+        // restart location services again".
+        activityType: ActivityType.other,
+        pauseLocationUpdatesAutomatically: false,
         showBackgroundLocationIndicator: false,
+        allowBackgroundLocationUpdates: true,
       );
     } else {
       _locationSettings = LocationSettings(
@@ -156,7 +112,6 @@ class GpsRecordingState extends ChangeNotifier {
         distanceFilter: distanceFilter,
       );
     }
-    _unexpectedCloseNotifier = _UnexpectedCloseNotifier.start(this);
     _initState();
   }
 
@@ -301,7 +256,8 @@ class GpsRecordingState extends ChangeNotifier {
         to != GpsRecordingStatus.recording) {
       // stop recording
       await _positionStream?.cancel();
-      await _unexpectedCloseNotifier?.cancelNotification();
+      await _notificationWhenAppIsKilledPlugin
+          .cancelNotificationOnKillService();
       _pokeGeolocatorTask?.cancel();
       _pokeGeolocatorTask = null;
       _positionStream = null;
@@ -329,6 +285,16 @@ class GpsRecordingState extends ChangeNotifier {
           _onPositionUpdate(position);
         }
       });
+      await _notificationWhenAppIsKilledPlugin.setNotificationOnKillService(
+        ArgsForKillNotification(
+            title: 'Recording was unexpectedly stopped',
+            description:
+                'Recording was unexpectedly stopped, please restart the app.',
+            argsForIos: ArgsForIos(
+              interruptionLevel: InterruptionLevel.critical,
+              useDefaultSound: true,
+            )),
+      );
     }
 
     if (to == GpsRecordingStatus.none) {
