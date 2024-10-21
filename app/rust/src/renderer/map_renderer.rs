@@ -1,12 +1,15 @@
+use crate::renderer::utils::image_to_png_data;
+#[cfg(feature = "premium")]
+use crate::renderer::utils::TileSize;
+use crate::renderer::utils::{DEFAULT_BG_COLOR, DEFAULT_FG_COLOR, DEFAULT_TILE_SIZE};
+use crate::renderer::TileRendererOss;
+#[cfg(feature = "premium")]
+use crate::renderer::TileRendererPremium;
+use crate::renderer::TileRendererTrait;
+use crate::{journey_bitmap::JourneyBitmap, utils};
+use image::Rgba;
+use image::RgbaImage;
 use std::cmp::{max, min};
-use tiny_skia::{Pixmap, PixmapPaint, Transform};
-use tiny_skia::IntSize;
-use tokio::runtime::Runtime;
-
-use crate::{
-    journey_bitmap::JourneyBitmap, tile_renderer::TileRenderer, utils,
-    graphics::GpuProcessor,
-};
 
 pub struct RenderResult {
     // coordinates are in lat or lng
@@ -29,51 +32,39 @@ struct RenderArea {
 }
 
 pub struct MapRenderer {
-    tile_renderer: TileRenderer,
     journey_bitmap: JourneyBitmap,
+    tile_renderer: Box<dyn TileRendererTrait + Send + Sync>,
+    bg_color: Rgba<u8>,
+    fg_color: Rgba<u8>,
     current_render_area: Option<RenderArea>,
-    gpu_processor: Option<GpuProcessor>,
-    dilation_radius: usize,
 }
 
 impl MapRenderer {
     pub fn new(journey_bitmap: JourneyBitmap) -> Self {
-        let tile_renderer = TileRenderer::new();
+        #[cfg(feature = "premium")]
+        let tile_renderer = Box::new(TileRendererPremium::new_sync(TileSize::TileSize1024));
+
+        #[cfg(not(feature = "premium"))]
+        let tile_renderer = Box::new(TileRendererOss::new(DEFAULT_TILE_SIZE));
+
         Self::new_with_tile_renderer(journey_bitmap, tile_renderer)
     }
 
     pub fn new_with_tile_renderer(
         journey_bitmap: JourneyBitmap,
-        tile_renderer: TileRenderer,
+        tile_renderer: Box<dyn TileRendererTrait + Send + Sync>,
     ) -> Self {
-        // TODO: make tilesize in map renderer
-        let tile_size: u32 = 1 << tile_renderer.get_tile_size_power();
-        let gpu_processor = Runtime::new()
-                .unwrap()
-                .block_on(async move { GpuProcessor::new(tile_size, tile_size).await });
         Self {
-            tile_renderer,
             journey_bitmap,
+            tile_renderer,
+            bg_color: DEFAULT_BG_COLOR,
+            fg_color: DEFAULT_FG_COLOR,
             current_render_area: None,
-            gpu_processor: Some(gpu_processor),
-            dilation_radius: 1,
         }
     }
 
-    pub fn set_dilation_radius(&mut self, radius: usize) {
-        self.dilation_radius = radius;
-    }
-
     fn render_map_overlay(&self, render_area: &RenderArea) -> RenderResult {
-        // TODO: Change render backend. Right now we are using `tiny-skia`,
-        // it should work just fine and we don't really need fancy features.
-        // However, it is mostly a research project and does not feel like production ready,
-        // `rust-skia` looks a lot better and has better performance (unlike `tiny-skia` is
-        // purely on CPU, `rust-skia` can be ran on GPU). The reason we use `tiny-skia` right
-        // now is that it is pure rust, so we don't need to think about how to build depenceies
-        // for various platform.
-
-        let tile_size: u32 = 1 << self.tile_renderer.get_tile_size_power();
+        let tile_size: u32 = self.tile_renderer.get_tile_size().size();
         let width_by_tile: u32 = (render_area.right_idx - render_area.left_idx + 1)
             .try_into()
             .unwrap();
@@ -81,44 +72,22 @@ impl MapRenderer {
             .try_into()
             .unwrap();
 
-        // TODO: reuse resurces?
-        let mut pixmap =
-            Pixmap::new(tile_size * width_by_tile, tile_size * height_by_tile).unwrap();
-        // color must be set to the tile renderer directly upon its creation
+        let mut image = RgbaImage::new(tile_size * width_by_tile, tile_size * height_by_tile);
 
         for x in 0..width_by_tile {
             for y in 0..height_by_tile {
                 // TODO: cache?
 
-                let tile_pixmap = self.tile_renderer.render_pixmap(
+                self.tile_renderer.render_on_image(
+                    &mut image,
+                    x * tile_size,
+                    y * tile_size,
                     &self.journey_bitmap,
-                    render_area.left_idx as u64 + x as u64,
-                    render_area.top_idx as u64 + y as u64,
+                    render_area.left_idx as i64 + x as i64,
+                    render_area.top_idx as i64 + y as i64,
                     render_area.zoom as i16,
-                );
-
-                let processed_tile_pixmap_data = {
-                    if let Some(gpu_processor) = &self.gpu_processor {
-                        let rt = Runtime::new().unwrap();
-                        rt.block_on(gpu_processor.process_frame_async(tile_pixmap.data()))
-                    } else {
-                        tile_pixmap.data().to_vec()
-                    }
-                };
-
-                let processed_tile_pixmap = Pixmap::from_vec(
-                    processed_tile_pixmap_data,
-                    IntSize::from_wh(tile_size, tile_size).unwrap(),
-                )
-                .unwrap();
-
-                pixmap.draw_pixmap(
-                    (x * tile_size) as i32,
-                    (y * tile_size) as i32,
-                    processed_tile_pixmap.as_ref(),
-                    &PixmapPaint::default(),
-                    Transform::identity(),
-                    None,
+                    self.bg_color,
+                    self.fg_color,
                 );
             }
         }
@@ -131,14 +100,16 @@ impl MapRenderer {
             render_area.zoom,
         );
 
+        let image_png = image_to_png_data(&image);
+
         RenderResult {
-            width: pixmap.width(),
-            height: pixmap.height(),
+            width: tile_size * width_by_tile,
+            height: tile_size * height_by_tile,
             top: overlay_top,
             left: overlay_left,
             right: overlay_right,
             bottom: overlay_bottom,
-            data: pixmap.encode_png().unwrap(),
+            data: image_png,
         }
     }
 

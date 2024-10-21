@@ -10,7 +10,7 @@ use crate::gps_processor::{GpsProcessor, ProcessResult};
 use crate::journey_bitmap::{JourneyBitmap, MAP_WIDTH_OFFSET, TILE_WIDTH, TILE_WIDTH_OFFSET};
 use crate::journey_data::JourneyData;
 use crate::journey_header::JourneyHeader;
-use crate::map_renderer::{MapRenderer, RenderResult};
+use crate::renderer::{MapRenderer, RenderResult};
 use crate::storage::Storage;
 use crate::{archive, export_data, gps_processor, merged_journey_builder, storage};
 use crate::{logs, utils};

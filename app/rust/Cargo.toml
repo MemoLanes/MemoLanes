@@ -7,6 +7,11 @@ edition = "2021"
 [lib]
 crate-type = ["lib", "cdylib", "staticlib"]
 
+[features]
+# enable premium features by default
+# default = [ "premium" ]
+premium = []
+
 [dependencies]
 anyhow = { version = "1.0", features = ["backtrace"] }
 chrono = "0.4"
