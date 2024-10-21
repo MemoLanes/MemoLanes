@@ -1,5 +1,5 @@
 pub mod test_utils;
-use memolanes_core::{journey_bitmap::JourneyBitmap, map_renderer::*};
+use memolanes_core::{journey_bitmap::JourneyBitmap, renderer::*};
 
 #[macro_use]
 extern crate assert_float_eq;

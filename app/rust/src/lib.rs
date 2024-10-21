@@ -14,7 +14,6 @@ pub mod archive;
 pub mod cache_db;
 pub mod export_data;
 pub mod gps_processor;
-pub mod graphics;
 pub mod import_data;
 pub mod journey_bitmap;
 pub mod journey_data;
