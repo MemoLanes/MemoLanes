@@ -1,10 +1,6 @@
 use crate::renderer::utils::image_to_png_data;
-#[cfg(feature = "premium")]
-use crate::renderer::utils::TileSize;
 use crate::renderer::utils::{DEFAULT_BG_COLOR, DEFAULT_FG_COLOR, DEFAULT_TILE_SIZE};
-use crate::renderer::TileRendererOss;
-#[cfg(feature = "premium")]
-use crate::renderer::TileRendererPremium;
+use crate::renderer::TileRendererBasic;
 use crate::renderer::TileRendererTrait;
 use crate::{journey_bitmap::JourneyBitmap, utils};
 use image::Rgba;
@@ -41,12 +37,7 @@ pub struct MapRenderer {
 
 impl MapRenderer {
     pub fn new(journey_bitmap: JourneyBitmap) -> Self {
-        #[cfg(feature = "premium")]
-        let tile_renderer = Box::new(TileRendererPremium::new_sync(TileSize::TileSize1024));
-
-        #[cfg(not(feature = "premium"))]
-        let tile_renderer = Box::new(TileRendererOss::new(DEFAULT_TILE_SIZE));
-
+        let tile_renderer = Box::new(TileRendererBasic::new(DEFAULT_TILE_SIZE));
         Self::new_with_tile_renderer(journey_bitmap, tile_renderer)
     }
 

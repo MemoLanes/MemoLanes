@@ -23,11 +23,7 @@ fn basic() {
     assert_f64_near!(render_result.right, 151.5234375);
     assert_f64_near!(render_result.bottom, -34.16181816123038);
 
-    test_utils::assert_image(
-        &render_result.data,
-        "map_renderer_basic",
-        "d50ad8703fd3cb38ac5777f8aa1ad8a26cbbf585",
-    );
+    test_utils::verify_image("map_renderer_basic", &render_result.data);
 
     // a small move shouldn't trigger a re-render
     let render_result = map_renderer.maybe_render_map_overlay(
