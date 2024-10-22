@@ -16,10 +16,7 @@ pub trait TileRendererTrait {
         bg_color: Rgba<u8>,
         fg_color: Rgba<u8>,
     ) -> RgbaImage {
-        let mut image = RgbaImage::new(
-            self.get_tile_size().size() as u32,
-            self.get_tile_size().size() as u32,
-        );
+        let mut image = RgbaImage::new(self.get_tile_size().size(), self.get_tile_size().size());
         self.render_on_image(
             &mut image,
             0,
@@ -34,6 +31,7 @@ pub trait TileRendererTrait {
         image
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn render_on_image(
         &self,
         image: &mut RgbaImage,
@@ -76,8 +74,8 @@ impl TileRendererTrait for TileRendererBasic {
         fg_color: Rgba<u8>,
     ) {
         // check the image size
-        debug_assert!(image.width() >= start_x + self.tile_size.size() as u32);
-        debug_assert!(image.height() >= start_y + self.tile_size.size() as u32);
+        debug_assert!(image.width() >= start_x + self.tile_size.size());
+        debug_assert!(image.height() >= start_y + self.tile_size.size());
 
         TileShader::render_on_image(
             image,

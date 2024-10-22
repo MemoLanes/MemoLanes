@@ -11,6 +11,7 @@ const TILE_ZOOM: i16 = 9;
 pub struct TileShader;
 
 impl TileShader {
+    #[allow(clippy::too_many_arguments)]
     pub fn render_on_image(
         image: &mut RgbaImage,
         start_x: u32,
@@ -96,6 +97,7 @@ impl TileShader {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn render_tile_on_pixels(
         tile: &Tile,
         sub_image: &mut SubImage<&mut RgbaImage>,
@@ -177,6 +179,7 @@ impl TileShader {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn render_block_on_pixels(
         block: &Block,
         sub_image: &mut SubImage<&mut RgbaImage>,
