@@ -23,7 +23,7 @@ pub mod journey_vector;
 mod logs;
 pub mod main_db;
 pub mod map_renderer;
-mod merged_journey_builder;
+pub mod merged_journey_builder;
 mod protos;
 pub mod storage;
 pub mod tile_renderer;

@@ -42,7 +42,11 @@ tempdir = "0.3"
 csv = "1.3"
 rand = "0.8"
 assert_float_eq = "1.1"
+criterion = "0.5"
 
 [build-dependencies]
 protobuf-codegen = "3.6"
 
+[[bench]]
+name = "bench"
+harness = false
