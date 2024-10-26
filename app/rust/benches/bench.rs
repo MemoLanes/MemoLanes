@@ -1,40 +1,46 @@
+use std::{fs::File, io::Write};
+
 use criterion::{criterion_group, criterion_main, Criterion};
 
-use memolanes_core::{journey_bitmap::JourneyBitmap, map_renderer::*};
-
-#[test]
-fn basic() {
-    let mut journey_bitmap = JourneyBitmap::new();
-    let start_lng = 151.1435370795134;
-    let start_lat = -33.793291910360125;
-    let end_lng = 151.2783692841415;
-    let end_lat = -33.943600147192235;
-    journey_bitmap.add_line(start_lng, start_lat, end_lng, end_lat);
-
-    let mut map_renderer = MapRenderer::new(journey_bitmap);
-
-    let render_result =
-        map_renderer.maybe_render_map_overlay(11, start_lng, start_lat, end_lng, end_lat);
-    let render_result = render_result.unwrap();
-}
+use memolanes_core::{
+    import_data, journey_bitmap::JourneyBitmap, map_renderer::*, merged_journey_builder,
+};
 
 fn map_renderer(c: &mut Criterion) {
     c.bench_function("map_renderer", |b| {
-        let mut journey_bitmap = JourneyBitmap::new();
-        let start_lng = 151.1435370795134;
-        let start_lat = -33.793291910360125;
-        let end_lng = 151.2783692841415;
-        let end_lat = -33.943600147192235;
-        journey_bitmap.add_line(start_lng, start_lat, end_lng, end_lat);
-        let mut map_renderer = MapRenderer::new(journey_bitmap);
+        let raw_data = import_data::load_gpx("./tests/data/nelson_to_wharariki_beach.gpx").unwrap();
 
+        let (mut left, mut right, mut top, mut bottom): (f64, f64, f64, f64) =
+            (180., -180., -90., 90.);
+        raw_data.iter().for_each(|x| {
+            x.iter().for_each(|raw_data| {
+                left = left.min(raw_data.longitude);
+                right = right.max(raw_data.longitude);
+                top = top.max(raw_data.latitude);
+                bottom = bottom.min(raw_data.latitude);
+            })
+        });
+
+        let journey_vector = import_data::journey_vector_from_raw_data(raw_data, false).unwrap();
+        let mut journey_bitmap = JourneyBitmap::new();
+        merged_journey_builder::add_journey_vector_to_journey_bitmap(
+            &mut journey_bitmap,
+            &journey_vector,
+        );
+
+        let mut map_renderer = MapRenderer::new(journey_bitmap);
         let zoom = 11;
+
+        let render_result = map_renderer.maybe_render_map_overlay(zoom, left, top, right, bottom);
+        let mut f = File::create("./benches/for_inspection/map_renderer.png").unwrap();
+        f.write_all(&render_result.unwrap().data).unwrap();
+        drop(f);
 
         b.iter(|| {
             std::hint::black_box({
                 map_renderer.reset();
-                let render_result = map_renderer
-                    .maybe_render_map_overlay(zoom, start_lng, start_lat, end_lng, end_lat);
+                let render_result =
+                    map_renderer.maybe_render_map_overlay(zoom, left, top, right, bottom);
                 render_result.unwrap();
             });
         });
