@@ -21,7 +21,7 @@ pub mod journey_header;
 pub mod journey_vector;
 mod logs;
 pub mod main_db;
-mod merged_journey_builder;
+pub mod merged_journey_builder;
 mod protos;
 pub mod renderer;
 pub mod storage;
