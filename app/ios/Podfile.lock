@@ -1,57 +1,61 @@
 PODS:
   - device_info_plus (0.0.1):
     - Flutter
-  - DKImagePickerController/Core (4.3.4):
+  - DKImagePickerController/Core (4.3.9):
     - DKImagePickerController/ImageDataManager
     - DKImagePickerController/Resource
-  - DKImagePickerController/ImageDataManager (4.3.4)
-  - DKImagePickerController/PhotoGallery (4.3.4):
+  - DKImagePickerController/ImageDataManager (4.3.9)
+  - DKImagePickerController/PhotoGallery (4.3.9):
     - DKImagePickerController/Core
     - DKPhotoGallery
-  - DKImagePickerController/Resource (4.3.4)
-  - DKPhotoGallery (0.0.17):
-    - DKPhotoGallery/Core (= 0.0.17)
-    - DKPhotoGallery/Model (= 0.0.17)
-    - DKPhotoGallery/Preview (= 0.0.17)
-    - DKPhotoGallery/Resource (= 0.0.17)
+  - DKImagePickerController/Resource (4.3.9)
+  - DKPhotoGallery (0.0.19):
+    - DKPhotoGallery/Core (= 0.0.19)
+    - DKPhotoGallery/Model (= 0.0.19)
+    - DKPhotoGallery/Preview (= 0.0.19)
+    - DKPhotoGallery/Resource (= 0.0.19)
     - SDWebImage
     - SwiftyGif
-  - DKPhotoGallery/Core (0.0.17):
+  - DKPhotoGallery/Core (0.0.19):
     - DKPhotoGallery/Model
     - DKPhotoGallery/Preview
     - SDWebImage
     - SwiftyGif
-  - DKPhotoGallery/Model (0.0.17):
+  - DKPhotoGallery/Model (0.0.19):
     - SDWebImage
     - SwiftyGif
-  - DKPhotoGallery/Preview (0.0.17):
+  - DKPhotoGallery/Preview (0.0.19):
     - DKPhotoGallery/Model
     - DKPhotoGallery/Resource
     - SDWebImage
     - SwiftyGif
-  - DKPhotoGallery/Resource (0.0.17):
+  - DKPhotoGallery/Resource (0.0.19):
     - SDWebImage
     - SwiftyGif
   - file_picker (0.0.1):
     - DKImagePickerController/PhotoGallery
     - Flutter
   - Flutter (1.0.0)
+  - flutter_local_notifications (0.0.1):
+    - Flutter
   - fluttertoast (0.0.2):
     - Flutter
     - Toast
   - geolocator_apple (1.2.0):
     - Flutter
-  - mapbox_maps_flutter (2.0.0):
+  - mapbox_maps_flutter (2.3.0):
     - Flutter
-    - MapboxMaps (~> 11.4.0)
-    - Turf (= 2.8.0)
-  - MapboxCommon (24.4.0)
-  - MapboxCoreMaps (11.4.0):
-    - MapboxCommon (~> 24.4)
-  - MapboxMaps (11.4.0):
-    - MapboxCommon (= 24.4.0)
-    - MapboxCoreMaps (= 11.4.0)
-    - Turf (= 2.8.0)
+    - MapboxMaps (~> 11.7.0)
+    - Turf (= 3.0.0)
+  - MapboxCommon (24.7.0)
+  - MapboxCoreMaps (11.7.0):
+    - MapboxCommon (~> 24.7)
+  - MapboxMaps (11.7.0):
+    - MapboxCommon (= 24.7.0)
+    - MapboxCoreMaps (= 11.7.0)
+    - Turf (= 3.0.0)
+  - notification_when_app_is_killed (0.0.1):
+    - Flutter
   - package_info_plus (0.4.5):
     - Flutter
   - path_provider_foundation (0.0.1):
@@ -61,27 +65,36 @@ PODS:
     - Flutter
   - rust_builder (0.0.1):
     - Flutter
-  - SDWebImage (5.18.10):
-    - SDWebImage/Core (= 5.18.10)
-  - SDWebImage/Core (5.18.10)
+  - SDWebImage (5.19.7):
+    - SDWebImage/Core (= 5.19.7)
+  - SDWebImage/Core (5.19.7)
   - share_plus (0.0.1):
     - Flutter
-  - SwiftyGif (5.4.4)
+  - shared_preferences_foundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - SwiftyGif (5.4.5)
   - Toast (4.1.1)
-  - Turf (2.8.0)
+  - Turf (3.0.0)
+  - url_launcher_ios (0.0.1):
+    - Flutter
 
 DEPENDENCIES:
   - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
   - file_picker (from `.symlinks/plugins/file_picker/ios`)
   - Flutter (from `Flutter`)
+  - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
   - fluttertoast (from `.symlinks/plugins/fluttertoast/ios`)
   - geolocator_apple (from `.symlinks/plugins/geolocator_apple/ios`)
   - mapbox_maps_flutter (from `.symlinks/plugins/mapbox_maps_flutter/ios`)
+  - notification_when_app_is_killed (from `.symlinks/plugins/notification_when_app_is_killed/ios`)
   - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
   - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
   - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
   - rust_builder (from `.symlinks/plugins/rust_builder/ios`)
   - share_plus (from `.symlinks/plugins/share_plus/ios`)
+  - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
+  - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
 
 SPEC REPOS:
   trunk:
@@ -102,12 +115,16 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/file_picker/ios"
   Flutter:
     :path: Flutter
+  flutter_local_notifications:
+    :path: ".symlinks/plugins/flutter_local_notifications/ios"
   fluttertoast:
     :path: ".symlinks/plugins/fluttertoast/ios"
   geolocator_apple:
     :path: ".symlinks/plugins/geolocator_apple/ios"
   mapbox_maps_flutter:
     :path: ".symlinks/plugins/mapbox_maps_flutter/ios"
+  notification_when_app_is_killed:
+    :path: ".symlinks/plugins/notification_when_app_is_killed/ios"
   package_info_plus:
     :path: ".symlinks/plugins/package_info_plus/ios"
   path_provider_foundation:
@@ -118,28 +135,36 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/rust_builder/ios"
   share_plus:
     :path: ".symlinks/plugins/share_plus/ios"
+  shared_preferences_foundation:
+    :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
+  url_launcher_ios:
+    :path: ".symlinks/plugins/url_launcher_ios/ios"
 
 SPEC CHECKSUMS:
   device_info_plus: 97af1d7e84681a90d0693e63169a5d50e0839a0d
-  DKImagePickerController: b512c28220a2b8ac7419f21c491fc8534b7601ac
-  DKPhotoGallery: fdfad5125a9fdda9cc57df834d49df790dbb4179
+  DKImagePickerController: 946cec48c7873164274ecc4624d19e3da4c1ef3c
+  DKPhotoGallery: b3834fecb755ee09a593d7c9e389d8b5d6deed60
   file_picker: 09aa5ec1ab24135ccd7a1621c46c84134bfd6655
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
-  fluttertoast: 9f2f8e81bb5ce18facb9748d7855bf5a756fe3db
+  flutter_local_notifications: 4cde75091f6327eb8517fa068a0a5950212d2086
+  fluttertoast: e9a18c7be5413da53898f660530c56f35edfba9c
   geolocator_apple: 6cbaf322953988e009e5ecb481f07efece75c450
-  mapbox_maps_flutter: 6b7ea767ed02514e0b796d5a2e48ba83b71bac01
-  MapboxCommon: 6acbd8ff41d66abf498e1558b0739f25c562945a
-  MapboxCoreMaps: f306bb1b10ebe995a2247b40e99322ab7f9b8071
-  MapboxMaps: 82044383ae19ec124ff444ec4b5d3ce82cb36ba5
+  mapbox_maps_flutter: fb6e57802405af69ecd96a9a2c7cdf9c756c4985
+  MapboxCommon: fbc1138a831f4c1b728167c3f49701fe3a9aeed1
+  MapboxCoreMaps: 8946c9fa51e588d594ee6ebf192d9942368abb6a
+  MapboxMaps: bf9f775d921ed357ae642c379ebad90550cdb9de
+  notification_when_app_is_killed: 8a0eb9075cced52e07b0e7c0744f46c953c5b9fd
   package_info_plus: 58f0028419748fad15bf008b270aaa8e54380b1c
-  path_provider_foundation: 3784922295ac71e43754bd15e0653ccfd36a147c
+  path_provider_foundation: 2b6b4c569c0fb62ec74538f866245ac84301af46
   permission_handler_apple: 9878588469a2b0d0fc1e048d9f43605f92e6cec2
   rust_builder: 06c007d2993fe78fac952c4fb967ac1dfd0522c0
-  SDWebImage: fc8f2d48bbfd72ef39d70e981bd24a3f3be53fec
+  SDWebImage: 8a6b7b160b4d710e2a22b6900e25301075c34cb3
   share_plus: 8875f4f2500512ea181eef553c3e27dba5135aad
-  SwiftyGif: 93a1cc87bf3a51916001cf8f3d63835fb64c819f
+  shared_preferences_foundation: fcdcbc04712aee1108ac7fda236f363274528f78
+  SwiftyGif: 706c60cf65fa2bc5ee0313beece843c8eb8194d4
   Toast: 1f5ea13423a1e6674c4abdac5be53587ae481c4e
-  Turf: aa2ede4298009639d10db36aba1a7ebaad072a5e
+  Turf: a1604e74adce15c58462c9ae2acdbf049d5be35e
+  url_launcher_ios: 5334b05cef931de560670eeae103fd3e431ac3fe
 
 PODFILE CHECKSUM: adb9687c2ee1453b6cb5c1cd206f0d206a36d0e8
 

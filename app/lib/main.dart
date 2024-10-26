@@ -1,40 +1,48 @@
+import 'dart:async';
+
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/time_machine.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:project_dv/archive.dart';
-import 'package:project_dv/gps_page.dart';
-import 'package:project_dv/gps_recording_state.dart';
-import 'package:project_dv/journey.dart';
-import 'package:project_dv/map.dart';
-import 'package:project_dv/raw_data.dart';
-import 'package:project_dv/src/rust/api/api.dart' as api;
-import 'package:project_dv/src/rust/frb_generated.dart';
+import 'package:memolanes/settings.dart';
+import 'package:memolanes/gps_page.dart';
+import 'package:memolanes/gps_recording_state.dart';
+import 'package:memolanes/journey.dart';
+import 'package:memolanes/map.dart';
+import 'package:memolanes/raw_data.dart';
+import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:provider/provider.dart';
+import 'package:badges/badges.dart' as badges;
 
-void delayedInit() {
+void delayedInit(UpdateNotifier updateNotifier) {
   Future.delayed(const Duration(milliseconds: 2000), () async {
     DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
     String? manufacturer;
     String? model;
     String? systemVersion;
+    bool isPhysicalDevice = false;
     if (defaultTargetPlatform == TargetPlatform.android) {
       var androidInfo = await deviceInfo.androidInfo;
       manufacturer = androidInfo.manufacturer;
       model = androidInfo.model;
       systemVersion = androidInfo.version.release;
+      isPhysicalDevice = androidInfo.isPhysicalDevice;
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
       var iosInfo = await deviceInfo.iosInfo;
       manufacturer = "Apple";
       model = iosInfo.utsname.machine;
       systemVersion = iosInfo.systemVersion;
+      isPhysicalDevice = iosInfo.isPhysicalDevice;
     }
 
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
 
     await api.delayedInit(
         deviceInfo: api.DeviceInfo(
+            isPhysicalDevice: isPhysicalDevice,
             manufacturer: manufacturer,
             model: model,
             systemVersion: systemVersion),
@@ -42,6 +50,15 @@ void delayedInit() {
             packageName: packageInfo.packageName,
             version: packageInfo.version,
             buildNumber: packageInfo.buildNumber));
+    doWork() async {
+      // TODO: for future use
+    }
+
+    await doWork();
+    Timer.periodic(const Duration(minutes: 10), (_) async {
+      await api.tenMinutesHeartbeat();
+      await doWork();
+    });
   });
 }
 
@@ -55,11 +72,14 @@ void main() async {
       docDir: (await getApplicationDocumentsDirectory()).path,
       supportDir: (await getApplicationSupportDirectory()).path,
       cacheDir: (await getApplicationCacheDirectory()).path);
-  delayedInit();
+  var updateNotifier = UpdateNotifier();
+  delayedInit(updateNotifier);
+  var gpsRecordingState = GpsRecordingState();
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (context) => GpsRecordingState()),
+        ChangeNotifierProvider(create: (context) => gpsRecordingState),
+        ChangeNotifierProvider(create: (context) => updateNotifier),
       ],
       child: const MyApp(),
     ),
@@ -73,7 +93,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'MemoLanes',
       theme: ThemeData(
         // This is the theme of your application.
         //
@@ -86,7 +106,7 @@ class MyApp extends StatelessWidget {
         // is not restarted.
         primarySwatch: Colors.blue,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const MyHomePage(title: 'MemoLanes [OSS]'),
     );
   }
 }
@@ -118,36 +138,65 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Scaffold(
           appBar: AppBar(
-            bottom: const TabBar(
+            bottom: TabBar(
               tabs: [
-                Tab(icon: Icon(Icons.home)),
-                Tab(icon: Icon(Icons.map)),
-                Tab(icon: Icon(Icons.archive)),
-                Tab(icon: Icon(Icons.description)),
+                const Tab(icon: Icon(Icons.home)),
+                const Tab(icon: Icon(Icons.update)),
+                const Tab(icon: Icon(Icons.map)),
+                Tab(
+                  child: badges.Badge(
+                    badgeStyle: badges.BadgeStyle(
+                      shape: badges.BadgeShape.square,
+                      borderRadius: BorderRadius.circular(5),
+                      padding: const EdgeInsets.all(2),
+                      badgeGradient: const badges.BadgeGradient.linear(
+                        colors: [
+                          Colors.purple,
+                          Colors.blue,
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    position: badges.BadgePosition.topEnd(top: -12, end: -20),
+                    badgeContent: const Text(
+                      'NEW',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold),
+                    ),
+                    showBadge:
+                        context.watch<UpdateNotifier>().hasUpdateNotification(),
+                    child: const Icon(Icons.settings),
+                  ),
+                ),
+                const Tab(icon: Icon(Icons.description)),
               ],
             ),
             title: Text(widget.title),
           ),
-          body: const TabBarView(
-            physics: NeverScrollableScrollPhysics(),
+          body: TabBarView(
+            physics: const NeverScrollableScrollPhysics(),
             children: [
               Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.start,
                   children: <Widget>[
                     GPSPage(),
-                    Expanded(
+                    const Expanded(
                       child: MapUiBody(),
                     ),
                   ],
                 ),
               ),
-              Center(child: JourneyUiBody()),
-              Center(child: ArchiveUiBody()),
-              Center(child: RawDataBody())
+              const Center(child: TimeMachineUIBody()),
+              const Center(child: JourneyUiBody()),
+              const Center(child: SettingsBody()),
+              const Center(child: RawDataBody()),
             ],
           )),
     );

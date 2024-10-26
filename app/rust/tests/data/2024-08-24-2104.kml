@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:gom="https://gurumaps.app/kml/v1">
+ <Document>
+  <atom:author>
+   <atom:name>com.bodunov.galileo/v5.4.1</atom:name>
+  </atom:author>
+  <Placemark>
+   <gx:TimeStamp>2024-04-05T06:01:21.315Z</gx:TimeStamp>
+   <styleUrl>#TrackStyle_2196F3C8</styleUrl>
+ <LineString>
+  <tessellate>1</tessellate>
+  <coordinates>117.1179554744,36.6986802655,72.6268005709
+117.1179514511,36.6986773737,72.7029114108
+117.1179456676,36.6986724703,73.0656433445
+117.1179419795,36.6986652618,73.3761291845
+117.1179470925,36.6986660581,72.3053894379
+117.1179487689,36.6986734761,73.7265320167
+117.1179480983,36.6986671897,72.9706726414
+117.1179439912,36.6986553712,72.5848083834
+117.1179400517,36.6986433851,73.1429138524
+117.1179374533,36.6986413734,73.5342102393
+  </coordinates>
+ </LineString>
+  </Placemark>
+  <Style id="TrackStyle_2196F3C8">
+   <LineStyle>
+    <color>C8F39621</color>
+    <width>5</width>
+   </LineStyle>
+  </Style>
+ </Document>
+</kml>

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use flutter_rust_bridge::frb;
 use protobuf::EnumOrUnknown;
 use strum_macros::EnumIter;
@@ -96,7 +96,7 @@ impl JourneyKind {
 pub struct JourneyHeader {
     pub id: String,
     pub revision: String,
-    pub journey_date: chrono::NaiveDate,
+    pub journey_date: NaiveDate,
     pub created_at: DateTime<Utc>,
     pub updated_at: Option<DateTime<Utc>>,
     pub start: Option<DateTime<Utc>>,
@@ -115,8 +115,7 @@ impl JourneyHeader {
         Ok(JourneyHeader {
             id: proto.id,
             revision: proto.revision,
-            journey_date: utils::date_of_days_since_epoch(proto.journey_date__days_since_epoch)
-                .unwrap(),
+            journey_date: utils::date_of_days_since_epoch(proto.journey_date__days_since_epoch),
             created_at: DateTime::from_timestamp(proto.created_at__timestamp_sec, 0).unwrap(),
             updated_at: proto
                 .updated_at__timestamp_sec

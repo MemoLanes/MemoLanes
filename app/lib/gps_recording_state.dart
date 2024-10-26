@@ -1,58 +1,42 @@
 import 'dart:async';
 
+import 'package:async/async.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mutex/mutex.dart';
+import 'package:notification_when_app_is_killed/model/args_for_ios.dart';
+import 'package:notification_when_app_is_killed/model/args_for_kill_notification.dart';
+import 'package:notification_when_app_is_killed/notification_when_app_is_killed.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:async/async.dart';
-import 'package:project_dv/src/rust/api/api.dart';
-import 'package:project_dv/src/rust/gps_processor.dart';
+import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/src/rust/gps_processor.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class AutoJourneyFinalizer {
-  AutoJourneyFinalizer() {
-    _start();
-  }
-
-  void _start() async {
-    await tryOnce();
-    Timer.periodic(const Duration(minutes: 5), (timer) async {
-      await tryOnce();
-    });
-  }
-
-  Future<void> tryOnce() async {
-    if (await tryAutoFinalizeJourny()) {
-      Fluttertoast.showToast(msg: "New journey added");
-    }
-  }
-}
-
-/// `PokeGeolocatorTask` is a hacky workround on Android.
+/// `PokeGeolocatorTask` is a hacky workround.
 /// The behvior we observe is that the position stream from geolocator will
 /// randomly pauses so updates are delayed and come in as a batch later.
 /// However, if there something request the location, even if it is in
 /// another app, the stream will resume. So the hack is to poke the geolocator
 /// frequently.
 class _PokeGeolocatorTask {
-  // TODO: Test on iOS
-  bool running = false;
-  _PokeGeolocatorTask();
+  bool _running = false;
+  LocationSettings? _locationSettings;
 
-  factory _PokeGeolocatorTask.start() {
-    var task = _PokeGeolocatorTask();
-    task.running = true;
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      task._loop();
-    }
-    return task;
+  _PokeGeolocatorTask._();
+
+  factory _PokeGeolocatorTask.start(LocationSettings? locationSettings) {
+    var self = _PokeGeolocatorTask._();
+    self._running = true;
+    self._locationSettings = locationSettings;
+    self._loop();
+    return self;
   }
 
   _loop() async {
     await Future.delayed(const Duration(minutes: 1));
-    if (running) {
-      await Geolocator.getCurrentPosition(
-              timeLimit: const Duration(seconds: 10))
+    if (_running) {
+      await Geolocator.getCurrentPosition(locationSettings: _locationSettings)
           // we don't care about the result
           .then((_) => null)
           .catchError((_) => null);
@@ -61,18 +45,20 @@ class _PokeGeolocatorTask {
   }
 
   cancel() {
-    running = false;
+    _running = false;
   }
 }
 
+enum GpsRecordingStatus { none, recording, paused }
+
 class GpsRecordingState extends ChangeNotifier {
-  var isRecording = false;
+  static const String isRecordingPrefsKey = "GpsRecordingState.isRecording";
+  var status = GpsRecordingStatus.none;
   Position? latestPosition;
 
   LocationSettings? _locationSettings;
   StreamSubscription<Position>? _positionStream;
   final Mutex _m = Mutex();
-  final AutoJourneyFinalizer _autoJourneyFinalizer = AutoJourneyFinalizer();
   _PokeGeolocatorTask? _pokeGeolocatorTask;
 
   // NOTE: we noticed that on Andorid, location updates may delivered in batches,
@@ -82,6 +68,13 @@ class GpsRecordingState extends ChangeNotifier {
   RestartableTimer? _positionBufferFlushTimer;
   final List<Position> _positionBuffer = [];
   DateTime? _positionBufferFirstElementReceivedTime;
+
+  // Notify the user that the recording was unexpectedly stopped on iOS.
+  // On Android, this does not work, and we achive this by using foreground task.
+  // On iOS we rely on this to make sure user will be notified when the app is
+  // killed during recording.
+  // The app is a little hacky so I minted: https://github.com/flutter/flutter/issues/156139
+  final _notificationWhenAppIsKilledPlugin = NotificationWhenAppIsKilled();
 
   GpsRecordingState() {
     var accuracy = LocationAccuracy.best;
@@ -102,14 +95,16 @@ class GpsRecordingState extends ChangeNotifier {
           ));
     } else if (defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS) {
-      // TODO: not tested on iOS, it is likely that we need to tweak the
-      // settings.
       _locationSettings = AppleSettings(
         accuracy: accuracy,
-        activityType: ActivityType.fitness,
         distanceFilter: distanceFilter,
-        pauseLocationUpdatesAutomatically: true,
+        // TODO: we should try to make use of `pauseLocationUpdatesAutomatically`.
+        // According to doc "After a pause occurs, it’s your responsibility to
+        // restart location services again".
+        activityType: ActivityType.other,
+        pauseLocationUpdatesAutomatically: false,
         showBackgroundLocationIndicator: false,
+        allowBackgroundLocationUpdates: true,
       );
     } else {
       _locationSettings = LocationSettings(
@@ -117,10 +112,38 @@ class GpsRecordingState extends ChangeNotifier {
         distanceFilter: distanceFilter,
       );
     }
+    _initState();
+  }
+
+  void _initState() async {
+    await _m.protect(() async {
+      await _tryFinalizeJourneyWithoutLock();
+      Timer.periodic(const Duration(minutes: 5), (timer) async {
+        await _m.protect(() async {
+          await _tryFinalizeJourneyWithoutLock();
+        });
+      });
+
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      bool? recordState = prefs.getBool(isRecordingPrefsKey);
+      if (recordState != null && recordState == true) {
+        await _changeStateWithoutLock(GpsRecordingStatus.recording);
+      } else {
+        if (await api.hasOngoingJourney()) {
+          status = GpsRecordingStatus.paused;
+        }
+      }
+      notifyListeners();
+    });
+  }
+
+  void _saveIsRecordingState() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    prefs.setBool(isRecordingPrefsKey, status == GpsRecordingStatus.recording);
   }
 
   void _onPositionUpdate(Position position) {
-    if (!isRecording) return;
+    if (status != GpsRecordingStatus.recording) return;
     _positionBuffer.add(position);
     _positionBufferFirstElementReceivedTime ??= DateTime.now();
     if (_positionBufferFlushTimer == null) {
@@ -153,11 +176,11 @@ class GpsRecordingState extends ChangeNotifier {
     _positionBufferFirstElementReceivedTime = null;
     _positionBuffer.clear();
 
-    await onLocationUpdate(
+    await api.onLocationUpdate(
         rawDataList: rawDataList, receviedTimestampMs: receviedTimestampMs);
   }
 
-  Future<bool> checkPermission() async {
+  Future<bool> _checkPermission() async {
     try {
       if (!await Permission.notification.isGranted) {
         return false;
@@ -165,7 +188,8 @@ class GpsRecordingState extends ChangeNotifier {
       if (!await Geolocator.isLocationServiceEnabled()) {
         return false;
       }
-      if (!(await Geolocator.checkPermission() == LocationPermission.always)) {
+      if (!(await Permission.location.isGranted ||
+          await Permission.locationAlways.isGranted)) {
         return false;
       }
       return true;
@@ -174,63 +198,121 @@ class GpsRecordingState extends ChangeNotifier {
     }
   }
 
-  Future<void> requestPermission() async {
+  Future<void> _requestPermission() async {
+    // TODO: I think there are still a lot we could improve here:
+    // 1. more guidance?
+    // 2. Using dialog instead of toast for some cases.
+    // 3. more granular permissions?
     if (!await Geolocator.isLocationServiceEnabled()) {
       if (!await Geolocator.openLocationSettings()) {
         throw "Location services not enabled";
       }
     }
 
+    if (await Permission.location.isPermanentlyDenied ||
+        await Permission.notification.isPermanentlyDenied) {
+      await Geolocator.openAppSettings();
+      throw "Please allow location & notification permissions";
+    }
+
     if (!await Permission.notification.isGranted) {
-      await Permission.notification.request();
-      if (!await Permission.notification.isGranted) {
+      if (!await Permission.notification.request().isGranted) {
         throw "notification permission not granted";
       }
     }
 
-    LocationPermission permission = await Geolocator.requestPermission();
-    if (permission == LocationPermission.whileInUse) {
-      await Permission.locationAlways.request();
-      permission = await Geolocator.checkPermission();
+    if (!await Permission.location.isGranted) {
+      if (!await Permission.location.request().isGranted) {
+        throw "location permission not granted";
+      }
     }
-    if (permission != LocationPermission.always) {
-      await Geolocator.openAppSettings();
-      throw "Please allow location permissions";
+
+    if (!await Permission.locationAlways.isGranted) {
+      // It seems this does not wait for the result on iOS, and always
+      // permission is not strictly required.
+      await Permission.locationAlways.request();
+      if (await Permission.locationAlways.isPermanentlyDenied) {
+        Fluttertoast.showToast(
+            msg: "Location always permission is recommended");
+      }
     }
   }
 
-  void toggle() async {
-    await _m.protect(() async {
-      await _autoJourneyFinalizer.tryOnce();
-      if (isRecording) {
-        await _positionStream?.cancel();
-        _pokeGeolocatorTask?.cancel();
-        _pokeGeolocatorTask = null;
-        _positionStream = null;
-        latestPosition = null;
-        _positionBufferFlushTimer?.cancel();
-        _positionBufferFlushTimer = null;
-        await _flushPositionBuffer();
-      } else {
-        try {
-          if (!await checkPermission()) {
-            await requestPermission();
-          }
-        } catch (e) {
-          Fluttertoast.showToast(msg: e.toString());
-          return;
-        }
-        _pokeGeolocatorTask ??= _PokeGeolocatorTask.start();
-        _positionStream ??=
-            Geolocator.getPositionStream(locationSettings: _locationSettings)
-                .listen((Position? position) async {
-          if (position != null) {
-            _onPositionUpdate(position);
-          }
-        });
+  Future<void> _tryFinalizeJourneyWithoutLock() async {
+    // TODO: I think we want this to be configurable
+    if (await api.tryAutoFinalizeJourny()) {
+      Fluttertoast.showToast(msg: "New journey added");
+      if (status == GpsRecordingStatus.paused) {
+        status = GpsRecordingStatus.none;
+        notifyListeners();
       }
-      isRecording = !isRecording;
-      notifyListeners();
+    }
+  }
+
+  Future<void> _changeStateWithoutLock(GpsRecordingStatus to) async {
+    if (status == to) return;
+
+    if (status == GpsRecordingStatus.recording &&
+        to != GpsRecordingStatus.recording) {
+      // stop recording
+      await _positionStream?.cancel();
+      await _notificationWhenAppIsKilledPlugin
+          .cancelNotificationOnKillService();
+      _pokeGeolocatorTask?.cancel();
+      _pokeGeolocatorTask = null;
+      _positionStream = null;
+      latestPosition = null;
+      _positionBufferFlushTimer?.cancel();
+      _positionBufferFlushTimer = null;
+      await _flushPositionBuffer();
+    }
+
+    if (to == GpsRecordingStatus.recording) {
+      // start recording
+      try {
+        if (!await _checkPermission()) {
+          await _requestPermission();
+        }
+      } catch (e) {
+        Fluttertoast.showToast(msg: e.toString());
+        return;
+      }
+      _pokeGeolocatorTask ??= _PokeGeolocatorTask.start(_locationSettings);
+      _positionStream ??=
+          Geolocator.getPositionStream(locationSettings: _locationSettings)
+              .listen((Position? position) async {
+        if (position != null) {
+          _onPositionUpdate(position);
+        }
+      });
+      await _notificationWhenAppIsKilledPlugin.setNotificationOnKillService(
+        ArgsForKillNotification(
+            title: 'Recording was unexpectedly stopped',
+            description:
+                'Recording was unexpectedly stopped, please restart the app.',
+            argsForIos: ArgsForIos(
+              interruptionLevel: InterruptionLevel.critical,
+              useDefaultSound: true,
+            )),
+      );
+    }
+
+    if (to == GpsRecordingStatus.none) {
+      if (await api.finalizeOngoingJourney()) {
+        Fluttertoast.showToast(msg: "New journey added");
+      } else {
+        Fluttertoast.showToast(msg: "No journey detected");
+      }
+    }
+
+    status = to;
+    _saveIsRecordingState();
+    notifyListeners();
+  }
+
+  Future<void> changeState(GpsRecordingStatus to) async {
+    await _m.protect(() async {
+      await _changeStateWithoutLock(to);
     });
   }
 }

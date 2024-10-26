@@ -93,8 +93,13 @@ fn open_db_and_run_migration(
 
 pub struct Txn<'a> {
     db_txn: rusqlite::Transaction<'a>,
-    // TODO: in cache db v1, we want to improve the granularity.
-    pub reset_cache: bool,
+    pub action: Option<Action>,
+}
+
+#[derive(PartialEq, Eq, Debug)]
+pub enum Action {
+    Merge { journey_ids: Vec<String> },
+    CompleteRebuilt,
 }
 
 // NOTE: the `Txn` here is not only for making operation atomic, the `storage`
@@ -141,17 +146,19 @@ impl Txn<'_> {
         }
     }
 
-    pub fn clear_journeys(&mut self) -> Result<()> {
+    pub fn delete_all_journeys(&mut self) -> Result<()> {
+        info!("Deleting all journeys");
         self.db_txn.execute("DELETE FROM journey;", ())?;
-        self.reset_cache = true;
+        self.action = Some(Action::CompleteRebuilt);
         Ok(())
     }
 
-    pub fn delect_journey(&mut self, id: &str) -> Result<()> {
+    pub fn delete_journey(&mut self, id: &str) -> Result<()> {
+        info!("Deleting journey: id={}", id);
         let changes = self
             .db_txn
             .execute("DELETE FROM journey WHERE id = ?1;", (id,))?;
-        self.reset_cache = true;
+        self.action = Some(Action::CompleteRebuilt);
         if changes == 1 {
             Ok(())
         } else {
@@ -159,12 +166,37 @@ impl Txn<'_> {
         }
     }
 
+    // TODO: consider return structured result so the caller know if it is skipped or other cases
     pub fn insert_journey(&mut self, header: JourneyHeader, data: JourneyData) -> Result<()> {
         let journey_type = header.journey_type;
         if journey_type != data.type_() {
             bail!("[insert_journey] Mismatch journey type")
         }
         let id = header.id.clone();
+
+        match self.get_journey_header(&id)? {
+            Some(existing_header) => {
+                if existing_header.revision == header.revision {
+                    info!(
+                        "Journey with ID {} already exists with the same revision, skip insert",
+                        &header.id
+                    );
+                    return Ok(());
+                } else {
+                    bail!(
+                        "Journey with ID {} already exists but with a different revision",
+                        &header.id
+                    );
+                }
+            }
+            None => {
+                info!(
+                    "No existing journey found for id={}, proceed to insert new journey",
+                    id
+                );
+            }
+        }
+
         let journey_date = utils::date_to_days_since_epoch(header.journey_date);
         // use start time first, then fallback to endtime
         let timestamp_for_ordering = header.start.or(header.end).map(|x| x.timestamp());
@@ -185,7 +217,14 @@ impl Txn<'_> {
                 data_bytes,
             ),
         )?;
-        self.reset_cache = true;
+
+        match self.action.get_or_insert(Action::Merge {
+            journey_ids: vec![],
+        }) {
+            Action::Merge { journey_ids } => journey_ids.push(id),
+            Action::CompleteRebuilt => (),
+        }
+
         Ok(())
     }
 
@@ -254,15 +293,33 @@ impl Txn<'_> {
             (),
         )?;
 
+        info!(
+            "Ongoing journey finalized: new_journey_added={}",
+            new_journey_added
+        );
         Ok(new_journey_added)
     }
 
-    pub fn list_all_journeys(&self) -> Result<Vec<JourneyHeader>> {
+    // TODO: we should consider disallow unbounded queries. Keeping all
+    // `JourneyHeader` in memory might be a little bit too much.
+    pub fn query_journeys(
+        &self,
+        from_date_inclusive: Option<NaiveDate>,
+        to_date_inclusive: Option<NaiveDate>,
+    ) -> Result<Vec<JourneyHeader>> {
         let mut query = self.db_txn.prepare(
-            "SELECT header, type FROM journey ORDER BY journey_date DESC, timestamp_for_ordering DESC, id;",
+            "SELECT header, type FROM journey WHERE journey_date >= (?1) AND journey_date <= (?2) ORDER BY journey_date DESC, timestamp_for_ordering DESC, id;",
             // use `id` to break tie
         )?;
-        let mut rows = query.query(())?;
+        let from = match from_date_inclusive {
+            None => i32::MIN,
+            Some(from_date) => utils::date_to_days_since_epoch(from_date),
+        };
+        let to = match to_date_inclusive {
+            None => i32::MAX,
+            Some(to_date) => utils::date_to_days_since_epoch(to_date),
+        };
+        let mut rows = query.query((from, to))?;
         let mut results = Vec::new();
         while let Some(row) = rows.next()? {
             let header_bytes = row.get_ref(0)?.as_blob()?;
@@ -278,6 +335,27 @@ impl Txn<'_> {
             results.push(header);
         }
         Ok(results)
+    }
+
+    pub fn get_journey_header(&self, id: &str) -> Result<Option<JourneyHeader>> {
+        let mut query = self
+            .db_txn
+            .prepare("SELECT header FROM journey WHERE id = ?1;")?;
+
+        let header_proto_result = query
+            .query_row([id], |row| {
+                let header_bytes = row.get_ref(0)?.as_blob()?;
+                Ok(protos::journey::Header::parse_from_bytes(header_bytes))
+            })
+            .optional()?;
+
+        match header_proto_result {
+            Some(header_proto_result) => {
+                let header = JourneyHeader::of_proto(header_proto_result?)?;
+                Ok(Some(header))
+            }
+            None => Ok(None),
+        }
     }
 
     pub fn get_journey(&self, id: &str) -> Result<JourneyData> {
@@ -306,12 +384,16 @@ impl Txn<'_> {
                 let latest = latest_timestamp.with_timezone(&Local);
                 let now = Local::now();
                 let try_finalize = if latest.date_naive() == now.date_naive() {
-                    // 2 hours
-                    now.timestamp() - latest.timestamp() >= 2 * 60 * 60
+                    // 6 hours
+                    now.timestamp() - latest.timestamp() >= 6 * 60 * 60
                 } else {
-                    // 2 minutes
-                    now.timestamp() - latest.timestamp() >= 2 * 60
+                    // 15 minutes
+                    now.timestamp() - latest.timestamp() >= 15 * 60
                 };
+                info!(
+                    "Auto finalize ongoing journey: latest={}, now={}, try_finalize={}",
+                    latest, now, try_finalize
+                );
                 if try_finalize {
                     self.finalize_ongoing_journey()
                 } else {
@@ -319,6 +401,15 @@ impl Txn<'_> {
                 }
             }
         }
+    }
+
+    pub fn earliest_journey_date(&self) -> Result<Option<NaiveDate>> {
+        let mut query = self
+            .db_txn
+            .prepare("SELECT journey_date FROM journey ORDER BY journey_date LIMIT 1;")?;
+        Ok(query
+            .query_row((), |row| Ok(utils::date_of_days_since_epoch(row.get(0)?)))
+            .optional()?)
     }
 }
 
@@ -386,7 +477,7 @@ impl MainDb {
     {
         let mut txn = Txn {
             db_txn: self.conn.transaction()?,
-            reset_cache: false,
+            action: None,
         };
         let output = f(&mut txn)?;
         txn.db_txn.commit()?;
@@ -482,6 +573,8 @@ impl MainDb {
 
 #[derive(Debug, Clone, Copy)]
 pub enum Setting {
+    // TODO: We should consider making the fultter part handle this, similar to
+    // `GpsRecordingState.isRecording`.
     RawDataMode,
 }
 

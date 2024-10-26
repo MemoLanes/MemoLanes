@@ -36,7 +36,9 @@ const SECTION_MAGIC_HEADER: [u8; 3] = [b'M', b'L', b'S'];
 
 // TODO: support archive/export a seleted set of journeys instead of everything.
 
-pub fn recover_archive_file(txn: &mut main_db::Txn, zip_file_path: &str) -> Result<()> {
+// TODO: consider return more detail about this import: e.g. how many journeys
+// are added, how many are skipped.
+pub fn import_archive_file(txn: &mut main_db::Txn, zip_file_path: &str) -> Result<()> {
     let mut zip = zip::ZipArchive::new(File::open(zip_file_path)?)?;
     let mut file = zip.by_name("metadata.xxm")?;
     let mut magic_header: [u8; 3] = [0; 3];
@@ -56,7 +58,6 @@ pub fn recover_archive_file(txn: &mut main_db::Txn, zip_file_path: &str) -> Resu
     let metadata_proto: Metadata = Message::parse_from_reader(&mut decoder)?;
     drop(decoder);
 
-    txn.clear_journeys()?;
     for section_info in metadata_proto.section_infos {
         let mut file = zip.by_name(&section_info.section_id)?;
         let mut magic_header: [u8; 3] = [0; 3];
@@ -88,10 +89,6 @@ pub fn recover_archive_file(txn: &mut main_db::Txn, zip_file_path: &str) -> Resu
     }
     Ok(())
 }
-
-// TODO: support import from archive file. i.e. inserting new journeys from a
-// give archive file. If there are journeys with conflicting id, skip them if
-// the revision is the same and error if otherwise.
 
 // TODO: support conflict resolvation by asking user what to do.
 
@@ -137,7 +134,7 @@ fn write_proto_as_compressed_block<W: Write, M: protobuf::Message>(
 }
 
 pub fn archive_all_as_zip<T: Write + Seek>(txn: &main_db::Txn, writer: &mut T) -> Result<()> {
-    let all_journeys = txn.list_all_journeys()?;
+    let all_journeys = txn.query_journeys(None, None)?;
 
     // group journeys into sections and sort them(by end time and tie
     // break by id, the deterministic ordering is important).
@@ -183,7 +180,7 @@ pub fn archive_all_as_zip<T: Write + Seek>(txn: &main_db::Txn, writer: &mut T) -
     let mut zip = zip::ZipWriter::new(writer);
     // we already compress data inside the file, do no need to do it in zip.
     let default_options =
-        zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+        zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
     // writing metadata
     let mut metadata_proto = Metadata::new();
