@@ -35,19 +35,23 @@ lazy_static = "1.5"
 geo-types = "0.7"
 imageproc = "0.25"
 image = "0.25"
-file-rotate = "0.7.6"
-wgpu = "22.1.0"
-tokio = { version = "1.40.0", features = ["rt", "sync"] }
-bytemuck = "1.17.0"
+file-rotate = "0.7"
+wgpu = "22.1"
+tokio = { version = "1.40", features = ["rt", "sync"] }
+bytemuck = "1.17"
 
 [dev-dependencies]
 tempdir = "0.3"
 csv = "1.3"
 rand = "0.8"
 assert_float_eq = "1.1"
-sha2 = "0.10.8"
-serde_json = "1.0.132"
+criterion = "0.5"
+sha2 = "0.10"
+serde_json = "1.0"
 
 [build-dependencies]
 protobuf-codegen = "3.6"
 
+[[bench]]
+name = "bench"
+harness = false
