@@ -85,15 +85,15 @@ pub fn load_fow_sync_data(zip_file_path: &str) -> Result<(JourneyBitmap, Option<
                     let index = (i as usize) * 2;
                     let block_idx: u16 = (header[index] as u16) | ((header[index + 1] as u16) << 8);
                     if block_idx > 0 {
-                        let block_x = (i % TILE_WIDTH) as u8;
-                        let block_y = (i / TILE_WIDTH) as u8;
+                        let block_x = i % TILE_WIDTH;
+                        let block_y = i / TILE_WIDTH;
                         let start_offset =
                             TILE_HEADER_SIZE + ((block_idx - 1) as usize) * BLOCK_SIZE;
                         let end_offset = start_offset + BLOCK_BITMAP_SIZE;
                         let mut bitmap: [u8; BLOCK_BITMAP_SIZE] = [0; BLOCK_BITMAP_SIZE];
                         bitmap.copy_from_slice(&data[start_offset..end_offset]);
                         let block = Block::new_with_data(bitmap);
-                        tile.blocks.insert((block_x, block_y), block);
+                        tile.add_block(block_x, block_y, block);
                     }
                 }
                 journey_bitmap.tiles.insert((id.x, id.y), tile);
