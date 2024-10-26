@@ -7,7 +7,9 @@ use memolanes_core::{
 };
 
 fn map_renderer(c: &mut Criterion) {
-    c.bench_function("map_renderer", |b| {
+    let mut group = c.benchmark_group("map_renderer");
+    group.sample_size(10);
+    group.bench_function("nelson_to_wharariki_beach", |b| {
         let raw_data = import_data::load_gpx("./tests/data/nelson_to_wharariki_beach.gpx").unwrap();
 
         let (mut left, mut right, mut top, mut bottom): (f64, f64, f64, f64) =
@@ -32,7 +34,7 @@ fn map_renderer(c: &mut Criterion) {
         let zoom = 11;
 
         let render_result = map_renderer.maybe_render_map_overlay(zoom, left, top, right, bottom);
-        let mut f = File::create("./benches/for_inspection/map_renderer.png").unwrap();
+        let mut f = File::create("./benches/for_inspection/nelson_to_wharariki_beach.png").unwrap();
         f.write_all(&render_result.unwrap().data).unwrap();
         drop(f);
 
@@ -45,6 +47,7 @@ fn map_renderer(c: &mut Criterion) {
             });
         });
     });
+    group.finish();
 }
 
 criterion_group!(benches, map_renderer,);
