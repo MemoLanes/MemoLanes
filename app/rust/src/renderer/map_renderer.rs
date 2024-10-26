@@ -113,8 +113,6 @@ impl MapRenderer {
         right: f64,
         bottom: f64,
     ) -> Option<RenderResult> {
-        // TODO: This doesn't really work when antimeridian is involved, see
-        // the upstream issue: https://github.com/maplibre/maplibre-native/issues/1681
         let (mut left_idx, mut top_idx) = utils::lng_lat_to_tile_x_y(left, top, zoom);
         let (mut right_idx, mut bottom_idx) = utils::lng_lat_to_tile_x_y(right, bottom, zoom);
 

@@ -35,10 +35,10 @@ lazy_static = "1.5"
 geo-types = "0.7"
 imageproc = "0.25"
 image = "0.25"
-file-rotate = "0.7.6"
-wgpu = "22.1.0"
-tokio = { version = "1.40.0", features = ["rt", "sync"] }
-bytemuck = "1.17.0"
+file-rotate = "0.7"
+wgpu = "22.1"
+tokio = { version = "1.40", features = ["rt", "sync"] }
+bytemuck = "1.17"
 
 [dev-dependencies]
 tempdir = "0.3"
