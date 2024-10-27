@@ -1398,7 +1398,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "assert_float_eq",
- "bytemuck",
  "chrono",
  "criterion",
  "csv",

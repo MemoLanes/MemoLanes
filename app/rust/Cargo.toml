@@ -36,7 +36,6 @@ geo-types = "0.7"
 imageproc = "0.25"
 image = "0.25"
 file-rotate = "0.7"
-bytemuck = "1.17"
 
 [dev-dependencies]
 tempdir = "0.3"
