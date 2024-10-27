@@ -37,7 +37,6 @@ imageproc = "0.25"
 image = "0.25"
 file-rotate = "0.7"
 wgpu = "22.1"
-tokio = { version = "1.40", features = ["rt", "sync"] }
 bytemuck = "1.17"
 
 [dev-dependencies]

@@ -1734,7 +1734,6 @@ dependencies = [
  "strum_macros",
  "tempdir",
  "tiny-skia",
- "tokio",
  "uuid",
  "wgpu",
  "zip 2.2.0",
