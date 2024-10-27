@@ -1,7 +1,4 @@
-use crate::journey_data;
 use crate::utils;
-use anyhow::{Ok, Result};
-use std::io::{Read, Write};
 use std::{
     clone::Clone,
     collections::HashMap,
@@ -12,7 +9,6 @@ pub const TILE_WIDTH_OFFSET: i16 = 7;
 pub const MAP_WIDTH_OFFSET: i16 = 9;
 pub const MAP_WIDTH: i64 = 1 << MAP_WIDTH_OFFSET;
 pub const TILE_WIDTH: i64 = 1 << TILE_WIDTH_OFFSET;
-pub const TILE_BLOCK_COUNT: usize = (TILE_WIDTH * TILE_WIDTH) as usize;
 pub const BITMAP_WIDTH_OFFSET: i16 = 6;
 pub const BITMAP_WIDTH: i64 = 1 << BITMAP_WIDTH_OFFSET;
 pub const BITMAP_SIZE: usize = (BITMAP_WIDTH * BITMAP_WIDTH / 8) as usize;
@@ -132,7 +128,19 @@ impl JourneyBitmap {
                     self.tiles.insert(key, other_tile);
                 }
                 Some(self_tile) => {
-                    self_tile.merge(other_tile);
+                    for (key, other_block) in other_tile.blocks {
+                        match self_tile.blocks.get_mut(&key) {
+                            None => {
+                                self_tile.blocks.insert(key, other_block);
+                            }
+                            Some(self_block) => {
+                                for i in 0..other_block.data.len() {
+                                    self_block.data[i] =
+                                        self_block.data[i].bitor(other_block.data[i]);
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -141,9 +149,18 @@ impl JourneyBitmap {
     pub fn difference(&mut self, other_journey_bitmap: JourneyBitmap) {
         for (tile_key, other_tile) in other_journey_bitmap.tiles {
             if let Some(tile) = self.tiles.get_mut(&tile_key) {
-                tile.difference(other_tile);
+                for (block_key, other_block) in other_tile.blocks {
+                    if let Some(block) = tile.blocks.get_mut(&block_key) {
+                        for i in 0..other_block.data.len() {
+                            block.data[i] = block.data[i].bitand(other_block.data[i].not());
+                        }
+                        if block.is_empty() {
+                            tile.blocks.remove(&block_key);
+                        }
+                    }
+                }
 
-                if tile.is_empty() {
+                if tile.blocks.is_empty() {
                     self.tiles.remove(&tile_key);
                 }
             }
@@ -155,138 +172,32 @@ impl JourneyBitmap {
             |tile_key, tile| match other_journey_bitmap.tiles.get(tile_key) {
                 None => false,
                 Some(other_tile) => {
-                    tile.intersection(other_tile);
-                    !tile.is_empty()
+                    tile.blocks
+                        .retain(|block_key, block| match other_tile.blocks.get(block_key) {
+                            None => false,
+                            Some(other_block) => {
+                                for i in 0..other_block.data.len() {
+                                    block.data[i] = block.data[i].bitand(other_block.data[i]);
+                                }
+                                !block.is_empty()
+                            }
+                        });
+                    !tile.blocks.is_empty()
                 }
             },
         );
     }
 }
 
-#[derive(Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Tile {
-    blocks_count: usize,
-    block_keys: Vec<i16>,
-    blocks_buffer: Vec<Option<Block>>,
+    pub blocks: HashMap<(u8, u8), Block>,
 }
 
 impl Tile {
     pub fn new() -> Self {
         Self {
-            blocks_count: 0,
-            block_keys: vec![-1; TILE_BLOCK_COUNT],
-            blocks_buffer: Vec::new(),
-        }
-    }
-
-    pub fn add_block(&mut self, x: i64, y: i64, block: Block) {
-        // TODO: current implementation will replace the tile if exist, change it to additive editing.
-        // TODO: rethink the data type and whether should use into()
-        let index = Self::block_key_to_index(x, y);
-        self.add_block_by_index(index, block);
-    }
-
-    fn add_block_by_index(&mut self, index: usize, block: Block) {
-        if self.block_keys[index] == -1 {
-            self.block_keys[index] = self.blocks_buffer.len() as i16;
-            self.blocks_buffer.push(Some(block));
-            self.blocks_count += 1;
-        } else {
-            self.blocks_buffer[self.block_keys[index] as usize] = Some(block);
-        }
-    }
-
-    fn get_or_insert_block(&mut self, x: i64, y: i64) -> &mut Block {
-        let index = Self::block_key_to_index(x, y);
-        if self.block_keys[index] == -1 {
-            self.block_keys[index] = self.blocks_buffer.len() as i16;
-            self.blocks_buffer.push(Some(Block::new()));
-            self.blocks_count += 1;
-        }
-        self.blocks_buffer[self.block_keys[index] as usize]
-            .as_mut()
-            .unwrap()
-    }
-
-    pub fn get_block(&self, x: i64, y: i64) -> Option<&Block> {
-        let index = Self::block_key_to_index(x, y);
-        self.get_block_by_index(index)
-    }
-
-    fn get_block_by_index(&self, index: usize) -> Option<&Block> {
-        if self.block_keys[index] == -1 {
-            None
-        } else {
-            self.blocks_buffer[self.block_keys[index] as usize].as_ref()
-        }
-    }
-
-    fn get_block_mut_by_index(&mut self, index: usize) -> Option<&mut Block> {
-        if self.block_keys[index] == -1 {
-            None
-        } else {
-            self.blocks_buffer[self.block_keys[index] as usize].as_mut()
-        }
-    }
-
-    fn remove_block_by_index(&mut self, index: usize) {
-        debug_assert!(self.block_keys[index] != -1);
-        self.blocks_buffer[self.block_keys[index] as usize] = None;
-        self.block_keys[index] = -1;
-        self.blocks_count -= 1;
-    }
-
-    fn is_empty(&self) -> bool {
-        self.blocks_count == 0
-    }
-
-    pub fn merge(&mut self, other_tile: Tile) {
-        let mut other_tile = other_tile;
-        for i in 0..TILE_BLOCK_COUNT {
-            if other_tile.block_keys[i] != -1 {
-                let other_block = other_tile.blocks_buffer[other_tile.block_keys[i] as usize]
-                    .take()
-                    .unwrap();
-
-                if let Some(self_block) = self.get_block_mut_by_index(i) {
-                    self_block.merge(&other_block);
-                } else {
-                    self.add_block_by_index(i, other_block);
-                }
-            }
-        }
-    }
-
-    pub fn difference(&mut self, other_tile: Tile) {
-        let mut other_tile = other_tile;
-        for i in 0..TILE_BLOCK_COUNT {
-            if other_tile.block_keys[i] != -1 {
-                let other_block = other_tile.blocks_buffer[other_tile.block_keys[i] as usize]
-                    .take()
-                    .unwrap();
-                if let Some(self_block) = self.get_block_mut_by_index(i) {
-                    self_block.difference(&other_block);
-                    if self_block.is_empty() {
-                        self.remove_block_by_index(i);
-                    }
-                }
-            }
-        }
-    }
-
-    pub fn intersection(&mut self, other_tile: &Tile) {
-        for i in 0..TILE_BLOCK_COUNT {
-            if self.block_keys[i] != -1 {
-                if let Some(other_block) = other_tile.get_block_by_index(i) {
-                    let self_block = self.get_block_mut_by_index(i).unwrap();
-                    self_block.intersection(other_block);
-                    if self_block.is_empty() {
-                        self.remove_block_by_index(i);
-                    }
-                } else {
-                    self.remove_block_by_index(i);
-                }
-            }
+            blocks: HashMap::new(),
         }
     }
 
@@ -317,7 +228,10 @@ impl Tile {
                 let block_x = x >> BITMAP_WIDTH_OFFSET;
                 let block_y = y >> BITMAP_WIDTH_OFFSET;
 
-                let block = self.get_or_insert_block(block_x, block_y);
+                let block = self
+                    .blocks
+                    .entry((block_x as u8, block_y as u8))
+                    .or_insert(Block::new());
 
                 (x, y, p) = block.add_line(
                     x - (block_x << BITMAP_WIDTH_OFFSET),
@@ -345,8 +259,10 @@ impl Tile {
                 let block_x = x >> BITMAP_WIDTH_OFFSET;
                 let block_y = y >> BITMAP_WIDTH_OFFSET;
 
-                let block = self.get_or_insert_block(block_x, block_y);
-
+                let block = self
+                    .blocks
+                    .entry((block_x as u8, block_y as u8))
+                    .or_insert(Block::new());
                 (x, y, p) = block.add_line(
                     x - (block_x << BITMAP_WIDTH_OFFSET),
                     y - (block_y << BITMAP_WIDTH_OFFSET),
@@ -363,85 +279,6 @@ impl Tile {
             }
         }
         (x, y, p)
-    }
-
-    fn block_key_to_index(x: i64, y: i64) -> usize {
-        assert!(x < TILE_WIDTH);
-        assert!(y < TILE_WIDTH);
-        ((x << TILE_WIDTH_OFFSET) + y) as usize
-    }
-
-    fn block_index_to_key(i: usize) -> (i64, i64) {
-        let x = i as i64 / TILE_WIDTH;
-        let y = i as i64 % TILE_WIDTH;
-        (x, y)
-    }
-
-    pub fn serialize(&self) -> Result<Vec<u8>> {
-        let mut buf = Vec::new();
-        let mut encoder =
-            zstd::Encoder::new(&mut buf, journey_data::ZSTD_COMPRESS_LEVEL)?.auto_finish();
-        // We put all block ids in front so we could get all blocks without
-        // deserializing the whole block.
-        // A bitmap seems more efficient for this case.
-        let mut compact_block_keys = [0_u8; TILE_BLOCK_COUNT / 8];
-
-        for i in 0..self.block_keys.len() {
-            if self.block_keys[i] != -1 {
-                let byte_index = i / 8;
-                compact_block_keys[byte_index] |= 1 << (i % 8);
-            }
-        }
-
-        encoder.write_all(&compact_block_keys)?;
-
-        for (byte_index, _val) in compact_block_keys.iter().enumerate() {
-            for offset in 0..8 {
-                if compact_block_keys[byte_index] & (1 << offset) != 0 {
-                    let block = self.get_block_by_index(byte_index * 8 + offset).unwrap();
-                    encoder.write_all(&block.data)?;
-                }
-            }
-        }
-
-        drop(encoder);
-        Ok(buf)
-    }
-
-    pub fn deserialize<T: Read>(reader: T) -> Result<Tile> {
-        let mut decoder = zstd::Decoder::new(reader)?;
-        let mut tile = Tile::new();
-        let mut compact_block_keys = [0_u8; TILE_BLOCK_COUNT / 8];
-        decoder.read_exact(&mut compact_block_keys)?;
-
-        for (byte_index, _val) in compact_block_keys.iter().enumerate() {
-            for offset in 0..8 {
-                if compact_block_keys[byte_index] & (1 << offset) != 0 {
-                    let (x, y) = Self::block_index_to_key(byte_index * 8 + offset);
-                    let mut block_data = [0_u8; BITMAP_SIZE];
-                    decoder.read_exact(&mut block_data)?;
-                    let block = Block::new_with_data(block_data);
-                    tile.add_block(x, y, block);
-                }
-            }
-        }
-
-        Ok(tile)
-    }
-}
-
-// since the blocks may store in different order in this data structure, we need to compare them one by one
-impl PartialEq for Tile {
-    fn eq(&self, other: &Self) -> bool {
-        if self.blocks_count != other.blocks_count {
-            return false;
-        }
-        for i in 0..TILE_BLOCK_COUNT {
-            if self.get_block_by_index(i) != other.get_block_by_index(i) {
-                return false;
-            }
-        }
-        true
     }
 }
 
@@ -484,24 +321,6 @@ impl Block {
         let val_number = if val { 1 } else { 0 };
         self.data[i + j * 8] =
             (self.data[i + j * 8] & !(1 << bit_offset)) | (val_number << bit_offset);
-    }
-
-    fn merge(&mut self, other_block: &Block) {
-        for i in 0..self.data.len() {
-            self.data[i] = self.data[i].bitor(other_block.data[i]);
-        }
-    }
-
-    fn difference(&mut self, other_block: &Block) {
-        for i in 0..self.data.len() {
-            self.data[i] = self.data[i].bitand(other_block.data[i].not());
-        }
-    }
-
-    fn intersection(&mut self, other_block: &Block) {
-        for i in 0..self.data.len() {
-            self.data[i] = self.data[i].bitand(other_block.data[i]);
-        }
     }
 
     // a modified Bresenham algorithm with initialized error from upper layer
@@ -571,22 +390,5 @@ impl Block {
             }
         }
         (x, y, p)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::journey_bitmap::*;
-
-    #[test]
-    fn block_key_conversion() {
-        assert_eq!(Tile::block_key_to_index(0, 0), (0));
-        assert_eq!(Tile::block_index_to_key(0), (0, 0));
-
-        assert_eq!(Tile::block_key_to_index(127, 127), (16383));
-        assert_eq!(Tile::block_index_to_key(16383), (127, 127));
-
-        assert_eq!(Tile::block_key_to_index(64, 17), (8209));
-        assert_eq!(Tile::block_index_to_key(8209), (64, 17));
     }
 }

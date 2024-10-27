@@ -152,25 +152,30 @@ pub struct CameraOption {
 fn get_default_camera_option_from_journey_bitmap(
     journey_bitmap: &JourneyBitmap,
 ) -> Option<CameraOption> {
-    // TODO: Currently we use top-left corner of a random block.
+    // TODO: Currently we use the coordinate of the top left of a random block (first one in the hashtbl),
     // then just pick a hardcoded zoom level.
     // A better version could be finding a bounding box (need to be careful with the antimeridian).
-    journey_bitmap.tiles.iter().next().map(|(tile_pos, _tile)| {
-        // we shouldn't have empty tile or block
-        let block_pos = (0, 0);
-        let blockzoomed_x: i32 = TILE_WIDTH as i32 * tile_pos.0 as i32 + block_pos.0;
-        let blockzoomed_y: i32 = TILE_WIDTH as i32 * tile_pos.1 as i32 + block_pos.1;
-        let (lng, lat) = utils::tile_x_y_to_lng_lat(
-            blockzoomed_x,
-            blockzoomed_y,
-            (TILE_WIDTH_OFFSET + MAP_WIDTH_OFFSET) as i32,
-        );
-        CameraOption {
-            zoom: 12.0,
-            lng,
-            lat,
-        }
-    })
+    journey_bitmap
+        .tiles
+        .iter()
+        .next()
+        .and_then(|(tile_pos, tile)| {
+            // we shouldn't have empty tile or block
+            tile.blocks.keys().next().map(|block_pos| {
+                let blockzoomed_x: i32 = TILE_WIDTH as i32 * tile_pos.0 as i32 + block_pos.0 as i32;
+                let blockzoomed_y: i32 = TILE_WIDTH as i32 * tile_pos.1 as i32 + block_pos.1 as i32;
+                let (lng, lat) = utils::tile_x_y_to_lng_lat(
+                    blockzoomed_x,
+                    blockzoomed_y,
+                    (TILE_WIDTH_OFFSET + MAP_WIDTH_OFFSET) as i32,
+                );
+                CameraOption {
+                    zoom: 12.0,
+                    lng,
+                    lat,
+                }
+            })
+        })
 }
 
 pub fn get_map_renderer_proxy_for_journey(

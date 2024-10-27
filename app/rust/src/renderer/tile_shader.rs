@@ -153,7 +153,10 @@ impl TileShader {
 
             for i in 0..(1 << std::cmp::max(block_num_power, 0)) {
                 for j in 0..(1 << std::cmp::max(block_num_power, 0)) {
-                    if let Some(block) = tile.get_block(block_start_x + i, block_start_y + j) {
+                    if let Some(block) = tile
+                        .blocks
+                        .get(&((block_start_x + i) as u8, (block_start_y + j) as u8))
+                    {
                         let (offset_x, offset_y) = if block_width_power >= 0 {
                             (i << block_width_power, j << block_width_power)
                         } else {
