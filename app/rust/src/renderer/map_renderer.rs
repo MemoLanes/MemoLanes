@@ -1,13 +1,11 @@
-use image;
-use image::{ImageBuffer, Rgba};
-use imageproc::filter::gaussian_blur_f32;
+use crate::renderer::utils::image_to_png_data;
+use crate::renderer::utils::{DEFAULT_BG_COLOR, DEFAULT_FG_COLOR, DEFAULT_TILE_SIZE};
+use crate::renderer::TileRendererBasic;
+use crate::renderer::TileRendererTrait;
+use crate::{journey_bitmap::JourneyBitmap, utils};
+use image::Rgba;
+use image::RgbaImage;
 use std::cmp::{max, min};
-use std::io::Cursor;
-use tiny_skia::{Pixmap, PixmapPaint, Transform};
-
-use crate::{
-    graphics::color_dilation2, journey_bitmap::JourneyBitmap, tile_renderer::TileRenderer, utils,
-};
 
 pub struct RenderResult {
     // coordinates are in lat or lng
@@ -30,44 +28,34 @@ struct RenderArea {
 }
 
 pub struct MapRenderer {
-    tile_renderer: TileRenderer,
     journey_bitmap: JourneyBitmap,
+    tile_renderer: Box<dyn TileRendererTrait + Send + Sync>,
+    bg_color: Rgba<u8>,
+    fg_color: Rgba<u8>,
     current_render_area: Option<RenderArea>,
-    dilation_radius: usize,
 }
 
 impl MapRenderer {
     pub fn new(journey_bitmap: JourneyBitmap) -> Self {
-        let tile_renderer = TileRenderer::new();
+        let tile_renderer = Box::new(TileRendererBasic::new(DEFAULT_TILE_SIZE));
         Self::new_with_tile_renderer(journey_bitmap, tile_renderer)
     }
 
     pub fn new_with_tile_renderer(
         journey_bitmap: JourneyBitmap,
-        tile_renderer: TileRenderer,
+        tile_renderer: Box<dyn TileRendererTrait + Send + Sync>,
     ) -> Self {
         Self {
-            tile_renderer,
             journey_bitmap,
+            tile_renderer,
+            bg_color: DEFAULT_BG_COLOR,
+            fg_color: DEFAULT_FG_COLOR,
             current_render_area: None,
-            dilation_radius: 1,
         }
     }
 
-    pub fn set_dilation_radius(&mut self, radius: usize) {
-        self.dilation_radius = radius;
-    }
-
     fn render_map_overlay(&self, render_area: &RenderArea) -> RenderResult {
-        // TODO: Change render backend. Right now we are using `tiny-skia`,
-        // it should work just fine and we don't really need fancy features.
-        // However, it is mostly a research project and does not feel like production ready,
-        // `rust-skia` looks a lot better and has better performance (unlike `tiny-skia` is
-        // purely on CPU, `rust-skia` can be ran on GPU). The reason we use `tiny-skia` right
-        // now is that it is pure rust, so we don't need to think about how to build depenceies
-        // for various platform.
-
-        let tile_size: u32 = 1 << self.tile_renderer.get_tile_size_power();
+        let tile_size: u32 = self.tile_renderer.get_tile_size().size();
         let width_by_tile: u32 = (render_area.right_idx - render_area.left_idx + 1)
             .try_into()
             .unwrap();
@@ -75,58 +63,25 @@ impl MapRenderer {
             .try_into()
             .unwrap();
 
-        // TODO: reuse resurces?
-        let mut pixmap =
-            Pixmap::new(tile_size * width_by_tile, tile_size * height_by_tile).unwrap();
-        // color must be set to the tile renderer directly upon its creation
+        let mut image = RgbaImage::new(tile_size * width_by_tile, tile_size * height_by_tile);
 
         for x in 0..width_by_tile {
             for y in 0..height_by_tile {
                 // TODO: cache?
 
-                let tile_pixmap = self.tile_renderer.render_pixmap(
+                self.tile_renderer.render_on_image(
+                    &mut image,
+                    x * tile_size,
+                    y * tile_size,
                     &self.journey_bitmap,
-                    render_area.left_idx as u64 + x as u64,
-                    render_area.top_idx as u64 + y as u64,
+                    render_area.left_idx as i64 + x as i64,
+                    render_area.top_idx as i64 + y as i64,
                     render_area.zoom as i16,
-                );
-
-                pixmap.draw_pixmap(
-                    (x * tile_size) as i32,
-                    (y * tile_size) as i32,
-                    tile_pixmap.as_ref(),
-                    &PixmapPaint::default(),
-                    Transform::identity(),
-                    None,
+                    self.bg_color,
+                    self.fg_color,
                 );
             }
         }
-
-        let width = pixmap.width();
-        let height = pixmap.height();
-
-        if self.dilation_radius > 0 {
-            let color = self.tile_renderer.fg_color();
-            color_dilation2(
-                pixmap.pixels_mut(),
-                width.try_into().unwrap(),
-                height.try_into().unwrap(),
-                color,
-            );
-        }
-
-        // use imageproc to blur the pixmap, currently the imageproc library requires full ownership
-        let img: ImageBuffer<Rgba<u8>, Vec<u8>> =
-            ImageBuffer::from_raw(width, height, pixmap.data().to_vec())
-                .expect("Error converting buffer to ImageBuffer");
-        let blurred_image = gaussian_blur_f32(&img, 0.7);
-
-        let mut png_buffer = Vec::new();
-        let mut cursor = Cursor::new(&mut png_buffer);
-
-        blurred_image
-            .write_to(&mut cursor, image::ImageFormat::Png)
-            .unwrap();
 
         let (overlay_left, overlay_top) =
             utils::tile_x_y_to_lng_lat(render_area.left_idx, render_area.top_idx, render_area.zoom);
@@ -136,14 +91,16 @@ impl MapRenderer {
             render_area.zoom,
         );
 
+        let image_png = image_to_png_data(&image);
+
         RenderResult {
-            width: pixmap.width(),
-            height: pixmap.height(),
+            width: tile_size * width_by_tile,
+            height: tile_size * height_by_tile,
             top: overlay_top,
             left: overlay_left,
             right: overlay_right,
             bottom: overlay_bottom,
-            data: png_buffer,
+            data: image_png,
         }
     }
 
@@ -156,8 +113,6 @@ impl MapRenderer {
         right: f64,
         bottom: f64,
     ) -> Option<RenderResult> {
-        // TODO: This doesn't really work when antimeridian is involved, see
-        // the upstream issue: https://github.com/maplibre/maplibre-native/issues/1681
         let (mut left_idx, mut top_idx) = utils::lng_lat_to_tile_x_y(left, top, zoom);
         let (mut right_idx, mut bottom_idx) = utils::lng_lat_to_tile_x_y(right, bottom, zoom);
 

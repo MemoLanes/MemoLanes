@@ -14,7 +14,6 @@ flutter_rust_bridge = { version = "=2.5.0", features = ["chrono"] }
 log = "0.4"
 rusqlite = { version = "0.32", features = ["bundled"] }
 simplelog = "0.12"
-tiny-skia = "0.11"
 protobuf = "3.6"
 uuid = { version = "1.10", features = ["v4", "fast-rng", "macro-diagnostics"] }
 sql_split = "0.1"
@@ -33,9 +32,8 @@ gpx = { git = "https://github.com/MemoLanes/gpx.git", branch = "relax-parsing" }
 kml = "0.8"
 lazy_static = "1.5"
 geo-types = "0.7"
-imageproc = "0.25"
 image = "0.25"
-file-rotate = "0.7.6"
+file-rotate = "0.7"
 
 [dev-dependencies]
 tempdir = "0.3"
@@ -43,6 +41,8 @@ csv = "1.3"
 rand = "0.8"
 assert_float_eq = "1.1"
 criterion = "0.5"
+sha2 = "0.10"
+serde_json = "1.0"
 
 [build-dependencies]
 protobuf-codegen = "3.6"

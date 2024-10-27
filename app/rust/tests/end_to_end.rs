@@ -47,11 +47,7 @@ fn basic() {
             let render_result = map_renderer_proxy
                 .render_map_overlay(11.0, 121.39, 31.3146, 121.55, 31.18)
                 .unwrap();
-            test_utils::assert_image(
-                &render_result.data,
-                "end_to_end_basic_0",
-                "2b7cd2dc29fffbe036e208b04c9bc46298a7e12e",
-            );
+            test_utils::verify_image("end_to_end_basic_0", &render_result.data);
         }
     }
 
@@ -62,11 +58,7 @@ fn basic() {
     let render_result = map_renderer_proxy
         .render_map_overlay(11.0, 121.39, 31.3146, 121.55, 31.18)
         .unwrap();
-    test_utils::assert_image(
-        &render_result.data,
-        "end_to_end_basic_1",
-        "f27638e57e8dbf39a2a6cbc3b26ac63115a3766e",
-    );
+    test_utils::verify_image("end_to_end_basic_1", &render_result.data);
 
     // try export logs
     api::export_logs("./tests/for_inspection/end_to_end_basic-logs.zip".to_string()).unwrap();

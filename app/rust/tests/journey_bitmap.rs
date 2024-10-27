@@ -2,7 +2,7 @@ pub mod test_utils;
 
 use memolanes_core::{
     journey_bitmap::JourneyBitmap, journey_data::JourneyData, journey_header::JourneyType,
-    map_renderer::MapRenderer,
+    renderer::MapRenderer,
 };
 
 #[test]
@@ -24,10 +24,9 @@ fn add_line_cross_antimeridian() {
     let render_result = map_renderer
         .maybe_render_map_overlay(0, -170.0, 80.0, 170.0, -80.0)
         .unwrap();
-    test_utils::assert_image(
-        &render_result.data,
+    test_utils::verify_image(
         "journey_bitmap_add_line_cross_antimeridian",
-        "9c50ecfda02989a0f25ee721e7e1478fb8d2aad3",
+        &render_result.data,
     );
 }
 
@@ -71,11 +70,7 @@ fn merge_with_render() {
     let render_result = map_renderer
         .maybe_render_map_overlay(12, START_LNG, START_LAT, END_LNG, END_LAT)
         .unwrap();
-    test_utils::assert_image(
-        &render_result.data,
-        "journey_bitmap_merge_with_render",
-        "6352d5c71e8b531c789f545ff34de46cb8619a0f",
-    );
+    test_utils::verify_image("journey_bitmap_merge_with_render", &render_result.data);
 }
 
 #[test]

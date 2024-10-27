@@ -3,7 +3,7 @@ use std::{fs::File, io::Write};
 use criterion::{criterion_group, criterion_main, Criterion};
 
 use memolanes_core::{
-    import_data, journey_bitmap::JourneyBitmap, map_renderer::*, merged_journey_builder,
+    import_data, journey_bitmap::JourneyBitmap, merged_journey_builder, renderer::*,
 };
 
 fn map_renderer(c: &mut Criterion) {
