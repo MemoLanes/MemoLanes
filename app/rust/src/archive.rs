@@ -133,13 +133,19 @@ fn write_proto_as_compressed_block<W: Write, M: protobuf::Message>(
     write_bytes_with_size_header(writer, &buf)
 }
 
-pub fn archive_all_as_zip<T: Write + Seek>(txn: &main_db::Txn, writer: &mut T) -> Result<()> {
-    let all_journeys = txn.query_journeys(None, None)?;
+//pub fn archive_all_as_zip<T: Write + Seek>(txn: &main_db::Txn, writer: &mut T) -> Result<()> {
+pub fn archive_as_mldx_zip<T: Write + Seek>(
+    journeyheader_block: &[JourneyHeader],
+    txn: &main_db::Txn,
+    writer: &mut T,
+) -> Result<()> {
+    //let all_journeys = txn.query_journeys(None, None)?;
+    let desired_journeys = journeyheader_block.to_owned();
 
     // group journeys into sections and sort them(by end time and tie
     // break by id, the deterministic ordering is important).
     let mut group_by_year_month = HashMap::new();
-    for journey in all_journeys {
+    for journey in desired_journeys {
         let year_month = YearMonth {
             year: journey.journey_date.year() as i16,
             month: journey.journey_date.month() as u8,

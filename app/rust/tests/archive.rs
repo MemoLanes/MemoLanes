@@ -65,11 +65,13 @@ fn archive_and_import() {
     add_bitmap_journey(&mut main_db);
 
     let all_journeys_before = all_journeys(&mut main_db);
-
+    let journey_headers = main_db
+        .with_txn(|txn| txn.query_journeys(None, None))
+        .unwrap();
     let zip_file_path = temp_dir.path().join("archive.zip");
     let mut file = File::create(&zip_file_path).unwrap();
     main_db
-        .with_txn(|txn| archive::archive_all_as_zip(txn, &mut file))
+        .with_txn(|txn| archive::archive_as_mldx_zip(&journey_headers, txn, &mut file))
         .unwrap();
     drop(file);
     main_db.with_txn(|txn| txn.delete_all_journeys()).unwrap();
@@ -124,11 +126,13 @@ fn import_skips_existing_journeys() {
     add_bitmap_journey(&mut main_db);
 
     let all_journeys_before = all_journeys(&mut main_db);
-
+    let journey_headers = main_db
+        .with_txn(|txn| txn.query_journeys(None, None))
+        .unwrap();
     let zip_file_path = temp_dir.path().join("archive.zip");
     let mut file = File::create(&zip_file_path).unwrap();
     main_db
-        .with_txn(|txn| archive::archive_all_as_zip(txn, &mut file))
+        .with_txn(|txn| archive::archive_as_mldx_zip(&journey_headers, txn, &mut file))
         .unwrap();
     drop(file);
 

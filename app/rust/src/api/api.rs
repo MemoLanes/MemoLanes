@@ -300,9 +300,28 @@ pub fn list_all_journeys() -> Result<Vec<JourneyHeader>> {
 pub fn generate_full_archive(target_filepath: String) -> Result<()> {
     info!("generating full archive");
     let mut file = File::create(target_filepath)?;
+    let journeyheader_vector = get()
+        .storage
+        .with_db_txn(|txn| txn.query_journeys(None, None))
+        .unwrap();
     get()
         .storage
-        .with_db_txn(|txn| archive::archive_all_as_zip(txn, &mut file))?;
+        .with_db_txn(|txn| archive::archive_as_mldx_zip(&journeyheader_vector, txn, &mut file))?;
+    drop(file);
+    Ok(())
+}
+
+pub fn generate_single_archive(journey_id: String, target_filepath: String) -> Result<()> {
+    info!("generating single journey archive");
+    let mut file = File::create(target_filepath)?;
+    let journey_header = get()
+        .storage
+        .with_db_txn(|txn| txn.get_journey_header(&journey_id))?
+        .unwrap();
+    let journeyheader_slice = &[journey_header];
+    get()
+        .storage
+        .with_db_txn(|txn| archive::archive_as_mldx_zip(journeyheader_slice, txn, &mut file))?;
     drop(file);
     Ok(())
 }

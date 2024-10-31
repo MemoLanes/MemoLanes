@@ -119,6 +119,21 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
               ),
               ElevatedButton(
                 onPressed: () async {
+                  var tmpDir = await getTemporaryDirectory();
+                  var filepath = "${tmpDir.path}/${widget.journeyHeader.revision}.mldx";
+                  await api.generateSingleArchive(journeyId: widget.journeyHeader.id, targetFilepath: filepath);
+                  await Share.shareXFiles([XFile(filepath)]);
+                  try {
+                    var file = File(filepath);
+                    await file.delete();
+                  } catch (e) {
+                    print(e);
+                  }
+                },
+                child: const Text("export MLDX"),
+              ),
+              ElevatedButton(
+                onPressed: () async {
                   showDialogFunction(() async {
                     Navigator.of(context).pop();
                     await api.deleteJourney(journeyId: widget.journeyHeader.id);
