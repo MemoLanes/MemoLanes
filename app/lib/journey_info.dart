@@ -104,24 +104,13 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
             Text("Note: ${widget.journeyHeader.note}"),
             Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
               ElevatedButton(
-                onPressed: widget.journeyHeader.journeyType ==
-                        JourneyType.vector
-                    ? () => _export(widget.journeyHeader, api.ExportType.kml)
-                    : null,
-                child: const Text("export KML"),
-              ),
-              ElevatedButton(
-                onPressed: widget.journeyHeader.journeyType ==
-                        JourneyType.vector
-                    ? () => _export(widget.journeyHeader, api.ExportType.gpx)
-                    : null,
-                child: const Text("export GPX"),
-              ),
-              ElevatedButton(
                 onPressed: () async {
                   var tmpDir = await getTemporaryDirectory();
-                  var filepath = "${tmpDir.path}/${widget.journeyHeader.revision}.mldx";
-                  await api.generateSingleArchive(journeyId: widget.journeyHeader.id, targetFilepath: filepath);
+                  var filepath =
+                      "${tmpDir.path}/${widget.journeyHeader.revision}.mldx";
+                  await api.generateSingleArchive(
+                      journeyId: widget.journeyHeader.id,
+                      targetFilepath: filepath);
                   await Share.shareXFiles([XFile(filepath)]);
                   try {
                     var file = File(filepath);
@@ -130,20 +119,34 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                     print(e);
                   }
                 },
-                child: const Text("export MLDX"),
+                child: const Text("Export MLDX"),
               ),
               ElevatedButton(
-                onPressed: () async {
-                  showDialogFunction(() async {
-                    Navigator.of(context).pop();
-                    await api.deleteJourney(journeyId: widget.journeyHeader.id);
-                    if (!context.mounted) return;
-                    Navigator.pop(context, true);
-                  });
-                },
-                child: const Text("delete"),
+                onPressed: widget.journeyHeader.journeyType ==
+                        JourneyType.vector
+                    ? () => _export(widget.journeyHeader, api.ExportType.kml)
+                    : null,
+                child: const Text("Export KML"),
+              ),
+              ElevatedButton(
+                onPressed: widget.journeyHeader.journeyType ==
+                        JourneyType.vector
+                    ? () => _export(widget.journeyHeader, api.ExportType.gpx)
+                    : null,
+                child: const Text("Export GPX"),
               ),
             ]),
+            ElevatedButton(
+              onPressed: () async {
+                showDialogFunction(() async {
+                  Navigator.of(context).pop();
+                  await api.deleteJourney(journeyId: widget.journeyHeader.id);
+                  if (!context.mounted) return;
+                  Navigator.pop(context, true);
+                });
+              },
+              child: const Text("Delete"),
+            ),
             Expanded(
               child: mapRendererProxy == null
                   ? (const CircularProgressIndicator())
