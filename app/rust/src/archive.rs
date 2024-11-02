@@ -38,8 +38,8 @@ const SECTION_MAGIC_HEADER: [u8; 3] = [b'M', b'L', b'S'];
 
 // TODO: consider return more detail about this import: e.g. how many journeys
 // are added, how many are skipped.
-pub fn import_archive_file(txn: &mut main_db::Txn, zip_file_path: &str) -> Result<()> {
-    let mut zip = zip::ZipArchive::new(File::open(zip_file_path)?)?;
+pub fn import_mldx(txn: &mut main_db::Txn, mldx_file: &str) -> Result<()> {
+    let mut zip = zip::ZipArchive::new(File::open(mldx_file)?)?;
     let mut file = zip.by_name("metadata.xxm")?;
     let mut magic_header: [u8; 3] = [0; 3];
     file.read_exact(&mut magic_header)?;
@@ -133,19 +133,30 @@ fn write_proto_as_compressed_block<W: Write, M: protobuf::Message>(
     write_bytes_with_size_header(writer, &buf)
 }
 
-//pub fn archive_all_as_zip<T: Write + Seek>(txn: &main_db::Txn, writer: &mut T) -> Result<()> {
-pub fn archive_as_mldx_zip<T: Write + Seek>(
-    journeyheader_block: &[JourneyHeader],
+pub enum WhatToExport {
+    All,
+    Just(String),
+}
+
+pub fn export_as_mldx<T: Write + Seek>(
+    what_to_export: &WhatToExport,
     txn: &main_db::Txn,
     writer: &mut T,
 ) -> Result<()> {
-    //let all_journeys = txn.query_journeys(None, None)?;
-    let desired_journeys = journeyheader_block.to_owned();
+    let journey_to_export = match what_to_export {
+        WhatToExport::All => txn.query_journeys(None, None)?,
+        WhatToExport::Just(journey_id) => {
+            let journey_header = txn
+                .get_journey_header(journey_id)?
+                .ok_or_else(|| anyhow!("Failed to find journy, journey_id = {}", journey_id))?;
+            vec![journey_header]
+        }
+    };
 
     // group journeys into sections and sort them(by end time and tie
     // break by id, the deterministic ordering is important).
     let mut group_by_year_month = HashMap::new();
-    for journey in desired_journeys {
+    for journey in journey_to_export {
         let year_month = YearMonth {
             year: journey.journey_date.year() as i16,
             month: journey.journey_date.month() as u8,

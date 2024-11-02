@@ -71,13 +71,13 @@ fn archive_and_import() {
     let zip_file_path = temp_dir.path().join("archive.zip");
     let mut file = File::create(&zip_file_path).unwrap();
     main_db
-        .with_txn(|txn| archive::archive_as_mldx_zip(&journey_headers, txn, &mut file))
+        .with_txn(|txn| archive::export_as_mldx(&journey_headers, txn, &mut file))
         .unwrap();
     drop(file);
     main_db.with_txn(|txn| txn.delete_all_journeys()).unwrap();
 
     main_db
-        .with_txn(|txn| archive::import_archive_file(txn, zip_file_path.to_str().unwrap()))
+        .with_txn(|txn| archive::import_mldx(txn, zip_file_path.to_str().unwrap()))
         .unwrap();
     assert_eq!(all_journeys_before, all_journeys(&mut main_db));
 }
@@ -112,7 +112,7 @@ fn import_broken_archive_and_roll_back() {
 
     // recover
     assert!(main_db
-        .with_txn(|txn| archive::import_archive_file(txn, zip_file_path.to_str().unwrap()))
+        .with_txn(|txn| archive::import_mldx(txn, zip_file_path.to_str().unwrap()))
         .is_err());
     assert_eq!(all_journeys_before, all_journeys(&mut main_db));
 }
@@ -132,7 +132,7 @@ fn import_skips_existing_journeys() {
     let zip_file_path = temp_dir.path().join("archive.zip");
     let mut file = File::create(&zip_file_path).unwrap();
     main_db
-        .with_txn(|txn| archive::archive_as_mldx_zip(&journey_headers, txn, &mut file))
+        .with_txn(|txn| archive::export_as_mldx(&journey_headers, txn, &mut file))
         .unwrap();
     drop(file);
 
@@ -147,7 +147,7 @@ fn import_skips_existing_journeys() {
 
     // import the archive again, it should skip all exisiting journeys but import the deleted one
     main_db
-        .with_txn(|txn| archive::import_archive_file(txn, zip_file_path.to_str().unwrap()))
+        .with_txn(|txn| archive::import_mldx(txn, zip_file_path.to_str().unwrap()))
         .unwrap();
     assert_eq!(all_journeys_before, all_journeys(&mut main_db));
 }

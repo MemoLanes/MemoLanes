@@ -300,13 +300,9 @@ pub fn list_all_journeys() -> Result<Vec<JourneyHeader>> {
 pub fn generate_full_archive(target_filepath: String) -> Result<()> {
     info!("generating full archive");
     let mut file = File::create(target_filepath)?;
-    let journeyheader_vector = get()
-        .storage
-        .with_db_txn(|txn| txn.query_journeys(None, None))
-        .unwrap();
     get()
         .storage
-        .with_db_txn(|txn| archive::archive_as_mldx_zip(&journeyheader_vector, txn, &mut file))?;
+        .with_db_txn(|txn| archive::export_as_mldx(&archive::WhatToExport::All, txn, &mut file))?;
     drop(file);
     Ok(())
 }
@@ -314,14 +310,9 @@ pub fn generate_full_archive(target_filepath: String) -> Result<()> {
 pub fn generate_single_archive(journey_id: String, target_filepath: String) -> Result<()> {
     info!("generating single journey archive");
     let mut file = File::create(target_filepath)?;
-    let journey_header = get()
-        .storage
-        .with_db_txn(|txn| txn.get_journey_header(&journey_id))?
-        .unwrap();
-    let journeyheader_slice = &[journey_header];
-    get()
-        .storage
-        .with_db_txn(|txn| archive::archive_as_mldx_zip(journeyheader_slice, txn, &mut file))?;
+    get().storage.with_db_txn(|txn| {
+        archive::export_as_mldx(&archive::WhatToExport::Just(journey_id), txn, &mut file)
+    })?;
     drop(file);
     Ok(())
 }
@@ -365,7 +356,7 @@ pub fn import_archive(zip_file_path: String) -> Result<()> {
     info!("Import Archived Data");
     get()
         .storage
-        .with_db_txn(|txn| archive::import_archive_file(txn, &zip_file_path))?;
+        .with_db_txn(|txn| archive::import_mldx(txn, &zip_file_path))?;
     Ok(())
 }
 
