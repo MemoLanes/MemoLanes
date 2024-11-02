@@ -132,7 +132,7 @@ class _SettingsBodyState extends State<SettingsBody> {
               var path = result.files.single.path;
               if (path != null) {
                 try {
-                  await importArchive(zipFilePath: path);
+                  await importArchive(mldxFilePath: path);
                 } catch (e) {
                   if (context.mounted) {
                     await showInfoDialog(context, e.toString());
