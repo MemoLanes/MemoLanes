@@ -302,7 +302,17 @@ pub fn generate_full_archive(target_filepath: String) -> Result<()> {
     let mut file = File::create(target_filepath)?;
     get()
         .storage
-        .with_db_txn(|txn| archive::archive_all_as_zip(txn, &mut file))?;
+        .with_db_txn(|txn| archive::export_as_mldx(&archive::WhatToExport::All, txn, &mut file))?;
+    drop(file);
+    Ok(())
+}
+
+pub fn generate_single_archive(journey_id: String, target_filepath: String) -> Result<()> {
+    info!("generating single journey archive");
+    let mut file = File::create(target_filepath)?;
+    get().storage.with_db_txn(|txn| {
+        archive::export_as_mldx(&archive::WhatToExport::Just(journey_id), txn, &mut file)
+    })?;
     drop(file);
     Ok(())
 }
@@ -342,11 +352,11 @@ pub fn delete_all_journeys() -> Result<()> {
     get().storage.with_db_txn(|txn| txn.delete_all_journeys())
 }
 
-pub fn import_archive(zip_file_path: String) -> Result<()> {
+pub fn import_archive(mldx_file_path: String) -> Result<()> {
     info!("Import Archived Data");
     get()
         .storage
-        .with_db_txn(|txn| archive::import_archive_file(txn, &zip_file_path))?;
+        .with_db_txn(|txn| archive::import_mldx(txn, &mldx_file_path))?;
     Ok(())
 }
 

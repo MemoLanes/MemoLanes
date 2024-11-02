@@ -43,7 +43,7 @@ impl FoWTileId {
     }
 }
 
-pub fn load_fow_sync_data(zip_file_path: &str) -> Result<(JourneyBitmap, Option<String>)> {
+pub fn load_fow_sync_data(mldx_file_path: &str) -> Result<(JourneyBitmap, Option<String>)> {
     const TILE_HEADER_LEN: i64 = TILE_WIDTH * TILE_WIDTH;
     const TILE_HEADER_SIZE: usize = (TILE_HEADER_LEN * 2) as usize;
     const BLOCK_BITMAP_SIZE: usize = BITMAP_SIZE;
@@ -52,7 +52,7 @@ pub fn load_fow_sync_data(zip_file_path: &str) -> Result<(JourneyBitmap, Option<
 
     let mut warnings: Vec<String> = Vec::new();
 
-    let mut zip = zip::ZipArchive::new(File::open(zip_file_path)?)?;
+    let mut zip = zip::ZipArchive::new(File::open(mldx_file_path)?)?;
     let has_sync_folder = zip
         .file_names()
         .any(|name| name.to_lowercase().contains("sync/"));

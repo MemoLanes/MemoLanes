@@ -65,17 +65,16 @@ fn archive_and_import() {
     add_bitmap_journey(&mut main_db);
 
     let all_journeys_before = all_journeys(&mut main_db);
-
-    let zip_file_path = temp_dir.path().join("archive.zip");
-    let mut file = File::create(&zip_file_path).unwrap();
+    let mldx_file_path = temp_dir.path().join("archive.mldx");
+    let mut file = File::create(&mldx_file_path).unwrap();
     main_db
-        .with_txn(|txn| archive::archive_all_as_zip(txn, &mut file))
+        .with_txn(|txn| archive::export_as_mldx(&archive::WhatToExport::All, txn, &mut file))
         .unwrap();
     drop(file);
     main_db.with_txn(|txn| txn.delete_all_journeys()).unwrap();
 
     main_db
-        .with_txn(|txn| archive::import_archive_file(txn, zip_file_path.to_str().unwrap()))
+        .with_txn(|txn| archive::import_mldx(txn, mldx_file_path.to_str().unwrap()))
         .unwrap();
     assert_eq!(all_journeys_before, all_journeys(&mut main_db));
 }
@@ -103,14 +102,14 @@ fn import_broken_archive_and_roll_back() {
 
     let all_journeys_before = all_journeys(&mut main_db);
 
-    let zip_file_path = temp_dir.path().join("archive.zip");
-    let mut file = File::create(&zip_file_path).unwrap();
+    let mldx_file_path = temp_dir.path().join("archive.mldx");
+    let mut file = File::create(&mldx_file_path).unwrap();
     file.write_all("hello".as_bytes()).unwrap();
     drop(file);
 
     // recover
     assert!(main_db
-        .with_txn(|txn| archive::import_archive_file(txn, zip_file_path.to_str().unwrap()))
+        .with_txn(|txn| archive::import_mldx(txn, mldx_file_path.to_str().unwrap()))
         .is_err());
     assert_eq!(all_journeys_before, all_journeys(&mut main_db));
 }
@@ -124,11 +123,10 @@ fn import_skips_existing_journeys() {
     add_bitmap_journey(&mut main_db);
 
     let all_journeys_before = all_journeys(&mut main_db);
-
-    let zip_file_path = temp_dir.path().join("archive.zip");
-    let mut file = File::create(&zip_file_path).unwrap();
+    let mldx_file_path = temp_dir.path().join("archive.mldx");
+    let mut file = File::create(&mldx_file_path).unwrap();
     main_db
-        .with_txn(|txn| archive::archive_all_as_zip(txn, &mut file))
+        .with_txn(|txn| archive::export_as_mldx(&archive::WhatToExport::All, txn, &mut file))
         .unwrap();
     drop(file);
 
@@ -143,7 +141,7 @@ fn import_skips_existing_journeys() {
 
     // import the archive again, it should skip all exisiting journeys but import the deleted one
     main_db
-        .with_txn(|txn| archive::import_archive_file(txn, zip_file_path.to_str().unwrap()))
+        .with_txn(|txn| archive::import_mldx(txn, mldx_file_path.to_str().unwrap()))
         .unwrap();
     assert_eq!(all_journeys_before, all_journeys(&mut main_db));
 }
