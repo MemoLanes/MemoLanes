@@ -352,11 +352,11 @@ pub fn delete_all_journeys() -> Result<()> {
     get().storage.with_db_txn(|txn| txn.delete_all_journeys())
 }
 
-pub fn import_archive(zip_file_path: String) -> Result<()> {
+pub fn import_archive(mldx_file_path: String) -> Result<()> {
     info!("Import Archived Data");
     get()
         .storage
-        .with_db_txn(|txn| archive::import_mldx(txn, &zip_file_path))?;
+        .with_db_txn(|txn| archive::import_mldx(txn, &mldx_file_path))?;
     Ok(())
 }
 
