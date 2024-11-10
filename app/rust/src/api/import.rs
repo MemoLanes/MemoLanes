@@ -21,6 +21,8 @@ pub struct JourneyInfo {
     pub start_time: Option<DateTime<Utc>>,
     pub end_time: Option<DateTime<Utc>>,
     pub note: Option<String>,
+    pub created_at: Option<DateTime<Utc>>,
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 #[frb(opaque)]
@@ -40,6 +42,8 @@ pub fn load_fow_sync_data(file_path: String) -> Result<(JourneyInfo, RawBitmapDa
         start_time: None,
         end_time: None,
         note: None,
+        created_at: None,
+        updated_at: None,
     };
     Ok((
         journey_info,

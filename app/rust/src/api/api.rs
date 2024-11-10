@@ -3,7 +3,7 @@ use std::fs::File;
 use std::sync::{Mutex, OnceLock};
 
 use anyhow::{Ok, Result};
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use flutter_rust_bridge::frb;
 
 use crate::gps_processor::{GpsProcessor, ProcessResult};
@@ -14,6 +14,8 @@ use crate::renderer::{MapRenderer, RenderResult};
 use crate::storage::Storage;
 use crate::{archive, export_data, gps_processor, merged_journey_builder, storage};
 use crate::{logs, utils};
+
+use super::import::JourneyInfo;
 
 // TODO: we have way too many locking here and now it is hard to track.
 //  e.g. we could mess up with the order and cause a deadlock
@@ -357,6 +359,12 @@ pub fn import_archive(mldx_file_path: String) -> Result<()> {
     get()
         .storage
         .with_db_txn(|txn| archive::import_mldx(txn, &mldx_file_path))?;
+    Ok(())
+}
+
+pub fn edit_journey(id: &str, journeyinfo: JourneyInfo) -> Result<()> {
+    info!("Update journey");
+    get().storage.with_db_txn(|txn| txn.edit_journey(id, journeyinfo))?;
     Ok(())
 }
 

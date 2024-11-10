@@ -27,27 +27,6 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
     });
   }
 
-  showDialogFunction(fn) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text("Delete"),
-          content: const Text("Delete this record?"),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Cancel'),
-            ),
-            TextButton(onPressed: fn, child: const Text("Yes")),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(children: [
