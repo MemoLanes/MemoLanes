@@ -9,7 +9,6 @@ use std::path::Path;
 use std::str::FromStr;
 use uuid::Uuid;
 
-use crate::api::import::JourneyInfo;
 use crate::gps_processor::{self, PreprocessedData, ProcessResult};
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
@@ -101,6 +100,10 @@ pub struct Txn<'a> {
 pub enum Action {
     Merge { journey_ids: Vec<String> },
     CompleteRebuilt,
+}
+
+fn generate_random_revision() -> String {
+    return random_string::generate(8, random_string::charsets::ALPHANUMERIC);
 }
 
 // NOTE: the `Txn` here is not only for making operation atomic, the `storage`
@@ -246,7 +249,7 @@ impl Txn<'_> {
             id: Uuid::new_v4().as_hyphenated().to_string(),
             // we use id + revision as the equality check, revision can be any
             // string (e.g. uuid) but a short random should be good enough.
-            revision: random_string::generate(8, random_string::charsets::ALPHANUMERIC),
+            revision: generate_random_revision(),
             journey_date,
             created_at: created_at.unwrap_or(Utc::now()),
             updated_at: None,
@@ -259,51 +262,45 @@ impl Txn<'_> {
         self.insert_journey(header, journey_data)
     }
 
-    pub fn edit_journey(
+    pub fn update_journey_metadata(
         &mut self,
         id: &str,
-        joureny_info: JourneyInfo
+        new_journey_date: NaiveDate,
+        start: Option<DateTime<Utc>>,
+        end: Option<DateTime<Utc>>,
+        note: Option<String>,
     ) -> Result<()> {
-        let header = match self.get_journey_header(&id)? {
-            Some(mut existing_header) => {
-                info!("Updating journey with ID {}", &id);
-                existing_header.created_at = joureny_info.created_at.unwrap_or(Utc::now());
-                existing_header.start = joureny_info.start_time;
-                existing_header.end = joureny_info.end_time;
-                existing_header.note = joureny_info.note;
-                existing_header
-            }
-            None => {
-                // If the journey doesn't exist, return an error
-                return Err(anyhow!("Journey with ID {} does not exist", id));
-            }
-        };
-        // Convert data
-        let journey_date = utils::date_to_days_since_epoch(joureny_info.journey_date);
-        let timestamp_for_ordering = joureny_info.start_time.or(joureny_info.end_time).map(|x| x.timestamp());
+        info!("Updating journey with ID {}", &id);
+
+        let mut header = self
+            .get_journey_header(id)?
+            .ok_or_else(|| anyhow!("Updating non existent journey, journey id = {}", id))?;
+
+        // must change during update
+        header.updated_at = Some(Utc::now());
+        header.revision = generate_random_revision();
+
+        let old_journey_date = header.journey_date;
+        header.journey_date = new_journey_date;
+        header.start = start;
+        header.end = end;
+        header.note = note;
+
+        // update
+        let journey_date = utils::date_to_days_since_epoch(header.journey_date);
+        let timestamp_for_ordering = header.start.or(header.end).map(|x| x.timestamp());
         let header_bytes = header.to_proto().write_to_bytes()?;
-        // Prepare the SQL for updating the journey record
         let sql = "UPDATE journey SET journey_date = ?1, timestamp_for_ordering = ?2, header = ?3 WHERE id = ?4;";
-        let changes = self.db_txn.execute(
+        self.db_txn.execute(
             sql,
-            (
-                journey_date,
-                timestamp_for_ordering,
-                header_bytes,
-                &id,
-            ),
+            (journey_date, timestamp_for_ordering, header_bytes, &id),
         )?;
 
-        // Update the action to reflect a completed operation
-        self.action = Some(Action::Merge {
-            journey_ids: vec![id.to_string()],
-        });
-
-        if changes == 1 {
-            Ok(())
-        } else {
-            Err(anyhow!("Failed to update journey with ID {}", id))
+        if old_journey_date != new_journey_date {
+            self.action = Some(Action::CompleteRebuilt);
         }
+
+        Ok(())
     }
 
     pub fn finalize_ongoing_journey(&mut self) -> Result<bool> {

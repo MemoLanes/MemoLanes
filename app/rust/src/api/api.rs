@@ -3,7 +3,7 @@ use std::fs::File;
 use std::sync::{Mutex, OnceLock};
 
 use anyhow::{Ok, Result};
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::NaiveDate;
 use flutter_rust_bridge::frb;
 
 use crate::gps_processor::{GpsProcessor, ProcessResult};
@@ -362,9 +362,16 @@ pub fn import_archive(mldx_file_path: String) -> Result<()> {
     Ok(())
 }
 
-pub fn edit_journey(id: &str, journeyinfo: JourneyInfo) -> Result<()> {
-    info!("Update journey");
-    get().storage.with_db_txn(|txn| txn.edit_journey(id, journeyinfo))?;
+pub fn update_journey_metadata(id: &str, journeyinfo: JourneyInfo) -> Result<()> {
+    get().storage.with_db_txn(|txn| {
+        txn.update_journey_metadata(
+            id,
+            journeyinfo.journey_date,
+            journeyinfo.start_time,
+            journeyinfo.end_time,
+            journeyinfo.note,
+        )
+    })?;
     Ok(())
 }
 
