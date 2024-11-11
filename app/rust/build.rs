@@ -72,5 +72,5 @@ fn main() {
         );
     }
 
-    // setup_x86_64_android_workaround();
+    setup_x86_64_android_workaround();
 }
