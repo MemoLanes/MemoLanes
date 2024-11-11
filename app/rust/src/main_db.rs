@@ -103,7 +103,7 @@ pub enum Action {
 }
 
 fn generate_random_revision() -> String {
-    return random_string::generate(8, random_string::charsets::ALPHANUMERIC);
+    random_string::generate(8, random_string::charsets::ALPHANUMERIC)
 }
 
 // NOTE: the `Txn` here is not only for making operation atomic, the `storage`
