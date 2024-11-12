@@ -40,8 +40,6 @@ pub fn load_fow_sync_data(file_path: String) -> Result<(JourneyInfo, RawBitmapDa
         start_time: None,
         end_time: None,
         note: None,
-        created_at: None,
-        updated_at: None,
     };
     Ok((
         journey_info,
