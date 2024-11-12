@@ -83,7 +83,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   }
 
   _saveData(JourneyInfo journeyInfo) async {
-    await api.editJourney(
+    await api.updateJourneyMetadata(
         id: widget.journeyHeader.id, journeyinfo: journeyInfo);
   }
 
