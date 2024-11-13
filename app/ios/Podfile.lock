@@ -43,16 +43,16 @@ PODS:
     - Toast
   - geolocator_apple (1.2.0):
     - Flutter
-  - mapbox_maps_flutter (2.3.0):
+  - mapbox_maps_flutter (2.4.0):
     - Flutter
-    - MapboxMaps (~> 11.7.0)
+    - MapboxMaps (~> 11.8.0)
     - Turf (= 3.0.0)
-  - MapboxCommon (24.7.0)
-  - MapboxCoreMaps (11.7.0):
-    - MapboxCommon (~> 24.7)
-  - MapboxMaps (11.7.0):
-    - MapboxCommon (= 24.7.0)
-    - MapboxCoreMaps (= 11.7.0)
+  - MapboxCommon (24.8.0)
+  - MapboxCoreMaps (11.8.0):
+    - MapboxCommon (~> 24.8)
+  - MapboxMaps (11.8.0):
+    - MapboxCommon (= 24.8.0)
+    - MapboxCoreMaps (= 11.8.0)
     - Turf (= 3.0.0)
   - notification_when_app_is_killed (0.0.1):
     - Flutter
@@ -65,9 +65,9 @@ PODS:
     - Flutter
   - rust_builder (0.0.1):
     - Flutter
-  - SDWebImage (5.19.7):
-    - SDWebImage/Core (= 5.19.7)
-  - SDWebImage/Core (5.19.7)
+  - SDWebImage (5.20.0):
+    - SDWebImage/Core (= 5.20.0)
+  - SDWebImage/Core (5.20.0)
   - share_plus (0.0.1):
     - Flutter
   - shared_preferences_foundation (0.0.1):
@@ -149,17 +149,17 @@ SPEC CHECKSUMS:
   flutter_local_notifications: 4cde75091f6327eb8517fa068a0a5950212d2086
   fluttertoast: e9a18c7be5413da53898f660530c56f35edfba9c
   geolocator_apple: 6cbaf322953988e009e5ecb481f07efece75c450
-  mapbox_maps_flutter: fb6e57802405af69ecd96a9a2c7cdf9c756c4985
-  MapboxCommon: fbc1138a831f4c1b728167c3f49701fe3a9aeed1
-  MapboxCoreMaps: 8946c9fa51e588d594ee6ebf192d9942368abb6a
-  MapboxMaps: bf9f775d921ed357ae642c379ebad90550cdb9de
+  mapbox_maps_flutter: 564903a43401bad6b277ffef34b0ab03329a34c1
+  MapboxCommon: 95fe03b74d0d0ca39dc646ca14862deb06875151
+  MapboxCoreMaps: f2a82182c5f6c6262220b81547c6df708012932b
+  MapboxMaps: dbe1869006c5918d62efc6b475fb884947ea2ecd
   notification_when_app_is_killed: 8a0eb9075cced52e07b0e7c0744f46c953c5b9fd
-  package_info_plus: 58f0028419748fad15bf008b270aaa8e54380b1c
+  package_info_plus: c0502532a26c7662a62a356cebe2692ec5fe4ec4
   path_provider_foundation: 2b6b4c569c0fb62ec74538f866245ac84301af46
   permission_handler_apple: 9878588469a2b0d0fc1e048d9f43605f92e6cec2
   rust_builder: 06c007d2993fe78fac952c4fb967ac1dfd0522c0
-  SDWebImage: 8a6b7b160b4d710e2a22b6900e25301075c34cb3
-  share_plus: 8875f4f2500512ea181eef553c3e27dba5135aad
+  SDWebImage: 73c6079366fea25fa4bb9640d5fb58f0893facd8
+  share_plus: 8b6f8b3447e494cca5317c8c3073de39b3600d1f
   shared_preferences_foundation: fcdcbc04712aee1108ac7fda236f363274528f78
   SwiftyGif: 706c60cf65fa2bc5ee0313beece843c8eb8194d4
   Toast: 1f5ea13423a1e6674c4abdac5be53587ae481c4e
