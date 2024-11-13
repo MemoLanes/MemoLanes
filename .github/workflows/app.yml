@@ -1,22 +1,22 @@
 name: App
 
-on: 
+on:
   pull_request:
-    branches: 
+    branches:
       - main
     paths:
-      - 'app/**'
+      - "app/**"
   push:
-    branches: 
+    branches:
       - main
     paths:
-      - 'app/**'
+      - "app/**"
   workflow_dispatch:
 
 jobs:
   build_and_test:
     runs-on: ubuntu-latest
-    
+
     defaults:
       run:
         working-directory: app/
@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          channel: "stable"
           cache: true
       - uses: actions-rs/toolchain@v1
         with:
@@ -68,7 +68,6 @@ jobs:
       - name: Run Rust tests
         working-directory: app/rust
         run: cargo test -- --nocapture
-
 
       - name: Flutter Analyze
         run: flutter analyze --no-fatal-infos
