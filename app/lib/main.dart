@@ -15,7 +15,9 @@ import 'package:memolanes/raw_data.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:provider/provider.dart';
-import 'package:badges/badges.dart' as badges;
+import 'package:flutter/services.dart';
+// import 'package:badges/badges.dart' as badges;
+import 'dart:ui';
 
 void delayedInit(UpdateNotifier updateNotifier) {
   Future.delayed(const Duration(milliseconds: 2000), () async {
@@ -89,22 +91,32 @@ void main() async {
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'MemoLanes',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
-        primarySwatch: Colors.blue,
+        useMaterial3: true,
+        fontFamily: 'MiSans',
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.black,
+          primary: Colors.black,
+          secondary: Colors.black87,
+          tertiary: Colors.black54,
+          surface: Colors.white,
+          onPrimary: Colors.white,
+          onSecondary: Colors.white,
+          onSurface: Colors.black87,
+        ),
+        iconTheme: const IconThemeData(
+          color: Colors.black87,
+        ),
+        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+          elevation: 8,
+          backgroundColor: Colors.white,
+          selectedItemColor: Colors.black,
+          unselectedItemColor: Colors.black54,
+        ),
       ),
       home: const MyHomePage(title: 'MemoLanes [OSS]'),
     );
@@ -113,16 +125,6 @@ class MyApp extends StatelessWidget {
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({Key? key, required this.title}) : super(key: key);
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
   final String title;
 
   @override
@@ -130,75 +132,96 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  @override
-  void initState() {
-    super.initState();
-  }
+  int _selectedIndex = 0;
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 5,
-      child: Scaffold(
-          appBar: AppBar(
-            bottom: TabBar(
-              tabs: [
-                const Tab(icon: Icon(Icons.home)),
-                const Tab(icon: Icon(Icons.update)),
-                const Tab(icon: Icon(Icons.map)),
-                Tab(
-                  child: badges.Badge(
-                    badgeStyle: badges.BadgeStyle(
-                      shape: badges.BadgeShape.square,
-                      borderRadius: BorderRadius.circular(5),
-                      padding: const EdgeInsets.all(2),
-                      badgeGradient: const badges.BadgeGradient.linear(
-                        colors: [
-                          Colors.purple,
-                          Colors.blue,
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                    position: badges.BadgePosition.topEnd(top: -12, end: -20),
-                    badgeContent: const Text(
-                      'NEW',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold),
-                    ),
-                    showBadge:
-                        context.watch<UpdateNotifier>().hasUpdateNotification(),
-                    child: const Icon(Icons.settings),
-                  ),
-                ),
-                const Tab(icon: Icon(Icons.description)),
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: Stack(
+          children: [
+            IndexedStack(
+              index: _selectedIndex,
+              children: const [
+                MapUiBody(),
+                TimeMachineUIBody(),
+                JourneyUiBody(),
+                SettingsBody(),
+                RawDataBody(),
               ],
             ),
-            title: Text(widget.title),
-          ),
-          body: TabBarView(
-            physics: const NeverScrollableScrollPhysics(),
-            children: [
-              Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: <Widget>[
-                    GPSPage(),
-                    const Expanded(
-                      child: MapUiBody(),
+            const Positioned(
+              left: 0,
+              right: 0,
+              bottom: 130,
+              child: GPSPage(),
+            ),
+            Positioned(
+              left: 32,
+              right: 32,
+              bottom: 32,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildNavItem(0, Icons.map_outlined, Icons.map),
+                        _buildNavItem(1, Icons.update_outlined, Icons.update),
+                        _buildNavItem(2, Icons.route_outlined, Icons.route),
+                        _buildNavItem(3, Icons.settings_outlined, Icons.settings),
+                        _buildNavItem(
+                            4, Icons.data_array_outlined, Icons.data_array),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
-              const Center(child: TimeMachineUIBody()),
-              const Center(child: JourneyUiBody()),
-              const Center(child: SettingsBody()),
-              const Center(child: RawDataBody()),
-            ],
-          )),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData icon, IconData activeIcon) {
+    final isSelected = _selectedIndex == index;
+
+    return GestureDetector(
+      onTap: () => setState(() => _selectedIndex = index),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: isSelected
+            ? BoxDecoration(
+                color: Colors.white.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(10),
+              )
+            : null,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? activeIcon : icon,
+              color: isSelected ? Theme.of(context).primaryColor : Colors.grey,
+              size: 36,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
