@@ -164,7 +164,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                     );
                   }));
                   if (result == true) {
-                    // TODO: We should just refresh the data instead of closing it.
+                    // TODO: We should just refresh the page instead of closing it.
                     if (!context.mounted) return;
                     Navigator.pop(context, true);
                   }
