@@ -75,7 +75,7 @@ class _ImportDataPage extends State<ImportDataPage> {
   Widget build(BuildContext context) {
     if (isLoaded) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (context) => JourneyEditPage(
@@ -89,7 +89,6 @@ class _ImportDataPage extends State<ImportDataPage> {
           ),
         );
       });
-      Navigator.pop(context);
     }
 
     return Scaffold(
