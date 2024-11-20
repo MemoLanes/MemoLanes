@@ -146,17 +146,6 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
             Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
               ElevatedButton(
                 onPressed: () async {
-                  showDeleteDialogFunction(() async {
-                    Navigator.of(context).pop();
-                    await api.deleteJourney(journeyId: widget.journeyHeader.id);
-                    if (!context.mounted) return;
-                    Navigator.pop(context, true);
-                  });
-                },
-                child: const Text("Delete"),
-              ),
-              ElevatedButton(
-                onPressed: () async {
                   final result = await Navigator.push(context,
                       MaterialPageRoute(builder: (context) {
                     return Scaffold(
@@ -175,11 +164,23 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                     );
                   }));
                   if (result == true) {
-                    // close this page
+                    // TODO: We should just refresh the data instead of closing it.
+                    if (!context.mounted) return;
                     Navigator.pop(context, true);
                   }
                 },
                 child: const Text("Edit"),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  showDeleteDialogFunction(() async {
+                    Navigator.of(context).pop();
+                    await api.deleteJourney(journeyId: widget.journeyHeader.id);
+                    if (!context.mounted) return;
+                    Navigator.pop(context, true);
+                  });
+                },
+                child: const Text("Delete"),
               ),
             ]),
             Expanded(
