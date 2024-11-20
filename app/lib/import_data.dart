@@ -1,10 +1,7 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:intl/intl.dart';
+import 'package:memolanes/journey_edit.dart';
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
-import 'package:memolanes/src/rust/api/utils.dart';
 
 class ImportDataPage extends StatefulWidget {
   const ImportDataPage(
@@ -20,15 +17,6 @@ class ImportDataPage extends StatefulWidget {
 enum ImportType { fow, gpxOrKml }
 
 class _ImportDataPage extends State<ImportDataPage> {
-  final DateFormat dateTimeFormat = DateFormat('yyyy-MM-dd HH:mm:ss');
-  final DateFormat dateFormat = DateFormat("yyyy-MM-dd");
-  final DateTime firstDate = DateTime(1990);
-  DateTime? _startTime;
-  DateTime? _endTime;
-  DateTime? _journeyDate;
-  final TextEditingController _noteController = TextEditingController();
-  bool _runPreprocessor = false;
-  bool isLoaded = false;
   import_api.JourneyInfo? journeyInfo;
   import_api.RawBitmapData? rawBitmapData;
   import_api.RawVectorData? rawVectorData;
@@ -45,201 +33,53 @@ class _ImportDataPage extends State<ImportDataPage> {
         case ImportType.fow:
           var (journeyInfo, rawBitmapData) =
               await import_api.loadFowSyncData(filePath: path);
-          this.journeyInfo = journeyInfo;
-          this.rawBitmapData = rawBitmapData;
+          setState(() {
+            this.journeyInfo = journeyInfo;
+            this.rawBitmapData = rawBitmapData;
+          });
           break;
         case ImportType.gpxOrKml:
           var (journeyInfo, rawVectorData) =
               await import_api.loadGpxOrKml(filePath: path);
-          this.journeyInfo = journeyInfo;
-          this.rawVectorData = rawVectorData;
+          setState(() {
+            this.journeyInfo = journeyInfo;
+            this.rawVectorData = rawVectorData;
+          });
           break;
       }
     } catch (e) {
       Fluttertoast.showToast(msg: "Data parsing failed");
       Navigator.pop(context);
     }
-    if (journeyInfo != null) {
-      setState(() {
-        _startTime = journeyInfo?.startTime;
-        _endTime = journeyInfo?.endTime;
-        _journeyDate =
-            dateFormat.parse(naiveDateToString(date: journeyInfo!.journeyDate));
-      });
-    }
-    setState(() {
-      isLoaded = true;
-    });
   }
 
-  _saveData() async {
+  _saveData(import_api.JourneyInfo journeyInfo, bool runPreprocessor) async {
     if (rawVectorData == null && rawBitmapData == null) {
       Fluttertoast.showToast(msg: "JourneyData is empty");
       return;
     }
-    if (_journeyDate == null) {
-      Fluttertoast.showToast(msg: "JourneyDate is empty");
-      return;
-    }
-    String? note = _noteController.text;
-    if (note.isEmpty) {
-      note = null;
-    }
-    import_api.JourneyInfo saveInfo = import_api.JourneyInfo(
-        journeyDate: naiveDateOfString(str: dateFormat.format(_journeyDate!)),
-        startTime: _startTime,
-        endTime: _endTime,
-        note: note);
 
     if (rawVectorData != null) {
       await import_api.importVector(
-          journeyInfo: saveInfo,
+          journeyInfo: journeyInfo,
           vectorData: rawVectorData!,
-          runPreprocessor: _runPreprocessor);
+          runPreprocessor: runPreprocessor);
     } else if (rawBitmapData != null) {
       await import_api.importBitmap(
-          journeyInfo: saveInfo, bitmapData: rawBitmapData!);
+          journeyInfo: journeyInfo, bitmapData: rawBitmapData!);
     }
     Fluttertoast.showToast(msg: "Import successful");
-    if (!context.mounted) return null;
-    Navigator.pop(context);
-  }
-
-  Future<DateTime?> selectDateAndTime(
-      BuildContext context, DateTime? datetime) async {
-    final now = DateTime.now();
-    datetime ??= now;
-    DateTime? selectedDateTime = await showDatePicker(
-      context: context,
-      initialDate: datetime,
-      firstDate: firstDate,
-      lastDate: now,
-    );
-
-    TimeOfDay initialTime =
-        TimeOfDay(hour: datetime.hour, minute: datetime.minute);
-
-    if (selectedDateTime != null) {
-      if (!context.mounted) return null;
-      TimeOfDay? selectedTime = await showTimePicker(
-        context: context,
-        initialTime: initialTime,
-      );
-
-      if (selectedTime != null) {
-        selectedDateTime = DateTime(
-          selectedDateTime.year,
-          selectedDateTime.month,
-          selectedDateTime.day,
-          selectedTime.hour,
-          selectedTime.minute,
-        );
-        return selectedDateTime;
-      }
-    }
-    return null;
-  }
-
-  _infoEdit() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        TextField(
-          readOnly: true,
-          controller: TextEditingController(
-            text: _startTime != null ? dateTimeFormat.format(_startTime!) : '',
-          ),
-          onTap: () async {
-            DateTime? time = await selectDateAndTime(context, _startTime);
-            if (time != null) {
-              setState(() {
-                _startTime = time;
-              });
-            }
-          },
-          decoration: const InputDecoration(
-            label: Text("Start time:"),
-          ),
-        ),
-        TextField(
-          readOnly: true,
-          controller: TextEditingController(
-            text: _endTime != null ? dateTimeFormat.format(_endTime!) : '',
-          ),
-          onTap: () async {
-            DateTime? time = await selectDateAndTime(context, _endTime);
-            if (time != null) {
-              setState(() {
-                _endTime = time;
-              });
-            }
-          },
-          decoration: const InputDecoration(
-            label: Text("End time:"),
-          ),
-        ),
-        TextField(
-          readOnly: true,
-          controller: TextEditingController(
-            text: _journeyDate != null ? dateFormat.format(_journeyDate!) : '',
-          ),
-          onTap: () async {
-            DateTime? time = await showDatePicker(
-              context: context,
-              initialDate: _journeyDate,
-              firstDate: firstDate,
-              lastDate: DateTime.now(),
-            );
-            if (time != null) {
-              setState(() {
-                _journeyDate = time;
-              });
-            }
-          },
-          decoration: const InputDecoration(
-            label: Text("Journey date:"),
-          ),
-        ),
-        TextField(
-          controller: _noteController,
-          decoration: const InputDecoration(
-            label: Text("Note:"),
-          ),
-        ),
-        widget.importType == ImportType.fow
-            ? Container()
-            : Column(children: [
-                Switch(
-                  value: _runPreprocessor,
-                  onChanged: (value) {
-                    setState(() {
-                      _runPreprocessor = value;
-                    });
-                  },
-                ),
-                Text(
-                  _runPreprocessor
-                      ? 'Preprocessor is ON'
-                      : 'Preprocessor is OFF',
-                  style: const TextStyle(fontSize: 18.0),
-                )
-              ]),
-        ElevatedButton(
-          onPressed: _saveData,
-          child: const Text("Save Data"),
-        ),
-      ],
-    );
   }
 
   @override
   Widget build(BuildContext context) {
+    var journeyInfo = this.journeyInfo;
     return Scaffold(
       appBar: AppBar(
         title: const Text("Import Data"),
       ),
       body: Center(
-        child: !isLoaded
+        child: journeyInfo == null
             ? const Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -250,7 +90,14 @@ class _ImportDataPage extends State<ImportDataPage> {
                   CircularProgressIndicator()
                 ],
               )
-            : _infoEdit(),
+            : JourneyInfoEditor(
+                startTime: journeyInfo.startTime,
+                endTime: journeyInfo.endTime,
+                journeyDate: journeyInfo.journeyDate,
+                note: journeyInfo.note,
+                saveData: _saveData,
+                importType: widget.importType,
+              ),
       ),
     );
   }
