@@ -7,8 +7,8 @@ import 'package:memolanes/import_data.dart';
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
 import 'package:memolanes/src/rust/api/utils.dart';
 
-class JourneyEditPage extends StatefulWidget {
-  const JourneyEditPage(
+class JourneyInfoEditor extends StatefulWidget {
+  const JourneyInfoEditor(
       {super.key,
       required this.startTime,
       required this.endTime,
@@ -25,10 +25,10 @@ class JourneyEditPage extends StatefulWidget {
   final ImportType? importType;
 
   @override
-  State<JourneyEditPage> createState() => _JourneyEditPage();
+  State<JourneyInfoEditor> createState() => _JourneyInfoEditor();
 }
 
-class _JourneyEditPage extends State<JourneyEditPage> {
+class _JourneyInfoEditor extends State<JourneyInfoEditor> {
   final DateFormat dateTimeFormat = DateFormat('yyyy-MM-dd HH:mm:ss');
   final DateFormat dateFormat = DateFormat("yyyy-MM-dd");
   final DateTime firstDate = DateTime(1990);
@@ -119,7 +119,8 @@ class _JourneyEditPage extends State<JourneyEditPage> {
     Navigator.pop(context, true);
   }
 
-  _infoEdit() {
+  @override
+  Widget build(BuildContext context) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -211,18 +212,6 @@ class _JourneyEditPage extends State<JourneyEditPage> {
           child: const Text("Save Data"),
         ),
       ],
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Edit journey Info"),
-      ),
-      body: Center(
-        child: _infoEdit(),
-      ),
     );
   }
 }

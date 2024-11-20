@@ -157,20 +157,25 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
               ),
               ElevatedButton(
                 onPressed: () async {
-                  final result =
-                      await Navigator.push(context, MaterialPageRoute(
-                    builder: (context) {
-                      return JourneyEditPage(
-                        startTime: widget.journeyHeader.start,
-                        endTime: widget.journeyHeader.end,
-                        journeyDate: widget.journeyHeader.journeyDate,
-                        note: widget.journeyHeader.note,
-                        saveData: _saveData,
-                      );
-                    },
-                  ));
+                  final result = await Navigator.push(context,
+                      MaterialPageRoute(builder: (context) {
+                    return Scaffold(
+                      appBar: AppBar(
+                        title: const Text("Edit journey Info"),
+                      ),
+                      body: Center(
+                        child: JourneyInfoEditor(
+                          startTime: widget.journeyHeader.start,
+                          endTime: widget.journeyHeader.end,
+                          journeyDate: widget.journeyHeader.journeyDate,
+                          note: widget.journeyHeader.note,
+                          saveData: _saveData,
+                        ),
+                      ),
+                    );
+                  }));
                   if (result == true) {
-                    // 直接返回列表页查看修改结果
+                    // close this page
                     Navigator.pop(context, true);
                   }
                 },

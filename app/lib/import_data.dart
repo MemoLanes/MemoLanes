@@ -17,7 +17,6 @@ class ImportDataPage extends StatefulWidget {
 enum ImportType { fow, gpxOrKml }
 
 class _ImportDataPage extends State<ImportDataPage> {
-  bool isLoaded = false;
   import_api.JourneyInfo? journeyInfo;
   import_api.RawBitmapData? rawBitmapData;
   import_api.RawVectorData? rawVectorData;
@@ -34,23 +33,24 @@ class _ImportDataPage extends State<ImportDataPage> {
         case ImportType.fow:
           var (journeyInfo, rawBitmapData) =
               await import_api.loadFowSyncData(filePath: path);
-          this.journeyInfo = journeyInfo;
-          this.rawBitmapData = rawBitmapData;
+          setState(() {
+            this.journeyInfo = journeyInfo;
+            this.rawBitmapData = rawBitmapData;
+          });
           break;
         case ImportType.gpxOrKml:
           var (journeyInfo, rawVectorData) =
               await import_api.loadGpxOrKml(filePath: path);
-          this.journeyInfo = journeyInfo;
-          this.rawVectorData = rawVectorData;
+          setState(() {
+            this.journeyInfo = journeyInfo;
+            this.rawVectorData = rawVectorData;
+          });
           break;
       }
     } catch (e) {
       Fluttertoast.showToast(msg: "Data parsing failed");
       Navigator.pop(context);
     }
-    setState(() {
-      isLoaded = true;
-    });
   }
 
   _saveData(import_api.JourneyInfo journeyInfo, bool runPreprocessor) async {
@@ -73,30 +73,13 @@ class _ImportDataPage extends State<ImportDataPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (isLoaded) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => JourneyEditPage(
-              startTime: journeyInfo?.startTime,
-              endTime: journeyInfo?.endTime,
-              journeyDate: journeyInfo!.journeyDate,
-              note: journeyInfo?.note,
-              saveData: _saveData,
-              importType: widget.importType,
-            ),
-          ),
-        );
-      });
-    }
-
+    var journeyInfo = this.journeyInfo;
     return Scaffold(
       appBar: AppBar(
         title: const Text("Import Data"),
       ),
       body: Center(
-        child: !isLoaded
+        child: journeyInfo == null
             ? const Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -107,7 +90,14 @@ class _ImportDataPage extends State<ImportDataPage> {
                   CircularProgressIndicator()
                 ],
               )
-            : const SizedBox.shrink(),
+            : JourneyInfoEditor(
+                startTime: journeyInfo.startTime,
+                endTime: journeyInfo.endTime,
+                journeyDate: journeyInfo.journeyDate,
+                note: journeyInfo.note,
+                saveData: _saveData,
+                importType: widget.importType,
+              ),
       ),
     );
   }
