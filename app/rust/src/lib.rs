@@ -19,6 +19,7 @@ pub mod journey_bitmap;
 pub mod journey_data;
 pub mod journey_header;
 pub mod journey_vector;
+pub mod journey_area_utils;
 mod logs;
 pub mod main_db;
 pub mod merged_journey_builder;
