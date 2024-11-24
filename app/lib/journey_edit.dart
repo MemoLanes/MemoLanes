@@ -115,8 +115,10 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
     } else {
       await widget.saveData(journeyInfo);
     }
-    if (!context.mounted) return null;
-    Navigator.pop(context, true);
+    var context = this.context;
+    if (context.mounted) {
+      Navigator.pop(context, true);
+    }
   }
 
   @override

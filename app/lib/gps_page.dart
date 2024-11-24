@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:memolanes/gps_recording_state.dart';
 import 'package:provider/provider.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class GPSPage extends StatelessWidget {
   @override
@@ -28,7 +29,7 @@ class GPSPage extends StatelessWidget {
                       gpsRecordingState
                           .changeState(GpsRecordingStatus.recording);
                     },
-                    child: const Text("Start new journey"));
+                    child: Text(context.tr('home.start_new_journey')));
               } else if (gpsRecordingState.status ==
                   GpsRecordingStatus.recording) {
                 return Column(children: [
@@ -37,12 +38,12 @@ class GPSPage extends StatelessWidget {
                         gpsRecordingState
                             .changeState(GpsRecordingStatus.paused);
                       },
-                      child: const Text("Pause")),
+                      child: Text(context.tr('home.pause'))),
                   ElevatedButton(
                       onPressed: () async {
                         gpsRecordingState.changeState(GpsRecordingStatus.none);
                       },
-                      child: const Text("Stop")),
+                      child: Text(context.tr('home.end'))),
                 ]);
               } else if (gpsRecordingState.status ==
                   GpsRecordingStatus.paused) {
@@ -52,12 +53,12 @@ class GPSPage extends StatelessWidget {
                         gpsRecordingState
                             .changeState(GpsRecordingStatus.recording);
                       },
-                      child: const Text("Resume")),
+                      child: Text(context.tr('home.resume'))),
                   ElevatedButton(
                       onPressed: () async {
                         gpsRecordingState.changeState(GpsRecordingStatus.none);
                       },
-                      child: const Text("Stop")),
+                      child: Text(context.tr('home.end'))),
                 ]);
               }
               // This is actually dead code

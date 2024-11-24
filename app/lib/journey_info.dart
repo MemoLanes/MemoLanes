@@ -23,7 +23,7 @@ class JourneyInfoPage extends StatefulWidget {
 class _JourneyInfoPage extends State<JourneyInfoPage> {
   final fmt = DateFormat('yyyy-MM-dd HH:mm:ss');
   api.MapRendererProxy? _mapRendererProxy;
-  CameraOptions _cameraOptions = CameraOptions();
+  final CameraOptions _cameraOptions = CameraOptions();
 
   @override
   void initState() {
