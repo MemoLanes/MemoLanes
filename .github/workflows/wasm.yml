@@ -1,0 +1,56 @@
+name: App
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "app/journey_kernel/**"
+  push:
+    branches:
+      - main
+    paths:
+      - "app/journey_kernel/**"
+  workflow_dispatch:
+
+jobs:
+  build_wasm_package_and_test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: app/journey_kernel
+
+    steps:
+      # Setup
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "app/journey_kernel/"
+
+      - name: Get Rust Dependencies
+        run: cargo fetch
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack
+
+      - name: Build the wasm package
+        run: | 
+          wasm-pack build --target web --features wasm --no-default-features
+
+      - name: Cargo Check
+        run: cargo check
+
+      - name: Check Rust format
+        run: cargo fmt --all -- --check
+
+      - name: Rust code analysis
+        run: cargo clippy -- -D warnings
+
+      - name: Run Rust tests
+        run: cargo test -- --nocapture
