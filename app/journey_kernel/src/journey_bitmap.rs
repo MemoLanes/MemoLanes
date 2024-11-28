@@ -145,28 +145,28 @@ impl JourneyBitmap {
         }
     }
 
-    pub fn difference(&mut self, other_journey_bitmap: JourneyBitmap) {
-        for (tile_key, other_tile) in other_journey_bitmap.tiles {
-            if let Some(tile) = self.tiles.get_mut(&tile_key) {
-                for (block_key, other_block) in other_tile.blocks {
-                    if let Some(block) = tile.blocks.get_mut(&block_key) {
+    pub fn difference(&mut self, other_journey_bitmap: &JourneyBitmap) {
+        for (tile_key, other_tile) in &other_journey_bitmap.tiles {
+            if let Some(tile) = self.tiles.get_mut(tile_key) {
+                for (block_key, other_block) in &other_tile.blocks {
+                    if let Some(block) = tile.blocks.get_mut(block_key) {
                         for i in 0..other_block.data.len() {
                             block.data[i] = block.data[i].bitand(other_block.data[i].not());
                         }
                         if block.is_empty() {
-                            tile.blocks.remove(&block_key);
+                            tile.blocks.remove(block_key);
                         }
                     }
                 }
 
                 if tile.blocks.is_empty() {
-                    self.tiles.remove(&tile_key);
+                    self.tiles.remove(tile_key);
                 }
             }
         }
     }
 
-    pub fn intersection(&mut self, other_journey_bitmap: JourneyBitmap) {
+    pub fn intersection(&mut self, other_journey_bitmap: &JourneyBitmap) {
         self.tiles.retain(
             |tile_key, tile| match other_journey_bitmap.tiles.get(tile_key) {
                 None => false,
