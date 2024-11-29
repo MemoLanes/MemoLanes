@@ -7,7 +7,7 @@ use std::{fs, io::Write};
 /// in x86_64 devices: https://github.com/rust-lang/rust/issues/109717.
 /// The workaround comes from: https://github.com/mozilla/application-services/pull/5442
 fn setup_x86_64_android_workaround() {
-    const DEFAULT_CLANG_VERSION: &str = "17";
+    const DEFAULT_CLANG_VERSION: &str = "18";
     let target_os = env::var("CARGO_CFG_TARGET_OS").expect("CARGO_CFG_TARGET_OS not set");
     let target_arch = env::var("CARGO_CFG_TARGET_ARCH").expect("CARGO_CFG_TARGET_ARCH not set");
     let build_os = match env::consts::OS {

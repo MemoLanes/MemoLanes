@@ -3,7 +3,7 @@ use std::{fs::File, io::Write};
 use criterion::{criterion_group, criterion_main, Criterion};
 
 use memolanes_core::{
-    import_data, journey_bitmap::JourneyBitmap, merged_journey_builder, renderer::*,
+    import_data, journey_bitmap::JourneyBitmap, merged_journey_builder, renderer::*, journey_area_utils,
 };
 
 fn map_renderer(c: &mut Criterion) {
@@ -50,5 +50,43 @@ fn map_renderer(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, map_renderer,);
+fn journey_area_calculation(c: &mut Criterion) {
+    let (bitmap_import, _warnings) =
+        import_data::load_fow_sync_data("./tests/data/Sync-used-for-fm-screenshot.zip").unwrap();
+
+    let mut group = c.benchmark_group("area_calculation");
+    group.sample_size(10);
+
+    group.bench_function("get_area_by_journey_bitmap_interation_bit", |b| {
+        b.iter(|| std::hint::black_box(journey_area_utils::get_area_by_journey_bitmap_interation_bit(&bitmap_import)))
+    });
+
+    group.bench_function("get_area_by_journey_bitmap_interation_bit_width_only", |b| {
+        b.iter(|| {
+            std::hint::black_box(journey_area_utils::get_area_by_journey_bitmap_interation_bit_width_only(&bitmap_import))
+        })
+    });
+
+    group.bench_function("get_area_by_journey_bitmap_interation_bit_height_only", |b| {
+        b.iter(|| {
+            std::hint::black_box(journey_area_utils::get_area_by_journey_bitmap_interation_bit_height_only(&bitmap_import))
+        })
+    });
+
+    group.bench_function("get_area_by_journey_bitmap_interation_bit_estimate_block", |b| {
+        b.iter(|| {
+            std::hint::black_box(journey_area_utils::get_area_by_journey_bitmap_interation_bit_estimate_block(&bitmap_import))
+        })
+    });
+
+    group.bench_function("get_area_by_journey_bitmap_interation_block", |b| {
+        b.iter(|| {
+            std::hint::black_box(journey_area_utils::get_area_by_journey_bitmap_interation_block(&bitmap_import))
+        })
+    });
+
+    group.finish();
+}
+
+criterion_group!(benches, map_renderer, journey_area_calculation);
 criterion_main!(benches);
