@@ -82,7 +82,7 @@ fn intersection_and_difference() {
     {
         let mut line4 = JourneyBitmap::new();
         draw_line4(&mut line4);
-        rhs.intersection(line4);
+        rhs.intersection(&line4);
     }
 
     let mut lhs = JourneyBitmap::new();
@@ -92,8 +92,8 @@ fn intersection_and_difference() {
         draw_line3(&mut line3);
         let mut line4 = JourneyBitmap::new();
         draw_line4(&mut line4);
-        line3.difference(line4);
-        lhs.difference(line3);
+        line3.difference(&line4);
+        lhs.difference(&line3);
     }
 
     assert_ne!(lhs, JourneyBitmap::new());
@@ -108,7 +108,7 @@ fn intersection_and_difference_produce_empty() {
         draw_line1(&mut journey_bitmap);
         let mut line1 = JourneyBitmap::new();
         draw_line1(&mut line1);
-        journey_bitmap.difference(line1);
+        journey_bitmap.difference(&line1);
         assert_eq!(journey_bitmap, JourneyBitmap::new());
     }
     {
@@ -117,7 +117,7 @@ fn intersection_and_difference_produce_empty() {
         draw_line1(&mut journey_bitmap);
         let mut line2 = JourneyBitmap::new();
         draw_line2(&mut line2);
-        journey_bitmap.intersection(line2);
+        journey_bitmap.intersection(&line2);
         assert_eq!(journey_bitmap, JourneyBitmap::new());
     }
 }
