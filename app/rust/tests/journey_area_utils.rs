@@ -9,9 +9,9 @@ fn approximate_equal(a: f64, b: f64, tolerance: f64) -> bool {
 #[test]
 fn test_get_area_by_journey_bitmap_interation_bit() {
     let (bitmap_import, _warnings) =
-        import_data::load_fow_sync_data("./tests/data/Sync-used-for-fm-screenshot.zip").unwrap();
+        import_data::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
     /* test_get_area_by_journey_bitmap_interation_bit result as expected */
-    let expected_area = 43314948.75155611;
+    let expected_area = 3035667.3046264146;
     let calculated_area =
         journey_area_utils::get_area_by_journey_bitmap_interation_bit(&bitmap_import).unwrap();
     let tolerance = 1e4;
@@ -28,9 +28,9 @@ fn test_get_area_by_journey_bitmap_interation_bit() {
 #[test]
 fn test_get_area_by_journey_bitmap_interation_bit_width_only() {
     let (bitmap_import, _warnings) =
-        import_data::load_fow_sync_data("./tests/data/Sync-used-for-fm-screenshot.zip").unwrap();
+        import_data::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
     /* 43.412037048499996 km^2 */
-    let expected_area = 43314948.75155611;
+    let expected_area = 3035667.3046264146;
     let calculated_area =
         journey_area_utils::get_area_by_journey_bitmap_interation_bit_width_only(&bitmap_import)
             .unwrap();
@@ -48,9 +48,9 @@ fn test_get_area_by_journey_bitmap_interation_bit_width_only() {
 #[test]
 fn test_get_area_by_journey_bitmap_interation_bit_height_only() {
     let (bitmap_import, _warnings) =
-        import_data::load_fow_sync_data("./tests/data/Sync-used-for-fm-screenshot.zip").unwrap();
+        import_data::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
     /* 43.412037048499996 km^2 */
-    let expected_area = 43314948.75155611;
+    let expected_area = 3035667.3046264146;
     let calculated_area =
         journey_area_utils::get_area_by_journey_bitmap_interation_bit_height_only(&bitmap_import)
             .unwrap();
@@ -68,9 +68,9 @@ fn test_get_area_by_journey_bitmap_interation_bit_height_only() {
 #[test]
 fn test_get_area_by_journey_bitmap_interation_bit_estimate_block() {
     let (bitmap_import, _warnings) =
-        import_data::load_fow_sync_data("./tests/data/Sync-used-for-fm-screenshot.zip").unwrap();
+        import_data::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
     /* 43.412037048499996 km^2 */
-    let expected_area = 43314948.75155611;
+    let expected_area = 3035667.3046264146;
     let calculated_area =
         journey_area_utils::get_area_by_journey_bitmap_interation_bit_estimate_block(
             &bitmap_import,
@@ -90,9 +90,9 @@ fn test_get_area_by_journey_bitmap_interation_bit_estimate_block() {
 #[test]
 fn test_get_area_by_journey_bitmap_interation_block() {
     let (bitmap_import, _warnings) =
-        import_data::load_fow_sync_data("./tests/data/Sync-used-for-fm-screenshot.zip").unwrap();
+        import_data::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
     /* 43.412037048499996 km^2 */
-    let expected_area = 43314948.75155611;
+    let expected_area = 3035667.3046264146;
     let calculated_area =
         journey_area_utils::get_area_by_journey_bitmap_interation_block(&bitmap_import).unwrap();
     let tolerance = 1e4;
