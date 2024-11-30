@@ -16,12 +16,12 @@ pub fn get_area_by_journey_bitmap_interation_bit(journey_bitmap: &JourneyBitmap)
                     (0..BITMAP_WIDTH).filter_map(move |bitmap_x| {
                         if block.is_visited(bitmap_x as u8, bitmap_y as u8) {
                             // Calculate the top-left coordinates of this bitmap point
-                            let bitzoomed_x1 = TILE_WIDTH * BITMAP_WIDTH * tile_pos.0 as i64
-                            + BITMAP_WIDTH * block_pos.0 as i64
-                            + bitmap_x as i64;
-                            let bitzoomed_y1 = TILE_WIDTH * BITMAP_WIDTH * tile_pos.1 as i64
-                            + BITMAP_WIDTH * block_pos.1 as i64
-                            + bitmap_y as i64;
+                            let bitzoomed_x1: i32 = TILE_WIDTH as i32 * BITMAP_WIDTH as i32 * tile_pos.0 as i32
+                            + BITMAP_WIDTH as i32 * block_pos.0 as i32
+                            + bitmap_x as i32;
+                            let bitzoomed_y1: i32 = TILE_WIDTH as i32 * BITMAP_WIDTH as i32 * tile_pos.1 as i32
+                            + BITMAP_WIDTH as i32 * block_pos.1 as i32
+                            + bitmap_y as i32;
 
                             // Bottom-right coordinates (add one bit length to each side)
                             let bitzoomed_x2 = bitzoomed_x1 + 1;
@@ -29,13 +29,13 @@ pub fn get_area_by_journey_bitmap_interation_bit(journey_bitmap: &JourneyBitmap)
 
                             // Convert these to latitude/longitude
                             let (lng1, lat1) = utils::tile_x_y_to_lng_lat(
-                                bitzoomed_x1 as i32,
-                                bitzoomed_y1 as i32,
+                                bitzoomed_x1,
+                                bitzoomed_y1,
                                 (BITMAP_WIDTH_OFFSET + TILE_WIDTH_OFFSET + MAP_WIDTH_OFFSET) as i32,
                             );
                             let (lng2, lat2) = utils::tile_x_y_to_lng_lat(
-                                bitzoomed_x2 as i32,
-                                bitzoomed_y2 as i32,
+                                bitzoomed_x2,
+                                bitzoomed_y2,
                                 (BITMAP_WIDTH_OFFSET + TILE_WIDTH_OFFSET + MAP_WIDTH_OFFSET) as i32,
                             );
 
@@ -73,12 +73,12 @@ pub fn get_area_by_journey_bitmap_interation_bit_width_only(
                     (0..BITMAP_WIDTH).filter_map(move |bitmap_x| {
                         if block.is_visited(bitmap_x as u8, bitmap_y as u8) {
                             // Calculate the top-left coordinates of this bitmap point
-                            let bitzoomed_x1 = TILE_WIDTH * BITMAP_WIDTH * tile_pos.0 as i64
-                            + BITMAP_WIDTH * block_pos.0 as i64
-                            + bitmap_x as i64;
-                            let bitzoomed_y1 = TILE_WIDTH * BITMAP_WIDTH * tile_pos.1 as i64
-                            + BITMAP_WIDTH * block_pos.1 as i64
-                            + bitmap_y as i64;
+                            let bitzoomed_x1: i32 = TILE_WIDTH as i32 * BITMAP_WIDTH as i32 * tile_pos.0 as i32
+                            + BITMAP_WIDTH as i32 * block_pos.0 as i32
+                            + bitmap_x as i32;
+                            let bitzoomed_y1: i32 = TILE_WIDTH as i32 * BITMAP_WIDTH as i32 * tile_pos.1 as i32
+                            + BITMAP_WIDTH as i32 * block_pos.1 as i32
+                            + bitmap_y as i32;
 
                             // Bottom-right coordinates (add one bit length to each side)
                             let bitzoomed_x2 = bitzoomed_x1 + 1;
@@ -86,13 +86,13 @@ pub fn get_area_by_journey_bitmap_interation_bit_width_only(
 
                             // Convert these to latitude/longitude
                             let (lng1, lat1) = utils::tile_x_y_to_lng_lat(
-                                bitzoomed_x1 as i32,
-                                bitzoomed_y1 as i32,
+                                bitzoomed_x1,
+                                bitzoomed_y1,
                                 (BITMAP_WIDTH_OFFSET + TILE_WIDTH_OFFSET + MAP_WIDTH_OFFSET) as i32,
                             );
                             let (lng2, _lat2) = utils::tile_x_y_to_lng_lat(
-                                bitzoomed_x2 as i32,
-                                bitzoomed_y2 as i32,
+                                bitzoomed_x2,
+                                bitzoomed_y2,
                                 (BITMAP_WIDTH_OFFSET + TILE_WIDTH_OFFSET + MAP_WIDTH_OFFSET) as i32,
                             );
 
@@ -129,12 +129,12 @@ pub fn get_area_by_journey_bitmap_interation_bit_height_only(
                     (0..BITMAP_WIDTH).filter_map(move |bitmap_x| {
                         if block.is_visited(bitmap_x as u8, bitmap_y as u8) {
                             // Calculate the top-left coordinates of this bitmap point
-                            let bitzoomed_x1 = TILE_WIDTH * BITMAP_WIDTH * tile_pos.0 as i64
-                            + BITMAP_WIDTH * block_pos.0 as i64
-                            + bitmap_x as i64;
-                            let bitzoomed_y1 = TILE_WIDTH * BITMAP_WIDTH * tile_pos.1 as i64
-                            + BITMAP_WIDTH * block_pos.1 as i64
-                            + bitmap_y as i64;
+                            let bitzoomed_x1: i32 = TILE_WIDTH as i32 * BITMAP_WIDTH as i32 * tile_pos.0 as i32
+                            + BITMAP_WIDTH as i32 * block_pos.0 as i32
+                            + bitmap_x as i32;
+                            let bitzoomed_y1: i32 = TILE_WIDTH as i32 * BITMAP_WIDTH as i32 * tile_pos.1 as i32
+                            + BITMAP_WIDTH as i32 * block_pos.1 as i32
+                            + bitmap_y as i32;
 
                             // Bottom-right coordinates (add one bit length to each side)
                             let bitzoomed_x2 = bitzoomed_x1 + 1;
@@ -142,13 +142,13 @@ pub fn get_area_by_journey_bitmap_interation_bit_height_only(
 
                             // Convert these to latitude/longitude
                             let (_lng1, lat1) = utils::tile_x_y_to_lng_lat(
-                                bitzoomed_x1 as i32,
-                                bitzoomed_y1 as i32,
+                                bitzoomed_x1,
+                                bitzoomed_y1,
                                 (BITMAP_WIDTH_OFFSET + TILE_WIDTH_OFFSET + MAP_WIDTH_OFFSET) as i32,
                             );
                             let (_lng2, lat2) = utils::tile_x_y_to_lng_lat(
-                                bitzoomed_x2 as i32,
-                                bitzoomed_y2 as i32,
+                                bitzoomed_x2,
+                                bitzoomed_y2,
                                 (BITMAP_WIDTH_OFFSET + TILE_WIDTH_OFFSET + MAP_WIDTH_OFFSET) as i32,
                             );
 
@@ -193,12 +193,12 @@ pub fn get_area_by_journey_bitmap_interation_bit_estimate_block(
                 if bit_count > 0 {
                     // calculate center bit in block for bit_unit_area
                     // Calculate the top-left coordinates of this bitmap point
-                    let bitzoomed_x1 = TILE_WIDTH * BITMAP_WIDTH * tile_pos.0 as i64
-                    + BITMAP_WIDTH * block_pos.0 as i64
-                    + (BITMAP_WIDTH/2) as i64;
-                    let bitzoomed_y1 = TILE_WIDTH * BITMAP_WIDTH * tile_pos.1 as i64
-                    + BITMAP_WIDTH * block_pos.1 as i64
-                    + (BITMAP_WIDTH/2) as i64;
+                    let bitzoomed_x1: i32 = TILE_WIDTH as i32 * BITMAP_WIDTH as i32 * tile_pos.0 as i32
+                    + BITMAP_WIDTH as i32 * block_pos.0 as i32
+                    + (BITMAP_WIDTH/2) as i32;
+                    let bitzoomed_y1: i32 = TILE_WIDTH as i32 * BITMAP_WIDTH as i32 * tile_pos.1 as i32
+                    + BITMAP_WIDTH as i32 * block_pos.1 as i32
+                    + (BITMAP_WIDTH/2) as i32;
 
                     // Bottom-right coordinates (add one bit length to each side)
                     let bitzoomed_x2 = bitzoomed_x1 + 1;
@@ -206,13 +206,13 @@ pub fn get_area_by_journey_bitmap_interation_bit_estimate_block(
 
                     // Convert these to latitude/longitude
                     let (lng1, lat1) = utils::tile_x_y_to_lng_lat(
-                        bitzoomed_x1 as i32,
-                        bitzoomed_y1 as i32,
+                        bitzoomed_x1,
+                        bitzoomed_y1,
                         (BITMAP_WIDTH_OFFSET + TILE_WIDTH_OFFSET + MAP_WIDTH_OFFSET) as i32,
                     );
                     let (lng2, lat2) = utils::tile_x_y_to_lng_lat(
-                        bitzoomed_x2 as i32,
-                        bitzoomed_y2 as i32,
+                        bitzoomed_x2,
+                        bitzoomed_y2,
                         (BITMAP_WIDTH_OFFSET + TILE_WIDTH_OFFSET + MAP_WIDTH_OFFSET) as i32,
                     );
 
@@ -262,8 +262,8 @@ pub fn get_area_by_journey_bitmap_interation_block(journey_bitmap: &JourneyBitma
                         (TILE_WIDTH_OFFSET + MAP_WIDTH_OFFSET) as i32,
                     );
                     // Bottom-right coordinates (add one block length to each side)
-                    let blockzoomed_x2: i32 = blockzoomed_x1 + 1;
-                    let blockzoomed_y2: i32 = blockzoomed_y1 + 1;
+                    let blockzoomed_x2 = blockzoomed_x1 + 1;
+                    let blockzoomed_y2 = blockzoomed_y1 + 1;
                     let (lng2, lat2) = utils::tile_x_y_to_lng_lat(
                         blockzoomed_x2,
                         blockzoomed_y2,
