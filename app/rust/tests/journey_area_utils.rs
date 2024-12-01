@@ -10,7 +10,7 @@ fn approximate_equal(a: f64, b: f64, tolerance: f64) -> bool {
 fn test_get_area_by_journey_bitmap_interation_bit_estimate_block() {
     let (bitmap_import, _warnings) =
         import_data::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
-    /* 43.412037048499996 km^2 */
+    /* area unit: m^2 */
     let expected_area = 3035667.3046264146;
     let calculated_area =
         journey_area_utils::get_area_by_journey_bitmap_interation_bit_estimate_block(

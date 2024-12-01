@@ -6,6 +6,7 @@ use crate::utils;
 /* unit: meter */
 pub const EARTH_RADIUS: f64 = 6371000.0;
 
+/* result unit in m^2 */
 pub fn get_area_by_journey_bitmap_interation_bit_estimate_block(
     journey_bitmap: &JourneyBitmap,
 ) -> Option<f64> {
@@ -23,7 +24,7 @@ pub fn get_area_by_journey_bitmap_interation_bit_estimate_block(
                     }
                 }
                 if bit_count > 0 {
-                    // calculate center bit in block for bit_unit_area
+                    // calculate center bit in each block for bit_unit_area
                     // Calculate the top-left coordinates of this bitmap point
                     let bitzoomed_x1: i32 = TILE_WIDTH as i32 * BITMAP_WIDTH as i32 * tile_pos.0 as i32
                     + BITMAP_WIDTH as i32 * block_pos.0 as i32
@@ -49,9 +50,9 @@ pub fn get_area_by_journey_bitmap_interation_bit_estimate_block(
                     );
 
                     /* formula derived from spherical geometry of Earth */
-                    /* width=R⋅Δλ⋅cos(ϕ), where Δλ = λ2-λ1 is the difference in longitudes in radians, ϕ is the latitude in radians*/
+                    /* width=R⋅Δλ⋅cos(ϕ), where Δλ = λ2-λ1 is the difference of longitudes in radians, ϕ is the latitude in radians*/
                     let width = EARTH_RADIUS * (lng2 - lng1).abs().to_radians() * lat1.to_radians().cos();
-                    /* height=R⋅Δφ, where Δφ = φ2-φ1 is the difference in latitudes in radians. */
+                    /* height=R⋅Δφ, where Δφ = φ2-φ1 is the difference of latitudes in radians. */
                     let height = EARTH_RADIUS * (lat2 - lat1).abs().to_radians();
                     let bit_unit_area = width * height;
                     Some(bit_unit_area * bit_count as f64)
