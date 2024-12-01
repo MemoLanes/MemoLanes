@@ -53,7 +53,7 @@ fn map_renderer(c: &mut Criterion) {
 
 fn journey_area_calculation(c: &mut Criterion) {
     let (bitmap_import, _warnings) =
-        import_data::load_fow_sync_data("./tests/data/Sync-used-for-fm-screenshot.zip").unwrap();
+        import_data::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
 
     let mut group = c.benchmark_group("area_calculation");
     group.sample_size(10);
