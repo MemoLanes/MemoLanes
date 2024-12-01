@@ -58,40 +58,6 @@ fn journey_area_calculation(c: &mut Criterion) {
     let mut group = c.benchmark_group("area_calculation");
     group.sample_size(10);
 
-    group.bench_function("get_area_by_journey_bitmap_interation_bit", |b| {
-        b.iter(|| {
-            std::hint::black_box(
-                journey_area_utils::get_area_by_journey_bitmap_interation_bit(&bitmap_import),
-            )
-        })
-    });
-
-    group.bench_function(
-        "get_area_by_journey_bitmap_interation_bit_width_only",
-        |b| {
-            b.iter(|| {
-                std::hint::black_box(
-                    journey_area_utils::get_area_by_journey_bitmap_interation_bit_width_only(
-                        &bitmap_import,
-                    ),
-                )
-            })
-        },
-    );
-
-    group.bench_function(
-        "get_area_by_journey_bitmap_interation_bit_height_only",
-        |b| {
-            b.iter(|| {
-                std::hint::black_box(
-                    journey_area_utils::get_area_by_journey_bitmap_interation_bit_height_only(
-                        &bitmap_import,
-                    ),
-                )
-            })
-        },
-    );
-
     group.bench_function(
         "get_area_by_journey_bitmap_interation_bit_estimate_block",
         |b| {
@@ -104,14 +70,6 @@ fn journey_area_calculation(c: &mut Criterion) {
             })
         },
     );
-
-    group.bench_function("get_area_by_journey_bitmap_interation_block", |b| {
-        b.iter(|| {
-            std::hint::black_box(
-                journey_area_utils::get_area_by_journey_bitmap_interation_block(&bitmap_import),
-            )
-        })
-    });
 
     group.finish();
 }
