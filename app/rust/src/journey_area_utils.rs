@@ -15,14 +15,7 @@ pub fn get_area_by_journey_bitmap_interation_bit_estimate_block(
         .iter()
         .flat_map(|(tile_pos, tile)| {
             tile.blocks.iter().filter_map(move |(block_pos, block)| {
-                let mut bit_count = 0;
-                for bitmap_x in 0..BITMAP_WIDTH {
-                    for bitmap_y in 0..BITMAP_WIDTH {
-                        if block.is_visited(bitmap_x as u8, bitmap_y as u8) {
-                            bit_count += 1;
-                        }
-                    }
-                }
+                let bit_count = block.count();
                 if bit_count > 0 {
                     // calculate center bit in each block for bit_unit_area
                     // Calculate the top-left coordinates of this bitmap point
