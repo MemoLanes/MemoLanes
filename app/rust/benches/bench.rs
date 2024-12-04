@@ -59,14 +59,12 @@ fn journey_area_calculation(c: &mut Criterion) {
     group.sample_size(10);
 
     group.bench_function(
-        "get_area_by_journey_bitmap_interation_bit_estimate_block",
+        "compute_journey_bitmap_area: use center bit to estimate each block",
         |b| {
             b.iter(|| {
-                std::hint::black_box(
-                    journey_area_utils::get_area_by_journey_bitmap_interation_bit_estimate_block(
-                        &bitmap_import,
-                    ),
-                )
+                std::hint::black_box(journey_area_utils::compute_journey_bitmap_area(
+                    &bitmap_import,
+                ))
             })
         },
     );

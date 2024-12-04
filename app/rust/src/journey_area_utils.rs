@@ -6,10 +6,9 @@ use crate::utils;
 /* unit: meter */
 pub const EARTH_RADIUS: f64 = 6371000.0;
 
-/* result unit in m^2 */
-pub fn get_area_by_journey_bitmap_interation_bit_estimate_block(
-    journey_bitmap: &JourneyBitmap,
-) -> Option<f64> {
+/* result unit in m^2. this area calculating method by using center bit in a block has better efficiency and accuracy compared to simple interation and other methods. */
+/* codes for different calculating methods in branch TimRen01:compare_method_calculate_area_by_journey */
+pub fn compute_journey_bitmap_area(journey_bitmap: &JourneyBitmap) -> f64 {
     let total_area: f64 = journey_bitmap
         .tiles
         .iter()
@@ -44,10 +43,13 @@ pub fn get_area_by_journey_bitmap_interation_bit_estimate_block(
 
                     /* formula derived from spherical geometry of Earth */
                     /* width=R⋅Δλ⋅cos(ϕ), where Δλ = λ2-λ1 is the difference of longitudes in radians, ϕ is the latitude in radians*/
-                    let width = EARTH_RADIUS * (lng2 - lng1).abs().to_radians() * lat1.to_radians().cos();
+                    let width_top = EARTH_RADIUS * (lng2 - lng1).abs().to_radians() * lat1.to_radians().cos();
+                    let width_bottom = EARTH_RADIUS * (lng2 - lng1).abs().to_radians() * lat2.to_radians().cos();
+                    let avg_width = (width_top + width_bottom) / 2.0;
                     /* height=R⋅Δφ, where Δφ = φ2-φ1 is the difference of latitudes in radians. */
                     let height = EARTH_RADIUS * (lat2 - lat1).abs().to_radians();
-                    let bit_unit_area = width * height;
+
+                    let bit_unit_area = avg_width * height;
                     Some(bit_unit_area * bit_count as f64)
                 }
                 else {
@@ -56,10 +58,5 @@ pub fn get_area_by_journey_bitmap_interation_bit_estimate_block(
             })
         })
         .sum();
-
-    if total_area > 0.0 {
-        Some(total_area)
-    } else {
-        None
-    }
+    total_area
 }
