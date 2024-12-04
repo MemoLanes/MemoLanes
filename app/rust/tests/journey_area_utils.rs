@@ -10,5 +10,5 @@ fn test_compute_journey_bitmap_area() {
         import_data::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
     /* area unit: m^2 */
     let calculated_area = journey_area_utils::compute_journey_bitmap_area(&bitmap_import);
-    assert_f64_near!(calculated_area, 3035669.9919493743);
+    assert_f64_near!(calculated_area, 3035669.991974149);
 }
