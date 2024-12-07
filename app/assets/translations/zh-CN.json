@@ -2,7 +2,6 @@
     "home": {
         "start_new_journey": "开始新旅程",
         "pause": "暂停",
-        "resume": "恢复",
-        "end": "结束"
+        "resume": "恢复"
     }
 }
