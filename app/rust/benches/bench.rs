@@ -65,22 +65,27 @@ fn journey_area_calculation(c: &mut Criterion) {
         })
     });
 
-    group.bench_function("nelson_to_wharariki_beach", |b| {
-        let raw_data = import_data::load_gpx("./tests/data/nelson_to_wharariki_beach.gpx").unwrap();
+    group.bench_function(
+        "compute_journey_bitmap_area: nelson_to_wharariki_beach",
+        |b| {
+            let raw_data =
+                import_data::load_gpx("./tests/data/nelson_to_wharariki_beach.gpx").unwrap();
 
-        let journey_vector = import_data::journey_vector_from_raw_data(raw_data, false).unwrap();
-        let mut journey_bitmap = JourneyBitmap::new();
-        merged_journey_builder::add_journey_vector_to_journey_bitmap(
-            &mut journey_bitmap,
-            &journey_vector,
-        );
+            let journey_vector =
+                import_data::journey_vector_from_raw_data(raw_data, false).unwrap();
+            let mut journey_bitmap = JourneyBitmap::new();
+            merged_journey_builder::add_journey_vector_to_journey_bitmap(
+                &mut journey_bitmap,
+                &journey_vector,
+            );
 
-        b.iter(|| {
-            std::hint::black_box(journey_area_utils::compute_journey_bitmap_area(
-                &journey_bitmap,
-            ))
-        })
-    });
+            b.iter(|| {
+                std::hint::black_box(journey_area_utils::compute_journey_bitmap_area(
+                    &journey_bitmap,
+                ))
+            })
+        },
+    );
 
     group.finish();
 }
