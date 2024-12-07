@@ -1,4 +1,5 @@
 use crate::utils;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{
     clone::Clone,
     collections::HashMap,
@@ -16,16 +17,14 @@ const ALL_OFFSET: i16 = TILE_WIDTH_OFFSET + BITMAP_WIDTH_OFFSET;
 
 // we have 512*512 tiles, 128*128 blocks and a single block contains
 // a 64*64 bitmap.
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize, Default)]
 pub struct JourneyBitmap {
     pub tiles: HashMap<(u16, u16), Tile>,
 }
 
 impl JourneyBitmap {
     pub fn new() -> Self {
-        Self {
-            tiles: HashMap::new(),
-        }
+        Self::default()
     }
 
     // NOTE: `add_line` is cherry picked from: https://github.com/tavimori/fogcore/blob/d0888508e25652164742db8e7d879e651b6607d7/src/fogmaps.rs
@@ -75,7 +74,7 @@ impl JourneyBitmap {
                 let tile = self
                     .tiles
                     .entry(((tile_x % MAP_WIDTH) as u16, tile_y as u16))
-                    .or_insert(Tile::new());
+                    .or_default();
                 (x, y, px) = tile.add_line(
                     x - (tile_x << ALL_OFFSET),
                     y - (tile_y << ALL_OFFSET),
@@ -104,7 +103,7 @@ impl JourneyBitmap {
                 let tile = self
                     .tiles
                     .entry(((tile_x % MAP_WIDTH) as u16, tile_y as u16))
-                    .or_insert(Tile::new());
+                    .or_default();
                 (x, y, py) = tile.add_line(
                     x - (tile_x << ALL_OFFSET),
                     y - (tile_y << ALL_OFFSET),
@@ -146,28 +145,28 @@ impl JourneyBitmap {
         }
     }
 
-    pub fn difference(&mut self, other_journey_bitmap: JourneyBitmap) {
-        for (tile_key, other_tile) in other_journey_bitmap.tiles {
-            if let Some(tile) = self.tiles.get_mut(&tile_key) {
-                for (block_key, other_block) in other_tile.blocks {
-                    if let Some(block) = tile.blocks.get_mut(&block_key) {
+    pub fn difference(&mut self, other_journey_bitmap: &JourneyBitmap) {
+        for (tile_key, other_tile) in &other_journey_bitmap.tiles {
+            if let Some(tile) = self.tiles.get_mut(tile_key) {
+                for (block_key, other_block) in &other_tile.blocks {
+                    if let Some(block) = tile.blocks.get_mut(block_key) {
                         for i in 0..other_block.data.len() {
                             block.data[i] = block.data[i].bitand(other_block.data[i].not());
                         }
                         if block.is_empty() {
-                            tile.blocks.remove(&block_key);
+                            tile.blocks.remove(block_key);
                         }
                     }
                 }
 
                 if tile.blocks.is_empty() {
-                    self.tiles.remove(&tile_key);
+                    self.tiles.remove(tile_key);
                 }
             }
         }
     }
 
-    pub fn intersection(&mut self, other_journey_bitmap: JourneyBitmap) {
+    pub fn intersection(&mut self, other_journey_bitmap: &JourneyBitmap) {
         self.tiles.retain(
             |tile_key, tile| match other_journey_bitmap.tiles.get(tile_key) {
                 None => false,
@@ -187,18 +186,26 @@ impl JourneyBitmap {
             },
         );
     }
+
+    /// Serializes the JourneyBitmap to a binary Vec<u8>
+    pub fn to_bytes(&self) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+        Ok(bincode::serialize(self)?)
+    }
+
+    /// Creates a JourneyBitmap from binary data
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Box<dyn std::error::Error>> {
+        Ok(bincode::deserialize(bytes)?)
+    }
 }
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Tile {
     pub blocks: HashMap<(u8, u8), Block>,
 }
 
 impl Tile {
     pub fn new() -> Self {
-        Self {
-            blocks: HashMap::new(),
-        }
+        Self::default()
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -231,7 +238,7 @@ impl Tile {
                 let block = self
                     .blocks
                     .entry((block_x as u8, block_y as u8))
-                    .or_insert(Block::new());
+                    .or_default();
 
                 (x, y, p) = block.add_line(
                     x - (block_x << BITMAP_WIDTH_OFFSET),
@@ -262,7 +269,7 @@ impl Tile {
                 let block = self
                     .blocks
                     .entry((block_x as u8, block_y as u8))
-                    .or_insert(Block::new());
+                    .or_default();
                 (x, y, p) = block.add_line(
                     x - (block_x << BITMAP_WIDTH_OFFSET),
                     y - (block_y << BITMAP_WIDTH_OFFSET),
@@ -287,11 +294,39 @@ pub struct Block {
     pub data: [u8; BITMAP_SIZE],
 }
 
-impl Block {
-    pub fn new() -> Self {
+impl Default for Block {
+    fn default() -> Self {
         Self {
             data: [0; BITMAP_SIZE],
         }
+    }
+}
+
+// TODO: currently it is only for PoC, we still need way more efficient WASM capable serialization.
+impl Serialize for Block {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.data.to_vec().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Block {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let vec = Vec::<u8>::deserialize(deserializer)?;
+        let mut data = [0u8; BITMAP_SIZE];
+        data.copy_from_slice(&vec);
+        Ok(Block { data })
+    }
+}
+
+impl Block {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn new_with_data(data: [u8; BITMAP_SIZE]) -> Self {
@@ -305,6 +340,10 @@ impl Block {
             }
         }
         true
+    }
+
+    pub fn count(&self) -> u32 {
+        self.data.iter().map(|x| x.count_ones()).sum()
     }
 
     pub fn is_visited(&self, x: u8, y: u8) -> bool {

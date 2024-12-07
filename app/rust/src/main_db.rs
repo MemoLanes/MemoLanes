@@ -102,6 +102,10 @@ pub enum Action {
     CompleteRebuilt,
 }
 
+fn generate_random_revision() -> String {
+    random_string::generate(8, random_string::charsets::ALPHANUMERIC)
+}
+
 // NOTE: the `Txn` here is not only for making operation atomic, the `storage`
 // will also use this to make sure the `cache_db` is in sync.
 impl Txn<'_> {
@@ -245,7 +249,7 @@ impl Txn<'_> {
             id: Uuid::new_v4().as_hyphenated().to_string(),
             // we use id + revision as the equality check, revision can be any
             // string (e.g. uuid) but a short random should be good enough.
-            revision: random_string::generate(8, random_string::charsets::ALPHANUMERIC),
+            revision: generate_random_revision(),
             journey_date,
             created_at: created_at.unwrap_or(Utc::now()),
             updated_at: None,
@@ -256,6 +260,47 @@ impl Txn<'_> {
             note,
         };
         self.insert_journey(header, journey_data)
+    }
+
+    pub fn update_journey_metadata(
+        &mut self,
+        id: &str,
+        new_journey_date: NaiveDate,
+        start: Option<DateTime<Utc>>,
+        end: Option<DateTime<Utc>>,
+        note: Option<String>,
+    ) -> Result<()> {
+        info!("Updating journey with ID {}", &id);
+
+        let mut header = self
+            .get_journey_header(id)?
+            .ok_or_else(|| anyhow!("Updating non existent journey, journey id = {}", id))?;
+
+        // must change during update
+        header.updated_at = Some(Utc::now());
+        header.revision = generate_random_revision();
+
+        let old_journey_date = header.journey_date;
+        header.journey_date = new_journey_date;
+        header.start = start;
+        header.end = end;
+        header.note = note;
+
+        // update
+        let journey_date = utils::date_to_days_since_epoch(header.journey_date);
+        let timestamp_for_ordering = header.start.or(header.end).map(|x| x.timestamp());
+        let header_bytes = header.to_proto().write_to_bytes()?;
+        let sql = "UPDATE journey SET journey_date = ?1, timestamp_for_ordering = ?2, header = ?3 WHERE id = ?4;";
+        self.db_txn.execute(
+            sql,
+            (journey_date, timestamp_for_ordering, header_bytes, &id),
+        )?;
+
+        if old_journey_date != new_journey_date {
+            self.action = Some(Action::CompleteRebuilt);
+        }
+
+        Ok(())
     }
 
     pub fn finalize_ongoing_journey(&mut self) -> Result<bool> {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:memolanes/gps_recording_state.dart';
 import 'package:provider/provider.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class GPSPage extends StatefulWidget {
   const GPSPage({super.key});
@@ -27,9 +28,9 @@ class _GPSPageState extends State<GPSPage> {
           ),
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
         ),
-        child: const Text(
-          "New Journey",
-          style: TextStyle(
+        child: Text(
+          context.tr("home.start_new_journey"),
+          style: const TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.w400,
             fontSize: 20,
@@ -51,9 +52,9 @@ class _GPSPageState extends State<GPSPage> {
               ),
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
             ),
-            child: const Text(
-              "Pause",
-              style: TextStyle(
+            child: Text(
+              context.tr("home.pause"),
+              style: const TextStyle(
                 color: Color(0xFFB4EC51),
                 fontWeight: FontWeight.w400,
                 fontSize: 20,
@@ -93,9 +94,9 @@ class _GPSPageState extends State<GPSPage> {
               ),
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
             ),
-            child: const Text(
-              "Continue",
-              style: TextStyle(
+            child: Text(
+              context.tr("home.resume"),
+              style: const TextStyle(
                 color: Color(0xFFB4EC51),
                 fontWeight: FontWeight.w400,
                 fontSize: 20,

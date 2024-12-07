@@ -3,6 +3,7 @@ use std::f64::consts::PI;
 use chrono::{Datelike, NaiveDate};
 
 // https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
+// TODO: remove this two duplicated function once we have the new rendering system.
 pub fn lng_lat_to_tile_x_y(lng: f64, lat: f64, zoom: i32) -> (i32, i32) {
     let n = f64::powi(2.0, zoom);
     let lat_rad = (lat / 180.0) * PI;

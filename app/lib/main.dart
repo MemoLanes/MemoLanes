@@ -16,7 +16,7 @@ import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
-// import 'package:badges/badges.dart' as badges;
+import 'package:easy_localization/easy_localization.dart';
 import 'dart:ui';
 
 void delayedInit(UpdateNotifier updateNotifier) {
@@ -67,6 +67,7 @@ void delayedInit(UpdateNotifier updateNotifier) {
 void main() async {
   // This is required since we are doing things before calling `runApp`.
   WidgetsFlutterBinding.ensureInitialized();
+  await EasyLocalization.ensureInitialized();
   // TODO: Consider using `flutter_native_splash`
   await RustLib.init();
   await api.init(
@@ -77,24 +78,44 @@ void main() async {
   var updateNotifier = UpdateNotifier();
   delayedInit(updateNotifier);
   var gpsRecordingState = GpsRecordingState();
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (context) => gpsRecordingState),
-        ChangeNotifierProvider(create: (context) => updateNotifier),
-      ],
-      child: const MyApp(),
-    ),
-  );
+  runApp(EasyLocalization(
+      supportedLocales: const [Locale('en', 'US'), Locale('zh', 'CN')],
+      path: 'assets/translations',
+      fallbackLocale: const Locale('en', 'US'),
+      saveLocale: false,
+      child: MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (context) => gpsRecordingState),
+          ChangeNotifierProvider(create: (context) => updateNotifier),
+        ],
+        child: const MyApp(),
+      )));
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
 
+  void _naiveLocaleSelection(BuildContext context) {
+    // TODO: This naive version is good enough for now, as we only have two locales.
+    // The one provided by the lib is kinda weird. e.g. It will map `zh-Hans-HK` to
+    // `en-US` (I guess `Hans` + `HK` is a weird case).
+    // Maybe related to: https://github.com/aissat/easy_localization/issues/372
+    var deviceLocale = context.deviceLocale;
+    var locale = const Locale('en', 'US');
+    if (deviceLocale.languageCode == 'zh') {
+      locale = const Locale('zh', 'CN');
+    }
+    context.setLocale(locale);
+  }
+
   @override
   Widget build(BuildContext context) {
+    _naiveLocaleSelection(context);
     return MaterialApp(
       title: 'MemoLanes',
+      localizationsDelegates: context.localizationDelegates,
+      supportedLocales: context.supportedLocales,
+      locale: context.locale,
       theme: ThemeData(
         useMaterial3: true,
         fontFamily: 'MiSans',
@@ -183,7 +204,8 @@ class _MyHomePageState extends State<MyHomePage> {
                         _buildNavItem(0, Icons.map_outlined, Icons.map),
                         _buildNavItem(1, Icons.update_outlined, Icons.update),
                         _buildNavItem(2, Icons.route_outlined, Icons.route),
-                        _buildNavItem(3, Icons.settings_outlined, Icons.settings),
+                        _buildNavItem(
+                            3, Icons.settings_outlined, Icons.settings),
                         _buildNavItem(
                             4, Icons.data_array_outlined, Icons.data_array),
                       ],

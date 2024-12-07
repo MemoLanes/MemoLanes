@@ -15,6 +15,8 @@ use crate::storage::Storage;
 use crate::{archive, export_data, gps_processor, merged_journey_builder, storage};
 use crate::{logs, utils};
 
+use super::import::JourneyInfo;
+
 // TODO: we have way too many locking here and now it is hard to track.
 //  e.g. we could mess up with the order and cause a deadlock
 #[frb(ignore)]
@@ -357,6 +359,19 @@ pub fn import_archive(mldx_file_path: String) -> Result<()> {
     get()
         .storage
         .with_db_txn(|txn| archive::import_mldx(txn, &mldx_file_path))?;
+    Ok(())
+}
+
+pub fn update_journey_metadata(id: &str, journeyinfo: JourneyInfo) -> Result<()> {
+    get().storage.with_db_txn(|txn| {
+        txn.update_journey_metadata(
+            id,
+            journeyinfo.journey_date,
+            journeyinfo.start_time,
+            journeyinfo.end_time,
+            journeyinfo.note,
+        )
+    })?;
     Ok(())
 }
 
