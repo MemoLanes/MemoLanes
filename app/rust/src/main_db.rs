@@ -419,6 +419,36 @@ impl Txn<'_> {
         })?
     }
 
+    pub fn years_with_journey(&self) -> Result<Vec<i32>> {
+        let mut query = self
+            .db_txn
+            .prepare("SELECT DISTINCT CAST(strftime('%Y', journey_date*24*60*60, 'unixepoch') as INTEGER) FROM journey ORDER BY journey_date;")?;
+        let mut years: Vec<i32> = Vec::new();
+        for row in query.query_map((), |row| row.get(0))? {
+            years.push(row?);
+        }
+        Ok(years)
+    }
+    pub fn months_with_journey(&self, year: i32) -> Result<Vec<i32>> {
+        let mut query = self
+            .db_txn
+            .prepare("SELECT DISTINCT CAST(strftime('%m', journey_date*24*60*60, 'unixepoch') as INTEGER) FROM journey WHERE strftime('%Y', journey_date*24*60*60, 'unixepoch') = ?1 ORDER BY journey_date;")?;
+        let mut months: Vec<i32> = Vec::new();
+        for row in query.query_map((format!("{:04}", year),), |row| row.get(0))? {
+            months.push(row?);
+        }
+        Ok(months)
+    }
+    pub fn days_with_journey(&self, year: i32, month: i32) -> Result<Vec<i32>> {
+        let mut query = self
+            .db_txn
+            .prepare("SELECT DISTINCT CAST(strftime('%d', journey_date*24*60*60, 'unixepoch') as INTEGER) FROM journey WHERE strftime('%Y-%m', journey_date*24*60*60, 'unixepoch') = ?1 ORDER BY journey_date;")?;
+        let mut days: Vec<i32> = Vec::new();
+        for row in query.query_map((format!("{:04}-{:02}", year, month),), |row| row.get(0))? {
+            days.push(row?);
+        }
+        Ok(days)
+    }
     // TODO: consider moving this to `storage.rs`
     pub fn try_auto_finalize_journy(&mut self) -> Result<bool> {
         match self.get_lastest_timestamp_of_ongoing_journey()? {
