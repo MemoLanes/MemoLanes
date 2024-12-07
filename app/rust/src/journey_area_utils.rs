@@ -3,11 +3,13 @@ use crate::journey_bitmap::{
     TILE_WIDTH_OFFSET,
 };
 use crate::utils;
-/* unit: meter */
-pub const EARTH_RADIUS: f64 = 6371000.0;
 
-/* result unit in m^2. this area calculating method by using center bit in a block has better efficiency and accuracy compared to simple interation and other methods. */
-/* codes for different calculating methods in branch TimRen01:compare_method_calculate_area_by_journey */
+const EARTH_RADIUS: f64 = 6371000.0; // unit: meter
+
+// Result unit in m^2. This area calculating method by using center bit in a
+// block has better efficiency and accuracy compared to simple interation and other methods.
+// codes for different calculating methods can be found here:
+// https://github.com/TimRen01/TimRen01_repo/tree/compare_method_calculate_area_by_journey
 pub fn compute_journey_bitmap_area(journey_bitmap: &JourneyBitmap) -> f64 {
     let total_area: f64 = journey_bitmap
         .tiles

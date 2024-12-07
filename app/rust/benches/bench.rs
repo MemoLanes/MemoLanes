@@ -52,22 +52,35 @@ fn map_renderer(c: &mut Criterion) {
 }
 
 fn journey_area_calculation(c: &mut Criterion) {
-    let (bitmap_import, _warnings) =
-        import_data::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
-
     let mut group = c.benchmark_group("area_calculation");
     group.sample_size(10);
 
-    group.bench_function(
-        "compute_journey_bitmap_area: use center bit to estimate each block",
-        |b| {
-            b.iter(|| {
-                std::hint::black_box(journey_area_utils::compute_journey_bitmap_area(
-                    &bitmap_import,
-                ))
-            })
-        },
-    );
+    group.bench_function("compute_journey_bitmap_area: simple", |b| {
+        let (bitmap_import, _warnings) =
+            import_data::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
+        b.iter(|| {
+            std::hint::black_box(journey_area_utils::compute_journey_bitmap_area(
+                &bitmap_import,
+            ))
+        })
+    });
+
+    group.bench_function("nelson_to_wharariki_beach", |b| {
+        let raw_data = import_data::load_gpx("./tests/data/nelson_to_wharariki_beach.gpx").unwrap();
+
+        let journey_vector = import_data::journey_vector_from_raw_data(raw_data, false).unwrap();
+        let mut journey_bitmap = JourneyBitmap::new();
+        merged_journey_builder::add_journey_vector_to_journey_bitmap(
+            &mut journey_bitmap,
+            &journey_vector,
+        );
+
+        b.iter(|| {
+            std::hint::black_box(journey_area_utils::compute_journey_bitmap_area(
+                &journey_bitmap,
+            ))
+        })
+    });
 
     group.finish();
 }
