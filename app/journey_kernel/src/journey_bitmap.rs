@@ -342,6 +342,10 @@ impl Block {
         true
     }
 
+    pub fn count(&self) -> u32 {
+        self.data.iter().map(|x| x.count_ones()).sum()
+    }
+
     pub fn is_visited(&self, x: u8, y: u8) -> bool {
         let bit_offset = 7 - (x % 8);
         let i = (x / 8) as usize;
