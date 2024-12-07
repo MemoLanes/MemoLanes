@@ -181,13 +181,16 @@ fn journey_query() {
             add_empty_journey(txn, "2024-08-06");
             add_empty_journey(txn, "2024-08-06");
             add_empty_journey(txn, "2024-08-10");
+            add_empty_journey(txn, "2022-06-10");
+            add_empty_journey(txn, "2020-05-10");
+            add_empty_journey(txn, "2020-02-29"); // leap year
             Ok(())
         })
         .unwrap();
 
     assert_eq!(
         main_db.with_txn(|txn| txn.earliest_journey_date()).unwrap(),
-        Some(date("2024-08-01"))
+        Some(date("2020-02-29"))
     );
 
     assert_eq!(
@@ -195,7 +198,7 @@ fn journey_query() {
             .with_txn(|txn| txn.query_journeys(None, None))
             .unwrap()
             .len(),
-        5
+        8
     );
     assert_eq!(
         main_db
@@ -216,6 +219,34 @@ fn journey_query() {
             .with_txn(|txn| txn.query_journeys(None, Some(date("2024-08-05"))))
             .unwrap()
             .len(),
-        2
+        5
     );
+    assert_eq!(
+        main_db.with_txn(|txn| txn.years_with_journey()).unwrap(),
+        vec![2020, 2022, 2024]
+    );
+    // leap year
+    assert_eq!(
+        main_db
+            .with_txn(|txn| txn.months_with_journey(2020))
+            .unwrap(),
+        vec![2, 5]
+    );
+    assert_eq!(
+        main_db
+            .with_txn(|txn| txn.days_with_journey(2024, 8))
+            .unwrap(),
+        vec![1, 5, 6, 10]
+    );
+    // 2-29
+    assert_eq!(
+        main_db
+            .with_txn(|txn| txn.days_with_journey(2020, 2))
+            .unwrap(),
+        vec![29]
+    );
+    assert!(main_db
+        .with_txn(|txn| txn.days_with_journey(2018, 2))
+        .unwrap()
+        .is_empty(),);
 }
