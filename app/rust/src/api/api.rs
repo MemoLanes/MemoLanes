@@ -296,16 +296,19 @@ pub fn has_ongoing_journey() -> Result<bool> {
 pub fn years_with_journey() -> Result<Vec<i32>> {
     get().storage.with_db_txn(|txn| txn.years_with_journey())
 }
+
 pub fn months_with_journey(year: i32) -> Result<Vec<i32>> {
     get()
         .storage
         .with_db_txn(|txn| txn.months_with_journey(year))
 }
+
 pub fn days_with_journey(year: i32, month: i32) -> Result<Vec<i32>> {
     get()
         .storage
         .with_db_txn(|txn| txn.days_with_journey(year, month))
 }
+
 pub fn list_journy_on_date(year: i32, month: u32, day: u32) -> Result<Vec<JourneyHeader>> {
     let date = NaiveDate::from_ymd_opt(year, month, day).unwrap();
     get()
