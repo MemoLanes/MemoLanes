@@ -3,15 +3,15 @@ need to merge all journeys into one `journey_bitmap`. Relavent functionailties i
 implemented here.
 */
 
+
+use std::collections::HashMap;
+
 use crate::{
-    cache_db::{CacheDb, JourneyCacheKey},
-    journey_bitmap::JourneyBitmap,
-    journey_data::JourneyData,
-    journey_vector::JourneyVector,
-    main_db::{self, MainDb},
+    cache_db::{CacheDb, JourneyCacheKey}, journey_bitmap::JourneyBitmap, journey_data::JourneyData, journey_header::JourneyKind, journey_vector::JourneyVector, main_db::{self, MainDb}
 };
 use anyhow::Result;
 use chrono::NaiveDate;
+use journey_kernel::journey_bitmap;
 
 pub fn add_journey_vector_to_journey_bitmap(
     journey_bitmap: &mut JourneyBitmap,
@@ -31,31 +31,50 @@ pub fn add_journey_vector_to_journey_bitmap(
     }
 }
 
+
 // TODO: This is going to be very slow.
+// Returns a collection of journey kind and journey bitmap, leaves freedom to the caller
 fn get_range_internal(
     txn: &mut main_db::Txn,
     from_date_inclusive: Option<NaiveDate>,
     to_date_inclusive: Option<NaiveDate>,
-) -> Result<JourneyBitmap> {
-    let mut journey_bitmap = JourneyBitmap::new();
+) -> Result<HashMap<JourneyKind, JourneyBitmap>> {
+    let mut journey_hashmap = HashMap::new();
+
     for journey_header in txn.query_journeys(from_date_inclusive, to_date_inclusive)? {
+        let journey_kind = journey_header.journey_kind;
+
+        let journey_bitmap = journey_hashmap
+            .entry(journey_kind)
+            .or_insert_with(JourneyBitmap::new);
+
         let journey_data = txn.get_journey_data(&journey_header.id)?;
         match journey_data {
             JourneyData::Bitmap(bitmap) => journey_bitmap.merge(bitmap),
             JourneyData::Vector(vector) => {
-                add_journey_vector_to_journey_bitmap(&mut journey_bitmap, &vector);
+                add_journey_vector_to_journey_bitmap(journey_bitmap, &vector);
             }
         }
     }
-    Ok(journey_bitmap)
+    Ok(journey_hashmap)
 }
+
 
 pub fn get_range(
     txn: &mut main_db::Txn,
     from_date_inclusive: NaiveDate,
     to_date_inclusive: NaiveDate,
 ) -> Result<JourneyBitmap> {
-    get_range_internal(txn, Some(from_date_inclusive), Some(to_date_inclusive))
+    let journey_hashmap = get_range_internal(
+        txn,
+        Some(from_date_inclusive),
+        Some(to_date_inclusive),
+    )?;
+    let mut journey_bitmap = JourneyBitmap::new();
+    for (_, bitmap) in journey_hashmap {
+        journey_bitmap.merge(bitmap);
+    }
+    Ok(journey_bitmap)
 }
 
 pub fn get_latest_including_ongoing(
