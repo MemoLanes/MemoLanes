@@ -25,7 +25,7 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
   final ValueNotifier<DateTime> _focusedDay = ValueNotifier(DateTime.now());
 
   DateTime? _selectedDay;
-  LinkedHashMap<DateTime, List<int>>? _daysWithJourney;
+  LinkedHashMap<DateTime, int>? _daysWithJourney;
 
   @override
   void initState() {
@@ -60,17 +60,21 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
       month: selectedDay.month,
     );
     setState(() {
-      _daysWithJourney = LinkedHashMap<DateTime, List<int>>.from({
+      _daysWithJourney = LinkedHashMap<DateTime, int>.from({
         for (var day in data)
-          DateTime.utc(_focusedDay.value.year, _focusedDay.value.month, day): [
-            day
-          ],
+          DateTime.utc(_focusedDay.value.year, _focusedDay.value.month, day):
+              day,
       });
     });
   }
 
   List<int> _eventsForGivenDay(DateTime day) {
-    return _daysWithJourney?[day] ?? [];
+    var event = _daysWithJourney?[day];
+    if (event == null) {
+      return [];
+    } else {
+      return [event];
+    }
   }
 
   void _onDaySelected(DateTime selectedDay, DateTime focusedDay) async {
