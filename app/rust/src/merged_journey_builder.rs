@@ -11,7 +11,6 @@ use crate::{
 };
 use anyhow::Result;
 use chrono::NaiveDate;
-use journey_kernel::journey_bitmap;
 
 pub fn add_journey_vector_to_journey_bitmap(
     journey_bitmap: &mut JourneyBitmap,

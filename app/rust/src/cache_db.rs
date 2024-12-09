@@ -1,13 +1,14 @@
 extern crate simplelog;
 use anyhow::Result;
-use itertools::merge;
-use journey_kernel::journey_bitmap;
 use protobuf::Message;
-use rusqlite::{Connection, OptionalExtension};
+use rusqlite::Connection;
 use std::{collections::HashMap, path::Path};
 
 use crate::{
-    journey_bitmap::JourneyBitmap, journey_data::{self, JourneyData}, journey_header::{JourneyHeader, JourneyKind}, merged_journey_builder::add_journey_vector_to_journey_bitmap
+    journey_bitmap::JourneyBitmap,
+    journey_data::{self, JourneyData},
+    journey_header::JourneyKind,
+    merged_journey_builder::add_journey_vector_to_journey_bitmap,
 };
 
 // TODO: Right now, we keep a cache of all finalized journeys (and fallback to
@@ -35,8 +36,8 @@ fn open_db(cache_dir: &str, file_name: &str, sql: &str) -> Result<Connection> {
 
 #[derive(Clone, Debug)]
 pub enum JourneyCacheKey {
-    All,    // deprecated in the future
-    // Add more for ALL_YEAR_MONTH
+    All, // deprecated in the future
+         // Add more for ALL_YEAR_MONTH
 }
 
 impl JourneyCacheKey {
@@ -84,11 +85,11 @@ impl CacheDb {
     fn get_journey_cache(
         &self,
         key: &JourneyCacheKey,
-        kind: Option<&JourneyKind>
+        kind: Option<&JourneyKind>,
     ) -> Result<Vec<Option<JourneyBitmap>>> {
         let key_cond = key.to_db_string();
         let kind_string = kind.map(|kind_value| kind_value.clone().to_proto().to_string());
-        
+
         let (sql, params): (&str, Vec<&dyn rusqlite::ToSql>) = match kind_string {
             Some(ref kind_str) => (
                 "SELECT data FROM `journey_cache` WHERE key = ?1 AND kind = ?2;",
@@ -99,15 +100,17 @@ impl CacheDb {
                 vec![&key_cond],
             ),
         };
-    
+
         let mut query = self.conn.prepare(sql)?;
         let data: Vec<Option<JourneyBitmap>> = query
-        .query_map(&params[..], |row| {
-            let data = row.get_ref("data")?.as_blob()?;
-            journey_data::deserialize_journey_bitmap(data).map(Some).or_else(|_| Ok(None))
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
-    
+            .query_map(&params[..], |row| {
+                let data = row.get_ref("data")?.as_blob()?;
+                journey_data::deserialize_journey_bitmap(data)
+                    .map(Some)
+                    .or_else(|_| Ok(None))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
         Ok(data)
     }
 
@@ -119,14 +122,14 @@ impl CacheDb {
     ) -> Result<Option<JourneyBitmap>> {
         let res = self.get_journey_cache(key, kind)?;
         let mut merged_bitmap = JourneyBitmap::new();
-    
+
         for journey_bitmap in res {
             match journey_bitmap {
                 Some(bitmap) => merged_bitmap.merge(bitmap),
                 None => continue,
             }
         }
-    
+
         if merged_bitmap.tiles.is_empty() {
             Ok(None)
         } else {
@@ -150,6 +153,7 @@ impl CacheDb {
         Ok(())
     }
 
+    // get a merged cache or compute from storage
     pub fn get_journey_cache_or_compute<F>(
         &self,
         key: &JourneyCacheKey,
@@ -178,10 +182,15 @@ impl CacheDb {
         Ok(())
     }
 
-    pub fn merge_journey_cache(&self, key: &JourneyCacheKey, header: JourneyHeader, journey: JourneyData) -> Result<()> {
-        let mut journey_bitmap = match self.get_merged_journey_cache(key, Some(&header.journey_kind))? {
-            Some(cache_bitmap) => { cache_bitmap }
-            None =>  { JourneyBitmap::new() }
+    pub fn upsert_journey_cache(
+        &self,
+        key: &JourneyCacheKey,
+        kind: JourneyKind,
+        journey: JourneyData,
+    ) -> Result<()> {
+        let mut journey_bitmap = match self.get_merged_journey_cache(key, Some(&kind))? {
+            Some(cache_bitmap) => cache_bitmap,
+            None => JourneyBitmap::new(),
         };
 
         match journey {
@@ -192,6 +201,6 @@ impl CacheDb {
         }
 
         // Update the journey cache with the new or merged bitmap
-        self.set_journey_cache(key, header.journey_kind, &journey_bitmap)
+        self.set_journey_cache(key, kind, &journey_bitmap)
     }
 }
