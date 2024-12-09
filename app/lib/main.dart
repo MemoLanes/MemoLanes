@@ -17,6 +17,7 @@ import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:provider/provider.dart';
 import 'package:badges/badges.dart' as badges;
 import 'package:easy_localization/easy_localization.dart';
+import 'package:month_year_picker/month_year_picker.dart';
 
 void delayedInit(UpdateNotifier updateNotifier) {
   Future.delayed(const Duration(milliseconds: 2000), () async {
@@ -113,7 +114,10 @@ class MyApp extends StatelessWidget {
     _naiveLocaleSelection(context);
     return MaterialApp(
       title: 'MemoLanes',
-      localizationsDelegates: context.localizationDelegates,
+      localizationsDelegates: [
+        ...context.localizationDelegates,
+        MonthYearPickerLocalizations.delegate
+      ],
       supportedLocales: context.supportedLocales,
       locale: context.locale,
       theme: ThemeData(
