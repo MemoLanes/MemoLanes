@@ -429,6 +429,7 @@ impl Txn<'_> {
         }
         Ok(years)
     }
+
     pub fn months_with_journey(&self, year: i32) -> Result<Vec<i32>> {
         let mut query = self
             .db_txn
@@ -439,6 +440,7 @@ impl Txn<'_> {
         }
         Ok(months)
     }
+
     pub fn days_with_journey(&self, year: i32, month: i32) -> Result<Vec<i32>> {
         let mut query = self
             .db_txn
@@ -449,6 +451,7 @@ impl Txn<'_> {
         }
         Ok(days)
     }
+
     // TODO: consider moving this to `storage.rs`
     pub fn try_auto_finalize_journy(&mut self) -> Result<bool> {
         match self.get_lastest_timestamp_of_ongoing_journey()? {

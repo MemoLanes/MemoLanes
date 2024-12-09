@@ -15,6 +15,7 @@ pub mod cache_db;
 pub mod export_data;
 pub mod gps_processor;
 pub mod import_data;
+pub mod journey_area_utils;
 pub use journey_kernel;
 pub use journey_kernel::journey_bitmap;
 pub mod journey_data;

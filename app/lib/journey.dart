@@ -2,7 +2,7 @@ import 'dart:collection';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:memolanes/src/rust/api/api.dart';
+import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:memolanes/journey_info.dart';
 import 'package:memolanes/src/rust/api/utils.dart';
@@ -25,12 +25,12 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
   final ValueNotifier<DateTime> _focusedDay = ValueNotifier(DateTime.now());
 
   DateTime? _selectedDay;
-  LinkedHashMap<DateTime, List<int>>? _daysWithJourney;
+  LinkedHashMap<DateTime, int>? _daysWithJourney;
 
   @override
   void initState() {
     super.initState();
-    _loadDaysWithJourney(_focusedDay.value);
+    _loadDaysWithJourneyForGivenMonth(_focusedDay.value);
   }
 
   Future<DateTime?> _selectDate(
@@ -54,23 +54,27 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
     return null;
   }
 
-  Future<void> _loadDaysWithJourney(DateTime selectedDay) async {
-    var data = await daysWithJourney(
+  Future<void> _loadDaysWithJourneyForGivenMonth(DateTime selectedDay) async {
+    var data = await api.daysWithJourney(
       year: selectedDay.year,
       month: selectedDay.month,
     );
     setState(() {
-      _daysWithJourney = LinkedHashMap<DateTime, List<int>>.from({
+      _daysWithJourney = LinkedHashMap<DateTime, int>.from({
         for (var day in data)
-          DateTime.utc(_focusedDay.value.year, _focusedDay.value.month, day): [
-            day
-          ],
+          DateTime.utc(_focusedDay.value.year, _focusedDay.value.month, day):
+              day,
       });
     });
   }
 
-  List<int> _renderDays(DateTime day) {
-    return _daysWithJourney?[day] ?? [];
+  List<int> _eventsForGivenDay(DateTime day) {
+    var event = _daysWithJourney?[day];
+    if (event == null) {
+      return [];
+    } else {
+      return [event];
+    }
   }
 
   void _onDaySelected(DateTime selectedDay, DateTime focusedDay) async {
@@ -80,16 +84,16 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
         _focusedDay.value = focusedDay;
       });
 
-      _journeyHeaderList.value = await listJournyOnDate(
+      _journeyHeaderList.value = await api.listJournyOnDate(
           year: selectedDay.year,
           month: selectedDay.month,
           day: selectedDay.day);
-      _loadDaysWithJourney(selectedDay);
+      _loadDaysWithJourneyForGivenMonth(selectedDay);
     }
   }
 
   void _updateJourneyHeaderList() async {
-    _journeyHeaderList.value = await listJournyOnDate(
+    _journeyHeaderList.value = await api.listJournyOnDate(
         year: _focusedDay.value.year,
         month: _focusedDay.value.month,
         day: _focusedDay.value.day);
@@ -124,7 +128,7 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeOut,
               );
-              _loadDaysWithJourney(_focusedDay.value);
+              _loadDaysWithJourneyForGivenMonth(_focusedDay.value);
             },
             onRightArrowTap: () {
               DateTime nextDate = DateTime(_focusedDay.value.year,
@@ -151,7 +155,7 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
         focusedDay: _focusedDay.value,
         headerVisible: false,
         selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-        eventLoader: _renderDays,
+        eventLoader: _eventsForGivenDay,
         onCalendarCreated: (controller) async {
           _pageController = controller;
           _selectedDay = _focusedDay.value;
@@ -162,7 +166,7 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
           _selectedDay =
               DateTime(focusedDay.year, focusedDay.month, _selectedDay!.day);
           _focusedDay.value = _selectedDay!;
-          _loadDaysWithJourney(_focusedDay.value);
+          _loadDaysWithJourneyForGivenMonth(_focusedDay.value);
           _updateJourneyHeaderList();
         },
       ),
@@ -195,11 +199,11 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
                         },
                       )).then((refresh) async {
                         if (refresh != null && refresh) {
-                          _journeyHeaderList.value = await listJournyOnDate(
+                          _journeyHeaderList.value = await api.listJournyOnDate(
                               year: _focusedDay.value.year,
                               month: _focusedDay.value.month,
                               day: _focusedDay.value.day);
-                          _loadDaysWithJourney(_focusedDay.value);
+                          _loadDaysWithJourneyForGivenMonth(_focusedDay.value);
                         }
                       });
                     },
