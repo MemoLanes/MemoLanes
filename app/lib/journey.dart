@@ -28,7 +28,6 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
   bool _isLoadingFirstDate = true;
   DateTime? _selectedDay;
   LinkedHashMap<DateTime, int>? _daysWithJourney;
-  late final Map<int, List<int>> _selectableMonths = {};
 
   @override
   void initState() {
@@ -41,22 +40,12 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
     NaiveDate? earliestDate = await api.earliestJourneyDate();
     if (earliestDate != null) {
       firstDate = DateTime.parse(naiveDateToString(date: earliestDate));
-      await _initializeSelectableMonths();
     } else {
       firstDate = null;
     }
     setState(() {
       _isLoadingFirstDate = false;
     });
-  }
-
-  Future<void> _initializeSelectableMonths() async {
-    var yearsList = await api.yearsWithJourney();
-    for (var year in yearsList) {
-      var months = await api.monthsWithJourney(year: year);
-      _selectableMonths[year] = months.toList();
-    }
-    setState(() {});
   }
 
   Future<DateTime?> _selectDate(
@@ -66,10 +55,6 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
       initialDate: _focusedDay.value,
       firstDate: firstDate!,
       lastDate: lastDate,
-      selectableMonthYearPredicate: (DateTime month) {
-        if (!_selectableMonths.containsKey(month.year)) return false;
-        return _selectableMonths[month.year]!.contains(month.month);
-      },
       builder: (context, child) {
         return LayoutBuilder(
           builder: (context, constraints) {
