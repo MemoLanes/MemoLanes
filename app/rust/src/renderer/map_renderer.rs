@@ -1,3 +1,4 @@
+use crate::renderer::map_server::Token;
 use crate::renderer::utils::image_to_png_data;
 use crate::renderer::utils::{DEFAULT_BG_COLOR, DEFAULT_FG_COLOR, DEFAULT_TILE_SIZE};
 use crate::renderer::TileRendererBasic;
@@ -6,6 +7,9 @@ use crate::{journey_bitmap::JourneyBitmap, utils};
 use image::Rgba;
 use image::RgbaImage;
 use std::cmp::{max, min};
+// TODO: discuss if we should use tokio or not
+use std::sync::Arc;
+use std::sync::Mutex;
 
 pub struct RenderResult {
     // coordinates are in lat or lng
@@ -28,11 +32,12 @@ struct RenderArea {
 }
 
 pub struct MapRenderer {
-    journey_bitmap: JourneyBitmap,
+    journey_bitmap: Arc<Mutex<JourneyBitmap>>,
     tile_renderer: Box<dyn TileRendererTrait + Send + Sync>,
     bg_color: Rgba<u8>,
     fg_color: Rgba<u8>,
     current_render_area: Option<RenderArea>,
+    token: Option<Token>,
 }
 
 impl MapRenderer {
@@ -41,16 +46,41 @@ impl MapRenderer {
         Self::new_with_tile_renderer(journey_bitmap, tile_renderer)
     }
 
-    pub fn new_with_tile_renderer(
-        journey_bitmap: JourneyBitmap,
-        tile_renderer: Box<dyn TileRendererTrait + Send + Sync>,
-    ) -> Self {
+    // TODO: consider a better place to generate the token
+    pub fn debug_new_with_token(journey_bitmap: Arc<Mutex<JourneyBitmap>>, token: Token) -> Self {
+        // let journey_bitmap = Arc::new(Mutex::new(journey_bitmap));
+        // let token = registry.register(Arc::downgrade(&journey_bitmap));
+        let tile_renderer = Box::new(TileRendererBasic::new(DEFAULT_TILE_SIZE));
         Self {
             journey_bitmap,
             tile_renderer,
             bg_color: DEFAULT_BG_COLOR,
             fg_color: DEFAULT_FG_COLOR,
             current_render_area: None,
+            token: Some(token),
+        }
+    }
+
+    pub fn get_url(&self) -> String {
+        if let Some(token) = &self.token {
+            token.url()
+        } else {
+            "".to_string()
+        }
+    }
+
+    pub fn new_with_tile_renderer(
+        journey_bitmap: JourneyBitmap,
+        tile_renderer: Box<dyn TileRendererTrait + Send + Sync>,
+    ) -> Self {
+        let journey_bitmap = Arc::new(Mutex::new(journey_bitmap));
+        Self {
+            journey_bitmap,
+            tile_renderer,
+            bg_color: DEFAULT_BG_COLOR,
+            fg_color: DEFAULT_FG_COLOR,
+            current_render_area: None,
+            token: None,
         }
     }
 
@@ -65,6 +95,8 @@ impl MapRenderer {
 
         let mut image = RgbaImage::new(tile_size * width_by_tile, tile_size * height_by_tile);
 
+        let journey_bitmap = self.journey_bitmap.lock().unwrap();
+
         for x in 0..width_by_tile {
             for y in 0..height_by_tile {
                 // TODO: cache?
@@ -73,7 +105,7 @@ impl MapRenderer {
                     &mut image,
                     x * tile_size,
                     y * tile_size,
-                    &self.journey_bitmap,
+                    &journey_bitmap,
                     render_area.left_idx as i64 + x as i64,
                     render_area.top_idx as i64 + y as i64,
                     render_area.zoom as i16,
@@ -152,11 +184,13 @@ impl MapRenderer {
         }
     }
 
+    // TODO: redesign this interface for webview compatibility (maybe also need to broadcast the update to the webview)
     pub fn update<F>(&mut self, f: F)
     where
         F: Fn(&mut JourneyBitmap),
     {
-        f(&mut self.journey_bitmap);
+        let mut journey_bitmap = self.journey_bitmap.lock().unwrap();
+        f(&mut journey_bitmap);
         // TODO: we should improve the cache invalidation rule
         self.current_render_area = None;
     }

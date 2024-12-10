@@ -1,6 +1,6 @@
 use std::cmp::max;
 use std::fs::File;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use anyhow::{Ok, Result};
 use chrono::NaiveDate;
@@ -10,10 +10,12 @@ use crate::gps_processor::{GpsProcessor, ProcessResult};
 use crate::journey_bitmap::{JourneyBitmap, MAP_WIDTH_OFFSET, TILE_WIDTH, TILE_WIDTH_OFFSET};
 use crate::journey_data::JourneyData;
 use crate::journey_header::JourneyHeader;
+use crate::renderer::MapServer;
 use crate::renderer::{MapRenderer, RenderResult};
 use crate::storage::Storage;
 use crate::{archive, export_data, gps_processor, merged_journey_builder, storage};
 use crate::{logs, utils};
+use serde::{Deserialize, Serialize};
 
 use super::import::JourneyInfo;
 
@@ -24,6 +26,7 @@ pub(super) struct MainState {
     pub storage: Storage,
     pub map_renderer: Mutex<Option<MapRenderer>>,
     pub gps_processor: Mutex<GpsProcessor>,
+    pub map_server: Mutex<Option<MapServer>>,
 }
 
 static MAIN_STATE: OnceLock<MainState> = OnceLock::new();
@@ -49,10 +52,14 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
         let storage = Storage::init(temp_dir, doc_dir, support_dir, cache_dir);
         info!("initialized");
 
+        let mut map_server = MapServer::new("localhost", 0);
+        map_server.start().unwrap();
+
         MainState {
             storage,
             map_renderer: Mutex::new(None),
             gps_processor: Mutex::new(GpsProcessor::new()),
+            map_server: Mutex::new(Some(map_server)),
         }
     });
     if already_initialized {
@@ -67,6 +74,14 @@ pub enum MapRendererProxy {
 }
 
 impl MapRendererProxy {
+
+    pub fn get_url(&self) -> String {
+        match self {
+            Self::MainMap => "".to_string(),
+            Self::Simple(map_renderer) => map_renderer.get_url(),
+        }
+    }
+
     pub fn render_map_overlay(
         &mut self,
         zoom: f32,
@@ -140,18 +155,28 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
     let journey_bitmap = get().storage.with_db_txn(|txn| {
         merged_journey_builder::get_range(txn, from_date_inclusive, to_date_inclusive)
     })?;
-    let map_renderer = MapRenderer::new(journey_bitmap);
+
+    // ======= WebView Transition codes START ===========
+    let journey_bitmap = Arc::new(Mutex::new(journey_bitmap));
+    let server = get().map_server.lock().unwrap();
+    let token = server
+        .as_ref()
+        .unwrap()
+        .register(Arc::downgrade(&journey_bitmap));
+    let map_renderer = MapRenderer::debug_new_with_token(journey_bitmap, token);
+    // ======= WebView Transition codes END ===========
+
     Ok(MapRendererProxy::Simple(map_renderer))
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CameraOption {
     pub zoom: f64,
     pub lng: f64,
     pub lat: f64,
 }
 
-fn get_default_camera_option_from_journey_bitmap(
+pub fn get_default_camera_option_from_journey_bitmap(
     journey_bitmap: &JourneyBitmap,
 ) -> Option<CameraOption> {
     // TODO: Currently we use the coordinate of the top left of a random block (first one in the hashtbl),
@@ -198,7 +223,19 @@ pub fn get_map_renderer_proxy_for_journey(
 
     let default_camera_option = get_default_camera_option_from_journey_bitmap(&journey_bitmap);
 
-    let map_renderer = MapRenderer::new(journey_bitmap);
+    // ======= WebView Transition codes START ===========
+    let journey_bitmap = Arc::new(Mutex::new(journey_bitmap));
+    let server = get().map_server.lock().unwrap();
+    let token = server
+        .as_ref()
+        .unwrap()
+        .register(Arc::downgrade(&journey_bitmap));
+    if let Some(ref default_camera_option) = default_camera_option {
+        token.set_provisioned_camera_option(default_camera_option.clone());
+    }
+    let map_renderer = MapRenderer::debug_new_with_token(journey_bitmap, token);
+    // ======= WebView Transition codes END ===========
+
     Ok((
         MapRendererProxy::Simple(map_renderer),
         default_camera_option,
