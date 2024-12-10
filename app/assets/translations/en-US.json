@@ -4,5 +4,8 @@
         "pause": "Pause",
         "resume": "Resume",
         "end": "End"
+    },
+    "journey": {
+        "empty_journey_data": "There's no data yet, so go ahead and explore the world"
     }
 }
