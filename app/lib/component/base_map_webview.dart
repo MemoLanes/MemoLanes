@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -37,7 +35,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   Completer? requireRefresh = Completer();
 
   Future<void> _doActualRefresh() async {
-    var controller = _webViewController;
+    // var controller = _webViewController;
     // if (controller == null) return;
 
     return;
