@@ -50,3 +50,6 @@ app.*.map.json
 /.netrc
 /.env
 /lib/token.dart
+
+# tokens
+journey_kernel/examples/token.json
