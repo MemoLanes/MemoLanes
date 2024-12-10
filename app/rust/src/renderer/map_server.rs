@@ -12,7 +12,6 @@ use std::sync::{Arc, Mutex, RwLock, Weak};
 // TODO:: maybe we should move this out of the api
 use crate::api::api::CameraOption;
 
-
 // TODO: implement the push-based map command interface
 /// the Token is owned by flutter side code whenever there is a webview based map widget to be created.
 /// token can be resolved into a uri that can be used to access the journey bitmap
@@ -147,7 +146,6 @@ async fn serve_provisioned_camera_option(
         .get_provisioned_camera_option(&Uuid::parse_str(&id).unwrap());
     HttpResponse::Ok().json(camera_option)
 }
-
 
 pub struct MapServer {
     host: String,
@@ -284,7 +282,6 @@ const MAPBOX_JS: &str = include_str!("../../../journey_kernel/examples/mapbox-gl
 const MAPBOX_CSS: &str = include_str!("../../../journey_kernel/examples/mapbox-gl.css");
 const TOKEN_JSON: &str = include_str!("../../../journey_kernel/examples/token.json");
 
-
 // Serve the HTML page
 async fn index() -> HttpResponse {
     HttpResponse::Ok()
@@ -325,4 +322,3 @@ async fn serve_journey_canvas_layer_js() -> HttpResponse {
         .content_type("application/javascript")
         .body(JOURNEY_CANVAS_LAYER_JS)
 }
-

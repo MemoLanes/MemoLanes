@@ -74,7 +74,6 @@ pub enum MapRendererProxy {
 }
 
 impl MapRendererProxy {
-
     pub fn get_url(&self) -> String {
         match self {
             Self::MainMap => "".to_string(),
