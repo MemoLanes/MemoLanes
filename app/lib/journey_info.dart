@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
-import 'package:memolanes/component/base_map.dart';
+import 'package:memolanes/component/base_map_webview.dart';
 import 'package:memolanes/src/rust/api/import.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -186,7 +186,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
             Expanded(
               child: mapRendererProxy == null
                   ? (const CircularProgressIndicator())
-                  : (BaseMap(
+                  : (BaseMapWebview(
                       key: const ValueKey("mapWidget"),
                       mapRendererProxy: mapRendererProxy,
                       initialCameraOptions: _cameraOptions,
