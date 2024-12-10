@@ -133,17 +133,6 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
         }
         return dayWidget;
       },
-      // 渲染存在数据的年 月 日
-      // yearBuilder: ({
-      //   required year,
-      //   decoration,
-      //   isCurrentYear,
-      //   isDisabled,
-      //   isSelected,
-      //   textStyle,
-      // }) {
-      //   return Container();
-      // },
       dynamicCalendarRows: true,
       disabledDayTextStyle:
           const TextStyle(color: Colors.grey, fontWeight: FontWeight.w400),
