@@ -117,3 +117,22 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/custom-fonts/#from-packages
+  fonts:
+    - family: MiSans
+      fonts:
+        - asset: fonts/MiSans-Thin.ttf
+          weight: 100
+        - asset: fonts/MiSans-ExtraLight.ttf
+          weight: 200
+        - asset: fonts/MiSans-Light.ttf
+          weight: 300
+        - asset: fonts/MiSans-Regular.ttf
+          weight: 400
+        - asset: fonts/MiSans-Medium.ttf
+          weight: 500
+        - asset: fonts/MiSans-Semibold.ttf
+          weight: 600
+        - asset: fonts/MiSans-Bold.ttf
+          weight: 700
+        - asset: fonts/MiSans-Heavy.ttf
+          weight: 900
