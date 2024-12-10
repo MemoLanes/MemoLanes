@@ -35,7 +35,30 @@ fn setup_x86_64_android_workaround() {
     }
 }
 
+fn check_wasm_pack_installed() {
+    if Command::new("wasm-pack").arg("--version").output().is_err() {
+        panic!("wasm-pack is not installed. Please install it by running `cargo install wasm-pack`.");
+    }
+}
+
+fn build_journey_kernel_wasm() {
+    println!("cargo:rerun-if-changed=../journey_kernel");
+    
+    let status = Command::new("wasm-pack")
+        .current_dir("../journey_kernel")
+        .args(&["build", "--target", "web", "--features", "wasm", "--no-default-features"])
+        .status()
+        .expect("Failed to execute wasm-pack command");
+
+    if !status.success() {
+        panic!("Failed to build journey_kernel WASM package");
+    }
+}
+
 fn main() {
+    check_wasm_pack_installed();
+    build_journey_kernel_wasm();
+
     // There are articles on internet suggest `.git/HEAD` is enough, which I
     // doubt.
     println!("cargo:rerun-if-changed=../../.git");
