@@ -48,7 +48,7 @@ fn build_journey_kernel_wasm() {
 
     let status = Command::new("wasm-pack")
         .current_dir("../journey_kernel")
-        .args(&[
+        .args([
             "build",
             "--target",
             "web",
