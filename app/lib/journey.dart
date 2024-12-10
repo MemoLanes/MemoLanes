@@ -1,13 +1,11 @@
 import 'dart:collection';
 
+import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:memolanes/journey_info.dart';
 import 'package:memolanes/src/rust/api/utils.dart';
-import 'package:table_calendar/table_calendar.dart';
-import 'package:month_year_picker/month_year_picker.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 class JourneyUiBody extends StatefulWidget {
@@ -21,19 +19,20 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
   final ValueNotifier<List<JourneyHeader>> _journeyHeaderList =
       ValueNotifier<List<JourneyHeader>>([]);
 
-  late PageController _pageController;
+  List<DateTime?> _singleSelectedDatePickerValue = [
+    DateTime.now(),
+  ];
   late final DateTime? firstDate;
   final lastDate = DateTime.now();
-  final ValueNotifier<DateTime> _focusedDay = ValueNotifier(DateTime.now());
+  late Map<int, dynamic> nestedYearMonthsAndDay = {};
   bool _isLoadingFirstDate = true;
-  DateTime? _selectedDay;
-  LinkedHashMap<DateTime, int>? _daysWithJourney;
 
   @override
   void initState() {
     super.initState();
     _initializeFirstDate();
-    _loadDaysWithJourneyForGivenMonth(_focusedDay.value);
+    _initializeNestedYearMonthsAndDay();
+    _updateJourneyHeaderList();
   }
 
   Future<void> _initializeFirstDate() async {
@@ -48,167 +47,134 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
     });
   }
 
-  Future<DateTime?> _selectDate(
-      BuildContext context, DateTime? datetime) async {
-    DateTime? selectedDate = await showMonthYearPicker(
-      context: context,
-      initialDate: _focusedDay.value,
-      firstDate: firstDate!,
-      lastDate: lastDate,
-      builder: (context, child) {
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            double dialogWidth = constraints.maxWidth * 0.9;
-            double dialogHeight = constraints.maxHeight * 0.6;
-            return Center(
-              child: SizedBox(
-                width: dialogWidth,
-                height: dialogHeight,
-                child: child,
-              ),
-            );
-          },
-        );
-      },
-    );
-    if (selectedDate != null) {
-      selectedDate = DateTime(
-          selectedDate.year, selectedDate.month, _focusedDay.value.day);
-      if (firstDate!.isAfter(selectedDate)) {
-        selectedDate = firstDate;
+  void _initializeNestedYearMonthsAndDay() async {
+    var yearList = await api.yearsWithJourney();
+
+    for (var year in yearList) {
+      var monthsList = await api.monthsWithJourney(year: year);
+      var tmp = {};
+      for (var month in monthsList) {
+        var dayList = await api.daysWithJourney(year: year, month: month);
+        tmp[month] = dayList;
       }
-      if (lastDate.isBefore(selectedDate!)) {
-        selectedDate = lastDate;
-      }
-    }
-    return selectedDate;
-  }
-
-  Future<void> _loadDaysWithJourneyForGivenMonth(DateTime selectedDay) async {
-    var data = await api.daysWithJourney(
-      year: selectedDay.year,
-      month: selectedDay.month,
-    );
-    setState(() {
-      _daysWithJourney = LinkedHashMap<DateTime, int>.from({
-        for (var day in data)
-          DateTime.utc(_focusedDay.value.year, _focusedDay.value.month, day):
-              day,
-      });
-    });
-  }
-
-  List<int> _eventsForGivenDay(DateTime day) {
-    var event = _daysWithJourney?[day];
-    if (event == null) {
-      return [];
-    } else {
-      return [event];
-    }
-  }
-
-  void _onDaySelected(DateTime selectedDay, DateTime focusedDay) async {
-    if (!isSameDay(_selectedDay, selectedDay)) {
-      setState(() {
-        _selectedDay = selectedDay;
-        _focusedDay.value = focusedDay;
-      });
-
-      _journeyHeaderList.value = await api.listJournyOnDate(
-          year: selectedDay.year,
-          month: selectedDay.month,
-          day: selectedDay.day);
-      _loadDaysWithJourneyForGivenMonth(selectedDay);
+      nestedYearMonthsAndDay[year] = tmp;
     }
   }
 
   void _updateJourneyHeaderList() async {
     _journeyHeaderList.value = await api.listJournyOnDate(
-        year: _focusedDay.value.year,
-        month: _focusedDay.value.month,
-        day: _focusedDay.value.day);
+        year: _singleSelectedDatePickerValue.first!.year,
+        month: _singleSelectedDatePickerValue.first!.month,
+        day: _singleSelectedDatePickerValue.first!.day);
   }
 
-  Widget _buildCalendarHeader() {
-    return ValueListenableBuilder<DateTime>(
-      valueListenable: _focusedDay,
-      builder: (context, value, _) {
-        return _CalendarHeader(
-          focusedDay: value,
-          onSelectedDateTap: () async {
-            var selectedDay = await _selectDate(context, _focusedDay.value) ??
-                _focusedDay.value;
-            _onDaySelected(selectedDay, selectedDay);
-          },
-          onReturnTodayTap: () {
-            setState(() {
-              _selectedDay = lastDate;
-              _focusedDay.value = lastDate;
-            });
-          },
-          onLeftArrowTap: () {
-            DateTime nextDate = DateTime(_focusedDay.value.year,
-                _focusedDay.value.month - 1, _focusedDay.value.day);
-            if (nextDate.isBefore(firstDate!)) {
-              setState(() {
-                _focusedDay.value = firstDate!;
-                _selectedDay = _focusedDay.value;
-              });
-              return;
-            }
-            _selectedDay = nextDate;
-            _pageController.previousPage(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-            );
-            _loadDaysWithJourneyForGivenMonth(_focusedDay.value);
-          },
-          onRightArrowTap: () {
-            DateTime nextDate = DateTime(_focusedDay.value.year,
-                _focusedDay.value.month + 1, _focusedDay.value.day);
-            if (nextDate.isAfter(lastDate)) {
-              setState(() {
-                _focusedDay.value = lastDate;
-                _selectedDay = _focusedDay.value;
-              });
-              return;
-            }
-            _selectedDay = nextDate;
-            _pageController.nextPage(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-            );
-          },
-        );
+  Widget _buildDatePickerWithValue() {
+    final config = CalendarDatePicker2Config(
+      firstDate: firstDate,
+      lastDate: DateTime.now(),
+      centerAlignModePicker: true,
+      calendarType: CalendarDatePicker2Type.single,
+      selectedDayHighlightColor: Colors.teal[800],
+      weekdayLabelTextStyle: const TextStyle(
+        color: Colors.black87,
+        fontWeight: FontWeight.bold,
+      ),
+      controlsTextStyle: const TextStyle(
+        color: Colors.black,
+        fontSize: 15,
+        fontWeight: FontWeight.bold,
+      ),
+      selectableYearPredicate: (year) =>
+          nestedYearMonthsAndDay.containsKey(year),
+      selectableMonthPredicate: (year, month) {
+        if (!nestedYearMonthsAndDay.containsKey(year)) return false;
+        return nestedYearMonthsAndDay[year]!.containsKey(month);
       },
+      selectableDayPredicate: (day) {
+        if (nestedYearMonthsAndDay.containsKey(day.year) &&
+            nestedYearMonthsAndDay[day.year]!.containsKey(day.month)) {
+          return nestedYearMonthsAndDay[day.year][day.month].contains(day.day);
+        }
+        return false;
+      },
+      dayBuilder: ({
+        required date,
+        textStyle,
+        decoration,
+        isSelected,
+        isDisabled,
+        isToday,
+      }) {
+        Widget? dayWidget;
+        if (nestedYearMonthsAndDay.containsKey(date.year) &&
+            nestedYearMonthsAndDay[date.year]!.containsKey(date.month) &&
+            nestedYearMonthsAndDay[date.year][date.month].contains(date.day)) {
+          dayWidget = Container(
+            decoration: decoration,
+            child: Center(
+              child: Stack(
+                alignment: AlignmentDirectional.center,
+                children: [
+                  Text(
+                    MaterialLocalizations.of(context).formatDecimal(date.day),
+                    style: textStyle,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 27.5),
+                    child: Container(
+                      height: 4,
+                      width: 4,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(5),
+                        color: Colors.cyan[200],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        return dayWidget;
+      },
+      // 渲染存在数据的年 月 日
+      // yearBuilder: ({
+      //   required year,
+      //   decoration,
+      //   isCurrentYear,
+      //   isDisabled,
+      //   isSelected,
+      //   textStyle,
+      // }) {
+      //   return Container();
+      // },
+      dynamicCalendarRows: true,
+      disabledDayTextStyle:
+          const TextStyle(color: Colors.grey, fontWeight: FontWeight.w400),
+      disabledMonthTextStyle:
+          const TextStyle(color: Colors.grey, fontWeight: FontWeight.w400),
+      disabledYearTextStyle:
+          const TextStyle(color: Colors.grey, fontWeight: FontWeight.w400),
     );
-  }
-
-  Widget _buildTableCalendar() {
-    return TableCalendar<int>(
-      firstDay: firstDate!,
-      lastDay: lastDate,
-      focusedDay: _focusedDay.value,
-      headerVisible: false,
-      selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-      eventLoader: _eventsForGivenDay,
-      onCalendarCreated: (controller) async {
-        _pageController = controller;
-        _selectedDay = _focusedDay.value;
+    return CalendarDatePicker2(
+      config: config,
+      value: _singleSelectedDatePickerValue,
+      onValueChanged: (dates) {
+        setState(() => _singleSelectedDatePickerValue = dates);
         _updateJourneyHeaderList();
       },
-      onDaySelected: _onDaySelected,
-      onPageChanged: (focusedDay) {
-        _selectedDay =
-            DateTime(focusedDay.year, focusedDay.month, _selectedDay!.day);
-        if (lastDate.isBefore(_selectedDay!)) {
-          _selectedDay = lastDate;
+      onDisplayedMonthChanged: (value) async {
+        DateTime nextDate = DateTime(
+            value.year, value.month, _singleSelectedDatePickerValue.first!.day);
+        if (lastDate.isBefore(nextDate)) {
+          nextDate = lastDate;
         }
-        if (firstDate!.isAfter(_selectedDay!)) {
-          _selectedDay = firstDate;
+        if (firstDate!.isAfter(nextDate)) {
+          nextDate = firstDate!;
         }
-        _focusedDay.value = _selectedDay!;
-        _loadDaysWithJourneyForGivenMonth(_focusedDay.value);
+        setState(() {
+          _singleSelectedDatePickerValue = [nextDate];
+        });
         _updateJourneyHeaderList();
       },
     );
@@ -243,11 +209,7 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
                       },
                     )).then((refresh) async {
                       if (refresh != null && refresh) {
-                        _journeyHeaderList.value = await api.listJournyOnDate(
-                            year: _focusedDay.value.year,
-                            month: _focusedDay.value.month,
-                            day: _focusedDay.value.day);
-                        _loadDaysWithJourneyForGivenMonth(_focusedDay.value);
+                        _updateJourneyHeaderList();
                       }
                     });
                   },
@@ -273,67 +235,14 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
       ));
     } else {
       return Scaffold(
-          body: Column(children: [
-        _buildCalendarHeader(),
-        _buildTableCalendar(),
-        const SizedBox(height: 8.0),
-        _buildJourneyHeaderList(),
-      ]));
-    }
-  }
-}
-
-class _CalendarHeader extends StatelessWidget {
-  final DateTime focusedDay;
-  final VoidCallback onLeftArrowTap;
-  final VoidCallback onRightArrowTap;
-  final VoidCallback onSelectedDateTap;
-  final VoidCallback onReturnTodayTap;
-
-  const _CalendarHeader({
-    required this.focusedDay,
-    required this.onLeftArrowTap,
-    required this.onRightArrowTap,
-    required this.onSelectedDateTap,
-    required this.onReturnTodayTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final headerText = DateFormat.yMMM().format(focusedDay);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        children: [
-          const SizedBox(width: 16.0),
-          SizedBox(
-            child: Text(
-              headerText,
-              style: const TextStyle(fontSize: 20.0),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.calendar_month, size: 20.0),
-            visualDensity: VisualDensity.compact,
-            onPressed: onSelectedDateTap,
-          ),
-          IconButton(
-            icon: const Icon(Icons.calendar_today, size: 18.0),
-            visualDensity: VisualDensity.compact,
-            onPressed: onReturnTodayTap,
-          ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            onPressed: onLeftArrowTap,
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            onPressed: onRightArrowTap,
-          ),
+          body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          _buildDatePickerWithValue(),
+          const SizedBox(height: 8.0),
+          _buildJourneyHeaderList(),
         ],
-      ),
-    );
+      ));
+    }
   }
 }
