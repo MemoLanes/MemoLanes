@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/component/bottom_nav_bar.dart';
 import 'package:memolanes/time_machine.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
@@ -17,7 +19,6 @@ import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'dart:ui';
 
 void delayedInit(UpdateNotifier updateNotifier) {
   Future.delayed(const Duration(milliseconds: 2000), () async {
@@ -172,74 +173,22 @@ class _MyHomePageState extends State<MyHomePage> {
                 RawDataBody(),
               ],
             ),
-            const Positioned(
-              left: 0,
-              right: 0,
-              bottom: 130,
-              child: GPSPage(),
-            ),
+            if (_selectedIndex == 0)
+              const Positioned(
+                left: 0,
+                right: 0,
+                bottom: 130,
+                child: GPSPage(),
+              ),
             Positioned(
               left: 32,
               right: 32,
               bottom: 32,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.8),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildNavItem(0, Icons.map_outlined, Icons.map),
-                        _buildNavItem(1, Icons.update_outlined, Icons.update),
-                        _buildNavItem(2, Icons.route_outlined, Icons.route),
-                        _buildNavItem(
-                            3, Icons.settings_outlined, Icons.settings),
-                        _buildNavItem(
-                            4, Icons.data_array_outlined, Icons.data_array),
-                      ],
-                    ),
-                  ),
-                ),
+              child: BottomNavBar(
+                selectedIndex: _selectedIndex,
+                onIndexChanged: (index) =>
+                    setState(() => _selectedIndex = index),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem(int index, IconData icon, IconData activeIcon) {
-    final isSelected = _selectedIndex == index;
-
-    return GestureDetector(
-      onTap: () => setState(() => _selectedIndex = index),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: isSelected
-            ? BoxDecoration(
-                color: Colors.white.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(10),
-              )
-            : null,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isSelected ? activeIcon : icon,
-              color: isSelected ? Theme.of(context).primaryColor : Colors.grey,
-              size: 36,
             ),
           ],
         ),

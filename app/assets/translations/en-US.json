@@ -2,6 +2,12 @@
     "home": {
         "start_new_journey": "Start new journey",
         "pause": "Pause",
-        "resume": "Resume"
+        "resume": "Resume",
+        "end_journey_title": "End Journey?",
+        "end_journey_message": "Are you sure you want to end your current journey?"
+    },
+    "common": {
+        "cancel": "Cancel",
+        "end": "End"
     }
 }
