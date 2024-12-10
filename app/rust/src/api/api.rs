@@ -176,7 +176,8 @@ pub struct CameraOption {
     pub lat: f64,
 }
 
-pub fn get_default_camera_option_from_journey_bitmap(
+// TODO: redesign this interface at a better position
+pub(crate) fn get_default_camera_option_from_journey_bitmap(
     journey_bitmap: &JourneyBitmap,
 ) -> Option<CameraOption> {
     // TODO: Currently we use the coordinate of the top left of a random block (first one in the hashtbl),

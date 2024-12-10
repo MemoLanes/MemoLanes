@@ -1,6 +1,6 @@
 use ctrlc;
 use journey_kernel::journey_bitmap::JourneyBitmap;
-use memolanes_core::api::api::get_default_camera_option_from_journey_bitmap;
+use memolanes_core::renderer::get_default_camera_option_from_journey_bitmap;
 use memolanes_core::renderer::MapServer;
 use std::sync::Arc;
 use std::sync::Mutex;

@@ -1,11 +1,5 @@
 use crate::journey_bitmap::JourneyBitmap;
-use actix::AsyncContext;
-use actix::{Actor, StreamHandler};
-use actix_web::{web, App, Error, HttpRequest, HttpResponse, HttpServer};
-use actix_web_actors::ws;
-use rand::Rng;
-use serde::{Deserialize, Serialize};
-use serde_json;
+use actix_web::{web, App, HttpResponse, HttpServer};
 use std::borrow::Cow;
 use std::thread;
 use tokio::runtime::Runtime;
@@ -17,6 +11,7 @@ use std::sync::{Arc, Mutex, RwLock, Weak};
 
 // TODO:: maybe we should move this out of the api
 use crate::api::api::CameraOption;
+
 
 // TODO: implement the push-based map command interface
 /// the Token is owned by flutter side code whenever there is a webview based map widget to be created.
