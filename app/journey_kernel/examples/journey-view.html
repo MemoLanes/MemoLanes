@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset='utf-8' />
+    <title>Custom Canvas Layer</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <!-- WARNING: the following are mapbox 3.6.0, starting from mapbox 3.7.0, the canvas dimension change will not be correctly handled. -->
+    <script src='mapbox-gl.js'></script>
+    <link href='mapbox-gl.css' rel='stylesheet' />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id='map'></div>
+    <script type="module">
+        import init, { JourneyBitmap } from '../pkg/journey_kernel.js';
+        import { JourneyCanvasLayer } from './journey-canvas-layer.js';
+
+        async function initializeMap() {
+            await init();
+            // Get hash from URL or use default filename
+            const hash = window.location.hash.slice(1);
+            const filename = hash
+                ? `/items/${hash}`
+                : '../journey_bitmap.bin';
+
+            console.log(`Fetching ${filename}`);
+            const response = await fetch(`${filename}`);
+            const arrayBuffer = await response.arrayBuffer();
+            const journeyBitmap = JourneyBitmap.from_bytes(new Uint8Array(arrayBuffer));
+            console.log(`Loaded ${filename}`);
+
+            // Load Mapbox token from .token.json
+            const tokenResponse = await fetch('./token.json');
+            const tokenData = await tokenResponse.json();
+            mapboxgl.accessToken = tokenData['MAPBOX-ACCESS-TOKEN'];
+
+            const map = new mapboxgl.Map({
+                container: 'map',
+                style: 'mapbox://styles/mapbox/streets-v12',
+                center: [0, 0],
+                zoom: 2,
+                maxZoom: 15,
+                antialias: true,
+                projection: 'mercator'
+            });
+
+            const journeyLayer = new JourneyCanvasLayer(map, journeyBitmap);
+
+            map.on('load', () => {
+                map.addSource("main-canvas-source", journeyLayer.getSourceConfig());
+                map.addLayer({
+                    id: "main-canvas-layer",
+                    source: "main-canvas-source",
+                    type: "raster",
+                    paint: {
+                        "raster-fade-duration": 0,
+                    },
+                });
+                journeyLayer.render();
+            });
+
+            map.on("move", () => journeyLayer.render());
+            map.on("moveend", () => journeyLayer.render());
+
+            map.on('load', () => {
+                map.addLayer(journeyLayer);
+            });
+        }
+
+        // Start initialization
+        initializeMap().catch(console.error);
+    </script>
+</body>
+
+</html>

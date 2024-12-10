@@ -12,10 +12,12 @@ wasm-pack build --target web --features wasm --no-default-features
 cargo test
 ```
 
-3. modify the `examples/journey_view.html` MAPBOX_ACCESS_TOKEN and open it with web server (live server, vscode live server, etc. we need the access file through relative path)
+3. check the `setup_token.py` has been executed again, and there is a `token.json` in the `examples` folder.
 
-4. make sure links to `journey_bitmap.bin` in `examples/journey-sw.js` and `examples/journey_view.html` are correct.
+4. make sure links to `journey_bitmap.bin` in `examples/journey-view.html` are correct.
 
-5. open the `journey_view.html` in browser. You may see the following effect:
+5. open the `journey-view.html` in browser. You may see the following effect:
+
+You will see effect like this (the look may be different since we have updated since the screenshot):
 
 ![journey_view](journey_view.png)
