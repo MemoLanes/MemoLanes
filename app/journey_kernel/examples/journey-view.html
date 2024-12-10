@@ -43,6 +43,21 @@
             const journeyBitmap = JourneyBitmap.from_bytes(new Uint8Array(arrayBuffer));
             console.log(`Loaded ${filename}`);
 
+            // Try to fetch provisioned camera location
+            let initialCenter = [0, 0];
+            let initialZoom = 2;
+            try {
+                const cameraResponse = await fetch(`${filename}/provisioned_camera_option`);
+                if (cameraResponse.ok) {
+                    const cameraData = await cameraResponse.json();
+                    initialCenter = [cameraData.lng, cameraData.lat];
+                    initialZoom = cameraData.zoom;
+                    console.log('Using provisioned camera location:', cameraData);
+                }
+            } catch (error) {
+                console.log('No provisioned camera location available:', error);
+            }
+
             // Load Mapbox token from .token.json
             const tokenResponse = await fetch('./token.json');
             const tokenData = await tokenResponse.json();
@@ -51,8 +66,8 @@
             const map = new mapboxgl.Map({
                 container: 'map',
                 style: 'mapbox://styles/mapbox/streets-v12',
-                center: [0, 0],
-                zoom: 2,
+                center: initialCenter,
+                zoom: initialZoom,
                 maxZoom: 15,
                 antialias: true,
                 projection: 'mercator'
