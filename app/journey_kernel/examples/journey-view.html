@@ -34,7 +34,7 @@
             // Get hash from URL or use default filename
             const hash = window.location.hash.slice(1);
             const filename = hash
-                ? `/items/${hash}`
+                ? `items/${hash}`
                 : '../journey_bitmap.bin';
 
             console.log(`Fetching ${filename}`);
@@ -68,9 +68,12 @@
                 style: 'mapbox://styles/mapbox/streets-v12',
                 center: initialCenter,
                 zoom: initialZoom,
-                maxZoom: 15,
+                maxZoom: 14,
                 antialias: true,
-                projection: 'mercator'
+                projection: 'mercator',
+                pitch: 0,
+                pitchWithRotate: false,
+                touchPitch: false,
             });
 
             const journeyLayer = new JourneyCanvasLayer(map, journeyBitmap);
