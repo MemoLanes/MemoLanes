@@ -30,26 +30,19 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
   @override
   void initState() {
     super.initState();
-    _initializeFirstDate();
-    _initializeNestedYearMonthsAndDay();
+    _initialize();
     _updateJourneyHeaderList();
   }
 
-  Future<void> _initializeFirstDate() async {
+  Future<void> _initialize() async {
     NaiveDate? earliestDate = await api.earliestJourneyDate();
     if (earliestDate != null) {
       firstDate = DateTime.parse(naiveDateToString(date: earliestDate));
     } else {
       firstDate = null;
     }
-    setState(() {
-      _isLoadingFirstDate = false;
-    });
-  }
 
-  void _initializeNestedYearMonthsAndDay() async {
     var yearList = await api.yearsWithJourney();
-
     for (var year in yearList) {
       var monthsList = await api.monthsWithJourney(year: year);
       var tmp = {};
@@ -59,6 +52,9 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
       }
       nestedYearMonthsAndDay[year] = tmp;
     }
+    setState(() {
+      _isLoadingFirstDate = false;
+    });
   }
 
   void _updateJourneyHeaderList() async {
