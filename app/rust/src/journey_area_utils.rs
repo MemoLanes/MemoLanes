@@ -10,7 +10,7 @@ const EARTH_RADIUS: f64 = 6371000.0; // unit: meter
 // block has better efficiency and accuracy compared to simple interation and other methods.
 // codes for different calculating methods can be found here:
 // https://github.com/TimRen01/TimRen01_repo/tree/compare_method_calculate_area_by_journey
-pub fn compute_journey_bitmap_area(journey_bitmap: &JourneyBitmap) -> f64 {
+pub fn compute_journey_bitmap_area(journey_bitmap: &JourneyBitmap) -> u64 {
     let total_area: f64 = journey_bitmap
         .tiles
         .iter()
@@ -60,5 +60,6 @@ pub fn compute_journey_bitmap_area(journey_bitmap: &JourneyBitmap) -> f64 {
             })
         })
         .sum();
-    total_area
+    // we don't have that much precision in the journey bitmap anyway
+    total_area.round() as u64
 }
