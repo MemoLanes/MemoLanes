@@ -31,6 +31,14 @@ class _SettingsBodyState extends State<SettingsBody> {
 
   Future<void> _selectImportFile(
       BuildContext context, ImportType importType) async {
+    // TODO: FilePicker is weird and `allowedExtensions` does not really work.
+    // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
+    // List<String> allowedExtensions;
+    // if (importType == ImportType.fow) {
+    //   allowedExtensions = ['zip'];
+    // } else {
+    //   allowedExtensions = ['kml', 'gpx'];
+    // }
     final result = await FilePicker.platform.pickFiles(type: FileType.any);
     final path = result?.files.single.path;
     if (path != null && context.mounted) {
@@ -87,6 +95,7 @@ class _SettingsBodyState extends State<SettingsBody> {
                   var file = File(filepath);
                   await file.delete();
                 } catch (e) {
+                  // don't care about error
                   print(e);
                 }
               },
@@ -122,6 +131,8 @@ class _SettingsBodyState extends State<SettingsBody> {
             const SizedBox(height: 12),
             ElevatedButton(
               onPressed: () async {
+                // TODO: FilePicker is weird and `allowedExtensions` does not really work.
+                // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
                 var result =
                     await FilePicker.platform.pickFiles(type: FileType.any);
                 if (result != null) {
@@ -151,6 +162,7 @@ class _SettingsBodyState extends State<SettingsBody> {
                   var file = File(filepath);
                   await file.delete();
                 } catch (e) {
+                  // don't care about error
                   print(e);
                 }
               },
