@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:memolanes/component/bottom_nav_bar.dart';
 import 'package:memolanes/time_machine.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -103,6 +104,7 @@ class MyApp extends StatelessWidget {
     if (deviceLocale.languageCode == 'zh') {
       locale = const Locale('zh', 'CN');
     }
+    initializeDateFormatting(locale.toString());
     context.setLocale(locale);
   }
 
@@ -111,8 +113,8 @@ class MyApp extends StatelessWidget {
     _naiveLocaleSelection(context);
     return MaterialApp(
       title: 'MemoLanes',
-      localizationsDelegates: context.localizationDelegates,
       supportedLocales: context.supportedLocales,
+      localizationsDelegates: context.localizationDelegates,
       locale: context.locale,
       theme: ThemeData(
         useMaterial3: true,

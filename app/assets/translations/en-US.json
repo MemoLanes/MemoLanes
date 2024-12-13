@@ -9,5 +9,8 @@
     "common": {
         "cancel": "Cancel",
         "end": "End"
+    },
+    "journey": {
+        "no_data": "There's no data yet, go ahead and explore the world!"
     }
 }
