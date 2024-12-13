@@ -16,9 +16,7 @@ class JourneyUiBody extends StatefulWidget {
 class _JourneyUiBodyState extends State<JourneyUiBody> {
   List<JourneyHeader> _journeyHeaderList = [];
 
-  List<DateTime> _singleSelectedDatePickerValue = [
-    DateTime.now(),
-  ];
+  DateTime _selectedDate = DateTime.now();
   late final DateTime? _firstDate;
   final lastDate = DateTime.now();
   late final List<int> _yearsWithJourneyList;
@@ -41,11 +39,10 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
       _firstDate = null;
     }
     _yearsWithJourneyList = await api.yearsWithJourney();
-    _monthsWithJourneyList = await api.monthsWithJourney(
-        year: _singleSelectedDatePickerValue.first.year);
+    _monthsWithJourneyList =
+        await api.monthsWithJourney(year: _selectedDate.year);
     _daysWithJourneyList = await api.daysWithJourney(
-        year: _singleSelectedDatePickerValue.first.year,
-        month: _singleSelectedDatePickerValue.first.month);
+        year: _selectedDate.year, month: _selectedDate.month);
     setState(() {
       _isLoadingFirstDate = false;
     });
@@ -53,9 +50,9 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
 
   void _updateJourneyHeaderList() async {
     final journeyHeaderList = await api.listJournyOnDate(
-        year: _singleSelectedDatePickerValue.first.year,
-        month: _singleSelectedDatePickerValue.first.month,
-        day: _singleSelectedDatePickerValue.first.day);
+        year: _selectedDate.year,
+        month: _selectedDate.month,
+        day: _selectedDate.day);
     setState(() {
       _journeyHeaderList = journeyHeaderList;
     });
@@ -129,21 +126,21 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
     );
     return CalendarDatePicker2(
       config: config,
-      value: _singleSelectedDatePickerValue,
+      value: [_selectedDate],
       onValueChanged: (dates) {
-        setState(() => _singleSelectedDatePickerValue = dates);
+        setState(() => _selectedDate = dates.first);
         _updateJourneyHeaderList();
       },
       onDisplayedMonthChanged: (value) async {
-        DateTime nextDate = DateTime(
-            value.year, value.month, _singleSelectedDatePickerValue.first.day);
+        DateTime nextDate =
+            DateTime(value.year, value.month, _selectedDate.day);
         if (lastDate.isBefore(nextDate)) {
           nextDate = lastDate;
         }
         if (firstDate.isAfter(nextDate)) {
           nextDate = firstDate;
         }
-        if (value.year != _singleSelectedDatePickerValue.first.year) {
+        if (value.year != _selectedDate.year) {
           _monthsWithJourneyList =
               await api.monthsWithJourney(year: nextDate.year);
         }
@@ -151,7 +148,7 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
         _daysWithJourneyList = await api.daysWithJourney(
             month: nextDate.month, year: nextDate.year);
         setState(() {
-          _singleSelectedDatePickerValue = [nextDate];
+          _selectedDate = nextDate;
         });
         _updateJourneyHeaderList();
       },
@@ -185,8 +182,7 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
                   )).then((refresh) async {
                     if (refresh != null && refresh) {
                       _daysWithJourneyList = await api.daysWithJourney(
-                          year: _singleSelectedDatePickerValue.first.year,
-                          month: _singleSelectedDatePickerValue.first.month);
+                          year: _selectedDate.year, month: _selectedDate.month);
                       _updateJourneyHeaderList();
                     }
                   });

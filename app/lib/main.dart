@@ -104,7 +104,7 @@ class MyApp extends StatelessWidget {
     if (deviceLocale.languageCode == 'zh') {
       locale = const Locale('zh', 'CN');
     }
-    initializeDateFormatting(locale.toString(), null);
+    initializeDateFormatting(locale.toString());
     context.setLocale(locale);
   }
 
