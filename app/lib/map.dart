@@ -4,6 +4,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:memolanes/component/base_map.dart';
+import 'package:memolanes/component/map_controls/accuracy_display.dart';
+import 'package:memolanes/component/map_controls/tracking_button.dart';
+import 'package:memolanes/gps_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:json_annotation/json_annotation.dart';
@@ -219,28 +222,55 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
     final mapRendererProxy = api.getMapRendererProxyForMainMap();
     if (initialCameraOptions == null) {
       return const CircularProgressIndicator();
-    } else {
-      return Scaffold(
-        body: (BaseMap(
-          key: const ValueKey("mapWidget"),
-          mapRendererProxy: mapRendererProxy,
-          initialCameraOptions: initialCameraOptions,
-          onMapCreated: _onMapCreated,
-          onScrollListener: _onMapScrollListener,
-        )),
-        floatingActionButton: FloatingActionButton(
-          backgroundColor: trackingMode == TrackingMode.displayAndTracking
-              ? Colors.blue
-              : Colors.grey,
-          onPressed: _trackingModeButton,
-          child: Icon(
-            trackingMode == TrackingMode.off
-                ? Icons.near_me_disabled
-                : Icons.near_me,
-            color: Colors.black,
-          ),
-        ),
-      );
     }
+
+    return Scaffold(
+      body: Stack(
+        children: [
+          BaseMap(
+            key: const ValueKey("mapWidget"),
+            mapRendererProxy: mapRendererProxy,
+            initialCameraOptions: initialCameraOptions,
+            onMapCreated: _onMapCreated,
+            onScrollListener: _onMapScrollListener,
+          ),
+          // TODO: Show profile level indicator
+          // Positioned(
+          //   top: 16,
+          //   right: 16,
+          //   child: ProfileLevelIndicator(
+          //     level: 179,
+          //     progress: 0.75,
+          //     onTap: () => debugPrint('Profile tapped'),
+          //   ),
+          // ),
+          Positioned(
+            right: 16,
+            bottom: 256,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                TrackingButton(
+                  trackingMode: trackingMode,
+                  onPressed: _trackingModeButton,
+                ),
+                const AccuracyDisplay(),
+                // TODO: Implement layer picker functionality
+                // LayerButton(
+                //   onPressed: () {},
+                // ),
+              ],
+            ),
+          ),
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 130,
+            child: GPSPage(),
+          ),
+        ],
+      ),
+    );
   }
 }
