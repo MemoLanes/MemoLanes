@@ -85,7 +85,7 @@ class ProfileLevelIndicator extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    'Lv. ${level}',
+                    'Lv. $level',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 12,

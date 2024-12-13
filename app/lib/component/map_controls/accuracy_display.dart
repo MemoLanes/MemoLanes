@@ -5,15 +5,56 @@ import 'dart:math' as math;
 import 'package:memolanes/gps_recording_state.dart';
 import 'package:provider/provider.dart';
 
-class AccuracyDisplay extends StatelessWidget {
-  final bool showDebugInfo;
-  final VoidCallback onToggleDebugInfo;
+// TODO: We should also show accuracy when we are not recording, otherwise `NO GPS` can be misleading.
 
+class AccuracyDisplay extends StatefulWidget {
   const AccuracyDisplay({
     super.key,
-    required this.showDebugInfo,
-    required this.onToggleDebugInfo,
   });
+  @override
+  State<AccuracyDisplay> createState() => _AccuracyDisplayState();
+}
+
+enum AccuracyLevel {
+  excellent,
+  good,
+  fair,
+  poor,
+}
+
+AccuracyLevel getAccuracyLevel(double accuracy) {
+  // TODO: tweak this
+  if (accuracy < 10) {
+    return AccuracyLevel.excellent;
+  } else if (accuracy < 20) {
+    return AccuracyLevel.good;
+  } else if (accuracy < 50) {
+    return AccuracyLevel.fair;
+  } else {
+    return AccuracyLevel.poor;
+  }
+}
+
+String getSignalStatus(AccuracyLevel accuracyLevel) {
+  return switch (accuracyLevel) {
+    AccuracyLevel.excellent => "Excellent",
+    AccuracyLevel.good => "Good",
+    AccuracyLevel.fair => "Fair",
+    AccuracyLevel.poor => "Poor",
+  };
+}
+
+Color getStatusColor(AccuracyLevel accuracyLevel) {
+  return switch (accuracyLevel) {
+    AccuracyLevel.excellent => const Color(0xFFB4EC51),
+    AccuracyLevel.good => Colors.yellow,
+    AccuracyLevel.fair => Colors.orange,
+    AccuracyLevel.poor => Colors.red,
+  };
+}
+
+class _AccuracyDisplayState extends State<AccuracyDisplay> {
+  bool showDetail = false;
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +71,7 @@ class AccuracyDisplay extends StatelessWidget {
               final position = gpsState.latestPosition;
               final accuracy = position?.accuracy ?? 0.0;
               final hasData = position != null;
+              final accuracyLevel = getAccuracyLevel(accuracy);
 
               return Container(
                 width: 48,
@@ -41,7 +83,9 @@ class AccuracyDisplay extends StatelessWidget {
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: hasData ? onToggleDebugInfo : null,
+                    onTap: () => {
+                      if (hasData) {setState(() => showDetail = !showDetail)}
+                    },
                     borderRadius: BorderRadius.circular(24),
                     child: Stack(
                       alignment: Alignment.center,
@@ -61,8 +105,8 @@ class AccuracyDisplay extends StatelessWidget {
                           CustomPaint(
                             size: const ui.Size(48, 48),
                             painter: AccuracyTicksPainter(
-                              filledTicks: getFilledTicks(accuracy.roundToDouble()),
-                              color: getAccuracyColor(accuracy),
+                              filledTicks: getFilledTicks(accuracyLevel),
+                              color: getStatusColor(accuracyLevel),
                             ),
                           ),
                       ],
@@ -72,32 +116,19 @@ class AccuracyDisplay extends StatelessWidget {
               );
             },
           ),
-          if (showDebugInfo)
+          if (showDetail)
             Positioned(
               right: 64,
               child: Consumer<GpsRecordingState>(
                 builder: (context, gpsState, child) {
                   final position = gpsState.latestPosition;
                   if (position != null) {
-                    String getSignalStatus(double accuracy) {
-                      if (accuracy <= 5) return "Excellent";
-                      if (accuracy <= 10) return "Good";
-                      if (accuracy <= 20) return "Fair";
-                      return "Poor";
-                    }
-
-                    Color getStatusColor(double accuracy) {
-                      if (accuracy <= 5) return const Color(0xFFB4EC51);
-                      if (accuracy <= 10) return Colors.yellow;
-                      if (accuracy <= 15) return Colors.orange;
-                      return Colors.red;
-                    }
-
-                    final signalStatus = getSignalStatus(position.accuracy);
-                    final statusColor = getStatusColor(position.accuracy);
+                    final accuracyLevel = getAccuracyLevel(position.accuracy);
+                    final signalStatus = getSignalStatus(accuracyLevel);
+                    final statusColor = getStatusColor(accuracyLevel);
 
                     return GestureDetector(
-                      onTap: onToggleDebugInfo,
+                      onTap: () => setState(() => showDetail = false),
                       child: Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -189,28 +220,13 @@ class AccuracyDisplay extends StatelessWidget {
     );
   }
 
-  Color getAccuracyColor(double accuracy) {
-    if (accuracy <= 5) {
-      return const Color(0xFFB4EC51);
-    } else if (accuracy <= 10) {
-      return Colors.yellow;
-    } else if (accuracy <= 20) {
-      return Colors.orange;
-    } else {
-      return Colors.red;
-    }
-  }
-
-  int getFilledTicks(double accuracy) {
-    if (accuracy <= 5) {
-      return 4;
-    } else if (accuracy <= 10) {
-      return 3;
-    } else if (accuracy <= 20) {
-      return 2;
-    } else {
-      return 1;
-    }
+  int getFilledTicks(AccuracyLevel accuracyLevel) {
+    return switch (accuracyLevel) {
+      AccuracyLevel.excellent => 4,
+      AccuracyLevel.good => 3,
+      AccuracyLevel.fair => 2,
+      AccuracyLevel.poor => 2,
+    };
   }
 }
 

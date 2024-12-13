@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
@@ -9,7 +8,6 @@ import 'package:memolanes/time_machine.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:memolanes/settings.dart';
-import 'package:memolanes/gps_page.dart';
 import 'package:memolanes/gps_recording_state.dart';
 import 'package:memolanes/journey.dart';
 import 'package:memolanes/map.dart';
@@ -17,7 +15,6 @@ import 'package:memolanes/raw_data.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter/services.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 void delayedInit(UpdateNotifier updateNotifier) {
@@ -94,7 +91,7 @@ void main() async {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   void _naiveLocaleSelection(BuildContext context) {
     // TODO: This naive version is good enough for now, as we only have two locales.
@@ -146,7 +143,7 @@ class MyApp extends StatelessWidget {
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({Key? key, required this.title}) : super(key: key);
+  const MyHomePage({super.key, required this.title});
   final String title;
 
   @override
@@ -163,23 +160,14 @@ class _MyHomePageState extends State<MyHomePage> {
         bottom: false,
         child: Stack(
           children: [
-            IndexedStack(
-              index: _selectedIndex,
-              children: const [
-                MapUiBody(),
-                TimeMachineUIBody(),
-                JourneyUiBody(),
-                SettingsBody(),
-                RawDataBody(),
-              ],
-            ),
-            if (_selectedIndex == 0)
-              const Positioned(
-                left: 0,
-                right: 0,
-                bottom: 130,
-                child: GPSPage(),
-              ),
+            switch (_selectedIndex) {
+              0 => const MapUiBody(),
+              1 => const TimeMachineUIBody(),
+              2 => const JourneyUiBody(),
+              3 => const SettingsBody(),
+              4 => const RawDataBody(),
+              _ => throw FormatException('Invalid index: $_selectedIndex')
+            },
             Positioned(
               left: 32,
               right: 32,
