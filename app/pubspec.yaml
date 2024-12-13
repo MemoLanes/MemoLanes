@@ -62,8 +62,6 @@ dependencies:
   easy_localization: ^3.0.7
   json_annotation: ^4.9.0
   async: ^2.11.0
-  table_calendar: ^3.1.2
-  month_year_picker: ^0.4.0+1
   calendar_date_picker2: ^1.1.7
 
 dependency_overrides:

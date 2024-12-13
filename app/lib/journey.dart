@@ -14,15 +14,14 @@ class JourneyUiBody extends StatefulWidget {
 }
 
 class _JourneyUiBodyState extends State<JourneyUiBody> {
-  final ValueNotifier<List<JourneyHeader>> _journeyHeaderList =
-      ValueNotifier<List<JourneyHeader>>([]);
+  List<JourneyHeader> _journeyHeaderList = [];
 
   List<DateTime?> _singleSelectedDatePickerValue = [
     DateTime.now(),
   ];
-  late final DateTime? firstDate;
+  late final DateTime? _firstDate;
   final lastDate = DateTime.now();
-  late Map<int, dynamic> nestedYearMonthsAndDay = {};
+  late Map<int, Map<int, List<int>>> nestedYearMonthsAndDay = {};
   bool _isLoadingFirstDate = true;
 
   @override
@@ -35,15 +34,15 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
   Future<void> _initialize() async {
     NaiveDate? earliestDate = await api.earliestJourneyDate();
     if (earliestDate != null) {
-      firstDate = DateTime.parse(naiveDateToString(date: earliestDate));
+      _firstDate = DateTime.parse(naiveDateToString(date: earliestDate));
     } else {
-      firstDate = null;
+      _firstDate = null;
     }
 
     var yearList = await api.yearsWithJourney();
     for (var year in yearList) {
       var monthsList = await api.monthsWithJourney(year: year);
-      var tmp = {};
+      Map<int, List<int>> tmp = {};
       for (var month in monthsList) {
         var dayList = await api.daysWithJourney(year: year, month: month);
         tmp[month] = dayList;
@@ -56,13 +55,16 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
   }
 
   void _updateJourneyHeaderList() async {
-    _journeyHeaderList.value = await api.listJournyOnDate(
+    final journeyHeaderList = await api.listJournyOnDate(
         year: _singleSelectedDatePickerValue.first!.year,
         month: _singleSelectedDatePickerValue.first!.month,
         day: _singleSelectedDatePickerValue.first!.day);
+    setState(() {
+      _journeyHeaderList = journeyHeaderList;
+    });
   }
 
-  Widget _buildDatePickerWithValue() {
+  Widget _buildDatePickerWithValue(DateTime firstDate) {
     final config = CalendarDatePicker2Config(
       firstDate: firstDate,
       lastDate: DateTime.now(),
@@ -87,7 +89,7 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
       selectableDayPredicate: (day) {
         if (nestedYearMonthsAndDay.containsKey(day.year) &&
             nestedYearMonthsAndDay[day.year]!.containsKey(day.month)) {
-          return nestedYearMonthsAndDay[day.year][day.month].contains(day.day);
+          return nestedYearMonthsAndDay[day.year][day.month]?.contains(day.day);
         }
         return false;
       },
@@ -152,8 +154,8 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
         if (lastDate.isBefore(nextDate)) {
           nextDate = lastDate;
         }
-        if (firstDate!.isAfter(nextDate)) {
-          nextDate = firstDate!;
+        if (firstDate.isAfter(nextDate)) {
+          nextDate = firstDate;
         }
         setState(() {
           _singleSelectedDatePickerValue = [nextDate];
@@ -165,63 +167,57 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
 
   Widget _buildJourneyHeaderList() {
     return Expanded(
-      child: ValueListenableBuilder<List<JourneyHeader>>(
-        valueListenable: _journeyHeaderList,
-        builder: (context, value, _) {
-          return ListView.builder(
-            itemCount: value.length,
-            itemBuilder: (context, index) {
-              return Container(
-                margin: const EdgeInsets.symmetric(
-                  horizontal: 12.0,
-                  vertical: 4.0,
-                ),
-                decoration: BoxDecoration(
-                  border: Border.all(),
-                  borderRadius: BorderRadius.circular(12.0),
-                ),
-                child: ListTile(
-                  title:
-                      Text(naiveDateToString(date: value[index].journeyDate)),
-                  onTap: () {
-                    Navigator.push(context, MaterialPageRoute(
-                      builder: (context) {
-                        return JourneyInfoPage(
-                          journeyHeader: value[index],
-                        );
-                      },
-                    )).then((refresh) async {
-                      if (refresh != null && refresh) {
-                        _updateJourneyHeaderList();
-                      }
-                    });
-                  },
-                ),
-              );
-            },
-          );
-        },
-      ),
+      child: ListView.builder(
+          itemCount: _journeyHeaderList.length,
+          itemBuilder: (context, index) {
+            return Container(
+              margin: const EdgeInsets.symmetric(
+                horizontal: 12.0,
+                vertical: 4.0,
+              ),
+              decoration: BoxDecoration(
+                border: Border.all(),
+                borderRadius: BorderRadius.circular(12.0),
+              ),
+              child: ListTile(
+                title: Text(naiveDateToString(
+                    date: _journeyHeaderList[index].journeyDate)),
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (context) {
+                      return JourneyInfoPage(
+                        journeyHeader: _journeyHeaderList[index],
+                      );
+                    },
+                  )).then((refresh) async {
+                    if (refresh != null && refresh) {
+                      _updateJourneyHeaderList();
+                    }
+                  });
+                },
+              ),
+            );
+          }),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoadingFirstDate) {
-      // 渲染加载状态
       return const Center(child: CircularProgressIndicator());
     }
+    final firstDate = _firstDate;
     if (firstDate == null) {
       return Scaffold(
           body: Center(
-        child: Text(context.tr("journey.empty_journey_data")),
+        child: Text(context.tr("journey.no_data")),
       ));
     } else {
       return Scaffold(
           body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          _buildDatePickerWithValue(),
+          _buildDatePickerWithValue(firstDate),
           const SizedBox(height: 8.0),
           _buildJourneyHeaderList(),
         ],
