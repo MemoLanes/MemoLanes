@@ -39,7 +39,6 @@ class _SettingsBodyState extends State<SettingsBody> {
     // } else {
     //   allowedExtensions = ['kml', 'gpx'];
     // }
-
     final result = await FilePicker.platform.pickFiles(type: FileType.any);
     final path = result?.files.single.path;
     if (path != null && context.mounted) {
@@ -57,130 +56,147 @@ class _SettingsBodyState extends State<SettingsBody> {
     var updateUrl = context.watch<UpdateNotifier>().updateUrl;
     var gpsRecordingState = context.watch<GpsRecordingState>();
 
-    return Column(
-      children: [
-        ElevatedButton(
-          onPressed: () async {
-            _selectImportFile(context, ImportType.gpxOrKml);
-          },
-          child: const Text("Import KML/GPX data"),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            await showInfoDialog(context,
-                "This is an experimental feature and only supports zip compressed Fog of World Sync folder.\n\nPlease try not to import large amount of data or multiple datasets. A better import tool will be released in the future.");
-            if (!context.mounted) return;
-            await _selectImportFile(context, ImportType.fow);
-          },
-          child: const Text("Import FoW data"),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            if (gpsRecordingState.status != GpsRecordingStatus.none) {
-              await showInfoDialog(context,
-                  "Please stop the current ongoing journey before archiving.");
-              return;
-            }
-            var tmpDir = await getTemporaryDirectory();
-            var ts = DateTime.now().millisecondsSinceEpoch;
-            var filepath = "${tmpDir.path}/${ts.toString()}.mldx";
-            await generateFullArchive(targetFilepath: filepath);
-            await Share.shareXFiles([XFile(filepath)]);
-            try {
-              var file = File(filepath);
-              await file.delete();
-            } catch (e) {
-              print(e);
-              // don't care about error
-            }
-          },
-          child: const Text("Archive all (mldx file)"),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            if (gpsRecordingState.status != GpsRecordingStatus.none) {
-              await showInfoDialog(context,
-                  "Please stop the current ongoing journey before deleting all journeys.");
-              return;
-            }
-            if (!await showInfoDialog(
-                context,
-                "This will delete all journeys in this app. Are you sure?",
-                true)) {
-              return;
-            }
-            try {
-              await deleteAllJourneys();
-              if (context.mounted) {
-                await showInfoDialog(context, "All journeys are deleted.");
-              }
-            } catch (e) {
-              if (context.mounted) {
-                await showInfoDialog(context, e.toString());
-              }
-            }
-          },
-          child: const Text("Delete all journeys"),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            // TODO: FilePicker is weird and `allowedExtensions` does not really work.
-            // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
-            var result =
-                await FilePicker.platform.pickFiles(type: FileType.any);
-            if (result != null) {
-              var path = result.files.single.path;
-              if (path != null) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ElevatedButton(
+              onPressed: () async {
+                _selectImportFile(context, ImportType.gpxOrKml);
+              },
+              child: const Text("Import KML/GPX data"),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () async {
+                await showInfoDialog(context,
+                    "This is an experimental feature and only supports zip compressed Fog of World Sync folder.\n\nPlease try not to import large amount of data or multiple datasets. A better import tool will be released in the future.");
+                if (!context.mounted) return;
+                await _selectImportFile(context, ImportType.fow);
+              },
+              child: const Text("Import FoW data"),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () async {
+                if (gpsRecordingState.status != GpsRecordingStatus.none) {
+                  await showInfoDialog(context,
+                      "Please stop the current ongoing journey before archiving.");
+                  return;
+                }
+                var tmpDir = await getTemporaryDirectory();
+                var ts = DateTime.now().millisecondsSinceEpoch;
+                var filepath = "${tmpDir.path}/${ts.toString()}.mldx";
+                await generateFullArchive(targetFilepath: filepath);
+                await Share.shareXFiles([XFile(filepath)]);
                 try {
-                  await importArchive(mldxFilePath: path);
+                  var file = File(filepath);
+                  await file.delete();
+                } catch (e) {
+                  // don't care about error
+                  print(e);
+                }
+              },
+              child: const Text("Archive all (mldx file)"),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () async {
+                if (gpsRecordingState.status != GpsRecordingStatus.none) {
+                  await showInfoDialog(context,
+                      "Please stop the current ongoing journey before deleting all journeys.");
+                  return;
+                }
+                if (!await showInfoDialog(
+                    context,
+                    "This will delete all journeys in this app. Are you sure?",
+                    true)) {
+                  return;
+                }
+                try {
+                  await deleteAllJourneys();
+                  if (context.mounted) {
+                    await showInfoDialog(context, "All journeys are deleted.");
+                  }
                 } catch (e) {
                   if (context.mounted) {
                     await showInfoDialog(context, e.toString());
                   }
                 }
-              }
-            }
-          },
-          child: const Text("Import archive (mldx file)"),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            var tmpDir = await getTemporaryDirectory();
-            var ts = DateTime.now().millisecondsSinceEpoch;
-            var filepath = "${tmpDir.path}/${ts.toString()}.zip";
-            await exportLogs(targetFilePath: filepath);
-            await Share.shareXFiles([XFile(filepath)]);
-            try {
-              var file = File(filepath);
-              await file.delete();
-            } catch (e) {
-              print(e);
-              // don't care about error
-            }
-          },
-          child: const Text("Export Logs"),
-        ),
-        if (updateUrl != null)
-          ElevatedButton(
-            onPressed: () async {
-              _launchUrl(updateUrl);
-            },
-            child: const Text(
-              "Update",
-              style: TextStyle(color: Colors.red),
+              },
+              child: const Text("Delete all journeys"),
             ),
-          ),
-        Text(
-          "Version: ${shortCommitHash()}",
-          style: const TextStyle(
-            fontSize: 12.0,
-            fontWeight: FontWeight.normal,
-            color: Colors.black87,
-            fontStyle: FontStyle.normal,
-            decoration: TextDecoration.none,
-          ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () async {
+                // TODO: FilePicker is weird and `allowedExtensions` does not really work.
+                // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
+                var result =
+                    await FilePicker.platform.pickFiles(type: FileType.any);
+                if (result != null) {
+                  var path = result.files.single.path;
+                  if (path != null) {
+                    try {
+                      await importArchive(mldxFilePath: path);
+                    } catch (e) {
+                      if (context.mounted) {
+                        await showInfoDialog(context, e.toString());
+                      }
+                    }
+                  }
+                }
+              },
+              child: const Text("Import archive (mldx file)"),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () async {
+                var tmpDir = await getTemporaryDirectory();
+                var ts = DateTime.now().millisecondsSinceEpoch;
+                var filepath = "${tmpDir.path}/${ts.toString()}.zip";
+                await exportLogs(targetFilePath: filepath);
+                await Share.shareXFiles([XFile(filepath)]);
+                try {
+                  var file = File(filepath);
+                  await file.delete();
+                } catch (e) {
+                  // don't care about error
+                  print(e);
+                }
+              },
+              child: const Text("Export Logs"),
+            ),
+            if (updateUrl != null) ...[
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () async {
+                  _launchUrl(updateUrl);
+                },
+                child: const Text(
+                  "Update",
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+            const SizedBox(height: 24),
+            Center(
+              child: Text(
+                "Version: ${shortCommitHash()}",
+                style: const TextStyle(
+                  fontSize: 12.0,
+                  fontWeight: FontWeight.normal,
+                  color: Colors.black87,
+                  fontStyle: FontStyle.normal,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ),
+            // TODO: Indicate that we used `MiSans` in this app.
+          ],
         ),
-      ],
+      ),
     );
   }
 }
