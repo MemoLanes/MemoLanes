@@ -57,88 +57,85 @@ class _TimeMachineUIBodyState extends State<TimeMachineUIBody> {
           );
 
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: <Widget>[
-            Container(
-                padding: const EdgeInsets.all(10),
-                child: const Text("Naive TimeMachine",
-                    style: TextStyle(fontSize: 20))),
-            TextField(
-              readOnly: true,
-              controller: TextEditingController(
-                  text: _dateFormat.format(_fromDateInclusive)),
-              onTap: () async {
-                DateTime? time = await showDatePicker(
-                  context: context,
-                  initialDate: _fromDateInclusive,
-                  firstDate: earliestJourneyDate,
-                  lastDate: DateTime.now(),
-                );
-                if (time != null) {
-                  setState(() {
-                    _changed = true;
-                    _fromDateInclusive = time;
-                  });
-                }
-              },
-              decoration: const InputDecoration(
-                label: Text("From: "),
-              ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: <Widget>[
+          Container(
+              padding: const EdgeInsets.all(10),
+              child: const Text("Naive TimeMachine",
+                  style: TextStyle(fontSize: 20))),
+          TextField(
+            readOnly: true,
+            controller: TextEditingController(
+                text: _dateFormat.format(_fromDateInclusive)),
+            onTap: () async {
+              DateTime? time = await showDatePicker(
+                context: context,
+                initialDate: _fromDateInclusive,
+                firstDate: earliestJourneyDate,
+                lastDate: DateTime.now(),
+              );
+              if (time != null) {
+                setState(() {
+                  _changed = true;
+                  _fromDateInclusive = time;
+                });
+              }
+            },
+            decoration: const InputDecoration(
+              label: Text("From: "),
             ),
-            TextField(
-              readOnly: true,
-              controller: TextEditingController(
-                  text: _dateFormat.format(_toDateInclusive)),
-              onTap: () async {
-                DateTime? time = await showDatePicker(
-                  context: context,
-                  initialDate: _toDateInclusive,
-                  firstDate: earliestJourneyDate,
-                  lastDate: DateTime.now(),
-                );
-                if (time != null) {
-                  setState(() {
-                    _changed = true;
-                    _toDateInclusive = time;
-                  });
-                }
-              },
-              decoration: const InputDecoration(
-                label: Text("To: "),
-              ),
+          ),
+          TextField(
+            readOnly: true,
+            controller: TextEditingController(
+                text: _dateFormat.format(_toDateInclusive)),
+            onTap: () async {
+              DateTime? time = await showDatePicker(
+                context: context,
+                initialDate: _toDateInclusive,
+                firstDate: earliestJourneyDate,
+                lastDate: DateTime.now(),
+              );
+              if (time != null) {
+                setState(() {
+                  _changed = true;
+                  _toDateInclusive = time;
+                });
+              }
+            },
+            decoration: const InputDecoration(
+              label: Text("To: "),
             ),
-            Container(
-                padding: const EdgeInsets.all(10),
-                child: ElevatedButton(
-                    onPressed: ((_loading || !_changed)
-                        ? null
-                        : () async {
-                            setState(() {
-                              _loading = true;
-                              _changed = false;
-                            });
-                            var mapRendererProxy =
-                                await api.getMapRendererProxyForJourneyDateRange(
-                                    fromDateInclusive: naiveDateOfString(
-                                        str: _dateFormat
-                                            .format(_fromDateInclusive)),
-                                    toDateInclusive: naiveDateOfString(
-                                        str: _dateFormat
-                                            .format(_toDateInclusive)));
-                            setState(() {
-                              _mapRendererProxy = mapRendererProxy;
-                              _loading = false;
-                            });
-                          }),
-                    child: Text(_loading ? "Loading" : "View"))),
-            Expanded(
-              child: mapComponent,
-            ),
-          ],
-        ),
+          ),
+          Container(
+              padding: const EdgeInsets.all(10),
+              child: ElevatedButton(
+                  onPressed: ((_loading || !_changed)
+                      ? null
+                      : () async {
+                          setState(() {
+                            _loading = true;
+                            _changed = false;
+                          });
+                          var mapRendererProxy =
+                              await api.getMapRendererProxyForJourneyDateRange(
+                                  fromDateInclusive: naiveDateOfString(
+                                      str: _dateFormat
+                                          .format(_fromDateInclusive)),
+                                  toDateInclusive: naiveDateOfString(
+                                      str: _dateFormat
+                                          .format(_toDateInclusive)));
+                          setState(() {
+                            _mapRendererProxy = mapRendererProxy;
+                            _loading = false;
+                          });
+                        }),
+                  child: Text(_loading ? "Loading" : "View"))),
+          Expanded(
+            child: mapComponent,
+          ),
+        ],
       ),
     );
   }
