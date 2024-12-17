@@ -52,10 +52,10 @@ impl RawDataRecorder {
     fn record(&mut self, raw_data: &gps_processor::RawData, recevied_timestamp_ms: i64) {
         // TODO: better error handling
         let (file, _) = self.file_and_name.get_or_insert_with(|| {
-            let timestamp_sec = Utc::now().timestamp_micros() / 1000000;
+            let current_date = Utc::now().date_naive();    
             let mut i = 0;
             let (path,filename) = loop {
-                let filename = format!("gps-{}-{}.csv", timestamp_sec, i);
+                let filename = format!("gps-{}-{}.csv", current_date, i);
                 let path =
                     Path::new(&self.dir).join(&filename);
                 if std::fs::metadata(&path).is_err() {
@@ -238,6 +238,7 @@ impl Storage {
                 })
             }
         }
+        result.sort_by(|a, b|a.name.cmp(&b.name).reverse());
         result
     }
 

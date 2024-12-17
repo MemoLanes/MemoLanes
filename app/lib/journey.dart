@@ -132,23 +132,28 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
         _updateJourneyHeaderList();
       },
       onDisplayedMonthChanged: (value) async {
-        DateTime nextDate =
+        DateTime jumpToDate =
             DateTime(value.year, value.month, _selectedDate.day);
-        if (lastDate.isBefore(nextDate)) {
-          nextDate = lastDate;
+        DateTime jumpToDateMonthLastDay =
+            DateTime(value.year, value.month + 1, 0);
+        if (_selectedDate.day > jumpToDateMonthLastDay.day) {
+          jumpToDate = jumpToDateMonthLastDay;
         }
-        if (firstDate.isAfter(nextDate)) {
-          nextDate = firstDate;
+        if (lastDate.isBefore(jumpToDate)) {
+          jumpToDate = lastDate;
+        }
+        if (firstDate.isAfter(jumpToDate)) {
+          jumpToDate = firstDate;
         }
         if (value.year != _selectedDate.year) {
           _monthsWithJourneyList =
-              await api.monthsWithJourney(year: nextDate.year);
+              await api.monthsWithJourney(year: jumpToDate.year);
         }
 
         _daysWithJourneyList = await api.daysWithJourney(
-            month: nextDate.month, year: nextDate.year);
+            month: jumpToDate.month, year: jumpToDate.year);
         setState(() {
-          _selectedDate = nextDate;
+          _selectedDate = jumpToDate;
         });
         _updateJourneyHeaderList();
       },
@@ -170,8 +175,11 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
                 borderRadius: BorderRadius.circular(12.0),
               ),
               child: ListTile(
-                title: Text(naiveDateToString(
-                    date: _journeyHeaderList[index].journeyDate)),
+                title: Text(_journeyHeaderList[index].start != null
+                    ? DateFormat("yyyy-MM-dd HH:mm:ss")
+                        .format(_journeyHeaderList[index].start!)
+                    : naiveDateToString(
+                        date: _journeyHeaderList[index].journeyDate)),
                 onTap: () {
                   Navigator.push(context, MaterialPageRoute(
                     builder: (context) {
