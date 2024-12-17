@@ -52,7 +52,7 @@ impl RawDataRecorder {
     fn record(&mut self, raw_data: &gps_processor::RawData, recevied_timestamp_ms: i64) {
         // TODO: better error handling
         let (file, _) = self.file_and_name.get_or_insert_with(|| {
-            let current_date = Utc::now().date_naive();    
+            let current_date = Utc::now().date_naive();
             let mut i = 0;
             let (path,filename) = loop {
                 let filename = format!("gps-{}-{}.csv", current_date, i);
@@ -238,7 +238,7 @@ impl Storage {
                 })
             }
         }
-        result.sort_by(|a, b|a.name.cmp(&b.name).reverse());
+        result.sort_by(|a, b| a.name.cmp(&b.name).reverse());
         result
     }
 
