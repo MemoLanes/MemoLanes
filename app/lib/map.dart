@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -234,7 +234,6 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
           onMapCreated: _onMapCreated,
           onScrollListener: _onMapScrollListener,
         ),
-
         SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -242,7 +241,6 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 const Spacer(),
-
                 Padding(
                   padding: EdgeInsets.only(
                     bottom: isLandscape ? 16 : screenSize.height * 0.08,
@@ -263,9 +261,7 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
                     ],
                   ),
                 ),
-
                 const GPSPage(),
-
                 const SizedBox(height: 116),
               ],
             ),

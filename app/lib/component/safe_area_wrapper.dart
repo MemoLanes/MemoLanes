@@ -15,7 +15,7 @@ class SafeAreaWrapper extends StatelessWidget {
     if (!useSafeArea) {
       return child;
     }
-    
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
