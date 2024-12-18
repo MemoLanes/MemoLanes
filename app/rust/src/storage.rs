@@ -1,6 +1,6 @@
 extern crate simplelog;
 use anyhow::{Ok, Result};
-use chrono::Utc;
+use chrono::Local;
 use std::fs::{remove_file, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -52,7 +52,7 @@ impl RawDataRecorder {
     fn record(&mut self, raw_data: &gps_processor::RawData, recevied_timestamp_ms: i64) {
         // TODO: better error handling
         let (file, _) = self.file_and_name.get_or_insert_with(|| {
-            let current_date = Utc::now().date_naive();
+            let current_date = Local::now().date_naive();
             let mut i = 0;
             let (path,filename) = loop {
                 let filename = format!("gps-{}-{}.csv", current_date, i);

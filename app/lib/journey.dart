@@ -54,7 +54,7 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
         month: _selectedDate.month,
         day: _selectedDate.day);
     setState(() {
-      _journeyHeaderList = journeyHeaderList;
+      _journeyHeaderList = journeyHeaderList.reversed.toList();
     });
   }
 
@@ -163,6 +163,7 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
           itemCount: _journeyHeaderList.length,
           itemBuilder: (context, index) {
             return Container(
+              margin: const EdgeInsets.all(2.0),
               decoration: BoxDecoration(
                 border: Border.all(),
                 borderRadius: BorderRadius.circular(12.0),
