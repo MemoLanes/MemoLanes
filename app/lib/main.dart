@@ -186,6 +186,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   selectedIndex: _selectedIndex,
                   onIndexChanged: (index) =>
                       setState(() => _selectedIndex = index),
+                  hasUpdateNotification:
+                      context.watch<UpdateNotifier>().hasUpdateNotification,
                 ),
               ),
             ),

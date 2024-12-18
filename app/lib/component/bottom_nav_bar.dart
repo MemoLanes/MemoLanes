@@ -1,14 +1,17 @@
+import 'package:badges/badges.dart' as badges;
 import 'package:flutter/material.dart';
 import 'dart:ui';
 
 class BottomNavBar extends StatelessWidget {
   final int selectedIndex;
   final Function(int) onIndexChanged;
+  final Function hasUpdateNotification;
 
   const BottomNavBar({
     super.key,
     required this.selectedIndex,
     required this.onIndexChanged,
+    required this.hasUpdateNotification,
   });
 
   @override
@@ -60,11 +63,42 @@ class BottomNavBar extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 )
               : null,
-          child: Icon(
-            isSelected ? activeIcon : icon,
-            color: isSelected ? Colors.black : Colors.grey,
-            size: 28,
-          ),
+          child: index == 3 && hasUpdateNotification()
+              ? badges.Badge(
+                  badgeStyle: badges.BadgeStyle(
+                    shape: badges.BadgeShape.square,
+                    borderRadius: BorderRadius.circular(5),
+                    padding: const EdgeInsets.all(2),
+                    badgeGradient: const badges.BadgeGradient.linear(
+                      colors: [
+                        Color.fromARGB(255, 129, 225, 19),
+                        Color.fromARGB(255, 9, 177, 17),
+                        Color.fromARGB(255, 129, 225, 19),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  position: badges.BadgePosition.topEnd(top: 5, end: -6),
+                  badgeContent: const Text(
+                    'NEW',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      isSelected ? activeIcon : icon,
+                      color: isSelected ? Colors.black : Colors.grey,
+                      size: 28,
+                    ),
+                  ))
+              : Icon(
+                  isSelected ? activeIcon : icon,
+                  color: isSelected ? Colors.black : Colors.grey,
+                  size: 28,
+                ),
         ),
       ),
     );
