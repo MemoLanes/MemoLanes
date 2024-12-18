@@ -98,15 +98,12 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
                     MaterialLocalizations.of(context).formatDecimal(date.day),
                     style: textStyle,
                   ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 27.5),
-                    child: Container(
-                      height: 4,
-                      width: 4,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(5),
-                        color: const Color(0xFFB4EC51),
-                      ),
+                  Container(
+                    height: 4,
+                    width: 4,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(5),
+                      color: const Color(0xFFB4EC51),
                     ),
                   ),
                 ],
@@ -166,10 +163,6 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
           itemCount: _journeyHeaderList.length,
           itemBuilder: (context, index) {
             return Container(
-              margin: const EdgeInsets.symmetric(
-                horizontal: 12.0,
-                vertical: 4.0,
-              ),
               decoration: BoxDecoration(
                 border: Border.all(),
                 borderRadius: BorderRadius.circular(12.0),
@@ -218,7 +211,6 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           _buildDatePickerWithValue(firstDate),
-          const SizedBox(height: 8.0),
           _buildJourneyHeaderList(),
         ],
       ));
