@@ -14,13 +14,14 @@ class BottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(16),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
         child: Container(
+          height: 64,
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.8),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.1),
@@ -29,46 +30,40 @@ class BottomNavBar extends StatelessWidget {
               ),
             ],
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildNavItem(0, Icons.map_outlined, Icons.map),
-                _buildNavItem(1, Icons.update_outlined, Icons.update),
-                _buildNavItem(2, Icons.route_outlined, Icons.route),
-                _buildNavItem(3, Icons.settings_outlined, Icons.settings),
-                _buildNavItem(4, Icons.data_array_outlined, Icons.data_array),
-              ],
-            ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildNavItem(Icons.map_outlined, Icons.map, 0),
+              _buildNavItem(Icons.update_outlined, Icons.update, 1),
+              _buildNavItem(Icons.route_outlined, Icons.route, 2),
+              _buildNavItem(Icons.settings_outlined, Icons.settings, 3),
+              _buildNavItem(Icons.data_array_outlined, Icons.data_array, 4),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, IconData activeIcon) {
+  Widget _buildNavItem(IconData icon, IconData activeIcon, int index) {
     final isSelected = selectedIndex == index;
 
     return Expanded(
-      child: AspectRatio(
-        aspectRatio: 1.0,
-        child: GestureDetector(
-          onTap: () => onIndexChanged(index),
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            margin: const EdgeInsets.all(4),
-            decoration: isSelected
-                ? BoxDecoration(
-                    color: Colors.white.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(12),
-                  )
-                : null,
-            child: Icon(
-              isSelected ? activeIcon : icon,
-              color: isSelected ? Colors.black : Colors.grey,
-              size: 28,
-            ),
+      child: GestureDetector(
+        onTap: () => onIndexChanged(index),
+        child: Container(
+          height: double.infinity,
+          margin: const EdgeInsets.all(8),
+          decoration: isSelected
+              ? BoxDecoration(
+                  color: Colors.white.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(8),
+                )
+              : null,
+          child: Icon(
+            isSelected ? activeIcon : icon,
+            color: isSelected ? Colors.black : Colors.grey,
+            size: 28,
           ),
         ),
       ),
