@@ -47,6 +47,40 @@ jobs:
       - name: Get Flutter Dependencies
         run: flutter pub get
 
+      # ======== START WASM MODULE ========
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "app/journey_kernel/"
+
+      - name: Get Rust Dependencies (wasm)
+        working-directory: app/journey_kernel
+        run: cargo fetch
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack
+
+      - name: Build the wasm package
+        working-directory: app/journey_kernel
+        run: | 
+          wasm-pack build --target web --features wasm --no-default-features
+        
+      - name: Cargo Check (wasm)
+        working-directory: app/journey_kernel
+        run: cargo check
+
+      - name: Check Rust format (wasm)
+        working-directory: app/journey_kernel
+        run: cargo fmt --all -- --check
+
+      - name: Rust code analysis (wasm)
+        working-directory: app/journey_kernel
+        run: cargo clippy -- -D warnings
+
+      - name: Run Rust tests (wasm)
+        working-directory: app/journey_kernel
+        run: cargo test -- --nocapture
+      # ======== END WASM MODULE ========
+
       - name: Get Rust Dependencies
         working-directory: app/rust
         run: cargo fetch
