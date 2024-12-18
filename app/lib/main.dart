@@ -160,25 +160,17 @@ class _MyHomePageState extends State<MyHomePage> {
     return Scaffold(
       body: Stack(
         children: [
-          IndexedStack(
-            index: _selectedIndex,
-            children: const [
-              MapUiBody(),
-              SafeAreaWrapper(
-                child: TimeMachineUIBody(),
-              ),
-              SafeAreaWrapper(
-                child: JourneyUiBody(),
-              ),
-              SafeAreaWrapper(
-                child: SettingsBody(),
-              ),
-              SafeAreaWrapper(
-                child: RawDataBody(),
-              ),
-            ],
-          ),
-          
+          SafeAreaWrapper(
+              useSafeArea: _selectedIndex !=
+                  0, // we don't need safe area for `MapUiBody`
+              child: switch (_selectedIndex) {
+                0 => const MapUiBody(),
+                1 => const TimeMachineUIBody(),
+                2 => const JourneyUiBody(),
+                3 => const SettingsBody(),
+                4 => const RawDataBody(),
+                _ => throw FormatException('Invalid index: $_selectedIndex')
+              }),
           Positioned(
             left: 0,
             right: 0,
@@ -192,7 +184,8 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
                 child: BottomNavBar(
                   selectedIndex: _selectedIndex,
-                  onIndexChanged: (index) => setState(() => _selectedIndex = index),
+                  onIndexChanged: (index) =>
+                      setState(() => _selectedIndex = index),
                 ),
               ),
             ),
