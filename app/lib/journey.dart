@@ -19,7 +19,7 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
   DateTime _selectedDate = DateTime.now();
   late final DateTime? _firstDate;
   final lastDate = DateTime.now();
-  late final List<int> _yearsWithJourneyList;
+  late List<int> _yearsWithJourneyList;
   late List<int> _monthsWithJourneyList;
   late List<int> _daysWithJourneyList;
   bool _isLoadingFirstDate = true;
@@ -98,12 +98,15 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
                     MaterialLocalizations.of(context).formatDecimal(date.day),
                     style: textStyle,
                   ),
-                  Container(
-                    height: 4,
-                    width: 4,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(5),
-                      color: const Color(0xFFB4EC51),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 27.5),
+                    child: Container(
+                      height: 4,
+                      width: 4,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(5),
+                        color: const Color(0xFFB4EC51),
+                      ),
                     ),
                   ),
                 ],
@@ -171,7 +174,7 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
               child: ListTile(
                 title: Text(_journeyHeaderList[index].start != null
                     ? DateFormat("yyyy-MM-dd HH:mm:ss")
-                        .format(_journeyHeaderList[index].start!)
+                        .format(_journeyHeaderList[index].start!.toLocal())
                     : naiveDateToString(
                         date: _journeyHeaderList[index].journeyDate)),
                 onTap: () {
@@ -183,6 +186,9 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
                     },
                   )).then((refresh) async {
                     if (refresh != null && refresh) {
+                      _yearsWithJourneyList = await api.yearsWithJourney();
+                      _monthsWithJourneyList =
+                          await api.monthsWithJourney(year: _selectedDate.year);
                       _daysWithJourneyList = await api.daysWithJourney(
                           year: _selectedDate.year, month: _selectedDate.month);
                       _updateJourneyHeaderList();
