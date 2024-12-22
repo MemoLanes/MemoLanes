@@ -147,4 +147,12 @@ export class JourneyCanvasLayer {
             a.length === b.length &&
             a.every((val, index) => val === b[index]);
     }
+
+    // Add new method to update journey bitmap
+    updateJourneyBitmap(newBitmap) {
+        this.journeyBitmap = newBitmap;
+        // Force a re-render by invalidating the current tile range
+        this.currentTileRange = [-1, -1, -1, -1];
+        this.render();
+    }
 } 
