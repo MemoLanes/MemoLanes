@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -168,12 +168,16 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
     // TODO: Add profile button top right
     return Stack(
       children: [
-        BaseMap(
-          key: const ValueKey("mapWidget"),
+        BaseMapWebview(
+          key: _mapKey,
           mapRendererProxy: mapRendererProxy,
           initialCameraOptions: initialCameraOptions,
-          onMapCreated: _onMapCreated,
-          onScrollListener: _onMapScrollListener,
+          initialTrackingMode: TrackingMode.off,
+          onTrackingModeChanged: (TrackingMode newMode) {
+            setState(() {
+              _currentTrackingMode = newMode;
+            });
+          },
         ),
         SafeArea(
           child: Padding(
