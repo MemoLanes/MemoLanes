@@ -66,7 +66,7 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
   // is fine but we could consider saving every minute or so.
   // TODO: reiplement this for webview
   void _saveMapState() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
+    // SharedPreferences prefs = await SharedPreferences.getInstance();
     return;
     // CameraState? cameraState = await mapController?.mapboxMap.getCameraState();
     // if (cameraState == null) return;
