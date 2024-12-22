@@ -1,5 +1,5 @@
 use crate::journey_bitmap::JourneyBitmap;
-use actix_web::{web, App, HttpResponse, HttpServer};
+use actix_web::{web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use std::borrow::Cow;
 use std::thread;
 use tokio::runtime::Runtime;
@@ -21,6 +21,7 @@ pub struct Token {
     id: Uuid,
     url: String,
     provisioned_camera_option: Arc<Mutex<Option<CameraOption>>>,
+    needs_reload: Arc<Mutex<bool>>,
     registry: Weak<RwLock<HashMap<Uuid, JourneyBitmapEntry>>>,
 }
 
@@ -32,6 +33,11 @@ impl Token {
     pub fn set_provisioned_camera_option(&self, camera_option: CameraOption) {
         let mut provisioned_camera_option = self.provisioned_camera_option.lock().unwrap();
         *provisioned_camera_option = Some(camera_option);
+    }
+
+    pub fn set_needs_reload(&self) {
+        let mut needs_reload = self.needs_reload.lock().unwrap();
+        *needs_reload = true;
     }
 }
 
@@ -47,6 +53,8 @@ impl Drop for Token {
     }
 }
 
+type JourneyBitmapModifier = Box<dyn Fn(&mut JourneyBitmap) -> bool + Send + Sync>;
+
 /// A wrapper for journey bitmap reference stored in the server's registry
 /// provisioned camera option: the backend can provide a default camera setting the for map, which depends on the use case, can either be:
 ///     1. a general view of the whole journey
@@ -55,7 +63,8 @@ impl Drop for Token {
 pub struct JourneyBitmapEntry {
     journey_bitmap: Weak<Mutex<JourneyBitmap>>,
     provisioned_camera_option: Arc<Mutex<Option<CameraOption>>>,
-    // map_commands_queue: Arc<Mutex<Vec<MapCommand>>>,
+    needs_reload: Arc<Mutex<bool>>,
+    poll_handler: Option<JourneyBitmapModifier>,
 }
 
 // Registry system for any serializable type
@@ -78,14 +87,21 @@ impl Registry {
         *prefix = url_prefix.to_string();
     }
 
-    pub fn register(&self, item: Weak<Mutex<JourneyBitmap>>) -> Token {
+    pub fn register_with_poll_handler(
+        &self,
+        item: Weak<Mutex<JourneyBitmap>>,
+        poll_handler: impl Fn(&mut JourneyBitmap) -> bool + Send + Sync + 'static,
+    ) -> Token {
         let id = Uuid::new_v4();
         let provisioned_camera_option = Arc::new(Mutex::new(None));
+        let needs_reload = Arc::new(Mutex::new(false));
         {
             let mut items = self.items.write().unwrap();
             let entry = JourneyBitmapEntry {
-                journey_bitmap: item,
+                journey_bitmap: item.clone(),
                 provisioned_camera_option: provisioned_camera_option.clone(),
+                needs_reload: needs_reload.clone(),
+                poll_handler: Some(Box::new(poll_handler)),
             };
             items.insert(id, entry);
         }
@@ -94,6 +110,31 @@ impl Registry {
             id,
             url: format!("{}/#{}", *url_prefix, id),
             provisioned_camera_option,
+            needs_reload,
+            registry: Arc::downgrade(&self.items),
+        }
+    }
+
+    pub fn register(&self, item: Weak<Mutex<JourneyBitmap>>) -> Token {
+        let id = Uuid::new_v4();
+        let provisioned_camera_option = Arc::new(Mutex::new(None));
+        let needs_reload = Arc::new(Mutex::new(false));
+        {
+            let mut items = self.items.write().unwrap();
+            let entry = JourneyBitmapEntry {
+                journey_bitmap: item,
+                provisioned_camera_option: provisioned_camera_option.clone(),
+                needs_reload: needs_reload.clone(),
+                poll_handler: None,
+            };
+            items.insert(id, entry);
+        }
+        let url_prefix = self.url_prefix.read().unwrap();
+        Token {
+            id,
+            url: format!("{}/#{}", *url_prefix, id),
+            provisioned_camera_option,
+            needs_reload,
             registry: Arc::downgrade(&self.items),
         }
     }
@@ -120,17 +161,81 @@ struct AppState {
 }
 
 // Handler for serving registered items
-async fn serve_item(id: web::Path<String>, data: web::Data<AppState>) -> HttpResponse {
+async fn serve_item(
+    id: web::Path<String>,
+    req: HttpRequest,
+    data: web::Data<AppState>,
+) -> HttpResponse {
     println!("serving item: {}", id);
+
+    // Parse UUID and get item from registry
     match Uuid::parse_str(&id)
         .ok()
         .and_then(|uuid| data.registry.get(&uuid))
     {
         Some(item) => match item.upgrade() {
-            Some(journey_bitmap) => match journey_bitmap.lock().unwrap().to_bytes() {
-                Ok(bytes) => HttpResponse::Ok().body(bytes),
-                Err(_) => HttpResponse::InternalServerError().finish(),
-            },
+            Some(journey_bitmap) => {
+                // we will first make sure the local journey_bitmap copy is the latest.
+                let mut needs_reload = false;
+
+                if let Some(entry) = data
+                    .registry
+                    .items
+                    .read()
+                    .unwrap()
+                    .get(&Uuid::parse_str(&id).unwrap())
+                {
+                    // poll the poll-handler if available to see if reconstruct the journey_bitmap is necessary
+                    //  (eg. the mainmap may need to be refreshed if a journey-delete-operation has been made.)
+                    if let Some(poll_handler) = &entry.poll_handler {
+                        if let Ok(mut guard) = journey_bitmap.lock() {
+                            // Get a mutable reference from the MutexGuard
+                            let mut_journey_bitmap: &mut JourneyBitmap = &mut guard;
+
+                            // Call the function
+                            needs_reload = needs_reload || poll_handler(mut_journey_bitmap);
+                        }
+                    }
+
+                    // check if the journey_bitmap is updated elsewhere (eg. on_location_update will add_line to the journey_bitmap)
+                    needs_reload = needs_reload || *entry.needs_reload.lock().unwrap();
+                } else {
+                    return HttpResponse::NotFound().finish();
+                }
+
+                // we will return 304 if the request is conditional, and the remote joruney_bitmap is up-to-date.
+                let is_request_conditional = req
+                    .headers()
+                    .get("If-None-Match")
+                    .and_then(|h| h.to_str().ok())
+                    .map(|s| s == "*")
+                    .unwrap_or(false);
+
+                if is_request_conditional && !needs_reload {
+                    return HttpResponse::NotModified().finish();
+                }
+
+                // otherwise, clear the flag and return the whole journey_bitmap
+                if let Some(entry) = data
+                    .registry
+                    .items
+                    .read()
+                    .unwrap()
+                    .get(&Uuid::parse_str(&id).unwrap())
+                {
+                    let mut needs_reload = entry.needs_reload.lock().unwrap();
+                    *needs_reload = false;
+                } else {
+                    return HttpResponse::NotFound().finish();
+                }
+
+                let response = match journey_bitmap.lock().unwrap().to_bytes() {
+                    Ok(bytes) => HttpResponse::Ok().body(bytes),
+                    Err(_) => return HttpResponse::InternalServerError().finish(),
+                };
+
+                response
+            }
             None => HttpResponse::NotFound().finish(),
         },
         None => HttpResponse::NotFound().finish(),
@@ -171,6 +276,14 @@ impl MapServer {
         self.registry.register(item)
     }
 
+    pub fn register_with_poll_handler(
+        &self,
+        item: Weak<Mutex<JourneyBitmap>>,
+        poll_handler: impl Fn(&mut JourneyBitmap) -> bool + Send + Sync + 'static,
+    ) -> Token {
+        self.registry.register_with_poll_handler(item, poll_handler)
+    }
+
     // Start the server in a separate thread
     pub fn start(&mut self) -> std::io::Result<()> {
         let host = self.host.clone();
@@ -178,6 +291,9 @@ impl MapServer {
         let registry = self.registry.clone();
         let random_prefix = Uuid::new_v4().to_string();
         let random_prefix2 = random_prefix.clone();
+
+        // Create a channel to signal when the URL prefix is set
+        let (tx, rx) = std::sync::mpsc::channel();
 
         let handle = thread::spawn(move || {
             let app_state = web::Data::new(AppState {
@@ -236,16 +352,21 @@ impl MapServer {
                     if let Some(addr) = server.addrs().first() {
                         let actual_port = addr.port();
                         port = actual_port;
-                        // println!("Server bound to dynamic port: {}", actual_port);
                     }
                 }
 
                 registry.set_url_prefix(&format!("http://{}:{}/{}", host, port, random_prefix2));
 
-                // println!("Server bound successfully to {}:{}", host, port);
+                // Signal that the URL prefix is set
+                tx.send(()).expect("Failed to send completion signal");
+
+                println!("Server bound successfully to {}:{}", host, port);
                 server.run().await.expect("Server failed to run");
             });
         });
+
+        // Wait for the URL prefix to be set
+        rx.recv().expect("Failed to receive completion signal");
 
         self.handle = Some(handle);
         Ok(())

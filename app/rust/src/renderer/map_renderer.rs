@@ -46,7 +46,7 @@ impl MapRenderer {
         Self::new_with_tile_renderer(journey_bitmap, tile_renderer)
     }
 
-    // TODO: consider a better place to generate the token
+    // TODO: it is currently used for WebView transition, consider a better design later
     pub fn debug_new_with_token(journey_bitmap: Arc<Mutex<JourneyBitmap>>, token: Token) -> Self {
         // let journey_bitmap = Arc::new(Mutex::new(journey_bitmap));
         // let token = registry.register(Arc::downgrade(&journey_bitmap));
@@ -184,13 +184,20 @@ impl MapRenderer {
         }
     }
 
-    // TODO: redesign this interface for webview compatibility (maybe also need to broadcast the update to the webview)
+    // TODO: redesign this interface for webview compatibility (maybe also need to notify the webview to update)
     pub fn update<F>(&mut self, f: F)
     where
         F: Fn(&mut JourneyBitmap),
     {
-        let mut journey_bitmap = self.journey_bitmap.lock().unwrap();
-        f(&mut journey_bitmap);
+        {
+            let mut journey_bitmap = self.journey_bitmap.lock().unwrap();
+            f(&mut journey_bitmap);
+        }
+
+        if let Some(token) = &self.token {
+            token.set_needs_reload();
+        }
+
         // TODO: we should improve the cache invalidation rule
         self.current_render_area = None;
     }

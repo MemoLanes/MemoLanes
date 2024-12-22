@@ -54,10 +54,21 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
 
         let mut map_server = MapServer::new("localhost", 0);
         map_server.start().unwrap();
+        info!("map server started");
+
+        // ======= WebView Transition codes START ===========
+        // TODO: this is a temporary solution for WebView transition
+        let journey_bitmap = storage.get_latest_bitmap_for_main_map_renderer().unwrap();
+        let journey_bitmap = Arc::new(Mutex::new(journey_bitmap));
+
+        let token = map_server
+            .register_with_poll_handler(Arc::downgrade(&journey_bitmap), poll_for_main_map_update);
+        let map_renderer = MapRenderer::debug_new_with_token(journey_bitmap, token);
+        // ======= WebView Transition codes END ===========
 
         MainState {
             storage,
-            map_renderer: Mutex::new(None),
+            map_renderer: Mutex::new(Some(map_renderer)),
             gps_processor: Mutex::new(GpsProcessor::new()),
             map_server: Mutex::new(Some(map_server)),
         }
@@ -73,14 +84,37 @@ pub enum MapRendererProxy {
     Simple(MapRenderer),
 }
 
+#[frb(ignore)]
+pub fn poll_for_main_map_update(journey_bitmap: &mut JourneyBitmap) -> bool {
+    let state = get();
+    let need_reload = state.storage.main_map_renderer_need_to_reload();
+    if need_reload {
+        *journey_bitmap = state
+            .storage
+            .get_latest_bitmap_for_main_map_renderer()
+            .unwrap();
+    }
+    need_reload
+}
+
 impl MapRendererProxy {
     pub fn get_url(&self) -> String {
         match self {
-            Self::MainMap => "".to_string(),
+            Self::MainMap => {
+                let state = get();
+                let map_renderer = state.map_renderer.lock().unwrap();
+                match map_renderer.as_ref() {
+                    Some(renderer) => renderer.get_url(),
+                    None => String::new(),
+                }
+            }
             Self::Simple(map_renderer) => map_renderer.get_url(),
         }
     }
 
+    // TODO: remove this function
+    // Previously, the update of journey bitmap is triggered in this call, whenever the frontend is redrawing the map.
+    // Now, since we are using WebView based rendering, we split the rendering and refreshing of the journey bitmap.
     pub fn render_map_overlay(
         &mut self,
         zoom: f32,
