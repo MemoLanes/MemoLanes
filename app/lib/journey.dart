@@ -19,7 +19,7 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
   DateTime _selectedDate = DateTime.now();
   late final DateTime? _firstDate;
   final lastDate = DateTime.now();
-  late final List<int> _yearsWithJourneyList;
+  late List<int> _yearsWithJourneyList;
   late List<int> _monthsWithJourneyList;
   late List<int> _daysWithJourneyList;
   bool _isLoadingFirstDate = true;
@@ -54,7 +54,7 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
         month: _selectedDate.month,
         day: _selectedDate.day);
     setState(() {
-      _journeyHeaderList = journeyHeaderList;
+      _journeyHeaderList = journeyHeaderList.reversed.toList();
     });
   }
 
@@ -132,23 +132,28 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
         _updateJourneyHeaderList();
       },
       onDisplayedMonthChanged: (value) async {
-        DateTime nextDate =
+        DateTime jumpToDate =
             DateTime(value.year, value.month, _selectedDate.day);
-        if (lastDate.isBefore(nextDate)) {
-          nextDate = lastDate;
+        DateTime jumpToDateMonthLastDay =
+            DateTime(value.year, value.month + 1, 0);
+        if (_selectedDate.day > jumpToDateMonthLastDay.day) {
+          jumpToDate = jumpToDateMonthLastDay;
         }
-        if (firstDate.isAfter(nextDate)) {
-          nextDate = firstDate;
+        if (lastDate.isBefore(jumpToDate)) {
+          jumpToDate = lastDate;
+        }
+        if (firstDate.isAfter(jumpToDate)) {
+          jumpToDate = firstDate;
         }
         if (value.year != _selectedDate.year) {
           _monthsWithJourneyList =
-              await api.monthsWithJourney(year: nextDate.year);
+              await api.monthsWithJourney(year: jumpToDate.year);
         }
 
         _daysWithJourneyList = await api.daysWithJourney(
-            month: nextDate.month, year: nextDate.year);
+            month: jumpToDate.month, year: jumpToDate.year);
         setState(() {
-          _selectedDate = nextDate;
+          _selectedDate = jumpToDate;
         });
         _updateJourneyHeaderList();
       },
@@ -161,17 +166,17 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
           itemCount: _journeyHeaderList.length,
           itemBuilder: (context, index) {
             return Container(
-              margin: const EdgeInsets.symmetric(
-                horizontal: 12.0,
-                vertical: 4.0,
-              ),
+              margin: const EdgeInsets.all(2.0),
               decoration: BoxDecoration(
                 border: Border.all(),
                 borderRadius: BorderRadius.circular(12.0),
               ),
               child: ListTile(
-                title: Text(naiveDateToString(
-                    date: _journeyHeaderList[index].journeyDate)),
+                title: Text(_journeyHeaderList[index].start != null
+                    ? DateFormat("yyyy-MM-dd HH:mm:ss")
+                        .format(_journeyHeaderList[index].start!.toLocal())
+                    : naiveDateToString(
+                        date: _journeyHeaderList[index].journeyDate)),
                 onTap: () {
                   Navigator.push(context, MaterialPageRoute(
                     builder: (context) {
@@ -181,6 +186,9 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
                     },
                   )).then((refresh) async {
                     if (refresh != null && refresh) {
+                      _yearsWithJourneyList = await api.yearsWithJourney();
+                      _monthsWithJourneyList =
+                          await api.monthsWithJourney(year: _selectedDate.year);
                       _daysWithJourneyList = await api.daysWithJourney(
                           year: _selectedDate.year, month: _selectedDate.month);
                       _updateJourneyHeaderList();
@@ -210,7 +218,6 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           _buildDatePickerWithValue(firstDate),
-          const SizedBox(height: 8.0),
           _buildJourneyHeaderList(),
         ],
       ));

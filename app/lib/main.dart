@@ -1,10 +1,10 @@
 import 'dart:async';
-
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:memolanes/component/bottom_nav_bar.dart';
+import 'package:memolanes/component/safe_area_wrapper.dart';
 import 'package:memolanes/time_machine.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
@@ -158,30 +158,41 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Stack(
-          children: [
-            switch (_selectedIndex) {
-              0 => const MapUiBody(),
-              1 => const TimeMachineUIBody(),
-              2 => const JourneyUiBody(),
-              3 => const SettingsBody(),
-              4 => const RawDataBody(),
-              _ => throw FormatException('Invalid index: $_selectedIndex')
-            },
-            Positioned(
-              left: 32,
-              right: 32,
-              bottom: 32,
-              child: BottomNavBar(
-                selectedIndex: _selectedIndex,
-                onIndexChanged: (index) =>
-                    setState(() => _selectedIndex = index),
+      body: Stack(
+        children: [
+          SafeAreaWrapper(
+              useSafeArea: _selectedIndex !=
+                  0, // we don't need safe area for `MapUiBody`
+              child: switch (_selectedIndex) {
+                0 => const MapUiBody(),
+                1 => const TimeMachineUIBody(),
+                2 => const JourneyUiBody(),
+                3 => const SettingsBody(),
+                4 => const RawDataBody(),
+                _ => throw FormatException('Invalid index: $_selectedIndex')
+              }),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.only(
+                  left: 24,
+                  right: 24,
+                  bottom: 32,
+                ),
+                child: BottomNavBar(
+                  selectedIndex: _selectedIndex,
+                  onIndexChanged: (index) =>
+                      setState(() => _selectedIndex = index),
+                  hasUpdateNotification:
+                      context.watch<UpdateNotifier>().hasUpdateNotification,
+                ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

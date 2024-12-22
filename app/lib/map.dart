@@ -6,10 +6,10 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:memolanes/component/base_map_webview.dart';
 import 'package:memolanes/component/map_controls/accuracy_display.dart';
 import 'package:memolanes/component/map_controls/tracking_button.dart';
-import 'package:memolanes/gps_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:json_annotation/json_annotation.dart';
+import 'package:memolanes/gps_page.dart';
 
 part 'map.g.dart';
 
@@ -52,9 +52,6 @@ extension PuckPosition on StyleManager {
 
 class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
   static const String mainMapStatePrefsKey = "MainMap.mapState";
-
-  MapUiBodyState();
-
   MapController? mapController;
   Timer? refreshTimer;
   Timer? trackTimer;
@@ -164,57 +161,54 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
       return const CircularProgressIndicator();
     }
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          BaseMapWebview(
-            key: _mapKey,
-            mapRendererProxy: mapRendererProxy,
-            initialCameraOptions: initialCameraOptions,
-            initialTrackingMode: TrackingMode.off,
-            onTrackingModeChanged: (TrackingMode newMode) {
-              setState(() {
-                _currentTrackingMode = newMode;
-              });
-            },
-          ),
-          // TODO: Show profile level indicator
-          // Positioned(
-          //   top: 16,
-          //   right: 16,
-          //   child: ProfileLevelIndicator(
-          //     level: 179,
-          //     progress: 0.75,
-          //     onTap: () => debugPrint('Profile tapped'),
-          //   ),
-          // ),
-          Positioned(
-            right: 16,
-            bottom: 256,
+    final screenSize = MediaQuery.of(context).size;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
+
+    // TODO: Add profile button top right
+    return Stack(
+      children: [
+        BaseMap(
+          key: const ValueKey("mapWidget"),
+          mapRendererProxy: mapRendererProxy,
+          initialCameraOptions: initialCameraOptions,
+          onMapCreated: _onMapCreated,
+          onScrollListener: _onMapScrollListener,
+        ),
+        SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                TrackingButton(
-                  trackingMode: _currentTrackingMode,
-                  onPressed: _trackingModeButton,
+                const Spacer(),
+                Padding(
+                  padding: EdgeInsets.only(
+                    bottom: isLandscape ? 16 : screenSize.height * 0.08,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      TrackingButton(
+                        trackingMode: _currentTrackingMode,
+                        onPressed: _trackingModeButton,
+                      ),
+                      const AccuracyDisplay(),
+                      // TODO: Implement layer picker functionality
+                      // LayerButton(
+                      //   onPressed: () {};
+                      // )
+                    ],
+                  ),
                 ),
-                const AccuracyDisplay(),
-                // TODO: Implement layer picker functionality
-                // LayerButton(
-                //   onPressed: () {},
-                // ),
+                const GPSPage(),
+                const SizedBox(height: 116),
               ],
             ),
           ),
-          const Positioned(
-            left: 0,
-            right: 0,
-            bottom: 130,
-            child: GPSPage(),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

@@ -43,7 +43,9 @@ class _GPSPageState extends State<GPSPage> {
             FilledButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                context.read<GpsRecordingState>().changeState(GpsRecordingStatus.none);
+                context
+                    .read<GpsRecordingState>()
+                    .changeState(GpsRecordingStatus.none);
               },
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.red,
@@ -63,108 +65,116 @@ class _GPSPageState extends State<GPSPage> {
 
     Widget controls;
     if (gpsRecordingState.status == GpsRecordingStatus.none) {
-      controls = ElevatedButton(
-        onPressed: () async {
-          gpsRecordingState.changeState(GpsRecordingStatus.recording);
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFB4EC51),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(9999),
+      controls = Center(
+        child: ElevatedButton(
+          onPressed: () async {
+            gpsRecordingState.changeState(GpsRecordingStatus.recording);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFB4EC51),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(9999),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-        ),
-        child: Text(
-          context.tr("home.start_new_journey"),
-          style: const TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.w400,
-            fontSize: 20,
+          child: Text(
+            context.tr("home.start_new_journey"),
+            style: const TextStyle(
+              color: Colors.black,
+              fontWeight: FontWeight.w400,
+              fontSize: 20,
+            ),
           ),
         ),
       );
     } else if (gpsRecordingState.status == GpsRecordingStatus.recording) {
-      controls = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ElevatedButton(
-            onPressed: () async {
-              gpsRecordingState.changeState(GpsRecordingStatus.paused);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.black,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(9999),
+      controls = Center(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ElevatedButton(
+              onPressed: () async {
+                gpsRecordingState.changeState(GpsRecordingStatus.paused);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(9999),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-            ),
-            child: Text(
-              context.tr("home.pause"),
-              style: const TextStyle(
-                color: Color(0xFFB4EC51),
-                fontWeight: FontWeight.w400,
-                fontSize: 20,
+              child: Text(
+                context.tr("home.pause"),
+                style: const TextStyle(
+                  color: Color(0xFFB4EC51),
+                  fontWeight: FontWeight.w400,
+                  fontSize: 20,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 24),
-          ElevatedButton(
-            onPressed: _showEndJourneyDialog,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.black,
-              shape: const CircleBorder(),
-              padding: const EdgeInsets.all(16),
+            const SizedBox(width: 24),
+            ElevatedButton(
+              onPressed: _showEndJourneyDialog,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                shape: const CircleBorder(),
+                padding: const EdgeInsets.all(16),
+              ),
+              child: const Icon(
+                Icons.close,
+                color: Colors.white,
+                size: 24,
+              ),
             ),
-            child: const Icon(
-              Icons.close,
-              color: Colors.white,
-              size: 24,
-            ),
-          ),
-        ],
+          ],
+        ),
       );
     } else {
-      controls = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ElevatedButton(
-            onPressed: () async {
-              gpsRecordingState.changeState(GpsRecordingStatus.recording);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.black,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(9999),
+      controls = Center(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ElevatedButton(
+              onPressed: () async {
+                gpsRecordingState.changeState(GpsRecordingStatus.recording);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(9999),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-            ),
-            child: Text(
-              context.tr("home.resume"),
-              style: const TextStyle(
-                color: Color(0xFFB4EC51),
-                fontWeight: FontWeight.w400,
-                fontSize: 20,
+              child: Text(
+                context.tr("home.resume"),
+                style: const TextStyle(
+                  color: Color(0xFFB4EC51),
+                  fontWeight: FontWeight.w400,
+                  fontSize: 20,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 24),
-          ElevatedButton(
-            onPressed: _showEndJourneyDialog,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.black,
-              shape: const CircleBorder(),
-              padding: const EdgeInsets.all(16),
+            const SizedBox(width: 24),
+            ElevatedButton(
+              onPressed: _showEndJourneyDialog,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                shape: const CircleBorder(),
+                padding: const EdgeInsets.all(16),
+              ),
+              child: const Icon(
+                Icons.close,
+                color: Colors.white,
+                size: 24,
+              ),
             ),
-            child: const Icon(
-              Icons.close,
-              color: Colors.white,
-              size: 24,
-            ),
-          ),
-        ],
+          ],
+        ),
       );
     }
 
-    return Center(child: controls);
+    return controls;
   }
 }

@@ -83,42 +83,39 @@ class _RawDataBody extends State<RawDataBody> {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Text("Raw Data Mode",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            const RawDataSwitch(),
-            const SizedBox(height: 16),
-            Expanded(
-              child: ListView(
-                shrinkWrap: true,
-                children: items.map((item) {
-                  return ListTile(
-                    leading: const Icon(Icons.description),
-                    title: Text(item.name),
-                    onTap: () {
-                      Share.shareXFiles([XFile(item.path)]);
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const Text("Raw Data Mode",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          const RawDataSwitch(),
+          const SizedBox(height: 16),
+          Expanded(
+            child: ListView(
+              shrinkWrap: true,
+              children: items.map((item) {
+                return ListTile(
+                  leading: const Icon(Icons.description),
+                  title: Text(item.name),
+                  onTap: () {
+                    Share.shareXFiles([XFile(item.path)]);
+                  },
+                  trailing: ElevatedButton(
+                    onPressed: () async {
+                      showDialogFunction(() async {
+                        Navigator.of(context).pop();
+                        await deleteRawDataFile(filename: item.name);
+                        _loadList();
+                      });
                     },
-                    trailing: ElevatedButton(
-                      onPressed: () async {
-                        showDialogFunction(() async {
-                          Navigator.of(context).pop();
-                          await deleteRawDataFile(filename: item.name);
-                          _loadList();
-                        });
-                      },
-                      child: const Icon(Icons.delete),
-                    ),
-                  );
-                }).toList(),
-              ),
+                    child: const Icon(Icons.delete),
+                  ),
+                );
+              }).toList(),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
