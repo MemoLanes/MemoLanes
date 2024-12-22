@@ -1,5 +1,5 @@
 use crate::journey_bitmap::JourneyBitmap;
-use actix_web::{web, App, Error, HttpRequest, HttpResponse, HttpServer};
+use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
 use std::borrow::Cow;
 use std::thread;
 use tokio::runtime::Runtime;
