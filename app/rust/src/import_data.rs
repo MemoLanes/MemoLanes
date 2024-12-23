@@ -2,7 +2,7 @@ use crate::api::import::JourneyInfo;
 use crate::gps_processor::{PreprocessedData, ProcessResult, RawData};
 use crate::journey_bitmap::{self, Block, JourneyBitmap, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH};
 use crate::{
-    gps_processor::{self, GpsProcessor},
+    gps_processor::{self, GpsPreprocessor},
     journey_vector::{JourneyVector, TrackPoint},
 };
 use anyhow::Result;
@@ -282,11 +282,11 @@ pub fn journey_vector_from_raw_data(
 ) -> Option<JourneyVector> {
     let processed_data = raw_data.into_iter().flat_map(move |x| {
         // we handle each segment separately
-        let mut gps_processor = GpsProcessor::new();
+        let mut gps_preprocessor = GpsPreprocessor::new();
         let mut first = true;
         x.into_iter().map(move |raw_data| {
             let process_result = if run_preprocessor {
-                gps_processor.preprocess(&raw_data)
+                gps_preprocessor.preprocess(&raw_data)
             } else if first {
                 first = false;
                 ProcessResult::NewSegment

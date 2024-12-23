@@ -104,13 +104,13 @@ mod process_result_tests {
     }
 }
 
-pub struct GpsProcessor {
+pub struct GpsPreprocessor {
     last_data: Option<RawData>,
 }
 
-impl GpsProcessor {
+impl GpsPreprocessor {
     pub fn new() -> Self {
-        GpsProcessor { last_data: None }
+        GpsPreprocessor { last_data: None }
     }
 
     pub fn last_data(&self) -> Option<RawData> {

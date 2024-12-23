@@ -6,7 +6,7 @@ use anyhow::{Ok, Result};
 use chrono::NaiveDate;
 use flutter_rust_bridge::frb;
 
-use crate::gps_processor::{GpsProcessor, ProcessResult};
+use crate::gps_processor::{GpsPreprocessor, ProcessResult};
 use crate::journey_bitmap::{JourneyBitmap, MAP_WIDTH_OFFSET, TILE_WIDTH, TILE_WIDTH_OFFSET};
 use crate::journey_data::JourneyData;
 use crate::journey_header::JourneyHeader;
@@ -23,7 +23,7 @@ use super::import::JourneyInfo;
 pub(super) struct MainState {
     pub storage: Storage,
     pub map_renderer: Mutex<Option<MapRenderer>>,
-    pub gps_processor: Mutex<GpsProcessor>,
+    pub gps_preprocessor: Mutex<GpsPreprocessor>,
 }
 
 static MAIN_STATE: OnceLock<MainState> = OnceLock::new();
@@ -52,7 +52,7 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
         MainState {
             storage,
             map_renderer: Mutex::new(None),
-            gps_processor: Mutex::new(GpsProcessor::new()),
+            gps_preprocessor: Mutex::new(GpsPreprocessor::new()),
         }
     });
     if already_initialized {
@@ -214,14 +214,14 @@ pub fn on_location_update(
     // Not very sure why yet.
 
     // we need handle a batch in one go so we hold the lock for the whole time
-    let mut gps_processor = state.gps_processor.lock().unwrap();
+    let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
     let mut map_renderer = state.map_renderer.lock().unwrap();
 
     raw_data_list.sort_by(|a, b| a.timestamp_ms.cmp(&b.timestamp_ms));
     raw_data_list.into_iter().for_each(|raw_data| {
         // TODO: more batching updates
-        let last_data = gps_processor.last_data();
-        let process_result = gps_processor.preprocess(&raw_data);
+        let last_data = gps_preprocessor.last_data();
+        let process_result = gps_preprocessor.preprocess(&raw_data);
         let line_to_add = match process_result {
             ProcessResult::Ignore => None,
             ProcessResult::NewSegment => Some((&raw_data, &raw_data)),
