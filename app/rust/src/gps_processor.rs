@@ -170,7 +170,7 @@ impl GpsPreprocessor {
             }
         };
 
-        return false;
+        false
     }
 
     fn process_moving_data(
@@ -202,7 +202,7 @@ impl GpsPreprocessor {
         if time_based_result == ProcessResult::Append {
             // let's consider (speed) distance now
             let time_in_sec = time_diff_in_ms.unwrap_or(TIME_THRESHOLD_IN_MS) as f64 / 1000.0;
-            let speed = curr_data.point.haversine_distance(&last_point) / time_in_sec.max(0.01);
+            let speed = curr_data.point.haversine_distance(last_point) / time_in_sec.max(0.01);
             if speed < SPEED_THRESHOLD {
                 ProcessResult::Append
             } else {
