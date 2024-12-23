@@ -104,99 +104,114 @@ mod process_result_tests {
     }
 }
 
+enum GpsPreprocessorState {
+    Empty,
+    Moving { last_data: RawData },
+}
+
 pub struct GpsPreprocessor {
-    last_data: Option<RawData>,
+    state: GpsPreprocessorState,
 }
 
 impl GpsPreprocessor {
     pub fn new() -> Self {
-        GpsPreprocessor { last_data: None }
+        GpsPreprocessor {
+            state: GpsPreprocessorState::Empty,
+        }
     }
 
     pub fn last_data(&self) -> Option<RawData> {
-        self.last_data.clone()
+        use GpsPreprocessorState::*;
+        match &self.state {
+            Empty => None,
+            Moving { last_data } => Some(last_data.clone()),
+        }
+    }
+
+    // 1. Accuracy is too bad.
+    // 2. Timestamp moving backwards.
+    fn is_bad_data(&self, curr_data: &RawData) -> bool {
+        const ACCURACY_THRESHOLD: f32 = 50.0;
+        if let Some(accuracy) = curr_data.accuracy {
+            if accuracy > ACCURACY_THRESHOLD {
+                return true;
+            }
+        }
+
+        match &self.state {
+            GpsPreprocessorState::Empty => {}
+            GpsPreprocessorState::Moving { last_data } => {
+                if curr_data.timestamp_ms < last_data.timestamp_ms {
+                    return true;
+                }
+            }
+        };
+
+        return false;
     }
 
     pub fn preprocess(&mut self, curr_data: &RawData) -> ProcessResult {
-        // TODO: the current implementation is still pretty naive.
-        // Things we could do:
-        // 1. Tune the threshold, maybe use different values with different
-        //    devices/speed. Maybe maintain a state about how the user is moving.
-        // 2. Ignore data that is too similar to the previous one or something
-        //    like that. (Maybe having a moving and a stationary state,
-        //    automatically switching between these).
-        //
         // Something to note:
         // * Accuracy is not well defined. The unit is meters but: On android,
         //  it is the radius of this location at the 68th percentile confidence
         //  level. On iOS, it is not specified in document. It seems the
         //  accuaracy is always poor (higher in value) on iOS, maybe it is using
         //  95th percentile. I am not use, no one is normalizing this value, we
-        // might need to use different threshold and tune it ourselves.
+        //  might need to use different threshold and tune it ourselves.
         //
         // * Values in GPX file are just from the device and we lose the device
         //   info (According to the bahvior of Guru Map). So we might need to
         //   use the iOS threshold or tune a new one. I am not sure. :(
+        use GpsPreprocessorState::*;
 
         const TIME_THRESHOLD_IN_MS: i64 = 5 * 1000;
-        const ACCURACY_THRESHOLD: f32 = 50.0;
         const SPEED_THRESHOLD: f64 = 250.0; // m/s
-        let should_ignore = match curr_data.accuracy {
-            Some(accuracy) => accuracy > ACCURACY_THRESHOLD,
-            None => false,
-        };
 
-        let result = if should_ignore {
-            ProcessResult::Ignore
-        } else {
-            match &self.last_data {
-                None => ProcessResult::NewSegment,
-                Some(last_data) => {
-                    let mut time_diff_in_ms = curr_data
-                        .timestamp_ms
-                        .and_then(|now| last_data.timestamp_ms.map(|prev| now - prev));
+        // We don't update our state if the data is bad.
+        if self.is_bad_data(curr_data) {
+            return ProcessResult::Ignore;
+        }
 
-                    let time_based_result = match time_diff_in_ms {
-                        None => ProcessResult::Append,
-                        Some(diff_in_ms) => {
-                            if diff_in_ms < 0 {
-                                // NOTE: We could get a location update from a while ago and
-                                // it can mess up the track. So we simply just drop these. If
-                                // this turns out to be not good enough, our options are:
-                                // 1. having a small buffer for updates, and sort events in
-                                // the buffer; or
-                                // 2. store these out of order events else where and add them
-                                // back in `finalize_journey`.
-                                time_diff_in_ms = None;
-                                ProcessResult::Ignore
-                            } else if diff_in_ms > TIME_THRESHOLD_IN_MS {
-                                ProcessResult::NewSegment
-                            } else {
-                                ProcessResult::Append
-                            }
-                        }
-                    };
-
-                    if time_based_result == ProcessResult::Append {
-                        // let's consider (speed) distance now
-                        let time_in_sec =
-                            time_diff_in_ms.unwrap_or(TIME_THRESHOLD_IN_MS) as f64 / 1000.0;
-                        let speed = curr_data.haversine_distance(last_data) / time_in_sec.max(0.01);
-                        if speed < SPEED_THRESHOLD {
-                            ProcessResult::Append
-                        } else {
-                            ProcessResult::NewSegment
-                        }
-                    } else {
-                        time_based_result
-                    }
-                }
+        match &mut self.state {
+            Empty => {
+                self.state = Moving {
+                    last_data: curr_data.clone(),
+                };
+                ProcessResult::NewSegment
             }
-        };
-        if result != ProcessResult::Ignore {
-            self.last_data = Some(curr_data.clone());
-        };
-        result
+            Moving { last_data } => {
+                let time_diff_in_ms = curr_data
+                    .timestamp_ms
+                    .and_then(|now| last_data.timestamp_ms.map(|prev| now - prev));
+
+                let time_based_result = match time_diff_in_ms {
+                    None => ProcessResult::Append,
+                    Some(diff_in_ms) => {
+                        if diff_in_ms > TIME_THRESHOLD_IN_MS {
+                            ProcessResult::NewSegment
+                        } else {
+                            ProcessResult::Append
+                        }
+                    }
+                };
+
+                let result = if time_based_result == ProcessResult::Append {
+                    // let's consider (speed) distance now
+                    let time_in_sec =
+                        time_diff_in_ms.unwrap_or(TIME_THRESHOLD_IN_MS) as f64 / 1000.0;
+                    let speed = curr_data.haversine_distance(last_data) / time_in_sec.max(0.01);
+                    if speed < SPEED_THRESHOLD {
+                        ProcessResult::Append
+                    } else {
+                        ProcessResult::NewSegment
+                    }
+                } else {
+                    time_based_result
+                };
+                *last_data = curr_data.clone();
+                result
+            }
+        }
     }
 }
 
