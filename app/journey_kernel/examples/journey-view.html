@@ -166,9 +166,17 @@
             locationMarker = new mapboxgl.Marker(el);
 
             // Add method to window object to update marker position
-            window.updateLocationMarker = function(lng, lat, show = true) {
+            window.updateLocationMarker = function(lng, lat, show = true, flyto = false) {
                 if (show) {
                     locationMarker.setLngLat([lng, lat]).addTo(map);
+                    if (flyto) {
+                        const currentZoom = map.getZoom();
+                        map.flyTo({
+                            center: [lng, lat],
+                            zoom: currentZoom < 14 ? 16 : currentZoom,
+                            essential: true
+                        });
+                    }
                 } else {
                     locationMarker.remove();
                 }
@@ -220,9 +228,6 @@
                     window.onMapMoved.postMessage('');
                 }
             });
-
-            // Expose map object globally
-            window.mapInstance = map;
         }
 
         // Start initialization

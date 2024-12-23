@@ -124,22 +124,14 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     if (_trackingMode == TrackingMode.off) {
       _webViewController?.runJavaScript('updateLocationMarker(0, 0, false);');
     } else if (position != null) {
-      _webViewController?.runJavaScript(
-          'updateLocationMarker(${position.longitude}, ${position.latitude}, true);');
-
-      // TODO: this is a workaround for android, as android's flyto will stuck the map for unknown reason.
-      if (Platform.isIOS && _trackingMode == TrackingMode.displayAndTracking) {
-        _webViewController?.runJavaScript('''
-          if (window.mapInstance) {
-            const currentZoom = window.mapInstance.getZoom();
-            window.mapInstance.flyTo({
-              center: [${position.longitude}, ${position.latitude}],
-              zoom: currentZoom < 14 ? 16 : currentZoom,
-              essential: true
-            });
-          }
-        ''');
-      }
+      _webViewController?.runJavaScript('''
+        updateLocationMarker(
+          ${position.longitude}, 
+          ${position.latitude}, 
+          true, 
+          ${_trackingMode == TrackingMode.displayAndTracking}
+        );
+      ''');
     }
   }
 
