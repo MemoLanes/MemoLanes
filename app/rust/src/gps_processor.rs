@@ -111,6 +111,9 @@ enum GpsPreprocessorState {
     Moving {
         last_point: Point,
         last_timestamp_ms: Option<i64>,
+        possible_center_point: Point,
+        timestamp_ms_when_center_point_picked: Option<i64>,
+        num_of_data_since_center_point_picked: i64,
     },
     Stationary {
         center_point: Point,
@@ -224,28 +227,89 @@ impl GpsPreprocessor {
         //   use the iOS threshold or tune a new one. I am not sure. :(
         use GpsPreprocessorState::*;
 
+        // TODO: need to tune this
+        const DISTANCE_THRESHOLD_FOR_ENDING_STATIONARY_IN_M: f64 = 0.;
+        const DISTANCE_THRESHOLD_FOR_BEGINING_STATIONARY_IN_M: f64 = f64::MAX / 2.;
+        const TIME_TO_WAIT_BEFORE_BEGINING_STATIONARY_IN_MS: i64 = i64::MAX / 2;
+        const FALLBACK_NUM_OF_DATA_TO_WAIT_BEFORE_BEGINING_STATIONARY: i64 = i64::MAX / 2;
+
         // We don't update our state if the data is bad.
         if self.is_bad_data(curr_data) {
             return ProcessResult::Ignore;
         };
 
+        let start_moving = |curr_data: &RawData| Moving {
+            last_point: curr_data.point.clone(),
+            last_timestamp_ms: curr_data.timestamp_ms,
+            possible_center_point: curr_data.point.clone(),
+            timestamp_ms_when_center_point_picked: curr_data.timestamp_ms,
+            num_of_data_since_center_point_picked: 0,
+        };
+
         match &mut self.state {
-            Stationary { .. } => ProcessResult::Ignore,
             Empty => {
-                self.state = Moving {
-                    last_point: curr_data.point.clone(),
-                    last_timestamp_ms: curr_data.timestamp_ms,
-                };
+                self.state = start_moving(curr_data);
                 ProcessResult::NewSegment
             }
             Moving {
                 last_point,
                 last_timestamp_ms,
+                possible_center_point,
+                timestamp_ms_when_center_point_picked,
+                num_of_data_since_center_point_picked,
             } => {
                 let result = Self::process_moving_data(last_point, *last_timestamp_ms, curr_data);
                 *last_point = curr_data.point.clone();
                 *last_timestamp_ms = curr_data.timestamp_ms;
+
+                // consider if we need to become stationary
+                if curr_data.point.haversine_distance(possible_center_point)
+                    <= DISTANCE_THRESHOLD_FOR_BEGINING_STATIONARY_IN_M
+                {
+                    *num_of_data_since_center_point_picked += 1;
+                    let should_become_stationary = if let (Some(now), Some(prev)) = (
+                        curr_data.timestamp_ms,
+                        *timestamp_ms_when_center_point_picked,
+                    ) {
+                        prev + TIME_TO_WAIT_BEFORE_BEGINING_STATIONARY_IN_MS <= now
+                    } else {
+                        // we only fallback to counting in this case
+                        *num_of_data_since_center_point_picked
+                            >= FALLBACK_NUM_OF_DATA_TO_WAIT_BEFORE_BEGINING_STATIONARY
+                    };
+                    if should_become_stationary {
+                        self.state = Stationary {
+                            center_point: possible_center_point.clone(),
+                            last_timestamp_ms: curr_data.timestamp_ms,
+                        }
+                    }
+                } else {
+                    // picking new center point
+                    // TODO: maybe picking the middle point between the previous possible center point and the current
+                    // point is better. I am not sure.
+                    *possible_center_point = curr_data.point.clone();
+                    *timestamp_ms_when_center_point_picked = curr_data.timestamp_ms;
+                    *num_of_data_since_center_point_picked = 0;
+                }
+
                 result
+            }
+            Stationary {
+                center_point,
+                last_timestamp_ms,
+            } => {
+                if curr_data.point.haversine_distance(center_point)
+                    <= DISTANCE_THRESHOLD_FOR_ENDING_STATIONARY_IN_M
+                {
+                    *last_timestamp_ms = curr_data.timestamp_ms;
+                    ProcessResult::Ignore
+                } else {
+                    // ending stationary
+                    let result =
+                        Self::process_moving_data(center_point, *last_timestamp_ms, curr_data);
+                    self.state = start_moving(curr_data);
+                    result
+                }
             }
         }
     }
