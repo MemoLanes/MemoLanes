@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:provider/provider.dart';
@@ -126,7 +127,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       _webViewController?.runJavaScript(
           'updateLocationMarker(${position.longitude}, ${position.latitude}, true);');
 
-      if (_trackingMode == TrackingMode.displayAndTracking) {
+      // TODO: this is a workaround for android, as android's flyto will stuck the map for unknown reason.
+      if (Platform.isIOS && _trackingMode == TrackingMode.displayAndTracking) {
         _webViewController?.runJavaScript('''
           if (window.mapInstance) {
             const currentZoom = window.mapInstance.getZoom();
