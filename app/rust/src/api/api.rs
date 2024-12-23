@@ -220,14 +220,14 @@ pub fn on_location_update(
     raw_data_list.sort_by(|a, b| a.timestamp_ms.cmp(&b.timestamp_ms));
     raw_data_list.into_iter().for_each(|raw_data| {
         // TODO: more batching updates
-        let last_data = gps_preprocessor.last_data();
+        let last_point = gps_preprocessor.last_point();
         let process_result = gps_preprocessor.preprocess(&raw_data);
         let line_to_add = match process_result {
             ProcessResult::Ignore => None,
-            ProcessResult::NewSegment => Some((&raw_data, &raw_data)),
+            ProcessResult::NewSegment => Some((&raw_data.point, &raw_data.point)),
             ProcessResult::Append => {
-                let start = last_data.as_ref().unwrap_or(&raw_data);
-                Some((start, &raw_data))
+                let start = last_point.as_ref().unwrap_or(&raw_data.point);
+                Some((start, &raw_data.point))
             }
         };
         match map_renderer.as_mut() {

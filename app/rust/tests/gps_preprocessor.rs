@@ -1,29 +1,36 @@
 pub mod test_utils;
 
-use memolanes_core::gps_processor::{GpsPreprocessor, ProcessResult, RawData};
+use memolanes_core::gps_processor::{GpsPreprocessor, Point, ProcessResult, RawData};
 use std::collections::HashMap;
 
 #[test]
 fn first_data() {
     let mut gps_preprocessor = GpsPreprocessor::new();
-    assert!(gps_preprocessor.last_data().is_none());
+    assert!(gps_preprocessor.last_point().is_none());
     let data = RawData {
-        latitude: 120.163856,
-        longitude: 30.2719716,
+        point: Point {
+            latitude: 120.163856,
+            longitude: 30.2719716,
+        },
         timestamp_ms: Some(1697349116449),
         accuracy: Some(3.9),
         altitude: Some(10.),
         speed: Some(0.6028665),
     };
-    assert_eq!(gps_preprocessor.preprocess(&data), ProcessResult::NewSegment);
+    assert_eq!(
+        gps_preprocessor.preprocess(&data),
+        ProcessResult::NewSegment
+    );
 }
 
 #[test]
 fn ignore() {
     let mut gps_preprocessor = GpsPreprocessor::new();
     let data = RawData {
-        latitude: 120.163856,
-        longitude: 30.2719716,
+        point: Point {
+            latitude: 120.163856,
+            longitude: 30.2719716,
+        },
         timestamp_ms: Some(1697349116449),
         accuracy: Some(300.0),
         altitude: Some(10.),
@@ -37,18 +44,22 @@ fn time_difference() {
     let mut gps_preprocessor = GpsPreprocessor::new();
 
     gps_preprocessor.preprocess(&RawData {
-        latitude: 120.163856,
-        longitude: 30.2719716,
+        point: Point {
+            latitude: 120.163856,
+            longitude: 30.2719716,
+        },
         timestamp_ms: Some(1697349116449),
         accuracy: Some(3.9),
         altitude: Some(10.),
         speed: Some(0.6028665),
     });
 
-    assert_eq!(gps_preprocessor.last_data().unwrap().altitude.unwrap(), 10.);
+    assert_eq!(gps_preprocessor.last_point().unwrap().latitude, 120.163856);
     let result = gps_preprocessor.preprocess(&RawData {
-        latitude: 120.1639266,
-        longitude: 30.271981,
+        point: Point {
+            latitude: 120.1639266,
+            longitude: 30.271981,
+        },
         timestamp_ms: Some(1697349117449),
         accuracy: Some(3.5),
         altitude: Some(20.),
@@ -56,10 +67,12 @@ fn time_difference() {
     });
     assert_eq!(ProcessResult::Append, result);
 
-    assert_eq!(gps_preprocessor.last_data().unwrap().altitude.unwrap(), 20.);
+    assert_eq!(gps_preprocessor.last_point().unwrap().latitude, 120.1639266);
     let result = gps_preprocessor.preprocess(&RawData {
-        latitude: 120.163856,
-        longitude: 30.2719716,
+        point: Point {
+            latitude: 120.163857,
+            longitude: 30.2719716,
+        },
         timestamp_ms: Some(1698349116449),
         accuracy: Some(3.9),
         altitude: Some(30.),
@@ -67,10 +80,12 @@ fn time_difference() {
     });
     assert_eq!(ProcessResult::NewSegment, result);
 
-    assert_eq!(gps_preprocessor.last_data().unwrap().altitude.unwrap(), 30.);
+    assert_eq!(gps_preprocessor.last_point().unwrap().latitude, 120.163857);
     let result = gps_preprocessor.preprocess(&RawData {
-        latitude: 120.163856,
-        longitude: 30.2719716,
+        point: Point {
+            latitude: 120.163856,
+            longitude: 30.2719716,
+        },
         timestamp_ms: Some(1697349116449),
         accuracy: Some(3.9),
         altitude: Some(10.),
@@ -83,24 +98,34 @@ fn time_difference() {
 fn speed() {
     let mut gps_preprocessor = GpsPreprocessor::new();
     let data = RawData {
-        latitude: 120.163856,
-        longitude: 30.2719716,
+        point: Point {
+            latitude: 120.163856,
+            longitude: 30.2719716,
+        },
         timestamp_ms: Some(1697349116000),
         accuracy: None,
         altitude: None,
         speed: None,
     };
-    assert_eq!(gps_preprocessor.preprocess(&data), ProcessResult::NewSegment);
+    assert_eq!(
+        gps_preprocessor.preprocess(&data),
+        ProcessResult::NewSegment
+    );
 
     let data = RawData {
-        latitude: 125.0,
-        longitude: 30.2719716,
+        point: Point {
+            latitude: 125.0,
+            longitude: 30.2719716,
+        },
         timestamp_ms: Some(1697349117000),
         accuracy: None,
         altitude: None,
         speed: None,
     };
-    assert_eq!(gps_preprocessor.preprocess(&data), ProcessResult::NewSegment);
+    assert_eq!(
+        gps_preprocessor.preprocess(&data),
+        ProcessResult::NewSegment
+    );
 }
 
 #[test]
