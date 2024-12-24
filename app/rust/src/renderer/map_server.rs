@@ -249,7 +249,8 @@ impl MapServer {
     }
 
     pub fn register(&self, item: Weak<Mutex<JourneyBitmap>>) -> Token {
-        self.registry.register(item, None::<fn(&mut JourneyBitmap) -> bool>)
+        self.registry
+            .register(item, None::<fn(&mut JourneyBitmap) -> bool>)
     }
 
     pub fn register_with_poll_handler(
