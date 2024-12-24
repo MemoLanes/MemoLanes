@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:memolanes/gps_recording_state.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // for compatibility with base_map.dart (camaraOptions, etc.)
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
@@ -96,6 +97,23 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   Future<void> _initWebView() async {
     _webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onNavigationRequest: (NavigationRequest request) {
+            // TODO: Block localhost URLs except for our map
+            if (request.url.contains('localhost') ||
+                request.url.contains('127.0.0.1')) {
+              return NavigationDecision.navigate;
+            }
+            // Allow all other URLs to open in system browser
+            launchUrl(
+              Uri.parse(request.url),
+              mode: LaunchMode.externalApplication,
+            );
+            return NavigationDecision.prevent;
+          },
+        ),
+      )
       ..addJavaScriptChannel(
         'onMapMoved',
         onMessageReceived: (JavaScriptMessage message) {
