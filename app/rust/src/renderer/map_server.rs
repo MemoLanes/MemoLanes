@@ -87,35 +87,11 @@ impl Registry {
         *prefix = url_prefix.to_string();
     }
 
-    pub fn register_with_poll_handler(
+    pub fn register(
         &self,
         item: Weak<Mutex<JourneyBitmap>>,
-        poll_handler: impl Fn(&mut JourneyBitmap) -> bool + Send + Sync + 'static,
+        poll_handler: Option<impl Fn(&mut JourneyBitmap) -> bool + Send + Sync + 'static>,
     ) -> Token {
-        let id = Uuid::new_v4();
-        let provisioned_camera_option = Arc::new(Mutex::new(None));
-        let needs_reload = Arc::new(Mutex::new(false));
-        {
-            let mut items = self.items.write().unwrap();
-            let entry = JourneyBitmapEntry {
-                journey_bitmap: item.clone(),
-                provisioned_camera_option: provisioned_camera_option.clone(),
-                needs_reload: needs_reload.clone(),
-                poll_handler: Some(Box::new(poll_handler)),
-            };
-            items.insert(id, entry);
-        }
-        let url_prefix = self.url_prefix.read().unwrap();
-        Token {
-            id,
-            url: format!("{}/#{}", *url_prefix, id),
-            provisioned_camera_option,
-            needs_reload,
-            registry: Arc::downgrade(&self.items),
-        }
-    }
-
-    pub fn register(&self, item: Weak<Mutex<JourneyBitmap>>) -> Token {
         let id = Uuid::new_v4();
         let provisioned_camera_option = Arc::new(Mutex::new(None));
         let needs_reload = Arc::new(Mutex::new(false));
@@ -125,7 +101,7 @@ impl Registry {
                 journey_bitmap: item,
                 provisioned_camera_option: provisioned_camera_option.clone(),
                 needs_reload: needs_reload.clone(),
-                poll_handler: None,
+                poll_handler: poll_handler.map(|h| Box::new(h) as JourneyBitmapModifier),
             };
             items.insert(id, entry);
         }
@@ -273,7 +249,7 @@ impl MapServer {
     }
 
     pub fn register(&self, item: Weak<Mutex<JourneyBitmap>>) -> Token {
-        self.registry.register(item)
+        self.registry.register(item, None::<fn(&mut JourneyBitmap) -> bool>)
     }
 
     pub fn register_with_poll_handler(
@@ -281,7 +257,7 @@ impl MapServer {
         item: Weak<Mutex<JourneyBitmap>>,
         poll_handler: impl Fn(&mut JourneyBitmap) -> bool + Send + Sync + 'static,
     ) -> Token {
-        self.registry.register_with_poll_handler(item, poll_handler)
+        self.registry.register(item, Some(poll_handler))
     }
 
     // Start the server in a separate thread
