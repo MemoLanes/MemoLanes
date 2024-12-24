@@ -142,7 +142,7 @@ async fn serve_item(
     req: HttpRequest,
     data: web::Data<AppState>,
 ) -> HttpResponse {
-    println!("serving item: {}", id);
+    info!("serving item: {}", id);
 
     // Parse UUID and get item from registry
     match Uuid::parse_str(&id)
@@ -279,12 +279,12 @@ impl MapServer {
 
             let runtime = Runtime::new().expect("Failed to create Tokio runtime");
             runtime.block_on(async move {
-                println!("Setting up server routes...");
+                info!("Setting up server routes...");
                 let server = HttpServer::new(move || {
                     App::new()
                         .app_data(app_state.clone())
                         .wrap_fn(|req, srv| {
-                            println!("Incoming request: {} {}", req.method(), req.uri());
+                            info!("Incoming request: {} {}", req.method(), req.uri());
                             srv.call(req)
                         })
                         .route(
@@ -337,7 +337,7 @@ impl MapServer {
                 // Signal that the URL prefix is set
                 tx.send(()).expect("Failed to send completion signal");
 
-                println!("Server bound successfully to {}:{}", host, port);
+                info!("Server bound successfully to {}:{}", host, port);
                 server.run().await.expect("Server failed to run");
             });
         });
