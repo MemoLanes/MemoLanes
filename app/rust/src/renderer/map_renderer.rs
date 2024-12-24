@@ -61,12 +61,8 @@ impl MapRenderer {
         }
     }
 
-    pub fn get_url(&self) -> String {
-        if let Some(token) = &self.token {
-            token.url()
-        } else {
-            "".to_string()
-        }
+    pub fn get_url(&self) -> Option<String> {
+        self.token.as_ref().map(|token| token.url())
     }
 
     pub fn new_with_tile_renderer(

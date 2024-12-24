@@ -104,11 +104,11 @@ impl MapRendererProxy {
                 let state = get();
                 let map_renderer = state.map_renderer.lock().unwrap();
                 match map_renderer.as_ref() {
-                    Some(renderer) => renderer.get_url(),
+                    Some(renderer) => renderer.get_url().unwrap_or_default(),
                     None => String::new(),
                 }
             }
-            Self::Simple(map_renderer) => map_renderer.get_url(),
+            Self::Simple(map_renderer) => map_renderer.get_url().unwrap_or_default(),
         }
     }
 
