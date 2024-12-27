@@ -155,18 +155,20 @@ class GpsRecordingState extends ChangeNotifier {
     _positionStream = null;
   }
 
-  void _restartPositionStream() {
-    _cancelPositionStream();
-    _updatePositionStream();
-  }
-
   void trackingModeChanged(TrackingMode mode) {
-    if (mode != TrackingMode.off && status != GpsRecordingStatus.recording) {
-      _restartPositionStream();
-    } else {
-      _cancelPositionStream();
-      latestPosition = null;
+    trackingMode = mode;
+    switch (mode) {
+      case TrackingMode.displayAndTracking || TrackingMode.displayOnly:
+        _updatePositionStream();
+        break;
+      case TrackingMode.off:
+        if (status != GpsRecordingStatus.recording) {
+          _cancelPositionStream();
+          latestPosition = null;
+        }
+        break;
     }
+
     notifyListeners();
   }
 
@@ -292,6 +294,8 @@ class GpsRecordingState extends ChangeNotifier {
       await _notificationWhenAppIsKilledPlugin
           .cancelNotificationOnKillService();
       _pokeGeolocatorTask?.cancel();
+      trackingModeChanged(trackingMode);
+      latestPosition = null;
       _pokeGeolocatorTask = null;
       _positionBufferFlushTimer?.cancel();
       _positionBufferFlushTimer = null;
