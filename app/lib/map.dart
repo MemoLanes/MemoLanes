@@ -6,10 +6,13 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:memolanes/component/base_map.dart';
 import 'package:memolanes/component/map_controls/accuracy_display.dart';
 import 'package:memolanes/component/map_controls/tracking_button.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:json_annotation/json_annotation.dart';
 import 'package:memolanes/gps_page.dart';
+import 'package:memolanes/gps_recording_state.dart';
+import 'package:geolocator/geolocator.dart' as geolocator;
 
 part 'map.g.dart';
 
@@ -219,6 +222,23 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
     if (initialCameraOptions == null) {
       return const CircularProgressIndicator();
     }
+    final gpsRecordingState = context.watch<GpsRecordingState>();
+    final isRecording =
+        gpsRecordingState.status == GpsRecordingStatus.recording;
+
+    Future<geolocator.Position?> getCurrentPosition() async {
+      if (isRecording) {
+        return gpsRecordingState.latestPosition;
+      } else if (trackingMode == TrackingMode.displayAndTracking ||
+          trackingMode == TrackingMode.displayOnly) {
+        try {
+          return await geolocator.Geolocator.getCurrentPosition();
+        } catch (e) {
+          debugPrint('Error getting puck position: $e');
+        }
+      }
+      return null;
+    }
 
     final screenSize = MediaQuery.of(context).size;
     final isLandscape =
@@ -253,7 +273,7 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
                         trackingMode: trackingMode,
                         onPressed: _trackingModeButton,
                       ),
-                      const AccuracyDisplay(),
+                      AccuracyDisplay(getPosition: getCurrentPosition),
                       // TODO: Implement layer picker functionality
                       // LayerButton(
                       //   onPressed: () {};
