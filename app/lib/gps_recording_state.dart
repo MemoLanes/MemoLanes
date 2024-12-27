@@ -294,8 +294,10 @@ class GpsRecordingState extends ChangeNotifier {
       await _notificationWhenAppIsKilledPlugin
           .cancelNotificationOnKillService();
       _pokeGeolocatorTask?.cancel();
-      trackingModeChanged(trackingMode);
-      latestPosition = null;
+      if (trackingMode == TrackingMode.off) {
+        _cancelPositionStream();
+        latestPosition = null;
+      }
       _pokeGeolocatorTask = null;
       _positionBufferFlushTimer?.cancel();
       _positionBufferFlushTimer = null;
