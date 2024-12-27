@@ -96,6 +96,10 @@ class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   void _naiveLocaleSelection(BuildContext context) {
+    // TODO: This naive version is good enough for now, as we only have two locales.
+    // The one provided by the lib is kinda weird. e.g. It will map `zh-Hans-HK` to
+    // `en-US` (I guess `Hans` + `HK` is a weird case).
+    // Maybe related to: https://github.com/aissat/easy_localization/issues/372
     var deviceLocale = context.deviceLocale;
     var locale = const Locale('en', 'US');
     if (deviceLocale.languageCode == 'zh') {
