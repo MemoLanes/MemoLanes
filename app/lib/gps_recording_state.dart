@@ -4,6 +4,7 @@ import 'package:async/async.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:memolanes/map.dart';
 import 'package:mutex/mutex.dart';
 import 'package:notification_when_app_is_killed/model/args_for_ios.dart';
 import 'package:notification_when_app_is_killed/model/args_for_kill_notification.dart';
@@ -55,6 +56,7 @@ class GpsRecordingState extends ChangeNotifier {
   static const String isRecordingPrefsKey = "GpsRecordingState.isRecording";
   var status = GpsRecordingStatus.none;
   Position? latestPosition;
+  TrackingMode trackingMode = TrackingMode.off;
 
   LocationSettings? _locationSettings;
   StreamSubscription<Position>? _positionStream;
@@ -112,6 +114,7 @@ class GpsRecordingState extends ChangeNotifier {
         distanceFilter: distanceFilter,
       );
     }
+
     _initState();
   }
 
@@ -137,22 +140,53 @@ class GpsRecordingState extends ChangeNotifier {
     });
   }
 
+  void _updatePositionStream() {
+    if (_positionStream != null) return;
+
+    _positionStream =
+        Geolocator.getPositionStream(locationSettings: _locationSettings)
+            .listen((Position? position) async {
+      if (position != null) _onPositionUpdate(position);
+    });
+  }
+
+  void _cancelPositionStream() {
+    _positionStream?.cancel();
+    _positionStream = null;
+  }
+
+  void _restartPositionStream() {
+    _cancelPositionStream();
+    _updatePositionStream();
+  }
+
+  void trackingModeChanged(TrackingMode mode) {
+    if (mode != TrackingMode.off && status != GpsRecordingStatus.recording) {
+      _restartPositionStream();
+    } else {
+      _cancelPositionStream();
+      latestPosition = null;
+    }
+    notifyListeners();
+  }
+
   void _saveIsRecordingState() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     prefs.setBool(isRecordingPrefsKey, status == GpsRecordingStatus.recording);
   }
 
   void _onPositionUpdate(Position position) {
-    if (status != GpsRecordingStatus.recording) return;
-    _positionBuffer.add(position);
-    _positionBufferFirstElementReceivedTime ??= DateTime.now();
-    if (_positionBufferFlushTimer == null) {
-      _positionBufferFlushTimer = RestartableTimer(
-        const Duration(milliseconds: 100),
-        _flushPositionBuffer,
-      );
-    } else {
-      _positionBufferFlushTimer?.reset();
+    if (status == GpsRecordingStatus.recording) {
+      _positionBuffer.add(position);
+      _positionBufferFirstElementReceivedTime ??= DateTime.now();
+      if (_positionBufferFlushTimer == null) {
+        _positionBufferFlushTimer = RestartableTimer(
+          const Duration(milliseconds: 100),
+          _flushPositionBuffer,
+        );
+      } else {
+        _positionBufferFlushTimer?.reset();
+      }
     }
 
     latestPosition = position;
@@ -255,13 +289,10 @@ class GpsRecordingState extends ChangeNotifier {
     if (status == GpsRecordingStatus.recording &&
         to != GpsRecordingStatus.recording) {
       // stop recording
-      await _positionStream?.cancel();
       await _notificationWhenAppIsKilledPlugin
           .cancelNotificationOnKillService();
       _pokeGeolocatorTask?.cancel();
       _pokeGeolocatorTask = null;
-      _positionStream = null;
-      latestPosition = null;
       _positionBufferFlushTimer?.cancel();
       _positionBufferFlushTimer = null;
       await _flushPositionBuffer();
@@ -278,13 +309,7 @@ class GpsRecordingState extends ChangeNotifier {
         return;
       }
       _pokeGeolocatorTask ??= _PokeGeolocatorTask.start(_locationSettings);
-      _positionStream ??=
-          Geolocator.getPositionStream(locationSettings: _locationSettings)
-              .listen((Position? position) async {
-        if (position != null) {
-          _onPositionUpdate(position);
-        }
-      });
+      _updatePositionStream();
       await _notificationWhenAppIsKilledPlugin.setNotificationOnKillService(
         ArgsForKillNotification(
             title: 'Recording was unexpectedly stopped',
