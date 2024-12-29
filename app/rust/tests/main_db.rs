@@ -2,7 +2,7 @@ pub mod test_utils;
 
 use chrono::{DateTime, NaiveDate};
 use memolanes_core::{
-    gps_processor::{self, RawData},
+    gps_processor::{self, Point, RawData},
     journey_data::JourneyData,
     journey_header::JourneyKind,
     journey_vector::JourneyVector,
@@ -116,8 +116,10 @@ fn get_lastest_timestamp_of_ongoing_journey() {
     main_db
         .record(
             &RawData {
-                latitude: 120.163856,
-                longitude: 30.2719716,
+                point: Point {
+                    latitude: 120.163856,
+                    longitude: 30.2719716,
+                },
                 timestamp_ms: Some(1697349116449),
                 accuracy: None,
                 altitude: None,
@@ -129,8 +131,10 @@ fn get_lastest_timestamp_of_ongoing_journey() {
     main_db
         .record(
             &RawData {
-                latitude: 120.163856,
-                longitude: 30.2719716,
+                point: Point {
+                    latitude: 120.163856,
+                    longitude: 30.2719716,
+                },
                 timestamp_ms: Some(1697349117000),
                 accuracy: None,
                 altitude: None,

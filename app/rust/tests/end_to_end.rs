@@ -1,5 +1,5 @@
 pub mod test_utils;
-use memolanes_core::{api::api, gps_processor::RawData};
+use memolanes_core::api::api;
 use rand::{seq::SliceRandom, thread_rng};
 use std::fs;
 use tempdir::TempDir;
@@ -28,17 +28,7 @@ fn basic() {
 
     assert!(!api::has_ongoing_journey().unwrap());
     for (i, raw_data) in first_elements.iter().enumerate() {
-        api::on_location_update(
-            vec![RawData {
-                latitude: raw_data.latitude,
-                longitude: raw_data.longitude,
-                timestamp_ms: raw_data.timestamp_ms,
-                accuracy: raw_data.accuracy,
-                altitude: raw_data.altitude,
-                speed: raw_data.speed,
-            }],
-            raw_data.timestamp_ms.unwrap(),
-        );
+        api::on_location_update(vec![raw_data.clone()], raw_data.timestamp_ms.unwrap());
         if i == 1000 {
             assert!(api::has_ongoing_journey().unwrap());
             let _: bool = api::finalize_ongoing_journey().unwrap();

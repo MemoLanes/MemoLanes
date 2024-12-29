@@ -77,8 +77,8 @@ impl RawDataRecorder {
                 "{},{},{},{},{},{},{}\n",
                 raw_data.timestamp_ms.unwrap_or_default(),
                 recevied_timestamp_ms,
-                raw_data.latitude,
-                raw_data.longitude,
+                raw_data.point.latitude,
+                raw_data.point.longitude,
                 raw_data.accuracy.map(|x| x.to_string()).unwrap_or_default(),
                 &raw_data.altitude.map(|x| x.to_string()).unwrap_or_default(),
                 &raw_data.speed.map(|x| x.to_string()).unwrap_or_default()
