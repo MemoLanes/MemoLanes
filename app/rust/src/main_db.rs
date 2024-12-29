@@ -583,8 +583,8 @@ impl MainDb {
         let sql = "INSERT INTO ongoing_journey (timestamp_sec, lat, lng, process_result) VALUES (?1, ?2, ?3, ?4);";
         tx.prepare_cached(sql)?.execute((
             raw_data.timestamp_ms.map(|x| x / 1000),
-            raw_data.latitude,
-            raw_data.longitude,
+            raw_data.point.latitude,
+            raw_data.point.longitude,
             process_result,
         ))?;
         tx.commit()?;

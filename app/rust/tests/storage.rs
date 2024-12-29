@@ -1,8 +1,6 @@
 pub mod test_utils;
 use memolanes_core::{
-    gps_processor::{ProcessResult, RawData},
-    journey_bitmap::JourneyBitmap,
-    storage::Storage,
+    gps_processor::ProcessResult, journey_bitmap::JourneyBitmap, storage::Storage,
 };
 use std::fs;
 use tempdir::TempDir;
@@ -29,14 +27,7 @@ fn storage_for_main_map_renderer() {
 
     for (i, raw_data) in raw_data_list.iter().enumerate() {
         storage.record_gps_data(
-            &RawData {
-                latitude: raw_data.latitude,
-                longitude: raw_data.longitude,
-                timestamp_ms: raw_data.timestamp_ms,
-                accuracy: raw_data.accuracy,
-                altitude: raw_data.altitude,
-                speed: raw_data.speed,
-            },
+            raw_data,
             ProcessResult::Append,
             raw_data.timestamp_ms.unwrap(),
         );

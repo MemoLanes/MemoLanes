@@ -1,4 +1,5 @@
 use chrono::NaiveDateTime;
+use memolanes_core::gps_processor::Point;
 use memolanes_core::{gps_processor, journey_bitmap::JourneyBitmap};
 use serde_json;
 use sha2::{Digest, Sha256};
@@ -25,8 +26,10 @@ pub fn load_raw_gpx_data_for_test() -> Vec<gps_processor::RawData> {
             .timestamp_millis();
 
         let raw_data = gps_processor::RawData {
-            longitude: row.get(0).unwrap().parse().unwrap(),
-            latitude: row.get(1).unwrap().parse().unwrap(),
+            point: Point {
+                longitude: row.get(0).unwrap().parse().unwrap(),
+                latitude: row.get(1).unwrap().parse().unwrap(),
+            },
             altitude: Some(row.get(2).unwrap().parse().unwrap()),
             timestamp_ms: Some(timestamp_ms),
             accuracy: Some(row.get(4).unwrap().parse().unwrap()),

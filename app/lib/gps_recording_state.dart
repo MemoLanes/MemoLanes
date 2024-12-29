@@ -200,8 +200,10 @@ class GpsRecordingState extends ChangeNotifier {
 
     List<RawData> rawDataList = _positionBuffer
         .map((position) => RawData(
-            latitude: position.latitude,
-            longitude: position.longitude,
+            point: Point(
+              latitude: position.latitude,
+              longitude: position.longitude,
+            ),
             timestampMs: position.timestamp.millisecondsSinceEpoch,
             accuracy: position.accuracy,
             altitude: position.altitude,
