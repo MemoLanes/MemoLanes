@@ -179,7 +179,7 @@ impl GpsPreprocessor {
         curr_data: &RawData,
     ) -> ProcessResult {
         const TIME_THRESHOLD_IN_MS: i64 = 5 * 1000;
-        const TOO_CLOSE_DISTANCE_IN_M: f64 = 0.5;
+        const TOO_CLOSE_DISTANCE_IN_M: f64 = 0.1;
         const SPEED_THRESHOLD: f64 = 250.0; // m/s
 
         let time_diff_in_ms = match (curr_data.timestamp_ms, last_timestamp_ms) {
@@ -235,7 +235,7 @@ impl GpsPreprocessor {
 
         const DISTANCE_THRESHOLD_FOR_ENDING_STATIONARY_IN_M: f64 = 2.5;
         const DISTANCE_THRESHOLD_FOR_BEGINING_STATIONARY_IN_M: f64 = 2.0;
-        const TIME_TO_WAIT_BEFORE_BEGINING_STATIONARY_IN_MS: i64 = 120;
+        const TIME_TO_WAIT_BEFORE_BEGINING_STATIONARY_IN_MS: i64 = 120 * 1000;
         const FALLBACK_NUM_OF_DATA_TO_WAIT_BEFORE_BEGINING_STATIONARY: i64 = 200;
 
         // We don't update our state if the data is bad.
