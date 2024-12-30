@@ -1,8 +1,9 @@
 pub mod test_utils;
 
 use memolanes_core::gps_processor::{GpsPreprocessor, Point, ProcessResult, RawData};
-use memolanes_core::import_data;
+use memolanes_core::{export_data, import_data};
 use std::collections::HashMap;
+use std::fs::File;
 
 #[test]
 fn first_data() {
@@ -129,19 +130,50 @@ fn speed() {
     );
 }
 
-#[test]
-fn run_though_test_data() {
+fn run_though_test_data(name: &str) -> HashMap<ProcessResult, i32> {
+    const GENERATE_RESULT_GPX_FOR_INSPECTION: bool = false;
     let mut gps_preprocessor = GpsPreprocessor::new();
     let mut counter = HashMap::new();
-    for data in import_data::load_gpx("./tests/data/raw_gps_shanghai.gpx")
-        .unwrap()
-        .iter()
-        .flatten()
-    {
+    let loaded_data = import_data::load_gpx(&format!("./tests/data/raw_gps_{}.gpx", name)).unwrap();
+    for data in loaded_data.iter().flatten() {
         let result = gps_preprocessor.preprocess(&data);
         counter.entry(result).and_modify(|c| *c += 1).or_insert(1);
     }
+
+    if GENERATE_RESULT_GPX_FOR_INSPECTION {
+        let journey_vector = import_data::journey_vector_from_raw_data(loaded_data, true).unwrap();
+
+        let mut file = File::create(format!(
+            "./tests/for_inspection/gps_preprocessor_run_though_test_data_{}.gpx",
+            name
+        ))
+        .unwrap();
+        export_data::journey_vector_to_gpx_file(&journey_vector, &mut file).unwrap();
+    };
+
+    counter
+}
+
+#[test]
+fn run_though_test_data_shanghai() {
+    let counter = run_though_test_data("shanghai");
     assert_eq!(counter[&ProcessResult::NewSegment], 8);
     assert_eq!(counter[&ProcessResult::Append], 2631);
     assert_eq!(counter[&ProcessResult::Ignore], 979);
+}
+
+#[test]
+fn run_though_test_data_shenzhen_stationary() {
+    let counter = run_though_test_data("shenzhen_stationary");
+    assert_eq!(counter[&ProcessResult::NewSegment], 81);
+    assert_eq!(counter[&ProcessResult::Append], 319);
+    assert_eq!(counter[&ProcessResult::Ignore], 6330);
+}
+
+#[test]
+fn run_though_test_data_laojunshan() {
+    let counter = run_though_test_data("laojunshan");
+    assert_eq!(counter[&ProcessResult::NewSegment], 2);
+    assert_eq!(counter[&ProcessResult::Append], 1295);
+    assert_eq!(counter[&ProcessResult::Ignore], 1648);
 }
