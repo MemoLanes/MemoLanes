@@ -1,6 +1,7 @@
 pub mod test_utils;
 
 use memolanes_core::gps_processor::{GpsPreprocessor, Point, ProcessResult, RawData};
+use memolanes_core::import_data;
 use std::collections::HashMap;
 
 #[test]
@@ -132,7 +133,11 @@ fn speed() {
 fn run_though_test_data() {
     let mut gps_preprocessor = GpsPreprocessor::new();
     let mut counter = HashMap::new();
-    for data in test_utils::load_raw_gpx_data_for_test() {
+    for data in import_data::load_gpx("./tests/data/raw_gps_shanghai.gpx")
+        .unwrap()
+        .iter()
+        .flatten()
+    {
         let result = gps_preprocessor.preprocess(&data);
         counter.entry(result).and_modify(|c| *c += 1).or_insert(1);
     }

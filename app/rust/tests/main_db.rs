@@ -3,6 +3,7 @@ pub mod test_utils;
 use chrono::{DateTime, NaiveDate};
 use memolanes_core::{
     gps_processor::{self, Point, RawData},
+    import_data,
     journey_data::JourneyData,
     journey_header::JourneyKind,
     journey_vector::JourneyVector,
@@ -12,7 +13,11 @@ use tempdir::TempDir;
 
 #[test]
 fn basic() {
-    let test_data = test_utils::load_raw_gpx_data_for_test();
+    let test_data: Vec<RawData> = import_data::load_gpx("./tests/data/raw_gps_shanghai.gpx")
+        .unwrap()
+        .into_iter()
+        .flatten()
+        .collect();
     let num_of_gpx_data_in_input = test_data.len();
     println!("total test data: {}", num_of_gpx_data_in_input);
 

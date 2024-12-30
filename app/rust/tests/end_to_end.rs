@@ -1,6 +1,7 @@
 pub mod test_utils;
-use memolanes_core::api::api;
-use rand::{seq::SliceRandom, thread_rng};
+use memolanes_core::{api::api, gps_processor::RawData, import_data};
+use rand::prelude::SliceRandom;
+use rand::thread_rng;
 use std::fs;
 use tempdir::TempDir;
 
@@ -22,7 +23,12 @@ fn basic() {
         sub_folder("cache/"),
     );
 
-    let mut raw_data_list = test_utils::load_raw_gpx_data_for_test();
+    let mut raw_data_list: Vec<RawData> =
+        import_data::load_gpx("./tests/data/raw_gps_shanghai.gpx")
+            .unwrap()
+            .into_iter()
+            .flatten()
+            .collect();
     let (first_elements, remaining_elements) = raw_data_list.split_at_mut(2000);
     let mut map_renderer_proxy = api::get_map_renderer_proxy_for_main_map();
 
