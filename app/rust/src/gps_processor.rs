@@ -179,6 +179,7 @@ impl GpsPreprocessor {
         curr_data: &RawData,
     ) -> ProcessResult {
         const TIME_THRESHOLD_IN_MS: i64 = 5 * 1000;
+        const TOO_CLOSE_DISTANCE_IN_M: f64 = 0.5;
         const SPEED_THRESHOLD: f64 = 250.0; // m/s
 
         let time_diff_in_ms = match (curr_data.timestamp_ms, last_timestamp_ms) {
@@ -201,12 +202,17 @@ impl GpsPreprocessor {
 
         if time_based_result == ProcessResult::Append {
             // let's consider (speed) distance now
-            let time_in_sec = time_diff_in_ms.unwrap_or(TIME_THRESHOLD_IN_MS) as f64 / 1000.0;
-            let speed = curr_data.point.haversine_distance(last_point) / time_in_sec.max(0.01);
-            if speed < SPEED_THRESHOLD {
-                ProcessResult::Append
+            let distance = curr_data.point.haversine_distance(last_point);
+            if distance <= TOO_CLOSE_DISTANCE_IN_M {
+                ProcessResult::Ignore
             } else {
-                ProcessResult::NewSegment
+                let time_in_sec = time_diff_in_ms.unwrap_or(TIME_THRESHOLD_IN_MS) as f64 / 1000.0;
+                let speed = distance / time_in_sec.max(0.01);
+                if speed < SPEED_THRESHOLD {
+                    ProcessResult::Append
+                } else {
+                    ProcessResult::NewSegment
+                }
             }
         } else {
             time_based_result
@@ -258,7 +264,9 @@ impl GpsPreprocessor {
                 num_of_data_since_center_point_picked,
             } => {
                 let result = Self::process_moving_data(last_point, *last_timestamp_ms, curr_data);
-                *last_point = curr_data.point.clone();
+                if result != ProcessResult::Ignore {
+                    *last_point = curr_data.point.clone();
+                }
                 *last_timestamp_ms = curr_data.timestamp_ms;
 
                 // consider if we need to become stationary

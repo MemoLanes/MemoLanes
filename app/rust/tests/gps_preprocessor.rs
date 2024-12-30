@@ -137,6 +137,6 @@ fn run_though_test_data() {
         counter.entry(result).and_modify(|c| *c += 1).or_insert(1);
     }
     assert_eq!(counter[&ProcessResult::NewSegment], 8);
-    assert_eq!(counter[&ProcessResult::Append], 2670);
-    assert_eq!(counter[&ProcessResult::Ignore], 940);
+    assert_eq!(counter[&ProcessResult::Append], 2631);
+    assert_eq!(counter[&ProcessResult::Ignore], 979);
 }
