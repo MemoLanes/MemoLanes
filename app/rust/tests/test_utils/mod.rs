@@ -1,44 +1,10 @@
-use chrono::NaiveDateTime;
-use memolanes_core::gps_processor::Point;
-use memolanes_core::{gps_processor, journey_bitmap::JourneyBitmap};
+use memolanes_core::journey_bitmap::JourneyBitmap;
 use serde_json;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::{fs::File, io::Write};
-
-pub fn load_raw_gpx_data_for_test() -> Vec<gps_processor::RawData> {
-    let mut reader = csv::ReaderBuilder::new()
-        .has_headers(true)
-        .from_path("./tests/data/raw_gps_shanghai.csv")
-        .unwrap();
-
-    let mut data: Vec<gps_processor::RawData> = Vec::new();
-    for row in reader.records() {
-        let row = row.unwrap();
-
-        let datetime_str = row.get(3).unwrap();
-        let datetime_str = &datetime_str[..datetime_str.len() - 3]; // Remove the "+00" offset from the end
-        let timestamp_ms = NaiveDateTime::parse_from_str(datetime_str, "%Y/%m/%d %H:%M:%S%.3f")
-            .unwrap()
-            .and_utc()
-            .timestamp_millis();
-
-        let raw_data = gps_processor::RawData {
-            point: Point {
-                longitude: row.get(0).unwrap().parse().unwrap(),
-                latitude: row.get(1).unwrap().parse().unwrap(),
-            },
-            altitude: Some(row.get(2).unwrap().parse().unwrap()),
-            timestamp_ms: Some(timestamp_ms),
-            accuracy: Some(row.get(4).unwrap().parse().unwrap()),
-            speed: Some(row.get(6).unwrap().parse().unwrap()),
-        };
-        data.push(raw_data);
-    }
-    data
-}
 
 pub fn verify_image(name: &str, image: &Vec<u8>) {
     let hash_table_path = "tests/image_hashes.lock";

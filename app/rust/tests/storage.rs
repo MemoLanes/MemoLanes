@@ -1,6 +1,6 @@
 pub mod test_utils;
 use memolanes_core::{
-    gps_processor::ProcessResult, journey_bitmap::JourneyBitmap, storage::Storage,
+    gps_processor::ProcessResult, import_data, journey_bitmap::JourneyBitmap, storage::Storage,
 };
 use std::fs;
 use tempdir::TempDir;
@@ -23,9 +23,12 @@ fn storage_for_main_map_renderer() {
         sub_folder("cache/"),
     );
 
-    let raw_data_list = test_utils::load_raw_gpx_data_for_test();
-
-    for (i, raw_data) in raw_data_list.iter().enumerate() {
+    for (i, raw_data) in import_data::load_gpx("./tests/data/raw_gps_shanghai.gpx")
+        .unwrap()
+        .iter()
+        .flatten()
+        .enumerate()
+    {
         storage.record_gps_data(
             raw_data,
             ProcessResult::Append,

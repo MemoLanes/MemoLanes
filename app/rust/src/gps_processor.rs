@@ -179,6 +179,7 @@ impl GpsPreprocessor {
         curr_data: &RawData,
     ) -> ProcessResult {
         const TIME_THRESHOLD_IN_MS: i64 = 5 * 1000;
+        const TOO_CLOSE_DISTANCE_IN_M: f64 = 0.1;
         const SPEED_THRESHOLD: f64 = 250.0; // m/s
 
         let time_diff_in_ms = match (curr_data.timestamp_ms, last_timestamp_ms) {
@@ -201,12 +202,17 @@ impl GpsPreprocessor {
 
         if time_based_result == ProcessResult::Append {
             // let's consider (speed) distance now
-            let time_in_sec = time_diff_in_ms.unwrap_or(TIME_THRESHOLD_IN_MS) as f64 / 1000.0;
-            let speed = curr_data.point.haversine_distance(last_point) / time_in_sec.max(0.01);
-            if speed < SPEED_THRESHOLD {
-                ProcessResult::Append
+            let distance = curr_data.point.haversine_distance(last_point);
+            if distance <= TOO_CLOSE_DISTANCE_IN_M {
+                ProcessResult::Ignore
             } else {
-                ProcessResult::NewSegment
+                let time_in_sec = time_diff_in_ms.unwrap_or(TIME_THRESHOLD_IN_MS) as f64 / 1000.0;
+                let speed = distance / time_in_sec.max(0.01);
+                if speed < SPEED_THRESHOLD {
+                    ProcessResult::Append
+                } else {
+                    ProcessResult::NewSegment
+                }
             }
         } else {
             time_based_result
@@ -227,11 +233,12 @@ impl GpsPreprocessor {
         //   use the iOS threshold or tune a new one. I am not sure. :(
         use GpsPreprocessorState::*;
 
-        // TODO: need to tune this
-        const DISTANCE_THRESHOLD_FOR_ENDING_STATIONARY_IN_M: f64 = 0.;
-        const DISTANCE_THRESHOLD_FOR_BEGINING_STATIONARY_IN_M: f64 = f64::MAX / 2.;
-        const TIME_TO_WAIT_BEFORE_BEGINING_STATIONARY_IN_MS: i64 = i64::MAX / 2;
-        const FALLBACK_NUM_OF_DATA_TO_WAIT_BEFORE_BEGINING_STATIONARY: i64 = i64::MAX / 2;
+        // TODO: These values are very conservative, it is good enough for now,
+        // but likely we can do better.
+        const DISTANCE_THRESHOLD_FOR_ENDING_STATIONARY_IN_M: f64 = 2.5;
+        const DISTANCE_THRESHOLD_FOR_BEGINING_STATIONARY_IN_M: f64 = 2.0;
+        const TIME_TO_WAIT_BEFORE_BEGINING_STATIONARY_IN_MS: i64 = 120 * 1000;
+        const FALLBACK_NUM_OF_DATA_TO_WAIT_BEFORE_BEGINING_STATIONARY: i64 = 200;
 
         // We don't update our state if the data is bad.
         if self.is_bad_data(curr_data) {
@@ -259,7 +266,9 @@ impl GpsPreprocessor {
                 num_of_data_since_center_point_picked,
             } => {
                 let result = Self::process_moving_data(last_point, *last_timestamp_ms, curr_data);
-                *last_point = curr_data.point.clone();
+                if result != ProcessResult::Ignore {
+                    *last_point = curr_data.point.clone();
+                }
                 *last_timestamp_ms = curr_data.timestamp_ms;
 
                 // consider if we need to become stationary
