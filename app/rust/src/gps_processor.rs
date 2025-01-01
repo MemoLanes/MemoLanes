@@ -4,18 +4,15 @@ use crate::{
 };
 use anyhow::Result;
 use chrono::DateTime;
+
 #[derive(Clone, Debug, PartialEq)]
-pub struct RawData {
+pub struct Point {
     pub latitude: f64,
     pub longitude: f64,
-    pub timestamp_ms: Option<i64>,
-    pub accuracy: Option<f32>,
-    pub altitude: Option<f32>,
-    pub speed: Option<f32>,
 }
 
-impl RawData {
-    pub fn haversine_distance(&self, other: &RawData) -> f64 {
+impl Point {
+    pub fn haversine_distance(&self, other: &Point) -> f64 {
         use std::f64::consts::PI;
         let r = 6371e3; // Earth's radius in meters
 
@@ -32,35 +29,40 @@ impl RawData {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct RawData {
+    pub point: Point,
+    pub timestamp_ms: Option<i64>,
+    pub accuracy: Option<f32>,
+    pub altitude: Option<f32>,
+    pub speed: Option<f32>,
+}
+
 #[cfg(test)]
-mod raw_data_tests {
-    fn raw_data(latitude: f64, longitude: f64) -> super::RawData {
-        super::RawData {
+mod point_tests {
+    fn point(latitude: f64, longitude: f64) -> super::Point {
+        super::Point {
             latitude,
             longitude,
-            timestamp_ms: None,
-            accuracy: None,
-            altitude: None,
-            speed: None,
         }
     }
 
     #[test]
     fn haversine_distance() {
-        let raw_data1 = raw_data(22.291608437, 114.202901212);
-        let raw_data2 = raw_data(22.2914913837, 114.2018426615);
+        let point1 = point(22.291608437, 114.202901212);
+        let point2 = point(22.2914913837, 114.2018426615);
 
-        assert_eq!(raw_data1.haversine_distance(&raw_data1) as i32, 0);
-        assert_eq!(raw_data1.haversine_distance(&raw_data2) as i32, 109);
-        assert_eq!(raw_data2.haversine_distance(&raw_data1) as i32, 109);
+        assert_eq!(point1.haversine_distance(&point1) as i32, 0);
+        assert_eq!(point1.haversine_distance(&point2) as i32, 109);
+        assert_eq!(point2.haversine_distance(&point1) as i32, 109);
 
         // antimeridian
         assert_eq!(
-            raw_data(0.0, -179.9).haversine_distance(&raw_data(0.0, 179.9)) as i32,
+            point(0.0, -179.9).haversine_distance(&point(0.0, 179.9)) as i32,
             22238
         );
         assert_eq!(
-            raw_data(0.0, 179.9).haversine_distance(&raw_data(0.0, -179.9)) as i32,
+            point(0.0, 179.9).haversine_distance(&point(0.0, -179.9)) as i32,
             22238
         );
     }
@@ -104,99 +106,221 @@ mod process_result_tests {
     }
 }
 
-pub struct GpsProcessor {
-    last_data: Option<RawData>,
+enum GpsPreprocessorState {
+    Empty,
+    Moving {
+        last_point: Point,
+        last_timestamp_ms: Option<i64>,
+        possible_center_point: Point,
+        timestamp_ms_when_center_point_picked: Option<i64>,
+        num_of_data_since_center_point_picked: i64,
+    },
+    Stationary {
+        center_point: Point,
+        last_timestamp_ms: Option<i64>,
+    },
 }
 
-impl GpsProcessor {
+pub struct GpsPreprocessor {
+    state: GpsPreprocessorState,
+}
+
+impl GpsPreprocessor {
     pub fn new() -> Self {
-        GpsProcessor { last_data: None }
+        GpsPreprocessor {
+            state: GpsPreprocessorState::Empty,
+        }
     }
 
-    pub fn last_data(&self) -> Option<RawData> {
-        self.last_data.clone()
+    pub fn last_point(&self) -> Option<Point> {
+        use GpsPreprocessorState::*;
+        match &self.state {
+            Empty => None,
+            Moving { last_point, .. }
+            | Stationary {
+                center_point: last_point,
+                ..
+            } => Some(last_point.clone()),
+        }
+    }
+
+    // 1. Accuracy is too bad.
+    // 2. Timestamp moving backwards.
+    fn is_bad_data(&self, curr_data: &RawData) -> bool {
+        use GpsPreprocessorState::*;
+        const ACCURACY_THRESHOLD: f32 = 50.0;
+        if let Some(accuracy) = curr_data.accuracy {
+            if accuracy > ACCURACY_THRESHOLD {
+                return true;
+            }
+        }
+
+        let last_timestamp_ms = match &self.state {
+            Empty => None,
+            Moving {
+                last_timestamp_ms, ..
+            }
+            | Stationary {
+                last_timestamp_ms, ..
+            } => *last_timestamp_ms,
+        };
+        if let (Some(now), Some(prev)) = (curr_data.timestamp_ms, last_timestamp_ms) {
+            if now < prev {
+                return true;
+            }
+        };
+
+        false
+    }
+
+    fn process_moving_data(
+        last_point: &Point,
+        last_timestamp_ms: Option<i64>,
+        curr_data: &RawData,
+    ) -> ProcessResult {
+        const TIME_THRESHOLD_IN_MS: i64 = 5 * 1000;
+        const TOO_CLOSE_DISTANCE_IN_M: f64 = 0.1;
+        const SPEED_THRESHOLD: f64 = 250.0; // m/s
+
+        let time_diff_in_ms = match (curr_data.timestamp_ms, last_timestamp_ms) {
+            (Some(now), Some(prev)) => Some(now - prev),
+            (None, _) | (_, None) => None,
+        };
+
+        let time_based_result = {
+            match time_diff_in_ms {
+                None => ProcessResult::Append,
+                Some(diff_in_ms) => {
+                    if diff_in_ms > TIME_THRESHOLD_IN_MS {
+                        ProcessResult::NewSegment
+                    } else {
+                        ProcessResult::Append
+                    }
+                }
+            }
+        };
+
+        if time_based_result == ProcessResult::Append {
+            // let's consider (speed) distance now
+            let distance = curr_data.point.haversine_distance(last_point);
+            if distance <= TOO_CLOSE_DISTANCE_IN_M {
+                ProcessResult::Ignore
+            } else {
+                let time_in_sec = time_diff_in_ms.unwrap_or(TIME_THRESHOLD_IN_MS) as f64 / 1000.0;
+                let speed = distance / time_in_sec.max(0.01);
+                if speed < SPEED_THRESHOLD {
+                    ProcessResult::Append
+                } else {
+                    ProcessResult::NewSegment
+                }
+            }
+        } else {
+            time_based_result
+        }
     }
 
     pub fn preprocess(&mut self, curr_data: &RawData) -> ProcessResult {
-        // TODO: the current implementation is still pretty naive.
-        // Things we could do:
-        // 1. Tune the threshold, maybe use different values with different
-        //    devices/speed. Maybe maintain a state about how the user is moving.
-        // 2. Ignore data that is too similar to the previous one or something
-        //    like that. (Maybe having a moving and a stationary state,
-        //    automatically switching between these).
-        //
         // Something to note:
         // * Accuracy is not well defined. The unit is meters but: On android,
         //  it is the radius of this location at the 68th percentile confidence
         //  level. On iOS, it is not specified in document. It seems the
         //  accuaracy is always poor (higher in value) on iOS, maybe it is using
         //  95th percentile. I am not use, no one is normalizing this value, we
-        // might need to use different threshold and tune it ourselves.
+        //  might need to use different threshold and tune it ourselves.
         //
         // * Values in GPX file are just from the device and we lose the device
         //   info (According to the bahvior of Guru Map). So we might need to
         //   use the iOS threshold or tune a new one. I am not sure. :(
+        use GpsPreprocessorState::*;
 
-        const TIME_THRESHOLD_IN_MS: i64 = 5 * 1000;
-        const ACCURACY_THRESHOLD: f32 = 50.0;
-        const SPEED_THRESHOLD: f64 = 250.0; // m/s
-        let should_ignore = match curr_data.accuracy {
-            Some(accuracy) => accuracy > ACCURACY_THRESHOLD,
-            None => false,
+        // TODO: These values are very conservative, it is good enough for now,
+        // but likely we can do better.
+        const DISTANCE_THRESHOLD_FOR_ENDING_STATIONARY_IN_M: f64 = 2.5;
+        const DISTANCE_THRESHOLD_FOR_BEGINING_STATIONARY_IN_M: f64 = 2.0;
+        const TIME_TO_WAIT_BEFORE_BEGINING_STATIONARY_IN_MS: i64 = 120 * 1000;
+        const FALLBACK_NUM_OF_DATA_TO_WAIT_BEFORE_BEGINING_STATIONARY: i64 = 200;
+
+        // We don't update our state if the data is bad.
+        if self.is_bad_data(curr_data) {
+            return ProcessResult::Ignore;
         };
 
-        let result = if should_ignore {
-            ProcessResult::Ignore
-        } else {
-            match &self.last_data {
-                None => ProcessResult::NewSegment,
-                Some(last_data) => {
-                    let mut time_diff_in_ms = curr_data
-                        .timestamp_ms
-                        .and_then(|now| last_data.timestamp_ms.map(|prev| now - prev));
+        let start_moving = |curr_data: &RawData| Moving {
+            last_point: curr_data.point.clone(),
+            last_timestamp_ms: curr_data.timestamp_ms,
+            possible_center_point: curr_data.point.clone(),
+            timestamp_ms_when_center_point_picked: curr_data.timestamp_ms,
+            num_of_data_since_center_point_picked: 0,
+        };
 
-                    let time_based_result = match time_diff_in_ms {
-                        None => ProcessResult::Append,
-                        Some(diff_in_ms) => {
-                            if diff_in_ms < 0 {
-                                // NOTE: We could get a location update from a while ago and
-                                // it can mess up the track. So we simply just drop these. If
-                                // this turns out to be not good enough, our options are:
-                                // 1. having a small buffer for updates, and sort events in
-                                // the buffer; or
-                                // 2. store these out of order events else where and add them
-                                // back in `finalize_journey`.
-                                time_diff_in_ms = None;
-                                ProcessResult::Ignore
-                            } else if diff_in_ms > TIME_THRESHOLD_IN_MS {
-                                ProcessResult::NewSegment
-                            } else {
-                                ProcessResult::Append
-                            }
-                        }
-                    };
+        match &mut self.state {
+            Empty => {
+                self.state = start_moving(curr_data);
+                ProcessResult::NewSegment
+            }
+            Moving {
+                last_point,
+                last_timestamp_ms,
+                possible_center_point,
+                timestamp_ms_when_center_point_picked,
+                num_of_data_since_center_point_picked,
+            } => {
+                let result = Self::process_moving_data(last_point, *last_timestamp_ms, curr_data);
+                if result != ProcessResult::Ignore {
+                    *last_point = curr_data.point.clone();
+                }
+                *last_timestamp_ms = curr_data.timestamp_ms;
 
-                    if time_based_result == ProcessResult::Append {
-                        // let's consider (speed) distance now
-                        let time_in_sec =
-                            time_diff_in_ms.unwrap_or(TIME_THRESHOLD_IN_MS) as f64 / 1000.0;
-                        let speed = curr_data.haversine_distance(last_data) / time_in_sec.max(0.01);
-                        if speed < SPEED_THRESHOLD {
-                            ProcessResult::Append
-                        } else {
-                            ProcessResult::NewSegment
-                        }
+                // consider if we need to become stationary
+                if curr_data.point.haversine_distance(possible_center_point)
+                    <= DISTANCE_THRESHOLD_FOR_BEGINING_STATIONARY_IN_M
+                {
+                    *num_of_data_since_center_point_picked += 1;
+                    let should_become_stationary = if let (Some(now), Some(prev)) = (
+                        curr_data.timestamp_ms,
+                        *timestamp_ms_when_center_point_picked,
+                    ) {
+                        prev + TIME_TO_WAIT_BEFORE_BEGINING_STATIONARY_IN_MS <= now
                     } else {
-                        time_based_result
+                        // we only fallback to counting in this case
+                        *num_of_data_since_center_point_picked
+                            >= FALLBACK_NUM_OF_DATA_TO_WAIT_BEFORE_BEGINING_STATIONARY
+                    };
+                    if should_become_stationary {
+                        self.state = Stationary {
+                            center_point: possible_center_point.clone(),
+                            last_timestamp_ms: curr_data.timestamp_ms,
+                        }
                     }
+                } else {
+                    // picking new center point
+                    // TODO: maybe picking the middle point between the previous possible center point and the current
+                    // point is better. I am not sure.
+                    *possible_center_point = curr_data.point.clone();
+                    *timestamp_ms_when_center_point_picked = curr_data.timestamp_ms;
+                    *num_of_data_since_center_point_picked = 0;
+                }
+
+                result
+            }
+            Stationary {
+                center_point,
+                last_timestamp_ms,
+            } => {
+                if curr_data.point.haversine_distance(center_point)
+                    <= DISTANCE_THRESHOLD_FOR_ENDING_STATIONARY_IN_M
+                {
+                    *last_timestamp_ms = curr_data.timestamp_ms;
+                    ProcessResult::Ignore
+                } else {
+                    // ending stationary
+                    let result =
+                        Self::process_moving_data(center_point, *last_timestamp_ms, curr_data);
+                    self.state = start_moving(curr_data);
+                    result
                 }
             }
-        };
-        if result != ProcessResult::Ignore {
-            self.last_data = Some(curr_data.clone());
-        };
-        result
+        }
     }
 }
 

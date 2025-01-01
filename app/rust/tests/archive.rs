@@ -9,8 +9,12 @@ use std::{fs::File, io::Write};
 use tempdir::TempDir;
 
 fn add_vector_journeys(main_db: &mut MainDb) {
-    let test_data = test_utils::load_raw_gpx_data_for_test();
-    for (i, raw_data) in test_data.iter().enumerate() {
+    for (i, raw_data) in import_data::load_gpx("./tests/data/raw_gps_shanghai.gpx")
+        .unwrap()
+        .iter()
+        .flatten()
+        .enumerate()
+    {
         if i > 1000 && i % 1000 == 0 {
             main_db
                 .with_txn(|txn| txn.finalize_ongoing_journey())

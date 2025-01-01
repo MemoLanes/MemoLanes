@@ -2,7 +2,8 @@ pub mod test_utils;
 
 use chrono::{DateTime, NaiveDate};
 use memolanes_core::{
-    gps_processor::{self, RawData},
+    gps_processor::{self, Point, RawData},
+    import_data,
     journey_data::JourneyData,
     journey_header::JourneyKind,
     journey_vector::JourneyVector,
@@ -12,7 +13,11 @@ use tempdir::TempDir;
 
 #[test]
 fn basic() {
-    let test_data = test_utils::load_raw_gpx_data_for_test();
+    let test_data: Vec<RawData> = import_data::load_gpx("./tests/data/raw_gps_shanghai.gpx")
+        .unwrap()
+        .into_iter()
+        .flatten()
+        .collect();
     let num_of_gpx_data_in_input = test_data.len();
     println!("total test data: {}", num_of_gpx_data_in_input);
 
@@ -116,8 +121,10 @@ fn get_lastest_timestamp_of_ongoing_journey() {
     main_db
         .record(
             &RawData {
-                latitude: 120.163856,
-                longitude: 30.2719716,
+                point: Point {
+                    latitude: 120.163856,
+                    longitude: 30.2719716,
+                },
                 timestamp_ms: Some(1697349116449),
                 accuracy: None,
                 altitude: None,
@@ -129,8 +136,10 @@ fn get_lastest_timestamp_of_ongoing_journey() {
     main_db
         .record(
             &RawData {
-                latitude: 120.163856,
-                longitude: 30.2719716,
+                point: Point {
+                    latitude: 120.163856,
+                    longitude: 30.2719716,
+                },
                 timestamp_ms: Some(1697349117000),
                 accuracy: None,
                 altitude: None,

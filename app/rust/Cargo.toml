@@ -11,12 +11,12 @@ crate-type = ["lib", "cdylib", "staticlib"]
 journey_kernel = { path = "../journey_kernel" }
 anyhow = { version = "1.0", features = ["backtrace"] }
 chrono = "0.4"
-flutter_rust_bridge = { version = "=2.6.0", features = ["chrono"] }
+flutter_rust_bridge = { version = "=2.7.0", features = ["chrono"] }
 log = "0.4"
 rusqlite = { version = "0.32", features = ["bundled"] }
 simplelog = "0.12"
-protobuf = "3.6"
-uuid = { version = "1.10", features = ["v4", "fast-rng", "macro-diagnostics", "serde"] }
+protobuf = "3.7"
+uuid = { version = "1.11", features = ["v4", "fast-rng", "macro-diagnostics", "serde"] }
 sql_split = "0.1"
 zstd = "0.13"
 itertools = "0.13"
@@ -54,7 +54,7 @@ sha2 = "0.10"
 serde_json = "1.0"
 
 [build-dependencies]
-protobuf-codegen = "3.6"
+protobuf-codegen = "3.7"
 
 [[bench]]
 name = "bench"

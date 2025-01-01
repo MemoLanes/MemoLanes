@@ -1,8 +1,8 @@
 use crate::api::import::JourneyInfo;
-use crate::gps_processor::{PreprocessedData, ProcessResult, RawData};
+use crate::gps_processor::{Point, PreprocessedData, ProcessResult, RawData};
 use crate::journey_bitmap::{self, Block, JourneyBitmap, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH};
 use crate::{
-    gps_processor::{self, GpsProcessor},
+    gps_processor::{self, GpsPreprocessor},
     journey_vector::{JourneyVector, TrackPoint},
 };
 use anyhow::Result;
@@ -135,8 +135,10 @@ pub fn load_gpx(file_path: &str) -> Result<Vec<Vec<RawData>>> {
             for point in segment.points {
                 let timestamp = convert_to_timestamp(&point.time)?;
                 raw_vector_data_segment.push(gps_processor::RawData {
-                    latitude: point.point().y(),
-                    longitude: point.point().x(),
+                    point: Point {
+                        latitude: point.point().y(),
+                        longitude: point.point().x(),
+                    },
                     timestamp_ms: timestamp.map(|x| x.timestamp_millis()),
                     accuracy: point.hdop.map(|hdop| hdop as f32),
                     altitude: point.elevation.map(|value| value as f32),
@@ -176,8 +178,10 @@ fn read_track(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
         };
 
         Ok(Some(gps_processor::RawData {
-            latitude: coord[1].parse::<f64>()?,
-            longitude: coord[0].parse::<f64>()?,
+            point: Point {
+                latitude: coord[1].parse::<f64>()?,
+                longitude: coord[0].parse::<f64>()?,
+            },
             timestamp_ms: timestamp.map(|x| x.timestamp_millis()),
             accuracy: None,
             altitude: if coord.len() >= 3 {
@@ -250,8 +254,10 @@ fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
             if let Some(Geometry::LineString(p)) = &p.geometry {
                 p.coords.iter().for_each(|coord| {
                     raw_vector_data_segment.push(RawData {
-                        latitude: coord.y,
-                        longitude: coord.x,
+                        point: Point {
+                            latitude: coord.y,
+                            longitude: coord.x,
+                        },
                         timestamp_ms: None,
                         accuracy: None,
                         altitude: None,
@@ -282,11 +288,11 @@ pub fn journey_vector_from_raw_data(
 ) -> Option<JourneyVector> {
     let processed_data = raw_data.into_iter().flat_map(move |x| {
         // we handle each segment separately
-        let mut gps_processor = GpsProcessor::new();
+        let mut gps_preprocessor = GpsPreprocessor::new();
         let mut first = true;
         x.into_iter().map(move |raw_data| {
             let process_result = if run_preprocessor {
-                gps_processor.preprocess(&raw_data)
+                gps_preprocessor.preprocess(&raw_data)
             } else if first {
                 first = false;
                 ProcessResult::NewSegment
@@ -297,8 +303,8 @@ pub fn journey_vector_from_raw_data(
             Ok(PreprocessedData {
                 timestamp_sec: raw_data.timestamp_ms.map(|x| x / 1000),
                 track_point: TrackPoint {
-                    latitude: raw_data.latitude,
-                    longitude: raw_data.longitude,
+                    latitude: raw_data.point.latitude,
+                    longitude: raw_data.point.longitude,
                 },
                 process_result,
             })
