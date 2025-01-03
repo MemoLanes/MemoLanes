@@ -28,11 +28,11 @@ This example helps you to understand how the WASM module works through any stati
 
 3. **Verify `setup_token.py`:**
 
-   Ensure `setup_token.py` has been executed again, and there is a `token.json` in the `examples` folder.
+   Ensure `setup_token.py` has been executed again, and there is a `token.json` in the `static` folder.
 
 4. **Check links in `journey-view.html`:**
 
-   Make sure links to `journey_bitmap.bin` in `examples/journey-view.html` are correct.
+   Make sure links to `journey_bitmap.bin` in `static/journey-view.html` are correct.
 
 5. **Open `journey-view.html` in a browser:**
 

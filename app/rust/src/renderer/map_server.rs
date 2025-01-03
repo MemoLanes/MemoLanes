@@ -366,9 +366,9 @@ impl Drop for MapServer {
 }
 
 // Journey View frontend
-const JOURNEY_VIEW_HTML: &str = include_str!("../../../journey_kernel/examples/journey-view.html");
+const JOURNEY_VIEW_HTML: &str = include_str!("../../../journey_kernel/static/journey-view.html");
 const JOURNEY_CANVAS_LAYER_JS: &str =
-    include_str!("../../../journey_kernel/examples/journey-canvas-layer.js");
+    include_str!("../../../journey_kernel/static/journey-canvas-layer.js");
 
 // Journey Kernel wasm package
 const JOURNEY_KERNEL_JS: &str = include_str!("../../../journey_kernel/pkg/journey_kernel.js");
@@ -376,9 +376,9 @@ const JOURNEY_KERNEL_WASM: &[u8] =
     include_bytes!("../../../journey_kernel/pkg/journey_kernel_bg.wasm");
 
 // Mapbox
-const MAPBOX_JS: &str = include_str!("../../../journey_kernel/examples/mapbox-gl.js");
-const MAPBOX_CSS: &str = include_str!("../../../journey_kernel/examples/mapbox-gl.css");
-const TOKEN_JSON: &str = include_str!("../../../journey_kernel/examples/token.json");
+const MAPBOX_JS: &str = include_str!("../../../journey_kernel/static/mapbox-gl.js");
+const MAPBOX_CSS: &str = include_str!("../../../journey_kernel/static/mapbox-gl.css");
+const TOKEN_JSON: &str = include_str!("../../../journey_kernel/static/token.json");
 
 // Serve the HTML page
 async fn index() -> HttpResponse {
