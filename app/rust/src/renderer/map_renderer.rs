@@ -1,4 +1,3 @@
-use crate::renderer::map_server::Token;
 use crate::renderer::utils::image_to_png_data;
 use crate::renderer::utils::{DEFAULT_BG_COLOR, DEFAULT_FG_COLOR, DEFAULT_TILE_SIZE};
 use crate::renderer::TileRendererBasic;
@@ -37,7 +36,6 @@ pub struct MapRenderer {
     bg_color: Rgba<u8>,
     fg_color: Rgba<u8>,
     current_render_area: Option<RenderArea>,
-    token: Option<Token>,
 }
 
 impl MapRenderer {
@@ -47,9 +45,7 @@ impl MapRenderer {
     }
 
     // TODO: it is currently used for WebView transition, consider a better design later
-    pub fn debug_new_with_token(journey_bitmap: Arc<Mutex<JourneyBitmap>>, token: Token) -> Self {
-        // let journey_bitmap = Arc::new(Mutex::new(journey_bitmap));
-        // let token = registry.register(Arc::downgrade(&journey_bitmap));
+    pub fn debug_new(journey_bitmap: Arc<Mutex<JourneyBitmap>>) -> Self {
         let tile_renderer = Box::new(TileRendererBasic::new(DEFAULT_TILE_SIZE));
         Self {
             journey_bitmap,
@@ -57,12 +53,7 @@ impl MapRenderer {
             bg_color: DEFAULT_BG_COLOR,
             fg_color: DEFAULT_FG_COLOR,
             current_render_area: None,
-            token: Some(token),
         }
-    }
-
-    pub fn get_url(&self) -> Option<String> {
-        self.token.as_ref().map(|token| token.url())
     }
 
     pub fn new_with_tile_renderer(
@@ -76,7 +67,6 @@ impl MapRenderer {
             bg_color: DEFAULT_BG_COLOR,
             fg_color: DEFAULT_FG_COLOR,
             current_render_area: None,
-            token: None,
         }
     }
 
@@ -188,10 +178,6 @@ impl MapRenderer {
         {
             let mut journey_bitmap = self.journey_bitmap.lock().unwrap();
             f(&mut journey_bitmap);
-        }
-
-        if let Some(token) = &self.token {
-            token.set_needs_reload();
         }
 
         // TODO: we should improve the cache invalidation rule

@@ -139,15 +139,21 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     final position = gpsState.latestPosition;
 
     if (_trackingMode == TrackingMode.off) {
-      _webViewController?.runJavaScript('updateLocationMarker(0, 0, false);');
+      _webViewController?.runJavaScript('''
+        if (typeof updateLocationMarker === 'function') {
+          updateLocationMarker(0, 0, false);
+        }
+      ''');
     } else if (position != null) {
       _webViewController?.runJavaScript('''
-        updateLocationMarker(
-          ${position.longitude}, 
-          ${position.latitude}, 
-          true, 
-          ${_trackingMode == TrackingMode.displayAndTracking}
-        );
+        if (typeof updateLocationMarker === 'function') {
+          updateLocationMarker(
+            ${position.longitude}, 
+            ${position.latitude}, 
+            true, 
+            ${_trackingMode == TrackingMode.displayAndTracking}
+          );
+        }
       ''');
     }
   }

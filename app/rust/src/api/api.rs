@@ -60,10 +60,8 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
         // TODO: this is a temporary solution for WebView transition
         let journey_bitmap = storage.get_latest_bitmap_for_main_map_renderer().unwrap();
         let journey_bitmap = Arc::new(Mutex::new(journey_bitmap));
-
-        let token = map_server
-            .register_with_poll_handler(Arc::downgrade(&journey_bitmap), poll_for_main_map_update);
-        let map_renderer = MapRenderer::debug_new_with_token(journey_bitmap, token);
+        map_server.set_journey_bitmap_with_poll_handler(Arc::downgrade(&journey_bitmap), poll_for_main_map_update);
+        let map_renderer = MapRenderer::debug_new(journey_bitmap);
         // ======= WebView Transition codes END ===========
 
         MainState {
@@ -99,17 +97,8 @@ pub fn poll_for_main_map_update(journey_bitmap: &mut JourneyBitmap) -> bool {
 
 impl MapRendererProxy {
     pub fn get_url(&self) -> String {
-        match self {
-            Self::MainMap => {
-                let state = get();
-                let map_renderer = state.map_renderer.lock().unwrap();
-                match map_renderer.as_ref() {
-                    Some(renderer) => renderer.get_url().unwrap_or_default(),
-                    None => String::new(),
-                }
-            }
-            Self::Simple(map_renderer) => map_renderer.get_url().unwrap_or_default(),
-        }
+        let state = get();
+        state.map_server.lock().unwrap().as_ref().unwrap().get_url()
     }
 
     // TODO: remove this function
@@ -192,17 +181,14 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
     // ======= WebView Transition codes START ===========
     let journey_bitmap = Arc::new(Mutex::new(journey_bitmap));
     let server = get().map_server.lock().unwrap();
-    let token = server
-        .as_ref()
-        .unwrap()
-        .register(Arc::downgrade(&journey_bitmap));
-    let map_renderer = MapRenderer::debug_new_with_token(journey_bitmap, token);
+    server.as_ref().unwrap().set_journey_bitmap(Arc::downgrade(&journey_bitmap));
+    let map_renderer = MapRenderer::debug_new(journey_bitmap);
     // ======= WebView Transition codes END ===========
 
     Ok(MapRendererProxy::Simple(map_renderer))
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct CameraOption {
     pub zoom: f64,
     pub lng: f64,
@@ -260,14 +246,9 @@ pub fn get_map_renderer_proxy_for_journey(
     // ======= WebView Transition codes START ===========
     let journey_bitmap = Arc::new(Mutex::new(journey_bitmap));
     let server = get().map_server.lock().unwrap();
-    let token = server
-        .as_ref()
-        .unwrap()
-        .register(Arc::downgrade(&journey_bitmap));
-    if let Some(ref default_camera_option) = default_camera_option {
-        token.set_provisioned_camera_option(default_camera_option.clone());
-    }
-    let map_renderer = MapRenderer::debug_new_with_token(journey_bitmap, token);
+    server.as_ref().unwrap().set_journey_bitmap(Arc::downgrade(&journey_bitmap));
+    server.as_ref().unwrap().set_provisioned_camera_option(default_camera_option);
+    let map_renderer = MapRenderer::debug_new(journey_bitmap);
     // ======= WebView Transition codes END ===========
 
     Ok((
@@ -314,6 +295,7 @@ pub fn on_location_update(
                             end.latitude,
                         );
                     });
+                    state.map_server.lock().unwrap().as_ref().unwrap().set_needs_reload();
                 }
             },
         }
