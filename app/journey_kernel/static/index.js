@@ -1,4 +1,4 @@
-import init, { JourneyBitmap } from '../pkg/journey_kernel.js';
+import { JourneyBitmap } from '../pkg';
 import { JourneyCanvasLayer } from './journey-canvas-layer.js';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -94,8 +94,6 @@ async function handleHashChange(map) {
 }
 
 async function initializeMap() {
-    await init();
-
     // Load Mapbox token from .token.json
     const tokenResponse = await fetch('./token.json');
     const tokenData = await tokenResponse.json();

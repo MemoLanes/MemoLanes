@@ -13,6 +13,8 @@ module.exports = (env, argv) => {
     }),
     new WasmPackPlugin({
       crateDirectory: path.resolve(__dirname, "."),
+      target: 'bundler',
+      extraArgs: '--features wasm --no-default-features',
     }),
   ];
 
@@ -39,6 +41,8 @@ module.exports = (env, argv) => {
     output: {
       path: path.resolve(__dirname, 'dist'),
       filename: 'bundle.js',
+      assetModuleFilename: '[name][ext]',
+      webassemblyModuleFilename: 'journey_kernel_bg.wasm',
     },
     experiments: {
       asyncWebAssembly: true,
