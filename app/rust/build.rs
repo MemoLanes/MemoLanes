@@ -35,29 +35,36 @@ fn setup_x86_64_android_workaround() {
     }
 }
 
-fn check_wasm_pack_installed() {
-    if Command::new("wasm-pack").arg("--version").output().is_err() {
-        panic!(
-            "wasm-pack is not installed. Please install it by running `cargo install wasm-pack`."
-        );
+fn check_yarn_dependencies() {
+    // Check if yarn is installed
+    if Command::new("yarn").arg("--version").output().is_err() {
+        panic!("yarn is not installed. Please install yarn first using `npm install -g yarn`");
+    }
+
+    // Check if node_modules exists in journey_kernel
+    if !Path::new("../journey_kernel/node_modules").exists() {
+        println!("cargo:warning=Installing yarn dependencies for journey_kernel...");
+        let status = Command::new("yarn")
+            .current_dir("../journey_kernel")
+            .arg("install")
+            .status()
+            .expect("Failed to run yarn install");
+
+        if !status.success() {
+            panic!("Failed to install yarn dependencies");
+        }
     }
 }
 
 fn build_journey_kernel_wasm() {
     println!("cargo:rerun-if-changed=../journey_kernel");
 
-    let status = Command::new("wasm-pack")
+    // Build using webpack through yarn
+    let status = Command::new("yarn")
         .current_dir("../journey_kernel")
-        .args([
-            "build",
-            "--target",
-            "web",
-            "--features",
-            "wasm",
-            "--no-default-features",
-        ])
+        .args(["build"])
         .status()
-        .expect("Failed to execute wasm-pack command");
+        .expect("Failed to execute webpack build command");
 
     if !status.success() {
         panic!("Failed to build journey_kernel WASM package");
@@ -84,7 +91,7 @@ fn generate_mapbox_token_const() {
 }
 
 fn main() {
-    check_wasm_pack_installed();
+    check_yarn_dependencies();
     build_journey_kernel_wasm();
     generate_mapbox_token_const();
 
