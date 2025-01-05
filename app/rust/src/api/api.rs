@@ -1,4 +1,3 @@
-use std::cmp::max;
 use std::fs::File;
 use std::sync::{Arc, Mutex, OnceLock};
 
@@ -11,7 +10,7 @@ use crate::journey_bitmap::{JourneyBitmap, MAP_WIDTH_OFFSET, TILE_WIDTH, TILE_WI
 use crate::journey_data::JourneyData;
 use crate::journey_header::JourneyHeader;
 use crate::renderer::MapServer;
-use crate::renderer::{MapRenderer, RenderResult};
+use crate::renderer::MapRenderer;
 use crate::storage::Storage;
 use crate::{archive, export_data, gps_processor, merged_journey_builder, storage};
 use crate::{logs, utils};
@@ -62,7 +61,7 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
         let journey_bitmap = Arc::new(Mutex::new(journey_bitmap));
         map_server.set_journey_bitmap_with_poll_handler(
             Arc::downgrade(&journey_bitmap),
-            poll_for_main_map_update,
+            Some(Box::new(poll_for_main_map_update)),
         );
         let map_renderer = MapRenderer::debug_new(journey_bitmap);
         // ======= WebView Transition codes END ===========
@@ -106,6 +105,7 @@ pub fn get_url() -> String {
 
 #[frb(sync)]
 pub fn get_map_renderer_proxy_for_main_map() -> MapRendererProxy {
+    // TODO: enable the main map
     MapRendererProxy::MainMap
 }
 
@@ -130,7 +130,7 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
     server
         .as_ref()
         .unwrap()
-        .set_journey_bitmap(Arc::downgrade(&journey_bitmap));
+        .set_journey_bitmap_with_poll_handler(Arc::downgrade(&journey_bitmap), None);
     let map_renderer = MapRenderer::debug_new(journey_bitmap);
     // ======= WebView Transition codes END ===========
 
@@ -198,7 +198,7 @@ pub fn get_map_renderer_proxy_for_journey(
     server
         .as_ref()
         .unwrap()
-        .set_journey_bitmap(Arc::downgrade(&journey_bitmap));
+        .set_journey_bitmap_with_poll_handler(Arc::downgrade(&journey_bitmap), None);
     server
         .as_ref()
         .unwrap()
@@ -250,6 +250,7 @@ pub fn on_location_update(
                             end.latitude,
                         );
                     });
+                    // TODO: in current design, the active map_server data may not be the main map
                     state
                         .map_server
                         .lock()

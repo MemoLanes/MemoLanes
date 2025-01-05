@@ -74,7 +74,7 @@ async fn serve_main_journey_bitmap(req: HttpRequest, data: web::Data<AppState>) 
 
         response
     } else {
-        return HttpResponse::NotFound().finish();
+        HttpResponse::NotFound().finish()
     }
 }
 
@@ -113,34 +113,10 @@ impl MapServer {
         }
     }
 
-    pub fn set_journey_bitmap(&self, item: Weak<Mutex<JourneyBitmap>>) {
-        // clear previous provisioned_camera_option
-        {
-            let mut provisioned_camera_option = self.provisioned_camera_option.lock().unwrap();
-            *provisioned_camera_option = None;
-        }
-
-        // set journey_bitmap and poll_handler
-        {
-            let mut journey_bitmap = self.journey_bitmap.lock().unwrap();
-            *journey_bitmap = Some(item);
-        }
-        {
-            let mut poll_handler = self.poll_handler.lock().unwrap();
-            *poll_handler = None;
-        }
-
-        // set needs_reload
-        {
-            let mut needs_reload = self.needs_reload.lock().unwrap();
-            *needs_reload = true;
-        }
-    }
-
     pub fn set_journey_bitmap_with_poll_handler(
         &self,
         item: Weak<Mutex<JourneyBitmap>>,
-        handler: impl Fn(&mut JourneyBitmap) -> bool + Send + Sync + 'static,
+        handler: Option<JourneyBitmapModifier>
     ) {
         // clear previous provisioned_camera_option
         {
@@ -155,7 +131,7 @@ impl MapServer {
         }
         {
             let mut poll_handler = self.poll_handler.lock().unwrap();
-            *poll_handler = Some(Box::new(handler));
+            *poll_handler = handler;
         }
 
         // set needs_reload

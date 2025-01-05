@@ -19,7 +19,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     // demo for a dynamic map
     let journey_bitmap2 = JourneyBitmap::new();
     let arc_journey_bitmap2 = Arc::new(Mutex::new(journey_bitmap2));
-    server.set_journey_bitmap(Arc::downgrade(&arc_journey_bitmap2));
+    server.set_journey_bitmap_with_poll_handler(Arc::downgrade(&arc_journey_bitmap2), None);
 
     // Set initial camera position for China region
     server.set_provisioned_camera_option(Some(CameraOption {
