@@ -72,14 +72,17 @@ fn build_journey_kernel_wasm() {
 }
 
 fn generate_mapbox_token_const() {
-    println!("cargo:rerun-if-changed=.env");
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("Failed to get CARGO_MANIFEST_DIR");
+    let env_path = Path::new(&manifest_dir).join("../.env");
+    
+    println!("cargo:rerun-if-changed={}", env_path.display());
     
     // Try to load from environment first
     let token = if let Ok(token) = env::var("MAPBOX-ACCESS-TOKEN") {
         token
     } else {
         // Fallback to reading .env file
-        let env_content = fs::read_to_string("../.env").expect("Failed to read .env file");
+        let env_content = fs::read_to_string(env_path).expect("Failed to read .env file");
         env_content
             .lines()
             .find(|line| line.starts_with("MAPBOX-ACCESS-TOKEN="))
