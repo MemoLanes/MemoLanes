@@ -297,28 +297,16 @@ impl MapServer {
                         )
                         .route(&format!("/{}/", random_prefix), web::get().to(index))
                         .route(
-                            "/pkg/journey_kernel.js",
+                            &format!("/{}/bundle.js", random_prefix),
                             web::get().to(serve_journey_kernel_js),
                         )
                         .route(
-                            "/pkg/journey_kernel_bg.wasm",
+                            &format!("/{}/journey_kernel_bg.wasm", random_prefix),
                             web::get().to(serve_journey_kernel_wasm),
-                        )
-                        .route(
-                            &format!("/{}/mapbox-gl.js", random_prefix).to_string(),
-                            web::get().to(serve_mapbox_js),
-                        )
-                        .route(
-                            &format!("/{}/mapbox-gl.css", random_prefix).to_string(),
-                            web::get().to(serve_mapbox_css),
                         )
                         .route(
                             &format!("/{}/token.json", random_prefix).to_string(),
                             web::get().to(serve_token_json),
-                        )
-                        .route(
-                            &format!("/{}/journey-canvas-layer.js", random_prefix).to_string(),
-                            web::get().to(serve_journey_canvas_layer_js),
                         )
                 })
                 .bind(format!("{}:{}", host, port))
@@ -366,18 +354,13 @@ impl Drop for MapServer {
 }
 
 // Journey View frontend
-const JOURNEY_VIEW_HTML: &str = include_str!("../../../journey_kernel/static/journey-view.html");
-const JOURNEY_CANVAS_LAYER_JS: &str =
-    include_str!("../../../journey_kernel/static/journey-canvas-layer.js");
+const JOURNEY_VIEW_HTML: &str = include_str!("../../../journey_kernel/dist/index.html");
 
 // Journey Kernel wasm package
-const JOURNEY_KERNEL_JS: &str = include_str!("../../../journey_kernel/pkg/journey_kernel.js");
+const JOURNEY_KERNEL_JS: &str = include_str!("../../../journey_kernel/dist/bundle.js");
 const JOURNEY_KERNEL_WASM: &[u8] =
-    include_bytes!("../../../journey_kernel/pkg/journey_kernel_bg.wasm");
+    include_bytes!("../../../journey_kernel/dist/journey_kernel_bg.wasm");
 
-// Mapbox
-const MAPBOX_JS: &str = include_str!("../../../journey_kernel/static/mapbox-gl.js");
-const MAPBOX_CSS: &str = include_str!("../../../journey_kernel/static/mapbox-gl.css");
 const TOKEN_JSON: &str = include_str!("../../../journey_kernel/static/token.json");
 
 // Serve the HTML page
@@ -399,24 +382,8 @@ async fn serve_journey_kernel_wasm() -> HttpResponse {
         .body(Cow::Borrowed(JOURNEY_KERNEL_WASM))
 }
 
-async fn serve_mapbox_js() -> HttpResponse {
-    HttpResponse::Ok()
-        .content_type("application/javascript")
-        .body(MAPBOX_JS)
-}
-
-async fn serve_mapbox_css() -> HttpResponse {
-    HttpResponse::Ok().content_type("text/css").body(MAPBOX_CSS)
-}
-
 async fn serve_token_json() -> HttpResponse {
     HttpResponse::Ok()
         .content_type("application/json")
         .body(TOKEN_JSON)
-}
-
-async fn serve_journey_canvas_layer_js() -> HttpResponse {
-    HttpResponse::Ok()
-        .content_type("application/javascript")
-        .body(JOURNEY_CANVAS_LAYER_JS)
 }
