@@ -8,8 +8,8 @@ module.exports = (env, argv) => {
 
   const plugins = [
     new HtmlWebpackPlugin({
-      template: './static/journey-view.html',
-      filename: 'journey-view.html'
+      template: './static/index.html',
+      filename: 'index.html'
     }),
     new WasmPackPlugin({
       crateDirectory: path.resolve(__dirname, "."),
