@@ -361,8 +361,6 @@ const JOURNEY_KERNEL_JS: &str = include_str!("../../../journey_kernel/dist/bundl
 const JOURNEY_KERNEL_WASM: &[u8] =
     include_bytes!("../../../journey_kernel/dist/journey_kernel_bg.wasm");
 
-const TOKEN_JSON: &str = include_str!("../../../journey_kernel/static/token.json");
-
 // Serve the HTML page
 async fn index() -> HttpResponse {
     HttpResponse::Ok()
@@ -383,7 +381,10 @@ async fn serve_journey_kernel_wasm() -> HttpResponse {
 }
 
 async fn serve_token_json() -> HttpResponse {
+    let token = env!("MAPBOX-ACCESS-TOKEN");
+    let json = format!(r#"{{"MAPBOX-ACCESS-TOKEN": "{token}"}}"#);
+    
     HttpResponse::Ok()
         .content_type("application/json")
-        .body(TOKEN_JSON)
+        .body(json)
 }

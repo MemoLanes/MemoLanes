@@ -64,9 +64,29 @@ fn build_journey_kernel_wasm() {
     }
 }
 
+fn generate_mapbox_token_const() {
+    println!("cargo:rerun-if-changed=.env");
+    
+    // Try to load from environment first
+    let token = if let Ok(token) = env::var("MAPBOX_ACCESS_TOKEN") {
+        token
+    } else {
+        // Fallback to reading .env file
+        let env_content = fs::read_to_string("../.env").expect("Failed to read .env file");
+        env_content
+            .lines()
+            .find(|line| line.starts_with("MAPBOX-ACCESS-TOKEN="))
+            .map(|line| line.split('=').nth(1).unwrap().trim().to_string())
+            .expect("MAPBOX-ACCESS-TOKEN not found in .env file")
+    };
+
+    println!("cargo:rustc-env=MAPBOX-ACCESS-TOKEN={}", token);
+}
+
 fn main() {
     check_wasm_pack_installed();
     build_journey_kernel_wasm();
+    generate_mapbox_token_const();
 
     // There are articles on internet suggest `.git/HEAD` is enough, which I
     // doubt.
