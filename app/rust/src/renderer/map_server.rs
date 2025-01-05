@@ -22,10 +22,7 @@ struct AppState {
 }
 
 // Handler for serving registered items
-async fn serve_main_journey_bitmap(
-    req: HttpRequest,
-    data: web::Data<AppState>,
-) -> HttpResponse {
+async fn serve_main_journey_bitmap(req: HttpRequest, data: web::Data<AppState>) -> HttpResponse {
     info!("serving main journey bitmap");
 
     // see if a journey_bitmap is available
@@ -84,11 +81,7 @@ async fn serve_main_journey_bitmap(
 async fn serve_main_journey_bitmap_provisioned_camera_option(
     data: web::Data<AppState>,
 ) -> HttpResponse {
-    let camera_option = data
-        .provisioned_camera_option
-        .lock()
-        .unwrap()
-        .clone();
+    let camera_option = data.provisioned_camera_option.lock().unwrap().clone();
     HttpResponse::Ok().json(camera_option)
 }
 
@@ -228,7 +221,10 @@ impl MapServer {
                             web::get().to(serve_main_journey_bitmap),
                         )
                         .route(
-                            &format!("/{}/items/main_journey_bitmap/provisioned_camera_option", random_prefix),
+                            &format!(
+                                "/{}/items/main_journey_bitmap/provisioned_camera_option",
+                                random_prefix
+                            ),
                             web::get().to(serve_main_journey_bitmap_provisioned_camera_option),
                         )
                         .route(&format!("/{}/", random_prefix), web::get().to(index))
@@ -258,9 +254,12 @@ impl MapServer {
 
                 {
                     let mut url_mut = url.lock().unwrap();
-                    *url_mut = format!("http://{}:{}/{}/#main_journey_bitmap", host, port, random_prefix2);
+                    *url_mut = format!(
+                        "http://{}:{}/{}/#main_journey_bitmap",
+                        host, port, random_prefix2
+                    );
                 }
-                
+
                 // Signal that the URL prefix is set
                 tx.send(()).expect("Failed to send completion signal");
 

@@ -60,7 +60,10 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
         // TODO: this is a temporary solution for WebView transition
         let journey_bitmap = storage.get_latest_bitmap_for_main_map_renderer().unwrap();
         let journey_bitmap = Arc::new(Mutex::new(journey_bitmap));
-        map_server.set_journey_bitmap_with_poll_handler(Arc::downgrade(&journey_bitmap), poll_for_main_map_update);
+        map_server.set_journey_bitmap_with_poll_handler(
+            Arc::downgrade(&journey_bitmap),
+            poll_for_main_map_update,
+        );
         let map_renderer = MapRenderer::debug_new(journey_bitmap);
         // ======= WebView Transition codes END ===========
 
@@ -124,7 +127,10 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
     // ======= WebView Transition codes START ===========
     let journey_bitmap = Arc::new(Mutex::new(journey_bitmap));
     let server = get().map_server.lock().unwrap();
-    server.as_ref().unwrap().set_journey_bitmap(Arc::downgrade(&journey_bitmap));
+    server
+        .as_ref()
+        .unwrap()
+        .set_journey_bitmap(Arc::downgrade(&journey_bitmap));
     let map_renderer = MapRenderer::debug_new(journey_bitmap);
     // ======= WebView Transition codes END ===========
 
@@ -189,8 +195,14 @@ pub fn get_map_renderer_proxy_for_journey(
     // ======= WebView Transition codes START ===========
     let journey_bitmap = Arc::new(Mutex::new(journey_bitmap));
     let server = get().map_server.lock().unwrap();
-    server.as_ref().unwrap().set_journey_bitmap(Arc::downgrade(&journey_bitmap));
-    server.as_ref().unwrap().set_provisioned_camera_option(default_camera_option);
+    server
+        .as_ref()
+        .unwrap()
+        .set_journey_bitmap(Arc::downgrade(&journey_bitmap));
+    server
+        .as_ref()
+        .unwrap()
+        .set_provisioned_camera_option(default_camera_option);
     let map_renderer = MapRenderer::debug_new(journey_bitmap);
     // ======= WebView Transition codes END ===========
 
@@ -238,7 +250,13 @@ pub fn on_location_update(
                             end.latitude,
                         );
                     });
-                    state.map_server.lock().unwrap().as_ref().unwrap().set_needs_reload();
+                    state
+                        .map_server
+                        .lock()
+                        .unwrap()
+                        .as_ref()
+                        .unwrap()
+                        .set_needs_reload();
                 }
             },
         }
