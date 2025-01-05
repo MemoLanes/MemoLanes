@@ -82,12 +82,20 @@ fn generate_mapbox_token_const() {
         token
     } else {
         // Fallback to reading .env file
-        let env_content = fs::read_to_string(env_path).expect("Failed to read .env file");
-        env_content
-            .lines()
-            .find(|line| line.starts_with("MAPBOX-ACCESS-TOKEN="))
-            .map(|line| line.split('=').nth(1).unwrap().trim().to_string())
-            .expect("MAPBOX-ACCESS-TOKEN not found in .env file")
+        match fs::read_to_string(&env_path) {
+            Ok(env_content) => env_content
+                .lines()
+                .find(|line| line.starts_with("MAPBOX-ACCESS-TOKEN="))
+                .map(|line| line.split('=').nth(1).unwrap().trim().to_string())
+                .unwrap_or_else(|| {
+                    println!("cargo:warning=MAPBOX-ACCESS-TOKEN not found in .env file");
+                    String::new()
+                }),
+            Err(_) => {
+                println!("cargo:warning=.env file not found at {}", env_path.display());
+                String::new()
+            }
+        }
     };
 
     println!("cargo:rustc-env=MAPBOX-ACCESS-TOKEN={}", token);
