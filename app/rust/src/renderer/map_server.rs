@@ -44,11 +44,11 @@ impl Token {
 impl Drop for Token {
     fn drop(&mut self) {
         if let Some(registry) = self.registry.upgrade() {
-            println!("dropping entry: {} from registry", self.id);
+            info!("dropping entry: {} from the registry", self.id);
             let mut items = registry.write().unwrap();
             items.remove(&self.id);
         } else {
-            println!("registry not found for token: {}", self.id);
+            info!("registry not found for token: {}", self.id);
         }
     }
 }
@@ -383,7 +383,7 @@ async fn serve_journey_kernel_wasm() -> HttpResponse {
 async fn serve_token_json() -> HttpResponse {
     let token = env!("MAPBOX-ACCESS-TOKEN");
     let json = format!(r#"{{"MAPBOX-ACCESS-TOKEN": "{token}"}}"#);
-    
+
     HttpResponse::Ok()
         .content_type("application/json")
         .body(json)

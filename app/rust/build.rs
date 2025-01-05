@@ -74,9 +74,9 @@ fn build_journey_kernel_wasm() {
 fn generate_mapbox_token_const() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("Failed to get CARGO_MANIFEST_DIR");
     let env_path = Path::new(&manifest_dir).join("../.env");
-    
+
     println!("cargo:rerun-if-changed={}", env_path.display());
-    
+
     // Try to load from environment first
     let token = if let Ok(token) = env::var("MAPBOX-ACCESS-TOKEN") {
         token
@@ -92,7 +92,10 @@ fn generate_mapbox_token_const() {
                     String::new()
                 }),
             Err(_) => {
-                println!("cargo:warning=.env file not found at {}", env_path.display());
+                println!(
+                    "cargo:warning=.env file not found at {}",
+                    env_path.display()
+                );
                 String::new()
             }
         }
