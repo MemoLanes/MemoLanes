@@ -15,7 +15,6 @@ type JourneyBitmapModifier = Box<dyn Fn(&mut JourneyBitmap) -> bool + Send + Syn
 
 // App state holding the registry
 struct AppState {
-    // registry: Registry,
     journey_bitmap: Arc<Mutex<Option<Weak<Mutex<JourneyBitmap>>>>>,
     provisioned_camera_option: Arc<Mutex<Option<CameraOption>>>,
     needs_reload: Arc<Mutex<bool>>,
@@ -99,7 +98,6 @@ pub struct MapServer {
     #[allow(dead_code)]
     runtime: Option<Runtime>,
     handle: Option<thread::JoinHandle<()>>,
-    // registry: Arc<Registry>,
     journey_bitmap: Arc<Mutex<Option<Weak<Mutex<JourneyBitmap>>>>>,
     provisioned_camera_option: Arc<Mutex<Option<CameraOption>>>,
     needs_reload: Arc<Mutex<bool>>,
@@ -114,7 +112,6 @@ impl MapServer {
             port,
             runtime: None,
             handle: None,
-            // registry: Arc::new(Registry::new(&format!("http://{}:{}", host, port))),
             journey_bitmap: Arc::new(Mutex::new(None)),
             provisioned_camera_option: Arc::new(Mutex::new(None)),
             needs_reload: Arc::new(Mutex::new(false)),
@@ -263,9 +260,7 @@ impl MapServer {
                     let mut url_mut = url.lock().unwrap();
                     *url_mut = format!("http://{}:{}/{}/#main_journey_bitmap", host, port, random_prefix2);
                 }
-
-                // registry.set_url_prefix(&format!("http://{}:{}/{}/", host, port, random_prefix2));
-
+                
                 // Signal that the URL prefix is set
                 tx.send(()).expect("Failed to send completion signal");
 

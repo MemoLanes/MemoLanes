@@ -67,15 +67,15 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   void didUpdateWidget(BaseMapWebview oldWidget) {
     super.didUpdateWidget(oldWidget);
     // Only update URL if the mapRendererProxy actually changed
-    if (oldWidget.mapRendererProxy != widget.mapRendererProxy) {
-      _updateMapUrl();
-    }
+    // if (oldWidget.mapRendererProxy != widget.mapRendererProxy) {
+    //   _updateMapUrl();
+    // }
   }
 
   Future<void> _updateMapUrl() async {
     if (_webViewController == null) return;
 
-    final url = await widget.mapRendererProxy.getUrl();
+    final url = api.getUrl();
 
     // TODO: currently when trackingMode updates, the upper layer will trigger a
     // rebuid of this widget? we should not reload the page if url is unchanged
@@ -123,7 +123,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         },
       );
 
-    final url = await widget.mapRendererProxy.getUrl();
+    final url = api.getUrl();
     await _webViewController?.loadRequest(Uri.parse(url));
   }
 

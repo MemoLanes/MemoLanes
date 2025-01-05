@@ -188,7 +188,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                   ? (const CircularProgressIndicator())
                   : (BaseMapWebview(
                       key: const ValueKey("mapWidget"),
-                      mapRendererProxy: mapRendererProxy,
+                      // mapRendererProxy: mapRendererProxy,
                       initialCameraOptions: _cameraOptions,
                     )),
             )

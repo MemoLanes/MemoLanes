@@ -51,7 +51,7 @@ class _TimeMachineUIBodyState extends State<TimeMachineUIBody> {
         ? Container()
         : BaseMapWebview(
             key: const ValueKey("mapWidget"),
-            mapRendererProxy: mapRendererProxy,
+            // mapRendererProxy: mapRendererProxy,
             // TODO: get a reasonable camera option from the journey bitmap.
             initialCameraOptions: CameraOptions(),
           );

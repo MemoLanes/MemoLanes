@@ -95,67 +95,10 @@ pub fn poll_for_main_map_update(journey_bitmap: &mut JourneyBitmap) -> bool {
     need_reload
 }
 
-impl MapRendererProxy {
-    pub fn get_url(&self) -> String {
-        let state = get();
-        state.map_server.lock().unwrap().as_ref().unwrap().get_url()
-    }
-
-    // TODO: remove this function
-    // Previously, the update of journey bitmap is triggered in this call, whenever the frontend is redrawing the map.
-    // Now, since we are using WebView based rendering, we split the rendering and refreshing of the journey bitmap.
-    pub fn render_map_overlay(
-        &mut self,
-        zoom: f32,
-        left: f64,
-        top: f64,
-        right: f64,
-        bottom: f64,
-    ) -> Option<RenderResult> {
-        // TODO: right now the quality of zoom = 1 is really bad.
-        let zoom = max(zoom as i32, 2);
-
-        match self {
-            Self::MainMap => {
-                // TODO: now that we have `MapRendererProxy`, we should rethink the logic below.
-                let state = get();
-                let mut map_renderer = state.map_renderer.lock().unwrap();
-                if state.storage.main_map_renderer_need_to_reload() {
-                    *map_renderer = None;
-                }
-
-                map_renderer
-                    .get_or_insert_with(|| {
-                        // TODO: error handling?
-                        let journey_bitmap = state
-                            .storage
-                            .get_latest_bitmap_for_main_map_renderer()
-                            .unwrap();
-                        MapRenderer::new(journey_bitmap)
-                    })
-                    .maybe_render_map_overlay(zoom, left, top, right, bottom)
-            }
-            Self::Simple(map_renderer) => {
-                map_renderer.maybe_render_map_overlay(zoom, left, top, right, bottom)
-            }
-        }
-    }
-
-    pub fn reset_map_renderer(&mut self) {
-        match self {
-            Self::MainMap => {
-                let state = get();
-                let mut map_renderer = state.map_renderer.lock().unwrap();
-
-                if let Some(map_renderer) = &mut *map_renderer {
-                    map_renderer.reset();
-                }
-            }
-            Self::Simple(map_renderer) => {
-                map_renderer.reset();
-            }
-        }
-    }
+#[frb(sync)]
+pub fn get_url() -> String {
+    let state = get();
+    state.map_server.lock().unwrap().as_ref().unwrap().get_url()
 }
 
 #[frb(sync)]

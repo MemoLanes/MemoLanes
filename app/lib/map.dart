@@ -170,7 +170,7 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
       children: [
         BaseMapWebview(
           key: _mapKey,
-          mapRendererProxy: mapRendererProxy,
+          // mapRendererProxy: mapRendererProxy,
           initialCameraOptions: initialCameraOptions,
           initialTrackingMode: TrackingMode.off,
           onTrackingModeChanged: (TrackingMode newMode) {
