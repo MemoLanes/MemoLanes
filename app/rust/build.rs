@@ -75,7 +75,7 @@ fn generate_mapbox_token_const() {
     println!("cargo:rerun-if-changed=.env");
     
     // Try to load from environment first
-    let token = if let Ok(token) = env::var("MAPBOX_ACCESS_TOKEN") {
+    let token = if let Ok(token) = env::var("MAPBOX-ACCESS-TOKEN") {
         token
     } else {
         // Fallback to reading .env file
