@@ -40,10 +40,6 @@ jobs:
       - name: Install flutter_rust_bridge_codegen
         run: cargo binstall -y --force --no-track 'cargo-expand' && cargo binstall -y --force --no-track 'flutter_rust_bridge_codegen@2.7.0'
 
-      - name: Setup Token
-        working-directory: app
-        run: python setup_token.py
-
       - name: Get Flutter Dependencies
         run: flutter pub get
 

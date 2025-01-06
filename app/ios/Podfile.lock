@@ -43,18 +43,6 @@ PODS:
     - Toast
   - geolocator_apple (1.2.0):
     - Flutter
-  - mapbox_maps_flutter (2.5.0):
-    - Flutter
-    - MapboxMaps (~> 11.9.0)
-    - Turf (= 4.0.0)
-  - MapboxCommon (24.9.0):
-    - Turf (= 4.0.0)
-  - MapboxCoreMaps (11.9.0):
-    - MapboxCommon (~> 24.9)
-  - MapboxMaps (11.9.0):
-    - MapboxCommon (= 24.9.0)
-    - MapboxCoreMaps (= 11.9.0)
-    - Turf (= 4.0.0)
   - notification_when_app_is_killed (0.0.1):
     - Flutter
   - package_info_plus (0.4.5):
@@ -76,7 +64,6 @@ PODS:
     - FlutterMacOS
   - SwiftyGif (5.4.5)
   - Toast (4.1.1)
-  - Turf (4.0.0)
   - url_launcher_ios (0.0.1):
     - Flutter
   - webview_flutter_wkwebview (0.0.1):
@@ -90,7 +77,6 @@ DEPENDENCIES:
   - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
   - fluttertoast (from `.symlinks/plugins/fluttertoast/ios`)
   - geolocator_apple (from `.symlinks/plugins/geolocator_apple/ios`)
-  - mapbox_maps_flutter (from `.symlinks/plugins/mapbox_maps_flutter/ios`)
   - notification_when_app_is_killed (from `.symlinks/plugins/notification_when_app_is_killed/ios`)
   - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
   - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
@@ -105,13 +91,9 @@ SPEC REPOS:
   trunk:
     - DKImagePickerController
     - DKPhotoGallery
-    - MapboxCommon
-    - MapboxCoreMaps
-    - MapboxMaps
     - SDWebImage
     - SwiftyGif
     - Toast
-    - Turf
 
 EXTERNAL SOURCES:
   device_info_plus:
@@ -126,8 +108,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/fluttertoast/ios"
   geolocator_apple:
     :path: ".symlinks/plugins/geolocator_apple/ios"
-  mapbox_maps_flutter:
-    :path: ".symlinks/plugins/mapbox_maps_flutter/ios"
   notification_when_app_is_killed:
     :path: ".symlinks/plugins/notification_when_app_is_killed/ios"
   package_info_plus:
@@ -156,10 +136,6 @@ SPEC CHECKSUMS:
   flutter_local_notifications: df98d66e515e1ca797af436137b4459b160ad8c9
   fluttertoast: e9a18c7be5413da53898f660530c56f35edfba9c
   geolocator_apple: 9bcea1918ff7f0062d98345d238ae12718acfbc1
-  mapbox_maps_flutter: d51b6d48ba9d8231a77269f1743ec175099d7b15
-  MapboxCommon: 678bfc4b477a804244fd7323c79cc7f2402f844e
-  MapboxCoreMaps: 5cd77c7251dea10903135e8427c788212bd26346
-  MapboxMaps: 2ce57c4ec89d8f05eacfebdd39b01216e0c06168
   notification_when_app_is_killed: 8a0eb9075cced52e07b0e7c0744f46c953c5b9fd
   package_info_plus: c0502532a26c7662a62a356cebe2692ec5fe4ec4
   path_provider_foundation: 2b6b4c569c0fb62ec74538f866245ac84301af46
@@ -170,7 +146,6 @@ SPEC CHECKSUMS:
   shared_preferences_foundation: fcdcbc04712aee1108ac7fda236f363274528f78
   SwiftyGif: 706c60cf65fa2bc5ee0313beece843c8eb8194d4
   Toast: 1f5ea13423a1e6674c4abdac5be53587ae481c4e
-  Turf: c9eb11a65d96af58cac523460fd40fec5061b081
   url_launcher_ios: 5334b05cef931de560670eeae103fd3e431ac3fe
   webview_flutter_wkwebview: 0982481e3d9c78fd5c6f62a002fcd24fc791f1e4
 
