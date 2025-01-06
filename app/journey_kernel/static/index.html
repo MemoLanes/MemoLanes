@@ -9,6 +9,11 @@
         body {
             margin: 0;
             padding: 0;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
         }
 
         #map {
@@ -16,6 +21,7 @@
             top: 0;
             bottom: 0;
             width: 100%;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .location-marker {
