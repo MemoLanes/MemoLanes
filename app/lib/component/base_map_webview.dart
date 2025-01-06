@@ -5,8 +5,6 @@ import 'package:provider/provider.dart';
 import 'package:memolanes/gps_recording_state.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-// for compatibility with base_map.dart (camaraOptions, etc.)
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 
 enum TrackingMode {
@@ -15,26 +13,16 @@ enum TrackingMode {
   off,
 }
 
-class MapController {
-  final WebViewController webViewController;
-  final void Function() triggerRefresh;
-
-  MapController(this.webViewController, this.triggerRefresh);
-}
-
 class BaseMapWebview extends StatefulWidget {
   final api.MapRendererProxy mapRendererProxy;
   final TrackingMode initialTrackingMode;
   final void Function(TrackingMode)? onTrackingModeChanged;
-  final void Function(MapController mapController)? onMapCreated;
-  final OnMapScrollListener? onScrollListener;
-  const BaseMapWebview(
-      {super.key,
-      required this.mapRendererProxy,
-      this.initialTrackingMode = TrackingMode.off,
-      this.onTrackingModeChanged,
-      this.onMapCreated,
-      this.onScrollListener});
+  const BaseMapWebview({
+    super.key,
+    required this.mapRendererProxy,
+    this.initialTrackingMode = TrackingMode.off,
+    this.onTrackingModeChanged,
+  });
 
   @override
   State<StatefulWidget> createState() => BaseMapWebviewState();
@@ -42,8 +30,6 @@ class BaseMapWebview extends StatefulWidget {
 
 class BaseMapWebviewState extends State<BaseMapWebview> {
   WebViewController? _webViewController;
-  bool layerAdded = false;
-  Completer? requireRefresh = Completer();
   late TrackingMode _trackingMode;
 
   // Getter for external access
@@ -64,26 +50,27 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   @override
   void didUpdateWidget(BaseMapWebview oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // TODO: the below is for compatibility for android or ios, double check later.
     // Only update URL if the mapRendererProxy actually changed
     // if (oldWidget.mapRendererProxy != widget.mapRendererProxy) {
     //   _updateMapUrl();
     // }
   }
 
-  Future<void> _updateMapUrl() async {
-    if (_webViewController == null) return;
+  // Future<void> _updateMapUrl() async {
+  //   if (_webViewController == null) return;
 
-    final url = api.getUrl();
+  //   final url = api.getUrl();
 
-    // TODO: currently when trackingMode updates, the upper layer will trigger a
-    // rebuid of this widget? we should not reload the page if url is unchanged
-    // this may be an iOS bug to be investigated further
-    final currentUrl = await _webViewController?.currentUrl();
+  //   // TODO: currently when trackingMode updates, the upper layer will trigger a
+  //   // rebuid of this widget? we should not reload the page if url is unchanged
+  //   // this may be an iOS bug to be investigated further
+  //   final currentUrl = await _webViewController?.currentUrl();
 
-    if (currentUrl != url) {
-      await _webViewController?.loadRequest(Uri.parse(url));
-    }
-  }
+  //   if (currentUrl != url) {
+  //     await _webViewController?.loadRequest(Uri.parse(url));
+  //   }
+  // }
 
   @override
   void initState() {
