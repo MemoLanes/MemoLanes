@@ -81,6 +81,7 @@ async fn serve_main_journey_bitmap(req: HttpRequest, data: web::Data<AppState>) 
 async fn serve_main_journey_bitmap_provisioned_camera_option(
     data: web::Data<AppState>,
 ) -> HttpResponse {
+    #[allow(clippy::clone_on_copy)]
     let camera_option = data.provisioned_camera_option.lock().unwrap().clone();
     HttpResponse::Ok().json(camera_option)
 }
