@@ -9,8 +9,8 @@ use crate::gps_processor::{GpsPreprocessor, ProcessResult};
 use crate::journey_bitmap::{JourneyBitmap, MAP_WIDTH_OFFSET, TILE_WIDTH, TILE_WIDTH_OFFSET};
 use crate::journey_data::JourneyData;
 use crate::journey_header::JourneyHeader;
-use crate::renderer::MapServer;
 use crate::renderer::MapRenderer;
+use crate::renderer::MapServer;
 use crate::storage::Storage;
 use crate::{archive, export_data, gps_processor, merged_journey_builder, storage};
 use crate::{logs, utils};
@@ -105,7 +105,28 @@ pub fn get_url() -> String {
 
 #[frb(sync)]
 pub fn get_map_renderer_proxy_for_main_map() -> MapRendererProxy {
-    // TODO: enable the main map
+    // ======= WebView Transition codes START ===========
+    // We need to reactivate the main map
+    // TODO: this is a temporary solution for WebView transition
+    let journey_bitmap = get()
+        .map_renderer
+        .lock()
+        .unwrap()
+        .as_ref()
+        .unwrap()
+        .debug_get_journey_bitmap();
+    get()
+        .map_server
+        .lock()
+        .unwrap()
+        .as_ref()
+        .unwrap()
+        .set_journey_bitmap_with_poll_handler(
+            Arc::downgrade(&journey_bitmap),
+            Some(Box::new(poll_for_main_map_update)),
+        );
+    // ======= WebView Transition codes END ===========
+
     MapRendererProxy::MainMap
 }
 

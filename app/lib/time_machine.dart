@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:memolanes/component/base_map_webview.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/utils.dart';
@@ -51,9 +50,8 @@ class _TimeMachineUIBodyState extends State<TimeMachineUIBody> {
         ? Container()
         : BaseMapWebview(
             key: const ValueKey("mapWidget"),
-            // mapRendererProxy: mapRendererProxy,
+            mapRendererProxy: mapRendererProxy,
             // TODO: get a reasonable camera option from the journey bitmap.
-            initialCameraOptions: CameraOptions(),
           );
 
     return Center(

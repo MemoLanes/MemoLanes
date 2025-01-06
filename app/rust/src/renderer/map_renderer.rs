@@ -56,6 +56,10 @@ impl MapRenderer {
         }
     }
 
+    pub fn debug_get_journey_bitmap(&self) -> Arc<Mutex<JourneyBitmap>> {
+        self.journey_bitmap.clone()
+    }
+
     pub fn new_with_tile_renderer(
         journey_bitmap: JourneyBitmap,
         tile_renderer: Box<dyn TileRendererTrait + Send + Sync>,

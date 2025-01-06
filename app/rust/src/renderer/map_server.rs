@@ -116,7 +116,7 @@ impl MapServer {
     pub fn set_journey_bitmap_with_poll_handler(
         &self,
         item: Weak<Mutex<JourneyBitmap>>,
-        handler: Option<JourneyBitmapModifier>
+        handler: Option<JourneyBitmapModifier>,
     ) {
         // clear previous provisioned_camera_option
         {

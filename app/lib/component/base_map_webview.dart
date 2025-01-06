@@ -24,7 +24,6 @@ class MapController {
 
 class BaseMapWebview extends StatefulWidget {
   final api.MapRendererProxy mapRendererProxy;
-  final CameraOptions initialCameraOptions;
   final TrackingMode initialTrackingMode;
   final void Function(TrackingMode)? onTrackingModeChanged;
   final void Function(MapController mapController)? onMapCreated;
@@ -32,7 +31,6 @@ class BaseMapWebview extends StatefulWidget {
   const BaseMapWebview(
       {super.key,
       required this.mapRendererProxy,
-      required this.initialCameraOptions,
       this.initialTrackingMode = TrackingMode.off,
       this.onTrackingModeChanged,
       this.onMapCreated,
