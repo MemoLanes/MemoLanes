@@ -61,38 +61,6 @@ async function pollForUpdates(filename, map) {
     }
 }
 
-async function handleHashChange(map) {
-    const hash = window.location.hash.slice(1);
-    const filename = hash ? `items/${hash}` : '../journey_bitmap.bin';
-
-    // Clear existing polling interval
-    if (pollingInterval) {
-        clearInterval(pollingInterval);
-    }
-
-    try {
-        const result = await loadJourneyData(filename);
-        if (result) {
-            const { journeyBitmap, cameraOptions } = result;
-
-            // Update existing layer if it exists
-            if (currentJourneyLayer) {
-                currentJourneyLayer.updateJourneyBitmap(journeyBitmap);
-            }
-
-            // Only animate to new camera position if cameraOptions is provided
-            if (cameraOptions) {
-                map.flyTo(cameraOptions);
-            }
-
-            // Set up polling for updates every 1 second
-            pollingInterval = setInterval(() => pollForUpdates(filename, map), 1000);
-        }
-    } catch (error) {
-        console.error('Error loading journey data:', error);
-    }
-}
-
 async function initializeMap() {
     // Load Mapbox token from .token.json
     const tokenResponse = await fetch('./token.json');
@@ -180,9 +148,6 @@ async function initializeMap() {
         // Set up polling for updates
         pollingInterval = setInterval(() => pollForUpdates(filename, map), 1000);
     }
-
-    // Listen for hash changes
-    window.addEventListener('hashchange', () => handleHashChange(map));
 
     // Replace the simple movestart listener with dragstart
     map.on('dragstart', () => {
