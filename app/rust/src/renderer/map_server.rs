@@ -4,7 +4,6 @@ use std::borrow::Cow;
 use std::thread;
 use tokio::runtime::Runtime;
 use uuid::Uuid;
-// TODO: check whether to use tokio's sync library
 use actix_web::dev::Service;
 use std::sync::{Arc, Mutex, Weak};
 
