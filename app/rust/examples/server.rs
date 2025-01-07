@@ -12,7 +12,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut server = MapServer::new();
     server.start("localhost", 0).expect("Failed to start server");
 
-    println!("see demo track at: {}", server.get_url());
+    println!("see demo track at: {}#lng=114.05&lat=22.54&zoom=12", server.get_url());
 
     std::thread::sleep(Duration::from_millis(200));
 

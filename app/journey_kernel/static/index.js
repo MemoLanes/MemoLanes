@@ -68,11 +68,33 @@ async function initializeMap() {
     const tokenData = await tokenResponse.json();
     mapboxgl.accessToken = tokenData['MAPBOX-ACCESS-TOKEN'];
 
+    const hash = window.location.hash.slice(1);
+    
+    // Parse hash parameters for initial map view
+    let initialView = {
+        center: [0, 0],
+        zoom: 2
+    };
+    
+    if (hash) {
+        const params = new URLSearchParams(hash);
+        const lng = parseFloat(params.get('lng'));
+        const lat = parseFloat(params.get('lat'));
+        const zoom = parseFloat(params.get('zoom'));
+        
+        if (!isNaN(lng) && !isNaN(lat) && !isNaN(zoom)) {
+            initialView = {
+                center: [lng, lat],
+                zoom: zoom
+            };
+        }
+    }
+
     const map = new mapboxgl.Map({
         container: 'map',
         style: 'mapbox://styles/mapbox/streets-v12',
-        center: [0, 0],
-        zoom: 2,
+        center: initialView.center,
+        zoom: initialView.zoom,
         maxZoom: 14,
         antialias: true,
         projection: 'mercator',
