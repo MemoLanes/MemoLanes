@@ -9,8 +9,8 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut server = MapServer::new("localhost", 0);
-    server.start().expect("Failed to start server");
+    let mut server = MapServer::new();
+    server.start("localhost", 0).expect("Failed to start server");
 
     println!("see demo track at: {}", server.get_url());
 

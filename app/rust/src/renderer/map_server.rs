@@ -23,8 +23,6 @@ struct AppState {
 
 // Handler for serving registered items
 async fn serve_main_journey_bitmap(req: HttpRequest, data: web::Data<AppState>) -> HttpResponse {
-    info!("serving main journey bitmap");
-
     // see if a journey_bitmap is available
     if let Some(weak_journey_bitmap) = data.journey_bitmap.lock().unwrap().clone() {
         // we will first make sure the local journey_bitmap copy is the latest.
@@ -87,10 +85,6 @@ async fn serve_main_journey_bitmap_provisioned_camera_option(
 }
 
 pub struct MapServer {
-    host: String,
-    port: u16,
-    #[allow(dead_code)]
-    runtime: Option<Runtime>,
     handle: Option<thread::JoinHandle<()>>,
     journey_bitmap: Arc<Mutex<Option<Weak<Mutex<JourneyBitmap>>>>>,
     provisioned_camera_option: Arc<Mutex<Option<CameraOption>>>,
@@ -100,11 +94,8 @@ pub struct MapServer {
 }
 
 impl MapServer {
-    pub fn new(host: &str, port: u16) -> Self {
+    pub fn new() -> Self {
         Self {
-            host: host.into(),
-            port,
-            runtime: None,
             handle: None,
             journey_bitmap: Arc::new(Mutex::new(None)),
             provisioned_camera_option: Arc::new(Mutex::new(None)),
@@ -157,10 +148,9 @@ impl MapServer {
     }
 
     // Start the server in a separate thread
-    pub fn start(&mut self) -> std::io::Result<()> {
-        let host = self.host.clone();
-        let mut port = self.port;
-        // let registry = self.registry.clone();
+    pub fn start(&mut self, host: &str, port: u16) -> std::io::Result<()> {
+        let host = host.to_string();
+        let mut port = port;
         let random_prefix = Uuid::new_v4().to_string();
         let random_prefix2 = random_prefix.clone();
 
@@ -176,7 +166,6 @@ impl MapServer {
 
         let handle = thread::spawn(move || {
             let app_state = web::Data::new(AppState {
-                // registry: (*registry).clone(),
                 journey_bitmap,
                 provisioned_camera_option,
                 needs_reload,
@@ -194,12 +183,12 @@ impl MapServer {
                             srv.call(req)
                         })
                         .route(
-                            &format!("/{}/items/main_journey_bitmap", random_prefix),
+                            &format!("/{}/journey_bitmap.bin", random_prefix),
                             web::get().to(serve_main_journey_bitmap),
                         )
                         .route(
                             &format!(
-                                "/{}/items/main_journey_bitmap/provisioned_camera_option",
+                                "/{}/provisioned_camera_option",
                                 random_prefix
                             ),
                             web::get().to(serve_main_journey_bitmap_provisioned_camera_option),
@@ -232,7 +221,7 @@ impl MapServer {
                 {
                     let mut url_mut = url.lock().unwrap();
                     *url_mut = format!(
-                        "http://{}:{}/{}/#main_journey_bitmap",
+                        "http://{}:{}/{}/",
                         host, port, random_prefix2
                     );
                 }

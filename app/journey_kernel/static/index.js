@@ -7,7 +7,8 @@ let currentJourneyLayer;  // Store reference to current layer
 let pollingInterval;      // Store reference to polling interval
 let locationMarker = null;
 
-async function loadJourneyData(filename, useIfNoneMatch = false) {
+async function loadJourneyData(useIfNoneMatch = false) {
+    const filename = 'journey_bitmap.bin';
     console.log(`Fetching ${filename}`);
     const fetchOptions = {
         headers: useIfNoneMatch ? { 'If-None-Match': '*' } : {}
@@ -27,7 +28,7 @@ async function loadJourneyData(filename, useIfNoneMatch = false) {
     // Try to fetch provisioned camera location
     let cameraOptions = null;
     try {
-        const cameraResponse = await fetch(`${filename}/provisioned_camera_option`);
+        const cameraResponse = await fetch(`provisioned_camera_option`);
         if (cameraResponse.ok) {
             const cameraData = await cameraResponse.json();
             cameraOptions = {
@@ -43,9 +44,9 @@ async function loadJourneyData(filename, useIfNoneMatch = false) {
     return { journeyBitmap, cameraOptions };
 }
 
-async function pollForUpdates(filename, map) {
+async function pollForUpdates(map) {
     try {
-        const result = await loadJourneyData(filename, true);
+        const result = await loadJourneyData(true);
         if (result) {
             if (result.journeyBitmap) {
                 console.log('Update detected, updating journey bitmap');
@@ -115,8 +116,7 @@ async function initializeMap() {
 
     // Initial load of journey data
     const hash = window.location.hash.slice(1);
-    const filename = hash ? `items/${hash}` : '../journey_bitmap.bin';
-    const result = await loadJourneyData(filename);
+    const result = await loadJourneyData();
 
     if (result) {
         const { journeyBitmap, cameraOptions } = result;
@@ -146,7 +146,7 @@ async function initializeMap() {
         map.on("moveend", () => currentJourneyLayer.render());
 
         // Set up polling for updates
-        pollingInterval = setInterval(() => pollForUpdates(filename, map), 1000);
+        pollingInterval = setInterval(() => pollForUpdates(map), 1000);
     }
 
     // Replace the simple movestart listener with dragstart

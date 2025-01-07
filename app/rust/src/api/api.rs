@@ -51,8 +51,8 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
         let storage = Storage::init(temp_dir, doc_dir, support_dir, cache_dir);
         info!("initialized");
 
-        let mut map_server = MapServer::new("localhost", 0);
-        map_server.start().unwrap();
+        let mut map_server = MapServer::new();
+        map_server.start("localhost", 0).unwrap();
         info!("map server started");
 
         // ======= WebView Transition codes START ===========
