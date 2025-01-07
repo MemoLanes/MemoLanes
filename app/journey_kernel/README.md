@@ -2,6 +2,27 @@
 
 This library is used to render journey bitmaps in the app. It supports both native and WASM.
 
+## JavaScript APIs
+
+| API | Description | Parameters | Return Value |
+|-----|-------------|------------|--------------|
+| `window.updateLocationMarker(lng, lat, show, flyto)` | Updates the current location marker | `lng`: longitude (number)<br>`lat`: latitude (number)<br>`show`: visibility (boolean, default: true)<br>`flyto`: animate to location (boolean, default: false) | void |
+| `window.getCurrentMapView()` | Gets current map position | none | `{lng: number, lat: number, zoom: number}` |
+| `window.triggerJourneyUpdate()` | Manually triggers data update | none | Promise |
+
+### URL Hash Parameters
+
+The initial map position can be set via URL hash parameters:
+```
+https://example.com/#lng=100.0&lat=30.0&zoom=19
+```
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| `lng` | Initial longitude | number |
+| `lat` | Initial latitude | number |
+| `zoom` | Initial zoom level | number |
+
 ## Web Development
 
 The webpack project contains two special files that is handled differently in development and production:

@@ -137,7 +137,6 @@ async function initializeMap() {
     };
 
     // Initial load of journey data
-    const hash = window.location.hash.slice(1);
     const result = await loadJourneyData();
 
     if (result) {
@@ -178,6 +177,21 @@ async function initializeMap() {
             window.onMapMoved.postMessage('');
         }
     });
+
+    // Add method to window object to get current map view
+    window.getCurrentMapView = function () {
+        const center = map.getCenter();
+        return {
+            lng: center.lng,
+            lat: center.lat,
+            zoom: map.getZoom()
+        };
+    };
+
+    // Add method to window object to trigger manual update
+    window.triggerJourneyUpdate = function () {
+        return pollForUpdates(map);
+    };
 }
 
 // Start initialization
