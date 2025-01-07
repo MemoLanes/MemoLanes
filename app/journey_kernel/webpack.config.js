@@ -28,7 +28,7 @@ module.exports = (env, argv) => {
             to: './token.json'
           },
           {
-            from: './static/journey_bitmap.bin',
+            from: './journey_bitmap.bin',
             to: './journey_bitmap.bin'
           }
         ]

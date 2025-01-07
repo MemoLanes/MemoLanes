@@ -13,11 +13,12 @@ target/
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
 
-static/token.json
-
 # End of https://www.toptal.com/developers/gitignore/api/rust
 
+static/token.json
 node_modules/
 dist/
+pkg/
+journey_bitmap.bin
 
 

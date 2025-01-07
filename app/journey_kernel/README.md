@@ -2,51 +2,28 @@
 
 This library is used to render journey bitmaps in the app. It supports both native and WASM.
 
-## Notes
+## Web Development
 
-The design goal of the example is simple to use in development and production.
+The webpack project contains two special files that is handled differently in development and production:
 
-We split the APIs (and make many HTTP calls inside the HTML) so that the file will work seamlessly both in a local static server and the in-app dynamic server.
+- `journey_bitmap.bin`
+- `token.json`
 
-## Static server example
+These two files are statically generated in dev mode, but will be hosted dynamically in production.
 
-This example helps you to understand how the WASM module works through any static server (e.g., VS Code Live Server).
+### Development
 
-1. **Build the package:**
+1. Run `setup_token.py` in the `app` folder to generate the `token.json` file.
+2. Run `cargo test` in the `app/journey_kernel` folder to generate the `journey_bitmap.bin` file.
+3. Run `yarn dev` in the `app/journey_kernel` folder to start the webpack dev server.
 
-   ```bash
-   wasm-pack build --target web --features wasm --no-default-features
-   ```
+### Production
 
-2. **Run the tests natively:**
-
-   The test will generate the `journey_bitmap.bin` file.
-
-   ```bash
-   cargo test
-   ```
-
-3. **Verify `setup_token.py`:**
-
-   Ensure `setup_token.py` has been executed again, and there is a `token.json` in the `static` folder.
-
-4. **Check links in `journey-view.html`:**
-
-   Make sure links to `journey_bitmap.bin` in `static/journey-view.html` are correct.
-
-5. **Open `journey-view.html` in a browser:**
-
-   You may see the following effect (the look may be different since we have updated since the screenshot):
-
-   ![journey_view](journey_view.png)
-
-## Dynamic server example
-
-The dynamic server is used in the app. The server supports dynamically registering and unregistering journey bitmaps.
-
-Run the following command in the `app/rust` folder:
+1. run `yarn build` to generate the static sites without the above two files. The output will be in the `dist` folder. (As an intermediate step, the wasm-pack will also generate wasm files in the `pkg` folder.)
+2. run the following command in the `app/rust` folder:
 
 ```bash
 cargo run --example server
 ```
 
+The rust demo server is exactly the same as the one in the app. You may check the file at `app/rust/src/renderer/map_server.rs`.
