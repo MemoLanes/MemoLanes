@@ -1,7 +1,6 @@
 use ctrlc;
 use journey_kernel::journey_bitmap::JourneyBitmap;
 use memolanes_core::api::api::CameraOption;
-use memolanes_core::renderer::get_default_camera_option_from_journey_bitmap;
 use memolanes_core::renderer::MapServer;
 use rand::Rng;
 use std::sync::Arc;
@@ -10,9 +9,14 @@ use std::time::Duration;
 
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut server = MapServer::new();
-    server.start("localhost", 0).expect("Failed to start server");
+    server
+        .start("localhost", 0)
+        .expect("Failed to start server");
 
-    println!("see demo track at: {}#lng=114.05&lat=22.54&zoom=12", server.get_url());
+    println!(
+        "see demo track at: {}#lng=114.05&lat=22.54&zoom=12",
+        server.get_url()
+    );
 
     std::thread::sleep(Duration::from_millis(200));
 

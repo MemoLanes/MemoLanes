@@ -187,10 +187,7 @@ impl MapServer {
                             web::get().to(serve_main_journey_bitmap),
                         )
                         .route(
-                            &format!(
-                                "/{}/provisioned_camera_option",
-                                random_prefix
-                            ),
+                            &format!("/{}/provisioned_camera_option", random_prefix),
                             web::get().to(serve_main_journey_bitmap_provisioned_camera_option),
                         )
                         .route(&format!("/{}/", random_prefix), web::get().to(index))
@@ -220,10 +217,7 @@ impl MapServer {
 
                 {
                     let mut url_mut = url.lock().unwrap();
-                    *url_mut = format!(
-                        "http://{}:{}/{}/",
-                        host, port, random_prefix2
-                    );
+                    *url_mut = format!("http://{}:{}/{}/", host, port, random_prefix2);
                 }
 
                 // Signal that the URL prefix is set
