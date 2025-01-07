@@ -1,11 +1,11 @@
 use crate::journey_bitmap::JourneyBitmap;
+use actix_web::dev::Service;
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
 use std::borrow::Cow;
+use std::sync::{Arc, Mutex, Weak};
 use std::thread;
 use tokio::runtime::Runtime;
 use uuid::Uuid;
-use actix_web::dev::Service;
-use std::sync::{Arc, Mutex, Weak};
 
 // TODO:: maybe we should move this out of the api
 use crate::api::api::CameraOption;
