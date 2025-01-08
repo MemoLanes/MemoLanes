@@ -39,14 +39,17 @@ fn main() {
     // There are articles on internet suggest `.git/HEAD` is enough, which I
     // doubt.
     println!("cargo:rerun-if-changed=../../.git");
-    
     let output = Command::new("git")
-                         .args(&["rev-parse", "--short", "HEAD"])
-                         .output()
-                         .expect("Failed to execute command");
+        .args(["rev-parse", "--short", "HEAD"])
+        .output()
+        .expect("Failed to execute command");
 
     let git_hash = std::str::from_utf8(&output.stdout).unwrap().trim();
-    std::fs::write("src/version.rs", &format!("pub const VERSION: &str = \"{}\";\n", git_hash)).unwrap();
+    std::fs::write(
+        "src/version.rs",
+        format!("pub const VERSION: &str = \"{}\";\n", git_hash),
+    )
+    .unwrap();
 
     println!("cargo:rerun-if-changed=src/protos/journey.proto");
     println!("cargo:rerun-if-changed=src/protos/archive.proto");
