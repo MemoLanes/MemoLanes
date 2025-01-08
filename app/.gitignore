@@ -52,3 +52,4 @@ app.*.map.json
 /.netrc
 /.env
 /lib/token.dart
+/rust/src/version.rs
