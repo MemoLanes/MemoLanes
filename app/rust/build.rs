@@ -38,6 +38,7 @@ fn setup_x86_64_android_workaround() {
 fn main() {
     // There are articles on internet suggest `.git/HEAD` is enough, which I
     // doubt.
+    println!("cargo:rerun-if-changed=../../.git");
     let output = Command::new("git")
                          .args(&["rev-parse", "--short", "HEAD"])
                          .output()
