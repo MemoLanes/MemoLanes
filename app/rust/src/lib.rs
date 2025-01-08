@@ -28,3 +28,4 @@ mod protos;
 pub mod renderer;
 pub mod storage;
 mod utils;
+mod version;
