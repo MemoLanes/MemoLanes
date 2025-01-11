@@ -12,7 +12,7 @@ use crate::journey_header::JourneyHeader;
 use crate::renderer::MapRenderer;
 use crate::renderer::MapServer;
 use crate::storage::Storage;
-use crate::{archive, export_data, gps_processor, merged_journey_builder, storage};
+use crate::{archive, build_info, export_data, gps_processor, merged_journey_builder, storage};
 use crate::{logs, utils};
 use serde::{Deserialize, Serialize};
 
@@ -37,7 +37,7 @@ pub fn get() -> &'static MainState {
 
 #[frb(sync)]
 pub fn short_commit_hash() -> String {
-    env!("SHORT_COMMIT_HASH").to_string()
+    build_info::SHORT_COMMIT_HASH.to_string()
 }
 
 pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: String) {

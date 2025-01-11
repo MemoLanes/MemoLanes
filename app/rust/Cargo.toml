@@ -59,3 +59,7 @@ protobuf-codegen = "3.7"
 [[bench]]
 name = "bench"
 harness = false
+
+[lints.rust]
+# cleanup lints
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
