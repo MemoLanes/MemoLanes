@@ -105,8 +105,8 @@ fn generate_mapbox_token_const() {
 }
 
 fn main() {
-    check_yarn_dependencies();
-    build_journey_kernel_wasm();
+    // check_yarn_dependencies();
+    // build_journey_kernel_wasm();
     generate_mapbox_token_const();
 
     // There are articles on internet suggest `.git/HEAD` is enough, which I

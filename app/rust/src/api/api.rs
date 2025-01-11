@@ -9,8 +9,8 @@ use crate::gps_processor::{GpsPreprocessor, ProcessResult};
 use crate::journey_bitmap::{JourneyBitmap, MAP_WIDTH_OFFSET, TILE_WIDTH, TILE_WIDTH_OFFSET};
 use crate::journey_data::JourneyData;
 use crate::journey_header::JourneyHeader;
-use crate::renderer::MapRenderer;
 use crate::renderer::MapServer;
+use crate::renderer::{map_renderer, MapRenderer};
 use crate::storage::Storage;
 use crate::{archive, build_info, export_data, gps_processor, merged_journey_builder, storage};
 use crate::{logs, utils};
@@ -23,7 +23,7 @@ use super::import::JourneyInfo;
 #[frb(ignore)]
 pub(super) struct MainState {
     pub storage: Storage,
-    pub map_renderer: Mutex<Option<MapRenderer>>,
+    pub main_map_renderer: Arc<Mutex<Option<MapRenderer>>>,
     pub gps_preprocessor: Mutex<GpsPreprocessor>,
     pub map_server: Mutex<Option<MapServer>>,
 }
@@ -48,7 +48,7 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
         // init logging
         logs::init(&cache_dir).expect("Failed to initialize logging");
 
-        let storage = Storage::init(temp_dir, doc_dir, support_dir, cache_dir);
+        let mut storage = Storage::init(temp_dir, doc_dir, support_dir, cache_dir);
         info!("initialized");
 
         let mut map_server = MapServer::new();
@@ -58,17 +58,21 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
         // ======= WebView Transition codes START ===========
         // TODO: this is a temporary solution for WebView transition
         let journey_bitmap = storage.get_latest_bitmap_for_main_map_renderer().unwrap();
-        let journey_bitmap = Arc::new(Mutex::new(journey_bitmap));
-        map_server.set_journey_bitmap_with_poll_handler(
-            Arc::downgrade(&journey_bitmap),
-            Some(Box::new(poll_for_main_map_update)),
-        );
-        let map_renderer = MapRenderer::debug_new(journey_bitmap);
+        let main_map_renderer = Arc::new(Mutex::new(Some(MapRenderer::new(journey_bitmap))));
+        let main_map_renderer_copy = main_map_renderer.clone();
+        storage.set_finalized_journey_changed_callback(Box::new(move |storage| {
+            let mut map_renderer = main_map_renderer_copy.lock().unwrap();
+            if let Some(map_renderer) = map_renderer.as_mut() {
+                let journey_bitmap = storage.get_latest_bitmap_for_main_map_renderer().unwrap();
+                map_renderer.replace(journey_bitmap);
+            }
+        }));
+        map_server.set_map_renderer(main_map_renderer.clone(), None);
         // ======= WebView Transition codes END ===========
 
         MainState {
             storage,
-            map_renderer: Mutex::new(Some(map_renderer)),
+            main_map_renderer,
             gps_preprocessor: Mutex::new(GpsPreprocessor::new()),
             map_server: Mutex::new(Some(map_server)),
         }
@@ -84,18 +88,18 @@ pub enum MapRendererProxy {
     Simple(MapRenderer),
 }
 
-#[frb(ignore)]
-pub fn poll_for_main_map_update(journey_bitmap: &mut JourneyBitmap) -> bool {
-    let state = get();
-    let need_reload = state.storage.main_map_renderer_need_to_reload();
-    if need_reload {
-        *journey_bitmap = state
-            .storage
-            .get_latest_bitmap_for_main_map_renderer()
-            .unwrap();
-    }
-    need_reload
-}
+// #[frb(ignore)]
+// pub fn poll_for_main_map_update(journey_bitmap: &mut JourneyBitmap) -> bool {
+//     let state = get();
+//     let need_reload = state.storage.main_map_renderer_need_to_reload();
+//     if need_reload {
+//         *journey_bitmap = state
+//             .storage
+//             .get_latest_bitmap_for_main_map_renderer()
+//             .unwrap();
+//     }
+//     need_reload
+// }
 
 #[frb(sync)]
 pub fn get_url() -> String {
@@ -106,25 +110,11 @@ pub fn get_url() -> String {
 #[frb(sync)]
 pub fn get_map_renderer_proxy_for_main_map() -> MapRendererProxy {
     // ======= WebView Transition codes START ===========
-    // We need to reactivate the main map
-    // TODO: this is a temporary solution for WebView transition
-    let journey_bitmap = get()
-        .map_renderer
-        .lock()
-        .unwrap()
-        .as_ref()
-        .unwrap()
-        .debug_get_journey_bitmap();
-    get()
-        .map_server
-        .lock()
-        .unwrap()
-        .as_ref()
-        .unwrap()
-        .set_journey_bitmap_with_poll_handler(
-            Arc::downgrade(&journey_bitmap),
-            Some(Box::new(poll_for_main_map_update)),
-        );
+    let state = get();
+    let mut server = state.map_server.lock().unwrap();
+    if let Some(server) = server.as_mut() {
+        server.set_map_renderer(state.main_map_renderer.clone(), None);
+    }
     // ======= WebView Transition codes END ===========
 
     MapRendererProxy::MainMap
@@ -141,19 +131,21 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
     from_date_inclusive: NaiveDate,
     to_date_inclusive: NaiveDate,
 ) -> Result<MapRendererProxy> {
-    let journey_bitmap = get().storage.with_db_txn(|txn| {
+    let state = get();
+    let journey_bitmap = state.storage.with_db_txn(|txn| {
         merged_journey_builder::get_range(txn, from_date_inclusive, to_date_inclusive)
     })?;
 
     // ======= WebView Transition codes START ===========
-    let journey_bitmap = Arc::new(Mutex::new(journey_bitmap));
-    let server = get().map_server.lock().unwrap();
-    server
-        .as_ref()
-        .unwrap()
-        .set_journey_bitmap_with_poll_handler(Arc::downgrade(&journey_bitmap), None);
-    let map_renderer = MapRenderer::debug_new(journey_bitmap);
+    let mut server = state.map_server.lock().unwrap();
+    if let Some(server) = server.as_mut() {
+        server.set_map_renderer(
+            Arc::new(Mutex::new(Some(MapRenderer::new(journey_bitmap.clone())))),
+            None,
+        );
+    }
     // ======= WebView Transition codes END ===========
+    let map_renderer = MapRenderer::new(journey_bitmap);
 
     Ok(MapRendererProxy::Simple(map_renderer))
 }
@@ -198,7 +190,8 @@ pub(crate) fn get_default_camera_option_from_journey_bitmap(
 pub fn get_map_renderer_proxy_for_journey(
     journey_id: &str,
 ) -> Result<(MapRendererProxy, Option<CameraOption>)> {
-    let journey_data = get()
+    let state = get();
+    let journey_data = state
         .storage
         .with_db_txn(|txn| txn.get_journey(journey_id))?;
 
@@ -214,19 +207,15 @@ pub fn get_map_renderer_proxy_for_journey(
     let default_camera_option = get_default_camera_option_from_journey_bitmap(&journey_bitmap);
 
     // ======= WebView Transition codes START ===========
-    let journey_bitmap = Arc::new(Mutex::new(journey_bitmap));
-    let server = get().map_server.lock().unwrap();
-    server
-        .as_ref()
-        .unwrap()
-        .set_journey_bitmap_with_poll_handler(Arc::downgrade(&journey_bitmap), None);
-    server
-        .as_ref()
-        .unwrap()
-        .set_provisioned_camera_option(default_camera_option);
-    let map_renderer = MapRenderer::debug_new(journey_bitmap);
+    let mut server = state.map_server.lock().unwrap();
+    if let Some(server) = server.as_mut() {
+        server.set_map_renderer(
+            Arc::new(Mutex::new(Some(MapRenderer::new(journey_bitmap.clone())))),
+            default_camera_option,
+        );
+    }
     // ======= WebView Transition codes END ===========
-
+    let map_renderer = MapRenderer::new(journey_bitmap);
     Ok((
         MapRendererProxy::Simple(map_renderer),
         default_camera_option,
@@ -243,7 +232,7 @@ pub fn on_location_update(
 
     // we need handle a batch in one go so we hold the lock for the whole time
     let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
-    let mut map_renderer = state.map_renderer.lock().unwrap();
+    let mut map_renderer = state.main_map_renderer.lock().unwrap();
 
     raw_data_list.sort_by(|a, b| a.timestamp_ms.cmp(&b.timestamp_ms));
     raw_data_list.into_iter().for_each(|raw_data| {
@@ -271,14 +260,6 @@ pub fn on_location_update(
                             end.latitude,
                         );
                     });
-                    // TODO: in current design, the active map_server data may not be the main map
-                    state
-                        .map_server
-                        .lock()
-                        .unwrap()
-                        .as_ref()
-                        .unwrap()
-                        .set_needs_reload();
                 }
             },
         }

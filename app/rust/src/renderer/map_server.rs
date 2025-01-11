@@ -1,6 +1,7 @@
 use crate::journey_bitmap::JourneyBitmap;
 use actix_web::dev::Service;
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
+use journey_kernel::journey_bitmap;
 use std::borrow::Cow;
 use std::sync::{Arc, Mutex, Weak};
 use std::thread;
@@ -10,136 +11,73 @@ use uuid::Uuid;
 // TODO:: maybe we should move this out of the api
 use crate::api::api::CameraOption;
 
-type JourneyBitmapModifier = Box<dyn Fn(&mut JourneyBitmap) -> bool + Send + Sync>;
+use super::MapRenderer;
 
 // App state holding the registry
-struct AppState {
-    journey_bitmap: Arc<Mutex<Option<Weak<Mutex<JourneyBitmap>>>>>,
-    provisioned_camera_option: Arc<Mutex<Option<CameraOption>>>,
-    needs_reload: Arc<Mutex<bool>>,
-    poll_handler: Arc<Mutex<Option<JourneyBitmapModifier>>>,
+struct State {
+    // TODO: The option for map_renderer is weird, we should fix it.
+    map_renderer: Arc<Mutex<Option<MapRenderer>>>,
+    provisioned_camera_option: Option<CameraOption>,
 }
 
 // Handler for serving registered items
-async fn serve_main_journey_bitmap(req: HttpRequest, data: web::Data<AppState>) -> HttpResponse {
-    // see if a journey_bitmap is available
-    if let Some(weak_journey_bitmap) = data.journey_bitmap.lock().unwrap().clone() {
-        // we will first make sure the local journey_bitmap copy is the latest.
-        let mut needs_reload = false;
+async fn serve_main_journey_bitmap(
+    req: HttpRequest,
+    data: web::Data<Arc<Mutex<State>>>,
+) -> HttpResponse {
+    let state = data.lock().unwrap();
+    let mut map_renderer = state.map_renderer.lock().unwrap();
 
-        // poll the poll-handler if available to see if reconstruct the journey_bitmap is necessary
-        //  (eg. the mainmap may need to be refreshed if a journey-delete-operation has been made.)
-        if let Some(poll_handler) = &data.poll_handler.lock().unwrap().as_ref() {
-            if let Some(strong_ref) = weak_journey_bitmap.upgrade() {
-                if let Ok(mut guard) = strong_ref.lock() {
-                    // Get a mutable reference from the MutexGuard
-                    let mut_journey_bitmap: &mut JourneyBitmap = &mut guard;
-
-                    // Call the function
-                    needs_reload = needs_reload || poll_handler(mut_journey_bitmap);
-                }
-            } else {
-                return HttpResponse::NotFound().finish();
+    match map_renderer.as_mut() {
+        None => HttpResponse::NotFound().finish(),
+        Some(map_renderer) => {
+            // we will return 304 if the request is conditional, and the remote joruney_bitmap is up-to-date.
+            let is_request_conditional = req
+                .headers()
+                .get("If-None-Match")
+                .and_then(|h| h.to_str().ok())
+                .map(|s| s == "*")
+                .unwrap_or(false);
+            if !is_request_conditional {
+                // for non-conditional request, we always send the latest journey_bitmap
+                map_renderer.reset();
+            }
+            match map_renderer.get_latest_bitmap_if_changed() {
+                None => HttpResponse::NotModified().finish(),
+                Some(journey_bitmap) => match journey_bitmap.to_bytes() {
+                    Ok(bytes) => HttpResponse::Ok().body(bytes),
+                    Err(_) => return HttpResponse::InternalServerError().finish(),
+                },
             }
         }
-
-        // check if the journey_bitmap is updated elsewhere (eg. on_location_update will add_line to the journey_bitmap)
-        needs_reload = needs_reload || *data.needs_reload.lock().unwrap();
-
-        // we will return 304 if the request is conditional, and the remote joruney_bitmap is up-to-date.
-        let is_request_conditional = req
-            .headers()
-            .get("If-None-Match")
-            .and_then(|h| h.to_str().ok())
-            .map(|s| s == "*")
-            .unwrap_or(false);
-
-        if is_request_conditional && !needs_reload {
-            return HttpResponse::NotModified().finish();
-        }
-
-        let mut needs_reload = data.needs_reload.lock().unwrap();
-        *needs_reload = false;
-
-        let response = match weak_journey_bitmap.upgrade() {
-            Some(strong_ref) => match strong_ref.lock().unwrap().to_bytes() {
-                Ok(bytes) => HttpResponse::Ok().body(bytes),
-                Err(_) => return HttpResponse::InternalServerError().finish(),
-            },
-            None => return HttpResponse::NotFound().finish(),
-        };
-
-        response
-    } else {
-        HttpResponse::NotFound().finish()
     }
 }
 
 async fn serve_main_journey_bitmap_provisioned_camera_option(
-    data: web::Data<AppState>,
+    data: web::Data<Arc<Mutex<State>>>,
 ) -> HttpResponse {
-    #[allow(clippy::clone_on_copy)]
-    let camera_option = data.provisioned_camera_option.lock().unwrap().clone();
+    let state = data.lock().unwrap();
+    let camera_option = state.provisioned_camera_option;
     HttpResponse::Ok().json(camera_option)
 }
 
 pub struct MapServer {
     handle: Option<thread::JoinHandle<()>>,
-    journey_bitmap: Arc<Mutex<Option<Weak<Mutex<JourneyBitmap>>>>>,
-    provisioned_camera_option: Arc<Mutex<Option<CameraOption>>>,
-    needs_reload: Arc<Mutex<bool>>,
-    poll_handler: Arc<Mutex<Option<JourneyBitmapModifier>>>,
+    state: Arc<Mutex<State>>,
     url: Arc<Mutex<String>>,
 }
 
 impl MapServer {
+    // TODO: I think we should just get all values on startup
     pub fn new() -> Self {
         Self {
             handle: None,
-            journey_bitmap: Arc::new(Mutex::new(None)),
-            provisioned_camera_option: Arc::new(Mutex::new(None)),
-            needs_reload: Arc::new(Mutex::new(false)),
-            poll_handler: Arc::new(Mutex::new(None)),
+            state: Arc::new(Mutex::new(State {
+                map_renderer: Arc::new(Mutex::new(None)),
+                provisioned_camera_option: None,
+            })),
             url: Arc::new(Mutex::new(String::new())),
         }
-    }
-
-    pub fn set_journey_bitmap_with_poll_handler(
-        &self,
-        item: Weak<Mutex<JourneyBitmap>>,
-        handler: Option<JourneyBitmapModifier>,
-    ) {
-        // clear previous provisioned_camera_option
-        {
-            let mut provisioned_camera_option = self.provisioned_camera_option.lock().unwrap();
-            *provisioned_camera_option = None;
-        }
-
-        // set journey_bitmap and poll_handler
-        {
-            let mut journey_bitmap = self.journey_bitmap.lock().unwrap();
-            *journey_bitmap = Some(item);
-        }
-        {
-            let mut poll_handler = self.poll_handler.lock().unwrap();
-            *poll_handler = handler;
-        }
-
-        // set needs_reload
-        {
-            let mut needs_reload = self.needs_reload.lock().unwrap();
-            *needs_reload = true;
-        }
-    }
-
-    pub fn set_needs_reload(&self) {
-        let mut needs_reload = self.needs_reload.lock().unwrap();
-        *needs_reload = true;
-    }
-
-    pub fn set_provisioned_camera_option(&self, camera_option: Option<CameraOption>) {
-        let mut provisioned_camera_option = self.provisioned_camera_option.lock().unwrap();
-        *provisioned_camera_option = camera_option;
     }
 
     pub fn get_url(&self) -> String {
@@ -158,25 +96,14 @@ impl MapServer {
         // Create a channel to signal when the URL prefix is set
         let (tx, rx) = std::sync::mpsc::channel();
 
-        let journey_bitmap = self.journey_bitmap.clone();
-        let provisioned_camera_option = self.provisioned_camera_option.clone();
-        let needs_reload = self.needs_reload.clone();
-        let poll_handler = self.poll_handler.clone();
-
+        let data = web::Data::new(self.state.clone());
         let handle = thread::spawn(move || {
-            let app_state = web::Data::new(AppState {
-                journey_bitmap,
-                provisioned_camera_option,
-                needs_reload,
-                poll_handler,
-            });
-
             let runtime = Runtime::new().expect("Failed to create Tokio runtime");
             runtime.block_on(async move {
                 info!("Setting up server routes...");
                 let server = HttpServer::new(move || {
                     App::new()
-                        .app_data(app_state.clone())
+                        .app_data(data.clone())
                         .wrap_fn(|req, srv| {
                             info!("Incoming request: {} {}", req.method(), req.uri());
                             srv.call(req)
@@ -232,6 +159,17 @@ impl MapServer {
 
         self.handle = Some(handle);
         Ok(())
+    }
+
+    pub fn set_map_renderer(
+        &mut self,
+        //TODO: Again, the option here is weird.
+        map_renderer: Arc<Mutex<Option<MapRenderer>>>,
+        provisioned_camera_option: Option<CameraOption>,
+    ) {
+        let mut state = self.state.lock().unwrap();
+        state.map_renderer = map_renderer;
+        state.provisioned_camera_option = provisioned_camera_option;
     }
 
     // TODO: maybe stop the server when app is switched to background.
