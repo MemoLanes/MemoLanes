@@ -29,6 +29,11 @@ struct RenderArea {
 
 pub struct MapRenderer {
     journey_bitmap: JourneyBitmap,
+
+    // For new web based renderer
+    changed: bool,
+
+    // For old renderer
     tile_renderer: Box<dyn TileRendererTrait + Send + Sync>,
     bg_color: Rgba<u8>,
     fg_color: Rgba<u8>,
@@ -47,6 +52,7 @@ impl MapRenderer {
     ) -> Self {
         Self {
             journey_bitmap,
+            changed: false,
             tile_renderer,
             bg_color: DEFAULT_BG_COLOR,
             fg_color: DEFAULT_FG_COLOR,
@@ -158,10 +164,31 @@ impl MapRenderer {
     {
         f(&mut self.journey_bitmap);
         // TODO: we should improve the cache invalidation rule
+        self.changed = true;
+        self.current_render_area = None;
+    }
+
+    pub fn replace(&mut self, journey_bitmap: JourneyBitmap) {
+        self.journey_bitmap = journey_bitmap;
+        self.changed = true;
         self.current_render_area = None;
     }
 
     pub fn reset(&mut self) {
+        self.changed = true;
         self.current_render_area = None;
+    }
+
+    pub fn changed(&self) -> bool {
+        self.changed
+    }
+
+    pub fn get_latest_bitmap_if_changed(&mut self) -> Option<&JourneyBitmap> {
+        if self.changed {
+            self.changed = false;
+            Some(&self.journey_bitmap)
+        } else {
+            None
+        }
     }
 }

@@ -40,21 +40,23 @@ fn basic() {
             let _: bool = api::finalize_ongoing_journey().unwrap();
         } else if i == 2000 {
             // we have both ongoing journey and finalized journey at this point
-            let render_result = map_renderer_proxy
-                .render_map_overlay(11.0, 121.39, 31.3146, 121.55, 31.18)
-                .unwrap();
-            test_utils::verify_image("end_to_end_basic_0", &render_result.data);
+            // TODO: check in webview based test
+            // let render_result = map_renderer_proxy
+            //     .render_map_overlay(11.0, 121.39, 31.3146, 121.55, 31.18)
+            //     .unwrap();
+            // test_utils::verify_image("end_to_end_basic_0", &render_result.data);
         }
     }
 
     remaining_elements.shuffle(&mut thread_rng());
     api::on_location_update(remaining_elements.to_vec(), 1695150531000);
 
+    // TODO: check in webview based test
     // this should cover real time update
-    let render_result = map_renderer_proxy
-        .render_map_overlay(11.0, 121.39, 31.3146, 121.55, 31.18)
-        .unwrap();
-    test_utils::verify_image("end_to_end_basic_1", &render_result.data);
+    // let render_result = map_renderer_proxy
+    //     .render_map_overlay(11.0, 121.39, 31.3146, 121.55, 31.18)
+    //     .unwrap();
+    // test_utils::verify_image("end_to_end_basic_1", &render_result.data);
 
     // try export logs
     api::export_logs("./tests/for_inspection/end_to_end_basic-logs.zip".to_string()).unwrap();

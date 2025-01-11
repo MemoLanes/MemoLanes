@@ -1,8 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
-import 'package:memolanes/component/base_map.dart';
+import 'package:memolanes/component/base_map_webview.dart';
 import 'package:memolanes/src/rust/api/import.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -23,7 +22,6 @@ class JourneyInfoPage extends StatefulWidget {
 class _JourneyInfoPage extends State<JourneyInfoPage> {
   final fmt = DateFormat('yyyy-MM-dd HH:mm:ss');
   api.MapRendererProxy? _mapRendererProxy;
-  final CameraOptions _cameraOptions = CameraOptions();
 
   @override
   void initState() {
@@ -33,12 +31,6 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
         .then((mapRendererProxyAndCameraOption) {
       setState(() {
         _mapRendererProxy = mapRendererProxyAndCameraOption.$1;
-        var cameraOption = mapRendererProxyAndCameraOption.$2;
-        if (cameraOption != null) {
-          _cameraOptions.zoom = cameraOption.zoom;
-          _cameraOptions.center =
-              Point(coordinates: Position(cameraOption.lng, cameraOption.lat));
-        }
       });
     });
   }
@@ -186,10 +178,9 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
             Expanded(
               child: mapRendererProxy == null
                   ? (const CircularProgressIndicator())
-                  : (BaseMap(
+                  : (BaseMapWebview(
                       key: const ValueKey("mapWidget"),
                       mapRendererProxy: mapRendererProxy,
-                      initialCameraOptions: _cameraOptions,
                     )),
             )
           ],

@@ -11,16 +11,7 @@ buildscript {
     }
 }
 
-def SDK_REGISTRY_TOKEN = ""
-File file = file('mapbox-sdk-registry-token')
-if (file.exists()) {
-    SDK_REGISTRY_TOKEN = file.text
-} else {
-    println "mapbox-sdk-registry-token not found"
-}
-
 allprojects {
-    project.SDK_REGISTRY_TOKEN = SDK_REGISTRY_TOKEN
     repositories {
         google()
         mavenCentral()

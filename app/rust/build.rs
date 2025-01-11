@@ -35,7 +35,80 @@ fn setup_x86_64_android_workaround() {
     }
 }
 
+fn check_yarn_dependencies() {
+    // Check if yarn is installed
+    if Command::new("yarn").arg("--version").output().is_err() {
+        panic!("yarn is not installed. Please install yarn first using `npm install -g yarn`");
+    }
+
+    // Check if node_modules exists in journey_kernel
+    if !Path::new("../journey_kernel/node_modules").exists() {
+        println!("cargo:warning=Installing yarn dependencies for journey_kernel...");
+        let status = Command::new("yarn")
+            .current_dir("../journey_kernel")
+            .arg("install")
+            .status()
+            .expect("Failed to run yarn install");
+
+        if !status.success() {
+            panic!("Failed to install yarn dependencies");
+        }
+    }
+}
+
+fn build_journey_kernel_wasm() {
+    println!("cargo:rerun-if-changed=../journey_kernel");
+
+    // Build using webpack through yarn
+    let status = Command::new("yarn")
+        .current_dir("../journey_kernel")
+        .args(["build"])
+        .status()
+        .expect("Failed to execute webpack build command");
+
+    if !status.success() {
+        panic!("Failed to build journey_kernel WASM package");
+    }
+}
+
+fn generate_mapbox_token_const() {
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("Failed to get CARGO_MANIFEST_DIR");
+    let env_path = Path::new(&manifest_dir).join("../.env");
+
+    println!("cargo:rerun-if-changed={}", env_path.display());
+
+    // Try to load from environment first
+    let token = if let Ok(token) = env::var("MAPBOX-ACCESS-TOKEN") {
+        token
+    } else {
+        // Fallback to reading .env file
+        match fs::read_to_string(&env_path) {
+            Ok(env_content) => env_content
+                .lines()
+                .find(|line| line.starts_with("MAPBOX-ACCESS-TOKEN="))
+                .map(|line| line.split('=').nth(1).unwrap().trim().to_string())
+                .unwrap_or_else(|| {
+                    println!("cargo:warning=MAPBOX-ACCESS-TOKEN not found in .env file");
+                    String::new()
+                }),
+            Err(_) => {
+                println!(
+                    "cargo:warning=.env file not found at {}",
+                    env_path.display()
+                );
+                String::new()
+            }
+        }
+    };
+
+    println!("cargo:rustc-env=MAPBOX-ACCESS-TOKEN={}", token);
+}
+
 fn main() {
+    // check_yarn_dependencies();
+    // build_journey_kernel_wasm();
+    generate_mapbox_token_const();
+
     // There are articles on internet suggest `.git/HEAD` is enough, which I
     // doubt.
     println!("cargo:rerun-if-changed=../../.git");
