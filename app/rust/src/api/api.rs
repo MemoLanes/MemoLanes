@@ -34,8 +34,8 @@ pub fn get() -> &'static MainState {
 }
 
 #[frb(sync)]
-pub fn short_commit_hash() -> &'static str {
-    build_info::SHORT_COMMIT_HASH
+pub fn short_commit_hash() -> String {
+    build_info::SHORT_COMMIT_HASH.to_string()
 }
 
 pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: String) {
