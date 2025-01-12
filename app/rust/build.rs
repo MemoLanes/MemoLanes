@@ -1,3 +1,4 @@
+use cargo_toml::Manifest;
 use std::env;
 use std::path::Path;
 use std::process::Command;
@@ -58,6 +59,26 @@ fn check_yarn_dependencies() {
 
 fn build_journey_kernel_wasm() {
     println!("cargo:rerun-if-changed=../journey_kernel");
+    println!("cargo:rerun-if-changed=.journey_kernel_version");
+
+    // Read version from Cargo.toml
+    let manifest = Manifest::from_path("../journey_kernel/Cargo.toml")
+        .expect("Failed to read journey_kernel Cargo.toml");
+    let current_version = manifest
+        .package
+        .unwrap()
+        .version
+        .get()
+        .unwrap().clone();
+
+    // Check if version lock exists and matches
+    let version_lock_path = Path::new("./target/.journey_kernel_version");
+    if let Ok(locked_version) = fs::read_to_string(&version_lock_path) {
+        if locked_version.trim() == current_version {
+            println!("cargo:warning=Skipping journey_kernel build - version {} matches", current_version);
+            return;
+        }
+    }
 
     // Build using webpack through yarn
     let status = Command::new("yarn")
@@ -69,6 +90,10 @@ fn build_journey_kernel_wasm() {
     if !status.success() {
         panic!("Failed to build journey_kernel WASM package");
     }
+
+    // Update version lock after successful build
+    fs::write(version_lock_path, current_version)
+        .expect("Failed to write journey_kernel version lock");
 }
 
 fn generate_mapbox_token_const() {
@@ -105,8 +130,8 @@ fn generate_mapbox_token_const() {
 }
 
 fn main() {
-    // check_yarn_dependencies();
-    // build_journey_kernel_wasm();
+    check_yarn_dependencies();
+    build_journey_kernel_wasm();
     generate_mapbox_token_const();
 
     // There are articles on internet suggest `.git/HEAD` is enough, which I

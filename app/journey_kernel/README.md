@@ -1,5 +1,11 @@
 # Journey Kernel Library
 
+
+```
+⚠️ When making changes to this library, remember to bump the ver`sion number in `Cargo.toml`. 
+This ensures main rust project will properly rebuild the WASM module with the changes.
+```
+
 This library is used to render journey bitmaps in the app. It supports both native and WASM.
 
 ## JavaScript APIs
