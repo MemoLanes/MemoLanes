@@ -285,7 +285,6 @@ class GpsManager extends ChangeNotifier {
           false => _InternalState.off,
         },
     };
-    log("[GpsManager] sync_internal_state. old state: $_internalState, new state: $newState");
     var oldState = _internalState;
     if (oldState != newState) {
       // state changed
