@@ -52,7 +52,7 @@ class _PokeGeolocatorTask {
 
 enum GpsRecordingStatus { none, recording, paused }
 
-// onForRecording: enable background location updates
+// `recording` requires background location but `justForTracking` does not.
 enum _InternalState { off, recording, justForTracking }
 
 class GpsManager extends ChangeNotifier {
@@ -99,7 +99,9 @@ class GpsManager extends ChangeNotifier {
 
       SharedPreferences prefs = await SharedPreferences.getInstance();
       bool? recordState = prefs.getBool(isRecordingPrefsKey);
-      if (recordState != null && recordState == true) {
+      if (recordState != null &&
+          recordState == true &&
+          await _checkPermission()) {
         recordingStatus = GpsRecordingStatus.recording;
       } else {
         if (await api.hasOngoingJourney()) {
@@ -156,7 +158,6 @@ class GpsManager extends ChangeNotifier {
 
   void _onPositionUpdate(Position position) {
     latestPosition = position;
-    print("location update $latestPosition");
     notifyListeners();
 
     if (_internalState != _InternalState.recording) return;
@@ -260,6 +261,7 @@ class GpsManager extends ChangeNotifier {
       if (recordingStatus == GpsRecordingStatus.paused) {
         recordingStatus = GpsRecordingStatus.none;
         notifyListeners();
+        await _syncInternalStateWithoutLock();
       }
     }
   }
@@ -273,8 +275,7 @@ class GpsManager extends ChangeNotifier {
           false => _InternalState.off,
         },
     };
-    print(
-        "[GpsManager] sync_internal_state. old state: $_internalState, new state: $newState");
+    log("[GpsManager] sync_internal_state. old state: $_internalState, new state: $newState");
     var oldState = _internalState;
     if (oldState != newState) {
       // state changed
@@ -300,7 +301,7 @@ class GpsManager extends ChangeNotifier {
 
       // turnning on if needed
       if (newState != _InternalState.off) {
-        print("[GpsManager] turning on gps stream. new state: $newState");
+        log("[GpsManager] turning on gps stream. new state: $newState");
         var locationSettings =
             _locationSettings(newState == _InternalState.recording);
 
@@ -328,7 +329,6 @@ class GpsManager extends ChangeNotifier {
       _internalState = newState;
       notifyListeners();
     }
-    print("[GpsManager] XXX done sync_internal_state");
   }
 
   Future<bool> _checkAndRequestPermission() async {
