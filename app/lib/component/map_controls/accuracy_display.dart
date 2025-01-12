@@ -66,7 +66,7 @@ class _AccuracyDisplayState extends State<AccuracyDisplay> {
         alignment: Alignment.center,
         clipBehavior: Clip.none,
         children: [
-          Consumer<GpsRecordingState>(
+          Consumer<GpsManager>(
             builder: (context, gpsState, child) {
               final position = gpsState.latestPosition;
               final accuracy = position?.accuracy ?? 0.0;
@@ -119,7 +119,7 @@ class _AccuracyDisplayState extends State<AccuracyDisplay> {
           if (showDetail)
             Positioned(
               right: 64,
-              child: Consumer<GpsRecordingState>(
+              child: Consumer<GpsManager>(
                 builder: (context, gpsState, child) {
                   final position = gpsState.latestPosition;
                   if (position != null) {

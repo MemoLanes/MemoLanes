@@ -76,7 +76,7 @@ void main() async {
       cacheDir: (await getApplicationCacheDirectory()).path);
   var updateNotifier = UpdateNotifier();
   delayedInit(updateNotifier);
-  var gpsRecordingState = GpsRecordingState();
+  var gpsRecordingState = GpsManager();
   runApp(EasyLocalization(
       supportedLocales: const [Locale('en', 'US'), Locale('zh', 'CN')],
       path: 'assets/translations',

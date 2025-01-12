@@ -54,7 +54,7 @@ class _SettingsBodyState extends State<SettingsBody> {
   @override
   Widget build(BuildContext context) {
     var updateUrl = context.watch<UpdateNotifier>().updateUrl;
-    var gpsRecordingState = context.watch<GpsRecordingState>();
+    var gpsRecordingState = context.watch<GpsManager>();
 
     return Center(
       child: Column(

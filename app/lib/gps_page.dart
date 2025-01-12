@@ -41,10 +41,10 @@ class _GPSPageState extends State<GPSPage> {
               child: Text(context.tr('common.cancel')),
             ),
             FilledButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.of(context).pop();
-                context
-                    .read<GpsRecordingState>()
+                await context
+                    .read<GpsManager>()
                     .changeRecordingState(GpsRecordingStatus.none);
               },
               style: FilledButton.styleFrom(
@@ -61,7 +61,7 @@ class _GPSPageState extends State<GPSPage> {
 
   @override
   Widget build(BuildContext context) {
-    var gpsRecordingState = context.watch<GpsRecordingState>();
+    var gpsRecordingState = context.watch<GpsManager>();
 
     Widget controls;
     if (gpsRecordingState.recordingStatus == GpsRecordingStatus.none) {
