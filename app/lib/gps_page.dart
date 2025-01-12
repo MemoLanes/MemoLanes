@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:memolanes/gps_recording_state.dart';
+import 'package:memolanes/gps_manager.dart';
 import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
 
@@ -41,11 +41,11 @@ class _GPSPageState extends State<GPSPage> {
               child: Text(context.tr('common.cancel')),
             ),
             FilledButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.of(context).pop();
-                context
-                    .read<GpsRecordingState>()
-                    .changeState(GpsRecordingStatus.none);
+                await context
+                    .read<GpsManager>()
+                    .changeRecordingState(GpsRecordingStatus.none);
               },
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.red,
@@ -61,14 +61,14 @@ class _GPSPageState extends State<GPSPage> {
 
   @override
   Widget build(BuildContext context) {
-    var gpsRecordingState = context.watch<GpsRecordingState>();
+    var gpsManager = context.watch<GpsManager>();
 
     Widget controls;
-    if (gpsRecordingState.status == GpsRecordingStatus.none) {
+    if (gpsManager.recordingStatus == GpsRecordingStatus.none) {
       controls = Center(
         child: ElevatedButton(
           onPressed: () async {
-            gpsRecordingState.changeState(GpsRecordingStatus.recording);
+            gpsManager.changeRecordingState(GpsRecordingStatus.recording);
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFB4EC51),
@@ -87,14 +87,14 @@ class _GPSPageState extends State<GPSPage> {
           ),
         ),
       );
-    } else if (gpsRecordingState.status == GpsRecordingStatus.recording) {
+    } else if (gpsManager.recordingStatus == GpsRecordingStatus.recording) {
       controls = Center(
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             ElevatedButton(
               onPressed: () async {
-                gpsRecordingState.changeState(GpsRecordingStatus.paused);
+                gpsManager.changeRecordingState(GpsRecordingStatus.paused);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.black,
@@ -137,7 +137,7 @@ class _GPSPageState extends State<GPSPage> {
           children: [
             ElevatedButton(
               onPressed: () async {
-                gpsRecordingState.changeState(GpsRecordingStatus.recording);
+                gpsManager.changeRecordingState(GpsRecordingStatus.recording);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.black,
