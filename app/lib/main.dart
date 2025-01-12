@@ -76,7 +76,7 @@ void main() async {
       cacheDir: (await getApplicationCacheDirectory()).path);
   var updateNotifier = UpdateNotifier();
   delayedInit(updateNotifier);
-  var gpsRecordingState = GpsManager();
+  var gpsManager = GpsManager();
   runApp(EasyLocalization(
       supportedLocales: const [Locale('en', 'US'), Locale('zh', 'CN')],
       path: 'assets/translations',
@@ -84,7 +84,7 @@ void main() async {
       saveLocale: false,
       child: MultiProvider(
         providers: [
-          ChangeNotifierProvider(create: (context) => gpsRecordingState),
+          ChangeNotifierProvider(create: (context) => gpsManager),
           ChangeNotifierProvider(create: (context) => updateNotifier),
         ],
         child: const MyApp(),

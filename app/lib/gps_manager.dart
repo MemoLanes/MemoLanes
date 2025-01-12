@@ -56,7 +56,7 @@ enum GpsRecordingStatus { none, recording, paused }
 enum _InternalState { off, recording, justForTracking }
 
 class GpsManager extends ChangeNotifier {
-  static const String isRecordingPrefsKey = "GpsRecordingState.isRecording";
+  static const String isRecordingPrefsKey = "GpsManager.isRecording";
   var recordingStatus = GpsRecordingStatus.none;
   var mapTracking = false;
   Position? latestPosition;
@@ -98,6 +98,16 @@ class GpsManager extends ChangeNotifier {
       });
 
       SharedPreferences prefs = await SharedPreferences.getInstance();
+
+      // TODO: delete this after migration
+      // ---------------------------------
+      bool? oldRecordState = prefs.getBool("GpsRecordingState.isRecording");
+      if (oldRecordState != null) {
+        prefs.setBool(isRecordingPrefsKey, oldRecordState);
+        prefs.remove("GpsRecordingState.isRecording");
+      }
+      // ---------------------------------
+
       bool? recordState = prefs.getBool(isRecordingPrefsKey);
       if (recordState != null &&
           recordState == true &&

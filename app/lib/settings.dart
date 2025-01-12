@@ -54,7 +54,7 @@ class _SettingsBodyState extends State<SettingsBody> {
   @override
   Widget build(BuildContext context) {
     var updateUrl = context.watch<UpdateNotifier>().updateUrl;
-    var gpsRecordingState = context.watch<GpsManager>();
+    var gpsManager = context.watch<GpsManager>();
 
     return Center(
       child: Column(
@@ -77,8 +77,7 @@ class _SettingsBodyState extends State<SettingsBody> {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (gpsRecordingState.recordingStatus !=
-                  GpsRecordingStatus.none) {
+              if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
                 await showInfoDialog(context,
                     "Please stop the current ongoing journey before archiving.");
                 return;
@@ -100,8 +99,7 @@ class _SettingsBodyState extends State<SettingsBody> {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (gpsRecordingState.recordingStatus !=
-                  GpsRecordingStatus.none) {
+              if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
                 await showInfoDialog(context,
                     "Please stop the current ongoing journey before deleting all journeys.");
                 return;

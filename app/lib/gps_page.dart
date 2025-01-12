@@ -61,15 +61,14 @@ class _GPSPageState extends State<GPSPage> {
 
   @override
   Widget build(BuildContext context) {
-    var gpsRecordingState = context.watch<GpsManager>();
+    var gpsManager = context.watch<GpsManager>();
 
     Widget controls;
-    if (gpsRecordingState.recordingStatus == GpsRecordingStatus.none) {
+    if (gpsManager.recordingStatus == GpsRecordingStatus.none) {
       controls = Center(
         child: ElevatedButton(
           onPressed: () async {
-            gpsRecordingState
-                .changeRecordingState(GpsRecordingStatus.recording);
+            gpsManager.changeRecordingState(GpsRecordingStatus.recording);
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFB4EC51),
@@ -88,16 +87,14 @@ class _GPSPageState extends State<GPSPage> {
           ),
         ),
       );
-    } else if (gpsRecordingState.recordingStatus ==
-        GpsRecordingStatus.recording) {
+    } else if (gpsManager.recordingStatus == GpsRecordingStatus.recording) {
       controls = Center(
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             ElevatedButton(
               onPressed: () async {
-                gpsRecordingState
-                    .changeRecordingState(GpsRecordingStatus.paused);
+                gpsManager.changeRecordingState(GpsRecordingStatus.paused);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.black,
@@ -140,8 +137,7 @@ class _GPSPageState extends State<GPSPage> {
           children: [
             ElevatedButton(
               onPressed: () async {
-                gpsRecordingState
-                    .changeRecordingState(GpsRecordingStatus.recording);
+                gpsManager.changeRecordingState(GpsRecordingStatus.recording);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.black,

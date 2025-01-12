@@ -652,7 +652,7 @@ impl MainDb {
 #[derive(Debug, Clone, Copy)]
 pub enum Setting {
     // TODO: We should consider making the fultter part handle this, similar to
-    // `GpsRecordingState.isRecording`.
+    // `GpsManager.isRecording`.
     RawDataMode,
 }
 
