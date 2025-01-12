@@ -9,7 +9,7 @@ import 'package:memolanes/time_machine.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:memolanes/settings.dart';
-import 'package:memolanes/gps_recording_state.dart';
+import 'package:memolanes/gps_manager.dart';
 import 'package:memolanes/journey.dart';
 import 'package:memolanes/map.dart';
 import 'package:memolanes/raw_data.dart';

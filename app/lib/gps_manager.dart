@@ -53,7 +53,7 @@ enum GpsRecordingStatus { none, recording, paused }
 
 class GpsRecordingState extends ChangeNotifier {
   static const String isRecordingPrefsKey = "GpsRecordingState.isRecording";
-  var status = GpsRecordingStatus.none;
+  var recordingStatus = GpsRecordingStatus.none;
   Position? latestPosition;
 
   LocationSettings? _locationSettings;
@@ -130,7 +130,7 @@ class GpsRecordingState extends ChangeNotifier {
         await _changeStateWithoutLock(GpsRecordingStatus.recording);
       } else {
         if (await api.hasOngoingJourney()) {
-          status = GpsRecordingStatus.paused;
+          recordingStatus = GpsRecordingStatus.paused;
         }
       }
       notifyListeners();
@@ -139,11 +139,12 @@ class GpsRecordingState extends ChangeNotifier {
 
   void _saveIsRecordingState() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    prefs.setBool(isRecordingPrefsKey, status == GpsRecordingStatus.recording);
+    prefs.setBool(
+        isRecordingPrefsKey, recordingStatus == GpsRecordingStatus.recording);
   }
 
   void _onPositionUpdate(Position position) {
-    if (status != GpsRecordingStatus.recording) return;
+    if (recordingStatus != GpsRecordingStatus.recording) return;
     _positionBuffer.add(position);
     _positionBufferFirstElementReceivedTime ??= DateTime.now();
     if (_positionBufferFlushTimer == null) {
@@ -244,17 +245,17 @@ class GpsRecordingState extends ChangeNotifier {
     // TODO: I think we want this to be configurable
     if (await api.tryAutoFinalizeJourny()) {
       Fluttertoast.showToast(msg: "New journey added");
-      if (status == GpsRecordingStatus.paused) {
-        status = GpsRecordingStatus.none;
+      if (recordingStatus == GpsRecordingStatus.paused) {
+        recordingStatus = GpsRecordingStatus.none;
         notifyListeners();
       }
     }
   }
 
   Future<void> _changeStateWithoutLock(GpsRecordingStatus to) async {
-    if (status == to) return;
+    if (recordingStatus == to) return;
 
-    if (status == GpsRecordingStatus.recording &&
+    if (recordingStatus == GpsRecordingStatus.recording &&
         to != GpsRecordingStatus.recording) {
       // stop recording
       await _positionStream?.cancel();
@@ -307,12 +308,12 @@ class GpsRecordingState extends ChangeNotifier {
       }
     }
 
-    status = to;
+    recordingStatus = to;
     _saveIsRecordingState();
     notifyListeners();
   }
 
-  Future<void> changeState(GpsRecordingStatus to) async {
+  Future<void> changeRecordingState(GpsRecordingStatus to) async {
     await _m.protect(() async {
       await _changeStateWithoutLock(to);
     });

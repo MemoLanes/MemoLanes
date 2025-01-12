@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:memolanes/gps_recording_state.dart';
+import 'package:memolanes/gps_manager.dart';
 import 'package:memolanes/utils.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:memolanes/src/rust/api/api.dart';
@@ -77,7 +77,8 @@ class _SettingsBodyState extends State<SettingsBody> {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (gpsRecordingState.status != GpsRecordingStatus.none) {
+              if (gpsRecordingState.recordingStatus !=
+                  GpsRecordingStatus.none) {
                 await showInfoDialog(context,
                     "Please stop the current ongoing journey before archiving.");
                 return;
@@ -99,7 +100,8 @@ class _SettingsBodyState extends State<SettingsBody> {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (gpsRecordingState.status != GpsRecordingStatus.none) {
+              if (gpsRecordingState.recordingStatus !=
+                  GpsRecordingStatus.none) {
                 await showInfoDialog(context,
                     "Please stop the current ongoing journey before deleting all journeys.");
                 return;

@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 import 'dart:math' as math;
-import 'package:memolanes/gps_recording_state.dart';
+import 'package:memolanes/gps_manager.dart';
 import 'package:provider/provider.dart';
 
 // TODO: We should also show accuracy when we are not recording, otherwise `NO GPS` can be misleading.
