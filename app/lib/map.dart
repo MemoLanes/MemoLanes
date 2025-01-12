@@ -6,6 +6,8 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:memolanes/component/base_map.dart';
 import 'package:memolanes/component/map_controls/accuracy_display.dart';
 import 'package:memolanes/component/map_controls/tracking_button.dart';
+import 'package:memolanes/gps_manager.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:json_annotation/json_annotation.dart';
@@ -61,7 +63,7 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
   MapController? mapController;
   Timer? refreshTimer;
   Timer? trackTimer;
-  TrackingMode trackingMode = TrackingMode.displayAndTracking;
+  TrackingMode trackingMode = TrackingMode.off;
   CameraOptions? _initialCameraOptions;
 
   // TODO: We don't enough time to save if the app got killed. Losing data here
@@ -141,6 +143,7 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
       setupTrackingMode();
     } else if (state == AppLifecycleState.paused) {
       _saveMapState();
+      Provider.of<GpsManager>(context, listen: false).toggleMapTracking(false);
       refreshTimer?.cancel();
       refreshTimer = null;
       trackTimer?.cancel();
@@ -176,6 +179,8 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
   setupTrackingMode() async {
     trackTimer?.cancel();
     LocationComponentSettings locationSettings;
+    Provider.of<GpsManager>(context, listen: false)
+        .toggleMapTracking(trackingMode != TrackingMode.off);
     switch (trackingMode) {
       case TrackingMode.displayAndTracking:
         trackTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {

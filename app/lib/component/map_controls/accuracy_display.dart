@@ -5,8 +5,6 @@ import 'dart:math' as math;
 import 'package:memolanes/gps_manager.dart';
 import 'package:provider/provider.dart';
 
-// TODO: We should also show accuracy when we are not recording, otherwise `NO GPS` can be misleading.
-
 class AccuracyDisplay extends StatefulWidget {
   const AccuracyDisplay({
     super.key,
