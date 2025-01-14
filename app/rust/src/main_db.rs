@@ -541,27 +541,23 @@ impl Txn<'_> {
             .any(GpsPostprocessor::outdated_algo))
     }
 
-    pub fn optimize(&self) -> Result<()> {
+    pub fn optimize(&mut self) -> Result<()> {
         let journey_headers = self.query_journeys(None, None)?;
         for journey_header in journey_headers {
             if GpsPostprocessor::outdated_algo(&journey_header) {
-                // let journey_data = self.get
-
+                match self.get_journey_data(&journey_header.id)? {
+                    JourneyData::Bitmap(_) => (),
+                    JourneyData::Vector(journey_vector) => {
+                        let journey_vector = GpsPostprocessor::process(journey_vector);
+                        self.update_journey_data(
+                            &journey_header.id,
+                            JourneyData::Vector(journey_vector),
+                            Some(GpsPostprocessor::current_algo()),
+                        )?;
+                    }
+                }
             }
         }
-        
-        // for journey in &mut journeys {
-        //     if GpsPostprocessor::outdated_algo(journey.postprocessor_algo.as_deref()) {
-        //         let journey_data = self.get_journey(&journey.id)?;
-        //         let new_journey_data = match journey_data {
-        //             JourneyData::Vector(journey_vector) => {
-        //                 JourneyData::Vector(GpsPostprocessor::process(journey_vector))
-        //             }
-        //             JourneyData::Bitmap(bitmap) => JourneyData::Bitmap(bitmap),
-        //         };
-        //         self.insert_journey(journey.clone(), new_journey_data)?;
-        //     }
-        // }
         Ok(())
     }
 }
