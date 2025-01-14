@@ -239,7 +239,7 @@ pub fn export_as_mldx<T: Write + Seek>(
         for j in journeys {
             // TODO: maybe we want to just take the bytes from db without doing
             // a roundtrip.
-            let journey_data = txn.get_journey(&j.id)?;
+            let journey_data = txn.get_journey_data(&j.id)?;
             let mut buf = Vec::new();
             journey_data.serialize(&mut buf)?;
             write_bytes_with_size_header(&mut zip, &buf)?;

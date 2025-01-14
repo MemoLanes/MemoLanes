@@ -1,4 +1,5 @@
 use crate::{
+    journey_header::{JourneyHeader, JourneyType},
     journey_vector::{JourneyVector, TrackPoint, TrackSegment},
     main_db::OngoingJourney,
 };
@@ -375,5 +376,28 @@ pub fn build_vector_journey(
                 track_segments: segmants,
             },
         }))
+    }
+}
+
+pub struct GpsPostprocessor {}
+
+impl GpsPostprocessor {
+    pub fn process(journey_vector: JourneyVector) -> JourneyVector {
+        journey_vector
+    }
+
+    pub fn current_algo() -> String {
+        "0".to_string()
+    }
+
+    // TODO: mention the dart part
+    pub fn outdated_algo(journey_header: &JourneyHeader) -> bool {
+        match journey_header.journey_type {
+            JourneyType::Bitmap => false,
+            JourneyType::Vector => match journey_header.postprocessor_algo {
+                None => true,
+                Some(_) => false,
+            },
+        }
     }
 }

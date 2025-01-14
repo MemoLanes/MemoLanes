@@ -9,9 +9,9 @@ use std::path::Path;
 use std::str::FromStr;
 use uuid::Uuid;
 
-use crate::gps_processor::{self, PreprocessedData, ProcessResult};
+use crate::gps_processor::{self, GpsPostprocessor, PreprocessedData, ProcessResult};
 use crate::journey_data::JourneyData;
-use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
+use crate::journey_header::{self, JourneyHeader, JourneyKind, JourneyType};
 use crate::journey_vector::{JourneyVector, TrackPoint};
 use crate::{protos, utils};
 
@@ -243,6 +243,14 @@ impl Txn<'_> {
         note: Option<String>,
         journey_data: JourneyData,
     ) -> Result<()> {
+        let (journey_data, postprocessor_algo) = match journey_data {
+            JourneyData::Vector(journey_vector) => (
+                JourneyData::Vector(GpsPostprocessor::process(journey_vector)),
+                Some(GpsPostprocessor::current_algo()),
+            ),
+            JourneyData::Bitmap(bitmap) => (JourneyData::Bitmap(bitmap), None),
+        };
+
         let journey_type = journey_data.type_();
         // create new journey
         let header = JourneyHeader {
@@ -258,6 +266,7 @@ impl Txn<'_> {
             journey_type,
             journey_kind,
             note,
+            postprocessor_algo,
         };
         self.insert_journey(header, journey_data)
     }
@@ -300,6 +309,39 @@ impl Txn<'_> {
             self.action = Some(Action::CompleteRebuilt);
         }
 
+        Ok(())
+    }
+
+    pub fn update_journey_data(
+        &mut self,
+        id: &str,
+        journey_data: JourneyData,
+        postprocessor_algo: Option<String>,
+    ) -> Result<()> {
+        info!("Updating journey data with ID {}", &id);
+
+        let mut header = self
+            .get_journey_header(id)?
+            .ok_or_else(|| anyhow!("Updating non existent journey, journey id = {}", id))?;
+
+        header.postprocessor_algo = postprocessor_algo;
+
+        // must change during update
+        header.updated_at = Some(Utc::now());
+        header.revision = generate_random_revision();
+        header.journey_type = journey_data.type_();
+
+        let header_bytes = header.to_proto().write_to_bytes()?;
+        let mut data_bytes = Vec::new();
+        journey_data.serialize(&mut data_bytes)?;
+
+        let sql = "UPDATE journey SET type = ?1, header = ?2, data = ?3 WHERE id =?4;";
+        self.db_txn.execute(
+            sql,
+            (&id, journey_data.type_().to_int(), header_bytes, data_bytes),
+        )?;
+
+        self.action = Some(Action::CompleteRebuilt);
         Ok(())
     }
 
@@ -347,6 +389,8 @@ impl Txn<'_> {
 
     // TODO: we should consider disallow unbounded queries. Keeping all
     // `JourneyHeader` in memory might be a little bit too much.
+    // Actually, header is pretty small so it should be fine but still an iterator
+    // would be better. Frontend should always use ranged query.
     pub fn query_journeys(
         &self,
         from_date_inclusive: Option<NaiveDate>,
@@ -403,7 +447,7 @@ impl Txn<'_> {
         }
     }
 
-    pub fn get_journey(&self, id: &str) -> Result<JourneyData> {
+    pub fn get_journey_data(&self, id: &str) -> Result<JourneyData> {
         let mut query = self
             .db_txn
             .prepare("SELECT type, data FROM journey WHERE id = ?1;")?;
@@ -488,6 +532,37 @@ impl Txn<'_> {
         Ok(query
             .query_row((), |row| Ok(utils::date_of_days_since_epoch(row.get(0)?)))
             .optional()?)
+    }
+
+    pub fn require_optimization(&self) -> Result<bool> {
+        Ok(self
+            .query_journeys(None, None)?
+            .iter()
+            .any(GpsPostprocessor::outdated_algo))
+    }
+
+    pub fn optimize(&self) -> Result<()> {
+        let journey_headers = self.query_journeys(None, None)?;
+        for journey_header in journey_headers {
+            if GpsPostprocessor::outdated_algo(&journey_header) {
+                // let journey_data = self.get
+
+            }
+        }
+        
+        // for journey in &mut journeys {
+        //     if GpsPostprocessor::outdated_algo(journey.postprocessor_algo.as_deref()) {
+        //         let journey_data = self.get_journey(&journey.id)?;
+        //         let new_journey_data = match journey_data {
+        //             JourneyData::Vector(journey_vector) => {
+        //                 JourneyData::Vector(GpsPostprocessor::process(journey_vector))
+        //             }
+        //             JourneyData::Bitmap(bitmap) => JourneyData::Bitmap(bitmap),
+        //         };
+        //         self.insert_journey(journey.clone(), new_journey_data)?;
+        //     }
+        // }
+        Ok(())
     }
 }
 

@@ -104,6 +104,7 @@ pub struct JourneyHeader {
     pub journey_type: JourneyType,
     pub journey_kind: JourneyKind,
     pub note: Option<String>,
+    pub postprocessor_algo: Option<String>,
 }
 
 impl JourneyHeader {
@@ -132,6 +133,7 @@ impl JourneyHeader {
                 Some(kind) => kind,
             }),
             note: proto.note,
+            postprocessor_algo: proto.postprocessor_algo,
         })
     }
 

@@ -185,7 +185,7 @@ pub fn get_map_renderer_proxy_for_journey(
 ) -> Result<(MapRendererProxy, Option<CameraOption>)> {
     let journey_data = get()
         .storage
-        .with_db_txn(|txn| txn.get_journey(journey_id))?;
+        .with_db_txn(|txn| txn.get_journey_data(journey_id))?;
 
     let journey_bitmap = match journey_data {
         JourneyData::Bitmap(bitmap) => bitmap,
@@ -354,7 +354,7 @@ pub fn export_journey(
 ) -> Result<()> {
     let journey_data = get()
         .storage
-        .with_db_txn(|txn| txn.get_journey(&journey_id))?;
+        .with_db_txn(|txn| txn.get_journey_data(&journey_id))?;
     match journey_data {
         JourneyData::Bitmap(_bitmap) => Err(anyhow!("Data type error")),
         JourneyData::Vector(vector) => {
