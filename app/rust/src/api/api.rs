@@ -434,3 +434,11 @@ pub fn export_logs(target_file_path: String) -> Result<()> {
 pub fn ten_minutes_heartbeat() {
     info!("10 minutes heartbeat");
 }
+
+pub fn main_db_require_optimization() -> Result<bool> {
+    get().storage.with_db_txn(|txn| txn.require_optimization())
+}
+
+pub fn optimize_main_db() -> Result<()> {
+    get().storage.with_db_txn(|txn| txn.optimize())
+}

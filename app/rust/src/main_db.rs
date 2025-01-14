@@ -535,13 +535,18 @@ impl Txn<'_> {
     }
 
     pub fn require_optimization(&self) -> Result<bool> {
-        Ok(self
+        let result = self
             .query_journeys(None, None)?
             .iter()
-            .any(GpsPostprocessor::outdated_algo))
+            .any(GpsPostprocessor::outdated_algo);
+        if result {
+            info!("Main DB require optimization.");
+        }
+        Ok(result)
     }
 
     pub fn optimize(&mut self) -> Result<()> {
+        info!("Start optimizing main DB.");
         let journey_headers = self.query_journeys(None, None)?;
         for journey_header in journey_headers {
             if GpsPostprocessor::outdated_algo(&journey_header) {
@@ -558,6 +563,7 @@ impl Txn<'_> {
                 }
             }
         }
+        info!("Done optimizing main DB.");
         Ok(())
     }
 }
