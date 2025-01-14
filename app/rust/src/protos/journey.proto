@@ -16,7 +16,7 @@ message Header {
   }
 
   enum Type {
-    Vector = 0;
+    VECTOR = 0;
     BITMAP = 1;
   }
 

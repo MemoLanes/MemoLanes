@@ -29,7 +29,7 @@ impl JourneyType {
     pub fn to_proto(self) -> protos::journey::header::Type {
         use protos::journey::header::Type;
         match self {
-            JourneyType::Vector => Type::Vector,
+            JourneyType::Vector => Type::VECTOR,
             JourneyType::Bitmap => Type::BITMAP,
         }
     }
@@ -37,7 +37,7 @@ impl JourneyType {
     pub fn of_proto(proto: protos::journey::header::Type) -> Self {
         use protos::journey::header::Type;
         match proto {
-            Type::Vector => JourneyType::Vector,
+            Type::VECTOR => JourneyType::Vector,
             Type::BITMAP => JourneyType::Bitmap,
         }
     }

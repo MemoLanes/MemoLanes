@@ -394,6 +394,7 @@ impl GpsPostprocessor {
     pub fn outdated_algo(journey_header: &JourneyHeader) -> bool {
         match journey_header.journey_type {
             JourneyType::Bitmap => false,
+            #[allow(clippy::redundant_pattern_matching)]
             JourneyType::Vector => match journey_header.postprocessor_algo {
                 None => true,
                 Some(_) => false,

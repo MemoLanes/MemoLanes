@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::gps_processor::{self, GpsPostprocessor, PreprocessedData, ProcessResult};
 use crate::journey_data::JourneyData;
-use crate::journey_header::{self, JourneyHeader, JourneyKind, JourneyType};
+use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::journey_vector::{JourneyVector, TrackPoint};
 use crate::{protos, utils};
 
