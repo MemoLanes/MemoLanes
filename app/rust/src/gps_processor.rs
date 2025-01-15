@@ -118,6 +118,8 @@ enum GpsPreprocessorState {
     Stationary {
         center_point: Point,
         last_timestamp_ms: Option<i64>,
+        start_timestamp_ms: Option<i64>,
+        num_of_data_since_may_move: i64,
     },
 }
 
@@ -235,10 +237,13 @@ impl GpsPreprocessor {
 
         // TODO: These values are very conservative, it is good enough for now,
         // but likely we can do better.
-        const DISTANCE_THRESHOLD_FOR_ENDING_STATIONARY_IN_M: f64 = 2.5;
-        const DISTANCE_THRESHOLD_FOR_BEGINING_STATIONARY_IN_M: f64 = 2.0;
+        //const DISTANCE_THRESHOLD_FOR_ENDING_STATIONARY_IN_M: f64 = 2.5;
+        //const DISTANCE_THRESHOLD_FOR_BEGINING_STATIONARY_IN_M: f64 = 2.0;
         const TIME_TO_WAIT_BEFORE_BEGINING_STATIONARY_IN_MS: i64 = 120 * 1000;
         const FALLBACK_NUM_OF_DATA_TO_WAIT_BEFORE_BEGINING_STATIONARY: i64 = 200;
+        const FALLBACK_NUM_OF_DATA_TO_WAIT_BEFORE_ENDING_STATIONARY: i64 = 3;
+        const DEFAULT_ACCURACY_OF_POINT: f32 = 50.0;
+
 
         // We don't update our state if the data is bad.
         if self.is_bad_data(curr_data) {
@@ -271,9 +276,11 @@ impl GpsPreprocessor {
                 }
                 *last_timestamp_ms = curr_data.timestamp_ms;
 
+                let accuracy = curr_data.accuracy.unwrap_or(DEFAULT_ACCURACY_OF_POINT);
+
                 // consider if we need to become stationary
                 if curr_data.point.haversine_distance(possible_center_point)
-                    <= DISTANCE_THRESHOLD_FOR_BEGINING_STATIONARY_IN_M
+                    <= accuracy as f64
                 {
                     *num_of_data_since_center_point_picked += 1;
                     let should_become_stationary = if let (Some(now), Some(prev)) = (
@@ -290,6 +297,8 @@ impl GpsPreprocessor {
                         self.state = Stationary {
                             center_point: possible_center_point.clone(),
                             last_timestamp_ms: curr_data.timestamp_ms,
+                            num_of_data_since_may_move:0,
+                            start_timestamp_ms:curr_data.timestamp_ms,
                         }
                     }
                 } else {
@@ -306,18 +315,37 @@ impl GpsPreprocessor {
             Stationary {
                 center_point,
                 last_timestamp_ms,
+                num_of_data_since_may_move ,
+                start_timestamp_ms,
             } => {
+                let accuracy = curr_data.accuracy.unwrap_or(DEFAULT_ACCURACY_OF_POINT);
                 if curr_data.point.haversine_distance(center_point)
-                    <= DISTANCE_THRESHOLD_FOR_ENDING_STATIONARY_IN_M
+                    <= accuracy as f64
                 {
                     *last_timestamp_ms = curr_data.timestamp_ms;
+                    *num_of_data_since_may_move = 0;
                     ProcessResult::Ignore
                 } else {
+
+                    *num_of_data_since_may_move  += 1;
+                    if *num_of_data_since_may_move> FALLBACK_NUM_OF_DATA_TO_WAIT_BEFORE_ENDING_STATIONARY {
                     // ending stationary
-                    let result =
-                        Self::process_moving_data(center_point, *last_timestamp_ms, curr_data);
-                    self.state = start_moving(curr_data);
-                    result
+                        let result = Self::process_moving_data(center_point, *last_timestamp_ms, curr_data);
+                    
+                        let start_time = (*start_timestamp_ms).unwrap_or(0) as i64 / 1000;
+                        let end_time = curr_data.timestamp_ms.unwrap_or(0) as i64 / 1000;
+                        let result_sub = end_time-start_time;
+                        println!("Exit Stationary,{:?},{:?},{},{}",result_sub,result,
+                            curr_data.point.latitude,curr_data.point.longitude
+                        );
+                        self.state = start_moving(curr_data);
+                        result
+                    }
+                    else
+                    {
+                        *last_timestamp_ms = curr_data.timestamp_ms;
+                        ProcessResult::Ignore
+                    }
                 }
             }
         }
