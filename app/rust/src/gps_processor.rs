@@ -184,11 +184,13 @@ impl GpsPreprocessor {
         const WALK_SPEED:f64 = 1.5;
         const TOO_CLOSE_DISTANCE_IN_M: f64 = 0.1;
         const SPEED_THRESHOLD: f64 = 250.0; // m/s
+        const DEFAULT_ACCURACY_OF_POINT: f32 = 50.0;
 
         let time_diff_in_ms = match (curr_data.timestamp_ms, last_timestamp_ms) {
             (Some(now), Some(prev)) => Some(now - prev),
             (None, _) | (_, None) => None,
         };
+        let accuracy = curr_data.accuracy.unwrap_or(DEFAULT_ACCURACY_OF_POINT);
 
         let time_based_result = {
             match time_diff_in_ms {
@@ -197,7 +199,7 @@ impl GpsPreprocessor {
                     if diff_in_ms > TIME_THRESHOLD_IN_MS {
                         // here if distance is not too far, append it.
                         let distance = curr_data.point.haversine_distance(last_point);
-                        if distance < (diff_in_ms as f64/1000.0).min(WALK_TIME_THRESHOLD_IN_S) * WALK_SPEED  {
+                        if distance < accuracy as f64 + (diff_in_ms as f64/1000.0).min(WALK_TIME_THRESHOLD_IN_S) * WALK_SPEED  {
                             ProcessResult::Append
                         }else{
                             ProcessResult::NewSegment
