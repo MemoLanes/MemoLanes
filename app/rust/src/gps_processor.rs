@@ -118,8 +118,7 @@ enum GpsPreprocessorState {
     Stationary {
         center_point: Point,
         last_timestamp_ms: Option<i64>,
-        start_timestamp_ms: Option<i64>,
-        num_of_data_since_may_move: i64,
+        last_point: Point,
     },
 }
 
@@ -140,7 +139,7 @@ impl GpsPreprocessor {
             Empty => None,
             Moving { last_point, .. }
             | Stationary {
-                center_point: last_point,
+                last_point,
                 ..
             } => Some(last_point.clone()),
         }
@@ -181,6 +180,8 @@ impl GpsPreprocessor {
         curr_data: &RawData,
     ) -> ProcessResult {
         const TIME_THRESHOLD_IN_MS: i64 = 5 * 1000;
+        const WALK_TIME_THRESHOLD_IN_S: f64 = 30.0;
+        const WALK_SPEED:f64 = 1.5;
         const TOO_CLOSE_DISTANCE_IN_M: f64 = 0.1;
         const SPEED_THRESHOLD: f64 = 250.0; // m/s
 
@@ -194,7 +195,13 @@ impl GpsPreprocessor {
                 None => ProcessResult::Append,
                 Some(diff_in_ms) => {
                     if diff_in_ms > TIME_THRESHOLD_IN_MS {
-                        ProcessResult::NewSegment
+                        // here if distance is not too far, append it.
+                        let distance = curr_data.point.haversine_distance(last_point);
+                        if distance < (diff_in_ms as f64/1000.0).min(WALK_TIME_THRESHOLD_IN_S) * WALK_SPEED  {
+                            ProcessResult::Append
+                        }else{
+                            ProcessResult::NewSegment
+                        }
                     } else {
                         ProcessResult::Append
                     }
@@ -239,9 +246,9 @@ impl GpsPreprocessor {
         // but likely we can do better.
         //const DISTANCE_THRESHOLD_FOR_ENDING_STATIONARY_IN_M: f64 = 2.5;
         //const DISTANCE_THRESHOLD_FOR_BEGINING_STATIONARY_IN_M: f64 = 2.0;
-        const TIME_TO_WAIT_BEFORE_BEGINING_STATIONARY_IN_MS: i64 = 120 * 1000;
-        const FALLBACK_NUM_OF_DATA_TO_WAIT_BEFORE_BEGINING_STATIONARY: i64 = 200;
-        const FALLBACK_NUM_OF_DATA_TO_WAIT_BEFORE_ENDING_STATIONARY: i64 = 3;
+        const TIME_TO_WAIT_BEFORE_BEGINING_STATIONARY_IN_MS: i64 = 60 * 1000;
+        const FALLBACK_NUM_OF_DATA_TO_WAIT_BEFORE_BEGINING_STATIONARY: i64 = 60;
+        const ACCELERATION_THRESHOLD_OF_BEGIN_MOVE: f64 = 10.0;
         const DEFAULT_ACCURACY_OF_POINT: f32 = 50.0;
 
 
@@ -279,8 +286,9 @@ impl GpsPreprocessor {
                 let accuracy = curr_data.accuracy.unwrap_or(DEFAULT_ACCURACY_OF_POINT);
 
                 // consider if we need to become stationary
+                // here use the accuracy of gps as threshold 
                 if curr_data.point.haversine_distance(possible_center_point)
-                    <= accuracy as f64
+                    <= ((accuracy*2.0).min(DEFAULT_ACCURACY_OF_POINT)) as f64
                 {
                     *num_of_data_since_center_point_picked += 1;
                     let should_become_stationary = if let (Some(now), Some(prev)) = (
@@ -295,10 +303,9 @@ impl GpsPreprocessor {
                     };
                     if should_become_stationary {
                         self.state = Stationary {
-                            center_point: possible_center_point.clone(),
+                            center_point: curr_data.point.clone(),
                             last_timestamp_ms: curr_data.timestamp_ms,
-                            num_of_data_since_may_move:0,
-                            start_timestamp_ms:curr_data.timestamp_ms,
+                            last_point: curr_data.point.clone(),
                         }
                     }
                 } else {
@@ -315,35 +322,37 @@ impl GpsPreprocessor {
             Stationary {
                 center_point,
                 last_timestamp_ms,
-                num_of_data_since_may_move ,
-                start_timestamp_ms,
+                last_point,
             } => {
+                //use accuracy as threshold of break stationary state
+                //center_point to compute distance
+                //last_point to compute accelerationacceleration
+                let distance = curr_data.point.haversine_distance(center_point);
                 let accuracy = curr_data.accuracy.unwrap_or(DEFAULT_ACCURACY_OF_POINT);
-                if curr_data.point.haversine_distance(center_point)
-                    <= accuracy as f64
-                {
+                if  distance<= (accuracy*2.0) as f64 {
                     *last_timestamp_ms = curr_data.timestamp_ms;
-                    *num_of_data_since_may_move = 0;
+                    *last_point = curr_data.point.clone();
                     ProcessResult::Ignore
                 } else {
-
-                    *num_of_data_since_may_move  += 1;
-                    if *num_of_data_since_may_move> FALLBACK_NUM_OF_DATA_TO_WAIT_BEFORE_ENDING_STATIONARY {
-                    // ending stationary
-                        let result = Self::process_moving_data(center_point, *last_timestamp_ms, curr_data);
-                    
-                        let start_time = (*start_timestamp_ms).unwrap_or(0) as i64 / 1000;
-                        let end_time = curr_data.timestamp_ms.unwrap_or(0) as i64 / 1000;
-                        let result_sub = end_time-start_time;
-                        println!("Exit Stationary,{:?},{:?},{},{}",result_sub,result,
-                            curr_data.point.latitude,curr_data.point.longitude
-                        );
+                    //we can based on the acceleration to decide the point should be ignore
+                    let time_diff_in_ms = match (curr_data.timestamp_ms, *last_timestamp_ms) {
+                        (Some(now), Some(prev)) => Some(now - prev),
+                        (None, _) | (_, None) => None,
+                    };
+                    let delta_s = curr_data.point.haversine_distance(last_point);
+                    let time_in_sec = time_diff_in_ms.unwrap_or(1) as f64 / 1000.0;
+                    let acceleration = 2.0*delta_s / time_in_sec.max(0.01) / time_in_sec.max(0.01);
+                    // the result is that if the time_in_sec be long, it's easy to remove stationary state
+                    // only to avoid those point move to long away suddenly, faster than the accelaration_threshold
+                    // we usually will not accelerate fater than 1G 
+                    if acceleration < ACCELERATION_THRESHOLD_OF_BEGIN_MOVE 
+                    {
+                        //then ending stationary change to move mode
+                        let result = Self::process_moving_data(last_point, *last_timestamp_ms, curr_data);
                         self.state = start_moving(curr_data);
                         result
                     }
-                    else
-                    {
-                        *last_timestamp_ms = curr_data.timestamp_ms;
+                    else{
                         ProcessResult::Ignore
                     }
                 }
