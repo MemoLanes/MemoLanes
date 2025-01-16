@@ -177,7 +177,7 @@ impl GpsPreprocessor {
     ) -> ProcessResult {
         const TIME_THRESHOLD_IN_MS: i64 = 5 * 1000;
         const WALK_TIME_THRESHOLD_IN_S: f64 = 30.0;
-        const WALK_SPEED: f64 = 1.5;
+        const WALK_SPEED: f64 = 1.0;
         const TOO_CLOSE_DISTANCE_IN_M: f64 = 0.1;
         const SPEED_THRESHOLD: f64 = 250.0; // m/s
         const DEFAULT_ACCURACY_OF_POINT: f32 = 50.0;

@@ -157,23 +157,23 @@ fn run_though_test_data(name: &str) -> HashMap<ProcessResult, i32> {
 #[test]
 fn run_though_test_data_shanghai() {
     let counter = run_though_test_data("shanghai");
-    assert_eq!(counter[&ProcessResult::NewSegment], 8);
-    assert_eq!(counter[&ProcessResult::Append], 3031);
-    assert_eq!(counter[&ProcessResult::Ignore], 579);
+    assert_eq!(counter[&ProcessResult::NewSegment], 5);
+    assert_eq!(counter[&ProcessResult::Append], 3029);
+    assert_eq!(counter[&ProcessResult::Ignore], 584);
 }
 
 #[test]
 fn run_though_test_data_shenzhen_stationary() {
     let counter = run_though_test_data("shenzhen_stationary");
-    assert_eq!(counter[&ProcessResult::NewSegment], 130);
-    assert_eq!(counter[&ProcessResult::Append], 478);
-    assert_eq!(counter[&ProcessResult::Ignore], 6122);
+    assert_eq!(counter[&ProcessResult::NewSegment], 3);
+    assert_eq!(counter[&ProcessResult::Append], 441);
+    assert_eq!(counter[&ProcessResult::Ignore], 6286);
 }
 
 #[test]
 fn run_though_test_data_laojunshan() {
     let counter = run_though_test_data("laojunshan");
     assert_eq!(counter[&ProcessResult::NewSegment], 2);
-    assert_eq!(counter[&ProcessResult::Append], 2720);
-    assert_eq!(counter[&ProcessResult::Ignore], 223);
+    assert_eq!(counter[&ProcessResult::Append], 2629);
+    assert_eq!(counter[&ProcessResult::Ignore], 314);
 }
