@@ -7,8 +7,14 @@ let currentJourneyLayer;  // Store reference to current layer
 let pollingInterval;      // Store reference to polling interval
 let locationMarker = null;
 
+function getJourneyFileNameFromHash() {
+    const hash = window.location.hash.slice(1);
+    const params = new URLSearchParams(hash);
+    return params.get('journey_id') ? `journey/${params.get('journey_id')}/journey_bitmap.bin` : 'journey_bitmap.bin';
+}
+
 async function loadJourneyData(useIfNoneMatch = false) {
-    const filename = 'journey_bitmap.bin';
+    const filename = getJourneyFileNameFromHash();
     console.log(`Fetching ${filename}`);
     const fetchOptions = {
         headers: useIfNoneMatch ? { 'If-None-Match': '*' } : {}

@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex, Weak};
 use std::thread;
 use tokio::runtime::Runtime;
 use uuid::Uuid;
+use std::collections::HashMap;
 
 // TODO:: maybe we should move this out of the api
 use crate::api::api::CameraOption;
@@ -15,9 +16,43 @@ use super::MapRenderer;
 
 // App state holding the registry
 struct State {
+    registry: HashMap<Uuid, Arc<Mutex<MapRenderer>>>,
     // TODO: The option for map_renderer is weird, we should fix it.
     map_renderer: Arc<Mutex<Option<MapRenderer>>>,
     provisioned_camera_option: Option<CameraOption>,
+}
+
+pub struct MapRendererToken {
+    id: Uuid,
+    url: String,
+    state: Weak<Mutex<State>>,
+}
+
+impl MapRendererToken {
+    pub fn url(&self) -> String {
+        self.url.clone()
+    }
+
+    pub fn get_map_renderer(&self) -> Option<Arc<Mutex<MapRenderer>>> {
+        if let Some(state) = self.state.upgrade() {
+            let state = state.lock().unwrap();
+            return state.registry.get(&self.id).cloned();
+        }
+        None
+    }
+
+    pub fn unregister(&self) {
+        if let Some(state) = self.state.upgrade() {
+            let mut state = state.lock().unwrap();
+            state.registry.remove(&self.id);
+        }
+    }
+}
+
+impl Drop for MapRendererToken {
+    fn drop(&mut self) {
+        self.unregister();
+    }
 }
 
 // Handler for serving registered items
@@ -53,6 +88,45 @@ async fn serve_main_journey_bitmap(
     }
 }
 
+async fn serve_journey_bitmap_by_id(
+    id: web::Path<String>,
+    req: HttpRequest,
+    data: web::Data<Arc<Mutex<State>>>,
+) -> HttpResponse {
+    info!("serving item: {}", id);
+    let state = data.lock().unwrap();
+
+    // Parse UUID and get item from registry
+    match Uuid::parse_str(&id)
+        .ok()
+        .and_then(|uuid| state.registry.get(&uuid))
+        {
+            Some(item) => {
+                let mut map_renderer = item.lock().unwrap();
+                
+                // we will return 304 if the request is conditional, and the remote joruney_bitmap is up-to-date.
+                let is_request_conditional = req
+                    .headers()
+                    .get("If-None-Match")
+                    .and_then(|h| h.to_str().ok())
+                    .map(|s| s == "*")
+                    .unwrap_or(false);
+                if !is_request_conditional {
+                    // for non-conditional request, we always send the latest journey_bitmap
+                    map_renderer.reset();
+                }
+                match map_renderer.get_latest_bitmap_if_changed() {
+                    None => HttpResponse::NotModified().finish(),
+                    Some(journey_bitmap) => match journey_bitmap.to_bytes() {
+                        Ok(bytes) => HttpResponse::Ok().body(bytes),
+                        Err(_) => return HttpResponse::InternalServerError().finish(),
+                    },
+                }
+            },
+            None => HttpResponse::NotFound().finish(),
+        }
+}
+
 async fn serve_main_journey_bitmap_provisioned_camera_option(
     data: web::Data<Arc<Mutex<State>>>,
 ) -> HttpResponse {
@@ -68,16 +142,18 @@ pub struct MapServer {
 }
 
 impl MapServer {
-    // TODO: I think we should just get all values on startup
-    pub fn new() -> Self {
-        Self {
+    pub fn create_and_start(host: &str, port: u16) -> std::io::Result<Self> {
+        let mut server = Self {
             handle: None,
             state: Arc::new(Mutex::new(State {
+                registry: HashMap::new(),
                 map_renderer: Arc::new(Mutex::new(None)),
                 provisioned_camera_option: None,
             })),
             url: Arc::new(Mutex::new(String::new())),
-        }
+        };
+        server.start(host, port)?;
+        Ok(server)
     }
 
     pub fn get_url(&self) -> String {
@@ -85,7 +161,7 @@ impl MapServer {
     }
 
     // Start the server in a separate thread
-    pub fn start(&mut self, host: &str, port: u16) -> std::io::Result<()> {
+    fn start(&mut self, host: &str, port: u16) -> std::io::Result<()> {
         let host = host.to_string();
         let mut port = port;
         let random_prefix = Uuid::new_v4().to_string();
@@ -111,6 +187,10 @@ impl MapServer {
                         .route(
                             &format!("/{}/journey_bitmap.bin", random_prefix),
                             web::get().to(serve_main_journey_bitmap),
+                        )
+                        .route(
+                            &format!("/{}/journey/{{id}}/journey_bitmap.bin", random_prefix),
+                            web::get().to(serve_journey_bitmap_by_id),
                         )
                         .route(
                             &format!("/{}/provisioned_camera_option", random_prefix),
@@ -170,6 +250,17 @@ impl MapServer {
         let mut state = self.state.lock().unwrap();
         state.map_renderer = map_renderer;
         state.provisioned_camera_option = provisioned_camera_option;
+    }
+
+    pub fn register_map_renderer(&mut self, map_renderer: Arc<Mutex<MapRenderer>>) -> MapRendererToken {
+        let mut state = self.state.lock().unwrap();
+        let id = Uuid::new_v4();
+        state.registry.insert(id, map_renderer);
+        MapRendererToken {
+            id,
+            url: format!("{}#journey_id={}", self.get_url(), id),
+            state: Arc::downgrade(&self.state),
+        }
     }
 
     // TODO: maybe stop the server when app is switched to background.
