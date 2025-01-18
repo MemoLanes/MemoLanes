@@ -133,11 +133,17 @@ impl GpsPreprocessor {
         }
     }
 
-    pub fn last_point(&self) -> Option<Point> {
+    pub fn last_kept_point(&self) -> Option<Point> {
         use GpsPreprocessorState::*;
         match &self.state {
             Empty => None,
-            Moving { last_point, .. } | Stationary { last_point, .. } => Some(last_point.clone()),
+            Moving {
+                last_point: point, ..
+            }
+            | Stationary {
+                center_point: point,
+                ..
+            } => Some(point.clone()),
         }
     }
 
@@ -244,10 +250,6 @@ impl GpsPreprocessor {
         //   use the iOS threshold or tune a new one. I am not sure. :(
         use GpsPreprocessorState::*;
 
-        // TODO: These values are very conservative, it is good enough for now,
-        // but likely we can do better.
-        //const DISTANCE_THRESHOLD_FOR_ENDING_STATIONARY_IN_M: f64 = 2.5;
-        //const DISTANCE_THRESHOLD_FOR_BEGINING_STATIONARY_IN_M: f64 = 2.0;
         const TIME_TO_WAIT_BEFORE_BEGINING_STATIONARY_IN_MS: i64 = 60 * 1000;
         const FALLBACK_NUM_OF_DATA_TO_WAIT_BEFORE_BEGINING_STATIONARY: i64 = 60;
         const ACCELERATION_THRESHOLD_OF_BEGIN_MOVE: f64 = 10.0;
@@ -327,7 +329,7 @@ impl GpsPreprocessor {
             } => {
                 //use accuracy as threshold of break stationary state
                 //center_point to compute distance
-                //last_point to compute accelerationacceleration
+                //last_point to compute acceleration
                 let distance = curr_data.point.haversine_distance(center_point);
                 let accuracy = curr_data.accuracy.unwrap_or(DEFAULT_ACCURACY_OF_POINT);
                 if distance <= (accuracy * 2.0) as f64 {

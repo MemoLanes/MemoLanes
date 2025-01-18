@@ -8,7 +8,7 @@ use std::fs::File;
 #[test]
 fn first_data() {
     let mut gps_preprocessor = GpsPreprocessor::new();
-    assert!(gps_preprocessor.last_point().is_none());
+    assert!(gps_preprocessor.last_kept_point().is_none());
     let data = RawData {
         point: Point {
             latitude: 120.163856,
@@ -56,7 +56,7 @@ fn time_difference() {
         speed: Some(0.6028665),
     });
 
-    assert_eq!(gps_preprocessor.last_point().unwrap().latitude, 120.163856);
+    assert_eq!(gps_preprocessor.last_kept_point().unwrap().latitude, 120.163856);
     let result = gps_preprocessor.preprocess(&RawData {
         point: Point {
             latitude: 120.1639266,
@@ -69,7 +69,7 @@ fn time_difference() {
     });
     assert_eq!(ProcessResult::Append, result);
 
-    assert_eq!(gps_preprocessor.last_point().unwrap().latitude, 120.1639266);
+    assert_eq!(gps_preprocessor.last_kept_point().unwrap().latitude, 120.1639266);
     let result = gps_preprocessor.preprocess(&RawData {
         point: Point {
             latitude: 120.163857,
@@ -82,7 +82,7 @@ fn time_difference() {
     });
     assert_eq!(ProcessResult::NewSegment, result);
 
-    assert_eq!(gps_preprocessor.last_point().unwrap().latitude, 120.163857);
+    assert_eq!(gps_preprocessor.last_kept_point().unwrap().latitude, 120.163857);
     let result = gps_preprocessor.preprocess(&RawData {
         point: Point {
             latitude: 120.163856,
