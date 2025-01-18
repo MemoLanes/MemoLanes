@@ -6,6 +6,7 @@ use crate::{journey_bitmap::JourneyBitmap, utils};
 use image::Rgba;
 use image::RgbaImage;
 use std::cmp::{max, min};
+use crate::api::api::CameraOption;
 
 pub struct RenderResult {
     // coordinates are in lat or lng
@@ -32,6 +33,8 @@ pub struct MapRenderer {
 
     // For new web based renderer
     changed: bool,
+    // TODO: when we switch to flutter side control, we should remove this
+    provisioned_camera_option: Option<CameraOption>,
 
     // For old renderer
     tile_renderer: Box<dyn TileRendererTrait + Send + Sync>,
@@ -53,11 +56,20 @@ impl MapRenderer {
         Self {
             journey_bitmap,
             changed: false,
+            provisioned_camera_option: None,
             tile_renderer,
             bg_color: DEFAULT_BG_COLOR,
             fg_color: DEFAULT_FG_COLOR,
             current_render_area: None,
         }
+    }
+
+    pub fn set_provisioned_camera_option(&mut self, camera_option: Option<CameraOption>) {
+        self.provisioned_camera_option = camera_option;
+    }
+
+    pub fn get_provisioned_camera_option(&self) -> Option<CameraOption> {
+        self.provisioned_camera_option
     }
 
     fn render_map_overlay(&self, render_area: &RenderArea) -> RenderResult {

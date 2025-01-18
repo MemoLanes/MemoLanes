@@ -73,16 +73,14 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 map_renderer.update(|bitmap| {
                     bitmap.add_line(lng, lat, next_lng, next_lat);
                 });
+                map_renderer.set_provisioned_camera_option(Some(CameraOption {
+                    lng,
+                    lat,
+                    zoom: 12.0, // Closer zoom to see the path detail
+                }));
                 lng = next_lng;
                 lat = next_lat;
             }
-
-            // Update camera to follow the latest point
-            // server.set_provisioned_camera_option(Some(CameraOption {
-            //     lng,
-            //     lat,
-            //     zoom: 12.0, // Closer zoom to see the path detail
-            // }));
 
             // Sleep for 200ms
             std::thread::sleep(Duration::from_millis(200));

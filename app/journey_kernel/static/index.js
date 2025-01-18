@@ -7,14 +7,15 @@ let currentJourneyLayer;  // Store reference to current layer
 let pollingInterval;      // Store reference to polling interval
 let locationMarker = null;
 
-function getJourneyFileNameFromHash() {
+function getJourneyFilePathFromHash() {
     const hash = window.location.hash.slice(1);
     const params = new URLSearchParams(hash);
-    return params.get('journey_id') ? `journey/${params.get('journey_id')}/journey_bitmap.bin` : 'journey_bitmap.bin';
+    return params.get('journey_id') ? `journey/${params.get('journey_id')}` : '.';
 }
 
 async function loadJourneyData(useIfNoneMatch = false) {
-    const filename = getJourneyFileNameFromHash();
+    const path = getJourneyFilePathFromHash();
+    const filename = `${path}/journey_bitmap.bin`;
     console.log(`Fetching ${filename}`);
     const fetchOptions = {
         headers: useIfNoneMatch ? { 'If-None-Match': '*' } : {}
@@ -34,7 +35,7 @@ async function loadJourneyData(useIfNoneMatch = false) {
     // Try to fetch provisioned camera location
     let cameraOptions = null;
     try {
-        const cameraResponse = await fetch(`provisioned_camera_option`);
+        const cameraResponse = await fetch(`${path}/provisioned_camera_option`);
         if (cameraResponse.ok) {
             const cameraData = await cameraResponse.json();
             cameraOptions = {

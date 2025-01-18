@@ -127,6 +127,27 @@ async fn serve_journey_bitmap_by_id(
         }
 }
 
+async fn serve_journey_bitmap_provisioned_camera_option_by_id(
+    id: web::Path<String>,
+    data: web::Data<Arc<Mutex<State>>>,
+) -> HttpResponse {
+    info!("serving item: {}", id);
+    let state = data.lock().unwrap();
+
+    // Parse UUID and get item from registry
+    match Uuid::parse_str(&id)
+        .ok()
+        .and_then(|uuid| state.registry.get(&uuid))
+        {
+            Some(item) => {
+                let map_renderer = item.lock().unwrap();
+                let camera_option = map_renderer.get_provisioned_camera_option();
+                HttpResponse::Ok().json(camera_option)
+            },
+            None => HttpResponse::NotFound().finish(),
+        }
+}
+
 async fn serve_main_journey_bitmap_provisioned_camera_option(
     data: web::Data<Arc<Mutex<State>>>,
 ) -> HttpResponse {
@@ -191,6 +212,10 @@ impl MapServer {
                         .route(
                             &format!("/{}/journey/{{id}}/journey_bitmap.bin", random_prefix),
                             web::get().to(serve_journey_bitmap_by_id),
+                        )
+                        .route(
+                            &format!("/{}/journey/{{id}}/provisioned_camera_option", random_prefix),
+                            web::get().to(serve_journey_bitmap_provisioned_camera_option_by_id),
                         )
                         .route(
                             &format!("/{}/provisioned_camera_option", random_prefix),
