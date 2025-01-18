@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:memolanes/src/rust/api/api.dart';
 import 'package:memolanes/src/rust/storage.dart';
+import 'package:memolanes/utils.dart';
 import 'package:share_plus/share_plus.dart';
 
 class RawDataSwitch extends StatefulWidget {
@@ -59,27 +60,6 @@ class _RawDataBody extends State<RawDataBody> {
     });
   }
 
-  showDialogFunction(fn) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text("Delete"),
-          content: const Text("Delete this record?"),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Cancel'),
-            ),
-            TextButton(onPressed: fn, child: const Text("Yes")),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -103,11 +83,10 @@ class _RawDataBody extends State<RawDataBody> {
                   },
                   trailing: ElevatedButton(
                     onPressed: () async {
-                      showDialogFunction(() async {
-                        Navigator.of(context).pop();
+                      if (await showDeleteDialog(context,"Delete this record?")){
                         await deleteRawDataFile(filename: item.name);
                         _loadList();
-                      });
+                      }
                     },
                     child: const Icon(Icons.delete),
                   ),

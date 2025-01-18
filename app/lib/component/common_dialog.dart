@@ -43,7 +43,8 @@ class CommonDialog extends StatelessWidget {
       ...otherButtons,
       if (cancelButton)
         customCancelButton ?? DialogButton(
-          text: context.tr('common.cancel')
+          text: context.tr('common.cancel'),
+          onPressed: (){Navigator.of(context).pop(false);}
         ),
     ];
 
@@ -65,7 +66,6 @@ class CommonDialog extends StatelessWidget {
           return FilledButton(
             onPressed: () {
               button.onPressed();
-              Navigator.of(context).pop();
             },
             style: FilledButton.styleFrom(
               backgroundColor: button.backgroundColor,

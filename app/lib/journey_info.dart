@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:memolanes/component/base_map.dart';
 import 'package:memolanes/src/rust/api/import.dart';
+import 'package:memolanes/utils.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/utils.dart';
@@ -58,28 +59,6 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       print(e);
       // don't care about error
     }
-  }
-
-  // TODO: Consider merge this one with the one in `utils.dart`
-  showDeleteDialogFunction(fn) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text("Delete"),
-          content: const Text("Delete this record?"),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Cancel'),
-            ),
-            TextButton(onPressed: fn, child: const Text("Yes")),
-          ],
-        );
-      },
-    );
   }
 
   _saveData(JourneyInfo journeyInfo) async {
@@ -173,12 +152,11 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
               ),
               ElevatedButton(
                 onPressed: () async {
-                  showDeleteDialogFunction(() async {
-                    Navigator.of(context).pop();
+                  if (await showDeleteDialog(context,"Delete this record?")){
                     await api.deleteJourney(journeyId: widget.journeyHeader.id);
                     if (!context.mounted) return;
                     Navigator.pop(context, true);
-                  });
+                  }
                 },
                 child: const Text("Delete"),
               ),

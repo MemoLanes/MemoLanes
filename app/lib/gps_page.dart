@@ -13,18 +13,6 @@ class GPSPage extends StatefulWidget {
 
 class _GPSPageState extends State<GPSPage> {
   Future<void> _showEndJourneyDialog() async {
-    List<DialogButton> buttons = [
-      DialogButton(
-        text: context.tr('common.end'),
-        onPressed: () async {
-          await context
-              .read<GpsManager>()
-              .changeRecordingState(GpsRecordingStatus.none);
-        },
-        backgroundColor: Colors.red,
-        textColor: Colors.white,
-      )
-    ];
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -32,7 +20,19 @@ class _GPSPageState extends State<GPSPage> {
         return CommonDialog(
             title: context.tr('home.end_journey_title'),
             content: context.tr('home.end_journey_message'),
-            otherButtons: buttons
+            otherButtons: [
+              DialogButton(
+                text: context.tr('common.end'),
+                onPressed: () async {
+                  await context
+                      .read<GpsManager>()
+                      .changeRecordingState(GpsRecordingStatus.none);
+                  Navigator.of(context).pop(true);
+                },
+                backgroundColor: Colors.red,
+                textColor: Colors.white,
+              )
+            ]
         );
       },
     );
