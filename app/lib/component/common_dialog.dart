@@ -1,3 +1,4 @@
+import 'dart:convert';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -7,7 +8,6 @@ class DialogButton {
   final VoidCallback onPressed;
   final Color backgroundColor;
   final Color textColor;
-
 
   DialogButton({
     required this.text,
@@ -23,7 +23,7 @@ class CommonDialog extends StatelessWidget {
   final String title;
   final String content;
   final List<DialogButton> otherButtons;
-  final bool cancelButton;
+  final bool showCancel;
   final DialogButton? customCancelButton;
 
   CommonDialog({
@@ -31,37 +31,47 @@ class CommonDialog extends StatelessWidget {
     required this.title,
     required this.content,
     List<DialogButton>? otherButtons,
-    bool? cancelButton,
+    bool? showCancel,
     this.customCancelButton,
-  }) : otherButtons = otherButtons ?? [],
-        cancelButton = cancelButton ?? true
-  ;
+  })  : otherButtons = otherButtons ?? [],
+        showCancel = showCancel ?? true;
 
   @override
   Widget build(BuildContext context) {
+    List<Widget> messageBody = const LineSplitter()
+        .convert(content)
+        .map((s) => Text(
+              s,
+              style: const TextStyle(color: Colors.black54),
+            ))
+        .toList();
+
     final List<DialogButton> allButtons = [
       ...otherButtons,
-      if (cancelButton)
-        customCancelButton ?? DialogButton(
-          text: context.tr('common.cancel'),
-          onPressed: (){Navigator.of(context).pop(false);}
-        ),
+      if (showCancel)
+        customCancelButton ??
+            DialogButton(
+                text: context.tr('common.cancel'),
+                onPressed: () {
+                  Navigator.of(context).pop(false);
+                }),
     ];
 
     return AlertDialog(
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(color: Colors.black),
-      ),
-      content: Text(
-        content,
-        style: const TextStyle(color: Colors.black54),
-      ),
-      actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(color: Colors.black),
+        ),
+        content: SingleChildScrollView(
+          child: ListBody(
+            children: messageBody,
+          ),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
         actions: allButtons.map((button) {
           return FilledButton(
             onPressed: () {
@@ -73,8 +83,6 @@ class CommonDialog extends StatelessWidget {
             ),
             child: Text(button.text),
           );
-        }).toList()
-    );
+        }).toList());
   }
 }
-

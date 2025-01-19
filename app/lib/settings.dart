@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/gps_manager.dart';
+import 'package:memolanes/src/rust/api/api.dart';
 import 'package:memolanes/utils.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:memolanes/src/rust/api/api.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -104,10 +104,9 @@ class _SettingsBodyState extends State<SettingsBody> {
                     "Please stop the current ongoing journey before deleting all journeys.");
                 return;
               }
-              if (!await showInfoDialog(
-                  context,
+              if (!await showInfoDialog(context,
                   "This will delete all journeys in this app. Are you sure?",
-                  true)) {
+                  showCancel: true)) {
                 return;
               }
               try {

@@ -1,8 +1,8 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/gps_manager.dart';
+import 'package:memolanes/utils.dart';
 import 'package:provider/provider.dart';
-import 'package:easy_localization/easy_localization.dart';
-import 'component/common_dialog.dart';
 
 class GPSPage extends StatefulWidget {
   const GPSPage({super.key});
@@ -13,29 +13,18 @@ class GPSPage extends StatefulWidget {
 
 class _GPSPageState extends State<GPSPage> {
   Future<void> _showEndJourneyDialog() async {
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return CommonDialog(
-            title: context.tr('home.end_journey_title'),
-            content: context.tr('home.end_journey_message'),
-            otherButtons: [
-              DialogButton(
-                text: context.tr('common.end'),
-                onPressed: () async {
-                  await context
-                      .read<GpsManager>()
-                      .changeRecordingState(GpsRecordingStatus.none);
-                  Navigator.of(context).pop(true);
-                },
-                backgroundColor: Colors.red,
-                textColor: Colors.white,
-              )
-            ]
-        );
-      },
+    final shouldEndJourney = await showInfoDialog(
+      context,
+      context.tr('home.end_journey_message'),
+      showCancel: true,
+      title: context.tr('home.end_journey_title'),
+      confirmText: context.tr('common.end'),
     );
+
+    if (shouldEndJourney) {
+      if (!context.mounted) return;
+      await context.read<GpsManager>().changeRecordingState(GpsRecordingStatus.none);
+    }
   }
 
   @override

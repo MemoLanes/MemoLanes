@@ -1,15 +1,16 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:memolanes/component/base_map.dart';
-import 'package:memolanes/src/rust/api/import.dart';
-import 'package:memolanes/utils.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:memolanes/journey_edit.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
-import 'package:memolanes/journey_edit.dart';
+import 'package:memolanes/utils.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 class JourneyInfoPage extends StatefulWidget {
@@ -152,7 +153,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
               ),
               ElevatedButton(
                 onPressed: () async {
-                  if (await showDeleteDialog(context, "Delete this record?")) {
+                  if (await showInfoDialog(context, "Delete this record?",
+                      showCancel: true, title: "Delete")) {
                     await api.deleteJourney(journeyId: widget.journeyHeader.id);
                     if (!context.mounted) return;
                     Navigator.pop(context, true);
