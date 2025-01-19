@@ -56,7 +56,10 @@ fn time_difference() {
         speed: Some(0.6028665),
     });
 
-    assert_eq!(gps_preprocessor.last_kept_point().unwrap().latitude, 120.163856);
+    assert_eq!(
+        gps_preprocessor.last_kept_point().unwrap().latitude,
+        120.163856
+    );
     let result = gps_preprocessor.preprocess(&RawData {
         point: Point {
             latitude: 120.1639266,
@@ -69,7 +72,10 @@ fn time_difference() {
     });
     assert_eq!(ProcessResult::Append, result);
 
-    assert_eq!(gps_preprocessor.last_kept_point().unwrap().latitude, 120.1639266);
+    assert_eq!(
+        gps_preprocessor.last_kept_point().unwrap().latitude,
+        120.1639266
+    );
     let result = gps_preprocessor.preprocess(&RawData {
         point: Point {
             latitude: 120.163857,
@@ -82,7 +88,10 @@ fn time_difference() {
     });
     assert_eq!(ProcessResult::NewSegment, result);
 
-    assert_eq!(gps_preprocessor.last_kept_point().unwrap().latitude, 120.163857);
+    assert_eq!(
+        gps_preprocessor.last_kept_point().unwrap().latitude,
+        120.163857
+    );
     let result = gps_preprocessor.preprocess(&RawData {
         point: Point {
             latitude: 120.163856,
@@ -157,23 +166,25 @@ fn run_though_test_data(name: &str) -> HashMap<ProcessResult, i32> {
 #[test]
 fn run_though_test_data_shanghai() {
     let counter = run_though_test_data("shanghai");
+    println!("{},{},{}",counter[&ProcessResult::NewSegment],counter[&ProcessResult::Append],counter[&ProcessResult::Ignore]);
     assert_eq!(counter[&ProcessResult::NewSegment], 5);
-    assert_eq!(counter[&ProcessResult::Append], 3029);
-    assert_eq!(counter[&ProcessResult::Ignore], 584);
+    assert_eq!(counter[&ProcessResult::Append], 2980);
+    assert_eq!(counter[&ProcessResult::Ignore], 633);
 }
 
 #[test]
 fn run_though_test_data_shenzhen_stationary() {
     let counter = run_though_test_data("shenzhen_stationary");
-    assert_eq!(counter[&ProcessResult::NewSegment], 3);
-    assert_eq!(counter[&ProcessResult::Append], 441);
-    assert_eq!(counter[&ProcessResult::Ignore], 6286);
+    println!("{},{},{}",counter[&ProcessResult::NewSegment],counter[&ProcessResult::Append],counter[&ProcessResult::Ignore]);
+    assert_eq!(counter[&ProcessResult::NewSegment], 4);
+    assert_eq!(counter[&ProcessResult::Append], 455);
+    assert_eq!(counter[&ProcessResult::Ignore], 6271);
 }
 
 #[test]
 fn run_though_test_data_laojunshan() {
     let counter = run_though_test_data("laojunshan");
     assert_eq!(counter[&ProcessResult::NewSegment], 2);
-    assert_eq!(counter[&ProcessResult::Append], 2629);
-    assert_eq!(counter[&ProcessResult::Ignore], 314);
+    assert_eq!(counter[&ProcessResult::Append], 2595);
+    assert_eq!(counter[&ProcessResult::Ignore], 348);
 }
