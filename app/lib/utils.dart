@@ -46,17 +46,16 @@ Future<bool> showDeleteDialog(BuildContext context, String message) async {
     context: context,
     barrierDismissible: false,
     builder: (BuildContext context) {
-      return CommonDialog(
-          title: "Delete",
-          content: message,
-          otherButtons: [
-            DialogButton(
-            text: "Yes",
-            onPressed: (){Navigator.of(context).pop(true);},
-            backgroundColor: Colors.red,
-            textColor: Colors.white,
-          )]
-      );
+      return CommonDialog(title: "Delete", content: message, otherButtons: [
+        DialogButton(
+          text: "Yes",
+          onPressed: () {
+            Navigator.of(context).pop(true);
+          },
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        )
+      ]);
     },
   );
   return result ?? false;

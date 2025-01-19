@@ -152,7 +152,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
               ),
               ElevatedButton(
                 onPressed: () async {
-                  if (await showDeleteDialog(context,"Delete this record?")){
+                  if (await showDeleteDialog(context, "Delete this record?")) {
                     await api.deleteJourney(journeyId: widget.journeyHeader.id);
                     if (!context.mounted) return;
                     Navigator.pop(context, true);
