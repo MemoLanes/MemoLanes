@@ -458,32 +458,41 @@ impl Txn<'_> {
 
     // TODO: consider moving this to `storage.rs`
     pub fn try_auto_finalize_journy(&mut self) -> Result<bool> {
-        // match self.get_ongoing_journey_timestamp_range()? {
-        //     None => Ok(false),
-        //     Some(latest_timestamp) => {
-        //         // TODO: the current logic is naive
-        //         // NOTE: this logic is not called very frequently
-        //         let latest = latest_timestamp.with_timezone(&Local);
-        //         let now = Local::now();
-        //         let try_finalize = if latest.date_naive() == now.date_naive() {
-        //             // 6 hours
-        //             now.timestamp() - latest.timestamp() >= 6 * 60 * 60
-        //         } else {
-        //             // 15 minutes
-        //             now.timestamp() - latest.timestamp() >= 15 * 60
-        //         };
-        //         info!(
-        //             "Auto finalize ongoing journey: latest={}, now={}, try_finalize={}",
-        //             latest, now, try_finalize
-        //         );
-        //         if try_finalize {
-        //             self.finalize_ongoing_journey()
-        //         } else {
-        //             Ok(false)
-        //         }
-        //     }
-        // }
-        Ok(false)
+        match self.get_ongoing_journey_timestamp_range()? {
+            None => Ok(false),
+            Some((start, end)) => {
+                // NOTE: this logic is not called very frequently
+
+                let now = Local::now();
+                let recording_length_hour = (end.timestamp() - start.timestamp()) / 60 / 60;
+                let required_gap_mins = if recording_length_hour >= 72 {
+                    0 // let's just finalize it
+                } else if recording_length_hour >= 48 {
+                    2
+                } else if recording_length_hour >= 24 {
+                    5
+                } else {
+                    // if the local date changed since start, we should try to finalize it, otherwise we don't want that unless there is a huge gap (6h)
+                    if start.with_timezone(&Local).date_naive() != now.date_naive() {
+                        15
+                    } else {
+                        6 * 60
+                    }
+                };
+
+                let try_finalize = (now.timestamp() - end.timestamp()) / 60 > required_gap_mins;
+
+                info!(
+                    "Auto finalize ongoing journey: start={}, end={}, now={}, try_finalize={}",
+                    start, end, now, try_finalize
+                );
+                if try_finalize {
+                    self.finalize_ongoing_journey()
+                } else {
+                    Ok(false)
+                }
+            }
+        }
     }
 
     pub fn earliest_journey_date(&self) -> Result<Option<NaiveDate>> {
