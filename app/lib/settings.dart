@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/gps_manager.dart';
@@ -106,7 +107,11 @@ class _SettingsBodyState extends State<SettingsBody> {
               }
               if (!await showCommonDialog(context,
                   "This will delete all journeys in this app. Are you sure?",
-                  showCancel: true)) {
+                  showCancel: true,
+                  title: context.tr("journey.delete_journey_title"),
+                  confirmText: context.tr("journey.delete"),
+                  confirmGroundColor: Colors.red,
+                  confirmTextColor: Colors.white)) {
                 return;
               }
               try {

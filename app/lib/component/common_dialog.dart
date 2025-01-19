@@ -22,19 +22,18 @@ class DialogButton {
 class CommonDialog extends StatelessWidget {
   final String title;
   final String content;
-  final List<DialogButton> otherButtons;
-  final bool showCancel;
+  final List<DialogButton> buttons;
+
   final DialogButton? customCancelButton;
 
   CommonDialog({
     super.key,
     required this.title,
     required this.content,
-    List<DialogButton>? otherButtons,
+    List<DialogButton>? buttons,
     bool? showCancel,
     this.customCancelButton,
-  })  : otherButtons = otherButtons ?? [],
-        showCancel = showCancel ?? true;
+  }) : buttons = buttons ?? [];
 
   @override
   Widget build(BuildContext context) {
@@ -45,17 +44,6 @@ class CommonDialog extends StatelessWidget {
               style: const TextStyle(color: Colors.black54),
             ))
         .toList();
-
-    final List<DialogButton> allButtons = [
-      ...otherButtons,
-      if (showCancel)
-        customCancelButton ??
-            DialogButton(
-                text: context.tr('common.cancel'),
-                onPressed: () {
-                  Navigator.of(context).pop(false);
-                }),
-    ];
 
     return AlertDialog(
         backgroundColor: Colors.white,
@@ -72,7 +60,7 @@ class CommonDialog extends StatelessWidget {
           ),
         ),
         actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-        actions: allButtons.map((button) {
+        actions: buttons.map((button) {
           return FilledButton(
             onPressed: () {
               button.onPressed();

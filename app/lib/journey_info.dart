@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
@@ -153,9 +154,11 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
               ),
               ElevatedButton(
                 onPressed: () async {
-                  if (await showCommonDialog(context, "Delete this record?",
+                  if (await showCommonDialog(
+                      context, context.tr("journey.delete_journey_message"),
                       showCancel: true,
-                      title: "Delete",
+                      title: context.tr("journey.delete_journey_title"),
+                      confirmText: context.tr("journey.delete"),
                       confirmGroundColor: Colors.red,
                       confirmTextColor: Colors.white)) {
                     await api.deleteJourney(journeyId: widget.journeyHeader.id);

@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/src/rust/api/api.dart';
 import 'package:memolanes/src/rust/storage.dart';
@@ -83,9 +84,11 @@ class _RawDataBody extends State<RawDataBody> {
                   },
                   trailing: ElevatedButton(
                     onPressed: () async {
-                      if (await showCommonDialog(context, "Delete this record?",
+                      if (await showCommonDialog(
+                          context, context.tr("journey.delete_journey_message"),
                           showCancel: true,
-                          title: "Delete",
+                          title: context.tr("journey.delete_journey_title"),
+                          confirmText: context.tr("journey.delete"),
                           confirmGroundColor: Colors.red,
                           confirmTextColor: Colors.white)) {
                         await deleteRawDataFile(filename: item.name);

@@ -7,10 +7,32 @@ Future<bool> showCommonDialog(BuildContext context, String message,
     {showCancel = false,
     title,
     confirmText,
-    confirmGroundColor = const Color(0xFFB4EC51),
+    confirmGroundColor,
     confirmTextColor = Colors.black}) async {
+  const defaultGroundColor = Color(0xFFB4EC51);
   confirmText = confirmText ?? context.tr("common.confirm");
   title = title ?? context.tr("common.info");
+  confirmGroundColor = confirmGroundColor ?? defaultGroundColor;
+  final List<DialogButton> allButtons = [
+    DialogButton(
+      text: confirmText,
+      onPressed: () {
+        Navigator.of(context).pop(true);
+      },
+      backgroundColor: confirmGroundColor,
+      textColor: confirmTextColor,
+    ),
+    if (showCancel)
+      DialogButton(
+          text: context.tr('common.cancel'),
+          backgroundColor: confirmGroundColor == defaultGroundColor
+              ? Colors.grey
+              : defaultGroundColor,
+          onPressed: () {
+            Navigator.of(context).pop(false);
+          })
+  ];
+
   var result = await showDialog<bool>(
     context: context,
     barrierDismissible: false,
@@ -19,16 +41,7 @@ Future<bool> showCommonDialog(BuildContext context, String message,
           title: title,
           content: message,
           showCancel: showCancel,
-          otherButtons: [
-            DialogButton(
-              text: confirmText,
-              onPressed: () {
-                Navigator.of(context).pop(true);
-              },
-              backgroundColor: confirmGroundColor,
-              textColor: confirmTextColor,
-            )
-          ]);
+          buttons: allButtons);
     },
   );
   return result ?? false;

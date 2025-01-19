@@ -1,18 +1,21 @@
 {
-    "home": {
-        "start_new_journey": "开始新旅程",
-        "pause": "暂停",
-        "resume": "恢复",
-        "end_journey_title": "结束旅程？",
-        "end_journey_message": "确定要结束当前的旅程吗？"
-    },
-    "common": {
-        "confirm": "确定",
-        "cancel": "取消",
-        "end": "结束",
-        "info": "提示"
-    },
-    "journey": {
-        "no_data": "当前暂无旅程数据，开始探索世界吧！"
-    }
+  "home": {
+    "start_new_journey": "开始新旅程",
+    "pause": "暂停",
+    "resume": "恢复",
+    "end_journey_title": "结束旅程？",
+    "end_journey_message": "确定要结束当前的旅程吗？"
+  },
+  "common": {
+    "confirm": "确定",
+    "cancel": "取消",
+    "end": "结束",
+    "info": "提示"
+  },
+  "journey": {
+    "no_data": "当前暂无旅程数据，开始探索世界吧！",
+    "delete_journey_title": "删除?",
+    "delete_journey_message": "确认删除该记录?",
+    "delete": "删除"
+  }
 }

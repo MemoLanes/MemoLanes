@@ -1,18 +1,21 @@
 {
-    "home": {
-        "start_new_journey": "Start new journey",
-        "pause": "Pause",
-        "resume": "Resume",
-        "end_journey_title": "End Journey?",
-        "end_journey_message": "Are you sure you want to end your current journey?"
-    },
-    "common": {
-        "confirm": "Okay",
-        "cancel": "Cancel",
-        "end": "End",
-        "info": "Info"
-    },
-    "journey": {
-        "no_data": "There's no data yet, go ahead and explore the world!"
-    }
+  "home": {
+    "start_new_journey": "Start new journey",
+    "pause": "Pause",
+    "resume": "Resume",
+    "end_journey_title": "End Journey?",
+    "end_journey_message": "Are you sure you want to end your current journey?"
+  },
+  "common": {
+    "confirm": "Ok",
+    "cancel": "Cancel",
+    "end": "End",
+    "info": "Info"
+  },
+  "journey": {
+    "no_data": "There's no data yet, go ahead and explore the world!",
+    "delete_journey_title": "Delete?",
+    "delete_journey_message": "Delete this record?",
+    "delete": "Delete"
+  }
 }
