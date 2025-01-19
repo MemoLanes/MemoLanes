@@ -480,7 +480,7 @@ impl Txn<'_> {
                     }
                 };
 
-                let try_finalize = (now.timestamp() - end.timestamp()) / 60 > required_gap_mins;
+                let try_finalize = (now.timestamp() - end.timestamp()) / 60 >= required_gap_mins;
 
                 info!(
                     "Auto finalize ongoing journey: start={}, end={}, now={}, try_finalize={}",
