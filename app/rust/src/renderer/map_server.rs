@@ -7,23 +7,14 @@ use std::thread;
 use tokio::runtime::Runtime;
 use uuid::Uuid;
 
-// TODO:: maybe we should move this out of the api
-use crate::api::api::CameraOption;
-
 use super::MapRenderer;
 
-// App state holding the registry
-struct State {
-    registry: HashMap<Uuid, Arc<Mutex<MapRenderer>>>,
-    // TODO: The option for map_renderer is weird, we should fix it.
-    map_renderer: Arc<Mutex<Option<MapRenderer>>>,
-    provisioned_camera_option: Option<CameraOption>,
-}
+type Registry = HashMap<Uuid, Arc<Mutex<MapRenderer>>>;
 
 pub struct MapRendererToken {
     id: Uuid,
     url: String,
-    state: Weak<Mutex<State>>,
+    registry: Weak<Mutex<Registry>>,
     is_primitive: bool,
 }
 
@@ -33,17 +24,17 @@ impl MapRendererToken {
     }
 
     pub fn get_map_renderer(&self) -> Option<Arc<Mutex<MapRenderer>>> {
-        if let Some(state) = self.state.upgrade() {
-            let state = state.lock().unwrap();
-            return state.registry.get(&self.id).cloned();
+        if let Some(registry) = self.registry.upgrade() {
+            let registry = registry.lock().unwrap();
+            return registry.get(&self.id).cloned();
         }
         None
     }
 
     pub fn unregister(&self) {
-        if let Some(state) = self.state.upgrade() {
-            let mut state = state.lock().unwrap();
-            state.registry.remove(&self.id);
+        if let Some(registry) = self.registry.upgrade() {
+            let mut registry = registry.lock().unwrap();
+            registry.remove(&self.id);
         }
     }
 
@@ -53,7 +44,7 @@ impl MapRendererToken {
         MapRendererToken {
             id: self.id,
             url: self.url.clone(),
-            state: self.state.clone(),
+            registry: self.registry.clone(),
             is_primitive: false,
         }
     }
@@ -70,15 +61,15 @@ impl Drop for MapRendererToken {
 async fn serve_journey_bitmap_by_id(
     id: web::Path<String>,
     req: HttpRequest,
-    data: web::Data<Arc<Mutex<State>>>,
+    data: web::Data<Arc<Mutex<Registry>>>,
 ) -> HttpResponse {
     info!("serving item: {}", id);
-    let state = data.lock().unwrap();
+    let registry = data.lock().unwrap();
 
     // Parse UUID and get item from registry
     match Uuid::parse_str(&id)
         .ok()
-        .and_then(|uuid| state.registry.get(&uuid))
+        .and_then(|uuid| registry.get(&uuid))
     {
         Some(item) => {
             let mut map_renderer = item.lock().unwrap();
@@ -108,15 +99,15 @@ async fn serve_journey_bitmap_by_id(
 
 async fn serve_journey_bitmap_provisioned_camera_option_by_id(
     id: web::Path<String>,
-    data: web::Data<Arc<Mutex<State>>>,
+    data: web::Data<Arc<Mutex<Registry>>>,
 ) -> HttpResponse {
     info!("serving item: {}", id);
-    let state = data.lock().unwrap();
+    let registry = data.lock().unwrap();
 
     // Parse UUID and get item from registry
     match Uuid::parse_str(&id)
         .ok()
-        .and_then(|uuid| state.registry.get(&uuid))
+        .and_then(|uuid| registry.get(&uuid))
     {
         Some(item) => {
             let map_renderer = item.lock().unwrap();
@@ -129,7 +120,7 @@ async fn serve_journey_bitmap_provisioned_camera_option_by_id(
 
 pub struct MapServer {
     handle: Option<thread::JoinHandle<()>>,
-    state: Arc<Mutex<State>>,
+    registry: Arc<Mutex<Registry>>,
     url: Arc<Mutex<String>>,
 }
 
@@ -137,11 +128,7 @@ impl MapServer {
     pub fn create_and_start(host: &str, port: u16) -> std::io::Result<Self> {
         let mut server = Self {
             handle: None,
-            state: Arc::new(Mutex::new(State {
-                registry: HashMap::new(),
-                map_renderer: Arc::new(Mutex::new(None)),
-                provisioned_camera_option: None,
-            })),
+            registry: Arc::new(Mutex::new(Registry::new())),
             url: Arc::new(Mutex::new(String::new())),
         };
         server.start(host, port)?;
@@ -164,7 +151,7 @@ impl MapServer {
         // Create a channel to signal when the URL prefix is set
         let (tx, rx) = std::sync::mpsc::channel();
 
-        let data = web::Data::new(self.state.clone());
+        let data = web::Data::new(self.registry.clone());
         let handle = thread::spawn(move || {
             let runtime = Runtime::new().expect("Failed to create Tokio runtime");
             runtime.block_on(async move {
@@ -237,15 +224,15 @@ impl MapServer {
         map_renderer: Arc<Mutex<MapRenderer>>,
     ) -> MapRendererToken {
         let id = {
-            let mut state = self.state.lock().unwrap();
+            let mut registry = self.registry.lock().unwrap();
             let id = Uuid::new_v4();
-            state.registry.insert(id, map_renderer);
+            registry.insert(id, map_renderer);
             id
         };
         MapRendererToken {
             id,
             url: format!("{}#journey_id={}", self.get_url(), id),
-            state: Arc::downgrade(&self.state),
+            registry: Arc::downgrade(&self.registry),
             is_primitive: true,
         }
     }
