@@ -1,3 +1,4 @@
+use crate::api::api::CameraOption;
 use crate::renderer::utils::image_to_png_data;
 use crate::renderer::utils::{DEFAULT_BG_COLOR, DEFAULT_FG_COLOR, DEFAULT_TILE_SIZE};
 use crate::renderer::TileRendererBasic;
@@ -6,7 +7,6 @@ use crate::{journey_bitmap::JourneyBitmap, utils};
 use image::Rgba;
 use image::RgbaImage;
 use std::cmp::{max, min};
-use crate::api::api::CameraOption;
 
 pub struct RenderResult {
     // coordinates are in lat or lng

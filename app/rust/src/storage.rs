@@ -134,7 +134,11 @@ impl Storage {
     {
         let mut dbs = self.dbs.lock().unwrap();
         let (ref mut main_db, ref cache_db) = *dbs;
-        main_db.with_txn(|txn| {
+
+        // Store whether we need to call the callback
+        let mut should_call_callback = false;
+
+        let output = main_db.with_txn(|txn| {
             let output = f(txn)?;
 
             match &txn.action {
@@ -153,12 +157,22 @@ impl Storage {
                             }
                         }
                     };
-                    (self.finalized_journey_changed_callback)(self);
+                    should_call_callback = true;
                 }
             }
 
             Ok(output)
-        })
+        })?;
+
+        // Drop the lock before calling the callback
+        drop(dbs);
+
+        // Call callback if needed
+        if should_call_callback {
+            (self.finalized_journey_changed_callback)(self);
+        }
+
+        Ok(output)
     }
 
     pub fn toggle_raw_data_mode(&self, enable: bool) {

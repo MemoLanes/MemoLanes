@@ -18,13 +18,17 @@ This library is used to render journey bitmaps in the app. It supports both nati
 
 ### URL Hash Parameters
 
-The initial map position can be set via URL hash parameters:
+Since flutter webview may not have a reliable way to inject JS *before* the page loads, we use URL hash parameters to optionally set the initial map position. The hash parameters can guarantee the location is set before the map is initialized.
+
+All the parameters are optional.
+
 ```
-https://example.com/#lng=100.0&lat=30.0&zoom=19
+https://example.com/#journey_id=XXXXX&lng=100.0&lat=30.0&zoom=19
 ```
 
 | Parameter | Description | Type |
 |-----------|-------------|------|
+| `journey_id` | Initial journey id | string |
 | `lng` | Initial longitude | number |
 | `lat` | Initial latitude | number |
 | `zoom` | Initial zoom level | number |

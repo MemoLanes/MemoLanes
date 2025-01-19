@@ -51,9 +51,9 @@ async function loadJourneyData(useIfNoneMatch = false) {
     return { journeyBitmap, cameraOptions };
 }
 
-async function pollForUpdates(map) {
+async function pollForUpdates(map, cached = false) {
     try {
-        const result = await loadJourneyData(true);
+        const result = await loadJourneyData(cached);
         if (result) {
             if (result.journeyBitmap) {
                 console.log('Update detected, updating journey bitmap');
@@ -174,7 +174,7 @@ async function initializeMap() {
         map.on("moveend", () => currentJourneyLayer.render());
 
         // Set up polling for updates
-        pollingInterval = setInterval(() => pollForUpdates(map), 1000);
+        pollingInterval = setInterval(() => pollForUpdates(map, true), 1000);
     }
 
     // Replace the simple movestart listener with dragstart
@@ -194,6 +194,8 @@ async function initializeMap() {
             zoom: map.getZoom()
         };
     };
+
+    window.addEventListener('hashchange', () => pollForUpdates(map, false));
 
     // Add method to window object to trigger manual update
     window.triggerJourneyUpdate = function () {

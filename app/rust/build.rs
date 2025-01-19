@@ -64,18 +64,16 @@ fn build_journey_kernel_wasm() {
     // Read version from Cargo.toml
     let manifest = Manifest::from_path("../journey_kernel/Cargo.toml")
         .expect("Failed to read journey_kernel Cargo.toml");
-    let current_version = manifest
-        .package
-        .unwrap()
-        .version
-        .get()
-        .unwrap().clone();
+    let current_version = manifest.package.unwrap().version.get().unwrap().clone();
 
     // Check if version lock exists and matches
     let version_lock_path = Path::new("./target/.journey_kernel_version");
     if let Ok(locked_version) = fs::read_to_string(&version_lock_path) {
         if locked_version.trim() == current_version {
-            println!("cargo:warning=Skipping journey_kernel build - version {} matches", current_version);
+            println!(
+                "cargo:warning=Skipping journey_kernel build - version {} matches",
+                current_version
+            );
             return;
         }
     }

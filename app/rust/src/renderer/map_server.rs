@@ -1,13 +1,11 @@
-use crate::journey_bitmap::JourneyBitmap;
 use actix_web::dev::Service;
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
-use journey_kernel::journey_bitmap;
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex, Weak};
 use std::thread;
 use tokio::runtime::Runtime;
 use uuid::Uuid;
-use std::collections::HashMap;
 
 // TODO:: maybe we should move this out of the api
 use crate::api::api::CameraOption;
@@ -26,6 +24,7 @@ pub struct MapRendererToken {
     id: Uuid,
     url: String,
     state: Weak<Mutex<State>>,
+    is_primitive: bool,
 }
 
 impl MapRendererToken {
@@ -47,25 +46,43 @@ impl MapRendererToken {
             state.registry.remove(&self.id);
         }
     }
+
+    // TODO: this is a workaround for returning main map without server-side lifetime control
+    // we should remove this when we have a better way to handle the main map token
+    pub fn clone_temporary_token(&self) -> MapRendererToken {
+        MapRendererToken {
+            id: self.id,
+            url: self.url.clone(),
+            state: self.state.clone(),
+            is_primitive: false,
+        }
+    }
 }
 
 impl Drop for MapRendererToken {
     fn drop(&mut self) {
-        self.unregister();
+        if self.is_primitive {
+            self.unregister();
+        }
     }
 }
 
-// Handler for serving registered items
-async fn serve_main_journey_bitmap(
+async fn serve_journey_bitmap_by_id(
+    id: web::Path<String>,
     req: HttpRequest,
     data: web::Data<Arc<Mutex<State>>>,
 ) -> HttpResponse {
+    info!("serving item: {}", id);
     let state = data.lock().unwrap();
-    let mut map_renderer = state.map_renderer.lock().unwrap();
 
-    match map_renderer.as_mut() {
-        None => HttpResponse::NotFound().finish(),
-        Some(map_renderer) => {
+    // Parse UUID and get item from registry
+    match Uuid::parse_str(&id)
+        .ok()
+        .and_then(|uuid| state.registry.get(&uuid))
+    {
+        Some(item) => {
+            let mut map_renderer = item.lock().unwrap();
+
             // we will return 304 if the request is conditional, and the remote joruney_bitmap is up-to-date.
             let is_request_conditional = req
                 .headers()
@@ -85,46 +102,8 @@ async fn serve_main_journey_bitmap(
                 },
             }
         }
+        None => HttpResponse::NotFound().finish(),
     }
-}
-
-async fn serve_journey_bitmap_by_id(
-    id: web::Path<String>,
-    req: HttpRequest,
-    data: web::Data<Arc<Mutex<State>>>,
-) -> HttpResponse {
-    info!("serving item: {}", id);
-    let state = data.lock().unwrap();
-
-    // Parse UUID and get item from registry
-    match Uuid::parse_str(&id)
-        .ok()
-        .and_then(|uuid| state.registry.get(&uuid))
-        {
-            Some(item) => {
-                let mut map_renderer = item.lock().unwrap();
-                
-                // we will return 304 if the request is conditional, and the remote joruney_bitmap is up-to-date.
-                let is_request_conditional = req
-                    .headers()
-                    .get("If-None-Match")
-                    .and_then(|h| h.to_str().ok())
-                    .map(|s| s == "*")
-                    .unwrap_or(false);
-                if !is_request_conditional {
-                    // for non-conditional request, we always send the latest journey_bitmap
-                    map_renderer.reset();
-                }
-                match map_renderer.get_latest_bitmap_if_changed() {
-                    None => HttpResponse::NotModified().finish(),
-                    Some(journey_bitmap) => match journey_bitmap.to_bytes() {
-                        Ok(bytes) => HttpResponse::Ok().body(bytes),
-                        Err(_) => return HttpResponse::InternalServerError().finish(),
-                    },
-                }
-            },
-            None => HttpResponse::NotFound().finish(),
-        }
 }
 
 async fn serve_journey_bitmap_provisioned_camera_option_by_id(
@@ -138,22 +117,14 @@ async fn serve_journey_bitmap_provisioned_camera_option_by_id(
     match Uuid::parse_str(&id)
         .ok()
         .and_then(|uuid| state.registry.get(&uuid))
-        {
-            Some(item) => {
-                let map_renderer = item.lock().unwrap();
-                let camera_option = map_renderer.get_provisioned_camera_option();
-                HttpResponse::Ok().json(camera_option)
-            },
-            None => HttpResponse::NotFound().finish(),
+    {
+        Some(item) => {
+            let map_renderer = item.lock().unwrap();
+            let camera_option = map_renderer.get_provisioned_camera_option();
+            HttpResponse::Ok().json(camera_option)
         }
-}
-
-async fn serve_main_journey_bitmap_provisioned_camera_option(
-    data: web::Data<Arc<Mutex<State>>>,
-) -> HttpResponse {
-    let state = data.lock().unwrap();
-    let camera_option = state.provisioned_camera_option;
-    HttpResponse::Ok().json(camera_option)
+        None => HttpResponse::NotFound().finish(),
+    }
 }
 
 pub struct MapServer {
@@ -206,20 +177,15 @@ impl MapServer {
                             srv.call(req)
                         })
                         .route(
-                            &format!("/{}/journey_bitmap.bin", random_prefix),
-                            web::get().to(serve_main_journey_bitmap),
-                        )
-                        .route(
                             &format!("/{}/journey/{{id}}/journey_bitmap.bin", random_prefix),
                             web::get().to(serve_journey_bitmap_by_id),
                         )
                         .route(
-                            &format!("/{}/journey/{{id}}/provisioned_camera_option", random_prefix),
+                            &format!(
+                                "/{}/journey/{{id}}/provisioned_camera_option",
+                                random_prefix
+                            ),
                             web::get().to(serve_journey_bitmap_provisioned_camera_option_by_id),
-                        )
-                        .route(
-                            &format!("/{}/provisioned_camera_option", random_prefix),
-                            web::get().to(serve_main_journey_bitmap_provisioned_camera_option),
                         )
                         .route(&format!("/{}/", random_prefix), web::get().to(index))
                         .route(
@@ -266,25 +232,21 @@ impl MapServer {
         Ok(())
     }
 
-    pub fn set_map_renderer(
+    pub fn register_map_renderer(
         &mut self,
-        //TODO: Again, the option here is weird.
-        map_renderer: Arc<Mutex<Option<MapRenderer>>>,
-        provisioned_camera_option: Option<CameraOption>,
-    ) {
-        let mut state = self.state.lock().unwrap();
-        state.map_renderer = map_renderer;
-        state.provisioned_camera_option = provisioned_camera_option;
-    }
-
-    pub fn register_map_renderer(&mut self, map_renderer: Arc<Mutex<MapRenderer>>) -> MapRendererToken {
-        let mut state = self.state.lock().unwrap();
-        let id = Uuid::new_v4();
-        state.registry.insert(id, map_renderer);
+        map_renderer: Arc<Mutex<MapRenderer>>,
+    ) -> MapRendererToken {
+        let id = {
+            let mut state = self.state.lock().unwrap();
+            let id = Uuid::new_v4();
+            state.registry.insert(id, map_renderer);
+            id
+        };
         MapRendererToken {
             id,
             url: format!("{}#journey_id={}", self.get_url(), id),
             state: Arc::downgrade(&self.state),
+            is_primitive: true,
         }
     }
 

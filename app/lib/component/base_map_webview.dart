@@ -52,25 +52,25 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     super.didUpdateWidget(oldWidget);
     // TODO: the below is for compatibility for android or ios, double check later.
     // Only update URL if the mapRendererProxy actually changed
-    // if (oldWidget.mapRendererProxy != widget.mapRendererProxy) {
-    //   _updateMapUrl();
-    // }
+    if (oldWidget.mapRendererProxy != widget.mapRendererProxy) {
+      _updateMapUrl();
+    }
   }
 
-  // Future<void> _updateMapUrl() async {
-  //   if (_webViewController == null) return;
+  Future<void> _updateMapUrl() async {
+    if (_webViewController == null) return;
 
-  //   final url = api.getUrl();
+    final url = widget.mapRendererProxy.getUrl();
 
-  //   // TODO: currently when trackingMode updates, the upper layer will trigger a
-  //   // rebuid of this widget? we should not reload the page if url is unchanged
-  //   // this may be an iOS bug to be investigated further
-  //   final currentUrl = await _webViewController?.currentUrl();
+    // TODO: currently when trackingMode updates, the upper layer will trigger a
+    // rebuid of this widget? we should not reload the page if url is unchanged
+    // this may be an iOS bug to be investigated further
+    final currentUrl = await _webViewController?.currentUrl();
 
-  //   if (currentUrl != url) {
-  //     await _webViewController?.loadRequest(Uri.parse(url));
-  //   }
-  // }
+    if (currentUrl != url) {
+      await _webViewController?.loadRequest(Uri.parse(url));
+    }
+  }
 
   @override
   void initState() {
@@ -79,6 +79,12 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _initWebView();
   }
 
+// TODO: solve the following known issues:
+// 1. ios tap-and-hold triggers a magnifier
+//     ref: https://stackoverflow.com/questions/75628788/disable-double-tap-magnifying-glass-in-safari-ios
+//     but the settings seems not be exposed by current webview_flutter
+//     ref (another WKPreference setting): https://github.com/flutter/flutter/issues/112276
+// 2. ios double-tap zoom not working (triple tap needed, maybe related to tap event capture)
   Future<void> _initWebView() async {
     _webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -108,7 +114,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         },
       );
 
-    final url = api.getUrl();
+    final url = widget.mapRendererProxy.getUrl();
     await _webViewController?.loadRequest(Uri.parse(url));
   }
 
