@@ -109,13 +109,13 @@ fn setting() {
 }
 
 #[test]
-fn get_lastest_timestamp_of_ongoing_journey() {
+fn get_ongoing_journey_timestamp_range() {
     let temp_dir = TempDir::new("main_db-get_lastest_timestamp_of_ongoing_journey").unwrap();
     println!("temp dir: {:?}", temp_dir.path());
 
     let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
     let result = main_db
-        .with_txn(|txn| txn.get_lastest_timestamp_of_ongoing_journey())
+        .with_txn(|txn| txn.get_ongoing_journey_timestamp_range())
         .unwrap();
     assert_eq!(result, None);
     main_db
@@ -125,7 +125,22 @@ fn get_lastest_timestamp_of_ongoing_journey() {
                     latitude: 120.163856,
                     longitude: 30.2719716,
                 },
-                timestamp_ms: Some(1697349116449),
+                timestamp_ms: Some(1697349115000),
+                accuracy: None,
+                altitude: None,
+                speed: None,
+            },
+            gps_processor::ProcessResult::Append,
+        )
+        .unwrap();
+    main_db
+        .record(
+            &RawData {
+                point: Point {
+                    latitude: 120.163856,
+                    longitude: 30.2719716,
+                },
+                timestamp_ms: Some(1697349116000),
                 accuracy: None,
                 altitude: None,
                 speed: None,
@@ -149,9 +164,15 @@ fn get_lastest_timestamp_of_ongoing_journey() {
         )
         .unwrap();
     let result = main_db
-        .with_txn(|txn| txn.get_lastest_timestamp_of_ongoing_journey())
+        .with_txn(|txn| txn.get_ongoing_journey_timestamp_range())
         .unwrap();
-    assert_eq!(result, DateTime::from_timestamp(1697349117, 0));
+    assert_eq!(
+        result,
+        Some((
+            DateTime::from_timestamp(1697349115, 0).unwrap(),
+            DateTime::from_timestamp(1697349117, 0).unwrap()
+        ))
+    );
 }
 
 #[test]

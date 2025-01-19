@@ -129,23 +129,27 @@ impl Txn<'_> {
         gps_processor::build_vector_journey(results.map(|x| x.map_err(|x| x.into())))
     }
 
-    pub fn get_lastest_timestamp_of_ongoing_journey(&self) -> Result<Option<DateTime<Utc>>> {
-        // `id` in `ongoing_journey` is auto incremented.
+    // the fist timestamp is the start time, the second is the end time
+    pub fn get_ongoing_journey_timestamp_range(
+        &self,
+    ) -> Result<Option<(DateTime<Utc>, DateTime<Utc>)>> {
+        // `id` in `ongoing_journey` is auto incremented and I assume it has index, so I didn't just linear scan timestamp.
         let mut query = self
             .db_txn
-            .prepare("SELECT timestamp_sec FROM ongoing_journey ORDER BY id DESC LIMIT 1;")?;
-        let timestamp_sec = query
-            .query_row((), |row| {
-                // `timestamp_sec` cannot be null
-                let timestamp_sec: i64 = row.get(0)?;
-                Ok(timestamp_sec)
-            })
-            .optional()?;
-        match timestamp_sec {
+            .prepare("SELECT * FROM (SELECT timestamp_sec FROM ongoing_journey ORDER BY id ASC LIMIT 1) UNION ALL SELECT * FROM (SELECT timestamp_sec FROM ongoing_journey ORDER BY id DESC LIMIT 1);")?;
+        let mut results = query.query_map((), |row| {
+            // `timestamp_sec` cannot be null
+            let timestamp_sec: i64 = row.get(0)?;
+            Ok(timestamp_sec)
+        })?;
+
+        match results.next() {
             None => Ok(None),
-            Some(timestamp_sec) => {
-                let timestamp = DateTime::from_timestamp(timestamp_sec, 0).unwrap();
-                Ok(Some(timestamp))
+            Some(start_timestamp_sec) => {
+                let end_timestamp_sec = results.next().unwrap(); // must have
+                let start = DateTime::from_timestamp(start_timestamp_sec?, 0).unwrap();
+                let end = DateTime::from_timestamp(end_timestamp_sec?, 0).unwrap();
+                Ok(Some((start, end)))
             }
         }
     }
@@ -454,31 +458,32 @@ impl Txn<'_> {
 
     // TODO: consider moving this to `storage.rs`
     pub fn try_auto_finalize_journy(&mut self) -> Result<bool> {
-        match self.get_lastest_timestamp_of_ongoing_journey()? {
-            None => Ok(false),
-            Some(latest_timestamp) => {
-                // TODO: the current logic is naive
-                // NOTE: this logic is not called very frequently
-                let latest = latest_timestamp.with_timezone(&Local);
-                let now = Local::now();
-                let try_finalize = if latest.date_naive() == now.date_naive() {
-                    // 6 hours
-                    now.timestamp() - latest.timestamp() >= 6 * 60 * 60
-                } else {
-                    // 15 minutes
-                    now.timestamp() - latest.timestamp() >= 15 * 60
-                };
-                info!(
-                    "Auto finalize ongoing journey: latest={}, now={}, try_finalize={}",
-                    latest, now, try_finalize
-                );
-                if try_finalize {
-                    self.finalize_ongoing_journey()
-                } else {
-                    Ok(false)
-                }
-            }
-        }
+        // match self.get_ongoing_journey_timestamp_range()? {
+        //     None => Ok(false),
+        //     Some(latest_timestamp) => {
+        //         // TODO: the current logic is naive
+        //         // NOTE: this logic is not called very frequently
+        //         let latest = latest_timestamp.with_timezone(&Local);
+        //         let now = Local::now();
+        //         let try_finalize = if latest.date_naive() == now.date_naive() {
+        //             // 6 hours
+        //             now.timestamp() - latest.timestamp() >= 6 * 60 * 60
+        //         } else {
+        //             // 15 minutes
+        //             now.timestamp() - latest.timestamp() >= 15 * 60
+        //         };
+        //         info!(
+        //             "Auto finalize ongoing journey: latest={}, now={}, try_finalize={}",
+        //             latest, now, try_finalize
+        //         );
+        //         if try_finalize {
+        //             self.finalize_ongoing_journey()
+        //         } else {
+        //             Ok(false)
+        //         }
+        //     }
+        // }
+        Ok(false)
     }
 
     pub fn earliest_journey_date(&self) -> Result<Option<NaiveDate>> {
