@@ -68,7 +68,7 @@ fn build_journey_kernel_wasm() {
 
     // Check if version lock exists and matches
     let version_lock_path = Path::new("./target/.journey_kernel_version");
-    if let Ok(locked_version) = fs::read_to_string(&version_lock_path) {
+    if let Ok(locked_version) = fs::read_to_string(version_lock_path) {
         if locked_version.trim() == current_version {
             println!(
                 "cargo:warning=Skipping journey_kernel build - version {} matches",

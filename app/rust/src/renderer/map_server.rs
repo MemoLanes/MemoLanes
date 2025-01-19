@@ -89,7 +89,7 @@ async fn serve_journey_bitmap_by_id(
                 None => HttpResponse::NotModified().finish(),
                 Some(journey_bitmap) => match journey_bitmap.to_bytes() {
                     Ok(bytes) => HttpResponse::Ok().body(bytes),
-                    Err(_) => return HttpResponse::InternalServerError().finish(),
+                    Err(_) => HttpResponse::InternalServerError().finish(),
                 },
             }
         }

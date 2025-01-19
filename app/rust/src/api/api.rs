@@ -77,7 +77,7 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
             main_map_renderer,
             gps_preprocessor: Mutex::new(GpsPreprocessor::new()),
             map_server: Mutex::new(Some(map_server)),
-            token: token,
+            token,
         }
     });
     if already_initialized {
@@ -197,7 +197,7 @@ pub fn get_map_renderer_proxy_for_journey(
     let default_camera_option = get_default_camera_option_from_journey_bitmap(&journey_bitmap);
 
     let mut map_renderer = MapRenderer::new(journey_bitmap);
-    map_renderer.set_provisioned_camera_option(default_camera_option.clone());
+    map_renderer.set_provisioned_camera_option(default_camera_option);
     let mut server = state.map_server.lock().unwrap();
     let token = server
         .as_mut()
