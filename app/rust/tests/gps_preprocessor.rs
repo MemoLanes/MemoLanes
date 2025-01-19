@@ -166,7 +166,6 @@ fn run_though_test_data(name: &str) -> HashMap<ProcessResult, i32> {
 #[test]
 fn run_though_test_data_shanghai() {
     let counter = run_though_test_data("shanghai");
-    println!("{},{},{}",counter[&ProcessResult::NewSegment],counter[&ProcessResult::Append],counter[&ProcessResult::Ignore]);
     assert_eq!(counter[&ProcessResult::NewSegment], 5);
     assert_eq!(counter[&ProcessResult::Append], 2980);
     assert_eq!(counter[&ProcessResult::Ignore], 633);
@@ -175,7 +174,6 @@ fn run_though_test_data_shanghai() {
 #[test]
 fn run_though_test_data_shenzhen_stationary() {
     let counter = run_though_test_data("shenzhen_stationary");
-    println!("{},{},{}",counter[&ProcessResult::NewSegment],counter[&ProcessResult::Append],counter[&ProcessResult::Ignore]);
     assert_eq!(counter[&ProcessResult::NewSegment], 4);
     assert_eq!(counter[&ProcessResult::Append], 455);
     assert_eq!(counter[&ProcessResult::Ignore], 6271);
