@@ -186,53 +186,41 @@ impl GpsPreprocessor {
         const WALK_SPEED: f64 = 1.0;
         const TOO_CLOSE_DISTANCE_IN_M: f64 = 0.1;
         const SPEED_THRESHOLD: f64 = 250.0; // m/s
-        const DEFAULT_ACCURACY_OF_POINT: f32 = 50.0;
+        const DEFAULT_ACCURACY_OF_POINT: f32 = 30.0;
 
-        let time_diff_in_ms = match (curr_data.timestamp_ms, last_timestamp_ms) {
-            (Some(now), Some(prev)) => Some(now - prev),
-            (None, _) | (_, None) => None,
-        };
-        let accuracy = curr_data.accuracy.unwrap_or(DEFAULT_ACCURACY_OF_POINT);
+        let distance = curr_data.point.haversine_distance(last_point);
 
-        let time_based_result = {
-            match time_diff_in_ms {
-                None => ProcessResult::Append,
-                Some(diff_in_ms) => {
-                    if diff_in_ms > TIME_THRESHOLD_IN_MS {
-                        // here if distance is not too far, append it.
-                        let distance = curr_data.point.haversine_distance(last_point);
-                        if distance
-                            < accuracy as f64
-                                + (diff_in_ms as f64 / 1000.0).min(WALK_TIME_THRESHOLD_IN_S)
-                                    * WALK_SPEED
-                        {
-                            ProcessResult::Append
-                        } else {
-                            ProcessResult::NewSegment
-                        }
-                    } else {
-                        ProcessResult::Append
-                    }
-                }
-            }
-        };
-
-        if time_based_result == ProcessResult::Append {
-            // let's consider (speed) distance now
-            let distance = curr_data.point.haversine_distance(last_point);
-            if distance <= TOO_CLOSE_DISTANCE_IN_M {
-                ProcessResult::Ignore
-            } else {
-                let time_in_sec = time_diff_in_ms.unwrap_or(TIME_THRESHOLD_IN_MS) as f64 / 1000.0;
-                let speed = distance / time_in_sec.max(0.01);
-                if speed < SPEED_THRESHOLD {
-                    ProcessResult::Append
-                } else {
-                    ProcessResult::NewSegment
-                }
-            }
+        if distance <= TOO_CLOSE_DISTANCE_IN_M {
+            ProcessResult::Ignore
         } else {
-            time_based_result
+            let time_diff_in_ms = match (curr_data.timestamp_ms, last_timestamp_ms) {
+                (Some(now), Some(prev)) => Some(now - prev),
+                (None, _) | (_, None) => None,
+            };
+            let accuracy = curr_data.accuracy.unwrap_or(DEFAULT_ACCURACY_OF_POINT);
+
+            let time_result = {
+                match time_diff_in_ms {
+                    None => true,
+                    Some(diff_in_ms) => diff_in_ms <= TIME_THRESHOLD_IN_MS,
+                }
+            };
+
+            let distance_in_walk_result = distance
+                < accuracy as f64
+                    + (time_diff_in_ms.unwrap_or(1) as f64 / 1000.0).min(WALK_TIME_THRESHOLD_IN_S)
+                        * WALK_SPEED;
+
+            let time_in_sec = time_diff_in_ms.unwrap_or(TIME_THRESHOLD_IN_MS) as f64 / 1000.0;
+            let speed = distance / time_in_sec.max(0.01);
+            let speed_result = speed < SPEED_THRESHOLD;
+
+            let rtn_result = match (time_result, distance_in_walk_result, speed_result) {
+                (_, _, false) => ProcessResult::NewSegment,
+                (false, false, _) => ProcessResult::NewSegment,
+                _ => ProcessResult::Append,
+            };
+            rtn_result
         }
     }
 
@@ -250,10 +238,12 @@ impl GpsPreprocessor {
         //   use the iOS threshold or tune a new one. I am not sure. :(
         use GpsPreprocessorState::*;
 
+        const DISTANCE_THRESHOLD_FOR_ENDING_STATIONARY_IN_M: f64 = 10.0;
+        const DISTANCE_THRESHOLD_FOR_BEGINING_STATIONARY_IN_M: f64 = 5.0;
         const TIME_TO_WAIT_BEFORE_BEGINING_STATIONARY_IN_MS: i64 = 60 * 1000;
         const FALLBACK_NUM_OF_DATA_TO_WAIT_BEFORE_BEGINING_STATIONARY: i64 = 60;
         const ACCELERATION_THRESHOLD_OF_BEGIN_MOVE: f64 = 10.0;
-        const DEFAULT_ACCURACY_OF_POINT: f32 = 50.0;
+        const DEFAULT_ACCURACY_OF_POINT: f32 = 30.0;
 
         // We don't update our state if the data is bad.
         if self.is_bad_data(curr_data) {
@@ -283,15 +273,16 @@ impl GpsPreprocessor {
                 let result = Self::process_moving_data(last_point, *last_timestamp_ms, curr_data);
                 if result != ProcessResult::Ignore {
                     *last_point = curr_data.point.clone();
+                    *last_timestamp_ms = curr_data.timestamp_ms;
                 }
-                *last_timestamp_ms = curr_data.timestamp_ms;
 
                 let accuracy = curr_data.accuracy.unwrap_or(DEFAULT_ACCURACY_OF_POINT);
 
                 // consider if we need to become stationary
                 // here use the accuracy of gps as threshold
                 if curr_data.point.haversine_distance(possible_center_point)
-                    <= ((accuracy * 2.0).min(DEFAULT_ACCURACY_OF_POINT)) as f64
+                    <= ((accuracy).min(DEFAULT_ACCURACY_OF_POINT)) as f64
+                        + DISTANCE_THRESHOLD_FOR_BEGINING_STATIONARY_IN_M
                 {
                     *num_of_data_since_center_point_picked += 1;
                     let should_become_stationary = if let (Some(now), Some(prev)) = (
@@ -332,7 +323,7 @@ impl GpsPreprocessor {
                 //last_point to compute acceleration
                 let distance = curr_data.point.haversine_distance(center_point);
                 let accuracy = curr_data.accuracy.unwrap_or(DEFAULT_ACCURACY_OF_POINT);
-                if distance <= (accuracy * 2.0) as f64 {
+                if distance <= (accuracy) as f64 + DISTANCE_THRESHOLD_FOR_ENDING_STATIONARY_IN_M {
                     *last_timestamp_ms = curr_data.timestamp_ms;
                     *last_point = curr_data.point.clone();
                     ProcessResult::Ignore
@@ -343,12 +334,11 @@ impl GpsPreprocessor {
                         (None, _) | (_, None) => None,
                     };
                     let delta_s = curr_data.point.haversine_distance(last_point);
-                    let time_in_sec = time_diff_in_ms.unwrap_or(1) as f64 / 1000.0;
-                    let acceleration =
-                        2.0 * delta_s / time_in_sec.max(0.01) / time_in_sec.max(0.01);
+                    let time_in_sec = time_diff_in_ms.unwrap_or(1000) as f64 / 1000.0;
+                    let acceleration = 2.0 * delta_s / time_in_sec.max(1.0) / time_in_sec.max(1.0);
                     // the result is that if the time_in_sec be long, it's easy to remove stationary state
                     // only to avoid those point move to long away suddenly, faster than the accelaration_threshold
-                    // we usually will not accelerate fater than 1G
+                    // we usually will not accelerate faster than 1G
                     if acceleration < ACCELERATION_THRESHOLD_OF_BEGIN_MOVE {
                         //then ending stationary change to move mode
                         let result =
