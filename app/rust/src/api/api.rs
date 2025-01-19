@@ -87,8 +87,6 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
 
 #[frb(opaque)]
 pub enum MapRendererProxy {
-    MainMap,
-    Simple(MapRenderer),
     Token(MapRendererToken),
 }
 
@@ -96,17 +94,9 @@ impl MapRendererProxy {
     #[frb(sync)]
     pub fn get_url(&self) -> String {
         match self {
-            MapRendererProxy::MainMap => get().token.url(),
-            MapRendererProxy::Simple(_) => get_url(),
             MapRendererProxy::Token(token) => token.url(),
         }
     }
-}
-
-#[frb(sync)]
-pub fn get_url() -> String {
-    let state = get();
-    state.map_server.lock().unwrap().as_ref().unwrap().get_url()
 }
 
 #[frb(sync)]
@@ -116,11 +106,20 @@ pub fn get_map_renderer_proxy_for_main_map() -> MapRendererProxy {
     MapRendererProxy::Token(token)
 }
 
+// TODO: does this interface necessary?
 #[frb(sync)]
 pub fn get_empty_map_renderer_proxy() -> MapRendererProxy {
+    let state = get();
+
     let journey_bitmap = JourneyBitmap::new();
+
+    let mut server = state.map_server.lock().unwrap();
     let map_renderer = MapRenderer::new(journey_bitmap);
-    MapRendererProxy::Simple(map_renderer)
+    let token = server
+        .as_mut()
+        .unwrap()
+        .register_map_renderer(Arc::new(Mutex::new(map_renderer)));
+    MapRendererProxy::Token(token)
 }
 
 pub fn get_map_renderer_proxy_for_journey_date_range(
