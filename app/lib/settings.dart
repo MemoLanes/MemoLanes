@@ -68,7 +68,7 @@ class _SettingsBodyState extends State<SettingsBody> {
           ),
           ElevatedButton(
             onPressed: () async {
-              await showInfoDialog(context,
+              await showCommonDialog(context,
                   "This is an experimental feature and only supports zip compressed Fog of World Sync folder.\n\nPlease try not to import large amount of data or multiple datasets. A better import tool will be released in the future.");
               if (!context.mounted) return;
               await _selectImportFile(context, ImportType.fow);
@@ -78,7 +78,7 @@ class _SettingsBodyState extends State<SettingsBody> {
           ElevatedButton(
             onPressed: () async {
               if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
-                await showInfoDialog(context,
+                await showCommonDialog(context,
                     "Please stop the current ongoing journey before archiving.");
                 return;
               }
@@ -100,11 +100,11 @@ class _SettingsBodyState extends State<SettingsBody> {
           ElevatedButton(
             onPressed: () async {
               if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
-                await showInfoDialog(context,
+                await showCommonDialog(context,
                     "Please stop the current ongoing journey before deleting all journeys.");
                 return;
               }
-              if (!await showInfoDialog(context,
+              if (!await showCommonDialog(context,
                   "This will delete all journeys in this app. Are you sure?",
                   showCancel: true)) {
                 return;
@@ -112,11 +112,11 @@ class _SettingsBodyState extends State<SettingsBody> {
               try {
                 await deleteAllJourneys();
                 if (context.mounted) {
-                  await showInfoDialog(context, "All journeys are deleted.");
+                  await showCommonDialog(context, "All journeys are deleted.");
                 }
               } catch (e) {
                 if (context.mounted) {
-                  await showInfoDialog(context, e.toString());
+                  await showCommonDialog(context, e.toString());
                 }
               }
             },
@@ -135,7 +135,7 @@ class _SettingsBodyState extends State<SettingsBody> {
                     await importArchive(mldxFilePath: path);
                   } catch (e) {
                     if (context.mounted) {
-                      await showInfoDialog(context, e.toString());
+                      await showCommonDialog(context, e.toString());
                     }
                   }
                 }

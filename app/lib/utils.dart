@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 
 import 'component/common_dialog.dart';
 
-Future<bool> showInfoDialog(BuildContext context, String message,
-    {showCancel = false, title = "Info", confirmText = "OK"}) async {
+Future<bool> showCommonDialog(BuildContext context, String message,
+    {showCancel = false,
+    title = "Info",
+    confirmText = "OK",
+    confirmGroundColor = const Color(0xFFB4EC51),
+    confirmTextColor = Colors.black}) async {
   var result = await showDialog<bool>(
     context: context,
     barrierDismissible: false,
@@ -18,8 +22,8 @@ Future<bool> showInfoDialog(BuildContext context, String message,
               onPressed: () {
                 Navigator.of(context).pop(true);
               },
-              backgroundColor: Colors.red,
-              textColor: Colors.white,
+              backgroundColor: confirmGroundColor,
+              textColor: confirmTextColor,
             )
           ]);
     },

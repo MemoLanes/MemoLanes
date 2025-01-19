@@ -13,17 +13,19 @@ class GPSPage extends StatefulWidget {
 
 class _GPSPageState extends State<GPSPage> {
   Future<void> _showEndJourneyDialog() async {
-    final shouldEndJourney = await showInfoDialog(
-      context,
-      context.tr('home.end_journey_message'),
-      showCancel: true,
-      title: context.tr('home.end_journey_title'),
-      confirmText: context.tr('common.end'),
-    );
+    final shouldEndJourney = await showCommonDialog(
+        context, context.tr('home.end_journey_message'),
+        showCancel: true,
+        title: context.tr('home.end_journey_title'),
+        confirmText: context.tr('common.end'),
+        confirmGroundColor: Colors.red,
+        confirmTextColor: Colors.white);
 
     if (shouldEndJourney) {
       if (!context.mounted) return;
-      await context.read<GpsManager>().changeRecordingState(GpsRecordingStatus.none);
+      await context
+          .read<GpsManager>()
+          .changeRecordingState(GpsRecordingStatus.none);
     }
   }
 

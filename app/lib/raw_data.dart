@@ -83,8 +83,11 @@ class _RawDataBody extends State<RawDataBody> {
                   },
                   trailing: ElevatedButton(
                     onPressed: () async {
-                      if (await showInfoDialog(context, "Delete this record?",
-                          showCancel: true, title: "Delete")) {
+                      if (await showCommonDialog(context, "Delete this record?",
+                          showCancel: true,
+                          title: "Delete",
+                          confirmGroundColor: Colors.red,
+                          confirmTextColor: Colors.white)) {
                         await deleteRawDataFile(filename: item.name);
                         _loadList();
                       }
