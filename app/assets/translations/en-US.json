@@ -7,8 +7,10 @@
         "end_journey_message": "Are you sure you want to end your current journey?"
     },
     "common": {
+        "confirm": "Okay",
         "cancel": "Cancel",
-        "end": "End"
+        "end": "End",
+        "info": "Info"
     },
     "journey": {
         "no_data": "There's no data yet, go ahead and explore the world!"
