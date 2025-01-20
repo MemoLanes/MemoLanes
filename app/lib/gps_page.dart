@@ -1,7 +1,8 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/gps_manager.dart';
+import 'package:memolanes/utils.dart';
 import 'package:provider/provider.dart';
-import 'package:easy_localization/easy_localization.dart';
 
 class GPSPage extends StatefulWidget {
   const GPSPage({super.key});
@@ -11,52 +12,21 @@ class GPSPage extends StatefulWidget {
 }
 
 class _GPSPageState extends State<GPSPage> {
-  // TODO: this should probably be some reusable pattern
   Future<void> _showEndJourneyDialog() async {
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          title: Text(
-            context.tr('home.end_journey_title'),
-            style: const TextStyle(color: Colors.black),
-          ),
-          content: Text(
-            context.tr('home.end_journey_message'),
-            style: const TextStyle(color: Colors.black54),
-          ),
-          actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-          actions: <Widget>[
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFB4EC51),
-                foregroundColor: Colors.black,
-              ),
-              child: Text(context.tr('common.cancel')),
-            ),
-            FilledButton(
-              onPressed: () async {
-                Navigator.of(context).pop();
-                await context
-                    .read<GpsManager>()
-                    .changeRecordingState(GpsRecordingStatus.none);
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-              ),
-              child: Text(context.tr('common.end')),
-            ),
-          ],
-        );
-      },
-    );
+    final shouldEndJourney = await showCommonDialog(
+        context, context.tr('home.end_journey_message'),
+        hasCancel: true,
+        title: context.tr('home.end_journey_title'),
+        confirmText: context.tr('common.end'),
+        confirmGroundColor: Colors.red,
+        confirmTextColor: Colors.white);
+
+    if (shouldEndJourney) {
+      if (!context.mounted) return;
+      await context
+          .read<GpsManager>()
+          .changeRecordingState(GpsRecordingStatus.none);
+    }
   }
 
   @override
