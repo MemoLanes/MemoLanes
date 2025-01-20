@@ -140,7 +140,7 @@ fn speed() {
 }
 
 fn run_though_test_data(name: &str) -> HashMap<ProcessResult, i32> {
-    const GENERATE_RESULT_GPX_FOR_INSPECTION: bool = false;
+    const GENERATE_RESULT_GPX_FOR_INSPECTION: bool = true;
     let mut gps_preprocessor = GpsPreprocessor::new();
     let mut counter = HashMap::new();
     let loaded_data = import_data::load_gpx(&format!("./tests/data/raw_gps_{}.gpx", name)).unwrap();
@@ -166,17 +166,17 @@ fn run_though_test_data(name: &str) -> HashMap<ProcessResult, i32> {
 #[test]
 fn run_though_test_data_shanghai() {
     let counter = run_though_test_data("shanghai");
-    assert_eq!(counter[&ProcessResult::NewSegment], 5);
-    assert_eq!(counter[&ProcessResult::Append], 2980);
-    assert_eq!(counter[&ProcessResult::Ignore], 633);
+    assert_eq!(counter[&ProcessResult::NewSegment], 12);
+    assert_eq!(counter[&ProcessResult::Append], 2917);
+    assert_eq!(counter[&ProcessResult::Ignore], 689);
 }
 
 #[test]
 fn run_though_test_data_shenzhen_stationary() {
     let counter = run_though_test_data("shenzhen_stationary");
     assert_eq!(counter[&ProcessResult::NewSegment], 4);
-    assert_eq!(counter[&ProcessResult::Append], 455);
-    assert_eq!(counter[&ProcessResult::Ignore], 6271);
+    assert_eq!(counter[&ProcessResult::Append], 442);
+    assert_eq!(counter[&ProcessResult::Ignore], 6284);
 }
 
 #[test]
