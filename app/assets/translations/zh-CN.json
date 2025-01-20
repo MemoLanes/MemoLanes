@@ -7,15 +7,15 @@
     "end_journey_message": "确定要结束当前的旅程吗？"
   },
   "common": {
-    "confirm": "确定",
+    "ok": "确定",
     "cancel": "取消",
     "end": "结束",
     "info": "提示"
   },
   "journey": {
     "no_data": "当前暂无旅程数据，开始探索世界吧！",
-    "delete_journey_title": "删除?",
-    "delete_journey_message": "确认删除该记录?",
+    "delete_journey_title": "删除旅程",
+    "delete_journey_message": "确认删除该旅程记录?",
     "delete": "删除"
   }
 }

@@ -7,15 +7,15 @@
     "end_journey_message": "Are you sure you want to end your current journey?"
   },
   "common": {
-    "confirm": "Ok",
+    "ok": "OK",
     "cancel": "Cancel",
     "end": "End",
     "info": "Info"
   },
   "journey": {
     "no_data": "There's no data yet, go ahead and explore the world!",
-    "delete_journey_title": "Delete?",
-    "delete_journey_message": "Delete this record?",
+    "delete_journey_title": "Delete Journey",
+    "delete_journey_message": "Delete this journey record?",
     "delete": "Delete"
   }
 }

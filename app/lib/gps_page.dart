@@ -15,7 +15,7 @@ class _GPSPageState extends State<GPSPage> {
   Future<void> _showEndJourneyDialog() async {
     final shouldEndJourney = await showCommonDialog(
         context, context.tr('home.end_journey_message'),
-        showCancel: true,
+        hasCancel: true,
         title: context.tr('home.end_journey_title'),
         confirmText: context.tr('common.end'),
         confirmGroundColor: Colors.red,

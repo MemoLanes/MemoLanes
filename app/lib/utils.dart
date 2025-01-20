@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import 'component/common_dialog.dart';
 
 Future<bool> showCommonDialog(BuildContext context, String message,
-    {showCancel = false,
+    {hasCancel = false,
     title,
     confirmText,
     confirmGroundColor,
     confirmTextColor = Colors.black}) async {
   const defaultGroundColor = Color(0xFFB4EC51);
-  confirmText = confirmText ?? context.tr("common.confirm");
+  confirmText = confirmText ?? context.tr("common.ok");
   title = title ?? context.tr("common.info");
   confirmGroundColor = confirmGroundColor ?? defaultGroundColor;
   final List<DialogButton> allButtons = [
@@ -22,7 +22,7 @@ Future<bool> showCommonDialog(BuildContext context, String message,
       backgroundColor: confirmGroundColor,
       textColor: confirmTextColor,
     ),
-    if (showCancel)
+    if (hasCancel)
       DialogButton(
           text: context.tr('common.cancel'),
           backgroundColor: confirmGroundColor == defaultGroundColor
@@ -40,7 +40,7 @@ Future<bool> showCommonDialog(BuildContext context, String message,
       return CommonDialog(
           title: title,
           content: message,
-          showCancel: showCancel,
+          showCancel: hasCancel,
           buttons: allButtons);
     },
   );

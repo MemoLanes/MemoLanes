@@ -156,7 +156,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                 onPressed: () async {
                   if (await showCommonDialog(
                       context, context.tr("journey.delete_journey_message"),
-                      showCancel: true,
+                      hasCancel: true,
                       title: context.tr("journey.delete_journey_title"),
                       confirmText: context.tr("journey.delete"),
                       confirmGroundColor: Colors.red,
