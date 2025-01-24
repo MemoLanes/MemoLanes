@@ -1,13 +1,16 @@
 import 'dart:io';
+
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:memolanes/component/base_map_webview.dart';
-import 'package:memolanes/src/rust/api/import.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:memolanes/journey_edit.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
-import 'package:memolanes/journey_edit.dart';
+import 'package:memolanes/utils.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 class JourneyInfoPage extends StatefulWidget {
@@ -50,28 +53,6 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       print(e);
       // don't care about error
     }
-  }
-
-  // TODO: Consider merge this one with the one in `utils.dart`
-  showDeleteDialogFunction(fn) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text("Delete"),
-          content: const Text("Delete this record?"),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Cancel'),
-            ),
-            TextButton(onPressed: fn, child: const Text("Yes")),
-          ],
-        );
-      },
-    );
   }
 
   _saveData(JourneyInfo journeyInfo) async {
@@ -165,12 +146,17 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
               ),
               ElevatedButton(
                 onPressed: () async {
-                  showDeleteDialogFunction(() async {
-                    Navigator.of(context).pop();
+                  if (await showCommonDialog(
+                      context, context.tr("journey.delete_journey_message"),
+                      hasCancel: true,
+                      title: context.tr("journey.delete_journey_title"),
+                      confirmText: context.tr("journey.delete"),
+                      confirmGroundColor: Colors.red,
+                      confirmTextColor: Colors.white)) {
                     await api.deleteJourney(journeyId: widget.journeyHeader.id);
                     if (!context.mounted) return;
                     Navigator.pop(context, true);
-                  });
+                  }
                 },
                 child: const Text("Delete"),
               ),

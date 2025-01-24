@@ -287,7 +287,7 @@ pub fn try_auto_finalize_journy() -> Result<bool> {
 pub fn has_ongoing_journey() -> Result<bool> {
     Ok(get()
         .storage
-        .with_db_txn(|txn| txn.get_lastest_timestamp_of_ongoing_journey())?
+        .with_db_txn(|txn| txn.get_ongoing_journey_timestamp_range())?
         .is_some())
 }
 

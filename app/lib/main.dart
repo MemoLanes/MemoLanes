@@ -9,7 +9,7 @@ import 'package:memolanes/time_machine.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:memolanes/settings.dart';
-import 'package:memolanes/gps_recording_state.dart';
+import 'package:memolanes/gps_manager.dart';
 import 'package:memolanes/journey.dart';
 import 'package:memolanes/map.dart';
 import 'package:memolanes/raw_data.dart';
@@ -76,7 +76,7 @@ void main() async {
       cacheDir: (await getApplicationCacheDirectory()).path);
   var updateNotifier = UpdateNotifier();
   delayedInit(updateNotifier);
-  var gpsRecordingState = GpsRecordingState();
+  var gpsManager = GpsManager();
   runApp(EasyLocalization(
       supportedLocales: const [Locale('en', 'US'), Locale('zh', 'CN')],
       path: 'assets/translations',
@@ -84,7 +84,7 @@ void main() async {
       saveLocale: false,
       child: MultiProvider(
         providers: [
-          ChangeNotifierProvider(create: (context) => gpsRecordingState),
+          ChangeNotifierProvider(create: (context) => gpsManager),
           ChangeNotifierProvider(create: (context) => updateNotifier),
         ],
         child: const MyApp(),

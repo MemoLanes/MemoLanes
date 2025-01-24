@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/component/base_map_webview.dart';
 import 'package:memolanes/component/map_controls/accuracy_display.dart';
 import 'package:memolanes/component/map_controls/tracking_button.dart';
-// TODO: maybe we still need to store some states..
-// import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:json_annotation/json_annotation.dart';
 import 'package:memolanes/gps_page.dart';
