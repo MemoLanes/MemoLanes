@@ -1,21 +1,60 @@
-# WASM examples
+# Journey Kernel Library
 
-1. build the package
-
-```
-wasm-pack build --target web --features wasm --no-default-features
-```
-
-2. run the tests natively (the test will generate the `journey_bitmap.bin` file)
 
 ```
-cargo test
+⚠️ When making changes to this library, remember to bump the ver`sion number in `Cargo.toml`. 
+This ensures main rust project will properly rebuild the WASM module with the changes.
 ```
 
-3. modify the `examples/journey_view.html` MAPBOX_ACCESS_TOKEN and open it with web server (live server, vscode live server, etc. we need the access file through relative path)
+This library is used to render journey bitmaps in the app. It supports both native and WASM.
 
-4. make sure links to `journey_bitmap.bin` in `examples/journey-sw.js` and `examples/journey_view.html` are correct.
+## JavaScript APIs
 
-5. open the `journey_view.html` in browser. You may see the following effect:
+| API | Description | Parameters | Return Value |
+|-----|-------------|------------|--------------|
+| `window.updateLocationMarker(lng, lat, show, flyto)` | Updates the current location marker | `lng`: longitude (number)<br>`lat`: latitude (number)<br>`show`: visibility (boolean, default: true)<br>`flyto`: animate to location (boolean, default: false) | void |
+| `window.getCurrentMapView()` | Gets current map position | none | `{lng: number, lat: number, zoom: number}` |
+| `window.triggerJourneyUpdate()` | Manually triggers data update | none | Promise |
 
-![journey_view](journey_view.png)
+### URL Hash Parameters
+
+Since flutter webview may not have a reliable way to inject JS *before* the page loads, we use URL hash parameters to optionally set the initial map position. The hash parameters can guarantee the location is set before the map is initialized.
+
+All the parameters are optional.
+
+```
+https://example.com/#journey_id=XXXXX&lng=100.0&lat=30.0&zoom=19
+```
+
+| Parameter | Description | Type |
+|-----------|-------------|------|
+| `journey_id` | Initial journey id | string |
+| `lng` | Initial longitude | number |
+| `lat` | Initial latitude | number |
+| `zoom` | Initial zoom level | number |
+
+## Web Development
+
+The webpack project contains two special files that is handled differently in development and production:
+
+- `journey_bitmap.bin`
+- `token.json`
+
+These two files are statically generated in dev mode, but will be hosted dynamically in production.
+
+### Development
+
+1. Run `setup_token.py` in the `app` folder to generate the `token.json` file.
+2. Run `cargo test` in the `app/journey_kernel` folder to generate the `journey_bitmap.bin` file.
+3. Run `yarn dev` in the `app/journey_kernel` folder to start the webpack dev server.
+
+### Production
+
+1. run `yarn build` to generate the static sites without the above two files. The output will be in the `dist` folder. (As an intermediate step, the wasm-pack will also generate wasm files in the `pkg` folder.)
+2. run the following command in the `app/rust` folder:
+
+```bash
+cargo run --example server
+```
+
+The rust demo server is exactly the same as the one in the app. You may check the file at `app/rust/src/renderer/map_server.rs`.

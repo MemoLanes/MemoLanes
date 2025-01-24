@@ -14,3 +14,11 @@ target/
 *.pdb
 
 # End of https://www.toptal.com/developers/gitignore/api/rust
+
+static/token.json
+node_modules/
+dist/
+pkg/
+journey_bitmap.bin
+
+

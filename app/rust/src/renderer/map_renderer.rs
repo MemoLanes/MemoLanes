@@ -1,3 +1,4 @@
+use crate::api::api::CameraOption;
 use crate::renderer::utils::image_to_png_data;
 use crate::renderer::utils::{DEFAULT_BG_COLOR, DEFAULT_FG_COLOR, DEFAULT_TILE_SIZE};
 use crate::renderer::TileRendererBasic;
@@ -29,6 +30,13 @@ struct RenderArea {
 
 pub struct MapRenderer {
     journey_bitmap: JourneyBitmap,
+
+    // For new web based renderer
+    changed: bool,
+    // TODO: when we switch to flutter side control, we should remove this
+    provisioned_camera_option: Option<CameraOption>,
+
+    // For old renderer
     tile_renderer: Box<dyn TileRendererTrait + Send + Sync>,
     bg_color: Rgba<u8>,
     fg_color: Rgba<u8>,
@@ -47,11 +55,21 @@ impl MapRenderer {
     ) -> Self {
         Self {
             journey_bitmap,
+            changed: false,
+            provisioned_camera_option: None,
             tile_renderer,
             bg_color: DEFAULT_BG_COLOR,
             fg_color: DEFAULT_FG_COLOR,
             current_render_area: None,
         }
+    }
+
+    pub fn set_provisioned_camera_option(&mut self, camera_option: Option<CameraOption>) {
+        self.provisioned_camera_option = camera_option;
+    }
+
+    pub fn get_provisioned_camera_option(&self) -> Option<CameraOption> {
+        self.provisioned_camera_option
     }
 
     fn render_map_overlay(&self, render_area: &RenderArea) -> RenderResult {
@@ -158,10 +176,31 @@ impl MapRenderer {
     {
         f(&mut self.journey_bitmap);
         // TODO: we should improve the cache invalidation rule
+        self.changed = true;
+        self.current_render_area = None;
+    }
+
+    pub fn replace(&mut self, journey_bitmap: JourneyBitmap) {
+        self.journey_bitmap = journey_bitmap;
+        self.changed = true;
         self.current_render_area = None;
     }
 
     pub fn reset(&mut self) {
+        self.changed = true;
         self.current_render_area = None;
+    }
+
+    pub fn changed(&self) -> bool {
+        self.changed
+    }
+
+    pub fn get_latest_bitmap_if_changed(&mut self) -> Option<&JourneyBitmap> {
+        if self.changed {
+            self.changed = false;
+            Some(&self.journey_bitmap)
+        } else {
+            None
+        }
     }
 }

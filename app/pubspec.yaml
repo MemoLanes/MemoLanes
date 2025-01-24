@@ -50,7 +50,6 @@ dependencies:
   file_picker: ^8.1.0
   freezed_annotation: ^2.4.4
   fluttertoast: ^8.2.6
-  mapbox_maps_flutter: ^2.4.0
   intl: ^0.19.0
   package_info_plus: ^8.0.0
   device_info_plus: ^11.2.0
@@ -63,6 +62,7 @@ dependencies:
   json_annotation: ^4.9.0
   async: ^2.11.0
   calendar_date_picker2: ^1.1.7
+  webview_flutter: ^4.8.0
 
 dependency_overrides:
   geolocator_android:
