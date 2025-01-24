@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:memolanes/gps_manager.dart';
+import 'package:memolanes/gps_page.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:provider/provider.dart';
-import 'package:memolanes/gps_recording_state.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -40,6 +41,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     if (_trackingMode == newMode) return;
 
     _trackingMode = newMode;
+    Provider.of<GpsManager>(context, listen: false)
+        .toggleMapTracking(trackingMode != TrackingMode.off);
     widget.onTrackingModeChanged?.call(_trackingMode);
 
     if (mounted) {
@@ -76,6 +79,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   void initState() {
     super.initState();
     _trackingMode = widget.initialTrackingMode;
+    Provider.of<GpsManager>(context, listen: false)
+        .toggleMapTracking(trackingMode != TrackingMode.off);
     _initWebView();
   }
 
@@ -126,7 +131,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   void _updateLocationMarker(BuildContext context) {
     if (_webViewController == null) return;
 
-    final gpsState = context.read<GpsRecordingState>();
+    final gpsState = context.read<GpsManager>();
     final position = gpsState.latestPosition;
 
     if (_trackingMode == TrackingMode.off) {
@@ -152,7 +157,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   @override
   Widget build(BuildContext context) {
     if (_trackingMode != TrackingMode.off) {
-      context.watch<GpsRecordingState>().latestPosition;
+      context.watch<GpsManager>().latestPosition;
       _updateLocationMarker(context);
     }
 
