@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-import 'component/common_dialog.dart';
+import 'component/common_dialog_copy.dart';
 
 Future<bool> showCommonDialog(BuildContext context, String message,
     {hasCancel = false,
@@ -45,4 +45,38 @@ Future<bool> showCommonDialog(BuildContext context, String message,
     },
   );
   return result ?? false;
+}
+
+Future<void> showLoadingDialog({
+  required BuildContext context,
+}) async {
+  if (!context.mounted) return;
+
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext context) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: Center(
+          child: Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(
+                  strokeWidth: 3.0,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
 }
