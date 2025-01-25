@@ -53,8 +53,8 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
         let mut storage = Storage::init(temp_dir, doc_dir, support_dir, cache_dir);
         info!("initialized");
 
-        let mut map_server = MapServer::create_and_start("localhost", 0)
-            .expect("Failed to start journey kernel server");
+        let mut map_server = MapServer::create_and_start("localhost", None)
+            .expect("Failed to start map server");
         info!("map server started");
 
         // ======= WebView Transition codes START ===========

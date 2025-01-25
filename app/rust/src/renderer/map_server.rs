@@ -1,5 +1,5 @@
-use actix_web::dev::Service;
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
+use anyhow::Result;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, Weak};
@@ -121,102 +121,94 @@ async fn serve_journey_bitmap_provisioned_camera_option_by_id(
 pub struct MapServer {
     handle: Option<thread::JoinHandle<()>>,
     registry: Arc<Mutex<Registry>>,
-    url: Arc<Mutex<String>>,
+    url: String,
 }
 
 impl MapServer {
-    pub fn create_and_start(host: &str, port: u16) -> std::io::Result<Self> {
-        let mut server = Self {
-            handle: None,
-            registry: Arc::new(Mutex::new(Registry::new())),
-            url: Arc::new(Mutex::new(String::new())),
-        };
-        server.start(host, port)?;
-        Ok(server)
+    fn start_server_blocking<F>(
+        host: &str,
+        port: Option<u16>,
+        registry: Arc<Mutex<Registry>>,
+        ready_with_url: F,
+    ) -> Result<()>
+    where
+        F: FnOnce(String) -> (),
+    {
+        let runtime = Runtime::new()?;
+        runtime.block_on(async move {
+            info!("Setting up map server ...");
+            let data = web::Data::new(registry);
+            let server = HttpServer::new(move || {
+                App::new()
+                    .app_data(data.clone())
+                    .route(
+                        "/journey/{id}/journey_bitmap.bin",
+                        web::get().to(serve_journey_bitmap_by_id),
+                    )
+                    .route(
+                        "/journey/{id}/provisioned_camera_option",
+                        web::get().to(serve_journey_bitmap_provisioned_camera_option_by_id),
+                    )
+                    .route("/", web::get().to(index))
+                    .route("/bundle.js", web::get().to(serve_journey_kernel_js))
+                    .route(
+                        "/journey_kernel_bg.wasm",
+                        web::get().to(serve_journey_kernel_wasm),
+                    )
+                    .route("/token.json", web::get().to(serve_token_json))
+            })
+            .bind((host, port.unwrap_or(0)))?;
+
+            let actual_port = match port {
+                Some(port) => port,
+                None => {
+                    if let Some(addr) = server.addrs().first() {
+                        addr.port()
+                    } else {
+                        return Err(anyhow!("Failed to get server address"));
+                    }
+                }
+            };
+            info!("Server bound successfully to {}:{}", host, actual_port);
+            ready_with_url(format!("http://{}:{}/", host, actual_port));
+            // the error below is just ignored but we don't care a lot
+            server.run().await?;
+            Ok(())
+        })
+    }
+
+    pub fn create_and_start(host: &str, port: Option<u16>) -> Result<Self> {
+        let registry = Arc::new(Mutex::new(Registry::new()));
+
+        // Create a channel to get the URL when the server is ready
+        let (tx, rx) = std::sync::mpsc::channel();
+
+        let host = host.to_owned();
+        let registry_for_move = registry.clone();
+        let handle = thread::spawn(move || {
+            match Self::start_server_blocking(&host, port, registry_for_move, |url| {
+                let _ = tx.send(Ok(url));
+            }) {
+                Ok(()) => (),
+                Err(e) => {
+                    let _ = tx.send(Err(e));
+                }
+            }
+            info!("Map server stopped");
+        });
+
+        // wait for the first message from the channel, either the URL or an error
+        let url = rx.recv()??;
+
+        Ok(Self {
+            handle: Some(handle),
+            registry,
+            url,
+        })
     }
 
     pub fn get_url(&self) -> String {
-        self.url.lock().unwrap().clone()
-    }
-
-    // Start the server in a separate thread
-    fn start(&mut self, host: &str, port: u16) -> std::io::Result<()> {
-        let host = host.to_string();
-        let mut port = port;
-        let random_prefix = Uuid::new_v4().to_string();
-        let random_prefix2 = random_prefix.clone();
-
-        let url = self.url.clone();
-
-        // Create a channel to signal when the URL prefix is set
-        let (tx, rx) = std::sync::mpsc::channel();
-
-        let data = web::Data::new(self.registry.clone());
-        let handle = thread::spawn(move || {
-            let runtime = Runtime::new().expect("Failed to create Tokio runtime");
-            runtime.block_on(async move {
-                info!("Setting up server routes...");
-                let server = HttpServer::new(move || {
-                    App::new()
-                        .app_data(data.clone())
-                        .wrap_fn(|req, srv| {
-                            info!("Incoming request: {} {}", req.method(), req.uri());
-                            srv.call(req)
-                        })
-                        .route(
-                            &format!("/{}/journey/{{id}}/journey_bitmap.bin", random_prefix),
-                            web::get().to(serve_journey_bitmap_by_id),
-                        )
-                        .route(
-                            &format!(
-                                "/{}/journey/{{id}}/provisioned_camera_option",
-                                random_prefix
-                            ),
-                            web::get().to(serve_journey_bitmap_provisioned_camera_option_by_id),
-                        )
-                        .route(&format!("/{}/", random_prefix), web::get().to(index))
-                        .route(
-                            &format!("/{}/bundle.js", random_prefix),
-                            web::get().to(serve_journey_kernel_js),
-                        )
-                        .route(
-                            &format!("/{}/journey_kernel_bg.wasm", random_prefix),
-                            web::get().to(serve_journey_kernel_wasm),
-                        )
-                        .route(
-                            &format!("/{}/token.json", random_prefix).to_string(),
-                            web::get().to(serve_token_json),
-                        )
-                })
-                .bind(format!("{}:{}", host, port))
-                .expect("Failed to bind server");
-
-                // If port was 0, get the actual port and update registry's URL prefix
-                if port == 0 {
-                    if let Some(addr) = server.addrs().first() {
-                        let actual_port = addr.port();
-                        port = actual_port;
-                    }
-                }
-
-                {
-                    let mut url_mut = url.lock().unwrap();
-                    *url_mut = format!("http://{}:{}/{}/", host, port, random_prefix2);
-                }
-
-                // Signal that the URL prefix is set
-                tx.send(()).expect("Failed to send completion signal");
-
-                info!("Server bound successfully to {}:{}", host, port);
-                server.run().await.expect("Server failed to run");
-            });
-        });
-
-        // Wait for the URL prefix to be set
-        rx.recv().expect("Failed to receive completion signal");
-
-        self.handle = Some(handle);
-        Ok(())
+        self.url.clone()
     }
 
     pub fn register_map_renderer(

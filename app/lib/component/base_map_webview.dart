@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:memolanes/gps_manager.dart';
-import 'package:memolanes/gps_page.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -157,40 +156,14 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   @override
   Widget build(BuildContext context) {
     if (_trackingMode != TrackingMode.off) {
-      context.watch<GpsManager>().latestPosition;
       _updateLocationMarker(context);
     }
 
-    // TODO: remove the debug panel before merging
-    return Stack(
-      children: [
-        if (_webViewController == null)
-          Container()
-        else
-          WebViewWidget(
-            key: const ValueKey('map_webview'),
-            controller: _webViewController!,
-          ),
-        // Simplified debug overlay
-        Positioned(
-          left: 16,
-          top: 16,
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.7),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              'Tracking: $_trackingMode',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
+    var webViewController = _webViewController;
+    if (webViewController == null) {
+      return Container();
+    }
+    return WebViewWidget(
+        key: const ValueKey('map_webview'), controller: webViewController);
   }
 }
