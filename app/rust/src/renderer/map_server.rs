@@ -122,6 +122,10 @@ impl MapServer {
     where
         F: FnOnce(String),
     {
+        let port = match port {
+            Some(0) => None,
+            x => x,
+        };
         let runtime = Runtime::new()?;
         runtime.block_on(async move {
             info!("Setting up map server ...");
