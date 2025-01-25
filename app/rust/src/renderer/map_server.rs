@@ -59,18 +59,12 @@ impl Drop for MapRendererToken {
 }
 
 async fn serve_journey_bitmap_by_id(
-    id: web::Path<String>,
+    id: web::Path<Uuid>,
     req: HttpRequest,
     data: web::Data<Arc<Mutex<Registry>>>,
 ) -> HttpResponse {
-    info!("serving item: {}", id);
     let registry = data.lock().unwrap();
-
-    // Parse UUID and get item from registry
-    match Uuid::parse_str(&id)
-        .ok()
-        .and_then(|uuid| registry.get(&uuid))
-    {
+    match registry.get(&id) {
         Some(item) => {
             let mut map_renderer = item.lock().unwrap();
 
@@ -98,17 +92,11 @@ async fn serve_journey_bitmap_by_id(
 }
 
 async fn serve_journey_bitmap_provisioned_camera_option_by_id(
-    id: web::Path<String>,
+    id: web::Path<Uuid>,
     data: web::Data<Arc<Mutex<Registry>>>,
 ) -> HttpResponse {
-    info!("serving item: {}", id);
     let registry = data.lock().unwrap();
-
-    // Parse UUID and get item from registry
-    match Uuid::parse_str(&id)
-        .ok()
-        .and_then(|uuid| registry.get(&uuid))
-    {
+    match registry.get(&id) {
         Some(item) => {
             let map_renderer = item.lock().unwrap();
             let camera_option = map_renderer.get_provisioned_camera_option();
@@ -132,7 +120,7 @@ impl MapServer {
         ready_with_url: F,
     ) -> Result<()>
     where
-        F: FnOnce(String) -> (),
+        F: FnOnce(String),
     {
         let runtime = Runtime::new()?;
         runtime.block_on(async move {
