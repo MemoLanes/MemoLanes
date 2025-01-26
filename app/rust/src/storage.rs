@@ -135,8 +135,7 @@ impl Storage {
         let mut dbs = self.dbs.lock().unwrap();
         let (ref mut main_db, ref cache_db) = *dbs;
 
-        // Store whether we need to call the callback
-        let mut should_call_callback = false;
+        let mut finalized_journey_changed = false;
 
         let output = main_db.with_txn(|txn| {
             let output = f(txn)?;
@@ -157,18 +156,18 @@ impl Storage {
                             }
                         }
                     };
-                    should_call_callback = true;
+                    finalized_journey_changed = true;
                 }
             }
 
             Ok(output)
         })?;
 
-        // Drop the lock before calling the callback
+        // Make using we are not holding the lock when calling the callback
+        // TODO: This is still error-prone, and easy to cause deadlock. Consider
+        // using a separate thread to call the callback.
         drop(dbs);
-
-        // Call callback if needed
-        if should_call_callback {
+        if finalized_journey_changed {
             (self.finalized_journey_changed_callback)(self);
         }
 

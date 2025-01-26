@@ -149,7 +149,8 @@ impl MapServer {
                     )
                     .route("/token.json", web::get().to(serve_token_json))
             })
-            .bind((host, port.unwrap_or(0)))?;
+            .bind((host, port.unwrap_or(0)))?
+            .workers(1);
 
             let actual_port = match port {
                 Some(port) => port,
