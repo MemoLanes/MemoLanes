@@ -15,39 +15,21 @@ enum TrackingMode {
 
 class BaseMapWebview extends StatefulWidget {
   final api.MapRendererProxy mapRendererProxy;
-  final TrackingMode initialTrackingMode;
-  final void Function(TrackingMode)? onTrackingModeChanged;
-  const BaseMapWebview({
-    super.key,
-    required this.mapRendererProxy,
-    this.initialTrackingMode = TrackingMode.off,
-    this.onTrackingModeChanged,
-  });
+  final TrackingMode trackingMode;
+  final void Function()? onMapMoved;
+  const BaseMapWebview(
+      {super.key,
+      required this.mapRendererProxy,
+      this.trackingMode = TrackingMode.off,
+      this.onMapMoved});
 
   @override
   State<StatefulWidget> createState() => BaseMapWebviewState();
 }
 
 class BaseMapWebviewState extends State<BaseMapWebview> {
-  WebViewController? _webViewController;
-  late TrackingMode _trackingMode;
-
-  // Getter for external access
-  TrackingMode get trackingMode => _trackingMode;
-
-  // Method to update tracking mode from outside
-  void updateTrackingMode(TrackingMode newMode) {
-    if (_trackingMode == newMode) return;
-
-    _trackingMode = newMode;
-    Provider.of<GpsManager>(context, listen: false)
-        .toggleMapTracking(trackingMode != TrackingMode.off);
-    widget.onTrackingModeChanged?.call(_trackingMode);
-
-    if (mounted) {
-      _updateLocationMarker(context);
-    }
-  }
+  late WebViewController _webViewController;
+  late GpsManager _gpsManager;
 
   @override
   void didUpdateWidget(BaseMapWebview oldWidget) {
@@ -60,27 +42,55 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   }
 
   Future<void> _updateMapUrl() async {
-    if (_webViewController == null) return;
-
     final url = widget.mapRendererProxy.getUrl();
 
     // TODO: currently when trackingMode updates, the upper layer will trigger a
     // rebuid of this widget? we should not reload the page if url is unchanged
     // this may be an iOS bug to be investigated further
-    final currentUrl = await _webViewController?.currentUrl();
+    final currentUrl = await _webViewController.currentUrl();
 
     if (currentUrl != url) {
-      await _webViewController?.loadRequest(Uri.parse(url));
+      await _webViewController.loadRequest(Uri.parse(url));
     }
   }
 
   @override
   void initState() {
     super.initState();
-    _trackingMode = widget.initialTrackingMode;
-    Provider.of<GpsManager>(context, listen: false)
-        .toggleMapTracking(trackingMode != TrackingMode.off);
+    _webViewController = WebViewController();
+    _gpsManager = Provider.of<GpsManager>(context, listen: false);
+    _gpsManager.addListener(_gpsManagerListener);
     _initWebView();
+  }
+
+  @override
+  void dispose() {
+    _gpsManager.removeListener(_gpsManagerListener);
+    super.dispose();
+  }
+
+  void _gpsManagerListener() {
+    if (widget.trackingMode == TrackingMode.off) {
+      _webViewController.runJavaScript('''
+        if (typeof updateLocationMarker === 'function') {
+          updateLocationMarker(0, 0, false);
+        }
+      ''');
+    } else {
+      final position = _gpsManager.latestPosition;
+      if (position != null) {
+        _webViewController.runJavaScript('''
+        if (typeof updateLocationMarker === 'function') {
+          updateLocationMarker(
+            ${position.longitude}, 
+            ${position.latitude}, 
+            true, 
+            ${widget.trackingMode == TrackingMode.displayAndTracking}
+          );
+        }
+      ''');
+      }
+    }
   }
 
 // TODO: solve the following known issues:
@@ -90,7 +100,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 //     ref (another WKPreference setting): https://github.com/flutter/flutter/issues/112276
 // 2. ios double-tap zoom not working (triple tap needed, maybe related to tap event capture)
   Future<void> _initWebView() async {
-    _webViewController = WebViewController()
+    _webViewController
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
@@ -112,58 +122,17 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       ..addJavaScriptChannel(
         'onMapMoved',
         onMessageReceived: (JavaScriptMessage message) {
-          if (_trackingMode == TrackingMode.displayAndTracking) {
-            updateTrackingMode(TrackingMode.displayOnly);
-          }
+          widget.onMapMoved?.call();
         },
       );
 
     final url = widget.mapRendererProxy.getUrl();
-    await _webViewController?.loadRequest(Uri.parse(url));
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
-  void _updateLocationMarker(BuildContext context) {
-    if (_webViewController == null) return;
-
-    final gpsState = context.read<GpsManager>();
-    final position = gpsState.latestPosition;
-
-    if (_trackingMode == TrackingMode.off) {
-      _webViewController?.runJavaScript('''
-        if (typeof updateLocationMarker === 'function') {
-          updateLocationMarker(0, 0, false);
-        }
-      ''');
-    } else if (position != null) {
-      _webViewController?.runJavaScript('''
-        if (typeof updateLocationMarker === 'function') {
-          updateLocationMarker(
-            ${position.longitude}, 
-            ${position.latitude}, 
-            true, 
-            ${_trackingMode == TrackingMode.displayAndTracking}
-          );
-        }
-      ''');
-    }
+    await _webViewController.loadRequest(Uri.parse(url));
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_trackingMode != TrackingMode.off) {
-      _updateLocationMarker(context);
-    }
-
-    var webViewController = _webViewController;
-    if (webViewController == null) {
-      return Container();
-    }
     return WebViewWidget(
-        key: const ValueKey('map_webview'), controller: webViewController);
+        key: const ValueKey('map_webview'), controller: _webViewController);
   }
 }

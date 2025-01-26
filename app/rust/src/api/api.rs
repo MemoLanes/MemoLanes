@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::sync::{Arc, Mutex, OnceLock};
 
-use anyhow::{Ok, Result};
+use anyhow::Result;
 use chrono::NaiveDate;
 use flutter_rust_bridge::frb;
 
@@ -24,10 +24,11 @@ use super::import::JourneyInfo;
 #[frb(ignore)]
 pub(super) struct MainState {
     pub storage: Storage,
-    pub main_map_renderer: Arc<Mutex<MapRenderer>>,
     pub gps_preprocessor: Mutex<GpsPreprocessor>,
     pub map_server: Mutex<Option<MapServer>>,
-    pub token: MapRendererToken,
+    // TODO: we should reconsider the way we handle the main map
+    pub main_map_renderer: Arc<Mutex<MapRenderer>>,
+    pub main_map_renderer_token: MapRendererToken,
 }
 
 static MAIN_STATE: OnceLock<MainState> = OnceLock::new();
@@ -53,8 +54,8 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
         let mut storage = Storage::init(temp_dir, doc_dir, support_dir, cache_dir);
         info!("initialized");
 
-        let mut map_server = MapServer::create_and_start("localhost", None)
-            .expect("Failed to start map server");
+        let mut map_server =
+            MapServer::create_and_start("localhost", None).expect("Failed to start map server");
         info!("map server started");
 
         // ======= WebView Transition codes START ===========
@@ -65,10 +66,16 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
         // TODO: redesign the callback to better handle locks and avoid deadlocks
         storage.set_finalized_journey_changed_callback(Box::new(move |storage| {
             let mut map_renderer = main_map_renderer_copy.lock().unwrap();
-            let journey_bitmap = storage.get_latest_bitmap_for_main_map_renderer().unwrap();
-            map_renderer.replace(journey_bitmap);
+            match storage.get_latest_bitmap_for_main_map_renderer() {
+                Err(e) => {
+                    error!("Failed to get latest bitmap for main map renderer: {:?}", e);
+                }
+                Ok(journey_bitmap) => {
+                    map_renderer.replace(journey_bitmap);
+                }
+            }
         }));
-        let token = map_server.register_map_renderer(main_map_renderer.clone());
+        let main_map_renderer_token = map_server.register_map_renderer(main_map_renderer.clone());
         info!("main map renderer initialized");
         // ======= WebView Transition codes END ===========
 
@@ -77,7 +84,7 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
             main_map_renderer,
             gps_preprocessor: Mutex::new(GpsPreprocessor::new()),
             map_server: Mutex::new(Some(map_server)),
-            token,
+            main_map_renderer_token,
         }
     });
     if already_initialized {
@@ -101,7 +108,7 @@ impl MapRendererProxy {
 
 #[frb(sync)]
 pub fn get_map_renderer_proxy_for_main_map() -> MapRendererProxy {
-    let token = get().token.clone_temporary_token();
+    let token = get().main_map_renderer_token.clone_temporary_token();
 
     MapRendererProxy::Token(token)
 }
