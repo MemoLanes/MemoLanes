@@ -130,7 +130,7 @@ fn generate_mapbox_token_const() {
 fn main() {
     // TODO: we need to optimize this build script, especially the 3 steps below.
     // It is slow (this need to be triggered frequently) and more of the dections
-    // are a bit weird: e.g. `rustc-env` can hurt incremental build a bit. 
+    // are a bit weird: e.g. `rustc-env` can hurt incremental build a bit.
     // using version in `cargo.toml` is not so reliable.
     check_yarn_dependencies();
     build_journey_kernel_wasm();

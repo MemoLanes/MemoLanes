@@ -29,7 +29,8 @@ fn draw_line4(journey_bitmap: &mut JourneyBitmap) {
 }
 
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut server = MapServer::create_and_start("localhost", None).expect("Failed to start server");
+    let mut server =
+        MapServer::create_and_start("localhost", None).expect("Failed to start server");
 
     std::thread::sleep(Duration::from_millis(200));
 
