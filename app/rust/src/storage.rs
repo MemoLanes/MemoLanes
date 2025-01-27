@@ -89,6 +89,8 @@ impl RawDataRecorder {
     }
 }
 
+type FinalizedJourneyChangedCallback = Box<dyn Fn(&Storage) + Send + Sync + 'static>;
+
 pub struct Storage {
     support_dir: String,
     raw_data_recorder: Mutex<Option<RawDataRecorder>>, // `None` means disabled
@@ -99,7 +101,7 @@ pub struct Storage {
     // NOTE: both db are deliberately hidden so all operations need to go
     // through `Storage` to make sure they are in sync.
     dbs: Mutex<(MainDb, CacheDb)>,
-    main_map_renderer_need_to_reload: Mutex<bool>,
+    finalized_journey_changed_callback: FinalizedJourneyChangedCallback,
 }
 
 impl Storage {
@@ -122,7 +124,7 @@ impl Storage {
             raw_data_recorder: Mutex::new(raw_data_recorder),
             cache_dir,
             dbs: Mutex::new((main_db, cache_db)),
-            main_map_renderer_need_to_reload: Mutex::new(true),
+            finalized_journey_changed_callback: Box::new(|_| {}),
         }
     }
 
@@ -132,7 +134,10 @@ impl Storage {
     {
         let mut dbs = self.dbs.lock().unwrap();
         let (ref mut main_db, ref cache_db) = *dbs;
-        main_db.with_txn(|txn| {
+
+        let mut finalized_journey_changed = false;
+
+        let output = main_db.with_txn(|txn| {
             let output = f(txn)?;
 
             match &txn.action {
@@ -151,14 +156,22 @@ impl Storage {
                             }
                         }
                     };
-                    let mut main_map_renderer_need_to_reload =
-                        self.main_map_renderer_need_to_reload.lock().unwrap();
-                    *main_map_renderer_need_to_reload = true;
+                    finalized_journey_changed = true;
                 }
             }
 
             Ok(output)
-        })
+        })?;
+
+        // Make using we are not holding the lock when calling the callback
+        // TODO: This is still error-prone, and easy to cause deadlock. Consider
+        // using a separate thread to call the callback.
+        drop(dbs);
+        if finalized_journey_changed {
+            (self.finalized_journey_changed_callback)(self);
+        }
+
+        Ok(output)
     }
 
     pub fn toggle_raw_data_mode(&self, enable: bool) {
@@ -242,10 +255,11 @@ impl Storage {
         result
     }
 
-    pub fn main_map_renderer_need_to_reload(&self) -> bool {
-        let main_map_renderer_need_to_reload =
-            self.main_map_renderer_need_to_reload.lock().unwrap();
-        *main_map_renderer_need_to_reload
+    pub fn set_finalized_journey_changed_callback(
+        &mut self,
+        callback: FinalizedJourneyChangedCallback,
+    ) {
+        self.finalized_journey_changed_callback = callback;
     }
 
     pub fn get_latest_bitmap_for_main_map_renderer(&self) -> Result<JourneyBitmap> {
@@ -256,10 +270,6 @@ impl Storage {
         let journey_bitmap =
             merged_journey_builder::get_latest_including_ongoing(main_db, cache_db)?;
         drop(dbs);
-
-        let mut main_map_renderer_need_to_reload =
-            self.main_map_renderer_need_to_reload.lock().unwrap();
-        *main_map_renderer_need_to_reload = false;
 
         Ok(journey_bitmap)
     }

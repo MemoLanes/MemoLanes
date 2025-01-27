@@ -1,8 +1,7 @@
-use std::cmp::max;
 use std::fs::File;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 
-use anyhow::{Ok, Result};
+use anyhow::Result;
 use chrono::NaiveDate;
 use flutter_rust_bridge::frb;
 
@@ -10,10 +9,13 @@ use crate::gps_processor::{GpsPreprocessor, ProcessResult};
 use crate::journey_bitmap::{JourneyBitmap, MAP_WIDTH_OFFSET, TILE_WIDTH, TILE_WIDTH_OFFSET};
 use crate::journey_data::JourneyData;
 use crate::journey_header::JourneyHeader;
-use crate::renderer::{MapRenderer, RenderResult};
+use crate::renderer::map_server::MapRendererToken;
+use crate::renderer::MapRenderer;
+use crate::renderer::MapServer;
 use crate::storage::Storage;
 use crate::{archive, build_info, export_data, gps_processor, merged_journey_builder, storage};
 use crate::{logs, utils};
+use serde::{Deserialize, Serialize};
 
 use super::import::JourneyInfo;
 
@@ -22,8 +24,11 @@ use super::import::JourneyInfo;
 #[frb(ignore)]
 pub(super) struct MainState {
     pub storage: Storage,
-    pub map_renderer: Mutex<Option<MapRenderer>>,
     pub gps_preprocessor: Mutex<GpsPreprocessor>,
+    pub map_server: Mutex<Option<MapServer>>,
+    // TODO: we should reconsider the way we handle the main map
+    pub main_map_renderer: Arc<Mutex<MapRenderer>>,
+    pub main_map_renderer_token: MapRendererToken,
 }
 
 static MAIN_STATE: OnceLock<MainState> = OnceLock::new();
@@ -46,13 +51,40 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
         // init logging
         logs::init(&cache_dir).expect("Failed to initialize logging");
 
-        let storage = Storage::init(temp_dir, doc_dir, support_dir, cache_dir);
+        let mut storage = Storage::init(temp_dir, doc_dir, support_dir, cache_dir);
         info!("initialized");
+
+        let mut map_server =
+            MapServer::create_and_start("localhost", None).expect("Failed to start map server");
+        info!("map server started");
+
+        // ======= WebView Transition codes START ===========
+        // TODO: this is a temporary solution for WebView transition
+        let journey_bitmap = storage.get_latest_bitmap_for_main_map_renderer().unwrap();
+        let main_map_renderer = Arc::new(Mutex::new(MapRenderer::new(journey_bitmap)));
+        let main_map_renderer_copy = main_map_renderer.clone();
+        // TODO: redesign the callback to better handle locks and avoid deadlocks
+        storage.set_finalized_journey_changed_callback(Box::new(move |storage| {
+            let mut map_renderer = main_map_renderer_copy.lock().unwrap();
+            match storage.get_latest_bitmap_for_main_map_renderer() {
+                Err(e) => {
+                    error!("Failed to get latest bitmap for main map renderer: {:?}", e);
+                }
+                Ok(journey_bitmap) => {
+                    map_renderer.replace(journey_bitmap);
+                }
+            }
+        }));
+        let main_map_renderer_token = map_server.register_map_renderer(main_map_renderer.clone());
+        info!("main map renderer initialized");
+        // ======= WebView Transition codes END ===========
 
         MainState {
             storage,
-            map_renderer: Mutex::new(None),
+            main_map_renderer,
             gps_preprocessor: Mutex::new(GpsPreprocessor::new()),
+            map_server: Mutex::new(Some(map_server)),
+            main_map_renderer_token,
         }
     });
     if already_initialized {
@@ -62,96 +94,68 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
 
 #[frb(opaque)]
 pub enum MapRendererProxy {
-    MainMap,
-    Simple(MapRenderer),
+    Token(MapRendererToken),
 }
 
 impl MapRendererProxy {
-    pub fn render_map_overlay(
-        &mut self,
-        zoom: f32,
-        left: f64,
-        top: f64,
-        right: f64,
-        bottom: f64,
-    ) -> Option<RenderResult> {
-        // TODO: right now the quality of zoom = 1 is really bad.
-        let zoom = max(zoom as i32, 2);
-
+    #[frb(sync)]
+    pub fn get_url(&self) -> String {
         match self {
-            Self::MainMap => {
-                // TODO: now that we have `MapRendererProxy`, we should rethink the logic below.
-                let state = get();
-                let mut map_renderer = state.map_renderer.lock().unwrap();
-                if state.storage.main_map_renderer_need_to_reload() {
-                    *map_renderer = None;
-                }
-
-                map_renderer
-                    .get_or_insert_with(|| {
-                        // TODO: error handling?
-                        let journey_bitmap = state
-                            .storage
-                            .get_latest_bitmap_for_main_map_renderer()
-                            .unwrap();
-                        MapRenderer::new(journey_bitmap)
-                    })
-                    .maybe_render_map_overlay(zoom, left, top, right, bottom)
-            }
-            Self::Simple(map_renderer) => {
-                map_renderer.maybe_render_map_overlay(zoom, left, top, right, bottom)
-            }
-        }
-    }
-
-    pub fn reset_map_renderer(&mut self) {
-        match self {
-            Self::MainMap => {
-                let state = get();
-                let mut map_renderer = state.map_renderer.lock().unwrap();
-
-                if let Some(map_renderer) = &mut *map_renderer {
-                    map_renderer.reset();
-                }
-            }
-            Self::Simple(map_renderer) => {
-                map_renderer.reset();
-            }
+            MapRendererProxy::Token(token) => token.url(),
         }
     }
 }
 
 #[frb(sync)]
 pub fn get_map_renderer_proxy_for_main_map() -> MapRendererProxy {
-    MapRendererProxy::MainMap
+    let token = get().main_map_renderer_token.clone_temporary_token();
+
+    MapRendererProxy::Token(token)
 }
 
+// TODO: does this interface necessary?
 #[frb(sync)]
 pub fn get_empty_map_renderer_proxy() -> MapRendererProxy {
+    let state = get();
+
     let journey_bitmap = JourneyBitmap::new();
+
+    let mut server = state.map_server.lock().unwrap();
     let map_renderer = MapRenderer::new(journey_bitmap);
-    MapRendererProxy::Simple(map_renderer)
+    let token = server
+        .as_mut()
+        .unwrap()
+        .register_map_renderer(Arc::new(Mutex::new(map_renderer)));
+    MapRendererProxy::Token(token)
 }
 
 pub fn get_map_renderer_proxy_for_journey_date_range(
     from_date_inclusive: NaiveDate,
     to_date_inclusive: NaiveDate,
 ) -> Result<MapRendererProxy> {
-    let journey_bitmap = get().storage.with_db_txn(|txn| {
+    let state = get();
+    let journey_bitmap = state.storage.with_db_txn(|txn| {
         merged_journey_builder::get_range(txn, from_date_inclusive, to_date_inclusive)
     })?;
+
+    let mut server = state.map_server.lock().unwrap();
     let map_renderer = MapRenderer::new(journey_bitmap);
-    Ok(MapRendererProxy::Simple(map_renderer))
+    let token = server
+        .as_mut()
+        .unwrap()
+        .register_map_renderer(Arc::new(Mutex::new(map_renderer)));
+    Ok(MapRendererProxy::Token(token))
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct CameraOption {
     pub zoom: f64,
     pub lng: f64,
     pub lat: f64,
 }
 
-fn get_default_camera_option_from_journey_bitmap(
+// TODO: redesign this interface at a better position
+pub(crate) fn get_default_camera_option_from_journey_bitmap(
     journey_bitmap: &JourneyBitmap,
 ) -> Option<CameraOption> {
     // TODO: Currently we use the coordinate of the top left of a random block (first one in the hashtbl),
@@ -183,7 +187,8 @@ fn get_default_camera_option_from_journey_bitmap(
 pub fn get_map_renderer_proxy_for_journey(
     journey_id: &str,
 ) -> Result<(MapRendererProxy, Option<CameraOption>)> {
-    let journey_data = get()
+    let state = get();
+    let journey_data = state
         .storage
         .with_db_txn(|txn| txn.get_journey(journey_id))?;
 
@@ -198,11 +203,14 @@ pub fn get_map_renderer_proxy_for_journey(
 
     let default_camera_option = get_default_camera_option_from_journey_bitmap(&journey_bitmap);
 
-    let map_renderer = MapRenderer::new(journey_bitmap);
-    Ok((
-        MapRendererProxy::Simple(map_renderer),
-        default_camera_option,
-    ))
+    let mut map_renderer = MapRenderer::new(journey_bitmap);
+    map_renderer.set_provisioned_camera_option(default_camera_option);
+    let mut server = state.map_server.lock().unwrap();
+    let token = server
+        .as_mut()
+        .unwrap()
+        .register_map_renderer(Arc::new(Mutex::new(map_renderer)));
+    Ok((MapRendererProxy::Token(token), default_camera_option))
 }
 
 pub fn on_location_update(
@@ -215,7 +223,7 @@ pub fn on_location_update(
 
     // we need handle a batch in one go so we hold the lock for the whole time
     let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
-    let mut map_renderer = state.map_renderer.lock().unwrap();
+    let mut map_renderer = state.main_map_renderer.lock().unwrap();
 
     raw_data_list.sort_by(|a, b| a.timestamp_ms.cmp(&b.timestamp_ms));
     raw_data_list.into_iter().for_each(|raw_data| {
@@ -230,21 +238,18 @@ pub fn on_location_update(
                 Some((start, &raw_data.point))
             }
         };
-        match map_renderer.as_mut() {
+        match line_to_add {
             None => (),
-            Some(map_renderer) => match line_to_add {
-                None => (),
-                Some((start, end)) => {
-                    map_renderer.update(|journey_bitmap| {
-                        journey_bitmap.add_line(
-                            start.longitude,
-                            start.latitude,
-                            end.longitude,
-                            end.latitude,
-                        );
-                    });
-                }
-            },
+            Some((start, end)) => {
+                map_renderer.update(|journey_bitmap| {
+                    journey_bitmap.add_line(
+                        start.longitude,
+                        start.latitude,
+                        end.longitude,
+                        end.latitude,
+                    );
+                });
+            }
         }
         state
             .storage
