@@ -20,6 +20,8 @@ export class JourneyCanvasLayer {
         };
     }
 
+    // TODO: the current version have flickering issue, I think render function
+    // being async is pretty sus.
     async render() {
         const zoom = Math.floor(this.map.getZoom());
         const bounds = this.map.getBounds();
