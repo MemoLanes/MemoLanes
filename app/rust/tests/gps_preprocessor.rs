@@ -133,10 +133,7 @@ fn speed() {
         altitude: None,
         speed: None,
     };
-    assert_eq!(
-        gps_preprocessor.preprocess(&data),
-        ProcessResult::Append
-    );
+    assert_eq!(gps_preprocessor.preprocess(&data), ProcessResult::Append);
 }
 
 fn run_though_test_data(name: &str) -> HashMap<ProcessResult, i32> {
