@@ -142,7 +142,7 @@ fn run_though_test_data(name: &str) -> HashMap<ProcessResult, i32> {
     let mut counter = HashMap::new();
     let loaded_data = import_data::load_gpx(&format!("./tests/data/raw_gps_{}.gpx", name)).unwrap();
     for data in loaded_data.iter().flatten() {
-        let result = gps_preprocessor.preprocess(&data);
+        let result = gps_preprocessor.preprocess(data);
         counter.entry(result).and_modify(|c| *c += 1).or_insert(1);
     }
 

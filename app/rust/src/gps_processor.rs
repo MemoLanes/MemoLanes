@@ -184,7 +184,7 @@ impl GpsPreprocessor {
                 return true;
             } else {
                 //compute acceration
-                let delta_s = curr_data.point.haversine_distance(&point);
+                let delta_s = curr_data.point.haversine_distance(point);
                 let time_in_sec = ((now - prev) as f64 / 1000.0).max(1.0);
                 let acceleration =
                     2.0 * (delta_s - time_in_sec * self.last_speed) / time_in_sec / time_in_sec;
@@ -237,19 +237,18 @@ impl GpsPreprocessor {
                         + (time_diff_in_ms.unwrap_or(1) as f64 / 1000.0)
                             .min(WALK_TIME_THRESHOLD_IN_S)
                             * speed)
-                || (speed >= WALK_SPEED_THRESHOLD
-                    && speed < MIDDLE_SPEED_THRESHOLD
+                || ((WALK_SPEED_THRESHOLD..MIDDLE_SPEED_THRESHOLD).contains(&speed)
                     && distance
                         < accuracy as f64
                             + (time_diff_in_ms.unwrap_or(1) as f64 / 1000.0)
                                 .min(MIDDLE_SPEED_MOVE_TIME_THRESHOLD_IN_S)
                                 * speed);
 
-            let rtn_result = match (time_result, distance_result) {
+            
+            match (time_result, distance_result) {
                 (false, false) => ProcessResult::NewSegment,
                 _ => ProcessResult::Append,
-            };
-            rtn_result
+            }
         }
     }
 
