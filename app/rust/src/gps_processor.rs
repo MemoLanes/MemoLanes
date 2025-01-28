@@ -244,7 +244,6 @@ impl GpsPreprocessor {
                                 .min(MIDDLE_SPEED_MOVE_TIME_THRESHOLD_IN_S)
                                 * speed);
 
-            
             match (time_result, distance_result) {
                 (false, false) => ProcessResult::NewSegment,
                 _ => ProcessResult::Append,
