@@ -22,7 +22,7 @@ pub struct JourneyBitmap {
 #[wasm_bindgen]
 impl JourneyBitmap {
     #[wasm_bindgen]
-    pub async fn get_tile_image(&self, view_x: i64, view_y: i64, zoom: i16) -> Vec<u8> {
+    pub fn get_tile_image(&self, view_x: i64, view_y: i64, zoom: i16) -> Vec<u8> {
         let mut image = RgbaImage::new(DEFAULT_TILE_SIZE, DEFAULT_TILE_SIZE);
         TileShader::render_on_image(
             &mut image,
