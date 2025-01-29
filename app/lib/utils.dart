@@ -46,3 +46,47 @@ Future<bool> showCommonDialog(BuildContext context, String message,
   );
   return result ?? false;
 }
+
+Future<T> showLoadingDialog<T>({
+  required BuildContext context,
+  required Future<T> asyncTask,
+}) async {
+  if (!context.mounted) return Future.value();
+
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext context) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: Center(
+          child: Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(
+                  strokeWidth: 3.0,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+  T result;
+  try {
+    result = await asyncTask;
+  } finally {
+    if (context.mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+  return result;
+}

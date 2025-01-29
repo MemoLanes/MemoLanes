@@ -137,7 +137,16 @@ class _SettingsBodyState extends State<SettingsBody> {
                 var path = result.files.single.path;
                 if (path != null) {
                   try {
-                    await importArchive(mldxFilePath: path);
+                    await showLoadingDialog(
+                        context: context,
+                        asyncTask: importArchive(mldxFilePath: path));
+                    if (context.mounted) {
+                      await showCommonDialog(
+                        context,
+                        "Import succeeded!",
+                        title: "Success",
+                      );
+                    }
                   } catch (e) {
                     if (context.mounted) {
                       await showCommonDialog(context, e.toString());
