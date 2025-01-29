@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-import 'component/common_dialog_copy.dart';
+import 'component/common_dialog.dart';
 
 Future<bool> showCommonDialog(BuildContext context, String message,
     {hasCancel = false,
@@ -47,10 +47,13 @@ Future<bool> showCommonDialog(BuildContext context, String message,
   return result ?? false;
 }
 
-Future<void> showLoadingDialog({
+Future<T?> showLoadingDialog<T>({
   required BuildContext context,
+  required Future<T> asyncTask,
 }) async {
-  if (!context.mounted) return;
+  if (!context.mounted) return Future.value();
+
+  T result;
 
   showDialog(
     context: context,
@@ -79,4 +82,12 @@ Future<void> showLoadingDialog({
       );
     },
   );
+  try {
+    result = await asyncTask;
+    return result;
+  } finally {
+    if (context.mounted) {
+      Navigator.of(context).pop();
+    }
+  }
 }

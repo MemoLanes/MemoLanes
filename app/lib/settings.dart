@@ -137,11 +137,9 @@ class _SettingsBodyState extends State<SettingsBody> {
                 var path = result.files.single.path;
                 if (path != null) {
                   try {
-                    showLoadingDialog(context: context);
-                    await importArchive(mldxFilePath: path);
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                    }
+                    await showLoadingDialog(
+                        context: context,
+                        asyncTask: importArchive(mldxFilePath: path));
                     if (context.mounted) {
                       await showCommonDialog(
                         context,
@@ -152,7 +150,6 @@ class _SettingsBodyState extends State<SettingsBody> {
                     }
                   } catch (e) {
                     if (context.mounted) {
-                      Navigator.pop(context);
                       await showCommonDialog(context, e.toString());
                     }
                   }
