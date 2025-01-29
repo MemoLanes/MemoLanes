@@ -34,6 +34,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   @override
   void didUpdateWidget(BaseMapWebview oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.trackingMode != widget.trackingMode) _updateLocationMarker();
     // TODO: the below is for compatibility for android or ios, double check later.
     // Only update URL if the mapRendererProxy actually changed
     if (oldWidget.mapRendererProxy != widget.mapRendererProxy) {
@@ -59,17 +60,17 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     super.initState();
     _webViewController = WebViewController();
     _gpsManager = Provider.of<GpsManager>(context, listen: false);
-    _gpsManager.addListener(_gpsManagerListener);
+    _gpsManager.addListener(_updateLocationMarker);
     _initWebView();
   }
 
   @override
   void dispose() {
-    _gpsManager.removeListener(_gpsManagerListener);
+    _gpsManager.removeListener(_updateLocationMarker);
     super.dispose();
   }
 
-  void _gpsManagerListener() {
+  void _updateLocationMarker() {
     if (widget.trackingMode == TrackingMode.off) {
       _webViewController.runJavaScript('''
         if (typeof updateLocationMarker === 'function') {
