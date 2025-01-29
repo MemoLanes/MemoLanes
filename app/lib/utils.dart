@@ -47,13 +47,11 @@ Future<bool> showCommonDialog(BuildContext context, String message,
   return result ?? false;
 }
 
-Future<T?> showLoadingDialog<T>({
+Future<T> showLoadingDialog<T>({
   required BuildContext context,
   required Future<T> asyncTask,
 }) async {
   if (!context.mounted) return Future.value();
-
-  T result;
 
   showDialog(
     context: context,
@@ -82,12 +80,13 @@ Future<T?> showLoadingDialog<T>({
       );
     },
   );
+  T result;
   try {
     result = await asyncTask;
-    return result;
   } finally {
     if (context.mounted) {
       Navigator.of(context).pop();
     }
   }
+  return result;
 }

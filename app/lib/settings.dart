@@ -145,7 +145,6 @@ class _SettingsBodyState extends State<SettingsBody> {
                         context,
                         "Import succeeded!",
                         title: "Success",
-                        confirmText: "OK",
                       );
                     }
                   } catch (e) {
