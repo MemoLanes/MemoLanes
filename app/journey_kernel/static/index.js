@@ -109,6 +109,8 @@ async function initializeMap() {
         pitchWithRotate: false,
         touchPitch: false,
     });
+    map.dragRotate.disable();
+    map.touchZoomRotate.disableRotation();
 
     // Wait for the map to be fully loaded before proceeding
     await new Promise(resolve => {
