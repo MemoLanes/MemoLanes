@@ -76,19 +76,19 @@ async function initializeMap() {
     mapboxgl.accessToken = tokenData['MAPBOX-ACCESS-TOKEN'];
 
     const hash = window.location.hash.slice(1);
-    
+
     // Parse hash parameters for initial map view
     let initialView = {
         center: [0, 0],
         zoom: 2
     };
-    
+
     if (hash) {
         const params = new URLSearchParams(hash);
         const lng = parseFloat(params.get('lng'));
         const lat = parseFloat(params.get('lat'));
         const zoom = parseFloat(params.get('zoom'));
-        
+
         if (!isNaN(lng) && !isNaN(lat) && !isNaN(zoom)) {
             initialView = {
                 center: [lng, lat],
@@ -181,6 +181,14 @@ async function initializeMap() {
     map.on('dragstart', () => {
         // Only notify Flutter when user drags the map
         if (window.onMapMoved) {
+            window.onMapMoved.postMessage('');
+        }
+    });
+
+    // Listen for zoom changes
+    map.on('zoomstart', (event) => {
+        let fromUser = event.originalEvent && (event.originalEvent.type !== 'resize')
+        if (fromUser && window.onMapMoved) {
             window.onMapMoved.postMessage('');
         }
     });
