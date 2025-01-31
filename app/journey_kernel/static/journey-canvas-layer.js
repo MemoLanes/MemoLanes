@@ -22,7 +22,7 @@ export class JourneyCanvasLayer {
 
     // TODO: the current version have flickering issue, I think render function
     // being async is pretty sus.
-    async render() {
+    render() {
         const zoom = Math.floor(this.map.getZoom());
         const bounds = this.map.getBounds();
 
@@ -50,11 +50,11 @@ export class JourneyCanvasLayer {
             this.canvas.width = 256 * (right - left + 1);
             this.canvas.height = 256 * (bottom - top + 1);
 
-            await this.renderTileRange(tileRange, zoom);
+            this.renderTileRange(tileRange, zoom);
         }
     }
 
-    async renderTileRange(tileRange, zoom) {
+    renderTileRange(tileRange, zoom) {
         const [left, top, right, bottom] = tileRange;
 
         if (left > right || top > bottom) {
@@ -75,7 +75,7 @@ export class JourneyCanvasLayer {
                 if (renderedTiles.has(tileKey)) continue;
                 renderedTiles.add(tileKey);
 
-                const imageData = await this.renderTile(xNorm, y, zoom);
+                const imageData = this.renderTile(xNorm, y, zoom);
                 if (imageData) {
                     let xPos = x;
                     while (xPos <= right) {
@@ -106,9 +106,9 @@ export class JourneyCanvasLayer {
         mainCanvasSource?.pause();
     }
 
-    async renderTile(x, y, z) {
+    renderTile(x, y, z) {
         try {
-            const imageBufferRaw = await this.journeyBitmap.get_tile_image(BigInt(x), BigInt(y), z);
+            const imageBufferRaw = this.journeyBitmap.get_tile_image(BigInt(x), BigInt(y), z);
             const uint8Array = new Uint8ClampedArray(imageBufferRaw);
             const imageData = new ImageData(uint8Array, 256, 256);
 
