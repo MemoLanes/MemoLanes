@@ -1,3 +1,4 @@
+use cargo_toml::Manifest;
 use std::env;
 use std::path::Path;
 use std::process::Command;
@@ -35,7 +36,106 @@ fn setup_x86_64_android_workaround() {
     }
 }
 
+fn check_yarn_dependencies() {
+    // Check if yarn is installed
+    if Command::new("yarn").arg("--version").output().is_err() {
+        panic!("yarn is not installed. Please install yarn first using `npm install -g yarn`");
+    }
+
+    // Check if node_modules exists in journey_kernel
+    if !Path::new("../journey_kernel/node_modules").exists() {
+        println!("cargo:warning=Installing yarn dependencies for journey_kernel...");
+        let status = Command::new("yarn")
+            .current_dir("../journey_kernel")
+            .arg("install")
+            .status()
+            .expect("Failed to run yarn install");
+
+        if !status.success() {
+            panic!("Failed to install yarn dependencies");
+        }
+    }
+}
+
+fn build_journey_kernel_wasm() {
+    println!("cargo:rerun-if-changed=../journey_kernel");
+    println!("cargo:rerun-if-changed=.journey_kernel_version");
+
+    // Read version from Cargo.toml
+    let manifest = Manifest::from_path("../journey_kernel/Cargo.toml")
+        .expect("Failed to read journey_kernel Cargo.toml");
+    let current_version = manifest.package.unwrap().version.get().unwrap().clone();
+
+    // Check if version lock exists and matches
+    let version_lock_path = Path::new("./target/.journey_kernel_version");
+    if let Ok(locked_version) = fs::read_to_string(version_lock_path) {
+        if locked_version.trim() == current_version {
+            println!(
+                "cargo:warning=Skipping journey_kernel build - version {} matches",
+                current_version
+            );
+            return;
+        }
+    }
+
+    // Build using webpack through yarn
+    let status = Command::new("yarn")
+        .current_dir("../journey_kernel")
+        .args(["build"])
+        .status()
+        .expect("Failed to execute webpack build command");
+
+    if !status.success() {
+        panic!("Failed to build journey_kernel WASM package");
+    }
+
+    // Update version lock after successful build
+    fs::write(version_lock_path, current_version)
+        .expect("Failed to write journey_kernel version lock");
+}
+
+fn generate_mapbox_token_const() {
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("Failed to get CARGO_MANIFEST_DIR");
+    let env_path = Path::new(&manifest_dir).join("../.env");
+
+    println!("cargo:rerun-if-changed={}", env_path.display());
+
+    // Try to load from environment first
+    let token = if let Ok(token) = env::var("MAPBOX-ACCESS-TOKEN") {
+        token
+    } else {
+        // Fallback to reading .env file
+        match fs::read_to_string(&env_path) {
+            Ok(env_content) => env_content
+                .lines()
+                .find(|line| line.starts_with("MAPBOX-ACCESS-TOKEN="))
+                .map(|line| line.split('=').nth(1).unwrap().trim().to_string())
+                .unwrap_or_else(|| {
+                    println!("cargo:warning=MAPBOX-ACCESS-TOKEN not found in .env file");
+                    String::new()
+                }),
+            Err(_) => {
+                println!(
+                    "cargo:warning=.env file not found at {}",
+                    env_path.display()
+                );
+                String::new()
+            }
+        }
+    };
+
+    println!("cargo:rustc-env=MAPBOX-ACCESS-TOKEN={}", token);
+}
+
 fn main() {
+    // TODO: we need to optimize this build script, especially the 3 steps below.
+    // It is slow (this need to be triggered frequently) and more of the dections
+    // are a bit weird: e.g. `rustc-env` can hurt incremental build a bit.
+    // using version in `cargo.toml` is not so reliable.
+    check_yarn_dependencies();
+    build_journey_kernel_wasm();
+    generate_mapbox_token_const();
+
     // There are articles on internet suggest `.git/HEAD` is enough, which I
     // doubt.
     println!("cargo:rerun-if-changed=../../.git");
