@@ -4,7 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/gps_manager.dart';
-import 'package:memolanes/src/rust/api/api.dart';
+import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/utils.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
@@ -52,6 +52,15 @@ class _SettingsBodyState extends State<SettingsBody> {
     }
   }
 
+  Future<bool> _optimizeDatabase() async {
+    if (await api.mainDbRequireOptimization()) {
+      await api.optimizeMainDb();
+      return true;
+    } else {
+      return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     var updateUrl = context.watch<UpdateNotifier>().updateUrl;
@@ -86,7 +95,7 @@ class _SettingsBodyState extends State<SettingsBody> {
               var tmpDir = await getTemporaryDirectory();
               var ts = DateTime.now().millisecondsSinceEpoch;
               var filepath = "${tmpDir.path}/${ts.toString()}.mldx";
-              await generateFullArchive(targetFilepath: filepath);
+              await api.generateFullArchive(targetFilepath: filepath);
               await Share.shareXFiles([XFile(filepath)]);
               try {
                 var file = File(filepath);
@@ -115,7 +124,7 @@ class _SettingsBodyState extends State<SettingsBody> {
                 return;
               }
               try {
-                await deleteAllJourneys();
+                await api.deleteAllJourneys();
                 if (context.mounted) {
                   await showCommonDialog(context, "All journeys are deleted.");
                 }
@@ -139,7 +148,7 @@ class _SettingsBodyState extends State<SettingsBody> {
                   try {
                     await showLoadingDialog(
                         context: context,
-                        asyncTask: importArchive(mldxFilePath: path));
+                        asyncTask: api.importArchive(mldxFilePath: path));
                     if (context.mounted) {
                       await showCommonDialog(
                         context,
@@ -159,10 +168,29 @@ class _SettingsBodyState extends State<SettingsBody> {
           ),
           ElevatedButton(
             onPressed: () async {
+              var result = await showLoadingDialog(
+                  context: context, asyncTask: _optimizeDatabase());
+              if (!context.mounted) return;
+              if (result) {
+                await showCommonDialog(
+                  context,
+                  "Finsihsed optimizing database.",
+                );
+              } else {
+                await showCommonDialog(
+                  context,
+                  "Database is already optimized. Nothing to do.",
+                );
+              }
+            },
+            child: const Text("Optimize database"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
               var tmpDir = await getTemporaryDirectory();
               var ts = DateTime.now().millisecondsSinceEpoch;
               var filepath = "${tmpDir.path}/${ts.toString()}.zip";
-              await exportLogs(targetFilePath: filepath);
+              await api.exportLogs(targetFilePath: filepath);
               await Share.shareXFiles([XFile(filepath)]);
               try {
                 var file = File(filepath);
@@ -187,7 +215,7 @@ class _SettingsBodyState extends State<SettingsBody> {
           ],
           Center(
             child: Text(
-              "Version: ${shortCommitHash()}",
+              "Version: ${api.shortCommitHash()}",
               style: const TextStyle(
                 fontSize: 12.0,
                 fontWeight: FontWeight.normal,

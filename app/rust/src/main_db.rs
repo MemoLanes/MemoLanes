@@ -339,7 +339,7 @@ impl Txn<'_> {
         let mut data_bytes = Vec::new();
         journey_data.serialize(&mut data_bytes)?;
 
-        let sql = "UPDATE journey SET type = ?1, header = ?2, data = ?3 WHERE id =?4;";
+        let sql = "UPDATE journey SET type = ?2, header = ?3, data = ?4 WHERE id =?1;";
         self.db_txn.execute(
             sql,
             (&id, journey_data.type_().to_int(), header_bytes, data_bytes),
