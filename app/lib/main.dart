@@ -13,6 +13,7 @@ import 'package:memolanes/gps_manager.dart';
 import 'package:memolanes/journey.dart';
 import 'package:memolanes/map.dart';
 import 'package:memolanes/raw_data.dart';
+import 'package:memolanes/statistic.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:provider/provider.dart';
@@ -167,8 +168,8 @@ class _MyHomePageState extends State<MyHomePage> {
                 0 => const MapUiBody(),
                 1 => const TimeMachineUIBody(),
                 2 => const JourneyUiBody(),
-                3 => const SettingsBody(),
-                4 => const RawDataBody(),
+                3 => const StatisticBody(),
+                4 => const SettingsBody(),
                 _ => throw FormatException('Invalid index: $_selectedIndex')
               }),
           Positioned(

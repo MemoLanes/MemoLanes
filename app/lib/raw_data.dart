@@ -38,14 +38,14 @@ class _RawDataSwitchState extends State<RawDataSwitch> {
   }
 }
 
-class RawDataBody extends StatefulWidget {
-  const RawDataBody({super.key});
+class RawDataPage extends StatefulWidget {
+  const RawDataPage({super.key});
 
   @override
-  State<RawDataBody> createState() => _RawDataBody();
+  State<RawDataPage> createState() => _RawDataPage();
 }
 
-class _RawDataBody extends State<RawDataBody> {
+class _RawDataPage extends State<RawDataPage> {
   List<RawDataFile> items = [];
 
   @override
