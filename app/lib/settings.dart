@@ -176,7 +176,6 @@ class _SettingsBodyState extends State<SettingsBody> {
             child: const Text("Export Logs"),
           ),
           ElevatedButton(
-            // TODO: This is a temporary button to open raw data mode page.
             onPressed: () {
               Navigator.push(context, MaterialPageRoute(
                 builder: (context) {
