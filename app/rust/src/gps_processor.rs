@@ -124,6 +124,9 @@ impl BadDataDetector {
     fn is_bad_data(&mut self, curr_data: &RawData) -> bool {
         const ACCURACY_THRESHOLD: f32 = 50.;
         const ACCELERATION_THRESHOLD: f32 = 10.;
+        // We mostly don't care deceleration, but just in case we had a very bad
+        // data that bring the speed down a lot.
+        const DECELERATION_THRESHOLD: f32 = -20.;
 
         if let Some(accuracy) = curr_data.accuracy {
             if accuracy > ACCURACY_THRESHOLD {
@@ -147,7 +150,9 @@ impl BadDataDetector {
                     let acceleration = (speed - last_speed) / time_span_in_sec;
                     // We only care about acceleration, not deceleration.
                     // Maybe we should also consider direction.
-                    if acceleration > ACCELERATION_THRESHOLD {
+                    if acceleration > ACCELERATION_THRESHOLD
+                        || acceleration < DECELERATION_THRESHOLD
+                    {
                         return true;
                     }
                 }
