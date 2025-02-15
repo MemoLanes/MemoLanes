@@ -390,7 +390,7 @@ impl GpsPostprocessor {
         "0".to_string()
     }
 
-    // When introducing a new algorithm, remember to update the 
+    // When introducing a new algorithm, remember to update the
     // `currentOptimizationCheckVersion` on the flutter side
     pub fn outdated_algo(journey_header: &JourneyHeader) -> bool {
         match journey_header.journey_type {
