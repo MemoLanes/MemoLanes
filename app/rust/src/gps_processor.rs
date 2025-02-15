@@ -150,8 +150,7 @@ impl BadDataDetector {
                     let acceleration = (speed - last_speed) / time_span_in_sec;
                     // We only care about acceleration, not deceleration.
                     // Maybe we should also consider direction.
-                    if !(DECELERATION_THRESHOLD..=ACCELERATION_THRESHOLD).contains(&acceleration)
-                    {
+                    if !(DECELERATION_THRESHOLD..=ACCELERATION_THRESHOLD).contains(&acceleration) {
                         return true;
                     }
                 }
