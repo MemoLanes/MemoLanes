@@ -56,11 +56,11 @@ void delayedInit(UpdateNotifier updateNotifier) {
             version: packageInfo.version,
             buildNumber: packageInfo.buildNumber));
     doWork() async {
-      // Db optimize check
-      const currentOptimizeCheckVersion = 1;
+      // Db optimization check
+      const currentOptimizationCheckVersion = 1;
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      var dbOptimizeCheck = prefs.getInt("dbOptimizeCheck") ?? 0;
-      if (dbOptimizeCheck < currentOptimizeCheckVersion) {
+      var dbOptimizeCheck = prefs.getInt("dbOptimizationCheck") ?? 0;
+      if (dbOptimizeCheck < currentOptimizationCheckVersion) {
         if (await api.mainDbRequireOptimization()) {
           var context = navigatorKey.currentState?.context;
           if (context != null && context.mounted) {
@@ -68,7 +68,8 @@ void delayedInit(UpdateNotifier updateNotifier) {
                 context, context.tr('db_optimization.notification'));
           }
         } else {
-          await prefs.setInt("dbOptimizeCheck", currentOptimizeCheckVersion);
+          await prefs.setInt(
+              "dbOptimizationCheck", currentOptimizationCheckVersion);
         }
       }
     }
