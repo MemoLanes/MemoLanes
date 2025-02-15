@@ -55,29 +55,25 @@ void delayedInit(UpdateNotifier updateNotifier) {
             packageName: packageInfo.packageName,
             version: packageInfo.version,
             buildNumber: packageInfo.buildNumber));
-    doOneOffWork() async {
-      // Db optimization check
-      const currentOptimizationCheckVersion = 1;
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      var dbOptimizeCheck = prefs.getInt("dbOptimizationCheck") ?? 0;
-      if (dbOptimizeCheck < currentOptimizationCheckVersion) {
-        if (await api.mainDbRequireOptimization()) {
-          var context = navigatorKey.currentState?.context;
-          if (context != null && context.mounted) {
-            await showCommonDialog(
-                context, context.tr('db_optimization.notification'));
-          }
-        } else {
-          await prefs.setInt(
-              "dbOptimizationCheck", currentOptimizationCheckVersion);
+
+    // Db optimization check
+    const currentOptimizationCheckVersion = 1;
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    var dbOptimizeCheck = prefs.getInt("dbOptimizationCheck") ?? 0;
+    if (dbOptimizeCheck < currentOptimizationCheckVersion) {
+      if (await api.mainDbRequireOptimization()) {
+        var context = navigatorKey.currentState?.context;
+        if (context != null && context.mounted) {
+          await showCommonDialog(
+              context, context.tr('db_optimization.notification'));
         }
+      } else {
+        await prefs.setInt(
+            "dbOptimizationCheck", currentOptimizationCheckVersion);
       }
     }
 
     doRepeatWork() async {}
-
-    // We don't wait on this
-    doOneOffWork();
 
     await doRepeatWork();
     Timer.periodic(const Duration(minutes: 10), (_) async {
