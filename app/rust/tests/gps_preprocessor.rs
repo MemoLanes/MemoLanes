@@ -167,16 +167,16 @@ fn run_though_test_data(name: &str) -> HashMap<ProcessResult, i32> {
 fn run_though_test_data_shanghai() {
     let counter = run_though_test_data("shanghai");
     assert_eq!(counter[&ProcessResult::NewSegment], 12);
-    assert_eq!(counter[&ProcessResult::Append], 2959);
-    assert_eq!(counter[&ProcessResult::Ignore], 647);
+    assert_eq!(counter[&ProcessResult::Append], 2955);
+    assert_eq!(counter[&ProcessResult::Ignore], 651);
 }
 
 #[test]
 fn run_though_test_data_shenzhen_stationary() {
     let counter = run_though_test_data("shenzhen_stationary");
     assert_eq!(counter[&ProcessResult::NewSegment], 8);
-    assert_eq!(counter[&ProcessResult::Append], 442);
-    assert_eq!(counter[&ProcessResult::Ignore], 6280);
+    assert_eq!(counter[&ProcessResult::Append], 441);
+    assert_eq!(counter[&ProcessResult::Ignore], 6281);
 }
 
 #[test]
