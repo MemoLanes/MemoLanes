@@ -55,7 +55,7 @@ void delayedInit(UpdateNotifier updateNotifier) {
             packageName: packageInfo.packageName,
             version: packageInfo.version,
             buildNumber: packageInfo.buildNumber));
-    doWork() async {
+    doOneOffWork() async {
       // Db optimization check
       const currentOptimizationCheckVersion = 1;
       SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -74,10 +74,15 @@ void delayedInit(UpdateNotifier updateNotifier) {
       }
     }
 
-    await doWork();
+    doRepeatWork() async {}
+
+    // We don't wait on this
+    doOneOffWork();
+
+    await doRepeatWork();
     Timer.periodic(const Duration(minutes: 10), (_) async {
       await api.tenMinutesHeartbeat();
-      await doWork();
+      await doRepeatWork();
     });
   });
 }
