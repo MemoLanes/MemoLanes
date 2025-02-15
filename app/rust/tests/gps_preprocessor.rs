@@ -86,7 +86,7 @@ fn time_difference() {
         altitude: Some(30.),
         speed: Some(0.6028665),
     });
-    assert_eq!(ProcessResult::Append, result);
+    assert_eq!(ProcessResult::NewSegment, result);
 
     assert_eq!(
         gps_preprocessor.last_kept_point().unwrap().latitude,
@@ -133,7 +133,7 @@ fn speed() {
         altitude: None,
         speed: None,
     };
-    assert_eq!(gps_preprocessor.preprocess(&data), ProcessResult::Append);
+    assert_eq!(gps_preprocessor.preprocess(&data), ProcessResult::NewSegment);
 }
 
 fn run_though_test_data(name: &str) -> HashMap<ProcessResult, i32> {
@@ -163,23 +163,23 @@ fn run_though_test_data(name: &str) -> HashMap<ProcessResult, i32> {
 #[test]
 fn run_though_test_data_shanghai() {
     let counter = run_though_test_data("shanghai");
-    assert_eq!(counter[&ProcessResult::NewSegment], 10);
-    assert_eq!(counter[&ProcessResult::Append], 2920);
-    assert_eq!(counter[&ProcessResult::Ignore], 688);
+    assert_eq!(counter[&ProcessResult::NewSegment], 12);
+    assert_eq!(counter[&ProcessResult::Append], 2959);
+    assert_eq!(counter[&ProcessResult::Ignore], 647);
 }
 
 #[test]
 fn run_though_test_data_shenzhen_stationary() {
     let counter = run_though_test_data("shenzhen_stationary");
-    assert_eq!(counter[&ProcessResult::NewSegment], 2);
-    assert_eq!(counter[&ProcessResult::Append], 440);
-    assert_eq!(counter[&ProcessResult::Ignore], 6288);
+    assert_eq!(counter[&ProcessResult::NewSegment], 8);
+    assert_eq!(counter[&ProcessResult::Append], 442);
+    assert_eq!(counter[&ProcessResult::Ignore], 6280);
 }
 
 #[test]
 fn run_though_test_data_laojunshan() {
     let counter = run_though_test_data("laojunshan");
     assert_eq!(counter[&ProcessResult::NewSegment], 2);
-    assert_eq!(counter[&ProcessResult::Append], 2592);
-    assert_eq!(counter[&ProcessResult::Ignore], 351);
+    assert_eq!(counter[&ProcessResult::Append], 2595);
+    assert_eq!(counter[&ProcessResult::Ignore], 348);
 }
