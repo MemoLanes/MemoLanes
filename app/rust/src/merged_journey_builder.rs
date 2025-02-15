@@ -39,7 +39,7 @@ fn get_range_internal(
 ) -> Result<JourneyBitmap> {
     let mut journey_bitmap = JourneyBitmap::new();
     for journey_header in txn.query_journeys(from_date_inclusive, to_date_inclusive)? {
-        let journey_data = txn.get_journey(&journey_header.id)?;
+        let journey_data = txn.get_journey_data(&journey_header.id)?;
         match journey_data {
             JourneyData::Bitmap(bitmap) => journey_bitmap.merge(bitmap),
             JourneyData::Vector(vector) => {
