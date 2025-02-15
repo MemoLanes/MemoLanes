@@ -133,11 +133,14 @@ fn speed() {
         altitude: None,
         speed: None,
     };
-    assert_eq!(gps_preprocessor.preprocess(&data), ProcessResult::NewSegment);
+    assert_eq!(
+        gps_preprocessor.preprocess(&data),
+        ProcessResult::NewSegment
+    );
 }
 
 fn run_though_test_data(name: &str) -> HashMap<ProcessResult, i32> {
-    const GENERATE_RESULT_GPX_FOR_INSPECTION: bool = true;
+    const GENERATE_RESULT_GPX_FOR_INSPECTION: bool = false;
     let mut gps_preprocessor = GpsPreprocessor::new();
     let mut counter = HashMap::new();
     let loaded_data = import_data::load_gpx(&format!("./tests/data/raw_gps_{}.gpx", name)).unwrap();

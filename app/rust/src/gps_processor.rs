@@ -227,7 +227,7 @@ impl GpsPreprocessor {
                     Some(time_diff_in_ms) => {
                         // more willing to connect two points if they are close
                         // in normal condition, we should have 1 data per sec
-                        // we should mostly trust the data here and try to 
+                        // we should mostly trust the data here and try to
                         // filter out bad ones in `BadDataDetector`.
                         let time_threshold_in_sec = if distance_in_m < 5. {
                             60 * 60 // 1h
@@ -295,11 +295,7 @@ impl GpsPreprocessor {
                 timestamp_ms_when_center_point_picked,
                 num_of_data_since_center_point_picked,
             } => {
-                let result = Self::process_moving_data(
-                    last_point,
-                    *last_timestamp_ms,
-                    curr_data,
-                );
+                let result = Self::process_moving_data(last_point, *last_timestamp_ms, curr_data);
                 if result != ProcessResult::Ignore {
                     *last_point = curr_data.point.clone();
                     *last_timestamp_ms = curr_data.timestamp_ms;
@@ -355,11 +351,8 @@ impl GpsPreprocessor {
                     ProcessResult::Ignore
                 } else {
                     //then ending stationary change to move mode
-                    let result = Self::process_moving_data(
-                        center_point,
-                        *last_timestamp_ms,
-                        curr_data,
-                    );
+                    let result =
+                        Self::process_moving_data(center_point, *last_timestamp_ms, curr_data);
                     self.state = start_moving(curr_data);
                     result
                 }
