@@ -17,5 +17,12 @@
     "delete_journey_title": "Delete Journey",
     "delete_journey_message": "Delete this journey record?",
     "delete": "Delete"
+  },
+  "db_optimization": {
+    "notification": "Your database requires optimization, please go to Settings tab and click [Optimize database] button.",
+    "button": "Optimize database",
+    "already_optimized": "Database is already optimized. Nothing to do.",
+    "confirm": "Your database requires optimization. It is recommended to backup your data before proceeding.",
+    "finsih": "Finsihsed optimizing database."
   }
 }

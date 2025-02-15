@@ -6,6 +6,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:memolanes/component/bottom_nav_bar.dart';
 import 'package:memolanes/component/safe_area_wrapper.dart';
 import 'package:memolanes/time_machine.dart';
+import 'package:memolanes/utils.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:memolanes/settings.dart';
@@ -17,9 +18,12 @@ import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void delayedInit(UpdateNotifier updateNotifier) {
-  Future.delayed(const Duration(milliseconds: 2000), () async {
+  Future.delayed(const Duration(milliseconds: 4000), () async {
     DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
     String? manufacturer;
     String? model;
@@ -52,7 +56,21 @@ void delayedInit(UpdateNotifier updateNotifier) {
             version: packageInfo.version,
             buildNumber: packageInfo.buildNumber));
     doWork() async {
-      // TODO: for future use
+      // Db optimize check
+      const currentOptimizeCheckVersion = 1;
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      var dbOptimizeCheck = prefs.getInt("dbOptimizeCheck") ?? 0;
+      if (dbOptimizeCheck < currentOptimizeCheckVersion) {
+        if (await api.mainDbRequireOptimization()) {
+          var context = navigatorKey.currentState?.context;
+          if (context != null && context.mounted) {
+            await showCommonDialog(
+                context, context.tr('db_optimization.notification'));
+          }
+        } else {
+          await prefs.setInt("dbOptimizeCheck", currentOptimizeCheckVersion);
+        }
+      }
     }
 
     await doWork();
@@ -116,6 +134,7 @@ class MyApp extends StatelessWidget {
       supportedLocales: context.supportedLocales,
       localizationsDelegates: context.localizationDelegates,
       locale: context.locale,
+      navigatorKey: navigatorKey,
       theme: ThemeData(
         useMaterial3: true,
         fontFamily: 'MiSans',

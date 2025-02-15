@@ -52,15 +52,6 @@ class _SettingsBodyState extends State<SettingsBody> {
     }
   }
 
-  Future<bool> _optimizeDatabase() async {
-    if (await api.mainDbRequireOptimization()) {
-      await api.optimizeMainDb();
-      return true;
-    } else {
-      return false;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     var updateUrl = context.watch<UpdateNotifier>().updateUrl;
@@ -168,22 +159,29 @@ class _SettingsBodyState extends State<SettingsBody> {
           ),
           ElevatedButton(
             onPressed: () async {
-              var result = await showLoadingDialog(
-                  context: context, asyncTask: _optimizeDatabase());
-              if (!context.mounted) return;
-              if (result) {
+              if (!await api.mainDbRequireOptimization()) {
+                if (!context.mounted) return;
                 await showCommonDialog(
                   context,
-                  "Finsihsed optimizing database.",
+                  context.tr("db_optimization.already_optimized"),
                 );
               } else {
-                await showCommonDialog(
-                  context,
-                  "Database is already optimized. Nothing to do.",
-                );
+                if (!context.mounted) return;
+                if (await showCommonDialog(
+                    context, context.tr("db_optimization.confirm"),
+                    hasCancel: true)) {
+                  if (!context.mounted) return;
+                  await showLoadingDialog(
+                      context: context, asyncTask: api.optimizeMainDb());
+                  if (!context.mounted) return;
+                  await showCommonDialog(
+                    context,
+                    context.tr("db_optimization.finsih"),
+                  );
+                }
               }
             },
-            child: const Text("Optimize database"),
+            child: Text(context.tr("db_optimization.button")),
           ),
           ElevatedButton(
             onPressed: () async {
