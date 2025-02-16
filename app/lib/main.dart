@@ -12,7 +12,6 @@ import 'package:memolanes/settings.dart';
 import 'package:memolanes/gps_manager.dart';
 import 'package:memolanes/journey.dart';
 import 'package:memolanes/map.dart';
-import 'package:memolanes/raw_data.dart';
 import 'package:memolanes/statistic.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/frb_generated.dart';
