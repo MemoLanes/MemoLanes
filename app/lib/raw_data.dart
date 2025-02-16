@@ -65,12 +65,11 @@ class _RawDataPage extends State<RawDataPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Raw Data Info"),
+        title: const Text("Raw Data Mode"),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Text("Raw Data Mode", style: TextStyle(fontSize: 18)),
           const SizedBox(height: 8),
           const RawDataSwitch(),
           const SizedBox(height: 16),
