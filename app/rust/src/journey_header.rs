@@ -29,7 +29,7 @@ impl JourneyType {
     pub fn to_proto(self) -> protos::journey::header::Type {
         use protos::journey::header::Type;
         match self {
-            JourneyType::Vector => Type::Vector,
+            JourneyType::Vector => Type::VECTOR,
             JourneyType::Bitmap => Type::BITMAP,
         }
     }
@@ -37,7 +37,7 @@ impl JourneyType {
     pub fn of_proto(proto: protos::journey::header::Type) -> Self {
         use protos::journey::header::Type;
         match proto {
-            Type::Vector => JourneyType::Vector,
+            Type::VECTOR => JourneyType::Vector,
             Type::BITMAP => JourneyType::Bitmap,
         }
     }
@@ -104,6 +104,7 @@ pub struct JourneyHeader {
     pub journey_type: JourneyType,
     pub journey_kind: JourneyKind,
     pub note: Option<String>,
+    pub postprocessor_algo: Option<String>,
 }
 
 impl JourneyHeader {
@@ -132,21 +133,36 @@ impl JourneyHeader {
                 Some(kind) => kind,
             }),
             note: proto.note,
+            postprocessor_algo: proto.postprocessor_algo,
         })
     }
 
     pub fn to_proto(self) -> protos::journey::Header {
+        let JourneyHeader {
+            id,
+            revision,
+            journey_date,
+            created_at,
+            updated_at,
+            start,
+            end,
+            journey_type,
+            journey_kind,
+            note,
+            postprocessor_algo,
+        } = self;
         let mut proto = protos::journey::Header::new();
-        proto.id = self.id;
-        proto.revision = self.revision;
-        proto.journey_date__days_since_epoch = utils::date_to_days_since_epoch(self.journey_date);
-        proto.created_at__timestamp_sec = self.created_at.timestamp();
-        proto.updated_at__timestamp_sec = self.updated_at.map(|x| x.timestamp());
-        proto.end__timestamp_sec = self.end.map(|x| x.timestamp());
-        proto.start__timestamp_sec = self.start.map(|x| x.timestamp());
-        proto.type_ = EnumOrUnknown::new(self.journey_type.to_proto());
-        proto.kind.0 = Some(Box::new(self.journey_kind.to_proto()));
-        proto.note = self.note;
+        proto.id = id;
+        proto.revision = revision;
+        proto.journey_date__days_since_epoch = utils::date_to_days_since_epoch(journey_date);
+        proto.created_at__timestamp_sec = created_at.timestamp();
+        proto.updated_at__timestamp_sec = updated_at.map(|x| x.timestamp());
+        proto.end__timestamp_sec = end.map(|x| x.timestamp());
+        proto.start__timestamp_sec = start.map(|x| x.timestamp());
+        proto.type_ = EnumOrUnknown::new(journey_type.to_proto());
+        proto.kind.0 = Some(Box::new(journey_kind.to_proto()));
+        proto.note = note;
+        proto.postprocessor_algo = postprocessor_algo;
         proto
     }
 }

@@ -53,7 +53,7 @@ fn all_journeys(main_db: &mut MainDb) -> Vec<(JourneyHeader, JourneyData)> {
     let mut journeys = Vec::new();
     for journey_header in journey_headers.into_iter() {
         let journey_data = main_db
-            .with_txn(|txn| txn.get_journey(&journey_header.id))
+            .with_txn(|txn| txn.get_journey_data(&journey_header.id))
             .unwrap();
         journeys.push((journey_header, journey_data));
     }
