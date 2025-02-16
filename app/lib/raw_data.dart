@@ -38,14 +38,14 @@ class _RawDataSwitchState extends State<RawDataSwitch> {
   }
 }
 
-class RawDataBody extends StatefulWidget {
-  const RawDataBody({super.key});
+class RawDataPage extends StatefulWidget {
+  const RawDataPage({super.key});
 
   @override
-  State<RawDataBody> createState() => _RawDataBody();
+  State<RawDataPage> createState() => _RawDataPage();
 }
 
-class _RawDataBody extends State<RawDataBody> {
+class _RawDataPage extends State<RawDataPage> {
   List<RawDataFile> items = [];
 
   @override
@@ -63,12 +63,13 @@ class _RawDataBody extends State<RawDataBody> {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Raw Data Mode"),
+      ),
+      body: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Text("Raw Data Mode",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           const RawDataSwitch(),
           const SizedBox(height: 16),

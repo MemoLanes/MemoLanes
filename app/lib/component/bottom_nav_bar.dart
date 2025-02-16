@@ -39,8 +39,9 @@ class BottomNavBar extends StatelessWidget {
               _buildNavItem(Icons.map_outlined, Icons.map, 0),
               _buildNavItem(Icons.update_outlined, Icons.update, 1),
               _buildNavItem(Icons.route_outlined, Icons.route, 2),
-              _buildNavItem(Icons.settings_outlined, Icons.settings, 3),
-              _buildNavItem(Icons.data_array_outlined, Icons.data_array, 4),
+              _buildNavItem(
+                  Icons.workspace_premium_outlined, Icons.workspace_premium, 3),
+              _buildNavItem(Icons.settings_outlined, Icons.settings, 4),
             ],
           ),
         ),

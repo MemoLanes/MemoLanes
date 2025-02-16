@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/gps_manager.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/utils.dart';
+import 'package:memolanes/raw_data.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -199,6 +200,16 @@ class _SettingsBodyState extends State<SettingsBody> {
               }
             },
             child: const Text("Export Logs"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(
+                builder: (context) {
+                  return RawDataPage();
+                },
+              ));
+            },
+            child: const Text("Raw Data Mode"),
           ),
           if (updateUrl != null) ...[
             ElevatedButton(

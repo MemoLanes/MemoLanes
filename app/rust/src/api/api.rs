@@ -13,7 +13,10 @@ use crate::renderer::map_server::MapRendererToken;
 use crate::renderer::MapRenderer;
 use crate::renderer::MapServer;
 use crate::storage::Storage;
-use crate::{archive, build_info, export_data, gps_processor, merged_journey_builder, storage};
+use crate::{
+    archive, build_info, export_data, gps_processor, journey_area_utils, merged_journey_builder,
+    storage,
+};
 use crate::{logs, utils};
 use serde::{Deserialize, Serialize};
 
@@ -446,4 +449,11 @@ pub fn main_db_require_optimization() -> Result<bool> {
 
 pub fn optimize_main_db() -> Result<()> {
     get().storage.with_db_txn(|txn| txn.optimize())
+}
+
+pub fn area_of_main_map() -> u64 {
+    // TODO: this is pretty naive
+    let main_map_renderer = get().main_map_renderer.lock().unwrap();
+    let journey_bitmap = main_map_renderer.peek_latest_bitmap();
+    journey_area_utils::compute_journey_bitmap_area(journey_bitmap)
 }
