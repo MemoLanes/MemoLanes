@@ -118,6 +118,12 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             );
             return NavigationDecision.prevent;
           },
+          onWebResourceError: (WebResourceError error) {
+            if (error.errorType ==
+                WebResourceErrorType.webContentProcessTerminated) {
+              _webViewController.reload();
+            }
+          },
         ),
       )
       ..addJavaScriptChannel(
