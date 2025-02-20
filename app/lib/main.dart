@@ -19,9 +19,6 @@ import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:logging/logging.dart';
-import 'package:logging_appenders/logging_appenders.dart';
-import 'package:path/path.dart' as path;
 
 GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -86,36 +83,10 @@ void delayedInit(UpdateNotifier updateNotifier) {
   });
 }
 
-Future<void> initLogging(String cacheDir) async {
-  // Set up the root logger
-  Logger.root.level = Level.ALL;
-
-  // Create rotating file appender
-  final logFile = path.join(cacheDir, 'logs/memolanes.log');
-  final rotatingFileAppender = RotatingFileAppender(
-    formatter: const DefaultLogRecordFormatter(),
-    baseFilePath: logFile,
-    rotateAtSizeBytes: 1024 * 1024, // 1MB per file
-    keepRotateCount: 5, // Keep 5 backup files
-  );
-
-  rotatingFileAppender.attachToLogger(Logger.root);
-
-  // TODO: unify console logging, flutter file logging, and rust file logging
-
-  final log = Logger('main');
-  log.info('Flutter logging initialized');
-}
-
 void main() async {
   // This is required since we are doing things before calling `runApp`.
   WidgetsFlutterBinding.ensureInitialized();
   await EasyLocalization.ensureInitialized();
-
-  final cacheDir = (await getApplicationCacheDirectory()).path;
-
-  // Initialize logging before other operations
-  await initLogging(cacheDir);
 
   // TODO: Consider using `flutter_native_splash`
   await RustLib.init();
@@ -123,7 +94,7 @@ void main() async {
       tempDir: (await getTemporaryDirectory()).path,
       docDir: (await getApplicationDocumentsDirectory()).path,
       supportDir: (await getApplicationSupportDirectory()).path,
-      cacheDir: cacheDir);
+      cacheDir: (await getApplicationCacheDirectory()).path);
   var updateNotifier = UpdateNotifier();
   delayedInit(updateNotifier);
   var gpsManager = GpsManager();

@@ -4,7 +4,6 @@ import 'package:memolanes/gps_manager.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:logging/logging.dart';
 
 import 'package:memolanes/src/rust/api/api.dart' as api;
 
@@ -31,7 +30,6 @@ class BaseMapWebview extends StatefulWidget {
 class BaseMapWebviewState extends State<BaseMapWebview> {
   late WebViewController _webViewController;
   late GpsManager _gpsManager;
-  final _log = Logger('BaseMapWebview');
 
   @override
   void didUpdateWidget(BaseMapWebview oldWidget) {
@@ -121,11 +119,14 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             return NavigationDecision.prevent;
           },
           onWebResourceError: (WebResourceError error) {
-            _log.severe('''Map WebView Error: 
-                Description: ${error.description}
-                Error Type: ${error.errorType}
-                Error Code: ${error.errorCode}
-                Failed URL: ${error.url}''');
+            api.writeLog(
+              message: '''Map WebView Error: 
+                  Description: ${error.description}
+                  Error Type: ${error.errorType} 
+                  Error Code: ${error.errorCode}
+                  Failed URL: ${error.url}''',
+              level: api.LogLevel.error
+            );
 
             if (error.errorType ==
                 WebResourceErrorType.webContentProcessTerminated) {

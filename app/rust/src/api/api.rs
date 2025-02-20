@@ -22,6 +22,8 @@ use serde::{Deserialize, Serialize};
 
 use super::import::JourneyInfo;
 
+use log::{error, info, warn};
+
 // TODO: we have way too many locking here and now it is hard to track.
 //  e.g. we could mess up with the order and cause a deadlock
 #[frb(ignore)]
@@ -93,6 +95,22 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
     if already_initialized {
         warn!("`init` is called multiple times");
     }
+}
+
+#[frb(sync)]
+pub fn write_log(message: String, level: LogLevel) {
+    match level {
+        LogLevel::Info => info!("[Flutter] {}", message),
+        LogLevel::Warn => warn!("[Flutter] {}", message),
+        LogLevel::Error => error!("[Flutter] {}", message),
+    }
+}
+
+#[derive(Debug)]
+pub enum LogLevel {
+    Info = 0,
+    Warn = 1,
+    Error = 2,
 }
 
 #[frb(opaque)]
