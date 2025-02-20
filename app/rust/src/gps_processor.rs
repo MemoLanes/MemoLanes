@@ -107,6 +107,64 @@ mod process_result_tests {
     }
 }
 
+// It is unfortunate that we may keep duplicate data but I believe this is
+// clearer and easier to maintain.
+struct BadDataDetector {
+    timestamp_ms_and_point: Option<(i64, Point)>,
+    speed: Option<f32>,
+}
+
+impl BadDataDetector {
+    pub fn new() -> Self {
+        BadDataDetector {
+            timestamp_ms_and_point: None,
+            speed: None,
+        }
+    }
+
+    fn is_bad_data(&mut self, curr_data: &RawData) -> bool {
+        const ACCURACY_THRESHOLD: f32 = 50.;
+        const ACCELERATION_THRESHOLD: f32 = 10.;
+        // We mostly don't care deceleration, but just in case we had a very bad
+        // data that bring the speed down a lot.
+        const DECELERATION_THRESHOLD: f32 = -20.;
+
+        if let Some(accuracy) = curr_data.accuracy {
+            if accuracy > ACCURACY_THRESHOLD {
+                return true;
+            }
+        }
+
+        if let Some(timestamp_ms) = curr_data.timestamp_ms {
+            if let Some((prev_timestamp_ms, prev_point)) = &self.timestamp_ms_and_point {
+                // Invalid timestamp
+                if timestamp_ms <= *prev_timestamp_ms {
+                    return true;
+                }
+
+                // computing the speed by ourself instead of using the speed from `RawData`.
+                let distance_m = curr_data.point.haversine_distance(prev_point) as f32;
+                let time_span_in_sec = (timestamp_ms - prev_timestamp_ms) as f32 / 1000.0;
+                let speed = distance_m / time_span_in_sec;
+
+                if let Some(last_speed) = self.speed {
+                    let acceleration = (speed - last_speed) / time_span_in_sec;
+                    // We only care about acceleration, not deceleration.
+                    // Maybe we should also consider direction.
+                    if !(DECELERATION_THRESHOLD..=ACCELERATION_THRESHOLD).contains(&acceleration) {
+                        return true;
+                    }
+                }
+
+                // Note: state should only be updated for good data
+                self.speed = Some(speed);
+            }
+            self.timestamp_ms_and_point = Some((timestamp_ms, curr_data.point.clone()));
+        }
+        false
+    }
+}
+
 enum GpsPreprocessorState {
     Empty,
     Moving {
@@ -124,54 +182,29 @@ enum GpsPreprocessorState {
 
 pub struct GpsPreprocessor {
     state: GpsPreprocessorState,
+    bad_data_detector: BadDataDetector,
 }
 
 impl GpsPreprocessor {
     pub fn new() -> Self {
         GpsPreprocessor {
             state: GpsPreprocessorState::Empty,
+            bad_data_detector: BadDataDetector::new(),
         }
     }
 
-    pub fn last_point(&self) -> Option<Point> {
+    pub fn last_kept_point(&self) -> Option<Point> {
         use GpsPreprocessorState::*;
         match &self.state {
             Empty => None,
-            Moving { last_point, .. }
-            | Stationary {
-                center_point: last_point,
-                ..
-            } => Some(last_point.clone()),
-        }
-    }
-
-    // 1. Accuracy is too bad.
-    // 2. Timestamp moving backwards.
-    fn is_bad_data(&self, curr_data: &RawData) -> bool {
-        use GpsPreprocessorState::*;
-        const ACCURACY_THRESHOLD: f32 = 50.0;
-        if let Some(accuracy) = curr_data.accuracy {
-            if accuracy > ACCURACY_THRESHOLD {
-                return true;
-            }
-        }
-
-        let last_timestamp_ms = match &self.state {
-            Empty => None,
             Moving {
-                last_timestamp_ms, ..
+                last_point: point, ..
             }
             | Stationary {
-                last_timestamp_ms, ..
-            } => *last_timestamp_ms,
-        };
-        if let (Some(now), Some(prev)) = (curr_data.timestamp_ms, last_timestamp_ms) {
-            if now < prev {
-                return true;
-            }
-        };
-
-        false
+                center_point: point,
+                ..
+            } => Some(point.clone()),
+        }
     }
 
     fn process_moving_data(
@@ -179,44 +212,45 @@ impl GpsPreprocessor {
         last_timestamp_ms: Option<i64>,
         curr_data: &RawData,
     ) -> ProcessResult {
-        const TIME_THRESHOLD_IN_MS: i64 = 5 * 1000;
         const TOO_CLOSE_DISTANCE_IN_M: f64 = 0.1;
-        const SPEED_THRESHOLD: f64 = 250.0; // m/s
 
-        let time_diff_in_ms = match (curr_data.timestamp_ms, last_timestamp_ms) {
-            (Some(now), Some(prev)) => Some(now - prev),
-            (None, _) | (_, None) => None,
-        };
+        let distance_in_m = curr_data.point.haversine_distance(last_point);
 
-        let time_based_result = {
-            match time_diff_in_ms {
-                None => ProcessResult::Append,
-                Some(diff_in_ms) => {
-                    if diff_in_ms > TIME_THRESHOLD_IN_MS {
-                        ProcessResult::NewSegment
-                    } else {
-                        ProcessResult::Append
+        if distance_in_m <= TOO_CLOSE_DISTANCE_IN_M {
+            ProcessResult::Ignore
+        } else {
+            let time_diff_in_ms = match (curr_data.timestamp_ms, last_timestamp_ms) {
+                (Some(now), Some(prev)) => Some(now - prev),
+                (None, _) | (_, None) => None,
+            };
+
+            if distance_in_m <= 1_000. {
+                match time_diff_in_ms {
+                    // don't have timestamp, just be conservative and append
+                    None => ProcessResult::Append,
+                    Some(time_diff_in_ms) => {
+                        // more willing to connect two points if they are close
+                        // in normal condition, we should have 1 data per sec
+                        // we should mostly trust the data here and try to
+                        // filter out bad ones in `BadDataDetector`.
+                        let time_threshold_in_sec = if distance_in_m < 5. {
+                            60 * 60 // 1h
+                        } else if distance_in_m < 50. {
+                            20 // 20 sec
+                        } else {
+                            4 // 4 sec
+                        };
+                        if time_diff_in_ms <= time_threshold_in_sec * 1000 {
+                            ProcessResult::Append
+                        } else {
+                            ProcessResult::NewSegment
+                        }
                     }
                 }
-            }
-        };
-
-        if time_based_result == ProcessResult::Append {
-            // let's consider (speed) distance now
-            let distance = curr_data.point.haversine_distance(last_point);
-            if distance <= TOO_CLOSE_DISTANCE_IN_M {
-                ProcessResult::Ignore
             } else {
-                let time_in_sec = time_diff_in_ms.unwrap_or(TIME_THRESHOLD_IN_MS) as f64 / 1000.0;
-                let speed = distance / time_in_sec.max(0.01);
-                if speed < SPEED_THRESHOLD {
-                    ProcessResult::Append
-                } else {
-                    ProcessResult::NewSegment
-                }
+                // Too far, start a new segment
+                ProcessResult::NewSegment
             }
-        } else {
-            time_based_result
         }
     }
 
@@ -234,15 +268,14 @@ impl GpsPreprocessor {
         //   use the iOS threshold or tune a new one. I am not sure. :(
         use GpsPreprocessorState::*;
 
-        // TODO: These values are very conservative, it is good enough for now,
-        // but likely we can do better.
-        const DISTANCE_THRESHOLD_FOR_ENDING_STATIONARY_IN_M: f64 = 2.5;
-        const DISTANCE_THRESHOLD_FOR_BEGINING_STATIONARY_IN_M: f64 = 2.0;
-        const TIME_TO_WAIT_BEFORE_BEGINING_STATIONARY_IN_MS: i64 = 120 * 1000;
-        const FALLBACK_NUM_OF_DATA_TO_WAIT_BEFORE_BEGINING_STATIONARY: i64 = 200;
+        const DISTANCE_THRESHOLD_FOR_ENDING_STATIONARY_IN_M: f64 = 10.0;
+        const DISTANCE_THRESHOLD_FOR_BEGINING_STATIONARY_IN_M: f64 = 5.0;
+        const TIME_TO_WAIT_BEFORE_BEGINING_STATIONARY_IN_MS: i64 = 60 * 1000;
+        const FALLBACK_NUM_OF_DATA_TO_WAIT_BEFORE_BEGINING_STATIONARY: i64 = 60;
+        const DEFAULT_ACCURACY_OF_POINT: f32 = 30.0;
 
         // We don't update our state if the data is bad.
-        if self.is_bad_data(curr_data) {
+        if self.bad_data_detector.is_bad_data(curr_data) {
             return ProcessResult::Ignore;
         };
 
@@ -269,12 +302,16 @@ impl GpsPreprocessor {
                 let result = Self::process_moving_data(last_point, *last_timestamp_ms, curr_data);
                 if result != ProcessResult::Ignore {
                     *last_point = curr_data.point.clone();
+                    *last_timestamp_ms = curr_data.timestamp_ms;
                 }
-                *last_timestamp_ms = curr_data.timestamp_ms;
+
+                let accuracy = curr_data.accuracy.unwrap_or(DEFAULT_ACCURACY_OF_POINT);
 
                 // consider if we need to become stationary
+                // here use the accuracy of gps as threshold
                 if curr_data.point.haversine_distance(possible_center_point)
-                    <= DISTANCE_THRESHOLD_FOR_BEGINING_STATIONARY_IN_M
+                    <= ((accuracy).min(DEFAULT_ACCURACY_OF_POINT)) as f64
+                        + DISTANCE_THRESHOLD_FOR_BEGINING_STATIONARY_IN_M
                 {
                     *num_of_data_since_center_point_picked += 1;
                     let should_become_stationary = if let (Some(now), Some(prev)) = (
@@ -289,7 +326,7 @@ impl GpsPreprocessor {
                     };
                     if should_become_stationary {
                         self.state = Stationary {
-                            center_point: possible_center_point.clone(),
+                            center_point: curr_data.point.clone(),
                             last_timestamp_ms: curr_data.timestamp_ms,
                         }
                     }
@@ -308,13 +345,16 @@ impl GpsPreprocessor {
                 center_point,
                 last_timestamp_ms,
             } => {
-                if curr_data.point.haversine_distance(center_point)
-                    <= DISTANCE_THRESHOLD_FOR_ENDING_STATIONARY_IN_M
-                {
+                //use accuracy as threshold of break stationary state
+                //center_point to compute distance
+                //last_point to compute acceleration
+                let distance = curr_data.point.haversine_distance(center_point);
+                let accuracy = curr_data.accuracy.unwrap_or(DEFAULT_ACCURACY_OF_POINT);
+                if distance <= (accuracy) as f64 + DISTANCE_THRESHOLD_FOR_ENDING_STATIONARY_IN_M {
                     *last_timestamp_ms = curr_data.timestamp_ms;
                     ProcessResult::Ignore
                 } else {
-                    // ending stationary
+                    //then ending stationary change to move mode
                     let result =
                         Self::process_moving_data(center_point, *last_timestamp_ms, curr_data);
                     self.state = start_moving(curr_data);

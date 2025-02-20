@@ -231,7 +231,7 @@ pub fn on_location_update(
     raw_data_list.sort_by(|a, b| a.timestamp_ms.cmp(&b.timestamp_ms));
     raw_data_list.into_iter().for_each(|raw_data| {
         // TODO: more batching updates
-        let last_point = gps_preprocessor.last_point();
+        let last_point = gps_preprocessor.last_kept_point();
         let process_result = gps_preprocessor.preprocess(&raw_data);
         let line_to_add = match process_result {
             ProcessResult::Ignore => None,

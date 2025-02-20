@@ -1,4 +1,3 @@
-use ctrlc;
 use journey_kernel::journey_bitmap::JourneyBitmap;
 use memolanes_core::api::api::CameraOption;
 use memolanes_core::renderer::MapRenderer;
