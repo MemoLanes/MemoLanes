@@ -6,20 +6,24 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:memolanes/component/bottom_nav_bar.dart';
 import 'package:memolanes/component/safe_area_wrapper.dart';
 import 'package:memolanes/time_machine.dart';
+import 'package:memolanes/utils.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:memolanes/settings.dart';
 import 'package:memolanes/gps_manager.dart';
 import 'package:memolanes/journey.dart';
 import 'package:memolanes/map.dart';
-import 'package:memolanes/raw_data.dart';
+import 'package:memolanes/achievement.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void delayedInit(UpdateNotifier updateNotifier) {
-  Future.delayed(const Duration(milliseconds: 2000), () async {
+  Future.delayed(const Duration(milliseconds: 4000), () async {
     DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
     String? manufacturer;
     String? model;
@@ -51,14 +55,30 @@ void delayedInit(UpdateNotifier updateNotifier) {
             packageName: packageInfo.packageName,
             version: packageInfo.version,
             buildNumber: packageInfo.buildNumber));
-    doWork() async {
-      // TODO: for future use
+
+    // Db optimization check
+    const currentOptimizationCheckVersion = 1;
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    var dbOptimizeCheck = prefs.getInt("dbOptimizationCheck") ?? 0;
+    if (dbOptimizeCheck < currentOptimizationCheckVersion) {
+      if (await api.mainDbRequireOptimization()) {
+        var context = navigatorKey.currentState?.context;
+        if (context != null && context.mounted) {
+          await showCommonDialog(
+              context, context.tr('db_optimization.notification'));
+        }
+      } else {
+        await prefs.setInt(
+            "dbOptimizationCheck", currentOptimizationCheckVersion);
+      }
     }
 
-    await doWork();
+    doRepeatWork() async {}
+
+    await doRepeatWork();
     Timer.periodic(const Duration(minutes: 10), (_) async {
       await api.tenMinutesHeartbeat();
-      await doWork();
+      await doRepeatWork();
     });
   });
 }
@@ -116,6 +136,7 @@ class MyApp extends StatelessWidget {
       supportedLocales: context.supportedLocales,
       localizationsDelegates: context.localizationDelegates,
       locale: context.locale,
+      navigatorKey: navigatorKey,
       theme: ThemeData(
         useMaterial3: true,
         fontFamily: 'MiSans',
@@ -167,8 +188,8 @@ class _MyHomePageState extends State<MyHomePage> {
                 0 => const MapUiBody(),
                 1 => const TimeMachineUIBody(),
                 2 => const JourneyUiBody(),
-                3 => const SettingsBody(),
-                4 => const RawDataBody(),
+                3 => const AchievementBody(),
+                4 => const SettingsBody(),
                 _ => throw FormatException('Invalid index: $_selectedIndex')
               }),
           Positioned(

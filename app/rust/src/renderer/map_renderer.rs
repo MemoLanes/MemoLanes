@@ -203,4 +203,8 @@ impl MapRenderer {
             None
         }
     }
+
+    pub fn peek_latest_bitmap(&self) -> &JourneyBitmap {
+        &self.journey_bitmap
+    }
 }

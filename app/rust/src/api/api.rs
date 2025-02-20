@@ -13,7 +13,10 @@ use crate::renderer::map_server::MapRendererToken;
 use crate::renderer::MapRenderer;
 use crate::renderer::MapServer;
 use crate::storage::Storage;
-use crate::{archive, build_info, export_data, gps_processor, merged_journey_builder, storage};
+use crate::{
+    archive, build_info, export_data, gps_processor, journey_area_utils, merged_journey_builder,
+    storage,
+};
 use crate::{logs, utils};
 use serde::{Deserialize, Serialize};
 
@@ -190,7 +193,7 @@ pub fn get_map_renderer_proxy_for_journey(
     let state = get();
     let journey_data = state
         .storage
-        .with_db_txn(|txn| txn.get_journey(journey_id))?;
+        .with_db_txn(|txn| txn.get_journey_data(journey_id))?;
 
     let journey_bitmap = match journey_data {
         JourneyData::Bitmap(bitmap) => bitmap,
@@ -359,7 +362,7 @@ pub fn export_journey(
 ) -> Result<()> {
     let journey_data = get()
         .storage
-        .with_db_txn(|txn| txn.get_journey(&journey_id))?;
+        .with_db_txn(|txn| txn.get_journey_data(&journey_id))?;
     match journey_data {
         JourneyData::Bitmap(_bitmap) => Err(anyhow!("Data type error")),
         JourneyData::Vector(vector) => {
@@ -438,4 +441,19 @@ pub fn export_logs(target_file_path: String) -> Result<()> {
 
 pub fn ten_minutes_heartbeat() {
     info!("10 minutes heartbeat");
+}
+
+pub fn main_db_require_optimization() -> Result<bool> {
+    get().storage.with_db_txn(|txn| txn.require_optimization())
+}
+
+pub fn optimize_main_db() -> Result<()> {
+    get().storage.with_db_txn(|txn| txn.optimize())
+}
+
+pub fn area_of_main_map() -> u64 {
+    // TODO: this is pretty naive
+    let main_map_renderer = get().main_map_renderer.lock().unwrap();
+    let journey_bitmap = main_map_renderer.peek_latest_bitmap();
+    journey_area_utils::compute_journey_bitmap_area(journey_bitmap)
 }

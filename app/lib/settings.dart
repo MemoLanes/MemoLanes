@@ -4,8 +4,9 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/gps_manager.dart';
-import 'package:memolanes/src/rust/api/api.dart';
+import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/utils.dart';
+import 'package:memolanes/raw_data.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -86,7 +87,7 @@ class _SettingsBodyState extends State<SettingsBody> {
               var tmpDir = await getTemporaryDirectory();
               var ts = DateTime.now().millisecondsSinceEpoch;
               var filepath = "${tmpDir.path}/${ts.toString()}.mldx";
-              await generateFullArchive(targetFilepath: filepath);
+              await api.generateFullArchive(targetFilepath: filepath);
               await Share.shareXFiles([XFile(filepath)]);
               try {
                 var file = File(filepath);
@@ -115,7 +116,7 @@ class _SettingsBodyState extends State<SettingsBody> {
                 return;
               }
               try {
-                await deleteAllJourneys();
+                await api.deleteAllJourneys();
                 if (context.mounted) {
                   await showCommonDialog(context, "All journeys are deleted.");
                 }
@@ -139,7 +140,7 @@ class _SettingsBodyState extends State<SettingsBody> {
                   try {
                     await showLoadingDialog(
                         context: context,
-                        asyncTask: importArchive(mldxFilePath: path));
+                        asyncTask: api.importArchive(mldxFilePath: path));
                     if (context.mounted) {
                       await showCommonDialog(
                         context,
@@ -159,10 +160,36 @@ class _SettingsBodyState extends State<SettingsBody> {
           ),
           ElevatedButton(
             onPressed: () async {
+              if (!await api.mainDbRequireOptimization()) {
+                if (!context.mounted) return;
+                await showCommonDialog(
+                  context,
+                  context.tr("db_optimization.already_optimized"),
+                );
+              } else {
+                if (!context.mounted) return;
+                if (await showCommonDialog(
+                    context, context.tr("db_optimization.confirm"),
+                    hasCancel: true)) {
+                  if (!context.mounted) return;
+                  await showLoadingDialog(
+                      context: context, asyncTask: api.optimizeMainDb());
+                  if (!context.mounted) return;
+                  await showCommonDialog(
+                    context,
+                    context.tr("db_optimization.finsih"),
+                  );
+                }
+              }
+            },
+            child: Text(context.tr("db_optimization.button")),
+          ),
+          ElevatedButton(
+            onPressed: () async {
               var tmpDir = await getTemporaryDirectory();
               var ts = DateTime.now().millisecondsSinceEpoch;
               var filepath = "${tmpDir.path}/${ts.toString()}.zip";
-              await exportLogs(targetFilePath: filepath);
+              await api.exportLogs(targetFilePath: filepath);
               await Share.shareXFiles([XFile(filepath)]);
               try {
                 var file = File(filepath);
@@ -173,6 +200,16 @@ class _SettingsBodyState extends State<SettingsBody> {
               }
             },
             child: const Text("Export Logs"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(
+                builder: (context) {
+                  return RawDataPage();
+                },
+              ));
+            },
+            child: const Text("Raw Data Mode"),
           ),
           if (updateUrl != null) ...[
             ElevatedButton(
@@ -187,7 +224,7 @@ class _SettingsBodyState extends State<SettingsBody> {
           ],
           Center(
             child: Text(
-              "Version: ${shortCommitHash()}",
+              "Version: ${api.shortCommitHash()}",
               style: const TextStyle(
                 fontSize: 12.0,
                 fontWeight: FontWeight.normal,

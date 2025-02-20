@@ -16,7 +16,7 @@ message Header {
   }
 
   enum Type {
-    Vector = 0;
+    VECTOR = 0;
     BITMAP = 1;
   }
 
@@ -31,4 +31,5 @@ message Header {
   Type type = 7;
   Kind kind = 8;
   optional string note = 9;
+  optional string postprocessor_algo = 11;
 }
