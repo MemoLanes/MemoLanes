@@ -155,7 +155,7 @@ impl Storage {
                                     &txn.get_journey_header(journey_id)?
                                     .ok_or_else(|| anyhow!("Failed to find journy, journey_id = {}", journey_id))?
                                     .journey_kind,
-                                    txn.get_journey(journey_id)?,
+                                    txn.get_journey_data(journey_id)?,
                                 )?;
                             }
                         }
