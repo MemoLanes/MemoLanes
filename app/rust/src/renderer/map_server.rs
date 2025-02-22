@@ -1,4 +1,4 @@
-use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer, dev::ServerHandle};
+use actix_web::{dev::ServerHandle, web, App, HttpRequest, HttpResponse, HttpServer};
 use anyhow::Result;
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -21,7 +21,10 @@ pub struct MapRendererToken {
 impl MapRendererToken {
     pub fn url(&self) -> String {
         let server_info = self.server_info.lock().unwrap();
-        format!("http://{}:{}/#journey_id={}", server_info.host, server_info.port, self.id)
+        format!(
+            "http://{}:{}/#journey_id={}",
+            server_info.host, server_info.port, self.id
+        )
     }
 
     pub fn get_map_renderer(&self) -> Option<Arc<Mutex<MapRenderer>>> {
@@ -170,12 +173,12 @@ impl MapServer {
                 }
             };
             info!("Server bound successfully to {}:{}", host, actual_port);
-            
+
             let server = server.run();
             let server_handle = server.handle();
-            
+
             ready_with_port(actual_port, server_handle);
-            
+
             server.await?;
             Ok(())
         })
@@ -188,9 +191,14 @@ impl MapServer {
         let host_for_move = host.to_owned();
         let registry_for_move = registry.clone();
         let handle = thread::spawn(move || {
-            if let Err(e) = Self::start_server_blocking(&host_for_move, port, registry_for_move, |actual_port, server_handle| {
-                let _ = tx.send(Ok((actual_port, server_handle)));
-            }) {
+            if let Err(e) = Self::start_server_blocking(
+                &host_for_move,
+                port,
+                registry_for_move,
+                |actual_port, server_handle| {
+                    let _ = tx.send(Ok((actual_port, server_handle)));
+                },
+            ) {
                 let _ = tx.send(Err(e));
             }
             info!("Map server stopped");
@@ -246,7 +254,7 @@ impl MapServer {
             let server_info = self.server_info.lock().unwrap();
             (server_info.host.clone(), server_info.port)
         };
-        
+
         info!("Restarting server with host: {} and port: {}", host, port);
 
         self.stop()?;
@@ -255,9 +263,14 @@ impl MapServer {
 
         let registry_for_move = self.registry.clone();
         let handle = thread::spawn(move || {
-            if let Err(e) = Self::start_server_blocking(&host, Some(port), registry_for_move, |actual_port, server_handle| {
-                let _ = tx.send(Ok((actual_port, server_handle)));
-            }) {
+            if let Err(e) = Self::start_server_blocking(
+                &host,
+                Some(port),
+                registry_for_move,
+                |actual_port, server_handle| {
+                    let _ = tx.send(Ok((actual_port, server_handle)));
+                },
+            ) {
                 let _ = tx.send(Err(e));
             }
             info!("Map server stopped");
