@@ -2,10 +2,6 @@
 need to merge all journeys into one `journey_bitmap`. Relavent functionailties is
 implemented here.
 */
-
-
-use std::collections::HashMap;
-
 use crate::{
     cache_db::{CacheDb, JourneyCacheKey}, journey_bitmap::JourneyBitmap, journey_data::JourneyData, journey_header::JourneyKind, journey_vector::JourneyVector, main_db::{self, MainDb}
 };
@@ -32,59 +28,67 @@ pub fn add_journey_vector_to_journey_bitmap(
 
 
 // TODO: This is going to be very slow.
-// Returns a collection of journey kind and journey bitmap, leaves freedom to the caller
+// Returns a journey bitmap for the journey kind
 fn get_range_internal(
     txn: &mut main_db::Txn,
     from_date_inclusive: Option<NaiveDate>,
     to_date_inclusive: Option<NaiveDate>,
-) -> Result<HashMap<JourneyKind, JourneyBitmap>> {
-    let mut journey_hashmap = HashMap::new();
+    kind: &JourneyKind
+) -> Result<JourneyBitmap> {
+    let mut journey_map = JourneyBitmap::new();
+
+    let kinds = match kind {
+        JourneyKind::ALL => vec![JourneyKind::DefaultKind, JourneyKind::Flight],
+        _ => vec![kind.clone()],
+    };
 
     for journey_header in txn.query_journeys(from_date_inclusive, to_date_inclusive)? {
         let journey_kind = journey_header.journey_kind;
 
-        let journey_bitmap = journey_hashmap
-            .entry(journey_kind)
-            .or_insert_with(JourneyBitmap::new);
+        if !kinds.contains(&journey_kind) {
+            continue;
+        }
 
         let journey_data = txn.get_journey_data(&journey_header.id)?;
         match journey_data {
-            JourneyData::Bitmap(bitmap) => journey_bitmap.merge(bitmap),
+            JourneyData::Bitmap(bitmap) => journey_map.merge(bitmap),
             JourneyData::Vector(vector) => {
-                add_journey_vector_to_journey_bitmap(journey_bitmap, &vector);
+                add_journey_vector_to_journey_bitmap(&mut journey_map, &vector);
             }
         }
     }
-    Ok(journey_hashmap)
+
+    Ok(journey_map)
 }
 
 
+// for time machine
 pub fn get_range(
     txn: &mut main_db::Txn,
     from_date_inclusive: NaiveDate,
     to_date_inclusive: NaiveDate,
+    kind: &JourneyKind
 ) -> Result<JourneyBitmap> {
-    let journey_hashmap = get_range_internal(
+    Ok(get_range_internal(
         txn,
         Some(from_date_inclusive),
         Some(to_date_inclusive),
-    )?;
-    let mut journey_bitmap = JourneyBitmap::new();
-    for (_, bitmap) in journey_hashmap {
-        journey_bitmap.merge(bitmap);
-    }
-    Ok(journey_bitmap)
+        kind,
+    )?)
 }
 
+
+// main map
 pub fn get_latest_including_ongoing(
     main_db: &mut MainDb,
     cache_db: &CacheDb,
+    kind: &JourneyKind,
 ) -> Result<JourneyBitmap> {
     main_db.with_txn(|txn| {
         // getting finalized journeys
         let mut journey_bitmap = cache_db
-            .get_journey_cache_or_compute(&JourneyCacheKey::All, || {
-                get_range_internal(txn, None, None)
+            .get_journey_cache_or_compute(&JourneyCacheKey::All, kind, || {
+                get_range_internal(txn, None, None, kind)
             })?;
 
         // append remaining ongoing parts

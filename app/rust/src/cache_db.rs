@@ -1,8 +1,7 @@
 extern crate simplelog;
 use anyhow::Result;
-use protobuf::Message;
-use rusqlite::Connection;
-use std::{collections::HashMap, path::Path};
+use rusqlite::{params, Connection, OptionalExtension};
+use std::path::Path;
 
 use crate::{
     journey_bitmap::JourneyBitmap,
@@ -85,65 +84,32 @@ impl CacheDb {
     fn get_journey_cache(
         &self,
         key: &JourneyCacheKey,
-        kind: Option<&JourneyKind>,
-    ) -> Result<Vec<Option<JourneyBitmap>>> {
-        let key_cond = key.to_db_string();
-        let kind_string = kind.map(|kind_value| kind_value.clone().to_proto().to_string());
-
-        let (sql, params): (&str, Vec<&dyn rusqlite::ToSql>) = match kind_string {
-            Some(ref kind_str) => (
-                "SELECT data FROM `journey_cache` WHERE key = ?1 AND kind = ?2;",
-                vec![&key_cond, kind_str],
-            ),
-            None => (
-                "SELECT data FROM `journey_cache` WHERE key = ?1;",
-                vec![&key_cond],
-            ),
-        };
-
-        let mut query = self.conn.prepare(sql)?;
-        let data: Vec<Option<JourneyBitmap>> = query
-            .query_map(&params[..], |row| {
-                let data = row.get_ref("data")?.as_blob()?;
-                journey_data::deserialize_journey_bitmap(data)
-                    .map(Some)
-                    .or_else(|_| Ok(None))
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(data)
-    }
-
-    // For now simply merge all kinds, since they are under ALL
-    fn get_merged_journey_cache(
-        &self,
-        key: &JourneyCacheKey,
-        kind: Option<&JourneyKind>,
+        kind: &JourneyKind,
     ) -> Result<Option<JourneyBitmap>> {
-        let res = self.get_journey_cache(key, kind)?;
-        let mut merged_bitmap = JourneyBitmap::new();
-
-        for journey_bitmap in res {
-            match journey_bitmap {
-                Some(bitmap) => merged_bitmap.merge(bitmap),
-                None => continue,
-            }
-        }
-
-        if merged_bitmap.tiles.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(merged_bitmap))
-        }
+        let key_cond = key.to_db_string();
+        let kind_string = kind.clone().to_proto().to_string();
+        
+        let sql = "SELECT data FROM `journey_cache` WHERE key = ?1 AND kind = ?2;";
+        
+        let mut query = self.conn.prepare(sql)?;
+        let data = query
+            .query_row(params![key_cond, kind_string], |row| {
+                let data = row.get_ref(0)?.as_blob()?;
+                Ok(journey_data::deserialize_journey_bitmap(data))
+            })
+            .optional()?
+            .transpose()?;
+        
+        Ok(data)
     }
 
     fn set_journey_cache(
         &self,
         key: &JourneyCacheKey,
-        journey_kind: JourneyKind,
+        journey_kind: &JourneyKind,
         journey_bitmap: &JourneyBitmap,
     ) -> Result<()> {
-        let kind = journey_kind.to_proto().write_to_bytes()?;
+        let kind = journey_kind.clone().to_proto().to_string();
         let mut data = Vec::new();
         journey_data::serialize_journey_bitmap(journey_bitmap, &mut data)?;
         self.conn.execute(
@@ -157,27 +123,26 @@ impl CacheDb {
     pub fn get_journey_cache_or_compute<F>(
         &self,
         key: &JourneyCacheKey,
+        kind: &JourneyKind, // Default, Flight, All
         f: F,
     ) -> Result<JourneyBitmap>
     where
-        F: FnOnce() -> Result<HashMap<JourneyKind, JourneyBitmap>>,
+        F: FnOnce() -> Result<JourneyBitmap>,
     {
-        match self.get_merged_journey_cache(key, None)? {
+
+        match self.get_journey_cache(key, kind)? {
             Some(journey_bitmap) => Ok(journey_bitmap),
             None => {
-                let journey_hashmap = f()?;
-                let mut merged_bitmap = JourneyBitmap::new();
-                for (journey_kind, journey_bitmap) in journey_hashmap {
-                    self.set_journey_cache(key, journey_kind, &journey_bitmap)?;
-                    merged_bitmap.merge(journey_bitmap);
-                }
-                Ok(merged_bitmap)
+                let journey_bitmap = f()?;
+                let _ = self.set_journey_cache(key, kind, &journey_bitmap);
+
+                Ok(journey_bitmap)
             }
         }
     }
 
     pub fn clear_journey_cache(&self) -> Result<()> {
-        // TODO: in v1, use more fine-grained delete with year/month
+        // TODO: in v3, use more fine-grained delete with year/month
         self.conn.execute("DELETE FROM journey_cache;", [])?;
         Ok(())
     }
@@ -185,10 +150,10 @@ impl CacheDb {
     pub fn upsert_journey_cache(
         &self,
         key: &JourneyCacheKey,
-        kind: JourneyKind,
+        kind: &JourneyKind, // Default or Flight only
         journey: JourneyData,
     ) -> Result<()> {
-        let mut journey_bitmap = match self.get_merged_journey_cache(key, Some(&kind))? {
+        let mut journey_bitmap = match self.get_journey_cache(key, kind)? {
             Some(cache_bitmap) => cache_bitmap,
             None => JourneyBitmap::new(),
         };

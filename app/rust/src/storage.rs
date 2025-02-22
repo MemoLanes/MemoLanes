@@ -9,6 +9,7 @@ use std::sync::Mutex;
 use crate::cache_db::{CacheDb, JourneyCacheKey};
 use crate::gps_processor::{self, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
+use crate::journey_header::JourneyKind;
 use crate::main_db::{self, Action, MainDb};
 use crate::merged_journey_builder;
 
@@ -151,7 +152,7 @@ impl Storage {
                             for journey_id in journey_ids {
                                 cache_db.upsert_journey_cache(
                                     &JourneyCacheKey::All,
-                                    txn.get_journey_header(journey_id)?
+                                    &txn.get_journey_header(journey_id)?
                                     .ok_or_else(|| anyhow!("Failed to find journy, journey_id = {}", journey_id))?
                                     .journey_kind,
                                     txn.get_journey(journey_id)?,
@@ -271,7 +272,7 @@ impl Storage {
         // passing `main_db` to `get_latest_including_ongoing` directly is fine
         // becuase it only reads `main_db`.
         let journey_bitmap =
-            merged_journey_builder::get_latest_including_ongoing(main_db, cache_db)?;
+            merged_journey_builder::get_latest_including_ongoing(main_db, cache_db, &JourneyKind::ALL)?;
         drop(dbs);
 
         Ok(journey_bitmap)

@@ -7,6 +7,7 @@ message Header {
     enum BuiltIn {
       DEFAULT = 0;
       FLIGHT = 1;
+      ALL = 2;
     }
 
     oneof Kind {

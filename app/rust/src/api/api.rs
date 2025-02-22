@@ -8,7 +8,7 @@ use flutter_rust_bridge::frb;
 use crate::gps_processor::{GpsPreprocessor, ProcessResult};
 use crate::journey_bitmap::{JourneyBitmap, MAP_WIDTH_OFFSET, TILE_WIDTH, TILE_WIDTH_OFFSET};
 use crate::journey_data::JourneyData;
-use crate::journey_header::JourneyHeader;
+use crate::journey_header::{JourneyHeader, JourneyKind};
 use crate::renderer::map_server::MapRendererToken;
 use crate::renderer::MapRenderer;
 use crate::renderer::MapServer;
@@ -138,7 +138,7 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
 ) -> Result<MapRendererProxy> {
     let state = get();
     let journey_bitmap = state.storage.with_db_txn(|txn| {
-        merged_journey_builder::get_range(txn, from_date_inclusive, to_date_inclusive)
+        merged_journey_builder::get_range(txn, from_date_inclusive, to_date_inclusive, &JourneyKind::ALL)
     })?;
 
     let mut server = state.map_server.lock().unwrap();
