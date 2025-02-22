@@ -3,7 +3,7 @@ use anyhow::Result;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, Weak};
-use std::thread;
+use std::thread::{self, JoinHandle};
 use tokio::runtime::Runtime;
 use uuid::Uuid;
 
@@ -116,7 +116,7 @@ pub struct ServerInfo {
 }
 
 pub struct MapServer {
-    handles: Option<(thread::JoinHandle<()>, ServerHandle)>,
+    handles: Option<(JoinHandle<()>, ServerHandle)>,
     registry: Arc<Mutex<Registry>>,
     server_info: Arc<Mutex<ServerInfo>>,
 }
@@ -184,17 +184,18 @@ impl MapServer {
         })
     }
 
-    pub fn create_and_start(host: &str, port: Option<u16>) -> Result<Self> {
-        let registry = Arc::new(Mutex::new(Registry::new()));
+    fn start_server(
+        host: &str,
+        port: Option<u16>,
+        registry: Arc<Mutex<Registry>>,
+    ) -> Result<((JoinHandle<()>, ServerHandle), ServerInfo)> {
         let (tx, rx) = std::sync::mpsc::channel();
-
         let host_for_move = host.to_owned();
-        let registry_for_move = registry.clone();
         let handle = thread::spawn(move || {
             if let Err(e) = Self::start_server_blocking(
                 &host_for_move,
                 port,
-                registry_for_move,
+                registry,
                 |actual_port, server_handle| {
                     let _ = tx.send(Ok((actual_port, server_handle)));
                 },
@@ -203,17 +204,24 @@ impl MapServer {
             }
             info!("Map server stopped");
         });
-
         let (actual_port, server_handle) = rx.recv()??;
-        let server_info = Arc::new(Mutex::new(ServerInfo {
+        let server_info = ServerInfo {
             host: host.to_owned(),
             port: actual_port,
-        }));
+        };
+        Ok(((handle, server_handle), server_info))
+    }
+
+    pub fn create_and_start(host: &str, port: Option<u16>) -> Result<Self> {
+        let registry = Arc::new(Mutex::new(Registry::new()));
+
+        let registry_for_move = registry.clone();
+        let (handles, server_info) = Self::start_server(host, port, registry_for_move)?;
 
         Ok(Self {
-            handles: Some((handle, server_handle)),
+            handles: Some(handles),
             registry,
-            server_info,
+            server_info: Arc::new(Mutex::new(server_info)),
         })
     }
 
@@ -250,40 +258,24 @@ impl MapServer {
     }
 
     pub fn restart(&mut self) -> Result<()> {
-        let (host, port) = {
+        let host = {
             let server_info = self.server_info.lock().unwrap();
-            (server_info.host.clone(), server_info.port)
+            server_info.host.clone()
         };
 
-        info!("Restarting server with host: {} and port: {}", host, port);
+        info!("Restarting server with host: {}", host);
 
         self.stop()?;
 
-        let (tx, rx) = std::sync::mpsc::channel();
-
         let registry_for_move = self.registry.clone();
-        let handle = thread::spawn(move || {
-            if let Err(e) = Self::start_server_blocking(
-                &host,
-                Some(port),
-                registry_for_move,
-                |actual_port, server_handle| {
-                    let _ = tx.send(Ok((actual_port, server_handle)));
-                },
-            ) {
-                let _ = tx.send(Err(e));
-            }
-            info!("Map server stopped");
-        });
-
-        let (actual_port, server_handle) = rx.recv()??;
+        let (handles, new_server_info) = Self::start_server(&host, None, registry_for_move)?;
 
         {
             let mut server_info = self.server_info.lock().unwrap();
-            server_info.port = actual_port;
+            *server_info = new_server_info;
         }
 
-        self.handles = Some((handle, server_handle));
+        self.handles = Some(handles);
 
         info!("Server successfully restarted at {}", self.url());
         Ok(())

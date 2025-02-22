@@ -30,7 +30,7 @@ use log::{error, info, warn};
 pub(super) struct MainState {
     pub storage: Storage,
     pub gps_preprocessor: Mutex<GpsPreprocessor>,
-    pub map_server: Mutex<Option<MapServer>>,
+    pub map_server: Mutex<MapServer>,
     // TODO: we should reconsider the way we handle the main map
     pub main_map_renderer: Arc<Mutex<MapRenderer>>,
     pub main_map_renderer_token: MapRendererToken,
@@ -88,7 +88,7 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
             storage,
             main_map_renderer,
             gps_preprocessor: Mutex::new(GpsPreprocessor::new()),
-            map_server: Mutex::new(Some(map_server)),
+            map_server: Mutex::new(map_server),
             main_map_renderer_token,
         }
     });
@@ -143,10 +143,7 @@ pub fn get_empty_map_renderer_proxy() -> MapRendererProxy {
 
     let mut server = state.map_server.lock().unwrap();
     let map_renderer = MapRenderer::new(journey_bitmap);
-    let token = server
-        .as_mut()
-        .unwrap()
-        .register_map_renderer(Arc::new(Mutex::new(map_renderer)));
+    let token = server.register_map_renderer(Arc::new(Mutex::new(map_renderer)));
     MapRendererProxy::Token(token)
 }
 
@@ -161,10 +158,7 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
 
     let mut server = state.map_server.lock().unwrap();
     let map_renderer = MapRenderer::new(journey_bitmap);
-    let token = server
-        .as_mut()
-        .unwrap()
-        .register_map_renderer(Arc::new(Mutex::new(map_renderer)));
+    let token = server.register_map_renderer(Arc::new(Mutex::new(map_renderer)));
     Ok(MapRendererProxy::Token(token))
 }
 
@@ -227,10 +221,7 @@ pub fn get_map_renderer_proxy_for_journey(
     let mut map_renderer = MapRenderer::new(journey_bitmap);
     map_renderer.set_provisioned_camera_option(default_camera_option);
     let mut server = state.map_server.lock().unwrap();
-    let token = server
-        .as_mut()
-        .unwrap()
-        .register_map_renderer(Arc::new(Mutex::new(map_renderer)));
+    let token = server.register_map_renderer(Arc::new(Mutex::new(map_renderer)));
     Ok((MapRendererProxy::Token(token), default_camera_option))
 }
 
@@ -476,22 +467,8 @@ pub fn area_of_main_map() -> u64 {
     journey_area_utils::compute_journey_bitmap_area(journey_bitmap)
 }
 
-#[frb(sync)]
 pub fn restart_map_server() -> Result<()> {
     let state = get();
     let mut map_server = state.map_server.lock().unwrap();
-    match map_server.as_mut() {
-        Some(server) => server.restart(),
-        None => Err(anyhow!("Map server is not initialized")),
-    }
-}
-
-#[frb(sync)]
-pub fn stop_map_server() -> Result<()> {
-    let state = get();
-    let mut map_server = state.map_server.lock().unwrap();
-    match map_server.as_mut() {
-        Some(server) => server.stop(),
-        None => Err(anyhow!("Map server is not initialized")),
-    }
+    map_server.restart()
 }
