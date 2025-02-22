@@ -62,7 +62,7 @@ fn basic() {
         merged_journey_builder::get_latest_including_ongoing(
             &mut main_db,
             &cache_db,
-            &JourneyKind::ALL
+            None
         )
         .unwrap(),
         journey_bitmap
@@ -70,7 +70,7 @@ fn basic() {
 
     assert_eq!(
         cache_db
-            .get_journey_cache_or_compute(&JourneyCacheKey::All, &JourneyKind::ALL, || panic!(
+            .get_journey_cache_or_compute(&JourneyCacheKey::All, None, || panic!(
                 "should not be called"
             ))
             .unwrap(),

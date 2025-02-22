@@ -33,13 +33,13 @@ fn get_range_internal(
     txn: &mut main_db::Txn,
     from_date_inclusive: Option<NaiveDate>,
     to_date_inclusive: Option<NaiveDate>,
-    kind: &JourneyKind
+    kind: Option<&JourneyKind>
 ) -> Result<JourneyBitmap> {
     let mut journey_map = JourneyBitmap::new();
 
     let kinds = match kind {
-        JourneyKind::ALL => vec![JourneyKind::DefaultKind, JourneyKind::Flight],
-        _ => vec![kind.clone()],
+        None => vec![JourneyKind::DefaultKind, JourneyKind::Flight],
+        Some(kind) => vec![kind.clone()],
     };
 
     for journey_header in txn.query_journeys(from_date_inclusive, to_date_inclusive)? {
@@ -67,7 +67,7 @@ pub fn get_range(
     txn: &mut main_db::Txn,
     from_date_inclusive: NaiveDate,
     to_date_inclusive: NaiveDate,
-    kind: &JourneyKind
+    kind: Option<&JourneyKind>
 ) -> Result<JourneyBitmap> {
     Ok(get_range_internal(
         txn,
@@ -82,11 +82,11 @@ pub fn get_range(
 pub fn get_latest_including_ongoing(
     main_db: &mut MainDb,
     cache_db: &CacheDb,
-    kind: &JourneyKind,
+    kind: Option<&JourneyKind>,
 ) -> Result<JourneyBitmap> {
     main_db.with_txn(|txn| {
         // getting finalized journeys
-        let mut journey_bitmap = cache_db
+        let mut journey_bitmap: JourneyBitmap = cache_db
             .get_journey_cache_or_compute(&JourneyCacheKey::All, kind, || {
                 get_range_internal(txn, None, None, kind)
             })?;

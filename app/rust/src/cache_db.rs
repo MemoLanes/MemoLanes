@@ -84,16 +84,18 @@ impl CacheDb {
     fn get_journey_cache(
         &self,
         key: &JourneyCacheKey,
-        kind: &JourneyKind,
+        journey_kind: Option<&JourneyKind>,
     ) -> Result<Option<JourneyBitmap>> {
         let key_cond = key.to_db_string();
-        let kind_string = kind.clone().to_proto().to_string();
-        
+        let kind = match journey_kind {
+            None => "ALL",
+            Some(journey_kind) => &journey_kind.clone().to_proto().to_string()
+        };
         let sql = "SELECT data FROM `journey_cache` WHERE key = ?1 AND kind = ?2;";
         
         let mut query = self.conn.prepare(sql)?;
         let data = query
-            .query_row(params![key_cond, kind_string], |row| {
+            .query_row(params![key_cond, kind], |row| {
                 let data = row.get_ref(0)?.as_blob()?;
                 Ok(journey_data::deserialize_journey_bitmap(data))
             })
@@ -106,10 +108,13 @@ impl CacheDb {
     fn set_journey_cache(
         &self,
         key: &JourneyCacheKey,
-        journey_kind: &JourneyKind,
+        journey_kind: Option<&JourneyKind>,
         journey_bitmap: &JourneyBitmap,
     ) -> Result<()> {
-        let kind = journey_kind.clone().to_proto().to_string();
+        let kind = match journey_kind {
+            None => "ALL",
+            Some(journey_kind)=> &journey_kind.clone().to_proto().to_string()
+        };
         let mut data = Vec::new();
         journey_data::serialize_journey_bitmap(journey_bitmap, &mut data)?;
         self.conn.execute(
@@ -123,7 +128,7 @@ impl CacheDb {
     pub fn get_journey_cache_or_compute<F>(
         &self,
         key: &JourneyCacheKey,
-        kind: &JourneyKind, // Default, Flight, All
+        kind: Option<&JourneyKind>, // Default, Flight, None
         f: F,
     ) -> Result<JourneyBitmap>
     where
@@ -153,7 +158,7 @@ impl CacheDb {
         kind: &JourneyKind, // Default or Flight only
         journey: JourneyData,
     ) -> Result<()> {
-        let mut journey_bitmap = match self.get_journey_cache(key, kind)? {
+        let mut journey_bitmap = match self.get_journey_cache(key, Some(kind))? {
             Some(cache_bitmap) => cache_bitmap,
             None => JourneyBitmap::new(),
         };
@@ -166,6 +171,6 @@ impl CacheDb {
         }
 
         // Update the journey cache with the new or merged bitmap
-        self.set_journey_cache(key, kind, &journey_bitmap)
+        self.set_journey_cache(key, Some(kind), &journey_bitmap)
     }
 }

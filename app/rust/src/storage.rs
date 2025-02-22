@@ -9,7 +9,6 @@ use std::sync::Mutex;
 use crate::cache_db::{CacheDb, JourneyCacheKey};
 use crate::gps_processor::{self, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
-use crate::journey_header::JourneyKind;
 use crate::main_db::{self, Action, MainDb};
 use crate::merged_journey_builder;
 
@@ -272,7 +271,7 @@ impl Storage {
         // passing `main_db` to `get_latest_including_ongoing` directly is fine
         // becuase it only reads `main_db`.
         let journey_bitmap =
-            merged_journey_builder::get_latest_including_ongoing(main_db, cache_db, &JourneyKind::ALL)?;
+            merged_journey_builder::get_latest_including_ongoing(main_db, cache_db, None)?;
         drop(dbs);
 
         Ok(journey_bitmap)

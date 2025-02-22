@@ -62,8 +62,7 @@ mod tests {
 #[derive(Eq, Hash, Clone, Debug, PartialEq)]
 pub enum JourneyKind {
     DefaultKind,
-    Flight,
-    ALL,
+    Flight
 }
 
 impl JourneyKind {
@@ -72,8 +71,7 @@ impl JourneyKind {
         let mut kind = Kind::new();
         match self {
             JourneyKind::DefaultKind => kind.set_build_in(kind::BuiltIn::DEFAULT),
-            JourneyKind::Flight => kind.set_build_in(kind::BuiltIn::FLIGHT),
-            JourneyKind::ALL => kind.set_build_in(kind::BuiltIn::ALL),  // reserved for main map
+            JourneyKind::Flight => kind.set_build_in(kind::BuiltIn::FLIGHT)
         };
         kind
     }
@@ -82,8 +80,7 @@ impl JourneyKind {
         use protos::journey::header::kind;
         match proto.build_in() {
             kind::BuiltIn::DEFAULT => JourneyKind::DefaultKind,
-            kind::BuiltIn::FLIGHT => JourneyKind::Flight,
-            kind::BuiltIn::ALL => JourneyKind::ALL
+            kind::BuiltIn::FLIGHT => JourneyKind::Flight
         }
     }
 }

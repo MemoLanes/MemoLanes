@@ -18,7 +18,7 @@ fn basic() {
     
     assert_eq!(
         cache_db
-            .get_journey_cache_or_compute(&key, &journey_kind, || {
+            .get_journey_cache_or_compute(&key, Some(&journey_kind), || {
                 Ok(journey_bitmap.clone())
             })
             .unwrap(),
@@ -27,7 +27,7 @@ fn basic() {
     // it should be saved in the cache
     assert_eq!(
         cache_db
-            .get_journey_cache_or_compute(&key, &journey_kind, || panic!("Should not be called"))
+            .get_journey_cache_or_compute(&key, Some(&journey_kind), || panic!("Should not be called"))
             .unwrap(),
         journey_bitmap
     );
@@ -36,7 +36,7 @@ fn basic() {
     cache_db.clear_journey_cache().unwrap();
     assert_eq!(
         cache_db
-            .get_journey_cache_or_compute(&key, &journey_kind, || {
+            .get_journey_cache_or_compute(&key, Some(&journey_kind), || {
                 Ok(JourneyBitmap::new())
             })
             .unwrap(),
@@ -51,7 +51,7 @@ fn basic() {
 
     assert_eq!(
         cache_db
-            .get_journey_cache_or_compute(&key, &journey_kind_flight, || panic!("Should not be called"))
+            .get_journey_cache_or_compute(&key, Some(&journey_kind_flight), || panic!("Should not be called"))
             .unwrap(),
             journey_bitmap
     );
