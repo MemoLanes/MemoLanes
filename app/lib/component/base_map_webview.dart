@@ -119,14 +119,24 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             return NavigationDecision.prevent;
           },
           onWebResourceError: (WebResourceError error) {
-            api.writeLog(
-              message: '''Map WebView Error: 
+            // the mapbox error is common (maybe blocked by some firewall )
+            if (error.url?.contains('events.mapbox.com') != true) {
+              api.writeLog(message: '''Map WebView Error: 
                   Description: ${error.description}
                   Error Type: ${error.errorType} 
                   Error Code: ${error.errorCode}
-                  Failed URL: ${error.url}''',
-              level: api.LogLevel.error
-            );
+                  Failed URL: ${error.url}''', level: api.LogLevel.error);
+            }
+
+            if ((error.errorCode == -1004 || // iOS error code
+                    (error.errorType == WebResourceErrorType.connect &&
+                        error.errorCode == -6)) && // Android error code
+                error.url?.contains('localhost') == true) {
+              api.restartMapServer();
+              final url = widget.mapRendererProxy.getUrl();
+              _webViewController.loadRequest(Uri.parse(url));
+              return;
+            }
 
             if (error.errorType ==
                 WebResourceErrorType.webContentProcessTerminated) {

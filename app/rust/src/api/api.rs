@@ -475,3 +475,23 @@ pub fn area_of_main_map() -> u64 {
     let journey_bitmap = main_map_renderer.peek_latest_bitmap();
     journey_area_utils::compute_journey_bitmap_area(journey_bitmap)
 }
+
+#[frb(sync)]
+pub fn restart_map_server() -> Result<()> {
+    let state = get();
+    let mut map_server = state.map_server.lock().unwrap();
+    match map_server.as_mut() {
+        Some(server) => server.restart(),
+        None => Err(anyhow!("Map server is not initialized")),
+    }
+}
+
+#[frb(sync)]
+pub fn stop_map_server() -> Result<()> {
+    let state = get();
+    let mut map_server = state.map_server.lock().unwrap();
+    match map_server.as_mut() {
+        Some(server) => server.stop(),
+        None => Err(anyhow!("Map server is not initialized")),
+    }
+}
