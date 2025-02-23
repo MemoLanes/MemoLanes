@@ -1,9 +1,9 @@
-use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
+use actix_web::{dev::ServerHandle, web, App, HttpRequest, HttpResponse, HttpServer};
 use anyhow::Result;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, Weak};
-use std::thread;
+use std::thread::{self, JoinHandle};
 use tokio::runtime::Runtime;
 use uuid::Uuid;
 
@@ -13,14 +13,18 @@ type Registry = HashMap<Uuid, Arc<Mutex<MapRenderer>>>;
 
 pub struct MapRendererToken {
     id: Uuid,
-    url: String,
     registry: Weak<Mutex<Registry>>,
+    server_info: Arc<Mutex<ServerInfo>>,
     is_primitive: bool,
 }
 
 impl MapRendererToken {
     pub fn url(&self) -> String {
-        self.url.clone()
+        let server_info = self.server_info.lock().unwrap();
+        format!(
+            "http://{}:{}/#journey_id={}",
+            server_info.host, server_info.port, self.id
+        )
     }
 
     pub fn get_map_renderer(&self) -> Option<Arc<Mutex<MapRenderer>>> {
@@ -43,8 +47,8 @@ impl MapRendererToken {
     pub fn clone_temporary_token(&self) -> MapRendererToken {
         MapRendererToken {
             id: self.id,
-            url: self.url.clone(),
             registry: self.registry.clone(),
+            server_info: self.server_info.clone(),
             is_primitive: false,
         }
     }
@@ -106,10 +110,15 @@ async fn serve_journey_bitmap_provisioned_camera_option_by_id(
     }
 }
 
+pub struct ServerInfo {
+    host: String,
+    port: u16,
+}
+
 pub struct MapServer {
-    handle: Option<thread::JoinHandle<()>>,
+    handles: Option<(JoinHandle<()>, ServerHandle)>,
     registry: Arc<Mutex<Registry>>,
-    url: String,
+    server_info: Arc<Mutex<ServerInfo>>,
 }
 
 impl MapServer {
@@ -117,10 +126,10 @@ impl MapServer {
         host: &str,
         port: Option<u16>,
         registry: Arc<Mutex<Registry>>,
-        ready_with_url: F,
+        ready_with_port: F,
     ) -> Result<()>
     where
-        F: FnOnce(String),
+        F: FnOnce(u16, ServerHandle),
     {
         let port = match port {
             Some(0) => None,
@@ -150,7 +159,8 @@ impl MapServer {
                     .route("/token.json", web::get().to(serve_token_json))
             })
             .bind((host, port.unwrap_or(0)))?
-            .workers(1);
+            .workers(1)
+            .shutdown_timeout(0);
 
             let actual_port = match port {
                 Some(port) => port,
@@ -163,45 +173,61 @@ impl MapServer {
                 }
             };
             info!("Server bound successfully to {}:{}", host, actual_port);
-            ready_with_url(format!("http://{}:{}/", host, actual_port));
-            // the error below is just ignored but we don't care a lot
-            server.run().await?;
+
+            let server = server.run();
+            let server_handle = server.handle();
+
+            ready_with_port(actual_port, server_handle);
+
+            server.await?;
             Ok(())
         })
+    }
+
+    fn start_server(
+        host: &str,
+        port: Option<u16>,
+        registry: Arc<Mutex<Registry>>,
+    ) -> Result<((JoinHandle<()>, ServerHandle), ServerInfo)> {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let host_for_move = host.to_owned();
+        let handle = thread::spawn(move || {
+            if let Err(e) = Self::start_server_blocking(
+                &host_for_move,
+                port,
+                registry,
+                |actual_port, server_handle| {
+                    let _ = tx.send(Ok((actual_port, server_handle)));
+                },
+            ) {
+                let _ = tx.send(Err(e));
+            }
+            info!("Map server stopped");
+        });
+        let (actual_port, server_handle) = rx.recv()??;
+        let server_info = ServerInfo {
+            host: host.to_owned(),
+            port: actual_port,
+        };
+        Ok(((handle, server_handle), server_info))
     }
 
     pub fn create_and_start(host: &str, port: Option<u16>) -> Result<Self> {
         let registry = Arc::new(Mutex::new(Registry::new()));
 
-        // Create a channel to get the URL when the server is ready
-        let (tx, rx) = std::sync::mpsc::channel();
-
-        let host = host.to_owned();
         let registry_for_move = registry.clone();
-        let handle = thread::spawn(move || {
-            match Self::start_server_blocking(&host, port, registry_for_move, |url| {
-                let _ = tx.send(Ok(url));
-            }) {
-                Ok(()) => (),
-                Err(e) => {
-                    let _ = tx.send(Err(e));
-                }
-            }
-            info!("Map server stopped");
-        });
-
-        // wait for the first message from the channel, either the URL or an error
-        let url = rx.recv()??;
+        let (handles, server_info) = Self::start_server(host, port, registry_for_move)?;
 
         Ok(Self {
-            handle: Some(handle),
+            handles: Some(handles),
             registry,
-            url,
+            server_info: Arc::new(Mutex::new(server_info)),
         })
     }
 
-    pub fn get_url(&self) -> String {
-        self.url.clone()
+    pub fn url(&self) -> String {
+        let server_info = self.server_info.lock().unwrap();
+        format!("http://{}:{}/", server_info.host, server_info.port)
     }
 
     pub fn register_map_renderer(
@@ -216,25 +242,49 @@ impl MapServer {
         };
         MapRendererToken {
             id,
-            url: format!("{}#journey_id={}", self.get_url(), id),
             registry: Arc::downgrade(&self.registry),
+            server_info: self.server_info.clone(),
             is_primitive: true,
         }
     }
 
-    // TODO: maybe stop the server when app is switched to background.
-    pub fn stop(&mut self) {
-        if let Some(handle) = self.handle.take() {
-            // You might want to implement proper shutdown logic here
-            // For now, we just wait for the thread to finish
+    // TODO: maybe shutdown the server when switched to background
+    pub fn stop(&mut self) -> Result<()> {
+        if let Some((handle, server_handle)) = self.handles.take() {
+            pollster::block_on(server_handle.stop(true));
             handle.join().unwrap();
         }
+        Ok(())
+    }
+
+    pub fn restart(&mut self) -> Result<()> {
+        let host = {
+            let server_info = self.server_info.lock().unwrap();
+            server_info.host.clone()
+        };
+
+        info!("Restarting server with host: {}", host);
+
+        self.stop()?;
+
+        let registry_for_move = self.registry.clone();
+        let (handles, new_server_info) = Self::start_server(&host, None, registry_for_move)?;
+
+        {
+            let mut server_info = self.server_info.lock().unwrap();
+            *server_info = new_server_info;
+        }
+
+        self.handles = Some(handles);
+
+        info!("Server successfully restarted at {}", self.url());
+        Ok(())
     }
 }
 
 impl Drop for MapServer {
     fn drop(&mut self) {
-        self.stop();
+        let _ = self.stop();
     }
 }
 
