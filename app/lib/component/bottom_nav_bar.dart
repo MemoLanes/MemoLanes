@@ -1,6 +1,7 @@
+import 'dart:ui';
+
 import 'package:badges/badges.dart' as badges;
 import 'package:flutter/material.dart';
-import 'dart:ui';
 
 class BottomNavBar extends StatelessWidget {
   final int selectedIndex;
@@ -56,50 +57,54 @@ class BottomNavBar extends StatelessWidget {
       child: GestureDetector(
         onTap: () => onIndexChanged(index),
         child: Container(
-          height: double.infinity,
-          margin: const EdgeInsets.all(8),
-          decoration: isSelected
-              ? BoxDecoration(
-                  color: Colors.white.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(8),
-                )
-              : null,
-          child: index == 3 && hasUpdateNotification()
-              ? badges.Badge(
-                  badgeStyle: badges.BadgeStyle(
-                    shape: badges.BadgeShape.square,
-                    borderRadius: BorderRadius.circular(5),
-                    padding: const EdgeInsets.all(2),
-                    badgeGradient: const badges.BadgeGradient.linear(
-                      colors: [
-                        Color.fromARGB(255, 129, 225, 19),
-                        Color.fromARGB(255, 9, 177, 17),
-                        Color.fromARGB(255, 129, 225, 19),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  position: badges.BadgePosition.topEnd(top: 5, end: -6),
-                  badgeContent: const Text(
-                    'NEW',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 8,
-                        fontWeight: FontWeight.bold),
-                  ),
-                  child: Center(
-                    child: Icon(
+          color: Colors.transparent,
+          padding: const EdgeInsets.all(8),
+          child: Container(
+            decoration: isSelected
+                ? BoxDecoration(
+                    color: Colors.white.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(8),
+                  )
+                : null,
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: index == 3 && hasUpdateNotification()
+                  ? badges.Badge(
+                      badgeStyle: badges.BadgeStyle(
+                        shape: badges.BadgeShape.square,
+                        borderRadius: BorderRadius.circular(5),
+                        padding: const EdgeInsets.all(2),
+                        badgeGradient: const badges.BadgeGradient.linear(
+                          colors: [
+                            Color.fromARGB(255, 129, 225, 19),
+                            Color.fromARGB(255, 9, 177, 17),
+                            Color.fromARGB(255, 129, 225, 19),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      position: badges.BadgePosition.topEnd(top: 5, end: -6),
+                      badgeContent: const Text(
+                        'NEW',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold),
+                      ),
+                      child: Icon(
+                        isSelected ? activeIcon : icon,
+                        color: isSelected ? Colors.black : Colors.grey,
+                        size: 28,
+                      ),
+                    )
+                  : Icon(
                       isSelected ? activeIcon : icon,
                       color: isSelected ? Colors.black : Colors.grey,
                       size: 28,
                     ),
-                  ))
-              : Icon(
-                  isSelected ? activeIcon : icon,
-                  color: isSelected ? Colors.black : Colors.grey,
-                  size: 28,
-                ),
+            ),
+          ),
         ),
       ),
     );
