@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:memolanes/gps_manager.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
-
+import 'package:memolanes/map.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 enum TrackingMode {
   displayAndTracking,
@@ -15,13 +18,18 @@ enum TrackingMode {
 
 class BaseMapWebview extends StatefulWidget {
   final api.MapRendererProxy mapRendererProxy;
+  final MapState? mapState;
   final TrackingMode trackingMode;
   final void Function()? onMapMoved;
+  final void Function(double lnt, double lat, double zoom)? onMapStatus;
+
   const BaseMapWebview(
       {super.key,
       required this.mapRendererProxy,
       this.trackingMode = TrackingMode.off,
-      this.onMapMoved});
+      this.onMapMoved,
+      this.mapState,
+      this.onMapStatus});
 
   @override
   State<StatefulWidget> createState() => BaseMapWebviewState();
@@ -30,6 +38,7 @@ class BaseMapWebview extends StatefulWidget {
 class BaseMapWebviewState extends State<BaseMapWebview> {
   late WebViewController _webViewController;
   late GpsManager _gpsManager;
+  late Timer _mapStateTimer;
 
   @override
   void didUpdateWidget(BaseMapWebview oldWidget) {
@@ -61,13 +70,38 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _webViewController = WebViewController();
     _gpsManager = Provider.of<GpsManager>(context, listen: false);
     _gpsManager.addListener(_updateLocationMarker);
+    _mapStateTimer = Timer.periodic(Duration(seconds: 5), (Timer t) {
+      _callMapState();
+    });
     _initWebView();
   }
 
   @override
   void dispose() {
     _gpsManager.removeListener(_updateLocationMarker);
+    _mapStateTimer.cancel();
     super.dispose();
+  }
+
+  void _callMapState() async {
+    final dynamic jsResult =
+        await _webViewController.runJavaScriptReturningResult('''
+        if (typeof getCurrentMapView === 'function') {
+          getCurrentMapView();
+        }
+      ''');
+    if (jsResult == null || jsResult == "null") {
+      return;
+    }
+    final String jsonString =
+        jsResult is String ? jsResult : jsResult.toString();
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    prefs.setString("mapViewStatus", jsonString);
+    final map = jsonDecode(jsonString);
+    final lng = double.parse(map['lng'].toString());
+    final lat = double.parse(map['lat'].toString());
+    final zoom = double.parse(map['zoom'].toString());
+    widget.onMapStatus?.call(lng, lat, zoom);
   }
 
   void _updateLocationMarker() {
@@ -136,8 +170,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
                         error.errorCode == -6)) && // Android error code
                 error.url?.contains('localhost') == true) {
               await api.restartMapServer();
-              final url = widget.mapRendererProxy.getUrl();
-              await _webViewController.loadRequest(Uri.parse(url));
+              final url =
+                  replaceUri(widget.mapRendererProxy.getUrl(), widget.mapState);
+              await _webViewController.loadRequest(url);
               return;
             }
 
@@ -155,8 +190,22 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         },
       );
 
-    final url = widget.mapRendererProxy.getUrl();
-    await _webViewController.loadRequest(Uri.parse(url));
+    final url = replaceUri(widget.mapRendererProxy.getUrl(), widget.mapState);
+    await _webViewController.loadRequest(url);
+  }
+
+  Uri replaceUri(String url, MapState? mapViewStatus) {
+    Uri uri = Uri.parse(url);
+    if (mapViewStatus != null) {
+      String fragment = uri.fragment ?? '';
+      Map<String, String> fragmentParams = Uri.splitQueryString(fragment);
+      fragmentParams['lng'] = mapViewStatus.lng.toString();
+      fragmentParams['lat'] = mapViewStatus.lat.toString();
+      fragmentParams['zoom'] = mapViewStatus.zoom.toString();
+      String newFragment = Uri(queryParameters: fragmentParams).query;
+      uri = uri.replace(fragment: newFragment);
+    }
+    return uri;
   }
 
   @override
