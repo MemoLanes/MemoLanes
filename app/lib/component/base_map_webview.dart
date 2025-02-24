@@ -197,7 +197,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   Uri replaceUri(String url, MapState? mapViewStatus) {
     Uri uri = Uri.parse(url);
     if (mapViewStatus != null) {
-      String fragment = uri.fragment ?? '';
+      String fragment = uri.fragment;
       Map<String, String> fragmentParams = Uri.splitQueryString(fragment);
       fragmentParams['lng'] = mapViewStatus.lng.toString();
       fragmentParams['lat'] = mapViewStatus.lat.toString();
