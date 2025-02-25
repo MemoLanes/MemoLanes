@@ -7,6 +7,8 @@ import 'package:memolanes/component/bottom_nav_bar.dart';
 import 'package:memolanes/component/safe_area_wrapper.dart';
 import 'package:memolanes/time_machine.dart';
 import 'package:memolanes/utils.dart';
+import 'package:memolanes/utils/error_handler.dart';
+import 'package:memolanes/utils/logger.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:memolanes/settings.dart';
@@ -21,6 +23,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+final _logger = Logger('Main');
 
 void delayedInit(UpdateNotifier updateNotifier) {
   Future.delayed(const Duration(milliseconds: 4000), () async {
@@ -44,6 +47,9 @@ void delayedInit(UpdateNotifier updateNotifier) {
     }
 
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
+
+    _logger.i(
+        'Device: $manufacturer $model, System: $systemVersion, App: ${packageInfo.version}');
 
     await api.delayedInit(
         deviceInfo: api.DeviceInfo(
@@ -88,28 +94,40 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await EasyLocalization.ensureInitialized();
 
-  // TODO: Consider using `flutter_native_splash`
-  await RustLib.init();
-  await api.init(
-      tempDir: (await getTemporaryDirectory()).path,
-      docDir: (await getApplicationDocumentsDirectory()).path,
-      supportDir: (await getApplicationSupportDirectory()).path,
-      cacheDir: (await getApplicationCacheDirectory()).path);
-  var updateNotifier = UpdateNotifier();
-  delayedInit(updateNotifier);
-  var gpsManager = GpsManager();
-  runApp(EasyLocalization(
-      supportedLocales: const [Locale('en', 'US'), Locale('zh', 'CN')],
-      path: 'assets/translations',
-      fallbackLocale: const Locale('en', 'US'),
-      saveLocale: false,
-      child: MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (context) => gpsManager),
-          ChangeNotifierProvider(create: (context) => updateNotifier),
-        ],
-        child: const MyApp(),
-      )));
+  // Initialize error handlers
+  ErrorHandler.initialize();
+
+  try {
+    // TODO: Consider using `flutter_native_splash`
+    await RustLib.init();
+    _logger.i('Rust library initialized');
+
+    await api.init(
+        tempDir: (await getTemporaryDirectory()).path,
+        docDir: (await getApplicationDocumentsDirectory()).path,
+        supportDir: (await getApplicationSupportDirectory()).path,
+        cacheDir: (await getApplicationCacheDirectory()).path);
+    _logger.i('API initialized');
+
+    var updateNotifier = UpdateNotifier();
+    delayedInit(updateNotifier);
+    var gpsManager = GpsManager();
+    runApp(EasyLocalization(
+        supportedLocales: const [Locale('en', 'US'), Locale('zh', 'CN')],
+        path: 'assets/translations',
+        fallbackLocale: const Locale('en', 'US'),
+        saveLocale: false,
+        child: MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (context) => gpsManager),
+            ChangeNotifierProvider(create: (context) => updateNotifier),
+          ],
+          child: const MyApp(),
+        )));
+  } catch (e, stackTrace) {
+    _logger.e('Failed to initialize app', e, stackTrace);
+    rethrow; // Let the default error handler deal with it
+  }
 }
 
 class MyApp extends StatelessWidget {

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:memolanes/gps_manager.dart';
+import 'package:memolanes/utils/logger.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -30,6 +31,7 @@ class BaseMapWebview extends StatefulWidget {
 class BaseMapWebviewState extends State<BaseMapWebview> {
   late WebViewController _webViewController;
   late GpsManager _gpsManager;
+  final _logger = Logger('BaseMapWebview');
 
   @override
   void didUpdateWidget(BaseMapWebview oldWidget) {
@@ -44,6 +46,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   Future<void> _updateMapUrl() async {
     final url = widget.mapRendererProxy.getUrl();
+    _logger.d('Updating map URL to: $url');
 
     // TODO: currently when trackingMode updates, the upper layer will trigger a
     // rebuid of this widget? we should not reload the page if url is unchanged
@@ -52,6 +55,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
     if (currentUrl != url) {
       await _webViewController.loadRequest(Uri.parse(url));
+      _logger.i('Map URL updated to: $url');
     }
   }
 
@@ -101,6 +105,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 //     ref (another WKPreference setting): https://github.com/flutter/flutter/issues/112276
 // 2. ios double-tap zoom not working (triple tap needed, maybe related to tap event capture)
   Future<void> _initWebView() async {
+    _logger.i('Initializing WebView');
     _webViewController
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
@@ -121,11 +126,11 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
           onWebResourceError: (WebResourceError error) async {
             // the mapbox error is common (maybe blocked by some firewall )
             if (error.url?.contains('events.mapbox.com') != true) {
-              api.writeLog(message: '''Map WebView Error: 
+              _logger.e('''Map WebView Error: 
                   Description: ${error.description}
                   Error Type: ${error.errorType} 
                   Error Code: ${error.errorCode}
-                  Failed URL: ${error.url}''', level: api.LogLevel.error);
+                  Failed URL: ${error.url}''');
             }
 
             // TODO: The whole thing is a workaround. We should try to find a way
@@ -135,6 +140,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
                     (error.errorType == WebResourceErrorType.connect &&
                         error.errorCode == -6)) && // Android error code
                 error.url?.contains('localhost') == true) {
+              _logger.w('Map server connection failed, attempting restart');
               await api.restartMapServer();
               final url = widget.mapRendererProxy.getUrl();
               await _webViewController.loadRequest(Uri.parse(url));
@@ -143,6 +149,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
             if (error.errorType ==
                 WebResourceErrorType.webContentProcessTerminated) {
+              _logger.w('WebView process terminated, reloading');
               await _webViewController.reload();
             }
           },
@@ -156,6 +163,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       );
 
     final url = widget.mapRendererProxy.getUrl();
+    _logger.i('Loading initial map URL: $url');
     await _webViewController.loadRequest(Uri.parse(url));
   }
 
