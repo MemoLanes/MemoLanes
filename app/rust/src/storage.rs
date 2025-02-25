@@ -149,8 +149,11 @@ impl Storage {
                         }
                         Action::Merge { journey_ids } => {
                             for journey_id in journey_ids {
-                                cache_db.merge_journey_cache(
+                                cache_db.upsert_journey_cache(
                                     &JourneyCacheKey::All,
+                                    &txn.get_journey_header(journey_id)?
+                                    .ok_or_else(|| anyhow!("Failed to find journy, journey_id = {}", journey_id))?
+                                    .journey_kind,
                                     txn.get_journey_data(journey_id)?,
                                 )?;
                             }
@@ -268,7 +271,7 @@ impl Storage {
         // passing `main_db` to `get_latest_including_ongoing` directly is fine
         // becuase it only reads `main_db`.
         let journey_bitmap =
-            merged_journey_builder::get_latest_including_ongoing(main_db, cache_db)?;
+            merged_journey_builder::get_latest_including_ongoing(main_db, cache_db, None)?;
         drop(dbs);
 
         Ok(journey_bitmap)
