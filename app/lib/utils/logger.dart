@@ -25,10 +25,6 @@ class Logger {
   void e(String message, [dynamic error, StackTrace? stackTrace]) {
     final formattedMessage =
         '[${tag}] $message${error != null ? ' | Error: $error' : ''}';
-    final fullMessage = stackTrace != null
-        ? '$formattedMessage\n$stackTrace'
-        : formattedMessage;
-
     debugPrint('🔴 ERROR: $formattedMessage');
     api.writeLog(message: formattedMessage, level: api.LogLevel.error);
 
