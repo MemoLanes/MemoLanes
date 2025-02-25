@@ -118,6 +118,34 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             );
             return NavigationDecision.prevent;
           },
+          onWebResourceError: (WebResourceError error) async {
+            // the mapbox error is common (maybe blocked by some firewall )
+            if (error.url?.contains('events.mapbox.com') != true) {
+              api.writeLog(message: '''Map WebView Error: 
+                  Description: ${error.description}
+                  Error Type: ${error.errorType} 
+                  Error Code: ${error.errorCode}
+                  Failed URL: ${error.url}''', level: api.LogLevel.error);
+            }
+
+            // TODO: The whole thing is a workaround. We should try to find a way
+            // to make the map server work properly or just avoid using a real
+            // Http server.
+            if ((error.errorCode == -1004 || // iOS error code
+                    (error.errorType == WebResourceErrorType.connect &&
+                        error.errorCode == -6)) && // Android error code
+                error.url?.contains('localhost') == true) {
+              await api.restartMapServer();
+              final url = widget.mapRendererProxy.getUrl();
+              await _webViewController.loadRequest(Uri.parse(url));
+              return;
+            }
+
+            if (error.errorType ==
+                WebResourceErrorType.webContentProcessTerminated) {
+              await _webViewController.reload();
+            }
+          },
         ),
       )
       ..addJavaScriptChannel(
