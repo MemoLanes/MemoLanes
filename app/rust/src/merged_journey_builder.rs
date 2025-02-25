@@ -13,7 +13,7 @@ use crate::{
 use anyhow::Result;
 use chrono::NaiveDate;
 
-//git test
+//git test2
 pub fn add_journey_vector_to_journey_bitmap(
     journey_bitmap: &mut JourneyBitmap,
     journey_vector: &JourneyVector,
