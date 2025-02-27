@@ -1,6 +1,6 @@
 extern crate simplelog;
 use anyhow::Result;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension};
 use std::path::Path;
 
 use crate::{
@@ -89,19 +89,19 @@ impl CacheDb {
         let key_cond = key.to_db_string();
         let kind = match journey_kind {
             None => "ALL",
-            Some(journey_kind) => &journey_kind.clone().to_proto().to_string()
+            Some(journey_kind) => &journey_kind.clone().to_proto().to_string(),
         };
         let sql = "SELECT data FROM `journey_cache` WHERE key = ?1 AND kind = ?2;";
-        
+
         let mut query = self.conn.prepare(sql)?;
         let data = query
-            .query_row(params![key_cond, kind], |row| {
+            .query_row((key_cond, kind), |row| {
                 let data = row.get_ref(0)?.as_blob()?;
                 Ok(journey_data::deserialize_journey_bitmap(data))
             })
             .optional()?
             .transpose()?;
-        
+
         Ok(data)
     }
 
@@ -113,7 +113,7 @@ impl CacheDb {
     ) -> Result<()> {
         let kind = match journey_kind {
             None => "ALL",
-            Some(journey_kind)=> &journey_kind.clone().to_proto().to_string()
+            Some(journey_kind) => &journey_kind.clone().to_proto().to_string(),
         };
         let mut data = Vec::new();
         journey_data::serialize_journey_bitmap(journey_bitmap, &mut data)?;
@@ -134,7 +134,6 @@ impl CacheDb {
     where
         F: FnOnce() -> Result<JourneyBitmap>,
     {
-
         match self.get_journey_cache(key, kind)? {
             Some(journey_bitmap) => Ok(journey_bitmap),
             None => {

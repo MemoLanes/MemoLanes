@@ -152,8 +152,13 @@ impl Storage {
                                 cache_db.upsert_journey_cache(
                                     &JourneyCacheKey::All,
                                     &txn.get_journey_header(journey_id)?
-                                    .ok_or_else(|| anyhow!("Failed to find journy, journey_id = {}", journey_id))?
-                                    .journey_kind,
+                                        .ok_or_else(|| {
+                                            anyhow!(
+                                                "Failed to find journy, journey_id = {}",
+                                                journey_id
+                                            )
+                                        })?
+                                        .journey_kind,
                                     txn.get_journey_data(journey_id)?,
                                 )?;
                             }

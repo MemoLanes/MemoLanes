@@ -59,12 +59,8 @@ fn basic() {
 
     journey_bitmap.merge(journey_bitmap_flight);
     assert_eq!(
-        merged_journey_builder::get_latest_including_ongoing(
-            &mut main_db,
-            &cache_db,
-            None
-        )
-        .unwrap(),
+        merged_journey_builder::get_latest_including_ongoing(&mut main_db, &cache_db, None)
+            .unwrap(),
         journey_bitmap
     );
 

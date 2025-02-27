@@ -3,7 +3,12 @@ need to merge all journeys into one `journey_bitmap`. Relavent functionailties i
 implemented here.
 */
 use crate::{
-    cache_db::{CacheDb, JourneyCacheKey}, journey_bitmap::JourneyBitmap, journey_data::JourneyData, journey_header::JourneyKind, journey_vector::JourneyVector, main_db::{self, MainDb}
+    cache_db::{CacheDb, JourneyCacheKey},
+    journey_bitmap::JourneyBitmap,
+    journey_data::JourneyData,
+    journey_header::JourneyKind,
+    journey_vector::JourneyVector,
+    main_db::{self, MainDb},
 };
 use anyhow::Result;
 use chrono::NaiveDate;
@@ -26,14 +31,13 @@ pub fn add_journey_vector_to_journey_bitmap(
     }
 }
 
-
 // TODO: This is going to be very slow.
 // Returns a journey bitmap for the journey kind
 fn get_range_internal(
     txn: &mut main_db::Txn,
     from_date_inclusive: Option<NaiveDate>,
     to_date_inclusive: Option<NaiveDate>,
-    kind: Option<&JourneyKind>
+    kind: Option<&JourneyKind>,
 ) -> Result<JourneyBitmap> {
     let mut journey_map = JourneyBitmap::new();
 
@@ -61,13 +65,12 @@ fn get_range_internal(
     Ok(journey_map)
 }
 
-
 // for time machine
 pub fn get_range(
     txn: &mut main_db::Txn,
     from_date_inclusive: NaiveDate,
     to_date_inclusive: NaiveDate,
-    kind: Option<&JourneyKind>
+    kind: Option<&JourneyKind>,
 ) -> Result<JourneyBitmap> {
     Ok(get_range_internal(
         txn,
@@ -77,7 +80,6 @@ pub fn get_range(
     )?)
 }
 
-
 // main map
 pub fn get_latest_including_ongoing(
     main_db: &mut MainDb,
@@ -86,8 +88,8 @@ pub fn get_latest_including_ongoing(
 ) -> Result<JourneyBitmap> {
     main_db.with_txn(|txn| {
         // getting finalized journeys
-        let mut journey_bitmap: JourneyBitmap = cache_db
-            .get_journey_cache_or_compute(&JourneyCacheKey::All, kind, || {
+        let mut journey_bitmap: JourneyBitmap =
+            cache_db.get_journey_cache_or_compute(&JourneyCacheKey::All, kind, || {
                 get_range_internal(txn, None, None, kind)
             })?;
 
