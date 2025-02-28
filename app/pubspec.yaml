@@ -62,7 +62,7 @@ dependencies:
   json_annotation: ^4.9.0
   async: ^2.11.0
   calendar_date_picker2: ^1.1.7
-  webview_flutter: ^4.8.0
+  webview_flutter: ^4.10.0
 
 dependency_overrides:
   geolocator_android:

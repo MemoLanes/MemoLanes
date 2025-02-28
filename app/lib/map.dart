@@ -41,7 +41,7 @@ class MapUiBody extends StatefulWidget {
 class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
   static const String mainMapStatePrefsKey = "MainMap.mapState";
   final _mapRendererProxy = api.getMapRendererProxyForMainMap();
-  MapState? _mapState;
+  MapView? _roughMapView;
 
   TrackingMode _currentTrackingMode = TrackingMode.off;
 
@@ -70,6 +70,7 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _saveMapState();
     super.dispose();
   }
 
@@ -90,13 +91,17 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
 
   // TODO: We don't enough time to save if the app got killed. Losing data here
   // is fine but we could consider saving every minute or so.
-  void _saveMapState(double lng, double lat, double zoom) async {
+  void _saveMapState() async {
+    final mapView = _roughMapView;
+    if (mapView == null) {
+      return;
+    }
     SharedPreferences prefs = await SharedPreferences.getInstance();
     final mapState = MapState(
       _currentTrackingMode,
-      zoom,
-      lng,
-      lat,
+      mapView.zoom,
+      mapView.lng,
+      mapView.lat,
       0,
     );
     prefs.setString(mainMapStatePrefsKey, jsonEncode(mapState.toJson()));
@@ -104,21 +109,22 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
 
   void _loadMapState() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    MapState? mapState;
+
+    MapView mapView = (lat: 0, lng: 0, zoom: 2);
     TrackingMode trackingMode = _currentTrackingMode;
+
     final mapStateString = prefs.getString(mainMapStatePrefsKey);
     if (mapStateString != null) {
       try {
-        mapState = MapState.fromJson(jsonDecode(mapStateString));
+        final mapState = MapState.fromJson(jsonDecode(mapStateString));
         trackingMode = mapState.trackingMode;
+        mapView = (lat: mapState.lat, lng: mapState.lng, zoom: mapState.zoom);
       } catch (_) {
         // best effort
       }
-    } else {
-      mapState = MapState(trackingMode, 0, 0, 2, 0);
     }
     setState(() {
-      _mapState = mapState;
+      _roughMapView = mapView;
       _currentTrackingMode = trackingMode;
     });
     _syncTrackingModeWithGpsManager();
@@ -126,29 +132,25 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    // TODO: I'm not sure if we need to keep the circular progress indicator
-    // here. but the initial camera options things has been removed.
-    // if (initialCameraOptions == null) {
-    //   return const CircularProgressIndicator();
-    // }
-
     final screenSize = MediaQuery.of(context).size;
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
 
     // TODO: Add profile button top right
-    if (_mapState == null) {
-      return const CircularProgressIndicator();
+    if (_roughMapView == null) {
+      // TODO: This should be a loading spinner and it should be cover the whole
+      // screen until the map is fully loaded.
+      return SizedBox.shrink();
     } else {
       return Stack(
         children: [
           BaseMapWebview(
             key: const ValueKey("mainMap"),
             mapRendererProxy: _mapRendererProxy,
-            mapState: _mapState,
+            initialMapView: _roughMapView,
             trackingMode: _currentTrackingMode,
-            onMapStatus: (lng, lat, zoom) {
-              _saveMapState(lng, lat, zoom);
+            onRoughMapViewUpdate: (roughMapView) {
+              _roughMapView = roughMapView;
             },
             onMapMoved: () {
               if (_currentTrackingMode == TrackingMode.displayAndTracking) {

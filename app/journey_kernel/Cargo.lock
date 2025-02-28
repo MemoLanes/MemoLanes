@@ -387,7 +387,7 @@ dependencies = [
 
 [[package]]
 name = "journey_kernel"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "bincode",
  "console_error_panic_hook",
