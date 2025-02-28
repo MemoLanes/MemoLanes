@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:memolanes/gps_manager.dart';
@@ -92,12 +93,19 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   }
 
   Future<({double lng, double lat, double zoom})> _getCurrentMapView() async {
-    final String jsonString =
+    // TODO: `runJavaScriptReturningResult` is very buggy. I only made it work
+    // by forcing the js side only return string with the platform hack below.
+    // See more: https://github.com/flutter/flutter/issues/80328
+    String jsonString =
         await _webViewController.runJavaScriptReturningResult('''
         if (typeof getCurrentMapView === 'function') {
           getCurrentMapView();
         }
       ''') as String;
+    if (Platform.isAndroid) {
+      jsonString = jsonDecode(jsonString) as String;
+    }
+
     // NOTE: when js is returning a double, we may get an int.
     final map = jsonDecode(jsonString);
     return (
