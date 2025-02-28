@@ -198,11 +198,11 @@ async function initializeMap() {
     // Add method to window object to get current map view
     window.getCurrentMapView = function () {
         const center = map.getCenter();
-        return {
+        return JSON.stringify({
             lng: center.lng,
             lat: center.lat,
             zoom: map.getZoom()
-        };
+        });
     };
 
     window.addEventListener('hashchange', () => pollForUpdates(map, false));
