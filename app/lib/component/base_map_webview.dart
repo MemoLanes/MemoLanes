@@ -74,7 +74,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _gpsManager.addListener(_updateLocationMarker);
     _currentRoughMapView = widget.initialMapView;
     _roughMapViewUpdaeTimer =
-        Timer.periodic(Duration(seconds: 10), (Timer t) async {
+        Timer.periodic(Duration(seconds: 2), (Timer t) async {
       final newMapView = await _getCurrentMapView();
       if (newMapView != _currentRoughMapView) {
         _currentRoughMapView = newMapView;
