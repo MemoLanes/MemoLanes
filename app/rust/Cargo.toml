@@ -13,15 +13,15 @@ anyhow = { version = "1.0", features = ["backtrace"] }
 chrono = "0.4"
 flutter_rust_bridge = { version = "=2.8.0", features = ["chrono"] }
 log = "0.4"
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.33", features = ["bundled"] }
 simplelog = "0.12"
 protobuf = "3.7"
 uuid = { version = "1.11", features = ["v4", "fast-rng", "macro-diagnostics", "serde"] }
 sql_split = "0.1"
 zstd = "0.13"
-itertools = "0.13"
-strum = "0.26"
-strum_macros = "0.26"
+itertools = "0.14"
+strum = "0.27"
+strum_macros = "0.27"
 random-string = "1.1"
 zip = "2.2"
 sha1 = "0.10"
@@ -34,9 +34,9 @@ kml = "0.8"
 lazy_static = "1.5"
 geo-types = "0.7"
 image = "0.25"
-file-rotate = "0.7"
+file-rotate = "0.8"
 serde_json = "1.0"
-rand = "0.8"
+rand = "0.9"
 actix = "0.13"
 actix-web-actors = "4.3"
 actix-web = "4.9"
@@ -53,12 +53,12 @@ assert_float_eq = "1.1"
 criterion = "0.5"
 sha2 = "0.10"
 serde_json = "1.0"
-crossterm = "0.27"
-env_logger = "0.10"
+crossterm = "0.28"
+env_logger = "0.11"
 
 [build-dependencies]
 protobuf-codegen = "3.7"
-cargo_toml = "0.17"
+cargo_toml = "0.18"
 
 [[bench]]
 name = "bench"
