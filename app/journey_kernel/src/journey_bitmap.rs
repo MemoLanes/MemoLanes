@@ -51,7 +51,7 @@ impl JourneyBitmap {
 
         // Iterators, counters required by algorithm
         // Calculate line deltas
-        let dx = x1 as i64 - x0 as i64;
+        let dx: i64 = x1 as i64 - x0 as i64;
         let dy = y1 as i64 - y0 as i64;
         // Create a positive copy of deltas (makes iterating easier)
         let dx0 = dx.abs();
@@ -87,6 +87,24 @@ impl JourneyBitmap {
                 );
                 x += tile_x << ALL_OFFSET;
                 y += tile_y << ALL_OFFSET;
+            }
+            //simple fix the draw point problem but here the code should be more elegant
+            if x == xe {
+                let (tile_x, tile_y) = (x >> ALL_OFFSET, y >> ALL_OFFSET);
+                let tile = self
+                    .tiles
+                    .entry(((tile_x % MAP_WIDTH) as u16, tile_y as u16))
+                    .or_default();
+                (x, y, px) = tile.add_line(
+                    x - (tile_x << ALL_OFFSET),
+                    y - (tile_y << ALL_OFFSET),
+                    xe - (tile_x << ALL_OFFSET),
+                    px,
+                    dx0,
+                    dy0,
+                    true,
+                    (dx < 0 && dy < 0) || (dx > 0 && dy > 0),
+                );
             }
         } else {
             // The line is Y-axis dominant

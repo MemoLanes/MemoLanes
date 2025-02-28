@@ -140,3 +140,17 @@ fn serialization() {
         JourneyData::deserialize(buf.as_slice(), JourneyType::Bitmap).unwrap();
     assert_eq!(journey_data, journey_data_roundtrip);
 }
+
+#[test]
+fn insert_point(){
+    let mut has_a_point_bitmap = JourneyBitmap::new();
+
+    has_a_point_bitmap.add_line(
+        30.0,
+        120.0,
+        30.0,
+        120.0,
+    );
+    
+    assert_ne!(has_a_point_bitmap, JourneyBitmap::new());
+}
