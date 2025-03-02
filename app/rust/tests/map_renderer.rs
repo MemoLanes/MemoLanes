@@ -15,8 +15,14 @@ fn basic() {
 
     let mut map_renderer = MapRenderer::new(journey_bitmap);
 
-    let render_result =
-        map_renderer.maybe_render_map_overlay(11, start_lng, start_lat, end_lng, end_lat);
+    let render_result = test_utils::legacy_maybe_render_map_overlay(
+        &mut map_renderer,
+        11,
+        start_lng,
+        start_lat,
+        end_lng,
+        end_lat,
+    );
     let render_result = render_result.unwrap();
     assert_f64_near!(render_result.left, 150.8203125);
     assert_f64_near!(render_result.top, -33.578014746143985);
@@ -26,7 +32,8 @@ fn basic() {
     test_utils::verify_image("map_renderer_basic", &render_result.data);
 
     // a small move shouldn't trigger a re-render
-    let render_result = map_renderer.maybe_render_map_overlay(
+    let render_result = test_utils::legacy_maybe_render_map_overlay(
+        &mut map_renderer,
         11,
         151.143537079,
         -33.79329191036,
@@ -36,6 +43,13 @@ fn basic() {
     assert!(render_result.is_none());
 
     // but a bigger move will
-    let render_result = map_renderer.maybe_render_map_overlay(11, 151.0, -33.0, 151.0, -33.0);
+    let render_result = test_utils::legacy_maybe_render_map_overlay(
+        &mut map_renderer,
+        11,
+        151.0,
+        -33.0,
+        151.0,
+        -33.0,
+    );
     assert!(render_result.is_some());
 }
