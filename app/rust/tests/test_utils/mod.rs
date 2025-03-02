@@ -2,9 +2,6 @@ use memolanes_core::journey_bitmap::JourneyBitmap;
 use memolanes_core::renderer::map_renderer::*;
 use memolanes_core::renderer::tile_shader::TileShader;
 use memolanes_core::renderer::utils::*;
-//use memolanes_core::renderer::utils::TileSize;
-//use memolanes_core::renderer::utils::image_to_png_data;
-//use memolanes_core::renderer::utils::{DEFAULT_BG_COLOR, DEFAULT_FG_COLOR, DEFAULT_TILE_SIZE};
 
 use image::RgbaImage;
 use serde_json;
