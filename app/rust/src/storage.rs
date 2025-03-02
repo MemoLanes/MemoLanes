@@ -6,7 +6,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use crate::cache_db::{CacheDb, JourneyCacheKey};
+use crate::cache_db::CacheDb;
 use crate::gps_processor::{self, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
 use crate::main_db::{self, Action, MainDb};
@@ -150,7 +150,6 @@ impl Storage {
                         Action::Merge { journey_ids } => {
                             for journey_id in journey_ids {
                                 cache_db.upsert_journey_cache(
-                                    &JourneyCacheKey::All,
                                     &txn.get_journey_header(journey_id)?
                                         .ok_or_else(|| {
                                             anyhow!(
