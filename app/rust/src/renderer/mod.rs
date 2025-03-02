@@ -1,5 +1,5 @@
 pub mod map_renderer;
-pub use map_renderer::{MapRenderer, RenderResult};
+pub use map_renderer::MapRenderer;
 
 pub mod tile_renderer_basic;
 pub mod tile_shader;
