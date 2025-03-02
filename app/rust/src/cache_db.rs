@@ -1,11 +1,13 @@
 extern crate simplelog;
-use anyhow::Result;
+use anyhow::{Ok, Result};
 use rusqlite::{Connection, OptionalExtension};
+use std::cmp::Ordering;
 use std::path::Path;
 
 use crate::{
     journey_bitmap::JourneyBitmap,
     journey_data::{self, JourneyData},
+    journey_header::JourneyKind,
     merged_journey_builder::add_journey_vector_to_journey_bitmap,
 };
 
@@ -23,33 +25,62 @@ use crate::{
 // history, we could clear some but not all cache, and re-construct these
 //  outdated ones reasonably quickly.
 
+pub const TARGET_VERSION: i32 = 2;
+
 fn open_db(cache_dir: &str, file_name: &str, sql: &str) -> Result<Connection> {
     // TODO: maybe we want versioning or at least detect versioning issue
     // so we could rebuilt it.
     debug!("opening cache db for {}", file_name);
-    let conn = Connection::open(Path::new(cache_dir).join(file_name))?;
-    conn.execute(sql, [])?;
+    let mut conn = Connection::open(Path::new(cache_dir).join(file_name))?;
+
+    let tx = conn.transaction()?;
+    let create_db_metadata_sql = "
+    CREATE TABLE IF NOT EXISTS `db_metadata` (
+	`key`	TEXT NOT NULL,
+	`value`	TEXT,
+	PRIMARY KEY(`key`)
+    )";
+
+    tx.execute(create_db_metadata_sql, ())?;
+    let version_str: Option<String> = tx
+        .query_row(
+            "SELECT `value` FROM `db_metadata` WHERE key='version'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+
+    let version = match version_str {
+        None => 0,
+        Some(s) => s.parse()?,
+    };
+
+    let target_version = TARGET_VERSION;
+    debug!(
+        "current version = {}, target_version = {}",
+        version, target_version
+    );
+    match version.cmp(&target_version) {
+        Ordering::Equal => (),
+        Ordering::Less => {
+            tx.execute("DROP TABLE IF EXISTS journey_cache;", ());
+            tx.execute(
+                "INSERT OR REPLACE INTO `db_metadata` (key, value) VALUES (?1, ?2)",
+                ("version", target_version.to_string()),
+            )?;
+        }
+        Ordering::Greater => {
+            bail!(
+                "version too high: current version = {}, target_version = {}",
+                version,
+                target_version
+            );
+        }
+    }
+
+    tx.execute(sql, [])?;
+    tx.commit();
     Ok(conn)
-}
-
-#[derive(Clone, Debug)]
-pub enum JourneyCacheKey {
-    All,
-}
-
-impl JourneyCacheKey {
-    fn to_db_string(&self) -> String {
-        match self {
-            Self::All => "A".to_owned(),
-        }
-    }
-
-    fn _of_db_string(str: &str) -> Self {
-        match str {
-            "A" => Self::All,
-            _ => panic!("Invalid `JourneyCacheKey`, str = {}", str),
-        }
-    }
 }
 
 // CacheDb structure
@@ -64,7 +95,7 @@ impl CacheDb {
             cache_dir,
             "cache.db",
             "CREATE TABLE IF NOT EXISTS `journey_cache` (
-                        key TEXT PRIMARY KEY NOT NULL UNIQUE,
+                        kind Text PRIMARY KEY NOT NULL UNIQUE,
                         data BLOB NOT NULL
                     );",
         )
@@ -77,76 +108,93 @@ impl CacheDb {
         Ok(())
     }
 
-    fn get_journey_cache(&self, key: &JourneyCacheKey) -> Result<Option<JourneyBitmap>> {
-        let mut query = self
-            .conn
-            .prepare("SELECT data FROM `journey_cache` WHERE key = ?1;")?;
+    fn get_serialization(kind: Option<&JourneyKind>) -> &str {
+        match kind {
+            None => "ALL",
+            Some(JourneyKind::DefaultKind) => "DefaultKind",
+            Some(JourneyKind::Flight) => "Flight",
+        }
+    }
 
+    // Format SQL, query the database and returns rows of result
+    fn get_journey_cache(
+        &self,
+        journey_kind: Option<&JourneyKind>,
+    ) -> Result<Option<JourneyBitmap>> {
+        let kind = Self::get_serialization(journey_kind);
+        let sql = "SELECT data FROM `journey_cache` WHERE kind = ?1;";
+
+        let mut query = self.conn.prepare(sql)?;
         let data = query
-            .query_row([key.to_db_string()], |row| {
+            .query_row((kind,), |row| {
                 let data = row.get_ref(0)?.as_blob()?;
                 Ok(journey_data::deserialize_journey_bitmap(data))
             })
-            .optional()?;
+            .optional()?
+            .transpose()?;
 
-        match data {
-            None => Ok(None),
-            Some(journey_bitmap) => Ok(Some(journey_bitmap?)),
-        }
+        Ok(data)
     }
 
     fn set_journey_cache(
         &self,
-        key: &JourneyCacheKey,
+        journey_kind: Option<&JourneyKind>,
         journey_bitmap: &JourneyBitmap,
     ) -> Result<()> {
+        let kind = Self::get_serialization(journey_kind);
         let mut data = Vec::new();
         journey_data::serialize_journey_bitmap(journey_bitmap, &mut data)?;
         self.conn.execute(
-            "INSERT OR REPLACE INTO `journey_cache` (key, data) VALUES (?1, ?2)",
-            (key.to_db_string(), &data),
+            "INSERT OR REPLACE INTO `journey_cache` (kind, data) VALUES (?1, ?2, ?3)",
+            (&kind, &data),
         )?;
         Ok(())
     }
 
+    // get a merged cache or compute from storage
     pub fn get_journey_cache_or_compute<F>(
         &self,
-        key: &JourneyCacheKey,
+        kind: Option<&JourneyKind>, // Default, Flight, None
         f: F,
     ) -> Result<JourneyBitmap>
     where
         F: FnOnce() -> Result<JourneyBitmap>,
     {
-        match self.get_journey_cache(key)? {
+        match self.get_journey_cache(kind)? {
             Some(journey_bitmap) => Ok(journey_bitmap),
             None => {
                 let journey_bitmap = f()?;
-                self.set_journey_cache(key, &journey_bitmap)?;
+                self.set_journey_cache(kind, &journey_bitmap)?;
+
                 Ok(journey_bitmap)
             }
         }
     }
 
     pub fn clear_journey_cache(&self) -> Result<()> {
-        // TODO: in v1, use more fine-grained delete with year/month
+        // TODO: in v3, use more fine-grained delete with year/month
         self.conn.execute("DELETE FROM journey_cache;", [])?;
         Ok(())
     }
 
-    pub fn merge_journey_cache(&self, key: &JourneyCacheKey, journey: JourneyData) -> Result<()> {
-        let journey_bitmap = match self.get_journey_cache(key)? {
-            Some(mut cache_bitmap) => {
-                match journey {
-                    JourneyData::Vector(vector) => {
-                        add_journey_vector_to_journey_bitmap(&mut cache_bitmap, &vector)
-                    }
-                    JourneyData::Bitmap(bitmap) => cache_bitmap.merge(bitmap),
-                }
-                cache_bitmap
-            }
+    pub fn upsert_journey_cache(
+        &self,
+        kind: &JourneyKind, // Default or Flight only
+        journey: JourneyData,
+    ) -> Result<()> {
+        let mut journey_bitmap = match self.get_journey_cache(Some(kind))? {
+            Some(cache_bitmap) => cache_bitmap,
             None => return Ok(()),
         };
+
+        match journey {
+            JourneyData::Vector(vector) => {
+                add_journey_vector_to_journey_bitmap(&mut journey_bitmap, &vector)
+            }
+            JourneyData::Bitmap(bitmap) => journey_bitmap.merge(bitmap),
+        }
+
         // Update the journey cache with the new or merged bitmap
-        self.set_journey_cache(key, &journey_bitmap)
+        self.set_journey_cache(Some(kind), &journey_bitmap)
     }
 }
