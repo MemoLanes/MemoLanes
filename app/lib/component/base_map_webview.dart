@@ -1,11 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:memolanes/gps_manager.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
-import 'package:memolanes/src/rust/api/api.dart' as api;
+typedef MapView = ({double lng, double lat, double zoom});
 
 enum TrackingMode {
   displayAndTracking,
@@ -15,13 +19,18 @@ enum TrackingMode {
 
 class BaseMapWebview extends StatefulWidget {
   final api.MapRendererProxy mapRendererProxy;
+  final MapView? initialMapView;
   final TrackingMode trackingMode;
   final void Function()? onMapMoved;
+  final void Function(MapView)? onRoughMapViewUpdate;
+
   const BaseMapWebview(
       {super.key,
       required this.mapRendererProxy,
+      this.initialMapView,
       this.trackingMode = TrackingMode.off,
-      this.onMapMoved});
+      this.onMapMoved,
+      this.onRoughMapViewUpdate});
 
   @override
   State<StatefulWidget> createState() => BaseMapWebviewState();
@@ -30,6 +39,9 @@ class BaseMapWebview extends StatefulWidget {
 class BaseMapWebviewState extends State<BaseMapWebview> {
   late WebViewController _webViewController;
   late GpsManager _gpsManager;
+  late Timer _roughMapViewUpdaeTimer;
+  // It is rough because we don't update it frequently.
+  MapView? _currentRoughMapView;
 
   @override
   void didUpdateWidget(BaseMapWebview oldWidget) {
@@ -61,13 +73,46 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _webViewController = WebViewController();
     _gpsManager = Provider.of<GpsManager>(context, listen: false);
     _gpsManager.addListener(_updateLocationMarker);
+    _currentRoughMapView = widget.initialMapView;
+    _roughMapViewUpdaeTimer =
+        Timer.periodic(Duration(seconds: 2), (Timer t) async {
+      final newMapView = await _getCurrentMapView();
+      if (newMapView != _currentRoughMapView) {
+        _currentRoughMapView = newMapView;
+        widget.onRoughMapViewUpdate?.call(newMapView);
+      }
+    });
     _initWebView();
   }
 
   @override
   void dispose() {
     _gpsManager.removeListener(_updateLocationMarker);
+    _roughMapViewUpdaeTimer.cancel();
     super.dispose();
+  }
+
+  Future<({double lng, double lat, double zoom})> _getCurrentMapView() async {
+    // TODO: `runJavaScriptReturningResult` is very buggy. I only made it work
+    // by forcing the js side only return string with the platform hack below.
+    // See more: https://github.com/flutter/flutter/issues/80328
+    String jsonString =
+        await _webViewController.runJavaScriptReturningResult('''
+        if (typeof getCurrentMapView === 'function') {
+          getCurrentMapView();
+        }
+      ''') as String;
+    if (Platform.isAndroid) {
+      jsonString = jsonDecode(jsonString) as String;
+    }
+
+    // NOTE: when js is returning a double, we may get an int.
+    final map = jsonDecode(jsonString);
+    return (
+      lng: map['lng'].toDouble() as double,
+      lat: map['lat'].toDouble() as double,
+      zoom: map['zoom'].toDouble() as double,
+    );
   }
 
   void _updateLocationMarker() {
@@ -136,8 +181,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
                         error.errorCode == -6)) && // Android error code
                 error.url?.contains('localhost') == true) {
               await api.restartMapServer();
-              final url = widget.mapRendererProxy.getUrl();
-              await _webViewController.loadRequest(Uri.parse(url));
+              final url = getUrl();
+              await _webViewController.loadRequest(url);
               return;
             }
 
@@ -155,8 +200,23 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         },
       );
 
-    final url = widget.mapRendererProxy.getUrl();
-    await _webViewController.loadRequest(Uri.parse(url));
+    final url = getUrl();
+    await _webViewController.loadRequest(url);
+  }
+
+  Uri getUrl() {
+    Uri uri = Uri.parse(widget.mapRendererProxy.getUrl());
+    final mapView = _currentRoughMapView;
+    if (mapView != null) {
+      String fragment = uri.fragment;
+      Map<String, String> fragmentParams = Uri.splitQueryString(fragment);
+      fragmentParams['lng'] = mapView.lng.toString();
+      fragmentParams['lat'] = mapView.lat.toString();
+      fragmentParams['zoom'] = mapView.zoom.toString();
+      String newFragment = Uri(queryParameters: fragmentParams).query;
+      uri = uri.replace(fragment: newFragment);
+    }
+    return uri;
   }
 
   @override
