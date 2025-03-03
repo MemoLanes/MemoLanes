@@ -3,6 +3,7 @@ pub mod test_utils;
 use memolanes_core::{
     journey_bitmap::JourneyBitmap, journey_data::JourneyData, journey_header::JourneyType,
     renderer::MapRenderer,
+    journey_area_utils,
 };
 
 #[test]
@@ -142,7 +143,7 @@ fn serialization() {
 }
 
 #[test]
-fn insert_point(){
+fn draw_point(){
     let mut has_a_point_bitmap = JourneyBitmap::new();
 
     has_a_point_bitmap.add_line(
@@ -151,6 +152,6 @@ fn insert_point(){
         30.0,
         120.0,
     );
-    
-    assert_ne!(has_a_point_bitmap, JourneyBitmap::new());
+
+    assert_eq!(journey_area_utils::compute_journey_bitmap_area(&has_a_point_bitmap),1);
 }
