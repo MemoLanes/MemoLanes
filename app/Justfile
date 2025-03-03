@@ -1,0 +1,85 @@
+# Justfile
+
+# =====================================
+# Main Workflow
+# =====================================
+
+# Default full build pipeline
+default:
+    @echo "\n🚀 Starting full build pipeline"
+    just check-env
+    just build-kernel
+    just generate-bridge
+    @echo "✅ Full build completed\n"
+
+# Development run shortcut
+run:
+    @echo "\n🏁 Starting development workflow"
+    just default
+    just flutter-run
+
+# =====================================
+# Core Tasks
+# =====================================
+
+# Generate authentication token
+token:
+    @echo "\n🔐 Generating access token"
+    @python3 setup_token.py
+    @echo "✅ Token file created successfully"
+
+# Flutter application runner
+flutter-run:
+    @echo "\n📱 Launching Flutter application"
+    @flutter run -v
+
+# =====================================
+# Environment Validation
+# =====================================
+check-env:
+    @echo "\n🔧 System Environment Check:"
+
+    # Node.js verification
+    @if ! command -v node &> /dev/null; then \
+        echo "  ‼️  Node.js: Missing (Required for kernel build)"; \
+        echo "     Download: https://nodejs.org/"; \
+        exit 1; \
+    else \
+        echo "  ✓ Node.js: Installed"; \
+    fi
+
+    # Yarn package manager check
+    @if ! command -v yarn &> /dev/null; then \
+        echo "  ‼️  Yarn: Missing (Required dependency manager)"; \
+        echo "     Install: https://classic.yarnpkg.com/en/docs/install"; \
+        exit 1; \
+    else \
+        echo "  ✓ Yarn: Installed"; \
+    fi
+
+    # Flutter-Rust bridge tool verification
+    @if ! command -v flutter_rust_bridge_codegen &> /dev/null; then \
+        echo "  ‼️  Flutter Rust Bridge: Missing (Critical for code generation)"; \
+        echo "     Install: cargo install flutter_rust_bridge_codegen"; \
+        exit 1; \
+    else \
+        echo "  ✓ Flutter Rust Bridge: Installed"; \
+    fi
+
+    @echo "✅ Environment validation passed"
+
+# =====================================
+# Build Tasks
+# =====================================
+
+# Kernel compilation task
+build-kernel:
+    @echo "\n🛠️  Building Journey Kernel"
+    @cd journey_kernel && yarn build
+    @echo "✅ Kernel build completed"
+
+# Bridge code generation
+generate-bridge:
+    @echo "\n🔗 Generating Rust Bridge Bindings"
+    @flutter_rust_bridge_codegen generate
+    @echo "✅ Bridge code generation completed"
