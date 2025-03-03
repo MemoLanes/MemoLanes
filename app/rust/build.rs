@@ -132,8 +132,6 @@ fn main() {
     // It is slow (this need to be triggered frequently) and more of the dections
     // are a bit weird: e.g. `rustc-env` can hurt incremental build a bit.
     // using version in `cargo.toml` is not so reliable.
-    check_yarn_dependencies();
-    build_journey_kernel_wasm();
     generate_mapbox_token_const();
 
     // There are articles on internet suggest `.git/HEAD` is enough, which I
