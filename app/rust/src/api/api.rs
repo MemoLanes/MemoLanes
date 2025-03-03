@@ -22,13 +22,15 @@ use serde::{Deserialize, Serialize};
 
 use super::import::JourneyInfo;
 
+use log::{error, info, warn};
+
 // TODO: we have way too many locking here and now it is hard to track.
 //  e.g. we could mess up with the order and cause a deadlock
 #[frb(ignore)]
 pub(super) struct MainState {
     pub storage: Storage,
     pub gps_preprocessor: Mutex<GpsPreprocessor>,
-    pub map_server: Mutex<Option<MapServer>>,
+    pub map_server: Mutex<MapServer>,
     // TODO: we should reconsider the way we handle the main map
     pub main_map_renderer: Arc<Mutex<MapRenderer>>,
     pub main_map_renderer_token: MapRendererToken,
@@ -86,13 +88,29 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
             storage,
             main_map_renderer,
             gps_preprocessor: Mutex::new(GpsPreprocessor::new()),
-            map_server: Mutex::new(Some(map_server)),
+            map_server: Mutex::new(map_server),
             main_map_renderer_token,
         }
     });
     if already_initialized {
         warn!("`init` is called multiple times");
     }
+}
+
+#[frb(sync)]
+pub fn write_log(message: String, level: LogLevel) {
+    match level {
+        LogLevel::Info => info!("[Flutter] {}", message),
+        LogLevel::Warn => warn!("[Flutter] {}", message),
+        LogLevel::Error => error!("[Flutter] {}", message),
+    }
+}
+
+#[derive(Debug)]
+pub enum LogLevel {
+    Info = 0,
+    Warn = 1,
+    Error = 2,
 }
 
 #[frb(opaque)]
@@ -125,10 +143,7 @@ pub fn get_empty_map_renderer_proxy() -> MapRendererProxy {
 
     let mut server = state.map_server.lock().unwrap();
     let map_renderer = MapRenderer::new(journey_bitmap);
-    let token = server
-        .as_mut()
-        .unwrap()
-        .register_map_renderer(Arc::new(Mutex::new(map_renderer)));
+    let token = server.register_map_renderer(Arc::new(Mutex::new(map_renderer)));
     MapRendererProxy::Token(token)
 }
 
@@ -143,10 +158,7 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
 
     let mut server = state.map_server.lock().unwrap();
     let map_renderer = MapRenderer::new(journey_bitmap);
-    let token = server
-        .as_mut()
-        .unwrap()
-        .register_map_renderer(Arc::new(Mutex::new(map_renderer)));
+    let token = server.register_map_renderer(Arc::new(Mutex::new(map_renderer)));
     Ok(MapRendererProxy::Token(token))
 }
 
@@ -209,10 +221,7 @@ pub fn get_map_renderer_proxy_for_journey(
     let mut map_renderer = MapRenderer::new(journey_bitmap);
     map_renderer.set_provisioned_camera_option(default_camera_option);
     let mut server = state.map_server.lock().unwrap();
-    let token = server
-        .as_mut()
-        .unwrap()
-        .register_map_renderer(Arc::new(Mutex::new(map_renderer)));
+    let token = server.register_map_renderer(Arc::new(Mutex::new(map_renderer)));
     Ok((MapRendererProxy::Token(token), default_camera_option))
 }
 
@@ -456,4 +465,10 @@ pub fn area_of_main_map() -> u64 {
     let main_map_renderer = get().main_map_renderer.lock().unwrap();
     let journey_bitmap = main_map_renderer.peek_latest_bitmap();
     journey_area_utils::compute_journey_bitmap_area(journey_bitmap)
+}
+
+pub fn restart_map_server() -> Result<()> {
+    let state = get();
+    let mut map_server = state.map_server.lock().unwrap();
+    map_server.restart()
 }
