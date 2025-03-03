@@ -4,7 +4,7 @@ use core::panic;
 
 use chrono::Utc;
 use memolanes_core::{
-    cache_db::{CacheDb, JourneyCacheKey},
+    cache_db::CacheDb,
     journey_data::JourneyData,
     journey_header::JourneyKind,
     main_db::MainDb,

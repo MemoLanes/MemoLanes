@@ -100,8 +100,8 @@ pub fn get_latest_including_ongoing(
                 default_bitmap.merge(flight_bitmap);
                 Ok(default_bitmap)
             })?,
-            Some(_jouney_kind) => cache_db
-                .get_journey_cache_or_compute(kind, || get_range_internal(txn, None, None, kind))?,
+            Some(jouney_kind) => cache_db
+                .get_journey_cache_or_compute(kind, || get_range_internal(txn, None, None, Some(jouney_kind)))?,
         };
 
         // append remaining ongoing parts
