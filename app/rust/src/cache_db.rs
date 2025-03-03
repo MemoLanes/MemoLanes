@@ -1,5 +1,5 @@
 extern crate simplelog;
-use anyhow::{Ok, Result};
+use anyhow::Result;
 use rusqlite::{Connection, OptionalExtension};
 use std::cmp::Ordering;
 use std::path::Path;
@@ -63,7 +63,7 @@ fn open_db(cache_dir: &str, file_name: &str, sql: &str) -> Result<Connection> {
     match version.cmp(&target_version) {
         Ordering::Equal => (),
         Ordering::Less => {
-            tx.execute("DROP TABLE IF EXISTS journey_cache;", ());
+            tx.execute("DROP TABLE IF EXISTS journey_cache;", ())?;
             tx.execute(
                 "INSERT OR REPLACE INTO `db_metadata` (key, value) VALUES (?1, ?2)",
                 ("version", target_version.to_string()),
@@ -79,7 +79,7 @@ fn open_db(cache_dir: &str, file_name: &str, sql: &str) -> Result<Connection> {
     }
 
     tx.execute(sql, [])?;
-    tx.commit();
+    tx.commit()?;
     Ok(conn)
 }
 

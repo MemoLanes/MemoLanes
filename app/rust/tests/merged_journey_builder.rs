@@ -66,9 +66,7 @@ fn basic() {
 
     assert_eq!(
         cache_db
-            .get_journey_cache_or_compute(None, || panic!(
-                "should not be called"
-            ))
+            .get_journey_cache_or_compute(None, || panic!("should not be called"))
             .unwrap(),
         journey_bitmap
     );
