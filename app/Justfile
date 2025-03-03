@@ -1,26 +1,12 @@
 # Justfile
 
-# =====================================
-# Main Workflow
-# =====================================
-
 # Default full build pipeline
-default:
-    @echo "\n🚀 Starting full build pipeline"
-    just check-env
+play-build:
+    @echo "\n🚀 Starting Play build pipeline"
+    just check-node
     just build-kernel
     just generate-bridge
-    @echo "✅ Full build completed\n"
-
-# Development run shortcut
-run:
-    @echo "\n🏁 Starting development workflow"
-    just default
-    just flutter-run
-
-# =====================================
-# Core Tasks
-# =====================================
+    @echo "✅ Play build completed\n"
 
 # Generate authentication token
 token:
@@ -33,10 +19,7 @@ flutter-run:
     @echo "\n📱 Launching Flutter application"
     @flutter run -v
 
-# =====================================
-# Environment Validation
-# =====================================
-check-env:
+check-node:
     @echo "\n🔧 System Environment Check:"
 
     # Node.js verification
@@ -68,18 +51,14 @@ check-env:
 
     @echo "✅ Environment validation passed"
 
-# =====================================
-# Build Tasks
-# =====================================
-
 # Kernel compilation task
-build-kernel:
+build-Journeykernel:
     @echo "\n🛠️  Building Journey Kernel"
     @cd journey_kernel && yarn build
     @echo "✅ Kernel build completed"
 
 # Bridge code generation
-generate-bridge:
+frb-generate:
     @echo "\n🔗 Generating Rust Bridge Bindings"
     @flutter_rust_bridge_codegen generate
     @echo "✅ Bridge code generation completed"
