@@ -87,6 +87,7 @@ void main() async {
   // This is required since we are doing things before calling `runApp`.
   WidgetsFlutterBinding.ensureInitialized();
   await EasyLocalization.ensureInitialized();
+
   // TODO: Consider using `flutter_native_splash`
   await RustLib.init();
   await api.init(

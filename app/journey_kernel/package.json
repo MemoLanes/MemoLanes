@@ -1,6 +1,6 @@
 {
   "name": "journey-kernel",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "WebView and native part of the MemoLanes app",
   "scripts": {
     "build": "webpack --mode production",

@@ -1,3 +1,6 @@
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
+use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
+use env_logger;
 use journey_kernel::journey_bitmap::JourneyBitmap;
 use memolanes_core::api::api::CameraOption;
 use memolanes_core::renderer::MapRenderer;
@@ -28,8 +31,15 @@ fn draw_line4(journey_bitmap: &mut JourneyBitmap) {
 }
 
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut server =
-        MapServer::create_and_start("localhost", None).expect("Failed to start server");
+    // Initialize the logger with info level
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
+        .format_timestamp(None)
+        .format_module_path(false)
+        .init();
+
+    let server = Arc::new(Mutex::new(
+        MapServer::create_and_start("localhost", None).expect("Failed to start server"),
+    ));
 
     std::thread::sleep(Duration::from_millis(200));
 
@@ -41,7 +51,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     draw_line4(&mut journey_bitmap);
 
     let map_renderer_static = MapRenderer::new(journey_bitmap);
-    let token = server.register_map_renderer(Arc::new(Mutex::new(map_renderer_static)));
+    let token = server
+        .lock()
+        .unwrap()
+        .register_map_renderer(Arc::new(Mutex::new(map_renderer_static)));
     println!("view static map at: {}", token.url());
 
     // demo for a dynamic map
@@ -49,14 +62,17 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let map_renderer = MapRenderer::new(journey_bitmap2);
     let map_renderer_arc = Arc::new(Mutex::new(map_renderer));
     let map_renderer_arc_clone = map_renderer_arc.clone();
-    let token = server.register_map_renderer(map_renderer_arc);
+    let token = server
+        .lock()
+        .unwrap()
+        .register_map_renderer(map_renderer_arc);
 
-    // link with initial camera position set in the URL
     println!(
         "view dynamic map at: {}&lng=106.5&lat=30.0&zoom=8",
         token.url()
     );
 
+    // Spawn the drawing thread
     std::thread::spawn(move || {
         let mut rng = rand::thread_rng();
         let mut lat = 30.0;
@@ -87,11 +103,64 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    // Set up ctrl+c handler
-    ctrlc::set_handler(move || {
-        println!("\nReceived Ctrl+C! Shutting down...");
-        std::process::exit(0);
-    })?;
+    // Set up keyboard input handling thread
+    let server_clone = server.clone();
+    std::thread::spawn(move || {
+        println!("Press 'r' to temporarily stop the server (5s pause) or Ctrl+C to exit");
+
+        // Enable raw mode to get immediate keystrokes
+        enable_raw_mode().expect("Failed to enable raw mode");
+
+        loop {
+            // Check for keyboard events
+            if let Ok(Event::Key(KeyEvent {
+                code, modifiers, ..
+            })) = event::read()
+            {
+                match code {
+                    KeyCode::Char('r') => {
+                        // Temporarily disable raw mode for normal printing
+                        disable_raw_mode().expect("Failed to disable raw mode");
+
+                        println!("Restarting server...");
+                        if let Ok(mut server) = server_clone.lock() {
+                            println!("Stopping server...");
+                            if let Err(e) = server.stop() {
+                                println!("Error stopping server: {}", e);
+                                enable_raw_mode().expect("Failed to re-enable raw mode");
+                                continue;
+                            }
+                            println!("Server stopped. Waiting 5 seconds...");
+                            std::thread::sleep(Duration::from_secs(5));
+                            println!("Restarting server...");
+                            if let Err(e) = server.restart() {
+                                println!("Error restarting server: {}", e);
+                            } else {
+                                println!("Server restarted successfully!");
+                            }
+                        }
+
+                        // wait for the server internal log print complete
+                        std::thread::sleep(Duration::from_millis(300));
+
+                        // Re-enable raw mode after restart process
+                        enable_raw_mode().expect("Failed to re-enable raw mode");
+                    }
+                    KeyCode::Char('c') if modifiers.contains(KeyModifiers::CONTROL) => {
+                        // Handle Ctrl+C manually since we're in raw mode
+                        disable_raw_mode().expect("Failed to disable raw mode");
+
+                        println!("Ctrl+C pressed. Stopping server...");
+                        if let Ok(mut server) = server_clone.lock() {
+                            let _ = server.stop();
+                        }
+                        std::process::exit(0);
+                    }
+                    _ => {}
+                }
+            }
+        }
+    });
 
     // Block the main thread to keep server running
     loop {

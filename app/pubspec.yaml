@@ -37,7 +37,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   rust_builder:
     path: rust_builder
-  flutter_rust_bridge: 2.7.0
+  flutter_rust_bridge: 2.8.0
   # Meta package pinned by flutter SDK
   meta: ^1.12.0
   uuid: ^4.4.2
@@ -47,8 +47,8 @@ dependencies:
   mutex: ^3.1.0
   share_plus: ^10.0.0
   permission_handler: ^11.3.1
-  file_picker: ^8.1.0
-  freezed_annotation: ^2.4.4
+  file_picker: ^9.0.2
+  freezed_annotation: ^3.0.0
   fluttertoast: ^8.2.6
   intl: ^0.19.0
   package_info_plus: ^8.0.0
@@ -62,7 +62,7 @@ dependencies:
   json_annotation: ^4.9.0
   async: ^2.11.0
   calendar_date_picker2: ^1.1.7
-  webview_flutter: ^4.8.0
+  webview_flutter: ^4.10.0
 
 dependency_overrides:
   geolocator_android:
@@ -81,8 +81,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
-  ffigen: ^15.0.0
-  freezed: ^2.5.7
+  ffigen: ^17.0.0
+  freezed: ^3.0.2
   build_runner: ^2.4.9
   json_serializable: ^6.8.0
 
