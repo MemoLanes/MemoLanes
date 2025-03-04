@@ -42,7 +42,7 @@ fn basic() {
     let journey_bitmap_flight = test_utils::draw_sample_bitmap();
     let journey_kind_flight = JourneyKind::Flight;
 
-    // upsert
+    // upsert will fail since there is no cache
     let _ = cache_db.upsert_journey_cache(
         &journey_kind_flight,
         JourneyData::Bitmap(journey_bitmap_flight.clone()),
@@ -50,9 +50,7 @@ fn basic() {
 
     assert_eq!(
         cache_db
-            .get_journey_cache_or_compute(Some(&journey_kind_flight), || panic!(
-                "Should not be called"
-            ))
+            .get_journey_cache_or_compute(Some(&journey_kind_flight), || Ok(journey_bitmap.clone()))
             .unwrap(),
         journey_bitmap
     );

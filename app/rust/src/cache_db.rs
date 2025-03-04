@@ -25,7 +25,7 @@ use crate::{
 // history, we could clear some but not all cache, and re-construct these
 //  outdated ones reasonably quickly.
 
-pub const TARGET_VERSION: i32 = 2;
+pub const TARGET_VERSION: i32 = 0;
 
 fn open_db(cache_dir: &str, file_name: &str, sql: &str) -> Result<Connection> {
     // TODO: maybe we want versioning or at least detect versioning issue
@@ -34,14 +34,26 @@ fn open_db(cache_dir: &str, file_name: &str, sql: &str) -> Result<Connection> {
     let mut conn = Connection::open(Path::new(cache_dir).join(file_name))?;
 
     let tx = conn.transaction()?;
-    let create_db_metadata_sql = "
-    CREATE TABLE IF NOT EXISTS `db_metadata` (
-	`key`	TEXT NOT NULL,
-	`value`	TEXT,
-	PRIMARY KEY(`key`)
-    )";
+    // Check if the table exists
+    let table_exists: bool = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='db_metadata')",
+        [],
+        |row| row.get(0),
+    )?;
 
-    tx.execute(create_db_metadata_sql, ())?;
+    // Create the table only if it doesn't exist
+    if !table_exists {
+        let create_db_metadata_sql = "
+        CREATE TABLE `db_metadata` (
+            `key`    TEXT NOT NULL,
+            `value`  TEXT,
+            PRIMARY KEY(`key`)
+        )";
+
+        tx.execute(create_db_metadata_sql, ())?;
+    }
+
+    // Query the version
     let version_str: Option<String> = tx
         .query_row(
             "SELECT `value` FROM `db_metadata` WHERE key='version'",
@@ -61,21 +73,21 @@ fn open_db(cache_dir: &str, file_name: &str, sql: &str) -> Result<Connection> {
         version, target_version
     );
     match version.cmp(&target_version) {
-        Ordering::Equal => (),
-        Ordering::Less => {
+        Ordering::Equal => {
             tx.execute("DROP TABLE IF EXISTS journey_cache;", ())?;
             tx.execute(
                 "INSERT OR REPLACE INTO `db_metadata` (key, value) VALUES (?1, ?2)",
                 ("version", target_version.to_string()),
             )?;
         }
-        Ordering::Greater => {
+        Ordering::Less => {
             bail!(
                 "version too high: current version = {}, target_version = {}",
                 version,
                 target_version
             );
         }
+        Ordering::Greater => {}
     }
 
     tx.execute(sql, [])?;
@@ -145,7 +157,7 @@ impl CacheDb {
         let mut data = Vec::new();
         journey_data::serialize_journey_bitmap(journey_bitmap, &mut data)?;
         self.conn.execute(
-            "INSERT OR REPLACE INTO `journey_cache` (kind, data) VALUES (?1, ?2, ?3)",
+            "INSERT OR REPLACE INTO `journey_cache` (kind, data) VALUES (?1, ?2)",
             (&kind, &data),
         )?;
         Ok(())
@@ -177,6 +189,13 @@ impl CacheDb {
         Ok(())
     }
 
+    pub fn delete_journey_cache(&self, journey_kind: Option<&JourneyKind>) -> Result<()> {
+        let kind = Self::get_serialization(journey_kind);
+        self.conn
+            .execute("DELETE FROM journey_cache WHERE kind = ?1;", [kind])?;
+        Ok(())
+    }
+
     pub fn upsert_journey_cache(
         &self,
         kind: &JourneyKind, // Default or Flight only
@@ -189,12 +208,16 @@ impl CacheDb {
 
         match journey {
             JourneyData::Vector(vector) => {
-                add_journey_vector_to_journey_bitmap(&mut journey_bitmap, &vector)
+                add_journey_vector_to_journey_bitmap(&mut journey_bitmap, &vector);
             }
-            JourneyData::Bitmap(bitmap) => journey_bitmap.merge(bitmap),
+            JourneyData::Bitmap(bitmap) => {
+                journey_bitmap.merge(bitmap.clone());
+            }
         }
 
         // Update the journey cache with the new or merged bitmap
-        self.set_journey_cache(Some(kind), &journey_bitmap)
+        self.set_journey_cache(Some(kind), &journey_bitmap)?;
+        self.delete_journey_cache(None)?;
+        Ok(())
     }
 }

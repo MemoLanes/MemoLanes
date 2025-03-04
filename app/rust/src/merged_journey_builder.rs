@@ -76,6 +76,25 @@ pub fn get_range(
     )
 }
 
+fn compute_journey<F>(
+    cache_db: &CacheDb,
+    kind: Option<&JourneyKind>,
+    mut f: F,
+) -> Result<JourneyBitmap>
+where
+    F: FnMut(Option<&JourneyKind>) -> Result<JourneyBitmap>,
+{
+    match kind {
+        None => cache_db.get_journey_cache_or_compute(None, || {
+            let mut default_bitmap = f(Some(&JourneyKind::DefaultKind))?;
+            let flight_bitmap = f(Some(&JourneyKind::Flight))?;
+            default_bitmap.merge(flight_bitmap);
+            Ok(default_bitmap)
+        }),
+        Some(journey_kind) => f(Some(journey_kind)),
+    }
+}
+
 // main map
 pub fn get_latest_including_ongoing(
     main_db: &mut MainDb,
@@ -84,25 +103,9 @@ pub fn get_latest_including_ongoing(
 ) -> Result<JourneyBitmap> {
     main_db.with_txn(|txn| {
         // getting finalized journeys
-        let mut journey_bitmap: JourneyBitmap = match kind {
-            None => cache_db.get_journey_cache_or_compute(kind, || {
-                let mut default_bitmap = CacheDb::get_journey_cache_or_compute(
-                    cache_db,
-                    Some(&JourneyKind::DefaultKind),
-                    || get_range_internal(txn, None, None, Some(&JourneyKind::DefaultKind)),
-                )?;
-                let flight_bitmap = CacheDb::get_journey_cache_or_compute(
-                    cache_db,
-                    Some(&JourneyKind::Flight),
-                    || get_range_internal(txn, None, None, Some(&JourneyKind::Flight)),
-                )?;
-
-                default_bitmap.merge(flight_bitmap);
-                Ok(default_bitmap)
-            })?,
-            Some(jouney_kind) => cache_db
-                .get_journey_cache_or_compute(kind, || get_range_internal(txn, None, None, Some(jouney_kind)))?,
-        };
+        let mut journey_bitmap = compute_journey(cache_db, kind, |k| {
+            cache_db.get_journey_cache_or_compute(k, || get_range_internal(txn, None, None, k))
+        })?;
 
         // append remaining ongoing parts
         match txn.get_ongoing_journey()? {
