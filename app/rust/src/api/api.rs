@@ -153,7 +153,7 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
 ) -> Result<MapRendererProxy> {
     let state = get();
     let journey_bitmap = state.storage.with_db_txn(|txn| {
-        merged_journey_builder::get_range(txn, from_date_inclusive, to_date_inclusive)
+        merged_journey_builder::get_range(txn, from_date_inclusive, to_date_inclusive, None)
     })?;
 
     let mut server = state.map_server.lock().unwrap();
