@@ -145,10 +145,10 @@ fn serialization() {
 fn draw_point() {
     let mut has_a_point_bitmap = JourneyBitmap::new();
 
-    has_a_point_bitmap.add_line(30.0, 120.0, 30.0, 120.0);
+    has_a_point_bitmap.add_line(120.0, 30.0, 120.0, 30.0);
 
     assert_eq!(
         journey_area_utils::compute_journey_bitmap_area(&has_a_point_bitmap),
-        1
+        68
     );
 }
