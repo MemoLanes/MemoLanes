@@ -43,6 +43,19 @@ impl JourneyBitmap {
 
         let (x_half, _) =
             utils::lng_lat_to_tile_x_y(0.0, 0.0, (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32);
+
+        if x0 == x1 && y0 == y1 {
+            let (x, y) = (x0 as i64, y0 as i64);
+
+            let (tile_x, tile_y) = (x >> ALL_OFFSET, y >> ALL_OFFSET);
+            let tile = self
+                .tiles
+                .entry(((tile_x % MAP_WIDTH) as u16, tile_y as u16))
+                .or_default();
+            tile.add_point(x - (tile_x << ALL_OFFSET), y - (tile_y << ALL_OFFSET));
+            return;
+        }
+
         if x1 - x0 > x_half {
             x0 += 2 * x_half;
         } else if x0 - x1 > x_half {
@@ -51,7 +64,7 @@ impl JourneyBitmap {
 
         // Iterators, counters required by algorithm
         // Calculate line deltas
-        let dx = x1 as i64 - x0 as i64;
+        let dx: i64 = x1 as i64 - x0 as i64;
         let dy = y1 as i64 - y0 as i64;
         // Create a positive copy of deltas (makes iterating easier)
         let dx0 = dx.abs();
@@ -206,6 +219,28 @@ pub struct Tile {
 impl Tile {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn add_point(&mut self, x: i64, y: i64) {
+        let block_x = x >> BITMAP_WIDTH_OFFSET;
+        let block_y = y >> BITMAP_WIDTH_OFFSET;
+
+        let block = self
+            .blocks
+            .entry((block_x as u8, block_y as u8))
+            .or_default();
+
+        block.add_line(
+            x - (block_x << BITMAP_WIDTH_OFFSET),
+            y - (block_y << BITMAP_WIDTH_OFFSET),
+            x - (block_x << BITMAP_WIDTH_OFFSET),
+            0,
+            0,
+            0,
+            true,
+            true,
+        );
     }
 
     #[allow(clippy::too_many_arguments)]
