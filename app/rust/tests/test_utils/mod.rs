@@ -1,7 +1,7 @@
 use memolanes_core::journey_bitmap::JourneyBitmap;
 use memolanes_core::renderer::map_renderer::*;
-use memolanes_core::renderer::tile_shader::TileShader;
-use memolanes_core::renderer::utils::*;
+mod render_utils;
+use render_utils::*;
 
 use image::RgbaImage;
 use serde_json;
@@ -85,7 +85,7 @@ pub fn tile_x_y_to_lng_lat(x: i32, y: i32, zoom: i32) -> (f64, f64) {
     (lng, lat)
 }
 
-pub fn legacy_maybe_render_map_overlay(
+pub fn maybe_render_map_overlay(
     map_renderer: &mut MapRenderer,
     // map view area (coordinates are in lat or lng)
     zoom: i32,
@@ -127,13 +127,13 @@ pub fn legacy_maybe_render_map_overlay(
         // same, nothing to do
         None
     } else {
-        let render_result = legacy_map_render_overlay(map_renderer, &render_area);
+        let render_result = map_render_overlay(map_renderer, &render_area);
         map_renderer.set_current_render_area(render_area);
         Some(render_result)
     }
 }
 
-fn legacy_map_render_overlay(map_renderer: &MapRenderer, render_area: &RenderArea) -> RenderResult {
+fn map_render_overlay(map_renderer: &MapRenderer, render_area: &RenderArea) -> RenderResult {
     /* for test, map_renderer initialized by MapRenderer::new, tilerenderer size is default size.  */
     let tile_size: u32 = DEFAULT_TILE_SIZE.size(); //512
     let width_by_tile: u32 = (render_area.right_idx - render_area.left_idx + 1)

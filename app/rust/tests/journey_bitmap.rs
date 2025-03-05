@@ -21,15 +21,9 @@ fn add_line_cross_antimeridian() {
 
     let mut map_renderer = MapRenderer::new(journey_bitmap);
 
-    let render_result = test_utils::legacy_maybe_render_map_overlay(
-        &mut map_renderer,
-        0,
-        -170.0,
-        80.0,
-        170.0,
-        -80.0,
-    )
-    .unwrap();
+    let render_result =
+        test_utils::maybe_render_map_overlay(&mut map_renderer, 0, -170.0, 80.0, 170.0, -80.0)
+            .unwrap();
     test_utils::verify_image(
         "journey_bitmap_add_line_cross_antimeridian",
         &render_result.data,
@@ -73,7 +67,7 @@ fn merge_with_render() {
 
     let mut map_renderer = MapRenderer::new(journey_bitmap);
 
-    let render_result = test_utils::legacy_maybe_render_map_overlay(
+    let render_result = test_utils::maybe_render_map_overlay(
         &mut map_renderer,
         12,
         START_LNG,
