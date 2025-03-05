@@ -49,7 +49,7 @@ fn check_dependencies_files() {
         `flutter_rust_bridge_codegen generate` to get a real one."
         );
     }
-    println!("cargo:rerun-if-changed=../journey_kernel/dist/in dex.html");
+    println!("cargo:rerun-if-changed=../journey_kernel/dist/index.html");
     if fs::metadata("../journey_kernel/dist/index.html").is_err() {
         fs::File::create("../journey_kernel/dist/index.html")
             .unwrap()
