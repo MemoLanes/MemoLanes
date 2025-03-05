@@ -31,6 +31,7 @@ build-flutter:
 
 # Format code
 [group: 'dev']
+[working-directory: 'rust']
 fmt-code:
     @echo "🛠️  Formatting code"
     @cargo fmt --all
