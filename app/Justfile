@@ -1,85 +1,75 @@
-# Justfile
+set windows-powershell := true
 
-# =====================================
-# Main Workflow
-# =====================================
-
-# Default full build pipeline
+# Show list of available commands
 default:
-    @echo "\n🚀 Starting full build pipeline"
-    just check-env
+  @echo "📋 Available commands:"
+  @just --list
+
+# Build all components
+[group: 'dev']
+play-build:
+    @echo "🛠️  Building all"
     just build-kernel
-    just generate-bridge
-    @echo "✅ Full build completed\n"
+    just frb-generate
+    just build-flutter
+    @echo "✅ Build completed"
 
-# Development run shortcut
-run:
-    @echo "\n🏁 Starting development workflow"
-    just default
-    just flutter-run
-
-# =====================================
-# Core Tasks
-# =====================================
-
-# Generate authentication token
-token:
-    @echo "\n🔐 Generating access token"
-    @python3 setup_token.py
-    @echo "✅ Token file created successfully"
-
-# Flutter application runner
-flutter-run:
-    @echo "\n📱 Launching Flutter application"
-    @flutter run -v
-
-# =====================================
-# Environment Validation
-# =====================================
-check-env:
-    @echo "\n🔧 System Environment Check:"
-
-    # Node.js verification
-    @if ! command -v node &> /dev/null; then \
-        echo "  ‼️  Node.js: Missing (Required for kernel build)"; \
-        echo "     Download: https://nodejs.org/"; \
-        exit 1; \
-    else \
-        echo "  ✓ Node.js: Installed"; \
-    fi
-
-    # Yarn package manager check
-    @if ! command -v yarn &> /dev/null; then \
-        echo "  ‼️  Yarn: Missing (Required dependency manager)"; \
-        echo "     Install: https://classic.yarnpkg.com/en/docs/install"; \
-        exit 1; \
-    else \
-        echo "  ✓ Yarn: Installed"; \
-    fi
-
-    # Flutter-Rust bridge tool verification
-    @if ! command -v flutter_rust_bridge_codegen &> /dev/null; then \
-        echo "  ‼️  Flutter Rust Bridge: Missing (Critical for code generation)"; \
-        echo "     Install: cargo install flutter_rust_bridge_codegen"; \
-        exit 1; \
-    else \
-        echo "  ✓ Flutter Rust Bridge: Installed"; \
-    fi
-
-    @echo "✅ Environment validation passed"
-
-# =====================================
-# Build Tasks
-# =====================================
-
-# Kernel compilation task
+# Build Journey Kernel wasm
+[group: 'dev']
+[working-directory: 'journey_kernel']
 build-kernel:
-    @echo "\n🛠️  Building Journey Kernel"
-    @cd journey_kernel && yarn build
-    @echo "✅ Kernel build completed"
+    @echo "🛠️  Building Journey Kernel"
+    @yarn build
+    @echo "✅ Journey Kernel build completed"
 
-# Bridge code generation
-generate-bridge:
-    @echo "\n🔗 Generating Rust Bridge Bindings"
+# Build Flutter
+[group: 'dev']
+build-flutter:
+    @echo "🛠️  Building Flutter"
+    @flutter build
+    @echo "✅ Flutter build completed"
+
+# Format code
+[group: 'dev']
+fmt-code:
+    @echo "🛠️  Formatting code"
+    @cargo fmt --all
+    @echo "✅ Code formatting completed"
+
+# Generate Flutter Rust Bridge code
+[group: 'dev']
+frb-generate:
+    @echo "🔗 Generating FRB code"
     @flutter_rust_bridge_codegen generate
-    @echo "✅ Bridge code generation completed"
+    @echo "✅ FRB code generation completed"
+
+# Analyze Flutter code
+[group: 'check']
+flutter-check:
+    @echo "🔍 Analyzing Flutter code"
+    @flutter analyze --no-fatal-infos
+    @echo "✅ Flutter code analysis completed"
+
+# Check Rust code
+[group: 'check']
+[working-directory: 'rust']
+rust-check:
+    @echo "🔍 Checking Rust code"
+    @cargo check
+    @cargo fmt --all -- --check
+    @cargo clippy -- -D warnings
+    @echo "✅ Rust code check completed"
+
+# Run Rust tests
+[group: 'test']
+[working-directory: 'rust']
+rust-test:
+    @echo "🧪 Running Rust tests"
+    @cargo test -- --nocapture
+    @echo "✅ Rust tests completed"
+
+# Get Flutter Rust Bridge version (private)
+[private]
+[unix]
+get_frb_version:
+    @awk '/flutter_rust_bridge:/ { print $2 }' pubspec.yaml
