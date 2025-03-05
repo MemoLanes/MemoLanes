@@ -1,4 +1,3 @@
-use cargo_toml::Manifest;
 use std::env;
 use std::path::Path;
 use std::process::Command;
@@ -36,62 +35,52 @@ fn setup_x86_64_android_workaround() {
     }
 }
 
-fn check_yarn_dependencies() {
-    // Check if yarn is installed
-    if Command::new("yarn").arg("--version").output().is_err() {
-        panic!("yarn is not installed. Please install yarn first using `npm install -g yarn`");
+fn check_dependencies_files() {
+    // Check frb file
+    println!("cargo:rerun-if-changed=src/frb_generated.rs");
+    if fs::metadata("src/frb_generated.rs").is_err() {
+        fs::File::create("src/frb_generated.rs")
+            .unwrap()
+            .flush()
+            .expect("failed to create dummpy frb_generated.rs");
+        println!(
+            "cargo:warning=`frb_generated.rs` is not found, generating a \
+        dummpy file. If you are working on flutter, you need to run \
+        `flutter_rust_bridge_codegen generate` to get a real one."
+        );
+    }
+    println!("cargo:rerun-if-changed=../journey_kernel/dist/in dex.html");
+    if fs::metadata("../journey_kernel/dist/index.html").is_err() {
+        fs::File::create("../journey_kernel/dist/index.html")
+            .unwrap()
+            .flush()
+            .expect("failed to create dummpy index.html");
+        println!("cargo:warning=`index.html` is not found, generating a dummpy file.");
     }
 
-    // Check if node_modules exists in journey_kernel
-    if !Path::new("../journey_kernel/node_modules").exists() {
-        println!("cargo:warning=Installing yarn dependencies for journey_kernel...");
-        let status = Command::new("yarn")
-            .current_dir("../journey_kernel")
-            .arg("install")
-            .status()
-            .expect("Failed to run yarn install");
-
-        if !status.success() {
-            panic!("Failed to install yarn dependencies");
-        }
-    }
-}
-
-fn build_journey_kernel_wasm() {
-    println!("cargo:rerun-if-changed=../journey_kernel");
-    println!("cargo:rerun-if-changed=.journey_kernel_version");
-
-    // Read version from Cargo.toml
-    let manifest = Manifest::from_path("../journey_kernel/Cargo.toml")
-        .expect("Failed to read journey_kernel Cargo.toml");
-    let current_version = manifest.package.unwrap().version.get().unwrap().clone();
-
-    // Check if version lock exists and matches
-    let version_lock_path = Path::new("./target/.journey_kernel_version");
-    if let Ok(locked_version) = fs::read_to_string(version_lock_path) {
-        if locked_version.trim() == current_version {
-            println!(
-                "cargo:warning=Skipping journey_kernel build - version {} matches",
-                current_version
-            );
-            return;
-        }
+    println!("cargo:rerun-if-changed=../journey_kernel/dist/bundle.js");
+    if fs::metadata("../journey_kernel/dist/bundle.js").is_err() {
+        fs::File::create("../journey_kernel/dist/bundle.js")
+            .unwrap()
+            .flush()
+            .expect("failed to create dummpy bundle.js");
+        println!(
+            "cargo:warning=`bundle.js` is not found, generating a \
+        dummpy file."
+        );
     }
 
-    // Build using webpack through yarn
-    let status = Command::new("yarn")
-        .current_dir("../journey_kernel")
-        .args(["build"])
-        .status()
-        .expect("Failed to execute webpack build command");
-
-    if !status.success() {
-        panic!("Failed to build journey_kernel WASM package");
+    println!("cargo:rerun-if-changed=../journey_kernel/dist/journey_kernel_bg.wasm");
+    if fs::metadata("../journey_kernel/dist/journey_kernel_bg.wasm").is_err() {
+        fs::File::create("../journey_kernel/dist/journey_kernel_bg.wasm")
+            .unwrap()
+            .flush()
+            .expect("failed to create dummpy bundle.js");
+        println!(
+            "cargo:warning=`bundle.js` is not found, generating a \
+        dummpy file."
+        );
     }
-
-    // Update version lock after successful build
-    fs::write(version_lock_path, current_version)
-        .expect("Failed to write journey_kernel version lock");
 }
 
 fn generate_mapbox_token_const() {
@@ -159,18 +148,7 @@ fn main() {
         .input("src/protos/archive.proto")
         .run_from_script();
 
-    println!("cargo:rerun-if-changed=src/frb_generated.rs");
-    if fs::metadata("src/frb_generated.rs").is_err() {
-        fs::File::create("src/frb_generated.rs")
-            .unwrap()
-            .flush()
-            .expect("failed to create dummpy frb_generated.rs");
-        println!(
-            "cargo:warning=`frb_generated.rs` is not found, generating a \
-        dummpy file. If you are working on flutter, you need to run \
-        `flutter_rust_bridge_codegen generate` to get a real one."
-        );
-    }
+    check_dependencies_files();
 
     setup_x86_64_android_workaround();
 }
