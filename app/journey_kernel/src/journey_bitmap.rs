@@ -52,7 +52,7 @@ impl JourneyBitmap {
 
         // Iterators, counters required by algorithm
         // Calculate line deltas
-        let dx: i64 = x1 as i64 - x0 as i64;
+        let dx = x1 as i64 - x0 as i64;
         let dy = y1 as i64 - y0 as i64;
         // Create a positive copy of deltas (makes iterating easier)
         let dx0 = dx.abs();
