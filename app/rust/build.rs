@@ -49,6 +49,13 @@ fn check_dependencies_files() {
         `flutter_rust_bridge_codegen generate` to get a real one."
         );
     }
+
+    let dist_dir = "../journey_kernel/dist";
+    if fs::metadata(dist_dir).is_err() {
+        fs::create_dir_all(dist_dir).expect("failed to create dist directory");
+        println!("cargo:warning=`dist` directory is not found, creating the directory.");
+    }
+    
     println!("cargo:rerun-if-changed=../journey_kernel/dist/index.html");
     if fs::metadata("../journey_kernel/dist/index.html").is_err() {
         fs::File::create("../journey_kernel/dist/index.html")
