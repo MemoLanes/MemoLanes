@@ -35,61 +35,50 @@ fn setup_x86_64_android_workaround() {
     }
 }
 
+/// Checks and creates necessary dependency files if they do not exist
 fn check_dependencies_files() {
-    // Check frb file
-    println!("cargo:rerun-if-changed=src/frb_generated.rs");
-    if fs::metadata("src/frb_generated.rs").is_err() {
-        fs::File::create("src/frb_generated.rs")
-            .unwrap()
-            .flush()
-            .expect("failed to create dummpy frb_generated.rs");
-        println!(
-            "cargo:warning=`frb_generated.rs` is not found, generating a \
-        dummpy file. If you are working on flutter, you need to run \
-        `flutter_rust_bridge_codegen generate` to get a real one."
-        );
+    // Helper function to check and create a file if it does not exist
+    fn check_and_create_file(file_path: &str, warning_message: &str) {
+        println!("cargo:rerun-if-changed={}", file_path);
+        if fs::metadata(file_path).is_err() {
+            fs::File::create(file_path)
+                .unwrap()
+                .flush()
+                .expect("failed to create dummy");
+            println!("cargo:warning={}", warning_message);
+        }
     }
 
+    // Check frb file
+    check_and_create_file(
+        "src/frb_generated.rs",
+        "`frb_generated.rs` is not found, generating a dummy file. If you are working on flutter, you need to run `flutter_rust_bridge_codegen generate` to get a real one."
+    );
+
+    // Check dist directory and files
     let dist_dir = "../journey_kernel/dist";
     if fs::metadata(dist_dir).is_err() {
         fs::create_dir_all(dist_dir).expect("failed to create dist directory");
         println!("cargo:warning=`dist` directory is not found, creating the directory.");
     }
-    
-    println!("cargo:rerun-if-changed=../journey_kernel/dist/index.html");
-    if fs::metadata("../journey_kernel/dist/index.html").is_err() {
-        fs::File::create("../journey_kernel/dist/index.html")
-            .unwrap()
-            .flush()
-            .expect("failed to create dummpy index.html");
-        println!("cargo:warning=`index.html` is not found, generating a dummpy file.");
-    }
 
-    println!("cargo:rerun-if-changed=../journey_kernel/dist/bundle.js");
-    if fs::metadata("../journey_kernel/dist/bundle.js").is_err() {
-        fs::File::create("../journey_kernel/dist/bundle.js")
-            .unwrap()
-            .flush()
-            .expect("failed to create dummpy bundle.js");
-        println!(
-            "cargo:warning=`bundle.js` is not found, generating a \
-        dummpy file."
-        );
-    }
+    check_and_create_file(
+        "../journey_kernel/dist/index.html",
+        "`index.html` is not found, generating a dummy file.",
+    );
 
-    println!("cargo:rerun-if-changed=../journey_kernel/dist/journey_kernel_bg.wasm");
-    if fs::metadata("../journey_kernel/dist/journey_kernel_bg.wasm").is_err() {
-        fs::File::create("../journey_kernel/dist/journey_kernel_bg.wasm")
-            .unwrap()
-            .flush()
-            .expect("failed to create dummpy bundle.js");
-        println!(
-            "cargo:warning=`bundle.js` is not found, generating a \
-        dummpy file."
-        );
-    }
+    check_and_create_file(
+        "../journey_kernel/dist/bundle.js",
+        "`bundle.js` is not found, generating a dummy file.",
+    );
+
+    check_and_create_file(
+        "../journey_kernel/dist/journey_kernel_bg.wasm",
+        "`journey_kernel_bg.wasm` is not found, generating a dummy file.",
+    );
 }
 
+/// Generates a constant for the Mapbox token from environment variables or .env file
 fn generate_mapbox_token_const() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("Failed to get CARGO_MANIFEST_DIR");
     let env_path = Path::new(&manifest_dir).join("../.env");
@@ -124,14 +113,10 @@ fn generate_mapbox_token_const() {
 }
 
 fn main() {
-    // TODO: we need to optimize this build script, especially the 3 steps below.
-    // It is slow (this need to be triggered frequently) and more of the dections
-    // are a bit weird: e.g. `rustc-env` can hurt incremental build a bit.
-    // using version in `cargo.toml` is not so reliable.
+    // Generate Mapbox token constant
     generate_mapbox_token_const();
 
-    // There are articles on internet suggest `.git/HEAD` is enough, which I
-    // doubt.
+    // Trigger rebuild if .git directory changes
     println!("cargo:rerun-if-changed=../../.git");
     let output = Command::new("git")
         .args(["rev-parse", "--short", "HEAD"])
@@ -145,6 +130,7 @@ fn main() {
     )
     .unwrap();
 
+    // Generate protobuf files
     println!("cargo:rerun-if-changed=src/protos/journey.proto");
     println!("cargo:rerun-if-changed=src/protos/archive.proto");
     protobuf_codegen::Codegen::new()
@@ -155,7 +141,9 @@ fn main() {
         .input("src/protos/archive.proto")
         .run_from_script();
 
+    // Check and create necessary dependency files
     check_dependencies_files();
 
+    // Setup workaround for x86_64 Android
     setup_x86_64_android_workaround();
 }
