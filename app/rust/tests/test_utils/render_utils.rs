@@ -1,11 +1,50 @@
-use crate::journey_bitmap::{Block, JourneyBitmap, Tile};
-use crate::journey_bitmap::{BITMAP_WIDTH, BITMAP_WIDTH_OFFSET, TILE_WIDTH_OFFSET};
 use image::GenericImage;
 use image::Rgba;
 use image::RgbaImage;
 use image::SubImage;
+use std::io::Cursor;
 
+use memolanes_core::journey_bitmap::{Block, JourneyBitmap, Tile};
+use memolanes_core::journey_bitmap::{BITMAP_WIDTH, BITMAP_WIDTH_OFFSET, TILE_WIDTH_OFFSET};
+
+pub const DEFAULT_BG_COLOR: Rgba<u8> = Rgba([0, 0, 0, 127]);
+pub const DEFAULT_FG_COLOR: Rgba<u8> = Rgba([0, 0, 0, 0]);
+pub const DEFAULT_TILE_SIZE: TileSize = TileSize::TileSize512;
 const TILE_ZOOM: i16 = 9;
+
+#[allow(dead_code)]
+#[derive(Debug, Copy, Clone)]
+pub enum TileSize {
+    TileSize256,
+    TileSize512,
+    TileSize1024,
+}
+
+impl TileSize {
+    pub fn size(&self) -> u32 {
+        match self {
+            TileSize::TileSize256 => 256,
+            TileSize::TileSize512 => 512,
+            TileSize::TileSize1024 => 1024,
+        }
+    }
+
+    pub fn power(&self) -> i16 {
+        match self {
+            TileSize::TileSize256 => 8,
+            TileSize::TileSize512 => 9,
+            TileSize::TileSize1024 => 10,
+        }
+    }
+}
+
+pub fn image_to_png_data(image: &RgbaImage) -> Vec<u8> {
+    let mut image_png: Vec<u8> = Vec::new();
+    image
+        .write_to(&mut Cursor::new(&mut image_png), image::ImageFormat::Png)
+        .unwrap();
+    image_png
+}
 
 // we have 512*512 tiles, 128*128 blocks and a single block contains a 64*64 bitmap.
 pub struct TileShader;
