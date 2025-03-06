@@ -76,14 +76,6 @@ impl MapRenderer {
         &self.journey_bitmap
     }
 
-    pub fn peek_current_render_area(&self) -> Option<&RenderArea> {
-        if self.current_render_area.is_some() {
-            self.current_render_area.as_ref()
-        } else {
-            None
-        }
-    }
-
     pub fn set_current_render_area(&mut self, render_area: RenderArea) {
         self.current_render_area = Some(render_area);
     }

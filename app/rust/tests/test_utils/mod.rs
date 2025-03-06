@@ -123,14 +123,10 @@ pub fn maybe_render_map_overlay(
         right_idx,
         bottom_idx,
     };
-    if Some(&render_area) == map_renderer.peek_current_render_area() {
-        // same, nothing to do
-        None
-    } else {
-        let render_result = map_render_overlay(map_renderer, &render_area);
-        map_renderer.set_current_render_area(render_area);
-        Some(render_result)
-    }
+
+    let render_result = map_render_overlay(map_renderer, &render_area);
+    map_renderer.set_current_render_area(render_area);
+    Some(render_result)
 }
 
 fn map_render_overlay(map_renderer: &MapRenderer, render_area: &RenderArea) -> RenderResult {

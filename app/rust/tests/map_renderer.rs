@@ -30,20 +30,4 @@ fn basic() {
     assert_f64_near!(render_result.bottom, -34.16181816123038);
 
     test_utils::verify_image("map_renderer_basic", &render_result.data);
-
-    // a small move shouldn't trigger a re-render
-    let render_result = test_utils::maybe_render_map_overlay(
-        &mut map_renderer,
-        11,
-        151.143537079,
-        -33.79329191036,
-        151.278369284,
-        -33.94360014719,
-    );
-    assert!(render_result.is_none());
-
-    // but a bigger move will
-    let render_result =
-        test_utils::maybe_render_map_overlay(&mut map_renderer, 11, 151.0, -33.0, 151.0, -33.0);
-    assert!(render_result.is_some());
 }
