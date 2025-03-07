@@ -1,5 +1,6 @@
 use memolanes_core::journey_bitmap::JourneyBitmap;
 use memolanes_core::renderer::map_renderer::*;
+use memolanes_core::utils;
 mod render_utils;
 use render_utils::*;
 
@@ -8,7 +9,6 @@ use serde_json;
 use sha2::{Digest, Sha256};
 use std::cmp::{max, min};
 use std::collections::HashMap;
-use std::f64::consts::PI;
 use std::fs;
 use std::path::Path;
 use std::{fs::File, io::Write};
@@ -19,6 +19,15 @@ const END_LNG: f64 = 151.2783692841415;
 const END_LAT: f64 = -33.943600147192235;
 const MID_LNG: f64 = (START_LNG + END_LNG) / 2.;
 const MID_LAT: f64 = (START_LAT + END_LAT) / 2.;
+
+#[derive(PartialEq, Eq)]
+pub struct RenderArea {
+    pub zoom: i32,
+    pub left_idx: i32,
+    pub top_idx: i32,
+    pub right_idx: i32,
+    pub bottom_idx: i32,
+}
 
 pub struct RenderResult {
     // coordinates are in lat or lng
@@ -70,32 +79,17 @@ pub fn verify_image(name: &str, image: &Vec<u8>) {
     println!("Saved image file: {}", output_path);
 }
 
-pub fn lng_lat_to_tile_x_y(lng: f64, lat: f64, zoom: i32) -> (i32, i32) {
-    let n = f64::powi(2.0, zoom);
-    let lat_rad = (lat / 180.0) * PI;
-    let x = ((lng + 180.0) / 360.0) * n;
-    let y = (1.0 - ((lat_rad.tan() + 1.0 / lat_rad.cos()).ln() / PI)) / 2.0 * n;
-    (x.floor() as i32, y.floor() as i32)
-}
-
-pub fn tile_x_y_to_lng_lat(x: i32, y: i32, zoom: i32) -> (f64, f64) {
-    let n = f64::powi(2.0, zoom);
-    let lng = (x as f64 / n) * 360.0 - 180.0;
-    let lat = (f64::atan(f64::sinh(PI * (1.0 - (2.0 * y as f64) / n))) * 180.0) / PI;
-    (lng, lat)
-}
-
-pub fn maybe_render_map_overlay(
-    map_renderer: &mut MapRenderer,
+pub fn render_map_overlay(
+    map_renderer: &MapRenderer,
     // map view area (coordinates are in lat or lng)
     zoom: i32,
     left: f64,
     top: f64,
     right: f64,
     bottom: f64,
-) -> Option<RenderResult> {
-    let (mut left_idx, mut top_idx) = lng_lat_to_tile_x_y(left, top, zoom);
-    let (mut right_idx, mut bottom_idx) = lng_lat_to_tile_x_y(right, bottom, zoom);
+) -> RenderResult {
+    let (mut left_idx, mut top_idx) = utils::lng_lat_to_tile_x_y(left, top, zoom);
+    let (mut right_idx, mut bottom_idx) = utils::lng_lat_to_tile_x_y(right, bottom, zoom);
 
     // TODO: There is a hack to make sure we always cover a bit bigger to
     // avoid the gap between user move to new area and drawing that area.
@@ -124,12 +118,13 @@ pub fn maybe_render_map_overlay(
         bottom_idx,
     };
 
-    let render_result = map_render_overlay(map_renderer, &render_area);
-    map_renderer.set_current_render_area(render_area);
-    Some(render_result)
+    render_map_overlay_internal(map_renderer, &render_area)
 }
 
-fn map_render_overlay(map_renderer: &MapRenderer, render_area: &RenderArea) -> RenderResult {
+fn render_map_overlay_internal(
+    map_renderer: &MapRenderer,
+    render_area: &RenderArea,
+) -> RenderResult {
     /* for test, map_renderer initialized by MapRenderer::new, tilerenderer size is default size.  */
     let tile_size: u32 = DEFAULT_TILE_SIZE.size(); //512
     let width_by_tile: u32 = (render_area.right_idx - render_area.left_idx + 1)
@@ -161,8 +156,8 @@ fn map_render_overlay(map_renderer: &MapRenderer, render_area: &RenderArea) -> R
     }
 
     let (overlay_left, overlay_top) =
-        tile_x_y_to_lng_lat(render_area.left_idx, render_area.top_idx, render_area.zoom);
-    let (overlay_right, overlay_bottom) = tile_x_y_to_lng_lat(
+        utils::tile_x_y_to_lng_lat(render_area.left_idx, render_area.top_idx, render_area.zoom);
+    let (overlay_right, overlay_bottom) = utils::tile_x_y_to_lng_lat(
         render_area.right_idx + 1,
         render_area.bottom_idx + 1,
         render_area.zoom,

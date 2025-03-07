@@ -15,7 +15,7 @@ fn basic() {
 
     let mut map_renderer = MapRenderer::new(journey_bitmap);
 
-    let render_result = test_utils::maybe_render_map_overlay(
+    let render_result = test_utils::render_map_overlay(
         &mut map_renderer,
         11,
         start_lng,
@@ -23,7 +23,6 @@ fn basic() {
         end_lng,
         end_lat,
     );
-    let render_result = render_result.unwrap();
     assert_f64_near!(render_result.left, 150.8203125);
     assert_f64_near!(render_result.top, -33.578014746143985);
     assert_f64_near!(render_result.right, 151.5234375);

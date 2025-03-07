@@ -1,23 +1,12 @@
 use crate::api::api::CameraOption;
 use crate::journey_bitmap::JourneyBitmap;
 
-#[derive(PartialEq, Eq)]
-pub struct RenderArea {
-    pub zoom: i32,
-    pub left_idx: i32,
-    pub top_idx: i32,
-    pub right_idx: i32,
-    pub bottom_idx: i32,
-}
-
 pub struct MapRenderer {
     journey_bitmap: JourneyBitmap,
-
-    // For new web based renderer
     changed: bool,
-    // TODO: when we switch to flutter side control, we should remove this
+    // TODO: `provisioned_camera_option` should be moved out and passed to the
+    // map separately.
     provisioned_camera_option: Option<CameraOption>,
-    current_render_area: Option<RenderArea>,
 }
 
 impl MapRenderer {
@@ -26,7 +15,6 @@ impl MapRenderer {
             journey_bitmap,
             changed: false,
             provisioned_camera_option: None,
-            current_render_area: None,
         }
     }
 
@@ -45,18 +33,15 @@ impl MapRenderer {
         f(&mut self.journey_bitmap);
         // TODO: we should improve the cache invalidation rule
         self.changed = true;
-        self.current_render_area = None;
     }
 
     pub fn replace(&mut self, journey_bitmap: JourneyBitmap) {
         self.journey_bitmap = journey_bitmap;
         self.changed = true;
-        self.current_render_area = None;
     }
 
     pub fn reset(&mut self) {
         self.changed = true;
-        self.current_render_area = None;
     }
 
     pub fn changed(&self) -> bool {
@@ -74,9 +59,5 @@ impl MapRenderer {
 
     pub fn peek_latest_bitmap(&self) -> &JourneyBitmap {
         &self.journey_bitmap
-    }
-
-    pub fn set_current_render_area(&mut self, render_area: RenderArea) {
-        self.current_render_area = Some(render_area);
     }
 }
