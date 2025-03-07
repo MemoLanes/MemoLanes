@@ -1,8 +1,8 @@
 pub mod test_utils;
 
 use memolanes_core::{
-    journey_bitmap::JourneyBitmap, journey_data::JourneyData, journey_header::JourneyType,
-    renderer::MapRenderer,
+    journey_area_utils, journey_bitmap::JourneyBitmap, journey_data::JourneyData,
+    journey_header::JourneyType, renderer::MapRenderer,
 };
 
 #[test]
@@ -143,4 +143,16 @@ fn serialization() {
     let journey_data_roundtrip =
         JourneyData::deserialize(buf.as_slice(), JourneyType::Bitmap).unwrap();
     assert_eq!(journey_data, journey_data_roundtrip);
+}
+
+#[test]
+fn draw_point() {
+    let mut has_a_point_bitmap = JourneyBitmap::new();
+
+    has_a_point_bitmap.add_line(120.0, 30.0, 120.0, 30.0);
+
+    assert_eq!(
+        journey_area_utils::compute_journey_bitmap_area(&has_a_point_bitmap),
+        68
+    );
 }
