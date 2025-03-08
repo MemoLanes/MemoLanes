@@ -44,16 +44,18 @@ fn get_range_internal(
     for journey_header in txn.query_journeys(from_date_inclusive, to_date_inclusive)? {
         let journey_kind = journey_header.journey_kind;
 
-        match kind {
-            Some(kind) if *kind != journey_kind => continue,
-            Some(_) | None => {}
-        }
+        let should_include = match kind {
+            None => true,
+            Some(kind) => *kind == journey_kind,
+        };
 
-        let journey_data = txn.get_journey_data(&journey_header.id)?;
-        match journey_data {
-            JourneyData::Bitmap(bitmap) => journey_map.merge(bitmap),
-            JourneyData::Vector(vector) => {
-                add_journey_vector_to_journey_bitmap(&mut journey_map, &vector);
+        if should_include {
+            let journey_data = txn.get_journey_data(&journey_header.id)?;
+            match journey_data {
+                JourneyData::Bitmap(bitmap) => journey_map.merge(bitmap),
+                JourneyData::Vector(vector) => {
+                    add_journey_vector_to_journey_bitmap(&mut journey_map, &vector);
+                }
             }
         }
     }
