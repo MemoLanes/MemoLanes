@@ -472,3 +472,14 @@ pub fn restart_map_server() -> Result<()> {
     let mut map_server = state.map_server.lock().unwrap();
     map_server.restart()
 }
+
+/// flutter_rust_bridge:ignore
+pub mod for_testing {
+    use std::sync::{Arc, Mutex};
+
+    use crate::renderer::MapRenderer;
+
+    pub fn get_main_map_renderer() -> Arc<Mutex<MapRenderer>> {
+        super::get().main_map_renderer.clone()
+    }
+}
