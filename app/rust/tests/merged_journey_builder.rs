@@ -4,7 +4,10 @@ use core::panic;
 
 use chrono::Utc;
 use memolanes_core::{
-    cache_db::CacheDb, journey_data::JourneyData, journey_header::JourneyKind, main_db::MainDb,
+    cache_db::{CacheDb, LayerKind},
+    journey_data::JourneyData,
+    journey_header::JourneyKind,
+    main_db::MainDb,
     merged_journey_builder,
 };
 use tempdir::TempDir;
@@ -56,14 +59,18 @@ fn basic() {
 
     journey_bitmap.merge(journey_bitmap_flight);
     assert_eq!(
-        merged_journey_builder::get_latest_including_ongoing(&mut main_db, &cache_db, None)
-            .unwrap(),
+        merged_journey_builder::get_latest_including_ongoing(
+            &mut main_db,
+            &cache_db,
+            &LayerKind::All
+        )
+        .unwrap(),
         journey_bitmap
     );
 
     assert_eq!(
         cache_db
-            .get_journey_cache_or_compute(None, || panic!("should not be called"))
+            .get_full_journey_cache_or_compute(&LayerKind::All, || panic!("should not be called"))
             .unwrap(),
         journey_bitmap
     );

@@ -66,3 +66,39 @@ mod tests {
         assert_eq!(plus8.date_naive().to_string(), "2024-04-01");
     }
 }
+
+pub mod db {
+    use anyhow::Result;
+    use rusqlite::{OptionalExtension, Transaction};
+
+    pub fn init_metadata_and_get_version(tx: &Transaction) -> Result<i32> {
+        let create_db_metadata_sql = "
+        CREATE TABLE IF NOT EXISTS `db_metadata` (
+	    `key`	TEXT NOT NULL,
+	    `value`	TEXT,
+	    PRIMARY KEY(`key`)
+        )";
+        tx.execute(create_db_metadata_sql, ())?;
+        let version_str: Option<String> = tx
+            .query_row(
+                "SELECT `value` FROM `db_metadata` WHERE key='version'",
+                [],
+                |row| row.get(0),
+            )
+            .optional()?;
+
+        let version = match version_str {
+            None => 0,
+            Some(s) => s.parse()?,
+        };
+        Ok(version)
+    }
+
+    pub fn set_version_in_metadata(tx: &Transaction, version: i32) -> Result<()> {
+        tx.execute(
+            "INSERT OR REPLACE INTO `db_metadata` (key, value) VALUES (?1, ?2)",
+            ("version", version.to_string()),
+        )?;
+        Ok(())
+    }
+}

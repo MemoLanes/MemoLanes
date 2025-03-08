@@ -41,26 +41,8 @@ fn open_db_and_run_migration(
     debug!("open and run migration for {}", file_name);
     let mut conn = rusqlite::Connection::open(Path::new(support_dir).join(file_name))?;
     let tx = conn.transaction()?;
-    let create_db_metadata_sql = "
-    CREATE TABLE IF NOT EXISTS `db_metadata` (
-	`key`	TEXT NOT NULL,
-	`value`	TEXT,
-	PRIMARY KEY(`key`)
-    )";
-    tx.execute(create_db_metadata_sql, ())?;
-    let version_str: Option<String> = tx
-        .query_row(
-            "SELECT `value` FROM `db_metadata` WHERE key='version'",
-            [],
-            |row| row.get(0),
-        )
-        .optional()?;
 
-    let version = match version_str {
-        None => 0,
-        Some(s) => s.parse()?,
-    };
-
+    let version = utils::db::init_metadata_and_get_version(&tx)? as usize;
     let target_version = migrations.len();
     debug!(
         "current version = {}, target_version = {}",
@@ -74,10 +56,7 @@ fn open_db_and_run_migration(
                 let f = migrations.get(i).unwrap();
                 f(&tx)?;
             }
-            tx.execute(
-                "INSERT OR REPLACE INTO `db_metadata` (key, value) VALUES (?1, ?2)",
-                ("version", target_version.to_string()),
-            )?;
+            utils::db::set_version_in_metadata(&tx, target_version as i32)?;
         }
         Ordering::Greater => {
             bail!(

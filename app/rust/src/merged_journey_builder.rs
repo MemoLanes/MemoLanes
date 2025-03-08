@@ -3,7 +3,7 @@ need to merge all journeys into one `journey_bitmap`. Relavent functionailties i
 implemented here.
 */
 use crate::{
-    cache_db::CacheDb,
+    cache_db::{CacheDb, LayerKind},
     journey_bitmap::JourneyBitmap,
     journey_data::JourneyData,
     journey_header::JourneyKind,
@@ -34,10 +34,10 @@ pub fn add_journey_vector_to_journey_bitmap(
 // TODO: This is going to be very slow.
 // Returns a journey bitmap for the journey kind
 fn get_range_internal(
-    txn: &mut main_db::Txn,
+    txn: &main_db::Txn,
     from_date_inclusive: Option<NaiveDate>,
     to_date_inclusive: Option<NaiveDate>,
-    kind: Option<&JourneyKind>,
+    kind: Option<&JourneyKind>, // TODO: dpending on the future design, we might not want this to be optional.
 ) -> Result<JourneyBitmap> {
     let mut journey_map = JourneyBitmap::new();
 
@@ -76,36 +76,38 @@ pub fn get_range(
     )
 }
 
-fn compute_journey<F>(
+fn get_all_finalized_journeys(
+    main_db_txn: &main_db::Txn,
     cache_db: &CacheDb,
-    kind: Option<&JourneyKind>,
-    mut f: F,
-) -> Result<JourneyBitmap>
-where
-    F: FnMut(Option<&JourneyKind>) -> Result<JourneyBitmap>,
-{
-    match kind {
-        None => cache_db.get_journey_cache_or_compute(None, || {
-            let mut default_bitmap = f(Some(&JourneyKind::DefaultKind))?;
-            let flight_bitmap = f(Some(&JourneyKind::Flight))?;
+    layer_kind: &LayerKind,
+) -> Result<JourneyBitmap> {
+    cache_db.get_full_journey_cache_or_compute(layer_kind, || match layer_kind {
+        LayerKind::All => {
+            let mut default_bitmap = get_all_finalized_journeys(
+                main_db_txn,
+                cache_db,
+                &LayerKind::JounreyKind(JourneyKind::DefaultKind),
+            )?;
+            let flight_bitmap = get_all_finalized_journeys(
+                main_db_txn,
+                cache_db,
+                &LayerKind::JounreyKind(JourneyKind::Flight),
+            )?;
             default_bitmap.merge(flight_bitmap);
             Ok(default_bitmap)
-        }),
-        Some(journey_kind) => f(Some(journey_kind)),
-    }
+        }
+        LayerKind::JounreyKind(kind) => get_range_internal(main_db_txn, None, None, Some(kind)),
+    })
 }
 
 // main map
 pub fn get_latest_including_ongoing(
     main_db: &mut MainDb,
     cache_db: &CacheDb,
-    kind: Option<&JourneyKind>,
+    layer_kind: &LayerKind,
 ) -> Result<JourneyBitmap> {
     main_db.with_txn(|txn| {
-        // getting finalized journeys
-        let mut journey_bitmap = compute_journey(cache_db, kind, |k| {
-            cache_db.get_journey_cache_or_compute(k, || get_range_internal(txn, None, None, k))
-        })?;
+        let mut journey_bitmap = get_all_finalized_journeys(txn, cache_db, layer_kind)?;
 
         // append remaining ongoing parts
         match txn.get_ongoing_journey()? {
