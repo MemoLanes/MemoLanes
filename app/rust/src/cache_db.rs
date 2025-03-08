@@ -22,8 +22,6 @@ use crate::{journey_bitmap::JourneyBitmap, journey_data, journey_header::Journey
 
 // TODO: we should consider using transaction to get better error handling behavior
 
-pub const TARGET_VERSION: i32 = 0;
-
 fn open_db(cache_dir: &str, file_name: &str) -> Result<Connection> {
     debug!("opening cache db for {}", file_name);
     let mut conn = Connection::open(Path::new(cache_dir).join(file_name))?;
