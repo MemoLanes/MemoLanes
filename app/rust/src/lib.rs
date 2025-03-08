@@ -28,4 +28,4 @@ pub mod merged_journey_builder;
 mod protos;
 pub mod renderer;
 pub mod storage;
-mod utils;
+pub mod utils;
