@@ -211,6 +211,13 @@ class _SettingsBodyState extends State<SettingsBody> {
             },
             child: const Text("Raw Data Mode"),
           ),
+          ElevatedButton(
+            onPressed: () async {
+              await showLoadingDialog(
+                  context: context, asyncTask: api.rebuildCache());
+            },
+            child: const Text("Rebuild Cache"),
+          ),
           if (updateUrl != null) ...[
             ElevatedButton(
               onPressed: () async {

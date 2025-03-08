@@ -473,6 +473,14 @@ pub fn restart_map_server() -> Result<()> {
     map_server.restart()
 }
 
+pub fn rebuild_cache() -> Result<()> {
+    let state = get();
+    state.storage.clear_all_cache()?;
+    let bitmap = state.storage.get_latest_bitmap_for_main_map_renderer()?;
+    state.main_map_renderer.lock().unwrap().replace(bitmap);
+    Ok(())
+}
+
 /// flutter_rust_bridge:ignore
 pub mod for_testing {
     use std::sync::{Arc, Mutex};

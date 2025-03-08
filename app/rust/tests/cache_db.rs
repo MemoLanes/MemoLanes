@@ -7,6 +7,8 @@ use memolanes_core::{
 };
 use tempdir::TempDir;
 
+// TODO: The whole caching is critical and error prone, we should have better test coverage.
+
 #[test]
 fn basic() {
     let cache_dir = TempDir::new("cache_db-basic").unwrap();

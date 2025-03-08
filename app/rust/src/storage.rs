@@ -296,6 +296,12 @@ impl Storage {
         Ok(journey_bitmap)
     }
 
+    pub fn clear_all_cache(&self) -> Result<()> {
+        let cache_db = &self.dbs.lock().unwrap().1;
+        cache_db.clear_all_cache()?;
+        Ok(())
+    }
+
     // TODO: do we need this?
     pub fn _flush(&self) -> Result<()> {
         debug!("[storage] flushing");
