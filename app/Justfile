@@ -1,0 +1,76 @@
+set windows-powershell := true
+
+# Show list of available commands
+default:
+  @echo "📋 Available commands:"
+  @just --list
+
+# Build all components
+[group: 'dev']
+play-build:
+    @echo "🛠️  Building all"
+    just build-kernel
+    just frb-generate
+    just build-flutter
+    @echo "✅ Build completed"
+
+# Build Journey Kernel wasm
+[group: 'dev']
+[working-directory: 'journey_kernel']
+build-kernel:
+    @echo "🛠️  Building Journey Kernel"
+    @yarn build
+    @echo "✅ Journey Kernel build completed"
+
+# Build Flutter
+[group: 'dev']
+build-flutter:
+    @echo "🛠️  Building Flutter"
+    @flutter build
+    @echo "✅ Flutter build completed"
+
+# Format code
+[group: 'dev']
+[working-directory: 'rust']
+fmt-code:
+    @echo "🛠️  Formatting code"
+    @cargo fmt --all
+    @echo "✅ Code formatting completed"
+
+# Generate Flutter Rust Bridge code
+[group: 'dev']
+frb-generate:
+    @echo "🔗 Generating FRB code"
+    @flutter_rust_bridge_codegen generate
+    @echo "✅ FRB code generation completed"
+
+# Analyze Flutter code
+[group: 'check']
+flutter-check:
+    @echo "🔍 Analyzing Flutter code"
+    @flutter analyze --no-fatal-infos
+    @echo "✅ Flutter code analysis completed"
+
+# Check Rust code
+[group: 'check']
+[working-directory: 'rust']
+rust-check:
+    @echo "🔍 Checking Rust code"
+    @cargo check
+    @cargo fmt --all -- --check
+    @cargo clippy -- -D warnings
+    @echo "✅ Rust code check completed"
+
+# Run Rust tests
+[group: 'test']
+[working-directory: 'rust']
+rust-test:
+    @echo "🧪 Running Rust tests"
+    @cargo test -- --nocapture
+    @echo "✅ Rust tests completed"
+
+# Get Flutter Rust Bridge version (private)
+[private]
+[unix]
+get_frb_version:
+    @awk '/flutter_rust_bridge:/ { print $2 }' pubspec.yaml
