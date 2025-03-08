@@ -1,5 +1,5 @@
 use std::env;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::{fs, io::Write};
 
@@ -35,47 +35,39 @@ fn setup_x86_64_android_workaround() {
     }
 }
 
+fn check_and_create_file(file_path: &str, warning_message: &str) {
+    println!("cargo:rerun-if-changed={}", file_path);
+    if fs::metadata(file_path).is_err() {
+        fs::File::create(file_path)
+            .unwrap()
+            .flush()
+            .expect("failed to create dummy");
+        println!("cargo:warning={}", warning_message);
+    }
+}
+
 /// Checks and creates necessary dependency files if they do not exist
-fn check_dependencies_files() {
-    // Helper function to check and create a file if it does not exist
-    fn check_and_create_file(file_path: &str, warning_message: &str) {
-        println!("cargo:rerun-if-changed={}", file_path);
-        if fs::metadata(file_path).is_err() {
-            fs::File::create(file_path)
-                .unwrap()
-                .flush()
-                .expect("failed to create dummy");
-            println!("cargo:warning={}", warning_message);
-        }
+fn check_and_copy_yarn_file(src_path: &str, out_base_dir: &Path) {
+    // Construct the destination path (preserving the original path structure)
+    let src = Path::new(src_path);
+    let dest = out_base_dir.join(src.file_name().expect("Failed to get file name"));
+
+    // Automatically create the destination directory (including parent directories)
+    if let Some(parent) = dest.parent() {
+        fs::create_dir_all(parent)
+            .unwrap_or_else(|_| panic!("Failed to create directory: {:?}", parent));
     }
 
-    // Check frb file
-    check_and_create_file(
-        "src/frb_generated.rs",
-        "`frb_generated.rs` is not found, generating a dummy file. If you are working on flutter, you need to run `flutter_rust_bridge_codegen generate` to get a real one."
-    );
-
-    // Check dist directory and files
-    let dist_dir = "../journey_kernel/dist";
-    if fs::metadata(dist_dir).is_err() {
-        fs::create_dir_all(dist_dir).expect("failed to create dist directory");
-        println!("cargo:warning=`dist` directory is not found, creating the directory.");
+    // Dynamically handle the file: copy if it exists, create an empty file if it doesn't
+    if src.exists() {
+        fs::copy(src, &dest)
+            .unwrap_or_else(|_| panic!("Failed to copy file: {:?} → {:?}", src, dest));
+    } else {
+        fs::write(&dest, "").unwrap_or_else(|_| panic!("Failed to create empty file: {:?}", dest));
     }
 
-    check_and_create_file(
-        "../journey_kernel/dist/index.html",
-        "`index.html` is not found, generating a dummy file.",
-    );
-
-    check_and_create_file(
-        "../journey_kernel/dist/bundle.js",
-        "`bundle.js` is not found, generating a dummy file.",
-    );
-
-    check_and_create_file(
-        "../journey_kernel/dist/journey_kernel_bg.wasm",
-        "`journey_kernel_bg.wasm` is not found, generating a dummy file.",
-    );
+    // Set file watch
+    println!("cargo:rerun-if-changed={}", src_path);
 }
 
 /// Generates a constant for the Mapbox token from environment variables or .env file
@@ -142,7 +134,25 @@ fn main() {
         .run_from_script();
 
     // Check and create necessary dependency files
-    check_dependencies_files();
+    check_and_create_file(
+        "src/frb_generated.rs",
+        "`frb_generated.rs` is not found, generating a dummy file. If you are working on flutter, you need to run `flutter_rust_bridge_codegen generate` to get a real one."
+    );
+
+    // List of files to be embedded (wildcards need to be expanded manually)
+    let files = [
+        "../journey_kernel/dist/index.html",
+        "../journey_kernel/dist/bundle.js",
+        "../journey_kernel/dist/journey_kernel_bg.wasm",
+    ];
+
+    // Create a dedicated output directory (inside Cargo's temporary directory)
+    let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap()).join("journey_kernel");
+
+    // Process all files in batch
+    for file in &files {
+        check_and_copy_yarn_file(file, &out_dir);
+    }
 
     // Setup workaround for x86_64 Android
     setup_x86_64_android_workaround();

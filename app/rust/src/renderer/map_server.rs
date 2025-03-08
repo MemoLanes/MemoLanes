@@ -289,12 +289,16 @@ impl Drop for MapServer {
 }
 
 // Journey View frontend
-const JOURNEY_VIEW_HTML: &str = include_str!("../../../journey_kernel/dist/index.html");
+const JOURNEY_VIEW_HTML: &str =
+    include_str!(concat!(env!("OUT_DIR"), "/journey_kernel/index.html"));
 
 // Journey Kernel wasm package
-const JOURNEY_KERNEL_JS: &str = include_str!("../../../journey_kernel/dist/bundle.js");
-const JOURNEY_KERNEL_WASM: &[u8] =
-    include_bytes!("../../../journey_kernel/dist/journey_kernel_bg.wasm");
+const JOURNEY_KERNEL_JS: &str = include_str!(concat!(env!("OUT_DIR"), "/journey_kernel/bundle.js"));
+
+const JOURNEY_KERNEL_WASM: &[u8] = include_bytes!(concat!(
+    env!("OUT_DIR"),
+    "/journey_kernel/journey_kernel_bg.wasm"
+));
 
 // Serve the HTML page
 async fn index() -> HttpResponse {
