@@ -6,9 +6,10 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use crate::cache_db::{CacheDb, JourneyCacheKey};
+use crate::cache_db::{CacheDb, LayerKind};
 use crate::gps_processor::{self, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
+use crate::journey_data::JourneyData;
 use crate::main_db::{self, Action, MainDb};
 use crate::merged_journey_builder;
 
@@ -145,14 +146,32 @@ impl Storage {
                 Some(action) => {
                     match action {
                         Action::CompleteRebuilt => {
-                            cache_db.clear_journey_cache()?;
+                            cache_db.clear_all_cache()?;
                         }
                         Action::Merge { journey_ids } => {
+                            // TODO: This implementation is pretty naive, but we might not need it when we have cache v3
+                            cache_db.delete_full_journey_cache(&LayerKind::All)?;
                             for journey_id in journey_ids {
-                                cache_db.merge_journey_cache(
-                                    &JourneyCacheKey::All,
-                                    txn.get_journey_data(journey_id)?,
-                                )?;
+                                if let Some(header) = &txn.get_journey_header(journey_id)? {
+                                    let journey_data = txn.get_journey_data(journey_id)?;
+                                    cache_db.update_full_journey_cache_if_exists(
+                                        &LayerKind::JounreyKind(header.journey_kind),
+                                        | current_cache| {
+                                            match journey_data {
+                                                JourneyData::Bitmap(bitmap) => {
+                                                    current_cache.merge(bitmap)
+                                                }
+                                                JourneyData::Vector(vector) => {
+                                                    merged_journey_builder::add_journey_vector_to_journey_bitmap(
+                                                         current_cache,
+                                                        &vector,
+                                                    );
+                                                }
+                                            }
+                                            Ok(())
+                                        },
+                                    )?;
+                                }
                             }
                         }
                     };
@@ -267,11 +286,20 @@ impl Storage {
         let (ref mut main_db, ref cache_db) = *dbs;
         // passing `main_db` to `get_latest_including_ongoing` directly is fine
         // becuase it only reads `main_db`.
-        let journey_bitmap =
-            merged_journey_builder::get_latest_including_ongoing(main_db, cache_db)?;
+        let journey_bitmap = merged_journey_builder::get_latest_including_ongoing(
+            main_db,
+            cache_db,
+            &LayerKind::All,
+        )?;
         drop(dbs);
 
         Ok(journey_bitmap)
+    }
+
+    pub fn clear_all_cache(&self) -> Result<()> {
+        let cache_db = &self.dbs.lock().unwrap().1;
+        cache_db.clear_all_cache()?;
+        Ok(())
     }
 
     // TODO: do we need this?

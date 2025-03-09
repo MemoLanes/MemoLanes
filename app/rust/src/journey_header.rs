@@ -59,11 +59,10 @@ mod tests {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Eq, Hash, Clone, Copy, Debug, PartialEq)]
 pub enum JourneyKind {
     DefaultKind,
     Flight,
-    Custom(String),
 }
 
 impl JourneyKind {
@@ -73,20 +72,22 @@ impl JourneyKind {
         match self {
             JourneyKind::DefaultKind => kind.set_build_in(kind::BuiltIn::DEFAULT),
             JourneyKind::Flight => kind.set_build_in(kind::BuiltIn::FLIGHT),
-            JourneyKind::Custom(str) => kind.set_custom_kind(str),
         };
         kind
     }
 
-    pub fn of_proto(mut proto: protos::journey::header::Kind) -> Self {
+    pub fn of_proto(proto: protos::journey::header::Kind) -> Self {
         use protos::journey::header::kind;
-        if proto.has_build_in() {
-            match proto.build_in() {
-                kind::BuiltIn::DEFAULT => JourneyKind::DefaultKind,
-                kind::BuiltIn::FLIGHT => JourneyKind::Flight,
-            }
-        } else {
-            JourneyKind::Custom(proto.take_custom_kind())
+        if proto.has_custom_kind() {
+            let custom_kind = proto.custom_kind();
+            panic!(
+                "custom journkey kind is not supported, custom_kind = {}",
+                custom_kind
+            )
+        }
+        match proto.build_in() {
+            kind::BuiltIn::DEFAULT => JourneyKind::DefaultKind,
+            kind::BuiltIn::FLIGHT => JourneyKind::Flight,
         }
     }
 }
