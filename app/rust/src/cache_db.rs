@@ -1,13 +1,10 @@
 extern crate simplelog;
 use anyhow::Result;
 use rusqlite::{Connection, OptionalExtension};
+use std::cmp::Ordering;
 use std::path::Path;
 
-use crate::{
-    journey_bitmap::JourneyBitmap,
-    journey_data::{self, JourneyData},
-    merged_journey_builder::add_journey_vector_to_journey_bitmap,
-};
+use crate::{journey_bitmap::JourneyBitmap, journey_data, journey_header::JourneyKind, utils};
 
 // TODO: Right now, we keep a cache of all finalized journeys (and fallback to
 // compute it by merging all journeys in main db). We clear this cache entirely
@@ -23,33 +20,45 @@ use crate::{
 // history, we could clear some but not all cache, and re-construct these
 //  outdated ones reasonably quickly.
 
-fn open_db(cache_dir: &str, file_name: &str, sql: &str) -> Result<Connection> {
-    // TODO: maybe we want versioning or at least detect versioning issue
-    // so we could rebuilt it.
+// TODO: we should consider using transaction to get better error handling behavior
+
+fn open_db(cache_dir: &str, file_name: &str) -> Result<Connection> {
     debug!("opening cache db for {}", file_name);
-    let conn = Connection::open(Path::new(cache_dir).join(file_name))?;
-    conn.execute(sql, [])?;
+    let mut conn = Connection::open(Path::new(cache_dir).join(file_name))?;
+
+    let tx = conn.transaction()?;
+    let version = utils::db::init_metadata_and_get_version(&tx)?;
+
+    let target_version = 1;
+    debug!(
+        "current version = {}, target_version = {}",
+        version, target_version
+    );
+    match version.cmp(&target_version) {
+        Ordering::Equal => (),
+        Ordering::Greater => {
+            bail!(
+                "version too high: current version = {}, target_version = {}",
+                version,
+                target_version
+            );
+        }
+        Ordering::Less => {
+            if version == 0 {
+                tx.execute("DROP TABLE IF EXISTS journey_cache;", ())?;
+                tx.execute(
+                    "CREATE TABLE IF NOT EXISTS `journey_cache__full` (
+                        kind Text PRIMARY KEY NOT NULL UNIQUE,
+                        data BLOB NOT NULL
+                    )",
+                    (),
+                )?;
+            }
+            utils::db::set_version_in_metadata(&tx, target_version)?;
+        }
+    }
+    tx.commit()?;
     Ok(conn)
-}
-
-#[derive(Clone, Debug)]
-pub enum JourneyCacheKey {
-    All,
-}
-
-impl JourneyCacheKey {
-    fn to_db_string(&self) -> String {
-        match self {
-            Self::All => "A".to_owned(),
-        }
-    }
-
-    fn _of_db_string(str: &str) -> Self {
-        match str {
-            "A" => Self::All,
-            _ => panic!("Invalid `JourneyCacheKey`, str = {}", str),
-        }
-    }
 }
 
 // CacheDb structure
@@ -57,18 +66,27 @@ pub struct CacheDb {
     conn: Connection,
 }
 
+pub enum LayerKind {
+    All,
+    JounreyKind(JourneyKind),
+}
+
+impl LayerKind {
+    fn to_sql(&self) -> &'static str {
+        match self {
+            LayerKind::All => "All",
+            LayerKind::JounreyKind(kind) => match kind {
+                JourneyKind::DefaultKind => "Default",
+                JourneyKind::Flight => "Flight",
+            },
+        }
+    }
+}
+
 impl CacheDb {
     // Method to open and return a CacheDb instance
     pub fn open(cache_dir: &str) -> CacheDb {
-        let conn = open_db(
-            cache_dir,
-            "cache.db",
-            "CREATE TABLE IF NOT EXISTS `journey_cache` (
-                        key TEXT PRIMARY KEY NOT NULL UNIQUE,
-                        data BLOB NOT NULL
-                    );",
-        )
-        .expect("failed to open cache db");
+        let conn = open_db(cache_dir, "cache.db").expect("failed to open cache db");
         CacheDb { conn }
     }
 
@@ -77,76 +95,80 @@ impl CacheDb {
         Ok(())
     }
 
-    fn get_journey_cache(&self, key: &JourneyCacheKey) -> Result<Option<JourneyBitmap>> {
-        let mut query = self
-            .conn
-            .prepare("SELECT data FROM `journey_cache` WHERE key = ?1;")?;
+    fn get_full_journey_cache(&self, layer_kind: &LayerKind) -> Result<Option<JourneyBitmap>> {
+        let sql = "SELECT data FROM `journey_cache__full` WHERE kind = ?1;";
 
+        let mut query = self.conn.prepare(sql)?;
         let data = query
-            .query_row([key.to_db_string()], |row| {
+            .query_row((layer_kind.to_sql(),), |row| {
                 let data = row.get_ref(0)?.as_blob()?;
                 Ok(journey_data::deserialize_journey_bitmap(data))
             })
-            .optional()?;
-
-        match data {
-            None => Ok(None),
-            Some(journey_bitmap) => Ok(Some(journey_bitmap?)),
-        }
+            .optional()?
+            .transpose()?;
+        Ok(data)
     }
 
-    fn set_journey_cache(
+    fn set_full_journey_cache(
         &self,
-        key: &JourneyCacheKey,
+        layer_kind: &LayerKind,
         journey_bitmap: &JourneyBitmap,
     ) -> Result<()> {
         let mut data = Vec::new();
         journey_data::serialize_journey_bitmap(journey_bitmap, &mut data)?;
         self.conn.execute(
-            "INSERT OR REPLACE INTO `journey_cache` (key, data) VALUES (?1, ?2)",
-            (key.to_db_string(), &data),
+            "INSERT OR REPLACE INTO `journey_cache__full` (kind, data) VALUES (?1, ?2)",
+            (layer_kind.to_sql(), &data),
         )?;
         Ok(())
     }
 
-    pub fn get_journey_cache_or_compute<F>(
+    // get a merged cache or compute from storage
+    pub fn get_full_journey_cache_or_compute<F>(
         &self,
-        key: &JourneyCacheKey,
+        layer_kind: &LayerKind,
         f: F,
     ) -> Result<JourneyBitmap>
     where
         F: FnOnce() -> Result<JourneyBitmap>,
     {
-        match self.get_journey_cache(key)? {
+        match self.get_full_journey_cache(layer_kind)? {
             Some(journey_bitmap) => Ok(journey_bitmap),
             None => {
                 let journey_bitmap = f()?;
-                self.set_journey_cache(key, &journey_bitmap)?;
+                self.set_full_journey_cache(layer_kind, &journey_bitmap)?;
+
                 Ok(journey_bitmap)
             }
         }
     }
 
-    pub fn clear_journey_cache(&self) -> Result<()> {
-        // TODO: in v1, use more fine-grained delete with year/month
-        self.conn.execute("DELETE FROM journey_cache;", [])?;
+    pub fn clear_all_cache(&self) -> Result<()> {
+        // TODO: in v3, use more fine-grained delete with year/month
+        self.conn
+            .execute("DELETE FROM `journey_cache__full`;", ())?;
         Ok(())
     }
 
-    pub fn merge_journey_cache(&self, key: &JourneyCacheKey, journey: JourneyData) -> Result<()> {
-        let journey_bitmap = match self.get_journey_cache(key)? {
-            Some(mut cache_bitmap) => {
-                match journey {
-                    JourneyData::Vector(vector) => {
-                        add_journey_vector_to_journey_bitmap(&mut cache_bitmap, &vector)
-                    }
-                    JourneyData::Bitmap(bitmap) => cache_bitmap.merge(bitmap),
-                }
-                cache_bitmap
+    pub fn delete_full_journey_cache(&self, layer_kind: &LayerKind) -> Result<()> {
+        self.conn.execute(
+            "DELETE FROM `journey_cache__full` WHERE kind = ?1;",
+            (layer_kind.to_sql(),),
+        )?;
+        Ok(())
+    }
+
+    pub fn update_full_journey_cache_if_exists<F>(&self, layer_kind: &LayerKind, f: F) -> Result<()>
+    where
+        F: FnOnce(&mut JourneyBitmap) -> Result<()>,
+    {
+        match self.get_full_journey_cache(layer_kind)? {
+            None => (),
+            Some(mut journey_bitmap) => {
+                f(&mut journey_bitmap)?;
+                self.set_full_journey_cache(layer_kind, &journey_bitmap)?;
             }
-            None => return Ok(()),
-        };
-        // Update the journey cache with the new or merged bitmap
-        self.set_journey_cache(key, &journey_bitmap)
+        }
+        Ok(())
     }
 }

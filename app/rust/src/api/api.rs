@@ -153,7 +153,7 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
 ) -> Result<MapRendererProxy> {
     let state = get();
     let journey_bitmap = state.storage.with_db_txn(|txn| {
-        merged_journey_builder::get_range(txn, from_date_inclusive, to_date_inclusive)
+        merged_journey_builder::get_range(txn, from_date_inclusive, to_date_inclusive, None)
     })?;
 
     let mut server = state.map_server.lock().unwrap();
@@ -471,6 +471,14 @@ pub fn restart_map_server() -> Result<()> {
     let state = get();
     let mut map_server = state.map_server.lock().unwrap();
     map_server.restart()
+}
+
+pub fn rebuild_cache() -> Result<()> {
+    let state = get();
+    state.storage.clear_all_cache()?;
+    let bitmap = state.storage.get_latest_bitmap_for_main_map_renderer()?;
+    state.main_map_renderer.lock().unwrap().replace(bitmap);
+    Ok(())
 }
 
 /// flutter_rust_bridge:ignore
