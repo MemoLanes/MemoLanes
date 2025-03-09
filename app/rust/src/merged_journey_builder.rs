@@ -42,11 +42,10 @@ fn get_range_internal(
     let mut journey_map = JourneyBitmap::new();
 
     for journey_header in txn.query_journeys(from_date_inclusive, to_date_inclusive)? {
-        let journey_kind = journey_header.journey_kind;
-
+        // TODO: We should just do the filtering in the sql query, instead of here.
         let should_include = match kind {
             None => true,
-            Some(kind) => *kind == journey_kind,
+            Some(kind) => *kind == journey_header.journey_kind,
         };
 
         if should_include {
