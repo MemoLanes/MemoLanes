@@ -37,32 +37,34 @@ fn basic() {
         api::on_location_update(vec![raw_data.clone()], raw_data.timestamp_ms.unwrap());
         if i == 1000 {
             assert!(api::has_ongoing_journey().unwrap());
-            let _: bool = api::finalize_ongoing_journey().unwrap();
-        } else if i == 2000 {
-            // we have both ongoing journey and finalized journey at this point
-            let mut map_renderer = map_renderer.lock().unwrap();
-            let render_result = test_utils::render_map_overlay(
-                &mut map_renderer,
-                11,
-                121.39,
-                31.3146,
-                121.55,
-                31.18,
-            );
-            drop(map_renderer);
-            test_utils::verify_image("end_to_end_basic_0", &render_result.data);
+            assert!(api::finalize_ongoing_journey().unwrap());
         }
     }
+
+    // we have both ongoing journey and finalized journey at this point
+    {
+        let mut map_renderer = map_renderer.lock().unwrap();
+        let render_result =
+            test_utils::render_map_overlay(&mut map_renderer, 11, 121.39, 31.3146, 121.55, 31.18);
+        drop(map_renderer);
+        test_utils::verify_image("end_to_end_basic_0", &render_result.data);
+    }
+
+    assert!(api::has_ongoing_journey().unwrap());
+    assert!(api::finalize_ongoing_journey().unwrap());
+    assert!(!api::has_ongoing_journey().unwrap());
+    assert!(!api::finalize_ongoing_journey().unwrap());
 
     remaining_elements.shuffle(&mut thread_rng());
     api::on_location_update(remaining_elements.to_vec(), 1695150531000);
 
-    // TODO: check in webview based test
-    // this should cover real time update
-    // let render_result = map_renderer_proxy
-    //     .render_map_overlay(11.0, 121.39, 31.3146, 121.55, 31.18)
-    //     .unwrap();
-    // test_utils::verify_image("end_to_end_basic_1", &render_result.data);
+    {
+        let mut map_renderer = map_renderer.lock().unwrap();
+        let render_result =
+            test_utils::render_map_overlay(&mut map_renderer, 11, 121.39, 31.3146, 121.55, 31.18);
+        drop(map_renderer);
+        test_utils::verify_image("end_to_end_basic_1", &render_result.data);
+    }
 
     // try export logs
     api::export_logs("./tests/for_inspection/end_to_end_basic-logs.zip".to_string()).unwrap();

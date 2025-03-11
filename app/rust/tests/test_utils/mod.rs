@@ -8,7 +8,7 @@ use image::RgbaImage;
 use serde_json;
 use sha2::{Digest, Sha256};
 use std::cmp::{max, min};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 use std::{fs::File, io::Write};
@@ -42,12 +42,12 @@ pub struct RenderResult {
 
 pub fn verify_image(name: &str, image: &Vec<u8>) {
     let hash_table_path = "tests/image_hashes.lock";
-    let mut hash_table: HashMap<String, String> = if Path::new(hash_table_path).exists() {
+    let mut hash_table: BTreeMap<String, String> = if Path::new(hash_table_path).exists() {
         let hash_table_content =
             fs::read_to_string(hash_table_path).expect("Failed to read hash table file");
-        serde_json::from_str(&hash_table_content).unwrap_or_else(|_| HashMap::new())
+        serde_json::from_str(&hash_table_content).unwrap_or_else(|_| BTreeMap::new())
     } else {
-        HashMap::new()
+        BTreeMap::new()
     };
 
     // Calculate hash of the current image
