@@ -30,7 +30,7 @@ fn basic() {
             .flatten()
             .collect();
     let (first_elements, remaining_elements) = raw_data_list.split_at_mut(2000);
-    let map_renderer_proxy = api::get_map_renderer_proxy_for_main_map();
+    let map_renderer = api::for_testing::get_main_map_renderer();
 
     assert!(!api::has_ongoing_journey().unwrap());
     for (i, raw_data) in first_elements.iter().enumerate() {
@@ -40,11 +40,17 @@ fn basic() {
             let _: bool = api::finalize_ongoing_journey().unwrap();
         } else if i == 2000 {
             // we have both ongoing journey and finalized journey at this point
-            // TODO: check in webview based test
-            // let render_result = map_renderer_proxy
-            //     .render_map_overlay(11.0, 121.39, 31.3146, 121.55, 31.18)
-            //     .unwrap();
-            // test_utils::verify_image("end_to_end_basic_0", &render_result.data);
+            let mut map_renderer = map_renderer.lock().unwrap();
+            let render_result = test_utils::render_map_overlay(
+                &mut map_renderer,
+                11,
+                121.39,
+                31.3146,
+                121.55,
+                31.18,
+            );
+            drop(map_renderer);
+            test_utils::verify_image("end_to_end_basic_0", &render_result.data);
         }
     }
 
