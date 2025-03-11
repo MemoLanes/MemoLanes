@@ -69,11 +69,7 @@ impl JourneyBitmap {
                 // Line is drawn right to left (swap ends)
                 (x1 as i64, y1 as i64, x0 as i64)
             };
-            let mut equal_flag: bool = false;
-            while x <= xe {
-                if equal_flag {
-                    break;
-                }
+            loop {
                 // tile_x is not rounded, it may exceed the antimeridian
                 let (tile_x, tile_y) = (x >> ALL_OFFSET, y >> ALL_OFFSET);
                 let tile = self
@@ -93,8 +89,8 @@ impl JourneyBitmap {
                 x += tile_x << ALL_OFFSET;
                 y += tile_y << ALL_OFFSET;
 
-                if x == xe {
-                    equal_flag = true;
+                if x >= xe {
+                    break;
                 }
             }
         } else {
@@ -234,12 +230,7 @@ impl Tile {
         let mut y = y;
         if xaxis {
             // Rasterize the line
-            let mut equal_flag: bool = false;
-            while x <= e {
-                if equal_flag {
-                    break;
-                }
-
+            loop {
                 if x >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH
                     || y >> BITMAP_WIDTH_OFFSET < 0
                     || y >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH
@@ -268,8 +259,8 @@ impl Tile {
                 x += block_x << BITMAP_WIDTH_OFFSET;
                 y += block_y << BITMAP_WIDTH_OFFSET;
 
-                if x == e {
-                    equal_flag = true;
+                if x >= e {
+                    break;
                 }
             }
         } else {
