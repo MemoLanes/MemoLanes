@@ -1,7 +1,8 @@
 pub mod test_utils;
 
 use memolanes_core::{
-    import_data, journey_area_utils, journey_bitmap::JourneyBitmap, journey_data::JourneyData, journey_header::JourneyType, merged_journey_builder, renderer::MapRenderer
+    import_data, journey_area_utils, journey_bitmap::JourneyBitmap, journey_data::JourneyData,
+    journey_header::JourneyType, merged_journey_builder, renderer::MapRenderer,
 };
 
 #[test]
@@ -46,6 +47,27 @@ fn draw_line3(journey_bitmap: &mut JourneyBitmap) {
 }
 fn draw_line4(journey_bitmap: &mut JourneyBitmap) {
     journey_bitmap.add_line(START_LNG, MID_LAT, END_LNG, MID_LAT)
+}
+
+#[test]
+fn basic() {
+    let mut journey_bitmap = JourneyBitmap::new();
+    journey_bitmap.add_line(START_LNG, START_LAT, END_LNG, START_LAT);
+    journey_bitmap.add_line(END_LNG, END_LAT, START_LNG, END_LAT);
+    journey_bitmap.add_line(START_LNG, START_LAT, START_LNG, END_LAT);
+    journey_bitmap.add_line(END_LNG, END_LAT,  END_LNG, START_LAT);
+
+    let mut map_renderer = MapRenderer::new(journey_bitmap);
+
+    let render_result = test_utils::render_map_overlay(
+        &mut map_renderer,
+        12,
+        START_LNG,
+        START_LAT,
+        END_LNG,
+        END_LAT,
+    );
+    test_utils::verify_image("journey_bitmap_basic", &render_result.data);
 }
 
 #[test]

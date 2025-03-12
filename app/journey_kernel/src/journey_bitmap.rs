@@ -296,7 +296,7 @@ impl Tile {
 
                 x += block_x << BITMAP_WIDTH_OFFSET;
                 y += block_y << BITMAP_WIDTH_OFFSET;
-                if y <= e {
+                if y >= e {
                     break;
                 }
             }
