@@ -55,7 +55,7 @@ fn basic() {
     journey_bitmap.add_line(START_LNG, START_LAT, END_LNG, START_LAT);
     journey_bitmap.add_line(END_LNG, END_LAT, START_LNG, END_LAT);
     journey_bitmap.add_line(START_LNG, START_LAT, START_LNG, END_LAT);
-    journey_bitmap.add_line(END_LNG, END_LAT,  END_LNG, START_LAT);
+    journey_bitmap.add_line(END_LNG, END_LAT, END_LNG, START_LAT);
 
     let mut map_renderer = MapRenderer::new(journey_bitmap);
 
