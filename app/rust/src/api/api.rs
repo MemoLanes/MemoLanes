@@ -296,10 +296,13 @@ where
     F: FnOnce(&mut main_db::Txn) -> Result<bool>,
 {
     let state = get();
+    // TODO: I think we need to hold the gps_preprocessor lock first, otherwise
+    // we might have a deadlock because the locking story in `on_location_update`
+    // is quite complex. We should fix all the locking mess.
+    let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
     let finalized = state.storage.with_db_txn(finalize_op)?;
     // when journey is finalzied, we should reset the gps_preprocessor to prevent old state affecting new journey
     if finalized {
-        let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
         *gps_preprocessor = GpsPreprocessor::new();
     }
     Ok(finalized)
