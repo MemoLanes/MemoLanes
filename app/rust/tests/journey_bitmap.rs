@@ -1,7 +1,7 @@
 pub mod test_utils;
 
 use memolanes_core::{
-    import_data, journey_bitmap::JourneyBitmap, journey_data::JourneyData,
+    import_data, journey_area_utils, journey_bitmap::JourneyBitmap, journey_data::JourneyData,
     journey_header::JourneyType, merged_journey_builder, renderer::MapRenderer,
 };
 
@@ -47,6 +47,27 @@ fn draw_line3(journey_bitmap: &mut JourneyBitmap) {
 }
 fn draw_line4(journey_bitmap: &mut JourneyBitmap) {
     journey_bitmap.add_line(START_LNG, MID_LAT, END_LNG, MID_LAT)
+}
+
+#[test]
+fn basic() {
+    let mut journey_bitmap = JourneyBitmap::new();
+    journey_bitmap.add_line(START_LNG, START_LAT, END_LNG, START_LAT);
+    journey_bitmap.add_line(END_LNG, END_LAT, START_LNG, END_LAT);
+    journey_bitmap.add_line(START_LNG, START_LAT, START_LNG, END_LAT);
+    journey_bitmap.add_line(END_LNG, END_LAT, END_LNG, START_LAT);
+
+    let mut map_renderer = MapRenderer::new(journey_bitmap);
+
+    let render_result = test_utils::render_map_overlay(
+        &mut map_renderer,
+        12,
+        START_LNG,
+        START_LAT,
+        END_LNG,
+        END_LAT,
+    );
+    test_utils::verify_image("journey_bitmap_basic", &render_result.data);
 }
 
 #[test]
@@ -199,5 +220,17 @@ fn vector_to_bitmap_nelson_to_wharariki_beach() {
         "nelson_to_wharariki_beach",
         9,
         Some(&"nelson_to_wharariki_beach.gpx"),
+    );
+}
+
+#[test]
+fn draw_single_point() {
+    let mut journey_bitmap = JourneyBitmap::new();
+
+    journey_bitmap.add_line(120.0, 30.0, 120.0, 30.0);
+
+    assert_eq!(
+        journey_area_utils::compute_journey_bitmap_area(&journey_bitmap),
+        68
     );
 }
