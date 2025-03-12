@@ -102,7 +102,7 @@ impl JourneyBitmap {
                 // Line is drawn top to bottom
                 (x1 as i64, y1 as i64, y0 as i64)
             };
-            while y < ye {
+            loop {
                 // tile_x is not rounded, it may exceed the antimeridian
                 let (tile_x, tile_y) = (x >> ALL_OFFSET, y >> ALL_OFFSET);
                 let tile = self
@@ -121,6 +121,10 @@ impl JourneyBitmap {
                 );
                 x += tile_x << ALL_OFFSET;
                 y += tile_y << ALL_OFFSET;
+
+                if y >= ye {
+                    break;
+                }
             }
         }
     }
@@ -265,7 +269,7 @@ impl Tile {
             }
         } else {
             // Rasterize the line
-            while y < e {
+            loop {
                 if y >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH
                     || x >> BITMAP_WIDTH_OFFSET < 0
                     || x >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH
@@ -292,6 +296,9 @@ impl Tile {
 
                 x += block_x << BITMAP_WIDTH_OFFSET;
                 y += block_y << BITMAP_WIDTH_OFFSET;
+                if y <= e {
+                    break;
+                }
             }
         }
         (x, y, p)
