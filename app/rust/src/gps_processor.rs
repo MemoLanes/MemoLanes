@@ -143,7 +143,9 @@ impl BadDataDetector {
                 }
                 let time_span_in_sec = (timestamp_ms - prev_timestamp_ms) as f32 / 1000.0;
 
-                // reset the state if the time span is too long, otherwise
+                // reset the state if the time span is too long, otherwise we
+                // might have a very outdated speed value. In general, a lot of 
+                // assumptions here does not hold if the time span is too long.
                 if time_span_in_sec >= 10. {
                     self.timestamp_ms_and_point = None;
                     self.speed = None;
