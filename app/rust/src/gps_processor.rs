@@ -141,10 +141,17 @@ impl BadDataDetector {
                 if timestamp_ms <= *prev_timestamp_ms {
                     return true;
                 }
+                let time_span_in_sec = (timestamp_ms - prev_timestamp_ms) as f32 / 1000.0;
+
+                // reset the state if the time span is too long, otherwise
+                if time_span_in_sec >= 10. {
+                    self.timestamp_ms_and_point = None;
+                    self.speed = None;
+                    return false;
+                }
 
                 // computing the speed by ourself instead of using the speed from `RawData`.
                 let distance_m = curr_data.point.haversine_distance(prev_point) as f32;
-                let time_span_in_sec = (timestamp_ms - prev_timestamp_ms) as f32 / 1000.0;
                 let speed = distance_m / time_span_in_sec;
 
                 if let Some(last_speed) = self.speed {

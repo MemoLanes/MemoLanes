@@ -14,8 +14,8 @@ use crate::renderer::MapRenderer;
 use crate::renderer::MapServer;
 use crate::storage::Storage;
 use crate::{
-    archive, build_info, export_data, gps_processor, journey_area_utils, merged_journey_builder,
-    storage,
+    archive, build_info, export_data, gps_processor, journey_area_utils, main_db,
+    merged_journey_builder, storage,
 };
 use crate::{logs, utils};
 use serde::{Deserialize, Serialize};
@@ -291,16 +291,26 @@ pub fn toggle_raw_data_mode(enable: bool) {
     get().storage.toggle_raw_data_mode(enable)
 }
 
+fn reset_gps_preprocessor_if_finalized<F>(finalize_op: F) -> Result<bool>
+where
+    F: FnOnce(&mut main_db::Txn) -> Result<bool>,
+{
+    let state = get();
+    let finalized = state.storage.with_db_txn(finalize_op)?;
+    // when journey is finalzied, we should reset the gps_preprocessor to prevent old state affecting new journey
+    if finalized {
+        let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
+        *gps_preprocessor = GpsPreprocessor::new();
+    }
+    Ok(finalized)
+}
+
 pub fn finalize_ongoing_journey() -> Result<bool> {
-    get()
-        .storage
-        .with_db_txn(|txn| txn.finalize_ongoing_journey())
+    reset_gps_preprocessor_if_finalized(|txn| txn.finalize_ongoing_journey())
 }
 
 pub fn try_auto_finalize_journy() -> Result<bool> {
-    get()
-        .storage
-        .with_db_txn(|txn| txn.try_auto_finalize_journy())
+    reset_gps_preprocessor_if_finalized(|txn| txn.try_auto_finalize_journy())
 }
 
 pub fn has_ongoing_journey() -> Result<bool> {
