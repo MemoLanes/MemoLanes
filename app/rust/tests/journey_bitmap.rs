@@ -1,8 +1,8 @@
 pub mod test_utils;
 
 use memolanes_core::{
-    journey_bitmap::JourneyBitmap, journey_data::JourneyData, journey_header::JourneyType,
-    renderer::MapRenderer,
+    import_data, journey_bitmap::JourneyBitmap, journey_data::JourneyData,
+    journey_header::JourneyType, merged_journey_builder, renderer::MapRenderer,
 };
 
 #[test]
@@ -143,4 +143,61 @@ fn serialization() {
     let journey_data_roundtrip =
         JourneyData::deserialize(buf.as_slice(), JourneyType::Bitmap).unwrap();
     assert_eq!(journey_data, journey_data_roundtrip);
+}
+
+fn vector_to_bitmap(name: &str, zoom: i32, filename_override: Option<&str>) {
+    let filename = match filename_override {
+        None => format!("./tests/data/raw_gps_{}.gpx", name),
+        Some(filename) => format!("./tests/data/{}", filename),
+    };
+    let loaded_data = import_data::load_gpx(&filename).unwrap();
+    let journey_vector = import_data::journey_vector_from_raw_data(loaded_data, true).unwrap();
+    let mut journey_bitmap = JourneyBitmap::new();
+    merged_journey_builder::add_journey_vector_to_journey_bitmap(
+        &mut journey_bitmap,
+        &journey_vector,
+    );
+
+    // compute the bounding box
+    let (mut left, mut right, mut top, mut bottom): (f64, f64, f64, f64) = (180., -180., -90., 90.);
+    for segment in &journey_vector.track_segments {
+        for point in &segment.track_points {
+            left = left.min(point.longitude);
+            right = right.max(point.longitude);
+            top = top.max(point.latitude);
+            bottom = bottom.min(point.latitude);
+        }
+    }
+
+    let mut map_renderer = MapRenderer::new(journey_bitmap);
+
+    let render_result =
+        test_utils::render_map_overlay(&mut map_renderer, zoom, left, top, right, bottom);
+    test_utils::verify_image(
+        &format!("journey_bitmap_vector_to_bitmap_{}", name),
+        &render_result.data,
+    );
+}
+
+// `raw_gps_shanghai.gpx` is already covered by the end to end test.
+
+#[test]
+fn vector_to_bitmap_shenzhen_stationary() {
+    vector_to_bitmap("shenzhen_stationary", 16, None);
+}
+
+#[test]
+fn vector_to_bitmap_laojunshan() {
+    vector_to_bitmap("laojunshan", 16, None);
+}
+
+#[test]
+fn vector_to_bitmap_nelson_to_wharariki_beach() {
+    // `nelson_to_wharariki_beach.gps` is not a raw gps because it does not contian timestamps,
+    // but it is good enough for this test.
+    vector_to_bitmap(
+        "nelson_to_wharariki_beach",
+        9,
+        Some(&"nelson_to_wharariki_beach.gpx"),
+    );
 }
