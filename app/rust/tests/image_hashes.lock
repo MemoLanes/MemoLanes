@@ -1,6 +1,10 @@
 {
-  "journey_bitmap_merge_with_render": "0a8402ab68a8e24ad08061cfed455b0ac781c25f53dbe77850f97658984b83a2",
+  "end_to_end_basic_0": "2e7e353be8a72864dd53e73f0839ea5bd54136603cf6cfadbf5f9929b641151e",
+  "end_to_end_basic_1": "822a4b996cbbe771f215e89b7184469f1a8d7b78103c072f53803de7a68ff92b",
   "journey_bitmap_add_line_cross_antimeridian": "de3e6516a141155a9e0befb592da33beaa37d3abec30e24666fe98109b91a567",
-  "end_to_end_basic_1": "a13ec138ef6b8083de6ebcaf0fac6e1d06743fb649388229e84b057ecee4a430",
+  "journey_bitmap_merge_with_render": "0a8402ab68a8e24ad08061cfed455b0ac781c25f53dbe77850f97658984b83a2",
+  "journey_bitmap_vector_to_bitmap_laojunshan": "8651a7d51f1f7710a6f6cbf961ebad6664768e5bfbe7101471439eaa71597ccb",
+  "journey_bitmap_vector_to_bitmap_nelson_to_wharariki_beach": "75c93ac303638bbd092db10968dbb604477631aca4247fc1700368ec86309c57",
+  "journey_bitmap_vector_to_bitmap_shenzhen_stationary": "5f2071dd800780b628ab3f1970eb3311d5595c3e7a10fc3527a3ecc9f302031f",
   "map_renderer_basic": "d124d8e2a56dd15920b726ffc6f6f79be13118fa0a10ed2f2cc9a6cd0bd6615f"
 }
