@@ -134,6 +134,7 @@ class _SettingsBodyState extends State<SettingsBody> {
               // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
               var result =
                   await FilePicker.platform.pickFiles(type: FileType.any);
+              if (!context.mounted) return;
               if (result != null) {
                 var path = result.files.single.path;
                 if (path != null) {
