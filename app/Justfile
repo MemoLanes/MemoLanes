@@ -5,54 +5,48 @@ default:
   @echo "📋 Available commands:"
   @just --list
 
-# Build all components
-[group: 'dev']
-play-build:
-    @echo "🛠️  Building all"
-    just build-kernel
-    just frb-generate
-    just build-flutter
-    @echo "✅ Build completed"
+# ---- Utils ----
 
-# Build Journey Kernel wasm
-[group: 'dev']
+[group: 'utils']
 [working-directory: 'journey_kernel']
-build-kernel:
+journey-kernel-build:
     @echo "🛠️  Building Journey Kernel"
     @yarn build
     @echo "✅ Journey Kernel build completed"
 
-# Build Flutter
-[group: 'dev']
-build-flutter:
-    @echo "🛠️  Building Flutter"
-    @flutter build
-    @echo "✅ Flutter build completed"
-
-# Format code
-[group: 'dev']
-[working-directory: 'rust']
-fmt-code:
-    @echo "🛠️  Formatting code"
-    @cargo fmt --all
-    @echo "✅ Code formatting completed"
-
-# Generate Flutter Rust Bridge code
-[group: 'dev']
+[group: 'utils']
 frb-generate:
     @echo "🔗 Generating FRB code"
     @flutter_rust_bridge_codegen generate
     @echo "✅ FRB code generation completed"
 
-# Analyze Flutter code
-[group: 'check']
+[group: 'utils']
+[working-directory: 'rust']
+rust-fmt:
+    @echo "🛠️  Formatting code"
+    @cargo fmt --all
+    @echo "✅ Code formatting completed"
+
+[group: 'utils']
+[working-directory: 'journey_kernel']
+journey-kernel-fmt:
+    @echo "🛠️  Formatting code"
+    @cargo fmt --all
+    @echo "✅ Code formatting completed"
+
+[group: 'utils']
+flutter-fmt:
+    @echo "🛠️  Formatting code"
+    @dart format .
+    @echo "✅ Code formatting completed"
+
+[group: 'utils']
 flutter-check:
     @echo "🔍 Analyzing Flutter code"
     @flutter analyze --no-fatal-infos
     @echo "✅ Flutter code analysis completed"
 
-# Check Rust code
-[group: 'check']
+[group: 'utils']
 [working-directory: 'rust']
 rust-check:
     @echo "🔍 Checking Rust code"
@@ -61,16 +55,74 @@ rust-check:
     @cargo clippy -- -D warnings
     @echo "✅ Rust code check completed"
 
-# Run Rust tests
-[group: 'test']
+[group: 'utils']
+[working-directory: 'journey_kernel']
+journey-kernel-check:
+    @echo "🔍 Checking Journey Kernel code"
+    @cargo check
+    @cargo fmt --all -- --check
+    @cargo clippy -- -D warnings
+    @echo "✅ Journey Kernal code check completed"
+
+[group: 'utils']
 [working-directory: 'rust']
 rust-test:
     @echo "🧪 Running Rust tests"
     @cargo test -- --nocapture
     @echo "✅ Rust tests completed"
 
-# Get Flutter Rust Bridge version (private)
-[private]
+[group: 'utils']
+[working-directory: 'journey_kernel']
+journey-kernel-test:
+    @echo "🧪 Running Journey Kernel tests"
+    @cargo test -- --nocapture
+    @echo "✅ Journey Kernel tests completed"
+
+[group: 'utils']
 [unix]
-get_frb_version:
+get-frb-version:
     @awk '/flutter_rust_bridge:/ { print $2 }' pubspec.yaml
+
+# Generate all required files for flutter build. Need to be reran every time rust api or journey kernel is updated
+[group: 'dev']
+pre-build:
+    @echo "🛠️  Running pre-build"
+    just journey-kernel-build
+    just frb-generate
+    @echo "✅ Pre-build completed"
+
+
+# Checking all code
+[group: 'dev']
+check:
+    @echo "🛠️  Checking all code"
+    just rust-check
+    just journey-kernel-check
+    just flutter-check
+    @echo "✅ Checking completed"
+
+# Run all tests
+[group: 'dev']
+test:
+    @echo "🛠️  Running all tests"
+    just journey-kernel-test
+    just rust-test
+    @echo "✅ Test completed"
+
+# Formatting all code
+[group: 'dev']
+format:
+    @echo "🛠️  Running code format"
+    just journey-kernel-fmt
+    just rust-fmt
+    just flutter-fmt
+    @echo "✅ Format completed"
+
+# Release build
+[group: 'dev']
+release-build:
+    @echo "🛠️  Building release version"
+    just pre-build
+    @flutter build apk --release
+    @flutter build ipa --release
+    @echo "✅ Build completed"
