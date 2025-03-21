@@ -221,7 +221,12 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   @override
   Widget build(BuildContext context) {
-    return WebViewWidget(
-        key: const ValueKey('map_webview'), controller: _webViewController);
+    // TODO: The `IgnorePointer` is a workaround for a bug in the webview on iOS.
+    // https://github.com/flutter/flutter/issues/165305
+    return IgnorePointer(
+      ignoring: Platform.isIOS,
+      child: WebViewWidget(
+          key: const ValueKey('map_webview'), controller: _webViewController),
+    );
   }
 }

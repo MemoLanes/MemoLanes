@@ -8,6 +8,7 @@ import 'package:memolanes/component/map_controls/tracking_button.dart';
 import 'package:memolanes/gps_manager.dart';
 import 'package:memolanes/gps_page.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -170,9 +171,11 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
                   const Spacer(),
                   Padding(
                     padding: EdgeInsets.only(
+                      right: 8,
                       bottom: isLandscape ? 16 : screenSize.height * 0.08,
                     ),
-                    child: Column(
+                    child: PointerInterceptor(
+                        child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
@@ -186,7 +189,7 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
                         //   onPressed: () {};
                         // )
                       ],
-                    ),
+                    )),
                   ),
                   const GPSPage(),
                   const SizedBox(height: 116),

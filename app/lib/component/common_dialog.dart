@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 class DialogButton {
   final String text;
@@ -43,32 +44,33 @@ class CommonDialog extends StatelessWidget {
             ))
         .toList();
 
-    return AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(color: Colors.black),
-        ),
-        content: SingleChildScrollView(
-          child: ListBody(
-            children: messageBody,
-          ),
-        ),
-        actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-        actions: buttons.map((button) {
-          return FilledButton(
-            onPressed: () {
-              button.onPressed();
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: button.backgroundColor,
-              foregroundColor: button.textColor,
+    return PointerInterceptor(
+        child: AlertDialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
             ),
-            child: Text(button.text),
-          );
-        }).toList());
+            title: Text(
+              title,
+              style: const TextStyle(color: Colors.black),
+            ),
+            content: SingleChildScrollView(
+              child: ListBody(
+                children: messageBody,
+              ),
+            ),
+            actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+            actions: buttons.map((button) {
+              return FilledButton(
+                onPressed: () {
+                  button.onPressed();
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: button.backgroundColor,
+                  foregroundColor: button.textColor,
+                ),
+                child: Text(button.text),
+              );
+            }).toList()));
   }
 }

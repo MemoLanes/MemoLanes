@@ -63,6 +63,8 @@ dependencies:
   async: ^2.11.0
   calendar_date_picker2: ^1.1.7
   webview_flutter: ^4.10.0
+  # TODO: `pointer_interceptor` is a workaround for: https://github.com/flutter/flutter/issues/58659
+  pointer_interceptor: ^0.10.1+2
 
 dependency_overrides:
   geolocator_android:
