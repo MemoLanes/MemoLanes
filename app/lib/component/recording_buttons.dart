@@ -2,16 +2,17 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/gps_manager.dart';
 import 'package:memolanes/utils.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 
-class GPSPage extends StatefulWidget {
-  const GPSPage({super.key});
+class RecordingButtons extends StatefulWidget {
+  const RecordingButtons({super.key});
 
   @override
-  State<GPSPage> createState() => _GPSPageState();
+  State<RecordingButtons> createState() => _RecordingButtonsState();
 }
 
-class _GPSPageState extends State<GPSPage> {
+class _RecordingButtonsState extends State<RecordingButtons> {
   Future<void> _showEndJourneyDialog() async {
     final shouldEndJourney = await showCommonDialog(
         context, context.tr('home.end_journey_message'),
@@ -36,7 +37,8 @@ class _GPSPageState extends State<GPSPage> {
     Widget controls;
     if (gpsManager.recordingStatus == GpsRecordingStatus.none) {
       controls = Center(
-        child: ElevatedButton(
+        child: PointerInterceptor(
+            child: ElevatedButton(
           onPressed: () async {
             gpsManager.changeRecordingState(GpsRecordingStatus.recording);
           },
@@ -55,14 +57,15 @@ class _GPSPageState extends State<GPSPage> {
               fontSize: 20,
             ),
           ),
-        ),
+        )),
       );
     } else if (gpsManager.recordingStatus == GpsRecordingStatus.recording) {
       controls = Center(
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ElevatedButton(
+            PointerInterceptor(
+                child: ElevatedButton(
               onPressed: () async {
                 gpsManager.changeRecordingState(GpsRecordingStatus.paused);
               },
@@ -82,9 +85,10 @@ class _GPSPageState extends State<GPSPage> {
                   fontSize: 20,
                 ),
               ),
-            ),
+            )),
             const SizedBox(width: 24),
-            ElevatedButton(
+            PointerInterceptor(
+                child: ElevatedButton(
               onPressed: _showEndJourneyDialog,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.black,
@@ -96,7 +100,7 @@ class _GPSPageState extends State<GPSPage> {
                 color: Colors.white,
                 size: 24,
               ),
-            ),
+            )),
           ],
         ),
       );
@@ -105,7 +109,8 @@ class _GPSPageState extends State<GPSPage> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ElevatedButton(
+            PointerInterceptor(
+                child: ElevatedButton(
               onPressed: () async {
                 gpsManager.changeRecordingState(GpsRecordingStatus.recording);
               },
@@ -125,9 +130,10 @@ class _GPSPageState extends State<GPSPage> {
                   fontSize: 20,
                 ),
               ),
-            ),
+            )),
             const SizedBox(width: 24),
-            ElevatedButton(
+            PointerInterceptor(
+                child: ElevatedButton(
               onPressed: _showEndJourneyDialog,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.black,
@@ -139,7 +145,7 @@ class _GPSPageState extends State<GPSPage> {
                 color: Colors.white,
                 size: 24,
               ),
-            ),
+            )),
           ],
         ),
       );

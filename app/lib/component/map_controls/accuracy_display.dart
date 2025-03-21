@@ -57,7 +57,7 @@ class _AccuracyDisplayState extends State<AccuracyDisplay> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.all(8),
+      margin: const EdgeInsets.only(top: 8),
       width: 48,
       height: 48,
       child: Stack(
