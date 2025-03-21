@@ -1,6 +1,5 @@
-use cargo_toml::Manifest;
 use std::env;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::{fs, io::Write};
 
@@ -36,64 +35,42 @@ fn setup_x86_64_android_workaround() {
     }
 }
 
-fn check_yarn_dependencies() {
-    // Check if yarn is installed
-    if Command::new("yarn").arg("--version").output().is_err() {
-        panic!("yarn is not installed. Please install yarn first using `npm install -g yarn`");
-    }
-
-    // Check if node_modules exists in journey_kernel
-    if !Path::new("../journey_kernel/node_modules").exists() {
-        println!("cargo:warning=Installing yarn dependencies for journey_kernel...");
-        let status = Command::new("yarn")
-            .current_dir("../journey_kernel")
-            .arg("install")
-            .status()
-            .expect("Failed to run yarn install");
-
-        if !status.success() {
-            panic!("Failed to install yarn dependencies");
-        }
+fn check_and_create_file(file_path: &str, warning_message: &str) {
+    println!("cargo:rerun-if-changed={}", file_path);
+    if fs::metadata(file_path).is_err() {
+        fs::File::create(file_path)
+            .unwrap()
+            .flush()
+            .expect("failed to create dummy");
+        println!("cargo:warning={}", warning_message);
     }
 }
 
-fn build_journey_kernel_wasm() {
-    println!("cargo:rerun-if-changed=../journey_kernel");
-    println!("cargo:rerun-if-changed=.journey_kernel_version");
+/// Checks and creates necessary dependency files if they do not exist
+fn check_and_copy_yarn_file(src_path: &str, out_base_dir: &Path) {
+    // Construct the destination path (preserving the original path structure)
+    let src = Path::new(src_path);
+    let dest = out_base_dir.join(src.file_name().expect("Failed to get file name"));
 
-    // Read version from Cargo.toml
-    let manifest = Manifest::from_path("../journey_kernel/Cargo.toml")
-        .expect("Failed to read journey_kernel Cargo.toml");
-    let current_version = manifest.package.unwrap().version.get().unwrap().clone();
-
-    // Check if version lock exists and matches
-    let version_lock_path = Path::new("./target/.journey_kernel_version");
-    if let Ok(locked_version) = fs::read_to_string(version_lock_path) {
-        if locked_version.trim() == current_version {
-            println!(
-                "cargo:warning=Skipping journey_kernel build - version {} matches",
-                current_version
-            );
-            return;
-        }
+    // Automatically create the destination directory (including parent directories)
+    if let Some(parent) = dest.parent() {
+        fs::create_dir_all(parent)
+            .unwrap_or_else(|_| panic!("Failed to create directory: {:?}", parent));
     }
 
-    // Build using webpack through yarn
-    let status = Command::new("yarn")
-        .current_dir("../journey_kernel")
-        .args(["build"])
-        .status()
-        .expect("Failed to execute webpack build command");
-
-    if !status.success() {
-        panic!("Failed to build journey_kernel WASM package");
+    // Dynamically handle the file: copy if it exists, create an empty file if it doesn't
+    if src.exists() {
+        fs::copy(src, &dest)
+            .unwrap_or_else(|_| panic!("Failed to copy file: {:?} → {:?}", src, dest));
+    } else {
+        fs::write(&dest, "").unwrap_or_else(|_| panic!("Failed to create empty file: {:?}", dest));
     }
 
-    // Update version lock after successful build
-    fs::write(version_lock_path, current_version)
-        .expect("Failed to write journey_kernel version lock");
+    // Set file watch
+    println!("cargo:rerun-if-changed={}", src_path);
 }
 
+/// Generates a constant for the Mapbox token from environment variables or .env file
 fn generate_mapbox_token_const() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("Failed to get CARGO_MANIFEST_DIR");
     let env_path = Path::new(&manifest_dir).join("../.env");
@@ -128,14 +105,10 @@ fn generate_mapbox_token_const() {
 }
 
 fn main() {
-    // TODO: we need to optimize this build script, especially the 3 steps below.
-    // It is slow (this need to be triggered frequently) and more of the dections
-    // are a bit weird: e.g. `rustc-env` can hurt incremental build a bit.
-    // using version in `cargo.toml` is not so reliable.
-    check_yarn_dependencies();
-    build_journey_kernel_wasm();
+    // Generate Mapbox token constant
     generate_mapbox_token_const();
 
+    // Trigger rebuild if .git directory changes
     // There are articles on internet suggest `.git/HEAD` is enough, which I
     // doubt.
     println!("cargo:rerun-if-changed=../../.git");
@@ -151,6 +124,7 @@ fn main() {
     )
     .unwrap();
 
+    // Generate protobuf files
     println!("cargo:rerun-if-changed=src/protos/journey.proto");
     println!("cargo:rerun-if-changed=src/protos/archive.proto");
     protobuf_codegen::Codegen::new()
@@ -161,18 +135,27 @@ fn main() {
         .input("src/protos/archive.proto")
         .run_from_script();
 
-    println!("cargo:rerun-if-changed=src/frb_generated.rs");
-    if fs::metadata("src/frb_generated.rs").is_err() {
-        fs::File::create("src/frb_generated.rs")
-            .unwrap()
-            .flush()
-            .expect("failed to create dummpy frb_generated.rs");
-        println!(
-            "cargo:warning=`frb_generated.rs` is not found, generating a \
-        dummpy file. If you are working on flutter, you need to run \
-        `flutter_rust_bridge_codegen generate` to get a real one."
-        );
+    // Check and create necessary dependency files
+    check_and_create_file(
+        "src/frb_generated.rs",
+        "`frb_generated.rs` is not found, generating a dummy file. If you are working on flutter, you need to run `flutter_rust_bridge_codegen generate` to get a real one."
+    );
+
+    // List of files to be embedded (wildcards need to be expanded manually)
+    let files = [
+        "../journey_kernel/dist/index.html",
+        "../journey_kernel/dist/bundle.js",
+        "../journey_kernel/dist/journey_kernel_bg.wasm",
+    ];
+
+    // Create a dedicated output directory (inside Cargo's temporary directory)
+    let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap()).join("journey_kernel");
+
+    // Process all files in batch
+    for file in &files {
+        check_and_copy_yarn_file(file, &out_dir);
     }
 
+    // Setup workaround for x86_64 Android
     setup_x86_64_android_workaround();
 }
