@@ -19,3 +19,4 @@ There are two main components of this app: 1. A rust library for the core logic;
 5. Create `.env` file and put the Mapbox token in it. An example can be found in `.env.example`.
 6. Running pre-build via `just pre-build`. Note that this need to be reran every time rust api or journey kernel is updated.
 7. Start the app via `flutter run`.
+8. `just` provides many useful commnads, e.g. `just format`, `just check`, `just test`. Consider run those before opening/updating PRs.
