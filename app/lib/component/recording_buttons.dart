@@ -5,14 +5,14 @@ import 'package:memolanes/utils.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 
-class GPSPage extends StatefulWidget {
-  const GPSPage({super.key});
+class RecordingButtons extends StatefulWidget {
+  const RecordingButtons({super.key});
 
   @override
-  State<GPSPage> createState() => _GPSPageState();
+  State<RecordingButtons> createState() => _RecordingButtonsState();
 }
 
-class _GPSPageState extends State<GPSPage> {
+class _RecordingButtonsState extends State<RecordingButtons> {
   Future<void> _showEndJourneyDialog() async {
     final shouldEndJourney = await showCommonDialog(
         context, context.tr('home.end_journey_message'),

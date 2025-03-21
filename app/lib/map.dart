@@ -6,7 +6,7 @@ import 'package:memolanes/component/base_map_webview.dart';
 import 'package:memolanes/component/map_controls/accuracy_display.dart';
 import 'package:memolanes/component/map_controls/tracking_button.dart';
 import 'package:memolanes/gps_manager.dart';
-import 'package:memolanes/gps_page.dart';
+import 'package:memolanes/component/recording_buttons.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
@@ -191,7 +191,7 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
                       ],
                     )),
                   ),
-                  const GPSPage(),
+                  const RecordingButtons(),
                   const SizedBox(height: 116),
                 ],
               ),
