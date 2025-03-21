@@ -109,6 +109,8 @@ fn main() {
     generate_mapbox_token_const();
 
     // Trigger rebuild if .git directory changes
+    // There are articles on internet suggest `.git/HEAD` is enough, which I
+    // doubt.
     println!("cargo:rerun-if-changed=../../.git");
     let output = Command::new("git")
         .args(["rev-parse", "--short", "HEAD"])
