@@ -22,33 +22,45 @@ jobs:
         working-directory: app/
 
     steps:
-      # Setup
+      # ======== START SETUP ========
       - uses: actions/checkout@v3
+
+      - uses: extractions/setup-just@v2
+
       - uses: subosito/flutter-action@v2
         with:
           channel: "stable"
           cache: true
+
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           override: true
           components: rustfmt, clippy
+
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: "app/rust/"
-      - uses: cargo-bins/cargo-binstall@main
-      - name: Install flutter_rust_bridge_codegen
-        run: cargo binstall -y --force --no-track 'cargo-expand' && cargo binstall -y --force --no-track 'flutter_rust_bridge_codegen@2.8.0'
+          workspaces: |
+            app/rust/
+            app/journey_kernel/
 
-      - name: Get Flutter Dependencies
-        run: flutter pub get
+      - uses: cargo-bins/cargo-binstall@main
+
+      - name: Install flutter_rust_bridge_codegen
+        run: cargo binstall -y --force --no-track "cargo-expand" && cargo binstall -y --force --no-track "flutter_rust_bridge_codegen@`just get-frb-version`"
+
+      # ======== END SETUP ========
+
+      - name: Get Rust Dependencies
+        working-directory: app/rust
+        run: cargo fetch
+
+      - name: Rust Code Check
+        working-directory: app
+        run: just rust-check
 
       # ======== START WASM MODULE ========
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: "app/journey_kernel/"
-
-      - name: Get Rust Dependencies (wasm)
+      - name: Get Rust Dependencies (journey kernel)
         working-directory: app/journey_kernel
         run: cargo fetch
 
@@ -60,44 +72,23 @@ jobs:
         run: | 
           wasm-pack build --target web --features wasm --no-default-features
         
-      - name: Cargo Check (wasm)
+      - name: Cargo Check (journey kernel)
         working-directory: app/journey_kernel
-        run: cargo check
+        run: just journey-kernel-check
 
-      - name: Check Rust format (wasm)
-        working-directory: app/journey_kernel
-        run: cargo fmt --all -- --check
-
-      - name: Rust code analysis (wasm)
-        working-directory: app/journey_kernel
-        run: cargo clippy -- -D warnings
-
-      - name: Run Rust tests (wasm)
-        working-directory: app/journey_kernel
-        run: cargo test -- --nocapture
       # ======== END WASM MODULE ========
 
-      - name: Get Rust Dependencies
-        working-directory: app/rust
-        run: cargo fetch
+      - name: Get Flutter Dependencies
+        run: flutter pub get
 
       - name: FRB Codegen
         working-directory: app
-        run: flutter_rust_bridge_codegen generate
+        run: just frb-generate
 
-      # Rust
-      - name: Cargo Check
-        working-directory: app/rust
-        run: cargo check
-      - name: Check Rust format
-        working-directory: app/rust
-        run: cargo fmt --all -- --check
-      - name: Rust code analysis
-        working-directory: app/rust
-        run: cargo clippy -- -D warnings
-      - name: Run Rust tests
-        working-directory: app/rust
-        run: cargo test -- --nocapture
-
-      - name: Flutter Analyze
-        run: flutter analyze --no-fatal-infos
+      - name: Flutter Code Check
+        working-directory: app
+        run: just flutter-check
+        
+      - name: Flutter and Rust Code Test
+        working-directory: app
+        run: just test
