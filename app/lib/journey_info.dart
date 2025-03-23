@@ -108,6 +108,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                     : null,
                 child: const Text("Export KML"),
               ),
+            ]),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
               ElevatedButton(
                 onPressed: widget.journeyHeader.journeyType ==
                         JourneyType.vector
@@ -115,8 +117,6 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                     : null,
                 child: const Text("Export GPX"),
               ),
-            ]),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
               ElevatedButton(
                 onPressed: () async {
                   final result = await Navigator.push(context,
@@ -131,6 +131,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                           endTime: widget.journeyHeader.end,
                           journeyDate: widget.journeyHeader.journeyDate,
                           note: widget.journeyHeader.note,
+                          journeyKind: widget.journeyHeader.journeyKind,
                           saveData: _saveData,
                         ),
                       ),
@@ -144,6 +145,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                 },
                 child: const Text("Edit"),
               ),
+            ]),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
               ElevatedButton(
                 onPressed: () async {
                   if (await showCommonDialog(

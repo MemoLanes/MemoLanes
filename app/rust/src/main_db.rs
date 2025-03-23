@@ -261,6 +261,7 @@ impl Txn<'_> {
         start: Option<DateTime<Utc>>,
         end: Option<DateTime<Utc>>,
         note: Option<String>,
+        journey_kind:Option<JourneyKind>,
     ) -> Result<()> {
         info!("Updating journey with ID {}", &id);
 
@@ -277,6 +278,9 @@ impl Txn<'_> {
         header.start = start;
         header.end = end;
         header.note = note;
+        if let Some(journey_kind) = journey_kind {
+            header.journey_kind = journey_kind;
+        }
 
         // update
         let journey_date = utils::date_to_days_since_epoch(header.journey_date);

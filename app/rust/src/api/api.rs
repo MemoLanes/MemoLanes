@@ -423,6 +423,7 @@ pub fn update_journey_metadata(id: &str, journeyinfo: JourneyInfo) -> Result<()>
             journeyinfo.start_time,
             journeyinfo.end_time,
             journeyinfo.note,
+            journeyinfo.journey_kind
         )
     })?;
     Ok(())

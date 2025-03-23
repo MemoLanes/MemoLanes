@@ -16,12 +16,14 @@ class JourneyInfoEditor extends StatefulWidget {
       required this.journeyDate,
       required this.note,
       required this.saveData,
+      this.journeyKind,
       this.importType});
 
   final DateTime? startTime;
   final DateTime? endTime;
   final NaiveDate journeyDate;
   final String? note;
+  final JourneyKind? journeyKind;
   final Function saveData;
   final ImportType? importType;
 
@@ -37,7 +39,7 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
   DateTime? _endTime;
   DateTime? _journeyDate;
   String? _note;
-  JourneyKind journeyKind = JourneyKind.defaultKind;
+  JourneyKind _journeyKind = JourneyKind.defaultKind;
   import_api.JourneyInfo? journeyInfo;
   final TextEditingController _noteController = TextEditingController();
   bool _runPreprocessor = false;
@@ -86,6 +88,7 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
       _journeyDate =
           dateFormat.parse(naiveDateToString(date: widget.journeyDate));
       _note = widget.note;
+      _journeyKind = widget.journeyKind ?? _journeyKind;
       _noteController.text = _note ?? "";
       _noteController.addListener(() {
         setState(() {
@@ -112,7 +115,7 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
         startTime: _startTime,
         endTime: _endTime,
         note: _note,
-        journeyKind: journeyKind);
+        journeyKind: _journeyKind);
     if (widget.importType != null) {
       await widget.saveData(journeyInfo, _runPreprocessor);
     } else {
@@ -200,10 +203,10 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
                 children: [
                   Radio(
                     value: JourneyKind.defaultKind,
-                    groupValue: journeyKind,
+                    groupValue: _journeyKind,
                     onChanged: (v) {
                       setState(() {
-                        this.journeyKind = v!;
+                        this._journeyKind = v!;
                       });
                     },
                   ),
@@ -214,10 +217,10 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
                 children: [
                   Radio(
                     value: JourneyKind.flight,
-                    groupValue: journeyKind,
+                    groupValue: _journeyKind,
                     onChanged: (v) {
                       setState(() {
-                        this.journeyKind = v!;
+                        this._journeyKind = v!;
                       });
                     },
                   ),
