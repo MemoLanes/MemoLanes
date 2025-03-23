@@ -38,10 +38,11 @@ fn setup_x86_64_android_workaround() {
 fn check_and_create_file(file_path: &str, warning_message: &str) {
     println!("cargo:rerun-if-changed={}", file_path);
     if fs::metadata(file_path).is_err() {
-        fs::File::create(file_path)
-            .unwrap()
-            .flush()
-            .expect("failed to create dummy");
+        let mut file = fs::File::create(file_path).unwrap();
+        file.write_all(b"\n")
+            .expect("failed to write to dummy file");
+
+        file.flush().expect("failed to flush dummy file");
         println!("cargo:warning={}", warning_message);
     }
 }
