@@ -78,7 +78,7 @@ fn import(journey_info: JourneyInfo, journey_data: JourneyData) -> Result<()> {
             journey_info.start_time,
             journey_info.end_time,
             None,
-            JourneyKind::DefaultKind,
+            journey_info.journey_kind.unwrap_or_else(|| JourneyKind::DefaultKind),
             journey_info.note,
             journey_data,
         )
