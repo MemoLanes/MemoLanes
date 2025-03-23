@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:memolanes/import_data.dart';
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
 import 'package:memolanes/src/rust/api/utils.dart';
+import 'package:memolanes/src/rust/journey_header.dart';
 
 class JourneyInfoEditor extends StatefulWidget {
   const JourneyInfoEditor(
@@ -36,6 +37,7 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
   DateTime? _endTime;
   DateTime? _journeyDate;
   String? _note;
+  JourneyKind journeyKind = JourneyKind.defaultKind;
   import_api.JourneyInfo? journeyInfo;
   final TextEditingController _noteController = TextEditingController();
   bool _runPreprocessor = false;
@@ -109,7 +111,8 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
         journeyDate: naiveDateOfString(str: dateFormat.format(_journeyDate!)),
         startTime: _startTime,
         endTime: _endTime,
-        note: _note);
+        note: _note,
+        journeyKind: journeyKind);
     if (widget.importType != null) {
       await widget.saveData(journeyInfo, _runPreprocessor);
     } else {
@@ -189,6 +192,38 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
           decoration: const InputDecoration(
             label: Text("Note:"),
           ),
+        ),
+        Row(
+          children: [
+            Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Radio(
+                    value: JourneyKind.defaultKind,
+                    groupValue: journeyKind,
+                    onChanged: (v) {
+                      setState(() {
+                        this.journeyKind = v!;
+                      });
+                    },
+                  ),
+                  Text("defaultKind")
+                ]),
+            Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Radio(
+                    value: JourneyKind.flight,
+                    groupValue: journeyKind,
+                    onChanged: (v) {
+                      setState(() {
+                        this.journeyKind = v!;
+                      });
+                    },
+                  ),
+                  Text("flight")
+                ]),
+          ],
         ),
         if (widget.importType != null)
           widget.importType == ImportType.fow

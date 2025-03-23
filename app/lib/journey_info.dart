@@ -73,6 +73,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
             Text("Journey ID: ${widget.journeyHeader.id}"),
             Text(
                 "Journey Date: ${naiveDateToString(date: widget.journeyHeader.journeyDate)}"),
+            Text("JourneyKind: ${widget.journeyHeader.journeyKind.name}"),
             Text(
                 "Start Time: ${widget.journeyHeader.start != null ? fmt.format(widget.journeyHeader.start!.toLocal()) : ""}"),
             Text(

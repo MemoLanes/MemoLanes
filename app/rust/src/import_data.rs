@@ -345,5 +345,6 @@ pub fn journey_info_from_raw_vector_data(raw_vector_data: &[Vec<RawData>]) -> Jo
         start_time,
         end_time,
         note: None,
+        journey_kind: None,
     }
 }
