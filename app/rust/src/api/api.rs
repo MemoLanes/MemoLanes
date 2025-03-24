@@ -8,7 +8,7 @@ use flutter_rust_bridge::frb;
 use crate::gps_processor::{GpsPreprocessor, ProcessResult};
 use crate::journey_bitmap::{JourneyBitmap, MAP_WIDTH_OFFSET, TILE_WIDTH, TILE_WIDTH_OFFSET};
 use crate::journey_data::JourneyData;
-use crate::journey_header::JourneyHeader;
+use crate::journey_header::{JourneyHeader, JourneyKind};
 use crate::renderer::map_server::MapRendererToken;
 use crate::renderer::MapRenderer;
 use crate::renderer::MapServer;
@@ -289,6 +289,10 @@ pub fn delete_journey(journey_id: &str) -> Result<()> {
 
 pub fn toggle_raw_data_mode(enable: bool) {
     get().storage.toggle_raw_data_mode(enable)
+}
+
+pub fn toggle_map_layer(journey_kind: JourneyKind) {
+    !todo!()
 }
 
 fn reset_gps_preprocessor_if_finalized<F>(finalize_op: F) -> Result<bool>
