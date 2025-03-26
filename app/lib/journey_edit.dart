@@ -198,34 +198,30 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
         ),
         Row(
           children: [
-            Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Radio(
-                    value: JourneyKind.defaultKind,
-                    groupValue: _journeyKind,
-                    onChanged: (v) {
-                      setState(() {
-                        this._journeyKind = v!;
-                      });
-                    },
-                  ),
-                  Text("defaultKind")
-                ]),
-            Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Radio(
-                    value: JourneyKind.flight,
-                    groupValue: _journeyKind,
-                    onChanged: (v) {
-                      setState(() {
-                        this._journeyKind = v!;
-                      });
-                    },
-                  ),
-                  Text("flight")
-                ]),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Radio(
+                value: JourneyKind.defaultKind,
+                groupValue: _journeyKind,
+                onChanged: (v) {
+                  setState(() {
+                    this._journeyKind = v!;
+                  });
+                },
+              ),
+              Text("defaultKind")
+            ]),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Radio(
+                value: JourneyKind.flight,
+                groupValue: _journeyKind,
+                onChanged: (v) {
+                  setState(() {
+                    this._journeyKind = v!;
+                  });
+                },
+              ),
+              Text("flight")
+            ]),
           ],
         ),
         if (widget.importType != null)

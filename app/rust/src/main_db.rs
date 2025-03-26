@@ -261,7 +261,7 @@ impl Txn<'_> {
         start: Option<DateTime<Utc>>,
         end: Option<DateTime<Utc>>,
         note: Option<String>,
-        journey_kind:Option<JourneyKind>,
+        journey_kind: Option<JourneyKind>,
     ) -> Result<()> {
         info!("Updating journey with ID {}", &id);
 
