@@ -80,7 +80,7 @@ fn import(journey_info: JourneyInfo, journey_data: JourneyData) -> Result<()> {
             None,
             journey_info
                 .journey_kind
-                .unwrap_or_else(|| JourneyKind::DefaultKind),
+                .unwrap_or(JourneyKind::DefaultKind),
             journey_info.note,
             journey_data,
         )
