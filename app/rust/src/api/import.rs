@@ -20,7 +20,7 @@ pub struct JourneyInfo {
     pub journey_date: NaiveDate,
     pub start_time: Option<DateTime<Utc>>,
     pub end_time: Option<DateTime<Utc>>,
-    pub journey_kind: Option<JourneyKind>,
+    pub journey_kind: JourneyKind,
     pub note: Option<String>,
 }
 
@@ -41,7 +41,7 @@ pub fn load_fow_sync_data(file_path: String) -> Result<(JourneyInfo, RawBitmapDa
         start_time: None,
         end_time: None,
         note: None,
-        journey_kind: None,
+        journey_kind: JourneyKind::DefaultKind,
     };
     Ok((
         journey_info,
@@ -78,9 +78,7 @@ fn import(journey_info: JourneyInfo, journey_data: JourneyData) -> Result<()> {
             journey_info.start_time,
             journey_info.end_time,
             None,
-            journey_info
-                .journey_kind
-                .unwrap_or(JourneyKind::DefaultKind),
+            journey_info.journey_kind,
             journey_info.note,
             journey_data,
         )
