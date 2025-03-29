@@ -8,6 +8,7 @@ import 'package:memolanes/component/map_controls/tracking_button.dart';
 import 'package:memolanes/component/recording_buttons.dart';
 import 'package:memolanes/gps_manager.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/src/rust/cache_db.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
@@ -48,7 +49,7 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
   MapView? _roughMapView;
 
   TrackingMode _currentTrackingMode = TrackingMode.off;
-  JourneyKind _currentLayer = JourneyKind.defaultKind;
+  api.LayerMode _currentLayer = api.LayerMode.all;
 
   void _syncTrackingModeWithGpsManager() {
     Provider.of<GpsManager>(context, listen: false)
@@ -66,13 +67,12 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
   }
 
   void _layerButton() async {
-    final newMode = _currentLayer == JourneyKind.defaultKind
-        ? JourneyKind.flight
-        : JourneyKind.defaultKind;
+    final newMode = api.LayerMode
+        .values[(_currentLayer.index + 1) % api.LayerMode.values.length];
     setState(() {
       _currentLayer = newMode;
     });
-    api.toggleMapLayer(journeyKind: _currentLayer);
+    api.setMainMapLayerKind(layerMode: _currentLayer);
   }
 
   @override

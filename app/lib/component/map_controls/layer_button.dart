@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-
-import '../../src/rust/journey_header.dart';
+import 'package:memolanes/src/rust/api/api.dart';
 
 class LayerButton extends StatelessWidget {
-  final JourneyKind layerMode;
+  final LayerMode layerMode;
   final VoidCallback onPressed;
 
   const LayerButton({
@@ -27,11 +26,12 @@ class LayerButton extends StatelessWidget {
         child: IconButton(
           onPressed: onPressed,
           icon: Icon(
-            Icons.layers,
-            color: layerMode == JourneyKind.defaultKind
-                ? const Color(0xFFB4EC51)
-                : Colors.white38,
-          ),
+              layerMode == LayerMode.all
+                  ? Icons.layers
+                  : layerMode == LayerMode.flight
+                      ? Icons.flight
+                      : Icons.directions_car,
+              color: const Color(0xFFB4EC51)),
           tooltip: 'Layer picker not implemented',
         ),
       ),

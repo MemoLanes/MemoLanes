@@ -305,11 +305,22 @@ pub fn get_current_map_layer_kind() -> LayerKind {
     get().main_map_layer_kind.lock().unwrap().clone()
 }
 
-pub fn set_main_map_layer_kind(layer_kind: LayerKind) -> Result<()> {
+pub enum LayerMode {
+    All,
+    DefaultKind,
+    Flight,
+}
+
+pub fn set_main_map_layer_kind(layer_mode: LayerMode) -> Result<()> {
     let state = get();
     let mut map_renderer = state.main_map_renderer.lock().unwrap();
     let mut main_map_layer_kind = state.main_map_layer_kind.lock().unwrap();
 
+    let layer_kind = match layer_mode {
+        LayerMode::All => LayerKind::All,
+        LayerMode::DefaultKind => LayerKind::JounreyKind(JourneyKind::DefaultKind),
+        LayerMode::Flight => LayerKind::JounreyKind(JourneyKind::Flight),
+    };
     let journey_bitmap = state
         .storage
         .get_latest_bitmap_for_main_map_renderer(&layer_kind)?;
