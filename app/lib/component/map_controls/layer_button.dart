@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:memolanes/src/rust/api/api.dart';
 
 class LayerButton extends StatelessWidget {
@@ -25,13 +26,15 @@ class LayerButton extends StatelessWidget {
         color: Colors.transparent,
         child: IconButton(
           onPressed: onPressed,
-          icon: Icon(
-              layerMode == LayerMode.all
-                  ? Icons.layers
-                  : layerMode == LayerMode.flight
-                      ? Icons.flight
-                      : Icons.nature_people,
-              color: const Color(0xFFB4EC51)),
+          icon: FaIcon(
+            layerMode == LayerMode.all
+                ? FontAwesomeIcons.layerGroup
+                : layerMode == LayerMode.flight
+                    ? FontAwesomeIcons.cloud
+                    : FontAwesomeIcons.shoePrints,
+            color: const Color(0xFFB4EC51),
+            size: 18,
+          ),
           tooltip: 'Layer picker not implemented',
         ),
       ),
