@@ -8,8 +8,6 @@ import 'package:memolanes/component/map_controls/tracking_button.dart';
 import 'package:memolanes/component/recording_buttons.dart';
 import 'package:memolanes/gps_manager.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:memolanes/src/rust/cache_db.dart';
-import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
