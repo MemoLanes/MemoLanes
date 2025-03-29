@@ -14,6 +14,7 @@ class LayerButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final defaultColor = Color(0xFFB4EC51);
     return Container(
       margin: const EdgeInsets.only(top: 8, bottom: 8),
       width: 48,
@@ -26,15 +27,18 @@ class LayerButton extends StatelessWidget {
         color: Colors.transparent,
         child: IconButton(
           onPressed: onPressed,
-          icon: FaIcon(
-            layerMode == LayerMode.all
-                ? FontAwesomeIcons.layerGroup
-                : layerMode == LayerMode.flight
-                    ? FontAwesomeIcons.cloud
-                    : FontAwesomeIcons.shoePrints,
-            color: const Color(0xFFB4EC51),
-            size: 18,
-          ),
+          icon: layerMode == LayerMode.flight
+              ? Icon(
+                  Icons.layers,
+                  color: defaultColor,
+                )
+              : FaIcon(
+                  layerMode == LayerMode.defaultKind
+                      ? FontAwesomeIcons.shoePrints
+                      : FontAwesomeIcons.planeUp,
+                  color: defaultColor,
+                  size: 18,
+                ),
           tooltip: 'Layer picker not implemented',
         ),
       ),
