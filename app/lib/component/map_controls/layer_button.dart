@@ -30,7 +30,7 @@ class LayerButton extends StatelessWidget {
                   ? Icons.layers
                   : layerMode == LayerMode.flight
                       ? Icons.flight
-                      : Icons.directions_car,
+                      : Icons.nature_people,
               color: const Color(0xFFB4EC51)),
           tooltip: 'Layer picker not implemented',
         ),
