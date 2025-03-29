@@ -27,7 +27,7 @@ class LayerButton extends StatelessWidget {
         color: Colors.transparent,
         child: IconButton(
           onPressed: onPressed,
-          icon: layerMode == LayerMode.flight
+          icon: layerMode == LayerMode.all
               ? Icon(
                   Icons.layers,
                   color: defaultColor,
