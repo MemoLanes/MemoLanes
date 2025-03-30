@@ -62,6 +62,10 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   @override
   Widget build(BuildContext context) {
     final mapRendererProxy = _mapRendererProxy;
+    final journeyKindName = switch (widget.journeyHeader.journeyKind) {
+      JourneyKind.defaultKind => context.tr("journey_kind.default"),
+      JourneyKind.flight => context.tr("journey_kind.flight"),
+    };
     return Scaffold(
       appBar: AppBar(
         title: const Text("Journey Info"),
@@ -73,6 +77,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
             Text("Journey ID: ${widget.journeyHeader.id}"),
             Text(
                 "Journey Date: ${naiveDateToString(date: widget.journeyHeader.journeyDate)}"),
+            Text("JourneyKind: $journeyKindName"),
             Text(
                 "Start Time: ${widget.journeyHeader.start != null ? fmt.format(widget.journeyHeader.start!.toLocal()) : ""}"),
             Text(
@@ -107,6 +112,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                     : null,
                 child: const Text("Export KML"),
               ),
+            ]),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
               ElevatedButton(
                 onPressed: widget.journeyHeader.journeyType ==
                         JourneyType.vector
@@ -114,8 +121,6 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                     : null,
                 child: const Text("Export GPX"),
               ),
-            ]),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
               ElevatedButton(
                 onPressed: () async {
                   final result = await Navigator.push(context,
@@ -130,6 +135,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                           endTime: widget.journeyHeader.end,
                           journeyDate: widget.journeyHeader.journeyDate,
                           note: widget.journeyHeader.note,
+                          journeyKind: widget.journeyHeader.journeyKind,
                           saveData: _saveData,
                         ),
                       ),
@@ -143,6 +149,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                 },
                 child: const Text("Edit"),
               ),
+            ]),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
               ElevatedButton(
                 onPressed: () async {
                   if (await showCommonDialog(

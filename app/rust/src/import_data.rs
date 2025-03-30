@@ -1,6 +1,7 @@
 use crate::api::import::JourneyInfo;
 use crate::gps_processor::{Point, PreprocessedData, ProcessResult, RawData};
 use crate::journey_bitmap::{self, Block, JourneyBitmap, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH};
+use crate::journey_header::JourneyKind;
 use crate::{
     gps_processor::{self, GpsPreprocessor},
     journey_vector::{JourneyVector, TrackPoint},
@@ -345,5 +346,6 @@ pub fn journey_info_from_raw_vector_data(raw_vector_data: &[Vec<RawData>]) -> Jo
         start_time,
         end_time,
         note: None,
+        journey_kind: JourneyKind::DefaultKind,
     }
 }

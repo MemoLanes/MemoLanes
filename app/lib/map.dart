@@ -5,12 +5,14 @@ import 'package:json_annotation/json_annotation.dart';
 import 'package:memolanes/component/base_map_webview.dart';
 import 'package:memolanes/component/map_controls/accuracy_display.dart';
 import 'package:memolanes/component/map_controls/tracking_button.dart';
-import 'package:memolanes/gps_manager.dart';
 import 'package:memolanes/component/recording_buttons.dart';
+import 'package:memolanes/gps_manager.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'component/map_controls/layer_button.dart';
 
 part 'map.g.dart';
 
@@ -45,6 +47,7 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
   MapView? _roughMapView;
 
   TrackingMode _currentTrackingMode = TrackingMode.off;
+  api.LayerKind _currentLayer = api.getCurrentMapLayerKind();
 
   void _syncTrackingModeWithGpsManager() {
     Provider.of<GpsManager>(context, listen: false)
@@ -59,6 +62,15 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
       _currentTrackingMode = newMode;
     });
     _syncTrackingModeWithGpsManager();
+  }
+
+  void _layerButton() async {
+    final newLayerKind = api.LayerKind
+        .values[(_currentLayer.index + 1) % api.LayerKind.values.length];
+    setState(() {
+      _currentLayer = newLayerKind;
+    });
+    await api.setMainMapLayerKind(layerKind: _currentLayer);
   }
 
   @override
@@ -184,10 +196,10 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
                           onPressed: _trackingModeButton,
                         ),
                         const AccuracyDisplay(),
-                        // TODO: Implement layer picker functionality
-                        // LayerButton(
-                        //   onPressed: () {};
-                        // )
+                        LayerButton(
+                          layerKind: _currentLayer,
+                          onPressed: _layerButton,
+                        )
                       ],
                     )),
                   ),

@@ -1,11 +1,12 @@
 import 'dart:async';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:intl/intl.dart';
 import 'package:memolanes/import_data.dart';
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
 import 'package:memolanes/src/rust/api/utils.dart';
+import 'package:memolanes/src/rust/journey_header.dart';
 
 class JourneyInfoEditor extends StatefulWidget {
   const JourneyInfoEditor(
@@ -15,12 +16,14 @@ class JourneyInfoEditor extends StatefulWidget {
       required this.journeyDate,
       required this.note,
       required this.saveData,
+      this.journeyKind,
       this.importType});
 
   final DateTime? startTime;
   final DateTime? endTime;
   final NaiveDate journeyDate;
   final String? note;
+  final JourneyKind? journeyKind;
   final Function saveData;
   final ImportType? importType;
 
@@ -36,6 +39,7 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
   DateTime? _endTime;
   DateTime? _journeyDate;
   String? _note;
+  JourneyKind _journeyKind = JourneyKind.defaultKind;
   import_api.JourneyInfo? journeyInfo;
   final TextEditingController _noteController = TextEditingController();
   bool _runPreprocessor = false;
@@ -84,6 +88,7 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
       _journeyDate =
           dateFormat.parse(naiveDateToString(date: widget.journeyDate));
       _note = widget.note;
+      _journeyKind = widget.journeyKind ?? _journeyKind;
       _noteController.text = _note ?? "";
       _noteController.addListener(() {
         setState(() {
@@ -109,7 +114,8 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
         journeyDate: naiveDateOfString(str: dateFormat.format(_journeyDate!)),
         startTime: _startTime,
         endTime: _endTime,
-        note: _note);
+        note: _note,
+        journeyKind: _journeyKind);
     if (widget.importType != null) {
       await widget.saveData(journeyInfo, _runPreprocessor);
     } else {
@@ -189,6 +195,38 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
           decoration: const InputDecoration(
             label: Text("Note:"),
           ),
+        ),
+        Row(
+          children: [
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Radio(
+                value: JourneyKind.defaultKind,
+                groupValue: _journeyKind,
+                onChanged: (v) {
+                  if (v != null) {
+                    setState(() {
+                      _journeyKind = v;
+                    });
+                  }
+                },
+              ),
+              Text(context.tr("journey_kind.default"))
+            ]),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Radio(
+                value: JourneyKind.flight,
+                groupValue: _journeyKind,
+                onChanged: (v) {
+                  if (v != null) {
+                    setState(() {
+                      _journeyKind = v;
+                    });
+                  }
+                },
+              ),
+              Text(context.tr("journey_kind.flight"))
+            ]),
+          ],
         ),
         if (widget.importType != null)
           widget.importType == ImportType.fow

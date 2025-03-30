@@ -24,5 +24,9 @@
     "already_optimized": "Database is already optimized. Nothing to do.",
     "confirm": "Your database requires optimization. It is recommended to backup your data before proceeding.",
     "finsih": "Finsihsed optimizing database."
+  },
+  "journey_kind": {
+    "default": "Default",
+    "flight": "Flight"
   }
 }
