@@ -66,13 +66,15 @@ pub struct CacheDb {
     conn: Connection,
 }
 
+/// flutter_rust_bridge:ignore
+#[derive(Eq, Hash, Clone, Copy, Debug, PartialEq)]
 pub enum LayerKind {
     All,
     JounreyKind(JourneyKind),
 }
 
 impl LayerKind {
-    fn to_sql(&self) -> &'static str {
+    fn to_sql(self) -> &'static str {
         match self {
             LayerKind::All => "All",
             LayerKind::JounreyKind(kind) => match kind {

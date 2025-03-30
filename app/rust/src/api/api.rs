@@ -5,10 +5,11 @@ use anyhow::Result;
 use chrono::NaiveDate;
 use flutter_rust_bridge::frb;
 
+use crate::cache_db::LayerKind as InternalLayerKind;
 use crate::gps_processor::{GpsPreprocessor, ProcessResult};
 use crate::journey_bitmap::{JourneyBitmap, MAP_WIDTH_OFFSET, TILE_WIDTH, TILE_WIDTH_OFFSET};
 use crate::journey_data::JourneyData;
-use crate::journey_header::JourneyHeader;
+use crate::journey_header::{JourneyHeader, JourneyKind};
 use crate::renderer::map_server::MapRendererToken;
 use crate::renderer::MapRenderer;
 use crate::renderer::MapServer;
@@ -32,6 +33,7 @@ pub(super) struct MainState {
     pub gps_preprocessor: Mutex<GpsPreprocessor>,
     pub map_server: Mutex<MapServer>,
     // TODO: we should reconsider the way we handle the main map
+    pub main_map_layer_kind: Arc<Mutex<InternalLayerKind>>,
     pub main_map_renderer: Arc<Mutex<MapRenderer>>,
     pub main_map_renderer_token: MapRendererToken,
 }
@@ -65,13 +67,19 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
 
         // ======= WebView Transition codes START ===========
         // TODO: this is a temporary solution for WebView transition
-        let journey_bitmap = storage.get_latest_bitmap_for_main_map_renderer().unwrap();
+        let default_layer_kind = InternalLayerKind::JounreyKind(JourneyKind::DefaultKind);
+        let journey_bitmap = storage
+            .get_latest_bitmap_for_main_map_renderer(&default_layer_kind)
+            .unwrap();
+        let main_map_layer_kind = Arc::new(Mutex::new(default_layer_kind));
+        let main_map_layer_kind_copy = main_map_layer_kind.clone();
         let main_map_renderer = Arc::new(Mutex::new(MapRenderer::new(journey_bitmap)));
         let main_map_renderer_copy = main_map_renderer.clone();
         // TODO: redesign the callback to better handle locks and avoid deadlocks
         storage.set_finalized_journey_changed_callback(Box::new(move |storage| {
             let mut map_renderer = main_map_renderer_copy.lock().unwrap();
-            match storage.get_latest_bitmap_for_main_map_renderer() {
+            let layer_kind = main_map_layer_kind_copy.lock().unwrap();
+            match storage.get_latest_bitmap_for_main_map_renderer(&layer_kind) {
                 Err(e) => {
                     error!("Failed to get latest bitmap for main map renderer: {:?}", e);
                 }
@@ -86,9 +94,10 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
 
         MainState {
             storage,
-            main_map_renderer,
             gps_preprocessor: Mutex::new(GpsPreprocessor::new()),
             map_server: Mutex::new(map_server),
+            main_map_layer_kind,
+            main_map_renderer,
             main_map_renderer_token,
         }
     });
@@ -291,6 +300,52 @@ pub fn toggle_raw_data_mode(enable: bool) {
     get().storage.toggle_raw_data_mode(enable)
 }
 
+pub enum LayerKind {
+    All,
+    DefaultKind,
+    Flight,
+}
+
+impl LayerKind {
+    fn to_internal(&self) -> InternalLayerKind {
+        match self {
+            LayerKind::All => InternalLayerKind::All,
+            LayerKind::DefaultKind => InternalLayerKind::JounreyKind(JourneyKind::DefaultKind),
+            LayerKind::Flight => InternalLayerKind::JounreyKind(JourneyKind::Flight),
+        }
+    }
+
+    fn of_internal(internal: &InternalLayerKind) -> LayerKind {
+        match internal {
+            InternalLayerKind::All => LayerKind::All,
+            InternalLayerKind::JounreyKind(kind) => match kind {
+                JourneyKind::DefaultKind => LayerKind::DefaultKind,
+                JourneyKind::Flight => LayerKind::Flight,
+            },
+        }
+    }
+}
+
+#[frb(sync)]
+pub fn get_current_map_layer_kind() -> LayerKind {
+    LayerKind::of_internal(&get().main_map_layer_kind.lock().unwrap())
+}
+
+pub fn set_main_map_layer_kind(layer_kind: LayerKind) -> Result<()> {
+    let state = get();
+    let mut map_renderer = state.main_map_renderer.lock().unwrap();
+    let mut main_map_layer_kind = state.main_map_layer_kind.lock().unwrap();
+
+    let layer_kind = layer_kind.to_internal();
+    let journey_bitmap = state
+        .storage
+        .get_latest_bitmap_for_main_map_renderer(&layer_kind)?;
+    map_renderer.replace(journey_bitmap);
+    *main_map_layer_kind = layer_kind;
+
+    Ok(())
+}
+
 fn reset_gps_preprocessor_if_finalized<F>(finalize_op: F) -> Result<bool>
 where
     F: FnOnce(&mut main_db::Txn) -> Result<bool>,
@@ -423,6 +478,7 @@ pub fn update_journey_metadata(id: &str, journeyinfo: JourneyInfo) -> Result<()>
             journeyinfo.start_time,
             journeyinfo.end_time,
             journeyinfo.note,
+            journeyinfo.journey_kind,
         )
     })?;
     Ok(())
@@ -489,7 +545,9 @@ pub fn restart_map_server() -> Result<()> {
 pub fn rebuild_cache() -> Result<()> {
     let state = get();
     state.storage.clear_all_cache()?;
-    let bitmap = state.storage.get_latest_bitmap_for_main_map_renderer()?;
+    let bitmap = state
+        .storage
+        .get_latest_bitmap_for_main_map_renderer(&InternalLayerKind::All)?;
     state.main_map_renderer.lock().unwrap().replace(bitmap);
     Ok(())
 }
