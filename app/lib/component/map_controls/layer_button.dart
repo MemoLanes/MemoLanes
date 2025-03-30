@@ -3,13 +3,13 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:memolanes/src/rust/api/api.dart';
 
 class LayerButton extends StatelessWidget {
-  final LayerMode layerMode;
+  final LayerKind layerKind;
   final VoidCallback onPressed;
 
   const LayerButton({
     super.key,
     required this.onPressed,
-    required this.layerMode,
+    required this.layerKind,
   });
 
   @override
@@ -27,13 +27,13 @@ class LayerButton extends StatelessWidget {
         color: Colors.transparent,
         child: IconButton(
           onPressed: onPressed,
-          icon: layerMode == LayerMode.all
+          icon: layerKind == LayerKind.all
               ? Icon(
                   Icons.layers,
                   color: defaultColor,
                 )
               : FaIcon(
-                  layerMode == LayerMode.defaultKind
+                  layerKind == LayerKind.defaultKind
                       ? FontAwesomeIcons.shoePrints
                       : FontAwesomeIcons.planeUp,
                   color: defaultColor,

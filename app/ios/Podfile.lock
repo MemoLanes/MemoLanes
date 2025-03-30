@@ -42,7 +42,6 @@ PODS:
     - Flutter
   - geolocator_apple (1.2.0):
     - Flutter
-    - FlutterMacOS
   - notification_when_app_is_killed (0.0.1):
     - Flutter
   - package_info_plus (0.4.5):
@@ -77,7 +76,7 @@ DEPENDENCIES:
   - Flutter (from `Flutter`)
   - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
   - fluttertoast (from `.symlinks/plugins/fluttertoast/ios`)
-  - geolocator_apple (from `.symlinks/plugins/geolocator_apple/darwin`)
+  - geolocator_apple (from `.symlinks/plugins/geolocator_apple/ios`)
   - notification_when_app_is_killed (from `.symlinks/plugins/notification_when_app_is_killed/ios`)
   - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
   - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
@@ -108,7 +107,7 @@ EXTERNAL SOURCES:
   fluttertoast:
     :path: ".symlinks/plugins/fluttertoast/ios"
   geolocator_apple:
-    :path: ".symlinks/plugins/geolocator_apple/darwin"
+    :path: ".symlinks/plugins/geolocator_apple/ios"
   notification_when_app_is_killed:
     :path: ".symlinks/plugins/notification_when_app_is_killed/ios"
   package_info_plus:
@@ -138,7 +137,7 @@ SPEC CHECKSUMS:
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
   flutter_local_notifications: 395056b3175ba4f08480a7c5de30cd36d69827e4
   fluttertoast: 2c67e14dce98bbdb200df9e1acf610d7a6264ea1
-  geolocator_apple: ab36aa0e8b7d7a2d7639b3b4e48308394e8cef5e
+  geolocator_apple: 1560c3c875af2a412242c7a923e15d0d401966ff
   notification_when_app_is_killed: d11c6b91df3fc39bb18eeb878ad435cf8fc0e4c7
   package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
   path_provider_foundation: 080d55be775b7414fd5a5ef3ac137b97b097e564

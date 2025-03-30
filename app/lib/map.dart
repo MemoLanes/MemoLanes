@@ -47,7 +47,7 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
   MapView? _roughMapView;
 
   TrackingMode _currentTrackingMode = TrackingMode.off;
-  api.LayerMode _currentLayer = api.LayerMode.all;
+  api.LayerKind _currentLayer = api.getCurrentMapLayerKind();
 
   void _syncTrackingModeWithGpsManager() {
     Provider.of<GpsManager>(context, listen: false)
@@ -65,12 +65,12 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
   }
 
   void _layerButton() async {
-    final newMode = api.LayerMode
-        .values[(_currentLayer.index + 1) % api.LayerMode.values.length];
+    final newLayerKind = api.LayerKind
+        .values[(_currentLayer.index + 1) % api.LayerKind.values.length];
     setState(() {
-      _currentLayer = newMode;
+      _currentLayer = newLayerKind;
     });
-    api.setMainMapLayerKind(layerMode: _currentLayer);
+    await api.setMainMapLayerKind(layerKind: _currentLayer);
   }
 
   @override
@@ -197,7 +197,7 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
                         ),
                         const AccuracyDisplay(),
                         LayerButton(
-                          layerMode: _currentLayer,
+                          layerKind: _currentLayer,
                           onPressed: _layerButton,
                         )
                       ],

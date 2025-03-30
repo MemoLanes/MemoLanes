@@ -1,8 +1,8 @@
 import 'dart:async';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:intl/intl.dart';
 import 'package:memolanes/import_data.dart';
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
 import 'package:memolanes/src/rust/api/utils.dart';
@@ -204,11 +204,11 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
                 groupValue: _journeyKind,
                 onChanged: (v) {
                   setState(() {
-                    this._journeyKind = v!;
+                    _journeyKind = v!;
                   });
                 },
               ),
-              Text("defaultKind")
+              Text(context.tr("journeky_kind.default"))
             ]),
             Row(mainAxisSize: MainAxisSize.min, children: [
               Radio(
@@ -216,11 +216,11 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
                 groupValue: _journeyKind,
                 onChanged: (v) {
                   setState(() {
-                    this._journeyKind = v!;
+                    _journeyKind = v!;
                   });
                 },
               ),
-              Text("flight")
+              Text(context.tr("journeky_kind.flight"))
             ]),
           ],
         ),

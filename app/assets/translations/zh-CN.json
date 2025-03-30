@@ -24,5 +24,9 @@
     "already_optimized": "数据库已经是最优状态。无需再次优化。",
     "confirm": "您的数据库需要优化。建议在继续之前备份你的数据。",
     "finsih": "数据库优化完成。"
+  },
+  "journey_kind": {
+    "default": "默认",
+    "flight": "航迹"
   }
 }

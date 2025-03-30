@@ -66,6 +66,7 @@ pub struct CacheDb {
     conn: Connection,
 }
 
+/// flutter_rust_bridge:ignore
 #[derive(Eq, Hash, Clone, Copy, Debug, PartialEq)]
 pub enum LayerKind {
     All,

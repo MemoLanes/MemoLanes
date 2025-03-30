@@ -5,7 +5,7 @@ use anyhow::Result;
 use chrono::NaiveDate;
 use flutter_rust_bridge::frb;
 
-use crate::cache_db::LayerKind;
+use crate::cache_db::LayerKind as InternalLayerKind;
 use crate::gps_processor::{GpsPreprocessor, ProcessResult};
 use crate::journey_bitmap::{JourneyBitmap, MAP_WIDTH_OFFSET, TILE_WIDTH, TILE_WIDTH_OFFSET};
 use crate::journey_data::JourneyData;
@@ -33,7 +33,7 @@ pub(super) struct MainState {
     pub gps_preprocessor: Mutex<GpsPreprocessor>,
     pub map_server: Mutex<MapServer>,
     // TODO: we should reconsider the way we handle the main map
-    pub main_map_layer_kind: Arc<Mutex<LayerKind>>,
+    pub main_map_layer_kind: Arc<Mutex<InternalLayerKind>>,
     pub main_map_renderer: Arc<Mutex<MapRenderer>>,
     pub main_map_renderer_token: MapRendererToken,
 }
@@ -67,7 +67,7 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
 
         // ======= WebView Transition codes START ===========
         // TODO: this is a temporary solution for WebView transition
-        let default_layer_kind = LayerKind::JounreyKind(JourneyKind::DefaultKind);
+        let default_layer_kind = InternalLayerKind::JounreyKind(JourneyKind::DefaultKind);
         let journey_bitmap = storage
             .get_latest_bitmap_for_main_map_renderer(&default_layer_kind)
             .unwrap();
@@ -300,27 +300,43 @@ pub fn toggle_raw_data_mode(enable: bool) {
     get().storage.toggle_raw_data_mode(enable)
 }
 
-#[frb(sync)]
-pub fn get_current_map_layer_kind() -> LayerKind {
-    get().main_map_layer_kind.lock().unwrap().clone()
-}
-
-pub enum LayerMode {
+pub enum LayerKind {
     All,
     DefaultKind,
     Flight,
 }
 
-pub fn set_main_map_layer_kind(layer_mode: LayerMode) -> Result<()> {
+impl LayerKind {
+    fn to_internal(&self) -> InternalLayerKind {
+        match self {
+            LayerKind::All => InternalLayerKind::All,
+            LayerKind::DefaultKind => InternalLayerKind::JounreyKind(JourneyKind::DefaultKind),
+            LayerKind::Flight => InternalLayerKind::JounreyKind(JourneyKind::Flight),
+        }
+    }
+
+    fn of_internal(internal: &InternalLayerKind) -> LayerKind {
+        match internal {
+            InternalLayerKind::All => LayerKind::All,
+            InternalLayerKind::JounreyKind(kind) => match kind {
+                JourneyKind::DefaultKind => LayerKind::DefaultKind,
+                JourneyKind::Flight => LayerKind::Flight,
+            },
+        }
+    }
+}
+
+#[frb(sync)]
+pub fn get_current_map_layer_kind() -> LayerKind {
+    LayerKind::of_internal(&get().main_map_layer_kind.lock().unwrap())
+}
+
+pub fn set_main_map_layer_kind(layer_kind: LayerKind) -> Result<()> {
     let state = get();
     let mut map_renderer = state.main_map_renderer.lock().unwrap();
     let mut main_map_layer_kind = state.main_map_layer_kind.lock().unwrap();
 
-    let layer_kind = match layer_mode {
-        LayerMode::All => LayerKind::All,
-        LayerMode::DefaultKind => LayerKind::JounreyKind(JourneyKind::DefaultKind),
-        LayerMode::Flight => LayerKind::JounreyKind(JourneyKind::Flight),
-    };
+    let layer_kind = layer_kind.to_internal();
     let journey_bitmap = state
         .storage
         .get_latest_bitmap_for_main_map_renderer(&layer_kind)?;
@@ -531,7 +547,7 @@ pub fn rebuild_cache() -> Result<()> {
     state.storage.clear_all_cache()?;
     let bitmap = state
         .storage
-        .get_latest_bitmap_for_main_map_renderer(&LayerKind::All)?;
+        .get_latest_bitmap_for_main_map_renderer(&InternalLayerKind::All)?;
     state.main_map_renderer.lock().unwrap().replace(bitmap);
     Ok(())
 }
