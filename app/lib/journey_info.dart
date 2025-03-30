@@ -62,6 +62,10 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   @override
   Widget build(BuildContext context) {
     final mapRendererProxy = _mapRendererProxy;
+    final journeyKindName = switch (widget.journeyHeader.journeyKind) {
+      JourneyKind.defaultKind => context.tr("journey_kind.default"),
+      JourneyKind.flight => context.tr("journey_kind.flight"),
+    };
     return Scaffold(
       appBar: AppBar(
         title: const Text("Journey Info"),
@@ -73,7 +77,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
             Text("Journey ID: ${widget.journeyHeader.id}"),
             Text(
                 "Journey Date: ${naiveDateToString(date: widget.journeyHeader.journeyDate)}"),
-            Text("JourneyKind: ${widget.journeyHeader.journeyKind.name}"),
+            Text("JourneyKind: $journeyKindName"),
             Text(
                 "Start Time: ${widget.journeyHeader.start != null ? fmt.format(widget.journeyHeader.start!.toLocal()) : ""}"),
             Text(

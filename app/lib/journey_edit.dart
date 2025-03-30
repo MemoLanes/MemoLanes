@@ -203,9 +203,11 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
                 value: JourneyKind.defaultKind,
                 groupValue: _journeyKind,
                 onChanged: (v) {
-                  setState(() {
-                    _journeyKind = v!;
-                  });
+                  if (v != null) {
+                    setState(() {
+                      _journeyKind = v;
+                    });
+                  }
                 },
               ),
               Text(context.tr("journey_kind.default"))
@@ -215,9 +217,11 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
                 value: JourneyKind.flight,
                 groupValue: _journeyKind,
                 onChanged: (v) {
-                  setState(() {
-                    _journeyKind = v!;
-                  });
+                  if (v != null) {
+                    setState(() {
+                      _journeyKind = v;
+                    });
+                  }
                 },
               ),
               Text(context.tr("journey_kind.flight"))

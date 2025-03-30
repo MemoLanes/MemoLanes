@@ -27,18 +27,22 @@ class LayerButton extends StatelessWidget {
         color: Colors.transparent,
         child: IconButton(
           onPressed: onPressed,
-          icon: layerKind == LayerKind.all
-              ? Icon(
-                  Icons.layers,
-                  color: defaultColor,
-                )
-              : FaIcon(
-                  layerKind == LayerKind.defaultKind
-                      ? FontAwesomeIcons.shoePrints
-                      : FontAwesomeIcons.planeUp,
-                  color: defaultColor,
-                  size: 18,
-                ),
+          icon: switch (layerKind) {
+            LayerKind.defaultKind => FaIcon(
+                FontAwesomeIcons.shoePrints,
+                color: defaultColor,
+                size: 18,
+              ),
+            LayerKind.flight => FaIcon(
+                FontAwesomeIcons.planeUp,
+                color: defaultColor,
+                size: 18,
+              ),
+            LayerKind.all => Icon(
+                Icons.layers,
+                color: defaultColor,
+              )
+          },
           tooltip: 'Layer picker not implemented',
         ),
       ),
