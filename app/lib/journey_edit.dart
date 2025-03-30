@@ -208,7 +208,7 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
                   });
                 },
               ),
-              Text(context.tr("journeky_kind.default"))
+              Text(context.tr("journey_kind.default"))
             ]),
             Row(mainAxisSize: MainAxisSize.min, children: [
               Radio(
@@ -220,7 +220,7 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
                   });
                 },
               ),
-              Text(context.tr("journeky_kind.flight"))
+              Text(context.tr("journey_kind.flight"))
             ]),
           ],
         ),
