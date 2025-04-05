@@ -89,7 +89,7 @@ class _RawDataPage extends State<RawDataPage> {
                           context, context.tr("journey.delete_journey_message"),
                           hasCancel: true,
                           title: context.tr("journey.delete_journey_title"),
-                          confirmText: context.tr("journey.delete"),
+                          confirmButtonText: context.tr("journey.delete"),
                           confirmGroundColor: Colors.red,
                           confirmTextColor: Colors.white)) {
                         await deleteRawDataFile(filename: item.name);

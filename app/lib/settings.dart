@@ -110,7 +110,7 @@ class _SettingsBodyState extends State<SettingsBody> {
                   "This will delete all journeys in this app. Are you sure?",
                   hasCancel: true,
                   title: context.tr("journey.delete_journey_title"),
-                  confirmText: context.tr("journey.delete"),
+                  confirmButtonText: context.tr("journey.delete"),
                   confirmGroundColor: Colors.red,
                   confirmTextColor: Colors.white)) {
                 return;

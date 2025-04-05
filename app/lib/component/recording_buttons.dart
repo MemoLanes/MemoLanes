@@ -19,7 +19,7 @@ class _RecordingButtonsState extends State<RecordingButtons> {
         context, context.tr('home.end_journey_message'),
         hasCancel: true,
         title: context.tr('home.end_journey_title'),
-        confirmText: context.tr('common.end'),
+        confirmButtonText: context.tr('common.end'),
         confirmGroundColor: Colors.red,
         confirmTextColor: Colors.white);
 
