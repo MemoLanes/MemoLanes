@@ -29,7 +29,7 @@ class TrackingButton extends StatelessWidget {
               : Icons.near_me,
           color: trackingMode == TrackingMode.displayAndTracking
               ? const Color(0xFFB4EC51)
-              : const Color(0xFFB4EC51).withOpacity(0.5),
+              : const Color(0xFFB4EC51).withValues(alpha: 0.5),
         ),
         tooltip: trackingMode == TrackingMode.off
             ? 'Enable location tracking'

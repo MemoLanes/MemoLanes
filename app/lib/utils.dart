@@ -6,16 +6,17 @@ import 'component/common_dialog.dart';
 Future<bool> showCommonDialog(BuildContext context, String message,
     {hasCancel = false,
     title,
-    confirmText,
+    confirmButtonText,
     confirmGroundColor,
-    confirmTextColor = Colors.black}) async {
+    confirmTextColor = Colors.black,
+    markdown = false}) async {
   const defaultGroundColor = Color(0xFFB4EC51);
-  confirmText = confirmText ?? context.tr("common.ok");
+  confirmButtonText = confirmButtonText ?? context.tr("common.ok");
   title = title ?? context.tr("common.info");
   confirmGroundColor = confirmGroundColor ?? defaultGroundColor;
   final List<DialogButton> allButtons = [
     DialogButton(
-      text: confirmText,
+      text: confirmButtonText,
       onPressed: () {
         Navigator.of(context).pop(true);
       },
@@ -38,10 +39,12 @@ Future<bool> showCommonDialog(BuildContext context, String message,
     barrierDismissible: false,
     builder: (BuildContext context) {
       return CommonDialog(
-          title: title,
-          content: message,
-          showCancel: hasCancel,
-          buttons: allButtons);
+        title: title,
+        content: message,
+        showCancel: hasCancel,
+        buttons: allButtons,
+        markdown: markdown,
+      );
     },
   );
   return result ?? false;

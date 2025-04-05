@@ -65,7 +65,7 @@ jobs:
         run: cargo fetch
 
       - name: Install wasm-pack
-        run: cargo install wasm-pack
+        run: cargo binstall -y --force --no-track wasm-pack
 
       - name: Build the wasm package
         working-directory: app/journey_kernel
