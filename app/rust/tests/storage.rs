@@ -1,6 +1,7 @@
 pub mod test_utils;
 use memolanes_core::{
-    gps_processor::ProcessResult, import_data, journey_bitmap::JourneyBitmap, storage::Storage,
+    cache_db::LayerKind, gps_processor::ProcessResult, import_data, journey_bitmap::JourneyBitmap,
+    storage::Storage,
 };
 use std::fs;
 use tempdir::TempDir;
@@ -35,7 +36,9 @@ fn storage_for_main_map_renderer() {
             raw_data.timestamp_ms.unwrap(),
         );
         if i == 1000 {
-            let _: JourneyBitmap = storage.get_latest_bitmap_for_main_map_renderer().unwrap();
+            let _: JourneyBitmap = storage
+                .get_latest_bitmap_for_main_map_renderer(&LayerKind::All)
+                .unwrap();
         } else if i == 1005 {
             // TODO: reimplement the assert under new api
             // assert!(!storage.main_map_renderer_need_to_reload());
@@ -45,7 +48,9 @@ fn storage_for_main_map_renderer() {
                 .unwrap();
         } else if i == 1020 {
             // assert!(storage.main_map_renderer_need_to_reload());
-            let _: JourneyBitmap = storage.get_latest_bitmap_for_main_map_renderer().unwrap();
+            let _: JourneyBitmap = storage
+                .get_latest_bitmap_for_main_map_renderer(&LayerKind::All)
+                .unwrap();
         } else if i == 1025 {
             // assert!(!storage.main_map_renderer_need_to_reload());
         }

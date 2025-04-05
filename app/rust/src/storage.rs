@@ -281,16 +281,16 @@ impl Storage {
         self.finalized_journey_changed_callback = callback;
     }
 
-    pub fn get_latest_bitmap_for_main_map_renderer(&self) -> Result<JourneyBitmap> {
+    pub fn get_latest_bitmap_for_main_map_renderer(
+        &self,
+        layer_kind: &LayerKind,
+    ) -> Result<JourneyBitmap> {
         let mut dbs = self.dbs.lock().unwrap();
         let (ref mut main_db, ref cache_db) = *dbs;
         // passing `main_db` to `get_latest_including_ongoing` directly is fine
         // becuase it only reads `main_db`.
-        let journey_bitmap = merged_journey_builder::get_latest_including_ongoing(
-            main_db,
-            cache_db,
-            &LayerKind::All,
-        )?;
+        let journey_bitmap =
+            merged_journey_builder::get_latest_including_ongoing(main_db, cache_db, layer_kind)?;
         drop(dbs);
 
         Ok(journey_bitmap)

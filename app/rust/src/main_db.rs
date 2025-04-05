@@ -261,6 +261,7 @@ impl Txn<'_> {
         start: Option<DateTime<Utc>>,
         end: Option<DateTime<Utc>>,
         note: Option<String>,
+        new_journey_kind: JourneyKind,
     ) -> Result<()> {
         info!("Updating journey with ID {}", &id);
 
@@ -273,10 +274,12 @@ impl Txn<'_> {
         header.revision = generate_random_revision();
 
         let old_journey_date = header.journey_date;
+        let old_journey_kind = header.journey_kind;
         header.journey_date = new_journey_date;
         header.start = start;
         header.end = end;
         header.note = note;
+        header.journey_kind = new_journey_kind;
 
         // update
         let journey_date = utils::date_to_days_since_epoch(header.journey_date);
@@ -288,7 +291,7 @@ impl Txn<'_> {
             (journey_date, timestamp_for_ordering, header_bytes, &id),
         )?;
 
-        if old_journey_date != new_journey_date {
+        if old_journey_date != new_journey_date || old_journey_kind != new_journey_kind {
             self.action = Some(Action::CompleteRebuilt);
         }
 
