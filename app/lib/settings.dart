@@ -70,12 +70,26 @@ class _SettingsBodyState extends State<SettingsBody> {
           ),
           ElevatedButton(
             onPressed: () async {
-              await showCommonDialog(context,
-                  "This is an experimental feature and only supports zip compressed Fog of World Sync folder.\n\nPlease try not to import large amount of data or multiple datasets. A better import tool will be released in the future.");
+              await showCommonDialog(
+                context,
+                context.tr("import_fow_data.description_md"),
+                markdown: true,
+              );
+
+              if (await api.containsBitmapJourney()) {
+                if (!context.mounted) return;
+                await showCommonDialog(
+                  context,
+                  context.tr(
+                      "import_fow_data.warning_for_import_multiple_data_md"),
+                  markdown: true,
+                );
+              }
+
               if (!context.mounted) return;
               await _selectImportFile(context, ImportType.fow);
             },
-            child: const Text("Import FoW data"),
+            child: Text(context.tr("import_fow_data.button")),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -110,7 +124,7 @@ class _SettingsBodyState extends State<SettingsBody> {
                   "This will delete all journeys in this app. Are you sure?",
                   hasCancel: true,
                   title: context.tr("journey.delete_journey_title"),
-                  confirmText: context.tr("journey.delete"),
+                  confirmButtonText: context.tr("journey.delete"),
                   confirmGroundColor: Colors.red,
                   confirmTextColor: Colors.white)) {
                 return;
@@ -134,6 +148,7 @@ class _SettingsBodyState extends State<SettingsBody> {
               // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
               var result =
                   await FilePicker.platform.pickFiles(type: FileType.any);
+              if (!context.mounted) return;
               if (result != null) {
                 var path = result.files.single.path;
                 if (path != null) {

@@ -9,7 +9,7 @@ use crate::cache_db::LayerKind as InternalLayerKind;
 use crate::gps_processor::{GpsPreprocessor, ProcessResult};
 use crate::journey_bitmap::{JourneyBitmap, MAP_WIDTH_OFFSET, TILE_WIDTH, TILE_WIDTH_OFFSET};
 use crate::journey_data::JourneyData;
-use crate::journey_header::{JourneyHeader, JourneyKind};
+use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::renderer::map_server::MapRendererToken;
 use crate::renderer::MapRenderer;
 use crate::renderer::MapServer;
@@ -550,6 +550,24 @@ pub fn rebuild_cache() -> Result<()> {
         .get_latest_bitmap_for_main_map_renderer(&InternalLayerKind::All)?;
     state.main_map_renderer.lock().unwrap().replace(bitmap);
     Ok(())
+}
+
+// This is used for showing additional prompt to the user when trying to import
+// multiple FoW data. Bitmap does not necessarily mean FoW data, but this is
+// good enough.
+pub fn contains_bitmap_journey() -> Result<bool> {
+    // TODO: we should just have a real SQL query for this, instead of a liner
+    // scan that involves deserializing all journey heads.
+    let journey_headers = get()
+        .storage
+        .with_db_txn(|txn| txn.query_journeys(None, None))?;
+
+    Ok(journey_headers
+        .iter()
+        .any(|header| match header.journey_type {
+            JourneyType::Bitmap => true,
+            JourneyType::Vector => false,
+        }))
 }
 
 /// flutter_rust_bridge:ignore

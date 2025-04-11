@@ -45,12 +45,12 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
         id: widget.journeyHeader.id, journeyinfo: journeyInfo);
   }
 
-  _deleteJourneyInfo() async {
+  _deleteJourneyInfo(BuildContext context) async {
     if (await showCommonDialog(
         context, context.tr("journey.delete_journey_message"),
         hasCancel: true,
         title: context.tr("journey.delete_journey_title"),
-        confirmText: context.tr("journey.delete"),
+        confirmButtonText: context.tr("journey.delete"),
         confirmGroundColor: Colors.red,
         confirmTextColor: Colors.white)) {
       await api.deleteJourney(journeyId: widget.journeyHeader.id);
@@ -59,7 +59,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     }
   }
 
-  _editJourneyInfo() async {
+  _editJourneyInfo(BuildContext context) async {
     final result =
         await Navigator.push(context, MaterialPageRoute(builder: (context) {
       return Scaffold(
@@ -85,7 +85,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     }
   }
 
-  Future<String> _saveFile(JourneyHeader journeyHeader, ExportType exportType) async {
+  Future<String> _saveFile(
+      JourneyHeader journeyHeader, ExportType exportType) async {
     var tmpDir = await getTemporaryDirectory();
     var filepath =
         "${tmpDir.path}/${journeyHeader.revision}.${exportType.name}";
@@ -140,11 +141,13 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                       size: 40,
                     ),
                     onPressed: () async {
-                      String filepath = await _saveFile(journeyHeader, exportType);
-                      await showCommonDialog(
-                          context, filepath,
+                      String filepath =
+                          await _saveFile(journeyHeader, exportType);
+                      if (!context.mounted) return;
+                      await showCommonDialog(context, filepath,
                           title: context.tr("journey.save_journey_data_title"),
-                          confirmText: context.tr("common.ok"));
+                          confirmButtonText: context.tr("common.ok"));
+                      if (!context.mounted) return;
                       Navigator.of(context).pop();
                     },
                   ),
@@ -183,46 +186,48 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       JourneyKind.flight => context.tr("journey_kind.flight"),
     };
     return Scaffold(
-      appBar: AppBar(title: Text(context.tr("journey.journey_info_bar_title")), actions: [
-        PopupMenuButton<ExportType>(
-          onSelected: (value) {
-            if (Platform.isAndroid) {
-              _showDialog(context, widget.journeyHeader, value);
-            } else if (Platform.isIOS) {
-              _share(widget.journeyHeader, value);
-            }
-          },
-          itemBuilder: (BuildContext context) {
-            return [
-              PopupMenuItem<ExportType>(
-                value: ExportType.mldx,
-                child: Text(context.tr("journey.export_mldx_data_menu")),
-              ),
-              PopupMenuItem<ExportType>(
-                value: ExportType.gpx,
-                child: Text(context.tr("journey.export_gpx_data_menu")),
-              ),
-              PopupMenuItem<ExportType>(
-                value: ExportType.kml,
-                child: Text(context.tr("journey.export_kml_data_menu")),
-              ),
-            ];
-          },
-          icon: Icon(Icons.share),
-        ),
-        IconButton(
-          onPressed: () async {
-            _editJourneyInfo();
-          },
-          icon: Icon(Icons.edit),
-        ),
-        IconButton(
-          onPressed: () async {
-            _deleteJourneyInfo();
-          },
-          icon: Icon(Icons.delete),
-        ),
-      ]),
+      appBar: AppBar(
+          title: Text(context.tr("journey.journey_info_bar_title")),
+          actions: [
+            PopupMenuButton<ExportType>(
+              onSelected: (value) {
+                if (Platform.isAndroid) {
+                  _showDialog(context, widget.journeyHeader, value);
+                } else if (Platform.isIOS) {
+                  _share(widget.journeyHeader, value);
+                }
+              },
+              itemBuilder: (BuildContext context) {
+                return [
+                  PopupMenuItem<ExportType>(
+                    value: ExportType.mldx,
+                    child: Text(context.tr("journey.export_mldx_data_menu")),
+                  ),
+                  PopupMenuItem<ExportType>(
+                    value: ExportType.gpx,
+                    child: Text(context.tr("journey.export_gpx_data_menu")),
+                  ),
+                  PopupMenuItem<ExportType>(
+                    value: ExportType.kml,
+                    child: Text(context.tr("journey.export_kml_data_menu")),
+                  ),
+                ];
+              },
+              icon: Icon(Icons.share),
+            ),
+            IconButton(
+              onPressed: () async {
+                await _editJourneyInfo(context);
+              },
+              icon: Icon(Icons.edit),
+            ),
+            IconButton(
+              onPressed: () async {
+                await _deleteJourneyInfo(context);
+              },
+              icon: Icon(Icons.delete),
+            ),
+          ]),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
