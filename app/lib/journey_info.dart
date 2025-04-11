@@ -157,7 +157,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                       context, context.tr("journey.delete_journey_message"),
                       hasCancel: true,
                       title: context.tr("journey.delete_journey_title"),
-                      confirmText: context.tr("journey.delete"),
+                      confirmButtonText: context.tr("journey.delete"),
                       confirmGroundColor: Colors.red,
                       confirmTextColor: Colors.white)) {
                     await api.deleteJourney(journeyId: widget.journeyHeader.id);
