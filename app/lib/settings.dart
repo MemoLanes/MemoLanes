@@ -70,12 +70,26 @@ class _SettingsBodyState extends State<SettingsBody> {
           ),
           ElevatedButton(
             onPressed: () async {
-              await showCommonDialog(context,
-                  "This is an experimental feature and only supports zip compressed Fog of World Sync folder.\n\nPlease try not to import large amount of data or multiple datasets. A better import tool will be released in the future.");
+              await showCommonDialog(
+                context,
+                context.tr("import_fow_data.description_md"),
+                markdown: true,
+              );
+
+              if (await api.containsBitmapJourney()) {
+                if (!context.mounted) return;
+                await showCommonDialog(
+                  context,
+                  context.tr(
+                      "import_fow_data.warning_for_import_multiple_data_md"),
+                  markdown: true,
+                );
+              }
+
               if (!context.mounted) return;
               await _selectImportFile(context, ImportType.fow);
             },
-            child: const Text("Import FoW data"),
+            child: Text(context.tr("import_fow_data.button")),
           ),
           ElevatedButton(
             onPressed: () async {
