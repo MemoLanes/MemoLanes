@@ -121,6 +121,14 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     }
   }
 
+  _export(ExportType exportType) {
+    if (Platform.isAndroid) {
+      _showDialog(context, widget.journeyHeader, exportType);
+    } else if (Platform.isIOS) {
+      _share(widget.journeyHeader, exportType);
+    }
+  }
+
   _showDialog(BuildContext context, JourneyHeader journeyHeader,
       ExportType exportType) {
     showDialog(
@@ -186,48 +194,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       JourneyKind.flight => context.tr("journey_kind.flight"),
     };
     return Scaffold(
-      appBar: AppBar(
-          title: Text(context.tr("journey.journey_info_bar_title")),
-          actions: [
-            PopupMenuButton<ExportType>(
-              onSelected: (value) {
-                if (Platform.isAndroid) {
-                  _showDialog(context, widget.journeyHeader, value);
-                } else if (Platform.isIOS) {
-                  _share(widget.journeyHeader, value);
-                }
-              },
-              itemBuilder: (BuildContext context) {
-                return [
-                  PopupMenuItem<ExportType>(
-                    value: ExportType.mldx,
-                    child: Text(context.tr("journey.export_mldx_data_menu")),
-                  ),
-                  PopupMenuItem<ExportType>(
-                    value: ExportType.gpx,
-                    child: Text(context.tr("journey.export_gpx_data_menu")),
-                  ),
-                  PopupMenuItem<ExportType>(
-                    value: ExportType.kml,
-                    child: Text(context.tr("journey.export_kml_data_menu")),
-                  ),
-                ];
-              },
-              icon: Icon(Icons.share),
-            ),
-            IconButton(
-              onPressed: () async {
-                await _editJourneyInfo(context);
-              },
-              icon: Icon(Icons.edit),
-            ),
-            IconButton(
-              onPressed: () async {
-                await _deleteJourneyInfo(context);
-              },
-              icon: Icon(Icons.delete),
-            ),
-          ]),
+      appBar: AppBar(title: Text(context.tr("journey.journey_info_bar_title"))),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
@@ -244,6 +211,42 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                 "Created At: ${fmt.format(widget.journeyHeader.createdAt.toLocal())}"),
             Text("Revision: ${widget.journeyHeader.revision}"),
             Text("Note: ${widget.journeyHeader.note}"),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+              ElevatedButton(
+                onPressed: () {
+                  _export(ExportType.kml);
+                },
+                child: Text(context.tr("journey.export_kml_data_menu")),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  _export(ExportType.gpx);
+                },
+                child: Text(context.tr("journey.export_gpx_data_menu")),
+              ),
+            ]),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+              ElevatedButton(
+                onPressed: () {
+                  _export(ExportType.mldx);
+                },
+                child: Text(context.tr("journey.export_mldx_data_menu")),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  await _editJourneyInfo(context);
+                },
+                child: Text(context.tr("journey.journey_info_edit_bar_title")),
+              ),
+            ]),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+              ElevatedButton(
+                onPressed: () {
+                  _deleteJourneyInfo(context);
+                },
+                child: Text(context.tr("journey.delete_journey_title")),
+              ),
+            ]),
             Expanded(
               child: mapRendererProxy == null
                   ? (const CircularProgressIndicator())
