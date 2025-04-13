@@ -531,9 +531,16 @@ pub fn optimize_main_db() -> Result<()> {
 
 pub fn area_of_main_map() -> u64 {
     // TODO: this is pretty naive
-    let main_map_renderer = get().main_map_renderer.lock().unwrap();
+    let mut main_map_renderer = get().main_map_renderer.lock().unwrap();
     let journey_bitmap = main_map_renderer.peek_latest_bitmap();
-    journey_area_utils::compute_journey_bitmap_area(journey_bitmap)
+    match main_map_renderer.get_current_area() {
+        Some(area) => area,
+        None => {
+            let calculated_area = journey_area_utils::compute_journey_bitmap_area(journey_bitmap);
+            main_map_renderer.set_current_area(Some(calculated_area));
+            calculated_area
+        }
+    }
 }
 
 pub fn restart_map_server() -> Result<()> {
