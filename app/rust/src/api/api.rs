@@ -15,8 +15,7 @@ use crate::renderer::MapRenderer;
 use crate::renderer::MapServer;
 use crate::storage::Storage;
 use crate::{
-    archive, build_info, export_data, gps_processor, main_db,
-    merged_journey_builder, storage,
+    archive, build_info, export_data, gps_processor, main_db, merged_journey_builder, storage,
 };
 use crate::{logs, utils};
 use serde::{Deserialize, Serialize};
