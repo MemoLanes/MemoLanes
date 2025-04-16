@@ -15,7 +15,7 @@ use crate::renderer::MapRenderer;
 use crate::renderer::MapServer;
 use crate::storage::Storage;
 use crate::{
-    archive, build_info, export_data, gps_processor, journey_area_utils, main_db,
+    archive, build_info, export_data, gps_processor, main_db,
     merged_journey_builder, storage,
 };
 use crate::{logs, utils};
@@ -532,15 +532,7 @@ pub fn optimize_main_db() -> Result<()> {
 pub fn area_of_main_map() -> u64 {
     // TODO: this is pretty naive
     let mut main_map_renderer = get().main_map_renderer.lock().unwrap();
-    let journey_bitmap = main_map_renderer.peek_latest_bitmap();
-    match main_map_renderer.get_current_area() {
-        Some(area) => area,
-        None => {
-            let calculated_area = journey_area_utils::compute_journey_bitmap_area(journey_bitmap);
-            main_map_renderer.set_current_area(Some(calculated_area));
-            calculated_area
-        }
-    }
+    main_map_renderer.get_current_area().unwrap()
 }
 
 pub fn restart_map_server() -> Result<()> {
