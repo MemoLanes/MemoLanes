@@ -1,7 +1,6 @@
 pub mod test_utils;
 use memolanes_core::{api::api, gps_processor::RawData, import_data};
 use rand::prelude::SliceRandom;
-use rand::thread_rng;
 use std::fs;
 use tempdir::TempDir;
 
@@ -55,7 +54,7 @@ fn basic() {
     assert!(!api::has_ongoing_journey().unwrap());
     assert!(!api::finalize_ongoing_journey().unwrap());
 
-    remaining_elements.shuffle(&mut thread_rng());
+    remaining_elements.shuffle(&mut rand::rng());
     api::on_location_update(remaining_elements.to_vec(), 1695150531000);
 
     {

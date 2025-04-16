@@ -74,7 +74,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Spawn the drawing thread
     std::thread::spawn(move || {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let mut lat = 30.0;
         let mut lng = 106.5;
         let lng_step = 0.00252;
@@ -84,7 +84,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Add a new line segment
             {
                 let next_lng = lng + lng_step;
-                let next_lat = lat + rng.gen_range(-lat_step..=lat_step);
+                let next_lat = lat + rng.random_range(-lat_step..=lat_step);
                 let mut map_renderer = map_renderer_arc_clone.lock().unwrap();
                 map_renderer.update(|bitmap| {
                     bitmap.add_line(lng, lat, next_lng, next_lat);
