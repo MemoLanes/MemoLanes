@@ -16,7 +16,15 @@
     "no_data": "There's no data yet, go ahead and explore the world!",
     "delete_journey_title": "Delete Journey",
     "delete_journey_message": "Delete this journey record?",
-    "delete": "Delete"
+    "delete": "Delete",
+    "journey_info_bar_title": "Journey Information",
+    "journey_info_edit_bar_title": "Edit Journey Information",
+    "save_journey_data_title": "Save Journey",
+    "share_journey_data_title": "Share Journey",
+    "export_journey_data_title": "Export Journey",
+    "export_kml_data_menu": "Export KML",
+    "export_gpx_data_menu": "Export GPX",
+    "export_mldx_data_menu": "Export MLDX"
   },
   "db_optimization": {
     "notification": "Your database requires optimization, please go to Settings tab and click [Optimize database] button.",

@@ -16,7 +16,15 @@
     "no_data": "当前暂无旅程数据，开始探索世界吧！",
     "delete_journey_title": "删除旅程",
     "delete_journey_message": "确认删除该旅程记录?",
-    "delete": "删除"
+    "delete": "删除",
+    "journey_info_bar_title": "旅程信息",
+    "journey_info_edit_bar_title": "编辑旅程信息",
+    "save_journey_data_title": "保存旅程",
+    "share_journey_data_title": "分享旅程",
+    "export_journey_data_title": "导出旅程",
+    "export_kml_data_menu": "导出为KML",
+    "export_gpx_data_menu": "导出为gpx",
+    "export_mldx_data_menu": "导出为MLDX"
   },
   "db_optimization": {
     "notification": "你的数据库需要优化，请前往设置选项卡并点击[优化数据库]按钮。",
