@@ -68,7 +68,7 @@ class BottomNavBar extends StatelessWidget {
                 : null,
             child: Padding(
               padding: const EdgeInsets.all(8),
-              child: index == 3 && hasUpdateNotification()
+              child: index == 4 && hasUpdateNotification()
                   ? badges.Badge(
                       badgeStyle: badges.BadgeStyle(
                         shape: badges.BadgeShape.square,
