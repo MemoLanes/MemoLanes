@@ -65,12 +65,17 @@ impl MapRenderer {
         &self.journey_bitmap
     }
 
-    pub fn get_current_area(&mut self) -> Option<u64> {
-        if self.current_area.is_none() {
-            let journey_bitmap = self.peek_latest_bitmap();
-            let calculated_area = journey_area_utils::compute_journey_bitmap_area(journey_bitmap);
-            self.current_area = Some(calculated_area);
+    pub fn get_current_area(&mut self) -> u64 {
+        // TODO: we can do something more efficient here, instead of traversing
+        // the whole bitmap evey time it changes.
+        match self.current_area {
+            Some(area) => area,
+            None => {
+                let journey_bitmap = self.peek_latest_bitmap();
+                let area = journey_area_utils::compute_journey_bitmap_area(journey_bitmap);
+                self.current_area = Some(area);
+                area
+            }
         }
-        self.current_area
     }
 }
