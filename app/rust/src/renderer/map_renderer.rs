@@ -1,9 +1,11 @@
 use crate::api::api::CameraOption;
+use crate::journey_area_utils;
 use crate::journey_bitmap::JourneyBitmap;
 
 pub struct MapRenderer {
     journey_bitmap: JourneyBitmap,
     changed: bool,
+    current_area: Option<u64>,
     // TODO: `provisioned_camera_option` should be moved out and passed to the
     // map separately.
     provisioned_camera_option: Option<CameraOption>,
@@ -14,6 +16,7 @@ impl MapRenderer {
         Self {
             journey_bitmap,
             changed: false,
+            current_area: None,
             provisioned_camera_option: None,
         }
     }
@@ -32,16 +35,17 @@ impl MapRenderer {
     {
         f(&mut self.journey_bitmap);
         // TODO: we should improve the cache invalidation rule
-        self.changed = true;
+        self.reset();
     }
 
     pub fn replace(&mut self, journey_bitmap: JourneyBitmap) {
         self.journey_bitmap = journey_bitmap;
-        self.changed = true;
+        self.reset();
     }
 
     pub fn reset(&mut self) {
         self.changed = true;
+        self.current_area = None;
     }
 
     pub fn changed(&self) -> bool {
@@ -59,5 +63,19 @@ impl MapRenderer {
 
     pub fn peek_latest_bitmap(&self) -> &JourneyBitmap {
         &self.journey_bitmap
+    }
+
+    pub fn get_current_area(&mut self) -> u64 {
+        // TODO: we can do something more efficient here, instead of traversing
+        // the whole bitmap evey time it changes.
+        match self.current_area {
+            Some(area) => area,
+            None => {
+                let journey_bitmap = self.peek_latest_bitmap();
+                let area = journey_area_utils::compute_journey_bitmap_area(journey_bitmap);
+                self.current_area = Some(area);
+                area
+            }
+        }
     }
 }
