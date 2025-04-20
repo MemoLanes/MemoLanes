@@ -55,6 +55,10 @@ enum GpsRecordingStatus { none, recording, paused }
 // `recording` requires background location but `justForTracking` does not.
 enum _InternalState { off, recording, justForTracking }
 
+bool _positionTooOld(Position position) {
+  return DateTime.now().difference(position.timestamp).inSeconds >= 5;
+}
+
 class GpsManager extends ChangeNotifier {
   static const String isRecordingPrefsKey = "GpsManager.isRecording";
   var recordingStatus = GpsRecordingStatus.none;
@@ -77,6 +81,8 @@ class GpsManager extends ChangeNotifier {
   final List<Position> _positionBuffer = [];
   DateTime? _positionBufferFirstElementReceivedTime;
 
+  Timer? _lastPositionTooOldTimer;
+
   // Notify the user that the recording was unexpectedly stopped on iOS.
   // On Android, this does not work, and we achive this by using foreground task.
   // On iOS we rely on this to make sure user will be notified when the app is
@@ -98,15 +104,6 @@ class GpsManager extends ChangeNotifier {
       });
 
       SharedPreferences prefs = await SharedPreferences.getInstance();
-
-      // TODO: delete this after migration
-      // ---------------------------------
-      bool? oldRecordState = prefs.getBool("GpsRecordingState.isRecording");
-      if (oldRecordState != null) {
-        prefs.setBool(isRecordingPrefsKey, oldRecordState);
-        prefs.remove("GpsRecordingState.isRecording");
-      }
-      // ---------------------------------
 
       bool? recordState = prefs.getBool(isRecordingPrefsKey);
       if (recordState != null &&
@@ -167,6 +164,15 @@ class GpsManager extends ChangeNotifier {
   }
 
   void _onPositionUpdate(Position position) {
+    // When starting the location stream, the system may give us the last known
+    // location, which is a bit misleading.
+    // TODO: I guess doing this is still not fully correct: when the last known
+    // location is not too old but still before the time the user starts
+    // recording.
+    if (_positionTooOld(position)) {
+      return;
+    }
+
     latestPosition = position;
     notifyListeners();
 
@@ -302,6 +308,8 @@ class GpsManager extends ChangeNotifier {
         _positionStream = null;
         _positionBufferFlushTimer?.cancel();
         _positionBufferFlushTimer = null;
+        _lastPositionTooOldTimer?.cancel();
+        _lastPositionTooOldTimer = null;
         await _flushPositionBuffer();
         if (newState == _InternalState.off) {
           latestPosition = null;
@@ -322,6 +330,16 @@ class GpsManager extends ChangeNotifier {
           }
         });
         _pokeGeolocatorTask ??= _PokeGeolocatorTask.start(locationSettings);
+        _lastPositionTooOldTimer ??=
+            Timer.periodic(Duration(seconds: 1), (timer) {
+          var latestPosition = this.latestPosition;
+          if (latestPosition != null) {
+            if (_positionTooOld(latestPosition)) {
+              this.latestPosition = null;
+              notifyListeners();
+            }
+          }
+        });
         if (newState == _InternalState.recording) {
           await _notificationWhenAppIsKilledPlugin.setNotificationOnKillService(
             ArgsForKillNotification(

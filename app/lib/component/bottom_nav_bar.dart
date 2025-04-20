@@ -24,11 +24,11 @@ class BottomNavBar extends StatelessWidget {
         child: Container(
           height: 64,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.8),
+            color: Colors.white.withValues(alpha: 0.8),
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -62,13 +62,13 @@ class BottomNavBar extends StatelessWidget {
           child: Container(
             decoration: isSelected
                 ? BoxDecoration(
-                    color: Colors.white.withOpacity(0.5),
+                    color: Colors.white.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(8),
                   )
                 : null,
             child: Padding(
               padding: const EdgeInsets.all(8),
-              child: index == 3 && hasUpdateNotification()
+              child: index == 4 && hasUpdateNotification()
                   ? badges.Badge(
                       badgeStyle: badges.BadgeStyle(
                         shape: badges.BadgeShape.square,

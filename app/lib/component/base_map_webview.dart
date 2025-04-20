@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/gps_manager.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -43,6 +44,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   // It is rough because we don't update it frequently.
   MapView? _currentRoughMapView;
 
+  // For bug workaround
+  bool _isiOS18 = false;
+
   @override
   void didUpdateWidget(BaseMapWebview oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -83,6 +87,18 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       }
     });
     _initWebView();
+
+    () async {
+      if (Platform.isIOS) {
+        DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+        var iosInfo = await deviceInfo.iosInfo;
+        if (iosInfo.systemVersion.startsWith('18.')) {
+          setState(() {
+            _isiOS18 = true;
+          });
+        }
+      }
+    }();
   }
 
   @override
@@ -223,8 +239,10 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   Widget build(BuildContext context) {
     // TODO: The `IgnorePointer` is a workaround for a bug in the webview on iOS.
     // https://github.com/flutter/flutter/issues/165305
+    // But unfortunately, it only works for iOS 18, so we still have this weird
+    // double tap behavior on older iOS versions.
     return IgnorePointer(
-      ignoring: Platform.isIOS,
+      ignoring: _isiOS18,
       child: WebViewWidget(
           key: const ValueKey('map_webview'), controller: _webViewController),
     );

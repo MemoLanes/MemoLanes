@@ -9,14 +9,13 @@ use crate::cache_db::LayerKind as InternalLayerKind;
 use crate::gps_processor::{GpsPreprocessor, ProcessResult};
 use crate::journey_bitmap::{JourneyBitmap, MAP_WIDTH_OFFSET, TILE_WIDTH, TILE_WIDTH_OFFSET};
 use crate::journey_data::JourneyData;
-use crate::journey_header::{JourneyHeader, JourneyKind};
+use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::renderer::map_server::MapRendererToken;
 use crate::renderer::MapRenderer;
 use crate::renderer::MapServer;
 use crate::storage::Storage;
 use crate::{
-    archive, build_info, export_data, gps_processor, journey_area_utils, main_db,
-    merged_journey_builder, storage,
+    archive, build_info, export_data, gps_processor, main_db, merged_journey_builder, storage,
 };
 use crate::{logs, utils};
 use serde::{Deserialize, Serialize};
@@ -530,10 +529,8 @@ pub fn optimize_main_db() -> Result<()> {
 }
 
 pub fn area_of_main_map() -> u64 {
-    // TODO: this is pretty naive
-    let main_map_renderer = get().main_map_renderer.lock().unwrap();
-    let journey_bitmap = main_map_renderer.peek_latest_bitmap();
-    journey_area_utils::compute_journey_bitmap_area(journey_bitmap)
+    let mut main_map_renderer = get().main_map_renderer.lock().unwrap();
+    main_map_renderer.get_current_area()
 }
 
 pub fn restart_map_server() -> Result<()> {
@@ -550,6 +547,24 @@ pub fn rebuild_cache() -> Result<()> {
         .get_latest_bitmap_for_main_map_renderer(&InternalLayerKind::All)?;
     state.main_map_renderer.lock().unwrap().replace(bitmap);
     Ok(())
+}
+
+// This is used for showing additional prompt to the user when trying to import
+// multiple FoW data. Bitmap does not necessarily mean FoW data, but this is
+// good enough.
+pub fn contains_bitmap_journey() -> Result<bool> {
+    // TODO: we should just have a real SQL query for this, instead of a liner
+    // scan that involves deserializing all journey heads.
+    let journey_headers = get()
+        .storage
+        .with_db_txn(|txn| txn.query_journeys(None, None))?;
+
+    Ok(journey_headers
+        .iter()
+        .any(|header| match header.journey_type {
+            JourneyType::Bitmap => true,
+            JourneyType::Vector => false,
+        }))
 }
 
 /// flutter_rust_bridge:ignore
