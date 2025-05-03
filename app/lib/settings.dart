@@ -8,8 +8,10 @@ import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/utils.dart';
 import 'package:memolanes/raw_data.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'import_data.dart';
@@ -22,6 +24,8 @@ class SettingsBody extends StatefulWidget {
 }
 
 class _SettingsBodyState extends State<SettingsBody> {
+  bool _isNotificationEnabled = false;
+
   _launchUrl(String updateUrl) async {
     final url = Uri.parse(updateUrl);
     if (await canLaunchUrl(url)) {
@@ -32,7 +36,9 @@ class _SettingsBodyState extends State<SettingsBody> {
   }
 
   Future<void> _selectImportFile(
-      BuildContext context, ImportType importType) async {
+    BuildContext context,
+    ImportType importType,
+  ) async {
     // TODO: FilePicker is weird and `allowedExtensions` does not really work.
     // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
     // List<String> allowedExtensions;
@@ -44,13 +50,22 @@ class _SettingsBodyState extends State<SettingsBody> {
     final result = await FilePicker.platform.pickFiles(type: FileType.any);
     final path = result?.files.single.path;
     if (path != null && context.mounted) {
-      Navigator.push(context, MaterialPageRoute(builder: (context) {
-        return ImportDataPage(
-          path: path,
-          importType: importType,
-        );
-      }));
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) {
+            return ImportDataPage(path: path, importType: importType);
+          },
+        ),
+      );
     }
+  }
+
+  Future<void> _loadNotificationStatus() async {
+    final status = await PreferencesManager.getNotificationStatus();
+    setState(() {
+      _isNotificationEnabled = status;
+    });
   }
 
   @override
@@ -81,7 +96,8 @@ class _SettingsBodyState extends State<SettingsBody> {
                 await showCommonDialog(
                   context,
                   context.tr(
-                      "import_fow_data.warning_for_import_multiple_data_md"),
+                    "import_fow_data.warning_for_import_multiple_data_md",
+                  ),
                   markdown: true,
                 );
               }
@@ -94,8 +110,10 @@ class _SettingsBodyState extends State<SettingsBody> {
           ElevatedButton(
             onPressed: () async {
               if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
-                await showCommonDialog(context,
-                    "Please stop the current ongoing journey before archiving.");
+                await showCommonDialog(
+                  context,
+                  "Please stop the current ongoing journey before archiving.",
+                );
                 return;
               }
               var tmpDir = await getTemporaryDirectory();
@@ -116,17 +134,21 @@ class _SettingsBodyState extends State<SettingsBody> {
           ElevatedButton(
             onPressed: () async {
               if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
-                await showCommonDialog(context,
-                    "Please stop the current ongoing journey before deleting all journeys.");
+                await showCommonDialog(
+                  context,
+                  "Please stop the current ongoing journey before deleting all journeys.",
+                );
                 return;
               }
-              if (!await showCommonDialog(context,
-                  "This will delete all journeys in this app. Are you sure?",
-                  hasCancel: true,
-                  title: context.tr("journey.delete_journey_title"),
-                  confirmButtonText: context.tr("journey.delete"),
-                  confirmGroundColor: Colors.red,
-                  confirmTextColor: Colors.white)) {
+              if (!await showCommonDialog(
+                context,
+                "This will delete all journeys in this app. Are you sure?",
+                hasCancel: true,
+                title: context.tr("journey.delete_journey_title"),
+                confirmButtonText: context.tr("journey.delete"),
+                confirmGroundColor: Colors.red,
+                confirmTextColor: Colors.white,
+              )) {
                 return;
               }
               try {
@@ -146,16 +168,18 @@ class _SettingsBodyState extends State<SettingsBody> {
             onPressed: () async {
               // TODO: FilePicker is weird and `allowedExtensions` does not really work.
               // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
-              var result =
-                  await FilePicker.platform.pickFiles(type: FileType.any);
+              var result = await FilePicker.platform.pickFiles(
+                type: FileType.any,
+              );
               if (!context.mounted) return;
               if (result != null) {
                 var path = result.files.single.path;
                 if (path != null) {
                   try {
                     await showLoadingDialog(
-                        context: context,
-                        asyncTask: api.importArchive(mldxFilePath: path));
+                      context: context,
+                      asyncTask: api.importArchive(mldxFilePath: path),
+                    );
                     if (context.mounted) {
                       await showCommonDialog(
                         context,
@@ -184,11 +208,15 @@ class _SettingsBodyState extends State<SettingsBody> {
               } else {
                 if (!context.mounted) return;
                 if (await showCommonDialog(
-                    context, context.tr("db_optimization.confirm"),
-                    hasCancel: true)) {
+                  context,
+                  context.tr("db_optimization.confirm"),
+                  hasCancel: true,
+                )) {
                   if (!context.mounted) return;
                   await showLoadingDialog(
-                      context: context, asyncTask: api.optimizeMainDb());
+                    context: context,
+                    asyncTask: api.optimizeMainDb(),
+                  );
                   if (!context.mounted) return;
                   await showCommonDialog(
                     context,
@@ -218,30 +246,90 @@ class _SettingsBodyState extends State<SettingsBody> {
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.push(context, MaterialPageRoute(
-                builder: (context) {
-                  return RawDataPage();
-                },
-              ));
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) {
+                    return RawDataPage();
+                  },
+                ),
+              );
             },
             child: const Text("Raw Data Mode"),
           ),
           ElevatedButton(
             onPressed: () async {
               await showLoadingDialog(
-                  context: context, asyncTask: api.rebuildCache());
+                context: context,
+                asyncTask: api.rebuildCache(),
+              );
             },
             child: const Text("Rebuild Cache"),
+          ),
+          Row(
+            children: [
+              const Text("Allow Notification"),
+              Spacer(),
+              Switch(
+                value: _isNotificationEnabled,
+                onChanged: (value) {
+                  setState(() async {
+                    _isNotificationEnabled = value;
+                    if (value) {
+                      if (!await Permission.notification.isGranted) {
+                        await showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                              title: Text(context.tr('permission.tips')),
+                              content: Text(
+                                context.tr(
+                                  'permission.notification_not_allowed',
+                                ),
+                              ),
+                              actions: [
+                                TextButton(
+                                  child: Text(context.tr('permission.i_know')),
+                                  onPressed: () => Navigator.of(context).pop(),
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                      }
+                    }
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: Text(context.tr('permission.tips')),
+                          content: Text(
+                            context.tr(
+                              'permission.notification_affect_next_time',
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              child: Text(context.tr('permission.i_know')),
+                              onPressed: () => Navigator.of(context).pop(),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  });
+                },
+              ),
+            ],
           ),
           if (updateUrl != null) ...[
             ElevatedButton(
               onPressed: () async {
                 _launchUrl(updateUrl);
               },
-              child: const Text(
-                "Update",
-                style: TextStyle(color: Colors.red),
-              ),
+              child: const Text("Update", style: TextStyle(color: Colors.red)),
             ),
           ],
           Center(
@@ -273,5 +361,19 @@ class UpdateNotifier extends ChangeNotifier {
 
   bool hasUpdateNotification() {
     return updateUrl != null;
+  }
+}
+
+class PreferencesManager {
+  static const String _notificationKey = 'isNotificationEnabled';
+
+  static Future<bool> getNotificationStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_notificationKey) ?? false;
+  }
+
+  static Future<void> setNotificationStatus(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_notificationKey, value);
   }
 }

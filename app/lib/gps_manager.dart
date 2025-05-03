@@ -1,10 +1,15 @@
 import 'dart:async';
 import 'dart:developer';
+import 'dart:io';
 
 import 'package:async/async.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:memolanes/main.dart';
+import 'package:memolanes/settings.dart';
 import 'package:mutex/mutex.dart';
 import 'package:notification_when_app_is_killed/model/args_for_ios.dart';
 import 'package:notification_when_app_is_killed/model/args_for_kill_notification.dart';
@@ -108,7 +113,7 @@ class GpsManager extends ChangeNotifier {
       bool? recordState = prefs.getBool(isRecordingPrefsKey);
       if (recordState != null &&
           recordState == true &&
-          await _checkPermission()) {
+          await _checkLocationPermission()) {
         recordingStatus = GpsRecordingStatus.recording;
       } else {
         if (await api.hasOngoingJourney()) {
@@ -212,11 +217,8 @@ class GpsManager extends ChangeNotifier {
         rawDataList: rawDataList, receviedTimestampMs: receviedTimestampMs);
   }
 
-  Future<bool> _checkPermission() async {
+  Future<bool> _checkLocationPermission() async {
     try {
-      if (!await Permission.notification.isGranted) {
-        return false;
-      }
       if (!await Geolocator.isLocationServiceEnabled()) {
         return false;
       }
@@ -230,7 +232,41 @@ class GpsManager extends ChangeNotifier {
     }
   }
 
-  Future<void> _requestPermission() async {
+  Future<void> _requestNotificationPermission() async {
+    final status = await Permission.notification.status;
+
+    if (status.isGranted) {
+      await PreferencesManager.setNotificationStatus(true);
+      return;
+    }
+
+    await showDialog(
+      context: navigatorKey.currentState!.context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(context.tr('permission.tips')),
+          content: Text(context.tr('permission.notification_reason')),
+          actions: [
+            TextButton(
+              child: Text(context.tr('permission.i_know')),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
+        );
+      },
+    );
+
+    final result = await Permission.notification.request();
+
+    if (result.isGranted) {
+      await PreferencesManager.setNotificationStatus(true);
+    } else {
+      await PreferencesManager.setNotificationStatus(false);
+    }
+  }
+
+  Future<void> _requestLocationPermission() async {
     // TODO: I think there are still a lot we could improve here:
     // 1. more guidance?
     // 2. Using dialog instead of toast for some cases.
@@ -241,20 +277,45 @@ class GpsManager extends ChangeNotifier {
       }
     }
 
-    if (await Permission.location.isPermanentlyDenied ||
-        await Permission.notification.isPermanentlyDenied) {
+    if (await Permission.location.isPermanentlyDenied) {
+      await showDialog(
+        context: navigatorKey.currentState!.context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text(context.tr('permission.tips')),
+            content: Text(context.tr('permission.position_not_allowed')),
+            actions: [
+              TextButton(
+                child: Text(context.tr('permission.i_know')),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          );
+        },
+      );
       await Geolocator.openAppSettings();
-      throw "Please allow location & notification permissions";
-    }
-
-    if (!await Permission.notification.isGranted) {
-      if (!await Permission.notification.request().isGranted) {
-        throw "notification permission not granted";
-      }
+      throw "Please allow location permissions";
     }
 
     if (!await Permission.location.isGranted) {
       if (!await Permission.location.request().isGranted) {
+        await showDialog(
+          context: navigatorKey.currentState!.context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text(context.tr('permission.tips')),
+              content: Text(context.tr('permission.position_not_allowed')),
+              actions: [
+                TextButton(
+                  child: Text(context.tr('permission.i_know')),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            );
+          },
+        );
         throw "location permission not granted";
       }
     }
@@ -340,7 +401,8 @@ class GpsManager extends ChangeNotifier {
             }
           }
         });
-        if (newState == _InternalState.recording) {
+        if (newState == _InternalState.recording &&
+            await PreferencesManager.getNotificationStatus()) {
           await _notificationWhenAppIsKilledPlugin.setNotificationOnKillService(
             ArgsForKillNotification(
                 title: 'Recording was unexpectedly stopped',
@@ -360,11 +422,12 @@ class GpsManager extends ChangeNotifier {
 
   Future<bool> _checkAndRequestPermission() async {
     try {
-      if (await _checkPermission()) {
+      if (await _checkLocationPermission()) {
         return true;
       }
-      await _requestPermission();
-      var hasPermission = await _checkPermission();
+      await _requestLocationPermission();
+      await _requestNotificationPermission();
+      var hasPermission = await _checkLocationPermission();
       if (!hasPermission) {
         Fluttertoast.showToast(msg: "Permission not granted");
       }
