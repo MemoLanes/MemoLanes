@@ -1,15 +1,10 @@
-#[cfg(feature = "wasm")]
 use image::Rgba;
 use std::f64::consts::PI;
 
-#[cfg(feature = "wasm")]
 pub const DEFAULT_BG_COLOR: Rgba<u8> = Rgba([0, 0, 0, 127]);
-#[cfg(feature = "wasm")]
 pub const DEFAULT_FG_COLOR: Rgba<u8> = Rgba([0, 0, 0, 0]);
 
-#[cfg(feature = "wasm")]
 pub const DEFAULT_TILE_SIZE_POWER: i16 = 8;
-#[cfg(feature = "wasm")]
 pub const DEFAULT_TILE_SIZE: u32 = 1 << DEFAULT_TILE_SIZE_POWER;
 
 // https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames

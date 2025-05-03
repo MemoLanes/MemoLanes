@@ -1,11 +1,7 @@
 use crate::journey_bitmap::JourneyBitmap as JourneyBitmapNative;
 use crate::tile_shader::TileShader;
-use crate::utils::DEFAULT_TILE_SIZE;
-use crate::utils::DEFAULT_TILE_SIZE_POWER;
-use crate::utils::{DEFAULT_BG_COLOR, DEFAULT_FG_COLOR};
 use wasm_bindgen::prelude::*;
 extern crate console_error_panic_hook;
-use image::RgbaImage;
 use wasm_bindgen::JsError;
 
 #[wasm_bindgen]
@@ -23,20 +19,7 @@ pub struct JourneyBitmap {
 impl JourneyBitmap {
     #[wasm_bindgen]
     pub fn get_tile_image(&self, view_x: i64, view_y: i64, zoom: i16) -> Vec<u8> {
-        let mut image = RgbaImage::new(DEFAULT_TILE_SIZE, DEFAULT_TILE_SIZE);
-        TileShader::render_on_image(
-            &mut image,
-            0,
-            0,
-            &self.journey_bitmap,
-            view_x,
-            view_y,
-            zoom,
-            DEFAULT_TILE_SIZE_POWER,
-            DEFAULT_BG_COLOR,
-            DEFAULT_FG_COLOR,
-        );
-        image.into_vec()
+        TileShader::get_tile_image(&self.journey_bitmap, view_x, view_y, zoom)
     }
 
     #[wasm_bindgen]
