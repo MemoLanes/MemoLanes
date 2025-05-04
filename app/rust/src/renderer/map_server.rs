@@ -139,6 +139,24 @@ async fn serve_journey_tile(
     }
 }
 
+// TODO: this api cannot work with `serve_journey_bitmap_by_id` api, as they are both not idempotent.
+// currently the client should only choose one of the two api to use.
+// we may consider use other method (eg, brings a timestamp or hash when checking.)
+async fn serve_journey_bitmap_up_to_date_by_id(
+    id: web::Path<Uuid>,
+    data: web::Data<Arc<Mutex<Registry>>>,
+) -> HttpResponse {
+    let registry = data.lock().unwrap();
+    match registry.get(&id) {
+        Some(item) => {
+            let mut map_renderer = item.lock().unwrap();
+            let is_changed = map_renderer.get_latest_bitmap_if_changed().is_some();
+            HttpResponse::Ok().json(is_changed)
+        }
+        None => HttpResponse::NotFound().finish(),
+    }
+}
+
 pub struct ServerInfo {
     host: String,
     port: u16,
@@ -178,6 +196,10 @@ impl MapServer {
                     .route(
                         "/journey/{id}/provisioned_camera_option",
                         web::get().to(serve_journey_bitmap_provisioned_camera_option_by_id),
+                    )
+                    .route(
+                        "/journey/{id}/up_to_date",
+                        web::get().to(serve_journey_bitmap_up_to_date_by_id),
                     )
                     .route(
                         "/journey/{id}/tile/{z}/{x}/{y}.png",
