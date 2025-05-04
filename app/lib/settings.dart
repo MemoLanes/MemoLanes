@@ -26,6 +26,12 @@ class SettingsBody extends StatefulWidget {
 class _SettingsBodyState extends State<SettingsBody> {
   bool _isNotificationEnabled = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadNotificationStatus();
+  }
+
   _launchUrl(String updateUrl) async {
     final url = Uri.parse(updateUrl);
     if (await canLaunchUrl(url)) {
@@ -272,12 +278,12 @@ class _SettingsBodyState extends State<SettingsBody> {
               Spacer(),
               Switch(
                 value: _isNotificationEnabled,
-                onChanged: (value) {
-                  setState(() async {
-                    _isNotificationEnabled = value;
+                onChanged: (value) async {
+                  final status = await Permission.notification.status;
+                  setState(() {
                     if (value) {
-                      if (!await Permission.notification.isGranted) {
-                        await showDialog(
+                      if (!status.isGranted) {
+                        showDialog(
                           context: context,
                           barrierDismissible: false,
                           builder: (BuildContext context) {
@@ -299,6 +305,8 @@ class _SettingsBodyState extends State<SettingsBody> {
                         );
                       }
                     }
+                    _isNotificationEnabled = value;
+                    PreferencesManager.setNotificationStatus(value);
                     showDialog(
                       context: context,
                       barrierDismissible: false,
