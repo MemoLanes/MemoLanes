@@ -127,7 +127,10 @@ class _SettingsBodyState extends State<SettingsBody> {
               var tmpDir = await getTemporaryDirectory();
               var ts = DateTime.now().millisecondsSinceEpoch;
               var filepath = "${tmpDir.path}/${ts.toString()}.mldx";
-              await api.generateFullArchive(targetFilepath: filepath);
+              await showLoadingDialog(
+                context: context,
+                asyncTask: api.generateFullArchive(targetFilepath: filepath),
+              );
               await Share.shareXFiles([XFile(filepath)]);
               try {
                 var file = File(filepath);
