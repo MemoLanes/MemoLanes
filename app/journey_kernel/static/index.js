@@ -22,6 +22,9 @@ async function initializeMap() {
         center: [0, 0],
         zoom: 2
     };
+    
+    // Default frontEndRendering to true
+    let frontEndRendering = true;
 
     if (hash) {
         const params = new URLSearchParams(hash);
@@ -29,6 +32,13 @@ async function initializeMap() {
         const lng = parseFloat(params.get('lng'));
         const lat = parseFloat(params.get('lat'));
         const zoom = parseFloat(params.get('zoom'));
+        // Parse frontEndRendering parameter, default to true
+        const frontEndRenderingParam = params.get('frontEndRendering');
+        if (frontEndRenderingParam !== null) {
+            frontEndRendering = frontEndRenderingParam.toLowerCase() === 'true';
+        }
+
+        console.log(`journey_id: ${currentJourneyId}, frontEndRendering: ${frontEndRendering}, lng: ${lng}, lat: ${lat}, zoom: ${zoom}`);
 
         if (!isNaN(lng) && !isNaN(lat) && !isNaN(zoom)) {
             initialView = {
@@ -86,7 +96,10 @@ async function initializeMap() {
         }
     };
 
-    currentJourneyTileProvider = new JourneyTileProvider(map, currentJourneyId);
+    currentJourneyTileProvider = new JourneyTileProvider(map, currentJourneyId, frontEndRendering);
+    if (frontEndRendering) {
+        await currentJourneyTileProvider.pollForJourneyUpdates(true);
+    }
 
     // Create and store journey layer
     currentJourneyLayer = new JourneyCanvasLayer(map, currentJourneyTileProvider);
@@ -101,7 +114,9 @@ async function initializeMap() {
         },
     });
     currentJourneyLayer.render();
-    map.addLayer(currentJourneyLayer);
+
+    // TODO: only use for custom gl layer
+    // map.addLayer(currentJourneyLayer);
 
     map.on("move", () => currentJourneyLayer.render());
     map.on("moveend", () => currentJourneyLayer.render());

@@ -202,7 +202,7 @@ impl MapServer {
                         web::get().to(serve_journey_bitmap_up_to_date_by_id),
                     )
                     .route(
-                        "/journey/{id}/tile/{z}/{x}/{y}.png",
+                        "/journey/{id}/tiles/{z}/{x}/{y}.png",
                         web::get().to(serve_journey_tile),
                     )
                     .route("/", web::get().to(index))

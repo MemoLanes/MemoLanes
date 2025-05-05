@@ -22,7 +22,7 @@ export class JourneyCanvasLayer {
         };
     }
 
-    render() {
+    render(forceRender = false) {
         const zoom = Math.floor(this.map.getZoom());
         const bounds = this.map.getBounds();
 
@@ -42,7 +42,7 @@ export class JourneyCanvasLayer {
 
         const tileRange = [left, top, right, bottom];
 
-        if (!this.arraysEqual(this.currentTileRange, tileRange) || this.currentZoom !== zoom) {
+        if (forceRender || !this.arraysEqual(this.currentTileRange, tileRange) || this.currentZoom !== zoom) {
             console.log(`Rendering tiles for zoom ${zoom}, range: `, tileRange);
             this.currentTileRange = tileRange;
             this.currentZoom = zoom;
@@ -150,18 +150,25 @@ export class JourneyCanvasLayer {
             a.every((val, index) => val === b[index]);
     }
 
-    // TODO: deprecated, remove when server-side rendering is implemented.
-    // Add new method to update journey bitmap
-    updateJourneyBitmap(newBitmap) {
-        this.journeyBitmap = newBitmap;
-        // Force a re-render by invalidating the current tile range
-        this.currentTileRange = [-1, -1, -1, -1];
-        this.render();
-    }
-
-    handleProviderUpdate() {
-        this.currentTileRange = [-1, -1, -1, -1];
-        this.render();
+    handleProviderUpdate(tileKey) {
+        if (tileKey) {
+            // Only a specific tile was updated
+            const [z, x, y] = tileKey.split('/').map(Number);
+            if (z === this.currentZoom) {
+                const [left, top, right, bottom] = this.currentTileRange;
+                if (x >= left && x <= right && y >= top && y <= bottom) {
+                    // TODO: only redraw if the tile is in the visible range
+                    // this.renderTile(x, y, z);
+                    this.render(true);
+                    this.map.getSource("main-canvas-source")?.play();
+                    this.map.getSource("main-canvas-source")?.pause();
+                }
+            }
+        } else {
+            // Full update needed
+            this.currentTileRange = [-1, -1, -1, -1];
+            this.render();
+        }
     }
 
     onRemove() {

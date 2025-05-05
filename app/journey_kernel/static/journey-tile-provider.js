@@ -6,9 +6,19 @@ export class JourneyTileProvider {
         this.journeyId = journeyId;
         this.frontEndRendering = frontEndRendering;
         this.onUpdateCallbacks = []; // Array to store update callbacks
+        this.tileCache = new Map(); // In-memory tile cache
+        
+        // Create blank tile image data once
+        const blankCanvas = document.createElement('canvas');
+        blankCanvas.width = 256;
+        blankCanvas.height = 256;
+        const ctx = blankCanvas.getContext('2d');
+        ctx.fillStyle = 'rgba(0,0,0,0)'; // Transparent
+        ctx.fillRect(0, 0, 256, 256);
+        this.blankTileData = ctx.getImageData(0, 0, 256, 256).data;
 
         if (this.frontEndRendering) {
-            this.pollForJourneyUpdates(true);
+            // this.pollForJourneyUpdates(true);
         } else {
             // TODO: server-side rendering
         }
@@ -19,8 +29,58 @@ export class JourneyTileProvider {
         if (this.frontEndRendering) {
             return this.journeyBitmap.get_tile_image(BigInt(x), BigInt(y), z);
         } else {
-            // TODO: render the tile image on the server side.
-            return null;
+            // Server-side rendering
+            const tileKey = `${z}/${x}/${y}`;
+            
+            // Check cache first
+            if (this.tileCache.has(tileKey)) {
+                return this.tileCache.get(tileKey);
+            }
+            
+            // Return blank tile immediately
+            const blankTile = new Uint8ClampedArray(this.blankTileData);
+            
+            // Fetch from server asynchronously
+            this.fetchTileFromServer(x, y, z, tileKey);
+            
+            return blankTile;
+        }
+    }
+
+    async fetchTileFromServer(x, y, z, tileKey) {
+        try {
+            const tilePath = getJourneyTileFilePathWithId(this.journeyId, x, y, z);
+            const response = await fetch(tilePath, {
+                cache: 'force-cache' // Use browser's cache
+            });
+            
+            if (!response.ok) throw new Error(`Failed to fetch tile: ${response.status}`);
+            
+            const blob = await response.blob();
+            const bitmap = await createImageBitmap(blob);
+            
+            // Draw the bitmap to a canvas to get image data
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(bitmap, 0, 0);
+            const imageData = ctx.getImageData(0, 0, 256, 256).data;
+            
+            // Store in cache
+            this.tileCache.set(tileKey, imageData);
+            
+            // Notify that we need to redraw
+            this.notifyTileUpdate(tileKey);
+        } catch (error) {
+            console.error('Error fetching tile:', error);
+        }
+    }
+
+    // Add a method to notify when a specific tile is updated
+    notifyTileUpdate(tileKey) {
+        for (const callback of this.onUpdateCallbacks) {
+            callback(tileKey);
         }
     }
 
