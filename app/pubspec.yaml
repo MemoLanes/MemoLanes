@@ -67,6 +67,7 @@ dependencies:
   pointer_interceptor: ^0.10.1+2
   font_awesome_flutter: ^10.8.0
   flutter_markdown_plus: ^1.0.3
+  flutter_file_saver: ^0.9.0
 
 dependency_overrides:
   geolocator_android:

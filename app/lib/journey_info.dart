@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_file_saver/flutter_file_saver.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:memolanes/component/base_map_webview.dart';
 import 'package:memolanes/journey_edit.dart';
@@ -149,12 +150,13 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                       size: 40,
                     ),
                     onPressed: () async {
-                      String filepath =
-                          await _saveFile(journeyHeader, exportType);
-                      if (!context.mounted) return;
-                      await showCommonDialog(context, filepath,
-                          title: context.tr("journey.save_journey_data_title"),
-                          confirmButtonText: context.tr("common.ok"));
+                      final file =
+                          File(await _saveFile(journeyHeader, exportType));
+                      await FlutterFileSaver().writeFileAsBytes(
+                        fileName:
+                            "${journeyHeader.revision}.${exportType.name}",
+                        bytes: await file.readAsBytes(),
+                      );
                       if (!context.mounted) return;
                       Navigator.of(context).pop();
                     },
