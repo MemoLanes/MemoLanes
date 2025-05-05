@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import 'component/common_dialog.dart';
+import 'component/common_export.dart';
 
 Future<bool> showCommonDialog(BuildContext context, String message,
     {hasCancel = false,
@@ -92,4 +93,15 @@ Future<T> showLoadingDialog<T>({
     }
   }
   return result;
+}
+
+Future<bool> showCommonExport(BuildContext context, filePath) async {
+  var result = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext context) {
+      return CommonExport(filePath: filePath);
+    },
+  );
+  return result ?? false;
 }

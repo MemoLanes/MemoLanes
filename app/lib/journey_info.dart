@@ -1,9 +1,5 @@
-import 'dart:io';
-
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_file_saver/flutter_file_saver.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:memolanes/component/base_map_webview.dart';
 import 'package:memolanes/journey_edit.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -12,7 +8,6 @@ import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:memolanes/utils.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 enum ExportType { mldx, kml, gpx }
 
@@ -112,80 +107,9 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     return filepath;
   }
 
-  _share(JourneyHeader journeyHeader, ExportType exportType) async {
-    String filepath = await _saveFile(journeyHeader, exportType);
-    await Share.shareXFiles([XFile(filepath)]);
-    try {
-      await File(filepath).delete();
-    } catch (e) {
-      debugPrint('Failed to delete file: $e');
-    }
-  }
-
-  _export(ExportType exportType) {
-    if (Platform.isAndroid) {
-      _showDialog(context, widget.journeyHeader, exportType);
-    } else if (Platform.isIOS) {
-      _share(widget.journeyHeader, exportType);
-    }
-  }
-
-  _showDialog(BuildContext context, JourneyHeader journeyHeader,
-      ExportType exportType) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(context.tr("journey.export_journey_data_title")),
-          content: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: FaIcon(
-                      FontAwesomeIcons.floppyDisk,
-                      size: 40,
-                    ),
-                    onPressed: () async {
-                      final file =
-                          File(await _saveFile(journeyHeader, exportType));
-                      await FlutterFileSaver().writeFileAsBytes(
-                        fileName:
-                            "${journeyHeader.revision}.${exportType.name}",
-                        bytes: await file.readAsBytes(),
-                      );
-                      if (!context.mounted) return;
-                      Navigator.of(context).pop();
-                    },
-                  ),
-                  Text(context.tr("journey.save_journey_data_title")),
-                ],
-              ),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: FaIcon(
-                      FontAwesomeIcons.shareFromSquare,
-                      size: 40,
-                    ),
-                    onPressed: () {
-                      _share(journeyHeader, exportType);
-                      Navigator.of(context).pop();
-                    },
-                  ),
-                  Text(context.tr("journey.share_journey_data_title")),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
+  _export(ExportType exportType) async {
+    String filePath = await _saveFile(widget.journeyHeader, exportType);
+    await showCommonExport(context, filePath);
   }
 
   @override
