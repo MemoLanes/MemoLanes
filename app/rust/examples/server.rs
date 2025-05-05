@@ -56,7 +56,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap()
         .register_map_renderer(Arc::new(Mutex::new(map_renderer_static)));
     println!("view static map at: {}", token.url());
-    println!("view static map (server-side rendering) at: {}&frontEndRendering=false", token.url());
+    println!(
+        "view static map (server-side rendering) at: {}&frontEndRendering=false",
+        token.url()
+    );
 
     // demo for a dynamic map
     let journey_bitmap2 = JourneyBitmap::new();
