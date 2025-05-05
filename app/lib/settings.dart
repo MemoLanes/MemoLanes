@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/gps_manager.dart';
+import 'package:memolanes/preferences_manager.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/utils.dart';
 import 'package:memolanes/raw_data.dart';
@@ -11,7 +13,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'import_data.dart';
@@ -280,54 +281,34 @@ class _SettingsBodyState extends State<SettingsBody> {
                 value: _isNotificationEnabled,
                 onChanged: (value) async {
                   final status = await Permission.notification.status;
-                  setState(() {
-                    if (value) {
-                      if (!status.isGranted) {
-                        showDialog(
-                          context: context,
-                          barrierDismissible: false,
-                          builder: (BuildContext context) {
-                            return AlertDialog(
-                              title: Text(context.tr('permission.tips')),
-                              content: Text(
-                                context.tr(
-                                  'permission.notification_not_allowed',
-                                ),
-                              ),
-                              actions: [
-                                TextButton(
-                                  child: Text(context.tr('permission.i_know')),
-                                  onPressed: () => Navigator.of(context).pop(),
-                                ),
-                              ],
-                            );
-                          },
-                        );
-                      }
+                  if (value) {
+                    if (!status.isGranted) {
+                      setState(() {
+                        _isNotificationEnabled = false;
+                      });
+
+                      if (!context.mounted) return;
+                      await showCommonDialog(
+                        context,
+                        context.tr('permission.notification_not_allowed'),
+                      );
+                      Geolocator.openAppSettings();
+                      return;
                     }
+                  }
+                  await PreferencesManager.setNotificationStatus(value);
+                  setState(() {
                     _isNotificationEnabled = value;
-                    PreferencesManager.setNotificationStatus(value);
-                    showDialog(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (BuildContext context) {
-                        return AlertDialog(
-                          title: Text(context.tr('permission.tips')),
-                          content: Text(
-                            context.tr(
-                              'permission.notification_affect_next_time',
-                            ),
-                          ),
-                          actions: [
-                            TextButton(
-                              child: Text(context.tr('permission.i_know')),
-                              onPressed: () => Navigator.of(context).pop(),
-                            ),
-                          ],
-                        );
-                      },
-                    );
                   });
+                  if (gpsManager.recordingStatus ==
+                      GpsRecordingStatus.recording) {
+                    if (!context.mounted) return;
+                    await showCommonDialog(
+                        context,
+                        context.tr(
+                          'permission.notification_affect_next_time',
+                        ));
+                  }
                 },
               ),
             ],
@@ -369,19 +350,5 @@ class UpdateNotifier extends ChangeNotifier {
 
   bool hasUpdateNotification() {
     return updateUrl != null;
-  }
-}
-
-class PreferencesManager {
-  static const String _notificationKey = 'isNotificationEnabled';
-
-  static Future<bool> getNotificationStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_notificationKey) ?? false;
-  }
-
-  static Future<void> setNotificationStatus(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_notificationKey, value);
   }
 }

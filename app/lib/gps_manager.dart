@@ -8,7 +8,8 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/main.dart';
-import 'package:memolanes/settings.dart';
+import 'package:memolanes/preferences_manager.dart';
+import 'package:memolanes/utils.dart';
 import 'package:mutex/mutex.dart';
 import 'package:notification_when_app_is_killed/model/args_for_ios.dart';
 import 'package:notification_when_app_is_killed/model/args_for_kill_notification.dart';
@@ -241,22 +242,8 @@ class GpsManager extends ChangeNotifier {
 
     var context = navigatorKey.currentState?.context;
     if (context != null && context.mounted) {
-      await showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: Text(context.tr('permission.tips')),
-            content: Text(context.tr('permission.notification_reason')),
-            actions: [
-              TextButton(
-                child: Text(context.tr('permission.i_know')),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          );
-        },
-      );
+      await showCommonDialog(
+          context, context.tr('permission.notification_reason'));
     }
 
     final result = await Permission.notification.request();
@@ -265,6 +252,14 @@ class GpsManager extends ChangeNotifier {
       await PreferencesManager.setNotificationStatus(true);
     } else {
       await PreferencesManager.setNotificationStatus(false);
+    }
+  }
+
+  Future<void> _locationPermissionDeniedDialog() async {
+    var context = navigatorKey.currentState?.context;
+    if (context != null && context.mounted) {
+      await showCommonDialog(
+          context, context.tr('permission.position_not_allowed'));
     }
   }
 
@@ -280,51 +275,15 @@ class GpsManager extends ChangeNotifier {
     }
 
     if (await Permission.location.isPermanentlyDenied) {
-      var context = navigatorKey.currentState?.context;
-      if (context != null && context.mounted) {
-        await showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: Text(context.tr('permission.tips')),
-              content: Text(context.tr('permission.position_not_allowed')),
-              actions: [
-                TextButton(
-                  child: Text(context.tr('permission.i_know')),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-            );
-          },
-        );
-      }
+      await _locationPermissionDeniedDialog();
       await Geolocator.openAppSettings();
       throw "Please allow location permissions";
     }
 
     if (!await Permission.location.isGranted) {
       if (!await Permission.location.request().isGranted) {
-        var context = navigatorKey.currentState?.context;
-        if (context != null && context.mounted) {
-          await showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (BuildContext context) {
-              return AlertDialog(
-                title: Text(context.tr('permission.tips')),
-                content: Text(context.tr('permission.position_not_allowed')),
-                actions: [
-                  TextButton(
-                    child: Text(context.tr('permission.i_know')),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              );
-            },
-          );
-          throw "location permission not granted";
-        }
+        await _locationPermissionDeniedDialog();
+        throw "location permission not granted";
       }
     }
 

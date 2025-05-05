@@ -40,8 +40,6 @@
     "notification_not_allowed": "您已拒绝获取通知权限，请在设置中打开。",
     "notification_reason": "为了在程序退出时提醒您，我们将请求通知权限。",
     "notification_affect_next_time": "您的修改将在下一次记录中生效。",
-    "position_not_allowed": "您已拒绝获取位置权限，为了保障定位功能的使用，请在设置中打开。",
-    "tips": "温馨提醒",
-    "i_know": "我知道了"
+    "position_not_allowed": "您已拒绝获取位置权限，为了保障定位功能的使用，请在设置中打开。"
   }
 }

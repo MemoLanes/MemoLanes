@@ -40,8 +40,6 @@
     "notification_not_allowed": "You have denied permission. You can modify it later in settings.",
     "notification_reason": "In order to remind you when the program exits, we will request notification permission.",
     "notification_affect_next_time": "Your changes will take effect in the next recording.",
-    "position_not_allowed": "You have denied location permission. To ensure the use of positioning functions, please turn it on in settings.",
-    "tips": "Tips",
-    "i_know": "I know"
+    "position_not_allowed": "You have denied location permission. To ensure the use of positioning functions, please turn it on in settings."
   }
 }
