@@ -5,7 +5,6 @@ import 'package:async/async.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/main.dart';
 import 'package:memolanes/preferences_manager.dart';
@@ -236,22 +235,24 @@ class GpsManager extends ChangeNotifier {
     final status = await Permission.notification.status;
 
     if (status.isGranted) {
-      await PreferencesManager.setCloseNotificationStatus(true);
+      await PreferencesManager.setUnexpectedExitNotificationStatus(true);
       return;
     }
 
     var context = navigatorKey.currentState?.context;
     if (context != null && context.mounted) {
       await showCommonDialog(
-          context, context.tr('permission.notification_reason'));
+          context,
+          context.tr(
+              "unexpected_exit_notification.notification_permission_reason"));
     }
 
     final result = await Permission.notification.request();
 
     if (result.isGranted) {
-      await PreferencesManager.setCloseNotificationStatus(true);
+      await PreferencesManager.setUnexpectedExitNotificationStatus(true);
     } else {
-      await PreferencesManager.setCloseNotificationStatus(false);
+      await PreferencesManager.setUnexpectedExitNotificationStatus(false);
     }
   }
 
@@ -259,7 +260,7 @@ class GpsManager extends ChangeNotifier {
     var context = navigatorKey.currentState?.context;
     if (context != null && context.mounted) {
       await showCommonDialog(
-          context, context.tr('permission.position_not_allowed'));
+          context, context.tr("home.location_permission_denied"));
     }
   }
 
@@ -369,12 +370,12 @@ class GpsManager extends ChangeNotifier {
           }
         });
         if (newState == _InternalState.recording &&
-            await PreferencesManager.getCloseNotificationStatus()) {
+            await PreferencesManager.getUnexpectedExitNotificationStatus()) {
           await _notificationWhenAppIsKilledPlugin.setNotificationOnKillService(
             ArgsForKillNotification(
-                title: 'Recording was unexpectedly stopped',
+                title: tr("unexpected_exit_notification.notification_title"),
                 description:
-                    'Recording was unexpectedly stopped, please restart the app.',
+                    tr("unexpected_exit_notification.notification_message"),
                 argsForIos: ArgsForIos(
                   interruptionLevel: InterruptionLevel.critical,
                   useDefaultSound: true,

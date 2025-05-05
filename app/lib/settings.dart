@@ -25,7 +25,7 @@ class SettingsBody extends StatefulWidget {
 }
 
 class _SettingsBodyState extends State<SettingsBody> {
-  bool _isClosedNotificationEnabled = false;
+  bool _isUnexpectedExitNotificationEnabled = false;
 
   @override
   void initState() {
@@ -69,9 +69,10 @@ class _SettingsBodyState extends State<SettingsBody> {
   }
 
   Future<void> _loadNotificationStatus() async {
-    final status = await PreferencesManager.getCloseNotificationStatus();
+    final status =
+        await PreferencesManager.getUnexpectedExitNotificationStatus();
     setState(() {
-      _isClosedNotificationEnabled = status;
+      _isUnexpectedExitNotificationEnabled = status;
     });
   }
 
@@ -275,30 +276,32 @@ class _SettingsBodyState extends State<SettingsBody> {
           ),
           Row(
             children: [
-              const Text("Allow Notification"),
+              Text(context.tr("unexpected_exit_notification.setting_title")),
               Spacer(),
               Switch(
-                value: _isClosedNotificationEnabled,
+                value: _isUnexpectedExitNotificationEnabled,
                 onChanged: (value) async {
                   final status = await Permission.notification.status;
                   if (value) {
                     if (!status.isGranted) {
                       setState(() {
-                        _isClosedNotificationEnabled = false;
+                        _isUnexpectedExitNotificationEnabled = false;
                       });
 
                       if (!context.mounted) return;
                       await showCommonDialog(
                         context,
-                        context.tr('permission.notification_not_allowed'),
+                        context.tr(
+                            "unexpected_exit_notification.notification_permission_denied"),
                       );
                       Geolocator.openAppSettings();
                       return;
                     }
                   }
-                  await PreferencesManager.setCloseNotificationStatus(value);
+                  await PreferencesManager.setUnexpectedExitNotificationStatus(
+                      value);
                   setState(() {
-                    _isClosedNotificationEnabled = value;
+                    _isUnexpectedExitNotificationEnabled = value;
                   });
                   if (gpsManager.recordingStatus ==
                       GpsRecordingStatus.recording) {
@@ -306,7 +309,7 @@ class _SettingsBodyState extends State<SettingsBody> {
                     await showCommonDialog(
                         context,
                         context.tr(
-                          'permission.notification_affect_next_time',
+                          "unexpected_exit_notification.change_affect_next_time",
                         ));
                   }
                 },
