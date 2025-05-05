@@ -11,7 +11,10 @@
     "ok": "OK",
     "cancel": "Cancel",
     "end": "End",
-    "info": "Info"
+    "info": "Info",
+    "save": "Save",
+    "share": "Share",
+    "export": "Export"
   },
   "journey": {
     "no_data": "There's no data yet, go ahead and explore the world!",

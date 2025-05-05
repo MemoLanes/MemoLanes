@@ -36,18 +36,18 @@ class CommonExport extends StatelessWidget {
 
   Widget _buildExportDialog(BuildContext context, String filepath) {
     return AlertDialog(
-      title: Text(context.tr("journey.export_journey_data_title")),
+      title: Text(context.tr("common.export")),
       content: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _buildIconButton(
             icon: FontAwesomeIcons.floppyDisk,
-            label: context.tr("journey.save_journey_data_title"),
+            label: context.tr("common.save"),
             onPressed: () => _saveFile(context, filepath),
           ),
           _buildIconButton(
             icon: FontAwesomeIcons.shareFromSquare,
-            label: context.tr("journey.share_journey_data_title"),
+            label: context.tr("common.share"),
             onPressed: () {
               _shareFile(context, filepath);
               Navigator.of(context).pop();
