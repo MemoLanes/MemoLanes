@@ -25,7 +25,7 @@ Future<bool> showCommonDialog(BuildContext context, String message,
     ),
     if (hasCancel)
       DialogButton(
-          text: context.tr('common.cancel'),
+          text: context.tr("common.cancel"),
           backgroundColor: confirmGroundColor == defaultGroundColor
               ? Colors.grey
               : defaultGroundColor,

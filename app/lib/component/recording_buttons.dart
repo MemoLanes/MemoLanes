@@ -16,10 +16,10 @@ class _RecordingButtonsState extends State<RecordingButtons> {
   Future<void> _showEndJourneyDialog() async {
     final gpsManager = context.read<GpsManager>();
     final shouldEndJourney = await showCommonDialog(
-        context, context.tr('home.end_journey_message'),
+        context, context.tr("home.end_journey_message"),
         hasCancel: true,
-        title: context.tr('home.end_journey_title'),
-        confirmButtonText: context.tr('common.end'),
+        title: context.tr("home.end_journey_title"),
+        confirmButtonText: context.tr("common.end"),
         confirmGroundColor: Colors.red,
         confirmTextColor: Colors.white);
 
