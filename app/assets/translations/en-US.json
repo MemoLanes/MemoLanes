@@ -10,9 +10,7 @@
     "ok": "OK",
     "cancel": "Cancel",
     "end": "End",
-    "info": "Info",
-    "not_now": "Not Now",
-    "next": "Next"
+    "info": "Info"
   },
   "journey": {
     "no_data": "There's no data yet, go ahead and explore the world!",
