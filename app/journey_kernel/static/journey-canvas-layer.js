@@ -1,7 +1,9 @@
 export class JourneyCanvasLayer {
-    constructor(map, journeyBitmap) {
+    constructor(map, journeyTileProvider) {
         this.map = map;
-        this.journeyBitmap = journeyBitmap;
+        this.journeyTileProvider = journeyTileProvider;
+        this.journeyTileProvider.registerUpdateCallback(this.handleProviderUpdate.bind(this));
+
         this.canvas = document.createElement("canvas");
         this.ctx = this.canvas.getContext("2d");
         this.currentTileRange = [0, 0, 0, 0];
@@ -20,8 +22,6 @@ export class JourneyCanvasLayer {
         };
     }
 
-    // TODO: the current version have flickering issue, I think render function
-    // being async is pretty sus.
     render() {
         const zoom = Math.floor(this.map.getZoom());
         const bounds = this.map.getBounds();
@@ -108,7 +108,7 @@ export class JourneyCanvasLayer {
 
     renderTile(x, y, z) {
         try {
-            const imageBufferRaw = this.journeyBitmap.get_tile_image(BigInt(x), BigInt(y), z);
+            const imageBufferRaw = this.journeyTileProvider.get_tile_image(x, y, z);
             const uint8Array = new Uint8ClampedArray(imageBufferRaw);
             const imageData = new ImageData(uint8Array, 256, 256);
 
@@ -150,11 +150,23 @@ export class JourneyCanvasLayer {
             a.every((val, index) => val === b[index]);
     }
 
+    // TODO: deprecated, remove when server-side rendering is implemented.
     // Add new method to update journey bitmap
     updateJourneyBitmap(newBitmap) {
         this.journeyBitmap = newBitmap;
         // Force a re-render by invalidating the current tile range
         this.currentTileRange = [-1, -1, -1, -1];
         this.render();
+    }
+
+    handleProviderUpdate() {
+        this.currentTileRange = [-1, -1, -1, -1];
+        this.render();
+    }
+
+    onRemove() {
+        if (this.journeyTileProvider) {
+            this.journeyTileProvider.unregisterUpdateCallback(this.handleProviderUpdate.bind(this));
+        }
     }
 } 
