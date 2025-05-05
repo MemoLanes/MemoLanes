@@ -14,6 +14,7 @@ class CommonExport extends StatelessWidget {
   Future<void> _shareFile(BuildContext context, String filepath) async {
     await Share.shareXFiles([XFile(filepath)]);
     _deleteFile(filepath);
+    if (context.mounted) Navigator.of(context).pop();
   }
 
   Future<void> _deleteFile(String filepath) async {
@@ -50,7 +51,6 @@ class CommonExport extends StatelessWidget {
             label: context.tr("common.share"),
             onPressed: () {
               _shareFile(context, filepath);
-              Navigator.of(context).pop();
             },
           ),
         ],
