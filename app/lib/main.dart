@@ -65,7 +65,7 @@ void delayedInit(UpdateNotifier updateNotifier) {
         var context = navigatorKey.currentState?.context;
         if (context != null && context.mounted) {
           await showCommonDialog(
-              context, context.tr('db_optimization.notification'));
+              context, context.tr("db_optimization.notification"));
         }
       } else {
         await prefs.setInt(
