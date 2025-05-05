@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class PreferencesManager {
   static const String _notificationKey = 'isCloseNotificationEnabled';
 
-  static Future<bool> getNotificationStatus() async {
+  static Future<bool> getCloseNotificationStatus() async {
     final prefs = await SharedPreferences.getInstance();
     if (!await Permission.notification.isGranted) {
       return false;
@@ -13,7 +13,7 @@ class PreferencesManager {
     return prefs.getBool(_notificationKey) ?? true;
   }
 
-  static Future<void> setNotificationStatus(bool value) async {
+  static Future<void> setCloseNotificationStatus(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_notificationKey, value);
   }

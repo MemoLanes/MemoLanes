@@ -236,7 +236,7 @@ class GpsManager extends ChangeNotifier {
     final status = await Permission.notification.status;
 
     if (status.isGranted) {
-      await PreferencesManager.setNotificationStatus(true);
+      await PreferencesManager.setCloseNotificationStatus(true);
       return;
     }
 
@@ -249,9 +249,9 @@ class GpsManager extends ChangeNotifier {
     final result = await Permission.notification.request();
 
     if (result.isGranted) {
-      await PreferencesManager.setNotificationStatus(true);
+      await PreferencesManager.setCloseNotificationStatus(true);
     } else {
-      await PreferencesManager.setNotificationStatus(false);
+      await PreferencesManager.setCloseNotificationStatus(false);
     }
   }
 
@@ -369,7 +369,7 @@ class GpsManager extends ChangeNotifier {
           }
         });
         if (newState == _InternalState.recording &&
-            await PreferencesManager.getNotificationStatus()) {
+            await PreferencesManager.getCloseNotificationStatus()) {
           await _notificationWhenAppIsKilledPlugin.setNotificationOnKillService(
             ArgsForKillNotification(
                 title: 'Recording was unexpectedly stopped',

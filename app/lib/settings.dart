@@ -25,7 +25,7 @@ class SettingsBody extends StatefulWidget {
 }
 
 class _SettingsBodyState extends State<SettingsBody> {
-  bool _isNotificationEnabled = false;
+  bool _isClosedNotificationEnabled = false;
 
   @override
   void initState() {
@@ -69,9 +69,9 @@ class _SettingsBodyState extends State<SettingsBody> {
   }
 
   Future<void> _loadNotificationStatus() async {
-    final status = await PreferencesManager.getNotificationStatus();
+    final status = await PreferencesManager.getCloseNotificationStatus();
     setState(() {
-      _isNotificationEnabled = status;
+      _isClosedNotificationEnabled = status;
     });
   }
 
@@ -278,13 +278,13 @@ class _SettingsBodyState extends State<SettingsBody> {
               const Text("Allow Notification"),
               Spacer(),
               Switch(
-                value: _isNotificationEnabled,
+                value: _isClosedNotificationEnabled,
                 onChanged: (value) async {
                   final status = await Permission.notification.status;
                   if (value) {
                     if (!status.isGranted) {
                       setState(() {
-                        _isNotificationEnabled = false;
+                        _isClosedNotificationEnabled = false;
                       });
 
                       if (!context.mounted) return;
@@ -296,9 +296,9 @@ class _SettingsBodyState extends State<SettingsBody> {
                       return;
                     }
                   }
-                  await PreferencesManager.setNotificationStatus(value);
+                  await PreferencesManager.setCloseNotificationStatus(value);
                   setState(() {
-                    _isNotificationEnabled = value;
+                    _isClosedNotificationEnabled = value;
                   });
                   if (gpsManager.recordingStatus ==
                       GpsRecordingStatus.recording) {
