@@ -10,6 +10,19 @@ export class JourneyCanvasLayer {
         this.currentZoom = -1;
     }
 
+    initialize() {
+        this.map.addSource("main-canvas-source", this.getSourceConfig());
+        this.map.addLayer({
+            id: "main-canvas-layer",
+            source: "main-canvas-source",
+            type: "raster",
+            paint: {
+                "raster-fade-duration": 0,
+            },
+        });
+        this.render();
+    }
+
     getSourceConfig() {
         return {
             type: "canvas",

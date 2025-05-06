@@ -104,16 +104,7 @@ async function initializeMap() {
     // Create and store journey layer
     currentJourneyLayer = new JourneyCanvasLayer(map, currentJourneyTileProvider);
 
-    map.addSource("main-canvas-source", currentJourneyLayer.getSourceConfig());
-    map.addLayer({
-        id: "main-canvas-layer",
-        source: "main-canvas-source",
-        type: "raster",
-        paint: {
-            "raster-fade-duration": 0,
-        },
-    });
-    currentJourneyLayer.render();
+    currentJourneyLayer.initialize();
 
     // TODO: only use for custom gl layer
     // map.addLayer(currentJourneyLayer);
