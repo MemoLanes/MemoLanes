@@ -88,20 +88,22 @@ export class JourneyCanvasLayer {
                 if (renderedTiles.has(tileKey)) continue;
                 renderedTiles.add(tileKey);
 
+                const dx = (x - left) * 256;
+                const dy = (y - top) * 256;
+                
                 const imageData = this.renderTile(xNorm, y, zoom);
                 if (imageData) {
-                    let xPos = x;
+                    this.ctx.putImageData(imageData, dx, dy);
+                    
+                    let xPos = x + n;
                     while (xPos <= right) {
-                        const dx = (xPos - left) * 256;
-                        const dy = (y - top) * 256;
-                        this.ctx.putImageData(imageData, dx, dy);
+                        this.ctx.putImageData(imageData, (xPos - left) * 256, dy);
                         xPos += n;
                     }
+                    
                     xPos = x - n;
                     while (xPos >= left) {
-                        const dx = (xPos - left) * 256;
-                        const dy = (y - top) * 256;
-                        this.ctx.putImageData(imageData, dx, dy);
+                        this.ctx.putImageData(imageData, (xPos - left) * 256, dy);
                         xPos -= n;
                     }
                 }
@@ -123,20 +125,21 @@ export class JourneyCanvasLayer {
         try {
             const imageBufferRaw = this.journeyTileProvider.get_tile_image(x, y, z);
             const uint8Array = new Uint8ClampedArray(imageBufferRaw);
-            const imageData = new ImageData(uint8Array, 256, 256);
-
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = 256;
-            tempCanvas.height = 256;
-            const tempCtx = tempCanvas.getContext('2d');
-
-            tempCtx.putImageData(imageData, 0, 0);
-
-            return tempCtx.getImageData(0, 0, 256, 256);
+            return new ImageData(uint8Array, 256, 256);
         } catch (error) {
             console.error(`Failed to render tile ${x},${y},${z}:`, error);
             return null;
         }
+    }
+
+    // TODO: maybe we should unify this interface with renderTile
+    // Draw a specific tile directly to canvas at the given position
+    drawTileToCanvas(x, y, z, canvasX, canvasY) {
+        const imageData = this.renderTile(x, y, z);
+        if (!imageData) return false;
+        
+        this.ctx.putImageData(imageData, canvasX, canvasY);
+        return true;
     }
 
     // Helper methods
@@ -170,13 +173,36 @@ export class JourneyCanvasLayer {
             if (z === this.currentZoom) {
                 const [left, top, right, bottom] = this.currentTileRange;
                 if (x >= left && x <= right && y >= top && y <= bottom) {
-                    // TODO: only redraw if the tile is in the visible range
-                    // this.renderTile(x, y, z);
-                    this.render(true);
-                    this.map.getSource("main-canvas-source")?.play();
-                    this.map.getSource("main-canvas-source")?.pause();
+                    // Redraw only the specific tile if it's in the visible range
+                    const dx = (x - left) * 256;
+                    const dy = (y - top) * 256;
+                    
+                    const tileRedrawn = this.drawTileToCanvas(x, y, z, dx, dy);
+                    
+                    if (tileRedrawn) {
+                        // Draw wrapped tiles if needed
+                        const n = Math.pow(2, z);
+                        let xPos = x + n;
+                        while (xPos <= right) {
+                            this.drawTileToCanvas(x, y, z, (xPos - left) * 256, dy);
+                            xPos += n;
+                        }
+                        
+                        xPos = x - n;
+                        while (xPos >= left) {
+                            this.drawTileToCanvas(x, y, z, (xPos - left) * 256, dy);
+                            xPos -= n;
+                        }
+                        
+                        // Refresh the canvas source
+                        this.map.getSource("main-canvas-source")?.play();
+                        this.map.getSource("main-canvas-source")?.pause();
+                        return; // Skip full render as we've handled just this tile
+                    }
                 }
             }
+            // Fall back to full render if we couldn't do a partial update
+            this.render(true);
         } else {
             // Full update needed
             this.currentTileRange = [-1, -1, -1, -1];

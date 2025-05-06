@@ -13,7 +13,8 @@ export class JourneyTileProvider {
         blankCanvas.width = 256;
         blankCanvas.height = 256;
         const ctx = blankCanvas.getContext('2d');
-        ctx.fillStyle = 'rgba(0,0,0,0)'; // Transparent
+        // TODO: remove these hard-coded values
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'; // Foggy
         ctx.fillRect(0, 0, 256, 256);
         this.blankTileData = ctx.getImageData(0, 0, 256, 256).data;
 
