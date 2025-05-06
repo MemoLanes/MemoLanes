@@ -1,73 +1,13 @@
-import { JourneyBitmap } from '../pkg';
 import { JourneyCanvasLayer } from './journey-canvas-layer.js';
+import { JourneyTileProvider } from './journey-tile-provider.js';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 let currentJourneyLayer;  // Store reference to current layer
+let currentJourneyId;
+let currentJourneyTileProvider;
 let pollingInterval;      // Store reference to polling interval
 let locationMarker = null;
-
-function getJourneyFilePathFromHash() {
-    const hash = window.location.hash.slice(1);
-    const params = new URLSearchParams(hash);
-    return params.get('journey_id') ? `journey/${params.get('journey_id')}` : '.';
-}
-
-async function loadJourneyData(useIfNoneMatch = false) {
-    const path = getJourneyFilePathFromHash();
-    const filename = `${path}/journey_bitmap.bin`;
-    console.log(`Fetching ${filename}`);
-    const fetchOptions = {
-        headers: useIfNoneMatch ? { 'If-None-Match': '*' } : {}
-    };
-
-    const response = await fetch(`${filename}`, fetchOptions);
-
-    // If server returns 304 Not Modified, return null
-    if (response.status === 304) {
-        return null;
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const journeyBitmap = JourneyBitmap.from_bytes(new Uint8Array(arrayBuffer));
-    console.log(`Loaded ${filename}`);
-
-    // Try to fetch provisioned camera location
-    let cameraOptions = null;
-    try {
-        const cameraResponse = await fetch(`${path}/provisioned_camera_option`);
-        if (cameraResponse.ok) {
-            const cameraData = await cameraResponse.json();
-            cameraOptions = {
-                center: [cameraData.lng, cameraData.lat],
-                zoom: cameraData.zoom
-            };
-            console.log('Using provisioned camera location:', cameraData);
-        }
-    } catch (error) {
-        console.log('No provisioned camera location available:', error);
-    }
-
-    return { journeyBitmap, cameraOptions };
-}
-
-async function pollForUpdates(map, cached = false) {
-    try {
-        const result = await loadJourneyData(cached);
-        if (result) {
-            if (result.journeyBitmap) {
-                console.log('Update detected, updating journey bitmap');
-                currentJourneyLayer.updateJourneyBitmap(result.journeyBitmap);
-            }
-            if (result.cameraOptions) {
-                console.log('Camera update detected, flying to new location');
-                map.flyTo(result.cameraOptions);
-            }
-        }
-    } catch (error) {
-        console.error('Error polling for updates:', error);
-    }
-}
 
 async function initializeMap() {
     // Load Mapbox token from .token.json
@@ -82,12 +22,23 @@ async function initializeMap() {
         center: [0, 0],
         zoom: 2
     };
+    
+    // Default frontEndRendering to true
+    let frontEndRendering = true;
 
     if (hash) {
         const params = new URLSearchParams(hash);
+        currentJourneyId = params.get('journey_id');
         const lng = parseFloat(params.get('lng'));
         const lat = parseFloat(params.get('lat'));
         const zoom = parseFloat(params.get('zoom'));
+        // Parse frontEndRendering parameter, default to true
+        const frontEndRenderingParam = params.get('frontEndRendering');
+        if (frontEndRenderingParam !== null) {
+            frontEndRendering = frontEndRenderingParam.toLowerCase() === 'true';
+        }
+
+        console.log(`journey_id: ${currentJourneyId}, frontEndRendering: ${frontEndRendering}, lng: ${lng}, lat: ${lat}, zoom: ${zoom}`);
 
         if (!isNaN(lng) && !isNaN(lat) && !isNaN(zoom)) {
             initialView = {
@@ -145,39 +96,24 @@ async function initializeMap() {
         }
     };
 
-    // Initial load of journey data
-    const result = await loadJourneyData();
-
-    if (result) {
-        const { journeyBitmap, cameraOptions } = result;
-
-        // Update initial camera position only if cameraOptions is provided
-        if (cameraOptions) {
-            map.setCenter(cameraOptions.center);
-            map.setZoom(cameraOptions.zoom);
-        }
-
-        // Create and store journey layer
-        currentJourneyLayer = new JourneyCanvasLayer(map, journeyBitmap);
-
-        map.addSource("main-canvas-source", currentJourneyLayer.getSourceConfig());
-        map.addLayer({
-            id: "main-canvas-layer",
-            source: "main-canvas-source",
-            type: "raster",
-            paint: {
-                "raster-fade-duration": 0,
-            },
-        });
-        currentJourneyLayer.render();
-        map.addLayer(currentJourneyLayer);
-
-        map.on("move", () => currentJourneyLayer.render());
-        map.on("moveend", () => currentJourneyLayer.render());
-
-        // Set up polling for updates
-        pollingInterval = setInterval(() => pollForUpdates(map, true), 1000);
+    currentJourneyTileProvider = new JourneyTileProvider(map, currentJourneyId, frontEndRendering);
+    if (frontEndRendering) {
+        await currentJourneyTileProvider.pollForJourneyUpdates(true);
     }
+
+    // Create and store journey layer
+    currentJourneyLayer = new JourneyCanvasLayer(map, currentJourneyTileProvider);
+
+    currentJourneyLayer.initialize();
+
+    // TODO: only use for custom gl layer
+    // map.addLayer(currentJourneyLayer);
+
+    map.on("move", () => currentJourneyLayer.render());
+    map.on("moveend", () => currentJourneyLayer.render());
+
+    // Set up polling for updates
+    pollingInterval = setInterval(() => currentJourneyTileProvider.pollForJourneyUpdates(false), 1000);
 
     // Replace the simple movestart listener with dragstart
     map.on('dragstart', () => {
@@ -205,11 +141,11 @@ async function initializeMap() {
         });
     };
 
-    window.addEventListener('hashchange', () => pollForUpdates(map, false));
+    window.addEventListener('hashchange', () => currentJourneyTileProvider.pollForJourneyUpdates(true));
 
     // Add method to window object to trigger manual update
     window.triggerJourneyUpdate = function () {
-        return pollForUpdates(map);
+        return currentJourneyTileProvider.pollForJourneyUpdates(false);
     };
 }
 

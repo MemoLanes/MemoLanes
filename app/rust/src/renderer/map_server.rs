@@ -8,6 +8,7 @@ use tokio::runtime::Runtime;
 use uuid::Uuid;
 
 use super::MapRenderer;
+use crate::journey_kernel::tile_shader::TileShader;
 
 type Registry = HashMap<Uuid, Arc<Mutex<MapRenderer>>>;
 
@@ -110,6 +111,52 @@ async fn serve_journey_bitmap_provisioned_camera_option_by_id(
     }
 }
 
+async fn serve_journey_tile(
+    path: web::Path<(Uuid, u32, u32, u32)>,
+    data: web::Data<Arc<Mutex<Registry>>>,
+) -> HttpResponse {
+    let (id, z, x, y) = path.into_inner();
+
+    let registry = data.lock().unwrap();
+    match registry.get(&id) {
+        Some(item) => {
+            let map_renderer = item.lock().unwrap();
+            let journey_bitmap = map_renderer.peek_latest_bitmap();
+
+            // Convert tile coordinates to internal view coordinates
+            // Depending on your tile system, you might need to adjust this conversion
+            let view_x = x as i64;
+            let view_y = y as i64;
+            let zoom = z as i16;
+
+            // Generate the tile image as PNG
+            match TileShader::get_tile_image_png(journey_bitmap, view_x, view_y, zoom) {
+                Ok(png_data) => HttpResponse::Ok().content_type("image/png").body(png_data),
+                Err(_) => HttpResponse::InternalServerError().finish(),
+            }
+        }
+        None => HttpResponse::NotFound().finish(),
+    }
+}
+
+// TODO: this api cannot work with `serve_journey_bitmap_by_id` api, as they are both not idempotent.
+// currently the client should only choose one of the two api to use.
+// we may consider use other method (eg, brings a timestamp or hash when checking.)
+async fn serve_journey_bitmap_up_to_date_by_id(
+    id: web::Path<Uuid>,
+    data: web::Data<Arc<Mutex<Registry>>>,
+) -> HttpResponse {
+    let registry = data.lock().unwrap();
+    match registry.get(&id) {
+        Some(item) => {
+            let mut map_renderer = item.lock().unwrap();
+            let is_changed = map_renderer.get_latest_bitmap_if_changed().is_some();
+            HttpResponse::Ok().json(is_changed)
+        }
+        None => HttpResponse::NotFound().finish(),
+    }
+}
+
 pub struct ServerInfo {
     host: String,
     port: u16,
@@ -149,6 +196,14 @@ impl MapServer {
                     .route(
                         "/journey/{id}/provisioned_camera_option",
                         web::get().to(serve_journey_bitmap_provisioned_camera_option_by_id),
+                    )
+                    .route(
+                        "/journey/{id}/up_to_date",
+                        web::get().to(serve_journey_bitmap_up_to_date_by_id),
+                    )
+                    .route(
+                        "/journey/{id}/tiles/{z}/{x}/{y}.png",
+                        web::get().to(serve_journey_tile),
                     )
                     .route("/", web::get().to(index))
                     .route("/bundle.js", web::get().to(serve_journey_kernel_js))

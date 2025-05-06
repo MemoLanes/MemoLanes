@@ -1,11 +1,26 @@
 export class JourneyCanvasLayer {
-    constructor(map, journeyBitmap) {
+    constructor(map, journeyTileProvider) {
         this.map = map;
-        this.journeyBitmap = journeyBitmap;
+        this.journeyTileProvider = journeyTileProvider;
+        this.journeyTileProvider.registerUpdateCallback(this.handleProviderUpdate.bind(this));
+
         this.canvas = document.createElement("canvas");
         this.ctx = this.canvas.getContext("2d");
         this.currentTileRange = [0, 0, 0, 0];
         this.currentZoom = -1;
+    }
+
+    initialize() {
+        this.map.addSource("main-canvas-source", this.getSourceConfig());
+        this.map.addLayer({
+            id: "main-canvas-layer",
+            source: "main-canvas-source",
+            type: "raster",
+            paint: {
+                "raster-fade-duration": 0,
+            },
+        });
+        this.render();
     }
 
     getSourceConfig() {
@@ -20,9 +35,7 @@ export class JourneyCanvasLayer {
         };
     }
 
-    // TODO: the current version have flickering issue, I think render function
-    // being async is pretty sus.
-    render() {
+    render(forceRender = false) {
         const zoom = Math.floor(this.map.getZoom());
         const bounds = this.map.getBounds();
 
@@ -42,7 +55,7 @@ export class JourneyCanvasLayer {
 
         const tileRange = [left, top, right, bottom];
 
-        if (!this.arraysEqual(this.currentTileRange, tileRange) || this.currentZoom !== zoom) {
+        if (forceRender || !this.arraysEqual(this.currentTileRange, tileRange) || this.currentZoom !== zoom) {
             console.log(`Rendering tiles for zoom ${zoom}, range: `, tileRange);
             this.currentTileRange = tileRange;
             this.currentZoom = zoom;
@@ -75,20 +88,22 @@ export class JourneyCanvasLayer {
                 if (renderedTiles.has(tileKey)) continue;
                 renderedTiles.add(tileKey);
 
+                const dx = (x - left) * 256;
+                const dy = (y - top) * 256;
+                
                 const imageData = this.renderTile(xNorm, y, zoom);
                 if (imageData) {
-                    let xPos = x;
+                    this.ctx.putImageData(imageData, dx, dy);
+                    
+                    let xPos = x + n;
                     while (xPos <= right) {
-                        const dx = (xPos - left) * 256;
-                        const dy = (y - top) * 256;
-                        this.ctx.putImageData(imageData, dx, dy);
+                        this.ctx.putImageData(imageData, (xPos - left) * 256, dy);
                         xPos += n;
                     }
+                    
                     xPos = x - n;
                     while (xPos >= left) {
-                        const dx = (xPos - left) * 256;
-                        const dy = (y - top) * 256;
-                        this.ctx.putImageData(imageData, dx, dy);
+                        this.ctx.putImageData(imageData, (xPos - left) * 256, dy);
                         xPos -= n;
                     }
                 }
@@ -108,22 +123,23 @@ export class JourneyCanvasLayer {
 
     renderTile(x, y, z) {
         try {
-            const imageBufferRaw = this.journeyBitmap.get_tile_image(BigInt(x), BigInt(y), z);
+            const imageBufferRaw = this.journeyTileProvider.get_tile_image(x, y, z);
             const uint8Array = new Uint8ClampedArray(imageBufferRaw);
-            const imageData = new ImageData(uint8Array, 256, 256);
-
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = 256;
-            tempCanvas.height = 256;
-            const tempCtx = tempCanvas.getContext('2d');
-
-            tempCtx.putImageData(imageData, 0, 0);
-
-            return tempCtx.getImageData(0, 0, 256, 256);
+            return new ImageData(uint8Array, 256, 256);
         } catch (error) {
             console.error(`Failed to render tile ${x},${y},${z}:`, error);
             return null;
         }
+    }
+
+    // TODO: maybe we should unify this interface with renderTile
+    // Draw a specific tile directly to canvas at the given position
+    drawTileToCanvas(x, y, z, canvasX, canvasY) {
+        const imageData = this.renderTile(x, y, z);
+        if (!imageData) return false;
+        
+        this.ctx.putImageData(imageData, canvasX, canvasY);
+        return true;
     }
 
     // Helper methods
@@ -150,11 +166,53 @@ export class JourneyCanvasLayer {
             a.every((val, index) => val === b[index]);
     }
 
-    // Add new method to update journey bitmap
-    updateJourneyBitmap(newBitmap) {
-        this.journeyBitmap = newBitmap;
-        // Force a re-render by invalidating the current tile range
-        this.currentTileRange = [-1, -1, -1, -1];
-        this.render();
+    handleProviderUpdate(tileKey) {
+        if (tileKey) {
+            // Only a specific tile was updated
+            const [z, x, y] = tileKey.split('/').map(Number);
+            if (z === this.currentZoom) {
+                const [left, top, right, bottom] = this.currentTileRange;
+                if (x >= left && x <= right && y >= top && y <= bottom) {
+                    // Redraw only the specific tile if it's in the visible range
+                    const dx = (x - left) * 256;
+                    const dy = (y - top) * 256;
+                    
+                    const tileRedrawn = this.drawTileToCanvas(x, y, z, dx, dy);
+                    
+                    if (tileRedrawn) {
+                        // Draw wrapped tiles if needed
+                        const n = Math.pow(2, z);
+                        let xPos = x + n;
+                        while (xPos <= right) {
+                            this.drawTileToCanvas(x, y, z, (xPos - left) * 256, dy);
+                            xPos += n;
+                        }
+                        
+                        xPos = x - n;
+                        while (xPos >= left) {
+                            this.drawTileToCanvas(x, y, z, (xPos - left) * 256, dy);
+                            xPos -= n;
+                        }
+                        
+                        // Refresh the canvas source
+                        this.map.getSource("main-canvas-source")?.play();
+                        this.map.getSource("main-canvas-source")?.pause();
+                        return; // Skip full render as we've handled just this tile
+                    }
+                }
+            }
+            // Fall back to full render if we couldn't do a partial update
+            this.render(true);
+        } else {
+            // Full update needed
+            this.currentTileRange = [-1, -1, -1, -1];
+            this.render();
+        }
+    }
+
+    onRemove() {
+        if (this.journeyTileProvider) {
+            this.journeyTileProvider.unregisterUpdateCallback(this.handleProviderUpdate.bind(this));
+        }
     }
 } 
