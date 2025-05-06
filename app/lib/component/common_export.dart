@@ -9,7 +9,7 @@ import 'package:path/path.dart' as p;
 class CommonExport extends StatelessWidget {
   final String filePath;
 
-  CommonExport({super.key, required this.filePath});
+  const CommonExport({super.key, required this.filePath});
 
   Future<void> _shareFile(BuildContext context, String filepath) async {
     await Share.shareXFiles([XFile(filepath)]);
@@ -27,6 +27,8 @@ class CommonExport extends StatelessWidget {
 
   Future<void> _saveFile(BuildContext context, String filepath) async {
     final file = File(filepath);
+    // TODO: This is pretty inefficient, but I don't think `FlutterFileSaver`
+    // provides other API.
     await FlutterFileSaver().writeFileAsBytes(
       fileName: p.basename(filePath),
       bytes: await file.readAsBytes(),
