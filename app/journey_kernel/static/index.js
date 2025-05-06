@@ -170,7 +170,6 @@ async function initializeMap() {
             },
         });
         currentJourneyLayer.render();
-        map.addLayer(currentJourneyLayer);
 
         map.on("move", () => currentJourneyLayer.render());
         map.on("moveend", () => currentJourneyLayer.render());
@@ -178,6 +177,13 @@ async function initializeMap() {
         // Set up polling for updates
         pollingInterval = setInterval(() => pollForUpdates(map, true), 1000);
     }
+
+    // Listen for map loading to complete
+    map.on('idle', function () {
+        if (window.onIdle) {
+            window.onIdle.postMessage('');
+        }
+    });
 
     // Replace the simple movestart listener with dragstart
     map.on('dragstart', () => {
