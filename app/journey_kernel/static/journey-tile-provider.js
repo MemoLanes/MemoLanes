@@ -1,4 +1,5 @@
 import { JourneyBitmap } from '../pkg';
+import { LRUCache } from './lru-cache';
 
 export class JourneyTileProvider {
     constructor(map, journeyId, frontEndRendering = true) {
@@ -6,7 +7,7 @@ export class JourneyTileProvider {
         this.journeyId = journeyId;
         this.frontEndRendering = frontEndRendering;
         this.onUpdateCallbacks = []; // Array to store update callbacks
-        this.tileCache = new Map(); // In-memory tile cache
+        this.tileCache = new LRUCache(200); // LRU cache with a capacity of 200 tiles
         
         // Create blank tile image data once
         const blankCanvas = document.createElement('canvas');
