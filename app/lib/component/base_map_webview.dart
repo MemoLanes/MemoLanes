@@ -258,15 +258,17 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             child: WebViewWidget(
                 key: const ValueKey('map_webview'),
                 controller: _webViewController)),
-        if (!_readyForDisplay)
-          IgnorePointer(
-            ignoring: true,
+        IgnorePointer(
+          child: AnimatedOpacity(
+            opacity: !_readyForDisplay ? 1 : 0.0,
+            duration: const Duration(milliseconds: 400),
             child: Container(
-              color: Colors.black.withAlpha((255 * 0.3).toInt()),
-              alignment: Alignment.center,
-              child: const CircularProgressIndicator(),
+              color: Colors.grey,
+              width: double.infinity,
+              height: double.infinity,
             ),
           ),
+        ),
       ],
     );
   }
