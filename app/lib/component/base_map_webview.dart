@@ -41,7 +41,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   late WebViewController _webViewController;
   late GpsManager _gpsManager;
   late Timer _roughMapViewUpdaeTimer;
-  bool _isLoading = true;
+  bool _readyForDisplay = false;
 
   // It is rough because we don't update it frequently.
   MapView? _currentRoughMapView;
@@ -218,10 +218,10 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         },
       )
       ..addJavaScriptChannel(
-        'onIdle',
+        'readyForDisplay',
         onMessageReceived: (JavaScriptMessage message) {
           setState(() {
-            _isLoading = false;
+            _readyForDisplay = true;
           });
         },
       );
@@ -258,7 +258,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             child: WebViewWidget(
                 key: const ValueKey('map_webview'),
                 controller: _webViewController)),
-        if (_isLoading)
+        if (!_readyForDisplay)
           IgnorePointer(
             ignoring: true,
             child: Container(
