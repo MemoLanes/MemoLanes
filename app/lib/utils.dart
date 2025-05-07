@@ -97,11 +97,8 @@ Future<T> showLoadingDialog<T>({
   return result;
 }
 
-Future<bool> showCommonExport(
-  BuildContext context,
-  String filePath,
-  bool deleteFile,
-) async {
+Future<bool> showCommonExport(BuildContext context, String filePath,
+    {bool deleteFile = false}) async {
   final dialogResult = await showDialog<bool>(
     context: context,
     barrierDismissible: false,

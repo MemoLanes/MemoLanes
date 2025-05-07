@@ -124,11 +124,13 @@ class _SettingsBodyState extends State<SettingsBody> {
               var tmpDir = await getTemporaryDirectory();
               var ts = DateTime.now().millisecondsSinceEpoch;
               var filepath = "${tmpDir.path}/${ts.toString()}.mldx";
+              if (!context.mounted) return;
               await showLoadingDialog(
                 context: context,
                 asyncTask: api.generateFullArchive(targetFilepath: filepath),
               );
-              await showCommonExport(context, filepath, true);
+              if (!context.mounted) return;
+              await showCommonExport(context, filepath, deleteFile: true);
             },
             child: const Text("Archive all (mldx file)"),
           ),
@@ -234,7 +236,8 @@ class _SettingsBodyState extends State<SettingsBody> {
               var ts = DateTime.now().millisecondsSinceEpoch;
               var filepath = "${tmpDir.path}/${ts.toString()}.zip";
               await api.exportLogs(targetFilePath: filepath);
-              await showCommonExport(context, filepath, true);
+              if (!context.mounted) return;
+              await showCommonExport(context, filepath, deleteFile: true);
             },
             child: const Text("Export Logs"),
           ),

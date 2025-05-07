@@ -21,14 +21,11 @@
     "delete_journey_title": "Delete Journey",
     "delete_journey_message": "Delete this journey record?",
     "delete": "Delete",
-    "journey_info_bar_title": "Journey Information",
-    "journey_info_edit_bar_title": "Edit Journey Information",
-    "save_journey_data_title": "Save Journey",
-    "share_journey_data_title": "Share Journey",
-    "export_journey_data_title": "Export Journey",
-    "export_kml_data_menu": "Export KML",
-    "export_gpx_data_menu": "Export GPX",
-    "export_mldx_data_menu": "Export MLDX"
+    "journey_info_page_title": "Journey Information",
+    "journey_info_edit_page_title": "Edit Journey Information",
+    "export_journey_as_kml": "Export as KML",
+    "export_journey_as_gpx": "Export as GPX",
+    "export_journey_as_mldx": "Export as MLDX"
   },
   "db_optimization": {
     "notification": "Your database requires optimization, please go to Settings tab and click [Optimize database] button.",

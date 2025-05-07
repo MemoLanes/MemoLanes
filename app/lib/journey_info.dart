@@ -36,11 +36,6 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     });
   }
 
-  _saveData(JourneyInfo journeyInfo) async {
-    await api.updateJourneyMetadata(
-        id: widget.journeyHeader.id, journeyinfo: journeyInfo);
-  }
-
   _deleteJourneyInfo(BuildContext context) async {
     if (await showCommonDialog(
         context, context.tr("journey.delete_journey_message"),
@@ -60,7 +55,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
         await Navigator.push(context, MaterialPageRoute(builder: (context) {
       return Scaffold(
         appBar: AppBar(
-          title: Text(context.tr("journey.journey_info_edit_bar_title")),
+          title: Text(context.tr("journey.journey_info_edit_page_title")),
         ),
         body: Center(
           child: JourneyInfoEditor(
@@ -69,7 +64,10 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
             journeyDate: widget.journeyHeader.journeyDate,
             note: widget.journeyHeader.note,
             journeyKind: widget.journeyHeader.journeyKind,
-            saveData: _saveData,
+            saveData: (JourneyInfo journeyInfo) async {
+              await api.updateJourneyMetadata(
+                  id: widget.journeyHeader.id, journeyinfo: journeyInfo);
+            },
           ),
         ),
       );
@@ -81,7 +79,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     }
   }
 
-  Future<String> _saveFile(
+  Future<String> _generateExportFile(
       JourneyHeader journeyHeader, ExportType exportType) async {
     var tmpDir = await getTemporaryDirectory();
     var filepath =
@@ -108,8 +106,10 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   }
 
   _export(ExportType exportType) async {
-    String filePath = await _saveFile(widget.journeyHeader, exportType);
-    await showCommonExport(context, filePath, true);
+    String filePath =
+        await _generateExportFile(widget.journeyHeader, exportType);
+    if (!mounted) return;
+    await showCommonExport(context, filePath, deleteFile: true);
   }
 
   @override
@@ -120,7 +120,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       JourneyKind.flight => context.tr("journey_kind.flight"),
     };
     return Scaffold(
-      appBar: AppBar(title: Text(context.tr("journey.journey_info_bar_title"))),
+      appBar:
+          AppBar(title: Text(context.tr("journey.journey_info_page_title"))),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
@@ -142,13 +143,13 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                 onPressed: () {
                   _export(ExportType.kml);
                 },
-                child: Text(context.tr("journey.export_kml_data_menu")),
+                child: Text(context.tr("journey.export_journey_as_kml")),
               ),
               ElevatedButton(
                 onPressed: () {
                   _export(ExportType.gpx);
                 },
-                child: Text(context.tr("journey.export_gpx_data_menu")),
+                child: Text(context.tr("journey.export_journey_as_gpx")),
               ),
             ]),
             Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
@@ -156,13 +157,13 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                 onPressed: () {
                   _export(ExportType.mldx);
                 },
-                child: Text(context.tr("journey.export_mldx_data_menu")),
+                child: Text(context.tr("journey.export_journey_as_mldx")),
               ),
               ElevatedButton(
                 onPressed: () async {
                   await _editJourneyInfo(context);
                 },
-                child: Text(context.tr("journey.journey_info_edit_bar_title")),
+                child: Text(context.tr("journey.journey_info_edit_page_title")),
               ),
             ]),
             Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
