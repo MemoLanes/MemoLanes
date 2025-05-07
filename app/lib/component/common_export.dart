@@ -36,6 +36,8 @@ class _CommonExportState extends State<CommonExport> {
 
   Future<void> _saveFile() async {
     final file = File(filePath);
+    // TODO: This is pretty inefficient, but I don't think `FlutterFileSaver`
+    // provides other API.
     await FlutterFileSaver().writeFileAsBytes(
       fileName: p.basename(filePath),
       bytes: await file.readAsBytes(),
