@@ -68,6 +68,7 @@ dependencies:
   font_awesome_flutter: ^10.8.0
   flutter_markdown_plus: ^1.0.3
   flutter_file_saver: ^0.9.0
+  path: ^1.9.1
 
 dependency_overrides:
   geolocator_android:

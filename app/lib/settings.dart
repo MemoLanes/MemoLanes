@@ -128,7 +128,7 @@ class _SettingsBodyState extends State<SettingsBody> {
                 context: context,
                 asyncTask: api.generateFullArchive(targetFilepath: filepath),
               );
-              await showCommonExport(context, filepath);
+              await showCommonExport(context, filepath, true);
             },
             child: const Text("Archive all (mldx file)"),
           ),
@@ -234,7 +234,7 @@ class _SettingsBodyState extends State<SettingsBody> {
               var ts = DateTime.now().millisecondsSinceEpoch;
               var filepath = "${tmpDir.path}/${ts.toString()}.zip";
               await api.exportLogs(targetFilePath: filepath);
-              await showCommonExport(context, filepath);
+              await showCommonExport(context, filepath, true);
             },
             child: const Text("Export Logs"),
           ),

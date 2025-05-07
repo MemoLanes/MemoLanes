@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
@@ -95,13 +97,27 @@ Future<T> showLoadingDialog<T>({
   return result;
 }
 
-Future<bool> showCommonExport(BuildContext context, filePath) async {
-  var result = await showDialog<bool>(
+Future<bool> showCommonExport(
+  BuildContext context,
+  String filePath,
+  bool deleteFile,
+) async {
+  final dialogResult = await showDialog<bool>(
     context: context,
     barrierDismissible: false,
-    builder: (BuildContext context) {
-      return CommonExport(filePath: filePath);
-    },
+    builder: (_) => CommonExport(filePath: filePath),
   );
-  return result ?? false;
+
+  if (deleteFile) {
+    try {
+      final file = File(filePath);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (e, stack) {
+      debugPrint('Failed to delete file: $e\n$stack');
+    }
+  }
+
+  return dialogResult ?? false;
 }

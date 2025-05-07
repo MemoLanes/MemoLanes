@@ -6,36 +6,45 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path/path.dart' as p;
 
-class CommonExport extends StatelessWidget {
+class CommonExport extends StatefulWidget {
   final String filePath;
 
-  CommonExport({super.key, required this.filePath});
+  const CommonExport({super.key, required this.filePath});
 
-  Future<void> _shareFile(BuildContext context, String filepath) async {
-    await Share.shareXFiles([XFile(filepath)]);
-    _deleteFile(filepath);
-    if (context.mounted) Navigator.of(context).pop();
-  }
+  @override
+  State<CommonExport> createState() => _CommonExportState();
+}
 
-  Future<void> _deleteFile(String filepath) async {
-    try {
-      await File(filepath).delete();
-    } catch (e) {
-      debugPrint('Failed to delete file: $e');
+class _CommonExportState extends State<CommonExport> {
+  late final String filePath;
+
+  @override
+  void initState() {
+    super.initState();
+    filePath = widget.filePath;
+
+    if (Platform.isIOS) {
+      Future.microtask(() => _shareFile());
     }
   }
 
-  Future<void> _saveFile(BuildContext context, String filepath) async {
-    final file = File(filepath);
+  Future<void> _shareFile() async {
+    await Share.shareXFiles([XFile(filePath)]);
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _saveFile() async {
+    final file = File(filePath);
     await FlutterFileSaver().writeFileAsBytes(
       fileName: p.basename(filePath),
       bytes: await file.readAsBytes(),
     );
-    _deleteFile(filepath);
-    if (context.mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+    Navigator.of(context).pop();
   }
 
-  Widget _buildExportDialog(BuildContext context, String filepath) {
+  Widget _buildExportDialog() {
     return AlertDialog(
       title: Text(context.tr("common.export")),
       content: Row(
@@ -44,29 +53,30 @@ class CommonExport extends StatelessWidget {
           _buildIconButton(
             icon: FontAwesomeIcons.floppyDisk,
             label: context.tr("common.save"),
-            onPressed: () => _saveFile(context, filepath),
+            onPressed: _saveFile,
           ),
           _buildIconButton(
             icon: FontAwesomeIcons.shareFromSquare,
             label: context.tr("common.share"),
-            onPressed: () {
-              _shareFile(context, filepath);
-            },
+            onPressed: _shareFile,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildIconButton(
-      {required IconData icon,
-      required String label,
-      required VoidCallback onPressed}) {
+  Widget _buildIconButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onPressed,
+  }) {
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
-        IconButton(icon: FaIcon(icon, size: 40), onPressed: onPressed),
+        IconButton(
+          icon: FaIcon(icon, size: 40),
+          onPressed: onPressed,
+        ),
         Text(label),
       ],
     );
@@ -74,11 +84,6 @@ class CommonExport extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (Platform.isAndroid) {
-      return _buildExportDialog(context, filePath);
-    } else {
-      _shareFile(context, filePath);
-      return const SizedBox.shrink();
-    }
+    return Platform.isAndroid ? _buildExportDialog() : const SizedBox.shrink();
   }
 }

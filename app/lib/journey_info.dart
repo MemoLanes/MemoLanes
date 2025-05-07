@@ -109,7 +109,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
 
   _export(ExportType exportType) async {
     String filePath = await _saveFile(widget.journeyHeader, exportType);
-    await showCommonExport(context, filePath);
+    await showCommonExport(context, filePath, true);
   }
 
   @override
