@@ -11,13 +11,21 @@
     "ok": "OK",
     "cancel": "Cancel",
     "end": "End",
-    "info": "Info"
+    "info": "Info",
+    "save": "Save",
+    "share": "Share",
+    "export": "Export"
   },
   "journey": {
     "no_data": "There's no data yet, go ahead and explore the world!",
     "delete_journey_title": "Delete Journey",
     "delete_journey_message": "Delete this journey record?",
-    "delete": "Delete"
+    "delete": "Delete",
+    "journey_info_page_title": "Journey Information",
+    "journey_info_edit_page_title": "Edit Journey Information",
+    "export_journey_as_kml": "Export as KML",
+    "export_journey_as_gpx": "Export as GPX",
+    "export_journey_as_mldx": "Export as MLDX"
   },
   "db_optimization": {
     "notification": "Your database requires optimization, please go to Settings tab and click [Optimize database] button.",

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +10,6 @@ import 'package:memolanes/raw_data.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'import_data.dart';
@@ -127,15 +124,13 @@ class _SettingsBodyState extends State<SettingsBody> {
               var tmpDir = await getTemporaryDirectory();
               var ts = DateTime.now().millisecondsSinceEpoch;
               var filepath = "${tmpDir.path}/${ts.toString()}.mldx";
-              await api.generateFullArchive(targetFilepath: filepath);
-              await Share.shareXFiles([XFile(filepath)]);
-              try {
-                var file = File(filepath);
-                await file.delete();
-              } catch (e) {
-                // don't care about error
-                print(e);
-              }
+              if (!context.mounted) return;
+              await showLoadingDialog(
+                context: context,
+                asyncTask: api.generateFullArchive(targetFilepath: filepath),
+              );
+              if (!context.mounted) return;
+              await showCommonExport(context, filepath, deleteFile: true);
             },
             child: const Text("Archive all (mldx file)"),
           ),
@@ -241,14 +236,8 @@ class _SettingsBodyState extends State<SettingsBody> {
               var ts = DateTime.now().millisecondsSinceEpoch;
               var filepath = "${tmpDir.path}/${ts.toString()}.zip";
               await api.exportLogs(targetFilePath: filepath);
-              await Share.shareXFiles([XFile(filepath)]);
-              try {
-                var file = File(filepath);
-                await file.delete();
-              } catch (e) {
-                // don't care about error
-                print(e);
-              }
+              if (!context.mounted) return;
+              await showCommonExport(context, filepath, deleteFile: true);
             },
             child: const Text("Export Logs"),
           ),
