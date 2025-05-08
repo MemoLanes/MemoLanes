@@ -259,11 +259,12 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
                 key: const ValueKey('map_webview'),
                 controller: _webViewController)),
         IgnorePointer(
+          ignoring: true,
           child: AnimatedOpacity(
             opacity: !_readyForDisplay ? 1 : 0.0,
-            duration: const Duration(milliseconds: 400),
+            duration: const Duration(milliseconds: 200),
             child: Container(
-              color: Colors.grey,
+              color: Color.fromARGB(255, 118, 116, 114),
               width: double.infinity,
               height: double.infinity,
             ),
