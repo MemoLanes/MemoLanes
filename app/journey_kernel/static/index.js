@@ -112,72 +112,73 @@ async function initializeMap() {
     map.dragRotate.disable();
     map.touchZoomRotate.disableRotation();
 
-    // Wait for the map to be fully loaded before proceeding
-    await new Promise(resolve => {
-        if (map.loaded()) {
-            resolve();
-        } else {
-            map.once('load', resolve);
+    // start loading the initial version journey data
+    const loadingInitJourneyData = loadJourneyData();
+
+    map.on('style.load', async (e) => {
+        // Create a DOM element for the marker
+        const el = document.createElement('div');
+        el.className = 'location-marker';
+
+        // Create the marker but don't add it to the map yet
+        locationMarker = new mapboxgl.Marker(el);
+
+        // Add method to window object to update marker position
+        window.updateLocationMarker = function (lng, lat, show = true, flyto = false) {
+            if (show) {
+                locationMarker.setLngLat([lng, lat]).addTo(map);
+                if (flyto) {
+                    const currentZoom = map.getZoom();
+                    map.flyTo({
+                        center: [lng, lat],
+                        zoom: currentZoom < 14 ? 16 : currentZoom,
+                        essential: true
+                    });
+                }
+            } else {
+                locationMarker.remove();
+            }
+        };
+
+        const result = await loadingInitJourneyData;
+
+        if (result) {
+            const { journeyBitmap, cameraOptions } = result;
+
+            // Update initial camera position only if cameraOptions is provided
+            if (cameraOptions) {
+                map.setCenter(cameraOptions.center);
+                map.setZoom(cameraOptions.zoom);
+            }
+
+            // Create and store journey layer
+            currentJourneyLayer = new JourneyCanvasLayer(map, journeyBitmap);
+
+            map.addSource("main-canvas-source", currentJourneyLayer.getSourceConfig());
+            map.addLayer({
+                id: "main-canvas-layer",
+                source: "main-canvas-source",
+                type: "raster",
+                paint: {
+                    "raster-fade-duration": 0,
+                },
+            });
+            currentJourneyLayer.render();
+
+            map.on("move", () => currentJourneyLayer.render());
+            map.on("moveend", () => currentJourneyLayer.render());
+
+            // Set up polling for updates
+            pollingInterval = setInterval(() => pollForUpdates(map, true), 1000);
+
+            // give the map a little time to render before notifying Flutter
+            setTimeout(() => {
+                if (window.readyForDisplay) {
+                    window.readyForDisplay.postMessage('');
+                }
+            }, 200);
         }
     });
-
-    // Create a DOM element for the marker
-    const el = document.createElement('div');
-    el.className = 'location-marker';
-
-    // Create the marker but don't add it to the map yet
-    locationMarker = new mapboxgl.Marker(el);
-
-    // Add method to window object to update marker position
-    window.updateLocationMarker = function (lng, lat, show = true, flyto = false) {
-        if (show) {
-            locationMarker.setLngLat([lng, lat]).addTo(map);
-            if (flyto) {
-                const currentZoom = map.getZoom();
-                map.flyTo({
-                    center: [lng, lat],
-                    zoom: currentZoom < 14 ? 16 : currentZoom,
-                    essential: true
-                });
-            }
-        } else {
-            locationMarker.remove();
-        }
-    };
-
-    // Initial load of journey data
-    const result = await loadJourneyData();
-
-    if (result) {
-        const { journeyBitmap, cameraOptions } = result;
-
-        // Update initial camera position only if cameraOptions is provided
-        if (cameraOptions) {
-            map.setCenter(cameraOptions.center);
-            map.setZoom(cameraOptions.zoom);
-        }
-
-        // Create and store journey layer
-        currentJourneyLayer = new JourneyCanvasLayer(map, journeyBitmap);
-
-        map.addSource("main-canvas-source", currentJourneyLayer.getSourceConfig());
-        map.addLayer({
-            id: "main-canvas-layer",
-            source: "main-canvas-source",
-            type: "raster",
-            paint: {
-                "raster-fade-duration": 0,
-            },
-        });
-        currentJourneyLayer.render();
-        map.addLayer(currentJourneyLayer);
-
-        map.on("move", () => currentJourneyLayer.render());
-        map.on("moveend", () => currentJourneyLayer.render());
-
-        // Set up polling for updates
-        pollingInterval = setInterval(() => pollForUpdates(map, true), 1000);
-    }
 
     // Replace the simple movestart listener with dragstart
     map.on('dragstart', () => {
