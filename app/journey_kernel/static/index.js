@@ -171,9 +171,12 @@ async function initializeMap() {
             // Set up polling for updates
             pollingInterval = setInterval(() => pollForUpdates(map, true), 1000);
 
-            if (window.readyForDisplay) {
-                window.readyForDisplay.postMessage('');
-            }
+            // give the map a little time to render before notifying Flutter
+            setTimeout(() => {
+                if (window.readyForDisplay) {
+                    window.readyForDisplay.postMessage('');
+                }
+            }, 200);
         }
     });
 
