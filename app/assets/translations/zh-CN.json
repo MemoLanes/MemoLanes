@@ -25,7 +25,11 @@
     "journey_info_edit_page_title": "编辑旅程信息",
     "export_journey_as_kml": "导出为KML",
     "export_journey_as_gpx": "导出为GPX",
-    "export_journey_as_mldx": "导出为MLDX"
+    "export_journey_as_mldx": "导出为MLDX",
+    "import_kml_gpx_data": "导入 KML/GPX 数据",
+    "archive_all_as_mldx": "完整归档（mldx 文件）",
+    "delete_all": "删除所有旅程",
+    "import_mldx": "导入归档（mldx 文件）"
   },
   "db_optimization": {
     "notification": "你的数据库需要优化，请前往设置选项卡并点击[优化数据库]按钮。",
@@ -50,5 +54,14 @@
     "change_affect_next_time": "您的修改将在下一次记录中生效。",
     "notification_title": "记录意外停止",
     "notification_message": "记录意外停止，请重新启动应用。"
+  },
+  "achievement": {
+    "title": "成就",
+    "explored_area": "探索面积：{} 平方公里"
+  },
+  "advance_settings": {
+    "export_logs": "导出日志",
+    "raw_data_mode": "原始数据模式",
+    "rebuild_cache": "重建缓存"
   }
 }
