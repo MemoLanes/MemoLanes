@@ -44,7 +44,7 @@
     "warning_for_import_multiple_data_md": "Note: The database already contains Fog of World data.  \nImporting multiple Fog of World data may not be ideal (e.g., simple merging may cause duplicate data).  \n\nFor more precise control (such as processing snapshots individually and computing differences), we recommend using [Fog Machine - Time Machine](https://fogmachine.8bits.io/time-machine)."
   },
   "unexpected_exit_notification": {
-    "title": "Unexpected exit notification",
+    "setting_title": "Unexpected exit notification",
     "notification_permission_reason": "In order to remind you when the program exits, we will request notification permission.",
     "notification_permission_denied": "You have denied permission. You can modify it later in settings.",
     "change_affect_next_time": "Your changes will take effect in the next recording.",
