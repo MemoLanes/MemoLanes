@@ -49,15 +49,16 @@ class AchievementBodyState extends State<AchievementBody> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Text(
-            "Achievement",
-            style: TextStyle(fontSize: 24),
+          Text(
+            context.tr("achievement.title"),
+            style: const TextStyle(fontSize: 24),
           ),
           const SizedBox(height: 32),
           _exploredAreaInSquareKM == null
               ? SizedBox.shrink()
               : Text(
-                  "Explored Area: ${areaFormat.format(_exploredAreaInSquareKM)} km²",
+                  context.tr("achievement.explored_area",
+                      args: [areaFormat.format(_exploredAreaInSquareKM)]),
                 ),
         ],
       ),

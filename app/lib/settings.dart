@@ -86,7 +86,7 @@ class _SettingsBodyState extends State<SettingsBody> {
             onPressed: () async {
               _selectImportFile(context, ImportType.gpxOrKml);
             },
-            child: const Text("Import KML/GPX data"),
+            child: Text(context.tr("journey.import_kml_gpx_data")),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -132,7 +132,7 @@ class _SettingsBodyState extends State<SettingsBody> {
               if (!context.mounted) return;
               await showCommonExport(context, filepath, deleteFile: true);
             },
-            child: const Text("Archive all (mldx file)"),
+            child: Text(context.tr("journey.archive_all_as_mldx")),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -165,7 +165,7 @@ class _SettingsBodyState extends State<SettingsBody> {
                 }
               }
             },
-            child: const Text("Delete all journeys"),
+            child: Text(context.tr("journey.delete_all")),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -198,7 +198,7 @@ class _SettingsBodyState extends State<SettingsBody> {
                 }
               }
             },
-            child: const Text("Import archive (mldx file)"),
+            child: Text(context.tr("journey.import_mldx")),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -239,7 +239,7 @@ class _SettingsBodyState extends State<SettingsBody> {
               if (!context.mounted) return;
               await showCommonExport(context, filepath, deleteFile: true);
             },
-            child: const Text("Export Logs"),
+            child: Text(context.tr("advance_settings.export_logs")),
           ),
           ElevatedButton(
             onPressed: () {
@@ -252,7 +252,7 @@ class _SettingsBodyState extends State<SettingsBody> {
                 ),
               );
             },
-            child: const Text("Raw Data Mode"),
+            child: Text(context.tr("advance_settings.raw_data_mode")),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -261,7 +261,7 @@ class _SettingsBodyState extends State<SettingsBody> {
                 asyncTask: api.rebuildCache(),
               );
             },
-            child: const Text("Rebuild Cache"),
+            child: Text(context.tr("advance_settings.rebuild_cache")),
           ),
           Row(
             children: [
