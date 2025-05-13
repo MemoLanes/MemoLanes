@@ -59,91 +59,103 @@ class _RecordingButtonsState extends State<RecordingButtons> {
       );
     } else if (gpsManager.recordingStatus == GpsRecordingStatus.recording) {
       controls = Center(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        child: Stack(
           children: [
-            PointerInterceptor(
+            // 中间按钮（大）
+            Align(
+              alignment: Alignment.center,
+              child: PointerInterceptor(
                 child: ElevatedButton(
-              onPressed: () async {
-                gpsManager.changeRecordingState(GpsRecordingStatus.paused);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(9999),
-                ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              ),
-              child: Text(
-                context.tr("home.pause"),
-                style: const TextStyle(
-                  color: Color(0xFFB4EC51),
-                  fontWeight: FontWeight.w400,
-                  fontSize: 20,
+                  onPressed: () async {
+                    gpsManager.changeRecordingState(GpsRecordingStatus.paused);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    shape: const CircleBorder(),
+                    padding: const EdgeInsets.all(16),
+                  ),
+                  child: Icon(
+                    Icons.pause,
+                    color: Colors.white,
+                    size: 50,
+                  ),
                 ),
               ),
-            )),
-            const SizedBox(width: 24),
-            PointerInterceptor(
-                child: ElevatedButton(
-              onPressed: _showEndJourneyDialog,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                shape: const CircleBorder(),
-                padding: const EdgeInsets.all(16),
+            ),
+            // 左边按钮（小），通过内层 Align + 外层对齐占位
+            Align(
+              alignment: const Alignment(-1, 0), // 左半居中
+              child: SizedBox(
+                width: 80, // 对齐参考用，占位，但不影响按钮大小
+                height: 80,
+                child: Center(
+                  child: PointerInterceptor(
+                    child: ElevatedButton(
+                      onPressed: _showEndJourneyDialog,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.black,
+                        shape: const CircleBorder(),
+                        padding: const EdgeInsets.all(16),
+                      ),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                ),
               ),
-              child: const Icon(
-                Icons.close,
-                color: Colors.white,
-                size: 24,
-              ),
-            )),
+            ),
           ],
         ),
       );
     } else {
-      controls = Center(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+      controls = controls = Center(
+        child: Stack(
           children: [
-            PointerInterceptor(
-                child: ElevatedButton(
-              onPressed: () async {
-                gpsManager.changeRecordingState(GpsRecordingStatus.recording);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(9999),
+            Align(
+              alignment: Alignment.center,
+              child: PointerInterceptor(
+                  child: ElevatedButton(
+                onPressed: () async {
+                  gpsManager.changeRecordingState(GpsRecordingStatus.recording);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFB4EC51),
+                  shape: const CircleBorder(),
+                  padding: const EdgeInsets.all(16),
                 ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              ),
-              child: Text(
-                context.tr("home.resume"),
-                style: const TextStyle(
-                  color: Color(0xFFB4EC51),
-                  fontWeight: FontWeight.w400,
-                  fontSize: 20,
+                child: Icon(
+                  Icons.play_arrow,
+                  color: Colors.black,
+                  size: 50,
+                ),
+              )),
+            ),
+            Align(
+              alignment: const Alignment(-1, 0),
+              child: SizedBox(
+                width: 80,
+                height: 80,
+                child: Center(
+                  child: PointerInterceptor(
+                      child: ElevatedButton(
+                    onPressed: _showEndJourneyDialog,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      shape: const CircleBorder(),
+                      padding: const EdgeInsets.all(16),
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  )),
                 ),
               ),
-            )),
-            const SizedBox(width: 24),
-            PointerInterceptor(
-                child: ElevatedButton(
-              onPressed: _showEndJourneyDialog,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                shape: const CircleBorder(),
-                padding: const EdgeInsets.all(16),
-              ),
-              child: const Icon(
-                Icons.close,
-                color: Colors.white,
-                size: 24,
-              ),
-            )),
+            ),
           ],
         ),
       );
