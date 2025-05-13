@@ -82,11 +82,10 @@ class _RecordingButtonsState extends State<RecordingButtons> {
                 ),
               ),
             ),
-            // 左边按钮（小），通过内层 Align + 外层对齐占位
             Align(
               alignment: const Alignment(-1, 0), // 左半居中
               child: SizedBox(
-                width: 80, // 对齐参考用，占位，但不影响按钮大小
+                width: 80,
                 height: 80,
                 child: Center(
                   child: PointerInterceptor(
