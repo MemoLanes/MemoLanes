@@ -354,7 +354,7 @@ impl<'de> Deserialize<'de> for Block {
             update_flag: false,
             count_inc: 0,
             bit_unit_area: None,
-         })
+        })
     }
 }
 
