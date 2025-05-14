@@ -230,7 +230,7 @@ fn draw_single_point() {
     journey_bitmap.add_line(120.0, 30.0, 120.0, 30.0);
 
     assert_eq!(
-        journey_area_utils::compute_journey_bitmap_area(&journey_bitmap),
+        journey_area_utils::compute_journey_bitmap_area(&mut journey_bitmap),
         68
     );
 }

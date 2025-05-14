@@ -5,6 +5,7 @@ use std::{
     collections::HashMap,
     ops::{BitAnd, BitOr, Not},
 };
+//use ordered_float::OrderedFloat;
 
 pub const TILE_WIDTH_OFFSET: i16 = 7;
 pub const MAP_WIDTH_OFFSET: i16 = 9;
@@ -210,6 +211,7 @@ impl JourneyBitmap {
 #[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Tile {
     pub blocks: HashMap<(u8, u8), Block>,
+    pub update_flag: bool,
 }
 
 impl Tile {
@@ -301,6 +303,7 @@ impl Tile {
                 }
             }
         }
+        self.update_flag = true;
         (x, y, p)
     }
 }
@@ -308,12 +311,20 @@ impl Tile {
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Block {
     pub data: [u8; BITMAP_SIZE],
+    pub update_flag: bool,
+    /* dynamically updated by block.set_point */
+    pub count_inc: u64,
+    /* center bit area in a block. init once in compute_journey_bitmap_area */
+    pub bit_unit_area: Option<u64>,
 }
 
 impl Default for Block {
     fn default() -> Self {
         Self {
             data: [0; BITMAP_SIZE],
+            update_flag: false,
+            count_inc: 0,
+            bit_unit_area: None,
         }
     }
 }
@@ -336,7 +347,12 @@ impl<'de> Deserialize<'de> for Block {
         let vec = Vec::<u8>::deserialize(deserializer)?;
         let mut data = [0u8; BITMAP_SIZE];
         data.copy_from_slice(&vec);
-        Ok(Block { data })
+        Ok(Block {
+            data,
+            update_flag: false,
+            count_inc: 0,
+            bit_unit_area: None,
+         })
     }
 }
 
@@ -346,7 +362,12 @@ impl Block {
     }
 
     pub fn new_with_data(data: [u8; BITMAP_SIZE]) -> Self {
-        Self { data }
+        Self {
+            data,
+            update_flag: false,
+            count_inc: 0,
+            bit_unit_area: None,
+        }
     }
 
     fn is_empty(&self) -> bool {
@@ -376,6 +397,8 @@ impl Block {
         let val_number = if val { 1 } else { 0 };
         self.data[i + j * 8] =
             (self.data[i + j * 8] & !(1 << bit_offset)) | (val_number << bit_offset);
+        self.count_inc += 1;
+        self.update_flag = true;
     }
 
     // a modified Bresenham algorithm with initialized error from upper layer

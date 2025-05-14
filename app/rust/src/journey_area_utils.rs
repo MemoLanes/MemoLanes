@@ -3,19 +3,19 @@ use crate::journey_bitmap::{
     TILE_WIDTH_OFFSET,
 };
 use crate::utils;
-
+//use ordered_float::OrderedFloat;
 const EARTH_RADIUS: f64 = 6371000.0; // unit: meter
 
 // Result unit in m^2. This area calculating method by using center bit in a
 // block has better efficiency and accuracy compared to simple interation and other methods.
 // codes for different calculating methods can be found here:
 // https://github.com/TimRen01/TimRen01_repo/tree/compare_method_calculate_area_by_journey
-pub fn compute_journey_bitmap_area(journey_bitmap: &JourneyBitmap) -> u64 {
+pub fn compute_journey_bitmap_area(journey_bitmap: &mut JourneyBitmap) -> u64 {
     let total_area: f64 = journey_bitmap
         .tiles
-        .iter()
+        .iter_mut()
         .flat_map(|(tile_pos, tile)| {
-            tile.blocks.iter().filter_map(move |(block_pos, block)| {
+            tile.blocks.iter_mut().filter_map(move |(block_pos, block)| {
                 let bit_count = block.count();
                 if bit_count > 0 {
                     // calculate center bit in each block for bit_unit_area
@@ -50,8 +50,10 @@ pub fn compute_journey_bitmap_area(journey_bitmap: &JourneyBitmap) -> u64 {
                     let avg_width = (width_top + width_bottom) / 2.0;
                     /* height=R⋅Δφ, where Δφ = φ2-φ1 is the difference of latitudes in radians. */
                     let height = EARTH_RADIUS * (lat2 - lat1).abs().to_radians();
-
                     let bit_unit_area = avg_width * height;
+                    if block.bit_unit_area.is_none() {
+                        block.bit_unit_area = Some(bit_unit_area as u64);
+                    }
                     Some(bit_unit_area * bit_count as f64)
                 }
                 else {
@@ -62,4 +64,31 @@ pub fn compute_journey_bitmap_area(journey_bitmap: &JourneyBitmap) -> u64 {
         .sum();
     // we don't have that much precision in the journey bitmap anyway
     total_area.round() as u64
+}
+
+pub fn compute_journey_bitmap_area_incremented(journey_bitmap: &mut JourneyBitmap) -> u64 {
+    journey_bitmap
+        .tiles
+        .values_mut()
+        .filter(|tile| tile.update_flag)
+        .map(|tile| {
+            let tile_inc_area: u64 = tile
+                .blocks
+                .values_mut()
+                .filter(|block| block.update_flag)
+                .filter_map(|block| {
+                    let bit_inc = block.count_inc;
+                    let unit_bit_area = block.bit_unit_area.unwrap();
+                    if bit_inc == 0 {
+                        return None;
+                    }
+                    block.update_flag = false;
+                    block.count_inc = 0;
+                    Some(unit_bit_area * bit_inc)
+                })
+                .sum();
+            tile.update_flag = false;
+            tile_inc_area
+        })
+        .sum()
 }

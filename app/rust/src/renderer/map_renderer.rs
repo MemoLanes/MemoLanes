@@ -5,7 +5,9 @@ use crate::journey_bitmap::JourneyBitmap;
 pub struct MapRenderer {
     journey_bitmap: JourneyBitmap,
     changed: bool,
-    current_area: Option<u64>,
+    current_area: u64,
+    increment_count: u32,
+    max_increment: u32,
     // TODO: `provisioned_camera_option` should be moved out and passed to the
     // map separately.
     provisioned_camera_option: Option<CameraOption>,
@@ -16,7 +18,9 @@ impl MapRenderer {
         Self {
             journey_bitmap,
             changed: false,
-            current_area: None,
+            current_area: 0,
+            increment_count: 1000,
+            max_increment: 1000,
             provisioned_camera_option: None,
         }
     }
@@ -45,7 +49,6 @@ impl MapRenderer {
 
     pub fn reset(&mut self) {
         self.changed = true;
-        self.current_area = None;
     }
 
     pub fn changed(&self) -> bool {
@@ -68,14 +71,18 @@ impl MapRenderer {
     pub fn get_current_area(&mut self) -> u64 {
         // TODO: we can do something more efficient here, instead of traversing
         // the whole bitmap evey time it changes.
-        match self.current_area {
-            Some(area) => area,
-            None => {
-                let journey_bitmap = self.peek_latest_bitmap();
-                let area = journey_area_utils::compute_journey_bitmap_area(journey_bitmap);
-                self.current_area = Some(area);
-                area
-            }
+        if self.increment_count >= self.max_increment {
+            let all_area =
+                journey_area_utils::compute_journey_bitmap_area(&mut self.journey_bitmap);
+            self.current_area = all_area;
+            self.increment_count = 0;
+        } else {
+            let inc_area = journey_area_utils::compute_journey_bitmap_area_incremented(
+                &mut self.journey_bitmap,
+            );
+            self.current_area += inc_area;
+            self.increment_count += 1;
         }
+        self.current_area
     }
 }
