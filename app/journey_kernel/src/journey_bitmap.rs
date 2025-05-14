@@ -303,7 +303,9 @@ impl Tile {
                 }
             }
         }
-        self.update_flag = true;
+        if !self.update_flag {
+            self.update_flag = true;
+        }
         (x, y, p)
     }
 }
@@ -398,7 +400,9 @@ impl Block {
         self.data[i + j * 8] =
             (self.data[i + j * 8] & !(1 << bit_offset)) | (val_number << bit_offset);
         self.count_inc += 1;
-        self.update_flag = true;
+        if !self.update_flag {
+            self.update_flag = true;
+        }
     }
 
     // a modified Bresenham algorithm with initialized error from upper layer
