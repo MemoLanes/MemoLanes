@@ -15,7 +15,7 @@ This source code is available to everyone under the standard MIT license.
 
 
 ## MemoLanes(迹忆)
-![App Screenshot](./.github/app_screenshot.png)  
+<img src="./.github/app_screenshot.png" alt="App Screenshot" width="360">
 
 [MemoLanes](https://app.memolanes.com/) is a route tracking application designed to conveniently record and securely store your travel footprints while providing rich visualization. Through continuous exploration of the world, you can create unique digital traces, allowing you to revisit and relive your treasured travel memories.
 
