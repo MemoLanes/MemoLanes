@@ -12,6 +12,7 @@ import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'component/edge_glow_effect.dart';
 import 'component/map_controls/layer_button.dart';
 
 part 'map.g.dart';
@@ -207,6 +208,13 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
                   const SizedBox(height: 116),
                 ],
               ),
+            ),
+          ),
+          // 发光脉冲效果放在最底层
+          IgnorePointer(
+            child: EdgePulseGlowEffect(
+              glowIntensity: 1.0,  // 设置发光强度
+              duration: Duration(milliseconds: 1500),  // 设置脉冲动画时长
             ),
           ),
         ],
