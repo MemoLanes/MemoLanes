@@ -22,7 +22,7 @@ async function initializeMap() {
         center: [0, 0],
         zoom: 2
     };
-    
+
     // Default frontEndRendering to true
     let frontEndRendering = true;
 
@@ -63,8 +63,7 @@ async function initializeMap() {
     map.dragRotate.disable();
     map.touchZoomRotate.disableRotation();
 
-    // start loading the initial version journey data
-    const loadingInitJourneyData = loadJourneyData();
+    // TODO: start loading the initial data earlier.
 
     map.on('style.load', async (e) => {
         // Create a DOM element for the marker
@@ -91,32 +90,32 @@ async function initializeMap() {
             }
         };
 
-    currentJourneyTileProvider = new JourneyTileProvider(map, currentJourneyId, frontEndRendering);
-    if (frontEndRendering) {
-        await currentJourneyTileProvider.pollForJourneyUpdates(true);
-    }
+        currentJourneyTileProvider = new JourneyTileProvider(map, currentJourneyId, frontEndRendering);
+        if (frontEndRendering) {
+            await currentJourneyTileProvider.pollForJourneyUpdates(true);
+        }
 
-    // Create and store journey layer
-    currentJourneyLayer = new JourneyCanvasLayer(map, currentJourneyTileProvider);
+        // Create and store journey layer
+        currentJourneyLayer = new JourneyCanvasLayer(map, currentJourneyTileProvider);
 
-    currentJourneyLayer.initialize();
+        currentJourneyLayer.initialize();
 
-    // TODO: only use for custom gl layer
-    // map.addLayer(currentJourneyLayer);
+        // TODO: only use for custom gl layer
+        // map.addLayer(currentJourneyLayer);
 
-    map.on("move", () => currentJourneyLayer.render());
-    map.on("moveend", () => currentJourneyLayer.render());
+        map.on("move", () => currentJourneyLayer.render());
+        map.on("moveend", () => currentJourneyLayer.render());
 
         // Set up polling for updates
         pollingInterval = setInterval(() => currentJourneyTileProvider.pollForJourneyUpdates(false), 1000);
 
-            // give the map a little time to render before notifying Flutter
-            setTimeout(() => {
-                if (window.readyForDisplay) {
-                    window.readyForDisplay.postMessage('');
-                }
-            }, 200);
-        });
+        // give the map a little time to render before notifying Flutter
+        setTimeout(() => {
+            if (window.readyForDisplay) {
+                window.readyForDisplay.postMessage('');
+            }
+        }, 200);
+    });
 
     // Replace the simple movestart listener with dragstart
     map.on('dragstart', () => {
