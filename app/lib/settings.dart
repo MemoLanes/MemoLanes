@@ -1,15 +1,15 @@
-import 'dart:io';
-
 import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/gps_manager.dart';
+import 'package:memolanes/preferences_manager.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/utils.dart';
 import 'package:memolanes/raw_data.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'import_data.dart';
@@ -22,6 +22,14 @@ class SettingsBody extends StatefulWidget {
 }
 
 class _SettingsBodyState extends State<SettingsBody> {
+  bool _isUnexpectedExitNotificationEnabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotificationStatus();
+  }
+
   _launchUrl(String updateUrl) async {
     final url = Uri.parse(updateUrl);
     if (await canLaunchUrl(url)) {
@@ -32,7 +40,9 @@ class _SettingsBodyState extends State<SettingsBody> {
   }
 
   Future<void> _selectImportFile(
-      BuildContext context, ImportType importType) async {
+    BuildContext context,
+    ImportType importType,
+  ) async {
     // TODO: FilePicker is weird and `allowedExtensions` does not really work.
     // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
     // List<String> allowedExtensions;
@@ -44,13 +54,23 @@ class _SettingsBodyState extends State<SettingsBody> {
     final result = await FilePicker.platform.pickFiles(type: FileType.any);
     final path = result?.files.single.path;
     if (path != null && context.mounted) {
-      Navigator.push(context, MaterialPageRoute(builder: (context) {
-        return ImportDataPage(
-          path: path,
-          importType: importType,
-        );
-      }));
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) {
+            return ImportDataPage(path: path, importType: importType);
+          },
+        ),
+      );
     }
+  }
+
+  Future<void> _loadNotificationStatus() async {
+    final status =
+        await PreferencesManager.getUnexpectedExitNotificationStatus();
+    setState(() {
+      _isUnexpectedExitNotificationEnabled = status;
+    });
   }
 
   @override
@@ -66,7 +86,7 @@ class _SettingsBodyState extends State<SettingsBody> {
             onPressed: () async {
               _selectImportFile(context, ImportType.gpxOrKml);
             },
-            child: const Text("Import KML/GPX data"),
+            child: Text(context.tr("journey.import_kml_gpx_data")),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -81,7 +101,8 @@ class _SettingsBodyState extends State<SettingsBody> {
                 await showCommonDialog(
                   context,
                   context.tr(
-                      "import_fow_data.warning_for_import_multiple_data_md"),
+                    "import_fow_data.warning_for_import_multiple_data_md",
+                  ),
                   markdown: true,
                 );
               }
@@ -94,39 +115,43 @@ class _SettingsBodyState extends State<SettingsBody> {
           ElevatedButton(
             onPressed: () async {
               if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
-                await showCommonDialog(context,
-                    "Please stop the current ongoing journey before archiving.");
+                await showCommonDialog(
+                  context,
+                  "Please stop the current ongoing journey before archiving.",
+                );
                 return;
               }
               var tmpDir = await getTemporaryDirectory();
               var ts = DateTime.now().millisecondsSinceEpoch;
               var filepath = "${tmpDir.path}/${ts.toString()}.mldx";
-              await api.generateFullArchive(targetFilepath: filepath);
-              await Share.shareXFiles([XFile(filepath)]);
-              try {
-                var file = File(filepath);
-                await file.delete();
-              } catch (e) {
-                // don't care about error
-                print(e);
-              }
+              if (!context.mounted) return;
+              await showLoadingDialog(
+                context: context,
+                asyncTask: api.generateFullArchive(targetFilepath: filepath),
+              );
+              if (!context.mounted) return;
+              await showCommonExport(context, filepath, deleteFile: true);
             },
-            child: const Text("Archive all (mldx file)"),
+            child: Text(context.tr("journey.archive_all_as_mldx")),
           ),
           ElevatedButton(
             onPressed: () async {
               if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
-                await showCommonDialog(context,
-                    "Please stop the current ongoing journey before deleting all journeys.");
+                await showCommonDialog(
+                  context,
+                  "Please stop the current ongoing journey before deleting all journeys.",
+                );
                 return;
               }
-              if (!await showCommonDialog(context,
-                  "This will delete all journeys in this app. Are you sure?",
-                  hasCancel: true,
-                  title: context.tr("journey.delete_journey_title"),
-                  confirmButtonText: context.tr("journey.delete"),
-                  confirmGroundColor: Colors.red,
-                  confirmTextColor: Colors.white)) {
+              if (!await showCommonDialog(
+                context,
+                "This will delete all journeys in this app. Are you sure?",
+                hasCancel: true,
+                title: context.tr("journey.delete_journey_title"),
+                confirmButtonText: context.tr("journey.delete"),
+                confirmGroundColor: Colors.red,
+                confirmTextColor: Colors.white,
+              )) {
                 return;
               }
               try {
@@ -140,22 +165,24 @@ class _SettingsBodyState extends State<SettingsBody> {
                 }
               }
             },
-            child: const Text("Delete all journeys"),
+            child: Text(context.tr("journey.delete_all")),
           ),
           ElevatedButton(
             onPressed: () async {
               // TODO: FilePicker is weird and `allowedExtensions` does not really work.
               // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
-              var result =
-                  await FilePicker.platform.pickFiles(type: FileType.any);
+              var result = await FilePicker.platform.pickFiles(
+                type: FileType.any,
+              );
               if (!context.mounted) return;
               if (result != null) {
                 var path = result.files.single.path;
                 if (path != null) {
                   try {
                     await showLoadingDialog(
-                        context: context,
-                        asyncTask: api.importArchive(mldxFilePath: path));
+                      context: context,
+                      asyncTask: api.importArchive(mldxFilePath: path),
+                    );
                     if (context.mounted) {
                       await showCommonDialog(
                         context,
@@ -171,7 +198,7 @@ class _SettingsBodyState extends State<SettingsBody> {
                 }
               }
             },
-            child: const Text("Import archive (mldx file)"),
+            child: Text(context.tr("journey.import_mldx")),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -184,11 +211,15 @@ class _SettingsBodyState extends State<SettingsBody> {
               } else {
                 if (!context.mounted) return;
                 if (await showCommonDialog(
-                    context, context.tr("db_optimization.confirm"),
-                    hasCancel: true)) {
+                  context,
+                  context.tr("db_optimization.confirm"),
+                  hasCancel: true,
+                )) {
                   if (!context.mounted) return;
                   await showLoadingDialog(
-                      context: context, asyncTask: api.optimizeMainDb());
+                    context: context,
+                    asyncTask: api.optimizeMainDb(),
+                  );
                   if (!context.mounted) return;
                   await showCommonDialog(
                     context,
@@ -205,43 +236,81 @@ class _SettingsBodyState extends State<SettingsBody> {
               var ts = DateTime.now().millisecondsSinceEpoch;
               var filepath = "${tmpDir.path}/${ts.toString()}.zip";
               await api.exportLogs(targetFilePath: filepath);
-              await Share.shareXFiles([XFile(filepath)]);
-              try {
-                var file = File(filepath);
-                await file.delete();
-              } catch (e) {
-                // don't care about error
-                print(e);
-              }
+              if (!context.mounted) return;
+              await showCommonExport(context, filepath, deleteFile: true);
             },
-            child: const Text("Export Logs"),
+            child: Text(context.tr("advance_settings.export_logs")),
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.push(context, MaterialPageRoute(
-                builder: (context) {
-                  return RawDataPage();
-                },
-              ));
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) {
+                    return RawDataPage();
+                  },
+                ),
+              );
             },
-            child: const Text("Raw Data Mode"),
+            child: Text(context.tr("advance_settings.raw_data_mode")),
           ),
           ElevatedButton(
             onPressed: () async {
               await showLoadingDialog(
-                  context: context, asyncTask: api.rebuildCache());
+                context: context,
+                asyncTask: api.rebuildCache(),
+              );
             },
-            child: const Text("Rebuild Cache"),
+            child: Text(context.tr("advance_settings.rebuild_cache")),
+          ),
+          Row(
+            children: [
+              Text(context.tr("unexpected_exit_notification.setting_title")),
+              Spacer(),
+              Switch(
+                value: _isUnexpectedExitNotificationEnabled,
+                onChanged: (value) async {
+                  final status = await Permission.notification.status;
+                  if (value) {
+                    if (!status.isGranted) {
+                      setState(() {
+                        _isUnexpectedExitNotificationEnabled = false;
+                      });
+
+                      if (!context.mounted) return;
+                      await showCommonDialog(
+                        context,
+                        context.tr(
+                            "unexpected_exit_notification.notification_permission_denied"),
+                      );
+                      Geolocator.openAppSettings();
+                      return;
+                    }
+                  }
+                  await PreferencesManager.setUnexpectedExitNotificationStatus(
+                      value);
+                  setState(() {
+                    _isUnexpectedExitNotificationEnabled = value;
+                  });
+                  if (gpsManager.recordingStatus ==
+                      GpsRecordingStatus.recording) {
+                    if (!context.mounted) return;
+                    await showCommonDialog(
+                        context,
+                        context.tr(
+                          "unexpected_exit_notification.change_affect_next_time",
+                        ));
+                  }
+                },
+              ),
+            ],
           ),
           if (updateUrl != null) ...[
             ElevatedButton(
               onPressed: () async {
                 _launchUrl(updateUrl);
               },
-              child: const Text(
-                "Update",
-                style: TextStyle(color: Colors.red),
-              ),
+              child: const Text("Update", style: TextStyle(color: Colors.red)),
             ),
           ],
           Center(
