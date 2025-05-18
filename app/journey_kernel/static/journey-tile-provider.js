@@ -8,6 +8,7 @@ export class JourneyTileProvider {
         this.frontEndRendering = frontEndRendering;
         this.onUpdateCallbacks = []; // Array to store update callbacks
         this.tileCache = new LRUCache(200); // LRU cache with a capacity of 200 tiles
+        this.currentVersion = null; // Store the current version
         
         // Create blank tile image data once
         const blankCanvas = document.createElement('canvas');
@@ -99,7 +100,7 @@ export class JourneyTileProvider {
     // Notify all registered callbacks
     notifyUpdates() {
         for (const callback of this.onUpdateCallbacks) {
-            callback(this.journeyBitmap);
+            callback();
         }
     }
 
@@ -110,16 +111,28 @@ export class JourneyTileProvider {
         
         console.log(`Fetching ${filePath}`);
 
-        const useIfNoneMatch = ! forceUpdate;
+        // Use version tracking unless force update is requested
         const fetchOptions = {
-            headers: useIfNoneMatch ? { 'If-None-Match': '*' } : {}
+            headers: {}
         };
+        
+        if (!forceUpdate && this.currentVersion) {
+            fetchOptions.headers['If-None-Match'] = this.currentVersion;
+        }
 
         try {
             const response = await fetch(`${filePath}`, fetchOptions);
 
+            // Store the new version if available
+            const newVersion = response.headers.get('ETag');
+            if (newVersion) {
+                this.currentVersion = newVersion;
+                console.log(`Updated version to: ${newVersion}`);
+            }
+
             // If server returns 304 Not Modified, return null
             if (response.status === 304) {
+                console.log('Content not modified');
                 return null;
             }
             

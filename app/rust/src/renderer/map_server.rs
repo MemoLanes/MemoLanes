@@ -71,23 +71,20 @@ async fn serve_journey_bitmap_by_id(
     let registry = data.lock().unwrap();
     match registry.get(&id) {
         Some(item) => {
-            let mut map_renderer = item.lock().unwrap();
+            let map_renderer = item.lock().unwrap();
 
-            // we will return 304 if the request is conditional, and the remote joruney_bitmap is up-to-date.
-            let is_request_conditional = req
+            // Extract version from If-None-Match header if present
+            let client_version = req
                 .headers()
                 .get("If-None-Match")
-                .and_then(|h| h.to_str().ok())
-                .map(|s| s == "*")
-                .unwrap_or(false);
-            if !is_request_conditional {
-                // for non-conditional request, we always send the latest journey_bitmap
-                map_renderer.reset();
-            }
-            match map_renderer.get_latest_bitmap_if_changed() {
+                .and_then(|h| h.to_str().ok());
+            
+            match map_renderer.get_latest_bitmap_if_changed(client_version) {
                 None => HttpResponse::NotModified().finish(),
-                Some(journey_bitmap) => match journey_bitmap.to_bytes() {
-                    Ok(bytes) => HttpResponse::Ok().body(bytes),
+                Some((journey_bitmap, version)) => match journey_bitmap.to_bytes() {
+                    Ok(bytes) => HttpResponse::Ok()
+                        .append_header(("ETag", version))
+                        .body(bytes),
                     Err(_) => HttpResponse::InternalServerError().finish(),
                 },
             }
@@ -144,14 +141,31 @@ async fn serve_journey_tile(
 // we may consider use other method (eg, brings a timestamp or hash when checking.)
 async fn serve_journey_bitmap_up_to_date_by_id(
     id: web::Path<Uuid>,
+    req: HttpRequest,
     data: web::Data<Arc<Mutex<Registry>>>,
 ) -> HttpResponse {
     let registry = data.lock().unwrap();
     match registry.get(&id) {
         Some(item) => {
-            let mut map_renderer = item.lock().unwrap();
-            let is_changed = map_renderer.get_latest_bitmap_if_changed().is_some();
-            HttpResponse::Ok().json(is_changed)
+            let map_renderer = item.lock().unwrap();
+            
+            // Extract version from If-None-Match header if present
+            let client_version = req
+                .headers()
+                .get("If-None-Match")
+                .and_then(|h| h.to_str().ok());
+                
+            let result = map_renderer.get_latest_bitmap_if_changed(client_version);
+            let is_changed = result.is_some();
+            
+            let mut response = HttpResponse::Ok();
+            
+            // Add the current version to the response
+            if let Some((_, version)) = result {
+                response.append_header(("ETag", version));
+            }
+            
+            response.json(is_changed)
         }
         None => HttpResponse::NotFound().finish(),
     }
