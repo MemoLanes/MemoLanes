@@ -78,7 +78,7 @@ async fn serve_journey_bitmap_by_id(
                 .headers()
                 .get("If-None-Match")
                 .and_then(|h| h.to_str().ok());
-            
+
             match map_renderer.get_latest_bitmap_if_changed(client_version) {
                 None => HttpResponse::NotModified().finish(),
                 Some((journey_bitmap, version)) => match journey_bitmap.to_bytes() {
@@ -148,23 +148,23 @@ async fn serve_journey_bitmap_up_to_date_by_id(
     match registry.get(&id) {
         Some(item) => {
             let map_renderer = item.lock().unwrap();
-            
+
             // Extract version from If-None-Match header if present
             let client_version = req
                 .headers()
                 .get("If-None-Match")
                 .and_then(|h| h.to_str().ok());
-                
+
             let result = map_renderer.get_latest_bitmap_if_changed(client_version);
             let is_changed = result.is_some();
-            
+
             let mut response = HttpResponse::Ok();
-            
+
             // Add the current version to the response
             if let Some((_, version)) = result {
                 response.append_header(("ETag", version));
             }
-            
+
             response.json(is_changed)
         }
         None => HttpResponse::NotFound().finish(),

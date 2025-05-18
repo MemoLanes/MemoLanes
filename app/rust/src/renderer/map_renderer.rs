@@ -62,9 +62,16 @@ impl MapRenderer {
         u64::from_str_radix(cleaned, 16).ok()
     }
 
-    pub fn get_latest_bitmap_if_changed(&self, client_version: Option<&str>) -> Option<(&JourneyBitmap, String)> {
+    pub fn get_latest_bitmap_if_changed(
+        &self,
+        client_version: Option<&str>,
+    ) -> Option<(&JourneyBitmap, String)> {
         match client_version {
-            Some(v_str) if Self::parse_version_string(v_str).map_or(false, |v| v == self.version) => None,
+            Some(v_str)
+                if Self::parse_version_string(v_str).map_or(false, |v| v == self.version) =>
+            {
+                None
+            }
             _ => Some((&self.journey_bitmap, self.get_version_string())),
         }
     }
