@@ -67,11 +67,7 @@ impl MapRenderer {
         client_version: Option<&str>,
     ) -> Option<(&JourneyBitmap, String)> {
         match client_version {
-            Some(v_str)
-                if Self::parse_version_string(v_str).map_or(false, |v| v == self.version) =>
-            {
-                None
-            }
+            Some(v_str) if (Self::parse_version_string(v_str) == Some(self.version)) => None,
             _ => Some((&self.journey_bitmap, self.get_version_string())),
         }
     }
