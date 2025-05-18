@@ -6,6 +6,7 @@ export class LRUCache {
   constructor(capacity = 100) {
     this.capacity = capacity;
     this.cache = new Map();
+    this.keyOrder = [];
     // Using Map to maintain insertion order for O(1) LRU tracking
   }
 
@@ -15,14 +16,13 @@ export class LRUCache {
    * @returns {*} The cached value or undefined if not found
    */
   get(key) {
-    if (!this.cache.has(key)) return undefined;
+    if (!this.cache.has(key)) return null;
     
-    // Move the accessed item to the end (most recently used)
-    const value = this.cache.get(key);
-    this.cache.delete(key);
-    this.cache.set(key, value);
+    // Move the accessed key to the end of the order array (most recently used)
+    this.keyOrder = this.keyOrder.filter(k => k !== key);
+    this.keyOrder.push(key);
     
-    return value;
+    return this.cache.get(key);
   }
 
   /**
@@ -31,18 +31,19 @@ export class LRUCache {
    * @param {*} value - The value to store
    */
   set(key, value) {
-    // If key exists, remove it first to refresh its position
+    // If already exists, update order
     if (this.cache.has(key)) {
-      this.cache.delete(key);
+      this.keyOrder = this.keyOrder.filter(k => k !== key);
     } 
-    // If we're at capacity, remove the least recently used item (first item)
-    else if (this.cache.size >= this.capacity) {
-      const firstKey = this.cache.keys().next().value;
-      this.cache.delete(firstKey);
+    // If at capacity, remove least recently used item
+    else if (this.keyOrder.length >= this.capacity) {
+      const lruKey = this.keyOrder.shift();
+      this.cache.delete(lruKey);
     }
     
-    // Add the new item (will be at the end - most recently used)
+    // Add new item
     this.cache.set(key, value);
+    this.keyOrder.push(key);
   }
 
   /**
@@ -59,6 +60,7 @@ export class LRUCache {
    */
   clear() {
     this.cache.clear();
+    this.keyOrder = [];
   }
 
   /**
@@ -67,5 +69,15 @@ export class LRUCache {
    */
   get size() {
     return this.cache.size;
+  }
+
+  // Remove an item from the cache
+  remove(key) {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+      this.keyOrder = this.keyOrder.filter(k => k !== key);
+      return true;
+    }
+    return false;
   }
 } 

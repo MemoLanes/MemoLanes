@@ -9,6 +9,7 @@ export class JourneyTileProvider {
         this.onUpdateCallbacks = []; // Array to store update callbacks
         this.tileCache = new LRUCache(200); // LRU cache with a capacity of 200 tiles
         this.currentVersion = null; // Store the current version
+        this.subscribed_range = null; // Store the current subscribed tile range and zoom
         
         // Create blank tile image data once
         const blankCanvas = document.createElement('canvas');
@@ -50,11 +51,11 @@ export class JourneyTileProvider {
         }
     }
 
-    async fetchTileFromServer(x, y, z, tileKey) {
+    async fetchTileFromServer(x, y, z, tileKey, disableCache = false) {
         try {
             const tilePath = getJourneyTileFilePathWithId(this.journeyId, x, y, z);
             const response = await fetch(tilePath, {
-                cache: 'force-cache' // Use browser's cache
+                cache: disableCache ? 'no-cache' : 'force-cache' // Disable browser cache if requested
             });
             
             if (!response.ok) throw new Error(`Failed to fetch tile: ${response.status}`);
@@ -104,79 +105,169 @@ export class JourneyTileProvider {
         }
     }
 
+    // Save the current tile range and zoom level that is being displayed
+    setSubscribedRange(tileRange, zoom) {
+        this.subscribed_range = {
+            tileRange: [...tileRange], // Make a copy of the array
+            zoom: zoom
+        };
+    }
+
+    // Fetch all tiles within the current subscribed range
+    fetchTilesForSubscribedRange() {
+        if (!this.subscribed_range) {
+            console.warn('No subscribed range available to fetch tiles for');
+            return;
+        }
+
+        const { tileRange, zoom } = this.subscribed_range;
+        const [left, top, right, bottom] = tileRange;
+
+        console.log(`Fetching tiles for subscribed range: zoom=${zoom}, range=${tileRange}`);
+
+        // Fetch all tiles in the range
+        for (let x = left; x <= right; x++) {
+            for (let y = top; y <= bottom; y++) {
+                const tileKey = `${zoom}/${x}/${y}`;
+                // Remove from cache to force refetch
+                this.tileCache.remove(tileKey);
+                // Fetch the tile with cache disabled
+                this.fetchTileFromServer(x, y, zoom, tileKey, true);
+            }
+        }
+    }
+
     // typically two use cases: if the original page detect a data change, then no cache (forceUpdate = true)
     // if it is just a periodic update or normal check, then use cache (forceUpdate = false)
     async pollForJourneyUpdates(forceUpdate = false) {
-        const filePath = getJourneyFilePathWithId(this.journeyId);
-        
-        console.log(`Fetching ${filePath}`);
-
-        // Use version tracking unless force update is requested
-        const fetchOptions = {
-            headers: {}
-        };
-        
-        if (!forceUpdate && this.currentVersion) {
-            fetchOptions.headers['If-None-Match'] = this.currentVersion;
-        }
-
-        try {
-            const response = await fetch(`${filePath}`, fetchOptions);
-
-            // Store the new version if available
-            const newVersion = response.headers.get('ETag');
-            if (newVersion) {
-                this.currentVersion = newVersion;
-                console.log(`Updated version to: ${newVersion}`);
-            }
-
-            // If server returns 304 Not Modified, return null
-            if (response.status === 304) {
-                console.log('Content not modified');
-                return null;
-            }
+        if (this.frontEndRendering) {
+            // Front-end rendering: fetch the full journey bitmap
+            const filePath = getJourneyFilePathWithId(this.journeyId);
             
-            // If server returns 404 Not Found
-            if (response.status === 404) {
-                console.error(`Journey not found: ${filePath}`);
-                return null;
-            }
+            console.log(`Fetching ${filePath}`);
+
+            // Use version tracking unless force update is requested
+            const fetchOptions = {
+                headers: {}
+            };
             
-            if (!response.ok) {
-                console.error(`Failed to fetch journey: ${response.status} ${response.statusText}`);
-                return null;
+            if (!forceUpdate && this.currentVersion) {
+                fetchOptions.headers['If-None-Match'] = this.currentVersion;
             }
 
-            const arrayBuffer = await response.arrayBuffer();
-            const journeyBitmap = JourneyBitmap.from_bytes(new Uint8Array(arrayBuffer));
-            console.log(`Loaded ${filePath}`);
-
-            // TODO: only do this when front-end rendering is enabled.
-            this.journeyBitmap = journeyBitmap;
-            this.notifyUpdates();
-
-            // Try to fetch provisioned camera location
-            let cameraOptions = null;
             try {
-                const cameraResponse = await fetch(`${getJourneyCameraOptionPathWithId(this.journeyId)}`);
-                if (cameraResponse.ok) {
-                    const cameraData = await cameraResponse.json();
-                    cameraOptions = {
-                        center: [cameraData.lng, cameraData.lat],
-                        zoom: cameraData.zoom
-                    };
-                    console.log('Using provisioned camera location:', cameraData);
-                    // TODO: if it is initial, set locations directly rather than flyTo (no animation)
-                    this.map.flyTo(cameraOptions);
+                const response = await fetch(`${filePath}`, fetchOptions);
+
+                // Store the new version if available
+                const newVersion = response.headers.get('ETag');
+                if (newVersion) {
+                    this.currentVersion = newVersion;
+                    console.log(`Updated version to: ${newVersion}`);
+                }
+
+                // If server returns 304 Not Modified, return null
+                if (response.status === 304) {
+                    console.log('Content not modified');
+                    return null;
+                }
+                
+                // If server returns 404 Not Found
+                if (response.status === 404) {
+                    console.error(`Journey not found: ${filePath}`);
+                    return null;
+                }
+                
+                if (!response.ok) {
+                    console.error(`Failed to fetch journey: ${response.status} ${response.statusText}`);
+                    return null;
+                }
+
+                const arrayBuffer = await response.arrayBuffer();
+                const journeyBitmap = JourneyBitmap.from_bytes(new Uint8Array(arrayBuffer));
+                console.log(`Loaded ${filePath}`);
+
+                this.journeyBitmap = journeyBitmap;
+                this.notifyUpdates();
+
+                // Try to fetch provisioned camera location
+                this.fetchCameraOptions();
+            } catch (error) {
+                console.error('Error while fetching journey data:', error);
+                return null;
+            }
+        } else {
+            // Server-side rendering: check if journey data has changed
+            try {
+                const upToDatePath = `journey/${this.journeyId}/up_to_date`;
+                console.log(`Checking for updates: ${upToDatePath}`);
+                
+                const fetchOptions = {
+                    headers: {}
+                };
+                
+                if (!forceUpdate && this.currentVersion) {
+                    fetchOptions.headers['If-None-Match'] = this.currentVersion;
+                }
+                
+                const response = await fetch(upToDatePath, fetchOptions);
+                
+                // Store the new version if available
+                const newVersion = response.headers.get('ETag');
+                if (newVersion) {
+                    this.currentVersion = newVersion;
+                    console.log(`Updated version to: ${newVersion}`);
+                }
+                
+                if (!response.ok) {
+                    console.error(`Failed to check for updates: ${response.status} ${response.statusText}`);
+                    return null;
+                }
+                
+                const isChanged = await response.json();
+                
+                if (isChanged) {
+                    console.log('Journey data has changed, updating tiles');
+                    
+                    // Fetch tiles for the current subscribed range
+                    if (this.subscribed_range) {
+                        this.fetchTilesForSubscribedRange();
+                    } else {
+                        console.warn('No subscribed range available, cannot update tiles');
+                    }
+                    
+                    // Notify listeners that data has changed
+                    this.notifyUpdates();
+                    
+                    // Fetch camera options if needed
+                    this.fetchCameraOptions();
+                } else {
+                    console.log('Journey data has not changed');
                 }
             } catch (error) {
-                console.log('No provisioned camera location available:', error);
+                console.error('Error while checking for journey updates:', error);
+                return null;
+            }
+        }
+    }
+    
+    // Helper method to fetch camera options
+    async fetchCameraOptions() {
+        try {
+            const cameraResponse = await fetch(`${getJourneyCameraOptionPathWithId(this.journeyId)}`);
+            if (cameraResponse.ok) {
+                const cameraData = await cameraResponse.json();
+                const cameraOptions = {
+                    center: [cameraData.lng, cameraData.lat],
+                    zoom: cameraData.zoom
+                };
+                console.log('Using provisioned camera location:', cameraData);
+                // TODO: if it is initial, set locations directly rather than flyTo (no animation)
+                this.map.flyTo(cameraOptions);
             }
         } catch (error) {
-            console.error('Error while fetching journey data:', error);
-            return null;
+            console.log('No provisioned camera location available:', error);
         }
-    } 
+    }
 }
 
 function getJourneyFilePathWithId(journeyId) {

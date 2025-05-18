@@ -75,6 +75,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         "view dynamic map at: {}&lng=106.5&lat=30.0&zoom=8",
         token.url()
     );
+    println!(
+        "view dynamic map (server-side rendering) at: {}&frontEndRendering=false&lng=106.5&lat=30.0&zoom=8",
+        token.url()
+    );
 
     // Spawn the drawing thread
     std::thread::spawn(move || {

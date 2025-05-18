@@ -75,6 +75,9 @@ export class JourneyCanvasLayer {
             return;
         }
 
+        // Save the tile range and zoom to the tile provider
+        this.journeyTileProvider.setSubscribedRange(tileRange, zoom);
+
         const n = Math.pow(2, zoom);
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         const renderedTiles = new Set();
