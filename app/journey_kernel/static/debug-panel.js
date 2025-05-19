@@ -52,6 +52,9 @@ export class DebugPanel {
     // Set up event listeners
     this._setupEventListeners();
     
+    // Set up easter egg
+    this._setupEasterEgg();
+    
     // Check if debug mode is enabled in URL
     this._checkDebugStatus();
   }
@@ -72,6 +75,51 @@ export class DebugPanel {
         cache: cachingMode,
         render: renderingMode
       });
+    });
+  }
+
+  _setupEasterEgg() {
+    let clickCount = 0;
+    let lastClickTime = 0;
+    let clickTimeout;
+
+    this.map.on('click', (e) => {
+      const currentTime = new Date().getTime();
+      const clickTimeDelta = currentTime - lastClickTime;
+      lastClickTime = currentTime;
+
+      // Reset click count if too much time has passed between clicks
+      if (clickTimeDelta > 500) {
+        clickCount = 1;
+      } else {
+        clickCount++;
+      }
+
+      // Clear any existing timeout
+      if (clickTimeout) {
+        clearTimeout(clickTimeout);
+      }
+
+      // Set a timeout to reset click count after a delay
+      clickTimeout = setTimeout(() => {
+        clickCount = 0;
+      }, 500);
+
+      // Check for triple click near 0,0
+      if (clickCount === 3) {
+        // Check if click is within ±1 degree of 0,0
+        const { lng, lat } = e.lngLat;
+        if (Math.abs(lng) <= 1 && Math.abs(lat) <= 1) {
+          // Toggle debug panel
+          if (this.visible) {
+            this.hide();
+            this._updateUrlHash({ debug: 'false' });
+          } else {
+            this.show();
+            this._updateUrlHash({ debug: 'true' });
+          }
+        }
+      }
     });
   }
 
