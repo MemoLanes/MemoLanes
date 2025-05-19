@@ -55,9 +55,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .lock()
         .unwrap()
         .register_map_renderer(Arc::new(Mutex::new(map_renderer_static)));
-    println!("view static map at: {}", token.url());
+    println!("view static map at: {}&debug=true", token.url());
     println!(
-        "view static map (server-side rendering) at: {}&frontEndRendering=false",
+        "view static map (server-side rendering) at: {}&debug=true&frontEndRendering=false",
         token.url()
     );
 
@@ -72,11 +72,11 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .register_map_renderer(map_renderer_arc);
 
     println!(
-        "view dynamic map at: {}&lng=106.5&lat=30.0&zoom=8",
+        "view dynamic map at: {}&debug=true&lng=106.5&lat=30.0&zoom=8",
         token.url()
     );
     println!(
-        "view dynamic map (server-side rendering) at: {}&frontEndRendering=false&lng=106.5&lat=30.0&zoom=8",
+        "view dynamic map (server-side rendering) at: {}&debug=true&frontEndRendering=false&lng=106.5&lat=30.0&zoom=8",
         token.url()
     );
 

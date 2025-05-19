@@ -1,7 +1,9 @@
 import { JourneyCanvasLayer } from './journey-canvas-layer.js';
 import { JourneyTileProvider } from './journey-tile-provider.js';
+import { DebugPanel } from './debug-panel.js';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import './debug-panel.css';
 
 let currentJourneyLayer;  // Store reference to current layer
 let currentJourneyId;
@@ -108,6 +110,11 @@ async function initializeMap() {
 
         // Set up polling for updates
         pollingInterval = setInterval(() => currentJourneyTileProvider.pollForJourneyUpdates(false), 1000);
+
+        // Create and initialize the debug panel
+        const debugPanel = new DebugPanel(map);
+        debugPanel.initialize();
+        debugPanel.listenForHashChanges();
 
         // give the map a little time to render before notifying Flutter
         setTimeout(() => {
