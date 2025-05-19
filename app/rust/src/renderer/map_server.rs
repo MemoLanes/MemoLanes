@@ -135,11 +135,8 @@ async fn serve_journey_tile(
             let view_y = y as i64;
             let zoom = z as i16;
 
-            // Generate the tile image as PNG
-            match TileShader::get_tile_image_png(journey_bitmap, view_x, view_y, zoom) {
-                Ok(png_data) => HttpResponse::Ok().content_type("image/png").body(png_data),
-                Err(_) => HttpResponse::InternalServerError().finish(),
-            }
+            let data = TileShader::get_tile_image(journey_bitmap, view_x, view_y, zoom);
+            HttpResponse::Ok().content_type("application/octet-stream").body(data)
         }
         None => HttpResponse::NotFound().finish(),
     }
@@ -190,7 +187,7 @@ impl MapServer {
                         web::get().to(serve_journey_bitmap_provisioned_camera_option_by_id),
                     )
                     .route(
-                        "/journey/{id}/tiles/{z}/{x}/{y}.png",
+                        "/journey/{id}/tiles/{z}/{x}/{y}.imagedata",
                         web::get().to(serve_journey_tile),
                     )
                     .route("/", web::get().to(index))

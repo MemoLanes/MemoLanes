@@ -3,9 +3,7 @@ use crate::journey_bitmap::{BITMAP_WIDTH, BITMAP_WIDTH_OFFSET, TILE_WIDTH_OFFSET
 use crate::utils::{
     DEFAULT_BG_COLOR, DEFAULT_FG_COLOR, DEFAULT_TILE_SIZE, DEFAULT_TILE_SIZE_POWER,
 };
-use image::codecs::png::PngEncoder;
 use image::GenericImage;
-use image::ImageEncoder;
 use image::Rgba;
 use image::RgbaImage;
 use image::SubImage;
@@ -276,36 +274,5 @@ impl TileShader {
             DEFAULT_FG_COLOR,
         );
         image.into_vec()
-    }
-
-    pub fn get_tile_image_png(
-        journey_bitmap: &JourneyBitmap,
-        view_x: i64,
-        view_y: i64,
-        zoom: i16,
-    ) -> Result<Vec<u8>, image::ImageError> {
-        let mut image = RgbaImage::new(DEFAULT_TILE_SIZE, DEFAULT_TILE_SIZE);
-        TileShader::render_on_image(
-            &mut image,
-            0,
-            0,
-            journey_bitmap,
-            view_x,
-            view_y,
-            zoom,
-            DEFAULT_TILE_SIZE_POWER,
-            DEFAULT_BG_COLOR,
-            DEFAULT_FG_COLOR,
-        );
-
-        let mut png_data = Vec::new();
-        PngEncoder::new(&mut png_data).write_image(
-            image.as_raw(),
-            DEFAULT_TILE_SIZE,
-            DEFAULT_TILE_SIZE,
-            image::ColorType::Rgba8.into(),
-        )?;
-
-        Ok(png_data)
     }
 }

@@ -62,16 +62,9 @@ export class JourneyTileProvider {
             
             if (!response.ok) throw new Error(`Failed to fetch tile: ${response.status}`);
             
-            const blob = await response.blob();
-            const bitmap = await createImageBitmap(blob);
-            
-            // Draw the bitmap to a canvas to get image data
-            const canvas = document.createElement('canvas');
-            canvas.width = 256;
-            canvas.height = 256;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(bitmap, 0, 0);
-            const imageData = ctx.getImageData(0, 0, 256, 256).data;
+            // Get binary image data directly as ArrayBuffer
+            const arrayBuffer = await response.arrayBuffer();
+            const imageData = new Uint8ClampedArray(arrayBuffer);
             
             // Store in cache
             this.tileCache.set(tileKey, imageData);
@@ -318,7 +311,7 @@ function getJourneyFilePathWithId(journeyId) {
 }
 
 function getJourneyTileFilePathWithId(journeyId, x, y, z) {
-    return `journey/${journeyId}/tiles/${z}/${x}/${y}.png`;
+    return `journey/${journeyId}/tiles/${z}/${x}/${y}.imagedata`;
 }
 
 function getJourneyCameraOptionPathWithId(journeyId) {
