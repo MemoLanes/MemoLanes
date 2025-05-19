@@ -48,6 +48,17 @@ export class DebugPanel {
           ${renderingOptions || '<option value="canvas">Canvas</option>'}
         </select>
       </div>
+      
+      <div class="separator"></div>
+      
+      <div style="margin-bottom: 10px;">
+        <div style="font-weight: bold; margin-bottom: 5px;">Map Viewpoint</div>
+        <div id="viewpoint-info" style="font-family: monospace; font-size: 12px;">
+          <div>Zoom: <span id="zoom-level">-</span></div>
+          <div>Center: <span id="center-coords">-</span></div>
+          <div>Bounds: <span id="bounds-coords">-</span></div>
+        </div>
+      </div>
     `;
 
     // Add panel to document
@@ -84,6 +95,35 @@ export class DebugPanel {
         window.switchRenderingLayer(renderingMode);
       }
     });
+
+    // Listen for map movement to update viewpoint info
+    this.map.on('moveend', () => {
+      this._updateViewpointInfo();
+    });
+    
+    // Also listen for zoom changes
+    this.map.on('zoomend', () => {
+      this._updateViewpointInfo();
+    });
+  }
+
+  _updateViewpointInfo() {
+    if (!this.visible) return;
+    
+    const zoom = this.map.getZoom();
+    const center = this.map.getCenter();
+    const bounds = this.map.getBounds();
+    
+    document.getElementById('zoom-level').textContent = zoom.toFixed(2);
+    document.getElementById('center-coords').textContent = 
+      `${center.lng.toFixed(5)}, ${center.lat.toFixed(5)}`;
+    
+    if (bounds) {
+      const ne = bounds.getNorthEast();
+      const sw = bounds.getSouthWest();
+      document.getElementById('bounds-coords').textContent = 
+        `SW: ${sw.lng.toFixed(5)}, ${sw.lat.toFixed(5)} | NE: ${ne.lng.toFixed(5)}, ${ne.lat.toFixed(5)}`;
+    }
   }
 
   _setupEasterEgg() {
@@ -167,6 +207,9 @@ export class DebugPanel {
       if (this.availableLayers[renderingMode] && renderingModeSelect) {
         renderingModeSelect.value = renderingMode;
       }
+      
+      // Update viewpoint info
+      this._updateViewpointInfo();
     } else {
       this.hide();
     }
@@ -175,6 +218,7 @@ export class DebugPanel {
   show() {
     this.panel.style.display = 'block';
     this.visible = true;
+    this._updateViewpointInfo();
   }
 
   hide() {
