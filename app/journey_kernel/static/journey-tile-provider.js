@@ -279,6 +279,36 @@ export class JourneyTileProvider {
             console.log('No provisioned camera location available:', error);
         }
     }
+
+    // Setter method to update frontEndRendering mode
+    setFrontEndRendering(enabled) {
+        if (this.frontEndRendering === enabled) {
+            // No change, return early
+            return false;
+        }
+        
+        console.log(`Switching rendering mode: frontEndRendering=${enabled}`);
+        this.frontEndRendering = enabled;
+        
+        // Clear tile cache when switching modes
+        this.tileCache.clear();
+        
+        // If switching to front-end rendering, fetch the full journey bitmap
+        if (enabled) {
+            // Trigger a full refresh
+            this.pollForJourneyUpdates(true);
+        } else {
+            // For server-side rendering, fetch tiles for the current view
+            if (this.subscribed_range) {
+                this.fetchTilesForSubscribedRange();
+            }
+        }
+        
+        // Notify all listeners that the rendering mode has changed
+        this.notifyUpdates();
+        
+        return true; // Indicate that the mode was changed
+    }
 }
 
 function getJourneyFilePathWithId(journeyId) {

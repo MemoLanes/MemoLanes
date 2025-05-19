@@ -34,13 +34,12 @@ async function initializeMap() {
         const lng = parseFloat(params.get('lng'));
         const lat = parseFloat(params.get('lat'));
         const zoom = parseFloat(params.get('zoom'));
-        // Parse frontEndRendering parameter, default to true
-        const frontEndRenderingParam = params.get('frontEndRendering');
-        if (frontEndRenderingParam !== null) {
-            frontEndRendering = frontEndRenderingParam.toLowerCase() === 'true';
-        }
-
-        console.log(`journey_id: ${currentJourneyId}, frontEndRendering: ${frontEndRendering}, lng: ${lng}, lat: ${lat}, zoom: ${zoom}`);
+        
+        // Parse cache parameter to determine frontEndRendering
+        const cacheMode = params.get('cache') || 'auto';
+        frontEndRendering = cacheMode !== 'light';
+        
+        console.log(`journey_id: ${currentJourneyId}, frontEndRendering: ${frontEndRendering}, cache: ${cacheMode}, lng: ${lng}, lat: ${lat}, zoom: ${zoom}`);
 
         if (!isNaN(lng) && !isNaN(lat) && !isNaN(zoom)) {
             initialView = {
@@ -150,7 +149,28 @@ async function initializeMap() {
         });
     };
 
-    window.addEventListener('hashchange', () => currentJourneyTileProvider.pollForJourneyUpdates(true));
+    // Listen for hash changes
+    window.addEventListener('hashchange', () => {
+        const hash = window.location.hash.slice(1);
+        const params = new URLSearchParams(hash);
+        
+        // Check if journey ID has changed
+        const newJourneyId = params.get('journey_id');
+        if (newJourneyId !== currentJourneyId && newJourneyId !== null) {
+            currentJourneyId = newJourneyId;
+            currentJourneyTileProvider.journeyId = currentJourneyId;
+            currentJourneyTileProvider.pollForJourneyUpdates(true);
+        }
+        
+        // Check if cache mode has changed
+        const cacheMode = params.get('cache') || 'auto';
+        const newFrontEndRendering = cacheMode !== 'light';
+        
+        // Update frontEndRendering if needed
+        if (currentJourneyTileProvider) {
+            currentJourneyTileProvider.setFrontEndRendering(newFrontEndRendering);
+        }
+    });
 
     // Add method to window object to trigger manual update
     window.triggerJourneyUpdate = function () {

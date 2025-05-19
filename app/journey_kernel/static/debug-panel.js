@@ -25,21 +25,22 @@ export class DebugPanel {
       </div>
       
       <div style="margin-bottom: 10px;">
-        <label for="caching-mode">Caching Mode:</label>
+        <label for="caching-mode" title="Controls how journey data is loaded and cached">Caching Mode:</label>
         <select id="caching-mode">
-          <option value="auto">Auto</option>
-          <option value="performance">Performance</option>
-          <option value="light">Light</option>
+          <option value="auto" title="System decides best caching strategy">Auto</option>
+          <option value="performance" title="Frontend rendering: loads full journey data for better performance">Performance</option>
+          <option value="light" title="Server-side rendering: loads only visible tiles for lower memory usage">Light</option>
         </select>
+        <div class="hint">Performance = Frontend rendering, Light = Server tiles</div>
       </div>
       
       <div class="separator"></div>
       
       <div style="margin-bottom: 10px;">
-        <label for="rendering-mode">Rendering Mode:</label>
+        <label for="rendering-mode" title="Controls how map data is rendered on screen">Rendering Mode:</label>
         <select id="rendering-mode">
-          <option value="auto">Auto</option>
-          <option value="canvas">Canvas</option>
+          <option value="auto" title="System decides best rendering method">Auto</option>
+          <option value="canvas" title="Uses Canvas API for rendering">Canvas</option>
         </select>
       </div>
       
@@ -71,10 +72,13 @@ export class DebugPanel {
       const cachingMode = document.getElementById('caching-mode').value;
       const renderingMode = document.getElementById('rendering-mode').value;
       
-      this._updateUrlHash({
+      // Update URL hash parameters
+      const params = {
         cache: cachingMode,
         render: renderingMode
-      });
+      };
+      
+      this._updateUrlHash(params);
     });
   }
 
@@ -129,7 +133,11 @@ export class DebugPanel {
     
     // Update or add provided params
     Object.keys(params).forEach(key => {
-      urlParams.set(key, params[key]);
+      if (params[key] === null) {
+        urlParams.delete(key);
+      } else {
+        urlParams.set(key, params[key]);
+      }
     });
     
     // Update URL without reloading page
