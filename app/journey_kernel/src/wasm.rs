@@ -18,8 +18,11 @@ pub struct JourneyBitmap {
 #[wasm_bindgen]
 impl JourneyBitmap {
     #[wasm_bindgen]
-    pub fn get_tile_image(&self, view_x: i64, view_y: i64, zoom: i16) -> Vec<u8> {
-        TileShader::get_tile_image(&self.journey_bitmap, view_x, view_y, zoom)
+    pub fn get_tile_data(&self, x: i64, y: i64, z: i16, extension: &str) -> Vec<u8> {
+        match extension {
+            "imagedata" => TileShader::get_tile_image(&self.journey_bitmap, x, y, z),
+            _ => panic!("Unsupported extension: {}", extension),
+        }
     }
 
     #[wasm_bindgen]

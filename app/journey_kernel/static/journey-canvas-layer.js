@@ -131,7 +131,7 @@ export class JourneyCanvasLayer {
 
     renderTile(x, y, z) {
         try {
-            const imageBufferRaw = this.journeyTileProvider.get_tile_image(x, y, z);
+            const imageBufferRaw = this.journeyTileProvider.getTileData(x, y, z);
             const uint8Array = new Uint8ClampedArray(imageBufferRaw);
             return new ImageData(uint8Array, 256, 256);
         } catch (error) {

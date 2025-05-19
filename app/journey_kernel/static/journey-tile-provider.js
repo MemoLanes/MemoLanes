@@ -29,11 +29,10 @@ export class JourneyTileProvider {
             // TODO: server-side rendering
         }
     }
-    
-    // TODO: make it support server-side rendering.
-    get_tile_image(x, y, z) {
+
+    getTileData(x, y, z) {
         if (this.frontEndRendering) {
-            return this.journeyBitmap.get_tile_image(BigInt(x), BigInt(y), z);
+            return this.journeyBitmap.get_tile_data(BigInt(x), BigInt(y), z, this.tileExtension);
         } else {
             // Server-side rendering
             const tileKey = tileXYZToKey(x, y, z);
