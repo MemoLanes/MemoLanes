@@ -5,6 +5,9 @@ export class JourneyCanvasLayer {
         this.map = map;
         this.journeyTileProvider = journeyTileProvider;
         this.journeyTileProvider.registerUpdateCallback(this.handleProviderUpdate.bind(this));
+        
+        // Set the tile extension to "imagedata"
+        this.journeyTileProvider.setTileExtension("imagedata");
 
         this.canvas = document.createElement("canvas");
         this.ctx = this.canvas.getContext("2d");

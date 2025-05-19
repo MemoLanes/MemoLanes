@@ -11,6 +11,7 @@ export class JourneyTileProvider {
         this.tileCache = new LRUCache(200); // LRU cache with a capacity of 200 tiles
         this.currentVersion = null; // Store the current version
         this.subscribed_range = null; // Store the current subscribed tile range and zoom
+        this.tileExtension = "imagedata"; // Default tile extension
         
         // Create blank tile image data once
         const blankCanvas = document.createElement('canvas');
@@ -55,7 +56,7 @@ export class JourneyTileProvider {
     async fetchTileFromServer(x, y, z, disableCache = false) {
         const tileKey = tileXYZToKey(x, y, z);
         try {
-            const tilePath = getJourneyTileFilePathWithId(this.journeyId, x, y, z);
+            const tilePath = getJourneyTileFilePathWithId(this.journeyId, x, y, z, this.tileExtension);
             const response = await fetch(tilePath, {
                 cache: disableCache ? 'no-cache' : 'force-cache' // Disable browser cache if requested
             });
@@ -304,14 +305,23 @@ export class JourneyTileProvider {
         
         return true; // Indicate that the mode was changed
     }
+
+    // Setter method to update the tile extension
+    setTileExtension(extension) {
+        if (typeof extension === 'string' && extension.length > 0) {
+            this.tileExtension = extension;
+            return true;
+        }
+        return false;
+    }
 }
 
 function getJourneyFilePathWithId(journeyId) {
     return journeyId ? `journey/${journeyId}/journey_bitmap.bin` : `journey_bitmap.bin`;
 }
 
-function getJourneyTileFilePathWithId(journeyId, x, y, z) {
-    return `journey/${journeyId}/tiles/${z}/${x}/${y}.imagedata`;
+function getJourneyTileFilePathWithId(journeyId, x, y, z, extension = "imagedata") {
+    return `journey/${journeyId}/tiles/${z}/${x}/${y}.${extension}`;
 }
 
 function getJourneyCameraOptionPathWithId(journeyId) {
