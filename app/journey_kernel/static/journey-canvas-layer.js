@@ -1,3 +1,5 @@
+import { lngLatToTileXY, tileXYToLngLat } from './utils.js';
+
 export class JourneyCanvasLayer {
     constructor(map, journeyTileProvider) {
         this.map = map;
@@ -39,11 +41,11 @@ export class JourneyCanvasLayer {
         const zoom = Math.floor(this.map.getZoom());
         const bounds = this.map.getBounds();
 
-        const [leftInit, topInit] = this.lngLatToTileXY(
+        const [leftInit, topInit] = lngLatToTileXY(
             bounds.getNorthWest().toArray(),
             zoom
         );
-        const [rightInit, bottomInit] = this.lngLatToTileXY(
+        const [rightInit, bottomInit] = lngLatToTileXY(
             bounds.getSouthEast().toArray(),
             zoom
         );
@@ -113,10 +115,10 @@ export class JourneyCanvasLayer {
             }
         }
 
-        const nw = this.tileXYToLngLat([left, top], zoom);
-        const ne = this.tileXYToLngLat([right + 1, top], zoom);
-        const se = this.tileXYToLngLat([right + 1, bottom + 1], zoom);
-        const sw = this.tileXYToLngLat([left, bottom + 1], zoom);
+        const nw = tileXYToLngLat([left, top], zoom);
+        const ne = tileXYToLngLat([right + 1, top], zoom);
+        const se = tileXYToLngLat([right + 1, bottom + 1], zoom);
+        const sw = tileXYToLngLat([left, bottom + 1], zoom);
 
         const mainCanvasSource = this.map.getSource("main-canvas-source");
         mainCanvasSource?.setCoordinates([nw, ne, se, sw]);
@@ -146,22 +148,6 @@ export class JourneyCanvasLayer {
     }
 
     // Helper methods
-    lngLatToTileXY([lng, lat], zoom) {
-        const n = Math.pow(2, zoom);
-        const x = Math.floor((lng + 180) / 360 * n);
-        const latRad = lat * Math.PI / 180;
-        const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
-        return [x, y];
-    }
-
-    tileXYToLngLat([x, y], zoom) {
-        const n = Math.pow(2, zoom);
-        const lng = x / n * 360 - 180;
-        const latRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n)));
-        const lat = latRad * 180 / Math.PI;
-        return [lng, lat];
-    }
-
     arraysEqual(a, b) {
         return Array.isArray(a) &&
             Array.isArray(b) &&
