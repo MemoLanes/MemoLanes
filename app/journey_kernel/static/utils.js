@@ -24,4 +24,25 @@ export function tileXYToLngLat([x, y], zoom) {
     const latRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n)));
     const lat = latRad * 180 / Math.PI;
     return [lng, lat];
+}
+
+/**
+ * Convert tile X, Y, Z coordinates to a string key
+ * @param {Number} x - X tile coordinate
+ * @param {Number} y - Y tile coordinate
+ * @param {Number} z - Zoom level
+ * @returns {String} - Tile key in the format "z/x/y"
+ */
+export function tileXYZToKey(x, y, z) {
+    return `${z}/${x}/${y}`;
+}
+
+/**
+ * Convert a tile key string to X, Y, Z coordinates
+ * @param {String} key - Tile key in the format "z/x/y"
+ * @returns {Object} - Object with x, y, z properties
+ */
+export function keyToTileXYZ(key) {
+    const [z, x, y] = key.split('/').map(Number);
+    return { x, y, z };
 } 

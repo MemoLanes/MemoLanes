@@ -1,5 +1,6 @@
 import { JourneyBitmap } from '../pkg';
 import { LRUCache } from './lru-cache';
+import { tileXYZToKey } from './utils';
 
 export class JourneyTileProvider {
     constructor(map, journeyId, frontEndRendering = true) {
@@ -34,7 +35,7 @@ export class JourneyTileProvider {
             return this.journeyBitmap.get_tile_image(BigInt(x), BigInt(y), z);
         } else {
             // Server-side rendering
-            const tileKey = `${z}/${x}/${y}`;
+            const tileKey = tileXYZToKey(x, y, z);
             
             // Check cache first
             if (this.tileCache.has(tileKey)) {
@@ -45,13 +46,14 @@ export class JourneyTileProvider {
             const blankTile = new Uint8ClampedArray(this.blankTileData);
             
             // Fetch from server asynchronously
-            this.fetchTileFromServer(x, y, z, tileKey);
+            this.fetchTileFromServer(x, y, z);
             
             return blankTile;
         }
     }
 
-    async fetchTileFromServer(x, y, z, tileKey, disableCache = false) {
+    async fetchTileFromServer(x, y, z, disableCache = false) {
+        const tileKey = tileXYZToKey(x, y, z);
         try {
             const tilePath = getJourneyTileFilePathWithId(this.journeyId, x, y, z);
             const response = await fetch(tilePath, {
@@ -128,11 +130,11 @@ export class JourneyTileProvider {
         // Fetch all tiles in the range
         for (let x = left; x <= right; x++) {
             for (let y = top; y <= bottom; y++) {
-                const tileKey = `${zoom}/${x}/${y}`;
+                const tileKey = tileXYZToKey(x, y, zoom);
                 // Remove from cache to force refetch
                 this.tileCache.remove(tileKey);
                 // Fetch the tile with cache disabled
-                this.fetchTileFromServer(x, y, zoom, tileKey, true);
+                this.fetchTileFromServer(x, y, zoom, true);
             }
         }
     }
