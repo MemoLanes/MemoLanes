@@ -81,12 +81,21 @@ async fn serve_journey_bitmap_by_id(
 
             match map_renderer.get_latest_bitmap_if_changed(client_version) {
                 None => HttpResponse::NotModified().finish(),
-                Some((journey_bitmap, version)) => match journey_bitmap.to_bytes() {
-                    Ok(bytes) => HttpResponse::Ok()
-                        .append_header(("ETag", version))
-                        .body(bytes),
-                    Err(_) => HttpResponse::InternalServerError().finish(),
-                },
+                Some((journey_bitmap, version)) => {
+                    // Check if this is a HEAD request
+                    if req.method() == actix_web::http::Method::HEAD {
+                        // For HEAD requests, return only the headers without the body
+                        HttpResponse::Ok().append_header(("ETag", version)).finish()
+                    } else {
+                        // For GET requests, return the full response with body
+                        match journey_bitmap.to_bytes() {
+                            Ok(bytes) => HttpResponse::Ok()
+                                .append_header(("ETag", version))
+                                .body(bytes),
+                            Err(_) => HttpResponse::InternalServerError().finish(),
+                        }
+                    }
+                }
             }
         }
         None => HttpResponse::NotFound().finish(),
@@ -136,41 +145,6 @@ async fn serve_journey_tile(
     }
 }
 
-// TODO: this api cannot work with `serve_journey_bitmap_by_id` api, as they are both not idempotent.
-// currently the client should only choose one of the two api to use.
-// we may consider use other method (eg, brings a timestamp or hash when checking.)
-async fn serve_journey_bitmap_up_to_date_by_id(
-    id: web::Path<Uuid>,
-    req: HttpRequest,
-    data: web::Data<Arc<Mutex<Registry>>>,
-) -> HttpResponse {
-    let registry = data.lock().unwrap();
-    match registry.get(&id) {
-        Some(item) => {
-            let map_renderer = item.lock().unwrap();
-
-            // Extract version from If-None-Match header if present
-            let client_version = req
-                .headers()
-                .get("If-None-Match")
-                .and_then(|h| h.to_str().ok());
-
-            let result = map_renderer.get_latest_bitmap_if_changed(client_version);
-            let is_changed = result.is_some();
-
-            let mut response = HttpResponse::Ok();
-
-            // Add the current version to the response
-            if let Some((_, version)) = result {
-                response.append_header(("ETag", version));
-            }
-
-            response.json(is_changed)
-        }
-        None => HttpResponse::NotFound().finish(),
-    }
-}
-
 pub struct ServerInfo {
     host: String,
     port: u16,
@@ -208,12 +182,12 @@ impl MapServer {
                         web::get().to(serve_journey_bitmap_by_id),
                     )
                     .route(
-                        "/journey/{id}/provisioned_camera_option",
-                        web::get().to(serve_journey_bitmap_provisioned_camera_option_by_id),
+                        "/journey/{id}/journey_bitmap.bin",
+                        web::head().to(serve_journey_bitmap_by_id),
                     )
                     .route(
-                        "/journey/{id}/up_to_date",
-                        web::get().to(serve_journey_bitmap_up_to_date_by_id),
+                        "/journey/{id}/provisioned_camera_option",
+                        web::get().to(serve_journey_bitmap_provisioned_camera_option_by_id),
                     )
                     .route(
                         "/journey/{id}/tiles/{z}/{x}/{y}.png",

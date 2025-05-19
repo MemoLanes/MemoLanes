@@ -196,12 +196,13 @@ export class JourneyTileProvider {
                 return null;
             }
         } else {
-            // Server-side rendering: check if journey data has changed
+            // Server-side rendering: use HEAD request to check if journey data has changed
             try {
-                const upToDatePath = `journey/${this.journeyId}/up_to_date`;
-                console.log(`Checking for updates: ${upToDatePath}`);
+                const filePath = getJourneyFilePathWithId(this.journeyId);
+                console.log(`Checking for updates with HEAD request: ${filePath}`);
                 
                 const fetchOptions = {
+                    method: 'HEAD',
                     headers: {}
                 };
                 
@@ -209,13 +210,25 @@ export class JourneyTileProvider {
                     fetchOptions.headers['If-None-Match'] = this.currentVersion;
                 }
                 
-                const response = await fetch(upToDatePath, fetchOptions);
+                const response = await fetch(filePath, fetchOptions);
                 
                 // Store the new version if available
                 const newVersion = response.headers.get('ETag');
+                const isChanged = newVersion && newVersion !== this.currentVersion;
+                
                 if (newVersion) {
                     this.currentVersion = newVersion;
                     console.log(`Updated version to: ${newVersion}`);
+                }
+                
+                if (response.status === 304) {
+                    console.log('Journey data has not changed');
+                    return null;
+                }
+                
+                if (response.status === 404) {
+                    console.error(`Journey not found: ${filePath}`);
+                    return null;
                 }
                 
                 if (!response.ok) {
@@ -223,9 +236,7 @@ export class JourneyTileProvider {
                     return null;
                 }
                 
-                const isChanged = await response.json();
-                
-                if (isChanged) {
+                if (isChanged || response.status === 200) {
                     console.log('Journey data has changed, updating tiles');
                     
                     // Fetch tiles for the current subscribed range
