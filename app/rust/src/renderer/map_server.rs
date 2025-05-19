@@ -136,7 +136,9 @@ async fn serve_journey_tile(
             let zoom = z as i16;
 
             let data = TileShader::get_tile_image(journey_bitmap, view_x, view_y, zoom);
-            HttpResponse::Ok().content_type("application/octet-stream").body(data)
+            HttpResponse::Ok()
+                .content_type("application/octet-stream")
+                .body(data)
         }
         None => HttpResponse::NotFound().finish(),
     }
