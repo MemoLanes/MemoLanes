@@ -5,11 +5,42 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './debug-panel.css';
 
+// Available rendering layers
+const AVAILABLE_LAYERS = {
+    'canvas': {
+        name: 'Canvas',
+        layerClass: JourneyCanvasLayer,
+        description: 'Uses Canvas API for rendering'
+    }
+};
+
 let currentJourneyLayer;  // Store reference to current layer
 let currentJourneyId;
 let currentJourneyTileProvider;
 let pollingInterval;      // Store reference to polling interval
 let locationMarker = null;
+let currentRenderingMode = 'canvas'; // Default rendering mode
+
+// Function to switch between rendering layers
+function switchRenderingLayer(map, renderingMode) {
+    if (!AVAILABLE_LAYERS[renderingMode]) {
+        console.warn(`Rendering mode '${renderingMode}' not available, using canvas instead.`);
+        renderingMode = 'canvas';
+    }
+    
+    // Clean up existing layer if present
+    if (currentJourneyLayer) {
+        currentJourneyLayer.remove && currentJourneyLayer.remove();
+    }
+    
+    // Create new layer instance
+    const LayerClass = AVAILABLE_LAYERS[renderingMode].layerClass;
+    currentJourneyLayer = new LayerClass(map, currentJourneyTileProvider);
+    currentJourneyLayer.initialize();
+    
+    currentRenderingMode = renderingMode;
+    return currentJourneyLayer;
+}
 
 async function initializeMap() {
     // Load Mapbox token from .token.json
@@ -27,6 +58,8 @@ async function initializeMap() {
 
     // Default frontEndRendering to true
     let frontEndRendering = true;
+    // Default rendering mode
+    let renderingMode = 'canvas';
 
     if (hash) {
         const params = new URLSearchParams(hash);
@@ -39,7 +72,13 @@ async function initializeMap() {
         const cacheMode = params.get('cache') || 'auto';
         frontEndRendering = cacheMode !== 'light';
         
-        console.log(`journey_id: ${currentJourneyId}, frontEndRendering: ${frontEndRendering}, cache: ${cacheMode}, lng: ${lng}, lat: ${lat}, zoom: ${zoom}`);
+        // Get rendering mode from URL if available
+        const urlRenderMode = params.get('render');
+        if (urlRenderMode && AVAILABLE_LAYERS[urlRenderMode]) {
+            renderingMode = urlRenderMode;
+        }
+        
+        console.log(`journey_id: ${currentJourneyId}, frontEndRendering: ${frontEndRendering}, cache: ${cacheMode}, render: ${renderingMode}, lng: ${lng}, lat: ${lat}, zoom: ${zoom}`);
 
         if (!isNaN(lng) && !isNaN(lat) && !isNaN(zoom)) {
             initialView = {
@@ -96,13 +135,8 @@ async function initializeMap() {
             await currentJourneyTileProvider.pollForJourneyUpdates(true);
         }
 
-        // Create and store journey layer
-        currentJourneyLayer = new JourneyCanvasLayer(map, currentJourneyTileProvider);
-
-        currentJourneyLayer.initialize();
-
-        // TODO: only use for custom gl layer
-        // map.addLayer(currentJourneyLayer);
+        // Create and initialize journey layer with selected rendering mode
+        currentJourneyLayer = switchRenderingLayer(map, renderingMode);
 
         map.on("move", () => currentJourneyLayer.render());
         map.on("moveend", () => currentJourneyLayer.render());
@@ -111,7 +145,7 @@ async function initializeMap() {
         pollingInterval = setInterval(() => currentJourneyTileProvider.pollForJourneyUpdates(false), 1000);
 
         // Create and initialize the debug panel
-        const debugPanel = new DebugPanel(map);
+        const debugPanel = new DebugPanel(map, AVAILABLE_LAYERS);
         debugPanel.initialize();
         debugPanel.listenForHashChanges();
 
@@ -170,11 +204,22 @@ async function initializeMap() {
         if (currentJourneyTileProvider) {
             currentJourneyTileProvider.setFrontEndRendering(newFrontEndRendering);
         }
+        
+        // Check if rendering mode has changed
+        const newRenderMode = params.get('render');
+        if (newRenderMode && newRenderMode !== currentRenderingMode && AVAILABLE_LAYERS[newRenderMode]) {
+            switchRenderingLayer(map, newRenderMode);
+        }
     });
 
     // Add method to window object to trigger manual update
     window.triggerJourneyUpdate = function () {
         return currentJourneyTileProvider.pollForJourneyUpdates(false);
+    };
+    
+    // Add method to switch rendering layers
+    window.switchRenderingLayer = function(renderingMode) {
+        return switchRenderingLayer(map, renderingMode);
     };
 }
 

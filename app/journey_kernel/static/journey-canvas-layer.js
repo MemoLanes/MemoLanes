@@ -213,7 +213,15 @@ export class JourneyCanvasLayer {
         }
     }
 
-    onRemove() {
+    remove() {
+        if (this.map.getLayer("main-canvas-layer")) {
+            this.map.removeLayer("main-canvas-layer");
+        }
+        
+        if (this.map.getSource("main-canvas-source")) {
+            this.map.removeSource("main-canvas-source");
+        }
+        
         if (this.journeyTileProvider) {
             this.journeyTileProvider.unregisterUpdateCallback(this.handleProviderUpdate.bind(this));
         }

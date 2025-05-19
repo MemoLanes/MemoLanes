@@ -5,10 +5,11 @@
  */
 
 export class DebugPanel {
-  constructor(map) {
+  constructor(map, availableLayers = {}) {
     this.map = map;
     this.panel = null;
     this.visible = false;
+    this.availableLayers = availableLayers;
   }
 
   initialize() {
@@ -16,6 +17,11 @@ export class DebugPanel {
     this.panel = document.createElement('div');
     this.panel.className = 'debug-panel';
     this.panel.style.display = 'none';
+
+    // Build rendering mode options based on available layers
+    const renderingOptions = Object.entries(this.availableLayers).map(([key, layer]) => {
+      return `<option value="${key}" title="${layer.description}">${layer.name}</option>`;
+    }).join('');
 
     // Add content to panel
     this.panel.innerHTML = `
@@ -39,8 +45,7 @@ export class DebugPanel {
       <div style="margin-bottom: 10px;">
         <label for="rendering-mode" title="Controls how map data is rendered on screen">Rendering Mode:</label>
         <select id="rendering-mode">
-          <option value="auto" title="System decides best rendering method">Auto</option>
-          <option value="canvas" title="Uses Canvas API for rendering">Canvas</option>
+          ${renderingOptions || '<option value="canvas">Canvas</option>'}
         </select>
       </div>
       
@@ -79,6 +84,14 @@ export class DebugPanel {
       };
       
       this._updateUrlHash(params);
+    });
+
+    // Rendering mode direct change handler
+    document.getElementById('rendering-mode').addEventListener('change', (e) => {
+      const renderingMode = e.target.value;
+      if (window.switchRenderingLayer && this.availableLayers[renderingMode]) {
+        window.switchRenderingLayer(renderingMode);
+      }
     });
   }
 
@@ -154,10 +167,15 @@ export class DebugPanel {
       
       // Set initial values from URL params
       const cachingMode = urlParams.get('cache') || 'auto';
-      const renderingMode = urlParams.get('render') || 'auto';
+      const renderingMode = urlParams.get('render') || 'canvas';
       
       document.getElementById('caching-mode').value = cachingMode;
-      document.getElementById('rendering-mode').value = renderingMode;
+      
+      // Only set rendering mode if it's available
+      const renderingModeSelect = document.getElementById('rendering-mode');
+      if (this.availableLayers[renderingMode] && renderingModeSelect) {
+        renderingModeSelect.value = renderingMode;
+      }
     } else {
       this.hide();
     }
