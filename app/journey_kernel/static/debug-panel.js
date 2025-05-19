@@ -48,8 +48,6 @@ export class DebugPanel {
           ${renderingOptions || '<option value="canvas">Canvas</option>'}
         </select>
       </div>
-      
-      <button id="apply-settings">Apply Settings</button>
     `;
 
     // Add panel to document
@@ -72,23 +70,16 @@ export class DebugPanel {
       this._updateUrlHash({debug: 'false'});
     });
 
-    // Apply settings button
-    document.getElementById('apply-settings').addEventListener('click', () => {
-      const cachingMode = document.getElementById('caching-mode').value;
-      const renderingMode = document.getElementById('rendering-mode').value;
-      
-      // Update URL hash parameters
-      const params = {
-        cache: cachingMode,
-        render: renderingMode
-      };
-      
-      this._updateUrlHash(params);
+    // Caching mode direct change handler
+    document.getElementById('caching-mode').addEventListener('change', (e) => {
+      const cachingMode = e.target.value;
+      this._updateUrlHash({ cache: cachingMode });
     });
 
     // Rendering mode direct change handler
     document.getElementById('rendering-mode').addEventListener('change', (e) => {
       const renderingMode = e.target.value;
+      this._updateUrlHash({ render: renderingMode });
       if (window.switchRenderingLayer && this.availableLayers[renderingMode]) {
         window.switchRenderingLayer(renderingMode);
       }
