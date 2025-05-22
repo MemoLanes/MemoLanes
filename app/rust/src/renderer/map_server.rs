@@ -1,6 +1,6 @@
 use actix_web::{dev::ServerHandle, web, App, HttpRequest, HttpResponse, HttpServer};
 use anyhow::Result;
-use serde::{Deserialize};
+use serde::Deserialize;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, Weak};

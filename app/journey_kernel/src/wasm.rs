@@ -101,7 +101,7 @@ impl JourneyBitmap {
 
         flat_pixels
     }
-    
+
     #[wasm_bindgen]
     pub fn from_bytes(bytes: &[u8]) -> Result<JourneyBitmap, JsError> {
         console_error_panic_hook::set_once();
@@ -117,3 +117,4 @@ impl JourneyBitmap {
             .map_err(|e| JsError::new(&e.to_string()))
     }
 }
+

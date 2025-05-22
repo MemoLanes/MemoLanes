@@ -19,7 +19,7 @@ pub fn add_journey_vector_to_journey_bitmap(
 ) {
     for track_segmant in &journey_vector.track_segments {
         for (i, point) in track_segmant.track_points.iter().enumerate() {
-            let prev_idx = if i >= 1 { i - 1 } else { 0 };
+            let prev_idx = i.saturating_sub(1);
             let prev = &track_segmant.track_points[prev_idx];
             journey_bitmap.add_line(
                 prev.longitude,
