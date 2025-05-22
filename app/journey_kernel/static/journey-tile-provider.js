@@ -1,135 +1,25 @@
-import { JourneyBitmap } from '../pkg';
-import { LRUCache } from './lru-cache';
-import { tileXYZToKey } from './utils';
+import { JourneyBitmap, TileBuffer } from '../pkg';
+import { getViewportTileRange } from './utils';
 
 export class JourneyTileProvider {
     constructor(map, journeyId, frontEndRendering = true) {
         this.map = map;
         this.journeyId = journeyId;
         this.frontEndRendering = frontEndRendering;
-        this.onUpdateCallbacks = []; // Array to store update callbacks
-        this.tileCache = new LRUCache(200); // LRU cache with a capacity of 200 tiles
         this.currentVersion = null; // Store the current version
-        this.subscribed_range = null; // Store the current subscribed tile range and zoom
-        this.tileExtension = "imagedata"; // Default tile extension
+        this.viewRange = null; // Store the current viewport tile range [x, y, w, h, z]
+        this.tileBuffer = null; // Store the tile buffer data
+        this.viewRangeUpdated = false; // Flag indicating view range has been updated
+        this.downloadInProgress = false; // Flag indicating download is in progress
+        this.bufferSizePower = 8;
+
+        this.tileBufferCallbacks = []; // Array to store tile buffer update callbacks
         
-        // Create blank tile image data once
-        const blankCanvas = document.createElement('canvas');
-        blankCanvas.width = 256;
-        blankCanvas.height = 256;
-        const ctx = blankCanvas.getContext('2d');
-        // TODO: remove these hard-coded values
-        ctx.fillStyle = 'rgba(0,0,0,0.5)'; // Foggy
-        ctx.fillRect(0, 0, 256, 256);
-        this.blankTileData = ctx.getImageData(0, 0, 256, 256).data;
 
-        if (this.frontEndRendering) {
-            // this.pollForJourneyUpdates(true);
-        } else {
-            // TODO: server-side rendering
-        }
-    }
-
-    getTileData(x, y, z) {
-        if (this.frontEndRendering) {
-            return this.journeyBitmap.get_tile_data(BigInt(x), BigInt(y), z, this.tileExtension);
-        } else {
-            // Server-side rendering
-            const tileKey = tileXYZToKey(x, y, z);
-            
-            // Check cache first
-            if (this.tileCache.has(tileKey)) {
-                return this.tileCache.get(tileKey);
-            }
-            
-            // Return blank tile immediately
-            const blankTile = new Uint8ClampedArray(this.blankTileData);
-            
-            // Fetch from server asynchronously
-            this.fetchTileFromServer(x, y, z);
-            
-            return blankTile;
-        }
-    }
-
-    async fetchTileFromServer(x, y, z, disableCache = false) {
-        const tileKey = tileXYZToKey(x, y, z);
-        try {
-            const tilePath = getJourneyTileFilePathWithId(this.journeyId, x, y, z, this.tileExtension);
-            const response = await fetch(tilePath, {
-                cache: disableCache ? 'no-cache' : 'force-cache' // Disable browser cache if requested
-            });
-            
-            if (!response.ok) throw new Error(`Failed to fetch tile: ${response.status}`);
-            
-            // Get binary image data directly as ArrayBuffer
-            const arrayBuffer = await response.arrayBuffer();
-            const imageData = new Uint8ClampedArray(arrayBuffer);
-            
-            // Store in cache
-            this.tileCache.set(tileKey, imageData);
-            
-            // Notify that we need to redraw
-            this.notifyTileUpdate(tileKey);
-        } catch (error) {
-            console.error('Error fetching tile:', error);
-        }
-    }
-
-    // Add a method to notify when a specific tile is updated
-    notifyTileUpdate(tileKey) {
-        for (const callback of this.onUpdateCallbacks) {
-            callback(tileKey);
-        }
-    }
-
-    // Register a callback to be called when journey data updates
-    registerUpdateCallback(callback) {
-        this.onUpdateCallbacks.push(callback);
-    }
-    
-    // Remove a previously registered callback
-    unregisterUpdateCallback(callback) {
-        this.onUpdateCallbacks = this.onUpdateCallbacks.filter(cb => cb !== callback);
-    }
-    
-    // Notify all registered callbacks
-    notifyUpdates() {
-        for (const callback of this.onUpdateCallbacks) {
-            callback();
-        }
-    }
-
-    // Save the current tile range and zoom level that is being displayed
-    setSubscribedRange(tileRange, zoom) {
-        this.subscribed_range = {
-            tileRange: [...tileRange], // Make a copy of the array
-            zoom: zoom
-        };
-    }
-
-    // Fetch all tiles within the current subscribed range
-    fetchTilesForSubscribedRange() {
-        if (!this.subscribed_range) {
-            console.warn('No subscribed range available to fetch tiles for');
-            return;
-        }
-
-        const { tileRange, zoom } = this.subscribed_range;
-        const [left, top, right, bottom] = tileRange;
-
-        console.log(`Fetching tiles for subscribed range: zoom=${zoom}, range=${tileRange}`);
-
-        // Fetch all tiles in the range
-        for (let x = left; x <= right; x++) {
-            for (let y = top; y <= bottom; y++) {
-                const tileKey = tileXYZToKey(x, y, zoom);
-                // Remove from cache to force refetch
-                this.tileCache.remove(tileKey);
-                // Fetch the tile with cache disabled
-                this.fetchTileFromServer(x, y, zoom, true);
-            }
-        }
+        this.map.on('move', () => this.tryUpdateViewRange());
+        this.map.on('moveend', () => this.tryUpdateViewRange());
+        // Initial update
+        this.tryUpdateViewRange();
     }
 
     // typically two use cases: if the original page detect a data change, then no cache (forceUpdate = true)
@@ -181,8 +71,7 @@ export class JourneyTileProvider {
                 const journeyBitmap = JourneyBitmap.from_bytes(new Uint8Array(arrayBuffer));
                 console.log(`Loaded ${filePath}`);
 
-                this.journeyBitmap = journeyBitmap;
-                this.notifyUpdates();
+                this.tileBuffer = journeyBitmap;
 
                 // Try to fetch provisioned camera location
                 this.fetchCameraOptions();
@@ -233,16 +122,11 @@ export class JourneyTileProvider {
                 
                 if (isChanged || response.status === 200) {
                     console.log('Journey data has changed, updating tiles');
-                    
-                    // Fetch tiles for the current subscribed range
-                    if (this.subscribed_range) {
-                        this.fetchTilesForSubscribedRange();
-                    } else {
-                        console.warn('No subscribed range available, cannot update tiles');
-                    }
-                    
-                    // Notify listeners that data has changed
-                    this.notifyUpdates();
+
+                    this.viewRangeUpdated = true;
+                    // TODO: currently this may return immediately, even if the tile buffer is not ready
+                    // once we fix this, we can guarantee the buffer is ready when rendering, and remove the catch case in rendering layer.
+                    await this.checkAndFetchTileBuffer();
                     
                     // Fetch camera options if needed
                     this.fetchCameraOptions();
@@ -275,43 +159,140 @@ export class JourneyTileProvider {
         }
     }
 
+    setBufferSizePower(bufferSizePower) {
+        if (this.bufferSizePower === bufferSizePower) {
+            return;
+        }
+
+        console.log(`Switching buffer size power: ${this.bufferSizePower} -> ${bufferSizePower}`);
+        this.bufferSizePower = bufferSizePower;
+        this.pollForJourneyUpdates(true);
+    }
+
     // Setter method to update frontEndRendering mode
     setFrontEndRendering(enabled) {
         if (this.frontEndRendering === enabled) {
-            // No change, return early
-            return false;
+            return;
         }
         
         console.log(`Switching rendering mode: frontEndRendering=${enabled}`);
         this.frontEndRendering = enabled;
-        
-        // Clear tile cache when switching modes
-        this.tileCache.clear();
-        
-        // If switching to front-end rendering, fetch the full journey bitmap
-        if (enabled) {
-            // Trigger a full refresh
-            this.pollForJourneyUpdates(true);
-        } else {
-            // For server-side rendering, fetch tiles for the current view
-            if (this.subscribed_range) {
-                this.fetchTilesForSubscribedRange();
-            }
-        }
-        
-        // Notify all listeners that the rendering mode has changed
-        this.notifyUpdates();
-        
-        return true; // Indicate that the mode was changed
+        this.pollForJourneyUpdates(true);
     }
 
-    // Setter method to update the tile extension
-    setTileExtension(extension) {
-        if (typeof extension === 'string' && extension.length > 0) {
-            this.tileExtension = extension;
+    // Try to update the current viewport tile range, only if it has changed
+    tryUpdateViewRange() {
+        const [x, y, w, h, z] = getViewportTileRange(this.map);
+        
+        // Skip update if the values haven't changed
+        if (this.viewRange && 
+            this.viewRange[0] === x && 
+            this.viewRange[1] === y && 
+            this.viewRange[2] === w && 
+            this.viewRange[3] === h && 
+            this.viewRange[4] === z) {
+            return this.viewRange;
+        }
+        
+        // Update only when values have changed
+        this.viewRange = [x, y, w, h, z];
+        console.log(`View range updated: x=${x}, y=${y}, w=${w}, h=${h}, z=${z}`);
+        
+        // Mark that view range has been updated and trigger fetch if not already downloading
+        this.viewRangeUpdated = true;
+
+        if (!this.frontEndRendering) {
+            this.checkAndFetchTileBuffer();
+        } else {
+            this.notifyTileBufferReady(x, y, w, h, z, this.bufferSizePower, this.tileBuffer);
+        }
+        
+        return this.viewRange;
+    }
+    
+    // Check state and fetch tile buffer if needed
+    async checkAndFetchTileBuffer() {
+        // If no download is in progress and view range has been updated, fetch new tile buffer
+        if (!this.downloadInProgress && this.viewRangeUpdated) {
+            await this.fetchTileBuffer();
+        }
+    }
+    
+    // Register a callback to be called when new tile buffer is ready
+    registerTileBufferCallback(callback) {
+        if (typeof callback === 'function' && !this.tileBufferCallbacks.includes(callback)) {
+            this.tileBufferCallbacks.push(callback);
+            callback(this.viewRange[0], this.viewRange[1], this.viewRange[2], this.viewRange[3], this.viewRange[4], this.bufferSizePower, this.tileBuffer);
             return true;
         }
         return false;
+    }
+    
+    // Remove a previously registered callback
+    unregisterTileBufferCallback(callback) {
+        const index = this.tileBufferCallbacks.indexOf(callback);
+        if (index !== -1) {
+            this.tileBufferCallbacks.splice(index, 1);
+            return true;
+        }
+        return false;
+    }
+    
+    // Notify all registered callbacks with tile range and buffer
+    notifyTileBufferReady(x, y, w, h, z, bufferSizePower, tileBuffer) {
+        for (const callback of this.tileBufferCallbacks) {
+            try {
+                callback(x, y, w, h, z, bufferSizePower, tileBuffer);
+            } catch (error) {
+                console.error('Error in tile buffer callback:', error);
+            }
+        }
+    }
+
+    // Fetch tile buffer for current view range
+    async fetchTileBuffer() {
+        if (!this.viewRange) return;
+        
+        // Reset update flag and set download flag
+        this.viewRangeUpdated = false;
+        this.downloadInProgress = true;
+        
+        const [x, y, w, h, z] = this.viewRange;
+        const tileRangeUrl = getJourneyTileRangePathWithId(this.journeyId, x, y, w, h, z, this.bufferSizePower);
+        
+        console.log(`Fetching tile buffer from: ${tileRangeUrl}`);
+        
+        try {
+            const response = await fetch(tileRangeUrl);
+            
+            if (!response.ok) {
+                throw new Error(`Failed to fetch tile buffer: ${response.status} ${response.statusText}`);
+            }
+            
+            // Get the binary data
+            const arrayBuffer = await response.arrayBuffer();
+            const bytes = new Uint8Array(arrayBuffer);
+            
+            // Deserialize into a TileBuffer object using the WebAssembly module
+            this.tileBuffer = TileBuffer.from_bytes(bytes);
+            
+            console.log(`Tile buffer fetched and deserialized successfully`);
+            
+            // Notify all registered callbacks that a new tile buffer is ready
+            this.notifyTileBufferReady(x, y, w, h, z, this.bufferSizePower, this.tileBuffer);
+        } catch (error) {
+            console.error('Error fetching or deserializing tile buffer:', error);
+        } finally {
+            // Reset download flag
+            this.downloadInProgress = false;
+            
+            // Check if view range was updated during download
+            // If so, start another download
+            if (this.viewRangeUpdated) {
+                console.log('View range was updated during download, fetching new tile buffer');
+                this.checkAndFetchTileBuffer();
+            }
+        }
     }
 }
 
@@ -319,8 +300,8 @@ function getJourneyFilePathWithId(journeyId) {
     return journeyId ? `journey/${journeyId}/journey_bitmap.bin` : `journey_bitmap.bin`;
 }
 
-function getJourneyTileFilePathWithId(journeyId, x, y, z, extension = "imagedata") {
-    return `journey/${journeyId}/tiles/${z}/${x}/${y}.${extension}`;
+function getJourneyTileRangePathWithId(journeyId, x, y, w, h, z, bufferSizePower) {
+    return `journey/${journeyId}/tile_range?x=${x}&y=${y}&z=${z}&width=${w}&height=${h}&buffer_size_power=${bufferSizePower}`;
 }
 
 function getJourneyCameraOptionPathWithId(journeyId) {

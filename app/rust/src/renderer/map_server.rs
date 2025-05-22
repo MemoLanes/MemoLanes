@@ -1,5 +1,6 @@
 use actix_web::{dev::ServerHandle, web, App, HttpRequest, HttpResponse, HttpServer};
 use anyhow::Result;
+use serde::{Deserialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, Weak};
@@ -8,7 +9,7 @@ use tokio::runtime::Runtime;
 use uuid::Uuid;
 
 use super::MapRenderer;
-use crate::journey_kernel::tile_shader::TileShader;
+use crate::journey_kernel::tile_buffer::TileBuffer;
 
 type Registry = HashMap<Uuid, Arc<Mutex<MapRenderer>>>;
 
@@ -61,6 +62,16 @@ impl Drop for MapRendererToken {
             self.unregister();
         }
     }
+}
+
+#[derive(Deserialize)]
+struct TileRangeQuery {
+    x: i64,
+    y: i64,
+    z: i16,
+    width: i64,
+    height: i64,
+    buffer_size_power: i16,
 }
 
 async fn serve_journey_bitmap_by_id(
@@ -117,28 +128,35 @@ async fn serve_journey_bitmap_provisioned_camera_option_by_id(
     }
 }
 
-async fn serve_journey_tile(
-    path: web::Path<(Uuid, u32, u32, u32)>,
+async fn serve_journey_tile_range(
+    id: web::Path<Uuid>,
+    query: web::Query<TileRangeQuery>,
     data: web::Data<Arc<Mutex<Registry>>>,
 ) -> HttpResponse {
-    let (id, z, x, y) = path.into_inner();
-
     let registry = data.lock().unwrap();
     match registry.get(&id) {
         Some(item) => {
             let map_renderer = item.lock().unwrap();
             let journey_bitmap = map_renderer.peek_latest_bitmap();
 
-            // Convert tile coordinates to internal view coordinates
-            // Depending on your tile system, you might need to adjust this conversion
-            let view_x = x as i64;
-            let view_y = y as i64;
-            let zoom = z as i16;
+            // Create a TileBuffer from the JourneyBitmap for the specified range
+            let tile_buffer = TileBuffer::from_journey_bitmap(
+                journey_bitmap,
+                query.x,
+                query.y,
+                query.z,
+                query.width,
+                query.height,
+                query.buffer_size_power,
+            );
 
-            let data = TileShader::get_tile_image(journey_bitmap, view_x, view_y, zoom);
-            HttpResponse::Ok()
-                .content_type("application/octet-stream")
-                .body(data)
+            // Serialize and return the TileBuffer
+            match tile_buffer.to_bytes() {
+                Ok(data) => HttpResponse::Ok()
+                    .content_type("application/octet-stream")
+                    .body(data),
+                Err(_) => HttpResponse::InternalServerError().finish(),
+            }
         }
         None => HttpResponse::NotFound().finish(),
     }
@@ -189,8 +207,8 @@ impl MapServer {
                         web::get().to(serve_journey_bitmap_provisioned_camera_option_by_id),
                     )
                     .route(
-                        "/journey/{id}/tiles/{z}/{x}/{y}.imagedata",
-                        web::get().to(serve_journey_tile),
+                        "/journey/{id}/tile_range",
+                        web::get().to(serve_journey_tile_range),
                     )
                     .route("/", web::get().to(index))
                     .route("/bundle.js", web::get().to(serve_journey_kernel_js))

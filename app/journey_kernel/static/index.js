@@ -10,6 +10,7 @@ const AVAILABLE_LAYERS = {
     'canvas': {
         name: 'Canvas',
         layerClass: JourneyCanvasLayer,
+        bufferSizePower: 8,
         description: 'Uses Canvas API for rendering'
     }
 };
@@ -35,6 +36,9 @@ function switchRenderingLayer(map, renderingMode) {
     
     // Create new layer instance
     const LayerClass = AVAILABLE_LAYERS[renderingMode].layerClass;
+    const bufferSizePower = AVAILABLE_LAYERS[renderingMode].bufferSizePower;
+
+    currentJourneyTileProvider.setBufferSizePower(bufferSizePower);
     currentJourneyLayer = new LayerClass(map, currentJourneyTileProvider);
     currentJourneyLayer.initialize();
     
@@ -131,15 +135,12 @@ async function initializeMap() {
         };
 
         currentJourneyTileProvider = new JourneyTileProvider(map, currentJourneyId, frontEndRendering);
-        if (frontEndRendering) {
-            await currentJourneyTileProvider.pollForJourneyUpdates(true);
-        }
+        
+        await currentJourneyTileProvider.pollForJourneyUpdates(true);
+        console.log('initial tile buffer loaded');
 
         // Create and initialize journey layer with selected rendering mode
         currentJourneyLayer = switchRenderingLayer(map, renderingMode);
-
-        map.on("move", () => currentJourneyLayer.render());
-        map.on("moveend", () => currentJourneyLayer.render());
 
         // Set up polling for updates
         pollingInterval = setInterval(() => currentJourneyTileProvider.pollForJourneyUpdates(false), 1000);

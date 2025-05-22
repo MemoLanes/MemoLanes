@@ -27,6 +27,36 @@ export function tileXYToLngLat([x, y], zoom) {
 }
 
 /**
+ * Get the range of tiles that covers the current map viewport
+ * @param {Object} map - Mapbox map object
+ * @returns {Array} - Array of [x, y, w, h, z] representing the tile range
+ */
+export function getViewportTileRange(map) {
+    // Get the current zoom level
+    const z = Math.floor(map.getZoom());
+    
+    // Get the bounds of the map
+    const bounds = map.getBounds();
+    const sw = bounds.getSouthWest();
+    const ne = bounds.getNorthEast();
+    
+    // Convert to tile coordinates
+    const [swX, swY] = lngLatToTileXY([sw.lng, sw.lat], z);
+    const [neX, neY] = lngLatToTileXY([ne.lng, ne.lat], z);
+    
+    // Calculate the minimum x and y coordinates
+    const x = Math.min(swX, neX);
+    const y = Math.min(neY, swY);
+    
+    // Calculate the width and height
+    const w = Math.max(1, Math.abs(neX - swX)+1);
+    // on special case when map is at border, make sure h will not exceed the limit.
+    const h = Math.min(Math.max(1, Math.abs(swY - neY)+1), (1 << z) - y);
+    
+    return [x, y, w, h, z];
+}
+
+/**
  * Convert tile X, Y, Z coordinates to a string key
  * @param {Number} x - X tile coordinate
  * @param {Number} y - Y tile coordinate
