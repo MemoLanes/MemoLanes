@@ -55,7 +55,11 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .lock()
         .unwrap()
         .register_map_renderer(Arc::new(Mutex::new(map_renderer_static)));
-    println!("view static map at: {}", token.url());
+    println!("static performance canvas: {}&debug=true", token.url());
+    println!(
+        "static light canvas: {}&debug=true&cache=light",
+        token.url()
+    );
 
     // demo for a dynamic map
     let journey_bitmap2 = JourneyBitmap::new();
@@ -68,7 +72,11 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .register_map_renderer(map_renderer_arc);
 
     println!(
-        "view dynamic map at: {}&lng=106.5&lat=30.0&zoom=8",
+        "dynamic performance canvas: {}&debug=true&lng=106.5&lat=30.0&zoom=8",
+        token.url()
+    );
+    println!(
+        "dynamic light canvas: {}&debug=true&cache=light&lng=106.5&lat=30.0&zoom=8",
         token.url()
     );
 
