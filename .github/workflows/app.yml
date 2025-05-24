@@ -30,6 +30,8 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: "stable"
+          # TODO: There is some issues with FRB and flutter 3.32 right now.
+          flutter-version: 3.29.3
           cache: true
 
       - uses: actions-rs/toolchain@v1
