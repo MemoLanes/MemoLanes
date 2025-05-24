@@ -1,0 +1,7 @@
+/* 
+  InfoPlist.strings
+*/
+
+"CFBundleDisplayName" = "迹忆";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "此应用需要使用你的位置来记录轨迹";
+"NSLocationWhenInUseUsageDescription" = "此应用需要在后台使用你的位置来记录轨迹";
