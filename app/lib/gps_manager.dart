@@ -128,10 +128,9 @@ class GpsManager extends ChangeNotifier {
     const distanceFilter = 0;
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        const foregroundNotificationConfig = ForegroundNotificationConfig(
-          notificationText:
-              "Example app will continue to receive your position even when you aren't using it",
-          notificationTitle: "Running in Background",
+        var foregroundNotificationConfig = ForegroundNotificationConfig(
+          notificationTitle: tr("home.android_foreground_notification_title"),
+          notificationText: tr("home.android_foreground_notification_text"),
           setOngoing: true,
           enableWakeLock: true,
         );
