@@ -11,7 +11,7 @@ fn basic() {
     let start_lat = -33.793291910360125;
     let end_lng = 151.2783692841415;
     let end_lat = -33.943600147192235;
-    journey_bitmap.add_line(start_lng, start_lat, end_lng, end_lat, |_| {});
+    journey_bitmap.add_line(start_lng, start_lat, end_lng, end_lat);
 
     let mut map_renderer = MapRenderer::new(journey_bitmap);
 

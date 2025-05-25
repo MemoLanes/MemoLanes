@@ -32,13 +32,25 @@ impl JourneyBitmap {
     //       - make sure we are using the consistent and correct one of `u64`/`i64`/`i32`.
     //       - better variable naming.
     //       - reduce code duplications.
-    pub fn add_line<F>(
+
+
+    pub fn add_line(
         &mut self,
         start_lng: f64,
         start_lat: f64,
         end_lng: f64,
         end_lat: f64,
-        mut tile_cb: F,
+    ) {
+        self.add_line_with_change_callback(start_lng, start_lat, end_lng, end_lat, None::<fn((u16, u16))>);
+    }
+
+    pub fn add_line_with_change_callback<F>(
+        &mut self,
+        start_lng: f64,
+        start_lat: f64,
+        end_lng: f64,
+        end_lat: f64,
+        mut tile_changed: Option<F>,
     ) where
         F: FnMut((u16, u16)),
     {
@@ -86,7 +98,9 @@ impl JourneyBitmap {
                     .entry(((tile_x % MAP_WIDTH) as u16, tile_y as u16))
                     .or_default();
                 let tile_pos = ((tile_x % MAP_WIDTH) as u16, tile_y as u16);
-                tile_cb(tile_pos);
+                if let Some(changed) = tile_changed.as_mut() {
+                    changed(tile_pos);
+                }
                 (x, y, px) = tile.add_line(
                     x - (tile_x << ALL_OFFSET),
                     y - (tile_y << ALL_OFFSET),
@@ -121,7 +135,9 @@ impl JourneyBitmap {
                     .entry(((tile_x % MAP_WIDTH) as u16, tile_y as u16))
                     .or_default();
                 let tile_pos = ((tile_x % MAP_WIDTH) as u16, tile_y as u16);
-                tile_cb(tile_pos);
+                if let Some(changed) = tile_changed.as_mut() {
+                    changed(tile_pos);
+                }
                 (x, y, py) = tile.add_line(
                     x - (tile_x << ALL_OFFSET),
                     y - (tile_y << ALL_OFFSET),

@@ -26,7 +26,6 @@ pub fn add_journey_vector_to_journey_bitmap(
                 prev.latitude,
                 point.longitude,
                 point.latitude,
-                |_| {},
             );
         }
     }

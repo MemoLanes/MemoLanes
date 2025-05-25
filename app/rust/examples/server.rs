@@ -17,16 +17,16 @@ const MID_LNG: f64 = (START_LNG + END_LNG) / 2.;
 const MID_LAT: f64 = (START_LAT + END_LAT) / 2.;
 
 fn draw_line1(journey_bitmap: &mut JourneyBitmap) {
-    journey_bitmap.add_line(START_LNG, START_LAT, END_LNG, END_LAT, |_| {})
+    journey_bitmap.add_line(START_LNG, START_LAT, END_LNG, END_LAT)
 }
 fn draw_line2(journey_bitmap: &mut JourneyBitmap) {
-    journey_bitmap.add_line(START_LNG, END_LAT, END_LNG, START_LAT, |_| {});
+    journey_bitmap.add_line(START_LNG, END_LAT, END_LNG, START_LAT);
 }
 fn draw_line3(journey_bitmap: &mut JourneyBitmap) {
-    journey_bitmap.add_line(MID_LNG, START_LAT, MID_LNG, END_LAT, |_| {})
+    journey_bitmap.add_line(MID_LNG, START_LAT, MID_LNG, END_LAT)
 }
 fn draw_line4(journey_bitmap: &mut JourneyBitmap) {
-    journey_bitmap.add_line(START_LNG, MID_LAT, END_LNG, MID_LAT, |_| {})
+    journey_bitmap.add_line(START_LNG, MID_LAT, END_LNG, MID_LAT)
 }
 
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -86,7 +86,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let next_lat = lat + rng.random_range(-lat_step..=lat_step);
                 let mut map_renderer = map_renderer_arc_clone.lock().unwrap();
                 map_renderer.update(|bitmap, _tile_cb| {
-                    bitmap.add_line(lng, lat, next_lng, next_lat, |_| {});
+                    bitmap.add_line(lng, lat, next_lng, next_lat);
                 });
                 map_renderer.set_provisioned_camera_option(Some(CameraOption {
                     lng,

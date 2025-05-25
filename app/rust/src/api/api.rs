@@ -262,12 +262,12 @@ pub fn on_location_update(
             None => (),
             Some((start, end)) => {
                 map_renderer.update(|journey_bitmap, tile_cb| {
-                    journey_bitmap.add_line(
+                    journey_bitmap.add_line_with_change_callback(
                         start.longitude,
                         start.latitude,
                         end.longitude,
                         end.latitude,
-                        tile_cb,
+                        Some(tile_cb),
                     );
                 });
             }
