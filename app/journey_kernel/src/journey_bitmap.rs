@@ -33,15 +33,14 @@ impl JourneyBitmap {
     //       - better variable naming.
     //       - reduce code duplications.
 
-
-    pub fn add_line(
-        &mut self,
-        start_lng: f64,
-        start_lat: f64,
-        end_lng: f64,
-        end_lat: f64,
-    ) {
-        self.add_line_with_change_callback(start_lng, start_lat, end_lng, end_lat, None::<fn((u16, u16))>);
+    pub fn add_line(&mut self, start_lng: f64, start_lat: f64, end_lng: f64, end_lat: f64) {
+        self.add_line_with_change_callback(
+            start_lng,
+            start_lat,
+            end_lng,
+            end_lat,
+            None::<fn((u16, u16))>,
+        );
     }
 
     pub fn add_line_with_change_callback<F>(
