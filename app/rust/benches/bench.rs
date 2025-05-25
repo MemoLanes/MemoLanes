@@ -1,8 +1,8 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-
 use memolanes_core::{
     import_data, journey_area_utils, journey_bitmap::JourneyBitmap, merged_journey_builder,
 };
+use std::collections::HashMap;
 
 fn journey_area_calculation(c: &mut Criterion) {
     let mut group = c.benchmark_group("area_calculation");
@@ -11,9 +11,12 @@ fn journey_area_calculation(c: &mut Criterion) {
     group.bench_function("compute_journey_bitmap_area: simple", |b| {
         let (bitmap_import, _warnings) =
             import_data::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
+        let mut dummy_map: HashMap<(u16, u16), f64> = HashMap::new();
         b.iter(|| {
+            dummy_map.clear();
             std::hint::black_box(journey_area_utils::compute_journey_bitmap_area(
                 &bitmap_import,
+                &mut dummy_map,
             ))
         })
     });
@@ -31,10 +34,12 @@ fn journey_area_calculation(c: &mut Criterion) {
                 &mut journey_bitmap,
                 &journey_vector,
             );
-
+            let mut dummy_map: HashMap<(u16, u16), f64> = HashMap::new();
             b.iter(|| {
+                dummy_map.clear();
                 std::hint::black_box(journey_area_utils::compute_journey_bitmap_area(
                     &journey_bitmap,
+                    &mut dummy_map,
                 ))
             })
         },

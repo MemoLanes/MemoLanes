@@ -1,9 +1,9 @@
 pub mod test_utils;
-
 use memolanes_core::{
     import_data, journey_area_utils, journey_bitmap::JourneyBitmap, journey_data::JourneyData,
     journey_header::JourneyType, merged_journey_builder, renderer::MapRenderer,
 };
+use std::collections::HashMap;
 
 #[test]
 fn add_line_cross_antimeridian() {
@@ -12,12 +12,12 @@ fn add_line_cross_antimeridian() {
     // Melbourne to Hawaii
     let (start_lng, start_lat, end_lng, end_lat) =
         (144.847737, 37.6721702, -160.3644029, 21.3186185);
-    journey_bitmap.add_line(start_lng, start_lat, end_lng, end_lat);
+    journey_bitmap.add_line(start_lng, start_lat, end_lng, end_lat, |_| {});
 
     // Hawaii to Guan
     let (start_lng, start_lat, end_lng, end_lat) =
         (-160.3644029, 21.3186185, 121.4708788, 9.4963078);
-    journey_bitmap.add_line(start_lng, start_lat, end_lng, end_lat);
+    journey_bitmap.add_line(start_lng, start_lat, end_lng, end_lat, |_| {});
 
     let mut map_renderer = MapRenderer::new(journey_bitmap);
 
@@ -37,25 +37,25 @@ const MID_LNG: f64 = (START_LNG + END_LNG) / 2.;
 const MID_LAT: f64 = (START_LAT + END_LAT) / 2.;
 
 fn draw_line1(journey_bitmap: &mut JourneyBitmap) {
-    journey_bitmap.add_line(START_LNG, START_LAT, END_LNG, END_LAT)
+    journey_bitmap.add_line(START_LNG, START_LAT, END_LNG, END_LAT, |_| {})
 }
 fn draw_line2(journey_bitmap: &mut JourneyBitmap) {
-    journey_bitmap.add_line(START_LNG, END_LAT, END_LNG, START_LAT);
+    journey_bitmap.add_line(START_LNG, END_LAT, END_LNG, START_LAT, |_| {});
 }
 fn draw_line3(journey_bitmap: &mut JourneyBitmap) {
-    journey_bitmap.add_line(MID_LNG, START_LAT, MID_LNG, END_LAT)
+    journey_bitmap.add_line(MID_LNG, START_LAT, MID_LNG, END_LAT, |_| {})
 }
 fn draw_line4(journey_bitmap: &mut JourneyBitmap) {
-    journey_bitmap.add_line(START_LNG, MID_LAT, END_LNG, MID_LAT)
+    journey_bitmap.add_line(START_LNG, MID_LAT, END_LNG, MID_LAT, |_| {})
 }
 
 #[test]
 fn basic() {
     let mut journey_bitmap = JourneyBitmap::new();
-    journey_bitmap.add_line(START_LNG, START_LAT, END_LNG, START_LAT);
-    journey_bitmap.add_line(END_LNG, END_LAT, START_LNG, END_LAT);
-    journey_bitmap.add_line(START_LNG, START_LAT, START_LNG, END_LAT);
-    journey_bitmap.add_line(END_LNG, END_LAT, END_LNG, START_LAT);
+    journey_bitmap.add_line(START_LNG, START_LAT, END_LNG, START_LAT, |_| {});
+    journey_bitmap.add_line(END_LNG, END_LAT, START_LNG, END_LAT, |_| {});
+    journey_bitmap.add_line(START_LNG, START_LAT, START_LNG, END_LAT, |_| {});
+    journey_bitmap.add_line(END_LNG, END_LAT, END_LNG, START_LAT, |_| {});
 
     let mut map_renderer = MapRenderer::new(journey_bitmap);
 
@@ -226,11 +226,12 @@ fn vector_to_bitmap_nelson_to_wharariki_beach() {
 #[test]
 fn draw_single_point() {
     let mut journey_bitmap = JourneyBitmap::new();
+    let mut dummy_tile_map = HashMap::new();
 
-    journey_bitmap.add_line(120.0, 30.0, 120.0, 30.0);
+    journey_bitmap.add_line(120.0, 30.0, 120.0, 30.0, |_| {});
 
     assert_eq!(
-        journey_area_utils::compute_journey_bitmap_area(&journey_bitmap),
+        journey_area_utils::compute_journey_bitmap_area(&journey_bitmap, &mut dummy_tile_map),
         68
     );
 }

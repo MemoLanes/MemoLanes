@@ -33,14 +33,14 @@ const MID_LNG: f64 = (START_LNG + END_LNG) / 2.;
 const MID_LAT: f64 = (START_LAT + END_LAT) / 2.;
 
 fn draw_line1(journey_bitmap: &mut JourneyBitmap) {
-    journey_bitmap.add_line(START_LNG, START_LAT, END_LNG, END_LAT)
+    journey_bitmap.add_line(START_LNG, START_LAT, END_LNG, END_LAT, |_| {})
 }
 fn draw_line2(journey_bitmap: &mut JourneyBitmap) {
-    journey_bitmap.add_line(START_LNG, END_LAT, END_LNG, START_LAT);
+    journey_bitmap.add_line(START_LNG, END_LAT, END_LNG, START_LAT, |_| {});
 }
 fn draw_line3(journey_bitmap: &mut JourneyBitmap) {
-    journey_bitmap.add_line(MID_LNG, START_LAT, MID_LNG, END_LAT)
+    journey_bitmap.add_line(MID_LNG, START_LAT, MID_LNG, END_LAT, |_| {})
 }
 fn draw_line4(journey_bitmap: &mut JourneyBitmap) {
-    journey_bitmap.add_line(START_LNG, MID_LAT, END_LNG, MID_LAT)
+    journey_bitmap.add_line(START_LNG, MID_LAT, END_LNG, MID_LAT, |_| {})
 }

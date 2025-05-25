@@ -32,7 +32,16 @@ impl JourneyBitmap {
     //       - make sure we are using the consistent and correct one of `u64`/`i64`/`i32`.
     //       - better variable naming.
     //       - reduce code duplications.
-    pub fn add_line(&mut self, start_lng: f64, start_lat: f64, end_lng: f64, end_lat: f64) {
+    pub fn add_line<F>(
+        &mut self,
+        start_lng: f64,
+        start_lat: f64,
+        end_lng: f64,
+        end_lat: f64,
+        mut tile_cb: F,
+    ) where
+        F: FnMut((u16, u16)),
+    {
         let (mut x0, y0) = utils::lng_lat_to_tile_x_y(
             start_lng,
             start_lat,
@@ -76,6 +85,8 @@ impl JourneyBitmap {
                     .tiles
                     .entry(((tile_x % MAP_WIDTH) as u16, tile_y as u16))
                     .or_default();
+                let tile_pos = ((tile_x % MAP_WIDTH) as u16, tile_y as u16);
+                tile_cb(tile_pos);
                 (x, y, px) = tile.add_line(
                     x - (tile_x << ALL_OFFSET),
                     y - (tile_y << ALL_OFFSET),
@@ -109,6 +120,8 @@ impl JourneyBitmap {
                     .tiles
                     .entry(((tile_x % MAP_WIDTH) as u16, tile_y as u16))
                     .or_default();
+                let tile_pos = ((tile_x % MAP_WIDTH) as u16, tile_y as u16);
+                tile_cb(tile_pos);
                 (x, y, py) = tile.add_line(
                     x - (tile_x << ALL_OFFSET),
                     y - (tile_y << ALL_OFFSET),
