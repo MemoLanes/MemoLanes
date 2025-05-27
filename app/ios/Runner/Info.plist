@@ -46,9 +46,9 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>The app needs the location</string>
+	<string>This app needs your location to record your tracks.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>The app needs the location</string>
+	<string>This app needs your location to record your tracks in the background.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Photo Library Access Warning</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

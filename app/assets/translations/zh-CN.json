@@ -5,9 +5,12 @@
     "resume": "恢复",
     "end_journey_title": "结束旅程？",
     "end_journey_message": "确定要结束当前的旅程吗？",
-    "location_permission_denied": "您已拒绝获取位置权限，为了保障定位功能的使用，请在设置中打开。"
+    "location_permission_denied": "您已拒绝获取位置权限，为了保障定位功能的使用，请在设置中打开。",
+    "android_foreground_notification_title": "后台记录中",
+    "android_foreground_notification_text": "迹忆将在后台持续记录"
   },
   "common": {
+    "memolanes": "迹忆",
     "ok": "确定",
     "cancel": "取消",
     "end": "结束",

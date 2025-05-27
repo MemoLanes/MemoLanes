@@ -135,7 +135,8 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     _naiveLocaleSelection(context);
     return MaterialApp(
-      title: 'MemoLanes',
+      title: "MemoLanes",
+      onGenerateTitle: (context) => context.tr('common.memolanes'),
       supportedLocales: context.supportedLocales,
       localizationsDelegates: context.localizationDelegates,
       locale: context.locale,

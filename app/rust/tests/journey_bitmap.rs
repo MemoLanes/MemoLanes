@@ -219,7 +219,7 @@ fn vector_to_bitmap_nelson_to_wharariki_beach() {
     vector_to_bitmap(
         "nelson_to_wharariki_beach",
         9,
-        Some(&"nelson_to_wharariki_beach.gpx"),
+        Some("nelson_to_wharariki_beach.gpx"),
     );
 }
 
