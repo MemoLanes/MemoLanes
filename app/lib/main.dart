@@ -20,8 +20,6 @@ import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'component/edge_glow_effect.dart';
-
 GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void delayedInit(UpdateNotifier updateNotifier) {
@@ -213,7 +211,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   onIndexChanged: (index) =>
                       setState(() => _selectedIndex = index),
                   hasUpdateNotification:
-                  context.watch<UpdateNotifier>().hasUpdateNotification,
+                      context.watch<UpdateNotifier>().hasUpdateNotification,
                 ),
               ),
             ),
@@ -222,5 +220,4 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
     );
   }
-
 }

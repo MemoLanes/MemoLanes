@@ -12,7 +12,7 @@ import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'component/edge_glow_effect.dart';
+import 'component/rec_indicator.dart';
 import 'component/map_controls/layer_button.dart';
 
 part 'map.g.dart';
@@ -149,6 +149,7 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
     final screenSize = MediaQuery.of(context).size;
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
+    var gpsManager = context.watch<GpsManager>();
 
     // TODO: Add profile button top right
     if (_roughMapView == null) {
@@ -210,13 +211,13 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
               ),
             ),
           ),
-          // 发光脉冲效果放在最底层
-          IgnorePointer(
-            child: EdgePulseGlowEffect(
-              glowIntensity: 1.0,  // 设置发光强度
-              duration: Duration(milliseconds: 1500),  // 设置脉冲动画时长
-            ),
-          ),
+          RecIndicator(
+            isRecording:
+                gpsManager.recordingStatus == GpsRecordingStatus.recording,
+            top: 40,
+            left: 30,
+            blinkDurationMs: 1000,
+          )
         ],
       );
     }
