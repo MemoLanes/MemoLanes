@@ -11,7 +11,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 journey_kernel = { path = "../journey_kernel" }
 anyhow = { version = "1.0", features = ["backtrace"] }
 chrono = "0.4"
-flutter_rust_bridge = { version = "=2.9.0", features = ["chrono"] }
+flutter_rust_bridge = { version = "=2.10.0", features = ["chrono"] }
 log = "0.4"
 rusqlite = { version = "0.33", features = ["bundled"] }
 simplelog = "0.12"
