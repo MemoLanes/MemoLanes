@@ -6,7 +6,7 @@ pub struct MapRenderer {
     journey_bitmap: JourneyBitmap,
     changed: bool,
     /* for each tile of 512*512 tiles in a JourneyBitmap, use buffered area to record any update */
-    tile_update_map: HashMap<(u16, u16), f64>,
+    tile_area_cache: HashMap<(u16, u16), f64>,
     current_area: Option<u64>,
     // TODO: `provisioned_camera_option` should be moved out and passed to the
     // map separately.
@@ -18,7 +18,7 @@ impl MapRenderer {
         Self {
             journey_bitmap,
             changed: false,
-            tile_update_map: HashMap::new(),
+            tile_area_cache: HashMap::new(),
             current_area: None,
             provisioned_camera_option: None,
         }
@@ -36,11 +36,10 @@ impl MapRenderer {
     where
         F: Fn(&mut JourneyBitmap, &mut dyn FnMut((u16, u16))),
     {
-        let mut collect = |tile_pos: (u16, u16)| {
-            self.tile_update_map.remove(&tile_pos);
-            //println!("[DEBUG] remove cached tile {:?}", tile_pos);
+        let mut tile_changed = |tile_pos: (u16, u16)| {
+            self.tile_area_cache.remove(&tile_pos);
         };
-        f(&mut self.journey_bitmap, &mut collect);
+        f(&mut self.journey_bitmap, &mut tile_changed);
         // TODO: we should improve the cache invalidation rule
         self.reset();
     }
@@ -76,7 +75,7 @@ impl MapRenderer {
         // the whole bitmap evey time it changes.
         let area = journey_area_utils::compute_journey_bitmap_area(
             &self.journey_bitmap,
-            Some(&mut self.tile_update_map),
+            Some(&mut self.tile_area_cache),
         );
         self.current_area = Some(area);
         area

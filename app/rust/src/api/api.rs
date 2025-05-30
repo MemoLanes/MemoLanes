@@ -261,13 +261,13 @@ pub fn on_location_update(
         match line_to_add {
             None => (),
             Some((start, end)) => {
-                map_renderer.update(|journey_bitmap, tile_cb| {
+                map_renderer.update(|journey_bitmap, tile_changed| {
                     journey_bitmap.add_line_with_change_callback(
                         start.longitude,
                         start.latitude,
                         end.longitude,
                         end.latitude,
-                        Some(tile_cb),
+                        tile_changed,
                     );
                 });
             }

@@ -21,12 +21,12 @@ fn partial_update_use_cached_and_recompute_touched_tiles_only() {
     let mut map_renderer = MapRenderer::new(journey_bitmap);
     //let touched = RefCell::new(Vec::<(u16, u16)>::new());
     map_renderer.update(|bitmap, cb| {
-        bitmap.add_line_with_change_callback(START_LNG, START_LAT, END_LNG, END_LAT, Some(cb))
+        bitmap.add_line_with_change_callback(START_LNG, START_LAT, END_LNG, END_LAT, cb)
     });
     let _ = map_renderer.get_current_area();
 
     map_renderer.update(|bitmap, cb| {
-        bitmap.add_line_with_change_callback(START_LNG, END_LAT, END_LNG, START_LAT, Some(cb))
+        bitmap.add_line_with_change_callback(START_LNG, END_LAT, END_LNG, START_LAT, cb)
     });
     let update_area = map_renderer.get_current_area();
 
