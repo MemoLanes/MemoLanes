@@ -21,7 +21,7 @@ class RecIndicator extends StatefulWidget {
     this.borderWidth = 2.0,
     this.borderRadius = 3.0,
     this.padding = const EdgeInsets.symmetric(horizontal: 3.0, vertical: 0),
-    this.margin = const EdgeInsets.fromLTRB(10, 0, 0, 0),
+    this.margin = const EdgeInsets.fromLTRB(30, 0, 0, 0),
   });
 
   @override
@@ -70,41 +70,43 @@ class _RecIndicatorState extends State<RecIndicator>
     if (!widget.isRecording) {
       return const SizedBox.shrink();
     }
-    return SafeArea(
-      child: Container(
-        margin: widget.margin,
-        padding: widget.padding,
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: widget.borderColor,
-            width: widget.borderWidth,
+    return IgnorePointer(
+      child: SafeArea(
+        child: Container(
+          margin: widget.margin,
+          padding: widget.padding,
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: widget.borderColor,
+              width: widget.borderWidth,
+            ),
+            borderRadius: BorderRadius.circular(widget.borderRadius),
           ),
-          borderRadius: BorderRadius.circular(widget.borderRadius),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            FadeTransition(
-              opacity: _animation,
-              child: Container(
-                width: widget.dotSize,
-                height: widget.dotSize,
-                decoration: const BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FadeTransition(
+                opacity: _animation,
+                child: Container(
+                  width: widget.dotSize,
+                  height: widget.dotSize,
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
                 ),
               ),
-            ),
-            SizedBox(width: widget.dotSize / 2),
-            Text(
-              'REC',
-              style: TextStyle(
-                color: Colors.red,
-                fontWeight: FontWeight.bold,
-                fontSize: widget.fontSize,
+              SizedBox(width: widget.dotSize / 2),
+              Text(
+                'REC',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                  fontSize: widget.fontSize,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
