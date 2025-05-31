@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 
 class RecIndicator extends StatefulWidget {
   final bool isRecording;
-  final double top;
-  final double left;
   final double dotSize;
   final double fontSize;
   final int blinkDurationMs;
@@ -11,12 +9,11 @@ class RecIndicator extends StatefulWidget {
   final double borderWidth;
   final double borderRadius;
   final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry margin;
 
   const RecIndicator({
     super.key,
     required this.isRecording,
-    this.top = 20.0,
-    this.left = 20.0,
     this.dotSize = 10.0,
     this.fontSize = 15.0,
     this.blinkDurationMs = 1000,
@@ -24,6 +21,7 @@ class RecIndicator extends StatefulWidget {
     this.borderWidth = 2.0,
     this.borderRadius = 3.0,
     this.padding = const EdgeInsets.symmetric(horizontal: 3.0, vertical: 0),
+    this.margin = const EdgeInsets.fromLTRB(10, 0, 0, 0),
   });
 
   @override
@@ -72,10 +70,9 @@ class _RecIndicatorState extends State<RecIndicator>
     if (!widget.isRecording) {
       return const SizedBox.shrink();
     }
-    return Positioned(
-      top: widget.top,
-      left: widget.left,
+    return SafeArea(
       child: Container(
+        margin: widget.margin,
         padding: widget.padding,
         decoration: BoxDecoration(
           border: Border.all(

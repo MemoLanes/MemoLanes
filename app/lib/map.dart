@@ -214,8 +214,6 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
           RecIndicator(
             isRecording:
                 gpsManager.recordingStatus == GpsRecordingStatus.recording,
-            top: 40,
-            left: 30,
             blinkDurationMs: 1000,
           )
         ],
