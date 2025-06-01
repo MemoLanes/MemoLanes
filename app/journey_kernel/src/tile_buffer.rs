@@ -85,9 +85,7 @@ impl TileBuffer {
                     {
                         // Only add if not already present
                         let pixel = (px as u16, py as u16);
-                        if !tile_pixels.contains(&pixel) {
-                            tile_pixels.push(pixel);
-                        }
+                        tile_pixels.push(pixel);
                     }
                 }
             }
