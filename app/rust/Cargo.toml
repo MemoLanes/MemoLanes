@@ -64,6 +64,10 @@ cargo_toml = "0.18"
 name = "bench"
 harness = false
 
+[[bench]]
+name = "rendering"
+harness = false
+
 [lints.rust]
 # cleanup lints
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
