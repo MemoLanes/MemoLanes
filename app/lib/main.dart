@@ -133,7 +133,8 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     _naiveLocaleSelection(context);
     return MaterialApp(
-      title: 'MemoLanes',
+      title: "MemoLanes",
+      onGenerateTitle: (context) => context.tr('common.memolanes'),
       supportedLocales: context.supportedLocales,
       localizationsDelegates: context.localizationDelegates,
       locale: context.locale,
@@ -168,6 +169,7 @@ class MyApp extends StatelessWidget {
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
+
   final String title;
 
   @override
