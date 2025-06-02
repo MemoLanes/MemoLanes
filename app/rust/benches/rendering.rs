@@ -14,7 +14,7 @@ fn tile_buffer_creation_benchmarks(c: &mut Criterion) {
     let lng = 114.212470;
     let lat = 22.697006;
     
-    let zoom_levels: Vec<i16> = (5..=15).step_by(2).collect(); // 5, 7, 9, 11, 13, 15
+    let zoom_levels: Vec<i16> = (3..=15).step_by(2).collect(); // 5, 7, 9, 11, 13, 15
     let width = 2;
     let height = 2;
     let buffer_size_powers = vec![8, 9, 10]; // 256px, 512px, 1024px tiles
@@ -27,7 +27,7 @@ fn tile_buffer_creation_benchmarks(c: &mut Criterion) {
         for buffer_size_power in &buffer_size_powers {
             group.bench_with_input(
                 BenchmarkId::new("tile_buffer_creation", 
-                    format!("z{}_{}x{}_buffer{}_at_{}_{}", zoom, width, height, buffer_size_power, tile_x, tile_y)),
+                    format!("z{:02}_res{:04}_x{}_y{}_{width}x{height}", zoom, 1 << buffer_size_power, tile_x, tile_y)),
                 &(zoom, width, height, tile_x, tile_y, buffer_size_power),
                 |b, (zoom, width, height, tile_x, tile_y, buffer_size_power)| {
                     b.iter(|| {
