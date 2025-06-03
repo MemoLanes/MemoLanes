@@ -143,9 +143,6 @@ impl JourneyBitmap {
                             Some(other_block) => match &mut self_tile.blocks[i] {
                                 None => {
                                     self_tile.blocks[i] = Some(other_block);
-
-
-
                                 }
                                 Some(self_block) => {
                                     for i in 0..other_block.data.len() {
@@ -296,7 +293,7 @@ impl<'de> Deserialize<'de> for Tile {
         D: Deserializer<'de>,
     {
         let blocks = Vec::<Option<Box<Block>>>::deserialize(deserializer)?;
-        
+
         // Ensure the vector has the correct length
         if blocks.len() != (TILE_WIDTH * TILE_WIDTH) as usize {
             return Err(serde::de::Error::custom(format!(
@@ -305,7 +302,7 @@ impl<'de> Deserialize<'de> for Tile {
                 blocks.len()
             )));
         }
-        
+
         Ok(Tile { blocks })
     }
 }
