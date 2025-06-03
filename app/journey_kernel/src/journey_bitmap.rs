@@ -315,21 +315,19 @@ impl Tile {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (BlockKey, &Block)> {
-        self.blocks
-            .iter()
-            .enumerate()
-            .filter_map(|(i, block)| match block {
-                None => None,
-                Some(block) => Some((BlockKey::from_index(i), block.as_ref())),
-            })
+        self.blocks.iter().enumerate().filter_map(|(i, block)| {
+            block
+                .as_ref()
+                .map(|block| (BlockKey::from_index(i), block.as_ref()))
+        })
     }
 
     pub fn set(&mut self, block_key: BlockKey, block: Block) {
         self.blocks[block_key.index()] = Some(Box::new(block));
     }
 
-    pub fn get(&self, block_key: BlockKey) -> Option<&Box<Block>> {
-        self.blocks[block_key.index()].as_ref()
+    pub fn get(&self, block_key: BlockKey) -> Option<&Block> {
+        self.blocks[block_key.index()].as_deref()
     }
 
     pub fn is_empty(&self) -> bool {

@@ -73,7 +73,7 @@ impl TileBuffer {
 
                 // Convert to tile-relative coordinates and add to buffer
                 let idx = buffer.calculate_tile_index(tile_x, tile_y);
-                let tile_pixels = &mut buffer.tile_data[idx as usize];
+                let tile_pixels = &mut buffer.tile_data[idx];
 
                 // Convert from i64 coordinates to u16 coordinates for the TileBuffer
                 for (px, py) in pixels {
