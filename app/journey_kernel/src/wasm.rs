@@ -117,4 +117,3 @@ impl JourneyBitmap {
             .map_err(|e| JsError::new(&e.to_string()))
     }
 }
-
