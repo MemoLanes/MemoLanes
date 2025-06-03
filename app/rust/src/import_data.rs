@@ -1,6 +1,8 @@
 use crate::api::import::JourneyInfo;
 use crate::gps_processor::{Point, PreprocessedData, ProcessResult, RawData};
-use crate::journey_bitmap::{self, Block, BlockKey, JourneyBitmap, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH};
+use crate::journey_bitmap::{
+    self, Block, BlockKey, JourneyBitmap, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH,
+};
 use crate::journey_header::JourneyKind;
 use crate::{
     gps_processor::{self, GpsPreprocessor},
@@ -87,7 +89,7 @@ pub fn load_fow_sync_data(mldx_file_path: &str) -> Result<(JourneyBitmap, Option
                     let block_idx: u16 = (header[index] as u16) | ((header[index + 1] as u16) << 8);
                     if block_idx > 0 {
                         let block_key =
-                        BlockKey::from_x_y((i % TILE_WIDTH) as u8, (i / TILE_WIDTH) as u8);
+                            BlockKey::from_x_y((i % TILE_WIDTH) as u8, (i / TILE_WIDTH) as u8);
                         let start_offset =
                             TILE_HEADER_SIZE + ((block_idx - 1) as usize) * BLOCK_SIZE;
                         let end_offset = start_offset + BLOCK_BITMAP_SIZE;

@@ -106,7 +106,7 @@ pub fn serialize_journey_bitmap<T: Write>(
         for (byte_index, _val) in block_keys.iter().enumerate() {
             for offset in 0..8 {
                 if block_keys[byte_index] & (1 << offset) != 0 {
-                    let block_key = BlockKey::from_index((byte_index * 8 + offset) as usize);
+                    let block_key = BlockKey::from_index(byte_index * 8 + offset);
                     let block = tile.get(block_key).unwrap();
                     encoder.write_all(&block.data)?;
                 }
@@ -145,7 +145,7 @@ fn deserialize_tile<T: Read>(reader: T) -> Result<Tile> {
     for (byte_index, _val) in block_keys.iter().enumerate() {
         for offset in 0..8 {
             if block_keys[byte_index] & (1 << offset) != 0 {
-                let block_key = BlockKey::from_index((byte_index * 8 + offset) as usize);
+                let block_key = BlockKey::from_index(byte_index * 8 + offset);
                 let mut block_data = [0_u8; journey_bitmap::BITMAP_SIZE];
                 decoder.read_exact(&mut block_data)?;
                 let block = Block::new_with_data(block_data);

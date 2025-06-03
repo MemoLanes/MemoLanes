@@ -4,7 +4,7 @@ use std::env;
 
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
-    
+
     init(
         ".".to_string(),
         ".".to_string(),
