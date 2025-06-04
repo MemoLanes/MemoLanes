@@ -32,7 +32,21 @@ impl JourneyBitmap {
     //       - make sure we are using the consistent and correct one of `u64`/`i64`/`i32`.
     //       - better variable naming.
     //       - reduce code duplications.
+
     pub fn add_line(&mut self, start_lng: f64, start_lat: f64, end_lng: f64, end_lat: f64) {
+        self.add_line_with_change_callback(start_lng, start_lat, end_lng, end_lat, |_| {});
+    }
+
+    pub fn add_line_with_change_callback<F>(
+        &mut self,
+        start_lng: f64,
+        start_lat: f64,
+        end_lng: f64,
+        end_lat: f64,
+        mut tile_changed: F,
+    ) where
+        F: FnMut((u16, u16)),
+    {
         let (mut x0, y0) = utils::lng_lat_to_tile_x_y(
             start_lng,
             start_lat,
@@ -72,10 +86,8 @@ impl JourneyBitmap {
             loop {
                 // tile_x is not rounded, it may exceed the antimeridian
                 let (tile_x, tile_y) = (x >> ALL_OFFSET, y >> ALL_OFFSET);
-                let tile = self
-                    .tiles
-                    .entry(((tile_x % MAP_WIDTH) as u16, tile_y as u16))
-                    .or_default();
+                let tile_pos = ((tile_x % MAP_WIDTH) as u16, tile_y as u16);
+                let tile = self.tiles.entry(tile_pos).or_default();
                 (x, y, px) = tile.add_line(
                     x - (tile_x << ALL_OFFSET),
                     y - (tile_y << ALL_OFFSET),
@@ -86,6 +98,9 @@ impl JourneyBitmap {
                     true,
                     (dx < 0 && dy < 0) || (dx > 0 && dy > 0),
                 );
+                // TODO: We might want to check if the tile is actually changed
+                tile_changed(tile_pos);
+
                 x += tile_x << ALL_OFFSET;
                 y += tile_y << ALL_OFFSET;
 
@@ -105,10 +120,8 @@ impl JourneyBitmap {
             loop {
                 // tile_x is not rounded, it may exceed the antimeridian
                 let (tile_x, tile_y) = (x >> ALL_OFFSET, y >> ALL_OFFSET);
-                let tile = self
-                    .tiles
-                    .entry(((tile_x % MAP_WIDTH) as u16, tile_y as u16))
-                    .or_default();
+                let tile_pos = ((tile_x % MAP_WIDTH) as u16, tile_y as u16);
+                let tile = self.tiles.entry(tile_pos).or_default();
                 (x, y, py) = tile.add_line(
                     x - (tile_x << ALL_OFFSET),
                     y - (tile_y << ALL_OFFSET),
@@ -119,6 +132,9 @@ impl JourneyBitmap {
                     false,
                     (dx < 0 && dy < 0) || (dx > 0 && dy > 0),
                 );
+                // TODO: We might want to check if the tile is actually changed
+                tile_changed(tile_pos);
+
                 x += tile_x << ALL_OFFSET;
                 y += tile_y << ALL_OFFSET;
 
