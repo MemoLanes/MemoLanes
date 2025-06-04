@@ -41,7 +41,7 @@ impl MapRenderer {
         };
         f(&mut self.journey_bitmap, &mut tile_changed);
         // TODO: we should improve the cache invalidation rule
-        self.reset();
+        self.changed = true;
     }
 
     pub fn replace(&mut self, journey_bitmap: JourneyBitmap) {
@@ -51,6 +51,8 @@ impl MapRenderer {
 
     pub fn reset(&mut self) {
         self.changed = true;
+        self.tile_area_cache.clear();
+        self.current_area = None;
     }
 
     pub fn changed(&self) -> bool {

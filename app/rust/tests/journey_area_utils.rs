@@ -48,3 +48,23 @@ fn partial_update_use_cached_and_recompute_touched_tiles_only() {
         "updated area after partial-update must match a full compute"
     );
 }
+
+#[test]
+fn validate_area_after_map_renderer_replace() {
+    let journey_bitmap = JourneyBitmap::new();
+    let mut map_renderer = MapRenderer::new(journey_bitmap);
+
+    map_renderer.update(|bitmap, _| {
+        bitmap.add_line(START_LNG, START_LAT, END_LNG, END_LAT);
+    });
+
+    assert!(map_renderer.get_current_area() > 0);
+
+    let (bitmap_import, _warnings) =
+        import_data::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
+
+    map_renderer.replace(bitmap_import.clone());
+
+    let calculated_area = journey_area_utils::compute_journey_bitmap_area(&bitmap_import, None);
+    assert_eq!(map_renderer.get_current_area(), calculated_area); // area unit: m^2
+}
