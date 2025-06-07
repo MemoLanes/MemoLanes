@@ -2,10 +2,9 @@ import { JourneyBitmap, TileBuffer } from '../pkg';
 import { getViewportTileRange } from './utils';
 
 export class JourneyTileProvider {
-    constructor(map, journeyId, frontEndRendering = true) {
+    constructor(map, journeyId) {
         this.map = map;
         this.journeyId = journeyId;
-        this.frontEndRendering = frontEndRendering;
         this.currentVersion = null; // Store the current version
         this.viewRange = null; // Store the current viewport tile range [x, y, w, h, z]
         this.tileBuffer = null; // Store the tile buffer data
@@ -25,119 +24,64 @@ export class JourneyTileProvider {
     // typically two use cases: if the original page detect a data change, then no cache (forceUpdate = true)
     // if it is just a periodic update or normal check, then use cache (forceUpdate = false)
     async pollForJourneyUpdates(forceUpdate = false) {
-        if (this.frontEndRendering) {
-            // Front-end rendering: fetch the full journey bitmap
+        // Server-side rendering: use HEAD request to check if journey data has changed
+        try {
             const filePath = getJourneyFilePathWithId(this.journeyId);
+            console.log(`Checking for updates with HEAD request: ${filePath}`);
             
-            console.log(`Fetching ${filePath}`);
-
-            // Use version tracking unless force update is requested
             const fetchOptions = {
+                method: 'HEAD',
                 headers: {}
             };
             
             if (!forceUpdate && this.currentVersion) {
                 fetchOptions.headers['If-None-Match'] = this.currentVersion;
             }
+            
+            const response = await fetch(filePath, fetchOptions);
+            
+            // Store the new version if available
+            const newVersion = response.headers.get('ETag');
+            const isChanged = newVersion && newVersion !== this.currentVersion;
+            
+            if (newVersion) {
+                this.currentVersion = newVersion;
+                console.log(`Updated version to: ${newVersion}`);
+            }
+            
+            if (response.status === 304) {
+                console.log('Journey data has not changed');
+                return null;
+            }
+            
+            if (response.status === 404) {
+                console.error(`Journey not found: ${filePath}`);
+                return null;
+            }
+            
+            if (!response.ok) {
+                console.error(`Failed to check for updates: ${response.status} ${response.statusText}`);
+                return null;
+            }
+            
+            if (isChanged || response.status === 200) {
+                console.log('Journey data has changed, updating tiles');
 
-            try {
-                const response = await fetch(`${filePath}`, fetchOptions);
-
-                // Store the new version if available
-                const newVersion = response.headers.get('ETag');
-                if (newVersion) {
-                    this.currentVersion = newVersion;
-                    console.log(`Updated version to: ${newVersion}`);
-                }
-
-                // If server returns 304 Not Modified, return null
-                if (response.status === 304) {
-                    console.log('Content not modified');
-                    return null;
-                }
+                this.viewRangeUpdated = true;
+                // TODO: currently this may return immediately, even if the tile buffer is not ready
+                // once we fix this, we can guarantee the buffer is ready when rendering, and remove the catch case in rendering layer.
+                await this.checkAndFetchTileBuffer();
                 
-                // If server returns 404 Not Found
-                if (response.status === 404) {
-                    console.error(`Journey not found: ${filePath}`);
-                    return null;
-                }
-                
-                if (!response.ok) {
-                    console.error(`Failed to fetch journey: ${response.status} ${response.statusText}`);
-                    return null;
-                }
-
-                const arrayBuffer = await response.arrayBuffer();
-                const journeyBitmap = JourneyBitmap.from_bytes(new Uint8Array(arrayBuffer));
-                console.log(`Loaded ${filePath}`);
-
-                this.tileBuffer = journeyBitmap;
-
-                // Try to fetch provisioned camera location
+                // Fetch camera options if needed
                 this.fetchCameraOptions();
-            } catch (error) {
-                console.error('Error while fetching journey data:', error);
-                return null;
+            } else {
+                console.log('Journey data has not changed');
             }
-        } else {
-            // Server-side rendering: use HEAD request to check if journey data has changed
-            try {
-                const filePath = getJourneyFilePathWithId(this.journeyId);
-                console.log(`Checking for updates with HEAD request: ${filePath}`);
-                
-                const fetchOptions = {
-                    method: 'HEAD',
-                    headers: {}
-                };
-                
-                if (!forceUpdate && this.currentVersion) {
-                    fetchOptions.headers['If-None-Match'] = this.currentVersion;
-                }
-                
-                const response = await fetch(filePath, fetchOptions);
-                
-                // Store the new version if available
-                const newVersion = response.headers.get('ETag');
-                const isChanged = newVersion && newVersion !== this.currentVersion;
-                
-                if (newVersion) {
-                    this.currentVersion = newVersion;
-                    console.log(`Updated version to: ${newVersion}`);
-                }
-                
-                if (response.status === 304) {
-                    console.log('Journey data has not changed');
-                    return null;
-                }
-                
-                if (response.status === 404) {
-                    console.error(`Journey not found: ${filePath}`);
-                    return null;
-                }
-                
-                if (!response.ok) {
-                    console.error(`Failed to check for updates: ${response.status} ${response.statusText}`);
-                    return null;
-                }
-                
-                if (isChanged || response.status === 200) {
-                    console.log('Journey data has changed, updating tiles');
-
-                    this.viewRangeUpdated = true;
-                    // TODO: currently this may return immediately, even if the tile buffer is not ready
-                    // once we fix this, we can guarantee the buffer is ready when rendering, and remove the catch case in rendering layer.
-                    await this.checkAndFetchTileBuffer();
-                    
-                    // Fetch camera options if needed
-                    this.fetchCameraOptions();
-                } else {
-                    console.log('Journey data has not changed');
-                }
-            } catch (error) {
-                console.error('Error while checking for journey updates:', error);
-                return null;
-            }
+        } catch (error) {
+            console.error('Error while checking for journey updates:', error);
+            return null;
         }
+    
     }
     
     // Helper method to fetch camera options
@@ -169,17 +113,6 @@ export class JourneyTileProvider {
         this.pollForJourneyUpdates(true);
     }
 
-    // Setter method to update frontEndRendering mode
-    setFrontEndRendering(enabled) {
-        if (this.frontEndRendering === enabled) {
-            return;
-        }
-        
-        console.log(`Switching rendering mode: frontEndRendering=${enabled}`);
-        this.frontEndRendering = enabled;
-        this.pollForJourneyUpdates(true);
-    }
-
     // Try to update the current viewport tile range, only if it has changed
     tryUpdateViewRange() {
         const [x, y, w, h, z] = getViewportTileRange(this.map);
@@ -201,11 +134,7 @@ export class JourneyTileProvider {
         // Mark that view range has been updated and trigger fetch if not already downloading
         this.viewRangeUpdated = true;
 
-        if (!this.frontEndRendering) {
-            this.checkAndFetchTileBuffer();
-        } else {
-            this.notifyTileBufferReady(x, y, w, h, z, this.bufferSizePower, this.tileBuffer);
-        }
+        this.checkAndFetchTileBuffer();
         
         return this.viewRange;
     }

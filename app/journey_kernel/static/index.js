@@ -60,10 +60,8 @@ async function initializeMap() {
         zoom: 2
     };
 
-    // Default frontEndRendering to true
-    let frontEndRendering = true;
     // Default rendering mode
-    let renderingMode = 'canvas';
+    let renderingMode = currentRenderingMode;
 
     if (hash) {
         const params = new URLSearchParams(hash);
@@ -72,17 +70,13 @@ async function initializeMap() {
         const lat = parseFloat(params.get('lat'));
         const zoom = parseFloat(params.get('zoom'));
         
-        // Parse cache parameter to determine frontEndRendering
-        const cacheMode = params.get('cache') || 'auto';
-        frontEndRendering = cacheMode !== 'light';
-        
         // Get rendering mode from URL if available
         const urlRenderMode = params.get('render');
         if (urlRenderMode && AVAILABLE_LAYERS[urlRenderMode]) {
             renderingMode = urlRenderMode;
         }
         
-        console.log(`journey_id: ${currentJourneyId}, frontEndRendering: ${frontEndRendering}, cache: ${cacheMode}, render: ${renderingMode}, lng: ${lng}, lat: ${lat}, zoom: ${zoom}`);
+        console.log(`journey_id: ${currentJourneyId}, render: ${renderingMode}, lng: ${lng}, lat: ${lat}, zoom: ${zoom}`);
 
         if (!isNaN(lng) && !isNaN(lat) && !isNaN(zoom)) {
             initialView = {
@@ -134,7 +128,7 @@ async function initializeMap() {
             }
         };
 
-        currentJourneyTileProvider = new JourneyTileProvider(map, currentJourneyId, frontEndRendering);
+        currentJourneyTileProvider = new JourneyTileProvider(map, currentJourneyId);
         
         await currentJourneyTileProvider.pollForJourneyUpdates(true);
         console.log('initial tile buffer loaded');
@@ -195,15 +189,6 @@ async function initializeMap() {
             currentJourneyId = newJourneyId;
             currentJourneyTileProvider.journeyId = currentJourneyId;
             currentJourneyTileProvider.pollForJourneyUpdates(true);
-        }
-        
-        // Check if cache mode has changed
-        const cacheMode = params.get('cache') || 'auto';
-        const newFrontEndRendering = cacheMode !== 'light';
-        
-        // Update frontEndRendering if needed
-        if (currentJourneyTileProvider) {
-            currentJourneyTileProvider.setFrontEndRendering(newFrontEndRendering);
         }
         
         // Check if rendering mode has changed

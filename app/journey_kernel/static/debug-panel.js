@@ -1,7 +1,6 @@
 /**
  * Debug Panel for Map Overlay
  * Shows when debug=true is in URL hash
- * Controls caching and rendering modes
  */
 
 export class DebugPanel {
@@ -28,16 +27,6 @@ export class DebugPanel {
       <div style="font-weight: bold; margin-bottom: 10px; display: flex; justify-content: space-between;">
         <span>Debug Panel</span>
         <button id="close-debug">×</button>
-      </div>
-      
-      <div style="margin-bottom: 10px;">
-        <label for="caching-mode" title="Controls how journey data is loaded and cached">Caching Mode:</label>
-        <select id="caching-mode">
-          <option value="auto" title="System decides best caching strategy">Auto</option>
-          <option value="performance" title="Frontend rendering: loads full journey data for better performance">Performance</option>
-          <option value="light" title="Server-side rendering: loads only visible tiles for lower memory usage">Light</option>
-        </select>
-        <div class="hint">Performance = Frontend rendering, Light = Server tiles</div>
       </div>
       
       <div class="separator"></div>
@@ -79,12 +68,6 @@ export class DebugPanel {
     document.getElementById('close-debug').addEventListener('click', () => {
       this.hide();
       this._updateUrlHash({debug: 'false'});
-    });
-
-    // Caching mode direct change handler
-    document.getElementById('caching-mode').addEventListener('change', (e) => {
-      const cachingMode = e.target.value;
-      this._updateUrlHash({ cache: cachingMode });
     });
 
     // Rendering mode direct change handler
@@ -196,11 +179,7 @@ export class DebugPanel {
     if (debugParam === 'true') {
       this.show();
       
-      // Set initial values from URL params
-      const cachingMode = urlParams.get('cache') || 'auto';
       const renderingMode = urlParams.get('render') || 'canvas';
-      
-      document.getElementById('caching-mode').value = cachingMode;
       
       // Only set rendering mode if it's available
       const renderingModeSelect = document.getElementById('rendering-mode');
