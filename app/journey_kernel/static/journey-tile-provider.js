@@ -164,7 +164,11 @@ export class JourneyTileProvider {
                 fetchOptions.headers['If-None-Match'] = this.currentVersion;
             }
             
+            // Measure fetch timing
+            const fetchStartTime = performance.now();
             const response = await fetch(tileRangeUrl, fetchOptions);
+            const fetchEndTime = performance.now();
+            const fetchDuration = fetchEndTime - fetchStartTime;
             
             if (response.status === 304) {
                 console.log('Tile buffer has not changed (304 Not Modified)');
@@ -174,6 +178,16 @@ export class JourneyTileProvider {
             if (!response.ok) {
                 throw new Error(`Failed to fetch tile buffer: ${response.status} ${response.statusText}`);
             }
+            
+            // Emit timing data for successful downloads (not 304)
+            window.dispatchEvent(new CustomEvent('tileDownloadTiming', {
+                detail: {
+                    duration: fetchDuration,
+                    timestamp: fetchEndTime,
+                    url: tileRangeUrl,
+                    status: response.status
+                }
+            }));
             
             // Update version from ETag header
             const newVersion = response.headers.get('ETag');

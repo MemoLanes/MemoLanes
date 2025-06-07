@@ -64,4 +64,14 @@
 .debug-panel .separator {
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   margin: 8px 0;
+}
+
+/* Performance Graph Canvases */
+.debug-panel #fps-graph,
+.debug-panel #network-graph {
+  background: #2a2a2a !important;
+  border: 1px solid #555 !important;
+  border-radius: 2px;
+  width: 100%;
+  height: 50px;
 } 

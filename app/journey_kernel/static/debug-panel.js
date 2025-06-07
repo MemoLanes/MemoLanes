@@ -19,6 +19,13 @@ export class DebugPanel {
     this.animationId = null;
     this.fpsCanvas = null;
     this.fpsCtx = null;
+    
+    // Network timing monitoring
+    this.lastNetworkDelay = 0;
+    this.networkDelayHistory = [];
+    this.maxNetworkHistorySize = 30; // Keep 30 network timing readings
+    this.networkCanvas = null;
+    this.networkCtx = null;
   }
 
   initialize() {
@@ -54,8 +61,12 @@ export class DebugPanel {
         <div style="font-weight: bold; margin-bottom: 5px;">Performance</div>
         <div style="font-family: monospace; font-size: 12px; margin-bottom: 8px;">
           <div>FPS: <span id="fps-display" style="color: #4CAF50;">-</span></div>
+          <div>Network: <span id="network-delay-display" style="color: #2196F3;">-</span> ms</div>
         </div>
-        <canvas id="fps-graph" width="200" height="60"></canvas>
+        <div style="font-size: 10px; margin-bottom: 4px; color: rgba(255, 255, 255, 0.7);">FPS</div>
+        <canvas id="fps-graph" width="200" height="50"></canvas>
+        <div style="font-size: 10px; margin: 4px 0; color: rgba(255, 255, 255, 0.7);">Network Delay</div>
+        <canvas id="network-graph" width="200" height="50"></canvas>
       </div>
       
       <div class="separator"></div>
@@ -133,12 +144,18 @@ export class DebugPanel {
   }
 
   _setupFpsMonitoring() {
-    // Get canvas element and context
+    // Get canvas elements and contexts
     this.fpsCanvas = document.getElementById('fps-graph');
     this.fpsCtx = this.fpsCanvas.getContext('2d');
     
+    this.networkCanvas = document.getElementById('network-graph');
+    this.networkCtx = this.networkCanvas.getContext('2d');
+    
     // Start FPS monitoring loop
     this._startFpsLoop();
+    
+    // Set up network timing listener
+    this._setupNetworkMonitoring();
   }
 
   _startFpsLoop() {
@@ -175,6 +192,24 @@ export class DebugPanel {
     }
   }
 
+  _setupNetworkMonitoring() {
+    // Listen for network timing events
+    window.addEventListener('tileDownloadTiming', (event) => {
+      const { duration } = event.detail;
+      this.lastNetworkDelay = Math.round(duration);
+      
+      // Add to history
+      this.networkDelayHistory.push(this.lastNetworkDelay);
+      if (this.networkDelayHistory.length > this.maxNetworkHistorySize) {
+        this.networkDelayHistory.shift();
+      }
+      
+      // Update display
+      this._updateNetworkDisplay();
+      this._renderNetworkGraph();
+    });
+  }
+
   _updateFpsDisplay() {
     if (!this.visible) return;
     
@@ -189,6 +224,24 @@ export class DebugPanel {
         fpsElement.style.color = '#FF9800'; // Orange
       } else {
         fpsElement.style.color = '#F44336'; // Red
+      }
+    }
+  }
+
+  _updateNetworkDisplay() {
+    if (!this.visible) return;
+    
+    const networkElement = document.getElementById('network-delay-display');
+    if (networkElement) {
+      networkElement.textContent = this.lastNetworkDelay;
+      
+      // Color code based on network delay
+      if (this.lastNetworkDelay <= 100) {
+        networkElement.style.color = '#4CAF50'; // Green - Fast
+      } else if (this.lastNetworkDelay <= 500) {
+        networkElement.style.color = '#FF9800'; // Orange - Moderate
+      } else {
+        networkElement.style.color = '#F44336'; // Red - Slow
       }
     }
   }
@@ -242,10 +295,75 @@ export class DebugPanel {
     
     // Draw FPS labels
     ctx.fillStyle = '#ccc';
-    ctx.font = '10px monospace';
+    ctx.font = '8px monospace';
     ctx.textAlign = 'left';
-    ctx.fillText('60', 2, 12);
+    ctx.fillText('60', 2, 10);
     ctx.fillText('30', 2, height - 18);
+    ctx.fillText('0', 2, height - 2);
+  }
+
+  _renderNetworkGraph() {
+    if (!this.visible || !this.networkCtx) return;
+    
+    const canvas = this.networkCanvas;
+    const ctx = this.networkCtx;
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, width, height);
+    
+    if (this.networkDelayHistory.length < 2) return;
+    
+    // Calculate max delay for scaling (minimum 1000ms for consistent scale)
+    const maxDelay = Math.max(1000, Math.max(...this.networkDelayHistory));
+    
+    // Draw grid lines
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth = 1;
+    
+    // Horizontal grid lines (delay values)
+    const gridLines = [500, 1000];
+    gridLines.forEach(delay => {
+      if (delay <= maxDelay) {
+        const y = height - (delay / maxDelay) * height;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+    });
+    
+    // Draw network delay line
+    ctx.strokeStyle = '#FF9800';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    
+    const stepX = width / (this.maxNetworkHistorySize - 1);
+    
+    this.networkDelayHistory.forEach((delay, index) => {
+      const x = index * stepX;
+      const y = height - (delay / maxDelay) * height;
+      
+      if (index === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    });
+    
+    ctx.stroke();
+    
+    // Draw delay labels
+    ctx.fillStyle = '#ccc';
+    ctx.font = '8px monospace';
+    ctx.textAlign = 'left';
+    if (maxDelay >= 1000) {
+      ctx.fillText('1s', 2, 10);
+    }
+    if (maxDelay >= 500) {
+      ctx.fillText('500ms', 2, height - 18);
+    }
     ctx.fillText('0', 2, height - 2);
   }
 
@@ -338,6 +456,8 @@ export class DebugPanel {
     this.panel.style.display = 'block';
     this.visible = true;
     this._updateViewpointInfo();
+    this._updateNetworkDisplay();
+    this._renderNetworkGraph();
     
     // Start FPS monitoring when panel is shown
     if (!this.animationId) {
