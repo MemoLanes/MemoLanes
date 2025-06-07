@@ -9,6 +9,16 @@ export class DebugPanel {
     this.panel = null;
     this.visible = false;
     this.availableLayers = availableLayers;
+    
+    // Framerate monitoring
+    this.fps = 0;
+    this.frameCount = 0;
+    this.lastTime = performance.now();
+    this.fpsHistory = [];
+    this.maxHistorySize = 60; // Keep 60 FPS readings for the graph
+    this.animationId = null;
+    this.fpsCanvas = null;
+    this.fpsCtx = null;
   }
 
   initialize() {
@@ -41,6 +51,16 @@ export class DebugPanel {
       <div class="separator"></div>
       
       <div style="margin-bottom: 10px;">
+        <div style="font-weight: bold; margin-bottom: 5px;">Performance</div>
+        <div style="font-family: monospace; font-size: 12px; margin-bottom: 8px;">
+          <div>FPS: <span id="fps-display" style="color: #4CAF50;">-</span></div>
+        </div>
+        <canvas id="fps-graph" width="200" height="60"></canvas>
+      </div>
+      
+      <div class="separator"></div>
+      
+      <div style="margin-bottom: 10px;">
         <div style="font-weight: bold; margin-bottom: 5px;">Map Viewpoint</div>
         <div id="viewpoint-info" style="font-family: monospace; font-size: 12px;">
           <div>Zoom: <span id="zoom-level">-</span></div>
@@ -55,6 +75,9 @@ export class DebugPanel {
 
     // Set up event listeners
     this._setupEventListeners();
+    
+    // Set up FPS monitoring
+    this._setupFpsMonitoring();
     
     // Set up easter egg
     this._setupEasterEgg();
@@ -107,6 +130,123 @@ export class DebugPanel {
       document.getElementById('bounds-coords').textContent = 
         `SW: ${sw.lng.toFixed(5)}, ${sw.lat.toFixed(5)} | NE: ${ne.lng.toFixed(5)}, ${ne.lat.toFixed(5)}`;
     }
+  }
+
+  _setupFpsMonitoring() {
+    // Get canvas element and context
+    this.fpsCanvas = document.getElementById('fps-graph');
+    this.fpsCtx = this.fpsCanvas.getContext('2d');
+    
+    // Start FPS monitoring loop
+    this._startFpsLoop();
+  }
+
+  _startFpsLoop() {
+    const measureFps = (currentTime) => {
+      this.frameCount++;
+      
+      // Calculate FPS every second
+      if (currentTime - this.lastTime >= 1000) {
+        this.fps = Math.round((this.frameCount * 1000) / (currentTime - this.lastTime));
+        this.frameCount = 0;
+        this.lastTime = currentTime;
+        
+        // Add to history
+        this.fpsHistory.push(this.fps);
+        if (this.fpsHistory.length > this.maxHistorySize) {
+          this.fpsHistory.shift();
+        }
+        
+        // Update display
+        this._updateFpsDisplay();
+        this._renderFpsGraph();
+      }
+      
+      this.animationId = requestAnimationFrame(measureFps);
+    };
+    
+    this.animationId = requestAnimationFrame(measureFps);
+  }
+
+  _stopFpsLoop() {
+    if (this.animationId) {
+      cancelAnimationFrame(this.animationId);
+      this.animationId = null;
+    }
+  }
+
+  _updateFpsDisplay() {
+    if (!this.visible) return;
+    
+    const fpsElement = document.getElementById('fps-display');
+    if (fpsElement) {
+      fpsElement.textContent = this.fps;
+      
+      // Color code based on FPS
+      if (this.fps >= 50) {
+        fpsElement.style.color = '#4CAF50'; // Green
+      } else if (this.fps >= 30) {
+        fpsElement.style.color = '#FF9800'; // Orange
+      } else {
+        fpsElement.style.color = '#F44336'; // Red
+      }
+    }
+  }
+
+  _renderFpsGraph() {
+    if (!this.visible || !this.fpsCtx) return;
+    
+    const canvas = this.fpsCanvas;
+    const ctx = this.fpsCtx;
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, width, height);
+    
+    if (this.fpsHistory.length < 2) return;
+    
+    // Draw grid lines
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth = 1;
+    
+    // Horizontal grid lines (FPS values)
+    const gridLines = [30, 60];
+    gridLines.forEach(fps => {
+      const y = height - (fps / 60) * height;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+    });
+    
+    // Draw FPS line
+    ctx.strokeStyle = '#2196F3';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    
+    const stepX = width / (this.maxHistorySize - 1);
+    
+    this.fpsHistory.forEach((fps, index) => {
+      const x = index * stepX;
+      const y = height - Math.min(fps / 60, 1) * height; // Normalize to 60 FPS max
+      
+      if (index === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    });
+    
+    ctx.stroke();
+    
+    // Draw FPS labels
+    ctx.fillStyle = '#ccc';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('60', 2, 12);
+    ctx.fillText('30', 2, height - 18);
+    ctx.fillText('0', 2, height - 2);
   }
 
   _setupEasterEgg() {
@@ -198,11 +338,19 @@ export class DebugPanel {
     this.panel.style.display = 'block';
     this.visible = true;
     this._updateViewpointInfo();
+    
+    // Start FPS monitoring when panel is shown
+    if (!this.animationId) {
+      this._startFpsLoop();
+    }
   }
 
   hide() {
     this.panel.style.display = 'none';
     this.visible = false;
+    
+    // Stop FPS monitoring when panel is hidden to save resources
+    this._stopFpsLoop();
   }
 
   // Listen for hash changes to show/hide panel
@@ -210,5 +358,13 @@ export class DebugPanel {
     window.addEventListener('hashchange', () => {
       this._checkDebugStatus();
     });
+  }
+
+  // Clean up resources
+  destroy() {
+    this._stopFpsLoop();
+    if (this.panel && this.panel.parentNode) {
+      this.panel.parentNode.removeChild(this.panel);
+    }
   }
 } 
