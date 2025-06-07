@@ -14,7 +14,6 @@ export class JourneyTileProvider {
 
         this.tileBufferCallbacks = []; // Array to store tile buffer update callbacks
         
-
         this.map.on('move', () => this.tryUpdateViewRange());
         this.map.on('moveend', () => this.tryUpdateViewRange());
         // Initial update

@@ -80,7 +80,6 @@ export class JourneyCanvasLayer {
                 const dx = (x - left) * tileSize;
                 const dy = (y - top) * tileSize;
 
-                console.log("########### TRY READING TILE BUFFER ###########");
                 // Get pixels coordinates from journeyTileProvider
                 const pixelCoords = tileBuffer.get_tile_pixels(BigInt(xNorm), BigInt(y), z, bufferSizePower);
 

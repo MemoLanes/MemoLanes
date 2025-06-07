@@ -24,7 +24,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let proxy = get_map_renderer_proxy_for_main_map();
-    println!("view map at: {}&cache=light&debug=true", proxy.get_url());
+    println!("view map at: {}&debug=true", proxy.get_url());
 
     // Set up ctrl+c handler
     ctrlc::set_handler(move || {
