@@ -15,16 +15,16 @@ pub fn compute_journey_bitmap_area(journey_bitmap: &JourneyBitmap) -> u64 {
         .tiles
         .iter()
         .flat_map(|(tile_pos, tile)| {
-            tile.blocks.iter().filter_map(move |(block_pos, block)| {
+            tile.iter().filter_map(move |(block_key, block)| {
                 let bit_count = block.count();
                 if bit_count > 0 {
                     // calculate center bit in each block for bit_unit_area
                     // Calculate the top-left coordinates of this bitmap point
                     let bitzoomed_x1: i32 = TILE_WIDTH as i32 * BITMAP_WIDTH as i32 * tile_pos.0 as i32
-                    + BITMAP_WIDTH as i32 * block_pos.0 as i32
+                    + BITMAP_WIDTH as i32 * block_key.x() as i32
                     + (BITMAP_WIDTH/2) as i32;
                     let bitzoomed_y1: i32 = TILE_WIDTH as i32 * BITMAP_WIDTH as i32 * tile_pos.1 as i32
-                    + BITMAP_WIDTH as i32 * block_pos.1 as i32
+                    + BITMAP_WIDTH as i32 * block_key.y() as i32
                     + (BITMAP_WIDTH/2) as i32;
 
                     // Bottom-right coordinates (add one bit length to each side)

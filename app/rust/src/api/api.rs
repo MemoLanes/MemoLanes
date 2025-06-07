@@ -190,9 +190,11 @@ pub(crate) fn get_default_camera_option_from_journey_bitmap(
         .next()
         .and_then(|(tile_pos, tile)| {
             // we shouldn't have empty tile or block
-            tile.blocks.keys().next().map(|block_pos| {
-                let blockzoomed_x: i32 = TILE_WIDTH as i32 * tile_pos.0 as i32 + block_pos.0 as i32;
-                let blockzoomed_y: i32 = TILE_WIDTH as i32 * tile_pos.1 as i32 + block_pos.1 as i32;
+            tile.iter().next().map(|(block_key, _)| {
+                let blockzoomed_x: i32 =
+                    TILE_WIDTH as i32 * tile_pos.0 as i32 + block_key.x() as i32;
+                let blockzoomed_y: i32 =
+                    TILE_WIDTH as i32 * tile_pos.1 as i32 + block_key.y() as i32;
                 let (lng, lat) = utils::tile_x_y_to_lng_lat(
                     blockzoomed_x,
                     blockzoomed_y,

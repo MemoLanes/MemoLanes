@@ -1,5 +1,6 @@
 use actix_web::{dev::ServerHandle, web, App, HttpRequest, HttpResponse, HttpServer};
 use anyhow::Result;
+use serde::Deserialize;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, Weak};
@@ -8,6 +9,7 @@ use tokio::runtime::Runtime;
 use uuid::Uuid;
 
 use super::MapRenderer;
+use crate::journey_kernel::tile_buffer::TileBuffer;
 
 type Registry = HashMap<Uuid, Arc<Mutex<MapRenderer>>>;
 
@@ -62,37 +64,14 @@ impl Drop for MapRendererToken {
     }
 }
 
-async fn serve_journey_bitmap_by_id(
-    id: web::Path<Uuid>,
-    req: HttpRequest,
-    data: web::Data<Arc<Mutex<Registry>>>,
-) -> HttpResponse {
-    let registry = data.lock().unwrap();
-    match registry.get(&id) {
-        Some(item) => {
-            let mut map_renderer = item.lock().unwrap();
-
-            // we will return 304 if the request is conditional, and the remote joruney_bitmap is up-to-date.
-            let is_request_conditional = req
-                .headers()
-                .get("If-None-Match")
-                .and_then(|h| h.to_str().ok())
-                .map(|s| s == "*")
-                .unwrap_or(false);
-            if !is_request_conditional {
-                // for non-conditional request, we always send the latest journey_bitmap
-                map_renderer.reset();
-            }
-            match map_renderer.get_latest_bitmap_if_changed() {
-                None => HttpResponse::NotModified().finish(),
-                Some(journey_bitmap) => match journey_bitmap.to_bytes() {
-                    Ok(bytes) => HttpResponse::Ok().body(bytes),
-                    Err(_) => HttpResponse::InternalServerError().finish(),
-                },
-            }
-        }
-        None => HttpResponse::NotFound().finish(),
-    }
+#[derive(Deserialize)]
+struct TileRangeQuery {
+    x: i64,
+    y: i64,
+    z: i16,
+    width: i64,
+    height: i64,
+    buffer_size_power: i16,
 }
 
 async fn serve_journey_bitmap_provisioned_camera_option_by_id(
@@ -105,6 +84,52 @@ async fn serve_journey_bitmap_provisioned_camera_option_by_id(
             let map_renderer = item.lock().unwrap();
             let camera_option = map_renderer.get_provisioned_camera_option();
             HttpResponse::Ok().json(camera_option)
+        }
+        None => HttpResponse::NotFound().finish(),
+    }
+}
+
+async fn serve_journey_tile_range(
+    id: web::Path<Uuid>,
+    query: web::Query<TileRangeQuery>,
+    req: HttpRequest,
+    data: web::Data<Arc<Mutex<Registry>>>,
+) -> HttpResponse {
+    let registry = data.lock().unwrap();
+    match registry.get(&id) {
+        Some(item) => {
+            let map_renderer = item.lock().unwrap();
+
+            // Extract version from If-None-Match header if present
+            let client_version = req
+                .headers()
+                .get("If-None-Match")
+                .and_then(|h| h.to_str().ok());
+
+            match map_renderer.get_latest_bitmap_if_changed(client_version) {
+                None => HttpResponse::NotModified().finish(),
+                Some((journey_bitmap, version)) => {
+                    // Create a TileBuffer from the JourneyBitmap for the specified range
+                    let tile_buffer = TileBuffer::from_journey_bitmap(
+                        journey_bitmap,
+                        query.x,
+                        query.y,
+                        query.z,
+                        query.width,
+                        query.height,
+                        query.buffer_size_power,
+                    );
+
+                    // Serialize and return the TileBuffer with ETag
+                    match tile_buffer.to_bytes() {
+                        Ok(data) => HttpResponse::Ok()
+                            .append_header(("ETag", version))
+                            .content_type("application/octet-stream")
+                            .body(data),
+                        Err(_) => HttpResponse::InternalServerError().finish(),
+                    }
+                }
+            }
         }
         None => HttpResponse::NotFound().finish(),
     }
@@ -143,12 +168,12 @@ impl MapServer {
                 App::new()
                     .app_data(data.clone())
                     .route(
-                        "/journey/{id}/journey_bitmap.bin",
-                        web::get().to(serve_journey_bitmap_by_id),
-                    )
-                    .route(
                         "/journey/{id}/provisioned_camera_option",
                         web::get().to(serve_journey_bitmap_provisioned_camera_option_by_id),
+                    )
+                    .route(
+                        "/journey/{id}/tile_range",
+                        web::get().to(serve_journey_tile_range),
                     )
                     .route("/", web::get().to(index))
                     .route("/bundle.js", web::get().to(serve_journey_kernel_js))

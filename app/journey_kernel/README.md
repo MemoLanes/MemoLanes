@@ -32,6 +32,10 @@ https://example.com/#journey_id=XXXXX&lng=100.0&lat=30.0&zoom=19
 | `lng` | Initial longitude | number |
 | `lat` | Initial latitude | number |
 | `zoom` | Initial zoom level | number |
+| `render`| Render method | 'canvas' |
+| `debug`| debug panel | bool |
+
+The page will listen to the hash change of `render` and `debug` and apply accordingly.
 
 ## Web Development
 
