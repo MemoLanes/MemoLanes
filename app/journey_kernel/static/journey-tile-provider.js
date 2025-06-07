@@ -2,7 +2,7 @@ import { JourneyBitmap, TileBuffer } from '../pkg';
 import { getViewportTileRange } from './utils';
 
 export class JourneyTileProvider {
-    constructor(map, journeyId) {
+    constructor(map, journeyId, bufferSizePower = 8) {
         this.map = map;
         this.journeyId = journeyId;
         this.currentVersion = null; // Store the current version
@@ -10,7 +10,7 @@ export class JourneyTileProvider {
         this.tileBuffer = null; // Store the tile buffer data
         this.viewRangeUpdated = false; // Flag indicating view range has been updated
         this.downloadInProgress = false; // Flag indicating download is in progress
-        this.bufferSizePower = 8;
+        this.bufferSizePower = bufferSizePower;
 
         this.tileBufferCallbacks = []; // Array to store tile buffer update callbacks
         

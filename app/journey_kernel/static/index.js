@@ -60,9 +60,6 @@ async function initializeMap() {
         zoom: 2
     };
 
-    // Default rendering mode
-    let renderingMode = currentRenderingMode;
-
     if (hash) {
         const params = new URLSearchParams(hash);
         currentJourneyId = params.get('journey_id');
@@ -73,10 +70,10 @@ async function initializeMap() {
         // Get rendering mode from URL if available
         const urlRenderMode = params.get('render');
         if (urlRenderMode && AVAILABLE_LAYERS[urlRenderMode]) {
-            renderingMode = urlRenderMode;
+            currentRenderingMode = urlRenderMode;
         }
         
-        console.log(`journey_id: ${currentJourneyId}, render: ${renderingMode}, lng: ${lng}, lat: ${lat}, zoom: ${zoom}`);
+        console.log(`journey_id: ${currentJourneyId}, render: ${currentRenderingMode}, lng: ${lng}, lat: ${lat}, zoom: ${zoom}`);
 
         if (!isNaN(lng) && !isNaN(lat) && !isNaN(zoom)) {
             initialView = {
@@ -100,8 +97,6 @@ async function initializeMap() {
     });
     map.dragRotate.disable();
     map.touchZoomRotate.disableRotation();
-
-    // TODO: start loading the initial data earlier.
 
     map.on('style.load', async (e) => {
         // Create a DOM element for the marker
@@ -128,13 +123,13 @@ async function initializeMap() {
             }
         };
 
-        currentJourneyTileProvider = new JourneyTileProvider(map, currentJourneyId);
+        currentJourneyTileProvider = new JourneyTileProvider(map, currentJourneyId, AVAILABLE_LAYERS[currentRenderingMode].bufferSizePower);
         
         await currentJourneyTileProvider.pollForJourneyUpdates(true);
         console.log('initial tile buffer loaded');
 
         // Create and initialize journey layer with selected rendering mode
-        currentJourneyLayer = switchRenderingLayer(map, renderingMode);
+        currentJourneyLayer = switchRenderingLayer(map, currentRenderingMode);
 
         // Set up polling for updates
         pollingInterval = setInterval(() => currentJourneyTileProvider.pollForJourneyUpdates(false), 1000);
