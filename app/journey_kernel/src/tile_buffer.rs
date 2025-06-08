@@ -55,11 +55,11 @@ impl TileBuffer {
             ));
         }
 
-        if z < 0 || z > 25 {
+        if !(0..=25).contains(&z) {
             return Err(format!("Invalid zoom level: {} (must be 0-25)", z));
         }
 
-        if buffer_size_power < 6 || buffer_size_power > 15 {
+        if !(6..=15).contains(&buffer_size_power) {
             return Err(format!("Invalid buffer_size_power: {} (must be 6-15, corresponding to 64-32768 pixel tiles)", buffer_size_power));
         }
 
