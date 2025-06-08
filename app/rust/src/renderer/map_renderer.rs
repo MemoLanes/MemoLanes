@@ -85,7 +85,7 @@ impl MapRenderer {
 
     pub fn compute_and_get_current_area(&mut self) -> u64 {
         match self.current_area {
-            Some(area) => return area,
+            Some(area) => area,
             None => {
                 let area = journey_area_utils::compute_journey_bitmap_area(
                     &self.journey_bitmap,
