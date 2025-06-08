@@ -41,16 +41,16 @@ impl MapRenderer {
         };
         f(&mut self.journey_bitmap, &mut tile_changed);
         // TODO: we should improve the cache invalidation rule
-        self.version = self.version.wrapping_add(1);
+        self.reset();
     }
 
     pub fn replace(&mut self, journey_bitmap: JourneyBitmap) {
         self.journey_bitmap = journey_bitmap;
+        self.tile_area_cache.clear();
         self.reset();
     }
 
     pub fn reset(&mut self) {
-        self.tile_area_cache.clear();
         self.version = self.version.wrapping_add(1);
         self.current_area = None;
     }
@@ -84,13 +84,16 @@ impl MapRenderer {
     }
 
     pub fn compute_and_get_current_area(&mut self) -> u64 {
-        // TODO: we can do something more efficient here, instead of traversing
-        // the whole bitmap evey time it changes.
-        let area = journey_area_utils::compute_journey_bitmap_area(
-            &self.journey_bitmap,
-            Some(&mut self.tile_area_cache),
-        );
-        self.current_area = Some(area);
-        area
+        match self.current_area {
+            Some(area) => return area,
+            None => {
+                let area = journey_area_utils::compute_journey_bitmap_area(
+                    &self.journey_bitmap,
+                    Some(&mut self.tile_area_cache),
+                );
+                self.current_area = Some(area);
+                area
+            }
+        }
     }
 }
