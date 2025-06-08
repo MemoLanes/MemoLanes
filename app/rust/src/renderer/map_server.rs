@@ -110,7 +110,7 @@ async fn serve_journey_tile_range(
                 None => HttpResponse::NotModified().finish(),
                 Some((journey_bitmap, version)) => {
                     // Create a TileBuffer from the JourneyBitmap for the specified range
-                    let tile_buffer = TileBuffer::from_journey_bitmap(
+                    let tile_buffer = match TileBuffer::from_journey_bitmap(
                         journey_bitmap,
                         query.x,
                         query.y,
@@ -118,7 +118,15 @@ async fn serve_journey_tile_range(
                         query.width,
                         query.height,
                         query.buffer_size_power,
-                    );
+                    ) {
+                        Ok(buffer) => buffer,
+                        Err(creation_error) => {
+                            log::error!("Failed to create TileBuffer: {}", creation_error);
+                            return HttpResponse::BadRequest()
+                                .content_type("text/plain")
+                                .body(format!("Failed to create tile buffer: {}", creation_error));
+                        }
+                    };
 
                     // Serialize and return the TileBuffer with ETag
                     match tile_buffer.to_bytes() {
@@ -126,7 +134,12 @@ async fn serve_journey_tile_range(
                             .append_header(("ETag", version))
                             .content_type("application/octet-stream")
                             .body(data),
-                        Err(_) => HttpResponse::InternalServerError().finish(),
+                        Err(serialization_error) => {
+                            log::error!("Failed to serialize TileBuffer: {}", serialization_error);
+                            HttpResponse::InternalServerError()
+                                .content_type("text/plain")
+                                .body("Failed to serialize tile data")
+                        }
                     }
                 }
             }

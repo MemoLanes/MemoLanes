@@ -46,11 +46,51 @@ impl TileBuffer {
         width: i64,
         height: i64,
         buffer_size_power: i16,
-    ) -> Self {
-        let mut buffer = Self::new(x, y, z, width, height, buffer_size_power);
+    ) -> Result<Self, String> {
+        // Validate parameters to prevent overflow and invalid operations
+        if width <= 0 || height <= 0 {
+            return Err(format!("Invalid dimensions: width={}, height={}", width, height));
+        }
 
-        // Calculate mercator coordinate cycle length for zoom level z
-        let zoom_coefficient = 1 << z;
+        if z < 0 || z > 25 {
+            return Err(format!("Invalid zoom level: {} (must be 0-25)", z));
+        }
+
+        if buffer_size_power < 6 || buffer_size_power > 15 {
+            return Err(format!("Invalid buffer_size_power: {} (must be 6-15, corresponding to 64-32768 pixel tiles)", buffer_size_power));
+        }
+
+        // Check for potential overflow in width * height
+        let total_tiles = width.checked_mul(height)
+            .ok_or_else(|| format!("Tile count overflow: {}x{}", width, height))?;
+
+        // Prevent excessive memory allocation (reasonable limit for web server)
+        if total_tiles > 10_000 {
+            return Err(format!("Too many tiles requested: {} (max: 10,000)", total_tiles));
+        }
+
+        // Calculate mercator coordinate cycle length for zoom level z (used for validation and processing)
+        let zoom_coefficient = 1i64.checked_shl(z as u32)
+            .ok_or_else(|| format!("Zoom coefficient overflow for z={}", z))?;
+        
+        // Validate coordinate bounds for the given zoom level
+        if y < 0 || y >= zoom_coefficient {
+            return Err(format!("Invalid y coordinate: {} (must be 0-{})", y, zoom_coefficient - 1));
+        }
+
+        // Safe to convert to usize after overflow check
+        let total_tiles_usize = total_tiles as usize;
+
+        // Create buffer with validated parameters
+        let mut buffer = Self {
+            x,
+            y,
+            z,
+            width,
+            height,
+            buffer_size_power,
+            tile_data: vec![Vec::new(); total_tiles_usize],
+        };
 
         // For each tile in the range
         for tile_y in y..(y + height) {
@@ -60,7 +100,6 @@ impl TileBuffer {
                     ((tile_x % zoom_coefficient) + zoom_coefficient) % zoom_coefficient;
 
                 // Get the pixels using TileShader2
-                // start_x and start_y are 0, buffer_size_power is 8
                 let pixels = TileShader2::get_pixels_coordinates(
                     0,
                     0,
@@ -73,11 +112,16 @@ impl TileBuffer {
 
                 // Convert to tile-relative coordinates and add to buffer
                 let idx = buffer.calculate_tile_index(tile_x, tile_y);
+                
+                // Bounds check for safety (should never fail with our validation above)
+                if idx >= buffer.tile_data.len() {
+                    return Err(format!("Index out of bounds: {} >= {}", idx, buffer.tile_data.len()));
+                }
+                
                 let tile_pixels = &mut buffer.tile_data[idx];
 
                 // Convert from i64 coordinates to u16 coordinates for the TileBuffer
                 for (px, py) in pixels {
-                    // TODO: modify this / simplify this?
                     if px >= 0
                         && px < (1 << buffer_size_power)
                         && py >= 0
@@ -91,7 +135,7 @@ impl TileBuffer {
             }
         }
 
-        buffer
+        Ok(buffer)
     }
 
     /// Check if the given tile coordinates are within this buffer

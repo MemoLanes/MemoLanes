@@ -47,7 +47,7 @@ fn tile_buffer_creation_benchmarks(c: &mut Criterion) {
                             *width,
                             *height,
                             **buffer_size_power,
-                        ))
+                        ).unwrap())
                     })
                 },
             );
