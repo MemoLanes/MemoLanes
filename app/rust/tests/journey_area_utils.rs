@@ -23,18 +23,12 @@ fn partial_update_use_cached_and_recompute_touched_tiles_only() {
     map_renderer.update(|bitmap, cb| {
         bitmap.add_line_with_change_callback(START_LNG, START_LAT, END_LNG, END_LAT, cb)
     });
-    let _ = map_renderer.get_current_area();
+    let _ = map_renderer.compute_and_get_current_area();
 
     map_renderer.update(|bitmap, cb| {
         bitmap.add_line_with_change_callback(START_LNG, END_LAT, END_LNG, START_LAT, cb)
     });
-    let update_area = map_renderer.get_current_area();
-
-    //let tiles = touched.borrow();
-    //let count = tiles.len();
-    //println!("Touched {} tiles: {:?}", count, &*tiles);
-
-    //assert!(count > 0, "expected to touch at least one tile, got {}", count);
+    let update_area = map_renderer.compute_and_get_current_area();
 
     let mut full_journey_bitmap = JourneyBitmap::new();
     full_journey_bitmap.add_line(START_LNG, START_LAT, END_LNG, END_LAT);
@@ -58,7 +52,7 @@ fn validate_area_after_map_renderer_replace() {
         bitmap.add_line(START_LNG, START_LAT, END_LNG, END_LAT);
     });
 
-    assert!(map_renderer.get_current_area() > 0);
+    assert!(map_renderer.compute_and_get_current_area() > 0);
 
     let (bitmap_import, _warnings) =
         import_data::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
@@ -66,5 +60,5 @@ fn validate_area_after_map_renderer_replace() {
     map_renderer.replace(bitmap_import.clone());
 
     let calculated_area = journey_area_utils::compute_journey_bitmap_area(&bitmap_import, None);
-    assert_eq!(map_renderer.get_current_area(), calculated_area); // area unit: m^2
+    assert_eq!(map_renderer.compute_and_get_current_area(), calculated_area); // area unit: m^2
 }

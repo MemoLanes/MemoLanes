@@ -7,16 +7,16 @@ use std::collections::HashMap;
 const EARTH_RADIUS: f64 = 6371000.0; // unit: meter
 
 fn compute_one_tile(tile_pos: (u16, u16), tile: &Tile) -> f64 {
-    tile.blocks.iter().filter_map(|(block_pos, block)| {
+    tile.iter().filter_map(|(block_key, block)| {
         let bit_count = block.count();
         if bit_count > 0 {
             // calculate center bit in each block for bit_unit_area
             // Calculate the top-left coordinates of this bitmap point
             let bitzoomed_x1: i32 = TILE_WIDTH as i32 * BITMAP_WIDTH as i32 * tile_pos.0 as i32
-            + BITMAP_WIDTH as i32 * block_pos.0 as i32
+            + BITMAP_WIDTH as i32 * block_key.x() as i32
             + (BITMAP_WIDTH/2) as i32;
             let bitzoomed_y1: i32 = TILE_WIDTH as i32 * BITMAP_WIDTH as i32 * tile_pos.1 as i32
-            + BITMAP_WIDTH as i32 * block_pos.1 as i32
+            + BITMAP_WIDTH as i32 * block_key.y() as i32
             + (BITMAP_WIDTH/2) as i32;
 
             // Bottom-right coordinates (add one bit length to each side)
