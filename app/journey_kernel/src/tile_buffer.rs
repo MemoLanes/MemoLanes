@@ -49,7 +49,10 @@ impl TileBuffer {
     ) -> Result<Self, String> {
         // Validate parameters to prevent overflow and invalid operations
         if width <= 0 || height <= 0 {
-            return Err(format!("Invalid dimensions: width={}, height={}", width, height));
+            return Err(format!(
+                "Invalid dimensions: width={}, height={}",
+                width, height
+            ));
         }
 
         if z < 0 || z > 25 {
@@ -61,21 +64,30 @@ impl TileBuffer {
         }
 
         // Check for potential overflow in width * height
-        let total_tiles = width.checked_mul(height)
+        let total_tiles = width
+            .checked_mul(height)
             .ok_or_else(|| format!("Tile count overflow: {}x{}", width, height))?;
 
         // Prevent excessive memory allocation (reasonable limit for web server)
         if total_tiles > 10_000 {
-            return Err(format!("Too many tiles requested: {} (max: 10,000)", total_tiles));
+            return Err(format!(
+                "Too many tiles requested: {} (max: 10,000)",
+                total_tiles
+            ));
         }
 
         // Calculate mercator coordinate cycle length for zoom level z (used for validation and processing)
-        let zoom_coefficient = 1i64.checked_shl(z as u32)
+        let zoom_coefficient = 1i64
+            .checked_shl(z as u32)
             .ok_or_else(|| format!("Zoom coefficient overflow for z={}", z))?;
-        
+
         // Validate coordinate bounds for the given zoom level
         if y < 0 || y >= zoom_coefficient {
-            return Err(format!("Invalid y coordinate: {} (must be 0-{})", y, zoom_coefficient - 1));
+            return Err(format!(
+                "Invalid y coordinate: {} (must be 0-{})",
+                y,
+                zoom_coefficient - 1
+            ));
         }
 
         // Safe to convert to usize after overflow check
@@ -112,12 +124,16 @@ impl TileBuffer {
 
                 // Convert to tile-relative coordinates and add to buffer
                 let idx = buffer.calculate_tile_index(tile_x, tile_y);
-                
+
                 // Bounds check for safety (should never fail with our validation above)
                 if idx >= buffer.tile_data.len() {
-                    return Err(format!("Index out of bounds: {} >= {}", idx, buffer.tile_data.len()));
+                    return Err(format!(
+                        "Index out of bounds: {} >= {}",
+                        idx,
+                        buffer.tile_data.len()
+                    ));
                 }
-                
+
                 let tile_pixels = &mut buffer.tile_data[idx];
 
                 // Convert from i64 coordinates to u16 coordinates for the TileBuffer
