@@ -4,9 +4,9 @@ use crate::journey_bitmap::JourneyBitmap;
 use std::collections::HashMap;
 pub struct MapRenderer {
     journey_bitmap: JourneyBitmap,
-    changed: bool,
     /* for each tile of 512*512 tiles in a JourneyBitmap, use buffered area to record any update */
     tile_area_cache: HashMap<(u16, u16), f64>,
+    version: u64,
     current_area: Option<u64>,
     // TODO: `provisioned_camera_option` should be moved out and passed to the
     // map separately.
@@ -17,8 +17,8 @@ impl MapRenderer {
     pub fn new(journey_bitmap: JourneyBitmap) -> Self {
         Self {
             journey_bitmap,
-            changed: false,
             tile_area_cache: HashMap::new(),
+            version: 0,
             current_area: None,
             provisioned_camera_option: None,
         }
@@ -50,21 +50,32 @@ impl MapRenderer {
     }
 
     pub fn reset(&mut self) {
-        self.changed = true;
         self.tile_area_cache.clear();
+        self.version = self.version.wrapping_add(1);
         self.current_area = None;
     }
 
-    pub fn changed(&self) -> bool {
-        self.changed
+    pub fn get_current_version(&self) -> u64 {
+        self.version
     }
 
-    pub fn get_latest_bitmap_if_changed(&mut self) -> Option<&JourneyBitmap> {
-        if self.changed {
-            self.changed = false;
-            Some(&self.journey_bitmap)
-        } else {
-            None
+    pub fn get_version_string(&self) -> String {
+        format!("\"{:x}\"", self.version)
+    }
+
+    pub fn parse_version_string(version_str: &str) -> Option<u64> {
+        // Remove quotes if present
+        let cleaned = version_str.trim_matches('"');
+        u64::from_str_radix(cleaned, 16).ok()
+    }
+
+    pub fn get_latest_bitmap_if_changed(
+        &self,
+        client_version: Option<&str>,
+    ) -> Option<(&JourneyBitmap, String)> {
+        match client_version {
+            Some(v_str) if (Self::parse_version_string(v_str) == Some(self.version)) => None,
+            _ => Some((&self.journey_bitmap, self.get_version_string())),
         }
     }
 
