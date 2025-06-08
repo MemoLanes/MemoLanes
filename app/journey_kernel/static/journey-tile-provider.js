@@ -31,8 +31,8 @@ export class JourneyTileProvider {
             const tileBufferUpdated = await this.checkAndFetchTileBuffer(forceUpdate);
             
             // If tile buffer was updated (new version), also fetch camera options
-            if (tileBufferUpdated) {
-                console.log('Journey data has changed, fetching camera options');
+            if (forceUpdate) {
+                console.log('Fetching camera options');
                 await this.fetchCameraOptions();
             }
             
