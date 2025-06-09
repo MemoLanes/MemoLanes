@@ -30,12 +30,6 @@ export class JourneyTileProvider {
             this.viewRangeUpdated = true;
             const tileBufferUpdated = await this.checkAndFetchTileBuffer(forceUpdate);
             
-            // If tile buffer was updated (new version), also fetch camera options
-            if (forceUpdate) {
-                console.log('Fetching camera options');
-                await this.fetchCameraOptions();
-            }
-            
             return tileBufferUpdated;
         } catch (error) {
             console.error('Error while checking for journey updates:', error);
@@ -44,6 +38,8 @@ export class JourneyTileProvider {
     }
     
     // Helper method to fetch camera options
+    // TODO: we should deprecate this method as the camera options 
+    // should be set either via url hash or flutter js call (updateLocationMarker)?.
     async fetchCameraOptions() {
         try {
             const cameraResponse = await fetch(`${getJourneyCameraOptionPathWithId(this.journeyId)}`);
@@ -191,9 +187,10 @@ export class JourneyTileProvider {
             
             // Update version from ETag header
             const newVersion = response.headers.get('ETag');
-            if (newVersion) {
+            if (newVersion !== this.currentVersion) {
                 this.currentVersion = newVersion;
                 console.log(`Updated tile buffer version to: ${newVersion}`);
+                this.fetchCameraOptions();
             }
             
             // Get the binary data
