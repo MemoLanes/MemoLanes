@@ -55,31 +55,23 @@ impl TileBuffer {
             ));
         }
 
+        if width > 20 || height > 20 {
+            return Err(format!(
+                "Dimensions too large: width={}, height={} (max: 20x20)",
+                width, height
+            ));
+        }
+
         if !(0..=25).contains(&z) {
             return Err(format!("Invalid zoom level: {} (must be 0-25)", z));
         }
 
-        if !(6..=15).contains(&buffer_size_power) {
-            return Err(format!("Invalid buffer_size_power: {} (must be 6-15, corresponding to 64-32768 pixel tiles)", buffer_size_power));
-        }
-
-        // Check for potential overflow in width * height
-        let total_tiles = width
-            .checked_mul(height)
-            .ok_or_else(|| format!("Tile count overflow: {}x{}", width, height))?;
-
-        // Prevent excessive memory allocation (reasonable limit for web server)
-        if total_tiles > 10_000 {
-            return Err(format!(
-                "Too many tiles requested: {} (max: 10,000)",
-                total_tiles
-            ));
+        if !(6..=11).contains(&buffer_size_power) {
+            return Err(format!("Invalid buffer_size_power: {} (must be 6-11, corresponding to 64-2048 pixel tiles)", buffer_size_power));
         }
 
         // Calculate mercator coordinate cycle length for zoom level z (used for validation and processing)
-        let zoom_coefficient = 1i64
-            .checked_shl(z as u32)
-            .ok_or_else(|| format!("Zoom coefficient overflow for z={}", z))?;
+        let zoom_coefficient = 1i64 << z;
 
         // Validate coordinate bounds for the given zoom level
         if y < 0 || y >= zoom_coefficient {
@@ -90,9 +82,6 @@ impl TileBuffer {
             ));
         }
 
-        // Safe to convert to usize after overflow check
-        let total_tiles_usize = total_tiles as usize;
-
         // Create buffer with validated parameters
         let mut buffer = Self {
             x,
@@ -101,7 +90,7 @@ impl TileBuffer {
             width,
             height,
             buffer_size_power,
-            tile_data: vec![Vec::new(); total_tiles_usize],
+            tile_data: vec![Vec::new(); (width * height) as usize],
         };
 
         // For each tile in the range
