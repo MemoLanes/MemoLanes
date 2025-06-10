@@ -166,7 +166,7 @@ export class JourneyTileProvider {
             
             // Update version from ETag header
             const newVersion = response.headers.get('ETag');
-            if (newVersion !== this.currentVersion) {
+            if (newVersion) {
                 this.currentVersion = newVersion;
                 console.log(`Updated tile buffer version to: ${newVersion}`);
             }
