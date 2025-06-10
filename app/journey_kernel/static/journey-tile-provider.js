@@ -36,27 +36,6 @@ export class JourneyTileProvider {
             return null;
         }
     }
-    
-    // Helper method to fetch camera options
-    // TODO: we should deprecate this method as the camera options 
-    // should be set either via url hash or flutter js call (updateLocationMarker)?.
-    async fetchCameraOptions() {
-        try {
-            const cameraResponse = await fetch(`${getJourneyCameraOptionPathWithId(this.journeyId)}`);
-            if (cameraResponse.ok) {
-                const cameraData = await cameraResponse.json();
-                const cameraOptions = {
-                    center: [cameraData.lng, cameraData.lat],
-                    zoom: cameraData.zoom
-                };
-                console.log('Using provisioned camera location:', cameraData);
-                // TODO: if it is initial, set locations directly rather than flyTo (no animation)
-                this.map.flyTo(cameraOptions);
-            }
-        } catch (error) {
-            console.log('No provisioned camera location available:', error);
-        }
-    }
 
     setBufferSizePower(bufferSizePower) {
         if (this.bufferSizePower === bufferSizePower) {
@@ -190,7 +169,6 @@ export class JourneyTileProvider {
             if (newVersion !== this.currentVersion) {
                 this.currentVersion = newVersion;
                 console.log(`Updated tile buffer version to: ${newVersion}`);
-                this.fetchCameraOptions();
             }
             
             // Get the binary data
@@ -226,8 +204,4 @@ export class JourneyTileProvider {
 
 function getJourneyTileRangePathWithId(journeyId, x, y, w, h, z, bufferSizePower) {
     return `journey/${journeyId}/tile_range?x=${x}&y=${y}&z=${z}&width=${w}&height=${h}&buffer_size_power=${bufferSizePower}`;
-}
-
-function getJourneyCameraOptionPathWithId(journeyId) {
-    return `journey/${journeyId}/provisioned_camera_option`;
 }

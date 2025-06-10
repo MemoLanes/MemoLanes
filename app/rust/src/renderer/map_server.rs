@@ -74,21 +74,6 @@ struct TileRangeQuery {
     buffer_size_power: i16,
 }
 
-async fn serve_journey_bitmap_provisioned_camera_option_by_id(
-    id: web::Path<Uuid>,
-    data: web::Data<Arc<Mutex<Registry>>>,
-) -> HttpResponse {
-    let registry = data.lock().unwrap();
-    match registry.get(&id) {
-        Some(item) => {
-            let map_renderer = item.lock().unwrap();
-            let camera_option = map_renderer.get_provisioned_camera_option();
-            HttpResponse::Ok().json(camera_option)
-        }
-        None => HttpResponse::NotFound().finish(),
-    }
-}
-
 async fn serve_journey_tile_range(
     id: web::Path<Uuid>,
     query: web::Query<TileRangeQuery>,
@@ -180,10 +165,6 @@ impl MapServer {
             let server = HttpServer::new(move || {
                 App::new()
                     .app_data(data.clone())
-                    .route(
-                        "/journey/{id}/provisioned_camera_option",
-                        web::get().to(serve_journey_bitmap_provisioned_camera_option_by_id),
-                    )
                     .route(
                         "/journey/{id}/tile_range",
                         web::get().to(serve_journey_tile_range),
