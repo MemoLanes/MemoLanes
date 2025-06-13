@@ -228,8 +228,7 @@ pub fn get_map_renderer_proxy_for_journey(
 
     let default_camera_option = get_default_camera_option_from_journey_bitmap(&journey_bitmap);
 
-    let mut map_renderer = MapRenderer::new(journey_bitmap);
-    map_renderer.set_provisioned_camera_option(default_camera_option);
+    let map_renderer = MapRenderer::new(journey_bitmap);
     let mut server = state.map_server.lock().unwrap();
     let token = server.register_map_renderer(Arc::new(Mutex::new(map_renderer)));
     Ok((MapRendererProxy::Token(token), default_camera_option))
