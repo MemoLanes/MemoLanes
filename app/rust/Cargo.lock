@@ -1864,9 +1864,7 @@ name = "journey_kernel"
 version = "0.1.2"
 dependencies = [
  "bincode",
- "image",
  "serde",
- "serde_json",
 ]
 
 [[package]]

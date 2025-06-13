@@ -1,7 +1,6 @@
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use journey_kernel::journey_bitmap::JourneyBitmap;
-use memolanes_core::api::api::CameraOption;
 use memolanes_core::import_data;
 use memolanes_core::renderer::MapRenderer;
 use memolanes_core::renderer::MapServer;
@@ -101,11 +100,6 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 map_renderer.update(|bitmap| {
                     bitmap.add_line(lng, lat, next_lng, next_lat);
                 });
-                map_renderer.set_provisioned_camera_option(Some(CameraOption {
-                    lng,
-                    lat,
-                    zoom: 12.0, // Closer zoom to see the path detail
-                }));
                 lng = next_lng;
                 lat = next_lat;
             }
