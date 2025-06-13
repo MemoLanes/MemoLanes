@@ -1,5 +1,4 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-
 use memolanes_core::{
     import_data, journey_area_utils, journey_bitmap::JourneyBitmap, merged_journey_builder,
 };
@@ -14,6 +13,7 @@ fn journey_area_calculation(c: &mut Criterion) {
         b.iter(|| {
             std::hint::black_box(journey_area_utils::compute_journey_bitmap_area(
                 &bitmap_import,
+                None,
             ))
         })
     });
@@ -31,10 +31,10 @@ fn journey_area_calculation(c: &mut Criterion) {
                 &mut journey_bitmap,
                 &journey_vector,
             );
-
             b.iter(|| {
                 std::hint::black_box(journey_area_utils::compute_journey_bitmap_area(
                     &journey_bitmap,
+                    None,
                 ))
             })
         },

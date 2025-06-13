@@ -97,7 +97,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let next_lng = lng + lng_step;
                 let next_lat = lat + rng.random_range(-lat_step..=lat_step);
                 let mut map_renderer = map_renderer_arc_clone.lock().unwrap();
-                map_renderer.update(|bitmap| {
+                map_renderer.update(|bitmap, _tile_cb| {
                     bitmap.add_line(lng, lat, next_lng, next_lat);
                 });
                 lng = next_lng;
