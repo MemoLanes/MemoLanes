@@ -57,19 +57,21 @@ fn compute_one_tile(tile_pos: (u16, u16), tile: &Tile) -> f64 {
 // https://github.com/TimRen01/TimRen01_repo/tree/compare_method_calculate_area_by_journey
 pub fn compute_journey_bitmap_area(
     journey_bitmap: &JourneyBitmap,
-    mut tile_update_map: Option<&mut HashMap<(u16, u16), f64>>,
+    mut tile_area_cache: Option<&mut HashMap<(u16, u16), f64>>,
 ) -> u64 {
     let total_area: f64 = journey_bitmap
         .tiles
         .iter()
         .map(|(tile_pos, tile)| {
-            tile_update_map.as_mut().map_or_else(
-                || compute_one_tile(*tile_pos, tile),
-                |map| {
-                    *map.entry(*tile_pos)
+            match tile_area_cache.as_mut() {
+                None => compute_one_tile(*tile_pos, tile),
+                Some(tile_area_cache) => {
+                    // if tile_area_cache is provided, use it to cache the area of each tile
+                    *tile_area_cache
+                        .entry(*tile_pos)
                         .or_insert_with(|| compute_one_tile(*tile_pos, tile))
-                },
-            )
+                }
+            }
         })
         .sum();
     // we don't have that much precision in the journey bitmap anyway

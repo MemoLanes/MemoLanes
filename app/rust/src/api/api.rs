@@ -533,7 +533,7 @@ pub fn optimize_main_db() -> Result<()> {
 
 pub fn area_of_main_map() -> u64 {
     let mut main_map_renderer = get().main_map_renderer.lock().unwrap();
-    main_map_renderer.compute_and_get_current_area()
+    main_map_renderer.get_current_area()
 }
 
 pub fn restart_map_server() -> Result<()> {

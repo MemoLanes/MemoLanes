@@ -50,7 +50,7 @@ impl MapRenderer {
         self.reset();
     }
 
-    pub fn reset(&mut self) {
+    fn reset(&mut self) {
         self.version = self.version.wrapping_add(1);
         self.current_area = None;
     }
@@ -83,17 +83,12 @@ impl MapRenderer {
         &self.journey_bitmap
     }
 
-    pub fn compute_and_get_current_area(&mut self) -> u64 {
-        match self.current_area {
-            Some(area) => area,
-            None => {
-                let area = journey_area_utils::compute_journey_bitmap_area(
-                    &self.journey_bitmap,
-                    Some(&mut self.tile_area_cache),
-                );
-                self.current_area = Some(area);
-                area
-            }
-        }
+    pub fn get_current_area(&mut self) -> u64 {
+        *self.current_area.get_or_insert_with(|| {
+            journey_area_utils::compute_journey_bitmap_area(
+                &self.journey_bitmap,
+                Some(&mut self.tile_area_cache),
+            )
+        })
     }
 }
