@@ -74,21 +74,6 @@ struct TileRangeQuery {
     buffer_size_power: i16,
 }
 
-async fn serve_journey_bitmap_provisioned_camera_option_by_id(
-    id: web::Path<Uuid>,
-    data: web::Data<Arc<Mutex<Registry>>>,
-) -> HttpResponse {
-    let registry = data.lock().unwrap();
-    match registry.get(&id) {
-        Some(item) => {
-            let map_renderer = item.lock().unwrap();
-            let camera_option = map_renderer.get_provisioned_camera_option();
-            HttpResponse::Ok().json(camera_option)
-        }
-        None => HttpResponse::NotFound().finish(),
-    }
-}
-
 async fn serve_journey_tile_range(
     id: web::Path<Uuid>,
     query: web::Query<TileRangeQuery>,
@@ -110,7 +95,7 @@ async fn serve_journey_tile_range(
                 None => HttpResponse::NotModified().finish(),
                 Some((journey_bitmap, version)) => {
                     // Create a TileBuffer from the JourneyBitmap for the specified range
-                    let tile_buffer = TileBuffer::from_journey_bitmap(
+                    let tile_buffer = match TileBuffer::from_journey_bitmap(
                         journey_bitmap,
                         query.x,
                         query.y,
@@ -118,7 +103,15 @@ async fn serve_journey_tile_range(
                         query.width,
                         query.height,
                         query.buffer_size_power,
-                    );
+                    ) {
+                        Ok(buffer) => buffer,
+                        Err(creation_error) => {
+                            log::error!("Failed to create TileBuffer: {}", creation_error);
+                            return HttpResponse::BadRequest()
+                                .content_type("text/plain")
+                                .body(format!("Failed to create tile buffer: {}", creation_error));
+                        }
+                    };
 
                     // Serialize and return the TileBuffer with ETag
                     match tile_buffer.to_bytes() {
@@ -126,7 +119,12 @@ async fn serve_journey_tile_range(
                             .append_header(("ETag", version))
                             .content_type("application/octet-stream")
                             .body(data),
-                        Err(_) => HttpResponse::InternalServerError().finish(),
+                        Err(serialization_error) => {
+                            log::error!("Failed to serialize TileBuffer: {}", serialization_error);
+                            HttpResponse::InternalServerError()
+                                .content_type("text/plain")
+                                .body("Failed to serialize tile data")
+                        }
                     }
                 }
             }
@@ -167,10 +165,6 @@ impl MapServer {
             let server = HttpServer::new(move || {
                 App::new()
                     .app_data(data.clone())
-                    .route(
-                        "/journey/{id}/provisioned_camera_option",
-                        web::get().to(serve_journey_bitmap_provisioned_camera_option_by_id),
-                    )
                     .route(
                         "/journey/{id}/tile_range",
                         web::get().to(serve_journey_tile_range),

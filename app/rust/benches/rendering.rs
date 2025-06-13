@@ -39,15 +39,18 @@ fn tile_buffer_creation_benchmarks(c: &mut Criterion) {
                 &(zoom, width, height, tile_x, tile_y, buffer_size_power),
                 |b, (zoom, width, height, tile_x, tile_y, buffer_size_power)| {
                     b.iter(|| {
-                        std::hint::black_box(TileBuffer::from_journey_bitmap(
-                            &bitmap_data,
-                            *tile_x, // use calculated x coordinate
-                            *tile_y, // use calculated y coordinate
-                            **zoom,
-                            *width,
-                            *height,
-                            **buffer_size_power,
-                        ))
+                        std::hint::black_box(
+                            TileBuffer::from_journey_bitmap(
+                                &bitmap_data,
+                                *tile_x, // use calculated x coordinate
+                                *tile_y, // use calculated y coordinate
+                                **zoom,
+                                *width,
+                                *height,
+                                **buffer_size_power,
+                            )
+                            .unwrap(),
+                        )
                     })
                 },
             );

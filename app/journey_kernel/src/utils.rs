@@ -1,11 +1,4 @@
-use image::Rgba;
 use std::f64::consts::PI;
-
-pub const DEFAULT_BG_COLOR: Rgba<u8> = Rgba([0, 0, 0, 127]);
-pub const DEFAULT_FG_COLOR: Rgba<u8> = Rgba([0, 0, 0, 0]);
-
-pub const DEFAULT_TILE_SIZE_POWER: i16 = 8;
-pub const DEFAULT_TILE_SIZE: u32 = 1 << DEFAULT_TILE_SIZE_POWER;
 
 // https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
 pub fn lng_lat_to_tile_x_y(lng: f64, lat: f64, zoom: i32) -> (i32, i32) {

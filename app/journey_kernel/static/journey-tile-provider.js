@@ -30,35 +30,10 @@ export class JourneyTileProvider {
             this.viewRangeUpdated = true;
             const tileBufferUpdated = await this.checkAndFetchTileBuffer(forceUpdate);
             
-            // If tile buffer was updated (new version), also fetch camera options
-            if (tileBufferUpdated) {
-                console.log('Journey data has changed, fetching camera options');
-                await this.fetchCameraOptions();
-            }
-            
             return tileBufferUpdated;
         } catch (error) {
             console.error('Error while checking for journey updates:', error);
             return null;
-        }
-    }
-    
-    // Helper method to fetch camera options
-    async fetchCameraOptions() {
-        try {
-            const cameraResponse = await fetch(`${getJourneyCameraOptionPathWithId(this.journeyId)}`);
-            if (cameraResponse.ok) {
-                const cameraData = await cameraResponse.json();
-                const cameraOptions = {
-                    center: [cameraData.lng, cameraData.lat],
-                    zoom: cameraData.zoom
-                };
-                console.log('Using provisioned camera location:', cameraData);
-                // TODO: if it is initial, set locations directly rather than flyTo (no animation)
-                this.map.flyTo(cameraOptions);
-            }
-        } catch (error) {
-            console.log('No provisioned camera location available:', error);
         }
     }
 
@@ -229,8 +204,4 @@ export class JourneyTileProvider {
 
 function getJourneyTileRangePathWithId(journeyId, x, y, w, h, z, bufferSizePower) {
     return `journey/${journeyId}/tile_range?x=${x}&y=${y}&z=${z}&width=${w}&height=${h}&buffer_size_power=${bufferSizePower}`;
-}
-
-function getJourneyCameraOptionPathWithId(journeyId) {
-    return `journey/${journeyId}/provisioned_camera_option`;
 }
