@@ -1,4 +1,3 @@
-use bincode;
 use journey_kernel::journey_bitmap::JourneyBitmap;
 use std::fs::File;
 use std::io::Write;

@@ -1,7 +1,6 @@
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use journey_kernel::journey_bitmap::JourneyBitmap;
-use memolanes_core::api::api::CameraOption;
 use memolanes_core::import_data;
 use memolanes_core::renderer::MapRenderer;
 use memolanes_core::renderer::MapServer;
@@ -55,7 +54,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .lock()
         .unwrap()
         .register_map_renderer(Arc::new(Mutex::new(map_renderer_static)));
-    println!("simple map: {}&debug=true", token.url());
+    println!(
+        "simple map: {}&debug=true&lng=148.0&lat=-30.0&zoom=7.0",
+        token.url()
+    );
 
     let (joruney_bitmap_fow, _) =
         import_data::load_fow_sync_data("./tests/data/fow_3.zip").unwrap();
@@ -98,11 +100,6 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 map_renderer.update(|bitmap, _tile_cb| {
                     bitmap.add_line(lng, lat, next_lng, next_lat);
                 });
-                map_renderer.set_provisioned_camera_option(Some(CameraOption {
-                    lng,
-                    lat,
-                    zoom: 12.0, // Closer zoom to see the path detail
-                }));
                 lng = next_lng;
                 lat = next_lat;
             }

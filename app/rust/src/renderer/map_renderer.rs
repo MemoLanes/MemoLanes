@@ -1,4 +1,3 @@
-use crate::api::api::CameraOption;
 use crate::journey_area_utils;
 use crate::journey_bitmap::JourneyBitmap;
 use std::collections::HashMap;
@@ -8,9 +7,6 @@ pub struct MapRenderer {
     tile_area_cache: HashMap<(u16, u16), f64>,
     version: u64,
     current_area: Option<u64>,
-    // TODO: `provisioned_camera_option` should be moved out and passed to the
-    // map separately.
-    provisioned_camera_option: Option<CameraOption>,
 }
 
 impl MapRenderer {
@@ -20,16 +16,7 @@ impl MapRenderer {
             tile_area_cache: HashMap::new(),
             version: 0,
             current_area: None,
-            provisioned_camera_option: None,
         }
-    }
-
-    pub fn set_provisioned_camera_option(&mut self, camera_option: Option<CameraOption>) {
-        self.provisioned_camera_option = camera_option;
-    }
-
-    pub fn get_provisioned_camera_option(&self) -> Option<CameraOption> {
-        self.provisioned_camera_option
     }
 
     pub fn update<F>(&mut self, f: F)

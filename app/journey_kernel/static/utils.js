@@ -33,7 +33,7 @@ export function tileXYToLngLat([x, y], zoom) {
  */
 export function getViewportTileRange(map) {
     // Get the current zoom level
-    const z = Math.floor(map.getZoom());
+    const z = Math.max(0, Math.floor(map.getZoom()));
     
     // Get the bounds of the map
     const bounds = map.getBounds();
