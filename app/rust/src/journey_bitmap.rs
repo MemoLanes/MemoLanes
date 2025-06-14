@@ -1,5 +1,4 @@
 use crate::utils;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{
     clone::Clone,
     collections::HashMap,
@@ -18,7 +17,7 @@ const ALL_OFFSET: i16 = TILE_WIDTH_OFFSET + BITMAP_WIDTH_OFFSET;
 
 // we have 512*512 tiles, 128*128 blocks and a single block contains
 // a 64*64 bitmap.
-#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(PartialEq, Eq, Debug, Clone, Default)]
 pub struct JourneyBitmap {
     pub tiles: HashMap<(u16, u16), Tile>,
 }
@@ -225,16 +224,6 @@ impl JourneyBitmap {
             },
         );
     }
-
-    /// Serializes the JourneyBitmap to a binary Vec<u8>
-    pub fn to_bytes(&self) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-        Ok(bincode::serialize(self)?)
-    }
-
-    /// Creates a JourneyBitmap from binary data
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(bincode::deserialize(bytes)?)
-    }
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
@@ -283,7 +272,7 @@ mod tests {
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Tile {
-    blocks: Vec<Option<Box<Block>>>,
+    blocks: [Option<Box<Block>>; (TILE_WIDTH * TILE_WIDTH) as usize],
 }
 
 impl Default for Tile {
@@ -292,41 +281,10 @@ impl Default for Tile {
     }
 }
 
-// Custom serialization for Tile
-impl Serialize for Tile {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.blocks.serialize(serializer)
-    }
-}
-
-// Custom deserialization for Tile
-impl<'de> Deserialize<'de> for Tile {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let blocks = Vec::<Option<Box<Block>>>::deserialize(deserializer)?;
-
-        // Ensure the vector has the correct length
-        if blocks.len() != (TILE_WIDTH * TILE_WIDTH) as usize {
-            return Err(serde::de::Error::custom(format!(
-                "Expected {} elements, got {}",
-                (TILE_WIDTH * TILE_WIDTH) as usize,
-                blocks.len()
-            )));
-        }
-
-        Ok(Tile { blocks })
-    }
-}
-
 impl Tile {
     pub fn new() -> Self {
         Self {
-            blocks: vec![None; (TILE_WIDTH * TILE_WIDTH) as usize],
+            blocks: [const { None }; (TILE_WIDTH * TILE_WIDTH) as usize],
         }
     }
 
@@ -454,28 +412,6 @@ impl Default for Block {
         Self {
             data: [0; BITMAP_SIZE],
         }
-    }
-}
-
-// TODO: currently it is only for PoC, we still need way more efficient WASM capable serialization.
-impl Serialize for Block {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.data.to_vec().serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for Block {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let vec = Vec::<u8>::deserialize(deserializer)?;
-        let mut data = [0u8; BITMAP_SIZE];
-        data.copy_from_slice(&vec);
-        Ok(Block { data })
     }
 }
 

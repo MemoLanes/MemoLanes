@@ -1,7 +1,7 @@
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
-use journey_kernel::journey_bitmap::JourneyBitmap;
 use memolanes_core::import_data;
+use memolanes_core::journey_bitmap::JourneyBitmap;
 use memolanes_core::renderer::MapRenderer;
 use memolanes_core::renderer::MapServer;
 use rand::Rng;
