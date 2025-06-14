@@ -225,16 +225,6 @@ impl JourneyBitmap {
             },
         );
     }
-
-    /// Serializes the JourneyBitmap to a binary Vec<u8>
-    pub fn to_bytes(&self) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-        Ok(bincode::serialize(self)?)
-    }
-
-    /// Creates a JourneyBitmap from binary data
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(bincode::deserialize(bytes)?)
-    }
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]

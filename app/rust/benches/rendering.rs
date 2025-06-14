@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use journey_kernel::tile_buffer::TileBuffer;
 use memolanes_core::import_data;
+use memolanes_core::renderer::map_renderer;
 use memolanes_core::utils::lng_lat_to_tile_x_y;
 
 fn tile_buffer_creation_benchmarks(c: &mut Criterion) {
@@ -40,7 +40,7 @@ fn tile_buffer_creation_benchmarks(c: &mut Criterion) {
                 |b, (zoom, width, height, tile_x, tile_y, buffer_size_power)| {
                     b.iter(|| {
                         std::hint::black_box(
-                            TileBuffer::from_journey_bitmap(
+                            map_renderer::tile_buffer_from_journey_bitmap(
                                 &bitmap_data,
                                 *tile_x, // use calculated x coordinate
                                 *tile_y, // use calculated y coordinate

@@ -8,8 +8,9 @@ use std::thread::{self, JoinHandle};
 use tokio::runtime::Runtime;
 use uuid::Uuid;
 
+use crate::renderer::map_renderer;
+
 use super::MapRenderer;
-use crate::journey_kernel::tile_buffer::TileBuffer;
 
 type Registry = HashMap<Uuid, Arc<Mutex<MapRenderer>>>;
 
@@ -95,7 +96,7 @@ async fn serve_journey_tile_range(
                 None => HttpResponse::NotModified().finish(),
                 Some((journey_bitmap, version)) => {
                     // Create a TileBuffer from the JourneyBitmap for the specified range
-                    let tile_buffer = match TileBuffer::from_journey_bitmap(
+                    let tile_buffer = match map_renderer::tile_buffer_from_journey_bitmap(
                         journey_bitmap,
                         query.x,
                         query.y,
