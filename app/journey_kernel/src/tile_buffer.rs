@@ -22,19 +22,6 @@ pub struct TileBuffer {
 }
 
 impl TileBuffer {
-    // /// Create a new empty TileBuffer
-    // pub fn new(x: i64, y: i64, z: i16, width: i64, height: i64, buffer_size_power: i16) -> Self {
-    //     Self {
-    //         x,
-    //         y,
-    //         z,
-    //         width,
-    //         height,
-    //         buffer_size_power,
-    //         tile_data: vec![Vec::new(); (width * height) as usize],
-    //     }
-    // }
-
     /// Check if the given tile coordinates are within this buffer
     pub fn contains_tile(&self, tile_x: i64, tile_y: i64) -> bool {
         let zoom_coefficient = 1 << self.z;
