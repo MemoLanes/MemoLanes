@@ -19,13 +19,13 @@ fn add_line_cross_antimeridian() {
     journey_bitmap.add_line(start_lng, start_lat, end_lng, end_lat);
 
     let (start_lng, start_lat, end_lng, end_lat) =
-        (175.4708788, 5.4963078,-175.3644029, -28.3186185 );
+        (175.4708788, 5.4963078, -175.3644029, -28.3186185);
     journey_bitmap.add_line(start_lng, start_lat, end_lng, end_lat);
 
     let (start_lng, start_lat, end_lng, end_lat) =
         (-175.3644029, -28.3186185, 175.4708788, -49.4963078);
     journey_bitmap.add_line(start_lng, start_lat, end_lng, end_lat);
-    
+
     let mut map_renderer = MapRenderer::new(journey_bitmap);
 
     let render_result =
