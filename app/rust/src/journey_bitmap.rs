@@ -74,7 +74,7 @@ impl JourneyBitmap {
         // Calculate error intervals for both axis
         let mut px = 2 * dy0 - dx0;
         let mut py = 2 * dx0 - dy0;
-        // The line is X-axis dominant
+        // The line is X-axis dominant or only in one tile
         if dy0 <= dx0 {
             let (mut x, mut y, xe) = if dx >= 0 {
                 // Line is drawn left to right
