@@ -41,6 +41,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   late WebViewController _webViewController;
   late GpsManager _gpsManager;
   late Timer _roughMapViewUpdaeTimer;
+  bool _readyForDisplay = false;
+
   // It is rough because we don't update it frequently.
   MapView? _currentRoughMapView;
 
@@ -214,6 +216,14 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         onMessageReceived: (JavaScriptMessage message) {
           widget.onMapMoved?.call();
         },
+      )
+      ..addJavaScriptChannel(
+        'readyForDisplay',
+        onMessageReceived: (JavaScriptMessage message) {
+          setState(() {
+            _readyForDisplay = true;
+          });
+        },
       );
 
     final url = getUrl();
@@ -241,10 +251,26 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     // https://github.com/flutter/flutter/issues/165305
     // But unfortunately, it only works for iOS 18, so we still have this weird
     // double tap behavior on older iOS versions.
-    return IgnorePointer(
-      ignoring: _isiOS18,
-      child: WebViewWidget(
-          key: const ValueKey('map_webview'), controller: _webViewController),
+    return Stack(
+      children: [
+        IgnorePointer(
+            ignoring: _isiOS18,
+            child: WebViewWidget(
+                key: const ValueKey('map_webview'),
+                controller: _webViewController)),
+        IgnorePointer(
+          ignoring: true,
+          child: AnimatedOpacity(
+            opacity: !_readyForDisplay ? 1 : 0.0,
+            duration: const Duration(milliseconds: 200),
+            child: Container(
+              color: Color.fromARGB(255, 118, 116, 114),
+              width: double.infinity,
+              height: double.infinity,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

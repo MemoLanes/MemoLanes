@@ -5,19 +5,34 @@
     "resume": "恢复",
     "end_journey_title": "结束旅程？",
     "end_journey_message": "确定要结束当前的旅程吗？",
-    "location_permission_denied": "您已拒绝获取位置权限，为了保障定位功能的使用，请在设置中打开。"
+    "location_permission_denied": "您已拒绝获取位置权限，为了保障定位功能的使用，请在设置中打开。",
+    "android_foreground_notification_title": "后台记录中",
+    "android_foreground_notification_text": "迹忆将在后台持续记录"
   },
   "common": {
+    "memolanes": "迹忆",
     "ok": "确定",
     "cancel": "取消",
     "end": "结束",
-    "info": "提示"
+    "info": "提示",
+    "save": "保存",
+    "share": "分享",
+    "export": "导出"
   },
   "journey": {
     "no_data": "当前暂无旅程数据，开始探索世界吧！",
     "delete_journey_title": "删除旅程",
     "delete_journey_message": "确认删除该旅程记录?",
-    "delete": "删除"
+    "delete": "删除",
+    "journey_info_page_title": "旅程信息",
+    "journey_info_edit_page_title": "编辑旅程信息",
+    "export_journey_as_kml": "导出为KML",
+    "export_journey_as_gpx": "导出为GPX",
+    "export_journey_as_mldx": "导出为MLDX",
+    "import_kml_gpx_data": "导入 KML/GPX 数据",
+    "archive_all_as_mldx": "完整归档（mldx 文件）",
+    "delete_all": "删除所有旅程",
+    "import_mldx": "导入归档（mldx 文件）"
   },
   "db_optimization": {
     "notification": "你的数据库需要优化，请前往设置选项卡并点击[优化数据库]按钮。",
@@ -42,5 +57,14 @@
     "change_affect_next_time": "您的修改将在下一次记录中生效。",
     "notification_title": "记录意外停止",
     "notification_message": "记录意外停止，请重新启动应用。"
+  },
+  "achievement": {
+    "title": "成就",
+    "explored_area": "探索面积：{} 平方公里"
+  },
+  "advance_settings": {
+    "export_logs": "导出日志",
+    "raw_data_mode": "原始数据模式",
+    "rebuild_cache": "重建缓存"
   }
 }

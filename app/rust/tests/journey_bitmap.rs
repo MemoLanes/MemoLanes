@@ -1,5 +1,4 @@
 pub mod test_utils;
-
 use memolanes_core::{
     import_data, journey_area_utils, journey_bitmap::JourneyBitmap, journey_data::JourneyData,
     journey_header::JourneyType, merged_journey_builder, renderer::MapRenderer,
@@ -17,6 +16,14 @@ fn add_line_cross_antimeridian() {
     // Hawaii to Guan
     let (start_lng, start_lat, end_lng, end_lat) =
         (-160.3644029, 21.3186185, 121.4708788, 9.4963078);
+    journey_bitmap.add_line(start_lng, start_lat, end_lng, end_lat);
+
+    let (start_lng, start_lat, end_lng, end_lat) =
+        (175.4708788, 5.4963078, -175.3644029, -28.3186185);
+    journey_bitmap.add_line(start_lng, start_lat, end_lng, end_lat);
+
+    let (start_lng, start_lat, end_lng, end_lat) =
+        (-175.3644029, -28.3186185, 175.4708788, -49.4963078);
     journey_bitmap.add_line(start_lng, start_lat, end_lng, end_lat);
 
     let mut map_renderer = MapRenderer::new(journey_bitmap);
@@ -219,7 +226,7 @@ fn vector_to_bitmap_nelson_to_wharariki_beach() {
     vector_to_bitmap(
         "nelson_to_wharariki_beach",
         9,
-        Some(&"nelson_to_wharariki_beach.gpx"),
+        Some("nelson_to_wharariki_beach.gpx"),
     );
 }
 
@@ -230,7 +237,7 @@ fn draw_single_point() {
     journey_bitmap.add_line(120.0, 30.0, 120.0, 30.0);
 
     assert_eq!(
-        journey_area_utils::compute_journey_bitmap_area(&journey_bitmap),
+        journey_area_utils::compute_journey_bitmap_area(&journey_bitmap, None),
         68
     );
 }

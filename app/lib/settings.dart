@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +10,6 @@ import 'package:memolanes/raw_data.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'import_data.dart';
@@ -89,7 +86,7 @@ class _SettingsBodyState extends State<SettingsBody> {
             onPressed: () async {
               _selectImportFile(context, ImportType.gpxOrKml);
             },
-            child: const Text("Import KML/GPX data"),
+            child: Text(context.tr("journey.import_kml_gpx_data")),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -127,17 +124,15 @@ class _SettingsBodyState extends State<SettingsBody> {
               var tmpDir = await getTemporaryDirectory();
               var ts = DateTime.now().millisecondsSinceEpoch;
               var filepath = "${tmpDir.path}/${ts.toString()}.mldx";
-              await api.generateFullArchive(targetFilepath: filepath);
-              await Share.shareXFiles([XFile(filepath)]);
-              try {
-                var file = File(filepath);
-                await file.delete();
-              } catch (e) {
-                // don't care about error
-                print(e);
-              }
+              if (!context.mounted) return;
+              await showLoadingDialog(
+                context: context,
+                asyncTask: api.generateFullArchive(targetFilepath: filepath),
+              );
+              if (!context.mounted) return;
+              await showCommonExport(context, filepath, deleteFile: true);
             },
-            child: const Text("Archive all (mldx file)"),
+            child: Text(context.tr("journey.archive_all_as_mldx")),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -170,7 +165,7 @@ class _SettingsBodyState extends State<SettingsBody> {
                 }
               }
             },
-            child: const Text("Delete all journeys"),
+            child: Text(context.tr("journey.delete_all")),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -203,7 +198,7 @@ class _SettingsBodyState extends State<SettingsBody> {
                 }
               }
             },
-            child: const Text("Import archive (mldx file)"),
+            child: Text(context.tr("journey.import_mldx")),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -241,16 +236,10 @@ class _SettingsBodyState extends State<SettingsBody> {
               var ts = DateTime.now().millisecondsSinceEpoch;
               var filepath = "${tmpDir.path}/${ts.toString()}.zip";
               await api.exportLogs(targetFilePath: filepath);
-              await Share.shareXFiles([XFile(filepath)]);
-              try {
-                var file = File(filepath);
-                await file.delete();
-              } catch (e) {
-                // don't care about error
-                print(e);
-              }
+              if (!context.mounted) return;
+              await showCommonExport(context, filepath, deleteFile: true);
             },
-            child: const Text("Export Logs"),
+            child: Text(context.tr("advance_settings.export_logs")),
           ),
           ElevatedButton(
             onPressed: () {
@@ -263,7 +252,7 @@ class _SettingsBodyState extends State<SettingsBody> {
                 ),
               );
             },
-            child: const Text("Raw Data Mode"),
+            child: Text(context.tr("advance_settings.raw_data_mode")),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -272,7 +261,49 @@ class _SettingsBodyState extends State<SettingsBody> {
                 asyncTask: api.rebuildCache(),
               );
             },
-            child: const Text("Rebuild Cache"),
+            child: Text(context.tr("advance_settings.rebuild_cache")),
+          ),
+          Row(
+            children: [
+              Text(context.tr("unexpected_exit_notification.setting_title")),
+              Spacer(),
+              Switch(
+                value: _isUnexpectedExitNotificationEnabled,
+                onChanged: (value) async {
+                  final status = await Permission.notification.status;
+                  if (value) {
+                    if (!status.isGranted) {
+                      setState(() {
+                        _isUnexpectedExitNotificationEnabled = false;
+                      });
+
+                      if (!context.mounted) return;
+                      await showCommonDialog(
+                        context,
+                        context.tr(
+                            "unexpected_exit_notification.notification_permission_denied"),
+                      );
+                      Geolocator.openAppSettings();
+                      return;
+                    }
+                  }
+                  await PreferencesManager.setUnexpectedExitNotificationStatus(
+                      value);
+                  setState(() {
+                    _isUnexpectedExitNotificationEnabled = value;
+                  });
+                  if (gpsManager.recordingStatus ==
+                      GpsRecordingStatus.recording) {
+                    if (!context.mounted) return;
+                    await showCommonDialog(
+                        context,
+                        context.tr(
+                          "unexpected_exit_notification.change_affect_next_time",
+                        ));
+                  }
+                },
+              ),
+            ],
           ),
           Row(
             children: [

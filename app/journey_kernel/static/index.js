@@ -1,72 +1,49 @@
-import { JourneyBitmap } from '../pkg';
 import { JourneyCanvasLayer } from './journey-canvas-layer.js';
+import { JourneyTileProvider } from './journey-tile-provider.js';
+import { DebugPanel } from './debug-panel.js';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import './debug-panel.css';
+
+// Available rendering layers
+const AVAILABLE_LAYERS = {
+    'canvas': {
+        name: 'Canvas',
+        layerClass: JourneyCanvasLayer,
+        bufferSizePower: 8,
+        description: 'Uses Canvas API for rendering'
+    }
+};
 
 let currentJourneyLayer;  // Store reference to current layer
+let currentJourneyId;
+let currentJourneyTileProvider;
 let pollingInterval;      // Store reference to polling interval
 let locationMarker = null;
+let currentRenderingMode = 'canvas'; // Default rendering mode
 
-function getJourneyFilePathFromHash() {
-    const hash = window.location.hash.slice(1);
-    const params = new URLSearchParams(hash);
-    return params.get('journey_id') ? `journey/${params.get('journey_id')}` : '.';
-}
-
-async function loadJourneyData(useIfNoneMatch = false) {
-    const path = getJourneyFilePathFromHash();
-    const filename = `${path}/journey_bitmap.bin`;
-    console.log(`Fetching ${filename}`);
-    const fetchOptions = {
-        headers: useIfNoneMatch ? { 'If-None-Match': '*' } : {}
-    };
-
-    const response = await fetch(`${filename}`, fetchOptions);
-
-    // If server returns 304 Not Modified, return null
-    if (response.status === 304) {
-        return null;
+// Function to switch between rendering layers
+function switchRenderingLayer(map, renderingMode) {
+    if (!AVAILABLE_LAYERS[renderingMode]) {
+        console.warn(`Rendering mode '${renderingMode}' not available, using canvas instead.`);
+        renderingMode = 'canvas';
     }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const journeyBitmap = JourneyBitmap.from_bytes(new Uint8Array(arrayBuffer));
-    console.log(`Loaded ${filename}`);
-
-    // Try to fetch provisioned camera location
-    let cameraOptions = null;
-    try {
-        const cameraResponse = await fetch(`${path}/provisioned_camera_option`);
-        if (cameraResponse.ok) {
-            const cameraData = await cameraResponse.json();
-            cameraOptions = {
-                center: [cameraData.lng, cameraData.lat],
-                zoom: cameraData.zoom
-            };
-            console.log('Using provisioned camera location:', cameraData);
-        }
-    } catch (error) {
-        console.log('No provisioned camera location available:', error);
+    
+    // Clean up existing layer if present
+    if (currentJourneyLayer) {
+        currentJourneyLayer.remove && currentJourneyLayer.remove();
     }
+    
+    // Create new layer instance
+    const LayerClass = AVAILABLE_LAYERS[renderingMode].layerClass;
+    const bufferSizePower = AVAILABLE_LAYERS[renderingMode].bufferSizePower;
 
-    return { journeyBitmap, cameraOptions };
-}
-
-async function pollForUpdates(map, cached = false) {
-    try {
-        const result = await loadJourneyData(cached);
-        if (result) {
-            if (result.journeyBitmap) {
-                console.log('Update detected, updating journey bitmap');
-                currentJourneyLayer.updateJourneyBitmap(result.journeyBitmap);
-            }
-            if (result.cameraOptions) {
-                console.log('Camera update detected, flying to new location');
-                map.flyTo(result.cameraOptions);
-            }
-        }
-    } catch (error) {
-        console.error('Error polling for updates:', error);
-    }
+    currentJourneyTileProvider.setBufferSizePower(bufferSizePower);
+    currentJourneyLayer = new LayerClass(map, currentJourneyTileProvider);
+    currentJourneyLayer.initialize();
+    
+    currentRenderingMode = renderingMode;
+    return currentJourneyLayer;
 }
 
 async function initializeMap() {
@@ -85,9 +62,18 @@ async function initializeMap() {
 
     if (hash) {
         const params = new URLSearchParams(hash);
+        currentJourneyId = params.get('journey_id');
         const lng = parseFloat(params.get('lng'));
         const lat = parseFloat(params.get('lat'));
         const zoom = parseFloat(params.get('zoom'));
+        
+        // Get rendering mode from URL if available
+        const urlRenderMode = params.get('render');
+        if (urlRenderMode && AVAILABLE_LAYERS[urlRenderMode]) {
+            currentRenderingMode = urlRenderMode;
+        }
+        
+        console.log(`journey_id: ${currentJourneyId}, render: ${currentRenderingMode}, lng: ${lng}, lat: ${lat}, zoom: ${zoom}`);
 
         if (!isNaN(lng) && !isNaN(lat) && !isNaN(zoom)) {
             initialView = {
@@ -112,72 +98,54 @@ async function initializeMap() {
     map.dragRotate.disable();
     map.touchZoomRotate.disableRotation();
 
-    // Wait for the map to be fully loaded before proceeding
-    await new Promise(resolve => {
-        if (map.loaded()) {
-            resolve();
-        } else {
-            map.once('load', resolve);
-        }
-    });
+    map.on('style.load', async (e) => {
+        // Create a DOM element for the marker
+        const el = document.createElement('div');
+        el.className = 'location-marker';
 
-    // Create a DOM element for the marker
-    const el = document.createElement('div');
-    el.className = 'location-marker';
+        // Create the marker but don't add it to the map yet
+        locationMarker = new mapboxgl.Marker(el);
 
-    // Create the marker but don't add it to the map yet
-    locationMarker = new mapboxgl.Marker(el);
-
-    // Add method to window object to update marker position
-    window.updateLocationMarker = function (lng, lat, show = true, flyto = false) {
-        if (show) {
-            locationMarker.setLngLat([lng, lat]).addTo(map);
-            if (flyto) {
-                const currentZoom = map.getZoom();
-                map.flyTo({
-                    center: [lng, lat],
-                    zoom: currentZoom < 14 ? 16 : currentZoom,
-                    essential: true
-                });
+        // Add method to window object to update marker position
+        window.updateLocationMarker = function (lng, lat, show = true, flyto = false) {
+            if (show) {
+                locationMarker.setLngLat([lng, lat]).addTo(map);
+                if (flyto) {
+                    const currentZoom = map.getZoom();
+                    map.flyTo({
+                        center: [lng, lat],
+                        zoom: currentZoom < 14 ? 16 : currentZoom,
+                        essential: true
+                    });
+                }
+            } else {
+                locationMarker.remove();
             }
-        } else {
-            locationMarker.remove();
-        }
-    };
+        };
 
-    // Initial load of journey data
-    const result = await loadJourneyData();
+        currentJourneyTileProvider = new JourneyTileProvider(map, currentJourneyId, AVAILABLE_LAYERS[currentRenderingMode].bufferSizePower);
+        
+        await currentJourneyTileProvider.pollForJourneyUpdates(true);
+        console.log('initial tile buffer loaded');
 
-    if (result) {
-        const { journeyBitmap, cameraOptions } = result;
-
-        // Update initial camera position only if cameraOptions is provided
-        if (cameraOptions) {
-            map.setCenter(cameraOptions.center);
-            map.setZoom(cameraOptions.zoom);
-        }
-
-        // Create and store journey layer
-        currentJourneyLayer = new JourneyCanvasLayer(map, journeyBitmap);
-
-        map.addSource("main-canvas-source", currentJourneyLayer.getSourceConfig());
-        map.addLayer({
-            id: "main-canvas-layer",
-            source: "main-canvas-source",
-            type: "raster",
-            paint: {
-                "raster-fade-duration": 0,
-            },
-        });
-        currentJourneyLayer.render();
-        map.addLayer(currentJourneyLayer);
-
-        map.on("move", () => currentJourneyLayer.render());
-        map.on("moveend", () => currentJourneyLayer.render());
+        // Create and initialize journey layer with selected rendering mode
+        currentJourneyLayer = switchRenderingLayer(map, currentRenderingMode);
 
         // Set up polling for updates
-        pollingInterval = setInterval(() => pollForUpdates(map, true), 1000);
-    }
+        pollingInterval = setInterval(() => currentJourneyTileProvider.pollForJourneyUpdates(false), 1000);
+
+        // Create and initialize the debug panel
+        const debugPanel = new DebugPanel(map, AVAILABLE_LAYERS);
+        debugPanel.initialize();
+        debugPanel.listenForHashChanges();
+
+        // give the map a little time to render before notifying Flutter
+        setTimeout(() => {
+            if (window.readyForDisplay) {
+                window.readyForDisplay.postMessage('');
+            }
+        }, 200);
+    });
 
     // Replace the simple movestart listener with dragstart
     map.on('dragstart', () => {
@@ -205,11 +173,34 @@ async function initializeMap() {
         });
     };
 
-    window.addEventListener('hashchange', () => pollForUpdates(map, false));
+    // Listen for hash changes
+    window.addEventListener('hashchange', () => {
+        const hash = window.location.hash.slice(1);
+        const params = new URLSearchParams(hash);
+        
+        // Check if journey ID has changed
+        const newJourneyId = params.get('journey_id');
+        if (newJourneyId !== currentJourneyId && newJourneyId !== null) {
+            currentJourneyId = newJourneyId;
+            currentJourneyTileProvider.journeyId = currentJourneyId;
+            currentJourneyTileProvider.pollForJourneyUpdates(true);
+        }
+        
+        // Check if rendering mode has changed
+        const newRenderMode = params.get('render');
+        if (newRenderMode && newRenderMode !== currentRenderingMode && AVAILABLE_LAYERS[newRenderMode]) {
+            switchRenderingLayer(map, newRenderMode);
+        }
+    });
 
     // Add method to window object to trigger manual update
     window.triggerJourneyUpdate = function () {
-        return pollForUpdates(map);
+        return currentJourneyTileProvider.pollForJourneyUpdates(false);
+    };
+    
+    // Add method to switch rendering layers
+    window.switchRenderingLayer = function(renderingMode) {
+        return switchRenderingLayer(map, renderingMode);
     };
 }
 
