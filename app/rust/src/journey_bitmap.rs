@@ -1,8 +1,8 @@
 use crate::utils;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{
     clone::Clone,
     collections::HashMap,
+    mem::take,
     ops::{BitAnd, BitOr, Not},
 };
 
@@ -17,7 +17,7 @@ const ALL_OFFSET: i16 = TILE_WIDTH_OFFSET + BITMAP_WIDTH_OFFSET;
 
 // we have 512*512 tiles, 128*128 blocks and a single block contains
 // a 64*64 bitmap.
-#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(PartialEq, Eq, Debug, Clone, Default)]
 pub struct JourneyBitmap {
     pub tiles: HashMap<(u16, u16), Tile>,
 }
@@ -32,7 +32,21 @@ impl JourneyBitmap {
     //       - make sure we are using the consistent and correct one of `u64`/`i64`/`i32`.
     //       - better variable naming.
     //       - reduce code duplications.
+
     pub fn add_line(&mut self, start_lng: f64, start_lat: f64, end_lng: f64, end_lat: f64) {
+        self.add_line_with_change_callback(start_lng, start_lat, end_lng, end_lat, |_| {});
+    }
+
+    pub fn add_line_with_change_callback<F>(
+        &mut self,
+        start_lng: f64,
+        start_lat: f64,
+        end_lng: f64,
+        end_lat: f64,
+        mut tile_changed: F,
+    ) where
+        F: FnMut((u16, u16)),
+    {
         let (mut x0, y0) = utils::lng_lat_to_tile_x_y(
             start_lng,
             start_lat,
@@ -60,7 +74,7 @@ impl JourneyBitmap {
         // Calculate error intervals for both axis
         let mut px = 2 * dy0 - dx0;
         let mut py = 2 * dx0 - dy0;
-        // The line is X-axis dominant
+        // The line is X-axis dominant or only in one tile
         if dy0 <= dx0 {
             let (mut x, mut y, xe) = if dx >= 0 {
                 // Line is drawn left to right
@@ -72,10 +86,8 @@ impl JourneyBitmap {
             loop {
                 // tile_x is not rounded, it may exceed the antimeridian
                 let (tile_x, tile_y) = (x >> ALL_OFFSET, y >> ALL_OFFSET);
-                let tile = self
-                    .tiles
-                    .entry(((tile_x % MAP_WIDTH) as u16, tile_y as u16))
-                    .or_default();
+                let tile_pos = ((tile_x % MAP_WIDTH) as u16, tile_y as u16);
+                let tile = self.tiles.entry(tile_pos).or_default();
                 (x, y, px) = tile.add_line(
                     x - (tile_x << ALL_OFFSET),
                     y - (tile_y << ALL_OFFSET),
@@ -86,6 +98,9 @@ impl JourneyBitmap {
                     true,
                     (dx < 0 && dy < 0) || (dx > 0 && dy > 0),
                 );
+                // TODO: We might want to check if the tile is actually changed
+                tile_changed(tile_pos);
+
                 x += tile_x << ALL_OFFSET;
                 y += tile_y << ALL_OFFSET;
 
@@ -105,10 +120,8 @@ impl JourneyBitmap {
             loop {
                 // tile_x is not rounded, it may exceed the antimeridian
                 let (tile_x, tile_y) = (x >> ALL_OFFSET, y >> ALL_OFFSET);
-                let tile = self
-                    .tiles
-                    .entry(((tile_x % MAP_WIDTH) as u16, tile_y as u16))
-                    .or_default();
+                let tile_pos = ((tile_x % MAP_WIDTH) as u16, tile_y as u16);
+                let tile = self.tiles.entry(tile_pos).or_default();
                 (x, y, py) = tile.add_line(
                     x - (tile_x << ALL_OFFSET),
                     y - (tile_y << ALL_OFFSET),
@@ -119,6 +132,9 @@ impl JourneyBitmap {
                     false,
                     (dx < 0 && dy < 0) || (dx > 0 && dy > 0),
                 );
+                // TODO: We might want to check if the tile is actually changed
+                tile_changed(tile_pos);
+
                 x += tile_x << ALL_OFFSET;
                 y += tile_y << ALL_OFFSET;
 
@@ -130,23 +146,26 @@ impl JourneyBitmap {
     }
 
     pub fn merge(&mut self, other_journey_bitmap: JourneyBitmap) {
-        for (key, other_tile) in other_journey_bitmap.tiles {
+        for (key, mut other_tile) in other_journey_bitmap.tiles {
             match self.tiles.get_mut(&key) {
                 None => {
                     self.tiles.insert(key, other_tile);
                 }
                 Some(self_tile) => {
-                    for (key, other_block) in other_tile.blocks {
-                        match self_tile.blocks.get_mut(&key) {
-                            None => {
-                                self_tile.blocks.insert(key, other_block);
-                            }
-                            Some(self_block) => {
-                                for i in 0..other_block.data.len() {
-                                    self_block.data[i] =
-                                        self_block.data[i].bitor(other_block.data[i]);
+                    for i in 0..other_tile.blocks.len() {
+                        match take(&mut other_tile.blocks[i]) {
+                            None => (),
+                            Some(other_block) => match &mut self_tile.blocks[i] {
+                                None => {
+                                    self_tile.blocks[i] = Some(other_block);
                                 }
-                            }
+                                Some(self_block) => {
+                                    for i in 0..other_block.data.len() {
+                                        self_block.data[i] =
+                                            self_block.data[i].bitor(other_block.data[i]);
+                                    }
+                                }
+                            },
                         }
                     }
                 }
@@ -157,18 +176,23 @@ impl JourneyBitmap {
     pub fn difference(&mut self, other_journey_bitmap: &JourneyBitmap) {
         for (tile_key, other_tile) in &other_journey_bitmap.tiles {
             if let Some(tile) = self.tiles.get_mut(tile_key) {
-                for (block_key, other_block) in &other_tile.blocks {
-                    if let Some(block) = tile.blocks.get_mut(block_key) {
-                        for i in 0..other_block.data.len() {
-                            block.data[i] = block.data[i].bitand(other_block.data[i].not());
-                        }
-                        if block.is_empty() {
-                            tile.blocks.remove(block_key);
+                for i in 0..other_tile.blocks.len() {
+                    match &other_tile.blocks[i] {
+                        None => (),
+                        Some(other_block) => {
+                            if let Some(block) = &mut tile.blocks[i] {
+                                for i in 0..other_block.data.len() {
+                                    block.data[i] = block.data[i].bitand(other_block.data[i].not());
+                                }
+                                if block.is_empty() {
+                                    tile.blocks[i] = None;
+                                }
+                            }
                         }
                     }
                 }
 
-                if tile.blocks.is_empty() {
+                if tile.is_empty() {
                     self.tiles.remove(tile_key);
                 }
             }
@@ -180,41 +204,113 @@ impl JourneyBitmap {
             |tile_key, tile| match other_journey_bitmap.tiles.get(tile_key) {
                 None => false,
                 Some(other_tile) => {
-                    tile.blocks
-                        .retain(|block_key, block| match other_tile.blocks.get(block_key) {
-                            None => false,
+                    for i in 0..other_tile.blocks.len() {
+                        match &other_tile.blocks[i] {
+                            None => tile.blocks[i] = None,
                             Some(other_block) => {
-                                for i in 0..other_block.data.len() {
-                                    block.data[i] = block.data[i].bitand(other_block.data[i]);
+                                if let Some(block) = &mut tile.blocks[i] {
+                                    for i in 0..other_block.data.len() {
+                                        block.data[i] = block.data[i].bitand(other_block.data[i]);
+                                    }
+                                    if block.is_empty() {
+                                        tile.blocks[i] = None;
+                                    }
                                 }
-                                !block.is_empty()
                             }
-                        });
-                    !tile.blocks.is_empty()
+                        }
+                    }
+                    !tile.is_empty()
                 }
             },
         );
     }
+}
 
-    /// Serializes the JourneyBitmap to a binary Vec<u8>
-    pub fn to_bytes(&self) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-        Ok(bincode::serialize(self)?)
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+pub struct BlockKey(usize);
+
+impl BlockKey {
+    pub fn from_index(index: usize) -> Self {
+        debug_assert!(index < (TILE_WIDTH * TILE_WIDTH) as usize);
+        BlockKey(index)
     }
 
-    /// Creates a JourneyBitmap from binary data
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(bincode::deserialize(bytes)?)
+    pub fn from_x_y(x: u8, y: u8) -> Self {
+        debug_assert!(x < TILE_WIDTH as u8);
+        debug_assert!(y < TILE_WIDTH as u8);
+        BlockKey((x as usize) * TILE_WIDTH as usize + (y as usize))
+    }
+
+    pub fn x(&self) -> u8 {
+        (self.0 as i64 / TILE_WIDTH) as u8
+    }
+
+    pub fn y(&self) -> u8 {
+        (self.0 as i64 % TILE_WIDTH) as u8
+    }
+
+    pub fn index(&self) -> usize {
+        self.0
     }
 }
 
-#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize, Default)]
+#[cfg(test)]
+mod tests {
+    use crate::journey_bitmap::BlockKey;
+
+    #[test]
+    fn block_key_conversion() {
+        let test = |(x, y), index| {
+            assert_eq!(BlockKey::from_x_y(x, y), BlockKey::from_index(index));
+            assert_eq!(BlockKey::from_x_y(x, y).index(), index);
+        };
+        test((0, 0), 0);
+        test((127, 127), 16383);
+        test((64, 17), 8209);
+    }
+}
+
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Tile {
-    pub blocks: HashMap<(u8, u8), Block>,
+    blocks: [Option<Box<Block>>; (TILE_WIDTH * TILE_WIDTH) as usize],
+}
+
+impl Default for Tile {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Tile {
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            blocks: [const { None }; (TILE_WIDTH * TILE_WIDTH) as usize],
+        }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (BlockKey, &Block)> {
+        self.blocks.iter().enumerate().filter_map(|(i, block)| {
+            block
+                .as_ref()
+                .map(|block| (BlockKey::from_index(i), block.as_ref()))
+        })
+    }
+
+    pub fn set(&mut self, block_key: BlockKey, block: Block) {
+        self.blocks[block_key.index()] = Some(Box::new(block));
+    }
+
+    pub fn get(&self, block_key: BlockKey) -> Option<&Block> {
+        self.blocks[block_key.index()].as_deref()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        for b in &self.blocks {
+            if b.is_some() {
+                return false;
+            }
+        }
+        true
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -244,10 +340,10 @@ impl Tile {
                 let block_x = x >> BITMAP_WIDTH_OFFSET;
                 let block_y = y >> BITMAP_WIDTH_OFFSET;
 
-                let block = self
-                    .blocks
-                    .entry((block_x as u8, block_y as u8))
-                    .or_default();
+                let block_key = BlockKey::from_x_y(block_x as u8, block_y as u8);
+
+                let block = &mut self.blocks[block_key.index()]
+                    .get_or_insert_with(|| Box::new(Block::new()));
 
                 (x, y, p) = block.add_line(
                     x - (block_x << BITMAP_WIDTH_OFFSET),
@@ -279,10 +375,11 @@ impl Tile {
                 let block_x = x >> BITMAP_WIDTH_OFFSET;
                 let block_y = y >> BITMAP_WIDTH_OFFSET;
 
-                let block = self
-                    .blocks
-                    .entry((block_x as u8, block_y as u8))
-                    .or_default();
+                let block_key = BlockKey::from_x_y(block_x as u8, block_y as u8);
+
+                let block = &mut self.blocks[block_key.index()]
+                    .get_or_insert_with(|| Box::new(Block::new()));
+
                 (x, y, p) = block.add_line(
                     x - (block_x << BITMAP_WIDTH_OFFSET),
                     y - (block_y << BITMAP_WIDTH_OFFSET),
@@ -315,28 +412,6 @@ impl Default for Block {
         Self {
             data: [0; BITMAP_SIZE],
         }
-    }
-}
-
-// TODO: currently it is only for PoC, we still need way more efficient WASM capable serialization.
-impl Serialize for Block {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.data.to_vec().serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for Block {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let vec = Vec::<u8>::deserialize(deserializer)?;
-        let mut data = [0u8; BITMAP_SIZE];
-        data.copy_from_slice(&vec);
-        Ok(Block { data })
     }
 }
 

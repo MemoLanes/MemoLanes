@@ -190,9 +190,11 @@ pub(crate) fn get_default_camera_option_from_journey_bitmap(
         .next()
         .and_then(|(tile_pos, tile)| {
             // we shouldn't have empty tile or block
-            tile.blocks.keys().next().map(|block_pos| {
-                let blockzoomed_x: i32 = TILE_WIDTH as i32 * tile_pos.0 as i32 + block_pos.0 as i32;
-                let blockzoomed_y: i32 = TILE_WIDTH as i32 * tile_pos.1 as i32 + block_pos.1 as i32;
+            tile.iter().next().map(|(block_key, _)| {
+                let blockzoomed_x: i32 =
+                    TILE_WIDTH as i32 * tile_pos.0 as i32 + block_key.x() as i32;
+                let blockzoomed_y: i32 =
+                    TILE_WIDTH as i32 * tile_pos.1 as i32 + block_key.y() as i32;
                 let (lng, lat) = utils::tile_x_y_to_lng_lat(
                     blockzoomed_x,
                     blockzoomed_y,
@@ -226,8 +228,7 @@ pub fn get_map_renderer_proxy_for_journey(
 
     let default_camera_option = get_default_camera_option_from_journey_bitmap(&journey_bitmap);
 
-    let mut map_renderer = MapRenderer::new(journey_bitmap);
-    map_renderer.set_provisioned_camera_option(default_camera_option);
+    let map_renderer = MapRenderer::new(journey_bitmap);
     let mut server = state.map_server.lock().unwrap();
     let token = server.register_map_renderer(Arc::new(Mutex::new(map_renderer)));
     Ok((MapRendererProxy::Token(token), default_camera_option))
@@ -261,12 +262,13 @@ pub fn on_location_update(
         match line_to_add {
             None => (),
             Some((start, end)) => {
-                map_renderer.update(|journey_bitmap| {
-                    journey_bitmap.add_line(
+                map_renderer.update(|journey_bitmap, tile_changed| {
+                    journey_bitmap.add_line_with_change_callback(
                         start.longitude,
                         start.latitude,
                         end.longitude,
                         end.latitude,
+                        tile_changed,
                     );
                 });
             }
