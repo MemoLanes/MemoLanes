@@ -64,23 +64,26 @@ jobs:
       - name: Get Rust Dependencies (journey kernel)
         working-directory: app/journey_kernel
         run: cargo fetch
-
+        
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'yarn'
           cache-dependency-path: 'app/journey_kernel/yarn.lock'
           
-      - name: Install dependencies
+      - name: Install Yarn dependencies
         working-directory: app/journey_kernel
         run: yarn install --frozen-lockfile
+
+      - name: Install wasm-pack
+        run: cargo binstall -y --force --no-track wasm-pack
 
       - name: Build the wasm package
         working-directory: app/journey_kernel
         run: | 
           wasm-pack build --target web --features wasm --no-default-features
         
-      - name: Cargo Check (journey kernel)
+      - name: Journey Kernel Check
         working-directory: app/journey_kernel
         run: just journey-kernel-check
 
