@@ -69,6 +69,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'yarn'
+          cache-dependency-path: 'app/journey_kernel/yarn.lock'
           
       - name: Install dependencies
         working-directory: app/journey_kernel
