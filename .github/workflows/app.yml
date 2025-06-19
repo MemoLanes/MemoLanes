@@ -65,8 +65,14 @@ jobs:
         working-directory: app/journey_kernel
         run: cargo fetch
 
-      - name: Install wasm-pack
-        run: cargo binstall -y --force --no-track wasm-pack
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+          
+      - name: Install dependencies
+        working-directory: app/journey_kernel
+        run: yarn install --frozen-lockfile
 
       - name: Build the wasm package
         working-directory: app/journey_kernel
