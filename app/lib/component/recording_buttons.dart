@@ -113,7 +113,7 @@ class _RecordingButtonsState extends State<RecordingButtons> {
                 gpsManager.changeRecordingState(GpsRecordingStatus.recording);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
+                backgroundColor: Color(0xFFB4EC51),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(9999),
                 ),
@@ -123,7 +123,7 @@ class _RecordingButtonsState extends State<RecordingButtons> {
               child: Text(
                 context.tr("home.resume"),
                 style: const TextStyle(
-                  color: Color(0xFFB4EC51),
+                  color: Colors.black,
                   fontWeight: FontWeight.w400,
                   fontSize: 20,
                 ),

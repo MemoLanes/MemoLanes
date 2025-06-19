@@ -1,0 +1,7 @@
+/* 
+  InfoPlist.strings
+*/
+
+"CFBundleDisplayName" = "MemoLanes";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "This app needs your location to record your tracks in the background.";
+"NSLocationWhenInUseUsageDescription" = "This app needs your location to record your tracks.";

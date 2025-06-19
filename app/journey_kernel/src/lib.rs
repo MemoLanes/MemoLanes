@@ -1,9 +1,6 @@
-pub mod journey_bitmap;
-#[cfg(feature = "wasm")]
-mod tile_shader;
-mod utils;
+pub mod tile_buffer;
 
-pub use journey_bitmap::*;
+pub use tile_buffer::*;
 
 #[cfg(feature = "wasm")]
 pub mod wasm;

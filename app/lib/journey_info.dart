@@ -23,6 +23,7 @@ class JourneyInfoPage extends StatefulWidget {
 class _JourneyInfoPage extends State<JourneyInfoPage> {
   final fmt = DateFormat('yyyy-MM-dd HH:mm:ss');
   api.MapRendererProxy? _mapRendererProxy;
+  MapView? _initialMapView;
 
   @override
   void initState() {
@@ -32,6 +33,14 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
         .then((mapRendererProxyAndCameraOption) {
       setState(() {
         _mapRendererProxy = mapRendererProxyAndCameraOption.$1;
+        final cameraOption = mapRendererProxyAndCameraOption.$2;
+        if (cameraOption != null) {
+          _initialMapView = (
+            lng: cameraOption.lng,
+            lat: cameraOption.lat,
+            zoom: cameraOption.zoom,
+          );
+        }
       });
     });
   }
@@ -180,6 +189,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                   : (BaseMapWebview(
                       key: const ValueKey("mapWidget"),
                       mapRendererProxy: mapRendererProxy,
+                      initialMapView: _initialMapView,
                     )),
             )
           ],

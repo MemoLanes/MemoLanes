@@ -1,8 +1,7 @@
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
-use env_logger;
-use journey_kernel::journey_bitmap::JourneyBitmap;
-use memolanes_core::api::api::CameraOption;
+use memolanes_core::import_data;
+use memolanes_core::journey_bitmap::JourneyBitmap;
 use memolanes_core::renderer::MapRenderer;
 use memolanes_core::renderer::MapServer;
 use rand::Rng;
@@ -55,7 +54,19 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .lock()
         .unwrap()
         .register_map_renderer(Arc::new(Mutex::new(map_renderer_static)));
-    println!("view static map at: {}", token.url());
+    println!(
+        "simple map: {}&debug=true&lng=148.0&lat=-30.0&zoom=7.0",
+        token.url()
+    );
+
+    let (joruney_bitmap_fow, _) =
+        import_data::load_fow_sync_data("./tests/data/fow_3.zip").unwrap();
+    let map_renderer_fow = MapRenderer::new(joruney_bitmap_fow);
+    let token_fow = server
+        .lock()
+        .unwrap()
+        .register_map_renderer(Arc::new(Mutex::new(map_renderer_fow)));
+    println!("medium map: {}&debug=true", token_fow.url());
 
     // demo for a dynamic map
     let journey_bitmap2 = JourneyBitmap::new();
@@ -68,7 +79,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .register_map_renderer(map_renderer_arc);
 
     println!(
-        "view dynamic map at: {}&lng=106.5&lat=30.0&zoom=8",
+        "dynamic map: {}&debug=true&lng=106.5&lat=30.0&zoom=8",
         token.url()
     );
 
@@ -86,14 +97,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let next_lng = lng + lng_step;
                 let next_lat = lat + rng.random_range(-lat_step..=lat_step);
                 let mut map_renderer = map_renderer_arc_clone.lock().unwrap();
-                map_renderer.update(|bitmap| {
+                map_renderer.update(|bitmap, _tile_cb| {
                     bitmap.add_line(lng, lat, next_lng, next_lat);
                 });
-                map_renderer.set_provisioned_camera_option(Some(CameraOption {
-                    lng,
-                    lat,
-                    zoom: 12.0, // Closer zoom to see the path detail
-                }));
                 lng = next_lng;
                 lat = next_lat;
             }

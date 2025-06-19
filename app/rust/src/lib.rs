@@ -11,14 +11,13 @@ mod frb_generated; /* AUTO INJECTED BY flutter_rust_bridge. This line may not be
 
 pub mod api;
 pub mod archive;
+mod build_info;
 pub mod cache_db;
 pub mod export_data;
 pub mod gps_processor;
 pub mod import_data;
 pub mod journey_area_utils;
-pub use journey_kernel;
-pub use journey_kernel::journey_bitmap;
-mod build_info;
+pub mod journey_bitmap;
 pub mod journey_data;
 pub mod journey_header;
 pub mod journey_vector;

@@ -11,19 +11,19 @@ crate-type = ["lib", "cdylib", "staticlib"]
 journey_kernel = { path = "../journey_kernel" }
 anyhow = { version = "1.0", features = ["backtrace"] }
 chrono = "0.4"
-flutter_rust_bridge = { version = "=2.9.0", features = ["chrono"] }
+flutter_rust_bridge = { version = "=2.10.0", features = ["chrono"] }
 log = "0.4"
-rusqlite = { version = "0.33", features = ["bundled"] }
+rusqlite = { version = "0.36", features = ["bundled"] }
 simplelog = "0.12"
 protobuf = "3.7"
-uuid = { version = "1.16", features = ["v4", "fast-rng", "macro-diagnostics", "serde"] }
+uuid = { version = "1.17", features = ["v4", "fast-rng", "macro-diagnostics", "serde"] }
 sql_split = "0.1"
 zstd = "0.13"
 itertools = "0.14"
 strum = "0.27"
 strum_macros = "0.27"
 random-string = "1.1"
-zip = "2.6"
+zip = "4.0"
 sha1 = "0.10"
 hex = "0.4"
 integer-encoding = "4.0"
@@ -38,30 +38,34 @@ serde_json = "1.0"
 rand = "0.9"
 actix = "0.13"
 actix-web-actors = "4.3"
-actix-web = "4.10"
+actix-web = "4.11"
 serde = "1.0"
-tokio = { version = "1.44", features = ["full"] }
+tokio = { version = "1.45", features = ["full"] }
 ctrlc = "3.4"
 pollster = "0.4.0"
 
 [dev-dependencies]
 tempdir = "0.3"
 csv = "1.3"
-rand = "0.8"
+rand = "0.9"
 assert_float_eq = "1.1"
-criterion = "0.5"
+criterion = "0.6"
 sha2 = "0.10"
 serde_json = "1.0"
-crossterm = "0.28"
+crossterm = "0.29"
 env_logger = "0.11"
 image = "0.25"
 
 [build-dependencies]
 protobuf-codegen = "3.7"
-cargo_toml = "0.18"
+cargo_toml = "0.22"
 
 [[bench]]
 name = "bench"
+harness = false
+
+[[bench]]
+name = "rendering"
 harness = false
 
 [lints.rust]
