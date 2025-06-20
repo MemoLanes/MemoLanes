@@ -9,7 +9,7 @@ export class DebugPanel {
     this.panel = null;
     this.visible = false;
     this.availableLayers = availableLayers;
-    
+
     // Framerate monitoring
     this.fps = 0;
     this.frameCount = 0;
@@ -19,7 +19,7 @@ export class DebugPanel {
     this.animationId = null;
     this.fpsCanvas = null;
     this.fpsCtx = null;
-    
+
     // Network timing monitoring
     this.lastNetworkDelay = 0;
     this.networkDelayHistory = [];
@@ -30,14 +30,16 @@ export class DebugPanel {
 
   initialize() {
     // Create panel element
-    this.panel = document.createElement('div');
-    this.panel.className = 'debug-panel';
-    this.panel.style.display = 'none';
+    this.panel = document.createElement("div");
+    this.panel.className = "debug-panel";
+    this.panel.style.display = "none";
 
     // Build rendering mode options based on available layers
-    const renderingOptions = Object.entries(this.availableLayers).map(([key, layer]) => {
-      return `<option value="${key}" title="${layer.description}">${layer.name}</option>`;
-    }).join('');
+    const renderingOptions = Object.entries(this.availableLayers)
+      .map(([key, layer]) => {
+        return `<option value="${key}" title="${layer.description}">${layer.name}</option>`;
+      })
+      .join("");
 
     // Add content to panel
     this.panel.innerHTML = `
@@ -86,74 +88,79 @@ export class DebugPanel {
 
     // Set up event listeners
     this._setupEventListeners();
-    
+
     // Set up FPS monitoring
     this._setupFpsMonitoring();
-    
+
     // Set up easter egg
     this._setupEasterEgg();
-    
+
     // Check if debug mode is enabled in URL
     this._checkDebugStatus();
   }
 
   _setupEventListeners() {
     // Close button
-    document.getElementById('close-debug').addEventListener('click', () => {
+    document.getElementById("close-debug").addEventListener("click", () => {
       this.hide();
-      this._updateUrlHash({debug: 'false'});
+      this._updateUrlHash({ debug: "false" });
     });
 
     // Rendering mode direct change handler
-    document.getElementById('rendering-mode').addEventListener('change', (e) => {
-      const renderingMode = e.target.value;
-      this._updateUrlHash({ render: renderingMode });
-      if (window.switchRenderingLayer && this.availableLayers[renderingMode]) {
-        window.switchRenderingLayer(renderingMode);
-      }
-    });
+    document
+      .getElementById("rendering-mode")
+      .addEventListener("change", (e) => {
+        const renderingMode = e.target.value;
+        this._updateUrlHash({ render: renderingMode });
+        if (
+          window.switchRenderingLayer &&
+          this.availableLayers[renderingMode]
+        ) {
+          window.switchRenderingLayer(renderingMode);
+        }
+      });
 
     // Listen for map movement to update viewpoint info
-    this.map.on('moveend', () => {
+    this.map.on("moveend", () => {
       this._updateViewpointInfo();
     });
-    
+
     // Also listen for zoom changes
-    this.map.on('zoomend', () => {
+    this.map.on("zoomend", () => {
       this._updateViewpointInfo();
     });
   }
 
   _updateViewpointInfo() {
     if (!this.visible) return;
-    
+
     const zoom = this.map.getZoom();
     const center = this.map.getCenter();
     const bounds = this.map.getBounds();
-    
-    document.getElementById('zoom-level').textContent = zoom.toFixed(2);
-    document.getElementById('center-coords').textContent = 
+
+    document.getElementById("zoom-level").textContent = zoom.toFixed(2);
+    document.getElementById("center-coords").textContent =
       `${center.lng.toFixed(5)}, ${center.lat.toFixed(5)}`;
-    
+
     if (bounds) {
       const ne = bounds.getNorthEast();
       const sw = bounds.getSouthWest();
-      document.getElementById('bounds-coords').textContent = 
+      document.getElementById("bounds-coords").textContent =
         `SW: ${sw.lng.toFixed(5)}, ${sw.lat.toFixed(5)} | NE: ${ne.lng.toFixed(5)}, ${ne.lat.toFixed(5)}`;
     }
   }
 
   _setupFpsMonitoring() {
     // Get canvas elements and contexts
-    this.fpsCanvas = document.getElementById('fps-graph');
-    this.fpsCtx = this.fpsCanvas.getContext('2d');
-    
-    this.networkCanvas = document.getElementById('network-graph');
-    this.networkCtx = this.networkCanvas.getContext('2d');
-    
+    this.fpsCanvas = document.getElementById("fps-graph");
+    this.fpsCtx = this.fpsCanvas.getContext("2d");
+
+    this.networkCanvas = document.getElementById("network-graph");
+    this.networkCtx = this.networkCanvas.getContext("2d");
+
     // Start FPS monitoring loop
     this._startFpsLoop();
-    
+
     // Set up network timing listener
     this._setupNetworkMonitoring();
   }
@@ -161,27 +168,29 @@ export class DebugPanel {
   _startFpsLoop() {
     const measureFps = (currentTime) => {
       this.frameCount++;
-      
+
       // Calculate FPS every second
       if (currentTime - this.lastTime >= 1000) {
-        this.fps = Math.round((this.frameCount * 1000) / (currentTime - this.lastTime));
+        this.fps = Math.round(
+          (this.frameCount * 1000) / (currentTime - this.lastTime),
+        );
         this.frameCount = 0;
         this.lastTime = currentTime;
-        
+
         // Add to history
         this.fpsHistory.push(this.fps);
         if (this.fpsHistory.length > this.maxHistorySize) {
           this.fpsHistory.shift();
         }
-        
+
         // Update display
         this._updateFpsDisplay();
         this._renderFpsGraph();
       }
-      
+
       this.animationId = requestAnimationFrame(measureFps);
     };
-    
+
     this.animationId = requestAnimationFrame(measureFps);
   }
 
@@ -194,16 +203,16 @@ export class DebugPanel {
 
   _setupNetworkMonitoring() {
     // Listen for network timing events
-    window.addEventListener('tileDownloadTiming', (event) => {
+    window.addEventListener("tileDownloadTiming", (event) => {
       const { duration } = event.detail;
       this.lastNetworkDelay = Math.round(duration);
-      
+
       // Add to history
       this.networkDelayHistory.push(this.lastNetworkDelay);
       if (this.networkDelayHistory.length > this.maxNetworkHistorySize) {
         this.networkDelayHistory.shift();
       }
-      
+
       // Update display
       this._updateNetworkDisplay();
       this._renderNetworkGraph();
@@ -212,119 +221,119 @@ export class DebugPanel {
 
   _updateFpsDisplay() {
     if (!this.visible) return;
-    
-    const fpsElement = document.getElementById('fps-display');
+
+    const fpsElement = document.getElementById("fps-display");
     if (fpsElement) {
       fpsElement.textContent = this.fps;
-      
+
       // Color code based on FPS
       if (this.fps >= 50) {
-        fpsElement.style.color = '#4CAF50'; // Green
+        fpsElement.style.color = "#4CAF50"; // Green
       } else if (this.fps >= 30) {
-        fpsElement.style.color = '#FF9800'; // Orange
+        fpsElement.style.color = "#FF9800"; // Orange
       } else {
-        fpsElement.style.color = '#F44336'; // Red
+        fpsElement.style.color = "#F44336"; // Red
       }
     }
   }
 
   _updateNetworkDisplay() {
     if (!this.visible) return;
-    
-    const networkElement = document.getElementById('network-delay-display');
+
+    const networkElement = document.getElementById("network-delay-display");
     if (networkElement) {
       networkElement.textContent = this.lastNetworkDelay;
-      
+
       // Color code based on network delay
       if (this.lastNetworkDelay <= 100) {
-        networkElement.style.color = '#4CAF50'; // Green - Fast
+        networkElement.style.color = "#4CAF50"; // Green - Fast
       } else if (this.lastNetworkDelay <= 500) {
-        networkElement.style.color = '#FF9800'; // Orange - Moderate
+        networkElement.style.color = "#FF9800"; // Orange - Moderate
       } else {
-        networkElement.style.color = '#F44336'; // Red - Slow
+        networkElement.style.color = "#F44336"; // Red - Slow
       }
     }
   }
 
   _renderFpsGraph() {
     if (!this.visible || !this.fpsCtx) return;
-    
+
     const canvas = this.fpsCanvas;
     const ctx = this.fpsCtx;
     const width = canvas.width;
     const height = canvas.height;
-    
+
     // Clear canvas
     ctx.clearRect(0, 0, width, height);
-    
+
     if (this.fpsHistory.length < 2) return;
-    
+
     // Draw grid lines
-    ctx.strokeStyle = '#555';
+    ctx.strokeStyle = "#555";
     ctx.lineWidth = 1;
-    
+
     // Horizontal grid lines (FPS values)
     const gridLines = [30, 60];
-    gridLines.forEach(fps => {
+    gridLines.forEach((fps) => {
       const y = height - (fps / 60) * height;
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(width, y);
       ctx.stroke();
     });
-    
+
     // Draw FPS line
-    ctx.strokeStyle = '#2196F3';
+    ctx.strokeStyle = "#2196F3";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    
+
     const stepX = width / (this.maxHistorySize - 1);
-    
+
     this.fpsHistory.forEach((fps, index) => {
       const x = index * stepX;
       const y = height - Math.min(fps / 60, 1) * height; // Normalize to 60 FPS max
-      
+
       if (index === 0) {
         ctx.moveTo(x, y);
       } else {
         ctx.lineTo(x, y);
       }
     });
-    
+
     ctx.stroke();
-    
+
     // Draw FPS labels
-    ctx.fillStyle = '#ccc';
-    ctx.font = '8px monospace';
-    ctx.textAlign = 'left';
-    ctx.fillText('60', 2, 10);
-    ctx.fillText('30', 2, height - 18);
-    ctx.fillText('0', 2, height - 2);
+    ctx.fillStyle = "#ccc";
+    ctx.font = "8px monospace";
+    ctx.textAlign = "left";
+    ctx.fillText("60", 2, 10);
+    ctx.fillText("30", 2, height - 18);
+    ctx.fillText("0", 2, height - 2);
   }
 
   _renderNetworkGraph() {
     if (!this.visible || !this.networkCtx) return;
-    
+
     const canvas = this.networkCanvas;
     const ctx = this.networkCtx;
     const width = canvas.width;
     const height = canvas.height;
-    
+
     // Clear canvas
     ctx.clearRect(0, 0, width, height);
-    
+
     if (this.networkDelayHistory.length < 2) return;
-    
+
     // Calculate max delay for scaling (minimum 1000ms for consistent scale)
     const maxDelay = Math.max(1000, Math.max(...this.networkDelayHistory));
-    
+
     // Draw grid lines
-    ctx.strokeStyle = '#555';
+    ctx.strokeStyle = "#555";
     ctx.lineWidth = 1;
-    
+
     // Horizontal grid lines (delay values)
     const gridLines = [500, 1000];
-    gridLines.forEach(delay => {
+    gridLines.forEach((delay) => {
       if (delay <= maxDelay) {
         const y = height - (delay / maxDelay) * height;
         ctx.beginPath();
@@ -333,38 +342,38 @@ export class DebugPanel {
         ctx.stroke();
       }
     });
-    
+
     // Draw network delay line
-    ctx.strokeStyle = '#FF9800';
+    ctx.strokeStyle = "#FF9800";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    
+
     const stepX = width / (this.maxNetworkHistorySize - 1);
-    
+
     this.networkDelayHistory.forEach((delay, index) => {
       const x = index * stepX;
       const y = height - (delay / maxDelay) * height;
-      
+
       if (index === 0) {
         ctx.moveTo(x, y);
       } else {
         ctx.lineTo(x, y);
       }
     });
-    
+
     ctx.stroke();
-    
+
     // Draw delay labels
-    ctx.fillStyle = '#ccc';
-    ctx.font = '8px monospace';
-    ctx.textAlign = 'left';
+    ctx.fillStyle = "#ccc";
+    ctx.font = "8px monospace";
+    ctx.textAlign = "left";
     if (maxDelay >= 1000) {
-      ctx.fillText('1s', 2, 10);
+      ctx.fillText("1s", 2, 10);
     }
     if (maxDelay >= 500) {
-      ctx.fillText('500ms', 2, height - 18);
+      ctx.fillText("500ms", 2, height - 18);
     }
-    ctx.fillText('0', 2, height - 2);
+    ctx.fillText("0", 2, height - 2);
   }
 
   _setupEasterEgg() {
@@ -372,7 +381,7 @@ export class DebugPanel {
     let lastClickTime = 0;
     let clickTimeout;
 
-    this.map.on('click', (e) => {
+    this.map.on("click", (e) => {
       const currentTime = new Date().getTime();
       const clickTimeDelta = currentTime - lastClickTime;
       lastClickTime = currentTime;
@@ -402,10 +411,10 @@ export class DebugPanel {
           // Toggle debug panel
           if (this.visible) {
             this.hide();
-            this._updateUrlHash({ debug: 'false' });
+            this._updateUrlHash({ debug: "false" });
           } else {
             this.show();
-            this._updateUrlHash({ debug: 'true' });
+            this._updateUrlHash({ debug: "true" });
           }
         }
       }
@@ -415,16 +424,16 @@ export class DebugPanel {
   _updateUrlHash(params) {
     const hash = window.location.hash.slice(1);
     const urlParams = new URLSearchParams(hash);
-    
+
     // Update or add provided params
-    Object.keys(params).forEach(key => {
+    Object.keys(params).forEach((key) => {
       if (params[key] === null) {
         urlParams.delete(key);
       } else {
         urlParams.set(key, params[key]);
       }
     });
-    
+
     // Update URL without reloading page
     window.location.hash = urlParams.toString();
   }
@@ -432,19 +441,19 @@ export class DebugPanel {
   _checkDebugStatus() {
     const hash = window.location.hash.slice(1);
     const urlParams = new URLSearchParams(hash);
-    const debugParam = urlParams.get('debug');
-    
-    if (debugParam === 'true') {
+    const debugParam = urlParams.get("debug");
+
+    if (debugParam === "true") {
       this.show();
-      
-      const renderingMode = urlParams.get('render') || 'canvas';
-      
+
+      const renderingMode = urlParams.get("render") || "canvas";
+
       // Only set rendering mode if it's available
-      const renderingModeSelect = document.getElementById('rendering-mode');
+      const renderingModeSelect = document.getElementById("rendering-mode");
       if (this.availableLayers[renderingMode] && renderingModeSelect) {
         renderingModeSelect.value = renderingMode;
       }
-      
+
       // Update viewpoint info
       this._updateViewpointInfo();
     } else {
@@ -453,12 +462,12 @@ export class DebugPanel {
   }
 
   show() {
-    this.panel.style.display = 'block';
+    this.panel.style.display = "block";
     this.visible = true;
     this._updateViewpointInfo();
     this._updateNetworkDisplay();
     this._renderNetworkGraph();
-    
+
     // Start FPS monitoring when panel is shown
     if (!this.animationId) {
       this._startFpsLoop();
@@ -466,16 +475,16 @@ export class DebugPanel {
   }
 
   hide() {
-    this.panel.style.display = 'none';
+    this.panel.style.display = "none";
     this.visible = false;
-    
+
     // Stop FPS monitoring when panel is hidden to save resources
     this._stopFpsLoop();
   }
 
   // Listen for hash changes to show/hide panel
   listenForHashChanges() {
-    window.addEventListener('hashchange', () => {
+    window.addEventListener("hashchange", () => {
       this._checkDebugStatus();
     });
   }
@@ -487,4 +496,4 @@ export class DebugPanel {
       this.panel.parentNode.removeChild(this.panel);
     }
   }
-} 
+}
