@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:developer';
+import 'logger.dart';
 
 import 'package:async/async.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -325,7 +325,7 @@ class GpsManager extends ChangeNotifier {
 
       // turnning off if needed
       if (oldState != _InternalState.off) {
-        log("[GpsManager] turning off gps stream. old state: $oldState");
+        log.info("[GpsManager] turning off gps stream. old state: $oldState");
         if (oldState == _InternalState.recording) {
           await _notificationWhenAppIsKilledPlugin
               .cancelNotificationOnKillService();
@@ -346,7 +346,7 @@ class GpsManager extends ChangeNotifier {
 
       // turnning on if needed
       if (newState != _InternalState.off) {
-        log("[GpsManager] turning on gps stream. new state: $newState");
+        log.info("[GpsManager] turning on gps stream. new state: $newState");
         var locationSettings =
             _locationSettings(newState == _InternalState.recording);
 

@@ -69,6 +69,7 @@ dependencies:
   flutter_markdown_plus: ^1.0.3
   flutter_file_saver: ^0.9.0
   path: ^1.9.1
+  logging: ^1.3.0
 
 dependency_overrides:
   geolocator_android:
