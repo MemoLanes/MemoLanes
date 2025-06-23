@@ -4,13 +4,53 @@ use std::{
     path::Path,
 };
 
+use crate::frb_generated::StreamSink;
 use anyhow::Result;
 use file_rotate::{
     compression::Compression,
     suffix::{AppendTimestamp, FileLimit},
     {ContentLimit, FileRotate},
 };
+use log::Log;
 use simplelog::{ConfigBuilder, LevelFilter, WriteLogger};
+use std::sync::{LazyLock, Mutex};
+
+pub static FLUTTER_LOGGER: LazyLock<Mutex<Option<StreamSink<String>>>> =
+    LazyLock::new(|| Mutex::new(None));
+
+pub struct MainLogger {
+    write_logger: Box<WriteLogger<FileRotate<AppendTimestamp>>>,
+}
+
+impl MainLogger {
+    fn new(write_logger: Box<WriteLogger<FileRotate<AppendTimestamp>>>) -> Self {
+        Self { write_logger }
+    }
+}
+
+impl Log for MainLogger {
+    fn enabled(&self, _metadata: &log::Metadata) -> bool {
+        true
+    }
+
+    fn log(&self, record: &log::Record) {
+        match *FLUTTER_LOGGER.lock().unwrap() {
+            Some(ref mut sink) => {
+                let message = format!(
+                    "{}:{} -- {}",
+                    record.level(),
+                    record.target(),
+                    record.args()
+                );
+                let _ = sink.add(message);
+            }
+            None => {}
+        }
+        self.write_logger.log(record);
+    }
+
+    fn flush(&self) {}
+}
 
 pub fn init(cache_dir: &str) -> Result<()> {
     let path = Path::new(cache_dir).join("logs/main.log");
@@ -23,7 +63,10 @@ pub fn init(cache_dir: &str) -> Result<()> {
         None,
     );
     let config = ConfigBuilder::new().set_time_format_rfc3339().build();
-    WriteLogger::init(LevelFilter::Info, config, log)?;
+    let write_logger = WriteLogger::new(LevelFilter::Info, config, log);
+    let main_logger = MainLogger::new(write_logger);
+    log::set_boxed_logger(Box::new(main_logger))?;
+    log::set_max_level(LevelFilter::Info);
     Ok(())
 }
 

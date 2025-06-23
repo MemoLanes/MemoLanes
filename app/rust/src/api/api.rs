@@ -6,6 +6,7 @@ use chrono::NaiveDate;
 use flutter_rust_bridge::frb;
 
 use crate::cache_db::LayerKind as InternalLayerKind;
+use crate::frb_generated::StreamSink;
 use crate::gps_processor::{GpsPreprocessor, ProcessResult};
 use crate::journey_bitmap::{JourneyBitmap, MAP_WIDTH_OFFSET, TILE_WIDTH, TILE_WIDTH_OFFSET};
 use crate::journey_data::JourneyData;
@@ -103,6 +104,12 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
     if already_initialized {
         warn!("`init` is called multiple times");
     }
+}
+
+pub fn subscribe_to_log_stream(sink: StreamSink<String>) -> Result<()> {
+    let mut logger = logs::FLUTTER_LOGGER.lock().unwrap();
+    *logger = Some(sink);
+    Ok(())
 }
 
 #[frb(sync)]

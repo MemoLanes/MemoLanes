@@ -90,6 +90,9 @@ void main() async {
 
   // TODO: Consider using `flutter_native_splash`
   await RustLib.init();
+  api.subscribeToLogStream().listen((log) {
+    print(log);
+  });
   await api.init(
       tempDir: (await getTemporaryDirectory()).path,
       docDir: (await getApplicationDocumentsDirectory()).path,
