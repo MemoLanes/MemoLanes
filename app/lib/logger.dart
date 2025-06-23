@@ -5,7 +5,7 @@ import 'package:memolanes/src/rust/api/api.dart' as api;
 void initLogger() {
   if (kDebugMode) {
     api.subscribeToLogStream().listen((log) {
-      print('api.subscribeToLogStream(): $log');
+      print(log);
     });
   }
   Logger.root.level = Level.INFO;

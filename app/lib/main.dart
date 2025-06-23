@@ -116,18 +116,8 @@ void main() async {
           child: const MyApp(),
         )));
   }, (error, _) {
-    log.error('Uncaught exception in Flutter:: $error');
-  }, zoneSpecification: ZoneSpecification(
-    print: (self, parent, zone, line) {
-      if (kDebugMode) {
-        if (line.startsWith('api.subscribeToLogStream(): ')) {
-          parent.print(zone, line.substring(28));
-        } else {
-          log.info(line);
-        }
-      }
-    },
-  ));
+    log.error('Uncaught exception in Flutter: $error');
+  });
 }
 
 class MyApp extends StatelessWidget {
