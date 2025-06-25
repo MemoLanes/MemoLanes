@@ -10,21 +10,12 @@ void initLogger() {
   }
   Logger.root.level = Level.INFO;
   Logger.root.onRecord.listen((rec) {
-    api.LogLevel logLevel = api.LogLevel.info;
-    switch (rec.level) {
-      case Level.INFO:
-        logLevel = api.LogLevel.info;
-        break;
-      case Level.WARNING:
-        logLevel = api.LogLevel.warn;
-        break;
-      case Level.SEVERE:
-        logLevel = api.LogLevel.error;
-        break;
-      default:
-        logLevel = api.LogLevel.info;
-        break;
-    }
+    api.LogLevel logLevel = switch (rec.level) {
+      Level.INFO => api.LogLevel.info,
+      Level.WARNING => api.LogLevel.warn,
+      Level.SEVERE => api.LogLevel.error,
+      _ => api.LogLevel.info,
+    };
     api.writeLog(message: rec.message, level: logLevel);
   });
 }
