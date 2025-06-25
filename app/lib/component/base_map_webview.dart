@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import '../../logger.dart';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
@@ -184,11 +185,11 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
           onWebResourceError: (WebResourceError error) async {
             // the mapbox error is common (maybe blocked by some firewall )
             if (error.url?.contains('events.mapbox.com') != true) {
-              api.writeLog(message: '''Map WebView Error: 
+              log.error('''Map WebView Error: 
                   Description: ${error.description}
                   Error Type: ${error.errorType} 
                   Error Code: ${error.errorCode}
-                  Failed URL: ${error.url}''', level: api.LogLevel.error);
+                  Failed URL: ${error.url}''');
             }
 
             // TODO: The whole thing is a workaround. We should try to find a way
