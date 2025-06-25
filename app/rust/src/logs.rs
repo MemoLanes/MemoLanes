@@ -34,17 +34,14 @@ impl Log for MainLogger {
     }
 
     fn log(&self, record: &log::Record) {
-        match *FLUTTER_LOGGER.lock().unwrap() {
-            Some(ref mut sink) => {
-                let message = format!(
-                    "{}:{} -- {}",
-                    record.level(),
-                    record.target(),
-                    record.args()
-                );
-                let _ = sink.add(message);
-            }
-            None => {}
+        if let Some(ref mut sink) = *FLUTTER_LOGGER.lock().unwrap() {
+            let message = format!(
+                "{}:{} -- {}",
+                record.level(),
+                record.target(),
+                record.args()
+            );
+            let _ = sink.add(message);
         }
         self.write_logger.log(record);
     }

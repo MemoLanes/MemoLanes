@@ -26,10 +26,10 @@ fn add_line_cross_antimeridian() {
         (-175.3644029, -28.3186185, 175.4708788, -49.4963078);
     journey_bitmap.add_line(start_lng, start_lat, end_lng, end_lat);
 
-    let mut map_renderer = MapRenderer::new(journey_bitmap);
+    let map_renderer = MapRenderer::new(journey_bitmap);
 
     let render_result =
-        test_utils::render_map_overlay(&mut map_renderer, 0, -170.0, 80.0, 170.0, -80.0);
+        test_utils::render_map_overlay(&map_renderer, 0, -170.0, 80.0, 170.0, -80.0);
     test_utils::verify_image(
         "journey_bitmap_add_line_cross_antimeridian",
         &render_result.data,
@@ -64,16 +64,10 @@ fn basic() {
     journey_bitmap.add_line(START_LNG, START_LAT, START_LNG, END_LAT);
     journey_bitmap.add_line(END_LNG, END_LAT, END_LNG, START_LAT);
 
-    let mut map_renderer = MapRenderer::new(journey_bitmap);
+    let map_renderer = MapRenderer::new(journey_bitmap);
 
-    let render_result = test_utils::render_map_overlay(
-        &mut map_renderer,
-        12,
-        START_LNG,
-        START_LAT,
-        END_LNG,
-        END_LAT,
-    );
+    let render_result =
+        test_utils::render_map_overlay(&map_renderer, 12, START_LNG, START_LAT, END_LNG, END_LAT);
     test_utils::verify_image("journey_bitmap_basic", &render_result.data);
 }
 
@@ -92,16 +86,10 @@ fn merge_with_render() {
     draw_line2(&mut sample_journaey_bitmap);
     assert_eq!(journey_bitmap, sample_journaey_bitmap);
 
-    let mut map_renderer = MapRenderer::new(journey_bitmap);
+    let map_renderer = MapRenderer::new(journey_bitmap);
 
-    let render_result = test_utils::render_map_overlay(
-        &mut map_renderer,
-        12,
-        START_LNG,
-        START_LAT,
-        END_LNG,
-        END_LAT,
-    );
+    let render_result =
+        test_utils::render_map_overlay(&map_renderer, 12, START_LNG, START_LAT, END_LNG, END_LAT);
     test_utils::verify_image("journey_bitmap_merge_with_render", &render_result.data);
 }
 
@@ -197,10 +185,10 @@ fn vector_to_bitmap(name: &str, zoom: i32, filename_override: Option<&str>) {
         }
     }
 
-    let mut map_renderer = MapRenderer::new(journey_bitmap);
+    let map_renderer = MapRenderer::new(journey_bitmap);
 
     let render_result =
-        test_utils::render_map_overlay(&mut map_renderer, zoom, left, top, right, bottom);
+        test_utils::render_map_overlay(&map_renderer, zoom, left, top, right, bottom);
     test_utils::verify_image(
         &format!("journey_bitmap_vector_to_bitmap_{}", name),
         &render_result.data,

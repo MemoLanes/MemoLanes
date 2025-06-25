@@ -104,19 +104,6 @@ struct YearMonth {
     month: u8,
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::archive::YearMonth;
-
-    #[test]
-    fn order() {
-        let ym = |year, month| YearMonth { year, month };
-        assert_eq!(ym(2000, 10), ym(2000, 10));
-        assert!(ym(2000, 10) > ym(2000, 9));
-        assert!(ym(1999, 12) < ym(2000, 9));
-    }
-}
-
 fn write_bytes_with_size_header<T: Write>(writer: &mut T, buf: &[u8]) -> Result<()> {
     writer.write_all(&(buf.len() as u64).encode_var_vec())?;
     writer.write_all(buf)?;
@@ -248,4 +235,17 @@ pub fn export_as_mldx<T: Write + Seek>(
 
     zip.finish()?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::archive::YearMonth;
+
+    #[test]
+    fn order() {
+        let ym = |year, month| YearMonth { year, month };
+        assert_eq!(ym(2000, 10), ym(2000, 10));
+        assert!(ym(2000, 10) > ym(2000, 9));
+        assert!(ym(1999, 12) < ym(2000, 9));
+    }
 }
