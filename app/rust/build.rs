@@ -35,11 +35,11 @@ fn setup_x86_64_android_workaround() {
     }
 }
 
-fn check_and_create_file(file_path: &str, warning_message: &str) {
+fn check_and_create_file(file_path: &str, warning_message: &str, content: &str) {
     println!("cargo:rerun-if-changed={}", file_path);
     if fs::metadata(file_path).is_err() {
         let mut file = fs::File::create(file_path).unwrap();
-        file.write_all(b"\n")
+        file.write_all(content.as_bytes())
             .expect("failed to write to dummy file");
 
         file.flush().expect("failed to flush dummy file");
@@ -139,7 +139,8 @@ fn main() {
     // Check and create necessary dependency files
     check_and_create_file(
         "src/frb_generated.rs",
-        "`frb_generated.rs` is not found, generating a dummy file. If you are working on flutter, you need to run `flutter_rust_bridge_codegen generate` to get a real one."
+        "`frb_generated.rs` is not found, generating a dummy file. If you are working on flutter, you need to run `flutter_rust_bridge_codegen generate` to get a real one.",
+        "pub struct StreamSink<T> { _phantom: std::marker::PhantomData<T> }\nimpl<T> StreamSink<T> {\n    pub fn add(&mut self, _message: T) -> Result<(), ()> {\n        Ok(())\n    }\n}"
     );
 
     // List of files to be embedded (wildcards need to be expanded manually)

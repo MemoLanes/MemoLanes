@@ -13,16 +13,10 @@ fn basic() {
     let end_lat = -33.943600147192235;
     journey_bitmap.add_line(start_lng, start_lat, end_lng, end_lat);
 
-    let mut map_renderer = MapRenderer::new(journey_bitmap);
+    let map_renderer = MapRenderer::new(journey_bitmap);
 
-    let render_result = test_utils::render_map_overlay(
-        &mut map_renderer,
-        11,
-        start_lng,
-        start_lat,
-        end_lng,
-        end_lat,
-    );
+    let render_result =
+        test_utils::render_map_overlay(&map_renderer, 11, start_lng, start_lat, end_lng, end_lat);
     assert_f64_near!(render_result.left, 150.8203125);
     assert_f64_near!(render_result.top, -33.578014746143985);
     assert_f64_near!(render_result.right, 151.5234375);

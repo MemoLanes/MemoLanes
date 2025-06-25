@@ -1,4 +1,3 @@
-use ctrlc;
 use memolanes_core::api::api::{get_map_renderer_proxy_for_main_map, import_archive, init};
 use std::env;
 
