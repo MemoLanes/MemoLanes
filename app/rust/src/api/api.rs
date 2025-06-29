@@ -216,14 +216,10 @@ pub(crate) fn get_default_camera_option_from_journey_bitmap(
         })
 }
 
-pub fn get_map_renderer_proxy_for_journey(
-    journey_id: &str,
+fn get_map_renderer_proxy_for_journey_data_internal(
+    state: &'static MainState,
+    journey_data: JourneyData,
 ) -> Result<(MapRendererProxy, Option<CameraOption>)> {
-    let state = get();
-    let journey_data = state
-        .storage
-        .with_db_txn(|txn| txn.get_journey_data(journey_id))?;
-
     let journey_bitmap = match journey_data {
         JourneyData::Bitmap(bitmap) => bitmap,
         JourneyData::Vector(vector) => {
@@ -239,6 +235,25 @@ pub fn get_map_renderer_proxy_for_journey(
     let mut server = state.map_server.lock().unwrap();
     let token = server.register_map_renderer(Arc::new(Mutex::new(map_renderer)));
     Ok((MapRendererProxy::Token(token), default_camera_option))
+}
+
+pub fn get_map_renderer_proxy_for_journey(
+    journey_id: &str,
+) -> Result<(MapRendererProxy, Option<CameraOption>)> {
+    let state = get();
+    let journey_data = state
+        .storage
+        .with_db_txn(|txn| txn.get_journey_data(journey_id))?;
+    get_map_renderer_proxy_for_journey_data_internal(state, journey_data)
+}
+
+pub fn get_map_renderer_proxy_for_journey_data(
+    journey_data: &JourneyData,
+) -> Result<(MapRendererProxy, Option<CameraOption>)> {
+    let state = get();
+    // TODO: the clone here is not ideal, we should redesign the interface,
+    // maybe consider Arc.
+    get_map_renderer_proxy_for_journey_data_internal(state, journey_data.clone())
 }
 
 pub fn on_location_update(

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:fpdart/fpdart.dart' as f;
 import 'package:memolanes/journey_edit.dart';
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
+import 'package:memolanes/src/rust/journey_data.dart';
 
 class ImportDataPage extends StatefulWidget {
   const ImportDataPage(
@@ -18,8 +20,7 @@ enum ImportType { fow, gpxOrKml }
 
 class _ImportDataPage extends State<ImportDataPage> {
   import_api.JourneyInfo? journeyInfo;
-  import_api.RawBitmapData? rawBitmapData;
-  import_api.RawVectorData? rawVectorData;
+  f.Either<JourneyData, import_api.RawVectorData>? journeyDataMaybeRaw;
 
   @override
   void initState() {
@@ -31,11 +32,11 @@ class _ImportDataPage extends State<ImportDataPage> {
     try {
       switch (widget.importType) {
         case ImportType.fow:
-          var (journeyInfo, rawBitmapData) =
+          var (journeyInfo, journeyData) =
               await import_api.loadFowSyncData(filePath: path);
           setState(() {
             this.journeyInfo = journeyInfo;
-            this.rawBitmapData = rawBitmapData;
+            journeyDataMaybeRaw = f.Either.left(journeyData);
           });
           break;
         case ImportType.gpxOrKml:
@@ -43,7 +44,7 @@ class _ImportDataPage extends State<ImportDataPage> {
               await import_api.loadGpxOrKml(filePath: path);
           setState(() {
             this.journeyInfo = journeyInfo;
-            this.rawVectorData = rawVectorData;
+            journeyDataMaybeRaw = f.Either.right(rawVectorData);
           });
           break;
       }
@@ -54,20 +55,21 @@ class _ImportDataPage extends State<ImportDataPage> {
   }
 
   _saveData(import_api.JourneyInfo journeyInfo, bool runPreprocessor) async {
-    if (rawVectorData == null && rawBitmapData == null) {
+    final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
+    if (journeyDataMaybeRaw == null) {
       Fluttertoast.showToast(msg: "JourneyData is empty");
       return;
     }
 
-    if (rawVectorData != null) {
-      await import_api.importVector(
-          journeyInfo: journeyInfo,
-          vectorData: rawVectorData!,
-          runPreprocessor: runPreprocessor);
-    } else if (rawBitmapData != null) {
-      await import_api.importBitmap(
-          journeyInfo: journeyInfo, bitmapData: rawBitmapData!);
-    }
+    final journeyData = switch (journeyDataMaybeRaw) {
+      f.Left(value: final l) => l,
+      f.Right(value: final r) => await import_api.processVectorData(
+          vectorData: r, runPreprocessor: runPreprocessor),
+    };
+
+    await import_api.importJourneyData(
+        journeyInfo: journeyInfo, journeyData: journeyData);
+
     Fluttertoast.showToast(msg: "Import successful");
   }
 
