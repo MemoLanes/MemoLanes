@@ -23,7 +23,7 @@ use crate::{journey_bitmap::JourneyBitmap, journey_data, journey_header::Journey
 // TODO: we should consider using transaction to get better error handling behavior
 
 fn open_db(cache_dir: &str, file_name: &str) -> Result<Connection> {
-    debug!("opening cache db for {}", file_name);
+    debug!("opening cache db for {file_name}");
     let mut conn = Connection::open(Path::new(cache_dir).join(file_name))?;
 
     let tx = conn.transaction()?;
@@ -31,8 +31,7 @@ fn open_db(cache_dir: &str, file_name: &str) -> Result<Connection> {
 
     let target_version = 1;
     debug!(
-        "current version = {}, target_version = {}",
-        version, target_version
+        "current version = {version}, target_version = {target_version}"
     );
     match version.cmp(&target_version) {
         Ordering::Equal => (),

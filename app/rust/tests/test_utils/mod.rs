@@ -59,24 +59,23 @@ pub fn verify_image(name: &str, image: &Vec<u8>) {
         // Entry exists, compare hashes
         assert_eq!(
             &current_hash, stored_hash,
-            "Image hash mismatch for {}. Expected: {}, Got: {}. If you have updated the image, please delete the image_hashes.lock file and re-run the tests.",
-            name, stored_hash, current_hash
+            "Image hash mismatch for {name}. Expected: {stored_hash}, Got: {current_hash}. If you have updated the image, please delete the image_hashes.lock file and re-run the tests."
         );
-        println!("Verified image hash for: {}", name);
+        println!("Verified image hash for: {name}");
     } else {
         // No entry exists, add new entry
         hash_table.insert(name.to_string(), current_hash.clone());
         let hash_table_content =
             serde_json::to_string_pretty(&hash_table).expect("Failed to serialize hash table");
         fs::write(hash_table_path, hash_table_content).expect("Failed to write hash table file");
-        println!("Added new hash entry for: {}", name);
+        println!("Added new hash entry for: {name}");
     }
 
     // Always save the image file
-    let output_path = format!("tests/for_inspection/{}.png", name);
+    let output_path = format!("tests/for_inspection/{name}.png");
     let mut file = File::create(&output_path).expect("Failed to create file");
     file.write_all(image).expect("Failed to write to file");
-    println!("Saved image file: {}", output_path);
+    println!("Saved image file: {output_path}");
 }
 
 pub fn render_map_overlay(

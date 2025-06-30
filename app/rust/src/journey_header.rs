@@ -81,8 +81,7 @@ impl JourneyKind {
         if proto.has_custom_kind() {
             let custom_kind = proto.custom_kind();
             panic!(
-                "custom journkey kind is not supported, custom_kind = {}",
-                custom_kind
+                "custom journkey kind is not supported, custom_kind = {custom_kind}"
             )
         }
         match proto.build_in() {

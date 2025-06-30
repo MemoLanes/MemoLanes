@@ -38,15 +38,14 @@ fn open_db_and_run_migration(
     file_name: &str,
     migrations: &[&dyn Fn(&Transaction) -> Result<()>],
 ) -> Result<Connection> {
-    debug!("open and run migration for {}", file_name);
+    debug!("open and run migration for {file_name}");
     let mut conn = rusqlite::Connection::open(Path::new(support_dir).join(file_name))?;
     let tx = conn.transaction()?;
 
     let version = utils::db::init_metadata_and_get_version(&tx)? as usize;
     let target_version = migrations.len();
     debug!(
-        "current version = {}, target_version = {}",
-        version, target_version
+        "current version = {version}, target_version = {target_version}"
     );
     match version.cmp(&target_version) {
         Ordering::Equal => (),
@@ -141,7 +140,7 @@ impl Txn<'_> {
     }
 
     pub fn delete_journey(&mut self, id: &str) -> Result<()> {
-        info!("Deleting journey: id={}", id);
+        info!("Deleting journey: id={id}");
         let changes = self
             .db_txn
             .execute("DELETE FROM journey WHERE id = ?1;", (id,))?;
@@ -178,8 +177,7 @@ impl Txn<'_> {
             }
             None => {
                 info!(
-                    "No existing journey found for id={}, proceed to insert new journey",
-                    id
+                    "No existing journey found for id={id}, proceed to insert new journey"
                 );
             }
         }
@@ -367,8 +365,7 @@ impl Txn<'_> {
         )?;
 
         info!(
-            "Ongoing journey finalized: new_journey_added={}",
-            new_journey_added
+            "Ongoing journey finalized: new_journey_added={new_journey_added}"
         );
         Ok(new_journey_added)
     }
@@ -465,7 +462,7 @@ impl Txn<'_> {
             .db_txn
             .prepare("SELECT DISTINCT CAST(strftime('%m', journey_date*24*60*60, 'unixepoch') as INTEGER) FROM journey WHERE strftime('%Y', journey_date*24*60*60, 'unixepoch') = ?1 ORDER BY journey_date;")?;
         let mut months: Vec<i32> = Vec::new();
-        for row in query.query_map((format!("{:04}", year),), |row| row.get(0))? {
+        for row in query.query_map((format!("{year:04}"),), |row| row.get(0))? {
             months.push(row?);
         }
         Ok(months)
@@ -476,7 +473,7 @@ impl Txn<'_> {
             .db_txn
             .prepare("SELECT DISTINCT CAST(strftime('%d', journey_date*24*60*60, 'unixepoch') as INTEGER) FROM journey WHERE strftime('%Y-%m', journey_date*24*60*60, 'unixepoch') = ?1 ORDER BY journey_date;")?;
         let mut days: Vec<i32> = Vec::new();
-        for row in query.query_map((format!("{:04}-{:02}", year, month),), |row| row.get(0))? {
+        for row in query.query_map((format!("{year:04}-{month:02}"),), |row| row.get(0))? {
             days.push(row?);
         }
         Ok(days)
@@ -509,8 +506,7 @@ impl Txn<'_> {
                 let try_finalize = (now.timestamp() - end.timestamp()) / 60 >= required_gap_mins;
 
                 info!(
-                    "Auto finalize ongoing journey: start={}, end={}, now={}, try_finalize={}",
-                    start, end, now, try_finalize
+                    "Auto finalize ongoing journey: start={start}, end={end}, now={now}, try_finalize={try_finalize}"
                 );
                 if try_finalize {
                     self.finalize_ongoing_journey()
@@ -704,8 +700,7 @@ impl MainDb {
             Ok(v) => v,
             Err(error) => {
                 warn!(
-                    "[main_db.get_setting_with_default] setting:{:?}, error:{}",
-                    setting, error
+                    "[main_db.get_setting_with_default] setting:{setting:?}, error:{error}"
                 );
                 None
             }
