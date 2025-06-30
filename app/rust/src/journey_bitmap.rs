@@ -349,7 +349,6 @@ impl Tile {
         let mut p = p;
         let mut x = x;
         let mut y = y;
-        //TODO 反算经纬度，然后 计算线宽
 
         if xaxis {
             // Rasterize the line
@@ -368,7 +367,6 @@ impl Tile {
                 let block = &mut self.blocks[block_key.index()]
                     .get_or_insert_with(|| Box::new(Block::new()));
 
-                //封装不变的话，这三个值我还是得想办法返回的
                 (x, y, p) = block.add_line(
                     x - (block_x << BITMAP_WIDTH_OFFSET),
                     y - (block_y << BITMAP_WIDTH_OFFSET),
@@ -380,12 +378,10 @@ impl Tile {
                     quadrants13,
                     width,
                 );
-                // 这些玩意儿怎么改哦？？？？
+
                 x += block_x << BITMAP_WIDTH_OFFSET;
                 y += block_y << BITMAP_WIDTH_OFFSET;
 
-                //e作为终点坐标 退出条件 只要x触及到了e 就退出
-                //说起来 那怎么实现的跨过±180的啊？回头看看
                 if x >= e {
                     break;
                 }
@@ -527,7 +523,7 @@ impl Block {
         }
     }
 
-    // x ∈ [0,7], y ∈ [0，7]
+    // x ∈ [0,63], y ∈ [0，63]
     fn set_point(&mut self, x: u8, y: u8, val: bool) {
         if x > 63 || y > 63 {
             return;
