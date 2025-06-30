@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'component/common_dialog.dart';
 import 'component/common_export.dart';
@@ -89,10 +88,8 @@ Future<T> showLoadingDialog<T>({
   );
   T result;
   try {
-    await WakelockPlus.enable();
     result = await asyncTask;
   } finally {
-    await WakelockPlus.disable();
     if (context.mounted) {
       Navigator.of(context).pop();
     }
