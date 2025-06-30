@@ -47,6 +47,8 @@ impl JourneyBitmap {
     ) where
         F: FnMut((u16, u16)),
     {
+        use std::f64::consts::PI;
+
         let (mut x0, y0) = utils::lng_lat_to_tile_x_y(
             start_lng,
             start_lat,
@@ -74,6 +76,7 @@ impl JourneyBitmap {
         // Calculate error intervals for both axis
         let mut px = 2 * dy0 - dx0;
         let mut py = 2 * dx0 - dy0;
+
         // The line is X-axis dominant or only in one tile
         if dy0 <= dx0 {
             let (mut x, mut y, xe) = if dx >= 0 {
@@ -86,6 +89,14 @@ impl JourneyBitmap {
             loop {
                 // tile_x is not rounded, it may exceed the antimeridian
                 let (tile_x, tile_y) = (x >> ALL_OFFSET, y >> ALL_OFFSET);
+                let (_, tile_lat) = utils::tile_x_y_to_lng_lat(
+                    x as i32,
+                    y as i32,
+                    (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32,
+                );
+                let latirad = tile_lat * PI / 180.0;
+                let width: u8 = (1.0 / latirad.cos()).round() as u8;
+
                 let tile_pos = ((tile_x % MAP_WIDTH) as u16, tile_y as u16);
                 let tile = self.tiles.entry(tile_pos).or_default();
                 (x, y, px) = tile.add_line(
@@ -97,6 +108,7 @@ impl JourneyBitmap {
                     dy0,
                     true,
                     (dx < 0 && dy < 0) || (dx > 0 && dy > 0),
+                    width,
                 );
                 // TODO: We might want to check if the tile is actually changed
                 tile_changed(tile_pos);
@@ -120,6 +132,13 @@ impl JourneyBitmap {
             loop {
                 // tile_x is not rounded, it may exceed the antimeridian
                 let (tile_x, tile_y) = (x >> ALL_OFFSET, y >> ALL_OFFSET);
+                let (_, tile_lat) = utils::tile_x_y_to_lng_lat(
+                    x as i32,
+                    y as i32,
+                    (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32,
+                );
+                let latirad = tile_lat * PI / 180.0;
+                let width: u8 = (1.0 / latirad.cos()).round() as u8;
                 let tile_pos = ((tile_x % MAP_WIDTH) as u16, tile_y as u16);
                 let tile = self.tiles.entry(tile_pos).or_default();
                 (x, y, py) = tile.add_line(
@@ -131,6 +150,7 @@ impl JourneyBitmap {
                     dy0,
                     false,
                     (dx < 0 && dy < 0) || (dx > 0 && dy > 0),
+                    width,
                 );
                 // TODO: We might want to check if the tile is actually changed
                 tile_changed(tile_pos);
@@ -324,10 +344,13 @@ impl Tile {
         dy0: i64,
         xaxis: bool,
         quadrants13: bool,
+        width: u8,
     ) -> (i64, i64, i64) {
         let mut p = p;
         let mut x = x;
         let mut y = y;
+        //TODO 反算经纬度，然后 计算线宽
+
         if xaxis {
             // Rasterize the line
             loop {
@@ -345,6 +368,7 @@ impl Tile {
                 let block = &mut self.blocks[block_key.index()]
                     .get_or_insert_with(|| Box::new(Block::new()));
 
+                //封装不变的话，这三个值我还是得想办法返回的
                 (x, y, p) = block.add_line(
                     x - (block_x << BITMAP_WIDTH_OFFSET),
                     y - (block_y << BITMAP_WIDTH_OFFSET),
@@ -354,11 +378,14 @@ impl Tile {
                     dy0,
                     xaxis,
                     quadrants13,
+                    width,
                 );
-
+                // 这些玩意儿怎么改哦？？？？
                 x += block_x << BITMAP_WIDTH_OFFSET;
                 y += block_y << BITMAP_WIDTH_OFFSET;
 
+                //e作为终点坐标 退出条件 只要x触及到了e 就退出
+                //说起来 那怎么实现的跨过±180的啊？回头看看
                 if x >= e {
                     break;
                 }
@@ -389,6 +416,7 @@ impl Tile {
                     dy0,
                     xaxis,
                     quadrants13,
+                    width,
                 );
 
                 x += block_x << BITMAP_WIDTH_OFFSET;
@@ -444,7 +472,66 @@ impl Block {
         (self.data[i + j * 8] & (1 << bit_offset)) != 0
     }
 
+    fn draw_width_x(&mut self, x: u8, y: u8, w: u8, even_draw_flag: bool) {
+        let mut delta_st: u8 = w / 2;
+        let mut delta_ed: u8 = w / 2;
+        let even_flag = w % 2 == 0;
+        if even_flag {
+            if even_draw_flag {
+                delta_st = delta_st - 1;
+            } else {
+                delta_ed = delta_ed - 1;
+            }
+        }
+        let y_st: u8 = y.checked_sub(delta_st).unwrap_or(0);
+        let y_ed: u8 = y + delta_ed;
+
+        for y_index in y_st..=y_ed {
+            self.set_point(x as u8, y_index as u8, true);
+        }
+    }
+
+    fn draw_width_y(&mut self, x: u8, y: u8, w: u8, even_draw_flag: bool) {
+        let mut delta_st: u8 = w / 2;
+        let mut delta_ed: u8 = w / 2;
+        let even_flag = w % 2 == 0;
+        if even_flag {
+            if even_draw_flag {
+                delta_st = delta_st - 1;
+            } else {
+                delta_ed = delta_ed - 1;
+            }
+        }
+        let x_st: u8 = x.checked_sub(delta_st).unwrap_or(0);
+        let x_ed: u8 = x + delta_ed;
+        for x_index in x_st..=x_ed {
+            self.set_point(x_index as u8, y as u8, true);
+        }
+    }
+
+    fn draw_width_point(&mut self, x: u8, y: u8, w: u8) {
+        let delta_st: u8 = w / 2;
+        let mut delta_ed: u8 = w / 2;
+        let even_flag = w % 2 == 0;
+        if even_flag {
+            delta_ed = delta_ed - 1;
+        }
+        let x_st: u8 = x.checked_sub(delta_st).unwrap_or(0);
+        let x_ed: u8 = x + delta_ed;
+        let y_st: u8 = y.checked_sub(delta_st).unwrap_or(0);
+        let y_ed: u8 = y + delta_ed;
+        for x_index in x_st..=x_ed {
+            for y_index in y_st..=y_ed {
+                self.set_point(x_index as u8, y_index as u8, true);
+            }
+        }
+    }
+
+    // x ∈ [0,7], y ∈ [0，7]
     fn set_point(&mut self, x: u8, y: u8, val: bool) {
+        if x > 63 || y > 63 {
+            return;
+        }
         let bit_offset = 7 - (x % 8);
         let i = (x / 8) as usize;
         let j = (y) as usize;
@@ -465,12 +552,13 @@ impl Block {
         dy0: i64,
         xaxis: bool,
         quadrants13: bool,
+        width: u8,
     ) -> (i64, i64, i64) {
         // Draw the first pixel
         let mut p = p;
         let mut x = x;
         let mut y = y;
-        self.set_point(x as u8, y as u8, true);
+        self.draw_width_point(x as u8, y as u8, width);
         if xaxis {
             // Rasterize the line
             while x < e {
@@ -490,9 +578,15 @@ impl Block {
                 if x >= BITMAP_WIDTH || !(0..BITMAP_WIDTH).contains(&y) {
                     break;
                 }
+
+                let mut draw_flag: bool = p < (-dx0);
+                if quadrants13 {
+                    draw_flag = !draw_flag;
+                }
+
                 // Draw pixel from line span at
                 // currently rasterized position
-                self.set_point(x as u8, y as u8, true);
+                self.draw_width_x(x as u8, y as u8, width, draw_flag);
             }
         } else {
             // The line is Y-axis dominant
@@ -514,9 +608,14 @@ impl Block {
                 if y >= BITMAP_WIDTH || !(0..BITMAP_WIDTH).contains(&x) {
                     break;
                 }
+
+                let mut draw_flag: bool = p < (-dy0);
+                if quadrants13 {
+                    draw_flag = !draw_flag;
+                }
                 // Draw pixel from line span at
                 // currently rasterized position
-                self.set_point(x as u8, y as u8, true);
+                self.draw_width_y(x as u8, y as u8, width, draw_flag);
             }
         }
         (x, y, p)
