@@ -44,9 +44,7 @@ fn open_db_and_run_migration(
 
     let version = utils::db::init_metadata_and_get_version(&tx)? as usize;
     let target_version = migrations.len();
-    debug!(
-        "current version = {version}, target_version = {target_version}"
-    );
+    debug!("current version = {version}, target_version = {target_version}");
     match version.cmp(&target_version) {
         Ordering::Equal => (),
         Ordering::Less => {
@@ -176,9 +174,7 @@ impl Txn<'_> {
                 }
             }
             None => {
-                info!(
-                    "No existing journey found for id={id}, proceed to insert new journey"
-                );
+                info!("No existing journey found for id={id}, proceed to insert new journey");
             }
         }
 
@@ -364,9 +360,7 @@ impl Txn<'_> {
             (),
         )?;
 
-        info!(
-            "Ongoing journey finalized: new_journey_added={new_journey_added}"
-        );
+        info!("Ongoing journey finalized: new_journey_added={new_journey_added}");
         Ok(new_journey_added)
     }
 
@@ -699,9 +693,7 @@ impl MainDb {
         match self.get_setting(setting) {
             Ok(v) => v,
             Err(error) => {
-                warn!(
-                    "[main_db.get_setting_with_default] setting:{setting:?}, error:{error}"
-                );
+                warn!("[main_db.get_setting_with_default] setting:{setting:?}, error:{error}");
                 None
             }
         }

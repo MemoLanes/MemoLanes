@@ -30,9 +30,7 @@ fn open_db(cache_dir: &str, file_name: &str) -> Result<Connection> {
     let version = utils::db::init_metadata_and_get_version(&tx)?;
 
     let target_version = 1;
-    debug!(
-        "current version = {version}, target_version = {target_version}"
-    );
+    debug!("current version = {version}, target_version = {target_version}");
     match version.cmp(&target_version) {
         Ordering::Equal => (),
         Ordering::Greater => {

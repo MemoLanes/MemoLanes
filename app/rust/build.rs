@@ -61,8 +61,7 @@ fn check_and_copy_yarn_file(src_path: &str, out_base_dir: &Path) {
 
     // Dynamically handle the file: copy if it exists, create an empty file if it doesn't
     if src.exists() {
-        fs::copy(src, &dest)
-            .unwrap_or_else(|_| panic!("Failed to copy file: {src:?} → {dest:?}"));
+        fs::copy(src, &dest).unwrap_or_else(|_| panic!("Failed to copy file: {src:?} → {dest:?}"));
     } else {
         fs::write(&dest, "").unwrap_or_else(|_| panic!("Failed to create empty file: {dest:?}"));
     }
