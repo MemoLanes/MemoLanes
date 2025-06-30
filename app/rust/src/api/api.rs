@@ -81,7 +81,7 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
             let layer_kind = main_map_layer_kind_copy.lock().unwrap();
             match storage.get_latest_bitmap_for_main_map_renderer(&layer_kind) {
                 Err(e) => {
-                    error!("Failed to get latest bitmap for main map renderer: {:?}", e);
+                    error!("Failed to get latest bitmap for main map renderer: {e:?}");
                 }
                 Ok(journey_bitmap) => {
                     map_renderer.replace(journey_bitmap);

@@ -132,7 +132,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                         if let Ok(mut server) = server_clone.lock() {
                             println!("Stopping server...");
                             if let Err(e) = server.stop() {
-                                println!("Error stopping server: {}", e);
+                                println!("Error stopping server: {e}");
                                 enable_raw_mode().expect("Failed to re-enable raw mode");
                                 continue;
                             }
@@ -140,7 +140,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                             std::thread::sleep(Duration::from_secs(5));
                             println!("Restarting server...");
                             if let Err(e) = server.restart() {
-                                println!("Error restarting server: {}", e);
+                                println!("Error restarting server: {e}");
                             } else {
                                 println!("Server restarted successfully!");
                             }
