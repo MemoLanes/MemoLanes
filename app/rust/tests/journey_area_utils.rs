@@ -34,8 +34,8 @@ fn partial_update_use_cached_and_recompute_touched_tiles_only() {
     full_journey_bitmap.add_line(START_LNG, END_LAT, END_LNG, START_LAT);
     let full_area = journey_area_utils::compute_journey_bitmap_area(&full_journey_bitmap, None);
 
-    println!("update_area = {}", update_area);
-    println!("full_area = {}", full_area);
+    println!("update_area = {update_area}");
+    println!("full_area = {full_area}");
     assert_eq!(
         update_area, full_area,
         "updated area after partial-update must match a full compute"
