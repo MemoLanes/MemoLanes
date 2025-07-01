@@ -289,13 +289,13 @@ pub fn journey_vector_from_raw_data(
     raw_data: &Vec<Vec<RawData>>,
     run_preprocessor: bool,
 ) -> Option<JourneyVector> {
-    let processed_data = raw_data.into_iter().flat_map(move |x| {
+    let processed_data = raw_data.iter().flat_map(move |x| {
         // we handle each segment separately
         let mut gps_preprocessor = GpsPreprocessor::new();
         let mut first = true;
-        x.into_iter().map(move |raw_data| {
+        x.iter().map(move |raw_data| {
             let process_result = if run_preprocessor {
-                gps_preprocessor.preprocess(&raw_data)
+                gps_preprocessor.preprocess(raw_data)
             } else if first {
                 first = false;
                 ProcessResult::NewSegment
