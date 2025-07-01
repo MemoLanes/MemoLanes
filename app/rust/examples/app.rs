@@ -14,10 +14,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Check if an MLDX file path is provided as an argument
     if args.len() > 1 {
         let mldx_file_path = &args[1];
-        println!("Importing MLDX file: {}", mldx_file_path);
+        println!("Importing MLDX file: {mldx_file_path}");
         match import_archive(mldx_file_path.to_string()) {
             Ok(_) => println!("Successfully imported MLDX file"),
-            Err(e) => eprintln!("Failed to import MLDX file: {:?}", e),
+            Err(e) => eprintln!("Failed to import MLDX file: {e:?}"),
         }
         return Ok(());
     }
