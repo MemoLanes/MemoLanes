@@ -150,7 +150,7 @@ fn run_though_test_data(name: &str) -> HashMap<ProcessResult, i32> {
     }
 
     if GENERATE_RESULT_GPX_FOR_INSPECTION {
-        let journey_vector = import_data::journey_vector_from_raw_data(loaded_data, true).unwrap();
+        let journey_vector = import_data::journey_vector_from_raw_data(&loaded_data, true).unwrap();
 
         let mut file = File::create(format!(
             "./tests/for_inspection/gps_preprocessor_run_though_test_data_{}.gpx",
