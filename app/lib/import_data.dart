@@ -70,20 +70,18 @@ class _ImportDataPage extends State<ImportDataPage> {
       f.Right(value: final r) => await import_api.processVectorData(
           vectorData: r, runPreprocessor: runPreprocessor),
     };
-    api
-        .getMapRendererProxyForJourneyData(journeyData: journeyData)
-        .then((mapRendererProxyAndCameraOption) {
-      setState(() {
-        _mapRendererProxy = mapRendererProxyAndCameraOption.$1;
-        final cameraOption = mapRendererProxyAndCameraOption.$2;
-        if (cameraOption != null) {
-          _initialMapView = (
-            lng: cameraOption.lng,
-            lat: cameraOption.lat,
-            zoom: cameraOption.zoom,
-          );
-        }
-      });
+    final mapRendererProxyAndCameraOption =
+        await api.getMapRendererProxyForJourneyData(journeyData: journeyData);
+    setState(() {
+      _mapRendererProxy = mapRendererProxyAndCameraOption.$1;
+      final cameraOption = mapRendererProxyAndCameraOption.$2;
+      if (cameraOption != null) {
+        _initialMapView = (
+          lng: cameraOption.lng,
+          lat: cameraOption.lat,
+          zoom: cameraOption.zoom,
+        );
+      }
     });
   }
 
