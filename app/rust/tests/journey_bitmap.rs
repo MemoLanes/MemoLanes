@@ -229,3 +229,35 @@ fn draw_single_point() {
         68
     );
 }
+
+#[test]
+fn draw_line_with_width2() {
+    let mut journey_bitmap = JourneyBitmap::new();
+
+    journey_bitmap.add_line(120.0, 60.0, 120.0, 60.005);
+    journey_bitmap.add_line(120.0, 60.005, 120.01, 60.01);
+    journey_bitmap.add_line(120.01, 60.01, 120.0, 60.0);
+    journey_bitmap.add_line(120.0, 60.0, 120.005, 60.0);
+
+    let map_renderer = MapRenderer::new(journey_bitmap);
+
+    let render_result =
+        test_utils::render_map_overlay(&map_renderer, 13, 120.0, 60.01, 120.01, 60.0);
+    test_utils::verify_image("draw_line_with_width2", &render_result.data);
+}
+
+#[test]
+fn draw_line_with_width3() {
+    let mut journey_bitmap = JourneyBitmap::new();
+
+    journey_bitmap.add_line(120.0, 70.0, 120.0, 70.005);
+    journey_bitmap.add_line(120.0, 70.005, 120.01, 70.01);
+    journey_bitmap.add_line(120.01, 70.01, 120.0, 70.0);
+    journey_bitmap.add_line(120.0, 70.0, 120.005, 70.0);
+
+    let map_renderer = MapRenderer::new(journey_bitmap);
+
+    let render_result =
+        test_utils::render_map_overlay(&map_renderer, 13, 120.0, 70.01, 120.01, 70.0);
+    test_utils::verify_image("draw_line_with_width3", &render_result.data);
+}
