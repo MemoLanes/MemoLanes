@@ -471,54 +471,51 @@ impl Block {
     fn draw_width_x(&mut self, x: u8, y: u8, w: u8, even_draw_flag: bool) {
         let mut delta_st: u8 = w / 2;
         let mut delta_ed: u8 = w / 2;
-        let even_flag = w % 2 == 0;
-        if even_flag {
+        if w % 2 == 0 {
             if even_draw_flag {
-                delta_st = delta_st - 1;
+                delta_st -= 1;
             } else {
-                delta_ed = delta_ed - 1;
+                delta_ed -= 1;
             }
         }
-        let y_st: u8 = y.checked_sub(delta_st).unwrap_or(0);
+        let y_st: u8 = y.saturating_sub(delta_st);
         let y_ed: u8 = y + delta_ed;
 
         for y_index in y_st..=y_ed {
-            self.set_point(x as u8, y_index as u8, true);
+            self.set_point(x, y_index, true);
         }
     }
 
     fn draw_width_y(&mut self, x: u8, y: u8, w: u8, even_draw_flag: bool) {
         let mut delta_st: u8 = w / 2;
         let mut delta_ed: u8 = w / 2;
-        let even_flag = w % 2 == 0;
-        if even_flag {
+        if w % 2 == 0 {
             if even_draw_flag {
-                delta_st = delta_st - 1;
+                delta_st -= 1;
             } else {
-                delta_ed = delta_ed - 1;
+                delta_ed -= 1;
             }
         }
-        let x_st: u8 = x.checked_sub(delta_st).unwrap_or(0);
+        let x_st: u8 = x.saturating_sub(delta_st);
         let x_ed: u8 = x + delta_ed;
         for x_index in x_st..=x_ed {
-            self.set_point(x_index as u8, y as u8, true);
+            self.set_point(x_index, y, true);
         }
     }
 
     fn draw_width_point(&mut self, x: u8, y: u8, w: u8) {
         let delta_st: u8 = w / 2;
         let mut delta_ed: u8 = w / 2;
-        let even_flag = w % 2 == 0;
-        if even_flag {
-            delta_ed = delta_ed - 1;
+        if w % 2 == 0 {
+            delta_ed -= 1;
         }
-        let x_st: u8 = x.checked_sub(delta_st).unwrap_or(0);
+        let x_st: u8 = x.saturating_sub(delta_st);
         let x_ed: u8 = x + delta_ed;
-        let y_st: u8 = y.checked_sub(delta_st).unwrap_or(0);
+        let y_st: u8 = y.saturating_sub(delta_st);
         let y_ed: u8 = y + delta_ed;
         for x_index in x_st..=x_ed {
             for y_index in y_st..=y_ed {
-                self.set_point(x_index as u8, y_index as u8, true);
+                self.set_point(x_index, y_index, true);
             }
         }
     }
