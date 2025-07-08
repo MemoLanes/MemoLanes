@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:fpdart/fpdart.dart' as f;
+import 'package:memolanes/component/base_map_webview.dart';
 import 'package:memolanes/journey_edit.dart';
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
+import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/journey_data.dart';
 
 class ImportDataPage extends StatefulWidget {
@@ -21,6 +23,8 @@ enum ImportType { fow, gpxOrKml }
 class _ImportDataPage extends State<ImportDataPage> {
   import_api.JourneyInfo? journeyInfo;
   f.Either<JourneyData, import_api.RawVectorData>? journeyDataMaybeRaw;
+  api.MapRendererProxy? _mapRendererProxy;
+  MapView? _initialMapView;
 
   @override
   void initState() {
@@ -54,6 +58,33 @@ class _ImportDataPage extends State<ImportDataPage> {
     }
   }
 
+  _previewData(bool runPreprocessor) async {
+    final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
+    if (journeyDataMaybeRaw == null) {
+      Fluttertoast.showToast(msg: "JourneyData is empty");
+      return;
+    }
+
+    final journeyData = switch (journeyDataMaybeRaw) {
+      f.Left(value: final l) => l,
+      f.Right(value: final r) => await import_api.processVectorData(
+          vectorData: r, runPreprocessor: runPreprocessor),
+    };
+    final mapRendererProxyAndCameraOption =
+        await api.getMapRendererProxyForJourneyData(journeyData: journeyData);
+    setState(() {
+      _mapRendererProxy = mapRendererProxyAndCameraOption.$1;
+      final cameraOption = mapRendererProxyAndCameraOption.$2;
+      if (cameraOption != null) {
+        _initialMapView = (
+          lng: cameraOption.lng,
+          lat: cameraOption.lat,
+          zoom: cameraOption.zoom,
+        );
+      }
+    });
+  }
+
   _saveData(import_api.JourneyInfo journeyInfo, bool runPreprocessor) async {
     final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
     if (journeyDataMaybeRaw == null) {
@@ -76,30 +107,50 @@ class _ImportDataPage extends State<ImportDataPage> {
   @override
   Widget build(BuildContext context) {
     var journeyInfo = this.journeyInfo;
+    final mapRendererProxy = _mapRendererProxy;
     return Scaffold(
       appBar: AppBar(
         title: const Text("Import Data"),
       ),
       body: Center(
-        child: journeyInfo == null
-            ? const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    "Reading data, please wait",
-                    style: TextStyle(fontSize: 22.0),
-                  ),
-                  CircularProgressIndicator()
-                ],
-              )
-            : JourneyInfoEditor(
-                startTime: journeyInfo.startTime,
-                endTime: journeyInfo.endTime,
-                journeyDate: journeyInfo.journeyDate,
-                note: journeyInfo.note,
-                saveData: _saveData,
-                importType: widget.importType,
-              ),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16.0, 0, 16.0, 16.0),
+          child: journeyInfo == null
+              ? const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      "Reading data, please wait",
+                      style: TextStyle(fontSize: 22.0),
+                    ),
+                    CircularProgressIndicator()
+                  ],
+                )
+              : Column(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: mapRendererProxy == null
+                          ? (const CircularProgressIndicator())
+                          : (BaseMapWebview(
+                              // key: const ValueKey("mapWidget"),
+                              mapRendererProxy: mapRendererProxy,
+                              initialMapView: _initialMapView,
+                            )),
+                    ),
+                    SizedBox(height: 16.0),
+                    JourneyInfoEditor(
+                      startTime: journeyInfo.startTime,
+                      endTime: journeyInfo.endTime,
+                      journeyDate: journeyInfo.journeyDate,
+                      note: journeyInfo.note,
+                      saveData: _saveData,
+                      previewData: _previewData,
+                      importType: widget.importType,
+                    )
+                  ],
+                ),
+        ),
       ),
     );
   }
