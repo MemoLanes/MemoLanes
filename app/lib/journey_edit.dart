@@ -16,6 +16,7 @@ class JourneyInfoEditor extends StatefulWidget {
       required this.journeyDate,
       required this.note,
       required this.saveData,
+      this.previewData,
       this.journeyKind,
       this.importType});
 
@@ -25,6 +26,7 @@ class JourneyInfoEditor extends StatefulWidget {
   final String? note;
   final JourneyKind? journeyKind;
   final Function saveData;
+  final Function? previewData;
   final ImportType? importType;
 
   @override
@@ -96,6 +98,9 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
         });
       });
     });
+    if (widget.previewData != null) {
+      widget.previewData!(_runPreprocessor);
+    }
   }
 
   @override
@@ -238,6 +243,9 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
                       setState(() {
                         _runPreprocessor = value;
                       });
+                      if (widget.previewData != null) {
+                        widget.previewData!(value);
+                      }
                     },
                   ),
                   Text(

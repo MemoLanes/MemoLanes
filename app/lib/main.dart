@@ -115,8 +115,8 @@ void main() async {
           ],
           child: const MyApp(),
         )));
-  }, (error, _) {
-    log.error('Uncaught exception in Flutter: $error');
+  }, (error, stackTrace) {
+    log.error('Uncaught exception in Flutter: $error', stackTrace);
   });
 }
 
