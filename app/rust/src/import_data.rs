@@ -286,7 +286,7 @@ fn flatten_kml(kml: Kml) -> Vec<Kml> {
 }
 
 pub fn journey_vector_from_raw_data(
-    raw_data: &Vec<Vec<RawData>>,
+    raw_data: &[Vec<RawData>],
     run_preprocessor: bool,
 ) -> Option<JourneyVector> {
     let processed_data = raw_data.iter().flat_map(move |x| {
