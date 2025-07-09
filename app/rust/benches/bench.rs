@@ -55,7 +55,7 @@ fn journey_bitmap(c: &mut Criterion) {
         };
 
         let  nelson_to_wharariki_beach = load_journey_vector("nelson_to_wharariki_beach");
-        let  heihe = load_journey_vector("heihe");
+        let  heihe = load_journey_vector("raw_gps_heihe");
 
         b.iter(|| {
             let mut journey_bitmap = JourneyBitmap::new();
