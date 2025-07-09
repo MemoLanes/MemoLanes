@@ -263,7 +263,6 @@ fn draw_line_in_different_latitude() {
     let area3 = journey_area_utils::compute_journey_bitmap_area(&journey_bitmap3, None);
     assert_eq!(area3 / 100000, 31);
 
-
     // width is 3 , lat -70.5
     let mut journey_bitmap4 = JourneyBitmap::new();
     journey_bitmap4.add_line(120.0, -70.5, 120.0, -71.5);
@@ -271,7 +270,6 @@ fn draw_line_in_different_latitude() {
     journey_bitmap4.add_line(120.0, -70.5, 123.0, -71.5);
     let area3 = journey_area_utils::compute_journey_bitmap_area(&journey_bitmap4, None);
     assert_eq!(area3 / 100000, 31);
-
 }
 
 #[test]
