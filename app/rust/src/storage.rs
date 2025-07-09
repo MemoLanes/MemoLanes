@@ -56,7 +56,7 @@ impl RawDataRecorder {
             let current_date = Local::now().date_naive();
             let mut i = 0;
             let (path,filename) = loop {
-                let filename = format!("gps-{}-{}.csv", current_date, i);
+                let filename = format!("gps-{current_date}-{i}.csv");
                 let path =
                     Path::new(&self.dir).join(&filename);
                 if std::fs::metadata(&path).is_err() {

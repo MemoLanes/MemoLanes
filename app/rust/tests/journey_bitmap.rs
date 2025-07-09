@@ -163,11 +163,11 @@ fn serialization() {
 
 fn vector_to_bitmap(name: &str, zoom: i32, filename_override: Option<&str>) {
     let filename = match filename_override {
-        None => format!("./tests/data/raw_gps_{}.gpx", name),
-        Some(filename) => format!("./tests/data/{}", filename),
+        None => format!("./tests/data/raw_gps_{name}.gpx"),
+        Some(filename) => format!("./tests/data/{filename}"),
     };
     let loaded_data = import_data::load_gpx(&filename).unwrap();
-    let journey_vector = import_data::journey_vector_from_raw_data(loaded_data, true).unwrap();
+    let journey_vector = import_data::journey_vector_from_raw_data(&loaded_data, true).unwrap();
     let mut journey_bitmap = JourneyBitmap::new();
     merged_journey_builder::add_journey_vector_to_journey_bitmap(
         &mut journey_bitmap,
@@ -190,7 +190,7 @@ fn vector_to_bitmap(name: &str, zoom: i32, filename_override: Option<&str>) {
     let render_result =
         test_utils::render_map_overlay(&map_renderer, zoom, left, top, right, bottom);
     test_utils::verify_image(
-        &format!("journey_bitmap_vector_to_bitmap_{}", name),
+        &format!("journey_bitmap_vector_to_bitmap_{name}"),
         &render_result.data,
     );
 }

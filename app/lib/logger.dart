@@ -17,6 +17,9 @@ void initLogger() {
       _ => api.LogLevel.info,
     };
     api.writeLog(message: rec.message, level: logLevel);
+    if (kDebugMode && rec.level == Level.SEVERE && rec.stackTrace != null) {
+      print(rec.stackTrace);
+    }
   });
 }
 
@@ -31,8 +34,8 @@ class _Log {
     _logger.warning(message);
   }
 
-  void error(String message) {
-    _logger.severe(message);
+  void error(String message, [StackTrace? stackTrace]) {
+    _logger.severe(message, null, stackTrace);
   }
 }
 
