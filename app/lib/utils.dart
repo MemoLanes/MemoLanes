@@ -58,7 +58,15 @@ Future<T> showLoadingDialog<T>({
   required BuildContext context,
   required Future<T> asyncTask,
 }) async {
-  if (!context.mounted) return Future.value();
+  var taskCompleteEarly = false;
+  asyncTask.whenComplete(() {
+    taskCompleteEarly = true;
+  });
+
+  // Do not show the loading dialog if the task is fast
+  await Future.delayed(const Duration(milliseconds: 200));
+  if (taskCompleteEarly) return asyncTask;
+  if (!context.mounted) return asyncTask;
 
   showDialog(
     context: context,
