@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:memolanes/logger.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'component/common_dialog.dart';
