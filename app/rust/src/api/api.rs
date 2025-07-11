@@ -65,15 +65,12 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
             MapServer::create_and_start("localhost", None).expect("Failed to start map server");
         info!("map server started");
 
-        // ======= WebView Transition codes START ===========
-        // TODO: this is a temporary solution for WebView transition
         let default_layer_kind = InternalLayerKind::JounreyKind(JourneyKind::DefaultKind);
-        let journey_bitmap = storage
-            .get_latest_bitmap_for_main_map_renderer(&default_layer_kind)
-            .unwrap();
         let main_map_layer_kind = Arc::new(Mutex::new(default_layer_kind));
         let main_map_layer_kind_copy = main_map_layer_kind.clone();
-        let main_map_renderer = Arc::new(Mutex::new(MapRenderer::new(journey_bitmap)));
+        // TODO: use an empty journey bitmap first, because loading could be slow (especially when we don't have cache).
+        // Ideally, we should support main map renderer being none. e.g. we free it when the user is not using the map.
+        let main_map_renderer = Arc::new(Mutex::new(MapRenderer::new(JourneyBitmap::new())));
         let main_map_renderer_copy = main_map_renderer.clone();
         // TODO: redesign the callback to better handle locks and avoid deadlocks
         storage.set_finalized_journey_changed_callback(Box::new(move |storage| {
@@ -90,7 +87,6 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
         }));
         let main_map_renderer_token = map_server.register_map_renderer(main_map_renderer.clone());
         info!("main map renderer initialized");
-        // ======= WebView Transition codes END ===========
 
         MainState {
             storage,
@@ -104,6 +100,18 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
     if already_initialized {
         warn!("`init` is called multiple times");
     }
+}
+
+// TODO: this design is not ideal, we need this becuase the `init` above uses an empty one.
+pub fn init_main_map() -> Result<()> {
+    let state = get();
+    let mut map_renderer = state.main_map_renderer.lock().unwrap();
+    let layer_kind = state.main_map_layer_kind.lock().unwrap();
+    let journey_bitmap = state
+        .storage
+        .get_latest_bitmap_for_main_map_renderer(&layer_kind)?;
+    map_renderer.replace(journey_bitmap);
+    Ok(())
 }
 
 pub fn subscribe_to_log_stream(sink: StreamSink<String>) -> Result<()> {

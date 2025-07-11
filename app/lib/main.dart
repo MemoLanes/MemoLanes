@@ -24,6 +24,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'logger.dart';
 
 GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+bool mainMapInitialized = false;
 
 void delayedInit(UpdateNotifier updateNotifier) {
   Future.delayed(const Duration(milliseconds: 4000), () async {
@@ -186,6 +187,17 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mainMapInitialized) {
+        mainMapInitialized = true;
+        showLoadingDialog(context: context, asyncTask: api.initMainMap());
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
