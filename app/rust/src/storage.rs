@@ -1,17 +1,17 @@
 extern crate simplelog;
-use anyhow::{Ok, Result};
-use chrono::Local;
-use std::fs::{remove_file, File};
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::sync::Mutex;
-
 use crate::cache_db::{CacheDb, LayerKind};
 use crate::gps_processor::{self, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_data::JourneyData;
 use crate::main_db::{self, Action, MainDb};
 use crate::merged_journey_builder;
+use anyhow::{Ok, Result};
+use chrono::Local;
+use std::collections::HashMap;
+use std::fs::{remove_file, File};
+use std::io::Write;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 // TODO: error handling in this file is horrifying, we should think about what
 // is the right thing to do here.
@@ -138,6 +138,8 @@ impl Storage {
 
         let mut finalized_journey_changed = false;
 
+        let mut hash_journeybitmap: HashMap<LayerKind, JourneyBitmap> = HashMap::new();
+
         let output = main_db.with_txn(|txn| {
             let output = f(txn)?;
 
@@ -151,27 +153,30 @@ impl Storage {
                         Action::Merge { journey_ids } => {
                             // TODO: This implementation is pretty naive, but we might not need it when we have cache v3
                             cache_db.delete_full_journey_cache(&LayerKind::All)?;
+
+                            /* merge imported journeys by kinds for all journey_ids. */
                             for journey_id in journey_ids {
                                 if let Some(header) = &txn.get_journey_header(journey_id)? {
-                                    let journey_data = txn.get_journey_data(journey_id)?;
-                                    cache_db.update_full_journey_cache_if_exists(
-                                        &LayerKind::JounreyKind(header.journey_kind),
-                                        | current_cache| {
-                                            match journey_data {
-                                                JourneyData::Bitmap(bitmap) => {
-                                                    current_cache.merge(bitmap)
-                                                }
-                                                JourneyData::Vector(vector) => {
-                                                    merged_journey_builder::add_journey_vector_to_journey_bitmap(
-                                                         current_cache,
-                                                        &vector,
-                                                    );
-                                                }
-                                            }
-                                            Ok(())
-                                        },
-                                    )?;
+                                    let journey_data: JourneyData = txn.get_journey_data(journey_id)?;
+                                    let layer_kind = LayerKind::JounreyKind(header.journey_kind);
+                                    let layerkind_bitmap = hash_journeybitmap.entry(layer_kind).or_default();
+
+                                    match journey_data {
+                                        JourneyData::Bitmap(bitmap) => layerkind_bitmap.merge(bitmap),
+                                        JourneyData::Vector(vector) => merged_journey_builder::add_journey_vector_to_journey_bitmap(layerkind_bitmap, &vector),
+                                    }
                                 }
+                            }
+
+                            /* update in cache for each layer_kind once */
+                            for (layer_kind, layerkind_bitmap) in hash_journeybitmap.into_iter() {
+                                cache_db.update_full_journey_cache_if_exists(
+                                    &layer_kind,
+                                    | current_cache| {
+                                        current_cache.merge(layerkind_bitmap);
+                                        Ok(())
+                                    },
+                                )?;
                             }
                         }
                     };
