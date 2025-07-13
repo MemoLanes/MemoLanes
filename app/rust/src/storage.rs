@@ -1,17 +1,17 @@
 extern crate simplelog;
-use anyhow::{Ok, Result};
-use chrono::Local;
-use std::fs::{remove_file, File};
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::sync::Mutex;
-use std::collections::HashMap;
 use crate::cache_db::{CacheDb, LayerKind};
 use crate::gps_processor::{self, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_data::JourneyData;
 use crate::main_db::{self, Action, MainDb};
 use crate::merged_journey_builder;
+use anyhow::{Ok, Result};
+use chrono::Local;
+use std::collections::HashMap;
+use std::fs::{remove_file, File};
+use std::io::Write;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 // TODO: error handling in this file is horrifying, we should think about what
 // is the right thing to do here.
