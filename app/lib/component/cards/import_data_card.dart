@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:memolanes/component/cards/card_label_tile.dart';
 import 'package:memolanes/component/safe_area_wrapper.dart';
-
-import 'card_label_tile.dart';
 
 class ImportDataCard extends StatelessWidget {
   const ImportDataCard({
