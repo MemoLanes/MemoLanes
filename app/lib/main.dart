@@ -10,6 +10,7 @@ import 'package:memolanes/component/bottom_nav_bar.dart';
 import 'package:memolanes/component/safe_area_wrapper.dart';
 import 'package:memolanes/gps_manager.dart';
 import 'package:memolanes/journey.dart';
+import 'package:memolanes/logger.dart';
 import 'package:memolanes/map.dart';
 import 'package:memolanes/settings_screen.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -20,8 +21,6 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import 'logger.dart';
 
 GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 bool mainMapInitialized = false;

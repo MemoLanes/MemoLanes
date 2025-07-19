@@ -1,0 +1,138 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/material.dart';
+import 'package:memolanes/component/scroll_views/single_child_scroll_view.dart';
+import 'package:memolanes/component/tiles/label_tile.dart';
+import 'package:memolanes/component/tiles/label_tile_content.dart';
+import 'package:memolanes/gps_manager.dart';
+import 'package:memolanes/raw_data.dart';
+import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/utils.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
+
+class AdvancedSettingsScreen extends StatefulWidget {
+  const AdvancedSettingsScreen({super.key});
+
+  @override
+  State<AdvancedSettingsScreen> createState() => _AdvancedSettingsScreenState();
+}
+
+class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
+  @override
+  Widget build(BuildContext context) {
+    var gpsManager = context.watch<GpsManager>();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('高级设置'),
+      ),
+      body: MlSingleChildScrollView(
+        padding: EdgeInsets.all(16.0),
+        children: [
+          LabelTile(
+            label: '删除所有旅程',
+            position: LabelTilePosition.top,
+            trailing: LabelTileContent(showArrow: true),
+            onTap: () async {
+              if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
+                await showCommonDialog(
+                  context,
+                  "Please stop the current ongoing journey before deleting all journeys.",
+                );
+                return;
+              }
+              if (!await showCommonDialog(
+                context,
+                "This will delete all journeys in this app. Are you sure?",
+                hasCancel: true,
+                title: context.tr("journey.delete_journey_title"),
+                confirmButtonText: context.tr("journey.delete"),
+                confirmGroundColor: Colors.red,
+                confirmTextColor: Colors.white,
+              )) {
+                return;
+              }
+              try {
+                await api.deleteAllJourneys();
+                if (context.mounted) {
+                  await showCommonDialog(context, "All journeys are deleted.");
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  await showCommonDialog(context, e.toString());
+                }
+              }
+            },
+          ),
+          LabelTile(
+            label: '优化数据库',
+            position: LabelTilePosition.middle,
+            trailing: LabelTileContent(showArrow: true),
+            onTap: () async {
+              if (!await api.mainDbRequireOptimization()) {
+                if (!context.mounted) return;
+                await showCommonDialog(
+                  context,
+                  context.tr("db_optimization.already_optimized"),
+                );
+              } else {
+                if (!context.mounted) return;
+                if (await showCommonDialog(
+                  context,
+                  context.tr("db_optimization.confirm"),
+                  hasCancel: true,
+                )) {
+                  if (!context.mounted) return;
+                  await showLoadingDialog(
+                    context: context,
+                    asyncTask: api.optimizeMainDb(),
+                  );
+                  if (!context.mounted) return;
+                  await showCommonDialog(
+                    context,
+                    context.tr("db_optimization.finsih"),
+                  );
+                }
+              }
+            },
+          ),
+          LabelTile(
+            label: '导出日志',
+            position: LabelTilePosition.middle,
+            trailing: LabelTileContent(showArrow: true),
+            onTap: () async {
+              var tmpDir = await getTemporaryDirectory();
+              var ts = DateTime.now().millisecondsSinceEpoch;
+              var filepath = "${tmpDir.path}/${ts.toString()}.zip";
+              await api.exportLogs(targetFilePath: filepath);
+              if (!context.mounted) return;
+              await showCommonExport(context, filepath, deleteFile: true);
+            },
+          ),
+          LabelTile(
+            label: '原始数据模式',
+            position: LabelTilePosition.middle,
+            trailing: LabelTileContent(showArrow: true),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) {
+                  return RawDataPage();
+                },
+              ),
+            ),
+          ),
+          LabelTile(
+            label: '重建缓存',
+            position: LabelTilePosition.bottom,
+            trailing: LabelTileContent(showArrow: true),
+            onTap: () async => await showLoadingDialog(
+              context: context,
+              asyncTask: api.rebuildCache(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

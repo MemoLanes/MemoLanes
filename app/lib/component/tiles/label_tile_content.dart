@@ -5,7 +5,7 @@ class LabelTileContent extends StatelessWidget {
     super.key,
     this.content = '',
     this.contentMaxLines = 1,
-    this.showArrow = true,
+    this.showArrow = false,
   });
 
   final String content;
@@ -22,6 +22,10 @@ class LabelTileContent extends StatelessWidget {
       children: [
         Text(
           content,
+          style: TextStyle(
+            fontSize: 14.0,
+            color: const Color(0x99FFFFFF),
+          ),
           textAlign: TextAlign.justify,
           maxLines: contentMaxLines,
           overflow: TextOverflow.ellipsis,
