@@ -3,6 +3,7 @@ use crate::cache_db::{CacheDb, LayerKind};
 use crate::gps_processor::{self, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_data::JourneyData;
+use crate::journey_header::JourneyKind;
 use crate::main_db::{self, Action, MainDb};
 use crate::merged_journey_builder;
 use anyhow::{Ok, Result};
@@ -137,8 +138,7 @@ impl Storage {
         let (ref mut main_db, ref cache_db) = *dbs;
 
         let mut finalized_journey_changed = false;
-
-        let mut hash_journeybitmap: HashMap<LayerKind, JourneyBitmap> = HashMap::new();
+        let mut kind_id_map: HashMap<JourneyKind, Vec<String>> = HashMap::new();
 
         let output = main_db.with_txn(|txn| {
             let output = f(txn)?;
@@ -154,29 +154,31 @@ impl Storage {
                             // TODO: This implementation is pretty naive, but we might not need it when we have cache v3
                             cache_db.delete_full_journey_cache(&LayerKind::All)?;
 
-                            /* merge imported journeys by kinds for all journey_ids. */
                             for journey_id in journey_ids {
-                                if let Some(header) = &txn.get_journey_header(journey_id)? {
-                                    let journey_data: JourneyData = txn.get_journey_data(journey_id)?;
-                                    let layer_kind = LayerKind::JounreyKind(header.journey_kind);
-                                    let layerkind_bitmap = hash_journeybitmap.entry(layer_kind).or_default();
-
-                                    match journey_data {
-                                        JourneyData::Bitmap(bitmap) => layerkind_bitmap.merge(bitmap),
-                                        JourneyData::Vector(vector) => merged_journey_builder::add_journey_vector_to_journey_bitmap(layerkind_bitmap, &vector),
-                                    }
+                                if let Some(header) = txn.get_journey_header(journey_id)? {
+                                    kind_id_map
+                                        .entry(header.journey_kind)
+                                        .or_default()
+                                        .push(journey_id.clone());
                                 }
                             }
 
-                            /* update in cache for each layer_kind once */
-                            for (layer_kind, layerkind_bitmap) in hash_journeybitmap.into_iter() {
-                                cache_db.update_full_journey_cache_if_exists(
-                                    &layer_kind,
-                                    | current_cache| {
-                                        current_cache.merge(layerkind_bitmap);
-                                        Ok(())
-                                    },
-                                )?;
+                            for (kind, journeyid_vec) in kind_id_map {
+                                let layer_kind = LayerKind::JounreyKind(kind);
+                                cache_db.update_full_journey_cache_if_exists(&layer_kind, |current_cache| {
+                                    for journey_id in journeyid_vec {
+                                        let journey_data = txn.get_journey_data(&journey_id)?;
+                                        match journey_data {
+                                            JourneyData::Bitmap(bitmap) =>
+                                                current_cache.merge(bitmap),
+                                            JourneyData::Vector(vector) =>
+                                                merged_journey_builder::add_journey_vector_to_journey_bitmap(
+                                                    current_cache, &vector
+                                            ),
+                                        }
+                                    }
+                                    Ok(())
+                                })?;
                             }
                         }
                     };

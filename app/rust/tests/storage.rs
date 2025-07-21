@@ -76,6 +76,7 @@ fn increment_journey_and_verify_cache() {
         sub_folder("cache/"),
     );
 
+    /* create two dummy header with JourneyKind::DefaultKind type  */
     let header1 = JourneyHeader {
         id: Uuid::new_v4().to_string(),
         revision: "rev1".to_string(),
@@ -85,7 +86,7 @@ fn increment_journey_and_verify_cache() {
         start: None,
         end: None,
         journey_type: JourneyType::Bitmap,
-        journey_kind: JourneyKind::Flight,
+        journey_kind: JourneyKind::DefaultKind,
         note: None,
         postprocessor_algo: None,
     };
@@ -118,14 +119,21 @@ fn increment_journey_and_verify_cache() {
             txn.insert_journey(header1, JourneyData::Bitmap(journey_bitmap1.clone()))
         })
         .unwrap();
+
+    /* update empty DefaultKind cache */
+    let _cache_bitmap = storage
+        .get_latest_bitmap_for_main_map_renderer(&LayerKind::JounreyKind(JourneyKind::DefaultKind))
+        .unwrap();
+
     storage
         .with_db_txn(|txn| {
             txn.insert_journey(header2, JourneyData::Bitmap(journey_bitmap2.clone()))
         })
         .unwrap();
 
+    /* get current DefaultKind cache updated by with_db_txn */
     let cache_bitmap = storage
-        .get_latest_bitmap_for_main_map_renderer(&LayerKind::All)
+        .get_latest_bitmap_for_main_map_renderer(&LayerKind::JounreyKind(JourneyKind::DefaultKind))
         .unwrap();
 
     assert_eq!(cache_bitmap, expected_bitmap);
@@ -146,6 +154,7 @@ fn delete_journey_and_verify_cache() {
         sub_folder("cache/"),
     );
 
+    /* create dummy header */
     let header1 = JourneyHeader {
         id: Uuid::new_v4().to_string(),
         revision: "rev1".to_string(),
@@ -159,24 +168,9 @@ fn delete_journey_and_verify_cache() {
         note: None,
         postprocessor_algo: None,
     };
-    let header2 = JourneyHeader {
-        id: Uuid::new_v4().to_string(),
-        revision: "rev2".to_string(),
-        journey_date: NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
-        created_at: Utc::now(),
-        updated_at: None,
-        start: None,
-        end: None,
-        journey_type: JourneyType::Bitmap,
-        journey_kind: JourneyKind::DefaultKind,
-        note: None,
-        postprocessor_algo: None,
-    };
 
     let mut journey_bitmap1 = JourneyBitmap::new();
     draw_line1(&mut journey_bitmap1);
-    let mut journey_bitmap2 = JourneyBitmap::new();
-    draw_line2(&mut journey_bitmap2);
 
     storage
         .with_db_txn(|txn| {
@@ -186,24 +180,20 @@ fn delete_journey_and_verify_cache() {
             )
         })
         .unwrap();
-    storage
-        .with_db_txn(|txn| {
-            txn.insert_journey(
-                header2.clone(),
-                JourneyData::Bitmap(journey_bitmap2.clone()),
-            )
-        })
+
+    /* update empty Flight cache */
+    let _cache_bitmap = storage
+        .get_latest_bitmap_for_main_map_renderer(&LayerKind::JounreyKind(JourneyKind::Flight))
         .unwrap();
 
+    /* delete journey to CompleteRebuilt */
     storage
         .with_db_txn(|txn| txn.delete_journey(header1.id.as_str()))
         .unwrap();
 
-    let mut expected_bitmap = JourneyBitmap::new();
-    draw_line2(&mut expected_bitmap);
-
+    let expected_bitmap = JourneyBitmap::new();
     let cache_bitmap = storage
-        .get_latest_bitmap_for_main_map_renderer(&LayerKind::All)
+        .get_latest_bitmap_for_main_map_renderer(&LayerKind::JounreyKind(JourneyKind::Flight))
         .unwrap();
     assert_eq!(cache_bitmap, expected_bitmap);
 }
