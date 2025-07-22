@@ -4,9 +4,11 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/component/cards/export_data_card.dart';
 import 'package:memolanes/component/cards/import_data_card.dart';
+import 'package:memolanes/component/cards/journey_kind_card.dart';
 import 'package:memolanes/component/cards/line_painter.dart';
 import 'package:memolanes/component/common_dialog.dart';
 import 'package:memolanes/component/common_export.dart';
+import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 Future<bool> showCommonDialog(BuildContext context, String message,
@@ -196,6 +198,18 @@ void showExportDataCard(
   _showBasicCard(
     context,
     child: ExportDataCard(
+      onLabelTaped: onLabelTaped,
+    ),
+  );
+}
+
+void showJourneyKindCard(
+    BuildContext context, {
+      Function(JourneyKind)? onLabelTaped,
+    }) async {
+  _showBasicCard(
+    context,
+    child: JourneyKindCard(
       onLabelTaped: onLabelTaped,
     ),
   );

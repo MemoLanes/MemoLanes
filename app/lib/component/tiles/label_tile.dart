@@ -57,7 +57,7 @@ class LabelTile extends StatelessWidget {
 
     if (position == LabelTilePosition.single ||
         position == LabelTilePosition.bottom) {
-      margin = EdgeInsets.only(bottom: bottom ? 16.0 : 8.0);
+      margin = EdgeInsets.only(bottom: bottom ? 8.0 : 4.0);
       borderRadius = borderRadius.copyWith(
         bottomLeft: radius,
         bottomRight: radius,

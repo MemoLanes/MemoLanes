@@ -27,7 +27,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
         title: Text('高级设置'),
       ),
       body: MlSingleChildScrollView(
-        padding: EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(8.0),
         children: [
           LabelTile(
             label: '删除所有旅程',

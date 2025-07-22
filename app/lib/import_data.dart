@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:fpdart/fpdart.dart' as f;
 import 'package:memolanes/component/base_map_webview.dart';
+import 'package:memolanes/component/safe_area_wrapper.dart';
 import 'package:memolanes/journey_edit.dart';
-import 'package:memolanes/src/rust/api/import.dart' as import_api;
 import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/src/rust/api/import.dart' as import_api;
 import 'package:memolanes/src/rust/journey_data.dart';
 
 class ImportDataPage extends StatefulWidget {
@@ -113,33 +114,32 @@ class _ImportDataPage extends State<ImportDataPage> {
         title: const Text("Import Data"),
       ),
       body: Center(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(16.0, 0, 16.0, 16.0),
-          child: journeyInfo == null
-              ? const Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      "Reading data, please wait",
-                      style: TextStyle(fontSize: 22.0),
-                    ),
-                    CircularProgressIndicator()
-                  ],
-                )
-              : Column(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: mapRendererProxy == null
-                          ? (const CircularProgressIndicator())
-                          : (BaseMapWebview(
-                              // key: const ValueKey("mapWidget"),
-                              mapRendererProxy: mapRendererProxy,
-                              initialMapView: _initialMapView,
-                            )),
-                    ),
-                    SizedBox(height: 16.0),
-                    JourneyInfoEditor(
+        child: journeyInfo == null
+            ? const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    "Reading data, please wait",
+                    style: TextStyle(fontSize: 22.0),
+                  ),
+                  CircularProgressIndicator()
+                ],
+              )
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: mapRendererProxy == null
+                        ? (const CircularProgressIndicator())
+                        : (BaseMapWebview(
+                            // key: const ValueKey("mapWidget"),
+                            mapRendererProxy: mapRendererProxy,
+                            initialMapView: _initialMapView,
+                          )),
+                  ),
+                  SizedBox(height: 16.0),
+                  SafeAreaWrapper(
+                    child: JourneyInfoEditor(
                       startTime: journeyInfo.startTime,
                       endTime: journeyInfo.endTime,
                       journeyDate: journeyInfo.journeyDate,
@@ -147,10 +147,10 @@ class _ImportDataPage extends State<ImportDataPage> {
                       saveData: _saveData,
                       previewData: _previewData,
                       importType: widget.importType,
-                    )
-                  ],
-                ),
-        ),
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }

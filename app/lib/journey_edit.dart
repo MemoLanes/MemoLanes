@@ -3,22 +3,26 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:memolanes/component/tiles/label_tile.dart';
+import 'package:memolanes/component/tiles/label_tile_content.dart';
 import 'package:memolanes/import_data.dart';
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
 import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
+import 'package:memolanes/utils.dart';
 
 class JourneyInfoEditor extends StatefulWidget {
-  const JourneyInfoEditor(
-      {super.key,
-      required this.startTime,
-      required this.endTime,
-      required this.journeyDate,
-      required this.note,
-      required this.saveData,
-      this.previewData,
-      this.journeyKind,
-      this.importType});
+  const JourneyInfoEditor({
+    super.key,
+    required this.startTime,
+    required this.endTime,
+    required this.journeyDate,
+    required this.note,
+    required this.saveData,
+    this.previewData,
+    this.journeyKind,
+    this.importType,
+  });
 
   final DateTime? startTime;
   final DateTime? endTime;
@@ -109,7 +113,7 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
     super.dispose();
   }
 
-  _saveData() async {
+  void _saveData() async {
     if (_journeyDate == null) {
       Fluttertoast.showToast(msg: "JourneyDate is empty");
       return;
@@ -137,10 +141,11 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        TextField(
-          readOnly: true,
-          controller: TextEditingController(
-              text: _startTime != null
+        LabelTile(
+          label: "开始时间",
+          position: LabelTilePosition.single,
+          trailing: LabelTileContent(
+              content: _startTime != null
                   ? dateTimeFormat.format(_startTime!.toLocal())
                   : ""),
           onTap: () async {
@@ -151,14 +156,12 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
               });
             }
           },
-          decoration: const InputDecoration(
-            label: Text("Start time:"),
-          ),
         ),
-        TextField(
-          readOnly: true,
-          controller: TextEditingController(
-              text: _endTime != null
+        LabelTile(
+          label: "结束时间",
+          position: LabelTilePosition.single,
+          trailing: LabelTileContent(
+              content: _endTime != null
                   ? dateTimeFormat.format(_endTime!.toLocal())
                   : ""),
           onTap: () async {
@@ -169,15 +172,13 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
               });
             }
           },
-          decoration: const InputDecoration(
-            label: Text("End time:"),
-          ),
         ),
-        TextField(
-          readOnly: true,
-          controller: TextEditingController(
-            text: _journeyDate != null ? dateFormat.format(_journeyDate!) : '',
-          ),
+        LabelTile(
+          label: "旅行日期",
+          position: LabelTilePosition.single,
+          trailing: LabelTileContent(
+              content:
+                  _journeyDate != null ? dateFormat.format(_journeyDate!) : ''),
           onTap: () async {
             DateTime? time = await showDatePicker(
               context: context,
@@ -191,53 +192,14 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
               });
             }
           },
-          decoration: const InputDecoration(
-            label: Text("Journey date:"),
-          ),
-        ),
-        TextField(
-          controller: _noteController,
-          decoration: const InputDecoration(
-            label: Text("Note:"),
-          ),
-        ),
-        Row(
-          children: [
-            Row(mainAxisSize: MainAxisSize.min, children: [
-              Radio(
-                value: JourneyKind.defaultKind,
-                groupValue: _journeyKind,
-                onChanged: (v) {
-                  if (v != null) {
-                    setState(() {
-                      _journeyKind = v;
-                    });
-                  }
-                },
-              ),
-              Text(context.tr("journey_kind.default"))
-            ]),
-            Row(mainAxisSize: MainAxisSize.min, children: [
-              Radio(
-                value: JourneyKind.flight,
-                groupValue: _journeyKind,
-                onChanged: (v) {
-                  if (v != null) {
-                    setState(() {
-                      _journeyKind = v;
-                    });
-                  }
-                },
-              ),
-              Text(context.tr("journey_kind.flight"))
-            ]),
-          ],
         ),
         if (widget.importType != null)
           widget.importType == ImportType.fow
-              ? Container()
-              : Column(children: [
-                  Switch(
+              ? SizedBox.shrink()
+              : LabelTile(
+                  label: '预处理器',
+                  position: LabelTilePosition.single,
+                  trailing: Switch(
                     value: _runPreprocessor,
                     onChanged: (value) {
                       setState(() {
@@ -248,15 +210,54 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
                       }
                     },
                   ),
-                  Text(
-                    _runPreprocessor
-                        ? 'Preprocessor is ON'
-                        : 'Preprocessor is OFF',
-                    style: const TextStyle(fontSize: 18.0),
-                  )
-                ]),
+                ),
+        LabelTile(
+          label: '图层标签',
+          position: LabelTilePosition.single,
+          trailing: LabelTileContent(
+              content: _journeyKind == JourneyKind.defaultKind
+                  ? context.tr("journey_kind.default")
+                  : context.tr("journey_kind.flight"),
+              showArrow: true),
+          onTap: () => showJourneyKindCard(
+            context,
+            onLabelTaped: (journeyKind) async {
+              setState(() {
+                _journeyKind = journeyKind;
+              });
+            },
+          ),
+        ),
+        LabelTile(
+          label: '备注',
+          position: LabelTilePosition.single,
+          trailing: SizedBox(
+            width: 200.0,
+            height: 50.0,
+            child: TextField(
+              controller: _noteController,
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                counterText: '',
+                hintText: '请输入',
+                hintStyle: TextStyle(
+                  fontSize: 14.0,
+                ),
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ),
         ElevatedButton(
           onPressed: _saveData,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFB6E13D),
+            foregroundColor: Colors.black,
+            fixedSize: Size(280, 42),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(25.0),
+            ),
+          ),
           child: const Text("Save Data"),
         ),
       ],

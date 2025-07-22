@@ -13,7 +13,7 @@ class BackupDataScreen extends StatelessWidget {
         title: Text('数据备份'),
       ),
       body: MlSingleChildScrollView(
-        padding: EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(8.0),
         children: [
           LabelTile(
             label: '上次备份时间',
