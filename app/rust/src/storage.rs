@@ -303,6 +303,11 @@ impl Storage {
         Ok(journey_bitmap)
     }
 
+    pub fn get_layer_cache(&self, layer_kind: &LayerKind) -> Result<Option<JourneyBitmap>> {
+        let cache_db = &self.dbs.lock().unwrap().1;
+        cache_db.get_full_journey_cache(layer_kind)
+    }
+
     pub fn clear_all_cache(&self) -> Result<()> {
         let cache_db = &self.dbs.lock().unwrap().1;
         cache_db.clear_all_cache()?;

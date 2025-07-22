@@ -76,7 +76,7 @@ fn increment_journey_and_verify_cache() {
         sub_folder("cache/"),
     );
 
-    /* create two dummy header with JourneyKind::DefaultKind type  */
+    /* create two dummy header with DefaultKind type  */
     let header1 = JourneyHeader {
         id: Uuid::new_v4().to_string(),
         revision: "rev1".to_string(),
@@ -120,7 +120,7 @@ fn increment_journey_and_verify_cache() {
         })
         .unwrap();
 
-    /* update empty DefaultKind cache */
+    /* set empty DefaultKind cache with current db bitmap */
     let _cache_bitmap = storage
         .get_latest_bitmap_for_main_map_renderer(&LayerKind::JounreyKind(JourneyKind::DefaultKind))
         .unwrap();
@@ -131,10 +131,11 @@ fn increment_journey_and_verify_cache() {
         })
         .unwrap();
 
-    /* get current DefaultKind cache updated by with_db_txn */
+    /* get current DefaultKind cache updated by with_db_txn Action::Merge */
     let cache_bitmap = storage
-        .get_latest_bitmap_for_main_map_renderer(&LayerKind::JounreyKind(JourneyKind::DefaultKind))
-        .unwrap();
+        .get_layer_cache(&LayerKind::JounreyKind(JourneyKind::DefaultKind))
+        .unwrap()
+        .expect("Cache is not empty");
 
     assert_eq!(cache_bitmap, expected_bitmap);
 }
@@ -181,19 +182,18 @@ fn delete_journey_and_verify_cache() {
         })
         .unwrap();
 
-    /* update empty Flight cache */
+    /* set empty Flight cache with current db bitmap */
     let _cache_bitmap = storage
         .get_latest_bitmap_for_main_map_renderer(&LayerKind::JounreyKind(JourneyKind::Flight))
         .unwrap();
 
-    /* delete journey to CompleteRebuilt */
+    /* delete all cache by Action::CompleteRebuilt */
     storage
         .with_db_txn(|txn| txn.delete_journey(header1.id.as_str()))
         .unwrap();
 
-    let expected_bitmap = JourneyBitmap::new();
     let cache_bitmap = storage
-        .get_latest_bitmap_for_main_map_renderer(&LayerKind::JounreyKind(JourneyKind::Flight))
+        .get_layer_cache(&LayerKind::JounreyKind(JourneyKind::Flight))
         .unwrap();
-    assert_eq!(cache_bitmap, expected_bitmap);
+    assert_eq!(cache_bitmap, None);
 }
