@@ -61,7 +61,7 @@ pub fn load_gpx_or_kml(file_path: String) -> Result<(JourneyInfo, RawVectorData)
 }
 
 pub fn import_journey_data(journey_info: JourneyInfo, journey_data: JourneyData) -> Result<()> {
-    api::get().storage.with_db_txn(|txn| {
+    let _id = api::get().storage.with_db_txn(|txn| {
         txn.create_and_insert_journey(
             journey_info.journey_date,
             journey_info.start_time,
@@ -71,7 +71,8 @@ pub fn import_journey_data(journey_info: JourneyInfo, journey_data: JourneyData)
             journey_info.note,
             journey_data,
         )
-    })
+    })?;
+    Ok(())
 }
 
 pub fn process_vector_data(

@@ -1,14 +1,12 @@
 pub mod test_utils;
 use crate::test_utils::{draw_line1, draw_line2};
-use chrono::{NaiveDate, Utc};
+use chrono::NaiveDate;
 use memolanes_core::{
     cache_db::LayerKind, gps_processor::ProcessResult, import_data, journey_bitmap::JourneyBitmap,
-    journey_data::JourneyData, journey_header::JourneyHeader, journey_header::JourneyKind,
-    journey_header::JourneyType, storage::Storage,
+    journey_data::JourneyData, journey_header::JourneyKind, storage::Storage,
 };
 use std::fs;
 use tempdir::TempDir;
-use uuid::Uuid;
 
 #[test]
 fn storage_for_main_map_renderer() {
@@ -61,9 +59,11 @@ fn storage_for_main_map_renderer() {
     }
 }
 
-#[test]
-fn increment_journey_and_verify_cache() {
-    let temp_dir = TempDir::new("test_incremental_add_journey").unwrap();
+fn setup_storage_for_test<F>(f: F)
+where
+    F: FnOnce(Storage),
+{
+    let temp_dir = TempDir::new("test_storage").unwrap();
     let sub_folder = |sub| {
         let path = temp_dir.path().join(sub);
         fs::create_dir(&path).unwrap();
@@ -75,125 +75,144 @@ fn increment_journey_and_verify_cache() {
         sub_folder("support/"),
         sub_folder("cache/"),
     );
+    f(storage);
+}
 
-    /* create two dummy header with DefaultKind type  */
-    let header1 = JourneyHeader {
-        id: Uuid::new_v4().to_string(),
-        revision: "rev1".to_string(),
-        journey_date: NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
-        created_at: Utc::now(),
-        updated_at: None,
-        start: None,
-        end: None,
-        journey_type: JourneyType::Bitmap,
-        journey_kind: JourneyKind::DefaultKind,
-        note: None,
-        postprocessor_algo: None,
-    };
-
-    let header2 = JourneyHeader {
-        id: Uuid::new_v4().to_string(),
-        revision: "rev2".to_string(),
-        journey_date: NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
-        created_at: Utc::now(),
-        updated_at: None,
-        start: None,
-        end: None,
-        journey_type: JourneyType::Bitmap,
-        journey_kind: JourneyKind::DefaultKind,
-        note: None,
-        postprocessor_algo: None,
-    };
-
-    let mut journey_bitmap1 = JourneyBitmap::new();
-    draw_line1(&mut journey_bitmap1);
-    let mut journey_bitmap2 = JourneyBitmap::new();
-    draw_line2(&mut journey_bitmap2);
-
-    let mut expected_bitmap = JourneyBitmap::new();
-    draw_line1(&mut expected_bitmap);
-    draw_line2(&mut expected_bitmap);
-
-    storage
-        .with_db_txn(|txn| {
-            txn.insert_journey(header1, JourneyData::Bitmap(journey_bitmap1.clone()))
-        })
-        .unwrap();
-
-    /* set empty DefaultKind cache with current db bitmap */
-    let _cache_bitmap = storage
-        .get_latest_bitmap_for_main_map_renderer(&LayerKind::JounreyKind(JourneyKind::DefaultKind))
-        .unwrap();
-
-    storage
-        .with_db_txn(|txn| {
-            txn.insert_journey(header2, JourneyData::Bitmap(journey_bitmap2.clone()))
-        })
-        .unwrap();
-
-    /* get current DefaultKind cache updated by with_db_txn Action::Merge */
-    let cache_bitmap = storage
-        .get_layer_cache(&LayerKind::JounreyKind(JourneyKind::DefaultKind))
-        .unwrap()
-        .expect("Cache is not empty");
-
-    assert_eq!(cache_bitmap, expected_bitmap);
+fn assert_cache(storage: &Storage, default: &JourneyBitmap, flight: &JourneyBitmap) {
+    assert_eq!(
+        &storage
+            .get_latest_bitmap_for_main_map_renderer(&LayerKind::JounreyKind(
+                JourneyKind::DefaultKind
+            ))
+            .unwrap(),
+        default
+    );
+    assert_eq!(
+        &storage
+            .get_latest_bitmap_for_main_map_renderer(&LayerKind::JounreyKind(JourneyKind::Flight))
+            .unwrap(),
+        flight
+    );
+    let mut all = default.clone();
+    all.merge(flight.clone());
+    assert_eq!(
+        storage
+            .get_latest_bitmap_for_main_map_renderer(&LayerKind::All)
+            .unwrap(),
+        all
+    );
 }
 
 #[test]
-fn delete_journey_and_verify_cache() {
-    let temp_dir = TempDir::new("test_delete_journey").unwrap();
-    let sub_folder = |sub| {
-        let path = temp_dir.path().join(sub);
-        fs::create_dir(&path).unwrap();
-        path.into_os_string().into_string().unwrap()
-    };
-    let storage = Storage::init(
-        sub_folder("temp/"),
-        sub_folder("doc/"),
-        sub_folder("support/"),
-        sub_folder("cache/"),
-    );
+fn increment_journey_and_verify_cache_same_kind() {
+    setup_storage_for_test(|storage| {
+        let empty_bitmap = JourneyBitmap::new();
 
-    /* create dummy header */
-    let header1 = JourneyHeader {
-        id: Uuid::new_v4().to_string(),
-        revision: "rev1".to_string(),
-        journey_date: NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
-        created_at: Utc::now(),
-        updated_at: None,
-        start: None,
-        end: None,
-        journey_type: JourneyType::Bitmap,
-        journey_kind: JourneyKind::Flight,
-        note: None,
-        postprocessor_algo: None,
-    };
+        let mut journey_bitmap1 = JourneyBitmap::new();
+        draw_line1(&mut journey_bitmap1);
+        let mut journey_bitmap2 = JourneyBitmap::new();
+        draw_line2(&mut journey_bitmap2);
 
-    let mut journey_bitmap1 = JourneyBitmap::new();
-    draw_line1(&mut journey_bitmap1);
+        let mut total_bitmap = JourneyBitmap::new();
+        total_bitmap.merge(journey_bitmap1.clone());
+        total_bitmap.merge(journey_bitmap2.clone());
 
-    storage
-        .with_db_txn(|txn| {
-            txn.insert_journey(
-                header1.clone(),
-                JourneyData::Bitmap(journey_bitmap1.clone()),
-            )
-        })
-        .unwrap();
+        assert_cache(&storage, &empty_bitmap, &empty_bitmap);
 
-    /* set empty Flight cache with current db bitmap */
-    let _cache_bitmap = storage
-        .get_latest_bitmap_for_main_map_renderer(&LayerKind::JounreyKind(JourneyKind::Flight))
-        .unwrap();
+        let journey1_id = storage
+            .with_db_txn(|txn| {
+                txn.create_and_insert_journey(
+                    NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
+                    None,
+                    None,
+                    None,
+                    JourneyKind::DefaultKind,
+                    None,
+                    JourneyData::Bitmap(journey_bitmap1.clone()),
+                )
+            })
+            .unwrap();
 
-    /* delete all cache by Action::CompleteRebuilt */
-    storage
-        .with_db_txn(|txn| txn.delete_journey(header1.id.as_str()))
-        .unwrap();
+        assert_cache(&storage, &journey_bitmap1, &empty_bitmap);
 
-    let cache_bitmap = storage
-        .get_layer_cache(&LayerKind::JounreyKind(JourneyKind::Flight))
-        .unwrap();
-    assert_eq!(cache_bitmap, None);
+        let journey2_id = storage
+            .with_db_txn(|txn| {
+                txn.create_and_insert_journey(
+                    NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
+                    None,
+                    None,
+                    None,
+                    JourneyKind::DefaultKind,
+                    None,
+                    JourneyData::Bitmap(journey_bitmap2.clone()),
+                )
+            })
+            .unwrap();
+
+        assert_cache(&storage, &total_bitmap, &empty_bitmap);
+
+        storage
+            .with_db_txn(|txn| txn.delete_journey(&journey1_id))
+            .unwrap();
+        assert_cache(&storage, &journey_bitmap2, &empty_bitmap);
+        storage
+            .with_db_txn(|txn| txn.delete_journey(&journey2_id))
+            .unwrap();
+        assert_cache(&storage, &empty_bitmap, &empty_bitmap);
+    });
+}
+
+#[test]
+fn increment_journey_and_verify_cache_different_kind() {
+    setup_storage_for_test(|storage| {
+        let empty_bitmap = JourneyBitmap::new();
+
+        let mut journey_bitmap1 = JourneyBitmap::new();
+        draw_line1(&mut journey_bitmap1);
+        let mut journey_bitmap2 = JourneyBitmap::new();
+        draw_line2(&mut journey_bitmap2);
+
+        assert_cache(&storage, &empty_bitmap, &empty_bitmap);
+
+        let journey1_id = storage
+            .with_db_txn(|txn| {
+                txn.create_and_insert_journey(
+                    NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
+                    None,
+                    None,
+                    None,
+                    JourneyKind::DefaultKind,
+                    None,
+                    JourneyData::Bitmap(journey_bitmap1.clone()),
+                )
+            })
+            .unwrap();
+
+        assert_cache(&storage, &journey_bitmap1, &empty_bitmap);
+
+        let journey2_id = storage
+            .with_db_txn(|txn| {
+                txn.create_and_insert_journey(
+                    NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
+                    None,
+                    None,
+                    None,
+                    JourneyKind::Flight,
+                    None,
+                    JourneyData::Bitmap(journey_bitmap2.clone()),
+                )
+            })
+            .unwrap();
+
+        assert_cache(&storage, &journey_bitmap1, &journey_bitmap2);
+
+        storage
+            .with_db_txn(|txn| txn.delete_journey(&journey1_id))
+            .unwrap();
+        assert_cache(&storage, &empty_bitmap, &journey_bitmap2);
+        storage
+            .with_db_txn(|txn| txn.delete_journey(&journey2_id))
+            .unwrap();
+        assert_cache(&storage, &empty_bitmap, &empty_bitmap);
+    });
 }

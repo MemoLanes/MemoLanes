@@ -94,7 +94,7 @@ impl CacheDb {
         Ok(())
     }
 
-    pub fn get_full_journey_cache(&self, layer_kind: &LayerKind) -> Result<Option<JourneyBitmap>> {
+    fn get_full_journey_cache(&self, layer_kind: &LayerKind) -> Result<Option<JourneyBitmap>> {
         let sql = "SELECT data FROM `journey_cache__full` WHERE kind = ?1;";
 
         let mut query = self.conn.prepare(sql)?;

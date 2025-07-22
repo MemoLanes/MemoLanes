@@ -1,11 +1,4 @@
 extern crate simplelog;
-use crate::cache_db::{CacheDb, LayerKind};
-use crate::gps_processor::{self, ProcessResult};
-use crate::journey_bitmap::JourneyBitmap;
-use crate::journey_data::JourneyData;
-use crate::journey_header::JourneyKind;
-use crate::main_db::{self, Action, MainDb};
-use crate::merged_journey_builder;
 use anyhow::{Ok, Result};
 use chrono::Local;
 use std::collections::HashMap;
@@ -13,6 +6,14 @@ use std::fs::{remove_file, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+
+use crate::cache_db::{CacheDb, LayerKind};
+use crate::gps_processor::{self, ProcessResult};
+use crate::journey_bitmap::JourneyBitmap;
+use crate::journey_data::JourneyData;
+use crate::journey_header::JourneyKind;
+use crate::main_db::{self, Action, MainDb};
+use crate::merged_journey_builder;
 
 // TODO: error handling in this file is horrifying, we should think about what
 // is the right thing to do here.
@@ -138,7 +139,6 @@ impl Storage {
         let (ref mut main_db, ref cache_db) = *dbs;
 
         let mut finalized_journey_changed = false;
-        let mut kind_id_map: HashMap<JourneyKind, Vec<String>> = HashMap::new();
 
         let output = main_db.with_txn(|txn| {
             let output = f(txn)?;
@@ -153,6 +153,8 @@ impl Storage {
                         Action::Merge { journey_ids } => {
                             // TODO: This implementation is pretty naive, but we might not need it when we have cache v3
                             cache_db.delete_full_journey_cache(&LayerKind::All)?;
+
+                            let mut kind_id_map: HashMap<JourneyKind, Vec<String>> = HashMap::new();
 
                             for journey_id in journey_ids {
                                 if let Some(header) = txn.get_journey_header(journey_id)? {
@@ -301,11 +303,6 @@ impl Storage {
         drop(dbs);
 
         Ok(journey_bitmap)
-    }
-
-    pub fn get_layer_cache(&self, layer_kind: &LayerKind) -> Result<Option<JourneyBitmap>> {
-        let cache_db = &self.dbs.lock().unwrap().1;
-        cache_db.get_full_journey_cache(layer_kind)
     }
 
     pub fn clear_all_cache(&self) -> Result<()> {
