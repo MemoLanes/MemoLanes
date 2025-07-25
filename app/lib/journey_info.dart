@@ -1,6 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/component/base_map_webview.dart';
+import 'package:memolanes/component/cards/line_painter.dart';
+import 'package:memolanes/component/safe_area_wrapper.dart';
 import 'package:memolanes/journey_edit.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart';
@@ -8,6 +10,7 @@ import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:memolanes/utils.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 enum ExportType { mldx, kml, gpx }
 
@@ -45,12 +48,12 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     });
   }
 
-  _deleteJourneyInfo(BuildContext context) async {
+  Future<void> _deleteJourneyInfo(BuildContext context) async {
     if (await showCommonDialog(
         context, context.tr("journey.delete_journey_message"),
         hasCancel: true,
         title: context.tr("journey.delete_journey_title"),
-        confirmButtonText: context.tr("journey.delete"),
+        confirmButtonText: context.tr("common.delete"),
         confirmGroundColor: Colors.red,
         confirmTextColor: Colors.white)) {
       await api.deleteJourney(journeyId: widget.journeyHeader.id);
@@ -59,7 +62,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     }
   }
 
-  _editJourneyInfo(BuildContext context) async {
+  Future<void> _editJourneyInfo(BuildContext context) async {
     final result =
         await Navigator.push(context, MaterialPageRoute(builder: (context) {
       return Scaffold(
@@ -114,7 +117,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     return filepath;
   }
 
-  _export(ExportType exportType) async {
+  void _export(ExportType exportType) async {
     String filePath =
         await _generateExportFile(widget.journeyHeader, exportType);
     if (!mounted) return;
@@ -129,71 +132,183 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       JourneyKind.flight => context.tr("journey_kind.flight"),
     };
     return Scaffold(
-      appBar:
-          AppBar(title: Text(context.tr("journey.journey_info_page_title"))),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            Text("Journey ID: ${widget.journeyHeader.id}"),
-            Text(
-                "Journey Date: ${naiveDateToString(date: widget.journeyHeader.journeyDate)}"),
-            Text("JourneyKind: $journeyKindName"),
-            Text(
-                "Start Time: ${widget.journeyHeader.start != null ? fmt.format(widget.journeyHeader.start!.toLocal()) : ""}"),
-            Text(
-                "End Time: ${widget.journeyHeader.end != null ? fmt.format(widget.journeyHeader.end!.toLocal()) : ""}"),
-            Text(
-                "Created At: ${fmt.format(widget.journeyHeader.createdAt.toLocal())}"),
-            Text("Revision: ${widget.journeyHeader.revision}"),
-            Text("Note: ${widget.journeyHeader.note}"),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-              ElevatedButton(
-                onPressed: () {
-                  _export(ExportType.kml);
-                },
-                child: Text(context.tr("journey.export_journey_as_kml")),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  _export(ExportType.gpx);
-                },
-                child: Text(context.tr("journey.export_journey_as_gpx")),
-              ),
-            ]),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-              ElevatedButton(
-                onPressed: () {
-                  _export(ExportType.mldx);
-                },
-                child: Text(context.tr("journey.export_journey_as_mldx")),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  await _editJourneyInfo(context);
-                },
-                child: Text(context.tr("journey.journey_info_edit_page_title")),
-              ),
-            ]),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-              ElevatedButton(
-                onPressed: () {
-                  _deleteJourneyInfo(context);
-                },
-                child: Text(context.tr("journey.delete_journey_title")),
-              ),
-            ]),
-            Expanded(
-              child: mapRendererProxy == null
-                  ? (const CircularProgressIndicator())
-                  : (BaseMapWebview(
-                      key: const ValueKey("mapWidget"),
-                      mapRendererProxy: mapRendererProxy,
-                      initialMapView: _initialMapView,
-                    )),
-            )
-          ],
-        ),
+      appBar: AppBar(
+        title: Text(context.tr("journey.journey_info_page_title")),
+      ),
+      body: Stack(
+        children: [
+          mapRendererProxy == null
+              ? const CircularProgressIndicator()
+              : BaseMapWebview(
+                  key: const ValueKey("mapWidget"),
+                  mapRendererProxy: mapRendererProxy,
+                  initialMapView: _initialMapView,
+                ),
+          DraggableScrollableSheet(
+            initialChildSize: 0.36,
+            minChildSize: 0.1,
+            maxChildSize: 0.36,
+            builder: (BuildContext context, ScrollController scrollController) {
+              return PointerInterceptor(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  physics: ClampingScrollPhysics(),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(16.0),
+                        topRight: Radius.circular(16.0),
+                      ),
+                    ),
+                    child: SafeAreaWrapper(
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.only(top: 8.0, bottom: 12.0),
+                            // color: Colors.transparent,
+                            child: Center(
+                              child: CustomPaint(
+                                size: Size(40.0, 4.0),
+                                painter: LinePainter(
+                                  color: const Color(0xFFB5B5B5),
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: 16.0),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('${context.tr("journey.journey_id")}:'),
+                              Text(widget.journeyHeader.id),
+                            ],
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('${context.tr("journey.journey_date")}:'),
+                              Text(naiveDateToString(
+                                  date: widget.journeyHeader.journeyDate)),
+                            ],
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('${context.tr("journey.journey_kind")}:'),
+                              Text(journeyKindName),
+                            ],
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('${context.tr("journey.start_time")}:'),
+                              Text(widget.journeyHeader.start != null
+                                  ? fmt.format(
+                                      widget.journeyHeader.start!.toLocal())
+                                  : ""),
+                            ],
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('${context.tr("journey.end_time")}:'),
+                              Text(widget.journeyHeader.end != null
+                                  ? fmt.format(
+                                      widget.journeyHeader.end!.toLocal())
+                                  : ""),
+                            ],
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('${context.tr("journey.created_at")}:'),
+                              Text(fmt.format(
+                                  widget.journeyHeader.createdAt.toLocal())),
+                            ],
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('${context.tr("journey.revision")}:'),
+                              Text(widget.journeyHeader.revision),
+                            ],
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('${context.tr("journey.note")}:'),
+                              Text(widget.journeyHeader.note ?? ''),
+                            ],
+                          ),
+                          SizedBox(height: 16.0),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              ElevatedButton(
+                                onPressed: () => showExportDataCard(
+                                  context,
+                                  onLabelTaped: (name) async {
+                                    switch (name) {
+                                      case 'MLDX':
+                                        _export(ExportType.mldx);
+                                        break;
+                                      case 'KML':
+                                        _export(ExportType.kml);
+                                        break;
+                                      case 'GPX':
+                                        _export(ExportType.gpx);
+                                        break;
+                                    }
+                                  },
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFFFFFFF),
+                                  foregroundColor: Colors.black,
+                                  fixedSize: Size(100, 42),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(25.0),
+                                  ),
+                                ),
+                                child: Text(context.tr("common.export")),
+                              ),
+                              ElevatedButton(
+                                onPressed: () async =>
+                                    await _editJourneyInfo(context),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFB6E13D),
+                                  foregroundColor: Colors.black,
+                                  fixedSize: Size(100, 42),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(25.0),
+                                  ),
+                                ),
+                                child: Text(context.tr("common.edit")),
+                              ),
+                              ElevatedButton(
+                                onPressed: () async =>
+                                    await _deleteJourneyInfo(context),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFEC4162),
+                                  foregroundColor: Colors.black,
+                                  fixedSize: Size(100, 42),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(25.0),
+                                  ),
+                                ),
+                                child: Text(context.tr("common.delete")),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
