@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/component/tiles/label_tile.dart';
 import 'package:memolanes/src/rust/api/api.dart';
 import 'package:memolanes/src/rust/storage.dart';
 import 'package:memolanes/utils.dart';
@@ -25,15 +26,22 @@ class _RawDataSwitchState extends State<RawDataSwitch> {
 
   @override
   Widget build(BuildContext context) {
-    return Switch(
-      value: enabled,
-      activeColor: Colors.red,
-      onChanged: (bool value) async {
-        await toggleRawDataMode(enable: value);
-        setState(() {
-          enabled = value;
-        });
-      },
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 8.0),
+      child: LabelTile(
+        label: context.tr("general.advance_settings.raw_data_mode"),
+        position: LabelTilePosition.single,
+        trailing: Switch(
+          value: enabled,
+          // activeColor: Colors.red,
+          onChanged: (bool value) async {
+            await toggleRawDataMode(enable: value);
+            setState(() {
+              enabled = value;
+            });
+          },
+        ),
+      ),
     );
   }
 }
@@ -89,7 +97,7 @@ class _RawDataPage extends State<RawDataPage> {
                           context, context.tr("journey.delete_journey_message"),
                           hasCancel: true,
                           title: context.tr("journey.delete_journey_title"),
-                          confirmButtonText: context.tr("journey.delete"),
+                          confirmButtonText: context.tr("common.delete"),
                           confirmGroundColor: Colors.red,
                           confirmTextColor: Colors.white)) {
                         await deleteRawDataFile(filename: item.name);
