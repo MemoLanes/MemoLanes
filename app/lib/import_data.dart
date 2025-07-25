@@ -9,6 +9,7 @@ import 'package:memolanes/journey_edit.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
 import 'package:memolanes/src/rust/journey_data.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 class ImportDataPage extends StatefulWidget {
   const ImportDataPage(
@@ -143,43 +144,46 @@ class _ImportDataPage extends State<ImportDataPage> {
                   maxChildSize: 0.6,
                   builder: (BuildContext context,
                       ScrollController scrollController) {
-                    return SingleChildScrollView(
-                      controller: scrollController,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.black,
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(16.0),
-                            topRight: Radius.circular(16.0),
+                    return PointerInterceptor(
+                      child: SingleChildScrollView(
+                        controller: scrollController,
+                        physics: ClampingScrollPhysics(),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.black,
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(16.0),
+                              topRight: Radius.circular(16.0),
+                            ),
                           ),
-                        ),
-                        child: SafeAreaWrapper(
-                          child: Column(
-                            children: [
-                              Container(
-                                padding:
-                                    EdgeInsets.only(top: 8.0, bottom: 12.0),
-                                // color: Colors.transparent,
-                                child: Center(
-                                  child: CustomPaint(
-                                    size: Size(40.0, 4.0),
-                                    painter: LinePainter(
-                                      color: const Color(0xFFB5B5B5),
+                          child: SafeAreaWrapper(
+                            child: Column(
+                              children: [
+                                Container(
+                                  padding:
+                                      EdgeInsets.only(top: 8.0, bottom: 12.0),
+                                  // color: Colors.transparent,
+                                  child: Center(
+                                    child: CustomPaint(
+                                      size: Size(40.0, 4.0),
+                                      painter: LinePainter(
+                                        color: const Color(0xFFB5B5B5),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              SizedBox(height: 16.0),
-                              JourneyInfoEditor(
-                                startTime: journeyInfo.startTime,
-                                endTime: journeyInfo.endTime,
-                                journeyDate: journeyInfo.journeyDate,
-                                note: journeyInfo.note,
-                                saveData: _saveData,
-                                previewData: _previewData,
-                                importType: widget.importType,
-                              ),
-                            ],
+                                SizedBox(height: 16.0),
+                                JourneyInfoEditor(
+                                  startTime: journeyInfo.startTime,
+                                  endTime: journeyInfo.endTime,
+                                  journeyDate: journeyInfo.journeyDate,
+                                  note: journeyInfo.note,
+                                  saveData: _saveData,
+                                  previewData: _previewData,
+                                  importType: widget.importType,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
