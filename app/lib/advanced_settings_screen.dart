@@ -24,7 +24,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(context.tr("advance_settings.title")),
+        title: Text(context.tr("general.advance_settings.title")),
       ),
       body: MlSingleChildScrollView(
         padding: EdgeInsets.all(8.0),
@@ -46,7 +46,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
                 "This will delete all journeys in this app. Are you sure?",
                 hasCancel: true,
                 title: context.tr("journey.delete_journey_title"),
-                confirmButtonText: context.tr("journey.delete"),
+                confirmButtonText: context.tr("common.delete"),
                 confirmGroundColor: Colors.red,
                 confirmTextColor: Colors.white,
               )) {
@@ -97,7 +97,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
             },
           ),
           LabelTile(
-            label: context.tr("advance_settings.export_logs"),
+            label: context.tr("general.advance_settings.export_logs"),
             position: LabelTilePosition.middle,
             trailing: LabelTileContent(showArrow: true),
             onTap: () async {
@@ -110,7 +110,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
             },
           ),
           LabelTile(
-            label: context.tr("advance_settings.raw_data_mode"),
+            label: context.tr("general.advance_settings.raw_data_mode"),
             position: LabelTilePosition.middle,
             trailing: LabelTileContent(showArrow: true),
             onTap: () => Navigator.push(
@@ -123,7 +123,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
             ),
           ),
           LabelTile(
-            label: context.tr("advance_settings.rebuild_cache"),
+            label: context.tr("general.advance_settings.rebuild_cache"),
             position: LabelTilePosition.bottom,
             trailing: LabelTileContent(showArrow: true),
             onTap: () async => await showLoadingDialog(

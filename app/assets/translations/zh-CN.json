@@ -75,16 +75,19 @@
     "title": "成就",
     "explored_area": "探索面积：{} 平方公里"
   },
-  "settings": {
-    "general": "通用",
-    "version": "版本信息",
-    "new": "有新版"
-  },
-  "advance_settings": {
-    "title": "高级设置",
-    "export_logs": "导出日志",
-    "raw_data_mode": "原始数据模式",
-    "rebuild_cache": "重建缓存"
+  "general": {
+    "title": "通用",
+    "version": {
+      "title": "版本",
+      "new": "有新版",
+      "currently_the_latest_version": "当前已经是最新版本"
+    },
+    "advance_settings": {
+      "title": "高级设置",
+      "export_logs": "导出日志",
+      "raw_data_mode": "原始数据模式",
+      "rebuild_cache": "重建缓存"
+    }
   },
   "data": {
     "title": "数据",

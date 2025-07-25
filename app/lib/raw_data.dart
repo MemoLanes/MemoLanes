@@ -65,7 +65,7 @@ class _RawDataPage extends State<RawDataPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(context.tr("advance_settings.raw_data_mode")),
+        title: Text(context.tr("general.advance_settings.raw_data_mode")),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.center,

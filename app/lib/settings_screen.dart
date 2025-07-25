@@ -3,7 +3,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/advanced_settings_screen.dart';
-import 'package:memolanes/backup_data_screen.dart';
 import 'package:memolanes/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/component/tiles/label_tile.dart';
 import 'package:memolanes/component/tiles/label_tile_content.dart';
@@ -85,25 +84,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return MlSingleChildScrollView(
       padding: EdgeInsets.symmetric(vertical: 16.0),
       children: [
-        CircleAvatar(
-          backgroundColor: const Color(0xFFB6E13D),
-          radius: 45.0,
-        ),
-        Padding(
-          padding: EdgeInsets.symmetric(vertical: 16.0),
-          child: Text(
-            'Ryan Schnetzer',
-            style: TextStyle(
-              fontSize: 24.0,
-              color: const Color(0xFFFFFFFF),
-            ),
-          ),
-        ),
+        // CircleAvatar(
+        //   backgroundColor: const Color(0xFFB6E13D),
+        //   radius: 45.0,
+        // ),
+        // Padding(
+        //   padding: EdgeInsets.symmetric(vertical: 16.0),
+        //   child: Text(
+        //     'Ryan Schnetzer',
+        //     style: TextStyle(
+        //       fontSize: 24.0,
+        //       color: const Color(0xFFFFFFFF),
+        //     ),
+        //   ),
+        // ),
         LabelTileTitle(
-          label: context.tr("settings.general"),
+          label: context.tr("general.title"),
         ),
         LabelTile(
-          label: context.tr("settings.version"),
+          label: context.tr("general.version.title"),
           position: LabelTilePosition.middle,
           trailing: Row(
             children: [
@@ -124,7 +123,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Padding(
                       padding: EdgeInsets.all(2.0),
                       child: Text(
-                        context.tr("settings.new"),
+                        context.tr("general.version.new"),
                         style: TextStyle(
                           color: const Color(0xFFFF0000),
                           fontSize: 10.0,
@@ -136,14 +135,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ],
           ),
-          onTap: () {
+          onTap: () async {
             if (updateUrl != null) {
               _launchUrl(updateUrl);
+              return;
             }
+            await showCommonDialog(
+              context,
+              context.tr("general.version.currently_the_latest_version"),
+            );
           },
         ),
         LabelTile(
-          label: context.tr("advance_settings.title"),
+          label: context.tr("general.advance_settings.title"),
           position: LabelTilePosition.bottom,
           trailing: LabelTileContent(showArrow: true),
           onTap: () => Navigator.push(
@@ -158,19 +162,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
         LabelTileTitle(
           label: context.tr("data.title"),
         ),
-        LabelTile(
-          label: context.tr("data.backup_data.title"),
-          position: LabelTilePosition.middle,
-          trailing: LabelTileContent(showArrow: true),
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) {
-                return BackupDataScreen();
-              },
-            ),
-          ),
-        ),
+        // LabelTile(
+        //   label: context.tr("data.backup_data.title"),
+        //   position: LabelTilePosition.middle,
+        //   trailing: LabelTileContent(showArrow: true),
+        //   onTap: () => Navigator.push(
+        //     context,
+        //     MaterialPageRoute(
+        //       builder: (context) {
+        //         return BackupDataScreen();
+        //       },
+        //     ),
+        //   ),
+        // ),
         LabelTile(
           label: context.tr("data.import_data.title"),
           position: LabelTilePosition.middle,
@@ -275,7 +279,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           label: context.tr("data.clear_app_cache.title"),
           position: LabelTilePosition.bottom,
           trailing: LabelTileContent(showArrow: true),
-          onTap: () {},
+          onTap: () async {
+            await showCommonDialog(
+              context,
+              "Still under development.",
+            );
+          },
         ),
         // LabelTileTitle(
         //   label: '关于我们',
