@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:fpdart/fpdart.dart' as f;
 import 'package:memolanes/component/base_map_webview.dart';
+import 'package:memolanes/component/cards/line_painter.dart';
 import 'package:memolanes/component/safe_area_wrapper.dart';
 import 'package:memolanes/journey_edit.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -114,9 +115,9 @@ class _ImportDataPage extends State<ImportDataPage> {
       appBar: AppBar(
         title: Text(context.tr("data.import_data.title")),
       ),
-      body: Center(
-        child: journeyInfo == null
-            ? const Column(
+      body: journeyInfo == null
+          ? Center(
+              child: const Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
@@ -125,34 +126,68 @@ class _ImportDataPage extends State<ImportDataPage> {
                   ),
                   CircularProgressIndicator()
                 ],
-              )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: mapRendererProxy == null
-                        ? (const CircularProgressIndicator())
-                        : (BaseMapWebview(
-                            // key: const ValueKey("mapWidget"),
-                            mapRendererProxy: mapRendererProxy,
-                            initialMapView: _initialMapView,
-                          )),
-                  ),
-                  SizedBox(height: 16.0),
-                  SafeAreaWrapper(
-                    child: JourneyInfoEditor(
-                      startTime: journeyInfo.startTime,
-                      endTime: journeyInfo.endTime,
-                      journeyDate: journeyInfo.journeyDate,
-                      note: journeyInfo.note,
-                      saveData: _saveData,
-                      previewData: _previewData,
-                      importType: widget.importType,
-                    ),
-                  ),
-                ],
               ),
-      ),
+            )
+          : Stack(
+              children: [
+                mapRendererProxy == null
+                    ? const CircularProgressIndicator()
+                    : BaseMapWebview(
+                        // key: const ValueKey("mapWidget"),
+                        mapRendererProxy: mapRendererProxy,
+                        initialMapView: _initialMapView,
+                      ),
+                DraggableScrollableSheet(
+                  initialChildSize: 0.6,
+                  minChildSize: 0.1,
+                  maxChildSize: 0.6,
+                  builder: (BuildContext context,
+                      ScrollController scrollController) {
+                    return SingleChildScrollView(
+                      controller: scrollController,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black,
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(16.0),
+                            topRight: Radius.circular(16.0),
+                          ),
+                        ),
+                        child: SafeAreaWrapper(
+                          child: Column(
+                            children: [
+                              Container(
+                                padding:
+                                    EdgeInsets.only(top: 8.0, bottom: 12.0),
+                                // color: Colors.transparent,
+                                child: Center(
+                                  child: CustomPaint(
+                                    size: Size(40.0, 4.0),
+                                    painter: LinePainter(
+                                      color: const Color(0xFFB5B5B5),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: 16.0),
+                              JourneyInfoEditor(
+                                startTime: journeyInfo.startTime,
+                                endTime: journeyInfo.endTime,
+                                journeyDate: journeyInfo.journeyDate,
+                                note: journeyInfo.note,
+                                saveData: _saveData,
+                                previewData: _previewData,
+                                importType: widget.importType,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                )
+              ],
+            ),
     );
   }
 }
