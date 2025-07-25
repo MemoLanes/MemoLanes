@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/component/cards/card_label_tile.dart';
 import 'package:memolanes/component/safe_area_wrapper.dart';
@@ -24,7 +25,7 @@ class JourneyKindCard extends StatelessWidget {
           children: [
             CardLabelTile(
               position: CardLabelTilePosition.top,
-              label: '默认',
+              label: context.tr("journey_kind.default"),
               onTap: () {
                 Navigator.pop(context);
                 onLabelTaped?.call(JourneyKind.defaultKind);
@@ -37,7 +38,7 @@ class JourneyKindCard extends StatelessWidget {
             ),
             CardLabelTile(
               position: CardLabelTilePosition.top,
-              label: '航迹',
+              label: context.tr("journey_kind.flight"),
               onTap: () {
                 Navigator.pop(context);
                 onLabelTaped?.call(JourneyKind.flight);

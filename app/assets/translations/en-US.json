@@ -17,13 +17,16 @@
     "info": "Info",
     "save": "Save",
     "share": "Share",
-    "export": "Export"
+    "export": "Export",
+    "edit": "Edit",
+    "delete": "Delete",
+    "please_enter": "Please enter"
   },
   "journey": {
     "no_data": "There's no data yet, go ahead and explore the world!",
+    "journey_date_is_empty": "JourneyDate is empty",
     "delete_journey_title": "Delete Journey",
     "delete_journey_message": "Delete this journey record?",
-    "delete": "Delete",
     "journey_info_page_title": "Journey Information",
     "journey_info_edit_page_title": "Edit Journey Information",
     "export_journey_as_kml": "Export as KML",
@@ -32,7 +35,17 @@
     "import_kml_gpx_data": "Import KML/GPX Data",
     "archive_all_as_mldx": "Archive All (mldx file)",
     "delete_all": "Delete All Journeys",
-    "import_mldx": "Import Archive (mldx file)"
+    "import_mldx": "Import Archive (mldx file)",
+    "preprocessor": "Preprocessor",
+    "journey_id": "Journey ID",
+    "journey_date": "Journey Date",
+    "journey_kind": "Journey Kind",
+    "start_time": "Start Time",
+    "end_time": "End Time",
+    "created_at": "Created At",
+    "revision": "Revision",
+    "note": "Note",
+    "fog_of_world": "Fog of World"
   },
   "db_optimization": {
     "notification": "Your database requires optimization, please go to Settings tab and click [Optimize database] button.",
@@ -62,9 +75,36 @@
     "title": "Achievements",
     "explored_area": "Explored area: {} km²"
   },
+  "settings": {
+    "general": "General",
+    "version": "Version",
+    "new": "New"
+  },
   "advance_settings": {
+    "title": "Advance settings",
     "export_logs": "Export Logs",
     "raw_data_mode": "Raw Data Mode",
     "rebuild_cache": "Rebuild Cache"
+  },
+  "data": {
+    "title": "Data",
+    "backup_data": {
+      "title": "Backup data",
+      "last_backup_time": "Last backup time",
+      "backup": "Backup",
+      "delete_backup_data": "Delete backup data"
+    },
+    "import_data": {
+      "title": "Import data"
+    },
+    "export_data": {
+      "title": "Export Data"
+    },
+    "clear_app_cache": {
+      "title": "Clear App cache"
+    }
+  },
+  "other": {
+    "title": "Other"
   }
 }

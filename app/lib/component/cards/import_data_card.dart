@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/component/cards/card_label_tile.dart';
 import 'package:memolanes/component/safe_area_wrapper.dart';
@@ -48,10 +49,10 @@ class ImportDataCard extends StatelessWidget {
             ),
             CardLabelTile(
               position: CardLabelTilePosition.bottom,
-              label: '世界迷雾',
+              label: context.tr("journey.fog_of_world"),
               onTap: () {
                 Navigator.pop(context);
-                onLabelTaped?.call('世界迷雾');
+                onLabelTaped?.call('FOG_OF_WORLD');
               },
             ),
           ],

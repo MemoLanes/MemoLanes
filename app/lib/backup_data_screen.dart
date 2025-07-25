@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/component/tiles/label_tile.dart';
@@ -10,26 +11,26 @@ class BackupDataScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('数据备份'),
+        title: Text(context.tr("data.backup_data.title")),
       ),
       body: MlSingleChildScrollView(
         padding: EdgeInsets.all(8.0),
         children: [
           LabelTile(
-            label: '上次备份时间',
+            label: context.tr("data.backup_data.last_backup_time"),
             position: LabelTilePosition.top,
             trailing: LabelTileContent(
               content: '2025-07-12',
             ),
           ),
           LabelTile(
-            label: '备份',
+            label: context.tr("data.backup_data.backup"),
             position: LabelTilePosition.middle,
             trailing: LabelTileContent(showArrow: true),
             onTap: () {},
           ),
           LabelTile(
-            label: '删除备份数据',
+            label: context.tr("data.backup_data.delete_backup_data"),
             position: LabelTilePosition.bottom,
             trailing: LabelTileContent(showArrow: true),
             onTap: () {},

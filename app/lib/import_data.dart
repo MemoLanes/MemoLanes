@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:fpdart/fpdart.dart' as f;
@@ -111,7 +112,7 @@ class _ImportDataPage extends State<ImportDataPage> {
     final mapRendererProxy = _mapRendererProxy;
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Import Data"),
+        title: Text(context.tr("data.import_data.title")),
       ),
       body: Center(
         child: journeyInfo == null

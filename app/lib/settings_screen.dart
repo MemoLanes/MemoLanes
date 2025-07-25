@@ -100,44 +100,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         LabelTileTitle(
-          label: '通用',
+          label: context.tr("settings.general"),
         ),
         LabelTile(
-          label: '版本信息',
+          label: context.tr("settings.version"),
           position: LabelTilePosition.middle,
           trailing: Row(
             children: [
               LabelTileContent(
-                content: 'v1.5.3',
+                content: api.shortCommitHash(),
               ),
-              Padding(
-                padding: EdgeInsets.only(left: 4.0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.all(Radius.circular(12.0)),
-                    border: Border.all(
-                      color: const Color(0xFFFF0000),
-                      width: 1,
-                    ),
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.all(2.0),
-                    child: Text(
-                      '有新版',
-                      style: TextStyle(
+              if (updateUrl != null) ...[
+                Padding(
+                  padding: EdgeInsets.only(left: 4.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.all(Radius.circular(12.0)),
+                      border: Border.all(
                         color: const Color(0xFFFF0000),
-                        fontSize: 10.0,
+                        width: 1,
+                      ),
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.all(2.0),
+                      child: Text(
+                        context.tr("settings.new"),
+                        style: TextStyle(
+                          color: const Color(0xFFFF0000),
+                          fontSize: 10.0,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              )
+                )
+              ],
             ],
           ),
-          onTap: () {},
+          onTap: () {
+            if (updateUrl != null) {
+              _launchUrl(updateUrl);
+            }
+          },
         ),
         LabelTile(
-          label: '高级设置',
+          label: context.tr("advance_settings.title"),
           position: LabelTilePosition.bottom,
           trailing: LabelTileContent(showArrow: true),
           onTap: () => Navigator.push(
@@ -150,10 +156,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         LabelTileTitle(
-          label: '数据',
+          label: context.tr("data.title"),
         ),
         LabelTile(
-          label: '数据备份',
+          label: context.tr("data.backup_data.title"),
           position: LabelTilePosition.middle,
           trailing: LabelTileContent(showArrow: true),
           onTap: () => Navigator.push(
@@ -166,7 +172,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         LabelTile(
-          label: '数据导入',
+          label: context.tr("data.import_data.title"),
           position: LabelTilePosition.middle,
           trailing: LabelTileContent(showArrow: true),
           onTap: () => showImportDataCard(
@@ -206,7 +212,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 case 'KML/GPX':
                   _selectImportFile(context, ImportType.gpxOrKml);
                   break;
-                case '世界迷雾':
+                case 'FOG_OF_WORLD':
                   await showCommonDialog(
                     context,
                     context.tr("import_fow_data.description_md"),
@@ -230,7 +236,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         LabelTile(
-          label: '数据导出',
+          label: context.tr("data.export_data.title"),
           position: LabelTilePosition.middle,
           trailing: LabelTileContent(showArrow: true),
           onTap: () => showExportDataCard(
@@ -266,50 +272,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         LabelTile(
-          label: '清除 App 数据',
+          label: context.tr("data.clear_app_cache.title"),
           position: LabelTilePosition.bottom,
           trailing: LabelTileContent(showArrow: true),
           onTap: () {},
         ),
+        // LabelTileTitle(
+        //   label: '关于我们',
+        // ),
+        // LabelTile(
+        //   label: '个人隐私政策',
+        //   position: LabelTilePosition.middle,
+        //   trailing: LabelTileContent(showArrow: true),
+        //   onTap: () {},
+        // ),
+        // LabelTile(
+        //   label: 'App 开源项目使用',
+        //   position: LabelTilePosition.middle,
+        //   trailing: LabelTileContent(showArrow: true),
+        //   onTap: () {},
+        // ),
+        // LabelTile(
+        //   label: '联系开发者',
+        //   position: LabelTilePosition.middle,
+        //   trailing: LabelTileContent(showArrow: true),
+        //   onTap: () {},
+        // ),
+        // LabelTile(
+        //   label: 'FAQ',
+        //   position: LabelTilePosition.middle,
+        //   trailing: LabelTileContent(showArrow: true),
+        //   onTap: () {},
+        // ),
+        // LabelTile(
+        //   label: '建议',
+        //   position: LabelTilePosition.bottom,
+        //   trailing: LabelTileContent(showArrow: true),
+        //   onTap: () {},
+        // ),
         LabelTileTitle(
-          label: '关于我们',
-        ),
-        LabelTile(
-          label: '个人隐私政策',
-          position: LabelTilePosition.middle,
-          trailing: LabelTileContent(showArrow: true),
-          onTap: () {},
-        ),
-        LabelTile(
-          label: 'App 开源项目使用',
-          position: LabelTilePosition.middle,
-          trailing: LabelTileContent(showArrow: true),
-          onTap: () {},
-        ),
-        LabelTile(
-          label: '联系开发者',
-          position: LabelTilePosition.middle,
-          trailing: LabelTileContent(showArrow: true),
-          onTap: () {},
-        ),
-        LabelTile(
-          label: 'FAQ',
-          position: LabelTilePosition.middle,
-          trailing: LabelTileContent(showArrow: true),
-          onTap: () {},
-        ),
-        LabelTile(
-          label: '建议',
-          position: LabelTilePosition.bottom,
-          trailing: LabelTileContent(showArrow: true),
-          onTap: () {},
-        ),
-        LabelTileTitle(
-          label: '其他',
+          label: context.tr("other.title"),
         ),
         LabelTile(
           label: context.tr("unexpected_exit_notification.setting_title"),
-          position: LabelTilePosition.middle,
+          position: LabelTilePosition.bottom,
           trailing: Switch(
             value: _isUnexpectedExitNotificationEnabled,
             onChanged: (value) async {
@@ -345,19 +351,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               }
             },
           ),
-        ),
-        if (updateUrl != null) ...[
-          LabelTile(
-            label: 'Update',
-            position: LabelTilePosition.middle,
-            trailing: LabelTileContent(showArrow: true),
-            onTap: () => _launchUrl(updateUrl),
-          ),
-        ],
-        LabelTile(
-          label: "Version",
-          position: LabelTilePosition.bottom,
-          trailing: LabelTileContent(content: api.shortCommitHash()),
         ),
         SizedBox(height: 96.0),
       ],

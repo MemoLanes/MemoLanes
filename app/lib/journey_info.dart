@@ -153,14 +153,14 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Journey ID:'),
+                      Text('${context.tr("journey.journey_id")}:'),
                       Text(widget.journeyHeader.id),
                     ],
                   ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Journey Date:'),
+                      Text('${context.tr("journey.journey_date")}:'),
                       Text(naiveDateToString(
                           date: widget.journeyHeader.journeyDate)),
                     ],
@@ -168,14 +168,14 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('JourneyKind:'),
+                      Text('${context.tr("journey.journey_kind")}:'),
                       Text(journeyKindName),
                     ],
                   ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Start Time:'),
+                      Text('${context.tr("journey.start_time")}:'),
                       Text(widget.journeyHeader.start != null
                           ? fmt.format(widget.journeyHeader.start!.toLocal())
                           : ""),
@@ -184,7 +184,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('End Time:'),
+                      Text('${context.tr("journey.end_time")}:'),
                       Text(widget.journeyHeader.end != null
                           ? fmt.format(widget.journeyHeader.end!.toLocal())
                           : ""),
@@ -193,7 +193,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Created At:'),
+                      Text('${context.tr("journey.created_at")}:'),
                       Text(
                           fmt.format(widget.journeyHeader.createdAt.toLocal())),
                     ],
@@ -201,14 +201,14 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Revision:'),
+                      Text('${context.tr("journey.revision")}:'),
                       Text(widget.journeyHeader.revision),
                     ],
                   ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Note:'),
+                      Text('${context.tr("journey.note")}:'),
                       Text(widget.journeyHeader.note ?? ''),
                     ],
                   ),
@@ -241,7 +241,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                             borderRadius: BorderRadius.circular(25.0),
                           ),
                         ),
-                        child: const Text("导出"),
+                        child: Text(context.tr("common.export")),
                       ),
                       ElevatedButton(
                         onPressed: () async => await _editJourneyInfo(context),
@@ -253,7 +253,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                             borderRadius: BorderRadius.circular(25.0),
                           ),
                         ),
-                        child: const Text("编辑"),
+                        child: Text(context.tr("common.edit")),
                       ),
                       ElevatedButton(
                         onPressed: () async =>
@@ -266,7 +266,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                             borderRadius: BorderRadius.circular(25.0),
                           ),
                         ),
-                        child: const Text("删除"),
+                        child: Text(context.tr("common.delete")),
                       ),
                     ],
                   ),

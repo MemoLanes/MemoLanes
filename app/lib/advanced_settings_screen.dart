@@ -24,13 +24,13 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('高级设置'),
+        title: Text(context.tr("advance_settings.title")),
       ),
       body: MlSingleChildScrollView(
         padding: EdgeInsets.all(8.0),
         children: [
           LabelTile(
-            label: '删除所有旅程',
+            label: context.tr("journey.delete_all"),
             position: LabelTilePosition.top,
             trailing: LabelTileContent(showArrow: true),
             onTap: () async {
@@ -65,7 +65,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
             },
           ),
           LabelTile(
-            label: '优化数据库',
+            label: context.tr("db_optimization.button"),
             position: LabelTilePosition.middle,
             trailing: LabelTileContent(showArrow: true),
             onTap: () async {
@@ -97,7 +97,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
             },
           ),
           LabelTile(
-            label: '导出日志',
+            label: context.tr("advance_settings.export_logs"),
             position: LabelTilePosition.middle,
             trailing: LabelTileContent(showArrow: true),
             onTap: () async {
@@ -110,7 +110,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
             },
           ),
           LabelTile(
-            label: '原始数据模式',
+            label: context.tr("advance_settings.raw_data_mode"),
             position: LabelTilePosition.middle,
             trailing: LabelTileContent(showArrow: true),
             onTap: () => Navigator.push(
@@ -123,7 +123,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
             ),
           ),
           LabelTile(
-            label: '重建缓存',
+            label: context.tr("advance_settings.rebuild_cache"),
             position: LabelTilePosition.bottom,
             trailing: LabelTileContent(showArrow: true),
             onTap: () async => await showLoadingDialog(

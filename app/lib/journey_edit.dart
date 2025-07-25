@@ -113,9 +113,9 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
     super.dispose();
   }
 
-  void _saveData() async {
+  void _saveData(BuildContext context) async {
     if (_journeyDate == null) {
-      Fluttertoast.showToast(msg: "JourneyDate is empty");
+      Fluttertoast.showToast(msg: context.tr("journey.journey_date_is_empty"));
       return;
     }
     _note ??= "";
@@ -130,7 +130,6 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
     } else {
       await widget.saveData(journeyInfo);
     }
-    var context = this.context;
     if (context.mounted) {
       Navigator.pop(context, true);
     }
@@ -142,7 +141,7 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         LabelTile(
-          label: "开始时间",
+          label: context.tr("journey.start_time"),
           position: LabelTilePosition.single,
           trailing: LabelTileContent(
               content: _startTime != null
@@ -158,7 +157,7 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
           },
         ),
         LabelTile(
-          label: "结束时间",
+          label: context.tr("journey.end_time"),
           position: LabelTilePosition.single,
           trailing: LabelTileContent(
               content: _endTime != null
@@ -174,7 +173,7 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
           },
         ),
         LabelTile(
-          label: "旅行日期",
+          label: context.tr("journey.journey_date"),
           position: LabelTilePosition.single,
           trailing: LabelTileContent(
               content:
@@ -197,7 +196,7 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
           widget.importType == ImportType.fow
               ? SizedBox.shrink()
               : LabelTile(
-                  label: '预处理器',
+                  label: context.tr("journey.preprocessor"),
                   position: LabelTilePosition.single,
                   trailing: Switch(
                     value: _runPreprocessor,
@@ -212,7 +211,7 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
                   ),
                 ),
         LabelTile(
-          label: '图层标签',
+          label: context.tr("journey.journey_kind"),
           position: LabelTilePosition.single,
           trailing: LabelTileContent(
               content: _journeyKind == JourneyKind.defaultKind
@@ -229,7 +228,7 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
           ),
         ),
         LabelTile(
-          label: '备注',
+          label: context.tr("journey.note"),
           position: LabelTilePosition.single,
           trailing: SizedBox(
             width: 200.0,
@@ -239,7 +238,7 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
               decoration: InputDecoration(
                 border: InputBorder.none,
                 counterText: '',
-                hintText: '请输入',
+                hintText: context.tr("common.please_enter"),
                 hintStyle: TextStyle(
                   fontSize: 14.0,
                 ),
@@ -249,7 +248,7 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
           ),
         ),
         ElevatedButton(
-          onPressed: _saveData,
+          onPressed: () => _saveData(context),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFB6E13D),
             foregroundColor: Colors.black,
@@ -258,7 +257,7 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
               borderRadius: BorderRadius.circular(25.0),
             ),
           ),
-          child: const Text("Save Data"),
+          child: Text(context.tr("common.save")),
         ),
       ],
     );
