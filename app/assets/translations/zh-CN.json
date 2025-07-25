@@ -20,7 +20,8 @@
     "export": "导出",
     "edit": "编辑",
     "delete": "删除",
-    "please_enter": "请输入"
+    "please_enter": "请输入",
+    "still_under_development": "开发中"
   },
   "journey": {
     "no_data": "当前暂无旅程数据，开始探索世界吧！",

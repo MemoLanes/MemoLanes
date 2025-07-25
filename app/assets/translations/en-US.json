@@ -20,7 +20,8 @@
     "export": "Export",
     "edit": "Edit",
     "delete": "Delete",
-    "please_enter": "Please enter"
+    "please_enter": "Please enter",
+    "still_under_development": "Still under development"
   },
   "journey": {
     "no_data": "There's no data yet, go ahead and explore the world!",

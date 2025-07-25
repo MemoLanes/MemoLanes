@@ -250,7 +250,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               if (name != 'MLDX') {
                 await showCommonDialog(
                   context,
-                  "Still under development.",
+                  context.tr("common.still_under_development"),
                 );
                 return;
               }
@@ -282,7 +282,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           onTap: () async {
             await showCommonDialog(
               context,
-              "Still under development.",
+              context.tr("common.still_under_development"),
             );
           },
         ),
