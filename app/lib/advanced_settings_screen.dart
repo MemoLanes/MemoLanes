@@ -2,7 +2,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/component/tiles/label_tile.dart';
-import 'package:memolanes/component/tiles/label_tile_content.dart';
 import 'package:memolanes/gps_manager.dart';
 import 'package:memolanes/raw_data.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -32,7 +31,6 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
           LabelTile(
             label: context.tr("journey.delete_all"),
             position: LabelTilePosition.top,
-            trailing: LabelTileContent(showArrow: true),
             onTap: () async {
               if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
                 await showCommonDialog(
@@ -67,7 +65,6 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
           LabelTile(
             label: context.tr("db_optimization.button"),
             position: LabelTilePosition.middle,
-            trailing: LabelTileContent(showArrow: true),
             onTap: () async {
               if (!await api.mainDbRequireOptimization()) {
                 if (!context.mounted) return;
@@ -99,7 +96,6 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
           LabelTile(
             label: context.tr("general.advance_settings.export_logs"),
             position: LabelTilePosition.middle,
-            trailing: LabelTileContent(showArrow: true),
             onTap: () async {
               var tmpDir = await getTemporaryDirectory();
               var ts = DateTime.now().millisecondsSinceEpoch;
@@ -112,7 +108,6 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
           LabelTile(
             label: context.tr("general.advance_settings.raw_data_mode"),
             position: LabelTilePosition.middle,
-            trailing: LabelTileContent(showArrow: true),
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -125,7 +120,6 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
           LabelTile(
             label: context.tr("general.advance_settings.rebuild_cache"),
             position: LabelTilePosition.bottom,
-            trailing: LabelTileContent(showArrow: true),
             onTap: () async => await showLoadingDialog(
               context: context,
               asyncTask: api.rebuildCache(),
