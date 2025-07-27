@@ -67,6 +67,9 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
       centerAlignModePicker: true,
       calendarType: CalendarDatePicker2Type.single,
       selectedDayHighlightColor: const Color(0xFFB6E13D).withAlpha(230),
+      dayTextStyle: const TextStyle(
+        color: Colors.white,
+      ),
       weekdayLabelTextStyle: const TextStyle(
         color: Colors.white,
         fontWeight: FontWeight.bold,
@@ -120,11 +123,11 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
       },
       dynamicCalendarRows: true,
       disabledDayTextStyle:
-          const TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+          const TextStyle(color: Colors.grey, fontWeight: FontWeight.w400),
       disabledMonthTextStyle:
-          const TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+          const TextStyle(color: Colors.grey, fontWeight: FontWeight.w400),
       disabledYearTextStyle:
-          const TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+          const TextStyle(color: Colors.grey, fontWeight: FontWeight.w400),
     );
     return CalendarDatePicker2(
       config: config,
