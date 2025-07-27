@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/component/base_map_webview.dart';
 import 'package:memolanes/component/cards/line_painter.dart';
 import 'package:memolanes/component/safe_area_wrapper.dart';
+import 'package:memolanes/component/tiles/label_tile.dart';
+import 'package:memolanes/component/tiles/label_tile_content.dart';
 import 'package:memolanes/journey_edit.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart';
@@ -11,6 +13,7 @@ import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:memolanes/utils.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:sliding_up_panel/sliding_up_panel.dart';
 
 enum ExportType { mldx, kml, gpx }
 
@@ -135,180 +138,160 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       appBar: AppBar(
         title: Text(context.tr("journey.journey_info_page_title")),
       ),
-      body: Stack(
-        children: [
-          mapRendererProxy == null
-              ? const CircularProgressIndicator()
-              : BaseMapWebview(
-                  key: const ValueKey("mapWidget"),
-                  mapRendererProxy: mapRendererProxy,
-                  initialMapView: _initialMapView,
-                ),
-          DraggableScrollableSheet(
-            initialChildSize: 0.36,
-            minChildSize: 0.1,
-            maxChildSize: 0.36,
-            builder: (BuildContext context, ScrollController scrollController) {
-              return PointerInterceptor(
-                child: SingleChildScrollView(
-                  controller: scrollController,
-                  physics: ClampingScrollPhysics(),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.black,
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(16.0),
-                        topRight: Radius.circular(16.0),
-                      ),
-                    ),
-                    child: SafeAreaWrapper(
-                      child: Column(
-                        children: [
-                          Container(
-                            padding: EdgeInsets.only(top: 8.0, bottom: 12.0),
-                            // color: Colors.transparent,
-                            child: Center(
-                              child: CustomPaint(
-                                size: Size(40.0, 4.0),
-                                painter: LinePainter(
-                                  color: const Color(0xFFB5B5B5),
-                                ),
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: 16.0),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('${context.tr("journey.journey_id")}:'),
-                              Text(widget.journeyHeader.id),
-                            ],
-                          ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('${context.tr("journey.journey_date")}:'),
-                              Text(naiveDateToString(
-                                  date: widget.journeyHeader.journeyDate)),
-                            ],
-                          ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('${context.tr("journey.journey_kind")}:'),
-                              Text(journeyKindName),
-                            ],
-                          ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('${context.tr("journey.start_time")}:'),
-                              Text(widget.journeyHeader.start != null
-                                  ? fmt.format(
-                                      widget.journeyHeader.start!.toLocal())
-                                  : ""),
-                            ],
-                          ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('${context.tr("journey.end_time")}:'),
-                              Text(widget.journeyHeader.end != null
-                                  ? fmt.format(
-                                      widget.journeyHeader.end!.toLocal())
-                                  : ""),
-                            ],
-                          ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('${context.tr("journey.created_at")}:'),
-                              Text(fmt.format(
-                                  widget.journeyHeader.createdAt.toLocal())),
-                            ],
-                          ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('${context.tr("journey.revision")}:'),
-                              Text(widget.journeyHeader.revision),
-                            ],
-                          ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('${context.tr("journey.note")}:'),
-                              Text(widget.journeyHeader.note ?? ''),
-                            ],
-                          ),
-                          SizedBox(height: 16.0),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              ElevatedButton(
-                                onPressed: () => showExportDataCard(
-                                  context,
-                                  onLabelTaped: (name) async {
-                                    switch (name) {
-                                      case 'MLDX':
-                                        _export(ExportType.mldx);
-                                        break;
-                                      case 'KML':
-                                        _export(ExportType.kml);
-                                        break;
-                                      case 'GPX':
-                                        _export(ExportType.gpx);
-                                        break;
-                                    }
-                                  },
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFFFFFFF),
-                                  foregroundColor: Colors.black,
-                                  fixedSize: Size(100, 42),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(25.0),
-                                  ),
-                                ),
-                                child: Text(context.tr("common.export")),
-                              ),
-                              ElevatedButton(
-                                onPressed: () async =>
-                                    await _editJourneyInfo(context),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFB6E13D),
-                                  foregroundColor: Colors.black,
-                                  fixedSize: Size(100, 42),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(25.0),
-                                  ),
-                                ),
-                                child: Text(context.tr("common.edit")),
-                              ),
-                              ElevatedButton(
-                                onPressed: () async =>
-                                    await _deleteJourneyInfo(context),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFEC4162),
-                                  foregroundColor: Colors.black,
-                                  fixedSize: Size(100, 42),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(25.0),
-                                  ),
-                                ),
-                                child: Text(context.tr("common.delete")),
-                              ),
-                            ],
-                          ),
-                        ],
+      body: SlidingUpPanel(
+        color: Colors.black,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(16.0),
+          topRight: Radius.circular(16.0),
+        ),
+        maxHeight: 580,
+        defaultPanelState: PanelState.OPEN,
+        panel: PointerInterceptor(
+          child: SafeAreaWrapper(
+            child: Column(
+              children: [
+                Container(
+                  padding: EdgeInsets.only(top: 8.0, bottom: 12.0),
+                  child: Center(
+                    child: CustomPaint(
+                      size: Size(40.0, 4.0),
+                      painter: LinePainter(
+                        color: const Color(0xFFB5B5B5),
                       ),
                     ),
                   ),
                 ),
-              );
-            },
+                SizedBox(height: 16.0),
+                LabelTile(
+                  label: context.tr("journey.journey_id"),
+                  position: LabelTilePosition.top,
+                  trailing: LabelTileContent(
+                    content: widget.journeyHeader.id,
+                  ),
+                ),
+                LabelTile(
+                  label: context.tr("journey.journey_date"),
+                  position: LabelTilePosition.middle,
+                  trailing: LabelTileContent(
+                    content: naiveDateToString(
+                        date: widget.journeyHeader.journeyDate),
+                  ),
+                ),
+                LabelTile(
+                  label: context.tr("journey.journey_kind"),
+                  position: LabelTilePosition.middle,
+                  trailing: LabelTileContent(
+                    content: journeyKindName,
+                  ),
+                ),
+                LabelTile(
+                  label: context.tr("journey.start_time"),
+                  position: LabelTilePosition.middle,
+                  trailing: LabelTileContent(
+                    content: widget.journeyHeader.start != null
+                        ? fmt.format(widget.journeyHeader.start!.toLocal())
+                        : "",
+                  ),
+                ),
+                LabelTile(
+                  label: context.tr("journey.end_time"),
+                  position: LabelTilePosition.middle,
+                  trailing: LabelTileContent(
+                    content: widget.journeyHeader.end != null
+                        ? fmt.format(widget.journeyHeader.end!.toLocal())
+                        : "",
+                  ),
+                ),
+                LabelTile(
+                  label: context.tr("journey.created_at"),
+                  position: LabelTilePosition.middle,
+                  trailing: LabelTileContent(
+                    content:
+                        fmt.format(widget.journeyHeader.createdAt.toLocal()),
+                  ),
+                ),
+                LabelTile(
+                  label: context.tr("journey.revision"),
+                  position: LabelTilePosition.middle,
+                  trailing: LabelTileContent(
+                    content: widget.journeyHeader.revision,
+                  ),
+                ),
+                LabelTile(
+                  label: context.tr("journey.note"),
+                  position: LabelTilePosition.bottom,
+                  trailing: LabelTileContent(
+                    content: widget.journeyHeader.note ?? "",
+                  ),
+                ),
+                SizedBox(height: 16.0),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () => showExportDataCard(
+                        context,
+                        onLabelTaped: (name) async {
+                          switch (name) {
+                            case 'MLDX':
+                              _export(ExportType.mldx);
+                              break;
+                            case 'KML':
+                              _export(ExportType.kml);
+                              break;
+                            case 'GPX':
+                              _export(ExportType.gpx);
+                              break;
+                          }
+                        },
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFFFFFF),
+                        foregroundColor: Colors.black,
+                        fixedSize: Size(100, 42),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(25.0),
+                        ),
+                      ),
+                      child: Text(context.tr("common.export")),
+                    ),
+                    ElevatedButton(
+                      onPressed: () async => await _editJourneyInfo(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFB6E13D),
+                        foregroundColor: Colors.black,
+                        fixedSize: Size(100, 42),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(25.0),
+                        ),
+                      ),
+                      child: Text(context.tr("common.edit")),
+                    ),
+                    ElevatedButton(
+                      onPressed: () async => await _deleteJourneyInfo(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFEC4162),
+                        foregroundColor: Colors.black,
+                        fixedSize: Size(100, 42),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(25.0),
+                        ),
+                      ),
+                      child: Text(context.tr("common.delete")),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
+        body: mapRendererProxy == null
+            ? const CircularProgressIndicator()
+            : BaseMapWebview(
+                key: const ValueKey("mapWidget"),
+                mapRendererProxy: mapRendererProxy,
+                initialMapView: _initialMapView,
+              ),
       ),
     );
   }

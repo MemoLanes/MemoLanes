@@ -10,6 +10,7 @@ import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
 import 'package:memolanes/src/rust/journey_data.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:sliding_up_panel/sliding_up_panel.dart';
 
 class ImportDataPage extends StatefulWidget {
   const ImportDataPage(
@@ -129,68 +130,52 @@ class _ImportDataPage extends State<ImportDataPage> {
                 ],
               ),
             )
-          : Stack(
-              children: [
-                mapRendererProxy == null
-                    ? const CircularProgressIndicator()
-                    : BaseMapWebview(
-                        // key: const ValueKey("mapWidget"),
-                        mapRendererProxy: mapRendererProxy,
-                        initialMapView: _initialMapView,
-                      ),
-                DraggableScrollableSheet(
-                  initialChildSize: 0.6,
-                  minChildSize: 0.1,
-                  maxChildSize: 0.6,
-                  builder: (BuildContext context,
-                      ScrollController scrollController) {
-                    return PointerInterceptor(
-                      child: SingleChildScrollView(
-                        controller: scrollController,
-                        physics: ClampingScrollPhysics(),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.black,
-                            borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(16.0),
-                              topRight: Radius.circular(16.0),
-                            ),
-                          ),
-                          child: SafeAreaWrapper(
-                            child: Column(
-                              children: [
-                                Container(
-                                  padding:
-                                      EdgeInsets.only(top: 8.0, bottom: 12.0),
-                                  // color: Colors.transparent,
-                                  child: Center(
-                                    child: CustomPaint(
-                                      size: Size(40.0, 4.0),
-                                      painter: LinePainter(
-                                        color: const Color(0xFFB5B5B5),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(height: 16.0),
-                                JourneyInfoEditor(
-                                  startTime: journeyInfo.startTime,
-                                  endTime: journeyInfo.endTime,
-                                  journeyDate: journeyInfo.journeyDate,
-                                  note: journeyInfo.note,
-                                  saveData: _saveData,
-                                  previewData: _previewData,
-                                  importType: widget.importType,
-                                ),
-                              ],
+          : SlidingUpPanel(
+              color: Colors.black,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(16.0),
+                topRight: Radius.circular(16.0),
+              ),
+              maxHeight: widget.importType == ImportType.gpxOrKml ? 500 : 440,
+              defaultPanelState: PanelState.OPEN,
+              panel: PointerInterceptor(
+                child: SafeAreaWrapper(
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.only(top: 8.0, bottom: 12.0),
+                          child: Center(
+                            child: CustomPaint(
+                              size: Size(40.0, 4.0),
+                              painter: LinePainter(
+                                color: const Color(0xFFB5B5B5),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    );
-                  },
-                )
-              ],
+                        SizedBox(height: 16.0),
+                        JourneyInfoEditor(
+                          startTime: journeyInfo.startTime,
+                          endTime: journeyInfo.endTime,
+                          journeyDate: journeyInfo.journeyDate,
+                          note: journeyInfo.note,
+                          saveData: _saveData,
+                          previewData: _previewData,
+                          importType: widget.importType,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              body: mapRendererProxy == null
+                  ? const CircularProgressIndicator()
+                  : BaseMapWebview(
+                      // key: const ValueKey("mapWidget"),
+                      mapRendererProxy: mapRendererProxy,
+                      initialMapView: _initialMapView,
+                    ),
             ),
     );
   }
