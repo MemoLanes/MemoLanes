@@ -6,29 +6,38 @@ class LabelTileContent extends StatelessWidget {
     this.content = '',
     this.contentMaxLines = 1,
     this.showArrow = false,
+    this.maxWidthPercent = 0.6,
   });
 
   final String content;
 
   final int contentMaxLines;
 
+  final double maxWidthPercent;
+
   final bool showArrow;
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQueryData.fromView(View.of(context)).size.width;
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(
-          content,
-          style: TextStyle(
-            fontSize: 14.0,
-            color: const Color(0x99FFFFFF),
+        ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: width * maxWidthPercent,
           ),
-          textAlign: TextAlign.justify,
-          maxLines: contentMaxLines,
-          overflow: TextOverflow.ellipsis,
+          child: Text(
+            content,
+            style: TextStyle(
+              fontSize: 14.0,
+              color: const Color(0x99FFFFFF),
+            ),
+            textAlign: TextAlign.justify,
+            maxLines: contentMaxLines,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
         showArrow
             ? Image.asset(

@@ -136,7 +136,7 @@ class _ImportDataPage extends State<ImportDataPage> {
                 topLeft: Radius.circular(16.0),
                 topRight: Radius.circular(16.0),
               ),
-              maxHeight: widget.importType == ImportType.gpxOrKml ? 500 : 440,
+              maxHeight: widget.importType == ImportType.gpxOrKml ? 530 : 510,
               defaultPanelState: PanelState.OPEN,
               panel: PointerInterceptor(
                 child: SafeAreaWrapper(
@@ -172,7 +172,7 @@ class _ImportDataPage extends State<ImportDataPage> {
               body: mapRendererProxy == null
                   ? const CircularProgressIndicator()
                   : BaseMapWebview(
-                      // key: const ValueKey("mapWidget"),
+                      key: const ValueKey("mapWidget"),
                       mapRendererProxy: mapRendererProxy,
                       initialMapView: _initialMapView,
                     ),

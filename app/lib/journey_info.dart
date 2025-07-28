@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/component/base_map_webview.dart';
 import 'package:memolanes/component/cards/line_painter.dart';
 import 'package:memolanes/component/safe_area_wrapper.dart';
+import 'package:memolanes/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/component/tiles/label_tile.dart';
 import 'package:memolanes/component/tiles/label_tile_content.dart';
 import 'package:memolanes/journey_edit.dart';
@@ -162,53 +163,66 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                   ),
                 ),
                 SizedBox(height: 16.0),
-                LabelTile(
-                  label: context.tr("journey.journey_date"),
-                  position: LabelTilePosition.top,
-                  trailing: LabelTileContent(
-                    content: naiveDateToString(
-                      date: widget.journeyHeader.journeyDate,
-                    ),
-                  ),
-                ),
-                LabelTile(
-                  label: context.tr("journey.journey_kind"),
-                  position: LabelTilePosition.middle,
-                  trailing: LabelTileContent(
-                    content: journeyKindName,
-                  ),
-                ),
-                LabelTile(
-                  label: context.tr("journey.start_time"),
-                  position: LabelTilePosition.middle,
-                  trailing: LabelTileContent(
-                    content: widget.journeyHeader.start != null
-                        ? fmt.format(widget.journeyHeader.start!.toLocal())
-                        : "",
-                  ),
-                ),
-                LabelTile(
-                  label: context.tr("journey.end_time"),
-                  position: LabelTilePosition.middle,
-                  trailing: LabelTileContent(
-                    content: widget.journeyHeader.end != null
-                        ? fmt.format(widget.journeyHeader.end!.toLocal())
-                        : "",
-                  ),
-                ),
-                LabelTile(
-                  label: context.tr("journey.created_at"),
-                  position: LabelTilePosition.middle,
-                  trailing: LabelTileContent(
-                    content:
-                        fmt.format(widget.journeyHeader.createdAt.toLocal()),
-                  ),
-                ),
-                LabelTile(
-                  label: context.tr("journey.note"),
-                  position: LabelTilePosition.bottom,
-                  trailing: LabelTileContent(
-                    content: widget.journeyHeader.note ?? "",
+                SizedBox(
+                  height: 340,
+                  child: MlSingleChildScrollView(
+                    children: [
+                      LabelTile(
+                        label: context.tr("journey.journey_date"),
+                        position: LabelTilePosition.top,
+                        trailing: LabelTileContent(
+                          content: naiveDateToString(
+                            date: widget.journeyHeader.journeyDate,
+                          ),
+                        ),
+                      ),
+                      LabelTile(
+                        label: context.tr("journey.journey_kind"),
+                        position: LabelTilePosition.middle,
+                        trailing: LabelTileContent(
+                          content: journeyKindName,
+                        ),
+                      ),
+                      LabelTile(
+                        label: context.tr("journey.start_time"),
+                        position: LabelTilePosition.middle,
+                        trailing: LabelTileContent(
+                          content: widget.journeyHeader.start != null
+                              ? fmt
+                                  .format(widget.journeyHeader.start!.toLocal())
+                              : "",
+                        ),
+                      ),
+                      LabelTile(
+                        label: context.tr("journey.end_time"),
+                        position: LabelTilePosition.middle,
+                        trailing: LabelTileContent(
+                          content: widget.journeyHeader.end != null
+                              ? fmt.format(widget.journeyHeader.end!.toLocal())
+                              : "",
+                        ),
+                      ),
+                      LabelTile(
+                        label: context.tr("journey.created_at"),
+                        position: LabelTilePosition.middle,
+                        trailing: LabelTileContent(
+                          content: fmt
+                              .format(widget.journeyHeader.createdAt.toLocal()),
+                        ),
+                      ),
+                      LabelTile(
+                        label: context.tr("journey.note"),
+                        position: LabelTilePosition.bottom,
+                        maxHeight: 150,
+                        trailing: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8.0),
+                          child: LabelTileContent(
+                            content: widget.journeyHeader.note ?? "",
+                            contentMaxLines: 5,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 SizedBox(height: 16.0),
