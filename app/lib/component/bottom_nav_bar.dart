@@ -80,8 +80,6 @@ class BottomNavBar extends StatelessWidget {
                             Color(0xFFB6E13D),
                             Color(0xFFB7CC1F),
                           ],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
                         ),
                       ),
                       badgeContent: const Text(
