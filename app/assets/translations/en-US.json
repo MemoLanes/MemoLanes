@@ -7,7 +7,7 @@
     "end_journey_message": "Are you sure you want to end your current journey?",
     "location_permission_denied": "You have denied location permission. To ensure the use of positioning functions, please turn it on in settings.",
     "android_foreground_notification_title": "Recording in Background",
-    "android_foreground_notification_text": "MemoLanes will continue to reocrd in the background"
+    "android_foreground_notification_text": "MemoLanes will continue to record in the background"
   },
   "common": {
     "memolanes": "MemoLanes",
@@ -28,23 +28,17 @@
     "journey_date_is_empty": "JourneyDate is empty",
     "delete_journey_title": "Delete Journey",
     "delete_journey_message": "Delete this journey record?",
+    "delete_all_journey_message_alert": "Please stop the current ongoing journey before deleting all journeys.",
+    "delete_all_journey_message": "This will delete all journeys in this app. Are you sure?",
     "journey_info_page_title": "Journey Information",
     "journey_info_edit_page_title": "Edit Journey Information",
-    "export_journey_as_kml": "Export as KML",
-    "export_journey_as_gpx": "Export as GPX",
-    "export_journey_as_mldx": "Export as MLDX",
-    "import_kml_gpx_data": "Import KML/GPX Data",
-    "archive_all_as_mldx": "Archive All (mldx file)",
     "delete_all": "Delete All Journeys",
-    "import_mldx": "Import Archive (mldx file)",
     "preprocessor": "Preprocessor",
-    "journey_id": "Journey ID",
     "journey_date": "Journey Date",
     "journey_kind": "Journey Kind",
     "start_time": "Start Time",
     "end_time": "End Time",
     "created_at": "Created At",
-    "revision": "Revision",
     "note": "Note",
     "fog_of_world": "Fog of World"
   },
@@ -53,7 +47,7 @@
     "button": "Optimize database",
     "already_optimized": "Database is already optimized. Nothing to do.",
     "confirm": "Your database requires optimization. It is recommended to backup your data before proceeding.",
-    "finsih": "Finsihsed optimizing database."
+    "finish": "Finished optimizing database."
   },
   "journey_kind": {
     "default": "Default",

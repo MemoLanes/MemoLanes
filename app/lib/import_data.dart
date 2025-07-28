@@ -143,8 +143,8 @@ class _ImportDataPage extends State<ImportDataPage> {
                   child: Center(
                     child: Column(
                       children: [
-                        Container(
-                          padding: EdgeInsets.only(top: 8.0, bottom: 12.0),
+                        Padding(
+                          padding: EdgeInsets.only(top: 12.0),
                           child: Center(
                             child: CustomPaint(
                               size: Size(40.0, 4.0),

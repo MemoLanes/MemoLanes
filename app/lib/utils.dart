@@ -156,9 +156,8 @@ void _showBasicCard(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: EdgeInsets.only(top: 8.0, bottom: 12.0),
-              // color: Colors.transparent,
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 12.0),
               child: Offstage(
                 offstage: !showHandle,
                 child: Center(
@@ -204,9 +203,9 @@ void showExportDataCard(
 }
 
 void showJourneyKindCard(
-    BuildContext context, {
-      Function(JourneyKind)? onLabelTaped,
-    }) async {
+  BuildContext context, {
+  Function(JourneyKind)? onLabelTaped,
+}) async {
   _showBasicCard(
     context,
     child: JourneyKindCard(

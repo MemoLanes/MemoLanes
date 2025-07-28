@@ -37,7 +37,7 @@ class JourneyKindCard extends StatelessWidget {
               color: const Color(0xFF262626),
             ),
             CardLabelTile(
-              position: CardLabelTilePosition.top,
+              position: CardLabelTilePosition.bottom,
               label: context.tr("journey_kind.flight"),
               onTap: () {
                 Navigator.pop(context);

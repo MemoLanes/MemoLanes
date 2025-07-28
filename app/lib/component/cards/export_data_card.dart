@@ -35,7 +35,7 @@ class ExportDataCard extends StatelessWidget {
               color: const Color(0xFF262626),
             ),
             CardLabelTile(
-              position: CardLabelTilePosition.top,
+              position: CardLabelTilePosition.middle,
               label: 'KML',
               onTap: () {
                 Navigator.pop(context);
@@ -47,7 +47,7 @@ class ExportDataCard extends StatelessWidget {
               color: const Color(0xFF262626),
             ),
             CardLabelTile(
-              position: CardLabelTilePosition.top,
+              position: CardLabelTilePosition.bottom,
               label: 'GPX',
               onTap: () {
                 Navigator.pop(context);

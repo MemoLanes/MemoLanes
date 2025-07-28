@@ -72,7 +72,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
         appBar: AppBar(
           title: Text(context.tr("journey.journey_info_edit_page_title")),
         ),
-        body: Center(
+        body: SafeAreaWrapper(
           child: JourneyInfoEditor(
             startTime: widget.journeyHeader.start,
             endTime: widget.journeyHeader.end,
@@ -144,14 +144,14 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
           topLeft: Radius.circular(16.0),
           topRight: Radius.circular(16.0),
         ),
-        maxHeight: 580,
+        maxHeight: 480,
         defaultPanelState: PanelState.OPEN,
         panel: PointerInterceptor(
           child: SafeAreaWrapper(
             child: Column(
               children: [
-                Container(
-                  padding: EdgeInsets.only(top: 8.0, bottom: 12.0),
+                Padding(
+                  padding: EdgeInsets.only(top: 12.0),
                   child: Center(
                     child: CustomPaint(
                       size: Size(40.0, 4.0),
@@ -163,18 +163,12 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                 ),
                 SizedBox(height: 16.0),
                 LabelTile(
-                  label: context.tr("journey.journey_id"),
+                  label: context.tr("journey.journey_date"),
                   position: LabelTilePosition.top,
                   trailing: LabelTileContent(
-                    content: widget.journeyHeader.id,
-                  ),
-                ),
-                LabelTile(
-                  label: context.tr("journey.journey_date"),
-                  position: LabelTilePosition.middle,
-                  trailing: LabelTileContent(
                     content: naiveDateToString(
-                        date: widget.journeyHeader.journeyDate),
+                      date: widget.journeyHeader.journeyDate,
+                    ),
                   ),
                 ),
                 LabelTile(
@@ -208,13 +202,6 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                   trailing: LabelTileContent(
                     content:
                         fmt.format(widget.journeyHeader.createdAt.toLocal()),
-                  ),
-                ),
-                LabelTile(
-                  label: context.tr("journey.revision"),
-                  position: LabelTilePosition.middle,
-                  trailing: LabelTileContent(
-                    content: widget.journeyHeader.revision,
                   ),
                 ),
                 LabelTile(

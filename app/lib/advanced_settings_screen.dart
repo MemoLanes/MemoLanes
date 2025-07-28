@@ -35,13 +35,13 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
               if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
                 await showCommonDialog(
                   context,
-                  "Please stop the current ongoing journey before deleting all journeys.",
+                  context.tr("journey.delete_all_journey_message_alert"),
                 );
                 return;
               }
               if (!await showCommonDialog(
                 context,
-                "This will delete all journeys in this app. Are you sure?",
+                context.tr("journey.delete_all_journey_message"),
                 hasCancel: true,
                 title: context.tr("journey.delete_journey_title"),
                 confirmButtonText: context.tr("common.delete"),
@@ -87,7 +87,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
                   if (!context.mounted) return;
                   await showCommonDialog(
                     context,
-                    context.tr("db_optimization.finsih"),
+                    context.tr("db_optimization.finish"),
                   );
                 }
               }

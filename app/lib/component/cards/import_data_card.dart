@@ -36,7 +36,7 @@ class ImportDataCard extends StatelessWidget {
               color: const Color(0xFF262626),
             ),
             CardLabelTile(
-              position: CardLabelTilePosition.top,
+              position: CardLabelTilePosition.middle,
               label: 'KML/GPX',
               onTap: () {
                 Navigator.pop(context);
