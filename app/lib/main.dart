@@ -101,6 +101,7 @@ void main() async {
         supportDir: (await getApplicationSupportDirectory()).path,
         cacheDir: (await getApplicationCacheDirectory()).path);
     var updateNotifier = UpdateNotifier();
+    // updateNotifier.setUpdateUrl("https://www.google.com/");
     delayedInit(updateNotifier);
     var gpsManager = GpsManager();
     runApp(EasyLocalization(

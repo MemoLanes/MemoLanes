@@ -1,3 +1,4 @@
+import 'package:badges/badges.dart' as badges;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -104,37 +105,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
         LabelTile(
           label: context.tr("general.version.title"),
           position: LabelTilePosition.middle,
-          trailing: Row(
-            children: [
-              LabelTileContent(
-                content: api.shortCommitHash(),
-              ),
-              if (updateUrl != null) ...[
-                Padding(
-                  padding: EdgeInsets.only(left: 4.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.all(Radius.circular(12.0)),
-                      border: Border.all(
-                        color: const Color(0xFFFF0000),
-                        width: 1,
-                      ),
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.all(2.0),
-                      child: Text(
-                        context.tr("general.version.new"),
-                        style: TextStyle(
-                          color: const Color(0xFFFF0000),
-                          fontSize: 10.0,
-                        ),
-                      ),
+          trailing: updateUrl != null
+              ? badges.Badge(
+                  badgeStyle: badges.BadgeStyle(
+                    shape: badges.BadgeShape.square,
+                    borderRadius: BorderRadius.circular(5),
+                    padding: const EdgeInsets.all(2),
+                    badgeGradient: const badges.BadgeGradient.linear(
+                      colors: [
+                        Color(0xFFB7CC1F),
+                        Color(0xFFB6E13D),
+                        Color(0xFFB7CC1F),
+                      ],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
                     ),
                   ),
+                  badgeContent: const Text(
+                    'NEW',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  child: LabelTileContent(
+                    content: api.shortCommitHash(),
+                  ),
                 )
-              ],
-            ],
-          ),
+              : LabelTileContent(
+                  content: api.shortCommitHash(),
+                ),
           onTap: () async {
             if (updateUrl != null) {
               _launchUrl(updateUrl);
@@ -278,7 +279,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         LabelTile(
           label: context.tr("data.clear_app_cache.title"),
           position: LabelTilePosition.bottom,
-          trailing: LabelTileContent(showArrow: true),
           onTap: () async {
             await showCommonDialog(
               context,
