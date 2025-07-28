@@ -1,13 +1,17 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/component/cards/card_label_tile.dart';
 import 'package:memolanes/component/safe_area_wrapper.dart';
+import 'package:memolanes/src/rust/journey_header.dart';
 
 class ExportDataCard extends StatelessWidget {
   const ExportDataCard({
     super.key,
+    this.journeyType,
     this.onLabelTaped,
   });
 
+  final JourneyType? journeyType;
   final Function(String)? onLabelTaped;
 
   @override
@@ -22,38 +26,42 @@ class ExportDataCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             CardLabelTile(
-              position: CardLabelTilePosition.top,
-              label: 'MLDX',
+              position: journeyType != JourneyType.bitmap
+                  ? CardLabelTilePosition.top
+                  : CardLabelTilePosition.single,
+              label: context.tr("journey.export_journey_as_mldx"),
               onTap: () {
                 Navigator.pop(context);
                 onLabelTaped?.call('MLDX');
               },
               top: false,
             ),
-            Container(
-              height: 0.5,
-              color: const Color(0xFF262626),
-            ),
-            CardLabelTile(
-              position: CardLabelTilePosition.middle,
-              label: 'KML',
-              onTap: () {
-                Navigator.pop(context);
-                onLabelTaped?.call('KML');
-              },
-            ),
-            Container(
-              height: 0.5,
-              color: const Color(0xFF262626),
-            ),
-            CardLabelTile(
-              position: CardLabelTilePosition.bottom,
-              label: 'GPX',
-              onTap: () {
-                Navigator.pop(context);
-                onLabelTaped?.call('GPX');
-              },
-            ),
+            if (journeyType != JourneyType.bitmap) ...[
+              Container(
+                height: 0.5,
+                color: const Color(0xFF262626),
+              ),
+              CardLabelTile(
+                position: CardLabelTilePosition.middle,
+                label: context.tr("journey.export_journey_as_kml"),
+                onTap: () {
+                  Navigator.pop(context);
+                  onLabelTaped?.call('KML');
+                },
+              ),
+              Container(
+                height: 0.5,
+                color: const Color(0xFF262626),
+              ),
+              CardLabelTile(
+                position: CardLabelTilePosition.bottom,
+                label: context.tr("journey.export_journey_as_gpx"),
+                onTap: () {
+                  Navigator.pop(context);
+                  onLabelTaped?.call('GPX');
+                },
+              ),
+            ]
           ],
         ),
       ),

@@ -192,11 +192,13 @@ void showImportDataCard(
 
 void showExportDataCard(
   BuildContext context, {
+  JourneyType? journeyType,
   Function(String)? onLabelTaped,
 }) async {
   _showBasicCard(
     context,
     child: ExportDataCard(
+      journeyType: journeyType,
       onLabelTaped: onLabelTaped,
     ),
   );

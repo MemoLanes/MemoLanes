@@ -32,6 +32,12 @@
     "delete_all_journey_message": "这将删除此应用中的所有行程，您确定吗？",
     "journey_info_page_title": "旅程信息",
     "journey_info_edit_page_title": "编辑旅程信息",
+    "import_mldx_data": "导入 MLDX 数据",
+    "import_kml_gpx_data": "导入 KML/GPX 数据",
+    "import_fog_of_world_data": "导入 世界迷雾 数据",
+    "export_journey_as_kml": "导出为 KML",
+    "export_journey_as_gpx": "导出为 GPX",
+    "export_journey_as_mldx": "导出为 MLDX",
     "delete_all": "删除所有旅程",
     "preprocessor": "预处理器",
     "journey_date": "旅程日期",
@@ -39,8 +45,7 @@
     "start_time": "开始时间",
     "end_time": "结束时间",
     "created_at": "创建时间",
-    "note": "备注",
-    "fog_of_world": "世界迷雾"
+    "note": "备注"
   },
   "db_optimization": {
     "notification": "你的数据库需要优化，请前往设置选项卡并点击[优化数据库]按钮。",

@@ -232,6 +232,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                     ElevatedButton(
                       onPressed: () => showExportDataCard(
                         context,
+                        journeyType: widget.journeyHeader.journeyType,
                         onLabelTaped: (name) async {
                           switch (name) {
                             case 'MLDX':

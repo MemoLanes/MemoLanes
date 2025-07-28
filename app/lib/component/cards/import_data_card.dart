@@ -24,7 +24,7 @@ class ImportDataCard extends StatelessWidget {
           children: [
             CardLabelTile(
               position: CardLabelTilePosition.top,
-              label: 'MLDX',
+              label: context.tr("journey.import_mldx_data"),
               onTap: () {
                 Navigator.pop(context);
                 onLabelTaped?.call('MLDX');
@@ -37,7 +37,7 @@ class ImportDataCard extends StatelessWidget {
             ),
             CardLabelTile(
               position: CardLabelTilePosition.middle,
-              label: 'KML/GPX',
+              label: context.tr("journey.import_kml_gpx_data"),
               onTap: () {
                 Navigator.pop(context);
                 onLabelTaped?.call('KML/GPX');
@@ -49,7 +49,7 @@ class ImportDataCard extends StatelessWidget {
             ),
             CardLabelTile(
               position: CardLabelTilePosition.bottom,
-              label: context.tr("journey.fog_of_world"),
+              label: context.tr("journey.import_fog_of_world_data"),
               onTap: () {
                 Navigator.pop(context);
                 onLabelTaped?.call('FOG_OF_WORLD');

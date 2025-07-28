@@ -32,6 +32,12 @@
     "delete_all_journey_message": "This will delete all journeys in this app. Are you sure?",
     "journey_info_page_title": "Journey Information",
     "journey_info_edit_page_title": "Edit Journey Information",
+    "import_mldx_data": "Import MLDX Data",
+    "import_kml_gpx_data": "Import KML/GPX Data",
+    "import_fog_of_world_data": "Import FOG_OF_WORLD Data",
+    "export_journey_as_kml": "Export as KML",
+    "export_journey_as_gpx": "Export as GPX",
+    "export_journey_as_mldx": "Export as MLDX",
     "delete_all": "Delete All Journeys",
     "preprocessor": "Preprocessor",
     "journey_date": "Journey Date",
@@ -39,8 +45,7 @@
     "start_time": "Start Time",
     "end_time": "End Time",
     "created_at": "Created At",
-    "note": "Note",
-    "fog_of_world": "Fog of World"
+    "note": "Note"
   },
   "db_optimization": {
     "notification": "Your database requires optimization, please go to Settings tab and click [Optimize database] button.",
