@@ -255,7 +255,7 @@ class _SettingsBodyState extends State<SettingsBody> {
         ),
         LabelTile(
           label: context.tr("data.export_data.export_all"),
-          position: LabelTilePosition.middle,
+          position: LabelTilePosition.bottom,
           onTap: () async {
             if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
               await showCommonDialog(
