@@ -13,6 +13,7 @@ import 'package:memolanes/import_data.dart';
 import 'package:memolanes/preferences_manager.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/utils.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
@@ -27,11 +28,21 @@ class SettingsBody extends StatefulWidget {
 
 class _SettingsBodyState extends State<SettingsBody> {
   bool _isUnexpectedExitNotificationEnabled = false;
+  String _version = "";
 
   @override
   void initState() {
     super.initState();
     _loadNotificationStatus();
+    _loadVersion();
+  }
+
+  _loadVersion() async {
+    PackageInfo packageInfo = await PackageInfo.fromPlatform();
+    setState(() {
+      _version =
+          '${packageInfo.version} (${packageInfo.buildNumber}) [${api.shortCommitHash()}]';
+    });
   }
 
   _launchUrl(String updateUrl) async {
@@ -85,6 +96,7 @@ class _SettingsBodyState extends State<SettingsBody> {
     return MlSingleChildScrollView(
       padding: EdgeInsets.symmetric(vertical: 16.0),
       children: [
+        // TODO: Enable this when we have user system.
         // CircleAvatar(
         //   backgroundColor: const Color(0xFFB6E13D),
         //   radius: 45.0,
@@ -92,7 +104,7 @@ class _SettingsBodyState extends State<SettingsBody> {
         // Padding(
         //   padding: EdgeInsets.symmetric(vertical: 16.0),
         //   child: Text(
-        //     'Ryan Schnetzer',
+        //     'Foo Bar',
         //     style: TextStyle(
         //       fontSize: 24.0,
         //       color: const Color(0xFFFFFFFF),
@@ -128,11 +140,11 @@ class _SettingsBodyState extends State<SettingsBody> {
                     ),
                   ),
                   child: LabelTileContent(
-                    content: api.shortCommitHash(),
+                    content: _version,
                   ),
                 )
               : LabelTileContent(
-                  content: api.shortCommitHash(),
+                  content: _version,
                 ),
           onTap: () async {
             if (updateUrl != null) {
@@ -161,6 +173,9 @@ class _SettingsBodyState extends State<SettingsBody> {
         LabelTileTitle(
           label: context.tr("data.title"),
         ),
+        // TODO: This is unused, but we may use it depending on the design of
+        // import/export workflow.
+        //
         // LabelTile(
         //   label: context.tr("data.backup_data.title"),
         //   position: LabelTilePosition.middle,
@@ -239,84 +254,29 @@ class _SettingsBodyState extends State<SettingsBody> {
           ),
         ),
         LabelTile(
-          label: context.tr("data.export_data.title"),
+          label: context.tr("data.export_data.export_all"),
           position: LabelTilePosition.middle,
-          trailing: LabelTileContent(showArrow: true),
-          onTap: () => showExportDataCard(
-            context,
-            onLabelTaped: (name) async {
-              /// TODO
-              if (name != 'MLDX') {
-                await showCommonDialog(
-                  context,
-                  context.tr("common.still_under_development"),
-                );
-                return;
-              }
-              // MLDX
-              if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
-                await showCommonDialog(
-                  context,
-                  "Please stop the current ongoing journey before archiving.",
-                );
-                return;
-              }
-              var tmpDir = await getTemporaryDirectory();
-              var ts = DateTime.now().millisecondsSinceEpoch;
-              var filepath = "${tmpDir.path}/${ts.toString()}.mldx";
-              if (!context.mounted) return;
-              await showLoadingDialog(
-                context: context,
-                asyncTask: api.generateFullArchive(targetFilepath: filepath),
-              );
-              if (!context.mounted) return;
-              await showCommonExport(context, filepath, deleteFile: true);
-            },
-          ),
-        ),
-        LabelTile(
-          label: context.tr("data.clear_app_cache.title"),
-          position: LabelTilePosition.bottom,
           onTap: () async {
-            await showCommonDialog(
-              context,
-              context.tr("common.still_under_development"),
+            if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
+              await showCommonDialog(
+                context,
+                "Please stop the current ongoing journey before archiving.",
+              );
+              return;
+            }
+            var tmpDir = await getTemporaryDirectory();
+            var ts = DateTime.now().millisecondsSinceEpoch;
+            var filepath = "${tmpDir.path}/${ts.toString()}.mldx";
+            if (!context.mounted) return;
+            await showLoadingDialog(
+              context: context,
+              asyncTask: api.generateFullArchive(targetFilepath: filepath),
             );
+            if (!context.mounted) return;
+            await showCommonExport(context, filepath, deleteFile: true);
           },
         ),
-        // LabelTileTitle(
-        //   label: '关于我们',
-        // ),
-        // LabelTile(
-        //   label: '个人隐私政策',
-        //   position: LabelTilePosition.middle,
-        //   trailing: LabelTileContent(showArrow: true),
-        //   onTap: () {},
-        // ),
-        // LabelTile(
-        //   label: 'App 开源项目使用',
-        //   position: LabelTilePosition.middle,
-        //   trailing: LabelTileContent(showArrow: true),
-        //   onTap: () {},
-        // ),
-        // LabelTile(
-        //   label: '联系开发者',
-        //   position: LabelTilePosition.middle,
-        //   trailing: LabelTileContent(showArrow: true),
-        //   onTap: () {},
-        // ),
-        // LabelTile(
-        //   label: 'FAQ',
-        //   position: LabelTilePosition.middle,
-        //   trailing: LabelTileContent(showArrow: true),
-        //   onTap: () {},
-        // ),
-        // LabelTile(
-        //   label: '建议',
-        //   position: LabelTilePosition.bottom,
-        //   trailing: LabelTileContent(showArrow: true),
-        //   onTap: () {},
-        // ),
+        // TODO: Add about us / privacy policy / contact us / FAQ / suggestion ...
         LabelTileTitle(
           label: context.tr("other.title"),
         ),

@@ -100,10 +100,7 @@
       "title": "Import data"
     },
     "export_data": {
-      "title": "Export Data"
-    },
-    "clear_app_cache": {
-      "title": "Clear App cache"
+      "export_all": "Export All Data"
     }
   },
   "other": {

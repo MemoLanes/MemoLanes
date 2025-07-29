@@ -233,18 +233,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                       onPressed: () => showExportDataCard(
                         context,
                         journeyType: widget.journeyHeader.journeyType,
-                        onLabelTaped: (name) async {
-                          switch (name) {
-                            case 'MLDX':
-                              _export(ExportType.mldx);
-                              break;
-                            case 'KML':
-                              _export(ExportType.kml);
-                              break;
-                            case 'GPX':
-                              _export(ExportType.gpx);
-                              break;
-                          }
+                        onLabelTaped: (exportType) async {
+                          _export(exportType);
                         },
                       ),
                       style: ElevatedButton.styleFrom(

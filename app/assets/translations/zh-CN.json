@@ -97,13 +97,10 @@
       "delete_backup_data": "删除备份数据"
     },
     "import_data": {
-      "title": "数据导入"
+      "title": "导入数据"
     },
     "export_data": {
-      "title": "数据导出"
-    },
-    "clear_app_cache": {
-      "title": "清除 App 缓存"
+      "export_all": "导出所有数据"
     }
   },
   "other": {

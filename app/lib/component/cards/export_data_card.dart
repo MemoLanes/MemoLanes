@@ -2,8 +2,10 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/component/cards/card_label_tile.dart';
 import 'package:memolanes/component/safe_area_wrapper.dart';
+import 'package:memolanes/journey_info.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 
+// TODO: {export_data, import_data, journey_kind}_card are too similar, consider refactoring
 class ExportDataCard extends StatelessWidget {
   const ExportDataCard({
     super.key,
@@ -12,7 +14,7 @@ class ExportDataCard extends StatelessWidget {
   });
 
   final JourneyType? journeyType;
-  final Function(String)? onLabelTaped;
+  final Function(ExportType)? onLabelTaped;
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +34,7 @@ class ExportDataCard extends StatelessWidget {
               label: context.tr("journey.export_journey_as_mldx"),
               onTap: () {
                 Navigator.pop(context);
-                onLabelTaped?.call('MLDX');
+                onLabelTaped?.call(ExportType.mldx);
               },
               top: false,
             ),
@@ -46,7 +48,7 @@ class ExportDataCard extends StatelessWidget {
                 label: context.tr("journey.export_journey_as_kml"),
                 onTap: () {
                   Navigator.pop(context);
-                  onLabelTaped?.call('KML');
+                  onLabelTaped?.call(ExportType.kml);
                 },
               ),
               Container(
@@ -58,7 +60,7 @@ class ExportDataCard extends StatelessWidget {
                 label: context.tr("journey.export_journey_as_gpx"),
                 onTap: () {
                   Navigator.pop(context);
-                  onLabelTaped?.call('GPX');
+                  onLabelTaped?.call(ExportType.gpx);
                 },
               ),
             ]
