@@ -28,7 +28,7 @@
     "journey_date_is_empty": "JourneyDate is empty",
     "delete_journey_title": "Delete Journey",
     "delete_journey_message": "Delete this journey record?",
-    "delete_all_journey_message_alert": "Please stop the current ongoing journey before deleting all journeys.",
+    "stop_ongoing_joureny": "Please stop the current ongoing journey before this operation.",
     "delete_all_journey_message": "This will delete all journeys in this app. Are you sure?",
     "journey_info_page_title": "Journey Information",
     "journey_info_edit_page_title": "Edit Journey Information",

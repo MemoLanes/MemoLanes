@@ -35,7 +35,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
               if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
                 await showCommonDialog(
                   context,
-                  context.tr("journey.delete_all_journey_message_alert"),
+                  context.tr("journey.stop_ongoing_joureny"),
                 );
                 return;
               }

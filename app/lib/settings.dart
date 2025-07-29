@@ -260,7 +260,7 @@ class _SettingsBodyState extends State<SettingsBody> {
             if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
               await showCommonDialog(
                 context,
-                "Please stop the current ongoing journey before archiving.",
+                context.tr("journey.stop_ongoing_joureny"),
               );
               return;
             }

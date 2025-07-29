@@ -28,7 +28,7 @@
     "journey_date_is_empty": "旅程日期是空的",
     "delete_journey_title": "删除旅程",
     "delete_journey_message": "确认删除该旅程记录?",
-    "delete_all_journey_message_alert": "删除所有旅程之前，请先停止当前正在进行的旅程。",
+    "stop_ongoing_joureny": "在此操作之前，请先停止当前正在进行的旅程。",
     "delete_all_journey_message": "这将删除此应用中的所有行程，您确定吗？",
     "journey_info_page_title": "旅程信息",
     "journey_info_edit_page_title": "编辑旅程信息",
