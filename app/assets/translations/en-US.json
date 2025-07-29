@@ -7,7 +7,7 @@
     "end_journey_message": "Are you sure you want to end your current journey?",
     "location_permission_denied": "You have denied location permission. To ensure the use of positioning functions, please turn it on in settings.",
     "android_foreground_notification_title": "Recording in Background",
-    "android_foreground_notification_text": "MemoLanes will continue to reocrd in the background"
+    "android_foreground_notification_text": "MemoLanes will continue to record in the background"
   },
   "common": {
     "memolanes": "MemoLanes",
@@ -17,29 +17,42 @@
     "info": "Info",
     "save": "Save",
     "share": "Share",
-    "export": "Export"
+    "export": "Export",
+    "edit": "Edit",
+    "delete": "Delete",
+    "please_enter": "Please enter",
+    "still_under_development": "Still under development"
   },
   "journey": {
     "no_data": "There's no data yet, go ahead and explore the world!",
+    "journey_date_is_empty": "JourneyDate is empty",
     "delete_journey_title": "Delete Journey",
     "delete_journey_message": "Delete this journey record?",
-    "delete": "Delete",
+    "stop_ongoing_joureny": "Please stop the current ongoing journey before this operation.",
+    "delete_all_journey_message": "This will delete all journeys in this app. Are you sure?",
     "journey_info_page_title": "Journey Information",
     "journey_info_edit_page_title": "Edit Journey Information",
+    "import_mldx_data": "Import MLDX Data",
+    "import_kml_gpx_data": "Import KML/GPX Data",
+    "import_fog_of_world_data": "Import FOG_OF_WORLD Data",
     "export_journey_as_kml": "Export as KML",
     "export_journey_as_gpx": "Export as GPX",
     "export_journey_as_mldx": "Export as MLDX",
-    "import_kml_gpx_data": "Import KML/GPX Data",
-    "archive_all_as_mldx": "Archive All (mldx file)",
     "delete_all": "Delete All Journeys",
-    "import_mldx": "Import Archive (mldx file)"
+    "preprocessor": "Preprocessor",
+    "journey_date": "Journey Date",
+    "journey_kind": "Journey Kind",
+    "start_time": "Start Time",
+    "end_time": "End Time",
+    "created_at": "Created At",
+    "note": "Note"
   },
   "db_optimization": {
     "notification": "Your database requires optimization, please go to Settings tab and click [Optimize database] button.",
     "button": "Optimize database",
     "already_optimized": "Database is already optimized. Nothing to do.",
     "confirm": "Your database requires optimization. It is recommended to backup your data before proceeding.",
-    "finsih": "Finsihsed optimizing database."
+    "finish": "Finished optimizing database."
   },
   "journey_kind": {
     "default": "Default",
@@ -62,9 +75,35 @@
     "title": "Achievements",
     "explored_area": "Explored area: {} km²"
   },
-  "advance_settings": {
-    "export_logs": "Export Logs",
-    "raw_data_mode": "Raw Data Mode",
-    "rebuild_cache": "Rebuild Cache"
+  "general": {
+    "title": "General",
+    "version": {
+      "title": "Version",
+      "currently_the_latest_version": "Currently the latest version"
+    },
+    "advance_settings": {
+      "title": "Advance settings",
+      "export_logs": "Export Logs",
+      "raw_data_mode": "Raw Data Mode",
+      "rebuild_cache": "Rebuild Cache"
+    }
+  },
+  "data": {
+    "title": "Data",
+    "backup_data": {
+      "title": "Backup data",
+      "last_backup_time": "Last backup time",
+      "backup": "Backup",
+      "delete_backup_data": "Delete backup data"
+    },
+    "import_data": {
+      "title": "Import data"
+    },
+    "export_data": {
+      "export_all": "Export All Data"
+    }
+  },
+  "other": {
+    "title": "Other"
   }
 }

@@ -1,10 +1,12 @@
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
-import 'package:flutter/material.dart';
-import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:memolanes/src/rust/journey_header.dart';
-import 'package:memolanes/journey_info.dart';
-import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/material.dart';
+import 'package:memolanes/component/tiles/label_tile.dart';
+import 'package:memolanes/component/tiles/label_tile_content.dart';
+import 'package:memolanes/journey_info.dart';
+import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/src/rust/api/utils.dart';
+import 'package:memolanes/src/rust/journey_header.dart';
 
 class JourneyUiBody extends StatefulWidget {
   const JourneyUiBody({super.key});
@@ -64,13 +66,16 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
       lastDate: DateTime.now(),
       centerAlignModePicker: true,
       calendarType: CalendarDatePicker2Type.single,
-      selectedDayHighlightColor: Colors.teal[800],
+      selectedDayHighlightColor: const Color(0xFFB6E13D).withAlpha(230),
+      dayTextStyle: const TextStyle(
+        color: Colors.white,
+      ),
       weekdayLabelTextStyle: const TextStyle(
-        color: Colors.black87,
+        color: Colors.white,
         fontWeight: FontWeight.bold,
       ),
       controlsTextStyle: const TextStyle(
-        color: Colors.black,
+        color: Colors.white,
         fontSize: 15,
         fontWeight: FontWeight.bold,
       ),
@@ -105,7 +110,7 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
                       width: 4,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(5),
-                        color: const Color(0xFFB4EC51),
+                        color: const Color(0xFFB6E13D),
                       ),
                     ),
                   ),
@@ -163,41 +168,36 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
   Widget _buildJourneyHeaderList() {
     return Expanded(
       child: ListView.builder(
-          itemCount: _journeyHeaderList.length,
-          itemBuilder: (context, index) {
-            return Container(
-              margin: const EdgeInsets.all(2.0),
-              decoration: BoxDecoration(
-                border: Border.all(),
-                borderRadius: BorderRadius.circular(12.0),
-              ),
-              child: ListTile(
-                title: Text(_journeyHeaderList[index].start != null
-                    ? DateFormat("yyyy-MM-dd HH:mm:ss")
-                        .format(_journeyHeaderList[index].start!.toLocal())
-                    : naiveDateToString(
-                        date: _journeyHeaderList[index].journeyDate)),
-                onTap: () {
-                  Navigator.push(context, MaterialPageRoute(
-                    builder: (context) {
-                      return JourneyInfoPage(
-                        journeyHeader: _journeyHeaderList[index],
-                      );
-                    },
-                  )).then((refresh) async {
-                    if (refresh != null && refresh) {
-                      _yearsWithJourneyList = await api.yearsWithJourney();
-                      _monthsWithJourneyList =
-                          await api.monthsWithJourney(year: _selectedDate.year);
-                      _daysWithJourneyList = await api.daysWithJourney(
-                          year: _selectedDate.year, month: _selectedDate.month);
-                      _updateJourneyHeaderList();
-                    }
-                  });
+        itemCount: _journeyHeaderList.length,
+        itemBuilder: (context, index) {
+          return LabelTile(
+            label: _journeyHeaderList[index].start != null
+                ? DateFormat("yyyy-MM-dd HH:mm:ss")
+                    .format(_journeyHeaderList[index].start!.toLocal())
+                : naiveDateToString(
+                    date: _journeyHeaderList[index].journeyDate),
+            trailing: LabelTileContent(showArrow: true),
+            onTap: () {
+              Navigator.push(context, MaterialPageRoute(
+                builder: (context) {
+                  return JourneyInfoPage(
+                    journeyHeader: _journeyHeaderList[index],
+                  );
                 },
-              ),
-            );
-          }),
+              )).then((refresh) async {
+                if (refresh != null && refresh) {
+                  _yearsWithJourneyList = await api.yearsWithJourney();
+                  _monthsWithJourneyList =
+                      await api.monthsWithJourney(year: _selectedDate.year);
+                  _daysWithJourneyList = await api.daysWithJourney(
+                      year: _selectedDate.year, month: _selectedDate.month);
+                  _updateJourneyHeaderList();
+                }
+              });
+            },
+          );
+        },
+      ),
     );
   }
 
@@ -218,6 +218,7 @@ class _JourneyUiBodyState extends State<JourneyUiBody> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           _buildDatePickerWithValue(firstDate),
+          SizedBox(height: 16.0),
           _buildJourneyHeaderList(),
         ],
       ));

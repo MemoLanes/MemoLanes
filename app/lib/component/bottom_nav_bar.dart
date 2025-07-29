@@ -76,26 +76,26 @@ class BottomNavBar extends StatelessWidget {
                         padding: const EdgeInsets.all(2),
                         badgeGradient: const badges.BadgeGradient.linear(
                           colors: [
-                            Color.fromARGB(255, 129, 225, 19),
-                            Color.fromARGB(255, 9, 177, 17),
-                            Color.fromARGB(255, 129, 225, 19),
+                            Color(0xFFB7CC1F),
+                            Color(0xFFB6E13D),
+                            Color(0xFFB7CC1F),
                           ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
                         ),
                       ),
-                      position: badges.BadgePosition.topEnd(top: 5, end: -6),
                       badgeContent: const Text(
                         'NEW',
                         style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 8,
-                            fontWeight: FontWeight.bold),
+                          color: Colors.white,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                      child: Icon(
-                        isSelected ? activeIcon : icon,
-                        color: isSelected ? Colors.black : Colors.grey,
-                        size: 28,
+                      child: Center(
+                        child: Icon(
+                          isSelected ? activeIcon : icon,
+                          color: isSelected ? Colors.black : Colors.grey,
+                          size: 28,
+                        ),
                       ),
                     )
                   : Icon(
