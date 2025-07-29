@@ -219,7 +219,7 @@ impl Txn<'_> {
         journey_kind: JourneyKind,
         note: Option<String>,
         journey_data: JourneyData,
-    ) -> Result<()> {
+    ) -> Result<String> {
         let (journey_data, postprocessor_algo) = match journey_data {
             JourneyData::Vector(journey_vector) => (
                 JourneyData::Vector(GpsPostprocessor::process(journey_vector)),
@@ -228,10 +228,11 @@ impl Txn<'_> {
             JourneyData::Bitmap(bitmap) => (JourneyData::Bitmap(bitmap), None),
         };
 
+        let id = Uuid::new_v4().as_hyphenated().to_string();
         let journey_type = journey_data.type_();
         // create new journey
         let header = JourneyHeader {
-            id: Uuid::new_v4().as_hyphenated().to_string(),
+            id: id.clone(),
             // we use id + revision as the equality check, revision can be any
             // string (e.g. uuid) but a short random should be good enough.
             revision: generate_random_revision(),
@@ -245,7 +246,8 @@ impl Txn<'_> {
             note,
             postprocessor_algo,
         };
-        self.insert_journey(header, journey_data)
+        self.insert_journey(header, journey_data)?;
+        Ok(id)
     }
 
     pub fn update_journey_metadata(

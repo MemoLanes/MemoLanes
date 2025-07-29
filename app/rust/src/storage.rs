@@ -1,6 +1,7 @@
 extern crate simplelog;
 use anyhow::{Ok, Result};
 use chrono::Local;
+use std::collections::HashMap;
 use std::fs::{remove_file, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -10,6 +11,7 @@ use crate::cache_db::{CacheDb, LayerKind};
 use crate::gps_processor::{self, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_data::JourneyData;
+use crate::journey_header::JourneyKind;
 use crate::main_db::{self, Action, MainDb};
 use crate::merged_journey_builder;
 
@@ -151,27 +153,34 @@ impl Storage {
                         Action::Merge { journey_ids } => {
                             // TODO: This implementation is pretty naive, but we might not need it when we have cache v3
                             cache_db.delete_full_journey_cache(&LayerKind::All)?;
+
+                            let mut kind_id_map: HashMap<JourneyKind, Vec<String>> = HashMap::new();
+
                             for journey_id in journey_ids {
-                                if let Some(header) = &txn.get_journey_header(journey_id)? {
-                                    let journey_data = txn.get_journey_data(journey_id)?;
-                                    cache_db.update_full_journey_cache_if_exists(
-                                        &LayerKind::JounreyKind(header.journey_kind),
-                                        | current_cache| {
-                                            match journey_data {
-                                                JourneyData::Bitmap(bitmap) => {
-                                                    current_cache.merge(bitmap)
-                                                }
-                                                JourneyData::Vector(vector) => {
-                                                    merged_journey_builder::add_journey_vector_to_journey_bitmap(
-                                                         current_cache,
-                                                        &vector,
-                                                    );
-                                                }
-                                            }
-                                            Ok(())
-                                        },
-                                    )?;
+                                if let Some(header) = txn.get_journey_header(journey_id)? {
+                                    kind_id_map
+                                        .entry(header.journey_kind)
+                                        .or_default()
+                                        .push(journey_id.clone());
                                 }
+                            }
+
+                            for (kind, journeyid_vec) in kind_id_map {
+                                let layer_kind = LayerKind::JounreyKind(kind);
+                                cache_db.update_full_journey_cache_if_exists(&layer_kind, |current_cache| {
+                                    for journey_id in journeyid_vec {
+                                        let journey_data = txn.get_journey_data(&journey_id)?;
+                                        match journey_data {
+                                            JourneyData::Bitmap(bitmap) =>
+                                                current_cache.merge(bitmap),
+                                            JourneyData::Vector(vector) =>
+                                                merged_journey_builder::add_journey_vector_to_journey_bitmap(
+                                                    current_cache, &vector
+                                            ),
+                                        }
+                                    }
+                                    Ok(())
+                                })?;
                             }
                         }
                     };
