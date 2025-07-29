@@ -141,7 +141,6 @@ void _showBasicCard(
 }) {
   showModalBottomSheet(
     context: context,
-    // constraints: BoxConstraints(maxWidth: 1.0.sw),
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
     builder: (context) {

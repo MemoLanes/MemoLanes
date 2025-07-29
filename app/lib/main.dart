@@ -12,7 +12,7 @@ import 'package:memolanes/gps_manager.dart';
 import 'package:memolanes/journey.dart';
 import 'package:memolanes/logger.dart';
 import 'package:memolanes/map.dart';
-import 'package:memolanes/settings_screen.dart';
+import 'package:memolanes/settings.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:memolanes/time_machine.dart';
@@ -101,7 +101,6 @@ void main() async {
         supportDir: (await getApplicationSupportDirectory()).path,
         cacheDir: (await getApplicationCacheDirectory()).path);
     var updateNotifier = UpdateNotifier();
-    // updateNotifier.setUpdateUrl("https://www.google.com/");
     delayedInit(updateNotifier);
     var gpsManager = GpsManager();
     runApp(EasyLocalization(
@@ -207,7 +206,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 1 => const TimeMachineUIBody(),
                 2 => const JourneyUiBody(),
                 3 => const AchievementBody(),
-                4 => const SettingsScreen(),
+                4 => const SettingsBody(),
                 _ => throw FormatException('Invalid index: $_selectedIndex')
               }),
           Positioned(

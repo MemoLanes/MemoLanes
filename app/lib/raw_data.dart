@@ -33,7 +33,6 @@ class _RawDataSwitchState extends State<RawDataSwitch> {
         position: LabelTilePosition.single,
         trailing: Switch(
           value: enabled,
-          // activeColor: Colors.red,
           onChanged: (bool value) async {
             await toggleRawDataMode(enable: value);
             setState(() {

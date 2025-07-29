@@ -3,7 +3,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:memolanes/advanced_settings_screen.dart';
+import 'package:memolanes/advanced_settings.dart';
 import 'package:memolanes/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/component/tiles/label_tile.dart';
 import 'package:memolanes/component/tiles/label_tile_content.dart';
@@ -18,14 +18,14 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+class SettingsBody extends StatefulWidget {
+  const SettingsBody({super.key});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  State<SettingsBody> createState() => _SettingsBodyState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsBodyState extends State<SettingsBody> {
   bool _isUnexpectedExitNotificationEnabled = false;
 
   @override
