@@ -4,7 +4,6 @@ import 'package:async/async.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 import 'location_service.dart';
 import '../../logger.dart';
@@ -59,17 +58,12 @@ class GeoLocatorService implements ILocationService {
 
   @override
   Future<void> startLocationUpdates(bool enableBackground) async {
-    if (!await _ensurePermission()) {
-      log.error("[GeoLocatorService] Location permission denied");
-      return;
-    }
-
     final settings = _buildLocationSettings(enableBackground);
 
     _positionStreamSub =
         Geolocator.getPositionStream(locationSettings: settings)
             .listen(_onPositionReceived, onError: (e) {
-      log.error("[GeoLocatorService] unknown error: $e");
+      log.error("[GeoLocatorService] getPositionStream error: $e");
     });
 
     _pokeTask = _PokeGeolocatorTask.start(settings);
@@ -184,16 +178,6 @@ class GeoLocatorService implements ILocationService {
       case _:
         return null;
     }
-  }
-
-  Future<bool> _ensurePermission() async {
-    if (!await Geolocator.isLocationServiceEnabled()) {
-      return false;
-    }
-
-    if (await Permission.location.isGranted) return true;
-    final result = await Permission.location.request();
-    return result.isGranted;
   }
 
   void dispose() {
