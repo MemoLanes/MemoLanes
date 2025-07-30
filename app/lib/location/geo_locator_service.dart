@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'location_service.dart';
+import '../../logger.dart';
 
 /// `PokeGeolocatorTask` is a hacky workround.
 /// The behvior we observe is that the position stream from geolocator will
@@ -51,7 +52,6 @@ class GeoLocatorService implements ILocationService {
   RestartableTimer? _bufferFlushTimer;
 
   final _locationUpdateController = StreamController<LocationData>.broadcast();
-  final _locationErrorController = StreamController<LocationError>.broadcast();
 
   LocationData? _latestLocation;
   final List<LocationData> _buffer = [];
@@ -60,8 +60,7 @@ class GeoLocatorService implements ILocationService {
   @override
   Future<void> startLocationUpdates(bool enableBackground) async {
     if (!await _ensurePermission()) {
-      _emitError(
-          LocationErrorCode.permissionDenied, "Location permission denied");
+      log.error("[GeoLocatorService] Location permission denied");
       return;
     }
 
@@ -70,7 +69,7 @@ class GeoLocatorService implements ILocationService {
     _positionStreamSub =
         Geolocator.getPositionStream(locationSettings: settings)
             .listen(_onPositionReceived, onError: (e) {
-      _emitError(LocationErrorCode.unknown, e.toString());
+      log.error("[GeoLocatorService] unknown error: $e");
     });
 
     _pokeTask = _PokeGeolocatorTask.start(settings);
@@ -143,44 +142,9 @@ class GeoLocatorService implements ILocationService {
   }
 
   @override
-  Future<LocationData> getCurrentLocation() async {
-    if (!await _ensurePermission()) {
-      throw LocationError(
-        code: LocationErrorCode.permissionDenied,
-        message: "Permission denied",
-      );
-    }
-    final settings = _buildLocationSettings(false);
-
-    try {
-      final pos =
-          await Geolocator.getCurrentPosition(locationSettings: settings);
-      return LocationData(
-        latitude: pos.latitude,
-        longitude: pos.longitude,
-        accuracy: pos.accuracy,
-        timestampMs: pos.timestamp.millisecondsSinceEpoch,
-        altitude: pos.altitude,
-        speed: pos.speed,
-      );
-    } catch (e) {
-      throw LocationError(
-        code: LocationErrorCode.unknown,
-        message: e.toString(),
-      );
-    }
-  }
-
-  @override
   StreamSubscription<LocationData> onLocationUpdate(
       void Function(LocationData) callback) {
     return _locationUpdateController.stream.listen(callback);
-  }
-
-  @override
-  StreamSubscription<LocationError> onLocationError(
-      void Function(LocationError) callback) {
-    return _locationErrorController.stream.listen(callback);
   }
 
   LocationSettings? _buildLocationSettings(bool enableBackground) {
@@ -232,13 +196,8 @@ class GeoLocatorService implements ILocationService {
     return result.isGranted;
   }
 
-  void _emitError(LocationErrorCode code, String msg) {
-    _locationErrorController.add(LocationError(code: code, message: msg));
-  }
-
   void dispose() {
     stopLocationUpdates();
     _locationUpdateController.close();
-    _locationErrorController.close();
   }
 }

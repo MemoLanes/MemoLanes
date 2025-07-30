@@ -46,7 +46,6 @@ class GpsManager extends ChangeNotifier {
   Timer? _lastPositionTooOldTimer;
 
   StreamSubscription<LocationData>? _locationUpdateSub;
-  StreamSubscription<LocationError>? _locationErrorSub;
 
   // Notify the user that the recording was unexpectedly stopped on iOS.
   // On Android, this does not work, and we achive this by using foreground task.
@@ -203,9 +202,7 @@ class GpsManager extends ChangeNotifier {
       if (oldState != _InternalState.off) {
         await _locationService.stopLocationUpdates();
         await _locationUpdateSub?.cancel();
-        await _locationErrorSub?.cancel();
         _locationUpdateSub = null;
-        _locationErrorSub = null;
         latestPosition = null;
         if (oldState == _InternalState.recording) {
           await _notificationWhenAppIsKilledPlugin
