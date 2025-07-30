@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -46,7 +47,6 @@ class CommonDialog extends StatelessWidget {
               .convert(content)
               .map((s) => Text(
                     s,
-                    style: const TextStyle(color: Colors.black54),
                   ))
               .toList()),
       true => MarkdownBody(
@@ -65,13 +65,11 @@ class CommonDialog extends StatelessWidget {
 
     return PointerInterceptor(
         child: AlertDialog(
-            backgroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(24),
             ),
             title: Text(
               title,
-              style: const TextStyle(color: Colors.black),
             ),
             content: SingleChildScrollView(
               child: messageBody,

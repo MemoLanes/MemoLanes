@@ -1,18 +1,23 @@
+import 'package:badges/badges.dart' as badges;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:memolanes/advanced_settings.dart';
+import 'package:memolanes/component/scroll_views/single_child_scroll_view.dart';
+import 'package:memolanes/component/tiles/label_tile.dart';
+import 'package:memolanes/component/tiles/label_tile_content.dart';
+import 'package:memolanes/component/tiles/label_tile_title.dart';
 import 'package:memolanes/gps_manager.dart';
+import 'package:memolanes/import_data.dart';
 import 'package:memolanes/preferences_manager.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/utils.dart';
-import 'package:memolanes/raw_data.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
-
-import 'import_data.dart';
 
 class SettingsBody extends StatefulWidget {
   const SettingsBody({super.key});
@@ -23,11 +28,21 @@ class SettingsBody extends StatefulWidget {
 
 class _SettingsBodyState extends State<SettingsBody> {
   bool _isUnexpectedExitNotificationEnabled = false;
+  String _version = "";
 
   @override
   void initState() {
     super.initState();
     _loadNotificationStatus();
+    _loadVersion();
+  }
+
+  _loadVersion() async {
+    PackageInfo packageInfo = await PackageInfo.fromPlatform();
+    setState(() {
+      _version =
+          '${packageInfo.version} (${packageInfo.buildNumber}) [${api.shortCommitHash()}]';
+    });
   }
 
   _launchUrl(String updateUrl) async {
@@ -78,298 +93,234 @@ class _SettingsBodyState extends State<SettingsBody> {
     var updateUrl = context.watch<UpdateNotifier>().updateUrl;
     var gpsManager = context.watch<GpsManager>();
 
-    return Center(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ElevatedButton(
-            onPressed: () async {
-              _selectImportFile(context, ImportType.gpxOrKml);
-            },
-            child: Text(context.tr("journey.import_kml_gpx_data")),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              await showCommonDialog(
-                context,
-                context.tr("import_fow_data.description_md"),
-                markdown: true,
-              );
-
-              if (await api.containsBitmapJourney()) {
-                if (!context.mounted) return;
-                await showCommonDialog(
-                  context,
-                  context.tr(
-                    "import_fow_data.warning_for_import_multiple_data_md",
+    return MlSingleChildScrollView(
+      padding: EdgeInsets.symmetric(vertical: 16.0),
+      children: [
+        // TODO: Enable this when we have user system.
+        // CircleAvatar(
+        //   backgroundColor: const Color(0xFFB6E13D),
+        //   radius: 45.0,
+        // ),
+        // Padding(
+        //   padding: EdgeInsets.symmetric(vertical: 16.0),
+        //   child: Text(
+        //     'Foo Bar',
+        //     style: TextStyle(
+        //       fontSize: 24.0,
+        //       color: const Color(0xFFFFFFFF),
+        //     ),
+        //   ),
+        // ),
+        LabelTileTitle(
+          label: context.tr("general.title"),
+        ),
+        LabelTile(
+          label: context.tr("general.version.title"),
+          position: LabelTilePosition.middle,
+          trailing: updateUrl != null
+              ? badges.Badge(
+                  badgeStyle: badges.BadgeStyle(
+                    shape: badges.BadgeShape.square,
+                    borderRadius: BorderRadius.circular(5),
+                    padding: const EdgeInsets.all(2),
+                    badgeGradient: const badges.BadgeGradient.linear(
+                      colors: [
+                        Color(0xFFB7CC1F),
+                        Color(0xFFB6E13D),
+                        Color(0xFFB7CC1F),
+                      ],
+                    ),
                   ),
-                  markdown: true,
-                );
-              }
-
-              if (!context.mounted) return;
-              await _selectImportFile(context, ImportType.fow);
-            },
-            child: Text(context.tr("import_fow_data.button")),
+                  badgeContent: const Text(
+                    'NEW',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  child: LabelTileContent(
+                    content: _version,
+                  ),
+                )
+              : LabelTileContent(
+                  content: _version,
+                ),
+          onTap: () async {
+            if (updateUrl != null) {
+              _launchUrl(updateUrl);
+              return;
+            }
+            await showCommonDialog(
+              context,
+              context.tr("general.version.currently_the_latest_version"),
+            );
+          },
+        ),
+        LabelTile(
+          label: context.tr("general.advance_settings.title"),
+          position: LabelTilePosition.bottom,
+          trailing: LabelTileContent(showArrow: true),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) {
+                return AdvancedSettingsScreen();
+              },
+            ),
           ),
-          ElevatedButton(
-            onPressed: () async {
-              if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
-                await showCommonDialog(
-                  context,
-                  "Please stop the current ongoing journey before archiving.",
-                );
-                return;
-              }
-              var tmpDir = await getTemporaryDirectory();
-              var ts = DateTime.now().millisecondsSinceEpoch;
-              var filepath = "${tmpDir.path}/${ts.toString()}.mldx";
-              if (!context.mounted) return;
-              await showLoadingDialog(
-                context: context,
-                asyncTask: api.generateFullArchive(targetFilepath: filepath),
-              );
-              if (!context.mounted) return;
-              await showCommonExport(context, filepath, deleteFile: true);
-            },
-            child: Text(context.tr("journey.archive_all_as_mldx")),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
-                await showCommonDialog(
-                  context,
-                  "Please stop the current ongoing journey before deleting all journeys.",
-                );
-                return;
-              }
-              if (!await showCommonDialog(
-                context,
-                "This will delete all journeys in this app. Are you sure?",
-                hasCancel: true,
-                title: context.tr("journey.delete_journey_title"),
-                confirmButtonText: context.tr("journey.delete"),
-                confirmGroundColor: Colors.red,
-                confirmTextColor: Colors.white,
-              )) {
-                return;
-              }
-              try {
-                await api.deleteAllJourneys();
-                if (context.mounted) {
-                  await showCommonDialog(context, "All journeys are deleted.");
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  await showCommonDialog(context, e.toString());
-                }
-              }
-            },
-            child: Text(context.tr("journey.delete_all")),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              // TODO: FilePicker is weird and `allowedExtensions` does not really work.
-              // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
-              var result = await FilePicker.platform.pickFiles(
-                type: FileType.any,
-              );
-              if (!context.mounted) return;
-              if (result != null) {
-                var path = result.files.single.path;
-                if (path != null) {
-                  try {
-                    await showLoadingDialog(
-                      context: context,
-                      asyncTask: api.importArchive(mldxFilePath: path),
-                    );
-                    if (context.mounted) {
-                      await showCommonDialog(
-                        context,
-                        "Import succeeded!",
-                        title: "Success",
-                      );
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      await showCommonDialog(context, e.toString());
+        ),
+        LabelTileTitle(
+          label: context.tr("data.title"),
+        ),
+        // TODO: This is unused, but we may use it depending on the design of
+        // import/export workflow.
+        //
+        // LabelTile(
+        //   label: context.tr("data.backup_data.title"),
+        //   position: LabelTilePosition.middle,
+        //   trailing: LabelTileContent(showArrow: true),
+        //   onTap: () => Navigator.push(
+        //     context,
+        //     MaterialPageRoute(
+        //       builder: (context) {
+        //         return BackupDataScreen();
+        //       },
+        //     ),
+        //   ),
+        // ),
+        LabelTile(
+          label: context.tr("data.import_data.title"),
+          position: LabelTilePosition.middle,
+          trailing: LabelTileContent(showArrow: true),
+          onTap: () => showImportDataCard(
+            context,
+            onLabelTaped: (name) async {
+              switch (name) {
+                case 'MLDX':
+                  // TODO: FilePicker is weird and `allowedExtensions` does not really work.
+                  // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
+                  var result = await FilePicker.platform.pickFiles(
+                    type: FileType.any,
+                  );
+                  if (!context.mounted) return;
+                  if (result != null) {
+                    var path = result.files.single.path;
+                    if (path != null) {
+                      try {
+                        await showLoadingDialog(
+                          context: context,
+                          asyncTask: api.importArchive(mldxFilePath: path),
+                        );
+                        if (context.mounted) {
+                          await showCommonDialog(
+                            context,
+                            "Import succeeded!",
+                            title: "Success",
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          await showCommonDialog(context, e.toString());
+                        }
+                      }
                     }
                   }
-                }
+                  break;
+                case 'KML/GPX':
+                  _selectImportFile(context, ImportType.gpxOrKml);
+                  break;
+                case 'FOG_OF_WORLD':
+                  await showCommonDialog(
+                    context,
+                    context.tr("import_fow_data.description_md"),
+                    markdown: true,
+                  );
+                  if (await api.containsBitmapJourney()) {
+                    if (!context.mounted) return;
+                    await showCommonDialog(
+                      context,
+                      context.tr(
+                        "import_fow_data.warning_for_import_multiple_data_md",
+                      ),
+                      markdown: true,
+                    );
+                  }
+                  if (!context.mounted) return;
+                  await _selectImportFile(context, ImportType.fow);
+                  break;
               }
             },
-            child: Text(context.tr("journey.import_mldx")),
           ),
-          ElevatedButton(
-            onPressed: () async {
-              if (!await api.mainDbRequireOptimization()) {
-                if (!context.mounted) return;
-                await showCommonDialog(
-                  context,
-                  context.tr("db_optimization.already_optimized"),
-                );
-              } else {
-                if (!context.mounted) return;
-                if (await showCommonDialog(
-                  context,
-                  context.tr("db_optimization.confirm"),
-                  hasCancel: true,
-                )) {
-                  if (!context.mounted) return;
-                  await showLoadingDialog(
-                    context: context,
-                    asyncTask: api.optimizeMainDb(),
-                  );
+        ),
+        LabelTile(
+          label: context.tr("data.export_data.export_all"),
+          position: LabelTilePosition.bottom,
+          onTap: () async {
+            if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
+              await showCommonDialog(
+                context,
+                context.tr("journey.stop_ongoing_joureny"),
+              );
+              return;
+            }
+            var tmpDir = await getTemporaryDirectory();
+            var ts = DateTime.now().millisecondsSinceEpoch;
+            var filepath = "${tmpDir.path}/${ts.toString()}.mldx";
+            if (!context.mounted) return;
+            await showLoadingDialog(
+              context: context,
+              asyncTask: api.generateFullArchive(targetFilepath: filepath),
+            );
+            if (!context.mounted) return;
+            await showCommonExport(context, filepath, deleteFile: true);
+          },
+        ),
+        // TODO: Add about us / privacy policy / contact us / FAQ / suggestion ...
+        LabelTileTitle(
+          label: context.tr("other.title"),
+        ),
+        LabelTile(
+          label: context.tr("unexpected_exit_notification.setting_title"),
+          position: LabelTilePosition.bottom,
+          trailing: Switch(
+            value: _isUnexpectedExitNotificationEnabled,
+            onChanged: (value) async {
+              final status = await Permission.notification.status;
+              if (value) {
+                if (!status.isGranted) {
+                  setState(() {
+                    _isUnexpectedExitNotificationEnabled = false;
+                  });
+
                   if (!context.mounted) return;
                   await showCommonDialog(
                     context,
-                    context.tr("db_optimization.finsih"),
+                    context.tr(
+                        "unexpected_exit_notification.notification_permission_denied"),
                   );
+                  Geolocator.openAppSettings();
+                  return;
                 }
               }
+              await PreferencesManager.setUnexpectedExitNotificationStatus(
+                  value);
+              setState(() {
+                _isUnexpectedExitNotificationEnabled = value;
+              });
+              if (gpsManager.recordingStatus == GpsRecordingStatus.recording) {
+                if (!context.mounted) return;
+                await showCommonDialog(
+                    context,
+                    context.tr(
+                      "unexpected_exit_notification.change_affect_next_time",
+                    ));
+              }
             },
-            child: Text(context.tr("db_optimization.button")),
           ),
-          ElevatedButton(
-            onPressed: () async {
-              var tmpDir = await getTemporaryDirectory();
-              var ts = DateTime.now().millisecondsSinceEpoch;
-              var filepath = "${tmpDir.path}/${ts.toString()}.zip";
-              await api.exportLogs(targetFilePath: filepath);
-              if (!context.mounted) return;
-              await showCommonExport(context, filepath, deleteFile: true);
-            },
-            child: Text(context.tr("advance_settings.export_logs")),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) {
-                    return RawDataPage();
-                  },
-                ),
-              );
-            },
-            child: Text(context.tr("advance_settings.raw_data_mode")),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              await showLoadingDialog(
-                context: context,
-                asyncTask: api.rebuildCache(),
-              );
-            },
-            child: Text(context.tr("advance_settings.rebuild_cache")),
-          ),
-          Row(
-            children: [
-              Text(context.tr("unexpected_exit_notification.setting_title")),
-              Spacer(),
-              Switch(
-                value: _isUnexpectedExitNotificationEnabled,
-                onChanged: (value) async {
-                  final status = await Permission.notification.status;
-                  if (value) {
-                    if (!status.isGranted) {
-                      setState(() {
-                        _isUnexpectedExitNotificationEnabled = false;
-                      });
-
-                      if (!context.mounted) return;
-                      await showCommonDialog(
-                        context,
-                        context.tr(
-                            "unexpected_exit_notification.notification_permission_denied"),
-                      );
-                      Geolocator.openAppSettings();
-                      return;
-                    }
-                  }
-                  await PreferencesManager.setUnexpectedExitNotificationStatus(
-                      value);
-                  setState(() {
-                    _isUnexpectedExitNotificationEnabled = value;
-                  });
-                  if (gpsManager.recordingStatus ==
-                      GpsRecordingStatus.recording) {
-                    if (!context.mounted) return;
-                    await showCommonDialog(
-                        context,
-                        context.tr(
-                          "unexpected_exit_notification.change_affect_next_time",
-                        ));
-                  }
-                },
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              Text(context.tr("unexpected_exit_notification.setting_title")),
-              Spacer(),
-              Switch(
-                value: _isUnexpectedExitNotificationEnabled,
-                onChanged: (value) async {
-                  final status = await Permission.notification.status;
-                  if (value) {
-                    if (!status.isGranted) {
-                      setState(() {
-                        _isUnexpectedExitNotificationEnabled = false;
-                      });
-
-                      if (!context.mounted) return;
-                      await showCommonDialog(
-                        context,
-                        context.tr(
-                            "unexpected_exit_notification.notification_permission_denied"),
-                      );
-                      Geolocator.openAppSettings();
-                      return;
-                    }
-                  }
-                  await PreferencesManager.setUnexpectedExitNotificationStatus(
-                      value);
-                  setState(() {
-                    _isUnexpectedExitNotificationEnabled = value;
-                  });
-                  if (gpsManager.recordingStatus ==
-                      GpsRecordingStatus.recording) {
-                    if (!context.mounted) return;
-                    await showCommonDialog(
-                        context,
-                        context.tr(
-                          "unexpected_exit_notification.change_affect_next_time",
-                        ));
-                  }
-                },
-              ),
-            ],
-          ),
-          if (updateUrl != null) ...[
-            ElevatedButton(
-              onPressed: () async {
-                _launchUrl(updateUrl);
-              },
-              child: const Text("Update", style: TextStyle(color: Colors.red)),
-            ),
-          ],
-          Center(
-            child: Text(
-              "Version: ${api.shortCommitHash()}",
-              style: const TextStyle(
-                fontSize: 12.0,
-                fontWeight: FontWeight.normal,
-                color: Colors.black87,
-                fontStyle: FontStyle.normal,
-                decoration: TextDecoration.none,
-              ),
-            ),
-          ),
-          // TODO: Indicate that we used `MiSans` in this app.
-        ],
-      ),
+        ),
+        SizedBox(height: 96.0),
+      ],
     );
   }
 }

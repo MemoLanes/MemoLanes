@@ -1,26 +1,29 @@
 import 'dart:async';
+
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:memolanes/achievement.dart';
 import 'package:memolanes/component/bottom_nav_bar.dart';
 import 'package:memolanes/component/safe_area_wrapper.dart';
+import 'package:memolanes/gps_manager.dart';
+import 'package:memolanes/journey.dart';
+import 'package:memolanes/logger.dart';
+import 'package:memolanes/map.dart';
+import 'package:memolanes/settings.dart';
+import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:memolanes/time_machine.dart';
 import 'package:memolanes/utils.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:memolanes/settings.dart';
-import 'package:memolanes/gps_manager.dart';
-import 'package:memolanes/journey.dart';
-import 'package:memolanes/map.dart';
-import 'package:memolanes/achievement.dart';
-import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:provider/provider.dart';
-import 'package:easy_localization/easy_localization.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+bool mainMapInitialized = false;
 
 void delayedInit(UpdateNotifier updateNotifier) {
   Future.delayed(const Duration(milliseconds: 4000), () async {
@@ -84,32 +87,37 @@ void delayedInit(UpdateNotifier updateNotifier) {
 }
 
 void main() async {
-  // This is required since we are doing things before calling `runApp`.
-  WidgetsFlutterBinding.ensureInitialized();
-  await EasyLocalization.ensureInitialized();
+  runZonedGuarded(() async {
+    // This is required since we are doing things before calling `runApp`.
+    WidgetsFlutterBinding.ensureInitialized();
+    await EasyLocalization.ensureInitialized();
 
-  // TODO: Consider using `flutter_native_splash`
-  await RustLib.init();
-  await api.init(
-      tempDir: (await getTemporaryDirectory()).path,
-      docDir: (await getApplicationDocumentsDirectory()).path,
-      supportDir: (await getApplicationSupportDirectory()).path,
-      cacheDir: (await getApplicationCacheDirectory()).path);
-  var updateNotifier = UpdateNotifier();
-  delayedInit(updateNotifier);
-  var gpsManager = GpsManager();
-  runApp(EasyLocalization(
-      supportedLocales: const [Locale('en', 'US'), Locale('zh', 'CN')],
-      path: 'assets/translations',
-      fallbackLocale: const Locale('en', 'US'),
-      saveLocale: false,
-      child: MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (context) => gpsManager),
-          ChangeNotifierProvider(create: (context) => updateNotifier),
-        ],
-        child: const MyApp(),
-      )));
+    // TODO: Consider using `flutter_native_splash`
+    await RustLib.init();
+    initLogger();
+    await api.init(
+        tempDir: (await getTemporaryDirectory()).path,
+        docDir: (await getApplicationDocumentsDirectory()).path,
+        supportDir: (await getApplicationSupportDirectory()).path,
+        cacheDir: (await getApplicationCacheDirectory()).path);
+    var updateNotifier = UpdateNotifier();
+    delayedInit(updateNotifier);
+    var gpsManager = GpsManager();
+    runApp(EasyLocalization(
+        supportedLocales: const [Locale('en', 'US'), Locale('zh', 'CN')],
+        path: 'assets/translations',
+        fallbackLocale: const Locale('en', 'US'),
+        saveLocale: false,
+        child: MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (context) => gpsManager),
+            ChangeNotifierProvider(create: (context) => updateNotifier),
+          ],
+          child: const MyApp(),
+        )));
+  }, (error, stackTrace) {
+    log.error('Uncaught exception in Flutter: $error', stackTrace);
+  });
 }
 
 class MyApp extends StatelessWidget {
@@ -142,15 +150,10 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         fontFamily: 'MiSans',
+        scaffoldBackgroundColor: const Color(0xFF141414),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.black,
-          primary: Colors.black,
-          secondary: Colors.black87,
-          tertiary: Colors.black54,
-          surface: Colors.white,
-          onPrimary: Colors.white,
-          onSecondary: Colors.white,
-          onSurface: Colors.black87,
+          seedColor: const Color(0xFFB6E13D),
+          brightness: Brightness.dark,
         ),
         iconTheme: const IconThemeData(
           color: Colors.black87,
@@ -178,6 +181,17 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mainMapInitialized) {
+        mainMapInitialized = true;
+        showLoadingDialog(context: context, asyncTask: api.initMainMap());
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

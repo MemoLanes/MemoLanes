@@ -19,7 +19,7 @@ fn basic() {
         .flatten()
         .collect();
     let num_of_gpx_data_in_input = test_data.len();
-    println!("total test data: {}", num_of_gpx_data_in_input);
+    println!("total test data: {num_of_gpx_data_in_input}");
 
     let temp_dir = TempDir::new("main_db-basic").unwrap();
     println!("temp dir: {:?}", temp_dir.path());

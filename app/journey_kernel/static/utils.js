@@ -5,11 +5,13 @@
  * @returns {Array} - Array of [x, y] tile coordinates
  */
 export function lngLatToTileXY([lng, lat], zoom) {
-    const n = Math.pow(2, zoom);
-    const x = Math.floor((lng + 180) / 360 * n);
-    const latRad = lat * Math.PI / 180;
-    const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
-    return [x, y];
+  const n = Math.pow(2, zoom);
+  const x = Math.floor(((lng + 180) / 360) * n);
+  const latRad = (lat * Math.PI) / 180;
+  const y = Math.floor(
+    ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n,
+  );
+  return [x, y];
 }
 
 /**
@@ -19,11 +21,11 @@ export function lngLatToTileXY([lng, lat], zoom) {
  * @returns {Array} - Array of [longitude, latitude]
  */
 export function tileXYToLngLat([x, y], zoom) {
-    const n = Math.pow(2, zoom);
-    const lng = x / n * 360 - 180;
-    const latRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n)));
-    const lat = latRad * 180 / Math.PI;
-    return [lng, lat];
+  const n = Math.pow(2, zoom);
+  const lng = (x / n) * 360 - 180;
+  const latRad = Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n)));
+  const lat = (latRad * 180) / Math.PI;
+  return [lng, lat];
 }
 
 /**
@@ -32,28 +34,28 @@ export function tileXYToLngLat([x, y], zoom) {
  * @returns {Array} - Array of [x, y, w, h, z] representing the tile range
  */
 export function getViewportTileRange(map) {
-    // Get the current zoom level
-    const z = Math.max(0, Math.floor(map.getZoom()));
-    
-    // Get the bounds of the map
-    const bounds = map.getBounds();
-    const sw = bounds.getSouthWest();
-    const ne = bounds.getNorthEast();
-    
-    // Convert to tile coordinates
-    const [swX, swY] = lngLatToTileXY([sw.lng, sw.lat], z);
-    const [neX, neY] = lngLatToTileXY([ne.lng, ne.lat], z);
-    
-    // Calculate the minimum x and y coordinates
-    const x = Math.min(swX, neX);
-    const y = Math.min(neY, swY);
-    
-    // Calculate the width and height
-    const w = Math.max(1, Math.abs(neX - swX)+1);
-    // on special case when map is at border, make sure h will not exceed the limit.
-    const h = Math.min(Math.max(1, Math.abs(swY - neY)+1), (1 << z) - y);
-    
-    return [x, y, w, h, z];
+  // Get the current zoom level
+  const z = Math.max(0, Math.floor(map.getZoom()));
+
+  // Get the bounds of the map
+  const bounds = map.getBounds();
+  const sw = bounds.getSouthWest();
+  const ne = bounds.getNorthEast();
+
+  // Convert to tile coordinates
+  const [swX, swY] = lngLatToTileXY([sw.lng, sw.lat], z);
+  const [neX, neY] = lngLatToTileXY([ne.lng, ne.lat], z);
+
+  // Calculate the minimum x and y coordinates
+  const x = Math.min(swX, neX);
+  const y = Math.min(neY, swY);
+
+  // Calculate the width and height
+  const w = Math.max(1, Math.abs(neX - swX) + 1);
+  // on special case when map is at border, make sure h will not exceed the limit.
+  const h = Math.min(Math.max(1, Math.abs(swY - neY) + 1), (1 << z) - y);
+
+  return [x, y, w, h, z];
 }
 
 /**
@@ -64,7 +66,7 @@ export function getViewportTileRange(map) {
  * @returns {String} - Tile key in the format "z/x/y"
  */
 export function tileXYZToKey(x, y, z) {
-    return `${z}/${x}/${y}`;
+  return `${z}/${x}/${y}`;
 }
 
 /**
@@ -73,6 +75,6 @@ export function tileXYZToKey(x, y, z) {
  * @returns {Object} - Object with x, y, z properties
  */
 export function keyToTileXYZ(key) {
-    const [z, x, y] = key.split('/').map(Number);
-    return { x, y, z };
-} 
+  const [z, x, y] = key.split("/").map(Number);
+  return { x, y, z };
+}

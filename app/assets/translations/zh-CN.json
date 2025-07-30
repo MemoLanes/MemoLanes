@@ -17,29 +17,42 @@
     "info": "提示",
     "save": "保存",
     "share": "分享",
-    "export": "导出"
+    "export": "导出",
+    "edit": "编辑",
+    "delete": "删除",
+    "please_enter": "请输入",
+    "still_under_development": "开发中"
   },
   "journey": {
     "no_data": "当前暂无旅程数据，开始探索世界吧！",
+    "journey_date_is_empty": "旅程日期是空的",
     "delete_journey_title": "删除旅程",
     "delete_journey_message": "确认删除该旅程记录?",
-    "delete": "删除",
+    "stop_ongoing_joureny": "在此操作之前，请先停止当前正在进行的旅程。",
+    "delete_all_journey_message": "这将删除此应用中的所有行程，您确定吗？",
     "journey_info_page_title": "旅程信息",
     "journey_info_edit_page_title": "编辑旅程信息",
-    "export_journey_as_kml": "导出为KML",
-    "export_journey_as_gpx": "导出为GPX",
-    "export_journey_as_mldx": "导出为MLDX",
+    "import_mldx_data": "导入 MLDX 数据",
     "import_kml_gpx_data": "导入 KML/GPX 数据",
-    "archive_all_as_mldx": "完整归档（mldx 文件）",
+    "import_fog_of_world_data": "导入 世界迷雾 数据",
+    "export_journey_as_kml": "导出为 KML",
+    "export_journey_as_gpx": "导出为 GPX",
+    "export_journey_as_mldx": "导出为 MLDX",
     "delete_all": "删除所有旅程",
-    "import_mldx": "导入归档（mldx 文件）"
+    "preprocessor": "预处理器",
+    "journey_date": "旅程日期",
+    "journey_kind": "图层标签",
+    "start_time": "开始时间",
+    "end_time": "结束时间",
+    "created_at": "创建时间",
+    "note": "备注"
   },
   "db_optimization": {
     "notification": "你的数据库需要优化，请前往设置选项卡并点击[优化数据库]按钮。",
     "button": "优化数据库",
     "already_optimized": "数据库已经是最优状态。无需再次优化。",
     "confirm": "您的数据库需要优化。建议在继续之前备份你的数据。",
-    "finsih": "数据库优化完成。"
+    "finish": "数据库优化完成。"
   },
   "journey_kind": {
     "default": "默认",
@@ -62,9 +75,35 @@
     "title": "成就",
     "explored_area": "探索面积：{} 平方公里"
   },
-  "advance_settings": {
-    "export_logs": "导出日志",
-    "raw_data_mode": "原始数据模式",
-    "rebuild_cache": "重建缓存"
+  "general": {
+    "title": "通用",
+    "version": {
+      "title": "版本",
+      "currently_the_latest_version": "当前已经是最新版本"
+    },
+    "advance_settings": {
+      "title": "高级设置",
+      "export_logs": "导出日志",
+      "raw_data_mode": "原始数据模式",
+      "rebuild_cache": "重建缓存"
+    }
+  },
+  "data": {
+    "title": "数据",
+    "backup_data": {
+      "title": "备份数据",
+      "last_backup_time": "上次备份时间",
+      "backup": "备份",
+      "delete_backup_data": "删除备份数据"
+    },
+    "import_data": {
+      "title": "导入数据"
+    },
+    "export_data": {
+      "export_all": "导出所有数据"
+    }
+  },
+  "other": {
+    "title": "其他"
   }
 }
