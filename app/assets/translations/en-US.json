@@ -6,6 +6,7 @@
     "end_journey_title": "End Journey?",
     "end_journey_message": "Are you sure you want to end your current journey?",
     "location_permission_denied": "You have denied location permission. To ensure the use of positioning functions, please turn it on in settings.",
+    "android_foreground_notification_channel_name": "Tracking Service",
     "android_foreground_notification_title": "Recording in Background",
     "android_foreground_notification_text": "MemoLanes will continue to record in the background"
   },
