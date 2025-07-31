@@ -5,7 +5,9 @@ import 'package:memolanes/src/rust/api/api.dart' as api;
 void initLogger() {
   if (kDebugMode) {
     api.subscribeToLogStream().listen((log) {
-      print(log);
+      if (kDebugMode) {
+        print(log);
+      }
     });
   }
   Logger.root.level = Level.INFO;
@@ -18,7 +20,9 @@ void initLogger() {
     };
     api.writeLog(message: rec.message, level: logLevel);
     if (kDebugMode && rec.level == Level.SEVERE && rec.stackTrace != null) {
-      print(rec.stackTrace);
+      if (kDebugMode) {
+        print(rec.stackTrace);
+      }
     }
   });
 }

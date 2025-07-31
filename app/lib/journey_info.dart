@@ -1,7 +1,9 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/component/base_map_webview.dart';
+import 'package:memolanes/component/cards/card_label_tile.dart';
 import 'package:memolanes/component/cards/line_painter.dart';
+import 'package:memolanes/component/cards/option_card.dart';
 import 'package:memolanes/component/safe_area_wrapper.dart';
 import 'package:memolanes/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/component/tiles/label_tile.dart';
@@ -230,12 +232,9 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     ElevatedButton(
-                      onPressed: () => showExportDataCard(
+                      onPressed: () => _showExportDataCard(
                         context,
-                        journeyType: widget.journeyHeader.journeyType,
-                        onLabelTaped: (exportType) async {
-                          _export(exportType);
-                        },
+                        widget.journeyHeader.journeyType,
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFFFFFFF),
@@ -284,6 +283,42 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                 mapRendererProxy: mapRendererProxy,
                 initialMapView: _initialMapView,
               ),
+      ),
+    );
+  }
+
+  void _showExportDataCard(BuildContext context, JourneyType journeyType) {
+    showBasicCard(
+      context,
+      child: OptionCard(
+        children: [
+          CardLabelTile(
+            position: journeyType != JourneyType.bitmap
+                ? CardLabelTilePosition.top
+                : CardLabelTilePosition.single,
+            label: context.tr("journey.export_journey_as_mldx"),
+            onTap: () {
+              _export(ExportType.mldx);
+            },
+            top: false,
+          ),
+          if (journeyType != JourneyType.bitmap) ...[
+            CardLabelTile(
+              position: CardLabelTilePosition.middle,
+              label: context.tr("journey.export_journey_as_kml"),
+              onTap: () {
+                _export(ExportType.kml);
+              },
+            ),
+            CardLabelTile(
+              position: CardLabelTilePosition.bottom,
+              label: context.tr("journey.export_journey_as_gpx"),
+              onTap: () {
+                _export(ExportType.gpx);
+              },
+            ),
+          ]
+        ],
       ),
     );
   }

@@ -2,14 +2,9 @@ import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:memolanes/component/cards/export_data_card.dart';
-import 'package:memolanes/component/cards/import_data_card.dart';
-import 'package:memolanes/component/cards/journey_kind_card.dart';
 import 'package:memolanes/component/cards/line_painter.dart';
 import 'package:memolanes/component/common_dialog.dart';
 import 'package:memolanes/component/common_export.dart';
-import 'package:memolanes/journey_info.dart';
-import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 Future<bool> showCommonDialog(BuildContext context, String message,
@@ -135,7 +130,7 @@ Future<bool> showCommonExport(BuildContext context, String filePath,
   return dialogResult ?? false;
 }
 
-void _showBasicCard(
+void showBasicCard(
   BuildContext context, {
   required Widget child,
   bool showHandle = true,
@@ -175,43 +170,5 @@ void _showBasicCard(
         ),
       );
     },
-  );
-}
-
-void showImportDataCard(
-  BuildContext context, {
-  Function(String)? onLabelTaped,
-}) async {
-  _showBasicCard(
-    context,
-    child: ImportDataCard(
-      onLabelTaped: onLabelTaped,
-    ),
-  );
-}
-
-void showExportDataCard(
-  BuildContext context, {
-  JourneyType? journeyType,
-  Function(ExportType)? onLabelTaped,
-}) async {
-  _showBasicCard(
-    context,
-    child: ExportDataCard(
-      journeyType: journeyType,
-      onLabelTaped: onLabelTaped,
-    ),
-  );
-}
-
-void showJourneyKindCard(
-  BuildContext context, {
-  Function(JourneyKind)? onLabelTaped,
-}) async {
-  _showBasicCard(
-    context,
-    child: JourneyKindCard(
-      onLabelTaped: onLabelTaped,
-    ),
   );
 }

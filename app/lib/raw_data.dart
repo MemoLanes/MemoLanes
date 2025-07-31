@@ -61,7 +61,7 @@ class _RawDataPage extends State<RawDataPage> {
     _loadList();
   }
 
-  _loadList() async {
+  void _loadList() async {
     var list = await listAllRawData();
     setState(() {
       items = list;
@@ -88,7 +88,9 @@ class _RawDataPage extends State<RawDataPage> {
                   leading: const Icon(Icons.description),
                   title: Text(item.name),
                   onTap: () {
-                    Share.shareXFiles([XFile(item.path)]);
+                    SharePlus.instance.share(
+                      ShareParams(files: [XFile(item.path)]),
+                    );
                   },
                   trailing: ElevatedButton(
                     onPressed: () async {
