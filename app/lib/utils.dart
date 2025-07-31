@@ -2,10 +2,15 @@ import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/component/cards/export_data_card.dart';
+import 'package:memolanes/component/cards/import_data_card.dart';
+import 'package:memolanes/component/cards/journey_kind_card.dart';
+import 'package:memolanes/component/cards/line_painter.dart';
+import 'package:memolanes/component/common_dialog.dart';
+import 'package:memolanes/component/common_export.dart';
+import 'package:memolanes/journey_info.dart';
+import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-
-import 'component/common_dialog.dart';
-import 'component/common_export.dart';
 
 Future<bool> showCommonDialog(BuildContext context, String message,
     {hasCancel = false,
@@ -128,4 +133,85 @@ Future<bool> showCommonExport(BuildContext context, String filePath,
   }
 
   return dialogResult ?? false;
+}
+
+void _showBasicCard(
+  BuildContext context, {
+  required Widget child,
+  bool showHandle = true,
+}) {
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    builder: (context) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(16.0),
+            topRight: Radius.circular(16.0),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 12.0),
+              child: Offstage(
+                offstage: !showHandle,
+                child: Center(
+                  child: CustomPaint(
+                    size: Size(40.0, 4.0),
+                    painter: LinePainter(
+                      color: const Color(0xFFB5B5B5),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            child,
+          ],
+        ),
+      );
+    },
+  );
+}
+
+void showImportDataCard(
+  BuildContext context, {
+  Function(String)? onLabelTaped,
+}) async {
+  _showBasicCard(
+    context,
+    child: ImportDataCard(
+      onLabelTaped: onLabelTaped,
+    ),
+  );
+}
+
+void showExportDataCard(
+  BuildContext context, {
+  JourneyType? journeyType,
+  Function(ExportType)? onLabelTaped,
+}) async {
+  _showBasicCard(
+    context,
+    child: ExportDataCard(
+      journeyType: journeyType,
+      onLabelTaped: onLabelTaped,
+    ),
+  );
+}
+
+void showJourneyKindCard(
+  BuildContext context, {
+  Function(JourneyKind)? onLabelTaped,
+}) async {
+  _showBasicCard(
+    context,
+    child: JourneyKindCard(
+      onLabelTaped: onLabelTaped,
+    ),
+  );
 }
