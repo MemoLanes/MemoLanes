@@ -4,6 +4,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/advanced_settings.dart';
+import 'package:memolanes/component/cards/card_label_tile.dart';
+import 'package:memolanes/component/cards/option_card.dart';
 import 'package:memolanes/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/component/tiles/label_tile.dart';
 import 'package:memolanes/component/tiles/label_tile_content.dart';
@@ -37,7 +39,7 @@ class _SettingsBodyState extends State<SettingsBody> {
     _loadVersion();
   }
 
-  _loadVersion() async {
+  void _loadVersion() async {
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
     setState(() {
       _version =
@@ -45,7 +47,7 @@ class _SettingsBodyState extends State<SettingsBody> {
     });
   }
 
-  _launchUrl(String updateUrl) async {
+  void _launchUrl(String updateUrl) async {
     final url = Uri.parse(updateUrl);
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -193,65 +195,7 @@ class _SettingsBodyState extends State<SettingsBody> {
           label: context.tr("data.import_data.title"),
           position: LabelTilePosition.middle,
           trailing: LabelTileContent(showArrow: true),
-          onTap: () => showImportDataCard(
-            context,
-            onLabelTaped: (name) async {
-              switch (name) {
-                case 'MLDX':
-                  // TODO: FilePicker is weird and `allowedExtensions` does not really work.
-                  // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
-                  var result = await FilePicker.platform.pickFiles(
-                    type: FileType.any,
-                  );
-                  if (!context.mounted) return;
-                  if (result != null) {
-                    var path = result.files.single.path;
-                    if (path != null) {
-                      try {
-                        await showLoadingDialog(
-                          context: context,
-                          asyncTask: api.importArchive(mldxFilePath: path),
-                        );
-                        if (context.mounted) {
-                          await showCommonDialog(
-                            context,
-                            "Import succeeded!",
-                            title: "Success",
-                          );
-                        }
-                      } catch (e) {
-                        if (context.mounted) {
-                          await showCommonDialog(context, e.toString());
-                        }
-                      }
-                    }
-                  }
-                  break;
-                case 'KML/GPX':
-                  _selectImportFile(context, ImportType.gpxOrKml);
-                  break;
-                case 'FOG_OF_WORLD':
-                  await showCommonDialog(
-                    context,
-                    context.tr("import_fow_data.description_md"),
-                    markdown: true,
-                  );
-                  if (await api.containsBitmapJourney()) {
-                    if (!context.mounted) return;
-                    await showCommonDialog(
-                      context,
-                      context.tr(
-                        "import_fow_data.warning_for_import_multiple_data_md",
-                      ),
-                      markdown: true,
-                    );
-                  }
-                  if (!context.mounted) return;
-                  await _selectImportFile(context, ImportType.fow);
-                  break;
-              }
-            },
-          ),
+          onTap: () => _showImportDataCard(context),
         ),
         LabelTile(
           label: context.tr("data.export_data.export_all"),
@@ -321,6 +265,81 @@ class _SettingsBodyState extends State<SettingsBody> {
         ),
         SizedBox(height: 96.0),
       ],
+    );
+  }
+
+  void _showImportDataCard(BuildContext context) {
+    showBasicCard(
+      context,
+      child: OptionCard(
+        children: [
+          CardLabelTile(
+            position: CardLabelTilePosition.top,
+            label: context.tr("journey.import_mldx_data"),
+            onTap: () async {
+              // TODO: FilePicker is weird and `allowedExtensions` does not really work.
+              // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
+              var result = await FilePicker.platform.pickFiles(
+                type: FileType.any,
+              );
+              if (!context.mounted) return;
+              if (result != null) {
+                var path = result.files.single.path;
+                if (path != null) {
+                  try {
+                    await showLoadingDialog(
+                      context: context,
+                      asyncTask: api.importArchive(mldxFilePath: path),
+                    );
+                    if (context.mounted) {
+                      await showCommonDialog(
+                        context,
+                        "Import succeeded!",
+                        title: "Success",
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      await showCommonDialog(context, e.toString());
+                    }
+                  }
+                }
+              }
+            },
+            top: false,
+          ),
+          CardLabelTile(
+            position: CardLabelTilePosition.middle,
+            label: context.tr("journey.import_kml_gpx_data"),
+            onTap: () async {
+              _selectImportFile(context, ImportType.gpxOrKml);
+            },
+          ),
+          CardLabelTile(
+            position: CardLabelTilePosition.bottom,
+            label: context.tr("journey.import_fog_of_world_data"),
+            onTap: () async {
+              await showCommonDialog(
+                context,
+                context.tr("import_fow_data.description_md"),
+                markdown: true,
+              );
+              if (await api.containsBitmapJourney()) {
+                if (!context.mounted) return;
+                await showCommonDialog(
+                  context,
+                  context.tr(
+                    "import_fow_data.warning_for_import_multiple_data_md",
+                  ),
+                  markdown: true,
+                );
+              }
+              if (!context.mounted) return;
+              await _selectImportFile(context, ImportType.fow);
+            },
+          ),
+        ],
+      ),
     );
   }
 }

@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:memolanes/component/cards/card_label_tile.dart';
+import 'package:memolanes/component/cards/option_card.dart';
 import 'package:memolanes/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/component/tiles/label_tile.dart';
 import 'package:memolanes/component/tiles/label_tile_content.dart';
@@ -226,14 +228,7 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
                     ? context.tr("journey_kind.default")
                     : context.tr("journey_kind.flight"),
                 showArrow: true),
-            onTap: () => showJourneyKindCard(
-              context,
-              onLabelTaped: (journeyKind) async {
-                setState(() {
-                  _journeyKind = journeyKind;
-                });
-              },
-            ),
+            onTap: () => _showJourneyKindCard(context),
           ),
           LabelTile(
             label: context.tr("journey.note"),
@@ -270,6 +265,35 @@ class _JourneyInfoEditor extends State<JourneyInfoEditor> {
               ),
             ),
             child: Text(context.tr("common.save")),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showJourneyKindCard(BuildContext context) {
+    showBasicCard(
+      context,
+      child: OptionCard(
+        children: [
+          CardLabelTile(
+            position: CardLabelTilePosition.top,
+            label: context.tr("journey_kind.default"),
+            onTap: () {
+              setState(() {
+                _journeyKind = JourneyKind.defaultKind;
+              });
+            },
+            top: false,
+          ),
+          CardLabelTile(
+            position: CardLabelTilePosition.bottom,
+            label: context.tr("journey_kind.flight"),
+            onTap: () {
+              setState(() {
+                _journeyKind = JourneyKind.flight;
+              });
+            },
           ),
         ],
       ),

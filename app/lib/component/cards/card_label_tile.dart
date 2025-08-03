@@ -60,7 +60,10 @@ class CardLabelTile extends StatelessWidget {
           Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: () => onTap?.call(),
+              onTap: () {
+                Navigator.pop(context);
+                onTap?.call();
+              },
               borderRadius: borderRadius,
               child: Ink(
                 height: 54.0,

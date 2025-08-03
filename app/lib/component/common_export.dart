@@ -1,10 +1,11 @@
 import 'dart:io';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_file_saver/flutter_file_saver.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:path/path.dart' as p;
+import 'package:share_plus/share_plus.dart';
 
 class CommonExport extends StatefulWidget {
   final String filePath;
@@ -30,7 +31,9 @@ class _CommonExportState extends State<CommonExport> {
   }
 
   Future<void> _shareFile() async {
-    await Share.shareXFiles([XFile(widget.filePath)]);
+    await SharePlus.instance.share(
+      ShareParams(files: [XFile(widget.filePath)]),
+    );
     if (!mounted) return;
     Navigator.of(context).pop();
   }
