@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
+
 class LocationData {
   final double latitude;
   final double longitude;
@@ -25,6 +28,17 @@ class LocationData {
   }
 }
 
+enum LocationBackend {
+  native;
+
+  String displayName(BuildContext context) {
+    switch (this) {
+      case LocationBackend.native:
+        return context.tr("location_service.location_backend.native");
+    }
+  }
+}
+
 abstract class ILocationService {
   Future<void> startLocationUpdates(bool enableBackground);
 
@@ -32,4 +46,6 @@ abstract class ILocationService {
 
   StreamSubscription<LocationData> onLocationUpdate(
       void Function(LocationData) callback);
+
+  LocationBackend get locationBackend;
 }

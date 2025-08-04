@@ -57,6 +57,9 @@ class GeoLocatorService implements ILocationService {
   DateTime? _firstBufferReceiveTime;
 
   @override
+  LocationBackend get locationBackend => LocationBackend.native;
+
+  @override
   Future<void> startLocationUpdates(bool enableBackground) async {
     final settings = _buildLocationSettings(enableBackground);
 

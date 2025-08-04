@@ -4,10 +4,17 @@
     "pause": "暂停",
     "resume": "恢复",
     "end_journey_title": "结束旅程？",
-    "end_journey_message": "确定要结束当前的旅程吗？",
-    "location_permission_denied": "您已拒绝获取位置权限，为了保障定位功能的使用，请在设置中打开。",
+    "end_journey_message": "确定要结束当前的旅程吗？"
+  },
+  "location_service": {
+    "location_permission_denied": "你已拒绝获取位置权限，为了保障定位功能的使用，请在设置中打开。",
+    "android_foreground_notification_channel_name": "轨迹记录服务",
     "android_foreground_notification_title": "后台记录中",
-    "android_foreground_notification_text": "迹忆将在后台持续记录"
+    "android_foreground_notification_text": "迹忆将在后台持续记录",
+    "location_backend": {
+      "title": "定位服务",
+      "native": "原生"
+    }
   },
   "common": {
     "memolanes": "迹忆",
