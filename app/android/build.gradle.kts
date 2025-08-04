@@ -13,6 +13,19 @@ allprojects {
         google()
         mavenCentral()
     }
+    gradle.projectsEvaluated {
+        tasks.withType<JavaCompile>().configureEach {
+            // Enable detailed warnings for 'unchecked' and 'deprecation' (uncomment the following lines if needed)
+            // options.compilerArgs.addAll(
+            //     listOf(
+            //         "-Xlint:unchecked",
+            //         "-Xlint:deprecation"
+            //     )
+            // )
+            // Suppress warnings about JDK version options
+            options.compilerArgs.add("-Xlint:-options")
+        }
+    }
 }
 
 val newBuildDir: Directory = rootProject.layout.buildDirectory.dir("../../build").get()
