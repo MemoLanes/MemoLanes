@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -149,7 +150,8 @@ class MyApp extends StatelessWidget {
       navigatorKey: navigatorKey,
       theme: ThemeData(
         useMaterial3: true,
-        fontFamily: 'MiSans',
+        fontFamilyFallback:
+            Platform.isIOS ? ['.AppleSystemUIFont', 'PingFang SC'] : null,
         scaffoldBackgroundColor: const Color(0xFF141414),
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFFB6E13D),
