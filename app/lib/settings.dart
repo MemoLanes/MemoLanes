@@ -12,7 +12,6 @@ import 'package:memolanes/component/tiles/label_tile_content.dart';
 import 'package:memolanes/component/tiles/label_tile_title.dart';
 import 'package:memolanes/gps_manager.dart';
 import 'package:memolanes/import_data.dart';
-import 'package:memolanes/preferences_manager.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/utils.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -20,6 +19,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+import 'mmkv_util.dart';
 
 class SettingsBody extends StatefulWidget {
   const SettingsBody({super.key});
@@ -83,10 +84,10 @@ class _SettingsBodyState extends State<SettingsBody> {
   }
 
   Future<void> _loadNotificationStatus() async {
-    final status =
-        await PreferencesManager.getUnexpectedExitNotificationStatus();
     setState(() {
-      _isUnexpectedExitNotificationEnabled = status;
+      _isUnexpectedExitNotificationEnabled = MMKVUtil.getBool(
+          MMKVKey.isUnexpectedExitNotificationEnabled,
+          defaultValue: true);
     });
   }
 
@@ -247,8 +248,8 @@ class _SettingsBodyState extends State<SettingsBody> {
                   return;
                 }
               }
-              await PreferencesManager.setUnexpectedExitNotificationStatus(
-                  value);
+              MMKVUtil.putBool(
+                  MMKVKey.isUnexpectedExitNotificationEnabled, value);
               setState(() {
                 _isUnexpectedExitNotificationEnabled = value;
               });

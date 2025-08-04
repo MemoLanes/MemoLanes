@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/main.dart';
-import 'package:memolanes/preferences_manager.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/gps_processor.dart';
 import 'package:memolanes/utils.dart';
@@ -14,11 +13,11 @@ import 'package:notification_when_app_is_killed/model/args_for_ios.dart';
 import 'package:notification_when_app_is_killed/model/args_for_kill_notification.dart';
 import 'package:notification_when_app_is_killed/notification_when_app_is_killed.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'location/geolocator_service.dart';
 import 'location/location_service.dart';
 import 'logger.dart';
+import 'mmkv_util.dart';
 
 enum GpsRecordingStatus { none, recording, paused }
 
@@ -31,7 +30,6 @@ bool _positionTooOld(LocationData data) {
 }
 
 class GpsManager extends ChangeNotifier {
-  static const String isRecordingPrefsKey = "GpsManager.isRecording";
   late final ILocationService _locationService;
   var recordingStatus = GpsRecordingStatus.none;
   var mapTracking = false;
@@ -70,11 +68,7 @@ class GpsManager extends ChangeNotifier {
         });
       });
 
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-
-      bool? recordState = prefs.getBool(isRecordingPrefsKey);
-      if (recordState != null &&
-          recordState == true &&
+      if (MMKVUtil.getBool(MMKVKey.isRecording) &&
           await _checkLocationPermission()) {
         recordingStatus = GpsRecordingStatus.recording;
       } else {
@@ -84,12 +78,6 @@ class GpsManager extends ChangeNotifier {
       }
       await _syncInternalStateWithoutLock();
     });
-  }
-
-  void _saveIsRecordingState() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    prefs.setBool(
-        isRecordingPrefsKey, recordingStatus == GpsRecordingStatus.recording);
   }
 
   Future<bool> _checkLocationPermission() async {
@@ -111,7 +99,7 @@ class GpsManager extends ChangeNotifier {
     final status = await Permission.notification.status;
 
     if (status.isGranted) {
-      await PreferencesManager.setUnexpectedExitNotificationStatus(true);
+      MMKVUtil.putBool(MMKVKey.isUnexpectedExitNotificationEnabled, true);
       return;
     }
 
@@ -124,12 +112,8 @@ class GpsManager extends ChangeNotifier {
     }
 
     final result = await Permission.notification.request();
-
-    if (result.isGranted) {
-      await PreferencesManager.setUnexpectedExitNotificationStatus(true);
-    } else {
-      await PreferencesManager.setUnexpectedExitNotificationStatus(false);
-    }
+    MMKVUtil.putBool(
+        MMKVKey.isUnexpectedExitNotificationEnabled, result.isGranted);
   }
 
   Future<void> _locationPermissionDeniedDialog() async {
@@ -251,8 +235,13 @@ class GpsManager extends ChangeNotifier {
             }
           }
         });
+
+        final unexpectedExitNotificationStatus =
+            await Permission.notification.isGranted &&
+                MMKVUtil.getBool(MMKVKey.isUnexpectedExitNotificationEnabled,
+                    defaultValue: true);
         if (newState == _InternalState.recording &&
-            await PreferencesManager.getUnexpectedExitNotificationStatus()) {
+            unexpectedExitNotificationStatus) {
           await _notificationWhenAppIsKilledPlugin.setNotificationOnKillService(
             ArgsForKillNotification(
                 title: tr("unexpected_exit_notification.notification_title"),
@@ -302,7 +291,11 @@ class GpsManager extends ChangeNotifier {
       notifyListeners();
 
       await _syncInternalStateWithoutLock();
-      _saveIsRecordingState();
+      MMKVUtil.putBool(
+        MMKVKey.isRecording,
+        recordingStatus == GpsRecordingStatus.recording,
+      );
+
       if (needToFinalize) {
         if (await api.finalizeOngoingJourney()) {
           Fluttertoast.showToast(msg: "New journey added");
