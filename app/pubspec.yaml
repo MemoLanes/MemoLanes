@@ -55,7 +55,6 @@ dependencies:
   device_info_plus: ^11.2.0
   url_launcher: ^6.3.0
   badges: ^3.1.2
-  shared_preferences: ^2.2.3
   flutter_local_notifications: ^19.1.0
   notification_when_app_is_killed: ^0.0.4
   easy_localization: ^3.0.7
