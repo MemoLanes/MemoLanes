@@ -59,6 +59,8 @@ class GpsManager extends ChangeNotifier {
     _initState();
   }
 
+  LocationBackend get locationBackend => _locationService.locationBackend;
+
   void _initState() async {
     await _m.protect(() async {
       await _tryFinalizeJourneyWithoutLock();

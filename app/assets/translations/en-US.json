@@ -12,6 +12,7 @@
     "android_foreground_notification_title": "Recording in Background",
     "android_foreground_notification_text": "MemoLanes will continue to record in the background",
     "location_backend": {
+      "title": "Location Service",
       "native": "Native"
     }
   },

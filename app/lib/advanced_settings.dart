@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/component/tiles/label_tile.dart';
+import 'package:memolanes/component/tiles/label_tile_content.dart';
 import 'package:memolanes/gps_manager.dart';
 import 'package:memolanes/raw_data.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -119,12 +120,18 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
           ),
           LabelTile(
             label: context.tr("general.advance_settings.rebuild_cache"),
-            position: LabelTilePosition.bottom,
+            position: LabelTilePosition.middle,
             onTap: () async => await showLoadingDialog(
               context: context,
               asyncTask: api.rebuildCache(),
             ),
           ),
+          LabelTile(
+            label: context.tr("location_service.location_backend.title"),
+            position: LabelTilePosition.bottom,
+            trailing: LabelTileContent(
+                content: gpsManager.locationBackend.displayName(context)),
+          )
         ],
       ),
     );

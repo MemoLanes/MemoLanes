@@ -12,6 +12,7 @@
     "android_foreground_notification_title": "后台记录中",
     "android_foreground_notification_text": "迹忆将在后台持续记录",
     "location_backend": {
+      "title": "定位服务",
       "native": "原生"
     }
   },
