@@ -59,6 +59,7 @@ class _CommonExportState extends State<CommonExport> {
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
+          color: Colors.white,
           icon: FaIcon(icon, size: 40),
           onPressed: onPressed,
         ),
