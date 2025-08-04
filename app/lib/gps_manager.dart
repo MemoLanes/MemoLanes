@@ -16,7 +16,7 @@ import 'package:notification_when_app_is_killed/notification_when_app_is_killed.
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'location/geo_locator_service.dart';
+import 'location/geolocator_service.dart';
 import 'location/location_service.dart';
 import 'logger.dart';
 
@@ -134,7 +134,7 @@ class GpsManager extends ChangeNotifier {
     var context = navigatorKey.currentState?.context;
     if (context != null && context.mounted) {
       await showCommonDialog(
-          context, context.tr("home.location_permission_denied"));
+          context, context.tr("location_service.location_permission_denied"));
     }
   }
 
