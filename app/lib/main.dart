@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -12,6 +13,7 @@ import 'package:memolanes/gps_manager.dart';
 import 'package:memolanes/journey.dart';
 import 'package:memolanes/logger.dart';
 import 'package:memolanes/map.dart';
+import 'package:memolanes/mmkv_util.dart';
 import 'package:memolanes/settings.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/frb_generated.dart';
@@ -20,7 +22,6 @@ import 'package:memolanes/utils.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 bool mainMapInitialized = false;
@@ -61,8 +62,7 @@ void delayedInit(UpdateNotifier updateNotifier) {
 
     // Db optimization check
     const currentOptimizationCheckVersion = 1;
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    var dbOptimizeCheck = prefs.getInt("dbOptimizationCheck") ?? 0;
+    final dbOptimizeCheck = MMKVUtil.getInt(MMKVKey.dbOptimizationCheck);
     if (dbOptimizeCheck < currentOptimizationCheckVersion) {
       if (await api.mainDbRequireOptimization()) {
         var context = navigatorKey.currentState?.context;
@@ -71,8 +71,8 @@ void delayedInit(UpdateNotifier updateNotifier) {
               context, context.tr("db_optimization.notification"));
         }
       } else {
-        await prefs.setInt(
-            "dbOptimizationCheck", currentOptimizationCheckVersion);
+        MMKVUtil.putInt(
+            MMKVKey.dbOptimizationCheck, currentOptimizationCheckVersion);
       }
     }
 
@@ -91,6 +91,7 @@ void main() async {
     // This is required since we are doing things before calling `runApp`.
     WidgetsFlutterBinding.ensureInitialized();
     await EasyLocalization.ensureInitialized();
+    await MMKVUtil.init();
 
     // TODO: Consider using `flutter_native_splash`
     await RustLib.init();
@@ -149,7 +150,8 @@ class MyApp extends StatelessWidget {
       navigatorKey: navigatorKey,
       theme: ThemeData(
         useMaterial3: true,
-        fontFamily: 'MiSans',
+        fontFamilyFallback:
+            Platform.isIOS ? ['.AppleSystemUIFont', 'PingFang SC'] : null,
         scaffoldBackgroundColor: const Color(0xFF141414),
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFFB6E13D),
