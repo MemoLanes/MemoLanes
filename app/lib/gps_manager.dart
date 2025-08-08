@@ -24,9 +24,9 @@ enum GpsRecordingStatus { none, recording, paused }
 // `recording` requires background location but `justForTracking` does not.
 enum _InternalState { off, recording, justForTracking }
 
-bool _positionTooOld(LocationData data) {
+bool _positionTooOld(LocationData data, {int staleThresholdMs = 5000}) {
   final now = DateTime.now().millisecondsSinceEpoch;
-  return now - data.timestampMs >= 5000;
+  return now - data.timestampMs >= staleThresholdMs;
 }
 
 class GpsManager extends ChangeNotifier {
@@ -203,6 +203,9 @@ class GpsManager extends ChangeNotifier {
         await _locationService.startLocationUpdates(enableBackground);
 
         _locationUpdateSub = _locationService.onLocationUpdate((data) {
+          if (_positionTooOld(data)) {
+            return;
+          }
           latestPosition = data;
           notifyListeners();
 
