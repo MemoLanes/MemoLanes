@@ -90,7 +90,8 @@ class _ImportDataPage extends State<ImportDataPage> {
     });
   }
 
-  void _saveData(import_api.JourneyInfo journeyInfo, bool runPreprocessor) async {
+  void _saveData(
+      import_api.JourneyInfo journeyInfo, bool runPreprocessor) async {
     final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
     if (journeyDataMaybeRaw == null) {
       Fluttertoast.showToast(msg: "JourneyData is empty");
