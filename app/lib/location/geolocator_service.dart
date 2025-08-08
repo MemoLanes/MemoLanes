@@ -150,10 +150,12 @@ class GeoLocatorService implements ILocationService {
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
         var foregroundNotificationConfig = ForegroundNotificationConfig(
-          notificationChannelName:
-              tr("home.android_foreground_notification_channel_name"),
-          notificationTitle: tr("home.android_foreground_notification_title"),
-          notificationText: tr("home.android_foreground_notification_text"),
+          notificationChannelName: tr(
+              "location_service.android_foreground_notification_channel_name"),
+          notificationTitle:
+              tr("location_service.android_foreground_notification_title"),
+          notificationText:
+              tr("location_service.android_foreground_notification_text"),
           setOngoing: true,
           enableWakeLock: true,
         );
