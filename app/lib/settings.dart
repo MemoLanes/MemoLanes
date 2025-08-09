@@ -2,6 +2,7 @@ import 'package:badges/badges.dart' as badges;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/advanced_settings.dart';
 import 'package:memolanes/component/cards/card_label_tile.dart';
@@ -19,6 +20,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
 import 'mmkv_util.dart';
 
@@ -32,6 +34,7 @@ class SettingsBody extends StatefulWidget {
 class _SettingsBodyState extends State<SettingsBody> {
   bool _isUnexpectedExitNotificationEnabled = false;
   String _version = "";
+  String policyUrl = "https://www.example.com/privacy-policy";
 
   @override
   void initState() {
@@ -264,7 +267,36 @@ class _SettingsBodyState extends State<SettingsBody> {
             },
           ),
         ),
-        SizedBox(height: 96.0),
+        // SizedBox(height: 96.0),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 16, // 距离底部16像素
+          child: Center(
+            child: MarkdownBody(
+              data: tr("home.privacy_name"),
+              onTapLink: (text, href, title) async {
+                if (href == null) {
+                  return;
+                }
+                if (!await launchUrlString(href,
+                    mode: LaunchMode.externalApplication)) {
+                  throw Exception('Could not launch url: $href');
+                }
+              },
+              styleSheet: MarkdownStyleSheet(
+                a: const TextStyle(
+                  color: Color(0xFFB4EC51),
+                  fontSize: 14,
+                ),
+                p: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+          ),
+        )
       ],
     );
   }

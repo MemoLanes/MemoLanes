@@ -22,6 +22,7 @@ import 'package:memolanes/utils.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 bool mainMapInitialized = false;
@@ -187,12 +188,42 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
+    _checkPrivacyAgreement();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mainMapInitialized) {
         mainMapInitialized = true;
         showLoadingDialog(context: context, asyncTask: api.initMainMap());
       }
     });
+  }
+
+  Future<void> _checkPrivacyAgreement() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    bool accepted = prefs.getBool('privacy_accepted') ?? false;
+
+    if (!accepted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showPrivacyDialogMethod();
+      });
+    }
+  }
+
+  Future<void> _showPrivacyDialogMethod() async {
+    String policyUrl = "https://www.example.com/privacy-policy";
+    String privacyTipContent = tr("home.privacy_tip_message");
+    final result = await showCommonDialog(context, privacyTipContent,
+        title: tr("home.privacy_tip_title"),
+        confirmButtonText: tr("home.agree"),
+        hasCancel: true,
+        cancelButtonText: tr("home.disagree_and_exit"),
+        markdown: true);
+
+    if (result == true) {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('privacy_accepted', true);
+    } else {
+      exit(1);
+    }
   }
 
   @override
