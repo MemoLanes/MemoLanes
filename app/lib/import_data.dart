@@ -37,7 +37,7 @@ class _ImportDataPage extends State<ImportDataPage> {
     _readData(widget.path);
   }
 
-  _readData(path) async {
+  void _readData(String path) async {
     try {
       switch (widget.importType) {
         case ImportType.fow:
@@ -63,7 +63,7 @@ class _ImportDataPage extends State<ImportDataPage> {
     }
   }
 
-  _previewData(bool runPreprocessor) async {
+  void _previewData(bool runPreprocessor) async {
     final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
     if (journeyDataMaybeRaw == null) {
       Fluttertoast.showToast(msg: "JourneyData is empty");
@@ -90,7 +90,8 @@ class _ImportDataPage extends State<ImportDataPage> {
     });
   }
 
-  _saveData(import_api.JourneyInfo journeyInfo, bool runPreprocessor) async {
+  void _saveData(
+      import_api.JourneyInfo journeyInfo, bool runPreprocessor) async {
     final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
     if (journeyDataMaybeRaw == null) {
       Fluttertoast.showToast(msg: "JourneyData is empty");

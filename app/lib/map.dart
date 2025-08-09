@@ -7,13 +7,13 @@ import 'package:memolanes/component/map_controls/accuracy_display.dart';
 import 'package:memolanes/component/map_controls/tracking_button.dart';
 import 'package:memolanes/component/recording_buttons.dart';
 import 'package:memolanes/gps_manager.dart';
+import 'package:memolanes/mmkv_util.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import 'component/rec_indicator.dart';
 import 'component/map_controls/layer_button.dart';
+import 'component/rec_indicator.dart';
 
 part 'map.g.dart';
 
@@ -43,7 +43,6 @@ class MapUiBody extends StatefulWidget {
 }
 
 class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
-  static const String mainMapStatePrefsKey = "MainMap.mapState";
   final _mapRendererProxy = api.getMapRendererProxyForMainMap();
   MapView? _roughMapView;
 
@@ -110,7 +109,6 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
     if (mapView == null) {
       return;
     }
-    SharedPreferences prefs = await SharedPreferences.getInstance();
     final mapState = MapState(
       _currentTrackingMode,
       mapView.zoom,
@@ -118,17 +116,14 @@ class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
       mapView.lat,
       0,
     );
-    prefs.setString(mainMapStatePrefsKey, jsonEncode(mapState.toJson()));
+    MMKVUtil.putString(MMKVKey.mainMapState, jsonEncode(mapState.toJson()));
   }
 
   void _loadMapState() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-
     MapView mapView = (lat: 0, lng: 0, zoom: 2);
     TrackingMode trackingMode = _currentTrackingMode;
-
-    final mapStateString = prefs.getString(mainMapStatePrefsKey);
-    if (mapStateString != null) {
+    final mapStateString = MMKVUtil.getString(MMKVKey.mainMapState);
+    if (mapStateString.isNotEmpty) {
       try {
         final mapState = MapState.fromJson(jsonDecode(mapStateString));
         trackingMode = mapState.trackingMode;

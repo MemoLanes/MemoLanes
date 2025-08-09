@@ -1,91 +1,49 @@
 import 'dart:async';
-import 'logger.dart';
 
-import 'package:async/async.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/main.dart';
-import 'package:memolanes/preferences_manager.dart';
+import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/src/rust/gps_processor.dart';
 import 'package:memolanes/utils.dart';
 import 'package:mutex/mutex.dart';
 import 'package:notification_when_app_is_killed/model/args_for_ios.dart';
 import 'package:notification_when_app_is_killed/model/args_for_kill_notification.dart';
 import 'package:notification_when_app_is_killed/notification_when_app_is_killed.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:memolanes/src/rust/gps_processor.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-/// `PokeGeolocatorTask` is a hacky workround.
-/// The behvior we observe is that the position stream from geolocator will
-/// randomly pauses so updates are delayed and come in as a batch later.
-/// However, if there something request the location, even if it is in
-/// another app, the stream will resume. So the hack is to poke the geolocator
-/// frequently.
-class _PokeGeolocatorTask {
-  bool _running = false;
-  LocationSettings? _locationSettings;
-
-  _PokeGeolocatorTask._();
-
-  factory _PokeGeolocatorTask.start(LocationSettings? locationSettings) {
-    var self = _PokeGeolocatorTask._();
-    self._running = true;
-    self._locationSettings = locationSettings;
-    self._loop();
-    return self;
-  }
-
-  _loop() async {
-    await Future.delayed(const Duration(minutes: 1));
-    if (_running) {
-      await Geolocator.getCurrentPosition(locationSettings: _locationSettings)
-          // we don't care about the result
-          .then((_) => null)
-          .catchError((_) => null);
-      _loop();
-    }
-  }
-
-  cancel() {
-    _running = false;
-  }
-}
+import 'location/geolocator_service.dart';
+import 'location/location_service.dart';
+import 'logger.dart';
+import 'mmkv_util.dart';
 
 enum GpsRecordingStatus { none, recording, paused }
 
 // `recording` requires background location but `justForTracking` does not.
 enum _InternalState { off, recording, justForTracking }
 
-bool _positionTooOld(Position position) {
-  return DateTime.now().difference(position.timestamp).inSeconds >= 5;
+bool _positionTooOld(LocationData data, {int staleThresholdMs = 5000}) {
+  final now = DateTime.now().millisecondsSinceEpoch;
+  return now - data.timestampMs >= staleThresholdMs;
 }
 
 class GpsManager extends ChangeNotifier {
-  static const String isRecordingPrefsKey = "GpsManager.isRecording";
+  late final ILocationService _locationService;
   var recordingStatus = GpsRecordingStatus.none;
   var mapTracking = false;
-  Position? latestPosition;
+  LocationData? latestPosition;
 
   // Keep tracking of the actual internal state which represents the state of
   // gps stream. This is derived from `recordingStatus` and `mapTracking`.
   _InternalState _internalState = _InternalState.off;
 
-  StreamSubscription<Position>? _positionStream;
   final Mutex _m = Mutex();
-  _PokeGeolocatorTask? _pokeGeolocatorTask;
-
-  // NOTE: we noticed that on Andorid, location updates may delivered in batches,
-  // updates within the same batch can be out of order, so we try to batch them
-  // back together using this buffer. The rust code will sort updates for each
-  // batch.
-  RestartableTimer? _positionBufferFlushTimer;
-  final List<Position> _positionBuffer = [];
-  DateTime? _positionBufferFirstElementReceivedTime;
 
   Timer? _lastPositionTooOldTimer;
+
+  StreamSubscription<LocationData>? _locationUpdateSub;
 
   // Notify the user that the recording was unexpectedly stopped on iOS.
   // On Android, this does not work, and we achive this by using foreground task.
@@ -95,8 +53,11 @@ class GpsManager extends ChangeNotifier {
   final _notificationWhenAppIsKilledPlugin = NotificationWhenAppIsKilled();
 
   GpsManager() {
+    _locationService = GeoLocatorService();
     _initState();
   }
+
+  LocationBackend get locationBackend => _locationService.locationBackend;
 
   void _initState() async {
     await _m.protect(() async {
@@ -107,11 +68,7 @@ class GpsManager extends ChangeNotifier {
         });
       });
 
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-
-      bool? recordState = prefs.getBool(isRecordingPrefsKey);
-      if (recordState != null &&
-          recordState == true &&
+      if (MMKVUtil.getBool(MMKVKey.isRecording) &&
           await _checkLocationPermission()) {
         recordingStatus = GpsRecordingStatus.recording;
       } else {
@@ -121,98 +78,6 @@ class GpsManager extends ChangeNotifier {
       }
       await _syncInternalStateWithoutLock();
     });
-  }
-
-  LocationSettings? _locationSettings(bool enableBackground) {
-    const accuracy = LocationAccuracy.best;
-    const distanceFilter = 0;
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.android:
-        var foregroundNotificationConfig = ForegroundNotificationConfig(
-          notificationTitle: tr("home.android_foreground_notification_title"),
-          notificationText: tr("home.android_foreground_notification_text"),
-          setOngoing: true,
-          enableWakeLock: true,
-        );
-        return AndroidSettings(
-          accuracy: accuracy,
-          distanceFilter: distanceFilter,
-          forceLocationManager: false,
-          // 1 sec feels like a reasonable interval
-          intervalDuration: const Duration(seconds: 1),
-          foregroundNotificationConfig:
-              (enableBackground) ? foregroundNotificationConfig : null,
-        );
-      case TargetPlatform.iOS || TargetPlatform.macOS:
-        return AppleSettings(
-          accuracy: accuracy,
-          distanceFilter: distanceFilter,
-          // TODO: we should try to make use of `pauseLocationUpdatesAutomatically`.
-          // According to doc "After a pause occurs, it’s your responsibility to
-          // restart location services again".
-          activityType: ActivityType.other,
-          pauseLocationUpdatesAutomatically: false,
-          showBackgroundLocationIndicator: false,
-          allowBackgroundLocationUpdates: enableBackground,
-        );
-      case _:
-        return null;
-    }
-  }
-
-  void _saveIsRecordingState() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    prefs.setBool(
-        isRecordingPrefsKey, recordingStatus == GpsRecordingStatus.recording);
-  }
-
-  void _onPositionUpdate(Position position) {
-    // When starting the location stream, the system may give us the last known
-    // location, which is a bit misleading.
-    // TODO: I guess doing this is still not fully correct: when the last known
-    // location is not too old but still before the time the user starts
-    // recording.
-    if (_positionTooOld(position)) {
-      return;
-    }
-
-    latestPosition = position;
-    notifyListeners();
-
-    if (_internalState != _InternalState.recording) return;
-    _positionBuffer.add(position);
-    _positionBufferFirstElementReceivedTime ??= DateTime.now();
-    if (_positionBufferFlushTimer == null) {
-      _positionBufferFlushTimer = RestartableTimer(
-        const Duration(milliseconds: 100),
-        _flushPositionBuffer,
-      );
-    } else {
-      _positionBufferFlushTimer?.reset();
-    }
-  }
-
-  Future<void> _flushPositionBuffer() async {
-    if (_positionBuffer.isEmpty) return;
-
-    List<RawData> rawDataList = _positionBuffer
-        .map((position) => RawData(
-            point: Point(
-              latitude: position.latitude,
-              longitude: position.longitude,
-            ),
-            timestampMs: position.timestamp.millisecondsSinceEpoch,
-            accuracy: position.accuracy,
-            altitude: position.altitude,
-            speed: position.speed))
-        .toList();
-    int receviedTimestampMs =
-        _positionBufferFirstElementReceivedTime!.millisecondsSinceEpoch;
-    _positionBufferFirstElementReceivedTime = null;
-    _positionBuffer.clear();
-
-    await api.onLocationUpdate(
-        rawDataList: rawDataList, receviedTimestampMs: receviedTimestampMs);
   }
 
   Future<bool> _checkLocationPermission() async {
@@ -234,7 +99,7 @@ class GpsManager extends ChangeNotifier {
     final status = await Permission.notification.status;
 
     if (status.isGranted) {
-      await PreferencesManager.setUnexpectedExitNotificationStatus(true);
+      MMKVUtil.putBool(MMKVKey.isUnexpectedExitNotificationEnabled, true);
       return;
     }
 
@@ -247,19 +112,15 @@ class GpsManager extends ChangeNotifier {
     }
 
     final result = await Permission.notification.request();
-
-    if (result.isGranted) {
-      await PreferencesManager.setUnexpectedExitNotificationStatus(true);
-    } else {
-      await PreferencesManager.setUnexpectedExitNotificationStatus(false);
-    }
+    MMKVUtil.putBool(
+        MMKVKey.isUnexpectedExitNotificationEnabled, result.isGranted);
   }
 
   Future<void> _locationPermissionDeniedDialog() async {
     var context = navigatorKey.currentState?.context;
     if (context != null && context.mounted) {
       await showCommonDialog(
-          context, context.tr("home.location_permission_denied"));
+          context, context.tr("location_service.location_permission_denied"));
     }
   }
 
@@ -325,39 +186,48 @@ class GpsManager extends ChangeNotifier {
 
       // turnning off if needed
       if (oldState != _InternalState.off) {
-        log.info("[GpsManager] turning off gps stream. old state: $oldState");
+        await _locationService.stopLocationUpdates();
+        await _locationUpdateSub?.cancel();
+        _locationUpdateSub = null;
+        latestPosition = null;
         if (oldState == _InternalState.recording) {
           await _notificationWhenAppIsKilledPlugin
               .cancelNotificationOnKillService();
-        }
-        await _positionStream?.cancel();
-        _pokeGeolocatorTask?.cancel();
-        _pokeGeolocatorTask = null;
-        _positionStream = null;
-        _positionBufferFlushTimer?.cancel();
-        _positionBufferFlushTimer = null;
-        _lastPositionTooOldTimer?.cancel();
-        _lastPositionTooOldTimer = null;
-        await _flushPositionBuffer();
-        if (newState == _InternalState.off) {
-          latestPosition = null;
         }
       }
 
       // turnning on if needed
       if (newState != _InternalState.off) {
         log.info("[GpsManager] turning on gps stream. new state: $newState");
-        var locationSettings =
-            _locationSettings(newState == _InternalState.recording);
+        bool enableBackground = newState == _InternalState.recording;
+        await _locationService.startLocationUpdates(enableBackground);
 
-        _positionStream ??=
-            Geolocator.getPositionStream(locationSettings: locationSettings)
-                .listen((Position? position) async {
-          if (position != null) {
-            _onPositionUpdate(position);
+        _locationUpdateSub = _locationService.onLocationUpdate((data) {
+          if (_positionTooOld(data)) {
+            return;
+          }
+          latestPosition = data;
+          notifyListeners();
+
+          if (_internalState == _InternalState.recording) {
+            api.onLocationUpdate(
+              rawDataList: [
+                RawData(
+                  point: Point(
+                    latitude: data.latitude,
+                    longitude: data.longitude,
+                  ),
+                  timestampMs: data.timestampMs,
+                  accuracy: data.accuracy,
+                  altitude: data.altitude,
+                  speed: data.speed,
+                )
+              ],
+              receviedTimestampMs: DateTime.now().millisecondsSinceEpoch,
+            );
           }
         });
-        _pokeGeolocatorTask ??= _PokeGeolocatorTask.start(locationSettings);
+
         _lastPositionTooOldTimer ??=
             Timer.periodic(Duration(seconds: 1), (timer) {
           var latestPosition = this.latestPosition;
@@ -368,8 +238,13 @@ class GpsManager extends ChangeNotifier {
             }
           }
         });
+
+        final unexpectedExitNotificationStatus =
+            await Permission.notification.isGranted &&
+                MMKVUtil.getBool(MMKVKey.isUnexpectedExitNotificationEnabled,
+                    defaultValue: true);
         if (newState == _InternalState.recording &&
-            await PreferencesManager.getUnexpectedExitNotificationStatus()) {
+            unexpectedExitNotificationStatus) {
           await _notificationWhenAppIsKilledPlugin.setNotificationOnKillService(
             ArgsForKillNotification(
                 title: tr("unexpected_exit_notification.notification_title"),
@@ -419,7 +294,11 @@ class GpsManager extends ChangeNotifier {
       notifyListeners();
 
       await _syncInternalStateWithoutLock();
-      _saveIsRecordingState();
+      MMKVUtil.putBool(
+        MMKVKey.isRecording,
+        recordingStatus == GpsRecordingStatus.recording,
+      );
+
       if (needToFinalize) {
         if (await api.finalizeOngoingJourney()) {
           Fluttertoast.showToast(msg: "New journey added");
