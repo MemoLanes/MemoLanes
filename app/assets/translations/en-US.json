@@ -4,7 +4,12 @@
     "pause": "Pause",
     "resume": "Resume",
     "end_journey_title": "End Journey?",
-    "end_journey_message": "Are you sure you want to end your current journey?"
+    "end_journey_message": "Are you sure you want to end your current journey?",
+    "privacy_tip_title": "Privacy Policy Notice",
+    "privacy_tip_message": "You must agree to the Privacy Policy to use MemoLanes. If you do not agree, unfortunately, we cannot provide you with this service.\n\nYou can read the full version of the [MemoLanes Privacy Policy]($policyUrl) for more details.",
+    "privacy_name" : "[MemoLanes Privacy Policy]($policyUrl)",
+    "agree": "Agree",
+    "disagree_and_exit": "Disagree And Exit"
   },
   "location_service": {
     "location_permission_denied": "You have denied location permission. To ensure the use of positioning functions, please turn it on in settings.",

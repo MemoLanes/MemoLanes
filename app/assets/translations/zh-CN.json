@@ -4,7 +4,12 @@
     "pause": "暂停",
     "resume": "恢复",
     "end_journey_title": "结束旅程？",
-    "end_journey_message": "确定要结束当前的旅程吗？"
+    "end_journey_message": "确定要结束当前的旅程吗？",
+    "privacy_tip_title": "隐私政策提示",
+    "privacy_tip_message": "你需要同意隐私保护指引才能使用迹忆。如果你不同意，很遗憾我们无法为你提供服务。\n\n你可以阅读完整版[《迹忆隐私保护指引》]($policyUrl)来了解详细信息。",
+    "privacy_name" : "[《迹忆隐私保护指引》]($policyUrl)",
+    "agree": "同意",
+    "disagree_and_exit": "不同意并退出"
   },
   "location_service": {
     "location_permission_denied": "你已拒绝获取位置权限，为了保障定位功能的使用，请在设置中打开。",
