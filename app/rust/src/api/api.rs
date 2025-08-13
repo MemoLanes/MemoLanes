@@ -115,17 +115,22 @@ pub fn init_main_map() -> Result<()> {
 }
 
 pub fn subscribe_to_log_stream(sink: StreamSink<String>) -> Result<()> {
-    let mut logger = logs::FLUTTER_LOGGER.lock().unwrap();
-    *logger = Some(sink);
+    crate::logs::set_flutter_sink(sink);
     Ok(())
 }
 
 #[frb(sync)]
 pub fn write_log(message: String, level: LogLevel) {
-    match level {
-        LogLevel::Info => info!("[Flutter] {}", message),
-        LogLevel::Warn => warn!("[Flutter] {}", message),
-        LogLevel::Error => error!("[Flutter] {}", message),
+    let payload = match level {
+        LogLevel::Info => format!("[INFO] {}", message),
+        LogLevel::Warn => format!("[WARN] {}", message),
+        LogLevel::Error => format!("[ERROR] {}", message),
+    };
+
+    eprintln!("[Flutter] {}", &payload);
+
+    if let Some(tx) = crate::logs::LOG_SENDER.lock().unwrap().as_ref() {
+        let _ = tx.send(payload);
     }
 }
 
