@@ -3,19 +3,19 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:memolanes/component/cards/card_label_tile.dart';
-import 'package:memolanes/component/cards/option_card.dart';
-import 'package:memolanes/component/scroll_views/single_child_scroll_view.dart';
-import 'package:memolanes/component/tiles/label_tile.dart';
-import 'package:memolanes/component/tiles/label_tile_content.dart';
-import 'package:memolanes/import_data.dart';
+import 'package:memolanes/body/settings/import_data_page.dart' show ImportType;
+import 'package:memolanes/common/component/cards/card_label_tile.dart';
+import 'package:memolanes/common/component/cards/option_card.dart';
+import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
+import 'package:memolanes/common/component/tiles/label_tile.dart';
+import 'package:memolanes/common/component/tiles/label_tile_content.dart';
+import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
 import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
-import 'package:memolanes/utils.dart';
 
-class JourneyInfoEditor extends StatefulWidget {
-  const JourneyInfoEditor({
+class JourneyInfoEditPage extends StatefulWidget {
+  const JourneyInfoEditPage({
     super.key,
     required this.startTime,
     required this.endTime,
@@ -37,10 +37,10 @@ class JourneyInfoEditor extends StatefulWidget {
   final ImportType? importType;
 
   @override
-  State<JourneyInfoEditor> createState() => _JourneyInfoEditor();
+  State<JourneyInfoEditPage> createState() => _JourneyInfoEditPageState();
 }
 
-class _JourneyInfoEditor extends State<JourneyInfoEditor> {
+class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
   final DateFormat dateTimeFormat = DateFormat('yyyy-MM-dd HH:mm:ss');
   final DateFormat dateFormat = DateFormat("yyyy-MM-dd");
   final DateTime firstDate = DateTime(1990);

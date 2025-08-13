@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import '../../logger.dart';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:memolanes/gps_manager.dart';
+import 'package:memolanes/body/map/gps_manager.dart';
+import 'package:memolanes/log.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';

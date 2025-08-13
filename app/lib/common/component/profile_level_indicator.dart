@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
-import 'dart:ui' as ui;
 import 'dart:math' as math;
+import 'dart:ui' as ui;
+
+import 'package:flutter/material.dart';
 
 class ProfileLevelIndicator extends StatelessWidget {
   final int level;

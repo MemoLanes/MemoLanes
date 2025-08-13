@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:memolanes/component/base_map_webview.dart' show TrackingMode;
+import 'package:memolanes/common/component/base_map_webview.dart';
 
 class TrackingButton extends StatelessWidget {
   final TrackingMode trackingMode;
