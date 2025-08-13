@@ -146,7 +146,6 @@ class GeoLocatorService implements ILocationService {
 
   LocationSettings? _buildLocationSettings(bool enableBackground) {
     const accuracy = LocationAccuracy.best;
-    const distanceFilter = 0;
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
         var foregroundNotificationConfig = ForegroundNotificationConfig(
@@ -161,7 +160,7 @@ class GeoLocatorService implements ILocationService {
         );
         return AndroidSettings(
           accuracy: accuracy,
-          distanceFilter: distanceFilter,
+          distanceFilter: 0, // On Android, `0` means no distance filter.
           forceLocationManager: false,
           // 1 sec feels like a reasonable interval
           intervalDuration: const Duration(seconds: 1),
@@ -171,11 +170,13 @@ class GeoLocatorService implements ILocationService {
       case TargetPlatform.iOS || TargetPlatform.macOS:
         return AppleSettings(
           accuracy: accuracy,
-          distanceFilter: distanceFilter,
+          // On iOS, `-1` means no distance filter. It is different from
+          // Android and a bit weird. https://github.com/Baseflow/flutter-geolocator/issues/1746
+          distanceFilter: -1,
+          activityType: ActivityType.other,
           // TODO: we should try to make use of `pauseLocationUpdatesAutomatically`.
           // According to doc "After a pause occurs, it’s your responsibility to
           // restart location services again".
-          activityType: ActivityType.other,
           pauseLocationUpdatesAutomatically: false,
           showBackgroundLocationIndicator: false,
           allowBackgroundLocationUpdates: enableBackground,
