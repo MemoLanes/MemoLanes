@@ -111,6 +111,7 @@ void main() async {
         saveLocale: false,
         child: MultiProvider(
           providers: [
+            // Do NOT use `create: (_) => gpsManager` here
             ChangeNotifierProvider.value(value: gpsManager),
             ChangeNotifierProvider.value(value: updateNotifier),
           ],
