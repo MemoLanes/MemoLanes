@@ -115,8 +115,17 @@ pub fn init_main_map() -> Result<()> {
 }
 
 pub fn subscribe_to_log_stream(sink: StreamSink<String>) -> Result<()> {
-    let mut logger = logs::FLUTTER_LOGGER.lock().unwrap();
-    *logger = Some(sink);
+    let old_sink_opt = {
+        let mut logger = logs::FLUTTER_LOGGER.lock().unwrap();
+        let old = logger.take();
+        *logger = Some(sink);
+        old
+    };
+
+    if let Some(old_sink) = old_sink_opt {
+        let _ = old_sink;
+    }
+
     Ok(())
 }
 
