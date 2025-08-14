@@ -98,7 +98,7 @@ fn init_dispatcher() {
                 guard.clone()
             };
 
-            if let Some(mut sink) = maybe_sink {
+            if let Some(sink) = maybe_sink {
                 let _ = sink.add(msg);
             }
         }
