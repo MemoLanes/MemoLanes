@@ -139,7 +139,7 @@ fn main() {
     check_and_create_file(
         "src/frb_generated.rs",
         "`frb_generated.rs` is not found, generating a dummy file. If you are working on flutter, you need to run `flutter_rust_bridge_codegen generate` to get a real one.",
-        "pub struct StreamSink<T> { _phantom: std::marker::PhantomData<T> }\nimpl<T> StreamSink<T> {\n    pub fn add(&mut self, _message: T) -> Result<(), ()> {\n        Ok(())\n    }\n}"
+        "#[derive(Clone)]\npub struct StreamSink<T> { _phantom: std::marker::PhantomData<T> }\nimpl<T> StreamSink<T> {\n    pub fn add(&mut self, _message: T) -> Result<(), ()> {\n        Ok(())\n    }\n}"
     );
 
     // List of files to be embedded (wildcards need to be expanded manually)

@@ -2,7 +2,7 @@ use std::{
     fs::{self, File},
     io,
     path::Path,
-    sync::{mpsc, Mutex, LazyLock},
+    sync::{mpsc, LazyLock, Mutex},
     thread,
 };
 
@@ -44,7 +44,12 @@ impl Log for MainLogger {
         self.write_logger.log(record);
 
         // 再把要发回 Dart 的字符串放到 channel（非阻塞尽量）
-        let message = format!("{}:{} -- {}", record.level(), record.target(), record.args());
+        let message = format!(
+            "{}:{} -- {}",
+            record.level(),
+            record.target(),
+            record.args()
+        );
 
         if let Some(tx) = LOG_SENDER.lock().unwrap().as_ref() {
             // best-effort：如果发送失败（channel closed），直接忽略
@@ -105,7 +110,7 @@ fn init_dispatcher() {
                 guard.clone()
             };
 
-            if let Some(sink) = maybe_sink {
+            if let Some(mut sink) = maybe_sink {
                 // best-effort：如果 sink.add 失败，忽略错误，继续处理下一条
                 // 注意：sink.add 可能会阻塞，若 Dart 端非常慢，dispatcher 线程会被阻塞，但不会造成 Dart <-> native 的同步死锁回路
                 let _ = sink.add(msg);
