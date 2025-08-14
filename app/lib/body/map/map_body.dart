@@ -2,18 +2,17 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:json_annotation/json_annotation.dart';
-import 'package:memolanes/component/base_map_webview.dart';
-import 'package:memolanes/component/map_controls/accuracy_display.dart';
-import 'package:memolanes/component/map_controls/tracking_button.dart';
-import 'package:memolanes/component/recording_buttons.dart';
-import 'package:memolanes/gps_manager.dart';
-import 'package:memolanes/mmkv_util.dart';
+import 'package:memolanes/body/map/gps_manager.dart';
+import 'package:memolanes/common/component/base_map_webview.dart';
+import 'package:memolanes/common/component/map_controls/accuracy_display.dart';
+import 'package:memolanes/common/component/map_controls/layer_button.dart';
+import 'package:memolanes/common/component/map_controls/tracking_button.dart';
+import 'package:memolanes/common/component/rec_indicator.dart';
+import 'package:memolanes/common/component/recording_buttons.dart';
+import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
-
-import 'component/map_controls/layer_button.dart';
-import 'component/rec_indicator.dart';
 
 part 'map.g.dart';
 
@@ -35,14 +34,14 @@ class MapState {
   Map<String, dynamic> toJson() => _$MapStateToJson(this);
 }
 
-class MapUiBody extends StatefulWidget {
-  const MapUiBody({super.key});
+class MapBody extends StatefulWidget {
+  const MapBody({super.key});
 
   @override
-  State<StatefulWidget> createState() => MapUiBodyState();
+  State<StatefulWidget> createState() => MapBodyState();
 }
 
-class MapUiBodyState extends State<MapUiBody> with WidgetsBindingObserver {
+class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   final _mapRendererProxy = api.getMapRendererProxyForMainMap();
   MapView? _roughMapView;
 

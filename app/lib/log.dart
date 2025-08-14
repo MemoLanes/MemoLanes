@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 
-void initLogger() {
+void initLog() {
   if (kDebugMode) {
     api.subscribeToLogStream().listen((log) {
       if (kDebugMode) {

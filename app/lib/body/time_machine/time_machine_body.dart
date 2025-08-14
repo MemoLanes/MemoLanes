@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:memolanes/component/base_map_webview.dart';
+import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/utils.dart';
 
-class TimeMachineUIBody extends StatefulWidget {
-  const TimeMachineUIBody({super.key});
+class TimeMachineBody extends StatefulWidget {
+  const TimeMachineBody({super.key});
 
   @override
-  State<TimeMachineUIBody> createState() => _TimeMachineUIBodyState();
+  State<TimeMachineBody> createState() => _TimeMachineBodyState();
 }
 
-class _TimeMachineUIBodyState extends State<TimeMachineUIBody> {
+class _TimeMachineBodyState extends State<TimeMachineBody> {
   final DateFormat _dateFormat = DateFormat("yyyy-MM-dd");
   DateTime? _earliestJourneyDate;
 

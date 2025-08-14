@@ -1,23 +1,23 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:memolanes/component/scroll_views/single_child_scroll_view.dart';
-import 'package:memolanes/component/tiles/label_tile.dart';
-import 'package:memolanes/component/tiles/label_tile_content.dart';
-import 'package:memolanes/gps_manager.dart';
-import 'package:memolanes/raw_data.dart';
+import 'package:memolanes/body/map/gps_manager.dart';
+import 'package:memolanes/body/settings/raw_data_page.dart';
+import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
+import 'package:memolanes/common/component/tiles/label_tile.dart';
+import 'package:memolanes/common/component/tiles/label_tile_content.dart';
+import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:memolanes/utils.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
-class AdvancedSettingsScreen extends StatefulWidget {
-  const AdvancedSettingsScreen({super.key});
+class AdvancedSettingsPage extends StatefulWidget {
+  const AdvancedSettingsPage({super.key});
 
   @override
-  State<AdvancedSettingsScreen> createState() => _AdvancedSettingsScreenState();
+  State<AdvancedSettingsPage> createState() => _AdvancedSettingsPageState();
 }
 
-class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
+class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
   @override
   Widget build(BuildContext context) {
     var gpsManager = context.watch<GpsManager>();

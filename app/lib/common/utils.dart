@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:memolanes/component/cards/line_painter.dart';
-import 'package:memolanes/component/common_dialog.dart';
-import 'package:memolanes/component/common_export.dart';
+import 'package:memolanes/common/component/cards/line_painter.dart';
+import 'package:memolanes/common/component/common_dialog.dart';
+import 'package:memolanes/common/component/common_export.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 Future<bool> showCommonDialog(BuildContext context, String message,

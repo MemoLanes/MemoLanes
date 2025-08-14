@@ -1,14 +1,16 @@
 // lib/component/map_controls/accuracy_display.dart
-import 'package:flutter/material.dart';
-import 'dart:ui' as ui;
 import 'dart:math' as math;
-import 'package:memolanes/gps_manager.dart';
+import 'dart:ui' as ui;
+
+import 'package:flutter/material.dart';
+import 'package:memolanes/body/map/gps_manager.dart';
 import 'package:provider/provider.dart';
 
 class AccuracyDisplay extends StatefulWidget {
   const AccuracyDisplay({
     super.key,
   });
+
   @override
   State<AccuracyDisplay> createState() => _AccuracyDisplayState();
 }

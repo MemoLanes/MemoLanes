@@ -1,12 +1,12 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:memolanes/component/scroll_views/single_child_scroll_view.dart';
-import 'package:memolanes/component/tiles/label_tile.dart';
-import 'package:memolanes/component/tiles/label_tile_content.dart';
+import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
+import 'package:memolanes/common/component/tiles/label_tile.dart';
+import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 
 // TODO: This is currently unused.
-class BackupDataScreen extends StatelessWidget {
-  const BackupDataScreen({super.key});
+class BackupDataPage extends StatelessWidget {
+  const BackupDataPage({super.key});
 
   @override
   Widget build(BuildContext context) {

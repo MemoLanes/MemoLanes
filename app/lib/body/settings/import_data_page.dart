@@ -2,10 +2,10 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:fpdart/fpdart.dart' as f;
-import 'package:memolanes/component/base_map_webview.dart';
-import 'package:memolanes/component/cards/line_painter.dart';
-import 'package:memolanes/component/safe_area_wrapper.dart';
-import 'package:memolanes/journey_edit.dart';
+import 'package:memolanes/body/journey/journey_edit_page.dart';
+import 'package:memolanes/common/component/base_map_webview.dart';
+import 'package:memolanes/common/component/cards/line_painter.dart';
+import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
 import 'package:memolanes/src/rust/journey_data.dart';
@@ -156,7 +156,7 @@ class _ImportDataPage extends State<ImportDataPage> {
                           ),
                         ),
                         SizedBox(height: 16.0),
-                        JourneyInfoEditor(
+                        JourneyInfoEditPage(
                           startTime: journeyInfo.startTime,
                           endTime: journeyInfo.endTime,
                           journeyDate: journeyInfo.journeyDate,

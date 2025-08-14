@@ -1,21 +1,21 @@
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:memolanes/component/tiles/label_tile.dart';
-import 'package:memolanes/component/tiles/label_tile_content.dart';
-import 'package:memolanes/journey_info.dart';
+import 'package:memolanes/body/journey/journey_info_page.dart';
+import 'package:memolanes/common/component/tiles/label_tile.dart';
+import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 
-class JourneyUiBody extends StatefulWidget {
-  const JourneyUiBody({super.key});
+class JourneyBody extends StatefulWidget {
+  const JourneyBody({super.key});
 
   @override
-  State<JourneyUiBody> createState() => _JourneyUiBodyState();
+  State<JourneyBody> createState() => _JourneyBodyState();
 }
 
-class _JourneyUiBodyState extends State<JourneyUiBody> {
+class _JourneyBodyState extends State<JourneyBody> {
   List<JourneyHeader> _journeyHeaderList = [];
 
   DateTime _selectedDate = DateTime.now();
