@@ -24,7 +24,7 @@ enum GpsRecordingStatus { none, recording, paused }
 // `recording` requires background location but `justForTracking` does not.
 enum _InternalState { off, recording, justForTracking }
 
-bool _positionTooOld(LocationData data, {int staleThresholdMs = 5000}) {
+bool _positionTooOld(LocationData data, {int staleThresholdMs = 12 * 1000}) {
   final now = DateTime.now().millisecondsSinceEpoch;
   return now - data.timestampMs >= staleThresholdMs;
 }
