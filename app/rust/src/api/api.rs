@@ -115,17 +115,14 @@ pub fn init_main_map() -> Result<()> {
 }
 
 pub fn subscribe_to_log_stream(sink: StreamSink<String>) -> Result<()> {
-    let old_sink_opt = {
-        let mut logger = logs::FLUTTER_LOGGER.lock().unwrap();
-        let old = logger.take();
-        *logger = Some(sink);
-        old
-    };
-
-    if let Some(old_sink) = old_sink_opt {
-        let _ = old_sink;
-    }
-
+    let mut logger = logs::FLUTTER_LOGGER.lock().unwrap();
+    let old_sink = logger.take();
+    *logger = Some(sink);
+    // NOTE: The following code is important for flutter hot restart. We need to
+    // release the `logger` lock before freeing the `old_sink`, otherwise
+    // there will be a deadlock.
+    drop(logger);
+    drop(old_sink);
     Ok(())
 }
 
