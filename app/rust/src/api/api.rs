@@ -122,7 +122,7 @@ pub fn subscribe_to_log_stream(sink: StreamSink<String>) -> Result<()> {
     // release the `logger` lock before freeing the `old_sink`, otherwise
     // there will be a deadlock.
     drop(logger);
-    drop(old_sink);
+    let _ = old_sink;
     Ok(())
 }
 
