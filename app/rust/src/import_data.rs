@@ -51,7 +51,7 @@ fn parse_fow_bitmap_file<R: Read>(
     filename: &str,
     journey_bitmap: &mut JourneyBitmap,
     warnings: &mut Vec<String>,
-) -> anyhow::Result<()> {
+) -> Result<()> {
     const TILE_HEADER_LEN: i64 = TILE_WIDTH * TILE_WIDTH;
     const TILE_HEADER_SIZE: usize = (TILE_HEADER_LEN * 2) as usize;
     const BLOCK_BITMAP_SIZE: usize = BITMAP_SIZE;
@@ -59,7 +59,7 @@ fn parse_fow_bitmap_file<R: Read>(
     const BLOCK_SIZE: usize = BLOCK_BITMAP_SIZE + BLOCK_EXTRA_DATA;
 
     match FoWTileId::from_filename(filename) {
-        None => warnings.push(format!("unexpected file: {}", filename)),
+        None => warnings.push(format!("unexpected file: {filename}")),
         Some(id) => {
             let mut tile = journey_bitmap::Tile::new();
             let mut data = Vec::new();
@@ -160,7 +160,7 @@ pub fn load_fow_snapshot_data(fwss_file_path: &str) -> Result<(JourneyBitmap, Op
     if journey_bitmap.tiles.is_empty() {
         Err(anyhow!(
             "empty data. warnings: {}",
-            warnings.clone().unwrap_or_default()
+            warnings.unwrap_or_default()
         ))
     } else {
         Ok((journey_bitmap, warnings))

@@ -28,8 +28,18 @@ pub struct RawVectorData {
     data: Vec<Vec<RawData>>,
 }
 
-pub fn load_fow_sync_data(file_path: String) -> Result<(JourneyInfo, JourneyData)> {
-    let (journey_bitmap, _warnings) = import_data::load_fow_sync_data(&file_path)?;
+pub fn load_fow_data(file_path: String) -> Result<(JourneyInfo, JourneyData)> {
+    let extension = Path::new(&file_path)
+        .extension()
+        .and_then(|s| s.to_str())
+        .map(|s| s.to_ascii_lowercase());
+
+    let (journey_bitmap, _warnings) = match extension.as_deref() {
+        Some("zip") => import_data::load_fow_sync_data(&file_path)?,
+        Some("fwss") => import_data::load_fow_snapshot_data(&file_path)?,
+        _ => bail!("Unknown extension {extension:?}"),
+    };
+
     let journey_info = JourneyInfo {
         journey_date: Local::now().date_naive(),
         start_time: None,
