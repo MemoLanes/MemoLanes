@@ -13,8 +13,23 @@ fn load_fow_sync_data() {
     assert_eq!(format!("{warnings_1:?}"), "None");
     assert_eq!(
         format!("{warnings_2:?}"),
-        "Some(\"unexpected file: Sync/garbage_2\")"
+        "Some(\"unexpected file: garbage_2\")"
     );
+}
+
+#[test]
+fn verify_fow_snapshot_data() {
+    let (bitmap_1, warnings_1) =
+        import_data::load_fow_sync_data("./tests/data/snapshot_fow_test.zip").unwrap();
+    let (bitmap_2, warnings_2) =
+        import_data::load_fow_snapshot_data("./tests/data/snapshot_test.fwss").unwrap();
+    assert!(
+        !bitmap_2.tiles.is_empty(),
+        "snapshot bitmap should not be empty"
+    );
+    assert_eq!(bitmap_1, bitmap_2);
+    assert_eq!(format!("{warnings_1:?}"), "None");
+    assert_eq!(format!("{warnings_2:?}"), "None");
 }
 
 #[test]
