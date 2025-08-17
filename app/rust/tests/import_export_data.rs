@@ -23,13 +23,18 @@ fn verify_fow_snapshot_data() {
         import_data::load_fow_sync_data("./tests/data/snapshot_fow_test.zip").unwrap();
     let (bitmap_2, warnings_2) =
         import_data::load_fow_snapshot_data("./tests/data/snapshot_test.fwss").unwrap();
+    let result_1 = import_data::load_fow_snapshot_data("./tests/data/snapshot_no_bitmap.fwss");
+
     assert!(
         !bitmap_2.tiles.is_empty(),
-        "snapshot bitmap should not be empty"
+        "snapshot_test.fwss bitmap should not be empty"
     );
+    assert!(result_1.is_err(), "Empty snapshot should return error");
+
     assert_eq!(bitmap_1, bitmap_2);
     assert_eq!(format!("{warnings_1:?}"), "None");
     assert_eq!(format!("{warnings_2:?}"), "None");
+    assert_eq!(result_1.unwrap_err().to_string(), "empty data. warnings: ");
 }
 
 #[test]
