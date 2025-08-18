@@ -28,8 +28,18 @@ pub struct RawVectorData {
     data: Vec<Vec<RawData>>,
 }
 
-pub fn load_fow_sync_data(file_path: String) -> Result<(JourneyInfo, JourneyData)> {
-    let (journey_bitmap, _warnings) = import_data::load_fow_sync_data(&file_path)?;
+pub fn load_fow_data(file_path: String) -> Result<(JourneyInfo, JourneyData)> {
+    let extension = Path::new(&file_path)
+        .extension()
+        .and_then(|s| s.to_str())
+        .map(|s| s.to_ascii_lowercase());
+
+    let (journey_bitmap, _warnings) = match extension.as_deref() {
+        Some("zip") => import_data::load_fow_sync_data(&file_path)?,
+        Some("fwss") => import_data::load_fow_snapshot_data(&file_path)?,
+        _ => bail!("Unknown extension {extension:?}"),
+    };
+
     let journey_info = JourneyInfo {
         journey_date: Local::now().date_naive(),
         start_time: None,
@@ -41,7 +51,7 @@ pub fn load_fow_sync_data(file_path: String) -> Result<(JourneyInfo, JourneyData
 }
 
 pub fn load_gpx_or_kml(file_path: String) -> Result<(JourneyInfo, RawVectorData)> {
-    let raw_vecotr_data = match Path::new(&file_path)
+    let raw_vector_data = match Path::new(&file_path)
         .extension()
         .and_then(OsStr::to_str)
         .map(|x| x.to_lowercase())
@@ -53,9 +63,9 @@ pub fn load_gpx_or_kml(file_path: String) -> Result<(JourneyInfo, RawVectorData)
     };
 
     Ok((
-        journey_info_from_raw_vector_data(&raw_vecotr_data),
+        journey_info_from_raw_vector_data(&raw_vector_data),
         RawVectorData {
-            data: raw_vecotr_data,
+            data: raw_vector_data,
         },
     ))
 }
@@ -83,7 +93,7 @@ pub fn process_vector_data(
         import_data::journey_vector_from_raw_data(&vector_data.data, run_preprocessor);
     match journey_vector {
         None => {
-            // TODO: return a strucutred error to outside for better error handling.
+            // TODO: return a structured error to outside for better error handling.
             Err(anyhow!("The imported file produced empty result"))
         }
         Some(journey_vector) => Ok(JourneyData::Vector(journey_vector)),

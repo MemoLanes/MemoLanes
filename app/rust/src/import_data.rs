@@ -46,13 +46,48 @@ impl FoWTileId {
     }
 }
 
-pub fn load_fow_sync_data(mldx_file_path: &str) -> Result<(JourneyBitmap, Option<String>)> {
+fn parse_fow_bitmap_file<R: Read>(
+    file: R,
+    filename: &str,
+    journey_bitmap: &mut JourneyBitmap,
+    warnings: &mut Vec<String>,
+) -> Result<()> {
     const TILE_HEADER_LEN: i64 = TILE_WIDTH * TILE_WIDTH;
     const TILE_HEADER_SIZE: usize = (TILE_HEADER_LEN * 2) as usize;
     const BLOCK_BITMAP_SIZE: usize = BITMAP_SIZE;
     const BLOCK_EXTRA_DATA: usize = 3;
     const BLOCK_SIZE: usize = BLOCK_BITMAP_SIZE + BLOCK_EXTRA_DATA;
 
+    match FoWTileId::from_filename(filename) {
+        None => warnings.push(format!("unexpected file: {filename}")),
+        Some(id) => {
+            let mut tile = journey_bitmap::Tile::new();
+            let mut data = Vec::new();
+            ZlibDecoder::new(file).read_to_end(&mut data)?;
+
+            let header = &data[0..TILE_HEADER_SIZE];
+            for i in 0..TILE_HEADER_LEN {
+                // parse two u8 as a single u16 according to little endian
+                let index = (i as usize) * 2;
+                let block_idx: u16 = (header[index] as u16) | ((header[index + 1] as u16) << 8);
+                if block_idx > 0 {
+                    let block_key =
+                        BlockKey::from_x_y((i % TILE_WIDTH) as u8, (i / TILE_WIDTH) as u8);
+                    let start_offset = TILE_HEADER_SIZE + ((block_idx - 1) as usize) * BLOCK_SIZE;
+                    let end_offset = start_offset + BLOCK_BITMAP_SIZE;
+                    let mut bitmap: [u8; BLOCK_BITMAP_SIZE] = [0; BLOCK_BITMAP_SIZE];
+                    bitmap.copy_from_slice(&data[start_offset..end_offset]);
+                    let block = Block::new_with_data(bitmap);
+                    tile.set(block_key, block);
+                }
+            }
+            journey_bitmap.tiles.insert((id.x, id.y), tile);
+        }
+    }
+    Ok(())
+}
+
+pub fn load_fow_sync_data(mldx_file_path: &str) -> Result<(JourneyBitmap, Option<String>)> {
     let mut warnings: Vec<String> = Vec::new();
 
     let mut zip = zip::ZipArchive::new(File::open(mldx_file_path)?)?;
@@ -75,33 +110,7 @@ pub fn load_fow_sync_data(mldx_file_path: &str) -> Result<(JourneyBitmap, Option
         if filename.is_empty() || filename.starts_with('.') || file.is_dir() {
             continue;
         }
-        match FoWTileId::from_filename(filename) {
-            None => warnings.push(format!("unexpected file: {}", file.name())),
-            Some(id) => {
-                let mut tile = journey_bitmap::Tile::new();
-                let mut data = Vec::new();
-                ZlibDecoder::new(file).read_to_end(&mut data)?;
-
-                let header = &data[0..TILE_HEADER_SIZE];
-                for i in 0..TILE_HEADER_LEN {
-                    // parse two u8 as a single u16 according to little endian
-                    let index = (i as usize) * 2;
-                    let block_idx: u16 = (header[index] as u16) | ((header[index + 1] as u16) << 8);
-                    if block_idx > 0 {
-                        let block_key =
-                            BlockKey::from_x_y((i % TILE_WIDTH) as u8, (i / TILE_WIDTH) as u8);
-                        let start_offset =
-                            TILE_HEADER_SIZE + ((block_idx - 1) as usize) * BLOCK_SIZE;
-                        let end_offset = start_offset + BLOCK_BITMAP_SIZE;
-                        let mut bitmap: [u8; BLOCK_BITMAP_SIZE] = [0; BLOCK_BITMAP_SIZE];
-                        bitmap.copy_from_slice(&data[start_offset..end_offset]);
-                        let block = Block::new_with_data(bitmap);
-                        tile.set(block_key, block);
-                    }
-                }
-                journey_bitmap.tiles.insert((id.x, id.y), tile);
-            }
-        }
+        parse_fow_bitmap_file(file, filename, &mut journey_bitmap, &mut warnings)?;
     }
 
     let warnings = if warnings.is_empty() {
@@ -114,6 +123,44 @@ pub fn load_fow_sync_data(mldx_file_path: &str) -> Result<(JourneyBitmap, Option
         Err(anyhow!(
             "empty data. warnings: {}",
             warnings.unwrap_or("".to_owned())
+        ))
+    } else {
+        Ok((journey_bitmap, warnings))
+    }
+}
+
+pub fn load_fow_snapshot_data(fwss_file_path: &str) -> Result<(JourneyBitmap, Option<String>)> {
+    let mut warnings: Vec<String> = Vec::new();
+    let mut zip = zip::ZipArchive::new(File::open(fwss_file_path)?)?;
+
+    let mut journey_bitmap = JourneyBitmap::new();
+    for i in 0..zip.len() {
+        let file = zip.by_index(i)?;
+        let fwss_subfilename = file.name().to_lowercase();
+
+        if !fwss_subfilename.contains("model/*/") {
+            continue;
+        }
+
+        let filename = Path::file_name(Path::new(&fwss_subfilename))
+            .and_then(|x| x.to_str())
+            .unwrap_or("");
+        if filename.is_empty() || filename.starts_with('.') || file.is_dir() {
+            continue;
+        }
+        parse_fow_bitmap_file(file, filename, &mut journey_bitmap, &mut warnings)?;
+    }
+
+    let warnings = if warnings.is_empty() {
+        None
+    } else {
+        Some(warnings.join("\n"))
+    };
+
+    if journey_bitmap.tiles.is_empty() {
+        Err(anyhow!(
+            "empty data. warnings: {}",
+            warnings.unwrap_or_default()
         ))
     } else {
         Ok((journey_bitmap, warnings))
