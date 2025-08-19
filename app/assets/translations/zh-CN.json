@@ -35,7 +35,7 @@
     "journey_date_is_empty": "旅程日期是空的",
     "delete_journey_title": "删除旅程",
     "delete_journey_message": "确认删除该旅程记录?",
-    "stop_ongoing_joureny": "在此操作之前，请先停止当前正在进行的旅程。",
+    "stop_ongoing_journey": "在此操作之前，请先停止当前正在进行的旅程。",
     "delete_all_journey_message": "这将删除此应用中的所有行程，您确定吗？",
     "journey_info_page_title": "旅程信息",
     "journey_info_edit_page_title": "编辑旅程信息",
@@ -67,7 +67,7 @@
   },
   "import_fow_data": {
     "button": "导入“世界迷雾”数据",
-    "description_md": "导入世界迷雾 App 中产生的数据。  \n这是一个实验性功能，目前只支持导入用 Zip 压缩的世界迷雾网盘同步 Sync 文件夹。\n如需导入多段数据等更精细的控制，可以尝试使用[迷雾机器-时光机](https://fogmachine.8bits.io/time-machine)中提供的“导出迹忆归档”功能。",
+    "description_md": "导入世界迷雾 App 中产生的数据。  \n这是一个实验性功能，目前支持导入:\n1. Zip 压缩的世界迷雾网盘同步 Sync 文件夹。\n2. 世界迷雾快照文件 (*.fwss)。  \n  \n如需导入多段数据等更精细的控制，可以尝试使用[迷雾机器-时光机](https://fogmachine.8bits.io/time-machine)中提供的“导出迹忆归档”功能。",
     "warning_for_import_multiple_data_md": "请注意，数据库中已经包含世界迷雾数据。  \n导入多段世界迷雾数据可能不是一个理想的行为（例如：数据会简单的合并导致包含重复数据）。  \n推荐使用 [迷雾机器-时光机](https://fogmachine.8bits.io/time-machine) 以获得更精细的控制（例如：逐一处理快照并计算差异）。"
   },
   "unexpected_exit_notification": {

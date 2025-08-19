@@ -36,7 +36,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
               if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
                 await showCommonDialog(
                   context,
-                  context.tr("journey.stop_ongoing_joureny"),
+                  context.tr("journey.stop_ongoing_journey"),
                 );
                 return;
               }

@@ -6,6 +6,7 @@ import 'package:memolanes/body/journey/journey_edit_page.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
+import 'package:memolanes/log.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
 import 'package:memolanes/src/rust/journey_data.dart';
@@ -42,7 +43,7 @@ class _ImportDataPage extends State<ImportDataPage> {
       switch (widget.importType) {
         case ImportType.fow:
           var (journeyInfo, journeyData) =
-              await import_api.loadFowSyncData(filePath: path);
+              await import_api.loadFowData(filePath: path);
           setState(() {
             this.journeyInfo = journeyInfo;
             journeyDataMaybeRaw = f.Either.left(journeyData);
@@ -57,8 +58,9 @@ class _ImportDataPage extends State<ImportDataPage> {
           });
           break;
       }
-    } catch (e) {
+    } catch (error) {
       Fluttertoast.showToast(msg: "Data parsing failed");
+      log.error("[import_data] Data parsing failed $error");
       Navigator.pop(context);
     }
   }
