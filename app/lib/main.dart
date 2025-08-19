@@ -191,7 +191,7 @@ class _MyHomePageState extends State<MyHomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mainMapInitialized) {
         mainMapInitialized = true;
-        // showLoadingDialog(context: context, asyncTask: api.initMainMap());
+        showLoadingDialog(context: context, asyncTask: api.initMainMap());
       }
     });
   }
