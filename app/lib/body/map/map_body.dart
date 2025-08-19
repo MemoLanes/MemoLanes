@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:json_annotation/json_annotation.dart';
-import 'package:memolanes/body/map/gps_manager.dart';
+import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/map_controls/accuracy_display.dart';
 import 'package:memolanes/common/component/map_controls/layer_button.dart';

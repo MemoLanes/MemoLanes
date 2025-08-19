@@ -6,7 +6,7 @@ import 'package:memolanes/body/journey/journey_edit_page.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
-import 'package:memolanes/log.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
 import 'package:memolanes/src/rust/journey_data.dart';

@@ -8,7 +8,7 @@ import 'package:memolanes/common/location/geolocator_service.dart';
 import 'package:memolanes/common/location/location_service.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/utils.dart';
-import 'package:memolanes/log.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/main.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/gps_processor.dart';

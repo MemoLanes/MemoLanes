@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:memolanes/body/map/gps_manager.dart';
+import 'package:memolanes/common/gps_manager.dart';
 import 'package:provider/provider.dart';
 
 class AccuracyDisplay extends StatefulWidget {
