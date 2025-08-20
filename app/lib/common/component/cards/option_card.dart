@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:memolanes/component/safe_area_wrapper.dart';
+import 'package:memolanes/common/component/safe_area_wrapper.dart';
 
 class OptionCard extends StatelessWidget {
   const OptionCard({

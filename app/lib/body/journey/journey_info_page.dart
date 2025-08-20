@@ -1,19 +1,19 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:memolanes/component/base_map_webview.dart';
-import 'package:memolanes/component/cards/card_label_tile.dart';
-import 'package:memolanes/component/cards/line_painter.dart';
-import 'package:memolanes/component/cards/option_card.dart';
-import 'package:memolanes/component/safe_area_wrapper.dart';
-import 'package:memolanes/component/scroll_views/single_child_scroll_view.dart';
-import 'package:memolanes/component/tiles/label_tile.dart';
-import 'package:memolanes/component/tiles/label_tile_content.dart';
-import 'package:memolanes/journey_edit.dart';
+import 'package:memolanes/body/journey/journey_edit_page.dart';
+import 'package:memolanes/common/component/base_map_webview.dart';
+import 'package:memolanes/common/component/cards/card_label_tile.dart';
+import 'package:memolanes/common/component/cards/line_painter.dart';
+import 'package:memolanes/common/component/cards/option_card.dart';
+import 'package:memolanes/common/component/safe_area_wrapper.dart';
+import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
+import 'package:memolanes/common/component/tiles/label_tile.dart';
+import 'package:memolanes/common/component/tiles/label_tile_content.dart';
+import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
-import 'package:memolanes/utils.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
@@ -76,7 +76,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
           title: Text(context.tr("journey.journey_info_edit_page_title")),
         ),
         body: SafeAreaWrapper(
-          child: JourneyInfoEditor(
+          child: JourneyInfoEditPage(
             startTime: widget.journeyHeader.start,
             endTime: widget.journeyHeader.end,
             journeyDate: widget.journeyHeader.journeyDate,

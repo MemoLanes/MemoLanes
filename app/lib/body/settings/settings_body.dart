@@ -3,24 +3,23 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:memolanes/advanced_settings.dart';
-import 'package:memolanes/component/cards/card_label_tile.dart';
-import 'package:memolanes/component/cards/option_card.dart';
-import 'package:memolanes/component/scroll_views/single_child_scroll_view.dart';
-import 'package:memolanes/component/tiles/label_tile.dart';
-import 'package:memolanes/component/tiles/label_tile_content.dart';
-import 'package:memolanes/component/tiles/label_tile_title.dart';
-import 'package:memolanes/gps_manager.dart';
-import 'package:memolanes/import_data.dart';
+import 'package:memolanes/common/gps_manager.dart';
+import 'package:memolanes/body/settings/advanced_settings_page.dart';
+import 'package:memolanes/body/settings/import_data_page.dart';
+import 'package:memolanes/common/component/cards/card_label_tile.dart';
+import 'package:memolanes/common/component/cards/option_card.dart';
+import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
+import 'package:memolanes/common/component/tiles/label_tile.dart';
+import 'package:memolanes/common/component/tiles/label_tile_content.dart';
+import 'package:memolanes/common/component/tiles/label_tile_title.dart';
+import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:memolanes/utils.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
-
-import 'mmkv_util.dart';
 
 class SettingsBody extends StatefulWidget {
   const SettingsBody({super.key});
@@ -168,7 +167,7 @@ class _SettingsBodyState extends State<SettingsBody> {
             context,
             MaterialPageRoute(
               builder: (context) {
-                return AdvancedSettingsScreen();
+                return AdvancedSettingsPage();
               },
             ),
           ),

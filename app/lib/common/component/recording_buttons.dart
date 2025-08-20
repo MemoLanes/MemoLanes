@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:memolanes/gps_manager.dart';
-import 'package:memolanes/utils.dart';
+import 'package:memolanes/common/gps_manager.dart';
+import 'package:memolanes/common/utils.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 

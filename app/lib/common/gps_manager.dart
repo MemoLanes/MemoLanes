@@ -4,20 +4,19 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:memolanes/common/location/geolocator_service.dart';
+import 'package:memolanes/common/location/location_service.dart';
+import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/utils.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/main.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/gps_processor.dart';
-import 'package:memolanes/utils.dart';
 import 'package:mutex/mutex.dart';
 import 'package:notification_when_app_is_killed/model/args_for_ios.dart';
 import 'package:notification_when_app_is_killed/model/args_for_kill_notification.dart';
 import 'package:notification_when_app_is_killed/notification_when_app_is_killed.dart';
 import 'package:permission_handler/permission_handler.dart';
-
-import 'location/geolocator_service.dart';
-import 'location/location_service.dart';
-import 'logger.dart';
-import 'mmkv_util.dart';
 
 enum GpsRecordingStatus { none, recording, paused }
 
