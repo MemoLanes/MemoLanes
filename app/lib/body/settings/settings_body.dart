@@ -32,7 +32,6 @@ class SettingsBody extends StatefulWidget {
 class _SettingsBodyState extends State<SettingsBody> {
   bool _isUnexpectedExitNotificationEnabled = false;
   String _version = "";
-  String policyUrl = "https://www.example.com/privacy-policy";
 
   @override
   void initState() {
