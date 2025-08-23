@@ -11,11 +11,13 @@ Future<bool> showCommonDialog(BuildContext context, String message,
     {hasCancel = false,
     title,
     confirmButtonText,
+    cancelButtonText,
     confirmGroundColor,
     confirmTextColor = Colors.black,
     markdown = false}) async {
   const defaultGroundColor = Color(0xFFB4EC51);
   confirmButtonText = confirmButtonText ?? context.tr("common.ok");
+  cancelButtonText = cancelButtonText ?? context.tr("common.cancel");
   title = title ?? context.tr("common.info");
   confirmGroundColor = confirmGroundColor ?? defaultGroundColor;
   final List<DialogButton> allButtons = [
@@ -29,7 +31,7 @@ Future<bool> showCommonDialog(BuildContext context, String message,
     ),
     if (hasCancel)
       DialogButton(
-          text: context.tr("common.cancel"),
+          text: cancelButtonText,
           backgroundColor: confirmGroundColor == defaultGroundColor
               ? Colors.grey
               : defaultGroundColor,

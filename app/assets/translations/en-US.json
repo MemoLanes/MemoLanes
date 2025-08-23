@@ -110,7 +110,16 @@
       "export_all": "Export All Data"
     }
   },
-  "other": {
-    "title": "Other"
+  "settings": {
+    "other": "Other",
+    "about": "About"
+  },
+  "privacy": {
+    "url": "https://app.memolanes.com/en/privacy/",
+    "privacy_tip_title": "Privacy Policy Notice",
+    "privacy_tip_message_md": "You need to agree to the privacy policy before using MemoLanes.\n\nYou can read the full version of the [MemoLanes Privacy Policy](@:privacy.url) for more details.",
+    "name" : "Privacy Policy",
+    "agree": "Agree",
+    "disagree_and_exit": "Disagree And Exit"
   }
 }

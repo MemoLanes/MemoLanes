@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:memolanes/body/achievement/achievement_body.dart';
 import 'package:memolanes/body/journey/journey_body.dart';
+import 'package:memolanes/body/privacy_agreement.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/body/map/map_body.dart';
 import 'package:memolanes/body/settings/settings_body.dart';
@@ -189,6 +190,8 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      showPrivacyAgreementIfNeeded(context);
+
       if (!mainMapInitialized) {
         mainMapInitialized = true;
         showLoadingDialog(context: context, asyncTask: api.initMainMap());

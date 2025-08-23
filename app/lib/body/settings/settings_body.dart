@@ -20,6 +20,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
 class SettingsBody extends StatefulWidget {
   const SettingsBody({super.key});
@@ -220,9 +221,8 @@ class _SettingsBodyState extends State<SettingsBody> {
             await showCommonExport(context, filepath, deleteFile: true);
           },
         ),
-        // TODO: Add about us / privacy policy / contact us / FAQ / suggestion ...
         LabelTileTitle(
-          label: context.tr("other.title"),
+          label: context.tr("settings.other"),
         ),
         LabelTile(
           label: context.tr("unexpected_exit_notification.setting_title"),
@@ -263,7 +263,19 @@ class _SettingsBodyState extends State<SettingsBody> {
             },
           ),
         ),
-        SizedBox(height: 96.0),
+        // TODO: Add about us / contact us / FAQ / suggestion ...
+        LabelTileTitle(
+          label: context.tr("settings.about"),
+        ),
+        LabelTile(
+          label: context.tr("privacy.name"),
+          position: LabelTilePosition.bottom,
+          trailing: LabelTileContent(showArrow: true),
+          onTap: () async {
+            await launchUrlString(context.tr("privacy.url"),
+                mode: LaunchMode.externalApplication);
+          },
+        ),
       ],
     );
   }

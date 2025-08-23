@@ -110,7 +110,16 @@
       "export_all": "导出所有数据"
     }
   },
-  "other": {
-    "title": "其他"
+  "settings": {
+    "other": "其他",
+    "about": "关于"
+  },
+  "privacy": {
+    "url": "https://app.memolanes.com/zh/privacy/",
+    "privacy_tip_title": "隐私协议提示",
+    "privacy_tip_message_md": "你需要同意隐私协议才能使用迹忆。\n\n你可以阅读完整版[《迹忆隐私协议》](@:privacy.url)来了解详细信息。",
+    "name" : "隐私协议",
+    "agree": "同意",
+    "disagree_and_exit": "不同意并退出"
   }
 }
