@@ -8,12 +8,12 @@ import 'package:memolanes/common/utils.dart';
 const int _latestVersion = 1;
 
 Future<void> _showPrivacyDialogMethod(BuildContext context) async {
-  String privacyTipContent = context.tr("home.privacy_tip_message");
-  final result = await showCommonDialog(context, privacyTipContent,
-      title: context.tr("home.privacy_tip_title"),
-      confirmButtonText: context.tr("home.agree"),
+  final result = await showCommonDialog(
+      context, context.tr("privacy.privacy_tip_message_md"),
+      title: context.tr("privacy.privacy_tip_title"),
+      confirmButtonText: context.tr("privacy.agree"),
       hasCancel: true,
-      cancelButtonText: context.tr("home.disagree_and_exit"),
+      cancelButtonText: context.tr("privacy.disagree_and_exit"),
       markdown: true);
 
   if (result == true) {

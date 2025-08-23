@@ -223,9 +223,8 @@ class _SettingsBodyState extends State<SettingsBody> {
             await showCommonExport(context, filepath, deleteFile: true);
           },
         ),
-        // TODO: Add about us / privacy policy / contact us / FAQ / suggestion ...
         LabelTileTitle(
-          label: context.tr("other.title"),
+          label: context.tr("settings.other"),
         ),
         LabelTile(
           label: context.tr("unexpected_exit_notification.setting_title"),
@@ -266,36 +265,19 @@ class _SettingsBodyState extends State<SettingsBody> {
             },
           ),
         ),
-        // SizedBox(height: 96.0),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 16, // 距离底部16像素
-          child: Center(
-            child: MarkdownBody(
-              data: tr("home.privacy_name"),
-              onTapLink: (text, href, title) async {
-                if (href == null) {
-                  return;
-                }
-                if (!await launchUrlString(href,
-                    mode: LaunchMode.externalApplication)) {
-                  throw Exception('Could not launch url: $href');
-                }
-              },
-              styleSheet: MarkdownStyleSheet(
-                a: const TextStyle(
-                  color: Color(0xFFB4EC51),
-                  fontSize: 14,
-                ),
-                p: const TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey,
-                ),
-              ),
-            ),
-          ),
-        )
+        // TODO: Add about us / contact us / FAQ / suggestion ...
+        LabelTileTitle(
+          label: context.tr("settings.about"),
+        ),
+        LabelTile(
+          label: context.tr("privacy.name"),
+          position: LabelTilePosition.bottom,
+          trailing: LabelTileContent(showArrow: true),
+          onTap: () async {
+            await launchUrlString(context.tr("privacy.url"),
+                mode: LaunchMode.externalApplication);
+          },
+        ),
       ],
     );
   }
