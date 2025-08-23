@@ -24,7 +24,7 @@ android {
 
     defaultConfig {
         applicationId = "com.memolanes.oss.dev"
-        minSdk = 23
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
