@@ -2,7 +2,6 @@ import 'package:badges/badges.dart' as badges;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/body/settings/advanced_settings_page.dart';
