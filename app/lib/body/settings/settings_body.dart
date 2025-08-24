@@ -22,7 +22,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
-import 'about_us_page.dart';
+import 'contact_us_page.dart';
 
 class SettingsBody extends StatefulWidget {
   const SettingsBody({super.key});
@@ -279,14 +279,14 @@ class _SettingsBodyState extends State<SettingsBody> {
           },
         ),
         LabelTile(
-          label: context.tr("about-us.title"),
+          label: context.tr("contact_us.title"),
           position: LabelTilePosition.bottom,
           trailing: LabelTileContent(rightIcon: Icons.arrow_forward_ios),
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) {
-                return AboutUsPage();
+                return ContactUsPage();
               },
             ),
           ),

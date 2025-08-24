@@ -123,23 +123,11 @@
     "agree": "Agree",
     "disagree_and_exit": "Disagree And Exit"
   },
-  "about-us": {
-    "title": "About Us",
-    "website": {
-      "name": "Official Website",
-      "url": "https://app.memolanes.com"
-    },
-    "email": {
-      "name": "Email",
-      "content": "support@memolanes.com"
-    },
-    "red-note": {
-      "name": "Xiaohongshu",
-      "content": "10442281421"
-    },
-    "qq": {
-      "name": "QQ Group",
-      "content": "755295072"
-    }
+  "contact_us": {
+    "title": "Contact Us",
+    "website": "Official Website",
+    "email": "Email",
+    "rednote": "rednote",
+    "qq_group": "QQ Group"
   }
 }

@@ -7,65 +7,63 @@ import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
-class AboutUsPage extends StatefulWidget {
-  const AboutUsPage({super.key});
+class ContactUsPage extends StatefulWidget {
+  const ContactUsPage({super.key});
 
   @override
-  State<AboutUsPage> createState() => _AboutUsPage();
+  State<ContactUsPage> createState() => _ContactUsPage();
 }
 
-class _AboutUsPage extends State<AboutUsPage> {
+class _ContactUsPage extends State<ContactUsPage> {
   @override
   Widget build(BuildContext context) {
+    const websiteUrl = "https://app.memolanes.com";
+    const rednoteUrl =
+        "https://www.xiaohongshu.com/user/profile/65cdef57000000000401c526";
+    const qqGroupText = "755295072";
+    const emailText = "support@memolanes.com";
     return Scaffold(
       appBar: AppBar(
-        title: Text(context.tr("about-us.title")),
+        title: Text(context.tr("contact_us.title")),
       ),
       body: MlSingleChildScrollView(
         padding: EdgeInsets.all(8.0),
         children: [
           LabelTile(
-            label: context.tr("about-us.website.name"),
+            label: context.tr("contact_us.website"),
             position: LabelTilePosition.top,
             trailing: LabelTileContent(rightIcon: Icons.open_in_new),
             onTap: () async {
-              await launchUrlString(context.tr("about-us.website.url"),
+              await launchUrlString(websiteUrl,
                   mode: LaunchMode.externalApplication);
             },
           ),
           LabelTile(
-            label: context.tr("about-us.red-note.name"),
+            label: context.tr("contact_us.rednote"),
             position: LabelTilePosition.middle,
-            trailing: LabelTileContent(
-                content: context.tr("about-us.red-note.content"),
-                rightIcon: Icons.copy),
+            trailing: LabelTileContent(rightIcon: Icons.open_in_new),
+            onTap: () async {
+              await launchUrlString(rednoteUrl,
+                  mode: LaunchMode.externalApplication);
+            },
+          ),
+          LabelTile(
+            label: context.tr("contact_us.qq_group"),
+            position: LabelTilePosition.middle,
+            trailing:
+                LabelTileContent(content: qqGroupText, rightIcon: Icons.copy),
             onTap: () {
-              Clipboard.setData(
-                  ClipboardData(text: context.tr("about-us.red-note.content")));
+              Clipboard.setData(ClipboardData(text: qqGroupText));
               Fluttertoast.showToast(msg: context.tr("common.copy_success"));
             },
           ),
           LabelTile(
-            label: context.tr("about-us.qq.name"),
-            position: LabelTilePosition.middle,
-            trailing: LabelTileContent(
-                content: context.tr("about-us.qq.content"),
-                rightIcon: Icons.copy),
-            onTap: () {
-              Clipboard.setData(
-                  ClipboardData(text: context.tr("about-us.qq.content")));
-              Fluttertoast.showToast(msg: context.tr("common.copy_success"));
-            },
-          ),
-          LabelTile(
-            label: context.tr("about-us.email.name"),
+            label: context.tr("contact_us.email"),
             position: LabelTilePosition.bottom,
-            trailing: LabelTileContent(
-                content: context.tr("about-us.email.content"),
-                rightIcon: Icons.copy),
+            trailing:
+                LabelTileContent(content: emailText, rightIcon: Icons.copy),
             onTap: () {
-              Clipboard.setData(
-                  ClipboardData(text: context.tr("about-us.email.content")));
+              Clipboard.setData(ClipboardData(text: emailText));
               Fluttertoast.showToast(msg: context.tr("common.copy_success"));
             },
           )
