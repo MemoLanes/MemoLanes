@@ -13,18 +13,16 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
-class aboutUsPage extends StatefulWidget {
-  const aboutUsPage({super.key});
+class AboutUsPage extends StatefulWidget {
+  const AboutUsPage({super.key});
 
   @override
-  State<aboutUsPage> createState() => _AboutUsPage();
+  State<AboutUsPage> createState() => _AboutUsPage();
 }
 
-class _AboutUsPage extends State<aboutUsPage> {
+class _AboutUsPage extends State<AboutUsPage> {
   @override
   Widget build(BuildContext context) {
-    var gpsManager = context.watch<GpsManager>();
-
     return Scaffold(
       appBar: AppBar(
         title: Text(context.tr("about-us.title")),

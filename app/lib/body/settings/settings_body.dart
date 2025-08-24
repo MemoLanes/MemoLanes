@@ -286,7 +286,7 @@ class _SettingsBodyState extends State<SettingsBody> {
             context,
             MaterialPageRoute(
               builder: (context) {
-                return aboutUsPage();
+                return AboutUsPage();
               },
             ),
           ),
