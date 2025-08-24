@@ -22,6 +22,8 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+import 'about_us_page.dart';
+
 class SettingsBody extends StatefulWidget {
   const SettingsBody({super.key});
 
@@ -269,12 +271,25 @@ class _SettingsBodyState extends State<SettingsBody> {
         ),
         LabelTile(
           label: context.tr("privacy.name"),
-          position: LabelTilePosition.bottom,
-          trailing: LabelTileContent(showArrow: true),
+          position: LabelTilePosition.middle,
+          trailing: LabelTileContent(rightIcon: Icons.open_in_new),
           onTap: () async {
             await launchUrlString(context.tr("privacy.url"),
                 mode: LaunchMode.externalApplication);
           },
+        ),
+        LabelTile(
+          label: context.tr("about-us.title"),
+          position: LabelTilePosition.bottom,
+          trailing: LabelTileContent(rightIcon: Icons.arrow_forward_ios),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) {
+                return aboutUsPage();
+              },
+            ),
+          ),
         ),
       ],
     );

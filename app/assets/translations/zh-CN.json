@@ -28,7 +28,8 @@
     "edit": "编辑",
     "delete": "删除",
     "please_enter": "请输入",
-    "still_under_development": "开发中"
+    "still_under_development": "开发中",
+    "copy_success": "复制成功"
   },
   "journey": {
     "no_data": "当前暂无旅程数据，开始探索世界吧！",
@@ -121,5 +122,24 @@
     "name" : "隐私协议",
     "agree": "同意",
     "disagree_and_exit": "不同意并退出"
+  },
+  "about-us": {
+    "title" : "关于我们",
+    "website" : {
+        "name": "官网",
+        "url": "https://app.memolanes.com"
+    },
+    "email" : {
+      "name": "邮箱",
+      "content": "support@memolanes.com"
+    },
+    "red-note" : {
+      "name": "小红书",
+      "content": "10442281421"
+    },
+    "qq" : {
+      "name": "QQ 交流群",
+      "content": "755295072"
+    }
   }
 }

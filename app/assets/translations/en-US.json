@@ -28,7 +28,8 @@
     "edit": "Edit",
     "delete": "Delete",
     "please_enter": "Please enter",
-    "still_under_development": "Still under development"
+    "still_under_development": "Still under development",
+    "copy_success": "Copied"
   },
   "journey": {
     "no_data": "There's no data yet, go ahead and explore the world!",
@@ -121,5 +122,12 @@
     "name" : "Privacy Policy",
     "agree": "Agree",
     "disagree_and_exit": "Disagree And Exit"
+  },
+  "about-us": {
+    "title" : "About Us",
+    "website" : "website",
+    "email" : "email",
+    "RedNote" : "RedNote",
+    "QQ" : "RedNote"
   }
 }

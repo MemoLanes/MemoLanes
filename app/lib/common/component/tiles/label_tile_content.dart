@@ -7,6 +7,8 @@ class LabelTileContent extends StatelessWidget {
     this.contentMaxLines = 1,
     this.showArrow = false,
     this.maxWidthPercent = 0.6,
+    this.rightIcon,
+    this.rightIconColor,
   });
 
   final String content;
@@ -17,35 +19,53 @@ class LabelTileContent extends StatelessWidget {
 
   final bool showArrow;
 
+  final IconData? rightIcon;
+
+  final Color? rightIconColor;
+
+  Widget _buildContent(BuildContext context) {
+    final width = MediaQueryData.fromView(View.of(context)).size.width;
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: width * maxWidthPercent,
+      ),
+      child: Text(
+        content,
+        style: const TextStyle(
+          fontSize: 14.0,
+          color: Color(0x99FFFFFF),
+        ),
+        textAlign: TextAlign.justify,
+        maxLines: contentMaxLines,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
+  Widget? _buildIcon() {
+    final IconData? effectiveIcon =
+        rightIcon ?? (showArrow ? Icons.arrow_forward_ios : null);
+    if (effectiveIcon == null) return null;
+
+    return Icon(
+      effectiveIcon,
+      size: 16.0,
+      color: rightIconColor ?? const Color(0x99FFFFFF),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final width = MediaQueryData.fromView(View.of(context)).size.width;
+    final icon = _buildIcon();
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: width * maxWidthPercent,
-          ),
-          child: Text(
-            content,
-            style: TextStyle(
-              fontSize: 14.0,
-              color: const Color(0x99FFFFFF),
-            ),
-            textAlign: TextAlign.justify,
-            maxLines: contentMaxLines,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        showArrow
-            ? Image.asset(
-                'assets/icons/ic_next.webp',
-                width: 16.0,
-                height: 16.0,
-              )
-            : const SizedBox.shrink(),
+        _buildContent(context),
+        if (icon != null) ...[
+          const SizedBox(width: 8),
+          icon,
+        ],
       ],
     );
   }
