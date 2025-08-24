@@ -124,10 +124,22 @@
     "disagree_and_exit": "Disagree And Exit"
   },
   "about-us": {
-    "title" : "About Us",
-    "website" : "website",
-    "email" : "email",
-    "RedNote" : "RedNote",
-    "QQ" : "RedNote"
+    "title": "About Us",
+    "website": {
+      "name": "Official Website",
+      "url": "https://app.memolanes.com"
+    },
+    "email": {
+      "name": "Email",
+      "content": "support@memolanes.com"
+    },
+    "red-note": {
+      "name": "Xiaohongshu",
+      "content": "10442281421"
+    },
+    "qq": {
+      "name": "QQ Group",
+      "content": "755295072"
+    }
   }
 }
