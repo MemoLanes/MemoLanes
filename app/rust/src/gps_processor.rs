@@ -480,9 +480,9 @@ impl PathInterpolator {
 
     // with the input of distance (indexOf Points),lats and lons, and the step_length of the result get the intepolate result
     fn get_track_points(
-        distance: &Vec<f64>,
-        lat: &Vec<f64>,
-        lon: &Vec<f64>,
+        distance: &[f64],
+        lat: &[f64],
+        lon: &[f64],
         step_length: f64,
     ) -> Vec<TrackPoint> {
         use splines::{Interpolation, Key, Spline};
@@ -552,7 +552,7 @@ impl PathInterpolator {
     }
 
     //do interpolate for a track not pass the ±180
-    fn interpolate_one_seg(source_data: &Vec<Point>, step_length: f64) -> TrackSegment {
+    fn interpolate_one_seg(source_data: &[Point], step_length: f64) -> TrackSegment {
         //compute distance between two neighbor point
         let distances: Vec<f64> = source_data
             .windows(2)
@@ -563,16 +563,16 @@ impl PathInterpolator {
         let mut prefix_sums: Vec<f64> = distances
             .iter()
             .scan(0., |state, &num| {
-                *state = *state + num; //
-                Some(*state) //
+                *state += num;
+                Some(*state)
             })
             .collect();
 
         //add the start point's index----0
         prefix_sums.insert(0, 0.);
 
-        let lats = source_data.iter().map(|x| x.latitude).collect();
-        let lons = source_data.iter().map(|x| x.longitude).collect();
+        let lats: Vec<f64> = source_data.iter().map(|x| x.latitude).collect();
+        let lons: Vec<f64> = source_data.iter().map(|x| x.longitude).collect();
         //return a TrackSegment
         TrackSegment {
             track_points: PathInterpolator::get_track_points(
@@ -585,7 +585,7 @@ impl PathInterpolator {
     }
 
     // main func to interpolate rawdata to a smooth journeyvetor
-    pub fn interpolate(&self, source_data: &Vec<RawData>) -> JourneyVector {
+    pub fn interpolate(&self, source_data: &[RawData]) -> JourneyVector {
         let mut track_segments = Vec::new();
 
         //get points
@@ -615,7 +615,7 @@ impl PathInterpolator {
     }
 
     //split_trajectory_at_180
-    fn split_trajectory_at_180(trajectory: &Vec<Point>) -> Vec<Vec<Point>> {
+    fn split_trajectory_at_180(trajectory: &[Point]) -> Vec<Vec<Point>> {
         if trajectory.len() < 2 {
             return vec![trajectory.to_vec()];
         }
