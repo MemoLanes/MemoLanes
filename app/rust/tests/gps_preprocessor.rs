@@ -1,9 +1,12 @@
 pub mod test_utils;
 
-use memolanes_core::gps_processor::{GpsPreprocessor, Point, ProcessResult, RawData};
+use memolanes_core::gps_processor::{
+    GpsPreprocessor, PathInterpolator, Point, ProcessResult, RawData,
+};
 use memolanes_core::{export_data, import_data};
 use std::collections::HashMap;
-use std::fs::File;
+use std::fs::{self, File};
+use std::path::Path;
 
 #[test]
 fn first_data() {
@@ -185,4 +188,49 @@ fn run_though_test_data_laojunshan() {
     assert_eq!(counter[&ProcessResult::NewSegment], 2);
     assert_eq!(counter[&ProcessResult::Append], 2595);
     assert_eq!(counter[&ProcessResult::Ignore], 348);
+}
+
+#[test]
+fn run_interpolate_test() {
+    let interpolator = PathInterpolator::new();
+
+    let names = get_filenames_without_extension("./tests/data/interpolate/");
+
+    for name in &names.unwrap() {
+        let loaded_data =
+            import_data::load_kml(&format!("./tests/data/interpolate/{}.kml", name)).unwrap();
+
+        let result = interpolator.interpolate(&loaded_data[0]);
+        let mut file =
+            File::create(format!("./tests/for_inspection/interpolate/{}.gpx", name)).unwrap();
+        export_data::journey_vector_to_gpx_file(&result, &mut file).unwrap();
+    }
+}
+
+fn get_filenames_without_extension(folder_path: &str) -> Result<Vec<String>, std::io::Error> {
+    let path = Path::new(folder_path);
+    let mut filenames = Vec::new();
+
+    // 读取目录中的所有条目
+    for entry in fs::read_dir(path)? {
+        let entry = entry?;
+        let path = entry.path();
+
+        // 只处理文件，跳过目录
+        if path.is_file() {
+            // 获取文件名
+            if let Some(file_name) = path.file_name() {
+                if let Some(name_str) = file_name.to_str() {
+                    // 去除文件后缀
+                    let name_without_ext = if let Some(dot_pos) = name_str.rfind('.') {
+                        &name_str[..dot_pos]
+                    } else {
+                        name_str
+                    };
+                    filenames.push(name_without_ext.to_string());
+                }
+            }
+        }
+    }
+    Ok(filenames)
 }

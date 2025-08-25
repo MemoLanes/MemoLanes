@@ -452,3 +452,358 @@ impl GpsPostprocessor {
         }
     }
 }
+pub struct PathInterpolator {
+    pub step_length: f64,
+}
+
+impl PathInterpolator {
+    pub fn new() -> Self {
+        PathInterpolator { step_length: 1000. }
+    }
+
+    //generate a vec have numbers between 0 to end with a step_length
+    fn generate_range(end: f64, step_length: f64) -> Vec<f64> {
+        if step_length <= 0.0 {
+            panic!("step_length must bigger than zero!");
+        }
+
+        let mut result = Vec::new();
+        let mut current = 0.0;
+
+        while current <= end + 1e-10 {
+            result.push(current);
+            current += step_length;
+        }
+        result.push(end);
+        result
+    }
+
+    // with the input of distance (indexOf Points),lats and lons, and the step_length of the result get the intepolate result
+    fn get_track_points(
+        distance: &Vec<f64>,
+        lat: &Vec<f64>,
+        lon: &Vec<f64>,
+        step_length: f64,
+    ) -> Vec<TrackPoint> {
+        use splines::{Interpolation, Key, Spline};
+        let mut track_points = Vec::new();
+
+        if distance.len() < 2 || lat.len() < 2 || lon.len() < 2 {
+            track_points
+        } else {
+            let combine = |a: f64, b: f64| Key::new(a, b, Interpolation::<_, f64>::CatmullRom);
+
+            let mut vec_key_lat: Vec<Key<f64, f64>> = distance
+                .iter()
+                .zip(lat.iter())
+                .map(|(a, b)| combine(*a, *b))
+                .collect();
+
+            let mut vec_key_lon: Vec<Key<f64, f64>> = distance
+                .iter()
+                .zip(lon.iter())
+                .map(|(a, b)| combine(*a, *b))
+                .collect();
+
+            //CatmullRom need nowPoints  last Points and next two Points so we need ……
+
+            //add a point before the start with index  -step_length
+            vec_key_lat.insert(0, Key::new(-step_length, lat[0], Interpolation::default()));
+            vec_key_lon.insert(0, Key::new(-step_length, lon[0], Interpolation::default()));
+
+            //add two point after the end with index   last+step_length、 last+step_length*2
+            vec_key_lat.push(Key::new(
+                distance.last().unwrap() + step_length,
+                *lat.last().unwrap(),
+                Interpolation::default(),
+            ));
+            vec_key_lat.push(Key::new(
+                distance.last().unwrap() + step_length * 2.,
+                *lat.last().unwrap(),
+                Interpolation::default(),
+            ));
+            vec_key_lon.push(Key::new(
+                distance.last().unwrap() + step_length,
+                *lon.last().unwrap(),
+                Interpolation::default(),
+            ));
+            vec_key_lon.push(Key::new(
+                distance.last().unwrap() + step_length * 2.,
+                *lon.last().unwrap(),
+                Interpolation::default(),
+            ));
+
+            let spline_lat = Spline::from_vec(vec_key_lat);
+            let spline_lon = Spline::from_vec(vec_key_lon);
+
+            //get sample points index
+            let sample_points =
+                PathInterpolator::generate_range(*distance.last().unwrap(), step_length);
+            //do sample to get result
+            sample_points.iter().for_each(|num| {
+                track_points.push(TrackPoint {
+                    latitude: spline_lat.sample(*num).unwrap_or_default(),
+                    longitude: spline_lon.sample(*num).unwrap_or_default(),
+                })
+            });
+
+            track_points
+        }
+    }
+
+    //do interpolate for a track not pass the ±180
+    fn interpolate_one_seg(source_data: &Vec<Point>, step_length: f64) -> TrackSegment {
+        //compute distance between two neighbor point
+        let distances: Vec<f64> = source_data
+            .windows(2)
+            .map(|data| data[0].haversine_distance(&data[1]))
+            .collect();
+
+        //compute distance to the start point as index
+        let mut prefix_sums: Vec<f64> = distances
+            .iter()
+            .scan(0., |state, &num| {
+                *state = *state + num; //
+                Some(*state) //
+            })
+            .collect();
+
+        //add the start point's index----0
+        prefix_sums.insert(0, 0.);
+
+        let lats = source_data.iter().map(|x| x.latitude).collect();
+        let lons = source_data.iter().map(|x| x.longitude).collect();
+        //return a TrackSegment
+        TrackSegment {
+            track_points: PathInterpolator::get_track_points(
+                &prefix_sums,
+                &lats,
+                &lons,
+                step_length,
+            ),
+        }
+    }
+
+    // main func to interpolate rawdata to a smooth journeyvetor
+    pub fn interpolate(&self, source_data: &Vec<RawData>) -> JourneyVector {
+        let mut track_segments = Vec::new();
+
+        //get points
+        let points: Vec<Point> = source_data.iter().map(|data| data.point.clone()).collect();
+
+        //split_trajectory_at_180
+        let segs = PathInterpolator::split_trajectory_at_180(&points);
+
+        for seg in &segs {
+            track_segments.push(PathInterpolator::interpolate_one_seg(seg, self.step_length));
+        }
+        JourneyVector { track_segments }
+    }
+
+    //judge if the two lons across the ±180
+    pub fn crosses_180th_meridian(lon1: f64, lon2: f64) -> bool {
+        //if lon1 and lon2 both at the same side return false
+        if lon1 * lon2 >= 0. {
+            return false;
+        }
+        //I'm sure that it has bug when the points are both in polar area
+        //also if we want to process the polar's data, split the track when we cross high latitude (70° e.g.) is a good idea
+        //then we will write other code to interpolate the polar's point
+        let delta_lon = (lon1 - lon2).abs();
+
+        delta_lon > 180.0
+    }
+
+    //split_trajectory_at_180
+    fn split_trajectory_at_180(trajectory: &Vec<Point>) -> Vec<Vec<Point>> {
+        if trajectory.len() < 2 {
+            return vec![trajectory.to_vec()];
+        }
+
+        let mut segments = Vec::new();
+        let mut current_segment = vec![trajectory[0].clone()];
+
+        for i in 1..trajectory.len() {
+            let lon1 = trajectory[i - 1].longitude;
+            let lat1 = trajectory[i - 1].latitude;
+            let lon2 = trajectory[i].longitude;
+            let lat2 = trajectory[i].latitude;
+
+            // determine whether two points cross the 180° meridian.
+            if PathInterpolator::crosses_180th_meridian(lon1, lon2) {
+                // try to find the intersect point
+                if let Some(intersection) =
+                    PathInterpolator::find_180_intersection(lon1, lat1, lon2, lat2)
+                {
+                    //lon1==0 is a very danger boundary condition which means lon1 = 0, lon2 = 180
+                    if lon1 < 0. {
+                        //add -180 to last seg's end
+                        current_segment.push(Point {
+                            latitude: intersection,
+                            longitude: -180.,
+                        });
+
+                        segments.push(current_segment);
+
+                        //next seg begin at 180
+                        current_segment = vec![Point {
+                            latitude: intersection,
+                            longitude: 180.,
+                        }];
+                    } else {
+                        //add 180 to last seg's end
+                        current_segment.push(Point {
+                            latitude: intersection,
+                            longitude: 180.,
+                        });
+                        segments.push(current_segment);
+
+                        //next seg begin at -180
+                        current_segment = vec![Point {
+                            latitude: intersection,
+                            longitude: -180.,
+                        }];
+                    }
+                }
+            }
+
+            current_segment.push(trajectory[i].clone());
+        }
+
+        if !current_segment.is_empty() {
+            segments.push(current_segment);
+        }
+
+        segments
+    }
+
+    fn to_radians(deg: f64) -> f64 {
+        use std::f64::consts::PI;
+        deg * PI / 180.0
+    }
+    fn to_degrees(rad: f64) -> f64 {
+        use std::f64::consts::PI;
+        rad * 180.0 / PI
+    }
+
+    fn to_cartesian(lon: f64, lat: f64) -> (f64, f64, f64) {
+        let lon_rad = PathInterpolator::to_radians(lon);
+        let lat_rad = PathInterpolator::to_radians(lat);
+        let x = lat_rad.cos() * lon_rad.cos();
+        let y = lat_rad.cos() * lon_rad.sin();
+        let z = lat_rad.sin();
+        (x, y, z)
+    }
+
+    fn normalize_longitude(mut lon: f64) -> f64 {
+        while lon >= 180.0 {
+            lon -= 360.0;
+        }
+        while lon < -180.0 {
+            lon += 360.0;
+        }
+        lon
+    }
+
+    // some code possibly redundant code // with KM rtn
+    fn haversine_distance(lon1: f64, lat1: f64, lon2: f64, lat2: f64) -> f64 {
+        const EARTH_RADIUS_KM: f64 = 6371.0;
+        let lon1 = PathInterpolator::to_radians(lon1);
+        let lat1 = PathInterpolator::to_radians(lat1);
+        let lon2 = PathInterpolator::to_radians(lon2);
+        let lat2 = PathInterpolator::to_radians(lat2);
+
+        let dlon = lon2 - lon1;
+        let dlat = lat2 - lat1;
+
+        let a = (dlat / 2.0).sin().powi(2) + lat1.cos() * lat2.cos() * (dlon / 2.0).sin().powi(2);
+        let c = 2.0 * a.sqrt().atan2((1.0 - a).sqrt());
+
+        EARTH_RADIUS_KM * c
+    }
+
+    fn to_geographic(x: f64, y: f64, z: f64) -> (f64, f64) {
+        let lon = PathInterpolator::to_degrees(y.atan2(x));
+        let lat = PathInterpolator::to_degrees(z.atan2((x * x + y * y).sqrt()));
+        (PathInterpolator::normalize_longitude(lon), lat)
+    }
+
+    fn find_180_intersection(lon1: f64, lat1: f64, lon2: f64, lat2: f64) -> Option<f64> {
+        if lon1.abs() > 179.999_999_999 {
+            return Some(lat1);
+        }
+        if lon2.abs() > 179.999_999_999 {
+            return Some(lat2);
+        }
+
+        let (x1, y1, z1) = PathInterpolator::to_cartesian(lon1, lat1);
+        let (x2, y2, z2) = PathInterpolator::to_cartesian(lon2, lat2);
+
+        let nx = y1 * z2 - z1 * y2;
+        let ny = z1 * x2 - x1 * z2;
+        let nz = x1 * y2 - y1 * x2;
+
+        let dir_x = ny * 0.0 - nz * 1.0;
+        let dir_y = nz * 0.0 - nx * 0.0;
+        let dir_z = nx * 1.0 - ny * 0.0;
+
+        let a = dir_x * dir_x + dir_y * dir_y + dir_z * dir_z;
+        if a.abs() < 1e-12 {
+            return None;
+        }
+
+        let t = 1.0 / a.sqrt();
+        let (x_a, y_a, z_a) = (dir_x * t, dir_y * t, dir_z * t);
+        let (x_b, y_b, z_b) = (dir_x * (-t), dir_y * (-t), dir_z * (-t));
+
+        let (lon_a, lat_a) = PathInterpolator::to_geographic(x_a, y_a, z_a);
+        let (lon_b, lat_b) = PathInterpolator::to_geographic(x_b, y_b, z_b);
+
+        let dist_total = PathInterpolator::haversine_distance(lon1, lat1, lon2, lat2);
+
+        let dist1 = PathInterpolator::haversine_distance(lon1, lat1, lon_a, lat_a);
+        let dist2 = PathInterpolator::haversine_distance(lon_a, lat_a, lon2, lat2);
+        if (dist1 + dist2 - dist_total).abs() < 1e-6 {
+            return Some(lat_a);
+        }
+
+        let dist1 = PathInterpolator::haversine_distance(lon1, lat1, lon_b, lat_b);
+        let dist2 = PathInterpolator::haversine_distance(lon_b, lat_b, lon2, lat2);
+        if (dist1 + dist2 - dist_total).abs() < 1e-6 {
+            return Some(lat_b);
+        }
+
+        None
+    }
+}
+#[cfg(test)]
+mod path_interpolator_tests {
+
+    #[test]
+    fn test_crossing() {
+        // 跨越180°经线的情况
+        assert!(super::PathInterpolator::crosses_180th_meridian(
+            170.0, -170.0
+        ));
+        assert!(super::PathInterpolator::crosses_180th_meridian(
+            175.0, -179.0
+        ));
+
+        // 不跨越180°经线的情况
+        assert!(!super::PathInterpolator::crosses_180th_meridian(10.0, 20.0));
+        assert!(!super::PathInterpolator::crosses_180th_meridian(
+            -170.0, -160.0
+        ));
+        assert!(!super::PathInterpolator::crosses_180th_meridian(
+            170.0, 175.0
+        ));
+
+        // 边界情况 - 其中一点在180°经线上
+        assert!(!super::PathInterpolator::crosses_180th_meridian(
+            170.0, 180.0
+        ));
+        assert!(super::PathInterpolator::crosses_180th_meridian(
+            -170.0, 180.0
+        ));
+    }
+}
