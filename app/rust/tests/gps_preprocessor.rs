@@ -202,7 +202,7 @@ fn run_interpolate_test() {
 
         let result = interpolator.interpolate(&loaded_data[0]);
         let mut file =
-            File::create(format!("./tests/for_inspection/interpolate/{}.gpx", name)).unwrap();
+            File::create(format!("./tests/for_inspection/interpolate_{}.gpx", name)).unwrap();
         export_data::journey_vector_to_gpx_file(&result, &mut file).unwrap();
     }
 }
