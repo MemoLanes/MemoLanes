@@ -107,10 +107,10 @@ async fn serve_journey_tile_range(
                     ) {
                         Ok(buffer) => buffer,
                         Err(creation_error) => {
-                            log::error!("Failed to create TileBuffer: {}", creation_error);
+                            log::error!("Failed to create TileBuffer: {creation_error}");
                             return HttpResponse::BadRequest()
                                 .content_type("text/plain")
-                                .body(format!("Failed to create tile buffer: {}", creation_error));
+                                .body(format!("Failed to create tile buffer: {creation_error}"));
                         }
                     };
 
@@ -121,7 +121,7 @@ async fn serve_journey_tile_range(
                             .content_type("application/octet-stream")
                             .body(data),
                         Err(serialization_error) => {
-                            log::error!("Failed to serialize TileBuffer: {}", serialization_error);
+                            log::error!("Failed to serialize TileBuffer: {serialization_error}");
                             HttpResponse::InternalServerError()
                                 .content_type("text/plain")
                                 .body("Failed to serialize tile data")
@@ -192,7 +192,7 @@ impl MapServer {
                     }
                 }
             };
-            info!("Server bound successfully to {}:{}", host, actual_port);
+            info!("Server bound successfully to {host}:{actual_port}");
 
             let server = server.run();
             let server_handle = server.handle();
@@ -283,7 +283,7 @@ impl MapServer {
             server_info.host.clone()
         };
 
-        info!("Restarting server with host: {}", host);
+        info!("Restarting server with host: {host}");
 
         self.stop()?;
 

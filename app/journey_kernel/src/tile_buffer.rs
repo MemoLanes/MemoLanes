@@ -49,8 +49,7 @@ impl TileBuffer {
         buffer_size_power: i16,
     ) -> Option<&Vec<(u16, u16)>> {
         println!(
-            "get_tile_pixels: tile_x: {}, tile_y: {}, tile_z: {}, buffer_size_power: {}",
-            tile_x, tile_y, tile_z, buffer_size_power
+            "get_tile_pixels: tile_x: {tile_x}, tile_y: {tile_y}, tile_z: {tile_z}, buffer_size_power: {buffer_size_power}"
         );
         println!(
             "self.z: {}, self.buffer_size_power: {}",
@@ -71,6 +70,6 @@ impl TileBuffer {
 
     /// Serialize the TileBuffer to bytes
     pub fn to_bytes(&self) -> Result<Vec<u8>, String> {
-        bincode::serialize(self).map_err(|e| format!("Failed to serialize TileBuffer: {}", e))
+        bincode::serialize(self).map_err(|e| format!("Failed to serialize TileBuffer: {e}"))
     }
 }

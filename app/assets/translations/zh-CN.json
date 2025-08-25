@@ -4,10 +4,17 @@
     "pause": "暂停",
     "resume": "恢复",
     "end_journey_title": "结束旅程？",
-    "end_journey_message": "确定要结束当前的旅程吗？",
-    "location_permission_denied": "您已拒绝获取位置权限，为了保障定位功能的使用，请在设置中打开。",
+    "end_journey_message": "确定要结束当前的旅程吗？"
+  },
+  "location_service": {
+    "location_permission_denied": "你已拒绝获取位置权限，为了保障定位功能的使用，请在设置中打开。",
+    "android_foreground_notification_channel_name": "轨迹记录服务",
     "android_foreground_notification_title": "后台记录中",
-    "android_foreground_notification_text": "迹忆将在后台持续记录"
+    "android_foreground_notification_text": "迹忆将在后台持续记录",
+    "location_backend": {
+      "title": "定位服务",
+      "native": "原生"
+    }
   },
   "common": {
     "memolanes": "迹忆",
@@ -17,29 +24,43 @@
     "info": "提示",
     "save": "保存",
     "share": "分享",
-    "export": "导出"
+    "export": "导出",
+    "edit": "编辑",
+    "delete": "删除",
+    "please_enter": "请输入",
+    "still_under_development": "开发中",
+    "copy_success": "复制成功"
   },
   "journey": {
     "no_data": "当前暂无旅程数据，开始探索世界吧！",
+    "journey_date_is_empty": "旅程日期是空的",
     "delete_journey_title": "删除旅程",
     "delete_journey_message": "确认删除该旅程记录?",
-    "delete": "删除",
+    "stop_ongoing_journey": "在此操作之前，请先停止当前正在进行的旅程。",
+    "delete_all_journey_message": "这将删除此应用中的所有行程，您确定吗？",
     "journey_info_page_title": "旅程信息",
     "journey_info_edit_page_title": "编辑旅程信息",
-    "export_journey_as_kml": "导出为KML",
-    "export_journey_as_gpx": "导出为GPX",
-    "export_journey_as_mldx": "导出为MLDX",
+    "import_mldx_data": "导入 MLDX 数据",
     "import_kml_gpx_data": "导入 KML/GPX 数据",
-    "archive_all_as_mldx": "完整归档（mldx 文件）",
+    "import_fog_of_world_data": "导入 世界迷雾 数据",
+    "export_journey_as_kml": "导出为 KML",
+    "export_journey_as_gpx": "导出为 GPX",
+    "export_journey_as_mldx": "导出为 MLDX",
     "delete_all": "删除所有旅程",
-    "import_mldx": "导入归档（mldx 文件）"
+    "preprocessor": "预处理器",
+    "journey_date": "旅程日期",
+    "journey_kind": "图层标签",
+    "start_time": "开始时间",
+    "end_time": "结束时间",
+    "created_at": "创建时间",
+    "note": "备注"
   },
   "db_optimization": {
     "notification": "你的数据库需要优化，请前往设置选项卡并点击[优化数据库]按钮。",
     "button": "优化数据库",
     "already_optimized": "数据库已经是最优状态。无需再次优化。",
     "confirm": "您的数据库需要优化。建议在继续之前备份你的数据。",
-    "finsih": "数据库优化完成。"
+    "finish": "数据库优化完成。"
   },
   "journey_kind": {
     "default": "默认",
@@ -47,7 +68,7 @@
   },
   "import_fow_data": {
     "button": "导入“世界迷雾”数据",
-    "description_md": "导入世界迷雾 App 中产生的数据。  \n这是一个实验性功能，目前只支持导入用 Zip 压缩的世界迷雾网盘同步 Sync 文件夹。\n如需导入多段数据等更精细的控制，可以尝试使用[迷雾机器-时光机](https://fogmachine.8bits.io/time-machine)中提供的“导出迹忆归档”功能。",
+    "description_md": "导入世界迷雾 App 中产生的数据。  \n这是一个实验性功能，目前支持导入:\n1. Zip 压缩的世界迷雾网盘同步 Sync 文件夹。\n2. 世界迷雾快照文件 (*.fwss)。  \n  \n如需导入多段数据等更精细的控制，可以尝试使用[迷雾机器-时光机](https://fogmachine.8bits.io/time-machine)中提供的“导出迹忆归档”功能。",
     "warning_for_import_multiple_data_md": "请注意，数据库中已经包含世界迷雾数据。  \n导入多段世界迷雾数据可能不是一个理想的行为（例如：数据会简单的合并导致包含重复数据）。  \n推荐使用 [迷雾机器-时光机](https://fogmachine.8bits.io/time-machine) 以获得更精细的控制（例如：逐一处理快照并计算差异）。"
   },
   "unexpected_exit_notification": {
@@ -62,9 +83,51 @@
     "title": "成就",
     "explored_area": "探索面积：{} 平方公里"
   },
-  "advance_settings": {
-    "export_logs": "导出日志",
-    "raw_data_mode": "原始数据模式",
-    "rebuild_cache": "重建缓存"
+  "general": {
+    "title": "通用",
+    "version": {
+      "title": "版本",
+      "currently_the_latest_version": "当前已经是最新版本"
+    },
+    "advance_settings": {
+      "title": "高级设置",
+      "export_logs": "导出日志",
+      "raw_data_mode": "原始数据模式",
+      "rebuild_cache": "重建缓存"
+    }
+  },
+  "data": {
+    "title": "数据",
+    "backup_data": {
+      "title": "备份数据",
+      "last_backup_time": "上次备份时间",
+      "backup": "备份",
+      "delete_backup_data": "删除备份数据"
+    },
+    "import_data": {
+      "title": "导入数据"
+    },
+    "export_data": {
+      "export_all": "导出所有数据"
+    }
+  },
+  "settings": {
+    "other": "其他",
+    "about": "关于"
+  },
+  "privacy": {
+    "url": "https://app.memolanes.com/zh/privacy/",
+    "privacy_tip_title": "隐私协议提示",
+    "privacy_tip_message_md": "你需要同意隐私协议才能使用迹忆。\n\n你可以阅读完整版[《迹忆隐私协议》](@:privacy.url)来了解详细信息。",
+    "name" : "隐私协议",
+    "agree": "同意",
+    "disagree_and_exit": "不同意并退出"
+  },
+  "contact_us": {
+    "title": "联系我们",
+    "website": "官网",
+    "email": "邮箱",
+    "rednote": "小红书",
+    "qq_group": "QQ 交流群"
   }
 }

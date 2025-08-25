@@ -96,26 +96,23 @@ pub fn tile_buffer_from_journey_bitmap(
     // Validate parameters to prevent overflow and invalid operations
     if width <= 0 || height <= 0 {
         return Err(format!(
-            "Invalid dimensions: width={}, height={}",
-            width, height
+            "Invalid dimensions: width={width}, height={height}"
         ));
     }
 
     if width > 20 || height > 20 {
         return Err(format!(
-            "Dimensions too large: width={}, height={} (max: 20x20)",
-            width, height
+            "Dimensions too large: width={width}, height={height} (max: 20x20)"
         ));
     }
 
     if !(0..=25).contains(&z) {
-        return Err(format!("Invalid zoom level: {} (must be 0-25)", z));
+        return Err(format!("Invalid zoom level: {z} (must be 0-25)"));
     }
 
     if !(6..=11).contains(&buffer_size_power) {
         return Err(format!(
-            "Invalid buffer_size_power: {} (must be 6-11, corresponding to 64-2048 pixel tiles)",
-            buffer_size_power
+            "Invalid buffer_size_power: {buffer_size_power} (must be 6-11, corresponding to 64-2048 pixel tiles)"
         ));
     }
 

@@ -1,6 +1,7 @@
 use std::io::{Read, Write};
 
 use anyhow::{Ok, Result};
+use flutter_rust_bridge::frb;
 use integer_encoding::*;
 use itertools::Itertools;
 
@@ -10,7 +11,8 @@ use crate::{
     journey_vector::{JourneyVector, TrackPoint, TrackSegment},
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
+#[frb(opaque)]
 pub enum JourneyData {
     Vector(JourneyVector),
     Bitmap(JourneyBitmap),

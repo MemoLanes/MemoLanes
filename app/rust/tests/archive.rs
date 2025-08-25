@@ -1,5 +1,6 @@
 pub mod test_utils;
 
+use anyhow::Ok;
 use chrono::Utc;
 use memolanes_core::{
     archive, gps_processor, import_data, journey_data::JourneyData, journey_header::JourneyHeader,
@@ -33,7 +34,7 @@ fn add_bitmap_journey(main_db: &mut MainDb) {
     let (bitmap, _warnings) = import_data::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
     main_db
         .with_txn(|txn| {
-            txn.create_and_insert_journey(
+            let _id = txn.create_and_insert_journey(
                 Utc::now().date_naive(),
                 None,
                 None,
@@ -41,7 +42,8 @@ fn add_bitmap_journey(main_db: &mut MainDb) {
                 memolanes_core::journey_header::JourneyKind::DefaultKind,
                 None,
                 JourneyData::Bitmap(bitmap),
-            )
+            )?;
+            Ok(())
         })
         .unwrap()
 }

@@ -10,11 +10,31 @@ fn load_fow_sync_data() {
     let (bitmap_1, warnings_1) = import_data::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
     let (bitmap_2, warnings_2) = import_data::load_fow_sync_data("./tests/data/fow_2.zip").unwrap();
     assert_eq!(bitmap_1, bitmap_2);
-    assert_eq!(format!("{:?}", warnings_1), "None");
+    assert_eq!(format!("{warnings_1:?}"), "None");
     assert_eq!(
-        format!("{:?}", warnings_2),
-        "Some(\"unexpected file: Sync/garbage_2\")"
+        format!("{warnings_2:?}"),
+        "Some(\"unexpected file: garbage_2\")"
     );
+}
+
+#[test]
+fn verify_fow_snapshot_data() {
+    let (bitmap_1, warnings_1) =
+        import_data::load_fow_sync_data("./tests/data/snapshot_fow_test.zip").unwrap();
+    let (bitmap_2, warnings_2) =
+        import_data::load_fow_snapshot_data("./tests/data/snapshot_test.fwss").unwrap();
+    let result_1 = import_data::load_fow_snapshot_data("./tests/data/snapshot_no_bitmap.fwss");
+
+    assert!(
+        !bitmap_2.tiles.is_empty(),
+        "snapshot_test.fwss bitmap should not be empty"
+    );
+    assert!(result_1.is_err(), "Empty snapshot should return error");
+
+    assert_eq!(bitmap_1, bitmap_2);
+    assert_eq!(format!("{warnings_1:?}"), "None");
+    assert_eq!(format!("{warnings_2:?}"), "None");
+    assert_eq!(result_1.unwrap_err().to_string(), "empty data. warnings: ");
 }
 
 #[test]
@@ -25,12 +45,12 @@ pub fn gpx() {
     let journey_info = import_data::journey_info_from_raw_vector_data(&raw_vecotr_data1);
     let start_time = journey_info.start_time.unwrap().timestamp_millis();
     let end_time = journey_info.end_time.unwrap().timestamp_millis();
-    let vector1 = import_data::journey_vector_from_raw_data(raw_vecotr_data1, false).unwrap();
+    let vector1 = import_data::journey_vector_from_raw_data(&raw_vecotr_data1, false).unwrap();
     export_data::journey_vector_to_gpx_file(&vector1, &mut File::create(EXPORT_PATH).unwrap())
         .unwrap();
 
     let raw_vecotr_data2 = import_data::load_gpx(EXPORT_PATH).unwrap();
-    let vector2 = import_data::journey_vector_from_raw_data(raw_vecotr_data2, false).unwrap();
+    let vector2 = import_data::journey_vector_from_raw_data(&raw_vecotr_data2, false).unwrap();
     let tracks1 = vector1.track_segments;
     let tracks2 = vector2.track_segments;
 
@@ -63,12 +83,12 @@ pub fn kml_track() {
         .unwrap_or_default()
         .timestamp_millis();
     let end_time = journey_info.end_time.unwrap_or_default().timestamp_millis();
-    let vector1 = import_data::journey_vector_from_raw_data(raw_vecotr_data1, false).unwrap();
+    let vector1 = import_data::journey_vector_from_raw_data(&raw_vecotr_data1, false).unwrap();
 
     export_data::journey_vector_to_kml_file(&vector1, &mut File::create(EXPORT_PATH).unwrap())
         .unwrap();
     let raw_vecotr_data2 = import_data::load_kml(EXPORT_PATH).unwrap();
-    let vector2 = import_data::journey_vector_from_raw_data(raw_vecotr_data2, false).unwrap();
+    let vector2 = import_data::journey_vector_from_raw_data(&raw_vecotr_data2, false).unwrap();
     let tracks1 = vector1.track_segments;
     let tracks2 = vector2.track_segments;
 
@@ -95,12 +115,12 @@ pub fn kml_line_string() {
     const IMPORT_PATH: &str = "./tests/data/2024-08-24-2104.kml";
     const EXPORT_PATH: &str = "./tests/for_inspection/2024-08-24-2104.kml";
     let raw_vecotr_data1 = import_data::load_kml(IMPORT_PATH).unwrap();
-    let vector1 = import_data::journey_vector_from_raw_data(raw_vecotr_data1, false).unwrap();
+    let vector1 = import_data::journey_vector_from_raw_data(&raw_vecotr_data1, false).unwrap();
 
     export_data::journey_vector_to_kml_file(&vector1, &mut File::create(EXPORT_PATH).unwrap())
         .unwrap();
     let raw_vecotr_data2 = import_data::load_kml(EXPORT_PATH).unwrap();
-    let vector2 = import_data::journey_vector_from_raw_data(raw_vecotr_data2, false).unwrap();
+    let vector2 = import_data::journey_vector_from_raw_data(&raw_vecotr_data2, false).unwrap();
     let tracks1 = vector1.track_segments;
     let tracks2 = vector2.track_segments;
 

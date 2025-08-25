@@ -65,15 +65,12 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
             MapServer::create_and_start("localhost", None).expect("Failed to start map server");
         info!("map server started");
 
-        // ======= WebView Transition codes START ===========
-        // TODO: this is a temporary solution for WebView transition
         let default_layer_kind = InternalLayerKind::JounreyKind(JourneyKind::DefaultKind);
-        let journey_bitmap = storage
-            .get_latest_bitmap_for_main_map_renderer(&default_layer_kind)
-            .unwrap();
         let main_map_layer_kind = Arc::new(Mutex::new(default_layer_kind));
         let main_map_layer_kind_copy = main_map_layer_kind.clone();
-        let main_map_renderer = Arc::new(Mutex::new(MapRenderer::new(journey_bitmap)));
+        // TODO: use an empty journey bitmap first, because loading could be slow (especially when we don't have cache).
+        // Ideally, we should support main map renderer being none. e.g. we free it when the user is not using the map.
+        let main_map_renderer = Arc::new(Mutex::new(MapRenderer::new(JourneyBitmap::new())));
         let main_map_renderer_copy = main_map_renderer.clone();
         // TODO: redesign the callback to better handle locks and avoid deadlocks
         storage.set_finalized_journey_changed_callback(Box::new(move |storage| {
@@ -81,7 +78,7 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
             let layer_kind = main_map_layer_kind_copy.lock().unwrap();
             match storage.get_latest_bitmap_for_main_map_renderer(&layer_kind) {
                 Err(e) => {
-                    error!("Failed to get latest bitmap for main map renderer: {:?}", e);
+                    error!("Failed to get latest bitmap for main map renderer: {e:?}");
                 }
                 Ok(journey_bitmap) => {
                     map_renderer.replace(journey_bitmap);
@@ -90,7 +87,6 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
         }));
         let main_map_renderer_token = map_server.register_map_renderer(main_map_renderer.clone());
         info!("main map renderer initialized");
-        // ======= WebView Transition codes END ===========
 
         MainState {
             storage,
@@ -106,9 +102,27 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
     }
 }
 
+// TODO: this design is not ideal, we need this becuase the `init` above uses an empty one.
+pub fn init_main_map() -> Result<()> {
+    let state = get();
+    let mut map_renderer = state.main_map_renderer.lock().unwrap();
+    let layer_kind = state.main_map_layer_kind.lock().unwrap();
+    let journey_bitmap = state
+        .storage
+        .get_latest_bitmap_for_main_map_renderer(&layer_kind)?;
+    map_renderer.replace(journey_bitmap);
+    Ok(())
+}
+
 pub fn subscribe_to_log_stream(sink: StreamSink<String>) -> Result<()> {
     let mut logger = logs::FLUTTER_LOGGER.lock().unwrap();
+    let old_sink = logger.take();
     *logger = Some(sink);
+    // NOTE: The following code is important for flutter hot restart. We need to
+    // release the `logger` lock before freeing the `old_sink`, otherwise
+    // there will be a deadlock.
+    drop(logger);
+    let _ = old_sink;
     Ok(())
 }
 
@@ -216,14 +230,10 @@ pub(crate) fn get_default_camera_option_from_journey_bitmap(
         })
 }
 
-pub fn get_map_renderer_proxy_for_journey(
-    journey_id: &str,
+fn get_map_renderer_proxy_for_journey_data_internal(
+    state: &'static MainState,
+    journey_data: JourneyData,
 ) -> Result<(MapRendererProxy, Option<CameraOption>)> {
-    let state = get();
-    let journey_data = state
-        .storage
-        .with_db_txn(|txn| txn.get_journey_data(journey_id))?;
-
     let journey_bitmap = match journey_data {
         JourneyData::Bitmap(bitmap) => bitmap,
         JourneyData::Vector(vector) => {
@@ -239,6 +249,25 @@ pub fn get_map_renderer_proxy_for_journey(
     let mut server = state.map_server.lock().unwrap();
     let token = server.register_map_renderer(Arc::new(Mutex::new(map_renderer)));
     Ok((MapRendererProxy::Token(token), default_camera_option))
+}
+
+pub fn get_map_renderer_proxy_for_journey(
+    journey_id: &str,
+) -> Result<(MapRendererProxy, Option<CameraOption>)> {
+    let state = get();
+    let journey_data = state
+        .storage
+        .with_db_txn(|txn| txn.get_journey_data(journey_id))?;
+    get_map_renderer_proxy_for_journey_data_internal(state, journey_data)
+}
+
+pub fn get_map_renderer_proxy_for_journey_data(
+    journey_data: &JourneyData,
+) -> Result<(MapRendererProxy, Option<CameraOption>)> {
+    let state = get();
+    // TODO: the clone here is not ideal, we should redesign the interface,
+    // maybe consider Arc.
+    get_map_renderer_proxy_for_journey_data_internal(state, journey_data.clone())
 }
 
 pub fn on_location_update(
