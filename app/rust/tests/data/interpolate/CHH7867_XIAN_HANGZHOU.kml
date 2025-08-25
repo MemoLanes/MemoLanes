@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2">
+<Document>
+    <name>FlightAware ✈ CHH7867 2024年 06月 11日 (XIY / ZLXY-HGH / ZSHC)</name>
+    <Placemark>
+        <name>ZLXY Airport</name>
+        <description><![CDATA[Xi'an Xianyang Int'l <br> 陕西 西安 CN<br><br><a href='http://www.flightaware.com/live/airport/ZLXY'>ZLXY airport activity (live)</a><br><a href='http://www.flightaware.com/resources/airport/ZLXY'>ZLXY airport information</a>]]></description>
+        <Point>
+            <coordinates>108.751592,34.447119,0</coordinates>
+        </Point>
+    </Placemark>
+    <Placemark>
+        <name>ZSHC Airport</name>
+        <description><![CDATA[Hangzhou Xiaoshan Int'l <br> 浙江 杭州 CN<br><br><a href='http://www.flightaware.com/live/airport/ZSHC'>ZSHC airport activity (live)</a><br><a href='http://www.flightaware.com/resources/airport/ZSHC'>ZSHC airport information</a>]]></description>
+        <Point>
+            <coordinates>120.431667,30.228333,0</coordinates>
+        </Point>
+    </Placemark>
+    <Placemark>
+        <name>CHH7867</name>
+        <description>ZLXY - ZSHC</description>
+        <gx:Track>
+            <extrude>1</extrude>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <gx:coord>108.751592 34.447119 0</gx:coord>
+            <gx:coord>118.46717 31.64244 8870</gx:coord>
+            <gx:coord>118.58153 31.63422 8870</gx:coord>
+            <gx:coord>118.65245 31.62785 8870</gx:coord>
+            <gx:coord>120.431667 30.228333 0</gx:coord>
+        </gx:Track>
+    </Placemark>
+    <ScreenOverlay>
+        <name>FlightAware</name>
+        <Icon>
+            <href>https://www.flightaware.com/images/logo_ge.png</href>
+        </Icon>
+        <overlayXY x="1" y="-1" xunits="fraction" yunits="fraction"/>
+        <screenXY x="1" y="0" xunits="fraction" yunits="fraction"/>
+        <size x="0" y="0" xunits="fraction" yunits="fraction"/>
+    </ScreenOverlay>
+</Document>
+
+</kml>
