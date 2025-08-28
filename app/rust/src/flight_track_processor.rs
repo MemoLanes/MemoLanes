@@ -254,16 +254,16 @@ impl PathInterpolator {
         let point_a = Point::to_geographic(x_a, y_a, z_a);
         let point_b = Point::to_geographic(x_b, y_b, z_b);
 
-        let dist_total = point1.haversine_distance(&point2);
+        let dist_total = point1.haversine_distance(point2);
 
         let dist1 = point1.haversine_distance(&point_a);
-        let dist2 = point_a.haversine_distance(&point2);
+        let dist2 = point_a.haversine_distance(point2);
         if (dist1 + dist2 - dist_total).abs() < 1e-6 {
             return Some(point_a.latitude);
         }
 
         let dist1 = point1.haversine_distance(&point_b);
-        let dist2 = point_b.haversine_distance(&point2);
+        let dist2 = point_b.haversine_distance(point2);
         if (dist1 + dist2 - dist_total).abs() < 1e-6 {
             return Some(point_b.latitude);
         }
