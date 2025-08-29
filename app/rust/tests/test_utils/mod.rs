@@ -13,12 +13,12 @@ use std::fs;
 use std::path::Path;
 use std::{fs::File, io::Write};
 
-const START_LNG: f64 = 151.1435370795134;
-const START_LAT: f64 = -33.793291910360125;
-const END_LNG: f64 = 151.2783692841415;
-const END_LAT: f64 = -33.943600147192235;
-const MID_LNG: f64 = (START_LNG + END_LNG) / 2.;
-const MID_LAT: f64 = (START_LAT + END_LAT) / 2.;
+pub const START_LNG: f64 = 151.1435370795134;
+pub const START_LAT: f64 = -33.793291910360125;
+pub const END_LNG: f64 = 151.2783692841415;
+pub const END_LAT: f64 = -33.943600147192235;
+pub const MID_LNG: f64 = (START_LNG + END_LNG) / 2.;
+pub const MID_LAT: f64 = (START_LAT + END_LAT) / 2.;
 
 #[derive(PartialEq, Eq)]
 pub struct RenderArea {
@@ -59,24 +59,23 @@ pub fn verify_image(name: &str, image: &Vec<u8>) {
         // Entry exists, compare hashes
         assert_eq!(
             &current_hash, stored_hash,
-            "Image hash mismatch for {}. Expected: {}, Got: {}. If you have updated the image, please delete the image_hashes.lock file and re-run the tests.",
-            name, stored_hash, current_hash
+            "Image hash mismatch for {name}. Expected: {stored_hash}, Got: {current_hash}. If you have updated the image, please delete the image_hashes.lock file and re-run the tests."
         );
-        println!("Verified image hash for: {}", name);
+        println!("Verified image hash for: {name}");
     } else {
         // No entry exists, add new entry
         hash_table.insert(name.to_string(), current_hash.clone());
         let hash_table_content =
             serde_json::to_string_pretty(&hash_table).expect("Failed to serialize hash table");
         fs::write(hash_table_path, hash_table_content).expect("Failed to write hash table file");
-        println!("Added new hash entry for: {}", name);
+        println!("Added new hash entry for: {name}");
     }
 
     // Always save the image file
-    let output_path = format!("tests/for_inspection/{}.png", name);
+    let output_path = format!("tests/for_inspection/{name}.png");
     let mut file = File::create(&output_path).expect("Failed to create file");
     file.write_all(image).expect("Failed to write to file");
-    println!("Saved image file: {}", output_path);
+    println!("Saved image file: {output_path}");
 }
 
 pub fn render_map_overlay(
@@ -176,16 +175,16 @@ fn render_map_overlay_internal(
     }
 }
 
-fn draw_line1(journey_bitmap: &mut JourneyBitmap) {
+pub fn draw_line1(journey_bitmap: &mut JourneyBitmap) {
     journey_bitmap.add_line(START_LNG, START_LAT, END_LNG, END_LAT)
 }
-fn draw_line2(journey_bitmap: &mut JourneyBitmap) {
+pub fn draw_line2(journey_bitmap: &mut JourneyBitmap) {
     journey_bitmap.add_line(START_LNG, END_LAT, END_LNG, START_LAT);
 }
-fn draw_line3(journey_bitmap: &mut JourneyBitmap) {
+pub fn draw_line3(journey_bitmap: &mut JourneyBitmap) {
     journey_bitmap.add_line(MID_LNG, START_LAT, MID_LNG, END_LAT)
 }
-fn draw_line4(journey_bitmap: &mut JourneyBitmap) {
+pub fn draw_line4(journey_bitmap: &mut JourneyBitmap) {
     journey_bitmap.add_line(START_LNG, MID_LAT, END_LNG, MID_LAT)
 }
 

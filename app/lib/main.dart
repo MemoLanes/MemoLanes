@@ -1,29 +1,31 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:memolanes/achievement.dart';
-import 'package:memolanes/component/bottom_nav_bar.dart';
-import 'package:memolanes/component/safe_area_wrapper.dart';
-import 'package:memolanes/gps_manager.dart';
-import 'package:memolanes/journey.dart';
-import 'package:memolanes/map.dart';
-import 'package:memolanes/settings.dart';
+import 'package:memolanes/body/achievement/achievement_body.dart';
+import 'package:memolanes/body/journey/journey_body.dart';
+import 'package:memolanes/body/privacy_agreement.dart';
+import 'package:memolanes/common/gps_manager.dart';
+import 'package:memolanes/body/map/map_body.dart';
+import 'package:memolanes/body/settings/settings_body.dart';
+import 'package:memolanes/body/time_machine/time_machine_body.dart';
+import 'package:memolanes/common/component/bottom_nav_bar.dart';
+import 'package:memolanes/common/component/safe_area_wrapper.dart';
+import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/utils.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/frb_generated.dart';
-import 'package:memolanes/time_machine.dart';
-import 'package:memolanes/utils.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-import 'logger.dart';
 
 GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+bool mainMapInitialized = false;
 
 void delayedInit(UpdateNotifier updateNotifier) {
   Future.delayed(const Duration(milliseconds: 4000), () async {
@@ -61,8 +63,7 @@ void delayedInit(UpdateNotifier updateNotifier) {
 
     // Db optimization check
     const currentOptimizationCheckVersion = 1;
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    var dbOptimizeCheck = prefs.getInt("dbOptimizationCheck") ?? 0;
+    final dbOptimizeCheck = MMKVUtil.getInt(MMKVKey.dbOptimizationCheck);
     if (dbOptimizeCheck < currentOptimizationCheckVersion) {
       if (await api.mainDbRequireOptimization()) {
         var context = navigatorKey.currentState?.context;
@@ -71,8 +72,8 @@ void delayedInit(UpdateNotifier updateNotifier) {
               context, context.tr("db_optimization.notification"));
         }
       } else {
-        await prefs.setInt(
-            "dbOptimizationCheck", currentOptimizationCheckVersion);
+        MMKVUtil.putInt(
+            MMKVKey.dbOptimizationCheck, currentOptimizationCheckVersion);
       }
     }
 
@@ -91,10 +92,11 @@ void main() async {
     // This is required since we are doing things before calling `runApp`.
     WidgetsFlutterBinding.ensureInitialized();
     await EasyLocalization.ensureInitialized();
+    await MMKVUtil.init();
 
     // TODO: Consider using `flutter_native_splash`
     await RustLib.init();
-    initLogger();
+    initLog();
     await api.init(
         tempDir: (await getTemporaryDirectory()).path,
         docDir: (await getApplicationDocumentsDirectory()).path,
@@ -110,13 +112,14 @@ void main() async {
         saveLocale: false,
         child: MultiProvider(
           providers: [
-            ChangeNotifierProvider(create: (context) => gpsManager),
-            ChangeNotifierProvider(create: (context) => updateNotifier),
+            // Do NOT use `create: (_) => gpsManager` here
+            ChangeNotifierProvider.value(value: gpsManager),
+            ChangeNotifierProvider.value(value: updateNotifier),
           ],
           child: const MyApp(),
         )));
-  }, (error, _) {
-    log.error('Uncaught exception in Flutter: $error');
+  }, (error, stackTrace) {
+    log.error('Uncaught exception in Flutter: $error', stackTrace);
   });
 }
 
@@ -149,16 +152,12 @@ class MyApp extends StatelessWidget {
       navigatorKey: navigatorKey,
       theme: ThemeData(
         useMaterial3: true,
-        fontFamily: 'MiSans',
+        fontFamilyFallback:
+            Platform.isIOS ? ['.AppleSystemUIFont', 'PingFang SC'] : null,
+        scaffoldBackgroundColor: const Color(0xFF141414),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.black,
-          primary: Colors.black,
-          secondary: Colors.black87,
-          tertiary: Colors.black54,
-          surface: Colors.white,
-          onPrimary: Colors.white,
-          onSecondary: Colors.white,
-          onSurface: Colors.black87,
+          seedColor: const Color(0xFFB6E13D),
+          brightness: Brightness.dark,
         ),
         iconTheme: const IconThemeData(
           color: Colors.black87,
@@ -188,6 +187,19 @@ class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      showPrivacyAgreementIfNeeded(context);
+
+      if (!mainMapInitialized) {
+        mainMapInitialized = true;
+        showLoadingDialog(context: context, asyncTask: api.initMainMap());
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
@@ -196,9 +208,9 @@ class _MyHomePageState extends State<MyHomePage> {
               useSafeArea: _selectedIndex !=
                   0, // we don't need safe area for `MapUiBody`
               child: switch (_selectedIndex) {
-                0 => const MapUiBody(),
-                1 => const TimeMachineUIBody(),
-                2 => const JourneyUiBody(),
+                0 => const MapBody(),
+                1 => const TimeMachineBody(),
+                2 => const JourneyBody(),
                 3 => const AchievementBody(),
                 4 => const SettingsBody(),
                 _ => throw FormatException('Invalid index: $_selectedIndex')
