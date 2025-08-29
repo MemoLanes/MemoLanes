@@ -21,7 +21,7 @@ fn interpolate_test(name: &str) {
     let loaded_data =
         import_data::load_kml(&format!("./tests/data/interpolate/{}.kml", name)).unwrap();
 
-    let result = PathInterpolator::interpolate(&loaded_data[0]);
+    let result = PathInterpolator::process_flight_track(&loaded_data[0]);
     let mut file =
         File::create(format!("./tests/for_inspection/interpolate_{}.gpx", name)).unwrap();
     export_data::journey_vector_to_gpx_file(&result, &mut file).unwrap();

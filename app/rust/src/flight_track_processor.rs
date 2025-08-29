@@ -7,7 +7,7 @@ pub struct PathInterpolator {}
 
 impl PathInterpolator {
     // main func to interpolate rawdata to a smooth journeyvetor
-    pub fn interpolate(source_data: &[RawData]) -> JourneyVector {
+    pub fn process_flight_track(source_data: &[RawData]) -> JourneyVector {
         let mut track_segments = Vec::new();
         // interpolate step_length
         const STEP_LENGTH: f64 = 1000.;
@@ -180,11 +180,18 @@ impl PathInterpolator {
             // get sample points index
             let sample_points =
                 PathInterpolator::generate_range(*distance.last().unwrap(), step_length);
+
+            let round_to_two_decimal_places = |num: f64| (num * 1000000.0).round() / 1000000.0;
+
             // do sample to get result
             sample_points.iter().for_each(|num| {
                 track_points.push(TrackPoint {
-                    latitude: spline_lat.sample(*num).unwrap_or_default(),
-                    longitude: spline_lon.sample(*num).unwrap_or_default(),
+                    latitude: round_to_two_decimal_places(
+                        spline_lat.sample(*num).unwrap_or_default(),
+                    ),
+                    longitude: round_to_two_decimal_places(
+                        spline_lon.sample(*num).unwrap_or_default(),
+                    ),
                 })
             });
 
