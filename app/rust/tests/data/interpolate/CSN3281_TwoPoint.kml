@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2">
+<Document>
+    <name>FlightAware ✈ CSN3281 2025年 01月 05日 (PKX / ZBAD-HGH / ZSHC)</name>
+    <Placemark>
+        <name>ZBAD Airport</name>
+        <description><![CDATA[Beijing Daxing International Airport <br> Beijing<br><br><a href='http://www.flightaware.com/live/airport/ZBAD'>ZBAD airport activity (live)</a><br><a href='http://www.flightaware.com/resources/airport/ZBAD'>ZBAD airport information</a>]]></description>
+        <Point>
+            <coordinates>116.410556,39.509167,0</coordinates>
+        </Point>
+    </Placemark>
+    <Placemark>
+        <name>ZSHC Airport</name>
+        <description><![CDATA[Hangzhou Xiaoshan Int'l <br> 浙江 杭州 CN<br><br><a href='http://www.flightaware.com/live/airport/ZSHC'>ZSHC airport activity (live)</a><br><a href='http://www.flightaware.com/resources/airport/ZSHC'>ZSHC airport information</a>]]></description>
+        <Point>
+            <coordinates>120.431667,30.228333,0</coordinates>
+        </Point>
+    </Placemark>
+    <Placemark>
+        <name>CSN3281</name>
+        <description>ZBAD - ZSHC</description>
+        <gx:Track>
+            <extrude>1</extrude>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+        </gx:Track>
+    </Placemark>
+    <ScreenOverlay>
+        <name>FlightAware</name>
+        <Icon>
+            <href>https://www.flightaware.com/images/logo_ge.png</href>
+        </Icon>
+        <overlayXY x="1" y="-1" xunits="fraction" yunits="fraction"/>
+        <screenXY x="1" y="0" xunits="fraction" yunits="fraction"/>
+        <size x="0" y="0" xunits="fraction" yunits="fraction"/>
+    </ScreenOverlay>
+</Document>
+
+</kml>
