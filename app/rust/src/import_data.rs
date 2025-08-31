@@ -12,7 +12,7 @@ use anyhow::Result;
 use chrono::{DateTime, Local, TimeZone, Utc};
 use flate2::read::ZlibDecoder;
 use gpx::{read, Time};
-use kml::types::{CoordType, Element, Geometry};
+use kml::types::{Element, Geometry};
 use kml::Kml::Placemark;
 use kml::{Kml, KmlReader};
 use std::result::Result::Ok;
