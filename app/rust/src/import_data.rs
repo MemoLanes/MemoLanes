@@ -12,7 +12,8 @@ use anyhow::Result;
 use chrono::{DateTime, Local, TimeZone, Utc};
 use flate2::read::ZlibDecoder;
 use gpx::{read, Time};
-use kml::types::Geometry;
+use kml::types::{CoordType, Element, Geometry};
+use kml::Kml::Placemark;
 use kml::{Kml, KmlReader};
 use std::result::Result::Ok;
 use std::vec;
@@ -298,25 +299,68 @@ fn read_track(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
 
 fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
     let mut raw_vector_data: Vec<Vec<RawData>> = Vec::new();
-    flatten_data.iter().for_each(|k| {
-        let mut raw_vector_data_segment: Vec<RawData> = Vec::new();
-        if let Kml::Placemark(p) = k {
-            if let Some(Geometry::LineString(p)) = &p.geometry {
-                p.coords.iter().for_each(|coord| {
-                    raw_vector_data_segment.push(RawData {
-                        point: Point {
-                            latitude: coord.y,
-                            longitude: coord.x,
-                        },
-                        timestamp_ms: None,
-                        accuracy: None,
-                        altitude: None,
-                        speed: None,
-                    });
-                });
+
+    let convert_to_timestamp = |when: Option<String>| -> Option<i64> {
+        match when {
+            None => None,
+            Some(when) => {
+                let datetime = DateTime::parse_from_rfc3339(&when).ok()?;
+                Some(datetime.timestamp_millis())
             }
         }
-        raw_vector_data.push(raw_vector_data_segment);
+    };
+
+    let extract_time_from_children = |timestamp_element: &Element| -> Option<String> {
+        timestamp_element
+            .children
+            .iter()
+            .find(|e| e.name == "when")
+            .and_then(|when_element| when_element.content.clone())
+    };
+
+    flatten_data.iter().for_each(|k| {
+        let mut raw_vector_data_segment: Vec<RawData> = Vec::new();
+
+        if let Placemark(p) = k {
+            if let Some(geometry) = &p.geometry {
+                match geometry {
+                    Geometry::Point(point) => {
+                        if let Some(timestamp_element) =
+                            p.children.iter().find(|e| e.name == "TimeStamp")
+                        {
+                            raw_vector_data_segment.push(RawData {
+                                point: Point {
+                                    latitude: point.coord.y,
+                                    longitude: point.coord.x,
+                                },
+                                timestamp_ms: convert_to_timestamp(extract_time_from_children(
+                                    timestamp_element,
+                                )),
+                                accuracy: None,
+                                altitude: None,
+                                speed: None,
+                            });
+                        }
+                    }
+                    Geometry::LineString(line_string) => {
+                        line_string.coords.iter().for_each(|coord| {
+                            raw_vector_data_segment.push(RawData {
+                                point: Point {
+                                    latitude: coord.y,
+                                    longitude: coord.x,
+                                },
+                                timestamp_ms: None,
+                                accuracy: None,
+                                altitude: None,
+                                speed: None,
+                            });
+                        });
+                    }
+                    _ => return,
+                }
+            }
+            raw_vector_data.push(raw_vector_data_segment);
+        }
     });
     Ok(raw_vector_data)
 }
