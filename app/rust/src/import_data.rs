@@ -15,6 +15,7 @@ use gpx::{read, Time};
 use kml::types::{Element, Geometry};
 use kml::Kml::Placemark;
 use kml::{Kml, KmlReader};
+use std::cell::RefCell;
 use std::result::Result::Ok;
 use std::vec;
 use std::{fs::File, io::BufReader, io::Read, path::Path};
@@ -318,9 +319,9 @@ fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
             .and_then(|when_element| when_element.content.clone())
     };
 
-    flatten_data.iter().for_each(|k| {
-        let mut raw_vector_data_segment: Vec<RawData> = Vec::new();
+    let raw_vector_data_segment: RefCell<Vec<RawData>> = RefCell::new(Vec::new());
 
+    flatten_data.iter().for_each(|k| {
         if let Placemark(p) = k {
             if let Some(geometry) = &p.geometry {
                 match geometry {
@@ -328,7 +329,7 @@ fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
                         if let Some(timestamp_element) =
                             p.children.iter().find(|e| e.name == "TimeStamp")
                         {
-                            raw_vector_data_segment.push(RawData {
+                            raw_vector_data_segment.borrow_mut().push(RawData {
                                 point: Point {
                                     latitude: point.coord.y,
                                     longitude: point.coord.x,
@@ -344,7 +345,7 @@ fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
                     }
                     Geometry::LineString(line_string) => {
                         line_string.coords.iter().for_each(|coord| {
-                            raw_vector_data_segment.push(RawData {
+                            raw_vector_data_segment.borrow_mut().push(RawData {
                                 point: Point {
                                     latitude: coord.y,
                                     longitude: coord.x,
@@ -355,13 +356,20 @@ fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
                                 speed: None,
                             });
                         });
+
+                        // we treat different `LineString` as different segments
+                        if !raw_vector_data_segment.borrow().is_empty() {
+                            raw_vector_data.push(raw_vector_data_segment.replace(Vec::new()));
+                        }
                     }
-                    _ => return,
+                    _ => (),
                 }
             }
-            raw_vector_data.push(raw_vector_data_segment);
         }
     });
+    if !raw_vector_data_segment.borrow().is_empty() {
+        raw_vector_data.push(raw_vector_data_segment.into_inner());
+    }
     Ok(raw_vector_data)
 }
 
