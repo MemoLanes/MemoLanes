@@ -17,7 +17,9 @@ pub fn process(raw_data: &[Vec<RawData>]) -> Option<JourneyVector> {
             .map(|data| data.point.clone())
             .collect();
         for seg in PathInterpolator::split_trajectory_at_180(&points) {
-            if let Some(result) = PathInterpolator::interpolate_one_seg(&seg, STEP_LENGTH) { track_segments.push(result) }
+            if let Some(result) = PathInterpolator::interpolate_one_seg(&seg, STEP_LENGTH) {
+                track_segments.push(result)
+            }
         }
     }
 

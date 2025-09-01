@@ -25,7 +25,10 @@ fn run_tests() {
         export_data::journey_vector_to_gpx_file(&result, &mut Cursor::new(&mut gpx)).unwrap();
         verify_gpx(name, &gpx);
         if GENERATE_RESULT_GPX_FOR_INSPECTION {
-            let mut file = File::create(format!("./tests/for_inspection/flight_track_processor_{name}.gpx")).unwrap();
+            let mut file = File::create(format!(
+                "./tests/for_inspection/flight_track_processor_{name}.gpx"
+            ))
+            .unwrap();
             file.write_all(&gpx).unwrap();
         }
     }

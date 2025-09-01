@@ -89,8 +89,10 @@ pub fn process_vector_data(
     vector_data: &RawVectorData,
     run_preprocessor: bool,
 ) -> Result<JourneyData> {
-    let journey_vector =
-        import_data::journey_vector_from_raw_data_with_gps_preprocessor(&vector_data.data, run_preprocessor);
+    let journey_vector = import_data::journey_vector_from_raw_data_with_gps_preprocessor(
+        &vector_data.data,
+        run_preprocessor,
+    );
     match journey_vector {
         None => {
             // TODO: return a structured error to outside for better error handling.
