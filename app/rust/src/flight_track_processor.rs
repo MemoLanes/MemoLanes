@@ -3,27 +3,37 @@ use crate::{
     journey_vector::{JourneyVector, TrackPoint, TrackSegment},
 };
 
-pub struct PathInterpolator {}
+// main func to interpolate rawdata to a smooth `JourneyVetor`
+pub fn process(raw_data: &[Vec<RawData>]) -> Option<JourneyVector> {
+    // interpolate step_length
+    const STEP_LENGTH: f64 = 1000.;
 
-impl PathInterpolator {
-    // main func to interpolate rawdata to a smooth journeyvetor
-    pub fn process_flight_track(source_data: &[RawData]) -> JourneyVector {
-        let mut track_segments = Vec::new();
-        // interpolate step_length
-        const STEP_LENGTH: f64 = 1000.;
+    let mut track_segments = Vec::new();
 
+    for raw_data_segment in raw_data {
         // get points
-        let points: Vec<Point> = source_data.iter().map(|data| data.point.clone()).collect();
-
-        // split_trajectory_at_180
-        let segs = PathInterpolator::split_trajectory_at_180(&points);
-
-        for seg in &segs {
-            track_segments.push(PathInterpolator::interpolate_one_seg(seg, STEP_LENGTH));
+        let points: Vec<Point> = raw_data_segment
+            .iter()
+            .map(|data| data.point.clone())
+            .collect();
+        for seg in PathInterpolator::split_trajectory_at_180(&points) {
+            match PathInterpolator::interpolate_one_seg(&seg, STEP_LENGTH) {
+                Some(result) => track_segments.push(result),
+                None => (),
+            }
         }
-        JourneyVector { track_segments }
     }
 
+    if track_segments.is_empty() {
+        None
+    } else {
+        Some(JourneyVector { track_segments })
+    }
+}
+
+struct PathInterpolator {}
+
+impl PathInterpolator {
     fn split_trajectory_at_180(trajectory: &[Point]) -> Vec<Vec<Point>> {
         if trajectory.len() < 2 {
             return vec![trajectory.to_vec()];
@@ -87,7 +97,7 @@ impl PathInterpolator {
     }
 
     // do interpolate for a track not pass the ±180
-    fn interpolate_one_seg(source_data: &[Point], step_length: f64) -> TrackSegment {
+    fn interpolate_one_seg(source_data: &[Point], step_length: f64) -> Option<TrackSegment> {
         // compute distance between two neighbor point
         let distances: Vec<f64> = source_data
             .windows(2)
@@ -108,14 +118,14 @@ impl PathInterpolator {
 
         let lats: Vec<f64> = source_data.iter().map(|x| x.latitude).collect();
         let lons: Vec<f64> = source_data.iter().map(|x| x.longitude).collect();
-        // return a TrackSegment
-        TrackSegment {
-            track_points: PathInterpolator::get_track_points(
-                &prefix_sums,
-                &lats,
-                &lons,
-                step_length,
-            ),
+
+        let track_points =
+            PathInterpolator::get_track_points(&prefix_sums, &lats, &lons, step_length);
+
+        if track_points.is_empty() {
+            None
+        } else {
+            Some(TrackSegment { track_points })
         }
     }
 

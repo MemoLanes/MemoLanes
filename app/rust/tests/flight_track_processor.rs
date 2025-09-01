@@ -1,40 +1,37 @@
 pub mod test_utils;
 
-use memolanes_core::flight_track_processor::PathInterpolator;
+use memolanes_core::flight_track_processor;
 use memolanes_core::{export_data, import_data};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::fs::{self, File};
+use std::io::{Cursor, Write};
 use std::path::Path;
 
 #[test]
-fn run_interpolate_test() {
-    interpolate_test("CHH7867_XIAN_HANGZHOU");
-    interpolate_test("CSN3281_TwoPoint");
-    interpolate_test("interpolate");
-    interpolate_test("interpolatecross180");
-    interpolate_test("tokyo_hawaii");
-    interpolate_test("tokyo_hawaii2");
-}
+fn run_tests() {
+    for name in &[
+        "CHH7867_XIAN_HANGZHOU",
+        "interpolate_cross_180",
+        "tokyo_hawaii",
+        "TV9882-3bf27ed6",
+    ] {
+        const GENERATE_RESULT_GPX_FOR_INSPECTION: bool = false;
 
-fn interpolate_test(name: &str) {
-    let loaded_data =
-        import_data::load_kml(&format!("./tests/data/interpolate/{}.kml", name)).unwrap();
-
-    let result = PathInterpolator::process_flight_track(&loaded_data[0]);
-    let mut file =
-        File::create(format!("./tests/for_inspection/interpolate_{}.gpx", name)).unwrap();
-    export_data::journey_vector_to_gpx_file(&result, &mut file).unwrap();
-
-    match fs::read(format!("./tests/for_inspection/interpolate_{}.gpx", name)) {
-        Ok(filedata) => verify_gpx(name, &filedata),
-        Err(_) => {
-            println!("file load error!")
+        let loaded_data =
+            import_data::load_kml(&format!("./tests/data/flight_{}.kml", name)).unwrap();
+        let result = flight_track_processor::process(&loaded_data).unwrap();
+        let mut gpx = Vec::new();
+        export_data::journey_vector_to_gpx_file(&result, &mut Cursor::new(&mut gpx)).unwrap();
+        verify_gpx(name, &gpx);
+        if GENERATE_RESULT_GPX_FOR_INSPECTION {
+            let mut file = File::create(format!("./tests/for_inspection/flight_track_processor_{}.gpx", name)).unwrap();
+            file.write_all(&gpx).unwrap();
         }
     }
 }
 
-fn verify_gpx(name: &str, gpx_file: &[u8]) {
+fn verify_gpx(name: &str, gpx_data: &[u8]) {
     let hash_table_path = "tests/gpx_hashes.lock";
     let mut hash_table: BTreeMap<String, String> = if Path::new(hash_table_path).exists() {
         let hash_table_content =
@@ -44,9 +41,9 @@ fn verify_gpx(name: &str, gpx_file: &[u8]) {
         BTreeMap::new()
     };
 
-    // Calculate hash of the current image
+    // Calculate hash of the gpx file
     let mut hasher = Sha256::new();
-    hasher.update(gpx_file);
+    hasher.update(gpx_data);
     let current_hash = format!("{:x}", hasher.finalize());
 
     if let Some(stored_hash) = hash_table.get(name) {

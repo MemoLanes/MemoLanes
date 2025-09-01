@@ -2144,6 +2144,7 @@ dependencies = [
  "sha1",
  "sha2",
  "simplelog",
+ "splines",
  "sql_split",
  "strum",
  "strum_macros",
@@ -3093,6 +3094,12 @@ dependencies = [
  "libc",
  "windows-sys 0.59.0",
 ]
+
+[[package]]
+name = "splines"
+version = "5.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b882be9bf6b37258bfba80ed5b5eeccccd6700bfbaca202bbd53e4c13bf3daa7"
 
 [[package]]
 name = "sql_split"
