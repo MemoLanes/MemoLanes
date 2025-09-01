@@ -19,13 +19,13 @@ fn run_tests() {
         const GENERATE_RESULT_GPX_FOR_INSPECTION: bool = false;
 
         let loaded_data =
-            import_data::load_kml(&format!("./tests/data/flight_{}.kml", name)).unwrap();
+            import_data::load_kml(&format!("./tests/data/flight_{name}.kml")).unwrap();
         let result = flight_track_processor::process(&loaded_data).unwrap();
         let mut gpx = Vec::new();
         export_data::journey_vector_to_gpx_file(&result, &mut Cursor::new(&mut gpx)).unwrap();
         verify_gpx(name, &gpx);
         if GENERATE_RESULT_GPX_FOR_INSPECTION {
-            let mut file = File::create(format!("./tests/for_inspection/flight_track_processor_{}.gpx", name)).unwrap();
+            let mut file = File::create(format!("./tests/for_inspection/flight_track_processor_{name}.gpx")).unwrap();
             file.write_all(&gpx).unwrap();
         }
     }
@@ -50,16 +50,15 @@ fn verify_gpx(name: &str, gpx_data: &[u8]) {
         // Entry exists, compare hashes
         assert_eq!(
             &current_hash, stored_hash,
-            "Gpx file hash mismatch for {}. Expected: {}, Got: {}. If you have updated the gpx file, please delete the gpx_hashes.lock file and re-run the tests.",
-            name, stored_hash, current_hash
+            "Gpx file hash mismatch for {name}. Expected: {stored_hash}, Got: {current_hash}. If you have updated the gpx file, please delete the gpx_hashes.lock file and re-run the tests."
         );
-        println!("Verified gpx file hash for: {}", name);
+        println!("Verified gpx file hash for: {name}");
     } else {
         // No entry exists, add new entry
         hash_table.insert(name.to_string(), current_hash.clone());
         let hash_table_content =
             serde_json::to_string_pretty(&hash_table).expect("Failed to serialize hash table");
         fs::write(hash_table_path, hash_table_content).expect("Failed to write hash table file");
-        println!("Added new hash entry for: {}", name);
+        println!("Added new hash entry for: {name}");
     }
 }
