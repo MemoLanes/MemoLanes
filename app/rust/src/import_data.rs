@@ -326,22 +326,22 @@ fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
             if let Some(geometry) = &p.geometry {
                 match geometry {
                     Geometry::Point(point) => {
-                        if let Some(timestamp_element) =
-                            p.children.iter().find(|e| e.name == "TimeStamp")
-                        {
-                            raw_vector_data_segment.borrow_mut().push(RawData {
-                                point: Point {
-                                    latitude: point.coord.y,
-                                    longitude: point.coord.x,
-                                },
-                                timestamp_ms: convert_to_timestamp(extract_time_from_children(
-                                    timestamp_element,
-                                )),
-                                accuracy: None,
-                                altitude: None,
-                                speed: None,
-                            });
-                        }
+                        let timestamp_ms = convert_to_timestamp(
+                            p.children
+                                .iter()
+                                .find(|e| e.name == "TimeStamp")
+                                .and_then(extract_time_from_children),
+                        );
+                        raw_vector_data_segment.borrow_mut().push(RawData {
+                            point: Point {
+                                latitude: point.coord.y,
+                                longitude: point.coord.x,
+                            },
+                            timestamp_ms,
+                            accuracy: None,
+                            altitude: None,
+                            speed: None,
+                        });
                     }
                     Geometry::LineString(line_string) => {
                         line_string.coords.iter().for_each(|coord| {
