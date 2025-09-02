@@ -190,15 +190,15 @@ impl PathInterpolator {
             let sample_points =
                 PathInterpolator::generate_range(*distance.last().unwrap(), step_length);
 
-            let round_to_two_decimal_places = |num: f64| (num * 1000000.0).round() / 1000000.0;
+            let round_to_six_decimal_places = |num: f64| (num * 1000000.0).round() / 1000000.0;
 
             // do sample to get result
             sample_points.iter().for_each(|num| {
                 track_points.push(TrackPoint {
-                    latitude: round_to_two_decimal_places(
+                    latitude: round_to_six_decimal_places(
                         spline_lat.sample(*num).unwrap_or_default(),
                     ),
-                    longitude: round_to_two_decimal_places(
+                    longitude: round_to_six_decimal_places(
                         spline_lon.sample(*num).unwrap_or_default(),
                     ),
                 })
@@ -240,10 +240,12 @@ impl PathInterpolator {
     }
 
     fn find_180_intersection(point1: &Point, point2: &Point) -> Option<f64> {
-        if point1.longitude.abs() > 179.999_999_999 {
+        const EPSILON: f64 = 1e-6;
+
+        if point1.longitude.abs() >= 180. {
             return Some(point1.latitude);
         }
-        if point2.longitude.abs() > 179.999_999_999 {
+        if point2.longitude.abs() >= 180. {
             return Some(point2.latitude);
         }
 
@@ -259,7 +261,7 @@ impl PathInterpolator {
         let dir_z = nx * 1.0 - ny * 0.0;
 
         let a = dir_x * dir_x + dir_y * dir_y + dir_z * dir_z;
-        if a.abs() < 1e-12 {
+        if a.abs() < EPSILON * EPSILON {
             return None;
         }
 
@@ -274,13 +276,13 @@ impl PathInterpolator {
 
         let dist1 = point1.haversine_distance(&point_a);
         let dist2 = point_a.haversine_distance(point2);
-        if (dist1 + dist2 - dist_total).abs() < 1e-6 {
+        if (dist1 + dist2 - dist_total).abs() < EPSILON {
             return Some(point_a.latitude);
         }
 
         let dist1 = point1.haversine_distance(&point_b);
         let dist2 = point_b.haversine_distance(point2);
-        if (dist1 + dist2 - dist_total).abs() < 1e-6 {
+        if (dist1 + dist2 - dist_total).abs() < EPSILON {
             return Some(point_b.latitude);
         }
 
