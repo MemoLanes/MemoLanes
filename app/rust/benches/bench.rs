@@ -25,7 +25,8 @@ fn journey_area_calculation(c: &mut Criterion) {
                 import_data::load_gpx("./tests/data/nelson_to_wharariki_beach.gpx").unwrap();
 
             let journey_vector =
-                import_data::journey_vector_from_raw_data(&raw_data, false).unwrap();
+                import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data, false)
+                    .unwrap();
             let mut journey_bitmap = JourneyBitmap::new();
             merged_journey_builder::add_journey_vector_to_journey_bitmap(
                 &mut journey_bitmap,
@@ -51,7 +52,8 @@ fn journey_bitmap(c: &mut Criterion) {
         let load_journey_vector = |name| {
             let filename = format!("./tests/data/{name}.gpx");
             let raw_data = import_data::load_gpx(&filename).unwrap();
-            import_data::journey_vector_from_raw_data(&raw_data, true).unwrap()
+            import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data, true)
+                .unwrap()
         };
 
         let nelson_to_wharariki_beach = load_journey_vector("nelson_to_wharariki_beach");

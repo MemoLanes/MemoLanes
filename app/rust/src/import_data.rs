@@ -1,4 +1,5 @@
 use crate::api::import::JourneyInfo;
+use crate::flight_track_processor;
 use crate::gps_processor::{Point, PreprocessedData, ProcessResult, RawData};
 use crate::journey_bitmap::{
     self, Block, BlockKey, JourneyBitmap, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH,
@@ -326,22 +327,22 @@ fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
             if let Some(geometry) = &p.geometry {
                 match geometry {
                     Geometry::Point(point) => {
-                        if let Some(timestamp_element) =
-                            p.children.iter().find(|e| e.name == "TimeStamp")
-                        {
-                            raw_vector_data_segment.borrow_mut().push(RawData {
-                                point: Point {
-                                    latitude: point.coord.y,
-                                    longitude: point.coord.x,
-                                },
-                                timestamp_ms: convert_to_timestamp(extract_time_from_children(
-                                    timestamp_element,
-                                )),
-                                accuracy: None,
-                                altitude: None,
-                                speed: None,
-                            });
-                        }
+                        let timestamp_ms = convert_to_timestamp(
+                            p.children
+                                .iter()
+                                .find(|e| e.name == "TimeStamp")
+                                .and_then(extract_time_from_children),
+                        );
+                        raw_vector_data_segment.borrow_mut().push(RawData {
+                            point: Point {
+                                latitude: point.coord.y,
+                                longitude: point.coord.x,
+                            },
+                            timestamp_ms,
+                            accuracy: None,
+                            altitude: None,
+                            speed: None,
+                        });
                     }
                     Geometry::LineString(line_string) => {
                         line_string.coords.iter().for_each(|coord| {
@@ -384,16 +385,16 @@ fn flatten_kml(kml: Kml) -> Vec<Kml> {
     }
 }
 
-pub fn journey_vector_from_raw_data(
+pub fn journey_vector_from_raw_data_with_gps_preprocessor(
     raw_data: &[Vec<RawData>],
-    run_preprocessor: bool,
+    enable_preprocessor: bool,
 ) -> Option<JourneyVector> {
     let processed_data = raw_data.iter().flat_map(move |x| {
         // we handle each segment separately
         let mut gps_preprocessor = GpsPreprocessor::new();
         let mut first = true;
         x.iter().map(move |raw_data| {
-            let process_result = if run_preprocessor {
+            let process_result = if enable_preprocessor {
                 gps_preprocessor.preprocess(raw_data)
             } else if first {
                 first = false;
@@ -419,6 +420,12 @@ pub fn journey_vector_from_raw_data(
         None => None,
         Some(ongoing_journey) => Some(ongoing_journey.journey_vector),
     }
+}
+
+pub fn journey_vector_from_raw_data_with_flight_track_processor(
+    raw_data: &[Vec<RawData>],
+) -> Option<JourneyVector> {
+    flight_track_processor::process(raw_data)
 }
 
 pub fn journey_info_from_raw_vector_data(raw_vector_data: &[Vec<RawData>]) -> JourneyInfo {

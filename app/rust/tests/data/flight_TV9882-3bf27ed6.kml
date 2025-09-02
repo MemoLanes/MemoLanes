@@ -1,0 +1,4211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>TV9882/TBA9882</name>
+    <description><![CDATA[<div style="width:220px; text-align:center;">
+<div style="width:210px; text-align:center;">
+<div style=" background: #000; color: #fff; font-size: 14px; text-align:left; border: 1px solid #000; padding: 2px 6px; text-shadow: 0 1px 0 #000; box-shadow: 0 1px 3px rgba(0,0,0,0.6); background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#808080), color-stop(2%,#303030), color-stop(100%,#0c0c0c));"><span style="font-size: 14px; font-weight: bold;"><a href="https://www.flightradar24.com/flight/tv9882" style="color: #fff; cursor: pointer;text-decoration: none;">TV9882</a></span> / TBA9882<br/>Tibet Airlines</div>
+<div>
+<span style="margin: 125px 0 0 10px; color: #f0f0f0; font-size: 0.7em !important; padding: 2px 3px; position: absolute; text-align: right; text-shadow: 0 1px 0 #000; width: 194px; background: -moz-linear-gradient(left,  rgba(0,0,0,0) 0%, rgba(0,0,0,0.45) 65%, rgba(0,0,0,0.45) 100%);  background: -webkit-gradient(linear, left top, right top, color-stop(0%,rgba(0,0,0,0)), color-stop(65%,rgba(0,0,0,0.45)), color-stop(100%,rgba(0,0,0,0.45)));  background: -webkit-linear-gradient(left,  rgba(0,0,0,0) 0%,rgba(0,0,0,0.45) 65%,rgba(0,0,0,0.45) 100%); background: -o-linear-gradient(left,  rgba(0,0,0,0) 0%,rgba(0,0,0,0.45) 65%,rgba(0,0,0,0.45) 100%);  background: -ms-linear-gradient(left,  rgba(0,0,0,0) 0%,rgba(0,0,0,0.45) 65%,rgba(0,0,0,0.45) 100%); background: linear-gradient(to right,  rgba(0,0,0,0) 0%,rgba(0,0,0,0.45) 65%,rgba(0,0,0,0.45) 100%); ">&copy; 6186</span>
+<a title="View bigger image of B-8420 at Jetphotos.com" target="_blank" href="https://www.flightradar24.com/redir.php?url=https%3A%2F%2Fwww.jetphotos.com%2Fphoto%2F11803325">
+<img style="width:210px;" src="https://cdn.jetphotos.com/200/6/812579_1754546807_tb.jpg?v=0"/>
+</a>
+</div>
+<div style="border-top: 1px solid #005c90; color: #fff; padding-bottom: 5px; box-shadow: 0 0 1px #9BE3F6 inset, 0 1px 0 #9BE3F6 inset, 0 -1px 3px rgba(0,0,0,0.4); background:rgba(43,114,173,1); background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,rgba(92,184,229,1)), color-stop(100%,rgba(43,114,173,1)));">
+<a style="text-decoration: none; color: rgb(255, 255, 255); font-size: 12px; width:77px; display: inline-block;" title="Chengdu Airport" href="https://www.flightradar24.com/airport/ctu/departures"><h3 style="padding: 0px; margin: 10px 0px 0px; font-size: 16px; ">CTU</h3>Chengdu</a>
+<span style="background: url(https://www.flightradar24.com/static/images/userUI_sprite.png?14) no-repeat scroll 0 -464px rgba(0, 0, 0, 0); border: medium none; display: inline-block; height: 16px; width: 45px;"></span>
+<a style="text-decoration: none; color: rgb(255, 255, 255); font-size: 12px; width:77px; display: inline-block;" title="Lhasa Airport" href="https://www.flightradar24.com/airport/lxa/arrivals"><h3 style="padding: 0px; margin: 10px 0px 0px; font-size: 16px;">LXA</h3>Lhasa</a>
+<div style=" margin-top:10px;">
+<div style="display: inline-block; font-size: 12px; padding: 0 5px;">
+<div>
+<span style="color: #c1eaff;" title="Scheduled Time of Departure">STD </span>
+<span title="2025-08-28 12:55">12:55</span> <span title="Coordinated Universal Time">UTC</span>
+</div>
+<div>
+<span style="color: #c1eaff;" title="Actual Time of Departure">ATD </span>
+<span title="2025-08-28 13:01">13:01</span> <span title="Coordinated Universal Time">UTC</span>
+</div>
+</div>
+<div style="display: inline-block; font-size: 12px; padding: 0 5px;">
+<div>
+<span style="color: #c1eaff;" title="Scheduled Time of Arrival">STA </span>
+<span title="2025-08-28 15:10">15:10</span> <span title="Coordinated Universal Time">UTC</span>
+</div>
+<div>
+<span style="color: #c1eaff;" title="Estimated Time of Arrival">ETA </span>
+<span title="2025-08-28 14:54">14:54</span> <span title="Coordinated Universal Time">UTC</span>
+</div>
+</div>
+</div>
+<br style="clear: both;"/>
+</div>
+
+<div style="display: block;">
+<table style="border-collapse: collapse; width: 100%;">
+<tr style="border-right: 1px solid #dadada; ">
+<td style="background: none repeat scroll 0 0 #dadada; padding: 0; width: 31px;">
+<span style="background: url(https://www.flightradar24.com/static/images/userUI_sprite.png?14) no-repeat scroll -208px -464px rgba(0, 0, 0, 0); height: 26px; margin: 8px 0 0 4px; width: 23px; display: block;"></span>
+</td>
+<td colspan="2" style="border-bottom: 1px solid #dadada; border-left: 1px solid #dadada; color: #666; line-height: 1.1em; padding: 3px 6px; vertical-align: top; font-size: 14px;">
+Aircraft<span style="float: right; font-size: 12px;">(A332)</span><br>
+<span style="color: #333; font-size: 16px; font-weight: bold; line-height: 1.3em;">Airbus A330-243</span>
+</td>
+</tr>
+<tr style="border-right: 1px solid #dadada; ">
+<td style="background: none repeat scroll 0 0 #dadada; padding: 0; width: 31px;">
+<td colspan="2" style="border-bottom: 1px solid #dadada; border-left: 1px solid #dadada; color: #666; line-height: 1.1em; padding: 3px 6px; vertical-align: top; font-size: 14px;">
+Registration<br>
+<span style="color: #333; font-size: 16px; font-weight: bold; line-height: 1.3em;"><a href="https://www.flightradar24.com/reg/b-8420" style="text-decoration: none; color: #333;">B-8420</a></span>
+</td>
+</tr>
+</table>
+</div>
+
+</div>
+</div>]]></description>
+    <Folder>
+      <name>Route</name>
+      <Placemark>
+        <name>2025-08-28 12:59:35 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>22 kt</span></div>
+<div><span><b>Heading:</b></span> <span>16&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T12:59:35+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>16</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.944199,30.565556,0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 12:59:49 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>24 kt</span></div>
+<div><span><b>Heading:</b></span> <span>16&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T12:59:49+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>16</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.943558,30.564175,0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:00:00 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>16 kt</span></div>
+<div><span><b>Heading:</b></span> <span>16&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:00:00+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>16</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.943115,30.563232,0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:00:50 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>11 kt</span></div>
+<div><span><b>Heading:</b></span> <span>16&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:00:50+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>16</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.94075,30.563381,0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:01:03 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>9 kt</span></div>
+<div><span><b>Heading:</b></span> <span>16&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:01:03+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>16</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.940193,30.563679,0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:01:18 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>9 kt</span></div>
+<div><span><b>Heading:</b></span> <span>16&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:01:18+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>16</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.940346,30.564266,0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:01:29 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>22 kt</span></div>
+<div><span><b>Heading:</b></span> <span>22&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:01:29+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>22</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.940651,30.564926,0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:01:41 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>68 kt</span></div>
+<div><span><b>Heading:</b></span> <span>22&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:01:41+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>22</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.941849,30.567478,0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:02:12 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>1,950 ft</span></div>
+<div><span><b>Speed:</b></span> <span>163 kt</span></div>
+<div><span><b>Heading:</b></span> <span>22&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:02:12+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>22</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.950333,30.585705,594.36</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:02:32 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>2,925 ft</span></div>
+<div><span><b>Speed:</b></span> <span>150 kt</span></div>
+<div><span><b>Heading:</b></span> <span>22&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:02:32+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>22</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.956589,30.598789,891.54</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:02:42 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>3,500 ft</span></div>
+<div><span><b>Speed:</b></span> <span>140 kt</span></div>
+<div><span><b>Heading:</b></span> <span>22&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:02:42+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>22</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.959503,30.60498,1066.8</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:02:52 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>4,000 ft</span></div>
+<div><span><b>Speed:</b></span> <span>133 kt</span></div>
+<div><span><b>Heading:</b></span> <span>22&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:02:52+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>22</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.962357,30.61117,1219.2</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:03:02 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>4,375 ft</span></div>
+<div><span><b>Speed:</b></span> <span>128 kt</span></div>
+<div><span><b>Heading:</b></span> <span>21&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:03:02+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>21</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.964668,30.616243,1333.5</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:03:12 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>4,750 ft</span></div>
+<div><span><b>Speed:</b></span> <span>128 kt</span></div>
+<div><span><b>Heading:</b></span> <span>21&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:03:12+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>21</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.967178,30.62178,1447.8</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:03:17 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>4,925 ft</span></div>
+<div><span><b>Speed:</b></span> <span>128 kt</span></div>
+<div><span><b>Heading:</b></span> <span>21&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:03:17+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>21</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.96846,30.624668,1501.14</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:03:27 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>5,125 ft</span></div>
+<div><span><b>Speed:</b></span> <span>138 kt</span></div>
+<div><span><b>Heading:</b></span> <span>23&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:03:27+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>23</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.971153,30.63044,1562.1</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:03:42 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>5,325 ft</span></div>
+<div><span><b>Speed:</b></span> <span>163 kt</span></div>
+<div><span><b>Heading:</b></span> <span>23&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:03:42+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>23</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.976044,30.64036,1623.06</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:03:57 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>5,500 ft</span></div>
+<div><span><b>Speed:</b></span> <span>189 kt</span></div>
+<div><span><b>Heading:</b></span> <span>24&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:03:57+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>24</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.981804,30.651901,1676.4</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:04:12 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>5,750 ft</span></div>
+<div><span><b>Speed:</b></span> <span>217 kt</span></div>
+<div><span><b>Heading:</b></span> <span>24&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:04:12+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>24</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.988289,30.664221,1752.6</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:04:27 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>6,175 ft</span></div>
+<div><span><b>Speed:</b></span> <span>238 kt</span></div>
+<div><span><b>Heading:</b></span> <span>25&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:04:27+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>25</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.996254,30.679182,1882.14</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:04:37 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>6,550 ft</span></div>
+<div><span><b>Speed:</b></span> <span>248 kt</span></div>
+<div><span><b>Heading:</b></span> <span>25&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:04:37+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>25</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.001587,30.689159,1996.44</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:04:57 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>7,250 ft</span></div>
+<div><span><b>Speed:</b></span> <span>270 kt</span></div>
+<div><span><b>Heading:</b></span> <span>25&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:04:57+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>25</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.013977,30.712051,2209.8</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:05:12 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>7,900 ft</span></div>
+<div><span><b>Speed:</b></span> <span>278 kt</span></div>
+<div><span><b>Heading:</b></span> <span>26&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:05:12+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>26</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.022972,30.728714,2407.92</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:05:27 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>8,525 ft</span></div>
+<div><span><b>Speed:</b></span> <span>287 kt</span></div>
+<div><span><b>Heading:</b></span> <span>27&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:05:27+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>27</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.033958,30.747116,2598.42</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:05:47 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>9,475 ft</span></div>
+<div><span><b>Speed:</b></span> <span>294 kt</span></div>
+<div><span><b>Heading:</b></span> <span>27&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:05:47+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>27</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.047836,30.77033,2887.98</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:06:02 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>10,225 ft</span></div>
+<div><span><b>Speed:</b></span> <span>296 kt</span></div>
+<div><span><b>Heading:</b></span> <span>28&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:06:02+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>28</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.058678,30.788223,3116.58</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:06:17 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>10,950 ft</span></div>
+<div><span><b>Speed:</b></span> <span>300 kt</span></div>
+<div><span><b>Heading:</b></span> <span>28&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:06:17+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>28</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.069748,30.806459,3337.56</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:06:32 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>11,750 ft</span></div>
+<div><span><b>Speed:</b></span> <span>302 kt</span></div>
+<div><span><b>Heading:</b></span> <span>27&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:06:32+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>27</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.081619,30.825216,3581.4</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:06:47 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>12,600 ft</span></div>
+<div><span><b>Speed:</b></span> <span>300 kt</span></div>
+<div><span><b>Heading:</b></span> <span>24&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:06:47+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>24</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.091888,30.844255,3840.48</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:07:25 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>15,000 ft</span></div>
+<div><span><b>Speed:</b></span> <span>302 kt</span></div>
+<div><span><b>Heading:</b></span> <span>25&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:07:25+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>25</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.125298,30.905823,4572</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:07:56 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>16,325 ft</span></div>
+<div><span><b>Speed:</b></span> <span>309 kt</span></div>
+<div><span><b>Heading:</b></span> <span>25&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:07:56+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>25</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.147644,30.945972,4975.86</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:08:28 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>17,350 ft</span></div>
+<div><span><b>Speed:</b></span> <span>327 kt</span></div>
+<div><span><b>Heading:</b></span> <span>19&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:08:28+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>19</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.170219,30.989498,5288.28</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:08:36 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>17,650 ft</span></div>
+<div><span><b>Speed:</b></span> <span>330 kt</span></div>
+<div><span><b>Heading:</b></span> <span>16&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:08:36+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>16</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.174507,31.00095,5379.72</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:08:38 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>17,725 ft</span></div>
+<div><span><b>Speed:</b></span> <span>331 kt</span></div>
+<div><span><b>Heading:</b></span> <span>15&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:08:38+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>15</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.17543,31.003922,5402.58</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:08:41 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>17,800 ft</span></div>
+<div><span><b>Speed:</b></span> <span>333 kt</span></div>
+<div><span><b>Heading:</b></span> <span>14&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:08:41+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>14</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.176674,31.007904,5425.44</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:08:43 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>17,875 ft</span></div>
+<div><span><b>Speed:</b></span> <span>332 kt</span></div>
+<div><span><b>Heading:</b></span> <span>13&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:08:43+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>13</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.177483,31.01088,5448.3</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:08:46 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>18,000 ft</span></div>
+<div><span><b>Speed:</b></span> <span>333 kt</span></div>
+<div><span><b>Heading:</b></span> <span>12&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:08:46+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>12</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.178574,31.015429,5486.4</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:08:48 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>18,075 ft</span></div>
+<div><span><b>Speed:</b></span> <span>333 kt</span></div>
+<div><span><b>Heading:</b></span> <span>10&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:08:48+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>10</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.179176,31.018269,5509.26</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:08:50 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>18,175 ft</span></div>
+<div><span><b>Speed:</b></span> <span>334 kt</span></div>
+<div><span><b>Heading:</b></span> <span>9&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:08:50+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>9</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.180061,31.022736,5539.74</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:08:54 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>18,300 ft</span></div>
+<div><span><b>Speed:</b></span> <span>335 kt</span></div>
+<div><span><b>Heading:</b></span> <span>8&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:08:54+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>8</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.180878,31.027485,5577.84</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:08:57 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>18,400 ft</span></div>
+<div><span><b>Speed:</b></span> <span>335 kt</span></div>
+<div><span><b>Heading:</b></span> <span>8&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:08:57+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>8</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.181648,31.032885,5608.32</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:09:03 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>18,425 ft</span></div>
+<div><span><b>Speed:</b></span> <span>335 kt</span></div>
+<div><span><b>Heading:</b></span> <span>8&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:09:03+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>8</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.181702,31.033537,5615.94</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:09:22 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>18,775 ft</span></div>
+<div><span><b>Speed:</b></span> <span>344 kt</span></div>
+<div><span><b>Heading:</b></span> <span>6&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:09:22+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>6</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.18412,31.054625,5722.62</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:10:11 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>20,700 ft</span></div>
+<div><span><b>Speed:</b></span> <span>359 kt</span></div>
+<div><span><b>Heading:</b></span> <span>343&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:10:11+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>343</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.183846,31.148476,6309.36</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:10:14 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>20,725 ft</span></div>
+<div><span><b>Speed:</b></span> <span>362 kt</span></div>
+<div><span><b>Heading:</b></span> <span>341&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:10:14+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>341</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.181259,31.155132,6316.98</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:10:17 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>20,725 ft</span></div>
+<div><span><b>Speed:</b></span> <span>364 kt</span></div>
+<div><span><b>Heading:</b></span> <span>340&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:10:17+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>340</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.180008,31.158142,6316.98</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:10:24 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>20,725 ft</span></div>
+<div><span><b>Speed:</b></span> <span>370 kt</span></div>
+<div><span><b>Heading:</b></span> <span>337&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:10:24+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>337</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.174667,31.169424,6316.98</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:10:27 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>20,725 ft</span></div>
+<div><span><b>Speed:</b></span> <span>370 kt</span></div>
+<div><span><b>Heading:</b></span> <span>337&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:10:27+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>337</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.172531,31.17366,6316.98</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:10:30 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>20,725 ft</span></div>
+<div><span><b>Speed:</b></span> <span>377 kt</span></div>
+<div><span><b>Heading:</b></span> <span>335&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:10:30+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>335</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.168297,31.181387,6316.98</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:10:32 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>20,725 ft</span></div>
+<div><span><b>Speed:</b></span> <span>382 kt</span></div>
+<div><span><b>Heading:</b></span> <span>333&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:10:32+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>333</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.166428,31.184647,6316.98</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:10:35 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>20,700 ft</span></div>
+<div><span><b>Speed:</b></span> <span>382 kt</span></div>
+<div><span><b>Heading:</b></span> <span>333&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:10:35+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>333</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.164452,31.187998,6309.36</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:10:38 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>20,700 ft</span></div>
+<div><span><b>Speed:</b></span> <span>387 kt</span></div>
+<div><span><b>Heading:</b></span> <span>330&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:10:38+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>330</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.161758,31.192234,6309.36</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:10:45 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>20,700 ft</span></div>
+<div><span><b>Speed:</b></span> <span>391 kt</span></div>
+<div><span><b>Heading:</b></span> <span>327&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:10:45+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>327</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.153351,31.203873,6309.36</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:10:49 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>20,700 ft</span></div>
+<div><span><b>Speed:</b></span> <span>393 kt</span></div>
+<div><span><b>Heading:</b></span> <span>325&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:10:49+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>325</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.148743,31.20969,6309.36</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:10:59 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>20,700 ft</span></div>
+<div><span><b>Speed:</b></span> <span>396 kt</span></div>
+<div><span><b>Heading:</b></span> <span>324&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:10:59+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>324</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.137314,31.223656,6309.36</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:11:32 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>21,525 ft</span></div>
+<div><span><b>Speed:</b></span> <span>395 kt</span></div>
+<div><span><b>Heading:</b></span> <span>324&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:11:32+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>324</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.095512,31.274445,6560.82</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:12:02 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>22,650 ft</span></div>
+<div><span><b>Speed:</b></span> <span>395 kt</span></div>
+<div><span><b>Heading:</b></span> <span>325&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:12:02+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>325</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.059967,31.318176,6903.72</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:12:33 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>23,800 ft</span></div>
+<div><span><b>Speed:</b></span> <span>395 kt</span></div>
+<div><span><b>Heading:</b></span> <span>318&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:12:33+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>318</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.018112,31.364616,7254.24</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:12:45 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>24,100 ft</span></div>
+<div><span><b>Speed:</b></span> <span>397 kt</span></div>
+<div><span><b>Heading:</b></span> <span>313&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:12:45+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>313</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>104.000153,31.380352,7345.68</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:12:49 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>24,200 ft</span></div>
+<div><span><b>Speed:</b></span> <span>398 kt</span></div>
+<div><span><b>Heading:</b></span> <span>312&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:12:49+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>312</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.994766,31.384634,7376.16</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:12:51 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>24,275 ft</span></div>
+<div><span><b>Speed:</b></span> <span>398 kt</span></div>
+<div><span><b>Heading:</b></span> <span>312&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:12:51+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>312</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.990822,31.387619,7399.02</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:12:54 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>24,350 ft</span></div>
+<div><span><b>Speed:</b></span> <span>399 kt</span></div>
+<div><span><b>Heading:</b></span> <span>310&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:12:54+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>310</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.985817,31.391384,7421.88</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:12:56 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>24,400 ft</span></div>
+<div><span><b>Speed:</b></span> <span>399 kt</span></div>
+<div><span><b>Heading:</b></span> <span>309&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:12:56+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>309</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.98317,31.39325,7437.12</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:12:58 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>24,475 ft</span></div>
+<div><span><b>Speed:</b></span> <span>399 kt</span></div>
+<div><span><b>Heading:</b></span> <span>309&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:12:58+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>309</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.97908,31.396088,7459.98</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:13:00 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>24,550 ft</span></div>
+<div><span><b>Speed:</b></span> <span>399 kt</span></div>
+<div><span><b>Heading:</b></span> <span>308&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:13:00+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>308</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.974777,31.399019,7482.84</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:13:03 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>24,600 ft</span></div>
+<div><span><b>Speed:</b></span> <span>400 kt</span></div>
+<div><span><b>Heading:</b></span> <span>307&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:13:03+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>307</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.971367,31.401253,7498.08</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:13:06 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>24,675 ft</span></div>
+<div><span><b>Speed:</b></span> <span>400 kt</span></div>
+<div><span><b>Heading:</b></span> <span>306&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:13:06+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>306</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.965439,31.405024,7520.94</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:13:11 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>24,800 ft</span></div>
+<div><span><b>Speed:</b></span> <span>402 kt</span></div>
+<div><span><b>Heading:</b></span> <span>304&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:13:11+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>304</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.956406,31.410507,7559.04</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:13:15 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>24,875 ft</span></div>
+<div><span><b>Speed:</b></span> <span>402 kt</span></div>
+<div><span><b>Heading:</b></span> <span>303&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:13:15+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>303</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.949944,31.414242,7581.9</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:13:19 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>24,975 ft</span></div>
+<div><span><b>Speed:</b></span> <span>403 kt</span></div>
+<div><span><b>Heading:</b></span> <span>302&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:13:19+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>302</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.942993,31.418106,7612.38</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:13:55 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>25,875 ft</span></div>
+<div><span><b>Speed:</b></span> <span>400 kt</span></div>
+<div><span><b>Heading:</b></span> <span>298&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:13:55+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>298</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.895065,31.441589,7886.7</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:14:15 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>26,775 ft</span></div>
+<div><span><b>Speed:</b></span> <span>392 kt</span></div>
+<div><span><b>Heading:</b></span> <span>295&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:14:15+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>295</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.856186,31.457565,8161.02</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:14:25 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>27,050 ft</span></div>
+<div><span><b>Speed:</b></span> <span>393 kt</span></div>
+<div><span><b>Heading:</b></span> <span>290&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:14:25+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>290</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>103.837227,31.464191,8244.84</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 13:22:40 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>34,100 ft</span></div>
+<div><span><b>Speed:</b></span> <span>475 kt</span></div>
+<div><span><b>Heading:</b></span> <span>260&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T13:22:40+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>260</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>102.665314,31.335289,10393.68</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:46:36 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>15,575 ft</span></div>
+<div><span><b>Speed:</b></span> <span>216 kt</span></div>
+<div><span><b>Heading:</b></span> <span>260&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:46:36+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>260</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.860222,29.375019,4747.26</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:46:41 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>15,575 ft</span></div>
+<div><span><b>Speed:</b></span> <span>215 kt</span></div>
+<div><span><b>Heading:</b></span> <span>265&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:46:41+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>265</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.854187,29.37442,4747.26</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:46:46 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>15,525 ft</span></div>
+<div><span><b>Speed:</b></span> <span>216 kt</span></div>
+<div><span><b>Heading:</b></span> <span>267&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:46:46+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>267</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.848541,29.374149,4732.02</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:46:51 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>15,475 ft</span></div>
+<div><span><b>Speed:</b></span> <span>215 kt</span></div>
+<div><span><b>Heading:</b></span> <span>268&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:46:51+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>268</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.84346,29.37396,4716.78</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:46:56 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>15,400 ft</span></div>
+<div><span><b>Speed:</b></span> <span>214 kt</span></div>
+<div><span><b>Heading:</b></span> <span>267&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:46:56+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>267</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.83857,29.37376,4693.92</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:47:01 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>15,325 ft</span></div>
+<div><span><b>Speed:</b></span> <span>213 kt</span></div>
+<div><span><b>Heading:</b></span> <span>266&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:47:01+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>266</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.832161,29.373369,4671.06</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:47:32 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>14,775 ft</span></div>
+<div><span><b>Speed:</b></span> <span>212 kt</span></div>
+<div><span><b>Heading:</b></span> <span>259&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:47:32+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>259</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.798019,29.368879,4503.42</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:47:58 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>14,300 ft</span></div>
+<div><span><b>Speed:</b></span> <span>210 kt</span></div>
+<div><span><b>Heading:</b></span> <span>246&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:47:58+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>246</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.769836,29.36101,4358.64</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:48:54 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>13,425 ft</span></div>
+<div><span><b>Speed:</b></span> <span>191 kt</span></div>
+<div><span><b>Heading:</b></span> <span>156&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:48:54+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>156</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.756279,29.31827,4091.94</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:49:43 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>12,650 ft</span></div>
+<div><span><b>Speed:</b></span> <span>174 kt</span></div>
+<div><span><b>Heading:</b></span> <span>114&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:49:43+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>114</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.797668,29.30003,3855.72</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:49:48 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>12,625 ft</span></div>
+<div><span><b>Speed:</b></span> <span>174 kt</span></div>
+<div><span><b>Heading:</b></span> <span>114&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:49:48+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>114</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.799469,29.300079,3848.1</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:50:28 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>12,025 ft</span></div>
+<div><span><b>Speed:</b></span> <span>174 kt</span></div>
+<div><span><b>Heading:</b></span> <span>114&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:50:28+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>114</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.83857,29.3004,3665.22</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:50:33 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>11,925 ft</span></div>
+<div><span><b>Speed:</b></span> <span>171 kt</span></div>
+<div><span><b>Heading:</b></span> <span>88&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:50:33+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>88</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.844467,29.300489,3634.74</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:50:38 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>11,875 ft</span></div>
+<div><span><b>Speed:</b></span> <span>171 kt</span></div>
+<div><span><b>Heading:</b></span> <span>89&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:50:38+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>89</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.847267,29.300541,3619.5</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:51:01 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>11,550 ft</span></div>
+<div><span><b>Speed:</b></span> <span>171 kt</span></div>
+<div><span><b>Heading:</b></span> <span>89&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:51:01+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>89</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.869186,29.3009,3520.44</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:51:28 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>11,175 ft</span></div>
+<div><span><b>Speed:</b></span> <span>171 kt</span></div>
+<div><span><b>Heading:</b></span> <span>89&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:51:28+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>89</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.893181,29.301279,3406.14</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:51:48 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>11,150 ft</span></div>
+<div><span><b>Speed:</b></span> <span>128 kt</span></div>
+<div><span><b>Heading:</b></span> <span>88&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:51:48+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>88</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.906532,29.30147,3398.52</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:52:58 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>8 kt</span></div>
+<div><span><b>Heading:</b></span> <span>132&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:52:58+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>132</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.921059,29.300631,0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:54:23 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>24 kt</span></div>
+<div><span><b>Heading:</b></span> <span>270&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:54:23+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>270</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.914757,29.30002,0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:54:31 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>23 kt</span></div>
+<div><span><b>Heading:</b></span> <span>270&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:54:31+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>270</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.913696,29.299999,0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:54:35 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>23 kt</span></div>
+<div><span><b>Heading:</b></span> <span>270&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:54:35+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>270</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.913452,29.299999,0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:54:57 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>25 kt</span></div>
+<div><span><b>Heading:</b></span> <span>270&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:54:57+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>270</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.910217,29.299959,0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:55:02 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>25 kt</span></div>
+<div><span><b>Heading:</b></span> <span>270&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:55:02+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>270</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.909554,29.29994,0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:55:28 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>25 kt</span></div>
+<div><span><b>Heading:</b></span> <span>270&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:55:28+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>270</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.90641,29.2999,0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>2025-08-28 14:56:38 UTC</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>24 kt</span></div>
+<div><span><b>Heading:</b></span> <span>270&deg;</span></div>
+</div>]]></description>
+        <TimeStamp>
+          <when>2025-08-28T14:56:38+00:00</when>
+        </TimeStamp>
+        <Style>
+          <IconStyle>
+            <heading>270</heading>
+            <Icon>
+              <href>http://maps.google.com/mapfiles/kml/shapes/airports.png</href>
+            </Icon>
+          </IconStyle>
+        </Style>
+        <Point>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates>90.897301,29.299761,0</coordinates>
+        </Point>
+      </Placemark>
+    </Folder>
+    <Folder>
+      <name>Trail</name>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ffffffff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>clampToGround</altitudeMode>
+            <coordinates>103.944199,30.565556,0 103.943558,30.564175,0</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-1</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>22 kt - 24 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 12:59:35 UTC<br/>2025-08-28 12:59:49 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ffffffff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>clampToGround</altitudeMode>
+            <coordinates>103.943558,30.564175,0 103.943115,30.563232,0</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-2</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>24 kt - 16 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 12:59:49 UTC<br/>2025-08-28 13:00:00 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ffffffff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>clampToGround</altitudeMode>
+            <coordinates>103.943115,30.563232,0 103.94075,30.563381,0</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-3</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>16 kt - 11 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:00:00 UTC<br/>2025-08-28 13:00:50 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ffffffff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>clampToGround</altitudeMode>
+            <coordinates>103.94075,30.563381,0 103.940193,30.563679,0</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-4</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>11 kt - 9 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:00:50 UTC<br/>2025-08-28 13:01:03 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ffffffff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>clampToGround</altitudeMode>
+            <coordinates>103.940193,30.563679,0 103.940346,30.564266,0</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-5</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>9 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:01:03 UTC<br/>2025-08-28 13:01:18 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ffffffff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>clampToGround</altitudeMode>
+            <coordinates>103.940346,30.564266,0 103.940651,30.564926,0</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-6</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>9 kt - 22 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:01:18 UTC<br/>2025-08-28 13:01:29 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ffffffff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>clampToGround</altitudeMode>
+            <coordinates>103.940651,30.564926,0 103.941849,30.567478,0</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-7</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>22 kt - 68 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:01:29 UTC<br/>2025-08-28 13:01:41 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ffffffff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>clampToGround</altitudeMode>
+            <coordinates>103.941849,30.567478,0 103.950333,30.585705,594.36</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-8</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft - 1,950 ft</span></div>
+<div><span><b>Speed:</b></span> <span>68 kt - 163 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:01:41 UTC<br/>2025-08-28 13:02:12 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ffccff00</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.950333,30.585705,594.36 103.956589,30.598789,891.54</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-9</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>1,950 ft - 2,925 ft</span></div>
+<div><span><b>Speed:</b></span> <span>163 kt - 150 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:02:12 UTC<br/>2025-08-28 13:02:32 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff1eff00</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.956589,30.598789,891.54 103.959503,30.60498,1066.8</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-10</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>2,925 ft - 3,500 ft</span></div>
+<div><span><b>Speed:</b></span> <span>150 kt - 140 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:02:32 UTC<br/>2025-08-28 13:02:42 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00ff0c</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.959503,30.60498,1066.8 103.962357,30.61117,1219.2</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-11</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>3,500 ft - 4,000 ft</span></div>
+<div><span><b>Speed:</b></span> <span>140 kt - 133 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:02:42 UTC<br/>2025-08-28 13:02:52 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00ff36</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.962357,30.61117,1219.2 103.964668,30.616243,1333.5</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-12</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>4,000 ft - 4,375 ft</span></div>
+<div><span><b>Speed:</b></span> <span>133 kt - 128 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:02:52 UTC<br/>2025-08-28 13:03:02 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00ff36</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.964668,30.616243,1333.5 103.967178,30.62178,1447.8</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-13</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>4,375 ft - 4,750 ft</span></div>
+<div><span><b>Speed:</b></span> <span>128 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:03:02 UTC<br/>2025-08-28 13:03:12 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00ff36</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.967178,30.62178,1447.8 103.96846,30.624668,1501.14</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-14</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>4,750 ft - 4,925 ft</span></div>
+<div><span><b>Speed:</b></span> <span>128 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:03:12 UTC<br/>2025-08-28 13:03:17 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00ff72</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.96846,30.624668,1501.14 103.971153,30.63044,1562.1</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-15</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>4,925 ft - 5,125 ft</span></div>
+<div><span><b>Speed:</b></span> <span>128 kt - 138 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:03:17 UTC<br/>2025-08-28 13:03:27 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00ff72</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.971153,30.63044,1562.1 103.976044,30.64036,1623.06</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-16</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>5,125 ft - 5,325 ft</span></div>
+<div><span><b>Speed:</b></span> <span>138 kt - 163 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:03:27 UTC<br/>2025-08-28 13:03:42 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00ff72</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.976044,30.64036,1623.06 103.981804,30.651901,1676.4</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-17</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>5,325 ft - 5,500 ft</span></div>
+<div><span><b>Speed:</b></span> <span>163 kt - 189 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:03:42 UTC<br/>2025-08-28 13:03:57 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00ff72</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.981804,30.651901,1676.4 103.988289,30.664221,1752.6</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-18</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>5,500 ft - 5,750 ft</span></div>
+<div><span><b>Speed:</b></span> <span>189 kt - 217 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:03:57 UTC<br/>2025-08-28 13:04:12 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00ff72</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.988289,30.664221,1752.6 103.996254,30.679182,1882.14</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-19</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>5,750 ft - 6,175 ft</span></div>
+<div><span><b>Speed:</b></span> <span>217 kt - 238 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:04:12 UTC<br/>2025-08-28 13:04:27 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00ff72</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.996254,30.679182,1882.14 104.001587,30.689159,1996.44</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-20</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>6,175 ft - 6,550 ft</span></div>
+<div><span><b>Speed:</b></span> <span>238 kt - 248 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:04:27 UTC<br/>2025-08-28 13:04:37 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00ff72</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.001587,30.689159,1996.44 104.013977,30.712051,2209.8</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-21</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>6,550 ft - 7,250 ft</span></div>
+<div><span><b>Speed:</b></span> <span>248 kt - 270 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:04:37 UTC<br/>2025-08-28 13:04:57 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00ff9c</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.013977,30.712051,2209.8 104.022972,30.728714,2407.92</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-22</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>7,250 ft - 7,900 ft</span></div>
+<div><span><b>Speed:</b></span> <span>270 kt - 278 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:04:57 UTC<br/>2025-08-28 13:05:12 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00ff9c</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.022972,30.728714,2407.92 104.033958,30.747116,2598.42</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-23</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>7,900 ft - 8,525 ft</span></div>
+<div><span><b>Speed:</b></span> <span>278 kt - 287 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:05:12 UTC<br/>2025-08-28 13:05:27 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00ffd2</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.033958,30.747116,2598.42 104.047836,30.77033,2887.98</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-24</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>8,525 ft - 9,475 ft</span></div>
+<div><span><b>Speed:</b></span> <span>287 kt - 294 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:05:27 UTC<br/>2025-08-28 13:05:47 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00ffd2</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.047836,30.77033,2887.98 104.058678,30.788223,3116.58</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-25</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>9,475 ft - 10,225 ft</span></div>
+<div><span><b>Speed:</b></span> <span>294 kt - 296 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:05:47 UTC<br/>2025-08-28 13:06:02 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00ffe4</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.058678,30.788223,3116.58 104.069748,30.806459,3337.56</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-26</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>10,225 ft - 10,950 ft</span></div>
+<div><span><b>Speed:</b></span> <span>296 kt - 300 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:06:02 UTC<br/>2025-08-28 13:06:17 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00ffe4</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.069748,30.806459,3337.56 104.081619,30.825216,3581.4</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-27</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>10,950 ft - 11,750 ft</span></div>
+<div><span><b>Speed:</b></span> <span>300 kt - 302 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:06:17 UTC<br/>2025-08-28 13:06:32 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00eaff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.081619,30.825216,3581.4 104.091888,30.844255,3840.48</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-28</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>11,750 ft - 12,600 ft</span></div>
+<div><span><b>Speed:</b></span> <span>302 kt - 300 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:06:32 UTC<br/>2025-08-28 13:06:47 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00eaff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.091888,30.844255,3840.48 104.125298,30.905823,4572</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-29</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>12,600 ft - 15,000 ft</span></div>
+<div><span><b>Speed:</b></span> <span>300 kt - 302 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:06:47 UTC<br/>2025-08-28 13:07:25 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00a8ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.125298,30.905823,4572 104.147644,30.945972,4975.86</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-30</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>15,000 ft - 16,325 ft</span></div>
+<div><span><b>Speed:</b></span> <span>302 kt - 309 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:07:25 UTC<br/>2025-08-28 13:07:56 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00a8ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.147644,30.945972,4975.86 104.170219,30.989498,5288.28</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-31</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>16,325 ft - 17,350 ft</span></div>
+<div><span><b>Speed:</b></span> <span>309 kt - 327 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:07:56 UTC<br/>2025-08-28 13:08:28 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0096ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.170219,30.989498,5288.28 104.174507,31.00095,5379.72</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-32</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>17,350 ft - 17,650 ft</span></div>
+<div><span><b>Speed:</b></span> <span>327 kt - 330 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:08:28 UTC<br/>2025-08-28 13:08:36 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0096ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.174507,31.00095,5379.72 104.17543,31.003922,5402.58</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-33</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>17,650 ft - 17,725 ft</span></div>
+<div><span><b>Speed:</b></span> <span>330 kt - 331 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:08:36 UTC<br/>2025-08-28 13:08:38 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0096ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.17543,31.003922,5402.58 104.176674,31.007904,5425.44</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-34</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>17,725 ft - 17,800 ft</span></div>
+<div><span><b>Speed:</b></span> <span>331 kt - 333 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:08:38 UTC<br/>2025-08-28 13:08:41 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0096ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.176674,31.007904,5425.44 104.177483,31.01088,5448.3</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-35</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>17,800 ft - 17,875 ft</span></div>
+<div><span><b>Speed:</b></span> <span>333 kt - 332 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:08:41 UTC<br/>2025-08-28 13:08:43 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0096ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.177483,31.01088,5448.3 104.178574,31.015429,5486.4</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-36</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>17,875 ft - 18,000 ft</span></div>
+<div><span><b>Speed:</b></span> <span>332 kt - 333 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:08:43 UTC<br/>2025-08-28 13:08:46 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0096ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.178574,31.015429,5486.4 104.179176,31.018269,5509.26</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-37</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>18,000 ft - 18,075 ft</span></div>
+<div><span><b>Speed:</b></span> <span>333 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:08:46 UTC<br/>2025-08-28 13:08:48 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0078ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.179176,31.018269,5509.26 104.180061,31.022736,5539.74</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-38</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>18,075 ft - 18,175 ft</span></div>
+<div><span><b>Speed:</b></span> <span>333 kt - 334 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:08:48 UTC<br/>2025-08-28 13:08:50 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0078ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.180061,31.022736,5539.74 104.180878,31.027485,5577.84</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-39</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>18,175 ft - 18,300 ft</span></div>
+<div><span><b>Speed:</b></span> <span>334 kt - 335 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:08:50 UTC<br/>2025-08-28 13:08:54 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0078ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.180878,31.027485,5577.84 104.181648,31.032885,5608.32</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-40</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>18,300 ft - 18,400 ft</span></div>
+<div><span><b>Speed:</b></span> <span>335 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:08:54 UTC<br/>2025-08-28 13:08:57 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0078ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.181648,31.032885,5608.32 104.181702,31.033537,5615.94</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-41</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>18,400 ft - 18,425 ft</span></div>
+<div><span><b>Speed:</b></span> <span>335 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:08:57 UTC<br/>2025-08-28 13:09:03 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0078ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.181702,31.033537,5615.94 104.18412,31.054625,5722.62</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-42</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>18,425 ft - 18,775 ft</span></div>
+<div><span><b>Speed:</b></span> <span>335 kt - 344 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:09:03 UTC<br/>2025-08-28 13:09:22 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0078ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.18412,31.054625,5722.62 104.183846,31.148476,6309.36</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-43</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>18,775 ft - 20,700 ft</span></div>
+<div><span><b>Speed:</b></span> <span>344 kt - 359 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:09:22 UTC<br/>2025-08-28 13:10:11 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0054ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.183846,31.148476,6309.36 104.181259,31.155132,6316.98</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-44</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>20,700 ft - 20,725 ft</span></div>
+<div><span><b>Speed:</b></span> <span>359 kt - 362 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:10:11 UTC<br/>2025-08-28 13:10:14 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0054ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.181259,31.155132,6316.98 104.180008,31.158142,6316.98</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-45</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>20,725 ft</span></div>
+<div><span><b>Speed:</b></span> <span>362 kt - 364 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:10:14 UTC<br/>2025-08-28 13:10:17 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0054ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.180008,31.158142,6316.98 104.174667,31.169424,6316.98</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-46</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>20,725 ft</span></div>
+<div><span><b>Speed:</b></span> <span>364 kt - 370 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:10:17 UTC<br/>2025-08-28 13:10:24 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0054ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.174667,31.169424,6316.98 104.172531,31.17366,6316.98</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-47</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>20,725 ft</span></div>
+<div><span><b>Speed:</b></span> <span>370 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:10:24 UTC<br/>2025-08-28 13:10:27 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0054ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.172531,31.17366,6316.98 104.168297,31.181387,6316.98</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-48</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>20,725 ft</span></div>
+<div><span><b>Speed:</b></span> <span>370 kt - 377 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:10:27 UTC<br/>2025-08-28 13:10:30 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0054ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.168297,31.181387,6316.98 104.166428,31.184647,6316.98</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-49</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>20,725 ft</span></div>
+<div><span><b>Speed:</b></span> <span>377 kt - 382 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:10:30 UTC<br/>2025-08-28 13:10:32 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0054ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.166428,31.184647,6316.98 104.164452,31.187998,6309.36</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-50</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>20,725 ft - 20,700 ft</span></div>
+<div><span><b>Speed:</b></span> <span>382 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:10:32 UTC<br/>2025-08-28 13:10:35 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0054ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.164452,31.187998,6309.36 104.161758,31.192234,6309.36</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-51</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>20,700 ft</span></div>
+<div><span><b>Speed:</b></span> <span>382 kt - 387 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:10:35 UTC<br/>2025-08-28 13:10:38 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0054ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.161758,31.192234,6309.36 104.153351,31.203873,6309.36</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-52</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>20,700 ft</span></div>
+<div><span><b>Speed:</b></span> <span>387 kt - 391 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:10:38 UTC<br/>2025-08-28 13:10:45 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0054ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.153351,31.203873,6309.36 104.148743,31.20969,6309.36</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-53</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>20,700 ft</span></div>
+<div><span><b>Speed:</b></span> <span>391 kt - 393 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:10:45 UTC<br/>2025-08-28 13:10:49 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0054ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.148743,31.20969,6309.36 104.137314,31.223656,6309.36</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-54</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>20,700 ft</span></div>
+<div><span><b>Speed:</b></span> <span>393 kt - 396 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:10:49 UTC<br/>2025-08-28 13:10:59 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0054ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.137314,31.223656,6309.36 104.095512,31.274445,6560.82</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-55</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>20,700 ft - 21,525 ft</span></div>
+<div><span><b>Speed:</b></span> <span>396 kt - 395 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:10:59 UTC<br/>2025-08-28 13:11:32 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0030ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.095512,31.274445,6560.82 104.059967,31.318176,6903.72</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-56</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>21,525 ft - 22,650 ft</span></div>
+<div><span><b>Speed:</b></span> <span>395 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:11:32 UTC<br/>2025-08-28 13:12:02 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0030ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.059967,31.318176,6903.72 104.018112,31.364616,7254.24</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-57</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>22,650 ft - 23,800 ft</span></div>
+<div><span><b>Speed:</b></span> <span>395 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:12:02 UTC<br/>2025-08-28 13:12:33 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff001eff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.018112,31.364616,7254.24 104.000153,31.380352,7345.68</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-58</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>23,800 ft - 24,100 ft</span></div>
+<div><span><b>Speed:</b></span> <span>395 kt - 397 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:12:33 UTC<br/>2025-08-28 13:12:45 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff001eff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>104.000153,31.380352,7345.68 103.994766,31.384634,7376.16</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-59</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>24,100 ft - 24,200 ft</span></div>
+<div><span><b>Speed:</b></span> <span>397 kt - 398 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:12:45 UTC<br/>2025-08-28 13:12:49 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff001eff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.994766,31.384634,7376.16 103.990822,31.387619,7399.02</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-60</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>24,200 ft - 24,275 ft</span></div>
+<div><span><b>Speed:</b></span> <span>398 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:12:49 UTC<br/>2025-08-28 13:12:51 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff001eff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.990822,31.387619,7399.02 103.985817,31.391384,7421.88</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-61</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>24,275 ft - 24,350 ft</span></div>
+<div><span><b>Speed:</b></span> <span>398 kt - 399 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:12:51 UTC<br/>2025-08-28 13:12:54 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff001eff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.985817,31.391384,7421.88 103.98317,31.39325,7437.12</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-62</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>24,350 ft - 24,400 ft</span></div>
+<div><span><b>Speed:</b></span> <span>399 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:12:54 UTC<br/>2025-08-28 13:12:56 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff001eff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.98317,31.39325,7437.12 103.97908,31.396088,7459.98</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-63</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>24,400 ft - 24,475 ft</span></div>
+<div><span><b>Speed:</b></span> <span>399 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:12:56 UTC<br/>2025-08-28 13:12:58 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff001eff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.97908,31.396088,7459.98 103.974777,31.399019,7482.84</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-64</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>24,475 ft - 24,550 ft</span></div>
+<div><span><b>Speed:</b></span> <span>399 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:12:58 UTC<br/>2025-08-28 13:13:00 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff001eff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.974777,31.399019,7482.84 103.971367,31.401253,7498.08</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-65</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>24,550 ft - 24,600 ft</span></div>
+<div><span><b>Speed:</b></span> <span>399 kt - 400 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:13:00 UTC<br/>2025-08-28 13:13:03 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff001eff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.971367,31.401253,7498.08 103.965439,31.405024,7520.94</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-66</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>24,600 ft - 24,675 ft</span></div>
+<div><span><b>Speed:</b></span> <span>400 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:13:03 UTC<br/>2025-08-28 13:13:06 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0000ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.965439,31.405024,7520.94 103.956406,31.410507,7559.04</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-67</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>24,675 ft - 24,800 ft</span></div>
+<div><span><b>Speed:</b></span> <span>400 kt - 402 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:13:06 UTC<br/>2025-08-28 13:13:11 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0000ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.956406,31.410507,7559.04 103.949944,31.414242,7581.9</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-68</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>24,800 ft - 24,875 ft</span></div>
+<div><span><b>Speed:</b></span> <span>402 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:13:11 UTC<br/>2025-08-28 13:13:15 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0000ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.949944,31.414242,7581.9 103.942993,31.418106,7612.38</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-69</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>24,875 ft - 24,975 ft</span></div>
+<div><span><b>Speed:</b></span> <span>402 kt - 403 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:13:15 UTC<br/>2025-08-28 13:13:19 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0000ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.942993,31.418106,7612.38 103.895065,31.441589,7886.7</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-70</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>24,975 ft - 25,875 ft</span></div>
+<div><span><b>Speed:</b></span> <span>403 kt - 400 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:13:19 UTC<br/>2025-08-28 13:13:55 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0000ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.895065,31.441589,7886.7 103.856186,31.457565,8161.02</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-71</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>25,875 ft - 26,775 ft</span></div>
+<div><span><b>Speed:</b></span> <span>400 kt - 392 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:13:55 UTC<br/>2025-08-28 13:14:15 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0000ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.856186,31.457565,8161.02 103.837227,31.464191,8244.84</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-72</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>26,775 ft - 27,050 ft</span></div>
+<div><span><b>Speed:</b></span> <span>392 kt - 393 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:14:15 UTC<br/>2025-08-28 13:14:25 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff0000ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>103.837227,31.464191,8244.84 102.665314,31.335289,10393.68</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-73</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>27,050 ft - 34,100 ft</span></div>
+<div><span><b>Speed:</b></span> <span>393 kt - 475 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:14:25 UTC<br/>2025-08-28 13:22:40 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>88000000</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>clampToGround</altitudeMode>
+            <coordinates>102.665314,31.335289,10393.68 90.860222,29.375019,4747.26</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-74</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>34,100 ft - 15,575 ft</span></div>
+<div><span><b>Speed:</b></span> <span>475 kt - 216 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 13:22:40 UTC<br/>2025-08-28 14:46:36 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00a8ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>90.860222,29.375019,4747.26 90.854187,29.37442,4747.26</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-75</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>15,575 ft</span></div>
+<div><span><b>Speed:</b></span> <span>216 kt - 215 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 14:46:36 UTC<br/>2025-08-28 14:46:41 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00a8ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>90.854187,29.37442,4747.26 90.848541,29.374149,4732.02</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-76</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>15,575 ft - 15,525 ft</span></div>
+<div><span><b>Speed:</b></span> <span>215 kt - 216 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 14:46:41 UTC<br/>2025-08-28 14:46:46 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00a8ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>90.848541,29.374149,4732.02 90.84346,29.37396,4716.78</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-77</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>15,525 ft - 15,475 ft</span></div>
+<div><span><b>Speed:</b></span> <span>216 kt - 215 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 14:46:46 UTC<br/>2025-08-28 14:46:51 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00a8ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>90.84346,29.37396,4716.78 90.83857,29.37376,4693.92</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-78</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>15,475 ft - 15,400 ft</span></div>
+<div><span><b>Speed:</b></span> <span>215 kt - 214 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 14:46:51 UTC<br/>2025-08-28 14:46:56 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00a8ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>90.83857,29.37376,4693.92 90.832161,29.373369,4671.06</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-79</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>15,400 ft - 15,325 ft</span></div>
+<div><span><b>Speed:</b></span> <span>214 kt - 213 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 14:46:56 UTC<br/>2025-08-28 14:47:01 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00a8ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>90.832161,29.373369,4671.06 90.798019,29.368879,4503.42</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-80</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>15,325 ft - 14,775 ft</span></div>
+<div><span><b>Speed:</b></span> <span>213 kt - 212 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 14:47:01 UTC<br/>2025-08-28 14:47:32 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00a8ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>90.798019,29.368879,4503.42 90.769836,29.36101,4358.64</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-81</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>14,775 ft - 14,300 ft</span></div>
+<div><span><b>Speed:</b></span> <span>212 kt - 210 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 14:47:32 UTC<br/>2025-08-28 14:47:58 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00c0ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>90.769836,29.36101,4358.64 90.756279,29.31827,4091.94</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-82</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>14,300 ft - 13,425 ft</span></div>
+<div><span><b>Speed:</b></span> <span>210 kt - 191 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 14:47:58 UTC<br/>2025-08-28 14:48:54 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00c0ff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>90.756279,29.31827,4091.94 90.797668,29.30003,3855.72</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-83</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>13,425 ft - 12,650 ft</span></div>
+<div><span><b>Speed:</b></span> <span>191 kt - 174 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 14:48:54 UTC<br/>2025-08-28 14:49:43 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00eaff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>90.797668,29.30003,3855.72 90.799469,29.300079,3848.1</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-84</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>12,650 ft - 12,625 ft</span></div>
+<div><span><b>Speed:</b></span> <span>174 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 14:49:43 UTC<br/>2025-08-28 14:49:48 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00eaff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>90.799469,29.300079,3848.1 90.83857,29.3004,3665.22</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-85</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>12,625 ft - 12,025 ft</span></div>
+<div><span><b>Speed:</b></span> <span>174 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 14:49:48 UTC<br/>2025-08-28 14:50:28 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00eaff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>90.83857,29.3004,3665.22 90.844467,29.300489,3634.74</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-86</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>12,025 ft - 11,925 ft</span></div>
+<div><span><b>Speed:</b></span> <span>174 kt - 171 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 14:50:28 UTC<br/>2025-08-28 14:50:33 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00eaff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>90.844467,29.300489,3634.74 90.847267,29.300541,3619.5</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-87</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>11,925 ft - 11,875 ft</span></div>
+<div><span><b>Speed:</b></span> <span>171 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 14:50:33 UTC<br/>2025-08-28 14:50:38 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00eaff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>90.847267,29.300541,3619.5 90.869186,29.3009,3520.44</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-88</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>11,875 ft - 11,550 ft</span></div>
+<div><span><b>Speed:</b></span> <span>171 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 14:50:38 UTC<br/>2025-08-28 14:51:01 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00eaff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>90.869186,29.3009,3520.44 90.893181,29.301279,3406.14</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-89</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>11,550 ft - 11,175 ft</span></div>
+<div><span><b>Speed:</b></span> <span>171 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 14:51:01 UTC<br/>2025-08-28 14:51:28 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00ffe4</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>absolute</altitudeMode>
+            <coordinates>90.893181,29.301279,3406.14 90.906532,29.30147,3398.52</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-90</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>11,175 ft - 11,150 ft</span></div>
+<div><span><b>Speed:</b></span> <span>171 kt - 128 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 14:51:28 UTC<br/>2025-08-28 14:51:48 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ff00ffe4</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>clampToGround</altitudeMode>
+            <coordinates>90.906532,29.30147,3398.52 90.921059,29.300631,0</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-91</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>11,150 ft - 0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>128 kt - 8 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 14:51:48 UTC<br/>2025-08-28 14:52:58 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ffffffff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>clampToGround</altitudeMode>
+            <coordinates>90.921059,29.300631,0 90.914757,29.30002,0</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-92</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>8 kt - 24 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 14:52:58 UTC<br/>2025-08-28 14:54:23 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ffffffff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>clampToGround</altitudeMode>
+            <coordinates>90.914757,29.30002,0 90.913696,29.299999,0</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-93</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>24 kt - 23 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 14:54:23 UTC<br/>2025-08-28 14:54:31 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ffffffff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>clampToGround</altitudeMode>
+            <coordinates>90.913696,29.299999,0 90.913452,29.299999,0</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-94</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>23 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 14:54:31 UTC<br/>2025-08-28 14:54:35 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ffffffff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>clampToGround</altitudeMode>
+            <coordinates>90.913452,29.299999,0 90.910217,29.299959,0</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-95</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>23 kt - 25 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 14:54:35 UTC<br/>2025-08-28 14:54:57 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ffffffff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>clampToGround</altitudeMode>
+            <coordinates>90.910217,29.299959,0 90.909554,29.29994,0</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-96</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>25 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 14:54:57 UTC<br/>2025-08-28 14:55:02 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ffffffff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>clampToGround</altitudeMode>
+            <coordinates>90.909554,29.29994,0 90.90641,29.2999,0</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-97</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>25 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 14:55:02 UTC<br/>2025-08-28 14:55:28 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+      <Placemark>
+        <Style>
+          <LineStyle>
+            <color>ffffffff</color>
+            <width>2</width>
+          </LineStyle>
+        </Style>
+        <MultiGeometry>
+          <LineString>
+            <tessellate>1</tessellate>
+            <altitudeMode>clampToGround</altitudeMode>
+            <coordinates>90.90641,29.2999,0 90.897301,29.299761,0</coordinates>
+          </LineString>
+        </MultiGeometry>
+        <name>P-98</name>
+        <description><![CDATA[<div><div><span><b>Altitude:</b></span> <span>0 ft</span></div>
+<div><span><b>Speed:</b></span> <span>25 kt - 24 kt</span></div>
+<div><span><b>Timestamp:</b></span><br/><span>2025-08-28 14:55:28 UTC<br/>2025-08-28 14:56:38 UTC</span></div>
+</div>]]></description>
+      </Placemark>
+    </Folder>
+  </Document>
+</kml>
