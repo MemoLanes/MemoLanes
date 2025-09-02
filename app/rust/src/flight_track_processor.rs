@@ -217,7 +217,7 @@ impl PathInterpolator {
         let mut result = Vec::new();
         let mut current = 0.0;
 
-        while current <= end + 1e-10 {
+        while current < end {
             result.push(current);
             current += step_length;
         }
