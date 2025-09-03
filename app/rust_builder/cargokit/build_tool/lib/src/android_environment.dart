@@ -190,6 +190,14 @@ class AndroidEnvironment {
       rustFlags = '$rustFlags\x1f';
     }
     rustFlags = '$rustFlags-L\x1f$workaroundDir';
+
+    // Add 16 KB linker alignment so native libraries are compatible with Android 15+
+    // Use max-page-size to set ELF alignment; avoid common-page-size which can make
+    // binaries require 16 KB pages and break on 4 KB devices.
+    if (target.rust.contains('aarch64')) {
+      rustFlags = '$rustFlags\x1f-C\x1flink-args=-Wl,-z,max-page-size=16384';
+    }
+
     return rustFlags;
   }
 }
