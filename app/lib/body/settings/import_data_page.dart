@@ -13,6 +13,8 @@ import 'package:memolanes/src/rust/journey_data.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 
+import '../../common/utils.dart';
+
 class ImportDataPage extends StatefulWidget {
   const ImportDataPage(
       {super.key, required this.path, required this.importType});
@@ -65,7 +67,7 @@ class _ImportDataPage extends State<ImportDataPage> {
     }
   }
 
-  void _previewData(bool runPreprocessor) async {
+  void _previewData(import_api.ImportProcessor processor) async {
     final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
     if (journeyDataMaybeRaw == null) {
       Fluttertoast.showToast(msg: "JourneyData is empty");
@@ -75,8 +77,15 @@ class _ImportDataPage extends State<ImportDataPage> {
     final journeyData = switch (journeyDataMaybeRaw) {
       f.Left(value: final l) => l,
       f.Right(value: final r) => await import_api.processVectorData(
-          vectorData: r, runPreprocessor: runPreprocessor),
+          vectorData: r, importProcessor: processor),
     };
+    if (journeyData == null) {
+      await showCommonDialog(
+        context,
+        context.tr("No data found"),
+      );
+      return;
+    }
     final mapRendererProxyAndCameraOption =
         await api.getMapRendererProxyForJourneyData(journeyData: journeyData);
     setState(() {
@@ -92,8 +101,8 @@ class _ImportDataPage extends State<ImportDataPage> {
     });
   }
 
-  void _saveData(
-      import_api.JourneyInfo journeyInfo, bool runPreprocessor) async {
+  void _saveData(import_api.JourneyInfo journeyInfo,
+      import_api.ImportProcessor processor) async {
     final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
     if (journeyDataMaybeRaw == null) {
       Fluttertoast.showToast(msg: "JourneyData is empty");
@@ -103,9 +112,15 @@ class _ImportDataPage extends State<ImportDataPage> {
     final journeyData = switch (journeyDataMaybeRaw) {
       f.Left(value: final l) => l,
       f.Right(value: final r) => await import_api.processVectorData(
-          vectorData: r, runPreprocessor: runPreprocessor),
+          vectorData: r, importProcessor: processor),
     };
-
+    if (journeyData == null) {
+      await showCommonDialog(
+        context,
+        context.tr("No data found"),
+      );
+      return;
+    }
     await import_api.importJourneyData(
         journeyInfo: journeyInfo, journeyData: journeyData);
 
