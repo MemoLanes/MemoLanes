@@ -1,4 +1,4 @@
-use actix_web::{dev::ServerHandle, web, App, HttpRequest, HttpResponse, HttpServer};
+use actix_web::{dev::ServerHandle, http::Method, web, App, HttpRequest, HttpResponse, HttpServer};
 use anyhow::Result;
 use serde::Deserialize;
 use std::borrow::Cow;
@@ -11,6 +11,8 @@ use uuid::Uuid;
 use crate::renderer::map_renderer;
 
 use super::MapRenderer;
+
+use rand::RngCore;
 
 type Registry = HashMap<Uuid, Arc<Mutex<MapRenderer>>>;
 
@@ -130,7 +132,45 @@ async fn serve_journey_tile_range(
                 }
             }
         }
-        None => HttpResponse::NotFound().finish(),
+// Add this new struct for IPC test query parameters
+#[derive(Deserialize)]
+struct IpcTestQuery {
+    size: Option<u64>, // Size in bytes, default 1MB
+}
+
+// Move the random data generation to a separate function
+pub fn generate_random_data(size: u64) -> Result<Vec<u8>, String> {
+    let max_size = 10_485_760; // 10MB limit
+    
+    if size > max_size {
+        return Err(format!("Size too large. Maximum allowed: {} bytes (10MB)", max_size));
+    }
+    
+    // Generate random data efficiently
+    let mut data = vec![0u8; size as usize];
+    rand::rng().fill_bytes(&mut data);
+    
+    Ok(data)
+}
+
+// Simplified HTTP handler - now uses the shared function
+async fn serve_ipc_test_download(query: web::Query<IpcTestQuery>) -> HttpResponse {
+    let size = query.size.unwrap_or(1_048_576); // Default 1MB
+    
+    match generate_random_data(size) {
+        Ok(data) => HttpResponse::Ok()
+            .append_header(("Access-Control-Allow-Origin", "*"))
+            .append_header(("Access-Control-Allow-Methods", "GET, OPTIONS"))
+            .append_header(("Access-Control-Allow-Headers", "Content-Type"))
+            .append_header(("Content-Length", size.to_string()))
+            .content_type("application/octet-stream")
+            .body(data),
+        Err(error_msg) => HttpResponse::BadRequest()
+            .append_header(("Access-Control-Allow-Origin", "*"))
+            .append_header(("Access-Control-Allow-Methods", "GET, OPTIONS"))
+            .append_header(("Access-Control-Allow-Headers", "Content-Type"))
+            .content_type("text/plain")
+            .body(error_msg)
     }
 }
 
@@ -170,6 +210,9 @@ impl MapServer {
                         "/journey/{id}/tile_range",
                         web::get().to(serve_journey_tile_range),
                     )
+                    // Only one HTTP test endpoint
+                    .route("/download1M", web::get().to(serve_ipc_test_download))
+                    .route("/download1M", web::method(Method::OPTIONS).to(handle_preflight))
                     .route("/", web::get().to(index))
                     .route("/bundle.js", web::get().to(serve_journey_kernel_js))
                     .route(
@@ -300,6 +343,11 @@ impl MapServer {
         info!("Server successfully restarted at {}", self.url());
         Ok(())
     }
+
+    pub fn get_ipc_test_url(&self) -> String {
+        let server_info = self.server_info.lock().unwrap();
+        format!("http://{}:{}", server_info.host, server_info.port)
+    }
 }
 
 impl Drop for MapServer {
@@ -346,4 +394,13 @@ async fn serve_token_json() -> HttpResponse {
     HttpResponse::Ok()
         .content_type("application/json")
         .body(json)
+}
+
+async fn handle_preflight() -> HttpResponse {
+    HttpResponse::Ok()
+        .append_header(("Access-Control-Allow-Origin", "*"))
+        .append_header(("Access-Control-Allow-Methods", "GET, OPTIONS"))
+        .append_header(("Access-Control-Allow-Headers", "Content-Type, If-None-Match"))
+        .append_header(("Access-Control-Max-Age", "86400")) // Cache preflight for 24 hours
+        .finish()
 }

@@ -14,6 +14,7 @@ use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::renderer::map_server::MapRendererToken;
 use crate::renderer::MapRenderer;
 use crate::renderer::MapServer;
+use crate::renderer::map_server::generate_random_data;
 use crate::storage::Storage;
 use crate::{
     archive, build_info, export_data, gps_processor, main_db, merged_journey_builder, storage,
@@ -174,6 +175,13 @@ pub fn get_empty_map_renderer_proxy() -> MapRendererProxy {
     let map_renderer = MapRenderer::new(journey_bitmap);
     let token = server.register_map_renderer(Arc::new(Mutex::new(map_renderer)));
     MapRendererProxy::Token(token)
+}
+
+#[frb(sync)]
+pub fn get_server_ipc_test_url() -> String {
+    let state = get();
+    let server = state.map_server.lock().unwrap();
+    server.get_ipc_test_url()
 }
 
 pub fn get_map_renderer_proxy_for_journey_date_range(
@@ -614,4 +622,9 @@ pub mod for_testing {
     pub fn get_main_map_renderer() -> Arc<Mutex<MapRenderer>> {
         super::get().main_map_renderer.clone()
     }
+}
+
+pub fn generate_ipc_test_data(size: u64) -> Result<Vec<u8>> {
+    generate_random_data(size)
+        .map_err(|e| anyhow::anyhow!("Failed to generate test data: {}", e))
 }
