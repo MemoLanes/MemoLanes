@@ -92,10 +92,7 @@ async fn serve_journey_tile_range(
             let map_renderer = item.lock().unwrap();
 
             // Extract version from If-None-Match header if present
-            let client_version = req
-                .headers()
-                .get("If-None-Match")
-                .and_then(|h| h.to_str().ok());
+            let client_version = query.cached_version.as_deref();
 
             match map_renderer.get_latest_bitmap_if_changed(client_version) {
                 None => HttpResponse::NotModified().finish(),

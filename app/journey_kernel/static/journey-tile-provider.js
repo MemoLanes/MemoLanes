@@ -146,6 +146,7 @@ export class JourneyTileProvider {
       h,
       z,
       this.bufferSizePower,
+      (!forceUpdate && this.currentVersion)? this.currentVersion : undefined,
     );
 
     console.log(`Fetching tile buffer from: ${tileRangeUrl}`);
@@ -153,18 +154,9 @@ export class JourneyTileProvider {
     let tileBufferUpdated = false;
 
     try {
-      const fetchOptions = {
-        headers: {},
-      };
-
-      // Add ETag header for conditional request if we have a current version and not forcing update
-      if (!forceUpdate && this.currentVersion) {
-        fetchOptions.headers["If-None-Match"] = this.currentVersion;
-      }
-
       // Measure fetch timing
       const fetchStartTime = performance.now();
-      const response = await fetch(tileRangeUrl, fetchOptions);
+      const response = await fetch(tileRangeUrl);
       const fetchEndTime = performance.now();
       const fetchDuration = fetchEndTime - fetchStartTime;
 
@@ -239,6 +231,7 @@ export class JourneyTileProvider {
   }
 }
 
+// TODO: check URI safety?
 function getJourneyTileRangePathWithId(
   journeyId,
   x,
@@ -247,6 +240,11 @@ function getJourneyTileRangePathWithId(
   h,
   z,
   bufferSizePower,
+  cached_version // optional
 ) {
-  return `journey/${journeyId}/tile_range?x=${x}&y=${y}&z=${z}&width=${w}&height=${h}&buffer_size_power=${bufferSizePower}`;
+  let url = `${window.apiEndpoint}/tile_range?id=${journeyId}&x=${x}&y=${y}&z=${z}&width=${w}&height=${h}&buffer_size_power=${bufferSizePower}`;
+  if (cached_version !== undefined && cached_version !== null) {
+    url += `&cached_version=${cached_version}`;
+  }
+  return url;
 }
