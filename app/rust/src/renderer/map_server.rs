@@ -1,6 +1,6 @@
 use actix_web::{dev::ServerHandle, http::Method, web, App, HttpRequest, HttpResponse, HttpServer};
 use anyhow::Result;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, Weak};
@@ -67,24 +67,27 @@ impl Drop for MapRendererToken {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct TileRangeQuery {
+    id: Uuid,
     x: i64,
     y: i64,
     z: i16,
     width: i64,
     height: i64,
     buffer_size_power: i16,
+    cached_version: Option<String>,
+}
+
 }
 
 async fn serve_journey_tile_range(
-    id: web::Path<Uuid>,
     query: web::Query<TileRangeQuery>,
     req: HttpRequest,
     data: web::Data<Arc<Mutex<Registry>>>,
 ) -> HttpResponse {
     let registry = data.lock().unwrap();
-    match registry.get(&id) {
+    match registry.get(&query.id) {
         Some(item) => {
             let map_renderer = item.lock().unwrap();
 
@@ -133,7 +136,7 @@ async fn serve_journey_tile_range(
             }
         }
 // Add this new struct for IPC test query parameters
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct IpcTestQuery {
     size: Option<u64>, // Size in bytes, default 1MB
 }
@@ -207,14 +210,18 @@ impl MapServer {
                 App::new()
                     .app_data(data.clone())
                     .route(
-                        "/journey/{id}/tile_range",
+                        "/tile_range",
                         web::get().to(serve_journey_tile_range),
+                    )
+                    .route(
+                        "/tile_range",
+                        web::method(Method::OPTIONS).to(handle_preflight),
                     )
                     // Only one HTTP test endpoint
                     .route("/download1M", web::get().to(serve_ipc_test_download))
                     .route("/download1M", web::method(Method::OPTIONS).to(handle_preflight))
                     .route("/", web::get().to(index))
-                    .route("/bundle.js", web::get().to(serve_journey_kernel_js))
+                    .route("/main.bundle.js", web::get().to(serve_journey_kernel_js))
                     .route(
                         "/journey_kernel_bg.wasm",
                         web::get().to(serve_journey_kernel_wasm),
@@ -361,7 +368,7 @@ const JOURNEY_VIEW_HTML: &str =
     include_str!(concat!(env!("OUT_DIR"), "/journey_kernel/index.html"));
 
 // Journey Kernel wasm package
-const JOURNEY_KERNEL_JS: &str = include_str!(concat!(env!("OUT_DIR"), "/journey_kernel/bundle.js"));
+const JOURNEY_KERNEL_JS: &str = include_str!(concat!(env!("OUT_DIR"), "/journey_kernel/main.bundle.js"));
 
 const JOURNEY_KERNEL_WASM: &[u8] = include_bytes!(concat!(
     env!("OUT_DIR"),
@@ -403,4 +410,41 @@ async fn handle_preflight() -> HttpResponse {
         .append_header(("Access-Control-Allow-Headers", "Content-Type, If-None-Match"))
         .append_header(("Access-Control-Max-Age", "86400")) // Cache preflight for 24 hours
         .finish()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json;
+    use uuid::uuid;
+
+    #[test]
+    fn test_tile_range_query_roundtrip_serialization() {
+        let original_query = TileRangeQuery {
+            id: Some(uuid!("25506f47-b66a-4ddc-bfbe-2a7a2ae543e3")),
+            x: -999,
+            y: 999,
+            z: 20,
+            width: 4096,
+            height: 2048,
+            buffer_size_power: 12,
+            cached_version: Some("test-version-123".to_string()),
+        };
+
+        // Serialize to JSON
+        let json = serde_json::to_string(&original_query).expect("Failed to serialize");
+        assert_eq!(json, r#"{"id":"25506f47-b66a-4ddc-bfbe-2a7a2ae543e3","x":-999,"y":999,"z":20,"width":4096,"height":2048,"buffer_size_power":12,"cached_version":"test-version-123"}"#);
+        
+        // Deserialize back from JSON
+        let deserialized_query: TileRangeQuery = serde_json::from_str(&json).expect("Failed to deserialize");
+        
+        // Verify all fields match
+        assert_eq!(original_query.x, deserialized_query.x);
+        assert_eq!(original_query.y, deserialized_query.y);
+        assert_eq!(original_query.z, deserialized_query.z);
+        assert_eq!(original_query.width, deserialized_query.width);
+        assert_eq!(original_query.height, deserialized_query.height);
+        assert_eq!(original_query.buffer_size_power, deserialized_query.buffer_size_power);
+        assert_eq!(original_query.cached_version, deserialized_query.cached_version);
+    }
 }
