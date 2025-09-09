@@ -99,7 +99,7 @@ class LabelTile extends StatelessWidget {
                 ],
               ),
               if (labelOnTap != null) ...[
-                const SizedBox(width: 6), // 统一的间距
+                const SizedBox(width: 6),
                 const Icon(
                   Icons.info_outline,
                   size: 18.0,
