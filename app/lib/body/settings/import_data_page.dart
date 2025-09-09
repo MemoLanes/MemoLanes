@@ -80,10 +80,7 @@ class _ImportDataPage extends State<ImportDataPage> {
           vectorData: r, importProcessor: processor),
     };
     if (journeyData == null) {
-      await showCommonDialog(
-        context,
-        context.tr("No data found"),
-      );
+      Fluttertoast.showToast(msg: "JourneyData is empty");
       return;
     }
     final mapRendererProxyAndCameraOption =
@@ -115,10 +112,7 @@ class _ImportDataPage extends State<ImportDataPage> {
           vectorData: r, importProcessor: processor),
     };
     if (journeyData == null) {
-      await showCommonDialog(
-        context,
-        context.tr("No data found"),
-      );
+      Fluttertoast.showToast(msg: "JourneyData is empty");
       return;
     }
     await import_api.importJourneyData(
