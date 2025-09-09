@@ -69,7 +69,8 @@
   "preprocessor": {
     "generic": "通用",
     "flightTrack": "航迹",
-    "none": "不使用"
+    "none": "不使用",
+    "description_md": "预处理器可以帮助你优化旅程数据。  \n例如：使用“航迹”预处理器可以过滤掉不必要的点，从而生成更精确的航迹线。"
   },
   "import_fow_data": {
     "button": "导入“世界迷雾”数据",

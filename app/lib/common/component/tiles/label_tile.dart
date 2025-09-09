@@ -18,6 +18,7 @@ class LabelTile extends StatelessWidget {
     this.trailing,
     this.mainAxisAlignment = MainAxisAlignment.start,
     this.onTap,
+    this.labelOnTap,
     this.onLongPress,
     this.decoration,
     this.bottom = true,
@@ -39,6 +40,8 @@ class LabelTile extends StatelessWidget {
   final MainAxisAlignment mainAxisAlignment;
 
   final Function()? onTap;
+
+  final Function()? labelOnTap;
 
   final Function()? onLongPress;
 
@@ -72,29 +75,41 @@ class LabelTile extends StatelessWidget {
     }
 
     List<Widget> children = [
-      ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: 54.0,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            desc.isNotEmpty
-                ? Text(
-                    desc,
+      GestureDetector(
+        onTap: labelOnTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 54.0),
+          child: Row(
+            children: [
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                  )
-                : SizedBox.shrink()
-          ],
+                  ),
+                  if (desc.isNotEmpty)
+                    Text(
+                      desc,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+              if (labelOnTap != null) ...[
+                const SizedBox(width: 6), // 统一的间距
+                const Icon(
+                  Icons.info_outline,
+                  size: 18.0,
+                  color: Color(0x99FFFFFF),
+                ),
+              ],
+            ],
+          ),
         ),
-      ),
+      )
     ];
     if (prefix != null) children.insert(0, prefix!);
     if (suffix != null) children.add(suffix!);

@@ -53,8 +53,8 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
   final TextEditingController _noteController = TextEditingController();
   import_api.ImportProcessor _runPreprocessor = import_api.ImportProcessor.none;
 
-  Future<DateTime?> selectDateAndTime(
-      BuildContext context, DateTime? datetime) async {
+  Future<DateTime?> selectDateAndTime(BuildContext context,
+      DateTime? datetime) async {
     final now = DateTime.now();
     datetime ??= now;
     DateTime? selectedDateTime = await showDatePicker(
@@ -65,7 +65,7 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
     );
 
     TimeOfDay initialTime =
-        TimeOfDay(hour: datetime.hour, minute: datetime.minute);
+    TimeOfDay(hour: datetime.hour, minute: datetime.minute);
 
     if (selectedDateTime != null) {
       if (!context.mounted) return null;
@@ -140,7 +140,10 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQueryData.fromView(View.of(context)).size.width;
+    final width = MediaQueryData
+        .fromView(View.of(context))
+        .size
+        .width;
     return ConstrainedBox(
       constraints: BoxConstraints(
         maxHeight: 440,
@@ -206,21 +209,28 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
             widget.importType == ImportType.fow
                 ? SizedBox.shrink()
                 : LabelTile(
-                    label: context.tr("journey.preprocessor"),
-                    position: LabelTilePosition.single,
-                    trailing: LabelTileContent(
-                      content: switch (_runPreprocessor) {
-                        import_api.ImportProcessor.none =>
-                          context.tr("preprocessor.none"),
-                        import_api.ImportProcessor.generic =>
-                          context.tr("preprocessor.generic"),
-                        import_api.ImportProcessor.flightTrack =>
-                          context.tr("preprocessor.flightTrack"),
-                      },
-                      showArrow: true,
-                    ),
-                    onTap: () => _showJourneyPreprocessorCard(context),
-                  ),
+              label: context.tr("journey.preprocessor"),
+              labelOnTap: () =>
+                showCommonDialog(
+                  context,
+                  context.tr("preprocessor.description_md"),
+                  markdown: true,
+                )
+            ,
+              position: LabelTilePosition.single,
+              trailing: LabelTileContent(
+                content: switch (_runPreprocessor) {
+                  import_api.ImportProcessor.none =>
+                      context.tr("preprocessor.none"),
+                  import_api.ImportProcessor.generic =>
+                      context.tr("preprocessor.generic"),
+                  import_api.ImportProcessor.flightTrack =>
+                      context.tr("preprocessor.flightTrack"),
+                },
+                showArrow: true,
+              ),
+              onTap: () => _showJourneyPreprocessorCard(context),
+            ),
           LabelTile(
             label: context.tr("journey.journey_kind"),
             position: LabelTilePosition.single,
