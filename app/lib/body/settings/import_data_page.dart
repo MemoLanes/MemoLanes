@@ -13,8 +13,6 @@ import 'package:memolanes/src/rust/journey_data.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 
-import '../../common/utils.dart';
-
 class ImportDataPage extends StatefulWidget {
   const ImportDataPage(
       {super.key, required this.path, required this.importType});
