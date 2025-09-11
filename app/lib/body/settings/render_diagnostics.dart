@@ -50,29 +50,56 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
     final startTime = DateTime.now().microsecondsSinceEpoch;
 
     try {
-      final request = jsonDecode(message);
-      final size = request['size'] ?? 1048576;
-      final requestId = request['requestId'];
+      debugPrint('Render Diagnostics Request: $message');
 
-      debugPrint(
-          'Render Diagnostics Request: size=$size, requestId=$requestId');
-
-      // Use the Rust API instead of Dart random generation
-      // Ensure 'size' is passed as BigInt if required by the API
-      final data = await api.generateIpcTestData(
-          size: size is BigInt ? size : BigInt.from(size));
-      final base64Data = base64Encode(data);
+      // Forward the JSON request transparently to Rust and get raw JSON response
+      final responseJson = await api.handleWebviewRequests(request: message);
 
       final endTime = DateTime.now().microsecondsSinceEpoch;
       final processingTime = endTime - startTime;
+      debugPrint(
+          'Render Diagnostics Response (${processingTime}μs): $responseJson');
 
-      // Use minimal JavaScript injection for response
-      await _controller.runJavaScript(
-          'window.handleIpcResponse($requestId,"$base64Data",${data.length},$processingTime)');
+      // Send the raw JSON response directly to JavaScript
+      // Escape the JSON string for JavaScript injection
+      final escapedResponse = responseJson
+          .replaceAll('\\', '\\\\') // Escape backslashes first
+          .replaceAll("'", "\\'") // Escape single quotes
+          .replaceAll('\n', '\\n') // Escape newlines
+          .replaceAll('\r', '\\r'); // Escape carriage returns
+
+      await _controller.runJavaScript('''
+        if (typeof window.handle_RenderDiagnosticsChannel_JsonResponse === 'function') {
+          window.handle_RenderDiagnosticsChannel_JsonResponse('$escapedResponse');
+        } else {
+          console.error('No RenderDiagnostics JSON response handler found');
+          console.log('Raw response:', '$escapedResponse');
+        }
+      ''');
     } catch (e) {
-      debugPrint('Error handling render diagnostics request: $e');
-      await _controller.runJavaScript(
-          'window.handleIpcError && window.handleIpcError("${e.toString()}")');
+      debugPrint('Error processing Render Diagnostics IPC request: $e');
+
+      // Create error response in same format as Rust would
+      final errorResponse = jsonEncode({
+        'requestId': 'unknown',
+        'success': false,
+        'data': null,
+        'error': 'IPC processing error: $e'
+      });
+
+      final escapedError = errorResponse
+          .replaceAll('\\', '\\\\')
+          .replaceAll("'", "\\'")
+          .replaceAll('\n', '\\n')
+          .replaceAll('\r', '\\r');
+
+      await _controller.runJavaScript('''
+        if (typeof window.handle_RenderDiagnosticsChannel_JsonResponse === 'function') {
+          window.handle_RenderDiagnosticsChannel_JsonResponse('$escapedError');
+        } else {
+          console.error('Error handling failed - no handler found');
+        }
+      ''');
     }
   }
 
@@ -82,16 +109,17 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
     debugPrint('Injecting API endpoint: $endpoint');
 
     await _controller.runJavaScript('''
-      // Set the params
+      // Set the params using the new unified API structure
       window.EXTERNAL_PARAMS = {
-        api_endpoint: "$endpoint"
+        http_endpoint: "$endpoint",
+        flutter_channel: "RenderDiagnosticsChannel"
       };
       
       // Check if JS is ready and trigger initialization if so
-      if (typeof window.JS_READY !== 'undefined' && window.JS_READY) {
+      if (typeof window.SETUP_PENDING !== 'undefined' && window.SETUP_PENDING) {
         console.log("JS already ready, triggering initialization");
-        if (typeof initializeTest === 'function') {
-          initializeTest();
+        if (typeof trySetup === 'function') {
+          trySetup();
         }
       } else {
         console.log("JS not ready yet, params stored for later");

@@ -14,7 +14,8 @@ use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::renderer::map_server::MapRendererToken;
 use crate::renderer::MapRenderer;
 use crate::renderer::MapServer;
-use crate::renderer::map_server::generate_random_data;
+use crate::renderer::generate_random_data;
+use crate::renderer::internal_server::Request;
 use crate::storage::Storage;
 use crate::{
     archive, build_info, export_data, gps_processor, main_db, merged_journey_builder, storage,
@@ -152,7 +153,21 @@ impl MapRendererProxy {
     #[frb(sync)]
     pub fn get_url(&self) -> String {
         match self {
-            MapRendererProxy::Token(token) => token.url(),
+            MapRendererProxy::Token(token) => token.url_hash_params(),
+        }
+    }
+
+    #[frb(sync)]
+    pub fn get_url_endpoint(&self) -> String {
+        match self {
+            MapRendererProxy::Token(token) => token.url_hash_params(),
+        }
+    }
+
+    #[frb(sync)]
+    pub fn get_journey_id(&self) -> String {
+        match self {
+            MapRendererProxy::Token(token) => token.journey_id(),
         }
     }
 }
@@ -624,7 +639,27 @@ pub mod for_testing {
     }
 }
 
-pub fn generate_ipc_test_data(size: u64) -> Result<Vec<u8>> {
-    generate_random_data(size)
-        .map_err(|e| anyhow::anyhow!("Failed to generate test data: {}", e))
+pub fn generate_ipc_test_data(size: u64) -> Result<String> {
+    let data = generate_random_data(size)
+        .map_err(|e| anyhow::anyhow!("Failed to generate test data: {}", e))?;
+    
+    // Encode to base64
+    use base64::{Engine as _, engine::general_purpose};
+    let encoded = general_purpose::STANDARD.encode(&data);
+    
+    Ok(encoded)
+}
+
+pub fn handle_webview_requests(request: String) -> Result<String> {
+    let state = get();
+    let registry = state.map_server.lock().unwrap().get_registry();
+    let request = Request::parse(&request)?;
+    let response = request.handle(registry);
+    // Direct JSON serialization - more explicit and efficient
+    serde_json::to_string(&response).map_err(|e| anyhow::anyhow!("Failed to serialize response: {}", e))
+}
+
+#[frb(sync)]
+pub fn get_mapbox_access_token() -> String {
+    env!("MAPBOX-ACCESS-TOKEN").to_string()
 }

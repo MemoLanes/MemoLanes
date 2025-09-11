@@ -19,11 +19,9 @@ module.exports = (env, argv) => {
     }),
     new WasmPackPlugin({
       crateDirectory: path.resolve(__dirname, "."),
-      target: "bundler",
-      extraArgs: "--features wasm --no-default-features",
+      extraArgs: "--target web --features wasm --no-default-features",
     }),
   ];
-
   // Only add CopyWebpackPlugin in development mode
   if (isDevelopment) {
     plugins.push(
@@ -51,16 +49,21 @@ module.exports = (env, argv) => {
       path: path.resolve(__dirname, "dist"),
       filename: "[name].bundle.js",
       assetModuleFilename: "[name][ext]",
-      webassemblyModuleFilename: "journey_kernel_bg.wasm",
+      // Remove or comment out this line to prevent webpack from expecting a separate WASM file
+      // webassemblyModuleFilename: "journey_kernel_bg.wasm",
     },
-    experiments: {
-      asyncWebAssembly: true,
-    },
+    // experiments: {
+    //   asyncWebAssembly: true,
+    // },
     module: {
       rules: [
         {
           test: /\.css$/i,
           use: ["style-loader", "css-loader"],
+        },
+        {
+          test: /\.wasm$/,
+          type: "asset/inline",
         },
       ],
     },

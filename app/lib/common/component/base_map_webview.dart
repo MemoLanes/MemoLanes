@@ -167,6 +167,13 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   Future<void> _initWebView() async {
     _webViewController
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setOnConsoleMessage((JavaScriptConsoleMessage message) {
+          // Process the console message here
+          debugPrint('[${message.level.name}] ${message.message}');
+
+          // You can perform various actions based on the message,
+          // such as displaying it in your Flutter UI, logging it to a file, etc.
+        })
       ..setNavigationDelegate(
         NavigationDelegate(
           onNavigationRequest: (NavigationRequest request) {
@@ -180,7 +187,12 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
               Uri.parse(request.url),
               mode: LaunchMode.externalApplication,
             );
-            return NavigationDecision.prevent;
+            return NavigationDecision.navigate;
+          },
+          onPageFinished: (String url) {
+            debugPrint('Page finished loading: $url');
+            // Inject the API endpoint after page loads
+            _injectApiEndpoint();
           },
           onWebResourceError: (WebResourceError error) async {
             // the mapbox error is common (maybe blocked by some firewall )
@@ -225,10 +237,17 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             _readyForDisplay = true;
           });
         },
+      )..addJavaScriptChannel(
+        'TileProviderChannel',
+        onMessageReceived: (JavaScriptMessage message) {
+          _handleTileProviderRequest(message.message);
+        },
       );
-
-    final url = getUrl();
-    await _webViewController.loadRequest(url);
+    final assetPath = 'assets/map_webview/index.html';
+    log.info('[base_map_webview] Initial loading asset: $assetPath');
+    await _webViewController.loadFlutterAsset(assetPath);
+    // final actualUrl = await _webViewController.currentUrl();
+    // log.info('[base_map_webview] Actual URL after initial load: $actualUrl');
   }
 
   Uri getUrl() {
@@ -244,6 +263,107 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       uri = uri.replace(fragment: newFragment);
     }
     return uri;
+  }
+
+  Future<void> _injectApiEndpoint() async {
+    final endpoint = api.getServerIpcTestUrl();
+    final accessKey = api.getMapboxAccessToken();
+    final journeyId = widget.mapRendererProxy.getJourneyId();
+
+    debugPrint('Injecting API endpoint: $endpoint');
+    debugPrint('Injecting access key: $accessKey');
+
+    // Get map view coordinates
+    final mapView = _currentRoughMapView;
+    final lngParam = mapView?.lng.toString() ?? 'null';
+    final latParam = mapView?.lat.toString() ?? 'null';
+    final zoomParam = mapView?.zoom.toString() ?? 'null';
+
+    debugPrint('Injecting lng: $lngParam');
+    debugPrint('Injecting lat: $latParam');
+    debugPrint('Injecting zoom: $zoomParam');
+
+    await _webViewController.runJavaScript('''
+      // Set the params
+      window.EXTERNAL_PARAMS = {
+        // cgi_endpoint: "$endpoint",
+        cgi_endpoint: "flutter",
+        // Alternative: enable Flutter IPC by setting cgi_endpoint to "flutter" 
+        // and uncomment the next line:
+        flutter_channel: "TileProviderChannel",
+        journey_id: "$journeyId",
+        render: "gl",
+        access_key: "$accessKey",
+        lng: $lngParam,
+        lat: $latParam,
+        zoom: $zoomParam,
+      };
+      
+      // Check if JS is ready and trigger initialization if so
+      if (typeof window.SETUP_PENDING !== 'undefined' && window.SETUP_PENDING) {
+        console.log("JS already ready, triggering initialization");
+        if (typeof trySetup === 'function') {
+          trySetup();
+        }
+      } else {
+        console.log("JS not ready yet, params stored for later");
+      }
+    ''');
+
+    debugPrint('Initialization completed');
+  }
+
+  void _handleTileProviderRequest(String message) async {
+    try {
+      debugPrint('Tile Provider IPC Request: $message');
+
+
+      // Forward the JSON request transparently to Rust and get raw JSON response
+      final responseJson = await api.handleWebviewRequests(request: message);
+
+      debugPrint('Tile Provider IPC Response: $responseJson');
+
+      // Send the raw JSON response directly to JavaScript
+      // Escape the JSON string for JavaScript injection
+      final escapedResponse = responseJson
+          .replaceAll('\\', '\\\\') // Escape backslashes first
+          .replaceAll("'", "\\'") // Escape single quotes
+          .replaceAll('\n', '\\n') // Escape newlines
+          .replaceAll('\r', '\\r'); // Escape carriage returns
+
+      await _webViewController.runJavaScript('''
+        if (typeof window.handle_TileProviderChannel_JsonResponse === 'function') {
+          window.handle_TileProviderChannel_JsonResponse('$escapedResponse');
+        } else {
+          console.error('No TileProvider JSON response handler found');
+          console.log('Raw response:', '$escapedResponse');
+        }
+      ''');
+    } catch (e) {
+      debugPrint('Error processing Tile Provider IPC request: $e');
+
+      // Create error response in same format as Rust would
+      final errorResponse = jsonEncode({
+        'requestId': 'unknown',
+        'success': false,
+        'data': null,
+        'error': 'IPC processing error: $e'
+      });
+
+      final escapedError = errorResponse
+          .replaceAll('\\', '\\\\')
+          .replaceAll("'", "\\'")
+          .replaceAll('\n', '\\n')
+          .replaceAll('\r', '\\r');
+
+      await _webViewController.runJavaScript('''
+        if (typeof window.handle_TileProviderChannel_JsonResponse === 'function') {
+          window.handle_TileProviderChannel_JsonResponse('$escapedError');
+        } else {
+          console.error('Error handling failed - no handler found');
+        }
+      ''');
+    }
   }
 
   @override
