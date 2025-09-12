@@ -36,28 +36,11 @@ class MultiRequest {
     _setupResponseHandler() {
         if (!this.channelName) return;
         
-        // Create a unique handler name for this instance (legacy format)
-        const handlerName = `handle_${this.channelName}_Response`;
-        
-        // Set up legacy handler if it doesn't exist
-        if (!window[handlerName]) {
-            window[handlerName] = (requestId, base64Data, size, processingTime) => {
-                this._handleResponse(requestId, base64Data, size, processingTime);
-            };
-        }
-        
-        // Set up new JSON response handler
+        // Set up JSON response handler
         const jsonHandlerName = `handle_${this.channelName}_JsonResponse`;
         if (!window[jsonHandlerName]) {
             window[jsonHandlerName] = (responseJson) => {
                 this._handleJsonResponse(responseJson);
-            };
-        }
-        
-        // Also support the generic handlers for backwards compatibility
-        if (!window.handleIpcResponse) {
-            window.handleIpcResponse = (requestId, base64Data, size, processingTime) => {
-                this._handleResponse(requestId, base64Data, size, processingTime);
             };
         }
     }
@@ -94,54 +77,6 @@ class MultiRequest {
         }
     }
 
-    /**
-     * Handle IPC response for this instance (legacy format)
-     */
-    _handleResponse(requestId, base64Data, size, processingTime) {
-        const numericRequestId = parseInt(requestId);
-        
-        if (!this.pendingRequests.has(numericRequestId)) {
-            // This response might be for a different instance
-            return;
-        }
-        
-        const { resolve } = this.pendingRequests.get(numericRequestId);
-        
-        try {
-            // Efficiently decode base64 data
-            const binaryString = atob(base64Data);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
-            
-            // Create response object similar to fetch Response
-            const response = {
-                ok: true,
-                status: 200,
-                data: bytes,
-                size: size,
-                requestId: numericRequestId,
-                
-                // Add methods to make it more fetch-like
-                arrayBuffer: async () => bytes.buffer,
-                blob: async () => new Blob([bytes]),
-                json: async () => {
-                    const text = new TextDecoder().decode(bytes);
-                    return JSON.parse(text);
-                },
-                text: async () => new TextDecoder().decode(bytes)
-            };
-            
-            resolve(response);
-            
-        } catch (error) {
-            const { reject } = this.pendingRequests.get(numericRequestId);
-            reject(new Error(`Failed to process IPC response: ${error.message}`));
-        } finally {
-            this.pendingRequests.delete(numericRequestId);
-        }
-    }
     
     /**
      * Set the CGI endpoint for this instance
