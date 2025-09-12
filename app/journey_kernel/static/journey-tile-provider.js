@@ -28,7 +28,7 @@ export class JourneyTileProvider {
   initializeMultiRequest() {
     // Determine endpoint type based on EXTERNAL_PARAMS
     let endpointUrl = null;
-    
+
     // Check for flutter channel configuration
     if (window.EXTERNAL_PARAMS.flutter_channel) {
       // Use explicit flutter_channel parameter
@@ -36,7 +36,7 @@ export class JourneyTileProvider {
     } else if (window.EXTERNAL_PARAMS.cgi_endpoint) {
       if (window.EXTERNAL_PARAMS.cgi_endpoint === "flutter") {
         // Legacy Flutter mode - use default channel
-        const flutterChannel = 'TileProviderChannel'; // Default channel for tile provider
+        const flutterChannel = "TileProviderChannel"; // Default channel for tile provider
         endpointUrl = `flutter://${flutterChannel}`;
       } else {
         // HTTP endpoint
@@ -46,8 +46,10 @@ export class JourneyTileProvider {
       // Fallback to current working directory for HTTP
       endpointUrl = ".";
     }
-    
-    console.log(`JourneyTileProvider: Initializing MultiRequest with endpoint: ${endpointUrl}`);
+
+    console.log(
+      `JourneyTileProvider: Initializing MultiRequest with endpoint: ${endpointUrl}`,
+    );
     return new MultiRequest(endpointUrl);
   }
 
@@ -169,7 +171,7 @@ export class JourneyTileProvider {
     this.downloadInProgress = true;
 
     const [x, y, w, h, z] = this.viewRange;
-    
+
     // Create request parameters for MultiRequest
     const requestParams = {
       id: this.journeyId,
@@ -178,26 +180,32 @@ export class JourneyTileProvider {
       z: z,
       width: w,
       height: h,
-      buffer_size_power: this.bufferSizePower
+      buffer_size_power: this.bufferSizePower,
     };
-    
+
     // Add cached version if available and not forcing update
     if (!forceUpdate && this.currentVersion) {
       requestParams.cached_version = this.currentVersion;
     }
 
-    console.log(`Fetching tile buffer via MultiRequest with params:`, requestParams);
+    console.log(
+      `Fetching tile buffer via MultiRequest with params:`,
+      requestParams,
+    );
 
     let tileBufferUpdated = false;
     const startTime = performance.now();
 
     try {
       // Make the request - response is now a direct JS object
-      const response = await this.multiRequest.fetch('tile_range', requestParams);
+      const response = await this.multiRequest.fetch(
+        "tile_range",
+        requestParams,
+      );
 
       // Check success status directly
       if (!response.success) {
-        throw new Error(response.error || 'Request failed');
+        throw new Error(response.error || "Request failed");
       }
 
       // Handle 304 status in response data
@@ -218,7 +226,7 @@ export class JourneyTileProvider {
             timestamp: endTime,
             url: logUrl,
             status: response.data?.status || 200,
-            requestId: response.requestId || 'unknown',
+            requestId: response.requestId || "unknown",
           },
         }),
       );
@@ -232,12 +240,16 @@ export class JourneyTileProvider {
 
       // Get the binary data
       // response.data.body is base64 encoded, so decode it
-      const bytes = Uint8Array.from(atob(response.data.body), c => c.charCodeAt(0));
+      const bytes = Uint8Array.from(atob(response.data.body), (c) =>
+        c.charCodeAt(0),
+      );
 
       // Deserialize into a TileBuffer object using the WebAssembly module
       this.tileBuffer = TileBuffer.from_bytes(bytes);
 
-      console.log(`Tile buffer fetched and deserialized successfully via ${this.multiRequest.getStatus().isFlutterMode ? 'Flutter IPC' : 'HTTP'}`);
+      console.log(
+        `Tile buffer fetched and deserialized successfully via ${this.multiRequest.getStatus().isFlutterMode ? "Flutter IPC" : "HTTP"}`,
+      );
 
       // Notify all registered callbacks that a new tile buffer is ready
       this.notifyTileBufferReady(
@@ -273,10 +285,10 @@ export class JourneyTileProvider {
   // Helper method to build URL for logging purposes
   buildLogUrl(params) {
     const endpoint = this.multiRequest.cgiEndpoint;
-    if (endpoint.startsWith('flutter://')) {
+    if (endpoint.startsWith("flutter://")) {
       return `${endpoint}/tile_range`;
     }
-    
+
     const urlParams = new URLSearchParams(params).toString();
     return `${endpoint}/tile_range?${urlParams}`;
   }

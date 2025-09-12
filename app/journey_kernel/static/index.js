@@ -8,7 +8,7 @@
     window.EXTERNAL_PARAMS.cgi_endpoint = ".";
 
     const params = new URLSearchParams(hash);
-    
+
     // Scan all hash parameters and store them in EXTERNAL_PARAMS after successful decoding
     // Supported parameters for endpoint configuration:
     // - cgi_endpoint: HTTP endpoint URL or "flutter" for IPC mode
@@ -104,22 +104,37 @@ async function trySetup() {
   currentJourneyId = window.EXTERNAL_PARAMS.journey_id;
 
   // Get rendering mode from EXTERNAL_PARAMS
-  if (window.EXTERNAL_PARAMS.render && AVAILABLE_LAYERS[window.EXTERNAL_PARAMS.render]) {
+  if (
+    window.EXTERNAL_PARAMS.render &&
+    AVAILABLE_LAYERS[window.EXTERNAL_PARAMS.render]
+  ) {
     currentRenderingMode = window.EXTERNAL_PARAMS.render;
   }
 
   // Parse coordinates and zoom from EXTERNAL_PARAMS with fallbacks
-  const lng = window.EXTERNAL_PARAMS.lng ? 
-    (isNaN(parseFloat(window.EXTERNAL_PARAMS.lng)) ? 0 : parseFloat(window.EXTERNAL_PARAMS.lng)) : 0;
-  const lat = window.EXTERNAL_PARAMS.lat ? 
-    (isNaN(parseFloat(window.EXTERNAL_PARAMS.lat)) ? 0 : parseFloat(window.EXTERNAL_PARAMS.lat)) : 0;
-  const zoom = window.EXTERNAL_PARAMS.zoom ? 
-    (isNaN(parseFloat(window.EXTERNAL_PARAMS.zoom)) ? 2 : parseFloat(window.EXTERNAL_PARAMS.zoom)) : 2;
+  const lng = window.EXTERNAL_PARAMS.lng
+    ? isNaN(parseFloat(window.EXTERNAL_PARAMS.lng))
+      ? 0
+      : parseFloat(window.EXTERNAL_PARAMS.lng)
+    : 0;
+  const lat = window.EXTERNAL_PARAMS.lat
+    ? isNaN(parseFloat(window.EXTERNAL_PARAMS.lat))
+      ? 0
+      : parseFloat(window.EXTERNAL_PARAMS.lat)
+    : 0;
+  const zoom = window.EXTERNAL_PARAMS.zoom
+    ? isNaN(parseFloat(window.EXTERNAL_PARAMS.zoom))
+      ? 2
+      : parseFloat(window.EXTERNAL_PARAMS.zoom)
+    : 2;
 
   console.log(
     `journey_id: ${currentJourneyId}, render: ${currentRenderingMode}, lng: ${lng}, lat: ${lat}, zoom: ${zoom}`,
   );
-  console.log("EXTERNAL_PARAMS for endpoint configuration:", window.EXTERNAL_PARAMS);
+  console.log(
+    "EXTERNAL_PARAMS for endpoint configuration:",
+    window.EXTERNAL_PARAMS,
+  );
 
   const map = new mapboxgl.Map({
     container: "map",
@@ -265,22 +280,26 @@ async function trySetup() {
     }
 
     if (newJourneyId === currentJourneyId) {
-      console.log(`updateJourneyId: journey ID is already set to '${newJourneyId}'`);
+      console.log(
+        `updateJourneyId: journey ID is already set to '${newJourneyId}'`,
+      );
       return false;
     }
 
-    console.log(`updateJourneyId: switching from '${currentJourneyId}' to '${newJourneyId}'`);
-    
+    console.log(
+      `updateJourneyId: switching from '${currentJourneyId}' to '${newJourneyId}'`,
+    );
+
     // Update the current journey ID
     currentJourneyId = newJourneyId;
-    
+
     // Update the tile provider's journey ID
     if (currentJourneyTileProvider) {
       currentJourneyTileProvider.journeyId = currentJourneyId;
       // Force update to fetch data for the new journey
       currentJourneyTileProvider.pollForJourneyUpdates(true);
     }
-    
+
     return true;
   };
 }
@@ -288,11 +307,12 @@ async function trySetup() {
 window.trySetup = trySetup;
 
 // Ensure WASM module is initialized before using its exports downstream
-init().then(() => {
-  console.log("WASM module initialized");
-  
-  trySetup().catch(console.error);
+init()
+  .then(() => {
+    console.log("WASM module initialized");
 
-  window.SETUP_PENDING = true;
-}).catch(console.error);
+    trySetup().catch(console.error);
 
+    window.SETUP_PENDING = true;
+  })
+  .catch(console.error);
