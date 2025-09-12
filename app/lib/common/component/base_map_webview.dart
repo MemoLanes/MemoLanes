@@ -47,6 +47,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   // It is rough because we don't update it frequently.
   MapView? _currentRoughMapView;
 
+  // Track current journey ID to detect changes
+  String? _currentJourneyId;
+
   // For bug workaround
   bool _isiOS18 = false;
 
@@ -54,23 +57,31 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   void didUpdateWidget(BaseMapWebview oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.trackingMode != widget.trackingMode) _updateLocationMarker();
-    // TODO: the below is for compatibility for android or ios, double check later.
-    // Only update URL if the mapRendererProxy actually changed
+
+    // Check if journey ID has changed and update via JavaScript API
     if (oldWidget.mapRendererProxy != widget.mapRendererProxy) {
-      _updateMapUrl();
+      _updateJourneyIdIfChanged();
     }
   }
 
-  Future<void> _updateMapUrl() async {
-    final url = widget.mapRendererProxy.getUrl();
+  Future<void> _updateJourneyIdIfChanged() async {
+    final newJourneyId = widget.mapRendererProxy.getJourneyId();
 
-    // TODO: currently when trackingMode updates, the upper layer will trigger a
-    // rebuid of this widget? we should not reload the page if url is unchanged
-    // this may be an iOS bug to be investigated further
-    final currentUrl = await _webViewController.currentUrl();
+    // Check if journey ID has actually changed
+    if (_currentJourneyId != newJourneyId) {
+      log.info(
+          '[base_map_webview] Journey ID changed from $_currentJourneyId to $newJourneyId');
+      _currentJourneyId = newJourneyId;
 
-    if (currentUrl != url) {
-      await _webViewController.loadRequest(Uri.parse(url));
+      // Update journey ID via JavaScript API instead of reloading the page
+      await _webViewController.runJavaScript('''
+        if (typeof updateJourneyId === 'function') {
+          console.log('Updating journey ID to: $newJourneyId');
+          updateJourneyId('$newJourneyId');
+        } else {
+          console.warn('updateJourneyId function not available yet');
+        }
+      ''');
     }
   }
 
@@ -81,6 +92,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _gpsManager = Provider.of<GpsManager>(context, listen: false);
     _gpsManager.addListener(_updateLocationMarker);
     _currentRoughMapView = widget.initialMapView;
+    _currentJourneyId = widget.mapRendererProxy.getJourneyId();
     _roughMapViewUpdaeTimer =
         Timer.periodic(Duration(seconds: 2), (Timer t) async {
       final newMapView = await _getCurrentMapView();
@@ -202,19 +214,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
                   Error Type: ${error.errorType} 
                   Error Code: ${error.errorCode}
                   Failed URL: ${error.url}''');
-            }
-
-            // TODO: The whole thing is a workaround. We should try to find a way
-            // to make the map server work properly or just avoid using a real
-            // Http server.
-            if ((error.errorCode == -1004 || // iOS error code
-                    (error.errorType == WebResourceErrorType.connect &&
-                        error.errorCode == -6)) && // Android error code
-                error.url?.contains('localhost') == true) {
-              await api.restartMapServer();
-              final url = getUrl();
-              await _webViewController.loadRequest(url);
-              return;
             }
 
             if (error.errorType ==

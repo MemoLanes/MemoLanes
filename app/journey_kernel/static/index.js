@@ -256,6 +256,33 @@ async function trySetup() {
   window.switchRenderingLayer = function (renderingMode) {
     return switchRenderingLayer(map, renderingMode);
   };
+
+  // Add method to update journey ID
+  window.updateJourneyId = function (newJourneyId) {
+    if (!newJourneyId) {
+      console.warn("updateJourneyId: journey ID cannot be empty");
+      return false;
+    }
+
+    if (newJourneyId === currentJourneyId) {
+      console.log(`updateJourneyId: journey ID is already set to '${newJourneyId}'`);
+      return false;
+    }
+
+    console.log(`updateJourneyId: switching from '${currentJourneyId}' to '${newJourneyId}'`);
+    
+    // Update the current journey ID
+    currentJourneyId = newJourneyId;
+    
+    // Update the tile provider's journey ID
+    if (currentJourneyTileProvider) {
+      currentJourneyTileProvider.journeyId = currentJourneyId;
+      // Force update to fetch data for the new journey
+      currentJourneyTileProvider.pollForJourneyUpdates(true);
+    }
+    
+    return true;
+  };
 }
 
 window.trySetup = trySetup;
