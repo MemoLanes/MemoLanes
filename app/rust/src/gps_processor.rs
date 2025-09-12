@@ -28,6 +28,43 @@ impl Point {
 
         r * c // Distance in meters
     }
+
+    pub fn to_cartesian(&self) -> (f64, f64, f64) {
+        let lon_rad = Point::to_radians(self.longitude);
+        let lat_rad = Point::to_radians(self.latitude);
+        let x = lat_rad.cos() * lon_rad.cos();
+        let y = lat_rad.cos() * lon_rad.sin();
+        let z = lat_rad.sin();
+        (x, y, z)
+    }
+
+    pub fn to_geographic(x: f64, y: f64, z: f64) -> Point {
+        let lon = Point::to_degrees(y.atan2(x));
+        let lat = Point::to_degrees(z.atan2((x * x + y * y).sqrt()));
+        Point {
+            latitude: lat,
+            longitude: Point::normalize_longitude(lon),
+        }
+    }
+
+    fn to_radians(deg: f64) -> f64 {
+        use std::f64::consts::PI;
+        deg * PI / 180.0
+    }
+    fn to_degrees(rad: f64) -> f64 {
+        use std::f64::consts::PI;
+        rad * 180.0 / PI
+    }
+
+    fn normalize_longitude(mut lon: f64) -> f64 {
+        while lon >= 180.0 {
+            lon -= 360.0;
+        }
+        while lon < -180.0 {
+            lon += 360.0;
+        }
+        lon
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

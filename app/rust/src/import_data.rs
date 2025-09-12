@@ -1,4 +1,5 @@
 use crate::api::import::JourneyInfo;
+use crate::flight_track_processor;
 use crate::gps_processor::{Point, PreprocessedData, ProcessResult, RawData};
 use crate::journey_bitmap::{
     self, Block, BlockKey, JourneyBitmap, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH,
@@ -12,8 +13,10 @@ use anyhow::Result;
 use chrono::{DateTime, Local, TimeZone, Utc};
 use flate2::read::ZlibDecoder;
 use gpx::{read, Time};
-use kml::types::Geometry;
+use kml::types::{Element, Geometry};
+use kml::Kml::Placemark;
 use kml::{Kml, KmlReader};
+use std::cell::RefCell;
 use std::result::Result::Ok;
 use std::vec;
 use std::{fs::File, io::BufReader, io::Read, path::Path};
@@ -298,26 +301,76 @@ fn read_track(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
 
 fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
     let mut raw_vector_data: Vec<Vec<RawData>> = Vec::new();
-    flatten_data.iter().for_each(|k| {
-        let mut raw_vector_data_segment: Vec<RawData> = Vec::new();
-        if let Kml::Placemark(p) = k {
-            if let Some(Geometry::LineString(p)) = &p.geometry {
-                p.coords.iter().for_each(|coord| {
-                    raw_vector_data_segment.push(RawData {
-                        point: Point {
-                            latitude: coord.y,
-                            longitude: coord.x,
-                        },
-                        timestamp_ms: None,
-                        accuracy: None,
-                        altitude: None,
-                        speed: None,
-                    });
-                });
+
+    let convert_to_timestamp = |when: Option<String>| -> Option<i64> {
+        match when {
+            None => None,
+            Some(when) => {
+                let datetime = DateTime::parse_from_rfc3339(&when).ok()?;
+                Some(datetime.timestamp_millis())
             }
         }
-        raw_vector_data.push(raw_vector_data_segment);
+    };
+
+    let extract_time_from_children = |timestamp_element: &Element| -> Option<String> {
+        timestamp_element
+            .children
+            .iter()
+            .find(|e| e.name == "when")
+            .and_then(|when_element| when_element.content.clone())
+    };
+
+    let raw_vector_data_segment: RefCell<Vec<RawData>> = RefCell::new(Vec::new());
+
+    flatten_data.iter().for_each(|k| {
+        if let Placemark(p) = k {
+            if let Some(geometry) = &p.geometry {
+                match geometry {
+                    Geometry::Point(point) => {
+                        let timestamp_ms = convert_to_timestamp(
+                            p.children
+                                .iter()
+                                .find(|e| e.name == "TimeStamp")
+                                .and_then(extract_time_from_children),
+                        );
+                        raw_vector_data_segment.borrow_mut().push(RawData {
+                            point: Point {
+                                latitude: point.coord.y,
+                                longitude: point.coord.x,
+                            },
+                            timestamp_ms,
+                            accuracy: None,
+                            altitude: None,
+                            speed: None,
+                        });
+                    }
+                    Geometry::LineString(line_string) => {
+                        line_string.coords.iter().for_each(|coord| {
+                            raw_vector_data_segment.borrow_mut().push(RawData {
+                                point: Point {
+                                    latitude: coord.y,
+                                    longitude: coord.x,
+                                },
+                                timestamp_ms: None,
+                                accuracy: None,
+                                altitude: None,
+                                speed: None,
+                            });
+                        });
+
+                        // we treat different `LineString` as different segments
+                        if !raw_vector_data_segment.borrow().is_empty() {
+                            raw_vector_data.push(raw_vector_data_segment.replace(Vec::new()));
+                        }
+                    }
+                    _ => (),
+                }
+            }
+        }
     });
+    if !raw_vector_data_segment.borrow().is_empty() {
+        raw_vector_data.push(raw_vector_data_segment.into_inner());
+    }
     Ok(raw_vector_data)
 }
 
@@ -332,16 +385,16 @@ fn flatten_kml(kml: Kml) -> Vec<Kml> {
     }
 }
 
-pub fn journey_vector_from_raw_data(
+pub fn journey_vector_from_raw_data_with_gps_preprocessor(
     raw_data: &[Vec<RawData>],
-    run_preprocessor: bool,
+    enable_preprocessor: bool,
 ) -> Option<JourneyVector> {
     let processed_data = raw_data.iter().flat_map(move |x| {
         // we handle each segment separately
         let mut gps_preprocessor = GpsPreprocessor::new();
         let mut first = true;
         x.iter().map(move |raw_data| {
-            let process_result = if run_preprocessor {
+            let process_result = if enable_preprocessor {
                 gps_preprocessor.preprocess(raw_data)
             } else if first {
                 first = false;
@@ -367,6 +420,12 @@ pub fn journey_vector_from_raw_data(
         None => None,
         Some(ongoing_journey) => Some(ongoing_journey.journey_vector),
     }
+}
+
+pub fn journey_vector_from_raw_data_with_flight_track_processor(
+    raw_data: &[Vec<RawData>],
+) -> Option<JourneyVector> {
+    flight_track_processor::process(raw_data)
 }
 
 pub fn journey_info_from_raw_vector_data(raw_vector_data: &[Vec<RawData>]) -> JourneyInfo {
