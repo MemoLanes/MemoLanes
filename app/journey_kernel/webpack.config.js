@@ -10,12 +10,12 @@ module.exports = (env, argv) => {
     new HtmlWebpackPlugin({
       template: "./static/index.html",
       filename: "index.html",
-      chunks: ['main'], // Only include the main chunk
+      chunks: ["main"], // Only include the main chunk
     }),
     new HtmlWebpackPlugin({
       template: "./static/render_diagnostics_template.html",
       filename: "render_diagnostics.html",
-      chunks: ['render_diagnostics'], // Only include the render_diagnostics chunk
+      chunks: ["render_diagnostics"], // Only include the render_diagnostics chunk
     }),
     new WasmPackPlugin({
       crateDirectory: path.resolve(__dirname, "."),
