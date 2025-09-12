@@ -11,7 +11,6 @@ use crate::gps_processor::{GpsPreprocessor, ProcessResult};
 use crate::journey_bitmap::{JourneyBitmap, MAP_WIDTH_OFFSET, TILE_WIDTH, TILE_WIDTH_OFFSET};
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
-use crate::renderer::generate_random_data;
 use crate::renderer::internal_server::Request;
 use crate::renderer::map_server::MapRendererToken;
 use crate::renderer::MapRenderer;
@@ -637,17 +636,6 @@ pub mod for_testing {
     pub fn get_main_map_renderer() -> Arc<Mutex<MapRenderer>> {
         super::get().main_map_renderer.clone()
     }
-}
-
-pub fn generate_ipc_test_data(size: u64) -> Result<String> {
-    let data = generate_random_data(size)
-        .map_err(|e| anyhow::anyhow!("Failed to generate test data: {}", e))?;
-
-    // Encode to base64
-    use base64::{engine::general_purpose, Engine as _};
-    let encoded = general_purpose::STANDARD.encode(&data);
-
-    Ok(encoded)
 }
 
 pub fn handle_webview_requests(request: String) -> Result<String> {
