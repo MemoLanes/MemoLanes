@@ -1,13 +1,13 @@
-use base64::{Engine as _, engine::general_purpose};
-use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, base64::Base64};
-use uuid::Uuid;
 use anyhow::Result;
+use base64::{engine::general_purpose, Engine as _};
+use serde::{Deserialize, Serialize};
+use serde_with::{base64::Base64, serde_as};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use uuid::Uuid;
 
-use super::MapRenderer;
 use super::map_renderer;
+use super::MapRenderer;
 
 use rand::RngCore;
 
@@ -39,10 +39,6 @@ pub struct TileRangeResponse {
 pub struct RandomDataQuery {
     pub size: Option<u64>, // Size in bytes, default 1MB
 }
-
-
-
-
 
 // Unified request interface
 #[derive(Deserialize, Serialize, Debug)]
@@ -88,24 +84,24 @@ mod tests {
         }"#;
 
         let request = Request::parse(request_json).expect("Failed to parse request");
-        
+
         // Create a dummy registry (empty is fine for IPC test)
         let registry = Arc::new(Mutex::new(HashMap::new()));
-        
+
         let response = request.handle(registry);
-        
+
         // Verify response structure
         assert_eq!(response.request_id, "test-123");
         assert_eq!(response.success, true);
         assert!(response.data.is_some());
         assert!(response.error.is_none());
-        
+
         // Verify data structure
         let data = response.data.as_ref().unwrap();
         assert!(data["size"].as_u64().is_some());
         assert_eq!(data["size"].as_u64().unwrap(), 1024);
         assert!(data["data"].as_str().is_some()); // base64 encoded data
-        
+
         // Verify JSON serialization works
         let json = serde_json::to_string(&response).expect("Failed to serialize response");
         assert!(json.contains("\"requestId\":\"test-123\""));
@@ -121,7 +117,10 @@ mod tests {
         }"#;
 
         let result = Request::parse(invalid_json);
-        assert!(result.is_err(), "Expected parsing to fail for unknown query type");
+        assert!(
+            result.is_err(),
+            "Expected parsing to fail for unknown query type"
+        );
     }
 
     #[test]
@@ -132,14 +131,18 @@ mod tests {
         // Create a dummy journey bitmap
         let journey_bitmap = JourneyBitmap::new();
         let map_renderer = MapRenderer::new(journey_bitmap);
-        
+
         // Create registry and add the map renderer
         let registry = Arc::new(Mutex::new(HashMap::new()));
         let id = Uuid::new_v4();
-        registry.lock().unwrap().insert(id, Arc::new(Mutex::new(map_renderer)));
+        registry
+            .lock()
+            .unwrap()
+            .insert(id, Arc::new(Mutex::new(map_renderer)));
 
         // Create tile range request
-        let request_json = format!(r#"{{
+        let request_json = format!(
+            r#"{{
             "requestId": "test-version-123",
             "query": "tile_range",
             "payload": {{
@@ -152,7 +155,9 @@ mod tests {
                 "buffer_size_power": 6,
                 "cached_version": null
             }}
-        }}"#, id);
+        }}"#,
+            id
+        );
 
         let request = Request::parse(&request_json).expect("Failed to parse request");
         let response = request.handle(registry);
@@ -166,13 +171,19 @@ mod tests {
         // Verify headers contain version
         let data = response.data.as_ref().unwrap();
         let headers = data["headers"].as_object().unwrap();
-        assert!(headers.contains_key("version"), "Response headers should contain version");
-        
+        assert!(
+            headers.contains_key("version"),
+            "Response headers should contain version"
+        );
+
         // Verify version is a valid hex string
         let version = headers["version"].as_str().unwrap();
         assert!(!version.is_empty(), "Version should not be empty");
         // Version should be a hex string (can be parsed as hex)
-        assert!(u64::from_str_radix(version, 16).is_ok(), "Version should be valid hex string");
+        assert!(
+            u64::from_str_radix(version, 16).is_ok(),
+            "Version should be valid hex string"
+        );
     }
 
     #[test]
@@ -184,11 +195,14 @@ mod tests {
         let journey_bitmap = JourneyBitmap::new();
         let map_renderer = MapRenderer::new(journey_bitmap);
         let version = map_renderer.get_version_string();
-        
+
         // Create registry and add the map renderer
         let registry = Arc::new(Mutex::new(HashMap::new()));
         let id = Uuid::new_v4();
-        registry.lock().unwrap().insert(id, Arc::new(Mutex::new(map_renderer)));
+        registry
+            .lock()
+            .unwrap()
+            .insert(id, Arc::new(Mutex::new(map_renderer)));
 
         // Create tile range query with current version (should trigger 302)
         let query = TileRangeQuery {
@@ -207,9 +221,18 @@ mod tests {
         // Verify 304 response
         assert!(response.is_ok(), "Expected successful response");
         let tile_response = response.unwrap();
-        assert_eq!(tile_response.status, 304, "Expected 304 status when no changes");
-        assert!(tile_response.headers.is_empty(), "Expected empty headers for 304 response");
-        assert!(tile_response.body.is_empty(), "Expected empty body for 304 response");
+        assert_eq!(
+            tile_response.status, 304,
+            "Expected 304 status when no changes"
+        );
+        assert!(
+            tile_response.headers.is_empty(),
+            "Expected empty headers for 304 response"
+        );
+        assert!(
+            tile_response.body.is_empty(),
+            "Expected empty body for 304 response"
+        );
     }
 }
 
@@ -226,17 +249,18 @@ pub fn handle_tile_range_query(
     };
 
     // Get the latest bitmap if it has changed
-    let (journey_bitmap, version) = match map_renderer.get_latest_bitmap_if_changed(query.cached_version.as_deref()) {
-        None => {
-            // No changes since client's cached version - return 304 status
-            return Ok(TileRangeResponse {
-                status: 304,
-                headers: HashMap::new(),
-                body: Vec::new(),
-            });
-        }
-        Some((journey_bitmap, version)) => (journey_bitmap, version),
-    };
+    let (journey_bitmap, version) =
+        match map_renderer.get_latest_bitmap_if_changed(query.cached_version.as_deref()) {
+            None => {
+                // No changes since client's cached version - return 304 status
+                return Ok(TileRangeResponse {
+                    status: 304,
+                    headers: HashMap::new(),
+                    body: Vec::new(),
+                });
+            }
+            Some((journey_bitmap, version)) => (journey_bitmap, version),
+        };
 
     // Generate tile buffer from journey bitmap
     let tile_buffer = match map_renderer::tile_buffer_from_journey_bitmap(
@@ -277,29 +301,24 @@ impl Request {
     }
 
     /// Handle the request and return an appropriate response
-    pub fn handle(
-        &self,
-        registry: Arc<Mutex<Registry>>,
-    ) -> RequestResponse<serde_json::Value> {
+    pub fn handle(&self, registry: Arc<Mutex<Registry>>) -> RequestResponse<serde_json::Value> {
         match &self.payload {
             RequestPayload::TileRange(query) => {
                 match handle_tile_range_query((*query).clone(), registry) {
-                    Ok(response_data) => {
-                        match serde_json::to_value(response_data) {
-                            Ok(value) => RequestResponse {
-                                request_id: self.request_id.clone(),
-                                success: true,
-                                data: Some(value),
-                                error: None,
-                            },
-                            Err(e) => RequestResponse {
-                                request_id: self.request_id.clone(),
-                                success: false,
-                                data: None,
-                                error: Some(format!("Failed to serialize response: {}", e)),
-                            },
-                        }
-                    }
+                    Ok(response_data) => match serde_json::to_value(response_data) {
+                        Ok(value) => RequestResponse {
+                            request_id: self.request_id.clone(),
+                            success: true,
+                            data: Some(value),
+                            error: None,
+                        },
+                        Err(e) => RequestResponse {
+                            request_id: self.request_id.clone(),
+                            success: false,
+                            data: None,
+                            error: Some(format!("Failed to serialize response: {}", e)),
+                        },
+                    },
                     Err(e) => RequestResponse {
                         request_id: self.request_id.clone(),
                         success: false,
@@ -335,19 +354,20 @@ impl Request {
     }
 }
 
-
-
 // Move the random data generation to a separate function
 pub fn generate_random_data(size: u64) -> Result<Vec<u8>, String> {
     let max_size = 10_485_760; // 10MB limit
-    
+
     if size > max_size {
-        return Err(format!("Size too large. Maximum allowed: {} bytes (10MB)", max_size));
+        return Err(format!(
+            "Size too large. Maximum allowed: {} bytes (10MB)",
+            max_size
+        ));
     }
-    
+
     // Generate random data efficiently
     let mut data = vec![0u8; size as usize];
     rand::rng().fill_bytes(&mut data);
-    
+
     Ok(data)
 }

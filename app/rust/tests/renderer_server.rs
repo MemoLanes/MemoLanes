@@ -1,8 +1,8 @@
 pub mod test_utils;
 use memolanes_core::import_data;
+use memolanes_core::renderer::internal_server::Request;
 use memolanes_core::renderer::MapRenderer;
 use memolanes_core::renderer::MapServer;
-use memolanes_core::renderer::internal_server::Request;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -24,11 +24,10 @@ pub fn renderer_server() -> Result<(), Box<dyn std::error::Error>> {
         .register_map_renderer(Arc::new(Mutex::new(map_renderer_fow)));
     let journey_id = token_fow.journey_id();
 
-
     let registry = server.lock().unwrap().get_registry();
 
-
-    let request_str = format!(r#"
+    let request_str = format!(
+        r#"
     {{
         "requestId": "test-123",
         "query": "tile_range",
@@ -43,7 +42,9 @@ pub fn renderer_server() -> Result<(), Box<dyn std::error::Error>> {
             "cached_version": "test-123"
         }}
     }}
-    "#, journey_id);
+    "#,
+        journey_id
+    );
 
     // println!("request: {}", request_str);
 
@@ -56,9 +57,10 @@ pub fn renderer_server() -> Result<(), Box<dyn std::error::Error>> {
 
     assert_eq!(body, body_for_compare);
 
-
     // Direct JSON serialization - more explicit and efficient
-    let response_str = serde_json::to_string(&response).map_err(|e| anyhow::anyhow!("Failed to serialize response: {}", e)).unwrap();
+    let response_str = serde_json::to_string(&response)
+        .map_err(|e| anyhow::anyhow!("Failed to serialize response: {}", e))
+        .unwrap();
     println!("response: {}", response_str);
 
     Ok(())

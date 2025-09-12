@@ -75,7 +75,11 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .lock()
         .unwrap()
         .register_map_renderer(Arc::new(Mutex::new(map_renderer_fow)));
-    println!("[Medium Map Server]:   {}&debug=true&access_key={}", token_fow.url(), access_key);
+    println!(
+        "[Medium Map Server]:   {}&debug=true&access_key={}",
+        token_fow.url(),
+        access_key
+    );
 
     // demo for a dynamic map
     let journey_bitmap2 = JourneyBitmap::new();
