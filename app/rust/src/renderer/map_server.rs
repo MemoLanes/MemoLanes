@@ -430,9 +430,8 @@ async fn handle_preflight() -> HttpResponse {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::renderer::internal_server::{
-        Request, RequestPayload, RequestResponse, TileRangeQuery,
+        Request, RequestPayload, RequestResponse, TileRangeQuery,TileRangeResponse
     };
     use serde_json;
     use std::collections::HashMap;
