@@ -182,7 +182,8 @@ async function makeRequest() {
             const response = await flutterRequester.fetch('random_data', { size: size });
             const endTime = performance.now();
             const duration = Math.round(endTime - startTime);
-            log(`Request #${requestId}: IPC Channel - SUCCESS - ${duration}ms total - ${response.size} bytes`);
+            const actualSize = response.data?.size || size;
+            log(`Request #${requestId}: IPC Channel - SUCCESS - ${duration}ms total - ${actualSize} bytes`);
         } catch (error) {
             const endTime = performance.now();
             const duration = Math.round(endTime - startTime);
@@ -205,13 +206,12 @@ async function makeRequest() {
             const endTime = performance.now();
             const duration = Math.round(endTime - startTime);
             
-            if (response.ok) {
-                // For unified API responses, we can get additional data
-                const responseData = await response.json();
-                const actualSize = responseData.size || size;
+            if (response.success) {
+                // Response is already a JS object, access data directly
+                const actualSize = response.data?.size || size;
                 log(`Request #${requestId}: HTTP (${path}) - SUCCESS - ${duration}ms - ${actualSize} bytes`);
             } else {
-                log(`Request #${requestId}: HTTP (${path}) - ERROR - HTTP ${response.status} - ${duration}ms`);
+                log(`Request #${requestId}: HTTP (${path}) - ERROR - ${response.error || 'Unknown error'} - ${duration}ms`);
             }
             
         } catch (error) {

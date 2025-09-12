@@ -321,7 +321,11 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       // Forward the JSON request transparently to Rust and get raw JSON response
       final responseJson = await api.handleWebviewRequests(request: message);
 
-      debugPrint('Tile Provider IPC Response: $responseJson');
+      final truncatedResponse = responseJson.length > 100
+          ? '${responseJson.substring(0, 100)}...'
+          : responseJson;
+
+      debugPrint('Tile Provider IPC Response: $truncatedResponse');
 
       // Send the JSON response as a JavaScript object (no escaping needed)
       await _webViewController.runJavaScript('''
