@@ -54,9 +54,18 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .lock()
         .unwrap()
         .register_map_renderer(Arc::new(Mutex::new(map_renderer_static)));
+    let access_key = env!("MAPBOX-ACCESS-TOKEN");
+    println!("================================================");
     println!(
-        "simple map: {}&debug=true&lng=148.0&lat=-30.0&zoom=7.0",
-        token.url()
+        "[Simple Map Server]:   {}&debug=true&lng=148.0&lat=-30.0&zoom=7.0&access_key={}",
+        token.url(),
+        access_key
+    );
+    println!(
+        "[Simple Map Local]:    file://{}/journey_kernel/index.html{}&debug=true&lng=148.0&lat=-30.0&zoom=7.0&access_key={}",
+        env!("OUT_DIR"),
+        token.url_hash_params(),
+        access_key
     );
 
     let (joruney_bitmap_fow, _) =
@@ -66,7 +75,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .lock()
         .unwrap()
         .register_map_renderer(Arc::new(Mutex::new(map_renderer_fow)));
-    println!("medium map: {}&debug=true", token_fow.url());
+    println!("[Medium Map Server]:   {}&debug=true&access_key={}", token_fow.url(), access_key);
 
     // demo for a dynamic map
     let journey_bitmap2 = JourneyBitmap::new();
@@ -79,8 +88,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .register_map_renderer(map_renderer_arc);
 
     println!(
-        "dynamic map: {}&debug=true&lng=106.5&lat=30.0&zoom=8",
-        token.url()
+        "[Dynamic Map Server]:  {}&debug=true&lng=106.5&lat=30.0&zoom=8&access_key={}",
+        token.url(),
+        access_key
     );
 
     // Spawn the drawing thread
