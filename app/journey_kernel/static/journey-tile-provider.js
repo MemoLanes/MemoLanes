@@ -189,9 +189,10 @@ export class JourneyTileProvider {
     console.log(`Fetching tile buffer via MultiRequest with params:`, requestParams);
 
     let tileBufferUpdated = false;
+    const startTime = performance.now();
 
     try {
-      // Make the request and let MultiRequest handle timing
+      // Make the request and calculate timing ourselves
       const response = await this.multiRequest.fetch('tile_range', requestParams);
 
       if (response.status === 304) {
@@ -216,12 +217,14 @@ export class JourneyTileProvider {
 
       // Emit timing data for successful downloads (not 304)
       // Build a representative URL for logging purposes
+      const endTime = performance.now();
+      const duration = Math.round(endTime - startTime);
       const logUrl = this.buildLogUrl(requestParams);
       window.dispatchEvent(
         new CustomEvent("tileDownloadTiming", {
           detail: {
-            duration: response.totalTime,
-            timestamp: performance.now(),
+            duration: duration,
+            timestamp: endTime,
             url: logUrl,
             status: json.status || 200,
             requestId: response.requestId || 'unknown',

@@ -180,7 +180,9 @@ async function makeRequest() {
         try {
             // Use the flutter requester with random_data query and size payload
             const response = await flutterRequester.fetch('random_data', { size: size });
-            log(`Request #${requestId}: IPC Channel - SUCCESS - ${response.totalTime}ms total (${response.processingTime}ms Flutter + ${response.transferTime}ms transfer) - ${response.size} bytes`);
+            const endTime = performance.now();
+            const duration = Math.round(endTime - startTime);
+            log(`Request #${requestId}: IPC Channel - SUCCESS - ${duration}ms total - ${response.size} bytes`);
         } catch (error) {
             const endTime = performance.now();
             const duration = Math.round(endTime - startTime);

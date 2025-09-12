@@ -75,12 +75,11 @@ class MultiRequest {
                 return;
             }
             
-            const { resolve, reject, startTime } = this.pendingRequests.get(requestId);
+            const { resolve, reject } = this.pendingRequests.get(requestId);
             
             try {
-                const endTime = performance.now();
                 // Use the same unified response creation method as HTTP
-                const unifiedResponse = this._createUnifiedResponse(jsonResponse, startTime, endTime);
+                const unifiedResponse = this._createUnifiedResponse(jsonResponse);
                 resolve(unifiedResponse);
                 
             } catch (error) {
@@ -106,13 +105,9 @@ class MultiRequest {
             return;
         }
         
-        const { resolve, startTime } = this.pendingRequests.get(numericRequestId);
+        const { resolve } = this.pendingRequests.get(numericRequestId);
         
         try {
-            const endTime = performance.now();
-            const totalTime = Math.round(endTime - startTime);
-            const flutterTime = Math.round(processingTime / 1000); // Convert to ms
-            
             // Efficiently decode base64 data
             const binaryString = atob(base64Data);
             const bytes = new Uint8Array(binaryString.length);
@@ -126,9 +121,6 @@ class MultiRequest {
                 status: 200,
                 data: bytes,
                 size: size,
-                totalTime: totalTime,
-                processingTime: flutterTime,
-                transferTime: totalTime - flutterTime,
                 requestId: numericRequestId,
                 
                 // Add methods to make it more fetch-like
@@ -217,14 +209,12 @@ class MultiRequest {
             ...options
         };
         
-        const startTime = performance.now();
         const response = await fetch(url, fetchOptions);
-        const endTime = performance.now();
         
         if (response.ok) {
             const jsonResponse = await response.json();
-            // Process the unified response format and add timing
-            return this._createUnifiedResponse(jsonResponse, startTime, endTime);
+            // Process the unified response format
+            return this._createUnifiedResponse(jsonResponse);
         } else {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
@@ -233,9 +223,7 @@ class MultiRequest {
     /**
      * Create unified response object from Rust JSON response
      */
-    _createUnifiedResponse(jsonResponse, startTime, endTime) {
-        const totalTime = Math.round(endTime - startTime);
-        
+    _createUnifiedResponse(jsonResponse) {
         if (!jsonResponse.success) {
             throw new Error(jsonResponse.error || 'Request failed');
         }
@@ -247,7 +235,6 @@ class MultiRequest {
             requestId: jsonResponse.requestId,
             success: jsonResponse.success,
             data: jsonResponse.data,
-            totalTime: totalTime,
             
             // Standard fetch-like methods that work with the unified response format
             json: async () => jsonResponse.data,
@@ -281,13 +268,11 @@ class MultiRequest {
         
         return new Promise((resolve, reject) => {
             const requestId = ++this.requestId;
-            const startTime = performance.now();
             
             // Store request info
             this.pendingRequests.set(requestId, {
                 resolve,
-                reject,
-                startTime
+                reject
             });
             
             // Send unified request format via JavaScript channel

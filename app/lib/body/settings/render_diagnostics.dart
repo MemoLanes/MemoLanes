@@ -56,18 +56,25 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
       final responseJson = await api.handleWebviewRequests(request: message);
 
       final endTime = DateTime.now().microsecondsSinceEpoch;
-      final processingTime = endTime - startTime;
+      final processingTimeMs = (endTime - startTime) / 1000;
+      final truncatedResponse = responseJson.length > 100
+          ? '${responseJson.substring(0, 100)}...'
+          : responseJson;
       debugPrint(
-          'Render Diagnostics Response (${processingTime}μs): $responseJson');
+          'Render Diagnostics Response (${processingTimeMs.toStringAsFixed(1)}ms): $truncatedResponse');
 
       // Send the raw JSON response directly to JavaScript
       // Escape the JSON string for JavaScript injection
+      final escapeStartTime = DateTime.now().microsecondsSinceEpoch;
       final escapedResponse = responseJson
           .replaceAll('\\', '\\\\') // Escape backslashes first
           .replaceAll("'", "\\'") // Escape single quotes
           .replaceAll('\n', '\\n') // Escape newlines
           .replaceAll('\r', '\\r'); // Escape carriage returns
+      final escapeEndTime = DateTime.now().microsecondsSinceEpoch;
+      final escapeTimeMs = (escapeEndTime - escapeStartTime) / 1000;
 
+      final jsStartTime = DateTime.now().microsecondsSinceEpoch;
       await _controller.runJavaScript('''
         if (typeof window.handle_RenderDiagnosticsChannel_JsonResponse === 'function') {
           window.handle_RenderDiagnosticsChannel_JsonResponse('$escapedResponse');
@@ -76,6 +83,11 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
           console.log('Raw response:', '$escapedResponse');
         }
       ''');
+      final jsEndTime = DateTime.now().microsecondsSinceEpoch;
+      final jsTimeMs = (jsEndTime - jsStartTime) / 1000;
+
+      debugPrint(
+          'Render Diagnostics Timing - Escape: ${escapeTimeMs.toStringAsFixed(1)}ms, JS execution: ${jsTimeMs.toStringAsFixed(1)}ms');
     } catch (e) {
       debugPrint('Error processing Render Diagnostics IPC request: $e');
 
@@ -87,12 +99,17 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
         'error': 'IPC processing error: $e'
       });
 
+      final errorEscapeStartTime = DateTime.now().microsecondsSinceEpoch;
       final escapedError = errorResponse
           .replaceAll('\\', '\\\\')
           .replaceAll("'", "\\'")
           .replaceAll('\n', '\\n')
           .replaceAll('\r', '\\r');
+      final errorEscapeEndTime = DateTime.now().microsecondsSinceEpoch;
+      final errorEscapeTimeMs =
+          (errorEscapeEndTime - errorEscapeStartTime) / 1000;
 
+      final errorJsStartTime = DateTime.now().microsecondsSinceEpoch;
       await _controller.runJavaScript('''
         if (typeof window.handle_RenderDiagnosticsChannel_JsonResponse === 'function') {
           window.handle_RenderDiagnosticsChannel_JsonResponse('$escapedError');
@@ -100,6 +117,11 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
           console.error('Error handling failed - no handler found');
         }
       ''');
+      final errorJsEndTime = DateTime.now().microsecondsSinceEpoch;
+      final errorJsTimeMs = (errorJsEndTime - errorJsStartTime) / 1000;
+
+      debugPrint(
+          'Render Diagnostics Error Timing - Escape: ${errorEscapeTimeMs.toStringAsFixed(1)}ms, JS execution: ${errorJsTimeMs.toStringAsFixed(1)}ms');
     }
   }
 
