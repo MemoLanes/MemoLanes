@@ -192,26 +192,17 @@ export class JourneyTileProvider {
     const startTime = performance.now();
 
     try {
-      // Make the request and calculate timing ourselves
+      // Make the request - response is now a direct JS object
       const response = await this.multiRequest.fetch('tile_range', requestParams);
 
-      if (response.status === 304) {
+      // Check success status directly
+      if (!response.success) {
+        throw new Error(response.error || 'Request failed');
+      }
+
+      // Handle 304 status in response data
+      if (response.data && response.data.status === 304) {
         console.log("Tile buffer has not changed (304 Not Modified)");
-        return false;
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          `Failed to fetch tile buffer: ${response.status} ${response.statusText || 'Unknown error'}`,
-        );
-      }
-
-      // Get JSON response (MultiRequest handles this uniformly)
-      const json = await response.json();
-      
-      // Handle 304 status in response body (for unified API)
-      if (json.status === 304) {
-        console.log("Tile buffer has not changed (304 Not Modified from API)");
         return false;
       }
 
@@ -226,22 +217,22 @@ export class JourneyTileProvider {
             duration: duration,
             timestamp: endTime,
             url: logUrl,
-            status: json.status || 200,
+            status: response.data?.status || 200,
             requestId: response.requestId || 'unknown',
           },
         }),
       );
 
-      // Update version from response headers
-      const newVersion = json.headers?.version;
+      // Update version from response data headers
+      const newVersion = response.data?.headers?.version;
       if (newVersion) {
         this.currentVersion = newVersion;
         console.log(`Updated tile buffer version to: ${newVersion}`);
       }
 
       // Get the binary data
-      // json.body is base64 encoded, so decode it
-      const bytes = Uint8Array.from(atob(json.body), c => c.charCodeAt(0));
+      // response.data.body is base64 encoded, so decode it
+      const bytes = Uint8Array.from(atob(response.data.body), c => c.charCodeAt(0));
 
       // Deserialize into a TileBuffer object using the WebAssembly module
       this.tileBuffer = TileBuffer.from_bytes(bytes);

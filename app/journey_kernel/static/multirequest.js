@@ -46,11 +46,15 @@ class MultiRequest {
     }
     
     /**
-     * Handle raw JSON IPC response for this instance
+     * Handle object IPC response for this instance
      */
-    _handleJsonResponse(responseJson) {
+    _handleJsonResponse(responseData) {
         try {
-            const jsonResponse = JSON.parse(responseJson);
+            // Directly use the object response (no parsing needed)
+            const jsonResponse = responseData;
+            // const responseSize = (JSON.stringify(responseData).length / 1024).toFixed(2);
+            // console.log(`MultiRequest: Direct object response: ${responseSize} KB`);
+            
             const requestId = parseInt(jsonResponse.requestId);
             
             if (!this.pendingRequests.has(requestId)) {
@@ -61,9 +65,8 @@ class MultiRequest {
             const { resolve, reject } = this.pendingRequests.get(requestId);
             
             try {
-                // Use the same unified response creation method as HTTP
-                const unifiedResponse = this._createUnifiedResponse(jsonResponse);
-                resolve(unifiedResponse);
+                // Return the JSON response directly
+                resolve(jsonResponse);
                 
             } catch (error) {
                 reject(error);
@@ -72,8 +75,8 @@ class MultiRequest {
             }
             
         } catch (error) {
-            console.error('Failed to parse JSON response:', error);
-            console.error('Raw response:', responseJson);
+            console.error('Failed to process response:', error);
+            console.error('Raw response:', responseData);
         }
     }
 
@@ -148,50 +151,13 @@ class MultiRequest {
         
         if (response.ok) {
             const jsonResponse = await response.json();
-            // Process the unified response format
-            return this._createUnifiedResponse(jsonResponse);
+            // Return the unified response directly
+            return jsonResponse;
         } else {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
     }
     
-    /**
-     * Create unified response object from Rust JSON response
-     */
-    _createUnifiedResponse(jsonResponse) {
-        if (!jsonResponse.success) {
-            throw new Error(jsonResponse.error || 'Request failed');
-        }
-        
-        // Create a fetch-like response object with the unified data
-        return {
-            ok: true,
-            status: 200,
-            requestId: jsonResponse.requestId,
-            success: jsonResponse.success,
-            data: jsonResponse.data,
-            
-            // Standard fetch-like methods that work with the unified response format
-            json: async () => jsonResponse.data,
-            text: async () => JSON.stringify(jsonResponse.data),
-            arrayBuffer: async () => {
-                // If data contains base64 encoded binary data (like tile_range), decode it
-                if (jsonResponse.data && jsonResponse.data.body) {
-                    const binaryString = atob(jsonResponse.data.body);
-                    const bytes = new Uint8Array(binaryString.length);
-                    for (let i = 0; i < binaryString.length; i++) {
-                        bytes[i] = binaryString.charCodeAt(i);
-                    }
-                    return bytes.buffer;
-                }
-                return new ArrayBuffer(0);
-            },
-            blob: async function() {
-                const arrayBuffer = await this.arrayBuffer();
-                return new Blob([arrayBuffer]);
-            }
-        };
-    }
 
     /**
      * Flutter IPC fetch implementation

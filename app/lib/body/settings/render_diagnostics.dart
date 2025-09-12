@@ -21,6 +21,13 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
     // Initialize the WebView controller
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setOnConsoleMessage((JavaScriptConsoleMessage message) {
+        // Process the console message here
+        debugPrint('[${message.level.name}] ${message.message}');
+
+        // You can perform various actions based on the message,
+        // such as displaying it in your Flutter UI, logging it to a file, etc.
+      })
       // Add JavaScript channel for IPC communication
       ..addJavaScriptChannel(
         'RenderDiagnosticsChannel',
@@ -63,31 +70,22 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
       debugPrint(
           'Render Diagnostics Response (${processingTimeMs.toStringAsFixed(1)}ms): $truncatedResponse');
 
-      // Send the raw JSON response directly to JavaScript
-      // Escape the JSON string for JavaScript injection
-      final escapeStartTime = DateTime.now().microsecondsSinceEpoch;
-      final escapedResponse = responseJson
-          .replaceAll('\\', '\\\\') // Escape backslashes first
-          .replaceAll("'", "\\'") // Escape single quotes
-          .replaceAll('\n', '\\n') // Escape newlines
-          .replaceAll('\r', '\\r'); // Escape carriage returns
-      final escapeEndTime = DateTime.now().microsecondsSinceEpoch;
-      final escapeTimeMs = (escapeEndTime - escapeStartTime) / 1000;
-
+      // Send the JSON response as a JavaScript object (no escaping needed)
       final jsStartTime = DateTime.now().microsecondsSinceEpoch;
       await _controller.runJavaScript('''
         if (typeof window.handle_RenderDiagnosticsChannel_JsonResponse === 'function') {
-          window.handle_RenderDiagnosticsChannel_JsonResponse('$escapedResponse');
+          const responseData = $responseJson;
+          window.handle_RenderDiagnosticsChannel_JsonResponse(responseData);
         } else {
           console.error('No RenderDiagnostics JSON response handler found');
-          console.log('Raw response:', '$escapedResponse');
+          console.log('Raw response:', $responseJson);
         }
       ''');
       final jsEndTime = DateTime.now().microsecondsSinceEpoch;
       final jsTimeMs = (jsEndTime - jsStartTime) / 1000;
 
       debugPrint(
-          'Render Diagnostics Timing - Escape: ${escapeTimeMs.toStringAsFixed(1)}ms, JS execution: ${jsTimeMs.toStringAsFixed(1)}ms');
+          'Render Diagnostics Timing - JS execution: ${jsTimeMs.toStringAsFixed(1)}ms');
     } catch (e) {
       debugPrint('Error processing Render Diagnostics IPC request: $e');
 
@@ -99,20 +97,11 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
         'error': 'IPC processing error: $e'
       });
 
-      final errorEscapeStartTime = DateTime.now().microsecondsSinceEpoch;
-      final escapedError = errorResponse
-          .replaceAll('\\', '\\\\')
-          .replaceAll("'", "\\'")
-          .replaceAll('\n', '\\n')
-          .replaceAll('\r', '\\r');
-      final errorEscapeEndTime = DateTime.now().microsecondsSinceEpoch;
-      final errorEscapeTimeMs =
-          (errorEscapeEndTime - errorEscapeStartTime) / 1000;
-
       final errorJsStartTime = DateTime.now().microsecondsSinceEpoch;
       await _controller.runJavaScript('''
         if (typeof window.handle_RenderDiagnosticsChannel_JsonResponse === 'function') {
-          window.handle_RenderDiagnosticsChannel_JsonResponse('$escapedError');
+          const errorData = $errorResponse;
+          window.handle_RenderDiagnosticsChannel_JsonResponse(errorData);
         } else {
           console.error('Error handling failed - no handler found');
         }
@@ -121,7 +110,7 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
       final errorJsTimeMs = (errorJsEndTime - errorJsStartTime) / 1000;
 
       debugPrint(
-          'Render Diagnostics Error Timing - Escape: ${errorEscapeTimeMs.toStringAsFixed(1)}ms, JS execution: ${errorJsTimeMs.toStringAsFixed(1)}ms');
+          'Render Diagnostics Error Timing - JS execution: ${errorJsTimeMs.toStringAsFixed(1)}ms');
     }
   }
 

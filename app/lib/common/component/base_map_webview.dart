@@ -168,12 +168,12 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _webViewController
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setOnConsoleMessage((JavaScriptConsoleMessage message) {
-          // Process the console message here
-          debugPrint('[${message.level.name}] ${message.message}');
+        // Process the console message here
+        debugPrint('[${message.level.name}] ${message.message}');
 
-          // You can perform various actions based on the message,
-          // such as displaying it in your Flutter UI, logging it to a file, etc.
-        })
+        // You can perform various actions based on the message,
+        // such as displaying it in your Flutter UI, logging it to a file, etc.
+      })
       ..setNavigationDelegate(
         NavigationDelegate(
           onNavigationRequest: (NavigationRequest request) {
@@ -237,7 +237,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             _readyForDisplay = true;
           });
         },
-      )..addJavaScriptChannel(
+      )
+      ..addJavaScriptChannel(
         'TileProviderChannel',
         onMessageReceived: (JavaScriptMessage message) {
           _handleTileProviderRequest(message.message);
@@ -317,26 +318,19 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     try {
       debugPrint('Tile Provider IPC Request: $message');
 
-
       // Forward the JSON request transparently to Rust and get raw JSON response
       final responseJson = await api.handleWebviewRequests(request: message);
 
       debugPrint('Tile Provider IPC Response: $responseJson');
 
-      // Send the raw JSON response directly to JavaScript
-      // Escape the JSON string for JavaScript injection
-      final escapedResponse = responseJson
-          .replaceAll('\\', '\\\\') // Escape backslashes first
-          .replaceAll("'", "\\'") // Escape single quotes
-          .replaceAll('\n', '\\n') // Escape newlines
-          .replaceAll('\r', '\\r'); // Escape carriage returns
-
+      // Send the JSON response as a JavaScript object (no escaping needed)
       await _webViewController.runJavaScript('''
         if (typeof window.handle_TileProviderChannel_JsonResponse === 'function') {
-          window.handle_TileProviderChannel_JsonResponse('$escapedResponse');
+          const responseData = $responseJson;
+          window.handle_TileProviderChannel_JsonResponse(responseData);
         } else {
           console.error('No TileProvider JSON response handler found');
-          console.log('Raw response:', '$escapedResponse');
+          console.log('Raw response:', $responseJson);
         }
       ''');
     } catch (e) {
@@ -350,15 +344,10 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         'error': 'IPC processing error: $e'
       });
 
-      final escapedError = errorResponse
-          .replaceAll('\\', '\\\\')
-          .replaceAll("'", "\\'")
-          .replaceAll('\n', '\\n')
-          .replaceAll('\r', '\\r');
-
       await _webViewController.runJavaScript('''
         if (typeof window.handle_TileProviderChannel_JsonResponse === 'function') {
-          window.handle_TileProviderChannel_JsonResponse('$escapedError');
+          const errorData = $errorResponse;
+          window.handle_TileProviderChannel_JsonResponse(errorData);
         } else {
           console.error('Error handling failed - no handler found');
         }
