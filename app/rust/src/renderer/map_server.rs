@@ -365,11 +365,6 @@ const JOURNEY_VIEW_HTML: &str =
 const JOURNEY_KERNEL_JS: &str =
     include_str!(concat!(env!("OUT_DIR"), "/journey_kernel/main.bundle.js"));
 
-const JOURNEY_KERNEL_WASM: &[u8] = include_bytes!(concat!(
-    env!("OUT_DIR"),
-    "/journey_kernel/journey_kernel_bg.wasm"
-));
-
 // Serve the HTML page
 async fn index() -> HttpResponse {
     HttpResponse::Ok()
