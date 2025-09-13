@@ -191,13 +191,6 @@ pub fn get_empty_map_renderer_proxy() -> MapRendererProxy {
     MapRendererProxy::Token(token)
 }
 
-#[frb(sync)]
-pub fn get_server_ipc_test_url() -> String {
-    let state = get();
-    let server = state.map_server.lock().unwrap();
-    server.get_ipc_test_url()
-}
-
 pub fn get_map_renderer_proxy_for_journey_date_range(
     from_date_inclusive: NaiveDate,
     to_date_inclusive: NaiveDate,

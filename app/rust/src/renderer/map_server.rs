@@ -2,15 +2,12 @@ use actix_web::{
     dev::ServerHandle, http::Method, web, App, HttpResponse, HttpResponseBuilder, HttpServer,
 };
 use anyhow::Result;
-use std::borrow::Cow;
 use std::sync::{Arc, Mutex, Weak};
 use std::thread::{self, JoinHandle};
 use tokio::runtime::Runtime;
 use uuid::Uuid;
-
-use super::generate_random_data;
 use super::internal_server::{
-    handle_tile_range_query, RandomDataQuery, Registry, Request, TileRangeQuery,
+    handle_tile_range_query, Registry, Request, TileRangeQuery,
 };
 use super::MapRenderer;
 
@@ -181,21 +178,6 @@ async fn serve_unified_json_request(
     }
 }
 
-// Simplified HTTP handler - now uses the shared function
-async fn serve_ipc_test_download(query: web::Query<RandomDataQuery>) -> HttpResponse {
-    let size = query.size.unwrap_or(1_048_576); // Default 1MB
-
-    match generate_random_data(size) {
-        Ok(data) => add_cors_headers(&mut HttpResponse::Ok())
-            .append_header(("Content-Length", size.to_string()))
-            .content_type("application/octet-stream")
-            .body(data),
-        Err(error_msg) => add_cors_headers(&mut HttpResponse::BadRequest())
-            .content_type("text/plain")
-            .body(error_msg),
-    }
-}
-
 pub struct ServerInfo {
     host: String,
     port: u16,
@@ -236,18 +218,8 @@ impl MapServer {
                     // Unified JSON POST endpoint
                     .route("/api", web::post().to(serve_unified_json_request))
                     .route("/api", web::method(Method::OPTIONS).to(handle_preflight))
-                    // Only one HTTP test endpoint
-                    .route("/random_data", web::get().to(serve_ipc_test_download))
-                    .route(
-                        "/random_data",
-                        web::method(Method::OPTIONS).to(handle_preflight),
-                    )
                     .route("/", web::get().to(index))
                     .route("/main.bundle.js", web::get().to(serve_journey_kernel_js))
-                    .route(
-                        "/journey_kernel_bg.wasm",
-                        web::get().to(serve_journey_kernel_wasm),
-                    )
             })
             .bind((host, port.unwrap_or(0)))?
             .workers(1)
@@ -372,11 +344,6 @@ impl MapServer {
         Ok(())
     }
 
-    pub fn get_ipc_test_url(&self) -> String {
-        let server_info = self.server_info.lock().unwrap();
-        format!("http://{}:{}", server_info.host, server_info.port)
-    }
-
     // TODO: this is a workaround to get the registry from the map server
     // we should redesign the interface to avoid this
     pub fn get_registry(&self) -> Arc<Mutex<Registry>> {
@@ -414,12 +381,6 @@ async fn serve_journey_kernel_js() -> HttpResponse {
     HttpResponse::Ok()
         .content_type("application/javascript")
         .body(JOURNEY_KERNEL_JS)
-}
-
-async fn serve_journey_kernel_wasm() -> HttpResponse {
-    HttpResponse::Ok()
-        .content_type("application/wasm")
-        .body(Cow::Borrowed(JOURNEY_KERNEL_WASM))
 }
 
 async fn handle_preflight() -> HttpResponse {
