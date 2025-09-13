@@ -227,7 +227,7 @@ impl MapServer {
     pub fn get_http_url(&self, token: &MapRendererToken) -> String {
         let server_info = self.server_info.lock().unwrap();
         let camera_option = get_default_camera_option_from_journey_bitmap(
-            &token
+            token
                 .get_map_renderer()
                 .unwrap()
                 .lock()
@@ -259,7 +259,7 @@ impl MapServer {
     pub fn get_file_url(&self, token: &MapRendererToken) -> String {
         let server_info = self.server_info.lock().unwrap();
         let camera_option = get_default_camera_option_from_journey_bitmap(
-            &token
+            token
                 .get_map_renderer()
                 .unwrap()
                 .lock()

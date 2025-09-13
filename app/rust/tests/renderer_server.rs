@@ -1,7 +1,7 @@
 pub mod test_utils;
 use memolanes_core::import_data;
-use memolanes_core::renderer::internal_server::Request;
 use memolanes_core::renderer::internal_server::Registry;
+use memolanes_core::renderer::internal_server::Request;
 use memolanes_core::renderer::MapRenderer;
 use memolanes_core::renderer::MapServer;
 use std::sync::Arc;
@@ -13,7 +13,8 @@ pub fn renderer_server() -> Result<(), Box<dyn std::error::Error>> {
     let registry = Arc::new(Mutex::new(Registry::new()));
 
     let server = Arc::new(Mutex::new(
-        MapServer::create_and_start_with_registry("localhost", None, registry.clone()).expect("Failed to start server"),
+        MapServer::create_and_start_with_registry("localhost", None, registry.clone())
+            .expect("Failed to start server"),
     ));
 
     std::thread::sleep(Duration::from_millis(200));
