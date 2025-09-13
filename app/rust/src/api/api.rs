@@ -617,6 +617,11 @@ pub fn handle_webview_requests(request: String) -> Result<String> {
         .map_err(|e| anyhow::anyhow!("Failed to serialize response: {}", e))
 }
 
+#[frb(ignore)]
+pub fn get_registry() -> Arc<Mutex<Registry>> {
+    get().registry.clone()
+}
+
 #[frb(sync)]
 pub fn get_mapbox_access_token() -> String {
     env!("MAPBOX-ACCESS-TOKEN").to_string()

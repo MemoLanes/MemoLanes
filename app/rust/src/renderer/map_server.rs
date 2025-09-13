@@ -1,5 +1,6 @@
 use super::internal_server::{handle_tile_range_query, Registry, Request, TileRangeQuery};
 use super::MapRenderer;
+use crate::api::api::get_default_camera_option_from_journey_bitmap;
 use crate::renderer::internal_server::MapRendererToken;
 use actix_web::{
     dev::ServerHandle, http::Method, web, App, HttpResponse, HttpResponseBuilder, HttpServer,
@@ -208,9 +209,11 @@ impl MapServer {
         Ok(((handle, server_handle), server_info))
     }
 
-    pub fn create_and_start(host: &str, port: Option<u16>) -> Result<Self> {
-        let registry = Arc::new(Mutex::new(Registry::new()));
-
+    pub fn create_and_start_with_registry(
+        host: &str,
+        port: Option<u16>,
+        registry: Arc<Mutex<Registry>>,
+    ) -> Result<Self> {
         let registry_for_move = registry.clone();
         let (handles, server_info) = Self::start_server(host, port, registry_for_move)?;
 
@@ -221,9 +224,70 @@ impl MapServer {
         })
     }
 
-    pub fn url(&self) -> String {
+    pub fn get_http_url(&self, token: &MapRendererToken) -> String {
         let server_info = self.server_info.lock().unwrap();
-        format!("http://{}:{}/", server_info.host, server_info.port)
+        let camera_option = get_default_camera_option_from_journey_bitmap(
+            &token
+                .get_map_renderer()
+                .unwrap()
+                .lock()
+                .unwrap()
+                .peek_latest_bitmap(),
+        );
+
+        match camera_option {
+            Some(camera) => format!(
+                "http://{}:{}/#journey_id={}&debug=true&lng={}&lat={}&zoom={}&access_key={}",
+                server_info.host,
+                server_info.port,
+                token.journey_id(),
+                camera.lng,
+                camera.lat,
+                camera.zoom,
+                env!("MAPBOX-ACCESS-TOKEN")
+            ),
+            None => format!(
+                "http://{}:{}/#journey_id={}&debug=true&access_key={}",
+                server_info.host,
+                server_info.port,
+                token.journey_id(),
+                env!("MAPBOX-ACCESS-TOKEN")
+            ),
+        }
+    }
+
+    pub fn get_file_url(&self, token: &MapRendererToken) -> String {
+        let server_info = self.server_info.lock().unwrap();
+        let camera_option = get_default_camera_option_from_journey_bitmap(
+            &token
+                .get_map_renderer()
+                .unwrap()
+                .lock()
+                .unwrap()
+                .peek_latest_bitmap(),
+        );
+
+        match camera_option {
+            Some(camera) => format!(
+                "file://{}/journey_kernel/index.html#cgi_endpoint=http%3A%2F%2F{}%3A{}&journey_id={}&debug=true&lng={}&lat={}&zoom={}&access_key={}", 
+                env!("OUT_DIR"), 
+                server_info.host,
+                server_info.port,
+                token.journey_id(),
+                camera.lng,
+                camera.lat,
+                camera.zoom,
+                env!("MAPBOX-ACCESS-TOKEN")
+            ),
+            None => format!(
+                "file://{}/journey_kernel/index.html#cgi_endpoint=http%3A%2F%2F{}%3A{}&journey_id={}&debug=true&access_key={}", 
+                env!("OUT_DIR"), 
+                server_info.host,
+                server_info.port,
+                token.journey_id(),
+                env!("MAPBOX-ACCESS-TOKEN")
+            )
+        }
     }
 
     pub fn register_map_renderer(
@@ -250,36 +314,6 @@ impl MapServer {
             handle.join().unwrap();
         }
         Ok(())
-    }
-
-    pub fn restart(&mut self) -> Result<()> {
-        let host = {
-            let server_info = self.server_info.lock().unwrap();
-            server_info.host.clone()
-        };
-
-        info!("Restarting server with host: {host}");
-
-        self.stop()?;
-
-        let registry_for_move = self.registry.clone();
-        let (handles, new_server_info) = Self::start_server(&host, None, registry_for_move)?;
-
-        {
-            let mut server_info = self.server_info.lock().unwrap();
-            *server_info = new_server_info;
-        }
-
-        self.handles = Some(handles);
-
-        info!("Server successfully restarted at {}", self.url());
-        Ok(())
-    }
-
-    // TODO: this is a workaround to get the registry from the map server
-    // we should redesign the interface to avoid this
-    pub fn get_registry(&self) -> Arc<Mutex<Registry>> {
-        self.registry.clone()
     }
 }
 
