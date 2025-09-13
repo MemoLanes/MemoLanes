@@ -97,10 +97,12 @@ pub fn process_vector_data(
     import_processor: ImportPreprocessor,
 ) -> Result<Option<JourneyData>> {
     let journey_vector = match import_processor {
-        ImportPreprocessor::None => import_data::journey_vector_from_raw_data_with_gps_preprocessor(
-            &vector_data.data,
-            false,
-        ),
+        ImportPreprocessor::None => {
+            import_data::journey_vector_from_raw_data_with_gps_preprocessor(
+                &vector_data.data,
+                false,
+            )
+        }
         ImportPreprocessor::Generic => {
             import_data::journey_vector_from_raw_data_with_gps_preprocessor(&vector_data.data, true)
         }
