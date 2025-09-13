@@ -58,7 +58,6 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let map_renderer_static = MapRenderer::new(journey_bitmap);
     let token = register_map_renderer(registry.clone(), Arc::new(Mutex::new(map_renderer_static)));
 
-    let access_key = env!("MAPBOX-ACCESS-TOKEN");
     println!("================================================");
     println!(
         "[Simple Map Server]:   {}",
