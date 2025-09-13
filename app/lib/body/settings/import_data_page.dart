@@ -65,7 +65,7 @@ class _ImportDataPage extends State<ImportDataPage> {
     }
   }
 
-  void _previewData(import_api.ImportProcessor processor) async {
+  void _previewData(import_api.ImportPreprocessor processor) async {
     final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
     if (journeyDataMaybeRaw == null) {
       Fluttertoast.showToast(msg: "JourneyData is empty");
@@ -97,7 +97,7 @@ class _ImportDataPage extends State<ImportDataPage> {
   }
 
   void _saveData(import_api.JourneyInfo journeyInfo,
-      import_api.ImportProcessor processor) async {
+      import_api.ImportPreprocessor processor) async {
     final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
     if (journeyDataMaybeRaw == null) {
       Fluttertoast.showToast(msg: "JourneyData is empty");

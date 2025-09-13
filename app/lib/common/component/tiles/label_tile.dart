@@ -18,7 +18,7 @@ class LabelTile extends StatelessWidget {
     this.trailing,
     this.mainAxisAlignment = MainAxisAlignment.start,
     this.onTap,
-    this.labelOnTap,
+    this.infoLabelOnTap,
     this.onLongPress,
     this.decoration,
     this.bottom = true,
@@ -41,7 +41,7 @@ class LabelTile extends StatelessWidget {
 
   final Function()? onTap;
 
-  final Function()? labelOnTap;
+  final Function()? infoLabelOnTap;
 
   final Function()? onLongPress;
 
@@ -76,7 +76,7 @@ class LabelTile extends StatelessWidget {
 
     List<Widget> children = [
       GestureDetector(
-        onTap: labelOnTap,
+        onTap: infoLabelOnTap,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 54.0),
           child: Row(
@@ -98,7 +98,7 @@ class LabelTile extends StatelessWidget {
                     ),
                 ],
               ),
-              if (labelOnTap != null) ...[
+              if (infoLabelOnTap != null) ...[
                 const SizedBox(width: 6),
                 const Icon(
                   Icons.info_outline,

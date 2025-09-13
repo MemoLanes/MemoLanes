@@ -86,7 +86,7 @@ pub fn import_journey_data(journey_info: JourneyInfo, journey_data: JourneyData)
     Ok(())
 }
 
-pub enum ImportProcessor {
+pub enum ImportPreprocessor {
     None,
     Generic,
     FlightTrack,
@@ -94,17 +94,17 @@ pub enum ImportProcessor {
 
 pub fn process_vector_data(
     vector_data: &RawVectorData,
-    import_processor: ImportProcessor,
+    import_processor: ImportPreprocessor,
 ) -> Result<Option<JourneyData>> {
     let journey_vector = match import_processor {
-        ImportProcessor::None => import_data::journey_vector_from_raw_data_with_gps_preprocessor(
+        ImportPreprocessor::None => import_data::journey_vector_from_raw_data_with_gps_preprocessor(
             &vector_data.data,
             false,
         ),
-        ImportProcessor::Generic => {
+        ImportPreprocessor::Generic => {
             import_data::journey_vector_from_raw_data_with_gps_preprocessor(&vector_data.data, true)
         }
-        ImportProcessor::FlightTrack => flight_track_processor::process(&vector_data.data),
+        ImportPreprocessor::FlightTrack => flight_track_processor::process(&vector_data.data),
     };
 
     match journey_vector {
