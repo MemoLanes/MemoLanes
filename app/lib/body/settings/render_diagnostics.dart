@@ -115,14 +115,9 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
   }
 
   Future<void> _injectApiEndpoint() async {
-    final endpoint = api.getServerIpcTestUrl();
-
-    debugPrint('Injecting API endpoint: $endpoint');
-
     await _controller.runJavaScript('''
       // Set the params using the new unified API structure
       window.EXTERNAL_PARAMS = {
-        http_endpoint: "$endpoint",
         flutter_channel: "RenderDiagnosticsChannel"
       };
       

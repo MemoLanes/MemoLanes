@@ -250,27 +250,10 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     // log.info('[base_map_webview] Actual URL after initial load: $actualUrl');
   }
 
-  Uri getUrl() {
-    Uri uri = Uri.parse(widget.mapRendererProxy.getUrl());
-    final mapView = _currentRoughMapView;
-    if (mapView != null) {
-      String fragment = uri.fragment;
-      Map<String, String> fragmentParams = Uri.splitQueryString(fragment);
-      fragmentParams['lng'] = mapView.lng.toString();
-      fragmentParams['lat'] = mapView.lat.toString();
-      fragmentParams['zoom'] = mapView.zoom.toString();
-      String newFragment = Uri(queryParameters: fragmentParams).query;
-      uri = uri.replace(fragment: newFragment);
-    }
-    return uri;
-  }
-
   Future<void> _injectApiEndpoint() async {
-    final endpoint = api.getServerIpcTestUrl();
     final accessKey = api.getMapboxAccessToken();
     final journeyId = widget.mapRendererProxy.getJourneyId();
 
-    debugPrint('Injecting API endpoint: $endpoint');
     debugPrint('Injecting access key: $accessKey');
 
     // Get map view coordinates
@@ -286,7 +269,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     await _webViewController.runJavaScript('''
       // Set the params
       window.EXTERNAL_PARAMS = {
-        // cgi_endpoint: "$endpoint",
         cgi_endpoint: "flutter",
         // Alternative: enable Flutter IPC by setting cgi_endpoint to "flutter" 
         // and uncomment the next line:

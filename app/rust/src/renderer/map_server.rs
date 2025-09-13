@@ -1,81 +1,14 @@
+use super::internal_server::{handle_tile_range_query, Registry, Request, TileRangeQuery};
+use super::MapRenderer;
+use crate::renderer::internal_server::MapRendererToken;
 use actix_web::{
     dev::ServerHandle, http::Method, web, App, HttpResponse, HttpResponseBuilder, HttpServer,
 };
 use anyhow::Result;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use tokio::runtime::Runtime;
 use uuid::Uuid;
-use super::internal_server::{
-    handle_tile_range_query, Registry, Request, TileRangeQuery,
-};
-use super::MapRenderer;
-
-pub struct MapRendererToken {
-    id: Uuid,
-    registry: Weak<Mutex<Registry>>,
-    server_info: Arc<Mutex<ServerInfo>>,
-    is_primitive: bool,
-}
-
-impl MapRendererToken {
-    pub fn url(&self) -> String {
-        let server_info = self.server_info.lock().unwrap();
-        format!(
-            "http://{}:{}/#journey_id={}",
-            server_info.host, server_info.port, self.id
-        )
-    }
-
-    pub fn url_hash_params(&self) -> String {
-        let server_info = self.server_info.lock().unwrap();
-        format!(
-            "#cgi_endpoint=http%3A%2F%2F{}%3A{}&journey_id={}&access_key={}",
-            server_info.host,
-            server_info.port,
-            self.id,
-            env!("MAPBOX-ACCESS-TOKEN")
-        )
-    }
-
-    pub fn journey_id(&self) -> String {
-        self.id.to_string()
-    }
-
-    pub fn get_map_renderer(&self) -> Option<Arc<Mutex<MapRenderer>>> {
-        if let Some(registry) = self.registry.upgrade() {
-            let registry = registry.lock().unwrap();
-            return registry.get(&self.id).cloned();
-        }
-        None
-    }
-
-    pub fn unregister(&self) {
-        if let Some(registry) = self.registry.upgrade() {
-            let mut registry = registry.lock().unwrap();
-            registry.remove(&self.id);
-        }
-    }
-
-    // TODO: this is a workaround for returning main map without server-side lifetime control
-    // we should remove this when we have a better way to handle the main map token
-    pub fn clone_temporary_token(&self) -> MapRendererToken {
-        MapRendererToken {
-            id: self.id,
-            registry: self.registry.clone(),
-            server_info: self.server_info.clone(),
-            is_primitive: false,
-        }
-    }
-}
-
-impl Drop for MapRendererToken {
-    fn drop(&mut self) {
-        if self.is_primitive {
-            self.unregister();
-        }
-    }
-}
 
 /// Helper function to add standard CORS headers to an HttpResponseBuilder
 fn add_cors_headers(builder: &mut HttpResponseBuilder) -> &mut HttpResponseBuilder {
@@ -179,8 +112,8 @@ async fn serve_unified_json_request(
 }
 
 pub struct ServerInfo {
-    host: String,
-    port: u16,
+    pub host: String,
+    pub port: u16,
 }
 
 pub struct MapServer {
@@ -306,7 +239,6 @@ impl MapServer {
         MapRendererToken {
             id,
             registry: Arc::downgrade(&self.registry),
-            server_info: self.server_info.clone(),
             is_primitive: true,
         }
     }

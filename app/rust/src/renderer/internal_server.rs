@@ -3,7 +3,7 @@ use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
 use serde_with::{base64::Base64, serde_as};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 use uuid::Uuid;
 
 use super::map_renderer;
@@ -12,6 +12,69 @@ use super::MapRenderer;
 use rand::RngCore;
 
 pub type Registry = HashMap<Uuid, Arc<Mutex<MapRenderer>>>;
+
+pub fn register_map_renderer(
+    registry: Arc<Mutex<Registry>>,
+    map_renderer: Arc<Mutex<MapRenderer>>,
+) -> MapRendererToken {
+    let id = {
+        let mut registry = registry.lock().unwrap();
+        let id = Uuid::new_v4();
+        registry.insert(id, map_renderer);
+        id
+    };
+    MapRendererToken {
+        id,
+        registry: Arc::downgrade(&registry),
+        // server_info: Arc::new(Mutex::new(server_info)),
+        is_primitive: true,
+    }
+}
+
+pub struct MapRendererToken {
+    pub id: Uuid,
+    pub registry: Weak<Mutex<Registry>>,
+    pub is_primitive: bool,
+}
+
+impl MapRendererToken {
+    pub fn journey_id(&self) -> String {
+        self.id.to_string()
+    }
+
+    pub fn get_map_renderer(&self) -> Option<Arc<Mutex<MapRenderer>>> {
+        if let Some(registry) = self.registry.upgrade() {
+            let registry = registry.lock().unwrap();
+            return registry.get(&self.id).cloned();
+        }
+        None
+    }
+
+    pub fn unregister(&self) {
+        if let Some(registry) = self.registry.upgrade() {
+            let mut registry = registry.lock().unwrap();
+            registry.remove(&self.id);
+        }
+    }
+
+    // TODO: this is a workaround for returning main map without server-side lifetime control
+    // we should remove this when we have a better way to handle the main map token
+    pub fn clone_temporary_token(&self) -> MapRendererToken {
+        MapRendererToken {
+            id: self.id,
+            registry: self.registry.clone(),
+            is_primitive: false,
+        }
+    }
+}
+
+impl Drop for MapRendererToken {
+    fn drop(&mut self) {
+        if self.is_primitive {
+            self.unregister();
+        }
+    }
+}
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct TileRangeQuery {
