@@ -1,5 +1,9 @@
-use memolanes_core::api::api::{get_map_renderer_proxy_for_main_map, import_archive, init};
+use memolanes_core::api::api::{
+    get_map_renderer_proxy_for_main_map, get_registry, import_archive, init,
+};
+use memolanes_core::renderer::MapServer;
 use std::env;
+use std::sync::{Arc, Mutex};
 
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
@@ -23,7 +27,22 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let proxy = get_map_renderer_proxy_for_main_map();
-    println!("view map at: {}&debug=true", proxy.get_url());
+
+    // Extract the MapRendererToken from the MapRendererProxy
+    let token = match &proxy {
+        memolanes_core::api::api::MapRendererProxy::Token(token) => token,
+    };
+
+    let registry = get_registry();
+    let server = Arc::new(Mutex::new(
+        MapServer::create_and_start_with_registry("localhost", None, registry)
+            .expect("Failed to start server"),
+    ));
+
+    println!(
+        "view map at: {}&debug=true",
+        server.lock().unwrap().get_http_url(token)
+    );
 
     // Set up ctrl+c handler
     ctrlc::set_handler(move || {

@@ -145,7 +145,7 @@ fn main() {
     // List of files to be embedded (wildcards need to be expanded manually)
     let files = [
         "../journey_kernel/dist/index.html",
-        "../journey_kernel/dist/bundle.js",
+        "../journey_kernel/dist/main.bundle.js",
         "../journey_kernel/dist/journey_kernel_bg.wasm",
     ];
 
