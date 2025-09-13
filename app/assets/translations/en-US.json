@@ -68,9 +68,9 @@
   },
   "preprocessor": {
     "generic": "Generic",
-    "flightTrack": "FlightTrack",
+    "flightTrack": "Flight Track",
     "none": "None",
-    "description_md": "Preprocessors can help you optimize journey data.  \nFor example, using a **\"Track\"** preprocessor can filter out unnecessary points, resulting in a more accurate track line."
+    "description_md": "Preprocessor can optimize your journey data:\n- **Generic** suitable for most tracks, filtering out abnormal data and reasonably segmenting the data.\n- **FlightTrack** suitable for flight tracks, etc., using interpolation to complete missing parts of the path."
   },
   "import_fow_data": {
     "button": "Import [Fog of World] data",
