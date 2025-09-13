@@ -51,7 +51,8 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
   JourneyKind _journeyKind = JourneyKind.defaultKind;
   import_api.JourneyInfo? journeyInfo;
   final TextEditingController _noteController = TextEditingController();
-  bool _runPreprocessor = false;
+  import_api.ImportPreprocessor _preprocessor =
+      import_api.ImportPreprocessor.generic;
 
   Future<DateTime?> selectDateAndTime(
       BuildContext context, DateTime? datetime) async {
@@ -105,9 +106,7 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
         });
       });
     });
-    if (widget.previewData != null) {
-      widget.previewData!(_runPreprocessor);
-    }
+    _selectPreprocessor(_preprocessor);
   }
 
   @override
@@ -129,7 +128,7 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
         note: _note,
         journeyKind: _journeyKind);
     if (widget.importType != null) {
-      await widget.saveData(journeyInfo, _runPreprocessor);
+      await widget.saveData(journeyInfo, _preprocessor);
     } else {
       await widget.saveData(journeyInfo);
     }
@@ -207,18 +206,24 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
                 ? SizedBox.shrink()
                 : LabelTile(
                     label: context.tr("journey.preprocessor"),
-                    position: LabelTilePosition.single,
-                    trailing: Switch(
-                      value: _runPreprocessor,
-                      onChanged: (value) {
-                        setState(() {
-                          _runPreprocessor = value;
-                        });
-                        if (widget.previewData != null) {
-                          widget.previewData!(value);
-                        }
-                      },
+                    infoLabelOnTap: () => showCommonDialog(
+                      context,
+                      context.tr("preprocessor.description_md"),
+                      markdown: true,
                     ),
+                    position: LabelTilePosition.single,
+                    trailing: LabelTileContent(
+                      content: switch (_preprocessor) {
+                        import_api.ImportPreprocessor.none =>
+                          context.tr("preprocessor.none"),
+                        import_api.ImportPreprocessor.generic =>
+                          context.tr("preprocessor.generic"),
+                        import_api.ImportPreprocessor.flightTrack =>
+                          context.tr("preprocessor.flightTrack"),
+                      },
+                      showArrow: true,
+                    ),
+                    onTap: () => _showJourneyPreprocessorCard(context),
                   ),
           LabelTile(
             label: context.tr("journey.journey_kind"),
@@ -295,6 +300,45 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
               });
             },
           ),
+        ],
+      ),
+    );
+  }
+
+  void _selectPreprocessor(import_api.ImportPreprocessor processor) {
+    setState(() {
+      _preprocessor = processor;
+    });
+    widget.previewData?.call(_preprocessor);
+  }
+
+  void _showJourneyPreprocessorCard(BuildContext context) {
+    showBasicCard(
+      context,
+      child: OptionCard(
+        children: [
+          CardLabelTile(
+            position: CardLabelTilePosition.top,
+            label: context.tr("preprocessor.none"),
+            onTap: () {
+              _selectPreprocessor(import_api.ImportPreprocessor.none);
+            },
+            top: false,
+          ),
+          CardLabelTile(
+            position: CardLabelTilePosition.bottom,
+            label: context.tr("preprocessor.generic"),
+            onTap: () {
+              _selectPreprocessor(import_api.ImportPreprocessor.generic);
+            },
+          ),
+          CardLabelTile(
+            position: CardLabelTilePosition.bottom,
+            label: context.tr("preprocessor.flightTrack"),
+            onTap: () {
+              _selectPreprocessor(import_api.ImportPreprocessor.flightTrack);
+            },
+          )
         ],
       ),
     );

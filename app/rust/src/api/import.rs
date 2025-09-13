@@ -5,6 +5,7 @@ use chrono::{DateTime, Local, NaiveDate, Utc};
 use flutter_rust_bridge::frb;
 
 use crate::{
+    flight_track_processor,
     gps_processor::RawData,
     import_data::{self, journey_info_from_raw_vector_data},
     journey_data::JourneyData,
@@ -85,19 +86,31 @@ pub fn import_journey_data(journey_info: JourneyInfo, journey_data: JourneyData)
     Ok(())
 }
 
+pub enum ImportPreprocessor {
+    None,
+    Generic,
+    FlightTrack,
+}
+
 pub fn process_vector_data(
     vector_data: &RawVectorData,
-    run_preprocessor: bool,
-) -> Result<JourneyData> {
-    let journey_vector = import_data::journey_vector_from_raw_data_with_gps_preprocessor(
-        &vector_data.data,
-        run_preprocessor,
-    );
-    match journey_vector {
-        None => {
-            // TODO: return a structured error to outside for better error handling.
-            Err(anyhow!("The imported file produced empty result"))
+    import_processor: ImportPreprocessor,
+) -> Result<Option<JourneyData>> {
+    let journey_vector = match import_processor {
+        ImportPreprocessor::None => {
+            import_data::journey_vector_from_raw_data_with_gps_preprocessor(
+                &vector_data.data,
+                false,
+            )
         }
-        Some(journey_vector) => Ok(JourneyData::Vector(journey_vector)),
+        ImportPreprocessor::Generic => {
+            import_data::journey_vector_from_raw_data_with_gps_preprocessor(&vector_data.data, true)
+        }
+        ImportPreprocessor::FlightTrack => flight_track_processor::process(&vector_data.data),
+    };
+
+    match journey_vector {
+        None => Ok(None),
+        Some(journey_vector) => Ok(Some(JourneyData::Vector(journey_vector))),
     }
 }

@@ -65,7 +65,7 @@ class _ImportDataPage extends State<ImportDataPage> {
     }
   }
 
-  void _previewData(bool runPreprocessor) async {
+  void _previewData(import_api.ImportPreprocessor processor) async {
     final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
     if (journeyDataMaybeRaw == null) {
       Fluttertoast.showToast(msg: "JourneyData is empty");
@@ -75,8 +75,12 @@ class _ImportDataPage extends State<ImportDataPage> {
     final journeyData = switch (journeyDataMaybeRaw) {
       f.Left(value: final l) => l,
       f.Right(value: final r) => await import_api.processVectorData(
-          vectorData: r, runPreprocessor: runPreprocessor),
+          vectorData: r, importProcessor: processor),
     };
+    if (journeyData == null) {
+      Fluttertoast.showToast(msg: "JourneyData is empty");
+      return;
+    }
     final mapRendererProxyAndCameraOption =
         await api.getMapRendererProxyForJourneyData(journeyData: journeyData);
     setState(() {
@@ -92,8 +96,8 @@ class _ImportDataPage extends State<ImportDataPage> {
     });
   }
 
-  void _saveData(
-      import_api.JourneyInfo journeyInfo, bool runPreprocessor) async {
+  void _saveData(import_api.JourneyInfo journeyInfo,
+      import_api.ImportPreprocessor processor) async {
     final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
     if (journeyDataMaybeRaw == null) {
       Fluttertoast.showToast(msg: "JourneyData is empty");
@@ -103,9 +107,12 @@ class _ImportDataPage extends State<ImportDataPage> {
     final journeyData = switch (journeyDataMaybeRaw) {
       f.Left(value: final l) => l,
       f.Right(value: final r) => await import_api.processVectorData(
-          vectorData: r, runPreprocessor: runPreprocessor),
+          vectorData: r, importProcessor: processor),
     };
-
+    if (journeyData == null) {
+      Fluttertoast.showToast(msg: "JourneyData is empty");
+      return;
+    }
     await import_api.importJourneyData(
         journeyInfo: journeyInfo, journeyData: journeyData);
 
