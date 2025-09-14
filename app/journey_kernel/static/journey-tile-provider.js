@@ -26,26 +26,8 @@ export class JourneyTileProvider {
 
   // Initialize MultiRequest instance based on endpoint configuration
   initializeMultiRequest() {
-    // Determine endpoint type based on EXTERNAL_PARAMS
-    let endpointUrl = null;
-
-    // Check for flutter channel configuration
-    if (window.EXTERNAL_PARAMS.flutter_channel) {
-      // Use explicit flutter_channel parameter
-      endpointUrl = `flutter://${window.EXTERNAL_PARAMS.flutter_channel}`;
-    } else if (window.EXTERNAL_PARAMS.cgi_endpoint) {
-      if (window.EXTERNAL_PARAMS.cgi_endpoint === "flutter") {
-        // Legacy Flutter mode - use default channel
-        const flutterChannel = "TileProviderChannel"; // Default channel for tile provider
-        endpointUrl = `flutter://${flutterChannel}`;
-      } else {
-        // HTTP endpoint
-        endpointUrl = window.EXTERNAL_PARAMS.cgi_endpoint;
-      }
-    } else {
-      // Fallback to current working directory for HTTP
-      endpointUrl = ".";
-    }
+    // Use cgi_endpoint if provided, otherwise default to current directory
+    const endpointUrl = window.EXTERNAL_PARAMS.cgi_endpoint || ".";
 
     console.log(
       `JourneyTileProvider: Initializing MultiRequest with endpoint: ${endpointUrl}`,
@@ -57,7 +39,7 @@ export class JourneyTileProvider {
   // if it is just a periodic update or normal check, then use cache (forceUpdate = false)
   async pollForJourneyUpdates(forceUpdate = false) {
     try {
-      console.log("Checking for journey updates via tile buffer");
+      // console.log("Checking for journey updates via tile buffer");
 
       // Force update view range and fetch tile buffer
       this.viewRangeUpdated = true;
@@ -188,10 +170,10 @@ export class JourneyTileProvider {
       requestParams.cached_version = this.currentVersion;
     }
 
-    console.log(
-      `Fetching tile buffer via MultiRequest with params:`,
-      requestParams,
-    );
+    // console.log(
+    //   `Fetching tile buffer via MultiRequest with params:`,
+    //   requestParams,
+    // );
 
     let tileBufferUpdated = false;
     const startTime = performance.now();
@@ -210,7 +192,7 @@ export class JourneyTileProvider {
 
       // Handle 304 status in response data
       if (response.data && response.data.status === 304) {
-        console.log("Tile buffer has not changed (304 Not Modified)");
+        // console.log("Tile buffer has not changed (304 Not Modified)");
         return false;
       }
 

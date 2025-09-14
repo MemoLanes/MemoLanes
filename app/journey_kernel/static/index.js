@@ -11,8 +11,7 @@
 
     // Scan all hash parameters and store them in EXTERNAL_PARAMS after successful decoding
     // Supported parameters for endpoint configuration:
-    // - cgi_endpoint: HTTP endpoint URL or "flutter" for IPC mode
-    // - flutter_channel: Flutter channel name for IPC (e.g., "TileProviderChannel")
+    // - cgi_endpoint: HTTP endpoint URL, "flutter://<channel>" for IPC mode, or "flutter" for legacy IPC
     // - http_endpoint: Explicit HTTP endpoint (alternative to cgi_endpoint)
     // Other parameters: journey_id, access_key, lng, lat, zoom, render, etc.
     for (const [key, value] of params.entries()) {

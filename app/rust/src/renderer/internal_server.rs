@@ -26,7 +26,6 @@ pub fn register_map_renderer(
     MapRendererToken {
         id,
         registry: Arc::downgrade(&registry),
-        // server_info: Arc::new(Mutex::new(server_info)),
         is_primitive: true,
     }
 }

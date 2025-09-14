@@ -118,7 +118,7 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
     await _controller.runJavaScript('''
       // Set the params using the new unified API structure
       window.EXTERNAL_PARAMS = {
-        flutter_channel: "RenderDiagnosticsChannel"
+        cgi_endpoint: "flutter://RenderDiagnosticsChannel"
       };
       
       // Check if JS is ready and trigger initialization if so

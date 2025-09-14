@@ -63,31 +63,22 @@ function trySetup() {
     httpEndpointUrl = window.EXTERNAL_PARAMS.httpEndpoint;
   }
 
-  // Determine Flutter endpoint from cgi_endpoint or flutter_channel
-  if (window.EXTERNAL_PARAMS.flutter_channel) {
-    // Use explicit flutter_channel parameter (new preferred method)
-    flutterEndpointUrl = `flutter://${window.EXTERNAL_PARAMS.flutter_channel}`;
-  } else if (window.EXTERNAL_PARAMS.cgi_endpoint) {
-    if (window.EXTERNAL_PARAMS.cgi_endpoint === "flutter") {
-      // Legacy Flutter mode - use channel directly
-      const flutterChannel =
-        window.EXTERNAL_PARAMS.flutter_channel || "RenderDiagnosticsChannel";
-      flutterEndpointUrl = `flutter://${flutterChannel}`;
+  // Determine Flutter endpoint from cgi_endpoint
+  if (window.EXTERNAL_PARAMS.cgi_endpoint) {
+    if (window.EXTERNAL_PARAMS.cgi_endpoint.startsWith("flutter://")) {
+      // Flutter IPC mode - use the full flutter:// URL
+      flutterEndpointUrl = window.EXTERNAL_PARAMS.cgi_endpoint;
     } else {
       // Use cgi_endpoint as HTTP endpoint if no separate http_endpoint provided
       if (!httpEndpointUrl) {
         httpEndpointUrl = window.EXTERNAL_PARAMS.cgi_endpoint;
       }
       // Also use default Flutter endpoint
-      const flutterChannel =
-        window.EXTERNAL_PARAMS.flutter_channel || "RenderDiagnosticsChannel";
-      flutterEndpointUrl = `flutter://${flutterChannel}`;
+      flutterEndpointUrl = `flutter://RenderDiagnosticsChannel`;
     }
   } else {
     // Default Flutter setup if no specific configuration
-    const flutterChannel =
-      window.EXTERNAL_PARAMS.flutter_channel || "RenderDiagnosticsChannel";
-    flutterEndpointUrl = `flutter://${flutterChannel}`;
+    flutterEndpointUrl = `flutter://RenderDiagnosticsChannel`;
   }
 
   // Create MultiRequest instances

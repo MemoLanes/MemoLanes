@@ -179,13 +179,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   Future<void> _initWebView() async {
     _webViewController
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setOnConsoleMessage((JavaScriptConsoleMessage message) {
-        // Process the console message here
-        debugPrint('[${message.level.name}] ${message.message}');
-
-        // You can perform various actions based on the message,
-        // such as displaying it in your Flutter UI, logging it to a file, etc.
-      })
       ..setNavigationDelegate(
         NavigationDelegate(
           onNavigationRequest: (NavigationRequest request) {
@@ -246,8 +239,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     final assetPath = 'assets/map_webview/index.html';
     log.info('[base_map_webview] Initial loading asset: $assetPath');
     await _webViewController.loadFlutterAsset(assetPath);
-    // final actualUrl = await _webViewController.currentUrl();
-    // log.info('[base_map_webview] Actual URL after initial load: $actualUrl');
   }
 
   Future<void> _injectApiEndpoint() async {
@@ -269,10 +260,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     await _webViewController.runJavaScript('''
       // Set the params
       window.EXTERNAL_PARAMS = {
-        cgi_endpoint: "flutter",
-        // Alternative: enable Flutter IPC by setting cgi_endpoint to "flutter" 
-        // and uncomment the next line:
-        flutter_channel: "TileProviderChannel",
+        cgi_endpoint: "flutter://TileProviderChannel",
         journey_id: "$journeyId",
         render: "gl",
         access_key: "$accessKey",
@@ -297,16 +285,16 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   void _handleTileProviderRequest(String message) async {
     try {
-      debugPrint('Tile Provider IPC Request: $message');
+      // debugPrint('Tile Provider IPC Request: $message');
 
       // Forward the JSON request transparently to Rust and get raw JSON response
       final responseJson = await api.handleWebviewRequests(request: message);
 
-      final truncatedResponse = responseJson.length > 100
-          ? '${responseJson.substring(0, 100)}...'
-          : responseJson;
+      // final truncatedResponse = responseJson.length > 100
+      //     ? '${responseJson.substring(0, 100)}...'
+      //     : responseJson;
 
-      debugPrint('Tile Provider IPC Response: $truncatedResponse');
+      // debugPrint('Tile Provider IPC Response: $truncatedResponse');
 
       // Send the JSON response as a JavaScript object (no escaping needed)
       await _webViewController.runJavaScript('''
@@ -315,7 +303,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
           window.handle_TileProviderChannel_JsonResponse(responseData);
         } else {
           console.error('No TileProvider JSON response handler found');
-          console.log('Raw response:', $responseJson);
         }
       ''');
     } catch (e) {
