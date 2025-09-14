@@ -66,6 +66,12 @@
     "default": "默认",
     "flight": "航迹"
   },
+  "preprocessor": {
+    "generic": "通用",
+    "flightTrack": "航迹",
+    "none": "不使用",
+    "description_md": "预处理器可以帮助你优化旅程数据:\n- **通用** 适用于大部分轨迹，可以过滤掉异常的数据并将数据合理分段。\n- **航迹** 适用于飞行轨迹等，会通过差值算法补全轨迹。"
+  },
   "import_fow_data": {
     "button": "导入“世界迷雾”数据",
     "description_md": "导入世界迷雾 App 中产生的数据。  \n这是一个实验性功能，目前支持导入:\n1. Zip 压缩的世界迷雾网盘同步 Sync 文件夹。\n2. 世界迷雾快照文件 (*.fwss)。  \n  \n如需导入多段数据等更精细的控制，可以尝试使用[迷雾机器-时光机](https://fogmachine.8bits.io/time-machine)中提供的“导出迹忆归档”功能。",
@@ -120,7 +126,7 @@
     "url": "https://app.memolanes.com/zh/privacy/",
     "privacy_tip_title": "隐私协议提示",
     "privacy_tip_message_md": "你需要同意隐私协议才能使用迹忆。\n\n你可以阅读完整版[《迹忆隐私协议》](@:privacy.url)来了解详细信息。",
-    "name" : "隐私协议",
+    "name": "隐私协议",
     "agree": "同意",
     "disagree_and_exit": "不同意并退出"
   },
