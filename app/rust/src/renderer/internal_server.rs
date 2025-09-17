@@ -278,7 +278,7 @@ mod tests {
             cached_version: Some(version), // Use current version to trigger no-change scenario
         };
 
-        let response = handle_tile_range_query(query, registry);
+        let response = handle_tile_range_query(&query, registry);
 
         // Verify 304 response
         assert!(response.is_ok(), "Expected successful response");
@@ -300,7 +300,7 @@ mod tests {
 
 /// Handle TileRangeQuery and return TileRangeResponse
 pub fn handle_tile_range_query(
-    query: TileRangeQuery,
+    query: &TileRangeQuery,
     registry: Arc<Mutex<Registry>>,
 ) -> Result<TileRangeResponse, String> {
     // Get the map renderer from registry
@@ -365,30 +365,28 @@ impl Request {
     /// Handle the request and return an appropriate response
     pub fn handle(&self, registry: Arc<Mutex<Registry>>) -> RequestResponse<serde_json::Value> {
         match &self.payload {
-            RequestPayload::TileRange(query) => {
-                match handle_tile_range_query((*query).clone(), registry) {
-                    Ok(response_data) => match serde_json::to_value(response_data) {
-                        Ok(value) => RequestResponse {
-                            request_id: self.request_id.clone(),
-                            success: true,
-                            data: Some(value),
-                            error: None,
-                        },
-                        Err(e) => RequestResponse {
-                            request_id: self.request_id.clone(),
-                            success: false,
-                            data: None,
-                            error: Some(format!("Failed to serialize response: {}", e)),
-                        },
+            RequestPayload::TileRange(query) => match handle_tile_range_query(query, registry) {
+                Ok(response_data) => match serde_json::to_value(response_data) {
+                    Ok(value) => RequestResponse {
+                        request_id: self.request_id.clone(),
+                        success: true,
+                        data: Some(value),
+                        error: None,
                     },
                     Err(e) => RequestResponse {
                         request_id: self.request_id.clone(),
                         success: false,
                         data: None,
-                        error: Some(e),
+                        error: Some(format!("Failed to serialize response: {}", e)),
                     },
-                }
-            }
+                },
+                Err(e) => RequestResponse {
+                    request_id: self.request_id.clone(),
+                    success: false,
+                    data: None,
+                    error: Some(e),
+                },
+            },
             RequestPayload::RandomData(query) => {
                 let size = query.size.unwrap_or(1_048_576); // Default 1MB
                 match generate_random_data(size) {

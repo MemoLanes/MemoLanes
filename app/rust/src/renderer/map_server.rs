@@ -27,7 +27,7 @@ async fn serve_journey_tile_range(
     data: web::Data<Arc<Mutex<Registry>>>,
 ) -> HttpResponse {
     // Use the tile-specific handler directly
-    match handle_tile_range_query(query.into_inner(), data.get_ref().clone()) {
+    match handle_tile_range_query(&query.into_inner(), data.get_ref().clone()) {
         Ok(tile_response) => {
             match tile_response.status {
                 200 => {
