@@ -1,5 +1,6 @@
 import { JourneyBitmap, TileBuffer } from "../pkg";
 import { getViewportTileRange } from "./utils";
+import { MultiRequest } from "./multirequest.js";
 
 export class JourneyTileProvider {
   constructor(map, journeyId, bufferSizePower = 8) {
@@ -14,17 +15,31 @@ export class JourneyTileProvider {
 
     this.tileBufferCallbacks = []; // Array to store tile buffer update callbacks
 
+    // Initialize MultiRequest instance based on endpoint configuration
+    this.multiRequest = this.initializeMultiRequest();
+
     this.map.on("move", () => this.tryUpdateViewRange());
     this.map.on("moveend", () => this.tryUpdateViewRange());
     // Initial update
     this.tryUpdateViewRange();
   }
 
+  // Initialize MultiRequest instance based on endpoint configuration
+  initializeMultiRequest() {
+    // Use cgi_endpoint if provided, otherwise default to current directory
+    const endpointUrl = window.EXTERNAL_PARAMS.cgi_endpoint || ".";
+
+    console.log(
+      `JourneyTileProvider: Initializing MultiRequest with endpoint: ${endpointUrl}`,
+    );
+    return new MultiRequest(endpointUrl);
+  }
+
   // typically two use cases: if the original page detect a data change, then no cache (forceUpdate = true)
   // if it is just a periodic update or normal check, then use cache (forceUpdate = false)
   async pollForJourneyUpdates(forceUpdate = false) {
     try {
-      console.log("Checking for journey updates via tile buffer");
+      // console.log("Checking for journey updates via tile buffer");
 
       // Force update view range and fetch tile buffer
       this.viewRangeUpdated = true;
@@ -138,74 +153,85 @@ export class JourneyTileProvider {
     this.downloadInProgress = true;
 
     const [x, y, w, h, z] = this.viewRange;
-    const tileRangeUrl = getJourneyTileRangePathWithId(
-      this.journeyId,
-      x,
-      y,
-      w,
-      h,
-      z,
-      this.bufferSizePower,
-    );
 
-    console.log(`Fetching tile buffer from: ${tileRangeUrl}`);
+    // Create request parameters for MultiRequest
+    const requestParams = {
+      id: this.journeyId,
+      x: x,
+      y: y,
+      z: z,
+      width: w,
+      height: h,
+      buffer_size_power: this.bufferSizePower,
+    };
+
+    // Add cached version if available and not forcing update
+    if (!forceUpdate && this.currentVersion) {
+      requestParams.cached_version = this.currentVersion;
+    }
+
+    // console.log(
+    //   `Fetching tile buffer via MultiRequest with params:`,
+    //   requestParams,
+    // );
 
     let tileBufferUpdated = false;
+    const startTime = performance.now();
 
     try {
-      const fetchOptions = {
-        headers: {},
-      };
+      // Make the request - response is now a direct JS object
+      const response = await this.multiRequest.fetch(
+        "tile_range",
+        requestParams,
+      );
 
-      // Add ETag header for conditional request if we have a current version and not forcing update
-      if (!forceUpdate && this.currentVersion) {
-        fetchOptions.headers["If-None-Match"] = this.currentVersion;
+      // Check success status directly
+      if (!response.success) {
+        throw new Error(response.error || "Request failed");
       }
 
-      // Measure fetch timing
-      const fetchStartTime = performance.now();
-      const response = await fetch(tileRangeUrl, fetchOptions);
-      const fetchEndTime = performance.now();
-      const fetchDuration = fetchEndTime - fetchStartTime;
-
-      if (response.status === 304) {
-        console.log("Tile buffer has not changed (304 Not Modified)");
+      // Handle 304 status in response data
+      if (response.data && response.data.status === 304) {
+        // console.log("Tile buffer has not changed (304 Not Modified)");
         return false;
       }
 
-      if (!response.ok) {
-        throw new Error(
-          `Failed to fetch tile buffer: ${response.status} ${response.statusText}`,
-        );
-      }
-
       // Emit timing data for successful downloads (not 304)
+      // Build a representative URL for logging purposes
+      const endTime = performance.now();
+      const duration = Math.round(endTime - startTime);
+      const logUrl = this.buildLogUrl(requestParams);
       window.dispatchEvent(
         new CustomEvent("tileDownloadTiming", {
           detail: {
-            duration: fetchDuration,
-            timestamp: fetchEndTime,
-            url: tileRangeUrl,
-            status: response.status,
+            duration: duration,
+            timestamp: endTime,
+            url: logUrl,
+            status: response.data?.status || 200,
+            requestId: response.requestId || "unknown",
           },
         }),
       );
 
-      // Update version from ETag header
-      const newVersion = response.headers.get("ETag");
+      // Update version from response data headers
+      const newVersion = response.data?.headers?.version;
       if (newVersion) {
         this.currentVersion = newVersion;
         console.log(`Updated tile buffer version to: ${newVersion}`);
       }
 
       // Get the binary data
-      const arrayBuffer = await response.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuffer);
+      // response.data.body is base64 encoded, so decode it
+      const bytes = Uint8Array.from(atob(response.data.body), (c) =>
+        c.charCodeAt(0),
+      );
 
       // Deserialize into a TileBuffer object using the WebAssembly module
       this.tileBuffer = TileBuffer.from_bytes(bytes);
 
-      console.log(`Tile buffer fetched and deserialized successfully`);
+      console.log(
+        `Tile buffer fetched and deserialized successfully via ${this.multiRequest.getStatus().isFlutterMode ? "Flutter IPC" : "HTTP"}`,
+      );
 
       // Notify all registered callbacks that a new tile buffer is ready
       this.notifyTileBufferReady(
@@ -237,16 +263,15 @@ export class JourneyTileProvider {
 
     return tileBufferUpdated;
   }
-}
 
-function getJourneyTileRangePathWithId(
-  journeyId,
-  x,
-  y,
-  w,
-  h,
-  z,
-  bufferSizePower,
-) {
-  return `journey/${journeyId}/tile_range?x=${x}&y=${y}&z=${z}&width=${w}&height=${h}&buffer_size_power=${bufferSizePower}`;
+  // Helper method to build URL for logging purposes
+  buildLogUrl(params) {
+    const endpoint = this.multiRequest.cgiEndpoint;
+    if (endpoint.startsWith("flutter://")) {
+      return `${endpoint}/tile_range`;
+    }
+
+    const urlParams = new URLSearchParams(params).toString();
+    return `${endpoint}/tile_range?${urlParams}`;
+  }
 }
