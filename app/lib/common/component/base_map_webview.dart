@@ -182,17 +182,17 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       ..setNavigationDelegate(
         NavigationDelegate(
           onNavigationRequest: (NavigationRequest request) {
-            // TODO: Block localhost URLs except for our map
-            if (request.url.contains('localhost') ||
-                request.url.contains('127.0.0.1')) {
+            // only allow navigating to our map
+            var uri = Uri.parse(request.url);
+            if (uri.scheme == 'file') {
               return NavigationDecision.navigate;
             }
-            // Allow all other URLs to open in system browser
+            // all other URLs will be opened in system browser
             launchUrl(
               Uri.parse(request.url),
               mode: LaunchMode.externalApplication,
             );
-            return NavigationDecision.navigate;
+            return NavigationDecision.prevent;
           },
           onPageFinished: (String url) {
             debugPrint('Page finished loading: $url');
