@@ -4,7 +4,6 @@ import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart';
 import 'package:memolanes/src/rust/storage.dart';
-import 'package:share_plus/share_plus.dart';
 
 class RawDataSwitch extends StatefulWidget {
   const RawDataSwitch({super.key});
@@ -88,9 +87,7 @@ class _RawDataPage extends State<RawDataPage> {
                   leading: const Icon(Icons.description),
                   title: Text(item.name),
                   onTap: () {
-                    SharePlus.instance.share(
-                      ShareParams(files: [XFile(item.path)]),
-                    );
+                    showCommonExport(context, item.path, deleteFile: false);
                   },
                   trailing: ElevatedButton(
                     onPressed: () async {

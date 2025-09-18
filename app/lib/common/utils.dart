@@ -112,10 +112,12 @@ Future<T> showLoadingDialog<T>({
 
 Future<bool> showCommonExport(BuildContext context, String filePath,
     {bool deleteFile = false}) async {
+  final outerSharePositionOrigin = computeSharePositionOrigin(context);
   final dialogResult = await showDialog<bool>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => CommonExport(filePath: filePath),
+    builder: (_) => CommonExport(
+        filePath: filePath, outerSharePositionOrigin: outerSharePositionOrigin),
   );
 
   if (deleteFile) {
