@@ -49,14 +49,13 @@ The open source version contains implementations for most core functionalities.
 - ❤️ **共建生态**
     - 加入开发者社区，参与应用开发，共同打造理想应用。
 
-## License & Contributing(许可证与贡献)
+## License & Contributing
 
 By default, we release the code under the GPLv3 license. We do so to ensure derivative works remain open-source and contribute back to the community. 
 
 We may also be willing to grant you a non-GPL license upon specific requests (either open an issue or email us). In general, we welcome helpful utilities to be developed based on MemoLanes for good purposes, either closed-source or open-source. 
 
-In order to achieve this, we also need any new contributor to sign a contributor license agreement so that we can reuse the code in our closed-source MemoLanes App or other products, which contain our own customizations and optimizations.
-
+In order to achieve this, we also need any new contributor to sign a contributor license agreement so that we can reuse the code in our closed-source MemoLanes App or other products.
 For more information about contributing and the CLA process, please see our [Contributing Guidelines](.github/CONTRIBUTING.md).
 
 ---
@@ -65,8 +64,7 @@ For more information about contributing and the CLA process, please see our [Con
 
 如有特定需求，我们也愿意向您授予非 GPL 许可证（请开启 issue 或发邮件给我们）。总的来说，我们欢迎基于 MemoLanes 开发有益的实用工具，无论是闭源还是开源的。
 
-为了实现这一点，我们也需要新贡献者签署贡献者许可协议，以便我们可以在闭源的 MemoLanes 应用或其他产品中重复使用代码，这些产品包含我们自己的定制和优化。
-
+为了实现这一点，我们也需要新贡献者签署贡献者许可协议，以便我们可以在闭源的 MemoLanes 应用或其他产品中重复使用代码。
 有关贡献和 CLA 流程的更多信息，请参阅我们的[贡献指南](.github/CONTRIBUTING.md)。
 
 ## Dev Env Setup
