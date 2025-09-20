@@ -22,7 +22,7 @@ Please note that we currently only support individual contributions.
 
 #### 3. How will my contributions to MemoLanes be used?
 
-MemoLanes is an open-source project committed to providing our platform under open-source licenses. Through the license agreement, we ask you to grant us permission to use your contributions within MemoLanes and to continue to provide MemoLanes under open-source and commercial licenses and within proprietary products. This helps ensure the ongoing development, evolution and sustainability of MemoLanes.
+MemoLanes is an open-source project committed to providing our platform under open-source licenses. Through the license agreement, we ask you to grant us permission to use your contributions within MemoLanes and to continue to provide MemoLanes under open-source licenses and within proprietary products. This helps ensure the ongoing development, evolution and sustainability of MemoLanes.
 
 As we do not ask for copyright assignment, you retain complete ownership of your contributions and have the same rights to use or license those contributions which you would have had without entering into a license agreement.
 
