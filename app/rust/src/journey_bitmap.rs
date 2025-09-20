@@ -471,7 +471,7 @@ impl Block {
     fn draw_width_x(&mut self, x: u8, y: u8, w: u8, even_draw_flag: bool) {
         let mut delta_st: u8 = w / 2;
         let mut delta_ed: u8 = w / 2;
-        if w % 2 == 0 {
+        if w.is_multiple_of(2) {
             if even_draw_flag {
                 delta_st -= 1;
             } else {
@@ -489,7 +489,7 @@ impl Block {
     fn draw_width_y(&mut self, x: u8, y: u8, w: u8, even_draw_flag: bool) {
         let mut delta_st: u8 = w / 2;
         let mut delta_ed: u8 = w / 2;
-        if w % 2 == 0 {
+        if w.is_multiple_of(2) {
             if even_draw_flag {
                 delta_st -= 1;
             } else {
@@ -506,7 +506,7 @@ impl Block {
     fn draw_width_point(&mut self, x: u8, y: u8, w: u8) {
         let delta_st: u8 = w / 2;
         let mut delta_ed: u8 = w / 2;
-        if w % 2 == 0 {
+        if w.is_multiple_of(2) {
             delta_ed -= 1;
         }
         let x_st: u8 = x.saturating_sub(delta_st);
