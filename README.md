@@ -62,9 +62,9 @@ For more information about contributing and the CLA process, please see our [Con
 
 默认情况下，我们在 GPLv3 许可证下发布代码。这样做是为了确保衍生作品保持开源并回馈社区。
 
-如有特定需求，我们也愿意向您授予非 GPL 许可证（请开启 issue 或发邮件给我们）。总的来说，我们欢迎基于 MemoLanes 开发有益的实用工具，无论是闭源还是开源的。
+如有特定需求，我们也愿意向您授予非 GPL 许可证（请开启 issue 或发邮件给我们）。总的来说，我们欢迎基于 迹忆（MemoLanes） 开发有益的实用工具，无论是闭源还是开源。
 
-为了实现这一点，我们也需要新贡献者签署贡献者许可协议，以便我们可以在闭源的 MemoLanes 应用或其他产品中重复使用代码。
+为了实现这一点，我们也需要新贡献者签署贡献者许可协议，以便我们可以在闭源的 迹忆（MemoLanes） 应用或其他产品中重复使用代码。
 有关贡献和 CLA 流程的更多信息，请参阅我们的[贡献指南](.github/CONTRIBUTING.md)。
 
 ## Dev Env Setup
