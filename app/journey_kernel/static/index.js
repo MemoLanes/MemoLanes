@@ -32,13 +32,13 @@ import { JourneyCanvasLayer } from "./journey-canvas-layer.js";
 import { JourneyTileProvider } from "./journey-tile-provider.js";
 import { DebugPanel } from "./debug-panel.js";
 import init from "../pkg/index.js";
-import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 import {
   isMapboxURL,
   transformMapboxUrl,
-  transformMapboxStyle
-} from 'maplibregl-mapbox-request-transformer'
+  transformMapboxStyle,
+} from "maplibregl-mapbox-request-transformer";
 
 import "./debug-panel.css";
 
@@ -60,7 +60,7 @@ let locationMarker = null;
 let currentRenderingMode = "canvas"; // Default rendering mode
 let currentMapStyle = "https://tiles.openfreemap.org/styles/liberty";
 let transformRequest = (url, resourceType) => {
-  return { url }
+  return { url };
 };
 
 // Function to switch between rendering layers
@@ -99,14 +99,21 @@ async function trySetup() {
   if (window.EXTERNAL_PARAMS.map_style) {
     currentMapStyle = window.EXTERNAL_PARAMS.map_style;
 
-    if (typeof currentMapStyle === "string" && currentMapStyle.startsWith("mapbox://")) {
+    if (
+      typeof currentMapStyle === "string" &&
+      currentMapStyle.startsWith("mapbox://")
+    ) {
       if (window.EXTERNAL_PARAMS.access_key) {
         transformRequest = (url, resourceType) => {
           if (isMapboxURL(url)) {
-            return transformMapboxUrl(url, resourceType, window.EXTERNAL_PARAMS.access_key)
+            return transformMapboxUrl(
+              url,
+              resourceType,
+              window.EXTERNAL_PARAMS.access_key,
+            );
           }
-          return { url }
-        }
+          return { url };
+        };
       } else {
         document.body.innerHTML = `<div style="padding: 20px; font-family: Arial, sans-serif; color: red;"><h1>TOKEN not provided</h1></div>`;
         return;
@@ -169,14 +176,14 @@ async function trySetup() {
     pitchWithRotate: false,
     touchPitch: false,
     attributionControl: {
-      compact: false
+      compact: false,
     },
   });
 
-    // For V12 Styles you'll also need to add
-    map.setStyle(currentMapStyle, {
-        transformStyle: transformMapboxStyle
-    })
+  // For V12 Styles you'll also need to add
+  map.setStyle(currentMapStyle, {
+    transformStyle: transformMapboxStyle,
+  });
 
   map.dragRotate.disable();
   map.touchZoomRotate.disableRotation();
@@ -189,7 +196,7 @@ async function trySetup() {
     // Create the marker but don't add it to the map yet
     // locationMarker = new maplibregl.Marker(el);
     locationMarker = new maplibregl.Marker({
-      element: el
+      element: el,
     });
 
     // Add method to window object to update marker position

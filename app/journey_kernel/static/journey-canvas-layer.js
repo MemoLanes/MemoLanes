@@ -111,9 +111,9 @@ export class JourneyCanvasLayer {
     }
 
     // This is a workaround for a maplibre 5.7.3 bug (or feature).
-    //  for a map view of multi-worldview (map wrap arounds and lng may be out of -180 - 180 range), 
+    //  for a map view of multi-worldview (map wrap arounds and lng may be out of -180 - 180 range),
     //  it has a strict limit that the centor of the canvas fall into the half-open [-180, 180) range,
-    //  or equivalently, the centor's mercator coordinate x must fall in [0, 1) range. 
+    //  or equivalently, the centor's mercator coordinate x must fall in [0, 1) range.
     //  but for our codes, in border case, the centor's mercator coordinate x may be 1.
     //  so we multiply both left and right x by 0.999999 to make it fall into the [0, 1) range.
     // More info can be found at the calling stack referenced below,
