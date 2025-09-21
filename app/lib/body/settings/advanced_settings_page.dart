@@ -9,6 +9,7 @@ import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:memolanes/body/settings/render_diagnostics.dart';
 
 class AdvancedSettingsPage extends StatefulWidget {
   const AdvancedSettingsPage({super.key});
@@ -128,9 +129,21 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
           ),
           LabelTile(
             label: context.tr("location_service.location_backend.title"),
-            position: LabelTilePosition.bottom,
+            position: LabelTilePosition.middle,
             trailing: LabelTileContent(
                 content: gpsManager.locationBackend.displayName(context)),
+          ),
+          LabelTile(
+            label: context.tr("general.advance_settings.render_diagnostics"),
+            position: LabelTilePosition.bottom,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) {
+                  return RenderDiagnosticsPage();
+                },
+              ),
+            ),
           )
         ],
       ),

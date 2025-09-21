@@ -47,6 +47,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   // It is rough because we don't update it frequently.
   MapView? _currentRoughMapView;
 
+  // Track current journey ID to detect changes
+  String? _currentJourneyId;
+
   // For bug workaround
   bool _isiOS18 = false;
 
@@ -54,23 +57,31 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   void didUpdateWidget(BaseMapWebview oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.trackingMode != widget.trackingMode) _updateLocationMarker();
-    // TODO: the below is for compatibility for android or ios, double check later.
-    // Only update URL if the mapRendererProxy actually changed
+
+    // Check if journey ID has changed and update via JavaScript API
     if (oldWidget.mapRendererProxy != widget.mapRendererProxy) {
-      _updateMapUrl();
+      _updateJourneyIdIfChanged();
     }
   }
 
-  Future<void> _updateMapUrl() async {
-    final url = widget.mapRendererProxy.getUrl();
+  Future<void> _updateJourneyIdIfChanged() async {
+    final newJourneyId = widget.mapRendererProxy.getJourneyId();
 
-    // TODO: currently when trackingMode updates, the upper layer will trigger a
-    // rebuid of this widget? we should not reload the page if url is unchanged
-    // this may be an iOS bug to be investigated further
-    final currentUrl = await _webViewController.currentUrl();
+    // Check if journey ID has actually changed
+    if (_currentJourneyId != newJourneyId) {
+      log.info(
+          '[base_map_webview] Journey ID changed from $_currentJourneyId to $newJourneyId');
+      _currentJourneyId = newJourneyId;
 
-    if (currentUrl != url) {
-      await _webViewController.loadRequest(Uri.parse(url));
+      // Update journey ID via JavaScript API instead of reloading the page
+      await _webViewController.runJavaScript('''
+        if (typeof updateJourneyId === 'function') {
+          console.log('Updating journey ID to: $newJourneyId');
+          updateJourneyId('$newJourneyId');
+        } else {
+          console.warn('updateJourneyId function not available yet');
+        }
+      ''');
     }
   }
 
@@ -81,6 +92,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _gpsManager = Provider.of<GpsManager>(context, listen: false);
     _gpsManager.addListener(_updateLocationMarker);
     _currentRoughMapView = widget.initialMapView;
+    _currentJourneyId = widget.mapRendererProxy.getJourneyId();
     _roughMapViewUpdaeTimer =
         Timer.periodic(Duration(seconds: 2), (Timer t) async {
       final newMapView = await _getCurrentMapView();
@@ -170,17 +182,22 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       ..setNavigationDelegate(
         NavigationDelegate(
           onNavigationRequest: (NavigationRequest request) {
-            // TODO: Block localhost URLs except for our map
-            if (request.url.contains('localhost') ||
-                request.url.contains('127.0.0.1')) {
+            // only allow navigating to our map
+            var uri = Uri.parse(request.url);
+            if (uri.scheme == 'file') {
               return NavigationDecision.navigate;
             }
-            // Allow all other URLs to open in system browser
+            // all other URLs will be opened in system browser
             launchUrl(
               Uri.parse(request.url),
               mode: LaunchMode.externalApplication,
             );
             return NavigationDecision.prevent;
+          },
+          onPageFinished: (String url) {
+            debugPrint('Page finished loading: $url');
+            // Inject the API endpoint after page loads
+            _injectApiEndpoint();
           },
           onWebResourceError: (WebResourceError error) async {
             // the mapbox error is common (maybe blocked by some firewall )
@@ -190,19 +207,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
                   Error Type: ${error.errorType} 
                   Error Code: ${error.errorCode}
                   Failed URL: ${error.url}''');
-            }
-
-            // TODO: The whole thing is a workaround. We should try to find a way
-            // to make the map server work properly or just avoid using a real
-            // Http server.
-            if ((error.errorCode == -1004 || // iOS error code
-                    (error.errorType == WebResourceErrorType.connect &&
-                        error.errorCode == -6)) && // Android error code
-                error.url?.contains('localhost') == true) {
-              await api.restartMapServer();
-              final url = getUrl();
-              await _webViewController.loadRequest(url);
-              return;
             }
 
             if (error.errorType ==
@@ -225,25 +229,102 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             _readyForDisplay = true;
           });
         },
+      )
+      ..addJavaScriptChannel(
+        'TileProviderChannel',
+        onMessageReceived: (JavaScriptMessage message) {
+          _handleTileProviderRequest(message.message);
+        },
       );
-
-    final url = getUrl();
-    await _webViewController.loadRequest(url);
+    final assetPath = 'assets/map_webview/index.html';
+    log.info('[base_map_webview] Initial loading asset: $assetPath');
+    await _webViewController.loadFlutterAsset(assetPath);
   }
 
-  Uri getUrl() {
-    Uri uri = Uri.parse(widget.mapRendererProxy.getUrl());
+  Future<void> _injectApiEndpoint() async {
+    final accessKey = api.getMapboxAccessToken();
+    final journeyId = widget.mapRendererProxy.getJourneyId();
+
+    debugPrint('Injecting access key: $accessKey');
+
+    // Get map view coordinates
     final mapView = _currentRoughMapView;
-    if (mapView != null) {
-      String fragment = uri.fragment;
-      Map<String, String> fragmentParams = Uri.splitQueryString(fragment);
-      fragmentParams['lng'] = mapView.lng.toString();
-      fragmentParams['lat'] = mapView.lat.toString();
-      fragmentParams['zoom'] = mapView.zoom.toString();
-      String newFragment = Uri(queryParameters: fragmentParams).query;
-      uri = uri.replace(fragment: newFragment);
+    final lngParam = mapView?.lng.toString() ?? 'null';
+    final latParam = mapView?.lat.toString() ?? 'null';
+    final zoomParam = mapView?.zoom.toString() ?? 'null';
+
+    debugPrint('Injecting lng: $lngParam');
+    debugPrint('Injecting lat: $latParam');
+    debugPrint('Injecting zoom: $zoomParam');
+
+    await _webViewController.runJavaScript('''
+      // Set the params
+      window.EXTERNAL_PARAMS = {
+        cgi_endpoint: "flutter://TileProviderChannel",
+        journey_id: "$journeyId",
+        render: "gl",
+        access_key: "$accessKey",
+        lng: $lngParam,
+        lat: $latParam,
+        zoom: $zoomParam,
+      };
+      
+      // Check if JS is ready and trigger initialization if so
+      if (typeof window.SETUP_PENDING !== 'undefined' && window.SETUP_PENDING) {
+        console.log("JS already ready, triggering initialization");
+        if (typeof trySetup === 'function') {
+          trySetup();
+        }
+      } else {
+        console.log("JS not ready yet, params stored for later");
+      }
+    ''');
+
+    debugPrint('Initialization completed');
+  }
+
+  void _handleTileProviderRequest(String message) async {
+    try {
+      // debugPrint('Tile Provider IPC Request: $message');
+
+      // Forward the JSON request transparently to Rust and get raw JSON response
+      final responseJson = await api.handleWebviewRequests(request: message);
+
+      // final truncatedResponse = responseJson.length > 100
+      //     ? '${responseJson.substring(0, 100)}...'
+      //     : responseJson;
+
+      // debugPrint('Tile Provider IPC Response: $truncatedResponse');
+
+      // Send the JSON response as a JavaScript object (no escaping needed)
+      await _webViewController.runJavaScript('''
+        if (typeof window.handle_TileProviderChannel_JsonResponse === 'function') {
+          const responseData = $responseJson;
+          window.handle_TileProviderChannel_JsonResponse(responseData);
+        } else {
+          console.error('No TileProvider JSON response handler found');
+        }
+      ''');
+    } catch (e) {
+      debugPrint('Error processing Tile Provider IPC request: $e');
+
+      // Create error response in same format as Rust would
+      final errorResponse = jsonEncode({
+        'requestId': 'unknown',
+        'success': false,
+        'data': null,
+        'error': 'IPC processing error: $e'
+      });
+
+      await _webViewController.runJavaScript('''
+        if (typeof window.handle_TileProviderChannel_JsonResponse === 'function') {
+          const errorData = $errorResponse;
+          window.handle_TileProviderChannel_JsonResponse(errorData);
+        } else {
+          console.error('Error handling failed - no handler found');
+        }
+      ''');
     }
-    return uri;
   }
 
   @override

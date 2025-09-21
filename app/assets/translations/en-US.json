@@ -99,7 +99,8 @@
       "title": "Advance settings",
       "export_logs": "Export Logs",
       "raw_data_mode": "Raw Data Mode",
-      "rebuild_cache": "Rebuild Cache"
+      "rebuild_cache": "Rebuild Cache",
+      "render_diagnostics": "Render Diagnostics"
     }
   },
   "data": {

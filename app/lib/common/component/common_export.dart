@@ -9,11 +9,24 @@ import 'package:share_plus/share_plus.dart';
 
 class CommonExport extends StatefulWidget {
   final String filePath;
+  final Rect outerSharePositionOrigin;
 
-  const CommonExport({super.key, required this.filePath});
+  const CommonExport(
+      {super.key,
+      required this.filePath,
+      required this.outerSharePositionOrigin});
 
   @override
   State<CommonExport> createState() => _CommonExportState();
+}
+
+Rect computeSharePositionOrigin(BuildContext context) {
+  final box = context.findRenderObject() as RenderBox?;
+  if (box == null) {
+    return Rect.zero;
+  } else {
+    return box.localToGlobal(Offset.zero) & box.size;
+  }
 }
 
 class _CommonExportState extends State<CommonExport> {
@@ -24,16 +37,17 @@ class _CommonExportState extends State<CommonExport> {
     super.initState();
 
     if (Platform.isIOS) {
-      _shareFile();
+      _shareFile(widget.outerSharePositionOrigin);
     } else {
       _showExportDialog = true;
     }
   }
 
-  Future<void> _shareFile() async {
-    await SharePlus.instance.share(
-      ShareParams(files: [XFile(widget.filePath)]),
-    );
+  Future<void> _shareFile(Rect sharePositionOrigin) async {
+    await SharePlus.instance.share(ShareParams(
+      files: [XFile(widget.filePath)],
+      sharePositionOrigin: sharePositionOrigin,
+    ));
     if (!mounted) return;
     Navigator.of(context).pop();
   }
@@ -82,7 +96,9 @@ class _CommonExportState extends State<CommonExport> {
           _buildIconButton(
             icon: FontAwesomeIcons.shareFromSquare,
             label: context.tr("common.share"),
-            onPressed: _shareFile,
+            onPressed: () {
+              _shareFile(computeSharePositionOrigin(context));
+            },
           ),
         ],
       ),

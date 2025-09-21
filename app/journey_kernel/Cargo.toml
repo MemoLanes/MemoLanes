@@ -3,7 +3,7 @@ name = "journey_kernel"
 version = "0.1.2"
 edition = "2021"
 description = "journey_kernel is a shared library for WebView and native part of the MemoLanes app."
-license = "MIT"
+license = "GPL-3.0"
 
 [lib]
 crate-type = ["lib", "cdylib"]
