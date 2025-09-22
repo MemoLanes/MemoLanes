@@ -13,13 +13,13 @@
       "size" : "20x20"
     },
     {
-      "filename" : "iPad_Settings_29_1x.png",
+      "filename" : "iPhone_Settings_29_1x.png",
       "idiom" : "iphone",
       "scale" : "1x",
       "size" : "29x29"
     },
     {
-      "filename" : "iPad_Settings_29_2x.png",
+      "filename" : "iPhone_Settings_29_2x.png",
       "idiom" : "iphone",
       "scale" : "2x",
       "size" : "29x29"
@@ -67,13 +67,13 @@
       "size" : "20x20"
     },
     {
-      "filename" : "iPad_Settings_29_1x 1.png",
+      "filename" : "iPad_Settings_29_1x.png",
       "idiom" : "ipad",
       "scale" : "1x",
       "size" : "29x29"
     },
     {
-      "filename" : "iPad_Settings_29_2x 1.png",
+      "filename" : "iPad_Settings_29_2x.png",
       "idiom" : "ipad",
       "scale" : "2x",
       "size" : "29x29"
