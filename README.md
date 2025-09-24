@@ -3,13 +3,11 @@
 ## This Repository(此仓库)
 This repository is where we develop the open source version of MemoLanes together with the community.
 The open source version contains implementations for most core functionalities.
-This source code is available to everyone under the standard MIT license.
 
 [MemoLanes](https://app.memolanes.com/) is a distribution of this repository with our own customizations and optimizations.  
 
 本仓库是我们与社区共同开发开源版 迹忆 的地方。
 开源版本包含了大部分核心功能的实现。
-此源代码依据标准的 MIT 许可证向所有人开放。
 
 [迹忆](https://app.memolanes.com/)是基于本仓库打造的定制发行版，融合了我们的额外改进与优化。
 
@@ -51,7 +49,23 @@ This source code is available to everyone under the standard MIT license.
 - ❤️ **共建生态**
     - 加入开发者社区，参与应用开发，共同打造理想应用。
 
+## License & Contributing
 
+By default, we release the code under the GPLv3 license. We do so to ensure derivative works remain open-source and contribute back to the community. 
+
+We may also be willing to grant you a non-GPL license upon specific requests (either open an issue or email us). In general, we welcome helpful utilities to be developed based on MemoLanes for good purposes, either closed-source or open-source. 
+
+In order to achieve this, we also need any new contributor to sign a contributor license agreement so that we can reuse the code in our closed-source MemoLanes App or other products.
+For more information about contributing and the CLA process, please see our [Contributing Guidelines](.github/CONTRIBUTING.md).
+
+---
+
+默认情况下，我们在 GPLv3 许可证下发布代码。这样做是为了确保衍生作品保持开源并回馈社区。
+
+如有特定需求，我们也愿意向您授予非 GPL 许可证（请开启 issue 或发邮件给我们）。总的来说，我们欢迎基于 迹忆（MemoLanes） 开发有益的实用工具，无论是闭源还是开源。
+
+为了实现这一点，我们也需要新贡献者签署贡献者许可协议，以便我们可以在闭源的 迹忆（MemoLanes） 应用或其他产品中重复使用代码。
+有关贡献和 CLA 流程的更多信息，请参阅我们的[贡献指南](.github/CONTRIBUTING.md)。
 
 ## Dev Env Setup
 There are two main components of this app: 1. A rust library for the core logic; 2. a flutter project for the app itself. If you are only going to touch the rust core library then only 1 is required. However, working on the flutter project requires a full setup.
@@ -66,7 +80,7 @@ There are two main components of this app: 1. A rust library for the core logic;
 
 ### 3. Fultter Setup
 1. Install [Flutter](https://docs.flutter.dev/get-started/install).
-2. Install [flutter_rust_bridge](https://cjycode.com/flutter_rust_bridge/quickstart). It is recommnad install the specific version that this project is using by `cargo install 'flutter_rust_bridge_codegen@2.10.0'`. The real version can be found using `just get-frb-version` or looking at `app/pubspec.yaml`.
+2. Install [flutter_rust_bridge](https://cjycode.com/flutter_rust_bridge/quickstart). It is recommnad install the specific version that this project is using by `cargo install 'flutter_rust_bridge_codegen@2.11.1'`. The real version can be found using `just get-frb-version` or looking at `app/pubspec.yaml`.
 3. Install [yarn](https://yarnpkg.com/getting-started/install). Go to `/app/journey_kernel` folder. Install node packages by `yarn install`.
 4. Go to `/app` folder.
 5. Create `.env` file and put the Mapbox token in it. An example can be found in `.env.example`.

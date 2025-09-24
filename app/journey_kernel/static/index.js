@@ -1,6 +1,37 @@
+{
+  window.SETUP_PENDING = false;
+  window.EXTERNAL_PARAMS = {};
+
+  const hash = window.location.hash.slice(1);
+  if (hash) {
+    // default cgiEndpoint (only available if hash parameters are provided)
+    window.EXTERNAL_PARAMS.cgi_endpoint = ".";
+
+    const params = new URLSearchParams(hash);
+
+    // Scan all hash parameters and store them in EXTERNAL_PARAMS after successful decoding
+    // Supported parameters for endpoint configuration:
+    // - cgi_endpoint: HTTP endpoint URL, "flutter://<channel>" for IPC mode, or "flutter" for legacy IPC
+    // - http_endpoint: Explicit HTTP endpoint (alternative to cgi_endpoint)
+    // Other parameters: journey_id, access_key, lng, lat, zoom, render, etc.
+    for (const [key, value] of params.entries()) {
+      if (value) {
+        try {
+          const decodedValue = decodeURIComponent(value);
+          window.EXTERNAL_PARAMS[key] = decodedValue;
+        } catch (error) {
+          console.warn(`Failed to decode parameter '${key}': ${error.message}`);
+          // Skip this parameter if decoding fails
+        }
+      }
+    }
+  }
+}
+
 import { JourneyCanvasLayer } from "./journey-canvas-layer.js";
 import { JourneyTileProvider } from "./journey-tile-provider.js";
 import { DebugPanel } from "./debug-panel.js";
+import init from "../pkg/index.js";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import "./debug-panel.css";
@@ -48,50 +79,67 @@ function switchRenderingLayer(map, renderingMode) {
   return currentJourneyLayer;
 }
 
-async function initializeMap() {
-  // Load Mapbox token from .token.json
-  const tokenResponse = await fetch("./token.json");
-  const tokenData = await tokenResponse.json();
-  mapboxgl.accessToken = tokenData["MAPBOX-ACCESS-TOKEN"];
-
-  const hash = window.location.hash.slice(1);
-
-  // Parse hash parameters for initial map view
-  let initialView = {
-    center: [0, 0],
-    zoom: 2,
-  };
-
-  if (hash) {
-    const params = new URLSearchParams(hash);
-    currentJourneyId = params.get("journey_id");
-    const lng = parseFloat(params.get("lng"));
-    const lat = parseFloat(params.get("lat"));
-    const zoom = parseFloat(params.get("zoom"));
-
-    // Get rendering mode from URL if available
-    const urlRenderMode = params.get("render");
-    if (urlRenderMode && AVAILABLE_LAYERS[urlRenderMode]) {
-      currentRenderingMode = urlRenderMode;
-    }
-
-    console.log(
-      `journey_id: ${currentJourneyId}, render: ${currentRenderingMode}, lng: ${lng}, lat: ${lat}, zoom: ${zoom}`,
-    );
-
-    if (!isNaN(lng) && !isNaN(lat) && !isNaN(zoom)) {
-      initialView = {
-        center: [lng, lat],
-        zoom: zoom,
-      };
-    }
+async function trySetup() {
+  console.log(`parse external params`, window.EXTERNAL_PARAMS);
+  if (!window.EXTERNAL_PARAMS.cgi_endpoint) {
+    // no hash param and no default endpoint, stop setting up and waiting for next setup
+    return;
   }
+
+  if (window.EXTERNAL_PARAMS.access_key) {
+    mapboxgl.accessToken = window.EXTERNAL_PARAMS.access_key;
+  } else {
+    document.body.innerHTML = `<div style="padding: 20px; font-family: Arial, sans-serif; color: red;"><h1>TOKEN not provided</h1></div>`;
+    return;
+  }
+
+  // Check if journey_id is provided
+  if (!window.EXTERNAL_PARAMS.journey_id) {
+    document.body.innerHTML = `<div style="padding: 20px; font-family: Arial, sans-serif; color: red;"><h1>Journey ID not provided</h1></div>`;
+    return;
+  }
+
+  // Get journey ID from EXTERNAL_PARAMS
+  currentJourneyId = window.EXTERNAL_PARAMS.journey_id;
+
+  // Get rendering mode from EXTERNAL_PARAMS
+  if (
+    window.EXTERNAL_PARAMS.render &&
+    AVAILABLE_LAYERS[window.EXTERNAL_PARAMS.render]
+  ) {
+    currentRenderingMode = window.EXTERNAL_PARAMS.render;
+  }
+
+  // Parse coordinates and zoom from EXTERNAL_PARAMS with fallbacks
+  const lng = window.EXTERNAL_PARAMS.lng
+    ? isNaN(parseFloat(window.EXTERNAL_PARAMS.lng))
+      ? 0
+      : parseFloat(window.EXTERNAL_PARAMS.lng)
+    : 0;
+  const lat = window.EXTERNAL_PARAMS.lat
+    ? isNaN(parseFloat(window.EXTERNAL_PARAMS.lat))
+      ? 0
+      : parseFloat(window.EXTERNAL_PARAMS.lat)
+    : 0;
+  const zoom = window.EXTERNAL_PARAMS.zoom
+    ? isNaN(parseFloat(window.EXTERNAL_PARAMS.zoom))
+      ? 2
+      : parseFloat(window.EXTERNAL_PARAMS.zoom)
+    : 2;
+
+  console.log(
+    `journey_id: ${currentJourneyId}, render: ${currentRenderingMode}, lng: ${lng}, lat: ${lat}, zoom: ${zoom}`,
+  );
+  console.log(
+    "EXTERNAL_PARAMS for endpoint configuration:",
+    window.EXTERNAL_PARAMS,
+  );
 
   const map = new mapboxgl.Map({
     container: "map",
     style: "mapbox://styles/mapbox/streets-v12",
-    center: initialView.center,
-    zoom: initialView.zoom,
+    center: [lng, lat],
+    zoom: zoom,
     maxZoom: 14,
     antialias: true,
     projection: "mercator",
@@ -222,7 +270,48 @@ async function initializeMap() {
   window.switchRenderingLayer = function (renderingMode) {
     return switchRenderingLayer(map, renderingMode);
   };
+
+  // Add method to update journey ID
+  window.updateJourneyId = function (newJourneyId) {
+    if (!newJourneyId) {
+      console.warn("updateJourneyId: journey ID cannot be empty");
+      return false;
+    }
+
+    if (newJourneyId === currentJourneyId) {
+      console.log(
+        `updateJourneyId: journey ID is already set to '${newJourneyId}'`,
+      );
+      return false;
+    }
+
+    console.log(
+      `updateJourneyId: switching from '${currentJourneyId}' to '${newJourneyId}'`,
+    );
+
+    // Update the current journey ID
+    currentJourneyId = newJourneyId;
+
+    // Update the tile provider's journey ID
+    if (currentJourneyTileProvider) {
+      currentJourneyTileProvider.journeyId = currentJourneyId;
+      // Force update to fetch data for the new journey
+      currentJourneyTileProvider.pollForJourneyUpdates(true);
+    }
+
+    return true;
+  };
 }
 
-// Start initialization
-initializeMap().catch(console.error);
+window.trySetup = trySetup;
+
+// Ensure WASM module is initialized before using its exports downstream
+init()
+  .then(() => {
+    console.log("WASM module initialized");
+
+    trySetup().catch(console.error);
+
+    window.SETUP_PENDING = true;
+  })
+  .catch(console.error);

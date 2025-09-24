@@ -11,9 +11,9 @@ use crate::gps_processor::{GpsPreprocessor, ProcessResult};
 use crate::journey_bitmap::{JourneyBitmap, MAP_WIDTH_OFFSET, TILE_WIDTH, TILE_WIDTH_OFFSET};
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
-use crate::renderer::map_server::MapRendererToken;
+use crate::renderer::internal_server::MapRendererToken;
+use crate::renderer::internal_server::{register_map_renderer, Registry, Request};
 use crate::renderer::MapRenderer;
-use crate::renderer::MapServer;
 use crate::storage::Storage;
 use crate::{
     archive, build_info, export_data, gps_processor, main_db, merged_journey_builder, storage,
@@ -31,7 +31,7 @@ use log::{error, info, warn};
 pub(super) struct MainState {
     pub storage: Storage,
     pub gps_preprocessor: Mutex<GpsPreprocessor>,
-    pub map_server: Mutex<MapServer>,
+    pub registry: Arc<Mutex<Registry>>,
     // TODO: we should reconsider the way we handle the main map
     pub main_map_layer_kind: Arc<Mutex<InternalLayerKind>>,
     pub main_map_renderer: Arc<Mutex<MapRenderer>>,
@@ -61,9 +61,7 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
         let mut storage = Storage::init(temp_dir, doc_dir, support_dir, cache_dir);
         info!("initialized");
 
-        let mut map_server =
-            MapServer::create_and_start("localhost", None).expect("Failed to start map server");
-        info!("map server started");
+        let registry = Arc::new(Mutex::new(Registry::new()));
 
         let default_layer_kind = InternalLayerKind::JounreyKind(JourneyKind::DefaultKind);
         let main_map_layer_kind = Arc::new(Mutex::new(default_layer_kind));
@@ -85,13 +83,14 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
                 }
             }
         }));
-        let main_map_renderer_token = map_server.register_map_renderer(main_map_renderer.clone());
+        let main_map_renderer_token =
+            register_map_renderer(registry.clone(), main_map_renderer.clone());
         info!("main map renderer initialized");
 
         MainState {
             storage,
             gps_preprocessor: Mutex::new(GpsPreprocessor::new()),
-            map_server: Mutex::new(map_server),
+            registry,
             main_map_layer_kind,
             main_map_renderer,
             main_map_renderer_token,
@@ -116,7 +115,13 @@ pub fn init_main_map() -> Result<()> {
 
 pub fn subscribe_to_log_stream(sink: StreamSink<String>) -> Result<()> {
     let mut logger = logs::FLUTTER_LOGGER.lock().unwrap();
+    let old_sink = logger.take();
     *logger = Some(sink);
+    // NOTE: The following code is important for flutter hot restart. We need to
+    // release the `logger` lock before freeing the `old_sink`, otherwise
+    // there will be a deadlock.
+    drop(logger);
+    let _ = old_sink;
     Ok(())
 }
 
@@ -143,9 +148,9 @@ pub enum MapRendererProxy {
 
 impl MapRendererProxy {
     #[frb(sync)]
-    pub fn get_url(&self) -> String {
+    pub fn get_journey_id(&self) -> String {
         match self {
-            MapRendererProxy::Token(token) => token.url(),
+            MapRendererProxy::Token(token) => token.journey_id(),
         }
     }
 }
@@ -164,9 +169,8 @@ pub fn get_empty_map_renderer_proxy() -> MapRendererProxy {
 
     let journey_bitmap = JourneyBitmap::new();
 
-    let mut server = state.map_server.lock().unwrap();
     let map_renderer = MapRenderer::new(journey_bitmap);
-    let token = server.register_map_renderer(Arc::new(Mutex::new(map_renderer)));
+    let token = register_map_renderer(state.registry.clone(), Arc::new(Mutex::new(map_renderer)));
     MapRendererProxy::Token(token)
 }
 
@@ -179,9 +183,9 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
         merged_journey_builder::get_range(txn, from_date_inclusive, to_date_inclusive, None)
     })?;
 
-    let mut server = state.map_server.lock().unwrap();
     let map_renderer = MapRenderer::new(journey_bitmap);
-    let token = server.register_map_renderer(Arc::new(Mutex::new(map_renderer)));
+    let token = register_map_renderer(state.registry.clone(), Arc::new(Mutex::new(map_renderer)));
+
     Ok(MapRendererProxy::Token(token))
 }
 
@@ -240,8 +244,7 @@ fn get_map_renderer_proxy_for_journey_data_internal(
     let default_camera_option = get_default_camera_option_from_journey_bitmap(&journey_bitmap);
 
     let map_renderer = MapRenderer::new(journey_bitmap);
-    let mut server = state.map_server.lock().unwrap();
-    let token = server.register_map_renderer(Arc::new(Mutex::new(map_renderer)));
+    let token = register_map_renderer(state.registry.clone(), Arc::new(Mutex::new(map_renderer)));
     Ok((MapRendererProxy::Token(token), default_camera_option))
 }
 
@@ -565,12 +568,6 @@ pub fn area_of_main_map() -> u64 {
     main_map_renderer.get_current_area()
 }
 
-pub fn restart_map_server() -> Result<()> {
-    let state = get();
-    let mut map_server = state.map_server.lock().unwrap();
-    map_server.restart()
-}
-
 pub fn rebuild_cache() -> Result<()> {
     let state = get();
     state.storage.clear_all_cache()?;
@@ -608,4 +605,24 @@ pub mod for_testing {
     pub fn get_main_map_renderer() -> Arc<Mutex<MapRenderer>> {
         super::get().main_map_renderer.clone()
     }
+}
+
+pub fn handle_webview_requests(request: String) -> Result<String> {
+    let state = get();
+    let registry = state.registry.clone();
+    let request = Request::parse(&request)?;
+    let response = request.handle(registry);
+    // Direct JSON serialization - more explicit and efficient
+    serde_json::to_string(&response)
+        .map_err(|e| anyhow::anyhow!("Failed to serialize response: {}", e))
+}
+
+#[frb(ignore)]
+pub fn get_registry() -> Arc<Mutex<Registry>> {
+    get().registry.clone()
+}
+
+#[frb(sync)]
+pub fn get_mapbox_access_token() -> String {
+    env!("MAPBOX-ACCESS-TOKEN").to_string()
 }

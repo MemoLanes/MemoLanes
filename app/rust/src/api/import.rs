@@ -5,6 +5,7 @@ use chrono::{DateTime, Local, NaiveDate, Utc};
 use flutter_rust_bridge::frb;
 
 use crate::{
+    flight_track_processor,
     gps_processor::RawData,
     import_data::{self, journey_info_from_raw_vector_data},
     journey_data::JourneyData,
@@ -28,8 +29,18 @@ pub struct RawVectorData {
     data: Vec<Vec<RawData>>,
 }
 
-pub fn load_fow_sync_data(file_path: String) -> Result<(JourneyInfo, JourneyData)> {
-    let (journey_bitmap, _warnings) = import_data::load_fow_sync_data(&file_path)?;
+pub fn load_fow_data(file_path: String) -> Result<(JourneyInfo, JourneyData)> {
+    let extension = Path::new(&file_path)
+        .extension()
+        .and_then(|s| s.to_str())
+        .map(|s| s.to_ascii_lowercase());
+
+    let (journey_bitmap, _warnings) = match extension.as_deref() {
+        Some("zip") => import_data::load_fow_sync_data(&file_path)?,
+        Some("fwss") => import_data::load_fow_snapshot_data(&file_path)?,
+        _ => bail!("Unknown extension {extension:?}"),
+    };
+
     let journey_info = JourneyInfo {
         journey_date: Local::now().date_naive(),
         start_time: None,
@@ -41,7 +52,7 @@ pub fn load_fow_sync_data(file_path: String) -> Result<(JourneyInfo, JourneyData
 }
 
 pub fn load_gpx_or_kml(file_path: String) -> Result<(JourneyInfo, RawVectorData)> {
-    let raw_vecotr_data = match Path::new(&file_path)
+    let raw_vector_data = match Path::new(&file_path)
         .extension()
         .and_then(OsStr::to_str)
         .map(|x| x.to_lowercase())
@@ -53,9 +64,9 @@ pub fn load_gpx_or_kml(file_path: String) -> Result<(JourneyInfo, RawVectorData)
     };
 
     Ok((
-        journey_info_from_raw_vector_data(&raw_vecotr_data),
+        journey_info_from_raw_vector_data(&raw_vector_data),
         RawVectorData {
-            data: raw_vecotr_data,
+            data: raw_vector_data,
         },
     ))
 }
@@ -75,17 +86,31 @@ pub fn import_journey_data(journey_info: JourneyInfo, journey_data: JourneyData)
     Ok(())
 }
 
+pub enum ImportPreprocessor {
+    None,
+    Generic,
+    FlightTrack,
+}
+
 pub fn process_vector_data(
     vector_data: &RawVectorData,
-    run_preprocessor: bool,
-) -> Result<JourneyData> {
-    let journey_vector =
-        import_data::journey_vector_from_raw_data(&vector_data.data, run_preprocessor);
-    match journey_vector {
-        None => {
-            // TODO: return a strucutred error to outside for better error handling.
-            Err(anyhow!("The imported file produced empty result"))
+    import_processor: ImportPreprocessor,
+) -> Result<Option<JourneyData>> {
+    let journey_vector = match import_processor {
+        ImportPreprocessor::None => {
+            import_data::journey_vector_from_raw_data_with_gps_preprocessor(
+                &vector_data.data,
+                false,
+            )
         }
-        Some(journey_vector) => Ok(JourneyData::Vector(journey_vector)),
+        ImportPreprocessor::Generic => {
+            import_data::journey_vector_from_raw_data_with_gps_preprocessor(&vector_data.data, true)
+        }
+        ImportPreprocessor::FlightTrack => flight_track_processor::process(&vector_data.data),
+    };
+
+    match journey_vector {
+        None => Ok(None),
+        Some(journey_vector) => Ok(Some(JourneyData::Vector(journey_vector))),
     }
 }

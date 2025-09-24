@@ -50,7 +50,7 @@ impl MapRenderer {
     }
 
     pub fn get_version_string(&self) -> String {
-        format!("\"{:x}\"", self.version)
+        format!("{:x}", self.version)
     }
 
     pub fn parse_version_string(version_str: &str) -> Option<u64> {

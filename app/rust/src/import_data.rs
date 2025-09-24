@@ -1,4 +1,5 @@
 use crate::api::import::JourneyInfo;
+use crate::flight_track_processor;
 use crate::gps_processor::{Point, PreprocessedData, ProcessResult, RawData};
 use crate::journey_bitmap::{
     self, Block, BlockKey, JourneyBitmap, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH,
@@ -12,8 +13,10 @@ use anyhow::Result;
 use chrono::{DateTime, Local, TimeZone, Utc};
 use flate2::read::ZlibDecoder;
 use gpx::{read, Time};
-use kml::types::Geometry;
+use kml::types::{Element, Geometry};
+use kml::Kml::Placemark;
 use kml::{Kml, KmlReader};
+use std::cell::RefCell;
 use std::result::Result::Ok;
 use std::vec;
 use std::{fs::File, io::BufReader, io::Read, path::Path};
@@ -46,13 +49,48 @@ impl FoWTileId {
     }
 }
 
-pub fn load_fow_sync_data(mldx_file_path: &str) -> Result<(JourneyBitmap, Option<String>)> {
+fn parse_fow_bitmap_file<R: Read>(
+    file: R,
+    filename: &str,
+    journey_bitmap: &mut JourneyBitmap,
+    warnings: &mut Vec<String>,
+) -> Result<()> {
     const TILE_HEADER_LEN: i64 = TILE_WIDTH * TILE_WIDTH;
     const TILE_HEADER_SIZE: usize = (TILE_HEADER_LEN * 2) as usize;
     const BLOCK_BITMAP_SIZE: usize = BITMAP_SIZE;
     const BLOCK_EXTRA_DATA: usize = 3;
     const BLOCK_SIZE: usize = BLOCK_BITMAP_SIZE + BLOCK_EXTRA_DATA;
 
+    match FoWTileId::from_filename(filename) {
+        None => warnings.push(format!("unexpected file: {filename}")),
+        Some(id) => {
+            let mut tile = journey_bitmap::Tile::new();
+            let mut data = Vec::new();
+            ZlibDecoder::new(file).read_to_end(&mut data)?;
+
+            let header = &data[0..TILE_HEADER_SIZE];
+            for i in 0..TILE_HEADER_LEN {
+                // parse two u8 as a single u16 according to little endian
+                let index = (i as usize) * 2;
+                let block_idx: u16 = (header[index] as u16) | ((header[index + 1] as u16) << 8);
+                if block_idx > 0 {
+                    let block_key =
+                        BlockKey::from_x_y((i % TILE_WIDTH) as u8, (i / TILE_WIDTH) as u8);
+                    let start_offset = TILE_HEADER_SIZE + ((block_idx - 1) as usize) * BLOCK_SIZE;
+                    let end_offset = start_offset + BLOCK_BITMAP_SIZE;
+                    let mut bitmap: [u8; BLOCK_BITMAP_SIZE] = [0; BLOCK_BITMAP_SIZE];
+                    bitmap.copy_from_slice(&data[start_offset..end_offset]);
+                    let block = Block::new_with_data(bitmap);
+                    tile.set(block_key, block);
+                }
+            }
+            journey_bitmap.tiles.insert((id.x, id.y), tile);
+        }
+    }
+    Ok(())
+}
+
+pub fn load_fow_sync_data(mldx_file_path: &str) -> Result<(JourneyBitmap, Option<String>)> {
     let mut warnings: Vec<String> = Vec::new();
 
     let mut zip = zip::ZipArchive::new(File::open(mldx_file_path)?)?;
@@ -75,33 +113,7 @@ pub fn load_fow_sync_data(mldx_file_path: &str) -> Result<(JourneyBitmap, Option
         if filename.is_empty() || filename.starts_with('.') || file.is_dir() {
             continue;
         }
-        match FoWTileId::from_filename(filename) {
-            None => warnings.push(format!("unexpected file: {}", file.name())),
-            Some(id) => {
-                let mut tile = journey_bitmap::Tile::new();
-                let mut data = Vec::new();
-                ZlibDecoder::new(file).read_to_end(&mut data)?;
-
-                let header = &data[0..TILE_HEADER_SIZE];
-                for i in 0..TILE_HEADER_LEN {
-                    // parse two u8 as a single u16 according to little endian
-                    let index = (i as usize) * 2;
-                    let block_idx: u16 = (header[index] as u16) | ((header[index + 1] as u16) << 8);
-                    if block_idx > 0 {
-                        let block_key =
-                            BlockKey::from_x_y((i % TILE_WIDTH) as u8, (i / TILE_WIDTH) as u8);
-                        let start_offset =
-                            TILE_HEADER_SIZE + ((block_idx - 1) as usize) * BLOCK_SIZE;
-                        let end_offset = start_offset + BLOCK_BITMAP_SIZE;
-                        let mut bitmap: [u8; BLOCK_BITMAP_SIZE] = [0; BLOCK_BITMAP_SIZE];
-                        bitmap.copy_from_slice(&data[start_offset..end_offset]);
-                        let block = Block::new_with_data(bitmap);
-                        tile.set(block_key, block);
-                    }
-                }
-                journey_bitmap.tiles.insert((id.x, id.y), tile);
-            }
-        }
+        parse_fow_bitmap_file(file, filename, &mut journey_bitmap, &mut warnings)?;
     }
 
     let warnings = if warnings.is_empty() {
@@ -114,6 +126,44 @@ pub fn load_fow_sync_data(mldx_file_path: &str) -> Result<(JourneyBitmap, Option
         Err(anyhow!(
             "empty data. warnings: {}",
             warnings.unwrap_or("".to_owned())
+        ))
+    } else {
+        Ok((journey_bitmap, warnings))
+    }
+}
+
+pub fn load_fow_snapshot_data(fwss_file_path: &str) -> Result<(JourneyBitmap, Option<String>)> {
+    let mut warnings: Vec<String> = Vec::new();
+    let mut zip = zip::ZipArchive::new(File::open(fwss_file_path)?)?;
+
+    let mut journey_bitmap = JourneyBitmap::new();
+    for i in 0..zip.len() {
+        let file = zip.by_index(i)?;
+        let fwss_subfilename = file.name().to_lowercase();
+
+        if !fwss_subfilename.contains("model/*/") {
+            continue;
+        }
+
+        let filename = Path::file_name(Path::new(&fwss_subfilename))
+            .and_then(|x| x.to_str())
+            .unwrap_or("");
+        if filename.is_empty() || filename.starts_with('.') || file.is_dir() {
+            continue;
+        }
+        parse_fow_bitmap_file(file, filename, &mut journey_bitmap, &mut warnings)?;
+    }
+
+    let warnings = if warnings.is_empty() {
+        None
+    } else {
+        Some(warnings.join("\n"))
+    };
+
+    if journey_bitmap.tiles.is_empty() {
+        Err(anyhow!(
+            "empty data. warnings: {}",
+            warnings.unwrap_or_default()
         ))
     } else {
         Ok((journey_bitmap, warnings))
@@ -251,26 +301,76 @@ fn read_track(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
 
 fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
     let mut raw_vector_data: Vec<Vec<RawData>> = Vec::new();
-    flatten_data.iter().for_each(|k| {
-        let mut raw_vector_data_segment: Vec<RawData> = Vec::new();
-        if let Kml::Placemark(p) = k {
-            if let Some(Geometry::LineString(p)) = &p.geometry {
-                p.coords.iter().for_each(|coord| {
-                    raw_vector_data_segment.push(RawData {
-                        point: Point {
-                            latitude: coord.y,
-                            longitude: coord.x,
-                        },
-                        timestamp_ms: None,
-                        accuracy: None,
-                        altitude: None,
-                        speed: None,
-                    });
-                });
+
+    let convert_to_timestamp = |when: Option<String>| -> Option<i64> {
+        match when {
+            None => None,
+            Some(when) => {
+                let datetime = DateTime::parse_from_rfc3339(&when).ok()?;
+                Some(datetime.timestamp_millis())
             }
         }
-        raw_vector_data.push(raw_vector_data_segment);
+    };
+
+    let extract_time_from_children = |timestamp_element: &Element| -> Option<String> {
+        timestamp_element
+            .children
+            .iter()
+            .find(|e| e.name == "when")
+            .and_then(|when_element| when_element.content.clone())
+    };
+
+    let raw_vector_data_segment: RefCell<Vec<RawData>> = RefCell::new(Vec::new());
+
+    flatten_data.iter().for_each(|k| {
+        if let Placemark(p) = k {
+            if let Some(geometry) = &p.geometry {
+                match geometry {
+                    Geometry::Point(point) => {
+                        let timestamp_ms = convert_to_timestamp(
+                            p.children
+                                .iter()
+                                .find(|e| e.name == "TimeStamp")
+                                .and_then(extract_time_from_children),
+                        );
+                        raw_vector_data_segment.borrow_mut().push(RawData {
+                            point: Point {
+                                latitude: point.coord.y,
+                                longitude: point.coord.x,
+                            },
+                            timestamp_ms,
+                            accuracy: None,
+                            altitude: None,
+                            speed: None,
+                        });
+                    }
+                    Geometry::LineString(line_string) => {
+                        line_string.coords.iter().for_each(|coord| {
+                            raw_vector_data_segment.borrow_mut().push(RawData {
+                                point: Point {
+                                    latitude: coord.y,
+                                    longitude: coord.x,
+                                },
+                                timestamp_ms: None,
+                                accuracy: None,
+                                altitude: None,
+                                speed: None,
+                            });
+                        });
+
+                        // we treat different `LineString` as different segments
+                        if !raw_vector_data_segment.borrow().is_empty() {
+                            raw_vector_data.push(raw_vector_data_segment.replace(Vec::new()));
+                        }
+                    }
+                    _ => (),
+                }
+            }
+        }
     });
+    if !raw_vector_data_segment.borrow().is_empty() {
+        raw_vector_data.push(raw_vector_data_segment.into_inner());
+    }
     Ok(raw_vector_data)
 }
 
@@ -285,16 +385,16 @@ fn flatten_kml(kml: Kml) -> Vec<Kml> {
     }
 }
 
-pub fn journey_vector_from_raw_data(
+pub fn journey_vector_from_raw_data_with_gps_preprocessor(
     raw_data: &[Vec<RawData>],
-    run_preprocessor: bool,
+    enable_preprocessor: bool,
 ) -> Option<JourneyVector> {
     let processed_data = raw_data.iter().flat_map(move |x| {
         // we handle each segment separately
         let mut gps_preprocessor = GpsPreprocessor::new();
         let mut first = true;
         x.iter().map(move |raw_data| {
-            let process_result = if run_preprocessor {
+            let process_result = if enable_preprocessor {
                 gps_preprocessor.preprocess(raw_data)
             } else if first {
                 first = false;
@@ -320,6 +420,12 @@ pub fn journey_vector_from_raw_data(
         None => None,
         Some(ongoing_journey) => Some(ongoing_journey.journey_vector),
     }
+}
+
+pub fn journey_vector_from_raw_data_with_flight_track_processor(
+    raw_data: &[Vec<RawData>],
+) -> Option<JourneyVector> {
+    flight_track_processor::process(raw_data)
 }
 
 pub fn journey_info_from_raw_vector_data(raw_vector_data: &[Vec<RawData>]) -> JourneyInfo {
