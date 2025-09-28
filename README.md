@@ -20,17 +20,13 @@ The open source version contains implementations for most core functionalities.
 ### Key features
 
 - 🗄️ **Your Data Truly Belongs to You**
-    - All your journey information is securely stored directly on your device. 
-    - As an open-source project, we use open data formats — empowering you to seamlessly migrate and use your travel history across various applications and tools.
-    - without barriers.
+    - All your journey information is securely stored directly on your device. As an open-source project, we use open data formats — empowering you to seamlessly migrate your travel history across various applications and tools, without barriers.
 - 💪 **Rich & Powerful Features**
-    - The *Multi-Layer* enables flexible combination and switching between travel routes and terrain data.
-    - while the *Time Machine* allows you to visually retrace your journey’s evolution on an interactive timeline
-    - Stay tuned for more exciting features to come!
+    - The *Multi-Layer* enables flexible combination and switching between footprint and flight tracks. While the *Time Machine* allows you to visually retrace your journey’s evolution on an interactive timeline. Stay tuned for more exciting features to come!
 - 🧩 **Flexible & Future-Proof Architecture**
-    - We have more features on the horizon. Powered by a meticulously engineered core architecture, your existing data will seamlessly integrate with future upgrades — ensuring sustainable evolution and long-term compatibility.
-- ❤️ **Build this app together**
-    - We invite you to join our developer community — collaborate with us to shape the future of this app and build the tool you’ve always envisioned!
+    - We have more features on the horizon. Powered by a meticulously engineered core architecture, your existing data will seamlessly integrate with future upgrades — ensuring sustainable evolution.
+- ❤️ **Build This App Together**
+    - Join our developer community — collaborate with us to shape the future of this application and build the tool you’ve always envisioned!
 
 ---
 
@@ -41,13 +37,11 @@ The open source version contains implementations for most core functionalities.
 - 🗄️ **你的数据，由你做主**
     - 所有旅程数据安全存储在本地设备。作为开源项目，我们采用开放数据格式，让你的数据能在各种应用和工具间自由迁移，畅通无阻。
 - 💪 **功能强大，体验丰富**
-    - “多图层”功能助你自由组合与切换航迹和地面数据；
-    - “时光机”功能，在时间轴上回溯你的轨迹变化。
-    - 更多精彩功能敬请期待！
+    -  “多图层”功能助你自由组合与切换航迹和地面数据；“时光机”功能，在时间轴上回溯你的轨迹变化。更多精彩功能敬请期待！
 - 🧩 **灵活架构，未来可期**
     - 我们已规划更多功能，基于精心设计的底层架构，现有数据能无缝适配未来新功能升级，确保持续发展。
-- ❤️ **共携手共建，开发生态**
-    - 诚邀你加入开发者社区，共同参与应用开发，携手打造你理想中的应用。
+- ❤️ **携手共建，开发生态**
+    - 加入开发者社区，共同参与应用开发，携手打造你理想中的应用。
 
 ## License & Contributing
 
