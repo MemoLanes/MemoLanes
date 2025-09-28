@@ -122,6 +122,10 @@
     "other": "Other",
     "about": "About"
   },
+  "beta_testing_notice": {
+    "title": "Welcome to MemoLanes Public Beta",
+    "content_md": "Thank you for testing MemoLanes!\n\nPlease be aware of the following:\n* The app may occasionally lag, crash, or glitch.\n* Features are still being optimized and may change in the final release, so they may not reflect their final quality.\n* We recommend backing up your data regularly (go to the far-right [Settings] icon on the navigation bar > [Export All Data]).\n\nIf you run into any issues, please take a screenshot to share with our team—it helps a lot! Suggestions are also welcome. You can find us via [Settings] > [Contact Us].\n\nIf you enjoy using MemoLanes, feel free to share it with others. Your support motivates us to keep improving. 🫶🏻\n\nWish you great journeys ahead—let’s explore the world together! 🚀"
+  },
   "privacy": {
     "url": "https://app.memolanes.com/en/privacy/",
     "privacy_tip_title": "Privacy Policy Notice",
