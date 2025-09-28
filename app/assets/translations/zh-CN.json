@@ -74,8 +74,8 @@
   },
   "import_fow_data": {
     "button": "导入“世界迷雾”数据",
-    "description_md": "导入世界迷雾 App 中产生的数据。  \n这是一个实验性功能，目前支持导入:\n1. Zip 压缩的世界迷雾网盘同步 Sync 文件夹。\n2. 世界迷雾快照文件 (*.fwss)。  \n  \n如需导入多段数据等更精细的控制，可以尝试使用[迷雾机器-时光机](https://fogmachine.8bits.io/time-machine)中提供的“导出迹忆归档”功能。",
-    "warning_for_import_multiple_data_md": "请注意，数据库中已经包含世界迷雾数据。  \n导入多段世界迷雾数据可能不是一个理想的行为（例如：数据会简单的合并导致包含重复数据）。  \n推荐使用 [迷雾机器-时光机](https://fogmachine.8bits.io/time-machine) 以获得更精细的控制（例如：逐一处理快照并计算差异）。"
+    "description_md": "导入世界迷雾 App 中产生的数据。\n\n支持以下格式：\n1. Zip 格式：将世界迷雾网盘同步 Sync 文件夹压缩为 Zip 格式压缩包。\n2. Fwss 格式：世界迷雾快照文件。  \n\n世界迷雾 App 数据不包含轨迹历史变化过程，实际导出数据为从使用开始到导出时点的所有轨迹。如您保留了多个世界迷雾历史文件，可尝试将数据上传至 [迷雾机器-时光机](https://fogmachine.8bits.io/time-machine)，并使用“导出迹忆归档”功能。",
+    "warning_for_import_multiple_data_md": "请注意，数据库中已经包含世界迷雾数据。\n\n导入多段数据时请确保数据不重叠，或者使用 [迷雾机器-时光机](https://fogmachine.8bits.io/time-machine) 中的“导出迹忆归档”功能。该功能通过计算数据差异的方式逐一处理快照，达到历史足迹与时间对应的效果。"
   },
   "unexpected_exit_notification": {
     "setting_title": "意外退出通知",
@@ -139,6 +139,7 @@
     "website": "官网",
     "email": "邮箱",
     "rednote": "小红书",
-    "qq_group": "QQ 交流群"
+    "qq_group": "QQ 交流群",
+    "weibo": "微博"
   }
 }

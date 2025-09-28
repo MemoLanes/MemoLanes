@@ -23,6 +23,7 @@ class _ContactUsPage extends State<ContactUsPage> {
         "https://www.xiaohongshu.com/user/profile/65cdef57000000000401c526";
     const qqGroupText = "755295072";
     const emailText = "support@memolanes.com";
+    const weiboUrl = "https://weibo.com/u/8445160502";
     return Scaffold(
       appBar: AppBar(
         title: Text(context.tr("contact_us.title")),
@@ -54,6 +55,15 @@ class _ContactUsPage extends State<ContactUsPage> {
             trailing: LabelTileContent(rightIcon: Icons.open_in_new),
             onTap: () async {
               await launchUrlString(rednoteUrl,
+                  mode: LaunchMode.externalApplication);
+            },
+          ),
+          LabelTile(
+            label: context.tr("contact_us.weibo"),
+            position: LabelTilePosition.middle,
+            trailing: LabelTileContent(rightIcon: Icons.open_in_new),
+            onTap: () async {
+              await launchUrlString(weiboUrl,
                   mode: LaunchMode.externalApplication);
             },
           ),
