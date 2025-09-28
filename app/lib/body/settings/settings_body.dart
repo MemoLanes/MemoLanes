@@ -265,7 +265,6 @@ class _SettingsBodyState extends State<SettingsBody> {
             },
           ),
         ),
-        // TODO: Add about us / contact us / FAQ / suggestion ...
         LabelTileTitle(
           label: context.tr("settings.about"),
         ),
