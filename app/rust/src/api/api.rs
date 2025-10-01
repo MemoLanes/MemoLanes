@@ -269,10 +269,10 @@ pub fn get_map_renderer_proxy_for_journey_data(
 
 pub fn on_location_update(
     mut raw_data_list: Vec<gps_processor::RawData>,
-    recevied_timestamp_ms: i64,
+    received_timestamp_ms: i64,
 ) {
     let state = get();
-    // NOTE: On Android, we might recevied a batch of location updates that are out of order.
+    // NOTE: On Android, we might received a batch of location updates that are out of order.
     // Not very sure why yet.
 
     // we need handle a batch in one go so we hold the lock for the whole time
@@ -308,7 +308,7 @@ pub fn on_location_update(
         }
         state
             .storage
-            .record_gps_data(&raw_data, process_result, recevied_timestamp_ms);
+            .record_gps_data(&raw_data, process_result, received_timestamp_ms);
     });
 }
 
