@@ -24,7 +24,7 @@ pub struct RawDataFile {
 }
 
 /* This is an optional feature that should be off by default: storing raw GPS
-   data with detailed tempstamp. It is designed for advanced user or debugging.
+   data with detailed timestamp. It is designed for advanced user or debugging.
    It stores data in a simple csv format and will be using a new file every time
    the app starts.
 
@@ -297,7 +297,7 @@ impl Storage {
         let mut dbs = self.dbs.lock().unwrap();
         let (ref mut main_db, ref cache_db) = *dbs;
         // passing `main_db` to `get_latest_including_ongoing` directly is fine
-        // becuase it only reads `main_db`.
+        // because it only reads `main_db`.
         let journey_bitmap =
             merged_journey_builder::get_latest_including_ongoing(main_db, cache_db, layer_kind)?;
         drop(dbs);
