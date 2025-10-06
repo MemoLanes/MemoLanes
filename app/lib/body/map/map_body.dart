@@ -129,30 +129,34 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   // TODO: We don't enough time to save if the app got killed. Losing data here
   // is fine but we could consider saving every minute or so.
   void _saveMapState({bool force = false}) {
-    final mapView = _roughMapView;
-    if (mapView == null) return;
-
     final now = DateTime.now();
+    if (_roughMapView == null) return;
+
     final lastSaved = _lastSavedTime;
 
     if (force ||
         lastSaved == null ||
         now.difference(lastSaved) >= const Duration(seconds: 10)) {
       _lastSavedTime = now;
-      _writeMapState(mapView);
+      _writeMapStateSafely();
       return;
     }
-
     _intervalTimer ??=
         Timer(const Duration(seconds: 10) - now.difference(lastSaved), () {
       _lastSavedTime = DateTime.now();
-      _writeMapState(_roughMapView!);
+      _writeMapStateSafely();
       _intervalTimer = null;
     });
   }
 
-  void _writeMapState(MapView mapView) {
+  void _writeMapStateSafely() {
     try {
+      final mapView = _roughMapView;
+      if (mapView == null) {
+        debugPrint('⚠️ MapView is null, skipping save');
+        return;
+      }
+
       final mapState = MapState(
         _currentTrackingMode,
         mapView.zoom,
@@ -160,10 +164,8 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
         mapView.lat,
         0,
       );
-      MMKVUtil.putString(
-        MMKVKey.mainMapState,
-        jsonEncode(mapState.toJson()),
-      );
+
+      MMKVUtil.putString(MMKVKey.mainMapState, jsonEncode(mapState.toJson()));
       debugPrint('✅ Map state saved successfully');
     } catch (e, st) {
       debugPrint('❌ Failed to save map state: $e\n$st');
