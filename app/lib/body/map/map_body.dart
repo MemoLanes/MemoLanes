@@ -89,6 +89,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
 
   @override
   void deactivate() {
+    Provider.of<GpsManager>(context, listen: false).toggleMapTracking(false);
     super.deactivate();
   }
 
