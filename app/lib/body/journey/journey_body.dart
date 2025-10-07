@@ -168,6 +168,9 @@ class _JourneyBodyState extends State<JourneyBody> {
   Widget _buildJourneyHeaderList() {
     return Expanded(
       child: ListView.builder(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).padding.bottom + 100,
+        ),
         itemCount: _journeyHeaderList.length,
         itemBuilder: (context, index) {
           return LabelTile(
@@ -208,20 +211,16 @@ class _JourneyBodyState extends State<JourneyBody> {
     }
     final firstDate = _firstDate;
     if (firstDate == null) {
-      return Scaffold(
-          body: Center(
-        child: Text(context.tr("journey.no_data")),
-      ));
+      return Center(child: Text(context.tr("journey.no_data")));
     } else {
-      return Scaffold(
-          body: Column(
+      return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
+        children: [
           _buildDatePickerWithValue(firstDate),
-          SizedBox(height: 16.0),
+          const SizedBox(height: 16.0),
           _buildJourneyHeaderList(),
         ],
-      ));
+      );
     }
   }
 }
