@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -45,14 +44,11 @@ class MapBody extends StatefulWidget {
 class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   final _mapRendererProxy = api.getMapRendererProxyForMainMap();
   MapView? _roughMapView;
-  DateTime? _lastSavedTime;
-  Timer? _intervalTimer;
+
+  DateTime? _lastMapStateSavedTime;
 
   TrackingMode _currentTrackingMode = TrackingMode.off;
   api.LayerKind _currentLayer = api.getCurrentMapLayerKind();
-
-  late GpsManager _gpsManager;
-  bool _hasForcedSavedOnce = false;
 
   void _syncTrackingModeWithGpsManager() {
     Provider.of<GpsManager>(context, listen: false)
@@ -67,6 +63,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
       _currentTrackingMode = newMode;
     });
     _syncTrackingModeWithGpsManager();
+    _trySaveMapState(force: true);
   }
 
   void _layerButton() async {
@@ -83,15 +80,12 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     super.initState();
     _loadMapState();
     WidgetsBinding.instance.addObserver(this);
-    _gpsManager = Provider.of<GpsManager>(context, listen: false);
-    _gpsManager.addListener(_onGpsUpdated);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _gpsManager.removeListener(_onGpsUpdated);
-    _saveMapState(force: true);
+    _trySaveMapState(force: true);
     super.dispose();
   }
 
@@ -110,69 +104,33 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     }
   }
 
-  void _onGpsUpdated() {
-    final latest = _gpsManager.latestPosition;
-    if (latest == null) return;
-
-    if (!_hasForcedSavedOnce &&
-        MMKVUtil.getString(MMKVKey.mainMapState).isEmpty) {
-      _saveMapState(force: true);
-      _hasForcedSavedOnce = true;
-      return;
-    }
-
-    if (_currentTrackingMode == TrackingMode.displayAndTracking) {
-      _saveMapState();
-    }
-  }
-
   // TODO: We don't enough time to save if the app got killed. Losing data here
   // is fine but we could consider saving every minute or so.
-  void _saveMapState({bool force = false}) {
+  void _trySaveMapState({bool force = false}) {
     final now = DateTime.now();
-    if (_roughMapView == null) return;
+    final roughMapView = _roughMapView;
+    if (roughMapView == null) return;
 
-    final lastSaved = _lastSavedTime;
+    final lastMapStateSavedTime = _lastMapStateSavedTime;
 
     if (force ||
-        lastSaved == null ||
-        now.difference(lastSaved) >= const Duration(seconds: 10)) {
-      _lastSavedTime = now;
-      _writeMapStateSafely();
-      return;
-    }
-    _intervalTimer ??=
-        Timer(const Duration(seconds: 10) - now.difference(lastSaved), () {
-      _lastSavedTime = DateTime.now();
-      _writeMapStateSafely();
-      _intervalTimer = null;
-    });
-  }
-
-  void _writeMapStateSafely() {
-    try {
-      final mapView = _roughMapView;
-      if (mapView == null) {
-        debugPrint('⚠️ MapView is null, skipping save');
-        return;
-      }
+        lastMapStateSavedTime == null ||
+        now.difference(lastMapStateSavedTime) >= const Duration(seconds: 10)) {
+      _lastMapStateSavedTime = now;
 
       final mapState = MapState(
         _currentTrackingMode,
-        mapView.zoom,
-        mapView.lng,
-        mapView.lat,
+        roughMapView.zoom,
+        roughMapView.lng,
+        roughMapView.lat,
         0,
       );
 
       MMKVUtil.putString(MMKVKey.mainMapState, jsonEncode(mapState.toJson()));
-      debugPrint('✅ Map state saved successfully');
-    } catch (e, st) {
-      debugPrint('❌ Failed to save map state: $e\n$st');
     }
   }
 
-  void _loadMapState() async {
+  void _loadMapState() {
     MapView mapView = (lat: 0, lng: 0, zoom: 2);
     TrackingMode trackingMode = _currentTrackingMode;
     final mapStateString = MMKVUtil.getString(MMKVKey.mainMapState);
@@ -214,6 +172,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
             trackingMode: _currentTrackingMode,
             onRoughMapViewUpdate: (roughMapView) {
               _roughMapView = roughMapView;
+              _trySaveMapState();
             },
             onMapMoved: () {
               if (_currentTrackingMode == TrackingMode.displayAndTracking) {
@@ -221,8 +180,8 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
                   _currentTrackingMode = TrackingMode.displayOnly;
                 });
                 _syncTrackingModeWithGpsManager();
+                _trySaveMapState(force: true);
               }
-              _saveMapState();
             },
           ),
           SafeArea(
