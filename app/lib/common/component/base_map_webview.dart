@@ -10,6 +10,7 @@ import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 typedef MapView = ({double lng, double lat, double zoom});
 
@@ -43,6 +44,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   late GpsManager _gpsManager;
   late Timer _roughMapViewUpdaeTimer;
   bool _readyForDisplay = false;
+
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
+  List<ConnectivityResult>? _lastResults;
 
   // It is rough because we don't update it frequently.
   MapView? _currentRoughMapView;
@@ -114,6 +118,27 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         }
       }
     }();
+
+    _connectivitySub = Connectivity()
+        .onConnectivityChanged
+        .listen((List<ConnectivityResult> results) {
+      _onConnectivityChanged(results);
+    });
+  }
+
+  void _onConnectivityChanged(List<ConnectivityResult> results) {
+    final lastDisconnected = _isDisconnected(_lastResults);
+    final nowConnected = !_isDisconnected(results);
+
+    if (lastDisconnected && nowConnected) {
+      _webViewController.runJavaScript('window.onNetworkRestored();');
+    }
+    _lastResults = results;
+  }
+
+  bool _isDisconnected(List<ConnectivityResult>? results) {
+    if (results == null || results.isEmpty) return true;
+    return results.every((r) => r == ConnectivityResult.none);
   }
 
   @override
