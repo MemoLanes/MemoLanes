@@ -24,7 +24,7 @@ pub struct RawDataFile {
 }
 
 /* This is an optional feature that should be off by default: storing raw GPS
-   data with detailed tempstamp. It is designed for advanced user or debugging.
+   data with detailed timestamp. It is designed for advanced user or debugging.
    It stores data in a simple csv format and will be using a new file every time
    the app starts.
 
@@ -52,7 +52,7 @@ impl RawDataRecorder {
         }
     }
 
-    fn record(&mut self, raw_data: &gps_processor::RawData, recevied_timestamp_ms: i64) {
+    fn record(&mut self, raw_data: &gps_processor::RawData, received_timestamp_ms: i64) {
         // TODO: better error handling
         let (file, _) = self.file_and_name.get_or_insert_with(|| {
             let current_date = Local::now().date_naive();
@@ -69,7 +69,7 @@ impl RawDataRecorder {
             let mut file = File::create(path).unwrap();
             let _ = file
                 .write(
-                    "timestamp_ms,recevied_timestamp_ms,latitude,longitude,accuarcy,altitude,speed\n"
+                    "timestamp_ms,received_timestamp_ms,latitude,longitude,accuracy,altitude,speed\n"
                         .as_bytes(),
                 )
                 .unwrap();
@@ -79,7 +79,7 @@ impl RawDataRecorder {
             format!(
                 "{},{},{},{},{},{},{}\n",
                 raw_data.timestamp_ms.unwrap_or_default(),
-                recevied_timestamp_ms,
+                received_timestamp_ms,
                 raw_data.point.latitude,
                 raw_data.point.longitude,
                 raw_data.accuracy.map(|x| x.to_string()).unwrap_or_default(),
@@ -250,11 +250,11 @@ impl Storage {
         &self,
         raw_data: &gps_processor::RawData,
         process_result: ProcessResult,
-        recevied_timestamp_ms: i64,
+        received_timestamp_ms: i64,
     ) {
         let mut raw_data_recorder = self.raw_data_recorder.lock().unwrap();
         if let Some(ref mut x) = *raw_data_recorder {
-            x.record(raw_data, recevied_timestamp_ms);
+            x.record(raw_data, received_timestamp_ms);
         }
         drop(raw_data_recorder);
 
@@ -297,7 +297,7 @@ impl Storage {
         let mut dbs = self.dbs.lock().unwrap();
         let (ref mut main_db, ref cache_db) = *dbs;
         // passing `main_db` to `get_latest_including_ongoing` directly is fine
-        // becuase it only reads `main_db`.
+        // because it only reads `main_db`.
         let journey_bitmap =
             merged_journey_builder::get_latest_including_ongoing(main_db, cache_db, layer_kind)?;
         drop(dbs);
