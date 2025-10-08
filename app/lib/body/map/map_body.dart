@@ -61,6 +61,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
       _currentTrackingMode = newMode;
     });
     _syncTrackingModeWithGpsManager();
+    _saveMapState();
   }
 
   void _layerButton() async {
@@ -88,8 +89,8 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
 
   @override
   void deactivate() {
-    super.deactivate();
     Provider.of<GpsManager>(context, listen: false).toggleMapTracking(false);
+    super.deactivate();
   }
 
   @override
@@ -103,22 +104,22 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
 
   // TODO: We don't enough time to save if the app got killed. Losing data here
   // is fine but we could consider saving every minute or so.
-  void _saveMapState() async {
-    final mapView = _roughMapView;
-    if (mapView == null) {
-      return;
-    }
+  void _saveMapState() {
+    final roughMapView = _roughMapView;
+    if (roughMapView == null) return;
+
     final mapState = MapState(
       _currentTrackingMode,
-      mapView.zoom,
-      mapView.lng,
-      mapView.lat,
+      roughMapView.zoom,
+      roughMapView.lng,
+      roughMapView.lat,
       0,
     );
+
     MMKVUtil.putString(MMKVKey.mainMapState, jsonEncode(mapState.toJson()));
   }
 
-  void _loadMapState() async {
+  void _loadMapState() {
     MapView mapView = (lat: 0, lng: 0, zoom: 2);
     TrackingMode trackingMode = _currentTrackingMode;
     final mapStateString = MMKVUtil.getString(MMKVKey.mainMapState);
@@ -160,6 +161,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
             trackingMode: _currentTrackingMode,
             onRoughMapViewUpdate: (roughMapView) {
               _roughMapView = roughMapView;
+              _saveMapState();
             },
             onMapMoved: () {
               if (_currentTrackingMode == TrackingMode.displayAndTracking) {
@@ -167,6 +169,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
                   _currentTrackingMode = TrackingMode.displayOnly;
                 });
                 _syncTrackingModeWithGpsManager();
+                _saveMapState();
               }
             },
           ),

@@ -41,7 +41,7 @@ class BaseMapWebview extends StatefulWidget {
 class BaseMapWebviewState extends State<BaseMapWebview> {
   late WebViewController _webViewController;
   late GpsManager _gpsManager;
-  late Timer _roughMapViewUpdaeTimer;
+  late Timer _roughMapViewUpdateTimer;
   bool _readyForDisplay = false;
 
   // It is rough because we don't update it frequently.
@@ -93,8 +93,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _gpsManager.addListener(_updateLocationMarker);
     _currentRoughMapView = widget.initialMapView;
     _currentJourneyId = widget.mapRendererProxy.getJourneyId();
-    _roughMapViewUpdaeTimer =
-        Timer.periodic(Duration(seconds: 2), (Timer t) async {
+    _roughMapViewUpdateTimer =
+        Timer.periodic(Duration(seconds: 5), (Timer t) async {
       final newMapView = await _getCurrentMapView();
       if (newMapView != _currentRoughMapView) {
         _currentRoughMapView = newMapView;
@@ -119,7 +119,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   @override
   void dispose() {
     _gpsManager.removeListener(_updateLocationMarker);
-    _roughMapViewUpdaeTimer.cancel();
+    _roughMapViewUpdateTimer.cancel();
     super.dispose();
   }
 
