@@ -79,6 +79,12 @@ function switchRenderingLayer(map, renderingMode) {
   return currentJourneyLayer;
 }
 
+function forceReloadCurrentTiles(map) {
+  if (!map || !map.isStyleLoaded()) {
+    window.location.reload(true);
+  }
+}
+
 async function trySetup() {
   console.log(`parse external params`, window.EXTERNAL_PARAMS);
   if (!window.EXTERNAL_PARAMS.cgi_endpoint) {
@@ -269,6 +275,11 @@ async function trySetup() {
   // Add method to switch rendering layers
   window.switchRenderingLayer = function (renderingMode) {
     return switchRenderingLayer(map, renderingMode);
+  };
+
+  // Add method to network connection is restored
+  window.onNetworkRestored = function () {
+    return forceReloadCurrentTiles(map);
   };
 
   // Add method to update journey ID
