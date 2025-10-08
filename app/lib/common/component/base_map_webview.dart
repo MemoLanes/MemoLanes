@@ -45,7 +45,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   late Timer _roughMapViewUpdaeTimer;
   bool _readyForDisplay = false;
 
-  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   List<ConnectivityResult>? _lastResults;
 
   // It is rough because we don't update it frequently.
@@ -119,11 +118,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       }
     }();
 
-    _connectivitySub = Connectivity()
-        .onConnectivityChanged
-        .listen((List<ConnectivityResult> results) {
-      _onConnectivityChanged(results);
-    });
   }
 
   void _onConnectivityChanged(List<ConnectivityResult> results) {
