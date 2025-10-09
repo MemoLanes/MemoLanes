@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:badges/badges.dart' as badges;
 import 'package:flutter/material.dart';
+import 'package:memolanes/constants/index.dart';
 
 class BottomNavBar extends StatelessWidget {
   final int selectedIndex;
@@ -22,7 +23,7 @@ class BottomNavBar extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
         child: Container(
-          height: 64,
+          height: StyleConstants.navBarHeight,
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.8),
             borderRadius: BorderRadius.circular(16),
