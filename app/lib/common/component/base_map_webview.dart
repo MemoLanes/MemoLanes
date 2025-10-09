@@ -118,6 +118,11 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       }
     }();
 
+    Connectivity()
+        .onConnectivityChanged
+        .listen((List<ConnectivityResult> results) {
+      _onConnectivityChanged(results);
+    });
   }
 
   void _onConnectivityChanged(List<ConnectivityResult> results) {
