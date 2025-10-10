@@ -176,7 +176,7 @@ pub fn load_gpx(file_path: &str) -> Result<Vec<Vec<RawData>>> {
     let convert_to_timestamp = |time: &Option<gpx::Time>| -> Result<Option<i64>> {
         match time {
             Some(t) => {
-                let s = t.format()?; // Result<String>
+                let s = t.format()?;
                 let dt = DateTime::<Utc>::from(DateTime::parse_from_rfc3339(&s)?);
                 Ok(Some(dt.timestamp_millis()))
             }
@@ -413,9 +413,7 @@ fn flatten_kml(kml: Kml) -> Vec<Kml> {
     match kml {
         Kml::KmlDocument(d) => flatten_elements(d.elements),
         Kml::Document { attrs: _, elements } => flatten_elements(elements),
-        Kml::Folder {
-            attrs: _, elements, ..
-        } => flatten_elements(elements),
+        Kml::Folder { attrs: _, elements } => flatten_elements(elements),
         k => vec![k],
     }
 }
