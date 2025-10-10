@@ -12,15 +12,15 @@ use crate::{
 use anyhow::Result;
 use chrono::{DateTime, Local, TimeZone, Utc};
 use flate2::read::ZlibDecoder;
-use gpx::{read, Time};
+use gpx::{read, Waypoint};
 use kml::types::{Element, Geometry};
 use kml::Kml::Placemark;
 use kml::{Kml, KmlReader};
+use regex::Regex;
 use std::cell::RefCell;
 use std::result::Result::Ok;
 use std::vec;
 use std::{fs::File, io::BufReader, io::Read, path::Path};
-use regex::Regex;
 
 struct FoWTileId {
     x: u16,
@@ -172,59 +172,59 @@ pub fn load_fow_snapshot_data(fwss_file_path: &str) -> Result<(JourneyBitmap, Op
 }
 
 pub fn load_gpx(file_path: &str) -> Result<Vec<Vec<RawData>>> {
-    let convert_to_timestamp = |time: &Option<Time>| -> Result<Option<DateTime<Utc>>> {
-        let timestamp: Option<DateTime<Utc>> = match &time {
-            Some(t) => Some(DateTime::<Utc>::from(DateTime::parse_from_rfc3339(
-                &t.format()?,
-            )?)),
-            None => None,
-        };
-        Ok(timestamp)
-    };
     let gpx_data = read(BufReader::new(File::open(file_path)?))?;
-    let mut raw_vector_data: Vec<Vec<RawData>> = Vec::new();
-    for track in gpx_data.tracks {
-        for segment in track.segments {
-            let mut raw_vector_data_segment: Vec<RawData> = Vec::new();
-            for point in segment.points {
-                let timestamp = convert_to_timestamp(&point.time)?;
-                raw_vector_data_segment.push(RawData {
-                    point: Point {
-                        latitude: point.point().y(),
-                        longitude: point.point().x(),
-                    },
-                    timestamp_ms: timestamp.map(|x| x.timestamp_millis()),
-                    accuracy: point.hdop.map(|hdop| hdop as f32),
-                    altitude: point.elevation.map(|value| value as f32),
-                    speed: point.speed.map(|value| value as f32),
-                });
+    let convert_to_timestamp = |time: &Option<gpx::Time>| -> Result<Option<i64>> {
+        match time {
+            Some(t) => {
+                let s = t.format()?; // Result<String>
+                let dt = DateTime::<Utc>::from(DateTime::parse_from_rfc3339(&s)?);
+                Ok(Some(dt.timestamp_millis()))
             }
-            if !raw_vector_data_segment.is_empty() {
-                raw_vector_data.push(raw_vector_data_segment);
-            }
+            None => Ok(None),
         }
-    }
-    for route in gpx_data.routes {
-        let mut raw_vector_data_route: Vec<RawData> = Vec::new();
-        for point in route.points {
-            let timestamp = convert_to_timestamp(&point.time)?;
-            raw_vector_data_route.push(RawData {
-                point: Point {
-                    latitude: point.point().y(),
-                    longitude: point.point().x(),
-                },
-                timestamp_ms: timestamp.map(|x| x.timestamp_millis()),
-                accuracy: point.hdop.map(|hdop| hdop as f32),
-                altitude: point.elevation.map(|value| value as f32),
-                speed: point.speed.map(|value| value as f32),
-            });
-        }
-        if !raw_vector_data_route.is_empty() {
-            raw_vector_data.push(raw_vector_data_route);
-        }
-    }
+    };
 
-    Ok(raw_vector_data)
+    let waypoint_to_rawdata = |point: Waypoint| -> Result<RawData> {
+        Ok(RawData {
+            point: Point {
+                latitude: point.point().y(),
+                longitude: point.point().x(),
+            },
+            timestamp_ms: convert_to_timestamp(&point.time)?,
+            accuracy: point.hdop.map(|v| v as f32),
+            altitude: point.elevation.map(|v| v as f32),
+            speed: point.speed.map(|v| v as f32),
+        })
+    };
+
+    let track_data = gpx_data
+        .tracks
+        .into_iter()
+        .flat_map(|track| track.segments.into_iter())
+        .map(|segment| {
+            segment
+                .points
+                .into_iter()
+                .map(waypoint_to_rawdata)
+                .collect::<Result<Vec<_>>>()
+        })
+        .filter_map(Result::ok)
+        .filter(|v| !v.is_empty());
+
+    let route_data = gpx_data
+        .routes
+        .into_iter()
+        .map(|route| {
+            route
+                .points
+                .into_iter()
+                .map(waypoint_to_rawdata)
+                .collect::<Result<Vec<_>>>()
+        })
+        .filter_map(Result::ok)
+        .filter(|v| !v.is_empty());
+
+    Ok(track_data.chain(route_data).collect())
 }
 
 pub fn load_kml(file_path: &str) -> Result<Vec<Vec<RawData>>> {
