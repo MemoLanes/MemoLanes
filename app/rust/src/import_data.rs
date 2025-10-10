@@ -20,6 +20,7 @@ use std::cell::RefCell;
 use std::result::Result::Ok;
 use std::vec;
 use std::{fs::File, io::BufReader, io::Read, path::Path};
+use regex::Regex;
 
 struct FoWTileId {
     x: u16,
@@ -187,7 +188,7 @@ pub fn load_gpx(file_path: &str) -> Result<Vec<Vec<RawData>>> {
             let mut raw_vector_data_segment: Vec<RawData> = Vec::new();
             for point in segment.points {
                 let timestamp = convert_to_timestamp(&point.time)?;
-                raw_vector_data_segment.push(gps_processor::RawData {
+                raw_vector_data_segment.push(RawData {
                     point: Point {
                         latitude: point.point().y(),
                         longitude: point.point().x(),
@@ -203,13 +204,32 @@ pub fn load_gpx(file_path: &str) -> Result<Vec<Vec<RawData>>> {
             }
         }
     }
+    for route in gpx_data.routes {
+        let mut raw_vector_data_route: Vec<RawData> = Vec::new();
+        for point in route.points {
+            let timestamp = convert_to_timestamp(&point.time)?;
+            raw_vector_data_route.push(RawData {
+                point: Point {
+                    latitude: point.point().y(),
+                    longitude: point.point().x(),
+                },
+                timestamp_ms: timestamp.map(|x| x.timestamp_millis()),
+                accuracy: point.hdop.map(|hdop| hdop as f32),
+                altitude: point.elevation.map(|value| value as f32),
+                speed: point.speed.map(|value| value as f32),
+            });
+        }
+        if !raw_vector_data_route.is_empty() {
+            raw_vector_data.push(raw_vector_data_route);
+        }
+    }
 
     Ok(raw_vector_data)
 }
 
 pub fn load_kml(file_path: &str) -> Result<Vec<Vec<RawData>>> {
-    let kml_data =
-        KmlReader::<_, f64>::from_reader(BufReader::new(File::open(file_path)?)).read()?;
+    let cleaned = sanitize_kml_description(&std::fs::read_to_string(file_path)?);
+    let kml_data = KmlReader::<_, f64>::from_string(&cleaned).read()?;
     let flatten_data = flatten_kml(kml_data);
     let mut raw_vector_data = read_track(&flatten_data)?;
     if raw_vector_data.is_empty() {
@@ -217,6 +237,19 @@ pub fn load_kml(file_path: &str) -> Result<Vec<Vec<RawData>>> {
     }
     Ok(raw_vector_data)
 }
+
+fn sanitize_kml_description(input: &str) -> String {
+    let re = Regex::new(r"(?s)<description>(.*?)</description>").unwrap();
+    re.replace_all(input, |caps: &regex::Captures| {
+        let inner = &caps[1];
+        if inner.contains("<![CDATA[") {
+            caps[0].to_string()
+        } else {
+            format!("<description><![CDATA[{}]]></description>", inner)
+        }
+    }).to_string()
+}
+
 
 fn read_track(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
     let parse_line = |coord: &Option<String>, when: &Option<String>| -> Result<Option<RawData>> {
@@ -380,7 +413,7 @@ fn flatten_kml(kml: Kml) -> Vec<Kml> {
     match kml {
         Kml::KmlDocument(d) => flatten_elements(d.elements),
         Kml::Document { attrs: _, elements } => flatten_elements(elements),
-        Kml::Folder { attrs: _, elements } => flatten_elements(elements),
+        Kml::Folder { attrs: _, elements, .. } => flatten_elements(elements),
         k => vec![k],
     }
 }

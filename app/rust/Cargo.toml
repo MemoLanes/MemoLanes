@@ -47,6 +47,7 @@ pollster = "0.4.0"
 splines = { version = "5.0.0" }
 base64 = "0.22.1"
 serde_with = { version = "3.14", features = ["base64"] }
+regex = "1.11.3"
 
 [dev-dependencies]
 tempdir = "0.3"
