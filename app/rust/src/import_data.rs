@@ -247,9 +247,9 @@ fn sanitize_kml_description(input: &str) -> String {
         } else {
             format!("<description><![CDATA[{}]]></description>", inner)
         }
-    }).to_string()
+    })
+    .to_string()
 }
-
 
 fn read_track(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
     let parse_line = |coord: &Option<String>, when: &Option<String>| -> Result<Option<RawData>> {
@@ -413,7 +413,9 @@ fn flatten_kml(kml: Kml) -> Vec<Kml> {
     match kml {
         Kml::KmlDocument(d) => flatten_elements(d.elements),
         Kml::Document { attrs: _, elements } => flatten_elements(elements),
-        Kml::Folder { attrs: _, elements, .. } => flatten_elements(elements),
+        Kml::Folder {
+            attrs: _, elements, ..
+        } => flatten_elements(elements),
         k => vec![k],
     }
 }
