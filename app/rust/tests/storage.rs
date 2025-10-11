@@ -81,7 +81,7 @@ where
 fn assert_cache(storage: &Storage, default: &JourneyBitmap, flight: &JourneyBitmap) {
     assert_eq!(
         &storage
-            .get_latest_bitmap_for_main_map_renderer(&LayerKind::JounreyKind(
+            .get_latest_bitmap_for_main_map_renderer(&LayerKind::JourneyKind(
                 JourneyKind::DefaultKind
             ))
             .unwrap(),
@@ -89,7 +89,7 @@ fn assert_cache(storage: &Storage, default: &JourneyBitmap, flight: &JourneyBitm
     );
     assert_eq!(
         &storage
-            .get_latest_bitmap_for_main_map_renderer(&LayerKind::JounreyKind(JourneyKind::Flight))
+            .get_latest_bitmap_for_main_map_renderer(&LayerKind::JourneyKind(JourneyKind::Flight))
             .unwrap(),
         flight
     );

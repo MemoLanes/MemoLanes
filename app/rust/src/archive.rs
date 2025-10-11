@@ -95,7 +95,7 @@ pub fn import_mldx(txn: &mut main_db::Txn, mldx_file: &str) -> Result<()> {
 // TODO: think about whether or not we should have a compact data format for
 // exporting a single journey.
 
-// `YearMonth` is the key we used to group jounry into different sections but
+// `YearMonth` is the key we used to group journey into different sections but
 // but we don't expose this internal design in things like the data format, so
 // we still have the chance to change this in the future.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]

@@ -63,7 +63,7 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
 
         let registry = Arc::new(Mutex::new(Registry::new()));
 
-        let default_layer_kind = InternalLayerKind::JounreyKind(JourneyKind::DefaultKind);
+        let default_layer_kind = InternalLayerKind::JourneyKind(JourneyKind::DefaultKind);
         let main_map_layer_kind = Arc::new(Mutex::new(default_layer_kind));
         let main_map_layer_kind_copy = main_map_layer_kind.clone();
         // TODO: use an empty journey bitmap first, because loading could be slow (especially when we don't have cache).
@@ -344,15 +344,15 @@ impl LayerKind {
     fn to_internal(&self) -> InternalLayerKind {
         match self {
             LayerKind::All => InternalLayerKind::All,
-            LayerKind::DefaultKind => InternalLayerKind::JounreyKind(JourneyKind::DefaultKind),
-            LayerKind::Flight => InternalLayerKind::JounreyKind(JourneyKind::Flight),
+            LayerKind::DefaultKind => InternalLayerKind::JourneyKind(JourneyKind::DefaultKind),
+            LayerKind::Flight => InternalLayerKind::JourneyKind(JourneyKind::Flight),
         }
     }
 
     fn of_internal(internal: &InternalLayerKind) -> LayerKind {
         match internal {
             InternalLayerKind::All => LayerKind::All,
-            InternalLayerKind::JounreyKind(kind) => match kind {
+            InternalLayerKind::JourneyKind(kind) => match kind {
                 JourneyKind::DefaultKind => LayerKind::DefaultKind,
                 JourneyKind::Flight => LayerKind::Flight,
             },

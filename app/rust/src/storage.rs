@@ -179,7 +179,7 @@ impl Storage {
                             }
 
                             for (kind, journeyid_vec) in kind_id_map {
-                                let layer_kind = LayerKind::JounreyKind(kind);
+                                let layer_kind = LayerKind::JourneyKind(kind);
                                 cache_db.update_full_journey_cache_if_exists(&layer_kind, |current_cache| {
                                     for journey_id in journeyid_vec {
                                         let journey_data = txn.get_journey_data(&journey_id)?;

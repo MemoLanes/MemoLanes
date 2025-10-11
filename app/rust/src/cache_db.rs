@@ -67,14 +67,14 @@ pub struct CacheDb {
 #[derive(Eq, Hash, Clone, Copy, Debug, PartialEq)]
 pub enum LayerKind {
     All,
-    JounreyKind(JourneyKind),
+    JourneyKind(JourneyKind),
 }
 
 impl LayerKind {
     fn to_sql(self) -> &'static str {
         match self {
             LayerKind::All => "All",
-            LayerKind::JounreyKind(kind) => match kind {
+            LayerKind::JourneyKind(kind) => match kind {
                 JourneyKind::DefaultKind => "Default",
                 JourneyKind::Flight => "Flight",
             },
