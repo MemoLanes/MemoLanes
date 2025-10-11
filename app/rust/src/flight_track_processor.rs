@@ -3,7 +3,7 @@ use crate::{
     journey_vector::{JourneyVector, TrackPoint, TrackSegment},
 };
 
-// main func to interpolate rawdata to a smooth `JourneyVetor`
+// main func to interpolate rawdata to a smooth `JourneyVector`
 pub fn process(raw_data: &[Vec<RawData>]) -> Option<JourneyVector> {
     // interpolate step_length
     const STEP_LENGTH: f64 = 1000.;

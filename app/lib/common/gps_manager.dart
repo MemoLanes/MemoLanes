@@ -220,18 +220,16 @@ class GpsManager extends ChangeNotifier {
             }
 
             var meaningful = await api.onLocationUpdate(
-              rawDataList: [
-                RawData(
-                  point: Point(
-                    latitude: data.latitude,
-                    longitude: data.longitude,
-                  ),
-                  timestampMs: data.timestampMs,
-                  accuracy: data.accuracy,
-                  altitude: data.altitude,
-                  speed: data.speed,
-                )
-              ],
+              rawData: RawData(
+                point: Point(
+                  latitude: data.latitude,
+                  longitude: data.longitude,
+                ),
+                timestampMs: data.timestampMs,
+                accuracy: data.accuracy,
+                altitude: data.altitude,
+                speed: data.speed,
+              ),
               receivedTimestampMs: now.millisecondsSinceEpoch,
             );
 
