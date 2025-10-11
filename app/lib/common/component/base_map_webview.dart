@@ -44,8 +44,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   late Timer _roughMapViewUpdateTimer;
   bool _readyForDisplay = false;
 
-  List<ConnectivityResult>? _lastResults;
-
   // It is rough because we don't update it frequently.
   MapView? _currentRoughMapView;
 
