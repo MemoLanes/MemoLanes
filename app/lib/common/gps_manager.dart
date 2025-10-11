@@ -222,7 +222,7 @@ class GpsManager extends ChangeNotifier {
                   speed: data.speed,
                 )
               ],
-              receviedTimestampMs: DateTime.now().millisecondsSinceEpoch,
+              receivedTimestampMs: DateTime.now().millisecondsSinceEpoch,
             );
           }
         });
