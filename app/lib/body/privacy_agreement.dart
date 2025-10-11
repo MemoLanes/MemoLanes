@@ -8,6 +8,13 @@ import 'package:memolanes/common/utils.dart';
 const int _latestVersion = 1;
 
 Future<void> _showPrivacyDialogMethod(BuildContext context) async {
+  // NOTE: we also use the same mechanism to show public beta testing notice.
+  await showCommonDialog(context, context.tr("beta_testing_notice.content_md"),
+      title: context.tr("beta_testing_notice.title"), markdown: true);
+
+  // A little weird, but shouldn't happen.
+  if (!context.mounted) return;
+
   final result = await showCommonDialog(
       context, context.tr("privacy.privacy_tip_message_md"),
       title: context.tr("privacy.privacy_tip_title"),

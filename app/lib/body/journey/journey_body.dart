@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/body/journey/journey_info_page.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
+import 'package:memolanes/constants/index.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
@@ -168,6 +169,11 @@ class _JourneyBodyState extends State<JourneyBody> {
   Widget _buildJourneyHeaderList() {
     return Expanded(
       child: ListView.builder(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).padding.bottom +
+              StyleConstants.navBarSafeArea +
+              5,
+        ),
         itemCount: _journeyHeaderList.length,
         itemBuilder: (context, index) {
           return LabelTile(
@@ -208,20 +214,16 @@ class _JourneyBodyState extends State<JourneyBody> {
     }
     final firstDate = _firstDate;
     if (firstDate == null) {
-      return Scaffold(
-          body: Center(
-        child: Text(context.tr("journey.no_data")),
-      ));
+      return Center(child: Text(context.tr("journey.no_data")));
     } else {
-      return Scaffold(
-          body: Column(
+      return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
+        children: [
           _buildDatePickerWithValue(firstDate),
-          SizedBox(height: 16.0),
+          const SizedBox(height: 16.0),
           _buildJourneyHeaderList(),
         ],
-      ));
+      );
     }
   }
 }

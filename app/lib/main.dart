@@ -18,6 +18,7 @@ import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/constants/index.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -222,9 +223,9 @@ class _MyHomePageState extends State<MyHomePage> {
             child: SafeArea(
               child: Padding(
                 padding: const EdgeInsets.only(
-                  left: 24,
-                  right: 24,
-                  bottom: 32,
+                  left: StyleConstants.navBarHorizontalPadding,
+                  right: StyleConstants.navBarHorizontalPadding,
+                  bottom: StyleConstants.navBarBottomPadding,
                 ),
                 child: BottomNavBar(
                   selectedIndex: _selectedIndex,
