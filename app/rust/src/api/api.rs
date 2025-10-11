@@ -390,7 +390,7 @@ where
     // is quite complex. We should fix all the locking mess.
     let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
     let finalized = state.storage.with_db_txn(finalize_op)?;
-    // when journey is finalzied, we should reset the gps_preprocessor to prevent old state affecting new journey
+    // when journey is finalized, we should reset the gps_preprocessor to prevent old state affecting new journey
     if finalized {
         *gps_preprocessor = GpsPreprocessor::new();
     }
@@ -401,8 +401,8 @@ pub fn finalize_ongoing_journey() -> Result<bool> {
     reset_gps_preprocessor_if_finalized(|txn| txn.finalize_ongoing_journey())
 }
 
-pub fn try_auto_finalize_journy() -> Result<bool> {
-    reset_gps_preprocessor_if_finalized(|txn| txn.try_auto_finalize_journy())
+pub fn try_auto_finalize_journey() -> Result<bool> {
+    reset_gps_preprocessor_if_finalized(|txn| txn.try_auto_finalize_journey())
 }
 
 pub fn has_ongoing_journey() -> Result<bool> {

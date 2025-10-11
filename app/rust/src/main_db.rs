@@ -24,7 +24,7 @@ Note that it contains detailed timestamp, but these timestamp will be removed
 when finalizing the journey.
 
 `journey` keeps all finalized journeys. It stores most data as raw protobuf
-bytes and some index for faster lookup. Instead of storing a signle blob, it has
+bytes and some index for faster lookup. Instead of storing a single blob, it has
 two parts: header and data, so most common operation only need to fetch and
 deserialize the header.
 */
@@ -335,9 +335,6 @@ impl Txn<'_> {
                 end,
                 journey_vector,
             }) => {
-                // TODO: we could have some additional post-processing of the track.
-                // including path refinement + lossy compression.
-
                 // TODO: allow user to set this when recording?
                 let journey_kind = JourneyKind::DefaultKind;
 
@@ -476,7 +473,7 @@ impl Txn<'_> {
     }
 
     // TODO: consider moving this to `storage.rs`
-    pub fn try_auto_finalize_journy(&mut self) -> Result<bool> {
+    pub fn try_auto_finalize_journey(&mut self) -> Result<bool> {
         match self.get_ongoing_journey_timestamp_range()? {
             None => Ok(false),
             Some((start, end)) => {

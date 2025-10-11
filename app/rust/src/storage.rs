@@ -23,6 +23,12 @@ pub struct RawDataFile {
     pub path: String,
 }
 
+struct CurrentRawDataFile {
+    file: File,
+    filename: String,
+    date: chrono::NaiveDate,
+}
+
 /* This is an optional feature that should be off by default: storing raw GPS
    data with detailed timestamp. It is designed for advanced user or debugging.
    It stores data in a simple csv format and will be using a new file every time
@@ -32,7 +38,7 @@ pub struct RawDataFile {
 */
 struct RawDataRecorder {
     dir: PathBuf,
-    file_and_name: Option<(File, String)>,
+    current_raw_data_file: Option<CurrentRawDataFile>,
 }
 
 impl RawDataRecorder {
@@ -42,20 +48,27 @@ impl RawDataRecorder {
         std::fs::create_dir_all(&dir).unwrap();
         RawDataRecorder {
             dir,
-            file_and_name: None,
+            current_raw_data_file: None,
         }
     }
 
     fn flush(&mut self) {
-        if let Some(ref mut file_and_name) = self.file_and_name {
-            file_and_name.0.flush().unwrap()
+        if let Some(ref mut current_raw_data_file) = self.current_raw_data_file {
+            current_raw_data_file.file.flush().unwrap()
         }
     }
 
+    // TODO: better error handling
     fn record(&mut self, raw_data: &gps_processor::RawData, received_timestamp_ms: i64) {
-        // TODO: better error handling
-        let (file, _) = self.file_and_name.get_or_insert_with(|| {
-            let current_date = Local::now().date_naive();
+        let current_date = Local::now().date_naive();
+        if let Some(current_raw_data_file) = &self.current_raw_data_file {
+            if current_raw_data_file.date != current_date {
+                // date changed, start a new file
+                self.current_raw_data_file = None;
+            }
+        }
+
+        let current_raw_data_file = self.current_raw_data_file.get_or_insert_with(|| {
             let mut i = 0;
             let (path,filename) = loop {
                 let filename = format!("gps-{current_date}-{i}.csv");
@@ -73,9 +86,9 @@ impl RawDataRecorder {
                         .as_bytes(),
                 )
                 .unwrap();
-            (file,filename)
+            CurrentRawDataFile { file: file, filename: filename, date: current_date }
         });
-        file.write_all(
+        current_raw_data_file.file.write_all(
             format!(
                 "{},{},{},{},{},{},{}\n",
                 raw_data.timestamp_ms.unwrap_or_default(),
@@ -207,14 +220,14 @@ impl Storage {
         if enable {
             if raw_data_recorder.is_none() {
                 *raw_data_recorder = Some(RawDataRecorder::init(&self.support_dir));
-                debug!("[storage] raw data mod enabled");
+                info!("[storage] raw data mod enabled");
                 let main_db = &mut self.dbs.lock().unwrap().0;
                 main_db
                     .set_setting(crate::main_db::Setting::RawDataMode, true)
                     .unwrap();
             }
         } else if raw_data_recorder.is_some() {
-            debug!("[storage] raw data mod disabled");
+            info!("[storage] raw data mod disabled");
             // `drop` should do the right thing and release all resources.
             *raw_data_recorder = None;
             let main_db = &mut self.dbs.lock().unwrap().0;
@@ -232,9 +245,9 @@ impl Storage {
     pub fn delete_raw_data_file(&self, filename: String) -> Result<()> {
         let mut raw_data_recorder = self.raw_data_recorder.lock().unwrap();
         if let Some(ref mut x) = *raw_data_recorder {
-            if let Some((_, current_writing_filename)) = &x.file_and_name {
-                if current_writing_filename == &filename {
-                    x.file_and_name = None;
+            if let Some(current_raw_data_file) = &x.current_raw_data_file {
+                if &current_raw_data_file.filename == &filename {
+                    x.current_raw_data_file = None;
                 }
             }
         }

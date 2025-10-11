@@ -159,8 +159,7 @@ class GpsManager extends ChangeNotifier {
   }
 
   Future<void> _tryFinalizeJourneyWithoutLock() async {
-    // TODO: I think we want this to be configurable
-    if (await api.tryAutoFinalizeJourny()) {
+    if (await api.tryAutoFinalizeJourney()) {
       Fluttertoast.showToast(msg: "New journey added");
       if (recordingStatus == GpsRecordingStatus.paused) {
         recordingStatus = GpsRecordingStatus.none;
