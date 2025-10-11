@@ -79,12 +79,6 @@ function switchRenderingLayer(map, renderingMode) {
   return currentJourneyLayer;
 }
 
-function forceReloadCurrentTiles(map) {
-  if (!map || !map.isStyleLoaded()) {
-    window.location.reload(true);
-  }
-}
-
 async function trySetup() {
   console.log(`parse external params`, window.EXTERNAL_PARAMS);
   if (!window.EXTERNAL_PARAMS.cgi_endpoint) {
@@ -155,6 +149,14 @@ async function trySetup() {
   });
   map.dragRotate.disable();
   map.touchZoomRotate.disableRotation();
+
+  // In case mapbox completely fails to load (i.e. app running on mainland China 
+  // iPhone does not have network access by default)
+  setTimeout(() => {
+    if (!map || !map.isStyleLoaded()) {
+      window.location.reload(true);
+    };
+  }, 8 * 1000);
 
   map.on("style.load", async (e) => {
     // Create a DOM element for the marker
@@ -275,11 +277,6 @@ async function trySetup() {
   // Add method to switch rendering layers
   window.switchRenderingLayer = function (renderingMode) {
     return switchRenderingLayer(map, renderingMode);
-  };
-
-  // Add method to network connection is restored
-  window.onNetworkRestored = function () {
-    return forceReloadCurrentTiles(map);
   };
 
   // Add method to update journey ID
