@@ -1,6 +1,6 @@
 extern crate simplelog;
 use anyhow::Result;
-use chrono::{DateTime, Local, NaiveDate, Utc};
+use chrono::{DateTime, Local, NaiveDate, Timelike, Utc};
 use protobuf::Message;
 use rusqlite::{Connection, OptionalExtension, Transaction};
 use std::cmp::Ordering;
@@ -480,26 +480,30 @@ impl Txn<'_> {
                 // NOTE: this logic is not called very frequently
 
                 let now = Local::now();
-                let recording_length_hour = (end.timestamp() - start.timestamp()) / 60 / 60;
-                let required_gap_mins = if recording_length_hour >= 72 {
+                let recording_length_hours = (now.timestamp() - start.timestamp()) / 60 / 60;
+                let required_gap_mins = if recording_length_hours >= 48 {
                     0 // let's just finalize it
-                } else if recording_length_hour >= 48 {
+                } else if recording_length_hours >= 24 {
                     2
-                } else if recording_length_hour >= 24 {
-                    5
                 } else {
                     // if the local date changed since start, we should try to finalize it, otherwise we don't want that unless there is a huge gap (6h)
-                    if start.with_timezone(&Local).date_naive() != now.date_naive() {
-                        15
-                    } else {
+                    if start.with_timezone(&Local).date_naive() == now.date_naive() {
                         6 * 60
+                    } else {
+                        if now.hour() <= 4 || recording_length_hours <= 8 {
+                            20
+                        } else {
+                            5
+                        }
                     }
                 };
 
-                let try_finalize = (now.timestamp() - end.timestamp()) / 60 >= required_gap_mins;
+                let gap_mins = (now.timestamp() - end.timestamp()).max(0) / 60;
+
+                let try_finalize = gap_mins >= required_gap_mins;
 
                 info!(
-                    "Auto finalize ongoing journey: start={start}, end={end}, now={now}, try_finalize={try_finalize}"
+                    "Auto finalize ongoing journey: recording_length_hours={recording_length_hours}, gap_mins={gap_mins}, required_gap_mins={required_gap_mins}, try_finalize={try_finalize}"
                 );
                 if try_finalize {
                     self.finalize_ongoing_journey()
