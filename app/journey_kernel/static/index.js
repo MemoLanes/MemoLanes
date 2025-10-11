@@ -150,12 +150,12 @@ async function trySetup() {
   map.dragRotate.disable();
   map.touchZoomRotate.disableRotation();
 
-  // In case mapbox completely fails to load (i.e. app running on mainland China 
+  // In case mapbox completely fails to load (i.e. app running on mainland China
   // iPhone does not have network access by default)
   setTimeout(() => {
     if (!map || !map.isStyleLoaded()) {
       window.location.reload(true);
-    };
+    }
   }, 8 * 1000);
 
   map.on("style.load", async (e) => {
