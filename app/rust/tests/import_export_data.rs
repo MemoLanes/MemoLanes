@@ -78,8 +78,8 @@ pub fn gpx() {
 
 #[test]
 pub fn gpx_rte() {
-    const IMPORT_PATH: &str = "./tests/data/rte.gpx";
-    const EXPORT_PATH: &str = "./tests/for_inspection/rte.gpx";
+    const IMPORT_PATH: &str = "./tests/data/2bulu.gpx";
+    const EXPORT_PATH: &str = "./tests/for_inspection/2bulu.gpx";
     let raw_vecotr_data1 = import_data::load_gpx(IMPORT_PATH).unwrap();
     import_data::journey_info_from_raw_vector_data(&raw_vecotr_data1);
     let vector1 =

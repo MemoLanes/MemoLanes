@@ -16,10 +16,12 @@ use gpx::{read, Waypoint};
 use kml::types::{Element, Geometry};
 use kml::Kml::Placemark;
 use kml::{Kml, KmlReader};
-use regex::Regex;
+use quick_xml::events::Event;
+use quick_xml::{Reader, Writer};
 use std::cell::RefCell;
+use std::io::Cursor;
 use std::result::Result::Ok;
-use std::vec;
+use std::{fs, vec};
 use std::{fs::File, io::BufReader, io::Read, path::Path};
 
 struct FoWTileId {
@@ -228,8 +230,10 @@ pub fn load_gpx(file_path: &str) -> Result<Vec<Vec<RawData>>> {
 }
 
 pub fn load_kml(file_path: &str) -> Result<Vec<Vec<RawData>>> {
-    let cleaned = sanitize_kml_description(&std::fs::read_to_string(file_path)?);
-    let kml_data = KmlReader::<_, f64>::from_string(&cleaned).read()?;
+    let xml = fs::read_to_string(file_path)?;
+    let cleaned_xml = clean_xml(&xml)?;
+    let mut kml_reader = KmlReader::<_, f64>::from_reader(Cursor::new(cleaned_xml));
+    let kml_data = kml_reader.read()?;
     let flatten_data = flatten_kml(kml_data);
     let mut raw_vector_data = read_track(&flatten_data)?;
     if raw_vector_data.is_empty() {
@@ -238,17 +242,31 @@ pub fn load_kml(file_path: &str) -> Result<Vec<Vec<RawData>>> {
     Ok(raw_vector_data)
 }
 
-fn sanitize_kml_description(input: &str) -> String {
-    let re = Regex::new(r"(?s)<description>(.*?)</description>").unwrap();
-    re.replace_all(input, |caps: &regex::Captures| {
-        let inner = &caps[1];
-        if inner.contains("<![CDATA[") {
-            caps[0].to_string()
-        } else {
-            format!("<description><![CDATA[{}]]></description>", inner)
+pub fn clean_xml(xml: &str) -> Result<String> {
+    let mut reader = Reader::from_str(xml);
+    reader.config_mut().trim_text(true);
+    let mut writer = Writer::new(Vec::new());
+    let mut buf = Vec::new();
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(e)) if e.name().as_ref() == b"description" => {
+                reader.read_to_end(e.name())?;
+            }
+            Ok(Event::Start(e)) => writer.write_event(Event::Start(e.into_owned()))?,
+            Ok(Event::Empty(e)) => writer.write_event(Event::Empty(e.into_owned()))?,
+            Ok(Event::End(e)) => writer.write_event(Event::End(e.into_owned()))?,
+            Ok(Event::Text(e)) => writer.write_event(Event::Text(e.into_owned()))?,
+            Ok(Event::CData(e)) => writer.write_event(Event::CData(e.into_owned()))?,
+            Ok(Event::Decl(e)) => writer.write_event(Event::Decl(e.into_owned()))?,
+            Ok(Event::Eof) => break,
+            Ok(_) => {}
+            Err(e) => anyhow::bail!("XML parse error: {:?}", e),
         }
-    })
-    .to_string()
+        buf.clear();
+    }
+    let cleaned_xml = String::from_utf8(writer.into_inner())?;
+    Ok(cleaned_xml)
 }
 
 fn read_track(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
