@@ -4,6 +4,7 @@ use crate::gps_processor::{Point, PreprocessedData, ProcessResult, RawData};
 use crate::journey_bitmap::{
     self, Block, BlockKey, JourneyBitmap, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH,
 };
+use crate::journey_date_picker::JourneyDatePicker;
 use crate::journey_header::JourneyKind;
 use crate::{
     gps_processor::{self, GpsPreprocessor},
@@ -434,25 +435,30 @@ pub fn journey_info_from_raw_vector_data(raw_vector_data: &[Vec<RawData>]) -> Jo
             .timestamp_ms
             .and_then(|timestamp_ms| Utc.timestamp_millis_opt(timestamp_ms).single())
     };
-    let start_time = raw_vector_data
-        .first()
-        .and_then(|x| x.first())
-        .and_then(time_from_raw_data);
 
-    let end_time = raw_vector_data
-        .last()
-        .and_then(|x| x.last())
-        .and_then(time_from_raw_data);
+    let mut journey_date_picker = JourneyDatePicker::new();
+    for segment in raw_vector_data {
+        for raw_data in segment {
+            if let Some(timestamp) = time_from_raw_data(raw_data) {
+                journey_date_picker.add_point(
+                    timestamp,
+                    &TrackPoint {
+                        latitude: raw_data.point.latitude,
+                        longitude: raw_data.point.longitude,
+                    },
+                );
+            }
+        }
+    }
 
-    let local_date_from_time = start_time
-        .or(end_time)
-        .map(|time| time.with_timezone(&Local).date_naive());
+    let journey_date = journey_date_picker
+        .pick_journey_date()
+        .unwrap_or_else(|| Local::now().date_naive());
 
-    let journey_date = local_date_from_time.unwrap_or_else(|| Local::now().date_naive());
     JourneyInfo {
         journey_date,
-        start_time,
-        end_time,
+        start_time: journey_date_picker.min_time(),
+        end_time: journey_date_picker.max_time(),
         note: None,
         journey_kind: JourneyKind::DefaultKind,
     }

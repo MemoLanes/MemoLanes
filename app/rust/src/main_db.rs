@@ -331,6 +331,7 @@ impl Txn<'_> {
         let new_journey_added = match self.get_ongoing_journey()? {
             None => false,
             Some(OngoingJourney {
+                journey_date,
                 start,
                 end,
                 journey_vector,
@@ -341,7 +342,7 @@ impl Txn<'_> {
                 self.create_and_insert_journey(
                     // In practice, `end` could never be none but just in case ...
                     // TODO: Maybe we want better journey date strategy
-                    end.unwrap_or(Utc::now()).with_timezone(&Local).date_naive(),
+                    journey_date.unwrap_or_else(|| Local::now().date_naive()),
                     start,
                     end,
                     None,
@@ -562,6 +563,7 @@ pub struct MainDb {
 }
 
 pub struct OngoingJourney {
+    pub journey_date: Option<NaiveDate>,
     pub start: Option<DateTime<Utc>>,
     pub end: Option<DateTime<Utc>>,
     pub journey_vector: JourneyVector,

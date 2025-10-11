@@ -1,4 +1,5 @@
 use crate::{
+    journey_date_picker::JourneyDatePicker,
     journey_header::{JourneyHeader, JourneyType},
     journey_vector::{JourneyVector, TrackPoint, TrackSegment},
     main_db::OngoingJourney,
@@ -6,6 +7,7 @@ use crate::{
 use anyhow::Result;
 use chrono::DateTime;
 
+// TODO: This is the same as `TrackPoint`, we should unify them.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Point {
     pub latitude: f64,
@@ -93,6 +95,11 @@ mod point_tests {
         assert_eq!(point1.haversine_distance(&point1) as i32, 0);
         assert_eq!(point1.haversine_distance(&point2) as i32, 109);
         assert_eq!(point2.haversine_distance(&point1) as i32, 109);
+
+        assert_eq!(
+            point(0.0, 0.1).haversine_distance(&point(0.0, -0.1)) as i32,
+            22238
+        );
 
         // antimeridian
         assert_eq!(
@@ -420,46 +427,44 @@ pub struct PreprocessedData {
 pub fn build_vector_journey(
     results: impl Iterator<Item = Result<PreprocessedData>>,
 ) -> Result<Option<OngoingJourney>> {
-    let mut segmants = Vec::new();
+    let mut journey_date_picker = JourneyDatePicker::new();
+    let mut segments = Vec::new();
     let mut current_segment = Vec::new();
 
-    let mut start_timestamp_sec = None;
-    let mut end_timestamp_sec = None;
     for result in results {
         let data = result?;
-        if data.timestamp_sec.is_some() {
-            end_timestamp_sec = data.timestamp_sec;
-        }
-        if start_timestamp_sec.is_none() {
-            start_timestamp_sec = data.timestamp_sec;
-        }
         let need_break = data.process_result == ProcessResult::NewSegment;
         if need_break && !current_segment.is_empty() {
-            segmants.push(TrackSegment {
+            segments.push(TrackSegment {
                 track_points: current_segment,
             });
             current_segment = Vec::new();
         }
         if data.process_result != ProcessResult::Ignore {
+            if let Some(time) = data
+                .timestamp_sec
+                .map(|x| DateTime::from_timestamp(x, 0).unwrap())
+            {
+                journey_date_picker.add_point(time, &data.track_point);
+            }
             current_segment.push(data.track_point);
         }
     }
     if !current_segment.is_empty() {
-        segmants.push(TrackSegment {
+        segments.push(TrackSegment {
             track_points: current_segment,
         });
     }
 
-    if segmants.is_empty() {
+    if segments.is_empty() {
         Ok(None)
     } else {
-        let start = start_timestamp_sec.map(|x| DateTime::from_timestamp(x, 0).unwrap());
-        let end = end_timestamp_sec.map(|x| DateTime::from_timestamp(x, 0).unwrap());
         Ok(Some(OngoingJourney {
-            start,
-            end,
+            journey_date: journey_date_picker.pick_journey_date(),
+            start: journey_date_picker.min_time(),
+            end: journey_date_picker.max_time(),
             journey_vector: JourneyVector {
-                track_segments: segmants,
+                track_segments: segments,
             },
         }))
     }
