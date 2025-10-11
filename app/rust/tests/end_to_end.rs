@@ -1,6 +1,5 @@
 pub mod test_utils;
 use memolanes_core::{api::api, gps_processor::RawData, import_data};
-use rand::prelude::SliceRandom;
 use std::fs;
 use tempdir::TempDir;
 
