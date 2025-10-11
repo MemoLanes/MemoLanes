@@ -5,6 +5,8 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:memolanes/body/achievement/achievement_body.dart';
 import 'package:memolanes/body/journey/journey_body.dart';
@@ -186,6 +188,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
+  DateTime? _lastPressedAt;
 
   @override
   void initState() {
@@ -200,12 +203,34 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  Future<void> _handleWillPop() async {
+    if (_selectedIndex != 0) {
+      setState(() => _selectedIndex = 0);
+      return;
+    }
+
+    final now = DateTime.now();
+    if (_lastPressedAt == null ||
+        now.difference(_lastPressedAt!) > const Duration(seconds: 2)) {
+      _lastPressedAt = now;
+      Fluttertoast.showToast(msg: tr("home.double_back_exit"));
+      return;
+    }
+    SystemNavigator.pop();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          SafeAreaWrapper(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, dynamic result) async {
+        if (didPop) return;
+        await _handleWillPop();
+      },
+      child: Scaffold(
+        body: Stack(
+          children: [
+            SafeAreaWrapper(
               useSafeArea: _selectedIndex !=
                   0, // we don't need safe area for `MapUiBody`
               child: switch (_selectedIndex) {
@@ -214,30 +239,32 @@ class _MyHomePageState extends State<MyHomePage> {
                 2 => const JourneyBody(),
                 3 => const AchievementBody(),
                 4 => const SettingsBody(),
-                _ => throw FormatException('Invalid index: $_selectedIndex')
-              }),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.only(
-                  left: StyleConstants.navBarHorizontalPadding,
-                  right: StyleConstants.navBarHorizontalPadding,
-                  bottom: StyleConstants.navBarBottomPadding,
-                ),
-                child: BottomNavBar(
-                  selectedIndex: _selectedIndex,
-                  onIndexChanged: (index) =>
-                      setState(() => _selectedIndex = index),
-                  hasUpdateNotification:
-                      context.watch<UpdateNotifier>().hasUpdateNotification,
+                _ => throw FormatException('Invalid index: $_selectedIndex'),
+              },
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.only(
+                    left: StyleConstants.navBarHorizontalPadding,
+                    right: StyleConstants.navBarHorizontalPadding,
+                    bottom: StyleConstants.navBarBottomPadding,
+                  ),
+                  child: BottomNavBar(
+                    selectedIndex: _selectedIndex,
+                    onIndexChanged: (index) =>
+                        setState(() => _selectedIndex = index),
+                    hasUpdateNotification:
+                        context.watch<UpdateNotifier>().hasUpdateNotification,
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
