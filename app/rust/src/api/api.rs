@@ -305,11 +305,11 @@ pub fn on_location_update(raw_data: gps_processor::RawData, received_timestamp_m
     state
         .storage
         .record_gps_data(&raw_data, process_result, received_timestamp_ms);
-    let meaningful = match process_result {
+
+    match process_result {
         ProcessResult::Ignore => false,
         ProcessResult::Append | ProcessResult::NewSegment => true,
-    };
-    return meaningful;
+    }
 }
 
 pub fn list_all_raw_data() -> Vec<storage::RawDataFile> {
@@ -614,7 +614,7 @@ pub fn handle_webview_requests(request: String) -> Result<String> {
     let response = request.handle(registry);
     // Direct JSON serialization - more explicit and efficient
     serde_json::to_string(&response)
-        .map_err(|e| anyhow::anyhow!("Failed to serialize response: {}", e))
+        .map_err(|e| anyhow::anyhow!("Failed to serialize response: {e}"))
 }
 
 #[frb(ignore)]

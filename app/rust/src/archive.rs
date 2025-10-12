@@ -135,7 +135,7 @@ pub fn export_as_mldx<T: Write + Seek>(
         WhatToExport::Just(journey_id) => {
             let journey_header = txn
                 .get_journey_header(journey_id)?
-                .ok_or_else(|| anyhow!("Failed to find journy, journey_id = {}", journey_id))?;
+                .ok_or_else(|| anyhow!("Failed to find journy, journey_id = {journey_id}"))?;
             vec![journey_header]
         }
     };

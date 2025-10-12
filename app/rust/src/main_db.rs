@@ -57,9 +57,7 @@ fn open_db_and_run_migration(
         }
         Ordering::Greater => {
             bail!(
-                "version too high: current version = {}, target_version = {}",
-                version,
-                target_version
+                "version too high: current version = {version}, target_version = {target_version}"
             );
         }
     }
@@ -146,7 +144,7 @@ impl Txn<'_> {
         if changes == 1 {
             Ok(())
         } else {
-            Err(anyhow!("Failed to find journey with id = {}", id))
+            Err(anyhow!("Failed to find journey with id = {id}"))
         }
     }
 
@@ -263,7 +261,7 @@ impl Txn<'_> {
 
         let mut header = self
             .get_journey_header(id)?
-            .ok_or_else(|| anyhow!("Updating non existent journey, journey id = {}", id))?;
+            .ok_or_else(|| anyhow!("Updating non existent journey, journey id = {id}"))?;
 
         // must change during update
         header.updated_at = Some(Utc::now());
@@ -304,7 +302,7 @@ impl Txn<'_> {
 
         let mut header = self
             .get_journey_header(id)?
-            .ok_or_else(|| anyhow!("Updating non existent journey, journey id = {}", id))?;
+            .ok_or_else(|| anyhow!("Updating non existent journey, journey id = {id}"))?;
 
         header.postprocessor_algo = postprocessor_algo;
 
@@ -490,12 +488,10 @@ impl Txn<'_> {
                     // if the local date changed since start, we should try to finalize it, otherwise we don't want that unless there is a huge gap (6h)
                     if start.with_timezone(&Local).date_naive() == now.date_naive() {
                         6 * 60
+                    } else if now.hour() <= 4 || recording_length_hours <= 8 {
+                        20
                     } else {
-                        if now.hour() <= 4 || recording_length_hours <= 8 {
-                            20
-                        } else {
-                            5
-                        }
+                        5
                     }
                 };
 

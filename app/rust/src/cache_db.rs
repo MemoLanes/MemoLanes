@@ -35,9 +35,7 @@ fn open_db(cache_dir: &str, file_name: &str) -> Result<Connection> {
         Ordering::Equal => (),
         Ordering::Greater => {
             bail!(
-                "version too high: current version = {}, target_version = {}",
-                version,
-                target_version
+                "version too high: current version = {version}, target_version = {target_version}"
             );
         }
         Ordering::Less => {

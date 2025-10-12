@@ -86,22 +86,24 @@ impl RawDataRecorder {
                         .as_bytes(),
                 )
                 .unwrap();
-            CurrentRawDataFile { file: file, filename: filename, date: current_date }
+            CurrentRawDataFile { file, filename, date: current_date }
         });
-        current_raw_data_file.file.write_all(
-            format!(
-                "{},{},{},{},{},{},{}\n",
-                raw_data.timestamp_ms.unwrap_or_default(),
-                received_timestamp_ms,
-                raw_data.point.latitude,
-                raw_data.point.longitude,
-                raw_data.accuracy.map(|x| x.to_string()).unwrap_or_default(),
-                &raw_data.altitude.map(|x| x.to_string()).unwrap_or_default(),
-                &raw_data.speed.map(|x| x.to_string()).unwrap_or_default()
+        current_raw_data_file
+            .file
+            .write_all(
+                format!(
+                    "{},{},{},{},{},{},{}\n",
+                    raw_data.timestamp_ms.unwrap_or_default(),
+                    received_timestamp_ms,
+                    raw_data.point.latitude,
+                    raw_data.point.longitude,
+                    raw_data.accuracy.map(|x| x.to_string()).unwrap_or_default(),
+                    &raw_data.altitude.map(|x| x.to_string()).unwrap_or_default(),
+                    &raw_data.speed.map(|x| x.to_string()).unwrap_or_default()
+                )
+                .as_bytes(),
             )
-            .as_bytes(),
-        )
-        .unwrap();
+            .unwrap();
     }
 }
 
@@ -246,7 +248,7 @@ impl Storage {
         let mut raw_data_recorder = self.raw_data_recorder.lock().unwrap();
         if let Some(ref mut x) = *raw_data_recorder {
             if let Some(current_raw_data_file) = &x.current_raw_data_file {
-                if &current_raw_data_file.filename == &filename {
+                if current_raw_data_file.filename == filename {
                     x.current_raw_data_file = None;
                 }
             }
