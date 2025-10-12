@@ -268,7 +268,7 @@ fn read_kml_description_and_remove(xml: &str) -> Result<(String, Vec<String>)> {
             Ok(Event::Decl(e)) => writer.write_event(Event::Decl(e.into_owned()))?,
             Ok(Event::Eof) => break,
             Ok(_) => {}
-            Err(e) => anyhow::bail!("XML parse error: {:?}", e),
+            Err(e) => anyhow::bail!("XML parse error: {e:?}"),
         }
         buf.clear();
     }
