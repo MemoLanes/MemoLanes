@@ -49,7 +49,7 @@ impl JourneyDatePicker {
         }
         let meaningful_dates = distance_per_date
             .iter()
-            .filter(|(_, distance)| *distance >= max_distance / 2.)
+            .filter(|(_, distance)| *distance >= max_distance * 0.2)
             .map(|(date, _)| *date);
 
         let journey_date = meaningful_dates.max(); // break ties by picking the latest date
