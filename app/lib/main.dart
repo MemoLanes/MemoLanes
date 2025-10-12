@@ -191,6 +191,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      Provider.of<GpsManager>(context, listen: false).readyToStart();
       showPrivacyAgreementIfNeeded(context);
 
       if (!mainMapInitialized) {

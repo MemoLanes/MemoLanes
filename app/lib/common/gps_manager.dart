@@ -51,6 +51,10 @@ class GpsManager extends ChangeNotifier {
   // basically, we try to finalize every 30 mins + when there isn't a meaningful update in a while.
   DateTime? _tryFinalizeJourneyCountDown;
 
+  // We only start listening to the location service after this.
+  // Otherwise we may start it before the app is fully ready (e.g. i18n not ready).
+  final Completer _readyToStart = Completer();
+
   GpsManager() {
     _locationService = GeoLocatorService();
     _initState();
@@ -76,6 +80,7 @@ class GpsManager extends ChangeNotifier {
           recordingStatus = GpsRecordingStatus.paused;
         }
       }
+      await _readyToStart.future;
       await _syncInternalStateWithoutLock();
     });
   }
@@ -331,5 +336,11 @@ class GpsManager extends ChangeNotifier {
       mapTracking = enable;
       await _syncInternalStateWithoutLock();
     });
+  }
+
+  void readyToStart() {
+    if (!_readyToStart.isCompleted) {
+      _readyToStart.complete();
+    }
   }
 }
