@@ -44,12 +44,12 @@ class GpsManager extends ChangeNotifier {
 
   StreamSubscription<LocationData>? _locationUpdateSub;
 
-  // Notify the user that the recording was unexpectedly stopped on iOS.
-  // On Android, this does not work, and we achive this by using foreground task.
-  // On iOS we rely on this to make sure user will be notified when the app is
-  // killed during recording.
+  // Notify the user that the recording was unexpectedly stopped.
   // The app is a little hacky so I minted: https://github.com/flutter/flutter/issues/156139
   final _notificationWhenAppIsKilledPlugin = NotificationWhenAppIsKilled();
+
+  // basically, we try to finalize every 30 mins + when there isn't a meaningful update in a while.
+  DateTime? _tryFinalizeJourneyCountDown;
 
   GpsManager() {
     _locationService = GeoLocatorService();
@@ -61,10 +61,11 @@ class GpsManager extends ChangeNotifier {
   void _initState() async {
     await _m.protect(() async {
       await _tryFinalizeJourneyWithoutLock();
-      Timer.periodic(const Duration(minutes: 5), (timer) async {
+      Timer.periodic(const Duration(minutes: 30), (timer) async {
         await _m.protect(() async {
           await _tryFinalizeJourneyWithoutLock();
         });
+        _tryFinalizeJourneyCountDown = DateTime.now();
       });
 
       if (MMKVUtil.getBool(MMKVKey.isRecording) &&
@@ -159,8 +160,7 @@ class GpsManager extends ChangeNotifier {
   }
 
   Future<void> _tryFinalizeJourneyWithoutLock() async {
-    // TODO: I think we want this to be configurable
-    if (await api.tryAutoFinalizeJourny()) {
+    if (await api.tryAutoFinalizeJourney()) {
       Fluttertoast.showToast(msg: "New journey added");
       if (recordingStatus == GpsRecordingStatus.paused) {
         recordingStatus = GpsRecordingStatus.none;
@@ -201,7 +201,7 @@ class GpsManager extends ChangeNotifier {
         bool enableBackground = newState == _InternalState.recording;
         await _locationService.startLocationUpdates(enableBackground);
 
-        _locationUpdateSub = _locationService.onLocationUpdate((data) {
+        _locationUpdateSub = _locationService.onLocationUpdate((data) async {
           if (_positionTooOld(data)) {
             return;
           }
@@ -209,21 +209,33 @@ class GpsManager extends ChangeNotifier {
           notifyListeners();
 
           if (_internalState == _InternalState.recording) {
-            api.onLocationUpdate(
-              rawDataList: [
-                RawData(
-                  point: Point(
-                    latitude: data.latitude,
-                    longitude: data.longitude,
-                  ),
-                  timestampMs: data.timestampMs,
-                  accuracy: data.accuracy,
-                  altitude: data.altitude,
-                  speed: data.speed,
-                )
-              ],
-              receivedTimestampMs: DateTime.now().millisecondsSinceEpoch,
+            var now = DateTime.now();
+
+            var last = _tryFinalizeJourneyCountDown;
+            if (last != null && now.difference(last).inSeconds >= 60) {
+              await _m.protect(() async {
+                await _tryFinalizeJourneyWithoutLock();
+              });
+              _tryFinalizeJourneyCountDown = now;
+            }
+
+            var meaningful = await api.onLocationUpdate(
+              rawData: RawData(
+                point: Point(
+                  latitude: data.latitude,
+                  longitude: data.longitude,
+                ),
+                timestampMs: data.timestampMs,
+                accuracy: data.accuracy,
+                altitude: data.altitude,
+                speed: data.speed,
+              ),
+              receivedTimestampMs: now.millisecondsSinceEpoch,
             );
+
+            if (meaningful) {
+              _tryFinalizeJourneyCountDown = now;
+            }
           }
         });
 

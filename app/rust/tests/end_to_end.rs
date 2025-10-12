@@ -1,6 +1,5 @@
 pub mod test_utils;
 use memolanes_core::{api::api, gps_processor::RawData, import_data};
-use rand::prelude::SliceRandom;
 use std::fs;
 use tempdir::TempDir;
 
@@ -33,7 +32,7 @@ fn basic() {
 
     assert!(!api::has_ongoing_journey().unwrap());
     for (i, raw_data) in first_elements.iter().enumerate() {
-        api::on_location_update(vec![raw_data.clone()], raw_data.timestamp_ms.unwrap());
+        api::on_location_update(raw_data.clone(), raw_data.timestamp_ms.unwrap());
         if i == 1000 {
             assert!(api::has_ongoing_journey().unwrap());
             assert!(api::finalize_ongoing_journey().unwrap());
@@ -54,8 +53,9 @@ fn basic() {
     assert!(!api::has_ongoing_journey().unwrap());
     assert!(!api::finalize_ongoing_journey().unwrap());
 
-    remaining_elements.shuffle(&mut rand::rng());
-    api::on_location_update(remaining_elements.to_vec(), 1695150531000);
+    for raw_data in remaining_elements {
+        api::on_location_update(raw_data.clone(), raw_data.timestamp_ms.unwrap());
+    }
 
     {
         let map_renderer = map_renderer.lock().unwrap();

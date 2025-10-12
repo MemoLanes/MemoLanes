@@ -63,7 +63,7 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
 
         let registry = Arc::new(Mutex::new(Registry::new()));
 
-        let default_layer_kind = InternalLayerKind::JounreyKind(JourneyKind::DefaultKind);
+        let default_layer_kind = InternalLayerKind::JourneyKind(JourneyKind::DefaultKind);
         let main_map_layer_kind = Arc::new(Mutex::new(default_layer_kind));
         let main_map_layer_kind_copy = main_map_layer_kind.clone();
         // TODO: use an empty journey bitmap first, because loading could be slow (especially when we don't have cache).
@@ -267,10 +267,9 @@ pub fn get_map_renderer_proxy_for_journey_data(
     get_map_renderer_proxy_for_journey_data_internal(state, journey_data.clone())
 }
 
-pub fn on_location_update(
-    mut raw_data_list: Vec<gps_processor::RawData>,
-    received_timestamp_ms: i64,
-) {
+// Return `true` if this update contains meaningful data.
+// Meaningful data means it is not ignored by the gps preprocessor.
+pub fn on_location_update(raw_data: gps_processor::RawData, received_timestamp_ms: i64) -> bool {
     let state = get();
     // NOTE: On Android, we might received a batch of location updates that are out of order.
     // Not very sure why yet.
@@ -279,37 +278,38 @@ pub fn on_location_update(
     let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
     let mut map_renderer = state.main_map_renderer.lock().unwrap();
 
-    raw_data_list.sort_by(|a, b| a.timestamp_ms.cmp(&b.timestamp_ms));
-    raw_data_list.into_iter().for_each(|raw_data| {
-        // TODO: more batching updates
-        let last_point = gps_preprocessor.last_kept_point();
-        let process_result = gps_preprocessor.preprocess(&raw_data);
-        let line_to_add = match process_result {
-            ProcessResult::Ignore => None,
-            ProcessResult::NewSegment => Some((&raw_data.point, &raw_data.point)),
-            ProcessResult::Append => {
-                let start = last_point.as_ref().unwrap_or(&raw_data.point);
-                Some((start, &raw_data.point))
-            }
-        };
-        match line_to_add {
-            None => (),
-            Some((start, end)) => {
-                map_renderer.update(|journey_bitmap, tile_changed| {
-                    journey_bitmap.add_line_with_change_callback(
-                        start.longitude,
-                        start.latitude,
-                        end.longitude,
-                        end.latitude,
-                        tile_changed,
-                    );
-                });
-            }
+    let last_point = gps_preprocessor.last_kept_point();
+    let process_result = gps_preprocessor.preprocess(&raw_data);
+    let line_to_add = match process_result {
+        ProcessResult::Ignore => None,
+        ProcessResult::NewSegment => Some((&raw_data.point, &raw_data.point)),
+        ProcessResult::Append => {
+            let start = last_point.as_ref().unwrap_or(&raw_data.point);
+            Some((start, &raw_data.point))
         }
-        state
-            .storage
-            .record_gps_data(&raw_data, process_result, received_timestamp_ms);
-    });
+    };
+    match line_to_add {
+        None => (),
+        Some((start, end)) => {
+            map_renderer.update(|journey_bitmap, tile_changed| {
+                journey_bitmap.add_line_with_change_callback(
+                    start.longitude,
+                    start.latitude,
+                    end.longitude,
+                    end.latitude,
+                    tile_changed,
+                );
+            });
+        }
+    };
+    state
+        .storage
+        .record_gps_data(&raw_data, process_result, received_timestamp_ms);
+
+    match process_result {
+        ProcessResult::Ignore => false,
+        ProcessResult::Append | ProcessResult::NewSegment => true,
+    }
 }
 
 pub fn list_all_raw_data() -> Vec<storage::RawDataFile> {
@@ -344,15 +344,15 @@ impl LayerKind {
     fn to_internal(&self) -> InternalLayerKind {
         match self {
             LayerKind::All => InternalLayerKind::All,
-            LayerKind::DefaultKind => InternalLayerKind::JounreyKind(JourneyKind::DefaultKind),
-            LayerKind::Flight => InternalLayerKind::JounreyKind(JourneyKind::Flight),
+            LayerKind::DefaultKind => InternalLayerKind::JourneyKind(JourneyKind::DefaultKind),
+            LayerKind::Flight => InternalLayerKind::JourneyKind(JourneyKind::Flight),
         }
     }
 
     fn of_internal(internal: &InternalLayerKind) -> LayerKind {
         match internal {
             InternalLayerKind::All => LayerKind::All,
-            InternalLayerKind::JounreyKind(kind) => match kind {
+            InternalLayerKind::JourneyKind(kind) => match kind {
                 JourneyKind::DefaultKind => LayerKind::DefaultKind,
                 JourneyKind::Flight => LayerKind::Flight,
             },
@@ -390,7 +390,7 @@ where
     // is quite complex. We should fix all the locking mess.
     let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
     let finalized = state.storage.with_db_txn(finalize_op)?;
-    // when journey is finalzied, we should reset the gps_preprocessor to prevent old state affecting new journey
+    // when journey is finalized, we should reset the gps_preprocessor to prevent old state affecting new journey
     if finalized {
         *gps_preprocessor = GpsPreprocessor::new();
     }
@@ -401,8 +401,8 @@ pub fn finalize_ongoing_journey() -> Result<bool> {
     reset_gps_preprocessor_if_finalized(|txn| txn.finalize_ongoing_journey())
 }
 
-pub fn try_auto_finalize_journy() -> Result<bool> {
-    reset_gps_preprocessor_if_finalized(|txn| txn.try_auto_finalize_journy())
+pub fn try_auto_finalize_journey() -> Result<bool> {
+    reset_gps_preprocessor_if_finalized(|txn| txn.try_auto_finalize_journey())
 }
 
 pub fn has_ongoing_journey() -> Result<bool> {
@@ -614,7 +614,7 @@ pub fn handle_webview_requests(request: String) -> Result<String> {
     let response = request.handle(registry);
     // Direct JSON serialization - more explicit and efficient
     serde_json::to_string(&response)
-        .map_err(|e| anyhow::anyhow!("Failed to serialize response: {}", e))
+        .map_err(|e| anyhow::anyhow!("Failed to serialize response: {e}"))
 }
 
 #[frb(ignore)]

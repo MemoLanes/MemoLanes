@@ -85,7 +85,7 @@ async fn serve_unified_json_request(
         Err(e) => {
             return add_cors_headers(&mut HttpResponse::BadRequest())
                 .content_type("application/json")
-                .body(format!(r#"{{"error": "Failed to parse request: {}"}}"#, e));
+                .body(format!(r#"{{"error": "Failed to parse request: {e}"}}"#));
         }
     };
 
@@ -106,8 +106,7 @@ async fn serve_unified_json_request(
         Err(e) => add_cors_headers(&mut HttpResponse::InternalServerError())
             .content_type("application/json")
             .body(format!(
-                r#"{{"error": "Failed to serialize response: {}"}}"#,
-                e
+                r#"{{"error": "Failed to serialize response: {e}"}}"#
             )),
     }
 }

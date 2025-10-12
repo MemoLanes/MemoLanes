@@ -21,6 +21,7 @@ pub mod import_data;
 pub mod journey_area_utils;
 pub mod journey_bitmap;
 pub mod journey_data;
+pub mod journey_date_picker;
 pub mod journey_header;
 pub mod journey_vector;
 mod logs;
