@@ -22,7 +22,7 @@ impl JourneyType {
         match i {
             0 => Ok(JourneyType::Vector),
             1 => Ok(JourneyType::Bitmap),
-            _ => bail!("Invalid int for `JourneyType` {}", i),
+            _ => bail!("Invalid int for `JourneyType` {i}"),
         }
     }
 
@@ -110,7 +110,7 @@ impl JourneyHeader {
         let journey_type = proto
             .type_
             .enum_value()
-            .map_err(|x| anyhow!("Unknown proto journey type: {}", x))?;
+            .map_err(|x| anyhow!("Unknown proto journey type: {x}"))?;
         Ok(JourneyHeader {
             id: proto.id,
             revision: proto.revision,

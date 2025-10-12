@@ -87,17 +87,17 @@ fn get_all_finalized_journeys(
             let mut default_bitmap = get_all_finalized_journeys(
                 main_db_txn,
                 cache_db,
-                &LayerKind::JounreyKind(JourneyKind::DefaultKind),
+                &LayerKind::JourneyKind(JourneyKind::DefaultKind),
             )?;
             let flight_bitmap = get_all_finalized_journeys(
                 main_db_txn,
                 cache_db,
-                &LayerKind::JounreyKind(JourneyKind::Flight),
+                &LayerKind::JourneyKind(JourneyKind::Flight),
             )?;
             default_bitmap.merge(flight_bitmap);
             Ok(default_bitmap)
         }
-        LayerKind::JounreyKind(kind) => get_range_internal(main_db_txn, None, None, Some(kind)),
+        LayerKind::JourneyKind(kind) => get_range_internal(main_db_txn, None, None, Some(kind)),
     })
 }
 
