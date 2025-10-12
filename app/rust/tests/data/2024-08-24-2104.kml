@@ -5,12 +5,6 @@
    <atom:name>com.bodunov.galileo/v5.4.1</atom:name>
   </atom:author>
   <Placemark>
-  <description>
-      <div>通过“两步路”生成，http://www.2bulu.com</div>
-      <div>上传者:</div>
-      <div>轨迹点数:557</div>
-      <div>本段里程:21971.30688896114米</div>
-  </description>
    <gx:TimeStamp>2024-04-05T06:01:21.315Z</gx:TimeStamp>
    <styleUrl>#TrackStyle_2196F3C8</styleUrl>
  <LineString>

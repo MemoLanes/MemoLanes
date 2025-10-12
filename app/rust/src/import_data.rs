@@ -229,9 +229,11 @@ pub fn load_gpx(file_path: &str) -> Result<Vec<Vec<RawData>>> {
     Ok(track_data.chain(route_data).collect())
 }
 
+/// Load and parse KML safely, skipping invalid <description> blocks.
 pub fn load_kml(file_path: &str) -> Result<Vec<Vec<RawData>>> {
     let xml = fs::read_to_string(file_path)?;
-    let cleaned_xml = clean_xml(&xml)?;
+    let (cleaned_xml, _descriptions) = read_kml_description_and_remove(&xml)?;
+    // TODO: pass _descriptions to journey_info if needed later
     let mut kml_reader = KmlReader::<_, f64>::from_reader(Cursor::new(cleaned_xml));
     let kml_data = kml_reader.read()?;
     let flatten_data = flatten_kml(kml_data);
@@ -242,16 +244,20 @@ pub fn load_kml(file_path: &str) -> Result<Vec<Vec<RawData>>> {
     Ok(raw_vector_data)
 }
 
-pub fn clean_xml(xml: &str) -> Result<String> {
+/// 2bulu generated KML contains HTML tags in <description>, which breaks the KML parser.
+/// So let's extract the description early and remove it from the original KML before parsing.
+pub fn read_kml_description_and_remove(xml: &str) -> Result<(String, Vec<String>)> {
     let mut reader = Reader::from_str(xml);
     reader.config_mut().trim_text(true);
     let mut writer = Writer::new(Vec::new());
     let mut buf = Vec::new();
+    let mut descriptions = Vec::new();
 
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(e)) if e.name().as_ref() == b"description" => {
-                reader.read_to_end(e.name())?;
+                let text = reader.read_text(e.name())?;
+                descriptions.push(text.to_string());
             }
             Ok(Event::Start(e)) => writer.write_event(Event::Start(e.into_owned()))?,
             Ok(Event::Empty(e)) => writer.write_event(Event::Empty(e.into_owned()))?,
@@ -266,7 +272,7 @@ pub fn clean_xml(xml: &str) -> Result<String> {
         buf.clear();
     }
     let cleaned_xml = String::from_utf8(writer.into_inner())?;
-    Ok(cleaned_xml)
+    Ok((cleaned_xml, descriptions))
 }
 
 fn read_track(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
