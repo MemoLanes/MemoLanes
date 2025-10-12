@@ -13,13 +13,16 @@ use crate::{
 use anyhow::Result;
 use chrono::{DateTime, Local, TimeZone, Utc};
 use flate2::read::ZlibDecoder;
-use gpx::{read, Time};
+use gpx::{read, Waypoint};
 use kml::types::{Element, Geometry};
 use kml::Kml::Placemark;
 use kml::{Kml, KmlReader};
+use quick_xml::events::Event;
+use quick_xml::{Reader, Writer};
 use std::cell::RefCell;
+use std::io::Cursor;
 use std::result::Result::Ok;
-use std::vec;
+use std::{fs, vec};
 use std::{fs::File, io::BufReader, io::Read, path::Path};
 
 struct FoWTileId {
@@ -172,51 +175,105 @@ pub fn load_fow_snapshot_data(fwss_file_path: &str) -> Result<(JourneyBitmap, Op
 }
 
 pub fn load_gpx(file_path: &str) -> Result<Vec<Vec<RawData>>> {
-    let convert_to_timestamp = |time: &Option<Time>| -> Result<Option<DateTime<Utc>>> {
-        let timestamp: Option<DateTime<Utc>> = match &time {
-            Some(t) => Some(DateTime::<Utc>::from(DateTime::parse_from_rfc3339(
-                &t.format()?,
-            )?)),
-            None => None,
-        };
-        Ok(timestamp)
-    };
     let gpx_data = read(BufReader::new(File::open(file_path)?))?;
-    let mut raw_vector_data: Vec<Vec<RawData>> = Vec::new();
-    for track in gpx_data.tracks {
-        for segment in track.segments {
-            let mut raw_vector_data_segment: Vec<RawData> = Vec::new();
-            for point in segment.points {
-                let timestamp = convert_to_timestamp(&point.time)?;
-                raw_vector_data_segment.push(gps_processor::RawData {
-                    point: Point {
-                        latitude: point.point().y(),
-                        longitude: point.point().x(),
-                    },
-                    timestamp_ms: timestamp.map(|x| x.timestamp_millis()),
-                    accuracy: point.hdop.map(|hdop| hdop as f32),
-                    altitude: point.elevation.map(|value| value as f32),
-                    speed: point.speed.map(|value| value as f32),
-                });
+    let convert_to_timestamp = |time: &Option<gpx::Time>| -> Result<Option<i64>> {
+        match time {
+            Some(t) => {
+                let s = t.format()?;
+                let dt = DateTime::<Utc>::from(DateTime::parse_from_rfc3339(&s)?);
+                Ok(Some(dt.timestamp_millis()))
             }
-            if !raw_vector_data_segment.is_empty() {
-                raw_vector_data.push(raw_vector_data_segment);
-            }
+            None => Ok(None),
         }
-    }
+    };
 
-    Ok(raw_vector_data)
+    let waypoint_to_rawdata = |point: Waypoint| -> Result<RawData> {
+        Ok(RawData {
+            point: Point {
+                latitude: point.point().y(),
+                longitude: point.point().x(),
+            },
+            timestamp_ms: convert_to_timestamp(&point.time)?,
+            accuracy: point.hdop.map(|v| v as f32),
+            altitude: point.elevation.map(|v| v as f32),
+            speed: point.speed.map(|v| v as f32),
+        })
+    };
+
+    let track_data = gpx_data
+        .tracks
+        .into_iter()
+        .flat_map(|track| track.segments.into_iter())
+        .map(|segment| {
+            segment
+                .points
+                .into_iter()
+                .map(waypoint_to_rawdata)
+                .collect::<Result<Vec<_>>>()
+        })
+        .filter_map(Result::ok)
+        .filter(|v| !v.is_empty());
+
+    let route_data = gpx_data
+        .routes
+        .into_iter()
+        .map(|route| {
+            route
+                .points
+                .into_iter()
+                .map(waypoint_to_rawdata)
+                .collect::<Result<Vec<_>>>()
+        })
+        .filter_map(Result::ok)
+        .filter(|v| !v.is_empty());
+
+    Ok(track_data.chain(route_data).collect())
 }
 
+/// Load and parse KML safely, skipping invalid <description> blocks.
 pub fn load_kml(file_path: &str) -> Result<Vec<Vec<RawData>>> {
-    let kml_data =
-        KmlReader::<_, f64>::from_reader(BufReader::new(File::open(file_path)?)).read()?;
+    let xml = fs::read_to_string(file_path)?;
+    let (cleaned_xml, _descriptions) = read_kml_description_and_remove(&xml)?;
+    // TODO: pass _descriptions to journey_info if needed later
+    let mut kml_reader = KmlReader::<_, f64>::from_reader(Cursor::new(cleaned_xml));
+    let kml_data = kml_reader.read()?;
     let flatten_data = flatten_kml(kml_data);
     let mut raw_vector_data = read_track(&flatten_data)?;
     if raw_vector_data.is_empty() {
         raw_vector_data = read_line_string(&flatten_data)?
     }
     Ok(raw_vector_data)
+}
+
+/// 2bulu generated KML contains HTML tags in <description>, which breaks the KML parser.
+/// So let's extract the description early and remove it from the original KML before parsing.
+fn read_kml_description_and_remove(xml: &str) -> Result<(String, Vec<String>)> {
+    let mut reader = Reader::from_str(xml);
+    reader.config_mut().trim_text(true);
+    let mut writer = Writer::new(Vec::new());
+    let mut buf = Vec::new();
+    let mut descriptions = Vec::new();
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(e)) if e.name().as_ref() == b"description" => {
+                let text = reader.read_text(e.name())?;
+                descriptions.push(text.to_string());
+            }
+            Ok(Event::Start(e)) => writer.write_event(Event::Start(e.into_owned()))?,
+            Ok(Event::Empty(e)) => writer.write_event(Event::Empty(e.into_owned()))?,
+            Ok(Event::End(e)) => writer.write_event(Event::End(e.into_owned()))?,
+            Ok(Event::Text(e)) => writer.write_event(Event::Text(e.into_owned()))?,
+            Ok(Event::CData(e)) => writer.write_event(Event::CData(e.into_owned()))?,
+            Ok(Event::Decl(e)) => writer.write_event(Event::Decl(e.into_owned()))?,
+            Ok(Event::Eof) => break,
+            Ok(_) => {}
+            Err(e) => anyhow::bail!("XML parse error: {e:?}"),
+        }
+        buf.clear();
+    }
+    let cleaned_xml = String::from_utf8(writer.into_inner())?;
+    Ok((cleaned_xml, descriptions))
 }
 
 fn read_track(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {

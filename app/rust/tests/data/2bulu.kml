@@ -1,0 +1,199 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2">
+  <Document id="TbuluKmlVersion2">
+    <name><![CDATA[(手绘规划)娄峪～飞来石～黄草岭～莲台山]]>
+    </name>
+    <description><![CDATA[手绘轨迹]]>
+    </description>
+    <snippet><![CDATA[通过“两步路”生成，http://www.2bulu.com]]>
+    </snippet>
+    <author><![CDATA[jn_yjl]]>
+    </author>
+    <ExtendedData>
+      <Data name="TrackId">
+        <value>13268387</value>
+      </Data>
+      <Data name="OriginTrackId">
+        <value>13268387</value>
+      </Data>
+      <Data name="TrackTypeId">
+        <value>7</value>
+      </Data>
+      <Data name="TrackTags">
+        <value></value>
+      </Data>
+      <Data name="BeginTime">
+        <value>0</value>
+      </Data>
+      <Data name="EndTime">
+        <value>0</value>
+      </Data>
+      <Data name="TimeUsed">
+        <value>0</value>
+      </Data>
+      <Data name="PauseTime">
+        <value>0</value>
+      </Data>
+      <Data name="PosStartName">
+        <value>娄峪村</value>
+      </Data>
+      <Data name="PosEndName">
+        <value>娄峪村</value>
+      </Data>
+      <Data name="ProductVersion">
+        <value>and_6.5.5</value>
+      </Data>
+      <Data name="StartDistrictId">
+        <value>13189</value>
+      </Data>
+      <Data name="EndDistrictId">
+        <value>13189</value>
+      </Data>
+      <Data name="color">
+        <value>dd55ba5c</value>
+      </Data>
+      <Data name="CreaterId">
+        <value>9994386</value>
+      </Data>
+      <Data name="CreaterName">
+        <value>jn_yjl</value>
+      </Data>
+      <Data name="CreaterIcon">
+        <value>78000990</value>
+      </Data>
+      <Data name="OriginCreaterId">
+        <value>9994386</value>
+      </Data>
+      <Data name="OriginCreaterNickname">
+        <value>jn_yjl</value>
+      </Data>
+      <Data name="OriginCreaterName">
+        <value>jn_yjl</value>
+      </Data>
+      <Data name="OriginCreaterIcon">
+        <value>78000990</value>
+      </Data>
+      <Data name="ThumbnailId">
+        <value>312919763</value>
+      </Data>
+      <Data name="Privacy">
+        <value>0</value>
+      </Data>
+      <Data name="ContextInfo">
+        <value>region:CN;lan:zh;model:android;system:android35;app:2bulu-V8.0.3</value>
+      </Data>
+    </ExtendedData>
+    <Style id="TrackStyle_n">
+      <LineStyle>
+        <color>dd5cba55</color>
+        <width>5</width>
+      </LineStyle>
+      <IconStyle>
+        <Icon><![CDATA[http://files.2bulu.com/f/d1?downParams=BYohR0x5OLAr0OBxohfNOA%3D%3D%0A]]>
+        </Icon>
+      </IconStyle>
+    </Style>
+    <Style id="TrackStyle_h">
+      <LineStyle>
+        <color>dd5cba55</color>
+        <width>7</width>
+        <scale>1.1</scale>
+      </LineStyle>
+      <IconStyle>
+        <Icon><![CDATA[http://files.2bulu.com/f/d1?downParams=BYohR0x5OLAr0OBxohfNOA%3D%3D%0A]]>
+        </Icon>
+      </IconStyle>
+    </Style>
+    <StyleMap id="TrackStyle">
+      <Pair>
+        <key>normal</key>
+        <styleUrl>#TrackStyle_n</styleUrl>
+      </Pair>
+      <Pair>
+        <key>highlight</key>
+        <styleUrl>#TrackStyle_h</styleUrl>
+      </Pair>
+    </StyleMap>
+    <Style id="LineStringStyle">
+      <LineStyle>
+        <color>dd5cba55</color>
+        <width>6</width>
+      </LineStyle>
+    </Style>
+    <Style id="startPointStyle">
+      <IconStyle>
+        <scale>1.1</scale>
+        <Icon><![CDATA[http://files.2bulu.com/f/d1?downParams=n%2BVE0NaFmzwndk%2BZ75NU9A%3D%3D%0A]]>
+        </Icon>
+      </IconStyle>
+    </Style>
+    <Style id="endPointStyle">
+      <IconStyle>
+        <scale>1.1</scale>
+        <Icon><![CDATA[http://files.2bulu.com/f/d1?downParams=0Q3GJ5o%2FHpsr0OBxohfNOA%3D%3D%0A]]>
+        </Icon>
+      </IconStyle>
+    </Style>
+    <Style id="MarkerStylePicture">
+      <LabelStyle>
+        <color>ff00ffff</color>
+        <colorMode>normal</colorMode>
+      </LabelStyle>
+      <IconStyle>
+        <scale>1.1</scale>
+        <Icon><![CDATA[http://files.2bulu.com/f/d1?downParams=vMzvc3dTBl0r0OBxohfNOA%3D%3D%0A]]>
+        </Icon>
+      </IconStyle>
+    </Style>
+    <Style id="MarkerStyleSound">
+      <LabelStyle>
+        <color>ff00ffff</color>
+        <colorMode>normal</colorMode>
+      </LabelStyle>
+      <IconStyle>
+        <scale>1.1</scale>
+        <Icon><![CDATA[http://files.2bulu.com/f/d1?downParams=poL0RfxWHTIr0OBxohfNOA%3D%3D%0A]]>
+        </Icon>
+      </IconStyle>
+    </Style>
+    <Style id="MarkerStyleVideo">
+      <LabelStyle>
+        <color>ff00ffff</color>
+        <colorMode>normal</colorMode>
+      </LabelStyle>
+      <IconStyle>
+        <scale>1.1</scale>
+        <Icon><![CDATA[http://files.2bulu.com/f/d1?downParams=vMzvc3dTBl0r0OBxohfNOA%3D%3D%0A]]>
+        </Icon>
+      </IconStyle>
+    </Style>
+    <Style id="MarkerStyleText">
+      <LabelStyle>
+        <color>ff00ffff</color>
+        <colorMode>normal</colorMode>
+      </LabelStyle>
+      <IconStyle>
+        <scale>1.1</scale>
+        <Icon><![CDATA[http://files.2bulu.com/f/d1?downParams=s2An6%2B3%2BIWUr0OBxohfNOA%3D%3D%0A]]>
+        </Icon>
+      </IconStyle>
+    </Style>
+    <Folder id="TbuluLineStringFolder">
+      <name>导航线</name>
+      <Placemark>
+        <name><![CDATA[导航线片段1]]>
+        </name>
+        <styleUrl>#LineStringStyle</styleUrl>
+        <description>
+          <div>通过“两步路”生成，http://www.2bulu.com</div>
+          <div>上传者:jn_yjl</div>
+          <div>轨迹点数:53</div>
+          <div>本段里程:4696.664251931749米</div>
+        </description>
+        <LineString>
+          <coordinates>116.9442243,36.4375453,0.0 116.9446146,36.4381646,0.0 116.9466291,36.4389962,0.0 116.9473483,36.4390464,0.0 116.9476931,36.439395,0.0 116.9481476,36.439435,0.0 116.9484951,36.4395755,0.0 116.9490538,36.4398536,0.0 116.9494748,36.4398246,0.0 116.9496485,36.4401262,0.0 116.9498691,36.4402917,0.0 116.950389,36.4404653,0.0 116.9507712,36.4408483,0.0 116.9514648,36.4409416,0.0 116.9520074,36.4409479,0.0 116.9529095,36.4413081,0.0 116.9536205,36.4415027,0.0 116.9540027,36.4410758,0.0 116.9545172,36.4412752,0.0 116.9549382,36.4410304,0.0 116.9556878,36.4413456,0.0 116.9567942,36.4418271,0.0 116.9573473,36.4422366,0.0 116.9580822,36.442389,0.0 116.9585632,36.4426261,0.0 116.9585283,36.4434587,0.0 116.958674,36.4437991,0.0 116.9585429,36.4444109,0.0 116.957578,36.4463921,0.0 116.9568216,36.4471822,0.0 116.9554586,36.4473484,0.0 116.9555361,36.4480642,0.0 116.9551952,36.4486538,0.0 116.954527,36.4491623,0.0 116.9535447,36.4495151,0.0 116.9522631,36.4501176,0.0 116.950547,36.4501076,0.0 116.9496462,36.4495586,0.0 116.9482842,36.4494495,0.0 116.9475343,36.4488171,0.0 116.9468821,36.4480713,0.0 116.9459424,36.4477552,0.0 116.9434452,36.4464265,0.0 116.9431004,36.4455699,0.0 116.9420844,36.4438703,0.0 116.9436527,36.4435404,0.0 116.9444015,36.4427204,0.0 116.9444657,36.4422651,0.0 116.9449296,36.4422124,0.0 116.9455888,36.4417969,0.0 116.9453348,36.4410641,0.0 116.9460461,36.4406172,0.0 116.946585,36.4389984,0.0 </coordinates>
+        </LineString>
+      </Placemark>
+    </Folder>
+  </Document>
+</kml>

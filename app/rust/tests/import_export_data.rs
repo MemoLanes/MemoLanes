@@ -77,6 +77,77 @@ pub fn gpx() {
 }
 
 #[test]
+pub fn gpx_2bulu() {
+    const IMPORT_PATH: &str = "./tests/data/2bulu.gpx";
+    const EXPORT_PATH: &str = "./tests/for_inspection/2bulu.gpx";
+    let raw_vecotr_data1 = import_data::load_gpx(IMPORT_PATH).unwrap();
+    import_data::journey_info_from_raw_vector_data(&raw_vecotr_data1);
+    let vector1 =
+        import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_vecotr_data1, false)
+            .unwrap();
+    export_data::journey_vector_to_gpx_file(&vector1, &mut File::create(EXPORT_PATH).unwrap())
+        .unwrap();
+
+    let raw_vecotr_data2 = import_data::load_gpx(EXPORT_PATH).unwrap();
+    let vector2 =
+        import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_vecotr_data2, false)
+            .unwrap();
+    let tracks1 = vector1.track_segments;
+    let tracks2 = vector2.track_segments;
+
+    assert_eq!(tracks1.len(), 1);
+    assert_eq!(tracks2.len(), tracks1.len());
+
+    let points1 = tracks1
+        .into_iter()
+        .flat_map(|t| t.track_points.into_iter())
+        .collect_vec();
+    let points2 = tracks2
+        .into_iter()
+        .flat_map(|t| t.track_points.into_iter())
+        .collect_vec();
+
+    assert_eq!(points1.len(), 53);
+    assert_eq!(points1, points2);
+}
+
+#[test]
+pub fn kml_2bulu() {
+    const IMPORT_PATH: &str = "./tests/data/2bulu.kml";
+    const EXPORT_PATH: &str = "./tests/for_inspection/2bulu.kml";
+    let raw_vecotr_data1 = import_data::load_kml(IMPORT_PATH).unwrap();
+    let vector1 =
+        import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_vecotr_data1, false)
+            .unwrap();
+
+    export_data::journey_vector_to_kml_file(&vector1, &mut File::create(EXPORT_PATH).unwrap())
+        .unwrap();
+    let raw_vecotr_data2 = import_data::load_kml(EXPORT_PATH).unwrap();
+    let vector2 =
+        import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_vecotr_data2, false)
+            .unwrap();
+    let tracks1 = vector1.track_segments;
+    let tracks2 = vector2.track_segments;
+
+    assert_eq!(tracks1.len(), 1);
+    assert_eq!(tracks2.len(), tracks1.len());
+
+    let points1 = tracks1
+        .into_iter()
+        .flat_map(|t| t.track_points.into_iter())
+        .collect_vec();
+    let points2 = tracks2
+        .into_iter()
+        .flat_map(|t| t.track_points.into_iter())
+        .collect_vec();
+
+    assert_eq!(points1.len(), 53);
+    assert_eq!(points1, points2);
+    assert_f64_near!(points1[0].latitude, 36.4375453);
+    assert_f64_near!(points1[0].longitude, 116.9442243);
+}
+
+#[test]
 pub fn kml_track() {
     const IMPORT_PATH: &str = "./tests/data/raw_gps_laojunshan.kml";
     const EXPORT_PATH: &str = "./tests/for_inspection/laojunshan.kml";
