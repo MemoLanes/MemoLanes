@@ -34,7 +34,7 @@ pub fn renderer_server() -> Result<(), Box<dyn std::error::Error>> {
         "requestId": "test-123",
         "query": "tile_range",
         "payload": {{
-            "id": "{}",
+            "id": "{journey_id}",
             "x": 0,
             "y": 0,
             "z": 0,
@@ -44,8 +44,7 @@ pub fn renderer_server() -> Result<(), Box<dyn std::error::Error>> {
             "cached_version": "test-123"
         }}
     }}
-    "#,
-        journey_id
+    "#
     );
 
     // println!("request: {}", request_str);
@@ -61,9 +60,9 @@ pub fn renderer_server() -> Result<(), Box<dyn std::error::Error>> {
 
     // Direct JSON serialization - more explicit and efficient
     let response_str = serde_json::to_string(&response)
-        .map_err(|e| anyhow::anyhow!("Failed to serialize response: {}", e))
+        .map_err(|e| anyhow::anyhow!("Failed to serialize response: {e}"))
         .unwrap();
-    println!("response: {}", response_str);
+    println!("response: {response_str}");
 
     Ok(())
 }

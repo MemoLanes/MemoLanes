@@ -29,9 +29,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let proxy = get_map_renderer_proxy_for_main_map();
 
     // Extract the MapRendererToken from the MapRendererProxy
-    let token = match &proxy {
-        memolanes_core::api::api::MapRendererProxy::Token(token) => token,
-    };
+    let memolanes_core::api::api::MapRendererProxy::Token(token) = &proxy;
 
     let registry = get_registry();
     let server = Arc::new(Mutex::new(

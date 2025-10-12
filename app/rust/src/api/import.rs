@@ -60,7 +60,7 @@ pub fn load_gpx_or_kml(file_path: String) -> Result<(JourneyInfo, RawVectorData)
     {
         Some("gpx") => import_data::load_gpx(&file_path)?,
         Some("kml") => import_data::load_kml(&file_path)?,
-        extension => return Err(anyhow!("Unknown extension: {:?}", extension)),
+        extension => return Err(anyhow!("Unknown extension: {extension:?}")),
     };
 
     Ok((

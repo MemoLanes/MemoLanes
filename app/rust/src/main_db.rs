@@ -1,6 +1,6 @@
 extern crate simplelog;
 use anyhow::Result;
-use chrono::{DateTime, Local, NaiveDate, Utc};
+use chrono::{DateTime, Local, NaiveDate, Timelike, Utc};
 use protobuf::Message;
 use rusqlite::{Connection, OptionalExtension, Transaction};
 use std::cmp::Ordering;
@@ -24,7 +24,7 @@ Note that it contains detailed timestamp, but these timestamp will be removed
 when finalizing the journey.
 
 `journey` keeps all finalized journeys. It stores most data as raw protobuf
-bytes and some index for faster lookup. Instead of storing a signle blob, it has
+bytes and some index for faster lookup. Instead of storing a single blob, it has
 two parts: header and data, so most common operation only need to fetch and
 deserialize the header.
 */
@@ -57,9 +57,7 @@ fn open_db_and_run_migration(
         }
         Ordering::Greater => {
             bail!(
-                "version too high: current version = {}, target_version = {}",
-                version,
-                target_version
+                "version too high: current version = {version}, target_version = {target_version}"
             );
         }
     }
@@ -146,7 +144,7 @@ impl Txn<'_> {
         if changes == 1 {
             Ok(())
         } else {
-            Err(anyhow!("Failed to find journey with id = {}", id))
+            Err(anyhow!("Failed to find journey with id = {id}"))
         }
     }
 
@@ -263,7 +261,7 @@ impl Txn<'_> {
 
         let mut header = self
             .get_journey_header(id)?
-            .ok_or_else(|| anyhow!("Updating non existent journey, journey id = {}", id))?;
+            .ok_or_else(|| anyhow!("Updating non existent journey, journey id = {id}"))?;
 
         // must change during update
         header.updated_at = Some(Utc::now());
@@ -304,7 +302,7 @@ impl Txn<'_> {
 
         let mut header = self
             .get_journey_header(id)?
-            .ok_or_else(|| anyhow!("Updating non existent journey, journey id = {}", id))?;
+            .ok_or_else(|| anyhow!("Updating non existent journey, journey id = {id}"))?;
 
         header.postprocessor_algo = postprocessor_algo;
 
@@ -331,20 +329,18 @@ impl Txn<'_> {
         let new_journey_added = match self.get_ongoing_journey()? {
             None => false,
             Some(OngoingJourney {
+                journey_date,
                 start,
                 end,
                 journey_vector,
             }) => {
-                // TODO: we could have some additional post-processing of the track.
-                // including path refinement + lossy compression.
-
                 // TODO: allow user to set this when recording?
                 let journey_kind = JourneyKind::DefaultKind;
 
                 self.create_and_insert_journey(
                     // In practice, `end` could never be none but just in case ...
                     // TODO: Maybe we want better journey date strategy
-                    end.unwrap_or(Utc::now()).with_timezone(&Local).date_naive(),
+                    journey_date.unwrap_or_else(|| Local::now().date_naive()),
                     start,
                     end,
                     None,
@@ -476,33 +472,35 @@ impl Txn<'_> {
     }
 
     // TODO: consider moving this to `storage.rs`
-    pub fn try_auto_finalize_journy(&mut self) -> Result<bool> {
+    pub fn try_auto_finalize_journey(&mut self) -> Result<bool> {
         match self.get_ongoing_journey_timestamp_range()? {
             None => Ok(false),
             Some((start, end)) => {
                 // NOTE: this logic is not called very frequently
 
                 let now = Local::now();
-                let recording_length_hour = (end.timestamp() - start.timestamp()) / 60 / 60;
-                let required_gap_mins = if recording_length_hour >= 72 {
+                let recording_length_hours = (now.timestamp() - start.timestamp()) / 60 / 60;
+                let required_gap_mins = if recording_length_hours >= 48 {
                     0 // let's just finalize it
-                } else if recording_length_hour >= 48 {
+                } else if recording_length_hours >= 24 {
                     2
-                } else if recording_length_hour >= 24 {
-                    5
                 } else {
                     // if the local date changed since start, we should try to finalize it, otherwise we don't want that unless there is a huge gap (6h)
-                    if start.with_timezone(&Local).date_naive() != now.date_naive() {
-                        15
-                    } else {
+                    if start.with_timezone(&Local).date_naive() == now.date_naive() {
                         6 * 60
+                    } else if now.hour() <= 4 || recording_length_hours <= 8 {
+                        20
+                    } else {
+                        5
                     }
                 };
 
-                let try_finalize = (now.timestamp() - end.timestamp()) / 60 >= required_gap_mins;
+                let gap_mins = (now.timestamp() - end.timestamp()).max(0) / 60;
+
+                let try_finalize = gap_mins >= required_gap_mins;
 
                 info!(
-                    "Auto finalize ongoing journey: start={start}, end={end}, now={now}, try_finalize={try_finalize}"
+                    "Auto finalize ongoing journey: recording_length_hours={recording_length_hours}, gap_mins={gap_mins}, required_gap_mins={required_gap_mins}, try_finalize={try_finalize}"
                 );
                 if try_finalize {
                     self.finalize_ongoing_journey()
@@ -561,6 +559,7 @@ pub struct MainDb {
 }
 
 pub struct OngoingJourney {
+    pub journey_date: Option<NaiveDate>,
     pub start: Option<DateTime<Utc>>,
     pub end: Option<DateTime<Utc>>,
     pub journey_vector: JourneyVector,

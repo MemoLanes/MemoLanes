@@ -95,7 +95,7 @@ pub fn import_mldx(txn: &mut main_db::Txn, mldx_file: &str) -> Result<()> {
 // TODO: think about whether or not we should have a compact data format for
 // exporting a single journey.
 
-// `YearMonth` is the key we used to group jounry into different sections but
+// `YearMonth` is the key we used to group journey into different sections but
 // but we don't expose this internal design in things like the data format, so
 // we still have the chance to change this in the future.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -135,7 +135,7 @@ pub fn export_as_mldx<T: Write + Seek>(
         WhatToExport::Just(journey_id) => {
             let journey_header = txn
                 .get_journey_header(journey_id)?
-                .ok_or_else(|| anyhow!("Failed to find journy, journey_id = {}", journey_id))?;
+                .ok_or_else(|| anyhow!("Failed to find journy, journey_id = {journey_id}"))?;
             vec![journey_header]
         }
     };

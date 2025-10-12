@@ -21,7 +21,7 @@ fn basic() {
 
     assert_eq!(
         cache_db
-            .get_full_journey_cache_or_compute(&LayerKind::JounreyKind(journey_kind), || {
+            .get_full_journey_cache_or_compute(&LayerKind::JourneyKind(journey_kind), || {
                 Ok(journey_bitmap.clone())
             })
             .unwrap(),
@@ -30,7 +30,7 @@ fn basic() {
     // it should be saved in the cache
     assert_eq!(
         cache_db
-            .get_full_journey_cache_or_compute(&LayerKind::JounreyKind(journey_kind), || panic!(
+            .get_full_journey_cache_or_compute(&LayerKind::JourneyKind(journey_kind), || panic!(
                 "Should not be called"
             ))
             .unwrap(),
@@ -41,7 +41,7 @@ fn basic() {
     cache_db.clear_all_cache().unwrap();
     assert_eq!(
         cache_db
-            .get_full_journey_cache_or_compute(&LayerKind::JounreyKind(journey_kind), || {
+            .get_full_journey_cache_or_compute(&LayerKind::JourneyKind(journey_kind), || {
                 Ok(JourneyBitmap::new())
             })
             .unwrap(),
@@ -53,14 +53,14 @@ fn basic() {
 
     // no-op since there is no cache
     cache_db
-        .update_full_journey_cache_if_exists(&LayerKind::JounreyKind(journey_kind_flight), |_| {
+        .update_full_journey_cache_if_exists(&LayerKind::JourneyKind(journey_kind_flight), |_| {
             panic!("Should not be called")
         })
         .unwrap();
 
     assert_eq!(
         cache_db
-            .get_full_journey_cache_or_compute(&LayerKind::JounreyKind(journey_kind_flight), || Ok(
+            .get_full_journey_cache_or_compute(&LayerKind::JourneyKind(journey_kind_flight), || Ok(
                 journey_bitmap_flight.clone()
             ))
             .unwrap(),
