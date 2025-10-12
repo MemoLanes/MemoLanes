@@ -4,10 +4,16 @@ use chrono::{DateTime, Local, NaiveDate, Utc};
 
 use crate::{gps_processor::Point, journey_vector::TrackPoint};
 
+// TODO: we don't have test for this because mocking timezone in test is annoying.
+
+// TODO: I think using `chrono::Local` might be problematic. I think on mobile
+// devices, the timezone might change as the user travels. We should probably
+// use the flutter side to get the current timezone and pass it in here.
+
 // Tools for picking the journey date based on a series of GPS data with timestamp.
 // We track the two furthest points of each day and use the distance between
 // to measure how "big" each day is. The we pick the latest day after filtering out
-// days that are less than half of the biggest day.
+// days that are too small.
 pub struct JourneyDatePicker {
     furthest_point_tracker_per_day: HashMap<NaiveDate, FurthestPointTracker>,
     min_time: Option<DateTime<Utc>>,
@@ -80,6 +86,8 @@ impl FurthestPointTracker {
     }
 
     fn update(&mut self, point: &TrackPoint) {
+        // TODO: This doesn't work super well for points around antimeridian.
+        // But should be good enough for most use cases.
         self.lat_min = self.lat_min.min(point.latitude);
         self.lat_max = self.lat_max.max(point.latitude);
         self.lon_min = self.lon_min.min(point.longitude);
