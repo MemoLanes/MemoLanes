@@ -188,7 +188,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
-  DateTime? _lastPressedAt;
+  DateTime? _lastExitPopAt;
 
   @override
   void initState() {
@@ -204,16 +204,17 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  Future<void> _handleWillPop() async {
+  Future<void> _handleOnPop() async {
     if (_selectedIndex != 0) {
       setState(() => _selectedIndex = 0);
       return;
     }
 
     final now = DateTime.now();
-    if (_lastPressedAt == null ||
-        now.difference(_lastPressedAt!) > const Duration(seconds: 2)) {
-      _lastPressedAt = now;
+    final lastPop = _lastExitPopAt;
+    if (lastPop == null ||
+        now.difference(lastPop) > const Duration(seconds: 2)) {
+      _lastExitPopAt = now;
       Fluttertoast.showToast(msg: tr("home.double_back_exit"));
       return;
     }
@@ -226,7 +227,7 @@ class _MyHomePageState extends State<MyHomePage> {
       canPop: false,
       onPopInvokedWithResult: (bool didPop, dynamic result) async {
         if (didPop) return;
-        await _handleWillPop();
+        await _handleOnPop();
       },
       child: Scaffold(
         body: Stack(
