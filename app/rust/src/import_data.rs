@@ -247,7 +247,7 @@ pub fn load_kml(file_path: &str) -> Result<Vec<Vec<RawData>>> {
 
 /// 2bulu generated KML contains HTML tags in <description>, which breaks the KML parser.
 /// So let's extract the description early and remove it from the original KML before parsing.
-pub fn read_kml_description_and_remove(xml: &str) -> Result<(String, Vec<String>)> {
+fn read_kml_description_and_remove(xml: &str) -> Result<(String, Vec<String>)> {
     let mut reader = Reader::from_str(xml);
     reader.config_mut().trim_text(true);
     let mut writer = Writer::new(Vec::new());
