@@ -243,6 +243,11 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   Future<void> _injectApiEndpoint() async {
     final accessKey = api.getMapboxAccessToken();
+
+    // TODO: we may let user to choose base map providers.
+    final mapStyle = "https://tiles.openfreemap.org/styles/liberty";
+    // final mapStyle = "mapbox://styles/mapbox/streets-v12";
+
     final journeyId = widget.mapRendererProxy.getJourneyId();
 
     debugPrint('Injecting access key: $accessKey');
@@ -262,7 +267,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       window.EXTERNAL_PARAMS = {
         cgi_endpoint: "flutter://TileProviderChannel",
         journey_id: "$journeyId",
-        render: "gl",
+        render: "canvas",
+        map_style: "$mapStyle",
         access_key: "$accessKey",
         lng: $lngParam,
         lat: $latParam,
