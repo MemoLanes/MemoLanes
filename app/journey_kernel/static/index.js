@@ -58,6 +58,8 @@ let currentJourneyTileProvider;
 let pollingInterval; // Store reference to polling interval
 let locationMarker = null;
 let currentRenderingMode = "canvas"; // Default rendering mode
+// TODO: This default is only used for testing with `rust/examples`, which is
+// a little weird.
 let currentMapStyle = "https://tiles.openfreemap.org/styles/liberty";
 let transformRequest = (url, resourceType) => {
   return { url };

@@ -1,6 +1,7 @@
 use super::internal_server::{handle_tile_range_query, Registry, Request, TileRangeQuery};
 use super::MapRenderer;
 use crate::api::api::get_default_camera_option_from_journey_bitmap;
+use crate::build_info;
 use crate::renderer::internal_server::MapRendererToken;
 use actix_web::{
     dev::ServerHandle, http::Method, web, App, HttpResponse, HttpResponseBuilder, HttpServer,
@@ -243,14 +244,14 @@ impl MapServer {
                 camera.lng,
                 camera.lat,
                 camera.zoom,
-                env!("MAPBOX-ACCESS-TOKEN")
+                build_info::MAPBOX_ACCESS_TOKEN.unwrap_or("")
             ),
             None => format!(
                 "http://{}:{}/#journey_id={}&debug=true&access_key={}",
                 server_info.host,
                 server_info.port,
                 token.journey_id(),
-                env!("MAPBOX-ACCESS-TOKEN")
+                build_info::MAPBOX_ACCESS_TOKEN.unwrap_or("")
             ),
         }
     }
@@ -276,7 +277,7 @@ impl MapServer {
                 camera.lng,
                 camera.lat,
                 camera.zoom,
-                env!("MAPBOX-ACCESS-TOKEN")
+                build_info::MAPBOX_ACCESS_TOKEN.unwrap_or(""),
             ),
             None => format!(
                 "file://{}/journey_kernel/index.html#cgi_endpoint=http%3A%2F%2F{}%3A{}&journey_id={}&debug=true&access_key={}", 
@@ -284,7 +285,7 @@ impl MapServer {
                 server_info.host,
                 server_info.port,
                 token.journey_id(),
-                env!("MAPBOX-ACCESS-TOKEN")
+                build_info::MAPBOX_ACCESS_TOKEN.unwrap_or(""),
             )
         }
     }

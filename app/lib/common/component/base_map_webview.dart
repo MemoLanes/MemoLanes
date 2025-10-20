@@ -269,7 +269,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         journey_id: "$journeyId",
         render: "canvas",
         map_style: "$mapStyle",
-        access_key: "$accessKey",
+        access_key: ${accessKey != null ? "\"$accessKey\"" : "null"},
         lng: $lngParam,
         lat: $latParam,
         zoom: $zoomParam,

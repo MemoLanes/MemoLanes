@@ -623,6 +623,6 @@ pub fn get_registry() -> Arc<Mutex<Registry>> {
 }
 
 #[frb(sync)]
-pub fn get_mapbox_access_token() -> String {
-    env!("MAPBOX-ACCESS-TOKEN").to_string()
+pub fn get_mapbox_access_token() -> Option<String> {
+    build_info::MAPBOX_ACCESS_TOKEN.map(|x| x.to_string())
 }
