@@ -196,7 +196,7 @@ async function trySetup() {
     }
   }, 8 * 1000);
 
-  map.on("style.load", async (e) => {
+  map.on("load", async (e) => {
     // Create a DOM element for the marker
     const el = document.createElement("div");
     el.className = "location-marker";
