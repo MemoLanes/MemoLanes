@@ -72,12 +72,11 @@ There are two main components of this app: 1. A rust library for the core logic;
 5. (If you are downgrading from a full setup, delete `src/frb_generated.rs` if it exists).
 6. Run relevant cargo command to make sure the setup is completed (e.g. `cargo check`, `cargo test`).
 
-### 3. Fultter Setup
+### 2. Fultter Setup
 1. Install [Flutter](https://docs.flutter.dev/get-started/install).
-2. Install [flutter_rust_bridge](https://cjycode.com/flutter_rust_bridge/quickstart). It is recommnad install the specific version that this project is using by `cargo install 'flutter_rust_bridge_codegen@2.11.1'`. The real version can be found using `just get-frb-version` or looking at `app/pubspec.yaml`.
+2. Install [flutter_rust_bridge](https://cjycode.com/flutter_rust_bridge/quickstart). It is recommend install the specific version that this project is using by `cargo install 'flutter_rust_bridge_codegen@2.11.1'`. The real version can be found using `just get-frb-version` or looking at `app/pubspec.yaml`.
 3. Install [yarn](https://yarnpkg.com/getting-started/install). Go to `/app/journey_kernel` folder. Install node packages by `yarn install`.
 4. Go to `/app` folder.
-5. Create `.env` file and put the Mapbox token in it. An example can be found in `.env.example`.
-6. Running pre-build via `just pre-build`. Note that this need to be reran every time rust api or journey kernel is updated.
-7. Start the app via `flutter run`.
-8. `just` provides many useful commnads, e.g. `just format`, `just check`, `just test`. Consider run those before opening/updating PRs.
+5. Running pre-build via `just pre-build`. Note that this need to be reran every time rust api or journey kernel is updated.
+6. Start the app via `flutter run`.
+7. `just` provides many useful commands, e.g. `just format`, `just check`, `just test`. Consider run those before opening/updating PRs.
