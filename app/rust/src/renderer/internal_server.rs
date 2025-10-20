@@ -154,7 +154,7 @@ mod tests {
 
         // Verify response structure
         assert_eq!(response.request_id, "test-123");
-        assert_eq!(response.success, true);
+        assert!(response.success);
         assert!(response.data.is_some());
         assert!(response.error.is_none());
 
@@ -208,7 +208,7 @@ mod tests {
             "requestId": "test-version-123",
             "query": "tile_range",
             "payload": {{
-                "id": "{}",
+                "id": "{id}",
                 "x": 0,
                 "y": 0,
                 "z": 0,
@@ -217,8 +217,7 @@ mod tests {
                 "buffer_size_power": 6,
                 "cached_version": null
             }}
-        }}"#,
-            id
+        }}"#
         );
 
         let request = Request::parse(&request_json).expect("Failed to parse request");
@@ -226,7 +225,7 @@ mod tests {
 
         // Verify response structure
         assert_eq!(response.request_id, "test-version-123");
-        assert_eq!(response.success, true);
+        assert!(response.success);
         assert!(response.data.is_some());
         assert!(response.error.is_none());
 
@@ -335,7 +334,7 @@ pub fn handle_tile_range_query(
         query.buffer_size_power,
     ) {
         Ok(buffer) => buffer,
-        Err(e) => return Err(format!("Failed to generate tile buffer: {}", e)),
+        Err(e) => return Err(format!("Failed to generate tile buffer: {e}")),
     };
 
     // Convert tile buffer to bytes and create response
@@ -352,7 +351,7 @@ pub fn handle_tile_range_query(
             };
             Ok(response_data)
         }
-        Err(e) => Err(format!("Failed to serialize tile buffer: {}", e)),
+        Err(e) => Err(format!("Failed to serialize tile buffer: {e}")),
     }
 }
 
@@ -377,7 +376,7 @@ impl Request {
                         request_id: self.request_id.clone(),
                         success: false,
                         data: None,
-                        error: Some(format!("Failed to serialize response: {}", e)),
+                        error: Some(format!("Failed to serialize response: {e}")),
                     },
                 },
                 Err(e) => RequestResponse {
@@ -420,8 +419,7 @@ pub fn generate_random_data(size: u64) -> Result<Vec<u8>, String> {
 
     if size > max_size {
         return Err(format!(
-            "Size too large. Maximum allowed: {} bytes (10MB)",
-            max_size
+            "Size too large. Maximum allowed: {max_size} bytes (10MB)"
         ));
     }
 

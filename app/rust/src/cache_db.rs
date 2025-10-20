@@ -35,9 +35,7 @@ fn open_db(cache_dir: &str, file_name: &str) -> Result<Connection> {
         Ordering::Equal => (),
         Ordering::Greater => {
             bail!(
-                "version too high: current version = {}, target_version = {}",
-                version,
-                target_version
+                "version too high: current version = {version}, target_version = {target_version}"
             );
         }
         Ordering::Less => {
@@ -67,14 +65,14 @@ pub struct CacheDb {
 #[derive(Eq, Hash, Clone, Copy, Debug, PartialEq)]
 pub enum LayerKind {
     All,
-    JounreyKind(JourneyKind),
+    JourneyKind(JourneyKind),
 }
 
 impl LayerKind {
     fn to_sql(self) -> &'static str {
         match self {
             LayerKind::All => "All",
-            LayerKind::JounreyKind(kind) => match kind {
+            LayerKind::JourneyKind(kind) => match kind {
                 JourneyKind::DefaultKind => "Default",
                 JourneyKind::Flight => "Flight",
             },
