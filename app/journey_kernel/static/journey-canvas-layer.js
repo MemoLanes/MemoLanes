@@ -67,11 +67,13 @@ export class JourneyCanvasLayer {
     let x = x_raw;
     let w = w_raw;
 
-    if (w> (1<<z))  {
+    if (w > 1 << z) {
       x = 0;
-      w = (1<<z);
+      w = 1 << z;
     }
-    console.log(`redrawing canvas ${x_raw}, ${y}, ${w_raw}, ${h}, ${z}, adjusted x: ${x}, w: ${w}`);
+    console.log(
+      `redrawing canvas ${x_raw}, ${y}, ${w_raw}, ${h}, ${z}, adjusted x: ${x}, w: ${w}`,
+    );
 
     const [left, top, right, bottom] = [x, y, x + w, y + h];
 

@@ -171,9 +171,9 @@ async function trySetup() {
     zoom: zoom,
     maxZoom: 14,
     style: {
-      "version": 8,
-      "sources": {},
-      "layers": []
+      version: 8,
+      sources: {},
+      layers: [],
     },
     // TODO: maplibre brings more canvas settings, we may fine tune them later
     canvasContextAttributes: {
@@ -234,17 +234,22 @@ async function trySetup() {
 
     // Create and initialize journey layer with selected rendering mode
     currentJourneyLayer = switchRenderingLayer(map, currentRenderingMode);
-    map.on('styledata', () => {
+    map.on("styledata", () => {
       console.log("styledata event received");
       const orderedLayerIds = map.getLayersOrder();
       const customIndex = orderedLayerIds.indexOf("memolanes-journey-layer");
       if (customIndex === -1) {
         currentJourneyLayer = switchRenderingLayer(map, currentRenderingMode);
-      } else if (customIndex !== -1 && customIndex !== orderedLayerIds.length - 1) {
-          console.log("memolanes-journey-layer is not the most front one, move it to the front");
-          map.moveLayer("memolanes-journey-layer");
+      } else if (
+        customIndex !== -1 &&
+        customIndex !== orderedLayerIds.length - 1
+      ) {
+        console.log(
+          "memolanes-journey-layer is not the most front one, move it to the front",
+        );
+        map.moveLayer("memolanes-journey-layer");
       }
-    });  
+    });
 
     // Set up polling for updates
     pollingInterval = setInterval(
