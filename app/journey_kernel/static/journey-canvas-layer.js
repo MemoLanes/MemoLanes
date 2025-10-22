@@ -59,12 +59,20 @@ export class JourneyCanvasLayer {
     };
   }
 
-  redrawCanvas(x, y, w, h, z, bufferSizePower, tileBuffer) {
+  redrawCanvas(x_raw, y, w_raw, h, z, bufferSizePower, tileBuffer) {
     if (!tileBuffer) {
       return;
     }
 
-    console.log(`redrawing canvas ${x}, ${y}, ${w}, ${h}, ${z}`);
+    let x = x_raw;
+    let w = w_raw;
+
+    if (w> (1<<z))  {
+      x = 0;
+      w = (1<<z);
+    }
+    console.log(`redrawing canvas ${x_raw}, ${y}, ${w_raw}, ${h}, ${z}, adjusted x: ${x}, w: ${w}`);
+
     const [left, top, right, bottom] = [x, y, x + w, y + h];
 
     const tileSize = Math.pow(2, bufferSizePower);
