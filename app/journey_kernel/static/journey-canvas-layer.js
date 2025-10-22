@@ -31,7 +31,7 @@ export class JourneyCanvasLayer {
   initialize() {
     this.map.addSource("main-canvas-source", this.getSourceConfig());
     this.map.addLayer({
-      id: "main-canvas-layer",
+      id: "memolanes-journey-layer",
       source: "main-canvas-source",
       type: "raster",
       paint: {
@@ -142,8 +142,8 @@ export class JourneyCanvasLayer {
   }
 
   remove() {
-    if (this.map.getLayer("main-canvas-layer")) {
-      this.map.removeLayer("main-canvas-layer");
+    if (this.map.getLayer("memolanes-journey-layer")) {
+      this.map.removeLayer("memolanes-journey-layer");
     }
 
     if (this.map.getSource("main-canvas-source")) {

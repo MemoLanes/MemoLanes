@@ -170,6 +170,11 @@ async function trySetup() {
     center: [lng, lat],
     zoom: zoom,
     maxZoom: 14,
+    style: {
+      "version": 8,
+      "sources": {},
+      "layers": []
+    },
     // TODO: maplibre brings more canvas settings, we may fine tune them later
     canvasContextAttributes: {
       antialias: true,
@@ -182,21 +187,8 @@ async function trySetup() {
     },
   });
 
-  // For V12 Styles you'll also need to add
-  map.setStyle(currentMapStyle, {
-    transformStyle: transformMapboxStyle,
-  });
-
   map.dragRotate.disable();
   map.touchZoomRotate.disableRotation();
-
-  // In case mapbox completely fails to load (i.e. app running on mainland China
-  // iPhone does not have network access by default)
-  setTimeout(() => {
-    if (!map || !map.isStyleLoaded()) {
-      window.location.reload(true);
-    }
-  }, 8 * 1000);
 
   map.on("load", async (e) => {
     // Create a DOM element for the marker
@@ -242,6 +234,17 @@ async function trySetup() {
 
     // Create and initialize journey layer with selected rendering mode
     currentJourneyLayer = switchRenderingLayer(map, currentRenderingMode);
+    map.on('styledata', () => {
+      console.log("styledata event received");
+      const orderedLayerIds = map.getLayersOrder();
+      const customIndex = orderedLayerIds.indexOf("memolanes-journey-layer");
+      if (customIndex === -1) {
+        currentJourneyLayer = switchRenderingLayer(map, currentRenderingMode);
+      } else if (customIndex !== -1 && customIndex !== orderedLayerIds.length - 1) {
+          console.log("memolanes-journey-layer is not the most front one, move it to the front");
+          map.moveLayer("memolanes-journey-layer");
+      }
+    });  
 
     // Set up polling for updates
     pollingInterval = setInterval(
@@ -260,6 +263,23 @@ async function trySetup() {
         window.readyForDisplay.postMessage("");
       }
     }, 200);
+
+    // defer the map style initialization after memolanes layer added.
+    map.setStyle(currentMapStyle, {
+      transformStyle: transformMapboxStyle,
+    });
+
+    // In case mapbox completely fails to load (i.e. app running on mainland China
+    // iPhone does not have network access by default)
+    setInterval(() => {
+      const layerCount = map.getLayersOrder().length;
+      if (layerCount <= 1) {
+        console.log("Re-attempt to load map style");
+        map.setStyle(currentMapStyle, {
+          transformStyle: transformMapboxStyle,
+        });
+      }
+    }, 8 * 1000);
   });
 
   // Replace the simple movestart listener with dragstart
