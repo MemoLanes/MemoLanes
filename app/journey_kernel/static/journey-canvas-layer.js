@@ -67,6 +67,8 @@ export class JourneyCanvasLayer {
     let x = x_raw;
     let w = w_raw;
 
+    // when the viewpoint takes up multiple worlds, maplibre tends to render the canvas once for each worlds.
+    // therefore, we limit the tile range to be at most a world width.
     if (w > 1 << z) {
       x = 0;
       w = 1 << z;
