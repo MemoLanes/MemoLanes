@@ -9,7 +9,8 @@
     "check-format": "prettier --check \"**/*.{js,jsx,ts,tsx,html}\""
   },
   "dependencies": {
-    "mapbox-gl": "3.15.0"
+    "maplibre-gl": "^5.7.3",
+    "maplibregl-mapbox-request-transformer": "^0.0.3"
   },
   "devDependencies": {
     "@wasm-tool/wasm-pack-plugin": "^1.7.0",

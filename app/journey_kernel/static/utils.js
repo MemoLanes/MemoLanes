@@ -48,7 +48,8 @@ export function getViewportTileRange(map) {
 
   // Calculate the minimum x and y coordinates
   const x = Math.min(swX, neX);
-  const y = Math.min(neY, swY);
+  // for maplibre, the calculated y may be out of range, we need to crop is accordingly
+  const y = Math.min(Math.max(0, Math.min(neY, swY)), (1 << z) - 1);
 
   // Calculate the width and height
   const w = Math.max(1, Math.abs(neX - swX) + 1);

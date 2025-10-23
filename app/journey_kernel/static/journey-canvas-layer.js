@@ -31,7 +31,7 @@ export class JourneyCanvasLayer {
   initialize() {
     this.map.addSource("main-canvas-source", this.getSourceConfig());
     this.map.addLayer({
-      id: "main-canvas-layer",
+      id: "memolanes-journey-layer",
       source: "main-canvas-source",
       type: "raster",
       paint: {
@@ -59,16 +59,35 @@ export class JourneyCanvasLayer {
     };
   }
 
-  redrawCanvas(x, y, w, h, z, bufferSizePower, tileBuffer) {
+  redrawCanvas(x_raw, y, w_raw, h, z, bufferSizePower, tileBuffer) {
     if (!tileBuffer) {
       return;
     }
 
-    console.log(`redrawing canvas ${x}, ${y}, ${w}, ${h}, ${z}`);
+    let x = x_raw;
+    let w = w_raw;
+
+    // when the viewpoint takes up multiple worlds, maplibre tends to render the canvas once for each worlds.
+    // therefore, we limit the tile range to be at most a world width.
+    if (w > 1 << z) {
+      x = 0;
+      w = 1 << z;
+    }
+    console.log(
+      `redrawing canvas ${x_raw}, ${y}, ${w_raw}, ${h}, ${z}, adjusted x: ${x}, w: ${w}`,
+    );
+
     const [left, top, right, bottom] = [x, y, x + w, y + h];
 
     const tileSize = Math.pow(2, bufferSizePower);
-    this.canvas.width = tileSize * w;
+
+    // previously, Mapbox had a bug when rendering a square canvas of dimension width = 64 * 2^n where n = 0,1,2...,
+    // though Mapbox has solved this issue, maplibre v5.9.0 still has this issue (with no public discussion yet?).
+    // https://github.com/mapbox/mapbox-gl-js/issues/9873
+    // https://jsbin.com/godiyil/edit?html,output
+    // the below is a workaround for this issue, so that the canvas won't be square.
+    // TODO: remove the extra pixel column once the upstream solve the issue.
+    this.canvas.width = tileSize * w + 1;
     this.canvas.height = tileSize * h;
 
     const n = Math.pow(2, z);
@@ -110,10 +129,22 @@ export class JourneyCanvasLayer {
       }
     }
 
-    const nw = tileXYToLngLat([left, top], z);
-    const ne = tileXYToLngLat([right, top], z);
-    const se = tileXYToLngLat([right, bottom], z);
-    const sw = tileXYToLngLat([left, bottom], z);
+    // This is a workaround for a maplibre 5.7.3 bug (or feature).
+    //  for a map view of multi-worldview (map wrap arounds and lng may be out of -180 - 180 range),
+    //  it has a strict limit that the centor of the canvas fall into the half-open [-180, 180) range,
+    //  or equivalently, the centor's mercator coordinate x must fall in [0, 1) range.
+    //  but for our codes, in border case, the centor's mercator coordinate x may be 1.
+    //  so we multiply both left and right x by 0.999999 to make it fall into the [0, 1) range.
+    // More info can be found at the calling stack referenced below,
+    //  https://github.com/maplibre/maplibre-gl-js/blob/8895e414984a6348a1260ed986a0d2d7753367a8/src/source/image_source.ts#L228
+    //  https://github.com/maplibre/maplibre-gl-js/blob/8895e414984a6348a1260ed986a0d2d7753367a8/src/source/image_source.ts#L350
+    //  https://github.com/maplibre/maplibre-gl-js/blob/08fce0cfbf28f4da2cde60025588a8cb9323c9fe/src/source/tile_id.ts#L23
+    const almost = (x) => x * 0.999999;
+
+    const nw = tileXYToLngLat([almost(left), top], z);
+    const ne = tileXYToLngLat([almost(right), top], z);
+    const se = tileXYToLngLat([almost(right), bottom], z);
+    const sw = tileXYToLngLat([almost(left), bottom], z);
 
     const mainCanvasSource = this.map.getSource("main-canvas-source");
     mainCanvasSource?.setCoordinates([nw, ne, se, sw]);
@@ -122,8 +153,8 @@ export class JourneyCanvasLayer {
   }
 
   remove() {
-    if (this.map.getLayer("main-canvas-layer")) {
-      this.map.removeLayer("main-canvas-layer");
+    if (this.map.getLayer("memolanes-journey-layer")) {
+      this.map.removeLayer("memolanes-journey-layer");
     }
 
     if (this.map.getSource("main-canvas-source")) {

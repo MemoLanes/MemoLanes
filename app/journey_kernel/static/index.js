@@ -32,8 +32,14 @@ import { JourneyCanvasLayer } from "./journey-canvas-layer.js";
 import { JourneyTileProvider } from "./journey-tile-provider.js";
 import { DebugPanel } from "./debug-panel.js";
 import init from "../pkg/index.js";
-import mapboxgl from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
+import {
+  isMapboxURL,
+  transformMapboxUrl,
+  transformMapboxStyle,
+} from "maplibregl-mapbox-request-transformer";
+
 import "./debug-panel.css";
 
 // Available rendering layers
@@ -52,6 +58,12 @@ let currentJourneyTileProvider;
 let pollingInterval; // Store reference to polling interval
 let locationMarker = null;
 let currentRenderingMode = "canvas"; // Default rendering mode
+// TODO: This default is only used for testing with `rust/examples`, which is
+// a little weird.
+let currentMapStyle = "https://tiles.openfreemap.org/styles/liberty";
+let transformRequest = (url, resourceType) => {
+  return { url };
+};
 
 // Function to switch between rendering layers
 function switchRenderingLayer(map, renderingMode) {
@@ -86,11 +98,29 @@ async function trySetup() {
     return;
   }
 
-  if (window.EXTERNAL_PARAMS.access_key) {
-    mapboxgl.accessToken = window.EXTERNAL_PARAMS.access_key;
-  } else {
-    document.body.innerHTML = `<div style="padding: 20px; font-family: Arial, sans-serif; color: red;"><h1>TOKEN not provided</h1></div>`;
-    return;
+  if (window.EXTERNAL_PARAMS.map_style) {
+    currentMapStyle = window.EXTERNAL_PARAMS.map_style;
+
+    if (
+      typeof currentMapStyle === "string" &&
+      currentMapStyle.startsWith("mapbox://")
+    ) {
+      if (window.EXTERNAL_PARAMS.access_key) {
+        transformRequest = (url, resourceType) => {
+          if (isMapboxURL(url)) {
+            return transformMapboxUrl(
+              url,
+              resourceType,
+              window.EXTERNAL_PARAMS.access_key,
+            );
+          }
+          return { url };
+        };
+      } else {
+        document.body.innerHTML = `<div style="padding: 20px; font-family: Arial, sans-serif; color: red;"><h1>TOKEN not provided</h1></div>`;
+        return;
+      }
+    }
   }
 
   // Check if journey_id is provided
@@ -135,36 +165,41 @@ async function trySetup() {
     window.EXTERNAL_PARAMS,
   );
 
-  const map = new mapboxgl.Map({
+  const map = new maplibregl.Map({
     container: "map",
-    style: "mapbox://styles/mapbox/streets-v12",
     center: [lng, lat],
     zoom: zoom,
     maxZoom: 14,
-    antialias: true,
-    projection: "mercator",
-    pitch: 0,
+    style: {
+      version: 8,
+      sources: {},
+      layers: [],
+    },
+    // TODO: maplibre brings more canvas settings, we may fine tune them later
+    canvasContextAttributes: {
+      antialias: true,
+    },
+    transformRequest,
     pitchWithRotate: false,
     touchPitch: false,
+    attributionControl: {
+      compact: false,
+    },
   });
+
   map.dragRotate.disable();
   map.touchZoomRotate.disableRotation();
 
-  // In case mapbox completely fails to load (i.e. app running on mainland China
-  // iPhone does not have network access by default)
-  setTimeout(() => {
-    if (!map || !map.isStyleLoaded()) {
-      window.location.reload(true);
-    }
-  }, 8 * 1000);
-
-  map.on("style.load", async (e) => {
+  map.on("load", async (e) => {
     // Create a DOM element for the marker
     const el = document.createElement("div");
     el.className = "location-marker";
 
     // Create the marker but don't add it to the map yet
-    locationMarker = new mapboxgl.Marker(el);
+    // locationMarker = new maplibregl.Marker(el);
+    locationMarker = new maplibregl.Marker({
+      element: el,
+    });
 
     // Add method to window object to update marker position
     window.updateLocationMarker = function (
@@ -199,6 +234,22 @@ async function trySetup() {
 
     // Create and initialize journey layer with selected rendering mode
     currentJourneyLayer = switchRenderingLayer(map, currentRenderingMode);
+    map.on("styledata", () => {
+      console.log("styledata event received");
+      const orderedLayerIds = map.getLayersOrder();
+      const customIndex = orderedLayerIds.indexOf("memolanes-journey-layer");
+      if (customIndex === -1) {
+        currentJourneyLayer = switchRenderingLayer(map, currentRenderingMode);
+      } else if (
+        customIndex !== -1 &&
+        customIndex !== orderedLayerIds.length - 1
+      ) {
+        console.log(
+          "memolanes-journey-layer is not the most front one, move it to the front",
+        );
+        map.moveLayer("memolanes-journey-layer");
+      }
+    });
 
     // Set up polling for updates
     pollingInterval = setInterval(
@@ -217,6 +268,23 @@ async function trySetup() {
         window.readyForDisplay.postMessage("");
       }
     }, 200);
+
+    // defer the map style initialization after memolanes layer added.
+    map.setStyle(currentMapStyle, {
+      transformStyle: transformMapboxStyle,
+    });
+
+    // In case mapbox completely fails to load (i.e. app running on mainland China
+    // iPhone does not have network access by default)
+    setInterval(() => {
+      const layerCount = map.getLayersOrder().length;
+      if (layerCount <= 1) {
+        console.log("Re-attempt to load map style");
+        map.setStyle(currentMapStyle, {
+          transformStyle: transformMapboxStyle,
+        });
+      }
+    }, 8 * 1000);
   });
 
   // Replace the simple movestart listener with dragstart
