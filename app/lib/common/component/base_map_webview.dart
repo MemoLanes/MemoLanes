@@ -250,8 +250,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
     final journeyId = widget.mapRendererProxy.getJourneyId();
 
-    debugPrint('Injecting access key: $accessKey');
-
     // Get map view coordinates
     final mapView = _currentRoughMapView;
     final lngParam = mapView?.lng.toString() ?? 'null';
