@@ -78,7 +78,7 @@ export class JourneyCanvasLayer {
     const [left, top, right, bottom] = [x, y, x + w, y + h];
 
     const tileSize = Math.pow(2, bufferSizePower);
-    
+
     // previously, Mapbox had a bug when rendering a square canvas of dimension width = 64 * 2^n where n = 0,1,2...,
     // though Mapbox has solved this issue, maplibre v5.9.0 still has this issue (with no public discussion yet?).
     // https://github.com/mapbox/mapbox-gl-js/issues/9873
