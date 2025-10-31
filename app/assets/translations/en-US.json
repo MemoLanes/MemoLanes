@@ -67,6 +67,11 @@
     "default": "Default",
     "flight": "Flight"
   },
+  "map_layer": {
+    "current": "Current",
+    "land": "Land",
+    "flight": "Flight"
+  },
   "preprocessor": {
     "generic": "Generic",
     "flightTrack": "Flight Track",

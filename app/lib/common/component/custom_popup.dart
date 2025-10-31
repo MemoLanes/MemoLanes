@@ -60,21 +60,21 @@ class CustomPopupState extends State<CustomPopup> {
 
     Navigator.of(context, rootNavigator: widget.rootNavigator)
         .push(
-      _PopupRoute(
-        targetRect: offset & renderBox.paintBounds.size,
-        backgroundColor: widget.backgroundColor,
-        barriersColor: widget.barrierColor,
-        contentPadding: widget.contentPadding,
-        contentRadius: widget.contentRadius,
-        contentDecoration: widget.contentDecoration,
-        position: widget.position,
-        horizontalOffset: widget.horizontalOffset,
-        verticalOffset: widget.verticalOffset,
-        animationDuration: widget.animationDuration,
-        animationCurve: widget.animationCurve,
-        child: widget.content,
-      ),
-    )
+          _PopupRoute(
+            targetRect: offset & renderBox.paintBounds.size,
+            backgroundColor: widget.backgroundColor,
+            barriersColor: widget.barrierColor,
+            contentPadding: widget.contentPadding,
+            contentRadius: widget.contentRadius,
+            contentDecoration: widget.contentDecoration,
+            position: widget.position,
+            horizontalOffset: widget.horizontalOffset,
+            verticalOffset: widget.verticalOffset,
+            animationDuration: widget.animationDuration,
+            animationCurve: widget.animationCurve,
+            child: widget.content,
+          ),
+        )
         .then((value) => widget.onAfterPopup?.call());
   }
 
@@ -197,28 +197,35 @@ class _PopupRoute extends PopupRoute<void> {
   void _calculateChildOffset(Rect? childRect) {
     if (childRect == null) return;
 
-    final screenSize = MediaQueryData.fromWindow(WidgetsBinding.instance.window).size;
+    final screenSize =
+        MediaQueryData.fromView(WidgetsBinding.instance.window).size;
 
     switch (position) {
       case PopupPosition.top:
         _top = null;
         _bottom = screenSize.height - targetRect.top + (verticalOffset ?? 0);
         _scaleAlignDy = 1;
-        _left = targetRect.center.dx - childRect.width / 2 + (horizontalOffset ?? 0);
+        _left = targetRect.center.dx -
+            childRect.width / 2 +
+            (horizontalOffset ?? 0);
         break;
       case PopupPosition.bottom:
         _top = targetRect.bottom + (verticalOffset ?? 0);
         _scaleAlignDy = 0;
-        _left = targetRect.center.dx - childRect.width / 2 + (horizontalOffset ?? 0);
+        _left = targetRect.center.dx -
+            childRect.width / 2 +
+            (horizontalOffset ?? 0);
         break;
       case PopupPosition.left:
         _left = targetRect.left - childRect.width + (horizontalOffset ?? 0);
-        _top = targetRect.center.dy - childRect.height / 2 + (verticalOffset ?? 0);
+        _top =
+            targetRect.center.dy - childRect.height / 2 + (verticalOffset ?? 0);
         _scaleAlignDx = 1;
         break;
       case PopupPosition.right:
         _left = targetRect.right + (horizontalOffset ?? 0);
-        _top = targetRect.center.dy - childRect.height / 2 + (verticalOffset ?? 0);
+        _top =
+            targetRect.center.dy - childRect.height / 2 + (verticalOffset ?? 0);
         _scaleAlignDx = 0;
         break;
       case PopupPosition.auto:
@@ -229,7 +236,9 @@ class _PopupRoute extends PopupRoute<void> {
           _bottom = screenSize.height - targetRect.top + (verticalOffset ?? 0);
           _scaleAlignDy = 1;
         }
-        _left = targetRect.center.dx - childRect.width / 2 + (horizontalOffset ?? 0);
+        _left = targetRect.center.dx -
+            childRect.width / 2 +
+            (horizontalOffset ?? 0);
         break;
     }
   }
@@ -252,7 +261,8 @@ class _PopupRoute extends PopupRoute<void> {
       child: child,
     );
 
-    final curvedAnimation = CurvedAnimation(parent: animation, curve: animationCurve);
+    final curvedAnimation =
+        CurvedAnimation(parent: animation, curve: animationCurve);
 
     return Stack(
       children: [

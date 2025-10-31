@@ -67,6 +67,11 @@
     "default": "默认",
     "flight": "航迹"
   },
+  "map_layer": {
+    "current": "当前",
+    "land": "陆地",
+    "flight": "航迹"
+  },
   "preprocessor": {
     "generic": "通用",
     "flightTrack": "航迹",
