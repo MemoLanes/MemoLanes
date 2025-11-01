@@ -91,6 +91,68 @@ function switchRenderingLayer(map, renderingMode) {
   return currentJourneyLayer;
 }
 
+function tryNotifyFlutterReady() {
+  if (window.readyForDisplay) {
+    window.readyForDisplay.postMessage("");
+  }
+}
+
+// Function to check WebView version compatibility for Android and iOS
+function checkWebViewVersion() {
+  const ua = navigator.userAgent;
+
+  // Check if it's Android
+  const isAndroid = /Android/i.test(ua);
+  if (isAndroid) {
+    // Extract Chrome version (WebView uses Chrome version)
+    const chromeMatch = ua.match(/Chrome\/(\d+)\.(\d+)\.(\d+)/);
+    if (!chromeMatch) {
+      return { compatible: true }; // Can't determine version, allow to proceed
+    }
+
+    const majorVersion = parseInt(chromeMatch[1], 10);
+
+    // Check if version is greater or equal to 96
+    if (majorVersion <= 95) {
+      return {
+        compatible: false,
+        message: "The system's WebView version is not compatible",
+        detail:
+          "Please update your Android System WebView to version 96 or higher.",
+      };
+    }
+
+    return { compatible: true };
+  }
+
+  // Check if it's iOS
+  const isIOS = /iPhone|iPad|iPod/i.test(ua);
+  if (isIOS) {
+    // Extract iOS version (format: "OS 15_1" or "OS 15_1_0")
+    const iosMatch = ua.match(/OS (\d+)_(\d+)(?:_(\d+))?/);
+    if (!iosMatch) {
+      return { compatible: true }; // Can't determine version, allow to proceed
+    }
+
+    const majorVersion = parseInt(iosMatch[1], 10);
+    const minorVersion = parseInt(iosMatch[2], 10);
+
+    // Check if version is greater than or equal to 15.1
+    if (majorVersion < 15 || (majorVersion === 15 && minorVersion < 1)) {
+      return {
+        compatible: false,
+        message: "The system's iOS version is not compatible",
+        detail: "Please update your iOS to version 15.1 or higher.",
+      };
+    }
+
+    return { compatible: true };
+  }
+
+  // Not Android or iOS, no check needed
+  return { compatible: true };
+}
+
 async function trySetup() {
   console.log(`parse external params`, window.EXTERNAL_PARAMS);
   if (!window.EXTERNAL_PARAMS.cgi_endpoint) {
@@ -118,6 +180,7 @@ async function trySetup() {
         };
       } else {
         document.body.innerHTML = `<div style="padding: 20px; font-family: Arial, sans-serif; color: red;"><h1>TOKEN not provided</h1></div>`;
+        tryNotifyFlutterReady();
         return;
       }
     }
@@ -126,6 +189,7 @@ async function trySetup() {
   // Check if journey_id is provided
   if (!window.EXTERNAL_PARAMS.journey_id) {
     document.body.innerHTML = `<div style="padding: 20px; font-family: Arial, sans-serif; color: red;"><h1>Journey ID not provided</h1></div>`;
+    tryNotifyFlutterReady();
     return;
   }
 
@@ -264,9 +328,7 @@ async function trySetup() {
 
     // give the map a little time to render before notifying Flutter
     setTimeout(() => {
-      if (window.readyForDisplay) {
-        window.readyForDisplay.postMessage("");
-      }
+      tryNotifyFlutterReady();
     }, 200);
 
     // defer the map style initialization after memolanes layer added.
@@ -380,6 +442,14 @@ async function trySetup() {
 }
 
 window.trySetup = trySetup;
+
+// Check WebView version compatibility for Android and iOS (before wasm initialization)
+const versionCheck = checkWebViewVersion();
+if (!versionCheck.compatible) {
+  document.body.innerHTML = `<div style="padding: 20px; font-family: Arial, sans-serif; color: red;"><h1>${versionCheck.message}</h1><p>${versionCheck.detail}</p></div>`;
+  tryNotifyFlutterReady();
+  throw new Error("Incompatible WebView version - stopping JS execution.");
+}
 
 // Ensure WASM module is initialized before using its exports downstream
 init()
