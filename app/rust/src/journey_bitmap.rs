@@ -5,6 +5,7 @@ use std::{
     mem::take,
     ops::{BitAnd, BitOr, Not},
 };
+use bitvec::prelude::*;
 
 pub const TILE_WIDTH_OFFSET: i16 = 7;
 pub const MAP_WIDTH_OFFSET: i16 = 9;
@@ -13,6 +14,7 @@ pub const TILE_WIDTH: i64 = 1 << TILE_WIDTH_OFFSET;
 pub const BITMAP_WIDTH_OFFSET: i16 = 6;
 pub const BITMAP_WIDTH: i64 = 1 << BITMAP_WIDTH_OFFSET;
 pub const BITMAP_SIZE: usize = (BITMAP_WIDTH * BITMAP_WIDTH / 8) as usize;
+pub const MIPMAP_BIT_SIZE: usize = 1024 + 256 + 64 + 16 + 4 + 2 + 1;
 const ALL_OFFSET: i16 = TILE_WIDTH_OFFSET + BITMAP_WIDTH_OFFSET;
 
 // we have 512*512 tiles, 128*128 blocks and a single block contains
@@ -183,6 +185,7 @@ impl JourneyBitmap {
                                     for i in 0..other_block.data.len() {
                                         self_block.data[i] =
                                             self_block.data[i].bitor(other_block.data[i]);
+                                        self_block.mipmap = None;
                                     }
                                 }
                             },
@@ -203,6 +206,7 @@ impl JourneyBitmap {
                             if let Some(block) = &mut tile.blocks[i] {
                                 for i in 0..other_block.data.len() {
                                     block.data[i] = block.data[i].bitand(other_block.data[i].not());
+                                    block.mipmap = None;
                                 }
                                 if block.is_empty() {
                                     tile.blocks[i] = None;
@@ -231,6 +235,7 @@ impl JourneyBitmap {
                                 if let Some(block) = &mut tile.blocks[i] {
                                     for i in 0..other_block.data.len() {
                                         block.data[i] = block.data[i].bitand(other_block.data[i]);
+                                        block.mipmap = None;
                                     }
                                     if block.is_empty() {
                                         tile.blocks[i] = None;
@@ -313,6 +318,14 @@ impl Tile {
             block
                 .as_ref()
                 .map(|block| (BlockKey::from_index(i), block.as_ref()))
+        })
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (BlockKey, &mut Block)> {
+        self.blocks.iter_mut().enumerate().filter_map(|(i, block)| {
+            block
+                .as_mut()
+                .map(|block| (BlockKey::from_index(i), block.as_mut()))
         })
     }
 
@@ -429,12 +442,14 @@ impl Tile {
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Block {
     pub data: [u8; BITMAP_SIZE],
+    pub mipmap: Option<BitArr!(for MIPMAP_BIT_SIZE, in u8, Msb0)>,
 }
 
 impl Default for Block {
     fn default() -> Self {
         Self {
             data: [0; BITMAP_SIZE],
+            mipmap: None,
         }
     }
 }
@@ -445,7 +460,7 @@ impl Block {
     }
 
     pub fn new_with_data(data: [u8; BITMAP_SIZE]) -> Self {
-        Self { data }
+        Self { data, mipmap: None }
     }
 
     fn is_empty(&self) -> bool {
@@ -466,6 +481,95 @@ impl Block {
         let i = (x / 8) as usize;
         let j = (y) as usize;
         (self.data[i + j * 8] & (1 << bit_offset)) != 0
+    }
+
+    /// Regenerates all mipmap levels from the original 64x64 bitmap
+    pub fn regenerate_mipmaps(&mut self) {
+        // Create a new bitarray for mipmaps (only mipmap levels, not including original data)
+        let mut mipmap = bitarr![u8, Msb0; 0; MIPMAP_BIT_SIZE];
+        
+        let mut mipmap_offset = 0;
+        
+        // Generate each mipmap level: 32x32, 16x16, 8x8, 4x4, 2x2, 1x1
+        let mipmap_levels = [32, 16, 8, 4, 2, 1];
+        
+        let mut src_offset: Option<usize> = None; // None means read from original data
+        let mut src_size = 64;
+        
+        for dst_dim in mipmap_levels {
+            // Downsample from src_size x src_size to dst_dim x dst_dim
+            for dst_y in 0..dst_dim {
+                for dst_x in 0..dst_dim {
+                    // Check 2x2 block in source
+                    let src_x = dst_x * 2;
+                    let src_y = dst_y * 2;
+                    
+                    // OR the 4 pixels together (if any is set, result is set)
+                    let bit = if let Some(offset) = src_offset {
+                        // Read from previous mipmap level
+                        let index1 = offset + src_y * src_size + src_x;
+                        let index2 = offset + src_y * src_size + (src_x + 1);
+                        let index3 = offset + (src_y + 1) * src_size + src_x;
+                        let index4 = offset + (src_y + 1) * src_size + (src_x + 1);
+                        mipmap[index1] || mipmap[index2] || mipmap[index3] || mipmap[index4]
+                    } else {
+                        // Read from original data (first level, downsample from 64x64)
+                        self.is_visited(src_x as u8, src_y as u8)
+                            || self.is_visited((src_x + 1) as u8, src_y as u8)
+                            || self.is_visited(src_x as u8, (src_y + 1) as u8)
+                            || self.is_visited((src_x + 1) as u8, (src_y + 1) as u8)
+                    };
+                    
+                    // Set the bit in the mipmap
+                    let dst_index = mipmap_offset + dst_y * dst_dim + dst_x;
+                    mipmap.set(dst_index, bit);
+                }
+            }
+            
+            // Move to next level
+            src_offset = Some(mipmap_offset);
+            src_size = dst_dim;
+            mipmap_offset += dst_dim * dst_dim;
+        }
+        
+        self.mipmap = Some(mipmap);
+    }
+
+    /// Get a bit from mipmap level z at position (x, y)
+    /// z=0: 1x1 level (x and y must be 0)
+    /// z=1: 2x2 level (x, y ∈ [0, 1])
+    /// z=2: 4x4 level (x, y ∈ [0, 3])
+    /// ...
+    /// z=5: 32x32 level (x, y ∈ [0, 31])
+    /// z=6: 64x64 level (x, y ∈ [0, 63]) - the original bitmap in data field
+    pub fn get_at_level(&self, x: usize, y: usize, z: usize) -> Option<bool> {
+        let size = 1 << z; // 2^z: z=0 -> 1, z=1 -> 2, z=2 -> 4, ..., z=6 -> 64
+        
+        // Check bounds
+        if x >= size || y >= size {
+            return None;
+        }
+        
+        // Special case: z=6 reads from original data
+        if z == 6 {
+            return Some(self.is_visited(x as u8, y as u8));
+        }
+        
+        // For z=0 to z=5, read from mipmap if it exists
+        // Note: Block2's mipmap does NOT include the original 64x64 data
+        let offset = match z {
+            0 => 1024 + 256 + 64 + 16 + 4,   // 1x1 at bit 1364
+            1 => 1024 + 256 + 64 + 16,   // 2x2 at bit 1360
+            2 => 1024 + 256 + 64,   // 4x4 at bit 1344
+            3 => 1024 + 256,   // 8x8 at bit 1280
+            4 => 1024,   // 16x16 at bit 1024
+            5 => 0,      // 32x32 at bit 0
+            _ => return None,
+        };
+        
+        let mipmap = self.mipmap.as_ref()?;
+        let index = offset + y * size + x;
+        Some(mipmap[index])
     }
 
     fn draw_width_x(&mut self, x: u8, y: u8, w: u8, even_draw_flag: bool) {
