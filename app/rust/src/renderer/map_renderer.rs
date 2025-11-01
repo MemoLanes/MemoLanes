@@ -31,7 +31,7 @@ impl MapRenderer {
         }
     }
 
-    fn prepare_tiles_for_rendering(tile: &mut Tile) {
+    fn prepare_tiles_for_rendering(_tile: &mut Tile) {
         // just a place holder for future implementation
     }
 
