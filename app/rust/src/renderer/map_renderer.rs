@@ -44,10 +44,10 @@ impl MapRenderer {
         let mut tile_changed = |tile_pos: (u16, u16)| {
             changed_tiles.push(tile_pos);
         };
-        
+
         // Apply the update function
         f(&mut self.journey_bitmap, &mut tile_changed);
-        
+
         // Now prepare tiles for rendering for all changed tiles
         for tile_pos in changed_tiles {
             if let Some(tile) = self.journey_bitmap.tiles.get_mut(&tile_pos) {
@@ -56,7 +56,7 @@ impl MapRenderer {
             // Invalidate cache for this tile
             self.tile_area_cache.remove(&tile_pos);
         }
-        
+
         // TODO: we should improve the cache invalidation rule
         self.reset();
     }
@@ -121,7 +121,15 @@ impl MapRenderer {
         height: i64,
         buffer_size_power: i16,
     ) -> Result<TileBuffer, String> {
-        tile_buffer_from_journey_bitmap(&self.journey_bitmap, x, y, z, width, height, buffer_size_power)
+        tile_buffer_from_journey_bitmap(
+            &self.journey_bitmap,
+            x,
+            y,
+            z,
+            width,
+            height,
+            buffer_size_power,
+        )
     }
 }
 
