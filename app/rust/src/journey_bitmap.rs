@@ -279,22 +279,6 @@ impl BlockKey {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::journey_bitmap::BlockKey;
-
-    #[test]
-    fn block_key_conversion() {
-        let test = |(x, y), index| {
-            assert_eq!(BlockKey::from_x_y(x, y), BlockKey::from_index(index));
-            assert_eq!(BlockKey::from_x_y(x, y).index(), index);
-        };
-        test((0, 0), 0);
-        test((127, 127), 16383);
-        test((64, 17), 8209);
-    }
-}
-
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Tile {
     blocks: [Option<Box<Block>>; (TILE_WIDTH * TILE_WIDTH) as usize],
@@ -439,11 +423,27 @@ impl Tile {
     }
 }
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Block {
     pub data: [u8; BITMAP_SIZE],
     pub mipmap: Option<BitArr!(for MIPMAP_BIT_SIZE, in u8, Msb0)>,
 }
+
+impl PartialEq for Block {
+    fn eq(&self, other: &Self) -> bool {
+        let Block {
+            data: data_a,
+            mipmap: _,
+        } = self;
+        let Block {
+            data: data_b,
+            mipmap: _,
+        } = other;
+        data_a == data_b
+    }
+}
+
+impl Eq for Block {}
 
 impl Default for Block {
     fn default() -> Self {
@@ -633,8 +633,11 @@ impl Block {
         let i = (x / 8) as usize;
         let j = (y) as usize;
         let val_number = if val { 1 } else { 0 };
-        self.data[i + j * 8] =
-            (self.data[i + j * 8] & !(1 << bit_offset)) | (val_number << bit_offset);
+        let current = self.data[i + j * 8];
+        self.data[i + j * 8] = (current & !(1 << bit_offset)) | (val_number << bit_offset);
+        if self.data[i + j * 8] != current {
+            self.mipmap = None;
+        }
     }
 
     // a modified Bresenham algorithm with initialized error from upper layer
@@ -716,5 +719,37 @@ impl Block {
             }
         }
         (x, y, p)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::journey_bitmap::{Block, BlockKey};
+
+    #[test]
+    fn block_key_conversion() {
+        let test = |(x, y), index| {
+            assert_eq!(BlockKey::from_x_y(x, y), BlockKey::from_index(index));
+            assert_eq!(BlockKey::from_x_y(x, y).index(), index);
+        };
+        test((0, 0), 0);
+        test((127, 127), 16383);
+        test((64, 17), 8209);
+    }
+
+    #[test]
+    fn block_mipmap() {
+        let mut block_with_mipmap = Block::new();
+        block_with_mipmap.set_point(10, 10, true);
+        let block_without_mipmap = block_with_mipmap.clone();
+        block_with_mipmap.regenerate_mipmaps();
+        assert_eq!(block_with_mipmap, block_without_mipmap);
+
+        // mipmap will be cleared when update
+        assert!(block_with_mipmap.mipmap.is_some());
+        block_with_mipmap.set_point(10, 10, true);
+        assert!(block_with_mipmap.mipmap.is_some());
+        block_with_mipmap.set_point(10, 15, true);
+        assert!(block_with_mipmap.mipmap.is_none());
     }
 }

@@ -323,7 +323,6 @@ pub fn handle_tile_range_query(
         };
 
     // Generate tile buffer from journey bitmap
-
     let tile_buffer = match map_renderer.get_tile_buffer(
         query.x,
         query.y,
