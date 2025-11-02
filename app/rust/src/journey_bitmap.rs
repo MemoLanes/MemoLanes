@@ -4,7 +4,6 @@ use std::{
     clone::Clone,
     collections::HashMap,
     mem::take,
-    ops::{BitAnd, BitOr, Not},
 };
 
 pub const TILE_WIDTH_OFFSET: i16 = 7;
@@ -182,11 +181,8 @@ impl JourneyBitmap {
                                     self_tile.blocks[i] = Some(other_block);
                                 }
                                 Some(self_block) => {
-                                    for i in 0..other_block.data.len() {
-                                        self_block.data[i] =
-                                            self_block.data[i].bitor(other_block.data[i]);
-                                        self_block.mipmap = None;
-                                    }
+                                    // merge other_block into self_block
+                                    self_block.merge_with(other_block.as_ref());
                                 }
                             },
                         }
@@ -204,10 +200,8 @@ impl JourneyBitmap {
                         None => (),
                         Some(other_block) => {
                             if let Some(block) = &mut tile.blocks[i] {
-                                for i in 0..other_block.data.len() {
-                                    block.data[i] = block.data[i].bitand(other_block.data[i].not());
-                                    block.mipmap = None;
-                                }
+                                // subtract other_block from block
+                                block.difference_with(other_block.as_ref());
                                 if block.is_empty() {
                                     tile.blocks[i] = None;
                                 }
@@ -233,10 +227,8 @@ impl JourneyBitmap {
                             None => tile.blocks[i] = None,
                             Some(other_block) => {
                                 if let Some(block) = &mut tile.blocks[i] {
-                                    for i in 0..other_block.data.len() {
-                                        block.data[i] = block.data[i].bitand(other_block.data[i]);
-                                        block.mipmap = None;
-                                    }
+                                    // intersect block with other_block
+                                    block.intersect_with(other_block.as_ref());
                                     if block.is_empty() {
                                         tile.blocks[i] = None;
                                     }
@@ -461,6 +453,32 @@ impl Block {
 
     pub fn new_with_data(data: [u8; BITMAP_SIZE]) -> Self {
         Self { data, mipmap: None }
+    }
+
+    /// Merge `other` into `self` (bitwise OR). Clears mipmap cache.
+    pub fn merge_with(&mut self, other: &Block) {
+        for i in 0..self.data.len() {
+            self.data[i] |= other.data[i];
+        }
+        // TODO: maybe we should consider merging mipmap directly or only reset
+        // it when there is a real change.
+        self.mipmap = None;
+    }
+
+    /// Subtract `other` from `self` (self = self & !other). Clears mipmap cache.
+    pub fn difference_with(&mut self, other: &Block) {
+        for i in 0..self.data.len() {
+            self.data[i] &= !other.data[i];
+        }
+        self.mipmap = None;
+    }
+
+    /// Intersect `self` with `other` (bitwise AND). Clears mipmap cache.
+    pub fn intersect_with(&mut self, other: &Block) {
+        for i in 0..self.data.len() {
+            self.data[i] &= other.data[i];
+        }
+        self.mipmap = None;
     }
 
     fn is_empty(&self) -> bool {
@@ -751,5 +769,13 @@ mod tests {
         assert!(block_with_mipmap.mipmap.is_some());
         block_with_mipmap.set_point(10, 15, true);
         assert!(block_with_mipmap.mipmap.is_none());
+
+        block_with_mipmap.regenerate_mipmaps();
+        let mut other_block = Block::new();
+        other_block.set_point(20,20, true);
+        assert!(block_with_mipmap.mipmap.is_some());
+        block_with_mipmap.merge_with(&other_block);
+        assert!(block_with_mipmap.mipmap.is_none());
+
     }
 }
