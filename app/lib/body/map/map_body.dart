@@ -46,8 +46,6 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   MapView? _roughMapView;
 
   TrackingMode _currentTrackingMode = TrackingMode.off;
-  // TODO wait rust chang layer kind enum
-  Set<api.LayerKind> _activeLayers = {api.LayerKind.defaultKind};
 
   void _syncTrackingModeWithGpsManager() {
     Provider.of<GpsManager>(context, listen: false)
@@ -187,16 +185,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
                           onPressed: _trackingModeButton,
                         ),
                         const AccuracyDisplay(),
-                        LayerButton(
-                          activeLayers: _activeLayers,
-                          onLayersChanged: (newLayers) {
-                            setState(() {
-                              _activeLayers = newLayers;
-                            });
-                            // TODO need triggering layer changes
-                            print('active layer: $_activeLayers');
-                          },
-                        ),
+                        LayerButton(),
                       ],
                     )),
                   ),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -7,13 +9,8 @@ import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 
 class LayerButton extends StatelessWidget {
-  final Set<api.LayerKind> activeLayers;
-  final ValueChanged<Set<api.LayerKind>> onLayersChanged;
-
   const LayerButton({
     super.key,
-    required this.activeLayers,
-    required this.onLayersChanged,
   });
 
   @override
@@ -23,11 +20,7 @@ class LayerButton extends StatelessWidget {
       horizontalOffset: -16,
       contentRadius: 24,
       barrierColor: Colors.transparent,
-      content: PointerInterceptor(
-          child: LayerPopupContent(
-        initialActiveLayers: activeLayers,
-        onChanged: onLayersChanged,
-      )),
+      content: PointerInterceptor(child: LayerPopupContent()),
       child: PointerInterceptor(
           child: Container(
         width: 48,
@@ -49,37 +42,27 @@ class LayerButton extends StatelessWidget {
 }
 
 class LayerPopupContent extends StatefulWidget {
-  final Set<api.LayerKind> initialActiveLayers;
-  final ValueChanged<Set<api.LayerKind>> onChanged;
-
-  const LayerPopupContent({
+  LayerPopupContent({
     super.key,
-    required this.initialActiveLayers,
-    required this.onChanged,
   });
 
   @override
   State<LayerPopupContent> createState() => _LayerPopupContentState();
 }
 
+enum LayerOption {
+  current,
+  default_,
+  flight,
+}
+
 class _LayerPopupContentState extends State<LayerPopupContent> {
-  late Set<api.LayerKind> _activeLayers;
+  api.LayerFilter _layerFilter = api.getCurrentMainMapLayerFilter();
+  Timer? _actionTimer;
 
   @override
   void initState() {
     super.initState();
-    _activeLayers = Set.from(widget.initialActiveLayers);
-  }
-
-  void _toggle(api.LayerKind kind) {
-    setState(() {
-      if (_activeLayers.contains(kind)) {
-        _activeLayers.remove(kind);
-      } else {
-        _activeLayers.add(kind);
-      }
-      widget.onChanged(_activeLayers);
-    });
   }
 
   @override
@@ -88,22 +71,41 @@ class _LayerPopupContentState extends State<LayerPopupContent> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // TODO wait rust chang layer kind enum
-        _buildItem(api.LayerKind.defaultKind,
-            context.tr("journey_kind.current"), FontAwesomeIcons.locationDot),
-        _buildItem(api.LayerKind.flight, context.tr("journey_kind.default"),
+        _buildItem(LayerOption.current, context.tr("journey_kind.current"),
+            FontAwesomeIcons.locationDot),
+        _buildItem(LayerOption.default_, context.tr("journey_kind.default"),
             FontAwesomeIcons.shoePrints),
-        _buildItem(api.LayerKind.all, context.tr("journey_kind.flight"),
+        _buildItem(LayerOption.flight, context.tr("journey_kind.flight"),
             FontAwesomeIcons.planeUp),
       ],
     );
   }
 
-  Widget _buildItem(api.LayerKind kind, String text, IconData icon) {
-    final isActive = _activeLayers.contains(kind);
+  Widget _buildItem(LayerOption layerOption, String text, IconData icon) {
+    final isActive = switch (layerOption) {
+      LayerOption.current => _layerFilter.currentJourney,
+      LayerOption.default_ => _layerFilter.defaultKind,
+      LayerOption.flight => _layerFilter.flightKind,
+    };
 
     return InkWell(
-      onTap: () => _toggle(kind),
+      onTap: () {
+        setState(() {
+          switch (layerOption) {
+            case LayerOption.current:
+              _layerFilter.currentJourney = !_layerFilter.currentJourney;
+            case LayerOption.default_:
+              _layerFilter.defaultKind = !_layerFilter.defaultKind;
+            case LayerOption.flight:
+              _layerFilter.flightKind = !_layerFilter.flightKind;
+          }
+        });
+        _actionTimer?.cancel();
+        _actionTimer = Timer(const Duration(milliseconds: 600), () {
+          _actionTimer = null;
+          api.setMainMapLayerFilter(newLayerFilter: _layerFilter);
+        });
+      },
       borderRadius: BorderRadius.circular(12),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),

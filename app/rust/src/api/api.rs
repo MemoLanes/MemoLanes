@@ -352,11 +352,15 @@ pub fn toggle_raw_data_mode(enable: bool) {
     get().storage.toggle_raw_data_mode(enable)
 }
 
+#[frb]
 #[derive(Eq, Clone, Copy, Debug, PartialEq)]
 pub struct LayerFilter {
-    current_journey: bool,
-    default_kind: bool,
-    flight_kind: bool,
+    #[frb(non_final)]
+    pub current_journey: bool,
+    #[frb(non_final)]
+    pub default_kind: bool,
+    #[frb(non_final)]
+    pub flight_kind: bool,
 }
 
 #[frb(sync)]
