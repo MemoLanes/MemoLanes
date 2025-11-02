@@ -1,10 +1,6 @@
 use crate::utils;
 use bitvec::prelude::*;
-use std::{
-    clone::Clone,
-    collections::HashMap,
-    mem::take,
-};
+use std::{clone::Clone, collections::HashMap, mem::take};
 
 pub const TILE_WIDTH_OFFSET: i16 = 7;
 pub const MAP_WIDTH_OFFSET: i16 = 9;
@@ -20,7 +16,7 @@ pub const MIPMAP_BIT_SIZE: usize = {
     let mut i = 0;
     while i < MIPMAP_LEVELS.len() {
         let level = MIPMAP_LEVELS[i];
-        sum += (level * level) as usize;
+        sum += level * level;
         i += 1;
     }
     sum
@@ -582,7 +578,6 @@ impl Block {
             return Some(self.is_visited(x as u8, y as u8));
         }
 
-
         // TODO: This could be implemented with const expressions with `MIPMAP_LEVELS`,
         // so we don't have to hardcode the offsets here. But I am too lazy to do it now.
 
@@ -785,7 +780,7 @@ mod tests {
 
         block_with_mipmap.regenerate_mipmaps();
         let mut other_block = Block::new();
-        other_block.set_point(20,20, true);
+        other_block.set_point(20, 20, true);
         assert!(block_with_mipmap.mipmap.is_some());
         block_with_mipmap.merge_with(&other_block);
         assert!(block_with_mipmap.mipmap.is_none());
