@@ -13,7 +13,19 @@ pub const TILE_WIDTH: i64 = 1 << TILE_WIDTH_OFFSET;
 pub const BITMAP_WIDTH_OFFSET: i16 = 6;
 pub const BITMAP_WIDTH: i64 = 1 << BITMAP_WIDTH_OFFSET;
 pub const BITMAP_SIZE: usize = (BITMAP_WIDTH * BITMAP_WIDTH / 8) as usize;
-pub const MIPMAP_BIT_SIZE: usize = 1024 + 256 + 64 + 16 + 4 + 2 + 1;
+const MIPMAP_LEVELS: [usize; 6] = [32, 16, 8, 4, 2, 1];
+
+pub const MIPMAP_BIT_SIZE: usize = {
+    let mut sum = 0;
+    let mut i = 0;
+    while i < MIPMAP_LEVELS.len() {
+        let level = MIPMAP_LEVELS[i];
+        sum += (level * level) as usize;
+        i += 1;
+    }
+    sum
+};
+
 const ALL_OFFSET: i16 = TILE_WIDTH_OFFSET + BITMAP_WIDTH_OFFSET;
 
 // we have 512*512 tiles, 128*128 blocks and a single block contains
@@ -508,13 +520,10 @@ impl Block {
 
         let mut mipmap_offset = 0;
 
-        // Generate each mipmap level: 32x32, 16x16, 8x8, 4x4, 2x2, 1x1
-        let mipmap_levels = [32, 16, 8, 4, 2, 1];
-
         let mut src_offset: Option<usize> = None; // None means read from original data
         let mut src_size = 64;
 
-        for dst_dim in mipmap_levels {
+        for dst_dim in MIPMAP_LEVELS {
             // Downsample from src_size x src_size to dst_dim x dst_dim
             for dst_y in 0..dst_dim {
                 for dst_x in 0..dst_dim {
@@ -572,6 +581,10 @@ impl Block {
         if z == 6 {
             return Some(self.is_visited(x as u8, y as u8));
         }
+
+
+        // TODO: This could be implemented with const expressions with `MIPMAP_LEVELS`,
+        // so we don't have to hardcode the offsets here. But I am too lazy to do it now.
 
         // For z=0 to z=5, read from mipmap if it exists
         // Note: Block2's mipmap does NOT include the original 64x64 data
@@ -776,6 +789,5 @@ mod tests {
         assert!(block_with_mipmap.mipmap.is_some());
         block_with_mipmap.merge_with(&other_block);
         assert!(block_with_mipmap.mipmap.is_none());
-
     }
 }
