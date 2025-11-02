@@ -307,14 +307,14 @@ impl Storage {
 
     pub fn get_latest_bitmap_for_main_map_renderer(
         &self,
-        layer_kind: &LayerKind,
+        layer_kind: &Option<LayerKind>,
+        include_ongoing: bool,
     ) -> Result<JourneyBitmap> {
         let mut dbs = self.dbs.lock().unwrap();
         let (ref mut main_db, ref cache_db) = *dbs;
-        // passing `main_db` to `get_latest_including_ongoing` directly is fine
-        // because it only reads `main_db`.
+        // passing `main_db` to `get_latest` directly is fine because it only reads `main_db`.
         let journey_bitmap =
-            merged_journey_builder::get_latest_including_ongoing(main_db, cache_db, layer_kind)?;
+            merged_journey_builder::get_latest(main_db, cache_db, layer_kind, include_ongoing)?;
         drop(dbs);
 
         Ok(journey_bitmap)

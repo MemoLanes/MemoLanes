@@ -64,13 +64,9 @@
     "finish": "数据库优化完成。"
   },
   "journey_kind": {
-    "default": "默认",
-    "flight": "航迹"
-  },
-  "map_layer": {
-    "current": "当前",
-    "land": "陆地",
-    "flight": "航迹"
+    "default": "地表",
+    "flight": "飞行",
+    "current": "当前"
   },
   "preprocessor": {
     "generic": "通用",

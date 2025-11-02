@@ -89,11 +89,11 @@ class _LayerPopupContentState extends State<LayerPopupContent> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // TODO wait rust chang layer kind enum
-        _buildItem(api.LayerKind.defaultKind, context.tr("map_layer.current"),
-            FontAwesomeIcons.locationDot),
-        _buildItem(api.LayerKind.flight, context.tr("map_layer.land"),
+        _buildItem(api.LayerKind.defaultKind,
+            context.tr("journey_kind.current"), FontAwesomeIcons.locationDot),
+        _buildItem(api.LayerKind.flight, context.tr("journey_kind.default"),
             FontAwesomeIcons.shoePrints),
-        _buildItem(api.LayerKind.all, context.tr("map_layer.flight"),
+        _buildItem(api.LayerKind.all, context.tr("journey_kind.flight"),
             FontAwesomeIcons.planeUp),
       ],
     );

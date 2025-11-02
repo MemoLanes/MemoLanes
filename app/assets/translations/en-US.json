@@ -64,13 +64,9 @@
     "finish": "Finished optimizing database."
   },
   "journey_kind": {
-    "default": "Default",
-    "flight": "Flight"
-  },
-  "map_layer": {
-    "current": "Current",
-    "land": "Land",
-    "flight": "Flight"
+    "default": "Ground",
+    "flight": "Flight",
+    "current": "Current"
   },
   "preprocessor": {
     "generic": "Generic",

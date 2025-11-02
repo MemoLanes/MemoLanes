@@ -102,21 +102,26 @@ fn get_all_finalized_journeys(
 }
 
 // main map
-pub fn get_latest_including_ongoing(
+pub fn get_latest(
     main_db: &mut MainDb,
     cache_db: &CacheDb,
-    layer_kind: &LayerKind,
+    layer_kind: &Option<LayerKind>,
+    include_ongoing: bool,
 ) -> Result<JourneyBitmap> {
     main_db.with_txn(|txn| {
-        let mut journey_bitmap = get_all_finalized_journeys(txn, cache_db, layer_kind)?;
+        let mut journey_bitmap = match layer_kind {
+            Some(layer_kind) => get_all_finalized_journeys(txn, cache_db, layer_kind)?,
+            None => JourneyBitmap::new(),
+        };
 
-        // append remaining ongoing parts
-        match txn.get_ongoing_journey()? {
-            None => (),
-            Some(ongoing_journey) => add_journey_vector_to_journey_bitmap(
-                &mut journey_bitmap,
-                &ongoing_journey.journey_vector,
-            ),
+        if include_ongoing {
+            match txn.get_ongoing_journey()? {
+                None => (),
+                Some(ongoing_journey) => add_journey_vector_to_journey_bitmap(
+                    &mut journey_bitmap,
+                    &ongoing_journey.journey_vector,
+                ),
+            }
         }
 
         // NOTE: Calling to `main_db.with_txn` directly without going through

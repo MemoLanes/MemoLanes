@@ -5,7 +5,7 @@ use anyhow::Result;
 use chrono::NaiveDate;
 use flutter_rust_bridge::frb;
 
-use crate::cache_db::LayerKind as InternalLayerKind;
+use crate::cache_db::LayerKind;
 use crate::frb_generated::StreamSink;
 use crate::gps_processor::{GpsPreprocessor, ProcessResult};
 use crate::journey_bitmap::{JourneyBitmap, MAP_WIDTH_OFFSET, TILE_WIDTH, TILE_WIDTH_OFFSET};
@@ -33,7 +33,7 @@ pub(super) struct MainState {
     pub gps_preprocessor: Mutex<GpsPreprocessor>,
     pub registry: Arc<Mutex<Registry>>,
     // TODO: we should reconsider the way we handle the main map
-    pub main_map_layer_kind: Arc<Mutex<InternalLayerKind>>,
+    pub main_map_layer_filter: Arc<Mutex<LayerFilter>>,
     pub main_map_renderer: Arc<Mutex<MapRenderer>>,
     pub main_map_renderer_token: MapRendererToken,
 }
@@ -50,6 +50,25 @@ pub fn short_commit_hash() -> String {
     build_info::SHORT_COMMIT_HASH.to_string()
 }
 
+fn reload_main_map_bitmap(
+    storage: &Storage,
+    main_map_renderer: &mut MapRenderer,
+    layer_filter: &LayerFilter,
+) -> Result<()> {
+    // TODO: merge layer filter with layer kind
+    let layer_kind = match (layer_filter.default_kind, layer_filter.flight_kind) {
+        (true, true) => Some(LayerKind::All),
+        (true, false) => Some(LayerKind::JourneyKind(JourneyKind::DefaultKind)),
+        (false, true) => Some(LayerKind::JourneyKind(JourneyKind::Flight)),
+        (false, false) => None,
+    };
+
+    let journey_bitmap = storage
+        .get_latest_bitmap_for_main_map_renderer(&layer_kind, layer_filter.current_journey)?;
+    main_map_renderer.replace(journey_bitmap);
+    Ok(())
+}
+
 pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: String) {
     let mut already_initialized = true;
     MAIN_STATE.get_or_init(|| {
@@ -63,9 +82,14 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
 
         let registry = Arc::new(Mutex::new(Registry::new()));
 
-        let default_layer_kind = InternalLayerKind::JourneyKind(JourneyKind::DefaultKind);
-        let main_map_layer_kind = Arc::new(Mutex::new(default_layer_kind));
-        let main_map_layer_kind_copy = main_map_layer_kind.clone();
+        let default_layer_filter = LayerFilter {
+            current_journey: true,
+            default_kind: true,
+            flight_kind: false,
+        };
+
+        let main_map_layer_filter = Arc::new(Mutex::new(default_layer_filter));
+        let main_map_layer_filter_copy = main_map_layer_filter.clone();
         // TODO: use an empty journey bitmap first, because loading could be slow (especially when we don't have cache).
         // Ideally, we should support main map renderer being none. e.g. we free it when the user is not using the map.
         let main_map_renderer = Arc::new(Mutex::new(MapRenderer::new(JourneyBitmap::new())));
@@ -73,13 +97,11 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
         // TODO: redesign the callback to better handle locks and avoid deadlocks
         storage.set_finalized_journey_changed_callback(Box::new(move |storage| {
             let mut map_renderer = main_map_renderer_copy.lock().unwrap();
-            let layer_kind = main_map_layer_kind_copy.lock().unwrap();
-            match storage.get_latest_bitmap_for_main_map_renderer(&layer_kind) {
+            let layer_filter = main_map_layer_filter_copy.lock().unwrap();
+            match reload_main_map_bitmap(storage, &mut map_renderer, &layer_filter) {
+                Ok(()) => (),
                 Err(e) => {
                     error!("Failed to get latest bitmap for main map renderer: {e:?}");
-                }
-                Ok(journey_bitmap) => {
-                    map_renderer.replace(journey_bitmap);
                 }
             }
         }));
@@ -91,7 +113,7 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
             storage,
             gps_preprocessor: Mutex::new(GpsPreprocessor::new()),
             registry,
-            main_map_layer_kind,
+            main_map_layer_filter,
             main_map_renderer,
             main_map_renderer_token,
         }
@@ -101,16 +123,12 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
     }
 }
 
-// TODO: this design is not ideal, we need this becuase the `init` above uses an empty one.
+// TODO: this design is not ideal, we need this because the `init` above uses an empty one.
 pub fn init_main_map() -> Result<()> {
     let state = get();
     let mut map_renderer = state.main_map_renderer.lock().unwrap();
-    let layer_kind = state.main_map_layer_kind.lock().unwrap();
-    let journey_bitmap = state
-        .storage
-        .get_latest_bitmap_for_main_map_renderer(&layer_kind)?;
-    map_renderer.replace(journey_bitmap);
-    Ok(())
+    let layer_filter = state.main_map_layer_filter.lock().unwrap();
+    reload_main_map_bitmap(&state.storage, &mut map_renderer, &layer_filter)
 }
 
 pub fn subscribe_to_log_stream(sink: StreamSink<String>) -> Result<()> {
@@ -334,49 +352,27 @@ pub fn toggle_raw_data_mode(enable: bool) {
     get().storage.toggle_raw_data_mode(enable)
 }
 
-pub enum LayerKind {
-    All,
-    DefaultKind,
-    Flight,
-}
-
-impl LayerKind {
-    fn to_internal(&self) -> InternalLayerKind {
-        match self {
-            LayerKind::All => InternalLayerKind::All,
-            LayerKind::DefaultKind => InternalLayerKind::JourneyKind(JourneyKind::DefaultKind),
-            LayerKind::Flight => InternalLayerKind::JourneyKind(JourneyKind::Flight),
-        }
-    }
-
-    fn of_internal(internal: &InternalLayerKind) -> LayerKind {
-        match internal {
-            InternalLayerKind::All => LayerKind::All,
-            InternalLayerKind::JourneyKind(kind) => match kind {
-                JourneyKind::DefaultKind => LayerKind::DefaultKind,
-                JourneyKind::Flight => LayerKind::Flight,
-            },
-        }
-    }
+#[derive(Eq, Clone, Copy, Debug, PartialEq)]
+pub struct LayerFilter {
+    current_journey: bool,
+    default_kind: bool,
+    flight_kind: bool,
 }
 
 #[frb(sync)]
-pub fn get_current_map_layer_kind() -> LayerKind {
-    LayerKind::of_internal(&get().main_map_layer_kind.lock().unwrap())
+pub fn get_current_main_map_layer_filter() -> LayerFilter {
+    *get().main_map_layer_filter.lock().unwrap()
 }
 
-pub fn set_main_map_layer_kind(layer_kind: LayerKind) -> Result<()> {
+pub fn set_main_map_layer_filter(new_layer_filter: &LayerFilter) -> Result<()> {
     let state = get();
     let mut map_renderer = state.main_map_renderer.lock().unwrap();
-    let mut main_map_layer_kind = state.main_map_layer_kind.lock().unwrap();
+    let mut main_map_layer_filter = state.main_map_layer_filter.lock().unwrap();
 
-    let layer_kind = layer_kind.to_internal();
-    let journey_bitmap = state
-        .storage
-        .get_latest_bitmap_for_main_map_renderer(&layer_kind)?;
-    map_renderer.replace(journey_bitmap);
-    *main_map_layer_kind = layer_kind;
-
+    if *new_layer_filter != *main_map_layer_filter {
+        *main_map_layer_filter = *new_layer_filter;
+        reload_main_map_bitmap(&state.storage, &mut map_renderer, &main_map_layer_filter)?;
+    }
     Ok(())
 }
 
@@ -571,11 +567,9 @@ pub fn area_of_main_map() -> u64 {
 pub fn rebuild_cache() -> Result<()> {
     let state = get();
     state.storage.clear_all_cache()?;
-    let bitmap = state
-        .storage
-        .get_latest_bitmap_for_main_map_renderer(&InternalLayerKind::All)?;
-    state.main_map_renderer.lock().unwrap().replace(bitmap);
-    Ok(())
+    let mut map_renderer = state.main_map_renderer.lock().unwrap();
+    let layer_filter = state.main_map_layer_filter.lock().unwrap();
+    reload_main_map_bitmap(&state.storage, &mut map_renderer, &layer_filter)
 }
 
 // This is used for showing additional prompt to the user when trying to import
