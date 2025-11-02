@@ -1,9 +1,10 @@
 use journey_kernel::TileBuffer;
 
 use crate::journey_area_utils;
-use crate::journey_bitmap::JourneyBitmap;
+use crate::journey_bitmap::{JourneyBitmap, Tile};
 use crate::renderer::tile_shader2::TileShader2;
 use std::collections::HashMap;
+
 pub struct MapRenderer {
     journey_bitmap: JourneyBitmap,
     /* for each tile of 512*512 tiles in a JourneyBitmap, use buffered area to record any update */
@@ -14,6 +15,8 @@ pub struct MapRenderer {
 
 impl MapRenderer {
     pub fn new(journey_bitmap: JourneyBitmap) -> Self {
+        let mut journey_bitmap = journey_bitmap;
+        Self::prepare_journey_bitmap_for_rendering(&mut journey_bitmap);
         Self {
             journey_bitmap,
             tile_area_cache: HashMap::new(),
@@ -22,19 +25,45 @@ impl MapRenderer {
         }
     }
 
+    fn prepare_journey_bitmap_for_rendering(journey_bitmap: &mut JourneyBitmap) {
+        for tile in journey_bitmap.tiles.values_mut() {
+            Self::prepare_tiles_for_rendering(tile);
+        }
+    }
+
+    fn prepare_tiles_for_rendering(_tile: &mut Tile) {
+        // just a place holder for future implementation
+    }
+
     pub fn update<F>(&mut self, f: F)
     where
         F: Fn(&mut JourneyBitmap, &mut dyn FnMut((u16, u16))),
     {
+        // Collect changed tile positions first
+        let mut changed_tiles = Vec::new();
         let mut tile_changed = |tile_pos: (u16, u16)| {
-            self.tile_area_cache.remove(&tile_pos);
+            changed_tiles.push(tile_pos);
         };
+
+        // Apply the update function
         f(&mut self.journey_bitmap, &mut tile_changed);
+
+        // Now prepare tiles for rendering for all changed tiles
+        for tile_pos in changed_tiles {
+            if let Some(tile) = self.journey_bitmap.tiles.get_mut(&tile_pos) {
+                Self::prepare_tiles_for_rendering(tile);
+            }
+            // Invalidate cache for this tile
+            self.tile_area_cache.remove(&tile_pos);
+        }
+
         // TODO: we should improve the cache invalidation rule
         self.reset();
     }
 
     pub fn replace(&mut self, journey_bitmap: JourneyBitmap) {
+        let mut journey_bitmap = journey_bitmap;
+        Self::prepare_journey_bitmap_for_rendering(&mut journey_bitmap);
         self.journey_bitmap = journey_bitmap;
         self.tile_area_cache.clear();
         self.reset();
@@ -59,6 +88,7 @@ impl MapRenderer {
         u64::from_str_radix(cleaned, 16).ok()
     }
 
+    // TODO: deprecate this method and merge it with `get_tile_buffer`.
     pub fn get_latest_bitmap_if_changed(
         &self,
         client_version: Option<&str>,
@@ -81,10 +111,30 @@ impl MapRenderer {
             )
         })
     }
+
+    pub fn get_tile_buffer(
+        &self,
+        x: i64,
+        y: i64,
+        z: i16,
+        width: i64,
+        height: i64,
+        buffer_size_power: i16,
+    ) -> Result<TileBuffer, String> {
+        tile_buffer_from_journey_bitmap(
+            &self.journey_bitmap,
+            x,
+            y,
+            z,
+            width,
+            height,
+            buffer_size_power,
+        )
+    }
 }
 
 /// Create a new TileBuffer from a JourneyBitmap for a range of tiles
-pub fn tile_buffer_from_journey_bitmap(
+fn tile_buffer_from_journey_bitmap(
     journey_bitmap: &JourneyBitmap,
     x: i64,
     y: i64,

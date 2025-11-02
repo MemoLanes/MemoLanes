@@ -6,7 +6,6 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex, Weak};
 use uuid::Uuid;
 
-use super::map_renderer;
 use super::MapRenderer;
 
 use rand::RngCore;
@@ -310,7 +309,7 @@ pub fn handle_tile_range_query(
     };
 
     // Get the latest bitmap if it has changed
-    let (journey_bitmap, version) =
+    let (_, version) =
         match map_renderer.get_latest_bitmap_if_changed(query.cached_version.as_deref()) {
             None => {
                 // No changes since client's cached version - return 304 status
@@ -324,8 +323,7 @@ pub fn handle_tile_range_query(
         };
 
     // Generate tile buffer from journey bitmap
-    let tile_buffer = match map_renderer::tile_buffer_from_journey_bitmap(
-        journey_bitmap,
+    let tile_buffer = match map_renderer.get_tile_buffer(
         query.x,
         query.y,
         query.z,
