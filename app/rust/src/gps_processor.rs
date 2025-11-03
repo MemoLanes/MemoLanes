@@ -1,7 +1,7 @@
 use crate::{
     journey_date_picker::JourneyDatePicker,
     journey_header::{JourneyHeader, JourneyType},
-    journey_vector::{JourneyVector, TrackPoint, TrackSegment}
+    journey_vector::{JourneyVector, TrackPoint, TrackSegment},
 };
 use anyhow::Result;
 use chrono::DateTime;
