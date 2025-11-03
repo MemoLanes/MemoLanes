@@ -64,8 +64,9 @@
     "finish": "Finished optimizing database."
   },
   "journey_kind": {
-    "default": "Default",
-    "flight": "Flight"
+    "default": "Ground",
+    "flight": "Flight",
+    "current": "Current"
   },
   "preprocessor": {
     "generic": "Generic",

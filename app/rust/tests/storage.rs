@@ -39,7 +39,7 @@ fn storage_for_main_map_renderer() {
         );
         if i == 1000 {
             let _: JourneyBitmap = storage
-                .get_latest_bitmap_for_main_map_renderer(&LayerKind::All)
+                .get_latest_bitmap_for_main_map_renderer(&Some(LayerKind::All), true)
                 .unwrap();
         } else if i == 1005 {
             // TODO: reimplement the assert under new api
@@ -51,7 +51,7 @@ fn storage_for_main_map_renderer() {
         } else if i == 1020 {
             // assert!(storage.main_map_renderer_need_to_reload());
             let _: JourneyBitmap = storage
-                .get_latest_bitmap_for_main_map_renderer(&LayerKind::All)
+                .get_latest_bitmap_for_main_map_renderer(&Some(LayerKind::All), true)
                 .unwrap();
         } else if i == 1025 {
             // assert!(!storage.main_map_renderer_need_to_reload());
@@ -81,15 +81,19 @@ where
 fn assert_cache(storage: &Storage, default: &JourneyBitmap, flight: &JourneyBitmap) {
     assert_eq!(
         &storage
-            .get_latest_bitmap_for_main_map_renderer(&LayerKind::JourneyKind(
-                JourneyKind::DefaultKind
-            ))
+            .get_latest_bitmap_for_main_map_renderer(
+                &Some(LayerKind::JourneyKind(JourneyKind::DefaultKind)),
+                true
+            )
             .unwrap(),
         default
     );
     assert_eq!(
         &storage
-            .get_latest_bitmap_for_main_map_renderer(&LayerKind::JourneyKind(JourneyKind::Flight))
+            .get_latest_bitmap_for_main_map_renderer(
+                &Some(LayerKind::JourneyKind(JourneyKind::Flight)),
+                true
+            )
             .unwrap(),
         flight
     );
@@ -97,7 +101,7 @@ fn assert_cache(storage: &Storage, default: &JourneyBitmap, flight: &JourneyBitm
     all.merge(flight.clone());
     assert_eq!(
         storage
-            .get_latest_bitmap_for_main_map_renderer(&LayerKind::All)
+            .get_latest_bitmap_for_main_map_renderer(&Some(LayerKind::All), true)
             .unwrap(),
         all
     );

@@ -472,12 +472,8 @@ pub fn journey_vector_from_raw_data_with_gps_preprocessor(
         })
     });
 
-    match gps_processor::build_vector_journey(processed_data)
+    gps_processor::build_journey_vector(processed_data, None)
         .expect("Impossible, `preprocessed_data` does not contain error")
-    {
-        None => None,
-        Some(ongoing_journey) => Some(ongoing_journey.journey_vector),
-    }
 }
 
 pub fn journey_vector_from_raw_data_with_flight_track_processor(
