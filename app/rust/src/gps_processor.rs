@@ -1,8 +1,7 @@
 use crate::{
     journey_date_picker::JourneyDatePicker,
     journey_header::{JourneyHeader, JourneyType},
-    journey_vector::{JourneyVector, TrackPoint, TrackSegment},
-    main_db::OngoingJourney,
+    journey_vector::{JourneyVector, TrackPoint, TrackSegment}
 };
 use anyhow::Result;
 use chrono::DateTime;
@@ -424,10 +423,10 @@ pub struct PreprocessedData {
     pub process_result: ProcessResult,
 }
 
-pub fn build_vector_journey(
+pub fn build_journey_vector(
     results: impl Iterator<Item = Result<PreprocessedData>>,
-) -> Result<Option<OngoingJourney>> {
-    let mut journey_date_picker = JourneyDatePicker::new();
+    mut journey_date_picker: Option<&mut JourneyDatePicker>,
+) -> Result<Option<JourneyVector>> {
     let mut segments = Vec::new();
     let mut current_segment = Vec::new();
 
@@ -441,11 +440,13 @@ pub fn build_vector_journey(
             current_segment = Vec::new();
         }
         if data.process_result != ProcessResult::Ignore {
-            if let Some(time) = data
-                .timestamp_sec
-                .map(|x| DateTime::from_timestamp(x, 0).unwrap())
-            {
-                journey_date_picker.add_point(time, &data.track_point);
+            if let Some(journey_date_picker) = journey_date_picker.as_mut() {
+                if let Some(time) = data
+                    .timestamp_sec
+                    .map(|x| DateTime::from_timestamp(x, 0).unwrap())
+                {
+                    journey_date_picker.add_point(time, &data.track_point);
+                }
             }
             current_segment.push(data.track_point);
         }
@@ -459,13 +460,8 @@ pub fn build_vector_journey(
     if segments.is_empty() {
         Ok(None)
     } else {
-        Ok(Some(OngoingJourney {
-            journey_date: journey_date_picker.pick_journey_date(),
-            start: journey_date_picker.min_time(),
-            end: journey_date_picker.max_time(),
-            journey_vector: JourneyVector {
-                track_segments: segments,
-            },
+        Ok(Some(JourneyVector {
+            track_segments: segments,
         }))
     }
 }

@@ -11,6 +11,7 @@ use uuid::Uuid;
 
 use crate::gps_processor::{self, GpsPostprocessor, PreprocessedData, ProcessResult};
 use crate::journey_data::JourneyData;
+use crate::journey_date_picker::JourneyDatePicker;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::journey_vector::{JourneyVector, TrackPoint};
 use crate::{protos, utils};
@@ -83,7 +84,10 @@ fn generate_random_revision() -> String {
 // NOTE: the `Txn` here is not only for making operation atomic, the `storage`
 // will also use this to make sure the `cache_db` is in sync.
 impl Txn<'_> {
-    pub fn get_ongoing_journey(&self) -> Result<Option<OngoingJourney>> {
+    pub fn get_ongoing_journey(
+        &self,
+        journey_date_picker: Option<&mut JourneyDatePicker>,
+    ) -> Result<Option<JourneyVector>> {
         // `id` in `ongoing_journey` is auto incremented.
         let mut query = self.db_txn.prepare(
             "SELECT timestamp_sec, lat, lng, process_result FROM ongoing_journey ORDER BY id;",
@@ -100,7 +104,10 @@ impl Txn<'_> {
                 process_result: process_result.into(),
             })
         })?;
-        gps_processor::build_vector_journey(results.map(|x| x.map_err(|x| x.into())))
+        gps_processor::build_journey_vector(
+            results.map(|x| x.map_err(|x| x.into())),
+            journey_date_picker,
+        )
     }
 
     // the fist timestamp is the start time, the second is the end time
@@ -326,23 +333,21 @@ impl Txn<'_> {
     }
 
     pub fn finalize_ongoing_journey(&mut self) -> Result<bool> {
-        let new_journey_added = match self.get_ongoing_journey()? {
+        let mut journey_date_picker = JourneyDatePicker::new();
+        let new_journey_added = match self.get_ongoing_journey(Some(&mut journey_date_picker))? {
             None => false,
-            Some(OngoingJourney {
-                journey_date,
-                start,
-                end,
-                journey_vector,
-            }) => {
+            Some(journey_vector) => {
                 // TODO: allow user to set this when recording?
                 let journey_kind = JourneyKind::DefaultKind;
 
                 self.create_and_insert_journey(
                     // In practice, `end` could never be none but just in case ...
                     // TODO: Maybe we want better journey date strategy
-                    journey_date.unwrap_or_else(|| Local::now().date_naive()),
-                    start,
-                    end,
+                    journey_date_picker
+                        .pick_journey_date()
+                        .unwrap_or_else(|| Local::now().date_naive()),
+                    journey_date_picker.min_time(),
+                    journey_date_picker.max_time(),
                     None,
                     journey_kind,
                     None,
@@ -558,13 +563,6 @@ pub struct MainDb {
     conn: Connection,
 }
 
-pub struct OngoingJourney {
-    pub journey_date: Option<NaiveDate>,
-    pub start: Option<DateTime<Utc>>,
-    pub end: Option<DateTime<Utc>>,
-    pub journey_vector: JourneyVector,
-}
-
 impl MainDb {
     pub fn open(support_dir: &str) -> MainDb {
         // TODO: better error handling
@@ -712,7 +710,7 @@ impl MainDb {
 
 #[derive(Debug, Clone, Copy)]
 pub enum Setting {
-    // TODO: We should consider making the fultter part handle this, similar to
+    // TODO: We should consider making the flutter part handle this, similar to
     // `GpsManager.isRecording`.
     RawDataMode,
 }

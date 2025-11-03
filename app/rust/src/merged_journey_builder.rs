@@ -115,12 +115,11 @@ pub fn get_latest(
         };
 
         if include_ongoing {
-            match txn.get_ongoing_journey()? {
+            match txn.get_ongoing_journey(None)? {
                 None => (),
-                Some(ongoing_journey) => add_journey_vector_to_journey_bitmap(
-                    &mut journey_bitmap,
-                    &ongoing_journey.journey_vector,
-                ),
+                Some(journey_vector) => {
+                    add_journey_vector_to_journey_bitmap(&mut journey_bitmap, &journey_vector)
+                }
             }
         }
 
