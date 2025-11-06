@@ -246,9 +246,7 @@ async function trySetup() {
     transformRequest,
     pitchWithRotate: false,
     touchPitch: false,
-    attributionControl: {
-      compact: false,
-    },
+    attributionControl: false,
   });
 
   map.dragRotate.disable();

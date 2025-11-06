@@ -14,6 +14,8 @@ import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 
+import '../../common/component/map_controls/osm_copyright_button.dart';
+
 part 'map.g.dart';
 
 // TODO: `dart run build_runner build` is needed for generating `map.g.dart`,

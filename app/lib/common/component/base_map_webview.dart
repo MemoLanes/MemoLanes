@@ -11,6 +11,8 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import 'map_controls/osm_copyright_button.dart';
+
 typedef MapView = ({double lng, double lat, double zoom});
 
 enum TrackingMode {
@@ -344,6 +346,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             child: WebViewWidget(
                 key: const ValueKey('map_webview'),
                 controller: _webViewController)),
+        GestureDetector(child: const OSMCopyrightButton()),
         IgnorePointer(
           ignoring: true,
           child: AnimatedOpacity(
