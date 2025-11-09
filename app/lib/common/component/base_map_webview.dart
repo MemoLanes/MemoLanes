@@ -46,6 +46,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   late Timer _roughMapViewUpdateTimer;
   bool _readyForDisplay = false;
 
+  String _mapAttributionText = "";
+
   // It is rough because we don't update it frequently.
   MapView? _currentRoughMapView;
 
@@ -226,10 +228,23 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       )
       ..addJavaScriptChannel(
         'readyForDisplay',
-        onMessageReceived: (JavaScriptMessage message) {
+        onMessageReceived: (JavaScriptMessage message) async {
           setState(() {
             _readyForDisplay = true;
           });
+          try {
+            final String jsonString =
+                await _webViewController.runJavaScriptReturningResult(
+              'getMapAttributionText();',
+            ) as String;
+            final String attributionText = jsonDecode(jsonString);
+            setState(() {
+              _mapAttributionText = attributionText;
+            });
+          } catch (error) {
+            log.error(
+                "[MapAttribution] Failed to get map attribution text $error");
+          }
         },
       )
       ..addJavaScriptChannel(
@@ -346,7 +361,10 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             child: WebViewWidget(
                 key: const ValueKey('map_webview'),
                 controller: _webViewController)),
-        GestureDetector(child: const OSMCopyrightButton()),
+        GestureDetector(
+            child: OSMCopyrightButton(
+          mapAttributionText: _mapAttributionText,
+        )),
         IgnorePointer(
           ignoring: true,
           child: AnimatedOpacity(

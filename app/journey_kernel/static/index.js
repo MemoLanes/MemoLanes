@@ -407,6 +407,34 @@ async function trySetup() {
     return switchRenderingLayer(map, renderingMode);
   };
 
+  // Add method to window object to get the copyright/attribution text based on the current map style
+  window.getMapAttributionText = function () {
+    if (!currentMapStyle) {
+      return JSON.stringify("Unknown Data Source");
+    }
+
+    try {
+      if (
+        typeof currentMapStyle === "string" &&
+        currentMapStyle.includes("openfreemap.org")
+      ) {
+        return JSON.stringify("© OpenStreetMap contributors");
+      }
+
+      if (
+        typeof currentMapStyle === "string" &&
+        currentMapStyle.startsWith("mapbox://")
+      ) {
+        return JSON.stringify("© Mapbox © OpenStreetMap contributors");
+      }
+
+      return JSON.stringify("Unknown Data Source");
+    } catch (err) {
+      console.error("Error determining map attribution:", err);
+      return JSON.stringify("Unknown Data Source");
+    }
+  };
+
   // Add method to update journey ID
   window.updateJourneyId = function (newJourneyId) {
     if (!newJourneyId) {

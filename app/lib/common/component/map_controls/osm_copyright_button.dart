@@ -3,7 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/common/utils.dart';
 
 class OSMCopyrightButton extends StatelessWidget {
-  const OSMCopyrightButton({super.key});
+  final String mapAttributionText;
+
+  const OSMCopyrightButton({
+    super.key,
+    required this.mapAttributionText,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -16,8 +21,7 @@ class OSMCopyrightButton extends StatelessWidget {
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () {
-              showCommonDialog(
-                  context, context.tr("osm_data_source.content_md"),
+              showCommonDialog(context, mapAttributionText,
                   title: context.tr("osm_data_source.title"), markdown: true);
             },
             child: Container(
