@@ -11,7 +11,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import 'map_controls/osm_copyright_button.dart';
+import 'map_controls/map_copyright_button.dart';
 
 typedef MapView = ({double lng, double lat, double zoom});
 
@@ -46,7 +46,10 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   late Timer _roughMapViewUpdateTimer;
   bool _readyForDisplay = false;
 
-  String _mapAttributionText = "";
+  // TODO: define a proper type to make it more type-safe
+  // TODO: we may let user to choose base map providers.
+  final _mapStyle = "https://tiles.openfreemap.org/styles/liberty";
+  // final _mapStyle = "mapbox://styles/mapbox/streets-v12";
 
   // It is rough because we don't update it frequently.
   MapView? _currentRoughMapView;
@@ -232,19 +235,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
           setState(() {
             _readyForDisplay = true;
           });
-          try {
-            final String jsonString =
-                await _webViewController.runJavaScriptReturningResult(
-              'getMapAttributionText();',
-            ) as String;
-            final String attributionText = jsonDecode(jsonString);
-            setState(() {
-              _mapAttributionText = attributionText;
-            });
-          } catch (error) {
-            log.error(
-                "[MapAttribution] Failed to get map attribution text $error");
-          }
         },
       )
       ..addJavaScriptChannel(
@@ -260,10 +250,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   Future<void> _injectApiEndpoint() async {
     final accessKey = api.getMapboxAccessToken();
-
-    // TODO: we may let user to choose base map providers.
-    final mapStyle = "https://tiles.openfreemap.org/styles/liberty";
-    // final mapStyle = "mapbox://styles/mapbox/streets-v12";
 
     final journeyId = widget.mapRendererProxy.getJourneyId();
 
@@ -283,7 +269,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         cgi_endpoint: "flutter://TileProviderChannel",
         journey_id: "$journeyId",
         render: "canvas",
-        map_style: "$mapStyle",
+        map_style: "$_mapStyle",
         access_key: ${accessKey != null ? "\"$accessKey\"" : "null"},
         lng: $lngParam,
         lat: $latParam,
@@ -354,6 +340,15 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     // https://github.com/flutter/flutter/issues/165305
     // But unfortunately, it only works for iOS 18, so we still have this weird
     // double tap behavior on older iOS versions.
+    var mapCopyrightTexttextMarkdown = 'UNKNOWN';
+    if (_mapStyle.contains('openfreemap.org')) {
+      mapCopyrightTexttextMarkdown =
+          "[OpenFreeMap](https://openfreemap.org) [© OpenMapTiles](https://www.openmaptiles.org/) Data from [OpenStreetMap](https://www.openstreetmap.org/copyright)";
+    } else if (_mapStyle.contains('mapbox')) {
+      mapCopyrightTexttextMarkdown =
+          '[© Mapbox](https://www.mapbox.com/about/maps) [© OpenStreetMap](https://www.openstreetmap.org/copyright/) [Improve this map](https://www.mapbox.com/contribute/)';
+    }
+
     return Stack(
       children: [
         IgnorePointer(
@@ -362,8 +357,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
                 key: const ValueKey('map_webview'),
                 controller: _webViewController)),
         GestureDetector(
-            child: OSMCopyrightButton(
-          mapAttributionText: _mapAttributionText,
+            child: MapCopyrightButton(
+          textMarkdown: mapCopyrightTexttextMarkdown,
         )),
         IgnorePointer(
           ignoring: true,

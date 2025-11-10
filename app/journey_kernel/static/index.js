@@ -162,27 +162,27 @@ async function trySetup() {
 
   if (window.EXTERNAL_PARAMS.map_style) {
     currentMapStyle = window.EXTERNAL_PARAMS.map_style;
+  }
 
-    if (
-      typeof currentMapStyle === "string" &&
-      currentMapStyle.startsWith("mapbox://")
-    ) {
-      if (window.EXTERNAL_PARAMS.access_key) {
-        transformRequest = (url, resourceType) => {
-          if (isMapboxURL(url)) {
-            return transformMapboxUrl(
-              url,
-              resourceType,
-              window.EXTERNAL_PARAMS.access_key,
-            );
-          }
-          return { url };
-        };
-      } else {
-        document.body.innerHTML = `<div style="padding: 20px; font-family: Arial, sans-serif; color: red;"><h1>TOKEN not provided</h1></div>`;
-        tryNotifyFlutterReady();
-        return;
-      }
+  if (
+    typeof currentMapStyle === "string" &&
+    currentMapStyle.startsWith("mapbox://")
+  ) {
+    if (window.EXTERNAL_PARAMS.access_key) {
+      transformRequest = (url, resourceType) => {
+        if (isMapboxURL(url)) {
+          return transformMapboxUrl(
+            url,
+            resourceType,
+            window.EXTERNAL_PARAMS.access_key,
+          );
+        }
+        return { url };
+      };
+    } else {
+      document.body.innerHTML = `<div style="padding: 20px; font-family: Arial, sans-serif; color: red;"><h1>TOKEN not provided</h1></div>`;
+      tryNotifyFlutterReady();
+      return;
     }
   }
 
@@ -405,34 +405,6 @@ async function trySetup() {
   // Add method to switch rendering layers
   window.switchRenderingLayer = function (renderingMode) {
     return switchRenderingLayer(map, renderingMode);
-  };
-
-  // Add method to window object to get the copyright/attribution text based on the current map style
-  window.getMapAttributionText = function () {
-    if (!currentMapStyle) {
-      return JSON.stringify("Unknown Data Source");
-    }
-
-    try {
-      if (
-        typeof currentMapStyle === "string" &&
-        currentMapStyle.includes("openfreemap.org")
-      ) {
-        return JSON.stringify("© OpenStreetMap contributors");
-      }
-
-      if (
-        typeof currentMapStyle === "string" &&
-        currentMapStyle.startsWith("mapbox://")
-      ) {
-        return JSON.stringify("© Mapbox © OpenStreetMap contributors");
-      }
-
-      return JSON.stringify("Unknown Data Source");
-    } catch (err) {
-      console.error("Error determining map attribution:", err);
-      return JSON.stringify("Unknown Data Source");
-    }
   };
 
   // Add method to update journey ID

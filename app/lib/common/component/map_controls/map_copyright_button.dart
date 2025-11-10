@@ -2,12 +2,12 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/utils.dart';
 
-class OSMCopyrightButton extends StatelessWidget {
-  final String mapAttributionText;
+class MapCopyrightButton extends StatelessWidget {
+  final String textMarkdown;
 
-  const OSMCopyrightButton({
+  const MapCopyrightButton({
     super.key,
-    required this.mapAttributionText,
+    required this.textMarkdown,
   });
 
   @override
@@ -21,13 +21,14 @@ class OSMCopyrightButton extends StatelessWidget {
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () {
-              showCommonDialog(context, mapAttributionText,
-                  title: context.tr("osm_data_source.title"), markdown: true);
+              showCommonDialog(context, textMarkdown,
+                  title: context.tr("home.map_data_source_copyright_title"),
+                  markdown: true);
             },
             child: Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.45),
+                color: Colors.black.withValues(alpha: 0.45),
                 shape: BoxShape.circle,
               ),
               child: const Icon(

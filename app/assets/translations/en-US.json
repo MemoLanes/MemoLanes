@@ -5,7 +5,8 @@
     "resume": "Resume",
     "end_journey_title": "End Journey?",
     "end_journey_message": "Are you sure you want to end your current journey?",
-    "double_back_exit": "Press back again to exit the app"
+    "double_back_exit": "Press back again to exit the app",
+    "map_data_source_copyright_title": "Data Source"
   },
   "location_service": {
     "location_permission_denied": "You have denied location permission. To ensure the use of positioning functions, please turn it on in settings.",
@@ -127,9 +128,6 @@
   "beta_testing_notice": {
     "title": "Welcome to MemoLanes Public Beta",
     "content_md": "Thank you for testing MemoLanes!\n\nPlease be aware of the following:\n* The app may occasionally lag, crash, or glitch.\n* Features are still being optimized and may change in the final release, so they may not reflect their final quality.\n* We recommend backing up your data regularly (go to the far-right [Settings] icon on the navigation bar > [Export All Data]).\n\nIf you run into any issues, please take a screenshot to share with our team—it helps a lot! Suggestions are also welcome. You can find us via [Settings] > [Contact Us].\n\nIf you enjoy using MemoLanes, feel free to share it with others. Your support motivates us to keep improving. 🫶🏻\n\nWish you great journeys ahead—let’s explore the world together! 🚀"
-  },
-  "osm_data_source": {
-    "title": "Data Source"
   },
   "privacy": {
     "url": "https://app.memolanes.com/en/privacy/",
