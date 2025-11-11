@@ -50,6 +50,7 @@ android {
         getByName("debug") {
             signingConfig = signingConfigs.getByName("debug")
             ndk {
+                abiFilters.clear()
                 abiFilters += listOf("arm64-v8a", "x86_64")
             }
         }
@@ -62,6 +63,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
             )
             ndk {
+                abiFilters.clear()
                 // noinspection ChromeOsAbiSupport
                 abiFilters += "arm64-v8a"
             }
