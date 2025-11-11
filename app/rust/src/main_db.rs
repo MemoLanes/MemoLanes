@@ -1,5 +1,6 @@
 extern crate simplelog;
-use anyhow::Result;
+use anyhow::{Context, Result};
+use auto_context::auto_context;
 use chrono::{DateTime, Local, NaiveDate, Timelike, Utc};
 use protobuf::Message;
 use rusqlite::{Connection, OptionalExtension, Transaction};
@@ -33,6 +34,7 @@ deserialize the header.
 // 3 is the zstd default
 pub const ZSTD_COMPRESS_LEVEL: i32 = 3;
 
+#[auto_context]
 #[allow(clippy::type_complexity)]
 fn open_db_and_run_migration(
     support_dir: &str,
@@ -92,18 +94,20 @@ impl Txn<'_> {
         let mut query = self.db_txn.prepare(
             "SELECT timestamp_sec, lat, lng, process_result FROM ongoing_journey ORDER BY id;",
         )?;
-        let results = query.query_map((), |row| {
-            let timestamp_sec: Option<i64> = row.get(0)?;
-            let process_result: i8 = row.get(3)?;
-            Ok(PreprocessedData {
-                timestamp_sec,
-                track_point: TrackPoint {
-                    latitude: row.get(1)?,
-                    longitude: row.get(2)?,
-                },
-                process_result: process_result.into(),
+        let results = query
+            .query_map((), |row| {
+                let timestamp_sec: Option<i64> = row.get(0)?;
+                let process_result: i8 = row.get(3)?;
+                Ok(PreprocessedData {
+                    timestamp_sec,
+                    track_point: TrackPoint {
+                        latitude: row.get(1)?,
+                        longitude: row.get(2)?,
+                    },
+                    process_result: process_result.into(),
+                })
             })
-        })?;
+            .context("get_onging_journey")?;
         gps_processor::build_journey_vector(
             results.map(|x| x.map_err(|x| x.into())),
             journey_date_picker,
@@ -118,11 +122,13 @@ impl Txn<'_> {
         let mut query = self
             .db_txn
             .prepare("SELECT * FROM (SELECT timestamp_sec FROM ongoing_journey ORDER BY id ASC LIMIT 1) UNION ALL SELECT * FROM (SELECT timestamp_sec FROM ongoing_journey ORDER BY id DESC LIMIT 1);")?;
-        let mut results = query.query_map((), |row| {
-            // `timestamp_sec` cannot be null
-            let timestamp_sec: i64 = row.get(0)?;
-            Ok(timestamp_sec)
-        })?;
+        let mut results = query
+            .query_map((), |row| {
+                // `timestamp_sec` cannot be null
+                let timestamp_sec: i64 = row.get(0)?;
+                Ok(timestamp_sec)
+            })
+            .context("get_ongoing_journey_timestamp_range")?;
 
         match results.next() {
             None => Ok(None),
@@ -135,6 +141,7 @@ impl Txn<'_> {
         }
     }
 
+    #[auto_context]
     pub fn delete_all_journeys(&mut self) -> Result<()> {
         info!("Deleting all journeys");
         self.db_txn.execute("DELETE FROM journey;", ())?;
@@ -142,6 +149,7 @@ impl Txn<'_> {
         Ok(())
     }
 
+    #[auto_context]
     pub fn delete_journey(&mut self, id: &str) -> Result<()> {
         info!("Deleting journey: id={id}");
         let changes = self
@@ -156,6 +164,7 @@ impl Txn<'_> {
     }
 
     // TODO: consider return structured result so the caller know if it is skipped or other cases
+    #[auto_context]
     pub fn insert_journey(&mut self, header: JourneyHeader, data: JourneyData) -> Result<()> {
         let journey_type = header.journey_type;
         if journey_type != data.type_() {
@@ -215,6 +224,7 @@ impl Txn<'_> {
     }
 
     #[allow(clippy::too_many_arguments)]
+    #[auto_context]
     pub fn create_and_insert_journey(
         &mut self,
         journey_date: NaiveDate,
@@ -255,6 +265,7 @@ impl Txn<'_> {
         Ok(id)
     }
 
+    #[auto_context]
     pub fn update_journey_metadata(
         &mut self,
         id: &str,
@@ -299,6 +310,7 @@ impl Txn<'_> {
         Ok(())
     }
 
+    #[auto_context]
     pub fn update_journey_data(
         &mut self,
         id: &str,
@@ -332,6 +344,7 @@ impl Txn<'_> {
         Ok(())
     }
 
+    #[auto_context]
     pub fn finalize_ongoing_journey(&mut self) -> Result<bool> {
         let mut journey_date_picker = JourneyDatePicker::new();
         let new_journey_added = match self.get_ongoing_journey(Some(&mut journey_date_picker))? {
@@ -371,6 +384,7 @@ impl Txn<'_> {
     // `JourneyHeader` in memory might be a little bit too much.
     // Actually, header is pretty small so it should be fine but still an iterator
     // would be better. Frontend should always use ranged query.
+    #[auto_context]
     pub fn query_journeys(
         &self,
         from_date_inclusive: Option<NaiveDate>,
@@ -416,7 +430,8 @@ impl Txn<'_> {
                 let header_bytes = row.get_ref(0)?.as_blob()?;
                 Ok(protos::journey::Header::parse_from_bytes(header_bytes))
             })
-            .optional()?;
+            .optional()
+            .context("get_journey_header")?;
 
         match header_proto_result {
             Some(header_proto_result) => {
@@ -432,17 +447,20 @@ impl Txn<'_> {
             .db_txn
             .prepare("SELECT type, data FROM journey WHERE id = ?1;")?;
 
-        query.query_row([id], |row| {
-            let type_ = row.get_ref(0)?.as_i64()?;
-            let f = || {
-                let journey_type = JourneyType::of_int(i8::try_from(type_)?)?;
-                let data = row.get_ref(1)?.as_blob()?;
-                JourneyData::deserialize(data, journey_type)
-            };
-            Ok(f())
-        })?
+        query
+            .query_row([id], |row| {
+                let type_ = row.get_ref(0)?.as_i64()?;
+                let f = || {
+                    let journey_type = JourneyType::of_int(i8::try_from(type_)?)?;
+                    let data = row.get_ref(1)?.as_blob()?;
+                    JourneyData::deserialize(data, journey_type)
+                };
+                Ok(f())
+            })
+            .context("get_journey_data")?
     }
 
+    #[auto_context]
     pub fn years_with_journey(&self) -> Result<Vec<i32>> {
         let mut query = self
             .db_txn
@@ -454,6 +472,7 @@ impl Txn<'_> {
         Ok(years)
     }
 
+    #[auto_context]
     pub fn months_with_journey(&self, year: i32) -> Result<Vec<i32>> {
         let mut query = self
             .db_txn
@@ -465,6 +484,7 @@ impl Txn<'_> {
         Ok(months)
     }
 
+    #[auto_context]
     pub fn days_with_journey(&self, year: i32, month: i32) -> Result<Vec<i32>> {
         let mut query = self
             .db_txn
@@ -477,6 +497,7 @@ impl Txn<'_> {
     }
 
     // TODO: consider moving this to `storage.rs`
+    #[auto_context]
     pub fn try_auto_finalize_journey(&mut self) -> Result<bool> {
         match self.get_ongoing_journey_timestamp_range()? {
             None => Ok(false),
@@ -520,9 +541,10 @@ impl Txn<'_> {
         let mut query = self
             .db_txn
             .prepare("SELECT journey_date FROM journey ORDER BY journey_date LIMIT 1;")?;
-        Ok(query
+        query
             .query_row((), |row| Ok(utils::date_of_days_since_epoch(row.get(0)?)))
-            .optional()?)
+            .optional()
+            .context("earliest_journey_date")
     }
 
     pub fn require_optimization(&self) -> Result<bool> {
@@ -536,6 +558,7 @@ impl Txn<'_> {
         Ok(result)
     }
 
+    #[auto_context]
     pub fn optimize(&mut self) -> Result<()> {
         info!("Start optimizing main DB.");
         let journey_headers = self.query_journeys(None, None)?;
@@ -611,6 +634,7 @@ impl MainDb {
         MainDb { conn }
     }
 
+    #[auto_context]
     pub fn with_txn<F, O>(&mut self, f: F) -> Result<O>
     where
         F: FnOnce(&mut Txn) -> Result<O>,
@@ -624,6 +648,7 @@ impl MainDb {
         Ok(output)
     }
 
+    #[auto_context]
     pub fn flush(&self) -> Result<()> {
         self.conn.cache_flush()?;
         Ok(())
@@ -634,6 +659,7 @@ impl MainDb {
       `cache_db` can be put outside `Txn`. Be extra careful.
     */
 
+    #[auto_context]
     fn append_ongoing_journey(
         &mut self,
         raw_data: &gps_processor::RawData,
@@ -653,6 +679,7 @@ impl MainDb {
         Ok(())
     }
 
+    #[auto_context]
     pub fn record(
         &mut self,
         raw_data: &gps_processor::RawData,
@@ -667,6 +694,7 @@ impl MainDb {
         Ok(())
     }
 
+    #[auto_context]
     fn get_setting<T: FromStr>(&mut self, setting: Setting) -> Result<Option<T>>
     where
         <T as FromStr>::Err: Error + Send + Sync + 'static,
@@ -699,6 +727,7 @@ impl MainDb {
         .unwrap_or(default)
     }
 
+    #[auto_context]
     pub fn set_setting<T: ToString>(&mut self, setting: Setting, value: T) -> Result<()> {
         let tx = self.conn.transaction()?;
         let sql = "INSERT OR REPLACE INTO setting (key, value) VALUES (?1, ?2);";

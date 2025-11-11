@@ -1,5 +1,6 @@
 extern crate simplelog;
-use anyhow::Result;
+use anyhow::{Context, Result};
+use auto_context::auto_context;
 use rusqlite::{Connection, OptionalExtension};
 use std::cmp::Ordering;
 use std::path::Path;
@@ -121,6 +122,7 @@ impl CacheDb {
     }
 
     // get a merged cache or compute from storage
+    #[auto_context]
     pub fn get_full_journey_cache_or_compute<F>(
         &self,
         layer_kind: &LayerKind,
@@ -140,6 +142,7 @@ impl CacheDb {
         }
     }
 
+    #[auto_context]
     pub fn clear_all_cache(&self) -> Result<()> {
         // TODO: in v3, use more fine-grained delete with year/month
         self.conn
@@ -147,6 +150,7 @@ impl CacheDb {
         Ok(())
     }
 
+    #[auto_context]
     pub fn delete_full_journey_cache(&self, layer_kind: &LayerKind) -> Result<()> {
         self.conn.execute(
             "DELETE FROM `journey_cache__full` WHERE kind = ?1;",
@@ -155,6 +159,7 @@ impl CacheDb {
         Ok(())
     }
 
+    #[auto_context]
     pub fn update_full_journey_cache_if_exists<F>(&self, layer_kind: &LayerKind, f: F) -> Result<()>
     where
         F: FnOnce(&mut JourneyBitmap) -> Result<()>,

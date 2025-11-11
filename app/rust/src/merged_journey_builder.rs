@@ -10,7 +10,8 @@ use crate::{
     journey_vector::JourneyVector,
     main_db::{self, MainDb},
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
+use auto_context::auto_context;
 use chrono::NaiveDate;
 
 pub fn add_journey_vector_to_journey_bitmap(
@@ -33,6 +34,7 @@ pub fn add_journey_vector_to_journey_bitmap(
 
 // TODO: This is going to be very slow.
 // Returns a journey bitmap for the journey kind
+#[auto_context]
 fn get_range_internal(
     txn: &main_db::Txn,
     from_date_inclusive: Option<NaiveDate>,
@@ -63,6 +65,7 @@ fn get_range_internal(
 }
 
 // for time machine
+#[auto_context]
 pub fn get_range(
     txn: &mut main_db::Txn,
     from_date_inclusive: NaiveDate,
@@ -77,6 +80,7 @@ pub fn get_range(
     )
 }
 
+#[auto_context]
 fn get_all_finalized_journeys(
     main_db_txn: &main_db::Txn,
     cache_db: &CacheDb,
@@ -102,6 +106,7 @@ fn get_all_finalized_journeys(
 }
 
 // main map
+#[auto_context]
 pub fn get_latest(
     main_db: &mut MainDb,
     cache_db: &CacheDb,

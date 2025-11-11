@@ -1,7 +1,8 @@
 use std::fs::File;
 use std::sync::{Arc, Mutex, OnceLock};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
+use auto_context::auto_context;
 use chrono::NaiveDate;
 use flutter_rust_bridge::frb;
 
@@ -50,6 +51,7 @@ pub fn short_commit_hash() -> String {
     build_info::SHORT_COMMIT_HASH.to_string()
 }
 
+#[auto_context]
 fn reload_main_map_bitmap(
     storage: &Storage,
     main_map_renderer: &mut MapRenderer,
@@ -380,6 +382,7 @@ pub fn set_main_map_layer_filter(new_layer_filter: &LayerFilter) -> Result<()> {
     Ok(())
 }
 
+#[auto_context]
 fn reset_gps_preprocessor_if_finalized<F>(finalize_op: F) -> Result<bool>
 where
     F: FnOnce(&mut main_db::Txn) -> Result<bool>,
@@ -466,6 +469,7 @@ pub enum ExportType {
     KML = 1,
 }
 
+#[auto_context]
 pub fn export_journey(
     target_filepath: String,
     journey_id: String,

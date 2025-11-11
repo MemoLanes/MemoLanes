@@ -1,6 +1,7 @@
 use std::{ffi::OsStr, path::Path};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
+use auto_context::auto_context;
 use chrono::{DateTime, Local, NaiveDate, Utc};
 use flutter_rust_bridge::frb;
 
@@ -29,6 +30,7 @@ pub struct RawVectorData {
     data: Vec<Vec<RawData>>,
 }
 
+#[auto_context]
 pub fn load_fow_data(file_path: String) -> Result<(JourneyInfo, JourneyData)> {
     let extension = Path::new(&file_path)
         .extension()
@@ -51,6 +53,7 @@ pub fn load_fow_data(file_path: String) -> Result<(JourneyInfo, JourneyData)> {
     Ok((journey_info, JourneyData::Bitmap(journey_bitmap)))
 }
 
+#[auto_context]
 pub fn load_gpx_or_kml(file_path: String) -> Result<(JourneyInfo, RawVectorData)> {
     let raw_vector_data = match Path::new(&file_path)
         .extension()
@@ -71,6 +74,7 @@ pub fn load_gpx_or_kml(file_path: String) -> Result<(JourneyInfo, RawVectorData)
     ))
 }
 
+#[auto_context]
 pub fn import_journey_data(journey_info: JourneyInfo, journey_data: JourneyData) -> Result<()> {
     let _id = api::get().storage.with_db_txn(|txn| {
         txn.create_and_insert_journey(
@@ -92,6 +96,7 @@ pub enum ImportPreprocessor {
     FlightTrack,
 }
 
+#[auto_context]
 pub fn process_vector_data(
     vector_data: &RawVectorData,
     import_processor: ImportPreprocessor,

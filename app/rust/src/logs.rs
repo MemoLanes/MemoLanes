@@ -5,7 +5,8 @@ use std::{
 };
 
 use crate::frb_generated::StreamSink;
-use anyhow::Result;
+use anyhow::{Context, Result};
+use auto_context::auto_context;
 use file_rotate::{
     compression::Compression,
     suffix::{AppendTimestamp, FileLimit},
@@ -49,6 +50,7 @@ impl Log for MainLogger {
     fn flush(&self) {}
 }
 
+#[auto_context]
 pub fn init(cache_dir: &str) -> Result<()> {
     let path = Path::new(cache_dir).join("logs/main.log");
     let log = FileRotate::new(
@@ -67,6 +69,7 @@ pub fn init(cache_dir: &str) -> Result<()> {
     Ok(())
 }
 
+#[auto_context]
 pub fn export(cache_dir: &str, target_file_path: &str) -> Result<()> {
     let mut zip = zip::ZipWriter::new(File::create(target_file_path)?);
     let default_options =

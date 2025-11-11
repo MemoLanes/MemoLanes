@@ -1,4 +1,5 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
+use auto_context::auto_context;
 use chrono::{DateTime, NaiveDate, Utc};
 use flutter_rust_bridge::frb;
 use protobuf::EnumOrUnknown;
@@ -106,6 +107,7 @@ pub struct JourneyHeader {
 }
 
 impl JourneyHeader {
+    #[auto_context]
     pub fn of_proto(mut proto: protos::journey::Header) -> Result<Self> {
         let journey_type = proto
             .type_
