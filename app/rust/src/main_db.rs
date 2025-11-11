@@ -541,10 +541,10 @@ impl Txn<'_> {
         let mut query = self
             .db_txn
             .prepare("SELECT journey_date FROM journey ORDER BY journey_date LIMIT 1;")?;
-        Ok(query
+        query
             .query_row((), |row| Ok(utils::date_of_days_since_epoch(row.get(0)?)))
             .optional()
-            .context("earliest_journey_date")?)
+            .context("earliest_journey_date")
     }
 
     pub fn require_optimization(&self) -> Result<bool> {
