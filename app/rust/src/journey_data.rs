@@ -1,6 +1,7 @@
 use std::io::{Read, Write};
 
-use anyhow::{Ok, Result};
+use anyhow::{Context, Ok, Result};
+use auto_context::auto_context;
 use flutter_rust_bridge::frb;
 use integer_encoding::*;
 use itertools::Itertools;
@@ -40,6 +41,7 @@ pub fn validate_magic_header<T: Read>(reader: &mut T, expected_header: &[u8; 2])
 }
 
 // TODO: I don't have a strong reason on putting all serializations here
+#[auto_context]
 pub fn serialize_journey_vector<T: Write>(
     journey_vector: &JourneyVector,
     mut writer: T,
@@ -60,6 +62,7 @@ pub fn serialize_journey_vector<T: Write>(
     Ok(())
 }
 
+#[auto_context]
 pub fn deserialize_journey_vector<T: Read>(mut reader: T) -> Result<JourneyVector> {
     validate_magic_header(&mut reader, &JOURNEY_VECTOR_MAGIC_HEADER)?;
 
@@ -86,6 +89,7 @@ pub fn deserialize_journey_vector<T: Read>(mut reader: T) -> Result<JourneyVecto
     Ok(JourneyVector { track_segments })
 }
 
+#[auto_context]
 pub fn serialize_journey_bitmap<T: Write>(
     journey_bitmap: &JourneyBitmap,
     mut writer: T,
@@ -137,6 +141,7 @@ pub fn serialize_journey_bitmap<T: Write>(
     Ok(())
 }
 
+#[auto_context]
 fn deserialize_tile<T: Read>(reader: T) -> Result<Tile> {
     let mut decoder = zstd::Decoder::new(reader)?;
     let mut tile = Tile::new();
@@ -159,6 +164,7 @@ fn deserialize_tile<T: Read>(reader: T) -> Result<Tile> {
     Ok(tile)
 }
 
+#[auto_context]
 pub fn deserialize_journey_bitmap<T: Read>(mut reader: T) -> Result<JourneyBitmap> {
     validate_magic_header(&mut reader, &JOURNEY_BITMAP_MAGIC_HEADER)?;
 

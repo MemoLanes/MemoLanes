@@ -449,6 +449,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c59bdb34bc650a32731b31bd8f0829cc15d24a708ee31559e0bb34f2bc320cba"
 
 [[package]]
+name = "auto-context"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c4ae85f402315452fb67d90b4020872c76b42917fae81e63bf1e6466d92742c"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2226,6 +2236,7 @@ dependencies = [
  "actix-web-actors",
  "anyhow",
  "assert_float_eq",
+ "auto-context",
  "base64",
  "bitvec",
  "cargo_toml",

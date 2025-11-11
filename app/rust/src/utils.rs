@@ -68,9 +68,11 @@ mod tests {
 }
 
 pub mod db {
-    use anyhow::Result;
+    use anyhow::{Context, Result};
+    use auto_context::auto_context;
     use rusqlite::{OptionalExtension, Transaction};
 
+    #[auto_context]
     pub fn init_metadata_and_get_version(tx: &Transaction) -> Result<i32> {
         let create_db_metadata_sql = "
         CREATE TABLE IF NOT EXISTS `db_metadata` (
@@ -94,6 +96,7 @@ pub mod db {
         Ok(version)
     }
 
+    #[auto_context]
     pub fn set_version_in_metadata(tx: &Transaction, version: i32) -> Result<()> {
         tx.execute(
             "INSERT OR REPLACE INTO `db_metadata` (key, value) VALUES (?1, ?2)",

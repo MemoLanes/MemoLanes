@@ -10,7 +10,8 @@ use crate::{
     gps_processor::{self, GpsPreprocessor},
     journey_vector::{JourneyVector, TrackPoint},
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
+use auto_context::auto_context;
 use chrono::{DateTime, Local, TimeZone, Utc};
 use flate2::read::ZlibDecoder;
 use gpx::{read, Waypoint};
@@ -53,6 +54,7 @@ impl FoWTileId {
     }
 }
 
+#[auto_context]
 fn parse_fow_bitmap_file<R: Read>(
     file: R,
     filename: &str,
@@ -94,6 +96,7 @@ fn parse_fow_bitmap_file<R: Read>(
     Ok(())
 }
 
+#[auto_context]
 pub fn load_fow_sync_data(mldx_file_path: &str) -> Result<(JourneyBitmap, Option<String>)> {
     let mut warnings: Vec<String> = Vec::new();
 
@@ -136,6 +139,7 @@ pub fn load_fow_sync_data(mldx_file_path: &str) -> Result<(JourneyBitmap, Option
     }
 }
 
+#[auto_context]
 pub fn load_fow_snapshot_data(fwss_file_path: &str) -> Result<(JourneyBitmap, Option<String>)> {
     let mut warnings: Vec<String> = Vec::new();
     let mut zip = zip::ZipArchive::new(File::open(fwss_file_path)?)?;
@@ -174,6 +178,7 @@ pub fn load_fow_snapshot_data(fwss_file_path: &str) -> Result<(JourneyBitmap, Op
     }
 }
 
+#[auto_context]
 pub fn load_gpx(file_path: &str) -> Result<Vec<Vec<RawData>>> {
     let gpx_data = read(BufReader::new(File::open(file_path)?))?;
     let convert_to_timestamp = |time: &Option<gpx::Time>| -> Result<Option<i64>> {
@@ -231,6 +236,7 @@ pub fn load_gpx(file_path: &str) -> Result<Vec<Vec<RawData>>> {
 }
 
 /// Load and parse KML safely, skipping invalid <description> blocks.
+#[auto_context]
 pub fn load_kml(file_path: &str) -> Result<Vec<Vec<RawData>>> {
     let xml = fs::read_to_string(file_path)?;
     let (cleaned_xml, _descriptions) = read_kml_description_and_remove(&xml)?;
@@ -247,6 +253,7 @@ pub fn load_kml(file_path: &str) -> Result<Vec<Vec<RawData>>> {
 
 /// 2bulu generated KML contains HTML tags in <description>, which breaks the KML parser.
 /// So let's extract the description early and remove it from the original KML before parsing.
+#[auto_context]
 fn read_kml_description_and_remove(xml: &str) -> Result<(String, Vec<String>)> {
     let mut reader = Reader::from_str(xml);
     reader.config_mut().trim_text(true);
@@ -276,6 +283,7 @@ fn read_kml_description_and_remove(xml: &str) -> Result<(String, Vec<String>)> {
     Ok((cleaned_xml, descriptions))
 }
 
+#[auto_context]
 fn read_track(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
     let parse_line = |coord: &Option<String>, when: &Option<String>| -> Result<Option<RawData>> {
         let coord: Vec<&str> = match coord {

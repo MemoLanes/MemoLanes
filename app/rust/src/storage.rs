@@ -1,5 +1,6 @@
 extern crate simplelog;
-use anyhow::{Ok, Result};
+use anyhow::{Context, Ok, Result};
+use auto_context::auto_context;
 use chrono::Local;
 use std::collections::HashMap;
 use std::fs::{remove_file, File};
@@ -146,6 +147,7 @@ impl Storage {
         }
     }
 
+    #[auto_context]
     pub fn with_db_txn<F, O>(&self, f: F) -> Result<O>
     where
         F: FnOnce(&mut main_db::Txn) -> Result<O>,
@@ -244,6 +246,7 @@ impl Storage {
         raw_data_recorder.is_some()
     }
 
+    #[auto_context]
     pub fn delete_raw_data_file(&self, filename: String) -> Result<()> {
         let mut raw_data_recorder = self.raw_data_recorder.lock().unwrap();
         if let Some(ref mut x) = *raw_data_recorder {
@@ -305,6 +308,7 @@ impl Storage {
         self.finalized_journey_changed_callback = callback;
     }
 
+    #[auto_context]
     pub fn get_latest_bitmap_for_main_map_renderer(
         &self,
         layer_kind: &Option<LayerKind>,
@@ -320,6 +324,7 @@ impl Storage {
         Ok(journey_bitmap)
     }
 
+    #[auto_context]
     pub fn clear_all_cache(&self) -> Result<()> {
         let cache_db = &self.dbs.lock().unwrap().1;
         cache_db.clear_all_cache()?;
@@ -327,6 +332,7 @@ impl Storage {
     }
 
     // TODO: do we need this?
+    #[auto_context]
     pub fn _flush(&self) -> Result<()> {
         debug!("[storage] flushing");
 

@@ -1,4 +1,5 @@
-use anyhow::{Ok, Result};
+use anyhow::{Context, Ok, Result};
+use auto_context::auto_context;
 use chrono::{Datelike, Utc};
 use hex::ToHex;
 use integer_encoding::*;
@@ -38,6 +39,7 @@ const SECTION_MAGIC_HEADER: [u8; 3] = [b'M', b'L', b'S'];
 
 // TODO: consider return more detail about this import: e.g. how many journeys
 // are added, how many are skipped.
+#[auto_context]
 pub fn import_mldx(txn: &mut main_db::Txn, mldx_file: &str) -> Result<()> {
     let mut zip = zip::ZipArchive::new(File::open(mldx_file)?)?;
     let mut file = zip.by_name("metadata.xxm")?;
@@ -125,6 +127,7 @@ pub enum WhatToExport {
     Just(String),
 }
 
+#[auto_context]
 pub fn export_as_mldx<T: Write + Seek>(
     what_to_export: &WhatToExport,
     txn: &main_db::Txn,

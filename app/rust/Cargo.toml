@@ -49,6 +49,7 @@ base64 = "0.22.1"
 serde_with = { version = "3.14", features = ["base64"] }
 quick-xml = "0.37"
 bitvec = "1.0.1"
+auto-context = "0.1.1"
 
 [dev-dependencies]
 tempdir = "0.3"

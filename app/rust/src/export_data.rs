@@ -1,5 +1,6 @@
 use crate::journey_vector::JourneyVector;
-use anyhow::{Ok, Result};
+use anyhow::{Context, Ok, Result};
+use auto_context::auto_context;
 use geo_types::Point;
 use gpx::{Gpx, GpxVersion, Track, TrackSegment, Waypoint};
 use kml::{Kml, KmlDocument, KmlWriter};
@@ -13,6 +14,7 @@ use std::{
 // bit annoying. Ideally I don't want to fake data (e.g. generating timestamps
 // for all points based on begin and end time). So maybe also treat them as
 // custom attributes or just add timestamp for the first and last point if possible.
+#[auto_context]
 pub fn journey_vector_to_gpx_file<T: Write + Seek>(
     journey_vector: &JourneyVector,
     writer: &mut T,
@@ -48,6 +50,7 @@ pub fn journey_vector_to_gpx_file<T: Write + Seek>(
     Ok(())
 }
 
+#[auto_context]
 pub fn journey_vector_to_kml_file<T: Write + Seek>(
     journey_vector: &JourneyVector,
     writer: &mut T,
@@ -102,6 +105,7 @@ pub fn journey_vector_to_kml_file<T: Write + Seek>(
     Ok(())
 }
 
+#[auto_context]
 fn write_kml_document<T: Write + Seek>(
     name: String,
     description: String,

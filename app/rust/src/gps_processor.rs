@@ -3,7 +3,8 @@ use crate::{
     journey_header::{JourneyHeader, JourneyType},
     journey_vector::{JourneyVector, TrackPoint, TrackSegment},
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
+use auto_context::auto_context;
 use chrono::DateTime;
 
 // TODO: This is the same as `TrackPoint`, we should unify them.
@@ -423,6 +424,7 @@ pub struct PreprocessedData {
     pub process_result: ProcessResult,
 }
 
+#[auto_context]
 pub fn build_journey_vector(
     results: impl Iterator<Item = Result<PreprocessedData>>,
     mut journey_date_picker: Option<&mut JourneyDatePicker>,
