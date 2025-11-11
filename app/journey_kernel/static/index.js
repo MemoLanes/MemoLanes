@@ -162,27 +162,27 @@ async function trySetup() {
 
   if (window.EXTERNAL_PARAMS.map_style) {
     currentMapStyle = window.EXTERNAL_PARAMS.map_style;
+  }
 
-    if (
-      typeof currentMapStyle === "string" &&
-      currentMapStyle.startsWith("mapbox://")
-    ) {
-      if (window.EXTERNAL_PARAMS.access_key) {
-        transformRequest = (url, resourceType) => {
-          if (isMapboxURL(url)) {
-            return transformMapboxUrl(
-              url,
-              resourceType,
-              window.EXTERNAL_PARAMS.access_key,
-            );
-          }
-          return { url };
-        };
-      } else {
-        document.body.innerHTML = `<div style="padding: 20px; font-family: Arial, sans-serif; color: red;"><h1>TOKEN not provided</h1></div>`;
-        tryNotifyFlutterReady();
-        return;
-      }
+  if (
+    typeof currentMapStyle === "string" &&
+    currentMapStyle.startsWith("mapbox://")
+  ) {
+    if (window.EXTERNAL_PARAMS.access_key) {
+      transformRequest = (url, resourceType) => {
+        if (isMapboxURL(url)) {
+          return transformMapboxUrl(
+            url,
+            resourceType,
+            window.EXTERNAL_PARAMS.access_key,
+          );
+        }
+        return { url };
+      };
+    } else {
+      document.body.innerHTML = `<div style="padding: 20px; font-family: Arial, sans-serif; color: red;"><h1>TOKEN not provided</h1></div>`;
+      tryNotifyFlutterReady();
+      return;
     }
   }
 
@@ -246,9 +246,7 @@ async function trySetup() {
     transformRequest,
     pitchWithRotate: false,
     touchPitch: false,
-    attributionControl: {
-      compact: false,
-    },
+    attributionControl: false,
   });
 
   map.dragRotate.disable();

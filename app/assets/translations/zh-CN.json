@@ -5,7 +5,8 @@
     "resume": "恢复",
     "end_journey_title": "结束旅程？",
     "end_journey_message": "确定要结束当前的旅程吗？",
-    "double_back_exit": "再按一次退出应用"
+    "double_back_exit": "再按一次退出应用",
+    "map_data_source_copyright_title": "数据来源"
   },
   "location_service": {
     "location_permission_denied": "你已拒绝获取位置权限，为了保障定位功能的使用，请在设置中打开。",
