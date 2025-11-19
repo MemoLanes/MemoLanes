@@ -31,7 +31,8 @@
     "delete": "Delete",
     "please_enter": "Please enter",
     "still_under_development": "Still under development",
-    "copy_success": "Copied"
+    "copy_success": "Copied",
+    "loading":"Loading"
   },
   "journey": {
     "no_data": "There's no data yet, go ahead and explore the world!",

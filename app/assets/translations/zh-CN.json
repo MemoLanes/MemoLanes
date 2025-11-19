@@ -31,7 +31,8 @@
     "delete": "删除",
     "please_enter": "请输入",
     "still_under_development": "开发中",
-    "copy_success": "复制成功"
+    "copy_success": "复制成功",
+    "loading":"加载中"
   },
   "journey": {
     "no_data": "当前暂无旅程数据，开始探索世界吧！",

@@ -3,8 +3,9 @@ import 'dart:io';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
-import 'package:memolanes/common/component/common_dialog.dart';
+import 'package:memolanes/common/component/dialog/common_dialog.dart';
 import 'package:memolanes/common/component/common_export.dart';
+import 'package:memolanes/common/component/dialog/string_dialog.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 Future<bool> showCommonDialog(BuildContext context, String message,
@@ -44,7 +45,7 @@ Future<bool> showCommonDialog(BuildContext context, String message,
     context: context,
     barrierDismissible: false,
     builder: (BuildContext context) {
-      return CommonDialog(
+      return StringDialog(
         title: title,
         content: message,
         showCancel: hasCancel,
@@ -74,26 +75,18 @@ Future<T> showLoadingDialog<T>({
     context: context,
     barrierDismissible: false,
     builder: (BuildContext context) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 10),
-        child: Center(
-          child: Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(
-                  strokeWidth: 3.0,
-                ),
-              ],
+      return CommonDialog(
+        title: context.tr("common.loading"),
+        content: SizedBox(
+          width: 80,
+          height: 80,
+          child: const Center(
+            child: CircularProgressIndicator(
+              strokeWidth: 3.0,
             ),
           ),
         ),
+        buttons: const [],
       );
     },
   );
