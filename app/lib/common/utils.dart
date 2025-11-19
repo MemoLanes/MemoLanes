@@ -48,7 +48,6 @@ Future<bool> showCommonDialog(BuildContext context, String message,
       return StringDialog(
         title: title,
         content: message,
-        showCancel: hasCancel,
         buttons: allButtons,
         markdown: markdown,
       );
