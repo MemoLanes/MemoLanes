@@ -49,6 +49,7 @@
     "export_journey_as_gpx": "Export as GPX",
     "export_journey_as_mldx": "Export as MLDX",
     "delete_all": "Delete All Journeys",
+    "delete_all_success": "All journeys are deleted!",
     "preprocessor": "Preprocessor",
     "journey_date": "Journey Date",
     "journey_kind": "Journey Kind",
