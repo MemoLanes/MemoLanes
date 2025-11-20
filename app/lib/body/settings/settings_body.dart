@@ -3,7 +3,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/body/settings/advanced_settings_page.dart';
 import 'package:memolanes/body/settings/import_data_page.dart';
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
@@ -12,6 +11,8 @@ import 'package:memolanes/common/component/scroll_views/single_child_scroll_view
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/component/tiles/label_tile_title.dart';
+import 'package:memolanes/common/gps_manager.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -320,13 +321,14 @@ class _SettingsBodyState extends State<SettingsBody> {
                     if (context.mounted) {
                       await showCommonDialog(
                         context,
-                        "Import succeeded!",
-                        title: "Success",
+                        context.tr("import.successful"),
                       );
                     }
-                  } catch (e) {
+                  } catch (error) {
                     if (context.mounted) {
-                      await showCommonDialog(context, e.toString());
+                      await showCommonDialog(
+                          context, context.tr("import.parsingFailed"));
+                      log.error("[import_data] Data parsing failed $error");
                     }
                   }
                 }
@@ -347,7 +349,7 @@ class _SettingsBodyState extends State<SettingsBody> {
             onTap: () async {
               await showCommonDialog(
                 context,
-                context.tr("import_fow_data.description_md"),
+                context.tr("import.import_fow_data.description_md"),
                 markdown: true,
               );
               if (await api.containsBitmapJourney()) {
@@ -355,7 +357,7 @@ class _SettingsBodyState extends State<SettingsBody> {
                 await showCommonDialog(
                   context,
                   context.tr(
-                    "import_fow_data.warning_for_import_multiple_data_md",
+                    "import.import_fow_data.warning_for_import_multiple_data_md",
                   ),
                   markdown: true,
                 );

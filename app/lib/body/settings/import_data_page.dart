@@ -7,6 +7,7 @@ import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
 import 'package:memolanes/src/rust/journey_data.dart';
@@ -32,43 +33,72 @@ class _ImportDataPage extends State<ImportDataPage> {
   api.MapRendererProxy? _mapRendererProxy;
   MapView? _initialMapView;
 
+  import_api.ImportPreprocessor _currentProcessor =
+      import_api.ImportPreprocessor.generic;
+
   @override
   void initState() {
     super.initState();
-    _readData(widget.path);
+    _initFlow();
   }
 
-  void _readData(String path) async {
-    try {
-      switch (widget.importType) {
-        case ImportType.fow:
-          var (journeyInfo, journeyData) =
-              await import_api.loadFowData(filePath: path);
-          setState(() {
-            this.journeyInfo = journeyInfo;
-            journeyDataMaybeRaw = f.Either.left(journeyData);
-          });
-          break;
-        case ImportType.gpxOrKml:
-          var (journeyInfo, rawVectorData) =
-              await import_api.loadGpxOrKml(filePath: path);
-          setState(() {
-            this.journeyInfo = journeyInfo;
-            journeyDataMaybeRaw = f.Either.right(rawVectorData);
-          });
-          break;
+  Future<void> _initFlow() async {
+    final future = () async {
+      await _readData(widget.path);
+      if (journeyInfo != null) {
+        await _previewDataInternal(_currentProcessor);
       }
+    }();
+
+    try {
+      await showLoadingDialog(
+        context: context,
+        asyncTask: future,
+      );
     } catch (error) {
-      Fluttertoast.showToast(msg: "Data parsing failed");
+      await showCommonDialog(context, context.tr("import.parsingFailed"));
       log.error("[import_data] Data parsing failed $error");
       Navigator.pop(context);
     }
   }
 
-  void _previewData(import_api.ImportPreprocessor processor) async {
+  Future<void> _readData(String path) async {
+    switch (widget.importType) {
+      case ImportType.fow:
+        var (journeyInfo, journeyData) =
+            await import_api.loadFowData(filePath: path);
+        setState(() {
+          this.journeyInfo = journeyInfo;
+          journeyDataMaybeRaw = f.Either.left(journeyData);
+        });
+        break;
+      case ImportType.gpxOrKml:
+        var (journeyInfo, rawVectorData) =
+            await import_api.loadGpxOrKml(filePath: path);
+        setState(() {
+          this.journeyInfo = journeyInfo;
+          journeyDataMaybeRaw = f.Either.right(rawVectorData);
+        });
+        break;
+    }
+  }
+
+  Future<void> _previewData(import_api.ImportPreprocessor processor) async {
+    if (processor == _currentProcessor) return;
+
+    _currentProcessor = processor;
+
+    await showLoadingDialog(
+      context: context,
+      asyncTask: _previewDataInternal(processor),
+    );
+  }
+
+  Future<void> _previewDataInternal(
+      import_api.ImportPreprocessor processor) async {
     final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
     if (journeyDataMaybeRaw == null) {
-      Fluttertoast.showToast(msg: "JourneyData is empty");
+      Fluttertoast.showToast(msg: context.tr("import.emptyData"));
       return;
     }
 
@@ -78,7 +108,7 @@ class _ImportDataPage extends State<ImportDataPage> {
           vectorData: r, importProcessor: processor),
     };
     if (journeyData == null) {
-      Fluttertoast.showToast(msg: "JourneyData is empty");
+      Fluttertoast.showToast(msg: context.tr("import.emptyData"));
       return;
     }
     final mapRendererProxyAndCameraOption =
@@ -96,53 +126,50 @@ class _ImportDataPage extends State<ImportDataPage> {
     });
   }
 
-  void _saveData(import_api.JourneyInfo journeyInfo,
+  Future<void> _saveData(import_api.JourneyInfo journeyInfo,
       import_api.ImportPreprocessor processor) async {
-    final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
-    if (journeyDataMaybeRaw == null) {
-      Fluttertoast.showToast(msg: "JourneyData is empty");
-      return;
-    }
+    await showLoadingDialog(
+      context: context,
+      asyncTask: (() async {
+        final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
+        if (journeyDataMaybeRaw == null) {
+          Fluttertoast.showToast(msg: context.tr("import.emptyData"));
+          return;
+        }
 
-    final journeyData = switch (journeyDataMaybeRaw) {
-      f.Left(value: final l) => l,
-      f.Right(value: final r) => await import_api.processVectorData(
-          vectorData: r, importProcessor: processor),
-    };
-    if (journeyData == null) {
-      Fluttertoast.showToast(msg: "JourneyData is empty");
-      return;
-    }
-    await import_api.importJourneyData(
-        journeyInfo: journeyInfo, journeyData: journeyData);
+        final journeyData = switch (journeyDataMaybeRaw) {
+          f.Left(value: final l) => l,
+          f.Right(value: final r) => await import_api.processVectorData(
+              vectorData: r, importProcessor: processor),
+        };
+        if (journeyData == null) {
+          Fluttertoast.showToast(msg: context.tr("import.emptyData"));
+          return;
+        }
+        await import_api.importJourneyData(
+            journeyInfo: journeyInfo, journeyData: journeyData);
 
-    Fluttertoast.showToast(msg: "Import successful");
+        await showCommonDialog(
+          context,
+          context.tr("import.successful"),
+        );
+      })(),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    var journeyInfo = this.journeyInfo;
-    final mapRendererProxy = _mapRendererProxy;
+    final journeyInfo = this.journeyInfo;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(context.tr("data.import_data.title")),
       ),
       body: journeyInfo == null
-          ? Center(
-              child: const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    "Reading data, please wait",
-                    style: TextStyle(fontSize: 22.0),
-                  ),
-                  CircularProgressIndicator()
-                ],
-              ),
-            )
+          ? const SizedBox.shrink()
           : SlidingUpPanel(
               color: Colors.black,
-              borderRadius: BorderRadius.only(
+              borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16.0),
                 topRight: Radius.circular(16.0),
               ),
@@ -154,17 +181,14 @@ class _ImportDataPage extends State<ImportDataPage> {
                     child: Column(
                       children: [
                         Padding(
-                          padding: EdgeInsets.only(top: 12.0),
-                          child: Center(
-                            child: CustomPaint(
-                              size: Size(40.0, 4.0),
-                              painter: LinePainter(
-                                color: const Color(0xFFB5B5B5),
-                              ),
-                            ),
+                          padding: const EdgeInsets.only(top: 12.0),
+                          child: CustomPaint(
+                            size: const Size(40.0, 4.0),
+                            painter:
+                                LinePainter(color: const Color(0xFFB5B5B5)),
                           ),
                         ),
-                        SizedBox(height: 16.0),
+                        const SizedBox(height: 16.0),
                         JourneyInfoEditPage(
                           startTime: journeyInfo.startTime,
                           endTime: journeyInfo.endTime,
@@ -179,11 +203,11 @@ class _ImportDataPage extends State<ImportDataPage> {
                   ),
                 ),
               ),
-              body: mapRendererProxy == null
-                  ? const CircularProgressIndicator()
+              body: _mapRendererProxy == null
+                  ? const SizedBox.shrink()
                   : BaseMapWebview(
                       key: const ValueKey("mapWidget"),
-                      mapRendererProxy: mapRendererProxy,
+                      mapRendererProxy: _mapRendererProxy!,
                       initialMapView: _initialMapView,
                     ),
             ),
