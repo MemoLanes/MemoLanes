@@ -96,7 +96,9 @@
     "title": "General",
     "version": {
       "title": "Version",
-      "currently_the_latest_version": "Currently the latest version"
+      "currently_the_latest_version": "Currently the latest version",
+      "update_prompt": "A new version is available. Do you want to download and install it now?",
+      "update_title": "Update"
     },
     "advance_settings": {
       "title": "Advance settings",
@@ -105,6 +107,14 @@
       "rebuild_cache": "Rebuild Cache",
       "render_diagnostics": "Render Diagnostics"
     }
+  },
+  "download": {
+    "title": "Download",
+    "error": "Download Failed"
+  },
+  "install": {
+    "no_permission": "Installation permission denied",
+    "error": "Installation Failed"
   },
   "data": {
     "title": "Data",

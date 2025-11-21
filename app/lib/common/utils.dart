@@ -3,9 +3,15 @@ import 'dart:io';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
-import 'package:memolanes/common/component/common_dialog.dart';
 import 'package:memolanes/common/component/common_export.dart';
+import 'package:open_file/open_file.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+
+import 'component/dialog/common_dialog.dart';
+import 'component/dialog/download_dialog.dart';
+import 'component/dialog/string_dialog.dart';
 
 Future<bool> showCommonDialog(BuildContext context, String message,
     {hasCancel = false,
@@ -44,10 +50,9 @@ Future<bool> showCommonDialog(BuildContext context, String message,
     context: context,
     barrierDismissible: false,
     builder: (BuildContext context) {
-      return CommonDialog(
+      return StringDialog(
         title: title,
         content: message,
-        showCancel: hasCancel,
         buttons: allButtons,
         markdown: markdown,
       );
@@ -132,6 +137,49 @@ Future<bool> showCommonExport(BuildContext context, String filePath,
   }
 
   return dialogResult ?? false;
+}
+
+Future<bool> showUpdateAPk(BuildContext context, String url) async {
+  final extDir = await getExternalStorageDirectory();
+  final apkPath = '${extDir!.path}/update.apk';
+
+  final dialogResult = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => DownloadDialog(
+      filePath: apkPath,
+      url: url,
+    ),
+  );
+  if (dialogResult == true) {
+    await installApkIfPermitted(context,apkPath);
+  }
+  return dialogResult ?? false;
+}
+
+Future<void> installApkIfPermitted(BuildContext context, String apkPath) async {
+  final status = await Permission.requestInstallPackages.status;
+  bool granted = status.isGranted;
+  if (!granted) {
+    final result = await Permission.requestInstallPackages.request();
+    granted = result.isGranted;
+  }
+
+  if (!granted) {
+    await showCommonDialog(
+      context,
+      context.tr("install.no_permission"),
+    );
+    return;
+  }
+  try {
+    await OpenFile.open(apkPath);
+  } catch (e) {
+    await showCommonDialog(
+      context,
+      context.tr("install.error"),
+    );
+  }
 }
 
 void showBasicCard(
