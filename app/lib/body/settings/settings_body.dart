@@ -97,8 +97,7 @@ class _SettingsBodyState extends State<SettingsBody> {
 
   @override
   Widget build(BuildContext context) {
-    // var updateUrl = context.watch<UpdateNotifier>().updateUrl;
-    var updateUrl = "https://downv6.qq.com/qqweb/QQ_1/android_apk/9.2.30_b19fc44e0cae059f.apk";
+    var updateUrl = context.watch<UpdateNotifier>().updateUrl;
     var gpsManager = context.watch<GpsManager>();
 
     return MlSingleChildScrollView(
