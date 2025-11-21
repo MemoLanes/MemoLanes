@@ -152,7 +152,7 @@ Future<bool> showUpdateAPk(BuildContext context, String url) async {
     ),
   );
   if (dialogResult == true) {
-    await installApkIfPermitted(context,apkPath);
+    await installApkIfPermitted(context, apkPath);
   }
   return dialogResult ?? false;
 }
