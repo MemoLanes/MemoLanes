@@ -73,6 +73,8 @@ dependencies:
   fpdart: ^1.1.1
   sliding_up_panel: ^2.0.0+1
   mmkv: ^2.2.2
+  dio: ^5.9.0
+  open_file: ^3.5.10
 
 dependency_overrides:
   geolocator_android:
