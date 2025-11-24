@@ -48,7 +48,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   // TODO: define a proper type to make it more type-safe
   // TODO: we may let user to choose base map providers.
-  final _mapStyle = "https://tiles.openfreemap.org/styles/liberty";
+  final _mapStyle = "mapbox://styles/mapbox/satellite-streets-v12";
   // final _mapStyle = "mapbox://styles/mapbox/streets-v12";
 
   // It is rough because we don't update it frequently.
