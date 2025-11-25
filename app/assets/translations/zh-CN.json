@@ -103,7 +103,11 @@
       "style": "样式",
       "style_normal": "地图",
       "style_satellite": "卫星图",
-      "style_hybrid": "混合图"
+      "style_hybrid": "混合图",
+      "style_custom": "自定义底图",
+      "enter_custom_url": "输入自定义底图链接",
+      "url_invalid_title": "底图错误",
+      "url_invalid_message": "自定义底图链接似乎有误，将会导致地图无法显示，仍继续吗？"
     },
     "advance_settings": {
       "title": "高级设置",

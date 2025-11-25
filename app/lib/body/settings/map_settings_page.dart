@@ -5,10 +5,9 @@ import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
+import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/utils.dart';
 
-/// 仅实现页面 UI，不做任何设置存取或全局状态改动。
-/// 包含一个“底图样式”项，点击后弹出底部选择框：地图 / 卫星图。
 class MapSettingsPage extends StatefulWidget {
   const MapSettingsPage({super.key});
 
@@ -16,16 +15,118 @@ class MapSettingsPage extends StatefulWidget {
   State<MapSettingsPage> createState() => _MapSettingsPageState();
 }
 
-enum _BaseStyle { normal, satellite, hybrid }
+enum _BaseStyle {
+  normal("https://tiles.openfreemap.org/styles/liberty"),
+  satellite("mapbox://styles/mapbox/satellite-v9"),
+  hybrid("mapbox://styles/mapbox/satellite-streets-v12"),
+  custom("custom");
+
+  final String url;
+  const _BaseStyle(this.url);
+
+  static _BaseStyle fromUrl(String url) {
+    return _BaseStyle.values.firstWhere(
+      (e) => e.url == url,
+      orElse: () => _BaseStyle.custom,
+    );
+  }
+}
 
 class _MapSettingsPageState extends State<MapSettingsPage> {
-  _BaseStyle _current = _BaseStyle.normal; // 仅用于本页展示，不写入设置
+  late _BaseStyle _current;
+  String _customUrl = "";
 
-  String get _currentLabel => _current == _BaseStyle.satellite
-      ? context.tr("general.map_settings.style_satellite")
-      : _current == _BaseStyle.hybrid
-          ? context.tr("general.map_settings.style_hybrid")
-          : context.tr("general.map_settings.style_normal");
+  @override
+  void initState() {
+    super.initState();
+    final style = MMKVUtil.getString(MMKVKey.mapStyle,
+        defaultValue: _BaseStyle.normal.url);
+    _current = _BaseStyle.fromUrl(style);
+    if (_current == _BaseStyle.custom) {
+      _customUrl = style;
+    }
+  }
+
+  String get _currentLabel => switch (_current) {
+        _BaseStyle.satellite =>
+          context.tr("general.map_settings.style_satellite"),
+        _BaseStyle.hybrid => context.tr("general.map_settings.style_hybrid"),
+        _BaseStyle.normal => context.tr("general.map_settings.style_normal"),
+        _BaseStyle.custom => context.tr("general.map_settings.style_custom"),
+      };
+
+  void _updateStyle(_BaseStyle style, {String? customUrl}) {
+    if (style == _BaseStyle.custom) {
+      if (customUrl != null && customUrl.isNotEmpty) {
+        setState(() {
+          _current = style;
+          _customUrl = customUrl;
+        });
+        MMKVUtil.putString(MMKVKey.mapStyle, customUrl);
+      }
+    } else if (_current != style) {
+      setState(() => _current = style);
+      MMKVUtil.putString(MMKVKey.mapStyle, style.url);
+    }
+  }
+
+  void _showCustomUrlDialog() {
+    final controller = TextEditingController(text: _customUrl);
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(context.tr("general.map_settings.enter_custom_url")),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: "mapbox://styles/mapbox/streets-v12",
+            border: OutlineInputBorder(),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(context.tr("common.cancel")),
+          ),
+          TextButton(
+            onPressed: () {
+              final text = controller.text;
+              if (text.startsWith("http") || text.startsWith("mapbox://")) {
+                Navigator.pop(dialogContext);
+                _updateStyle(_BaseStyle.custom, customUrl: text);
+              } else {
+                showDialog(
+                  context: dialogContext,
+                  builder: (warningContext) => AlertDialog(
+                    title: Text(
+                        context.tr("general.map_settings.url_invalid_title")),
+                    content: Text(
+                        context.tr("general.map_settings.url_invalid_message")),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(warningContext),
+                        child: Text(context.tr("common.cancel")),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(warningContext);
+                          Navigator.pop(dialogContext);
+                          _updateStyle(_BaseStyle.custom, customUrl: text);
+                        },
+                        child: Text(context.tr("common.ok")),
+                      ),
+                    ],
+                  ),
+                );
+              }
+            },
+            child: Text(context.tr("common.ok")),
+          ),
+        ],
+      ),
+    );
+  }
 
   void _showPicker() {
     showBasicCard(
@@ -35,28 +136,23 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
           CardLabelTile(
             label: context.tr("general.map_settings.style_normal"),
             position: CardLabelTilePosition.top,
-            onTap: () {
-              if (_current != _BaseStyle.normal) {
-                setState(() => _current = _BaseStyle.normal);
-              }
-            },
+            onTap: () => _updateStyle(_BaseStyle.normal),
           ),
           CardLabelTile(
             label: context.tr("general.map_settings.style_satellite"),
             position: CardLabelTilePosition.middle,
-            onTap: () {
-              if (_current != _BaseStyle.satellite) {
-                setState(() => _current = _BaseStyle.satellite);
-              }
-            },
+            onTap: () => _updateStyle(_BaseStyle.satellite),
           ),
           CardLabelTile(
             label: context.tr("general.map_settings.style_hybrid"),
+            position: CardLabelTilePosition.middle,
+            onTap: () => _updateStyle(_BaseStyle.hybrid),
+          ),
+          CardLabelTile(
+            label: context.tr("general.map_settings.style_custom"),
             position: CardLabelTilePosition.bottom,
             onTap: () {
-              if (_current != _BaseStyle.hybrid) {
-                setState(() => _current = _BaseStyle.hybrid);
-              }
+              _showCustomUrlDialog();
             },
           ),
         ],

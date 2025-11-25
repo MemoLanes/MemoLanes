@@ -103,7 +103,11 @@
       "style": "Map Style",
       "style_normal": "Map",
       "style_satellite": "Satellite",
-      "style_hybrid": "Hybrid"
+      "style_hybrid": "Hybrid",
+      "style_custom": "Custom",
+      "enter_custom_url": "Enter Custom Style URL",
+      "url_invalid_title": "Map Error",
+      "url_invalid_message": "The custom map URL seems incorrect and may cause the map to not display. Do you want to continue anyway?"
     },
     "advance_settings": {
       "title": "Advance settings",

@@ -6,6 +6,7 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -47,9 +48,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   bool _readyForDisplay = false;
 
   // TODO: define a proper type to make it more type-safe
-  // TODO: we may let user to choose base map providers.
-  final _mapStyle = "mapbox://styles/mapbox/satellite-streets-v12";
-  // final _mapStyle = "mapbox://styles/mapbox/streets-v12";
+  String _mapStyle = "https://tiles.openfreemap.org/styles/liberty";
 
   // It is rough because we don't update it frequently.
   MapView? _currentRoughMapView;
@@ -100,6 +99,11 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _gpsManager.addListener(_updateLocationMarker);
     _currentRoughMapView = widget.initialMapView;
     _currentJourneyId = widget.mapRendererProxy.getJourneyId();
+
+    final style = MMKVUtil.getString(MMKVKey.mapStyle,
+        defaultValue: "https://tiles.openfreemap.org/styles/liberty");
+    _mapStyle = style;
+
     _roughMapViewUpdateTimer =
         Timer.periodic(Duration(seconds: 5), (Timer t) async {
       final newMapView = await _getCurrentMapView();
