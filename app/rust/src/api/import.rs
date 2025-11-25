@@ -28,6 +28,7 @@ pub struct JourneyInfo {
 #[frb(opaque)]
 pub struct RawVectorData {
     data: Vec<Vec<RawData>>,
+    use_coarse_segment_gap_rules: bool,
 }
 
 #[auto_context]
@@ -55,14 +56,17 @@ pub fn load_fow_data(file_path: String) -> Result<(JourneyInfo, JourneyData)> {
 
 #[auto_context]
 pub fn load_gpx_or_kml(file_path: String) -> Result<(JourneyInfo, RawVectorData)> {
-    let raw_vector_data = match Path::new(&file_path)
+    let (raw_vector_data, use_coarse_segment_gap_rules) = match Path::new(&file_path)
         .extension()
         .and_then(OsStr::to_str)
         .map(|x| x.to_lowercase())
         .as_deref()
     {
-        Some("gpx") => import_data::load_gpx(&file_path)?,
-        Some("kml") => import_data::load_kml(&file_path)?,
+        Some("gpx") => {
+            let loaded = import_data::load_gpx_with_metadata(&file_path)?;
+            (loaded.data, loaded.use_coarse_segment_gap_rules)
+        }
+        Some("kml") => (import_data::load_kml(&file_path)?, false),
         extension => return Err(anyhow!("Unknown extension: {extension:?}")),
     };
 
@@ -70,6 +74,7 @@ pub fn load_gpx_or_kml(file_path: String) -> Result<(JourneyInfo, RawVectorData)
         journey_info_from_raw_vector_data(&raw_vector_data),
         RawVectorData {
             data: raw_vector_data,
+            use_coarse_segment_gap_rules,
         },
     ))
 }
@@ -101,6 +106,7 @@ pub fn process_vector_data(
     vector_data: &RawVectorData,
     import_processor: ImportPreprocessor,
 ) -> Result<Option<JourneyData>> {
+    let use_coarse_segment_gap_rules = vector_data.use_coarse_segment_gap_rules;
     let journey_vector = match import_processor {
         ImportPreprocessor::None => {
             import_data::journey_vector_from_raw_data_with_gps_preprocessor(
@@ -109,7 +115,11 @@ pub fn process_vector_data(
             )
         }
         ImportPreprocessor::Generic => {
-            import_data::journey_vector_from_raw_data_with_gps_preprocessor(&vector_data.data, true)
+            import_data::journey_vector_from_raw_data_with_gps_preprocessor_and_gap_rules(
+                &vector_data.data,
+                true,
+                use_coarse_segment_gap_rules,
+            )
         }
         ImportPreprocessor::FlightTrack => flight_track_processor::process(&vector_data.data),
     };

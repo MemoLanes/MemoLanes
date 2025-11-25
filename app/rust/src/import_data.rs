@@ -13,8 +13,9 @@ use crate::{
 use anyhow::{Context, Result};
 use auto_context::auto_context;
 use chrono::{DateTime, Local, TimeZone, Utc};
+use csv::ReaderBuilder;
 use flate2::read::ZlibDecoder;
-use gpx::{read, Waypoint};
+use gpx::{self, read, Waypoint};
 use kml::types::{Element, Geometry};
 use kml::Kml::Placemark;
 use kml::{Kml, KmlReader};
@@ -178,9 +179,27 @@ pub fn load_fow_snapshot_data(fwss_file_path: &str) -> Result<(JourneyBitmap, Op
     }
 }
 
+pub struct LoadedGpx {
+    pub data: Vec<Vec<RawData>>,
+    pub use_coarse_segment_gap_rules: bool,
+}
+
+fn should_use_coarse_segment_gap_rules(creator: &str) -> bool {
+    let creator_lower = creator.to_ascii_lowercase();
+    creator_lower.contains("stepofmyworld") || creator_lower.contains("yourapp")
+}
+
 #[auto_context]
 pub fn load_gpx(file_path: &str) -> Result<Vec<Vec<RawData>>> {
+    Ok(load_gpx_with_metadata(file_path)?.data)
+}
+
+#[auto_context]
+pub fn load_gpx_with_metadata(file_path: &str) -> Result<LoadedGpx> {
     let gpx_data = read(BufReader::new(File::open(file_path)?))?;
+    let use_coarse_segment_gap_rules =
+        should_use_coarse_segment_gap_rules(gpx_data.creator.as_deref().unwrap_or(""));
+    let gpx::Gpx { tracks, routes, .. } = gpx_data;
     let convert_to_timestamp = |time: &Option<gpx::Time>| -> Result<Option<i64>> {
         match time {
             Some(t) => {
@@ -205,8 +224,7 @@ pub fn load_gpx(file_path: &str) -> Result<Vec<Vec<RawData>>> {
         })
     };
 
-    let track_data = gpx_data
-        .tracks
+    let track_data = tracks
         .into_iter()
         .flat_map(|track| track.segments.into_iter())
         .map(|segment| {
@@ -219,8 +237,7 @@ pub fn load_gpx(file_path: &str) -> Result<Vec<Vec<RawData>>> {
         .filter_map(Result::ok)
         .filter(|v| !v.is_empty());
 
-    let route_data = gpx_data
-        .routes
+    let route_data = routes
         .into_iter()
         .map(|route| {
             route
@@ -232,7 +249,10 @@ pub fn load_gpx(file_path: &str) -> Result<Vec<Vec<RawData>>> {
         .filter_map(Result::ok)
         .filter(|v| !v.is_empty());
 
-    Ok(track_data.chain(route_data).collect())
+    Ok(LoadedGpx {
+        data: track_data.chain(route_data).collect(),
+        use_coarse_segment_gap_rules,
+    })
 }
 
 /// Load and parse KML safely, skipping invalid <description> blocks.
@@ -249,6 +269,111 @@ pub fn load_kml(file_path: &str) -> Result<Vec<Vec<RawData>>> {
         raw_vector_data = read_line_string(&flatten_data)?
     }
     Ok(raw_vector_data)
+}
+
+#[auto_context]
+pub fn load_csv(file_path: &str) -> Result<Vec<Vec<RawData>>> {
+    // Open the CSV file
+    let mut reader = ReaderBuilder::new()
+        .has_headers(true) // Assuming the CSV file has headers
+        .from_path(file_path)
+        .context("Failed to open CSV file")?;
+
+    let headers = reader
+        .headers()
+        .context("Failed to read CSV headers")?
+        .clone();
+
+    let find_column = |keywords: &[&str]| -> Option<usize> {
+        headers
+            .iter()
+            .enumerate()
+            .find(|(_, header)| {
+                let header_lower = header.to_ascii_lowercase();
+                keywords
+                    .iter()
+                    .any(|keyword| header_lower.contains(keyword))
+            })
+            .map(|(idx, _)| idx)
+    };
+
+    let latitude_idx =
+        find_column(&["latitude"]).context("Failed to locate latitude column in CSV headers")?;
+    let longitude_idx =
+        find_column(&["longitude"]).context("Failed to locate longitude column in CSV headers")?;
+    let altitude_idx = find_column(&["altitude"]);
+    let accuracy_idx = find_column(&["accuracy"]);
+    let speed_idx = find_column(&["speed"]);
+    let timestamp_idx = find_column(&["dayTime", "dataTime"]);
+
+    let mut raw_data_segments = Vec::new();
+    let mut current_segment = Vec::new();
+
+    for record in reader.records() {
+        let record = record.context("Failed to read a record from CSV")?;
+
+        // Parse the required fields from the CSV record
+        let parse_required_f64 = |idx: usize, field_name: &str| -> Result<f64> {
+            let value = record
+                .get(idx)
+                .with_context(|| format!("Missing {field_name} field"))?;
+            let value = value.trim();
+            value
+                .parse::<f64>()
+                .with_context(|| format!("Failed to parse {field_name}"))
+        };
+
+        let parse_optional_f32 = |idx: Option<usize>| -> Option<f32> {
+            idx.and_then(|i| record.get(i)).and_then(|value| {
+                let trimmed = value.trim();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    trimmed.parse().ok()
+                }
+            })
+        };
+
+        let parse_optional_i64 = |idx: Option<usize>| -> Option<i64> {
+            idx.and_then(|i| record.get(i)).and_then(|value| {
+                let trimmed = value.trim();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    trimmed.parse().ok()
+                }
+            })
+        };
+
+        let latitude = parse_required_f64(latitude_idx, "latitude")?;
+        let longitude = parse_required_f64(longitude_idx, "longitude")?;
+        let altitude = parse_optional_f32(altitude_idx);
+        let accuracy = parse_optional_f32(accuracy_idx);
+        let speed = parse_optional_f32(speed_idx);
+        let timestamp_ms = parse_optional_i64(timestamp_idx);
+
+        // Create a RawData object
+        let raw_data = RawData {
+            point: Point {
+                latitude,
+                longitude,
+            },
+            timestamp_ms,
+            accuracy,
+            altitude,
+            speed,
+        };
+
+        // Add the RawData to the current segment
+        current_segment.push(raw_data);
+    }
+
+    // Add the current segment to the list of segments
+    if !current_segment.is_empty() {
+        raw_data_segments.push(current_segment);
+    }
+
+    Ok(raw_data_segments)
 }
 
 /// 2bulu generated KML contains HTML tags in <description>, which breaks the KML parser.
@@ -455,9 +580,25 @@ pub fn journey_vector_from_raw_data_with_gps_preprocessor(
     raw_data: &[Vec<RawData>],
     enable_preprocessor: bool,
 ) -> Option<JourneyVector> {
+    journey_vector_from_raw_data_with_gps_preprocessor_and_gap_rules(
+        raw_data,
+        enable_preprocessor,
+        false,
+    )
+}
+
+pub fn journey_vector_from_raw_data_with_gps_preprocessor_and_gap_rules(
+    raw_data: &[Vec<RawData>],
+    enable_preprocessor: bool,
+    use_coarse_segment_gap_rules: bool,
+) -> Option<JourneyVector> {
     let processed_data = raw_data.iter().flat_map(move |x| {
         // we handle each segment separately
-        let mut gps_preprocessor = GpsPreprocessor::new();
+        let mut gps_preprocessor = if use_coarse_segment_gap_rules {
+            GpsPreprocessor::new_step_of_my_world_rules()
+        } else {
+            GpsPreprocessor::new()
+        };
         let mut first = true;
         x.iter().map(move |raw_data| {
             let process_result = if enable_preprocessor {
