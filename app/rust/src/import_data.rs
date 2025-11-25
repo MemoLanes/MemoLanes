@@ -13,7 +13,6 @@ use crate::{
 use anyhow::{Context, Result};
 use auto_context::auto_context;
 use chrono::{DateTime, Local, TimeZone, Utc};
-use csv::ReaderBuilder;
 use flate2::read::ZlibDecoder;
 use gpx::{self, read, Waypoint};
 use kml::types::{Element, Geometry};
