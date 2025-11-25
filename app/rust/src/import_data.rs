@@ -14,7 +14,7 @@ use anyhow::{Context, Result};
 use auto_context::auto_context;
 use chrono::{DateTime, Local, TimeZone, Utc};
 use flate2::read::ZlibDecoder;
-use gpx::{self, read, Waypoint};
+use gpx::{read, Waypoint};
 use kml::types::{Element, Geometry};
 use kml::Kml::Placemark;
 use kml::{Kml, KmlReader};
