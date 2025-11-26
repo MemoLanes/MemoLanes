@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
 import 'package:memolanes/common/component/common_export.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 Future<bool> showCommonDialog(BuildContext context, String message,
@@ -132,6 +133,26 @@ Future<bool> showCommonExport(BuildContext context, String filePath,
   }
 
   return dialogResult ?? false;
+}
+
+/// Returns a platform-appropriate directory for storing persistent cache data.
+///
+/// On **iOS**, this uses [getApplicationCacheDirectory], which points to a
+/// cache location intended for temporary data that may be cleared by the
+/// system when storage is low, but is suitable for non-critical cached files.
+///
+/// On **Android**, this uses [getApplicationSupportDirectory], which provides
+/// a stable and persistent location for app-specific data that should not be
+/// deleted by the system.
+///
+/// Use this method when you need a cache directory that persists across app
+/// launches, with platform-specific behavior for iOS and Android.
+Future<Directory> getPersistentCacheDirectory() async {
+  if (Platform.isIOS) {
+    return await getApplicationCacheDirectory();
+  } else {
+    return await getApplicationSupportDirectory();
+  }
 }
 
 void showBasicCard(
