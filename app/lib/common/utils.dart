@@ -140,7 +140,7 @@ Future<bool> showCommonExport(BuildContext context, String filePath,
 }
 
 Future<bool> showUpdateAPk(BuildContext context, String url) async {
-  final extDir = await getExternalStorageDirectory();
+  final extDir = await getDownloadsDirectory();
   final apkPath = '${extDir!.path}/update.apk';
 
   final dialogResult = await showDialog<bool>(
