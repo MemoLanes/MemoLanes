@@ -193,7 +193,6 @@ pub fn load_gpx_with_metadata(file_path: &str) -> Result<(Vec<Vec<RawData>>, boo
     let gpx_data = read(BufReader::new(File::open(file_path)?))?;
     let use_coarse_segment_gap_rules =
         should_use_coarse_segment_gap_rules(gpx_data.creator.as_deref().unwrap_or(""));
-    let gpx::Gpx { tracks, routes, .. } = gpx_data;
     let convert_to_timestamp = |time: &Option<gpx::Time>| -> Result<Option<i64>> {
         match time {
             Some(t) => {
@@ -218,7 +217,8 @@ pub fn load_gpx_with_metadata(file_path: &str) -> Result<(Vec<Vec<RawData>>, boo
         })
     };
 
-    let track_data = tracks
+    let track_data = gpx_data
+        .tracks
         .into_iter()
         .flat_map(|track| track.segments.into_iter())
         .map(|segment| {
@@ -231,7 +231,8 @@ pub fn load_gpx_with_metadata(file_path: &str) -> Result<(Vec<Vec<RawData>>, boo
         .filter_map(Result::ok)
         .filter(|v| !v.is_empty());
 
-    let route_data = routes
+    let route_data = gpx_data
+        .routes
         .into_iter()
         .map(|route| {
             route
