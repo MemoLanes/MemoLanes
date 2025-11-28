@@ -62,10 +62,7 @@ pub fn load_gpx_or_kml(file_path: String) -> Result<(JourneyInfo, RawVectorData)
         .map(|x| x.to_lowercase())
         .as_deref()
     {
-        Some("gpx") => {
-            let loaded = import_data::load_gpx_with_metadata(&file_path)?;
-            (loaded.data, loaded.use_coarse_segment_gap_rules)
-        }
+        Some("gpx") => import_data::load_gpx_with_metadata(&file_path)?,
         Some("kml") => (import_data::load_kml(&file_path)?, false),
         extension => return Err(anyhow!("Unknown extension: {extension:?}")),
     };

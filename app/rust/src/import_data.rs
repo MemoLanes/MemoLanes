@@ -178,11 +178,6 @@ pub fn load_fow_snapshot_data(fwss_file_path: &str) -> Result<(JourneyBitmap, Op
     }
 }
 
-pub struct LoadedGpx {
-    pub data: Vec<Vec<RawData>>,
-    pub use_coarse_segment_gap_rules: bool,
-}
-
 fn should_use_coarse_segment_gap_rules(creator: &str) -> bool {
     let creator_lower = creator.to_ascii_lowercase();
     creator_lower.contains("stepofmyworld") || creator_lower.contains("yourapp")
@@ -190,11 +185,11 @@ fn should_use_coarse_segment_gap_rules(creator: &str) -> bool {
 
 #[auto_context]
 pub fn load_gpx(file_path: &str) -> Result<Vec<Vec<RawData>>> {
-    Ok(load_gpx_with_metadata(file_path)?.data)
+    Ok(load_gpx_with_metadata(file_path)?.0)
 }
 
 #[auto_context]
-pub fn load_gpx_with_metadata(file_path: &str) -> Result<LoadedGpx> {
+pub fn load_gpx_with_metadata(file_path: &str) -> Result<(Vec<Vec<RawData>>, bool)> {
     let gpx_data = read(BufReader::new(File::open(file_path)?))?;
     let use_coarse_segment_gap_rules =
         should_use_coarse_segment_gap_rules(gpx_data.creator.as_deref().unwrap_or(""));
@@ -248,10 +243,10 @@ pub fn load_gpx_with_metadata(file_path: &str) -> Result<LoadedGpx> {
         .filter_map(Result::ok)
         .filter(|v| !v.is_empty());
 
-    Ok(LoadedGpx {
-        data: track_data.chain(route_data).collect(),
+    Ok((
+        track_data.chain(route_data).collect(),
         use_coarse_segment_gap_rules,
-    })
+    ))
 }
 
 /// Load and parse KML safely, skipping invalid <description> blocks.
