@@ -372,9 +372,11 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
                 key: const ValueKey('map_webview'),
                 controller: _webViewController)),
         GestureDetector(
-            child: MapCopyrightButton(
-          textMarkdown: mapCopyrightTextMarkdown,
-        )),
+            child: _mapStyle == "none"
+                ? const SizedBox.shrink()
+                : MapCopyrightButton(
+                    textMarkdown: mapCopyrightTextMarkdown,
+                  )),
         IgnorePointer(
           ignoring: true,
           child: AnimatedOpacity(
