@@ -49,6 +49,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   // TODO: define a proper type to make it more type-safe
   String _mapStyle = "https://tiles.openfreemap.org/styles/liberty";
+  double _fogDensity = 0.5;
 
   // It is rough because we don't update it frequently.
   MapView? _currentRoughMapView;
@@ -100,9 +101,18 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _currentRoughMapView = widget.initialMapView;
     _currentJourneyId = widget.mapRendererProxy.getJourneyId();
 
-    final style = MMKVUtil.getString(MMKVKey.mapStyle,
+    var style = MMKVUtil.getString(MMKVKey.mapStyle,
         defaultValue: "https://tiles.openfreemap.org/styles/liberty");
+    if (!style.startsWith("http") &&
+        !style.startsWith("mapbox://") &&
+        style != "none") {
+      style = "https://tiles.openfreemap.org/styles/liberty";
+    }
     _mapStyle = style;
+
+    final fogDensityStr =
+        MMKVUtil.getString(MMKVKey.fogDensity, defaultValue: "0.5");
+    _fogDensity = double.tryParse(fogDensityStr) ?? 0.5;
 
     _roughMapViewUpdateTimer =
         Timer.periodic(Duration(seconds: 5), (Timer t) async {
@@ -274,6 +284,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         journey_id: "$journeyId",
         render: "canvas",
         map_style: "$_mapStyle",
+        fog_density: $_fogDensity,
         access_key: ${accessKey != null ? "\"$accessKey\"" : "null"},
         lng: $lngParam,
         lat: $latParam,
@@ -344,7 +355,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     // https://github.com/flutter/flutter/issues/165305
     // But unfortunately, it only works for iOS 18, so we still have this weird
     // double tap behavior on older iOS versions.
-    var mapCopyrightTextMarkdown = 'UNKNOWN';
+    var mapCopyrightTextMarkdown = '';
     if (_mapStyle.contains('openfreemap.org')) {
       mapCopyrightTextMarkdown =
           "[OpenFreeMap](https://openfreemap.org) [© OpenMapTiles](https://www.openmaptiles.org/) Data from [OpenStreetMap](https://www.openstreetmap.org/copyright)";

@@ -8,6 +8,7 @@ class MMKVKey {
   static const String isRecording = "GpsManager.isRecording";
   static const String privacyAgreementAccepted = "privacyAgreementAccepted";
   static const String mapStyle = "mapStyle";
+  static const String fogDensity = "fogDensity";
 }
 
 class MMKVUtil {

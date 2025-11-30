@@ -19,6 +19,7 @@ enum _BaseStyle {
   normal("https://tiles.openfreemap.org/styles/liberty"),
   satellite("mapbox://styles/mapbox/satellite-v9"),
   hybrid("mapbox://styles/mapbox/satellite-streets-v12"),
+  none("none"),
   custom("custom");
 
   final String url;
@@ -35,6 +36,7 @@ enum _BaseStyle {
 class _MapSettingsPageState extends State<MapSettingsPage> {
   late _BaseStyle _current;
   String _customUrl = "";
+  double _fogDensity = 0.5;
 
   @override
   void initState() {
@@ -45,12 +47,16 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
     if (_current == _BaseStyle.custom) {
       _customUrl = style;
     }
+    final fogDensityStr =
+        MMKVUtil.getString(MMKVKey.fogDensity, defaultValue: "0.5");
+    _fogDensity = double.tryParse(fogDensityStr) ?? 0.5;
   }
 
   String get _currentLabel => switch (_current) {
         _BaseStyle.satellite =>
           context.tr("general.map_settings.style_satellite"),
         _BaseStyle.hybrid => context.tr("general.map_settings.style_hybrid"),
+        _BaseStyle.none => context.tr("general.map_settings.style_none"),
         _BaseStyle.normal => context.tr("general.map_settings.style_normal"),
         _BaseStyle.custom => context.tr("general.map_settings.style_custom"),
       };
@@ -68,6 +74,13 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
       setState(() => _current = style);
       MMKVUtil.putString(MMKVKey.mapStyle, style.url);
     }
+  }
+
+  void _updateFogDensity(double value) {
+    setState(() {
+      _fogDensity = value;
+    });
+    MMKVUtil.putString(MMKVKey.fogDensity, value.toString());
   }
 
   void _showCustomUrlDialog() {
@@ -149,6 +162,11 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
             onTap: () => _updateStyle(_BaseStyle.hybrid),
           ),
           CardLabelTile(
+            label: context.tr("general.map_settings.style_none"),
+            position: CardLabelTilePosition.middle,
+            onTap: () => _updateStyle(_BaseStyle.none),
+          ),
+          CardLabelTile(
             label: context.tr("general.map_settings.style_custom"),
             position: CardLabelTilePosition.bottom,
             onTap: () {
@@ -156,6 +174,38 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
             },
           ),
         ],
+      ),
+    );
+  }
+
+  void _showFogDensityPicker() {
+    showBasicCard(
+      context,
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: StatefulBuilder(
+          builder: (context, setModalState) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  "${(_fogDensity * 100).toInt()}%",
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 16),
+                Slider(
+                  value: _fogDensity,
+                  onChanged: (value) {
+                    setModalState(() {});
+                    _updateFogDensity(value);
+                  },
+                  min: 0.0,
+                  max: 1.0,
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -169,12 +219,21 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
         children: [
           LabelTile(
             label: context.tr("general.map_settings.style"),
-            position: LabelTilePosition.single,
+            position: LabelTilePosition.top,
             trailing: LabelTileContent(
               content: _currentLabel,
               showArrow: true,
             ),
             onTap: _showPicker,
+          ),
+          LabelTile(
+            label: context.tr("general.map_settings.fog_density"),
+            position: LabelTilePosition.bottom,
+            trailing: LabelTileContent(
+              content: "${(_fogDensity * 100).toInt()}%",
+              showArrow: true,
+            ),
+            onTap: _showFogDensityPicker,
           ),
         ],
       ),
