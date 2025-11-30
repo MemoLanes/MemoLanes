@@ -141,7 +141,7 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
     );
   }
 
-  void _showPicker() {
+  void _showMapStylePicker() {
     showBasicCard(
       context,
       child: OptionCard(
@@ -224,7 +224,7 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
               content: _currentLabel,
               showArrow: true,
             ),
-            onTap: _showPicker,
+            onTap: _showMapStylePicker,
           ),
           LabelTile(
             label: context.tr("general.map_settings.fog_density"),
