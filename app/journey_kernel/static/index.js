@@ -91,7 +91,11 @@ function switchRenderingLayer(map, renderingMode) {
   }
   const bgColor = [0.0, 0.0, 0.0, fogDensity];
 
-  currentJourneyLayer = new LayerClass(map, currentJourneyTileProvider, bgColor);
+  currentJourneyLayer = new LayerClass(
+    map,
+    currentJourneyTileProvider,
+    bgColor,
+  );
   currentJourneyLayer.initialize();
 
   currentRenderingMode = renderingMode;
