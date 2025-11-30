@@ -355,7 +355,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     // https://github.com/flutter/flutter/issues/165305
     // But unfortunately, it only works for iOS 18, so we still have this weird
     // double tap behavior on older iOS versions.
-    var mapCopyrightTextMarkdown = '';
+    var mapCopyrightTextMarkdown = 'UNKNOWN';
     if (_mapStyle.contains('openfreemap.org')) {
       mapCopyrightTextMarkdown =
           "[OpenFreeMap](https://openfreemap.org) [© OpenMapTiles](https://www.openmaptiles.org/) Data from [OpenStreetMap](https://www.openstreetmap.org/copyright)";
