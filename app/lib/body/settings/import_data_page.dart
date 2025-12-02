@@ -148,12 +148,11 @@ class _ImportDataPage extends State<ImportDataPage> {
         }
         await import_api.importJourneyData(
             journeyInfo: journeyInfo, journeyData: journeyData);
-
-        await showCommonDialog(
-          context,
-          context.tr("import.successful"),
-        );
       })(),
+    );
+    await showCommonDialog(
+      context,
+      context.tr("import.successful"),
     );
   }
 
