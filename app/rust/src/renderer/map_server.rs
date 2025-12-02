@@ -152,8 +152,6 @@ impl MapServer {
                     // Unified JSON POST endpoint
                     .route("/api", web::post().to(serve_unified_json_request))
                     .route("/api", web::method(Method::OPTIONS).to(handle_preflight))
-                    .route("/", web::get().to(index))
-                    .route("/main.bundle.js", web::get().to(serve_journey_kernel_js))
             })
             .bind((host, port.unwrap_or(0)))?
             .workers(1)
@@ -225,6 +223,8 @@ impl MapServer {
     }
 
     pub fn get_http_url(&self, token: &MapRendererToken) -> String {
+        let dev_server = std::env::var("DEV_SERVER").unwrap_or_else(|_| "http://localhost:8080".to_string());
+    
         let server_info = self.server_info.lock().unwrap();
         let camera_option = get_default_camera_option_from_journey_bitmap(
             token
@@ -237,7 +237,8 @@ impl MapServer {
 
         match camera_option {
             Some(camera) => format!(
-                "http://{}:{}/#journey_id={}&debug=true&lng={}&lat={}&zoom={}&access_key={}",
+                "{}#cgi_endpoint=http%3A%2F%2F{}%3A{}&journey_id={}&debug=true&lng={}&lat={}&zoom={}&access_key={}",
+                dev_server,
                 server_info.host,
                 server_info.port,
                 token.journey_id(),
@@ -247,7 +248,8 @@ impl MapServer {
                 build_info::MAPBOX_ACCESS_TOKEN.unwrap_or("")
             ),
             None => format!(
-                "http://{}:{}/#journey_id={}&debug=true&access_key={}",
+                "{}#cgi_endpoint=http%3A%2F%2F{}%3A{}&journey_id={}&debug=true&access_key={}",
+                dev_server,
                 server_info.host,
                 server_info.port,
                 token.journey_id(),
@@ -321,27 +323,6 @@ impl Drop for MapServer {
     fn drop(&mut self) {
         let _ = self.stop();
     }
-}
-
-// Journey View frontend
-const JOURNEY_VIEW_HTML: &str =
-    include_str!(concat!(env!("OUT_DIR"), "/journey_kernel/index.html"));
-
-// Journey Kernel wasm package
-const JOURNEY_KERNEL_JS: &str =
-    include_str!(concat!(env!("OUT_DIR"), "/journey_kernel/main.bundle.js"));
-
-// Serve the HTML page
-async fn index() -> HttpResponse {
-    HttpResponse::Ok()
-        .content_type("text/html")
-        .body(JOURNEY_VIEW_HTML)
-}
-
-async fn serve_journey_kernel_js() -> HttpResponse {
-    HttpResponse::Ok()
-        .content_type("application/javascript")
-        .body(JOURNEY_KERNEL_JS)
 }
 
 async fn handle_preflight() -> HttpResponse {
