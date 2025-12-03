@@ -2,6 +2,7 @@ extern crate simplelog;
 use anyhow::{Context, Result};
 use auto_context::auto_context;
 use rusqlite::{Connection, OptionalExtension};
+use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::path::Path;
 
@@ -59,7 +60,8 @@ fn open_db(cache_dir: &str, file_name: &str) -> Result<Connection> {
 
 // CacheDb structure
 pub struct CacheDb {
-    conn: Connection,
+    conn: RefCell<Option<Connection>>,
+    cache_dir: String,
 }
 
 /// flutter_rust_bridge:ignore
@@ -82,43 +84,108 @@ impl LayerKind {
 }
 
 impl CacheDb {
+    fn with_conn<R>(&self, f: impl FnOnce(&Connection) -> Result<R>) -> Result<R> {
+        let conn = self.conn.borrow();
+        let conn_ref = conn.as_ref().expect("DB connection is not open");
+        f(conn_ref)
+    }
+
     // Method to open and return a CacheDb instance
     pub fn open(cache_dir: &str) -> CacheDb {
         let conn = open_db(cache_dir, "cache.db").expect("failed to open cache db");
-        CacheDb { conn }
+        CacheDb {
+            conn: RefCell::new(Some(conn)),
+            cache_dir: cache_dir.to_string(),
+        }
     }
 
     pub fn flush(&self) -> Result<()> {
-        self.conn.cache_flush()?;
+        self.with_conn(|conn| {
+            conn.cache_flush()?;
+            Ok(())
+        })
+    }
+
+    fn reopen(&self) -> Result<()> {
+        self.conn.borrow_mut().take();
+        let path = Path::new(&self.cache_dir).join("cache.db");
+        if path.exists() {
+            std::fs::remove_file(&path)
+                .with_context(|| format!("Failed to remove corrupt DB: {:?}", path))?;
+        }
+
+        let new_conn = open_db(&self.cache_dir, "cache.db")
+            .with_context(|| format!("Failed to open DB: {:?}", path))?;
+
+        *self.conn.borrow_mut() = Some(new_conn);
+
         Ok(())
     }
 
-    fn get_full_journey_cache(&self, layer_kind: &LayerKind) -> Result<Option<JourneyBitmap>> {
-        let sql = "SELECT data FROM `journey_cache__full` WHERE kind = ?1;";
-
-        let mut query = self.conn.prepare(sql)?;
-        let data = query
-            .query_row((layer_kind.to_sql(),), |row| {
-                let data = row.get_ref(0)?.as_blob()?;
-                Ok(journey_data::deserialize_journey_bitmap(data))
-            })
-            .optional()?
-            .transpose()?;
-        Ok(data)
+    fn is_recoverable_error(e: &rusqlite::Error) -> bool {
+        use rusqlite::Error::*;
+        match e {
+            SqliteFailure(err, _) => {
+                matches!(
+                    err.extended_code,
+                    rusqlite::ffi::SQLITE_IOERR
+                        | rusqlite::ffi::SQLITE_CORRUPT
+                        | rusqlite::ffi::SQLITE_NOTADB
+                        | rusqlite::ffi::SQLITE_CANTOPEN
+                        | rusqlite::ffi::SQLITE_READONLY_DBMOVED
+                )
+            }
+            _ => false,
+        }
     }
 
-    fn set_full_journey_cache(
+    fn retry_fn<T, F>(&self, mut f: F) -> Result<T>
+    where
+        F: FnMut(&Connection) -> Result<T>,
+    {
+        match self.with_conn(|conn| f(conn)) {
+            Ok(v) => Ok(v),
+            Err(e) => {
+                if let Some(sql_err) = e.downcast_ref::<rusqlite::Error>() {
+                    if Self::is_recoverable_error(sql_err) {
+                        self.reopen()?;
+                        return self.with_conn(|conn| f(conn));
+                    }
+                }
+                Err(e)
+            }
+        }
+    }
+
+    pub fn get_full_journey_cache(&self, layer_kind: &LayerKind) -> Result<Option<JourneyBitmap>> {
+        self.retry_fn(|conn| {
+            let sql = "SELECT data FROM `journey_cache__full` WHERE kind = ?1;";
+            let mut query = conn.prepare(sql)?;
+            let data = query
+                .query_row((layer_kind.to_sql(),), |row| {
+                    let data = row.get_ref(0)?.as_blob()?;
+                    Ok(journey_data::deserialize_journey_bitmap(data))
+                })
+                .optional()?
+                .transpose()?;
+            Ok(data)
+        })
+    }
+
+    pub fn set_full_journey_cache(
         &self,
         layer_kind: &LayerKind,
         journey_bitmap: &JourneyBitmap,
     ) -> Result<()> {
-        let mut data = Vec::new();
-        journey_data::serialize_journey_bitmap(journey_bitmap, &mut data)?;
-        self.conn.execute(
-            "INSERT OR REPLACE INTO `journey_cache__full` (kind, data) VALUES (?1, ?2)",
-            (layer_kind.to_sql(), &data),
-        )?;
-        Ok(())
+        self.retry_fn(|conn| {
+            let mut data = Vec::new();
+            journey_data::serialize_journey_bitmap(journey_bitmap, &mut data)?;
+            conn.execute(
+                "INSERT OR REPLACE INTO `journey_cache__full` (kind, data) VALUES (?1, ?2)",
+                (layer_kind.to_sql(), &data),
+            )?;
+            Ok(())
+        })
     }
 
     // get a merged cache or compute from storage
@@ -145,18 +212,21 @@ impl CacheDb {
     #[auto_context]
     pub fn clear_all_cache(&self) -> Result<()> {
         // TODO: in v3, use more fine-grained delete with year/month
-        self.conn
-            .execute("DELETE FROM `journey_cache__full`;", ())?;
-        Ok(())
+        self.retry_fn(|conn| {
+            conn.execute("DELETE FROM `journey_cache__full`;", ())?;
+            Ok(())
+        })
     }
 
     #[auto_context]
     pub fn delete_full_journey_cache(&self, layer_kind: &LayerKind) -> Result<()> {
-        self.conn.execute(
-            "DELETE FROM `journey_cache__full` WHERE kind = ?1;",
-            (layer_kind.to_sql(),),
-        )?;
-        Ok(())
+        self.retry_fn(|conn| {
+            conn.execute(
+                "DELETE FROM `journey_cache__full` WHERE kind = ?1;",
+                (layer_kind.to_sql(),),
+            )?;
+            Ok(())
+        })
     }
 
     #[auto_context]

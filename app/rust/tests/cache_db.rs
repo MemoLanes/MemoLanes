@@ -67,3 +67,35 @@ fn basic() {
         journey_bitmap_flight
     );
 }
+
+#[test]
+fn reopen_cache() {
+    let cache_dir = TempDir::new("cache_db_reopen").unwrap();
+    let cache_path = cache_dir.path().join("cache.db");
+
+    let db = CacheDb::open(cache_dir.path().to_str().unwrap());
+
+    let bitmap = JourneyBitmap::new();
+    db.set_full_journey_cache(&LayerKind::JourneyKind(JourneyKind::DefaultKind), &bitmap)
+        .unwrap();
+
+    std::fs::remove_file(&cache_path).unwrap();
+    assert!(!cache_path.exists(), "DB file should be deleted");
+
+    let bitmap2 = JourneyBitmap::new();
+    db.set_full_journey_cache(&LayerKind::JourneyKind(JourneyKind::Flight), &bitmap2)
+        .unwrap();
+    assert!(
+        cache_path.exists(),
+        "DB file should be recreated after write"
+    );
+
+    std::fs::write(&cache_path, b"corrupted content").unwrap();
+
+    let bitmap3 = JourneyBitmap::new();
+    db.set_full_journey_cache(&LayerKind::All, &bitmap3)
+        .unwrap();
+
+    let read_bitmap = db.get_full_journey_cache(&LayerKind::All).unwrap().unwrap();
+    assert_eq!(read_bitmap, bitmap3);
+}
