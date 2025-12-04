@@ -131,7 +131,8 @@ impl Storage {
         cache_dir: String,
     ) -> Self {
         let mut main_db = MainDb::open(&support_dir);
-        let cache_db = CacheDb::open(&cache_dir);
+        let cache_db_path = Self::prepare_cache_dir(&support_dir, &cache_dir);
+        let cache_db = CacheDb::open(&cache_db_path);
         let raw_data_recorder =
             if main_db.get_setting_with_default(crate::main_db::Setting::RawDataMode, false) {
                 Some(RawDataRecorder::init(&support_dir))
@@ -144,6 +145,35 @@ impl Storage {
             cache_dir,
             dbs: Mutex::new((main_db, cache_db)),
             finalized_journey_changed_callback: Box::new(|_| {}),
+        }
+    }
+
+    // On iOS, we use `NSCachesDirectory` for storing cache file,
+    // it won't be cleared by the system and also won't be included in icloud backup,
+    // which is exactly what we want.
+    // On Android, we don't use `getCacheDir()` but create our own folder under `getFilesDir()`.
+    // The reason is that on Android,
+    // the cache folder may be cleared even when the app is running,
+    // which is troublesome for us. Also the app request the whole cache while running,
+    // it will create the whole thing if missing so clearing the cache randomly doesn't provide much value.
+    pub fn prepare_cache_dir(support_dir: &str, cache_dir: &str) -> String {
+        if cfg!(target_os = "android") {
+            let final_path = Path::new(support_dir).join("cache");
+
+            if let Err(e) = std::fs::create_dir_all(&final_path) {
+                eprintln!("Failed to create Android cache directory: {}", e);
+            }
+
+            let old_db_path = Path::new(cache_dir).join("cache.db");
+            let new_db_path = final_path.join("cache.db");
+
+            if old_db_path.exists() {
+                let _ = std::fs::rename(&old_db_path, &new_db_path);
+            }
+
+            final_path.to_string_lossy().into_owned()
+        } else {
+            cache_dir.to_string()
         }
     }
 
