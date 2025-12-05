@@ -143,7 +143,7 @@ fn prepare_cache_dir(support_dir: &str, cache_dir: &str) -> Result<String> {
         if !final_path.exists() {
             let old_dir = Path::new(cache_dir);
             if old_dir.exists() {
-                if let Err(e) = std::fs::rename(&old_dir, &final_path) {
+                if let Err(_e) = std::fs::rename(&old_dir, &final_path) {
                     std::fs::create_dir_all(&final_path)?
                 }
             } else {
