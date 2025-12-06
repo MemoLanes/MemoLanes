@@ -77,10 +77,17 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, system_cache
     MAIN_STATE.get_or_init(|| {
         already_initialized = false;
 
-        let real_cache_dir = prepare_cache_dir(&support_dir, &system_cache_dir).unwrap();
+        let (real_cache_dir, logs) = prepare_real_cache_dir(&support_dir, &system_cache_dir)
+            .expect("Failed to initialize cache dir");
 
         // init logging
         logs::init(&real_cache_dir).expect("Failed to initialize logging");
+
+        if let Some(logs) = logs {
+            for (level, message) in logs {
+                write_log(message, level);
+            }
+        }
 
         let mut storage = Storage::init(temp_dir, doc_dir, support_dir, real_cache_dir);
         info!("initialized");
@@ -136,23 +143,39 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, system_cache
 // the cache folder may be cleared even when the app is running,
 // which is troublesome for us. Also the app request the whole cache while running,
 // it will create the whole thing if missing so clearing the cache randomly doesn't provide much value.
-fn prepare_cache_dir(support_dir: &str, cache_dir: &str) -> Result<String> {
+fn prepare_real_cache_dir(
+    support_dir: &str,
+    system_cache_dir: &str,
+) -> Result<(String, Option<Vec<(LogLevel, String)>>)> {
     if std::env::consts::OS == "android" {
         let final_path = Path::new(support_dir).join("cache");
         // Migrate cache data
-        if !final_path.exists() {
-            let old_dir = Path::new(cache_dir);
+        let logs = if !final_path.exists() {
+            let mut logs = Vec::new();
+            logs.push((
+                LogLevel::Info,
+                format!("Setting up real cache dir for Android at {:?}", final_path),
+            ));
+            let old_dir = Path::new(system_cache_dir);
             if old_dir.exists() {
-                if let Err(_e) = std::fs::rename(old_dir, &final_path) {
-                    std::fs::create_dir_all(&final_path)?
+                if let Err(e) = std::fs::rename(old_dir, &final_path) {
+                    logs.push((
+                        LogLevel::Error,
+                        format!(
+                            "Failed to migrate cache dir from {:?} to {:?}: {:?}",
+                            old_dir, final_path, e
+                        ),
+                    ));
                 }
-            } else {
-                std::fs::create_dir_all(&final_path)?;
             }
-        }
-        Ok(final_path.to_string_lossy().into_owned())
+            std::fs::create_dir_all(&final_path)?;
+            None
+        } else {
+            None
+        };
+        Ok((final_path.to_string_lossy().into_owned(), logs))
     } else {
-        Ok(cache_dir.to_string())
+        Ok((system_cache_dir.to_string(), None))
     }
 }
 
