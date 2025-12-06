@@ -100,7 +100,7 @@ class _ImportDataPage extends State<ImportDataPage> {
       import_api.ImportPreprocessor processor) async {
     final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
     if (journeyDataMaybeRaw == null) {
-      await showCommonDialog(
+      showCommonDialog(
         context,
         context.tr("import.empty_data"),
       );
@@ -113,7 +113,7 @@ class _ImportDataPage extends State<ImportDataPage> {
           vectorData: r, importProcessor: processor),
     };
     if (journeyData == null) {
-      await showCommonDialog(
+      showCommonDialog(
         context,
         context.tr("import.empty_data"),
       );
