@@ -12,10 +12,9 @@
     "location_service_disabled": "Location services are disabled. Please enable them in the settings.",
     "location_permission_permanently_denied": "You have denied location permission. To ensure proper location functionality, please enable it in the app settings.",
     "location_permission_reason": "We need your permission to access your location in order to provide accurate tracking and location-based features.",
-    "location_permission_denied_after_request": "You have denied location permission. The app's tracking features will not function properly.",
-    "background_location_permission_permanently_denied": "To continuously access location information, background location permission is recommended. Please enable it in the app settings.",
+    "background_location_permission_permanently_denied": "You have permanently denied the background location permission, which may prevent background route tracking from working. Please enable it in the app settings.",
     "battery_optimization_reason": "To ensure continuous background location updates, please allow the app to ignore battery optimization.",
-    "battery_optimization_recommended": "Ignoring battery optimization is recommended to ensure proper functioning of background location tracking."
+    "battery_optimization_recommended": "Ignoring battery optimization is recommended to ensure proper functioning of background location tracking.",
     "android_foreground_notification_channel_name": "Tracking Service",
     "android_foreground_notification_title": "Recording in Background",
     "android_foreground_notification_text": "MemoLanes will continue to record in the background",
@@ -89,7 +88,7 @@
   "unexpected_exit_notification": {
     "setting_title": "Unexpected exit notification",
     "notification_permission_reason": "In order to remind you when the program exits, we will request notification permission.",
-    "notification_permission_denied": "You have denied permission. You can modify it later in settings.",
+    "notification_permission_denied": "You have denied the notification permission, which may prevent you from receiving unexpected-exit alerts. Please enable it in the app settings.",
     "change_affect_next_time": "Your changes will take effect in the next recording.",
     "notification_title": "Recording was unexpectedly stopped",
     "notification_message": "Recording was unexpectedly stopped, please restart the app."

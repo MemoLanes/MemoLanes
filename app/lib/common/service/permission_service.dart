@@ -2,12 +2,11 @@ import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/main.dart';
 import 'package:permission_handler/permission_handler.dart';
-
-import 'package:memolanes/common/log.dart';
 
 class PermissionService {
   PermissionService._privateConstructor();
@@ -88,8 +87,7 @@ class PermissionService {
       locStatus = await Permission.location.request();
       if (!locStatus.isGranted) {
         await _showPermissionDeniedDialog(
-          context
-              .tr("location_service.location_permission_denied_after_request"),
+          context.tr("location_service.location_permission_permanently_denied"),
         );
         throw Exception("Location permission not granted.");
       }
