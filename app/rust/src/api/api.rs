@@ -169,7 +169,7 @@ fn prepare_real_cache_dir(
                 }
             }
             std::fs::create_dir_all(&final_path)?;
-            None
+            logs
         } else {
             None
         };
