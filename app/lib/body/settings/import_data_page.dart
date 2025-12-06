@@ -1,6 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:fpdart/fpdart.dart' as f;
 import 'package:memolanes/body/journey/journey_edit_page.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
@@ -40,23 +39,33 @@ class _ImportDataPage extends State<ImportDataPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initFlow();
+      _initFlow(true);
     });
   }
 
-  Future<void> _initFlow() async {
+  Future<void> _initFlow(bool init) async {
     final future = () async {
-      await _readData(widget.path);
-      if (journeyInfo != null) {
-        await _previewDataInternal(_currentProcessor);
+      if (init) {
+        await _readData(widget.path);
       }
+      if (journeyInfo != null) {
+        return await _previewDataInternal(_currentProcessor);
+      }
+      return true;
     }();
 
     try {
-      await showLoadingDialog(
+      final success = await showLoadingDialog(
         context: context,
         asyncTask: future,
       );
+      if (!success) {
+        await showCommonDialog(
+          context,
+          context.tr("import.empty_data"),
+        );
+        Navigator.pop(context);
+      }
     } catch (error) {
       await showCommonDialog(context, context.tr("import.parsing_failed"));
       log.error("[import_data] Data parsing failed $error");
@@ -87,19 +96,8 @@ class _ImportDataPage extends State<ImportDataPage> {
 
   Future<void> _previewData(import_api.ImportPreprocessor processor) async {
     if (processor == _currentProcessor) return;
-
     _currentProcessor = processor;
-
-    final success = await showLoadingDialog(
-      context: context,
-      asyncTask: _previewDataInternal(processor),
-    );
-    if (!success) {
-      await showCommonDialog(
-        context,
-        context.tr("import.empty_data"),
-      );
-    }
+    _initFlow(false);
   }
 
   Future<bool> _previewDataInternal(
@@ -161,7 +159,7 @@ class _ImportDataPage extends State<ImportDataPage> {
         context,
         context.tr("import.successful"),
       );
-    }else {
+    } else {
       await showCommonDialog(
         context,
         context.tr("import.empty_data"),
