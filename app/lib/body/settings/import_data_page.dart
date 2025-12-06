@@ -90,21 +90,23 @@ class _ImportDataPage extends State<ImportDataPage> {
 
     _currentProcessor = processor;
 
-    await showLoadingDialog(
+    final success = await showLoadingDialog(
       context: context,
       asyncTask: _previewDataInternal(processor),
     );
-  }
-
-  Future<void> _previewDataInternal(
-      import_api.ImportPreprocessor processor) async {
-    final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
-    if (journeyDataMaybeRaw == null) {
-      showCommonDialog(
+    if (!success) {
+      await showCommonDialog(
         context,
         context.tr("import.empty_data"),
       );
-      return;
+    }
+  }
+
+  Future<bool> _previewDataInternal(
+      import_api.ImportPreprocessor processor) async {
+    final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
+    if (journeyDataMaybeRaw == null) {
+      return false;
     }
 
     final journeyData = switch (journeyDataMaybeRaw) {
@@ -113,11 +115,7 @@ class _ImportDataPage extends State<ImportDataPage> {
           vectorData: r, importProcessor: processor),
     };
     if (journeyData == null) {
-      showCommonDialog(
-        context,
-        context.tr("import.empty_data"),
-      );
-      return;
+      return false;
     }
     final mapRendererProxyAndCameraOption =
         await api.getMapRendererProxyForJourneyData(journeyData: journeyData);
@@ -132,6 +130,7 @@ class _ImportDataPage extends State<ImportDataPage> {
         );
       }
     });
+    return true;
   }
 
   Future<void> _saveData(import_api.JourneyInfo journeyInfo,
