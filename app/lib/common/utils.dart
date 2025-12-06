@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
@@ -67,8 +68,9 @@ Future<T> showLoadingDialog<T>({
 
   // Do not show the loading dialog if the task is fast
   await Future.delayed(const Duration(milliseconds: 200));
-  if (taskCompleteEarly) return asyncTask;
-  if (!context.mounted) return asyncTask;
+  if (taskCompleteEarly || !context.mounted) {
+    return await asyncTask;
+  }
 
   showDialog(
     context: context,
@@ -97,17 +99,15 @@ Future<T> showLoadingDialog<T>({
       );
     },
   );
-  T result;
   try {
     await WakelockPlus.enable();
-    result = await asyncTask;
+    return await asyncTask;
   } finally {
     await WakelockPlus.disable();
     if (context.mounted) {
       Navigator.of(context).pop();
     }
   }
-  return result;
 }
 
 Future<bool> showCommonExport(BuildContext context, String filePath,

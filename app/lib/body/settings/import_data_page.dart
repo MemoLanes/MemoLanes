@@ -128,13 +128,13 @@ class _ImportDataPage extends State<ImportDataPage> {
 
   Future<void> _saveData(import_api.JourneyInfo journeyInfo,
       import_api.ImportPreprocessor processor) async {
-    await showLoadingDialog(
+    final success = await showLoadingDialog<bool>(
       context: context,
       asyncTask: (() async {
         final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
         if (journeyDataMaybeRaw == null) {
           Fluttertoast.showToast(msg: context.tr("import.empty_data"));
-          return;
+          return false;
         }
 
         final journeyData = switch (journeyDataMaybeRaw) {
@@ -144,16 +144,19 @@ class _ImportDataPage extends State<ImportDataPage> {
         };
         if (journeyData == null) {
           Fluttertoast.showToast(msg: context.tr("import.empty_data"));
-          return;
+          return false;
         }
         await import_api.importJourneyData(
             journeyInfo: journeyInfo, journeyData: journeyData);
+        return true;
       })(),
     );
-    await showCommonDialog(
-      context,
-      context.tr("import.successful"),
-    );
+    if (success) {
+      await showCommonDialog(
+        context,
+        context.tr("import.successful"),
+      );
+    }
   }
 
   @override
