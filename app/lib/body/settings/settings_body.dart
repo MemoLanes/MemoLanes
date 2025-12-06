@@ -327,7 +327,7 @@ class _SettingsBodyState extends State<SettingsBody> {
                   } catch (error) {
                     if (context.mounted) {
                       await showCommonDialog(
-                          context, context.tr("import.parsingFailed"));
+                          context, context.tr("import.parsing_failed"));
                       log.error("[import_data] Data parsing failed $error");
                     }
                   }

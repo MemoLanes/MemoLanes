@@ -56,7 +56,7 @@ class _ImportDataPage extends State<ImportDataPage> {
         asyncTask: future,
       );
     } catch (error) {
-      await showCommonDialog(context, context.tr("import.parsingFailed"));
+      await showCommonDialog(context, context.tr("import.parsing_failed"));
       log.error("[import_data] Data parsing failed $error");
       Navigator.pop(context);
     }
@@ -98,7 +98,7 @@ class _ImportDataPage extends State<ImportDataPage> {
       import_api.ImportPreprocessor processor) async {
     final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
     if (journeyDataMaybeRaw == null) {
-      Fluttertoast.showToast(msg: context.tr("import.emptyData"));
+      Fluttertoast.showToast(msg: context.tr("import.empty_data"));
       return;
     }
 
@@ -108,7 +108,7 @@ class _ImportDataPage extends State<ImportDataPage> {
           vectorData: r, importProcessor: processor),
     };
     if (journeyData == null) {
-      Fluttertoast.showToast(msg: context.tr("import.emptyData"));
+      Fluttertoast.showToast(msg: context.tr("import.empty_data"));
       return;
     }
     final mapRendererProxyAndCameraOption =
@@ -133,7 +133,7 @@ class _ImportDataPage extends State<ImportDataPage> {
       asyncTask: (() async {
         final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
         if (journeyDataMaybeRaw == null) {
-          Fluttertoast.showToast(msg: context.tr("import.emptyData"));
+          Fluttertoast.showToast(msg: context.tr("import.empty_data"));
           return;
         }
 
@@ -143,7 +143,7 @@ class _ImportDataPage extends State<ImportDataPage> {
               vectorData: r, importProcessor: processor),
         };
         if (journeyData == null) {
-          Fluttertoast.showToast(msg: context.tr("import.emptyData"));
+          Fluttertoast.showToast(msg: context.tr("import.empty_data"));
           return;
         }
         await import_api.importJourneyData(
