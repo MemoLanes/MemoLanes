@@ -39,7 +39,9 @@ class _ImportDataPage extends State<ImportDataPage> {
   @override
   void initState() {
     super.initState();
-    _initFlow();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initFlow();
+    });
   }
 
   Future<void> _initFlow() async {
@@ -98,7 +100,10 @@ class _ImportDataPage extends State<ImportDataPage> {
       import_api.ImportPreprocessor processor) async {
     final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
     if (journeyDataMaybeRaw == null) {
-      Fluttertoast.showToast(msg: context.tr("import.empty_data"));
+      await showCommonDialog(
+        context,
+        context.tr("import.empty_data"),
+      );
       return;
     }
 
@@ -108,7 +113,10 @@ class _ImportDataPage extends State<ImportDataPage> {
           vectorData: r, importProcessor: processor),
     };
     if (journeyData == null) {
-      Fluttertoast.showToast(msg: context.tr("import.empty_data"));
+      await showCommonDialog(
+        context,
+        context.tr("import.empty_data"),
+      );
       return;
     }
     final mapRendererProxyAndCameraOption =
@@ -133,7 +141,6 @@ class _ImportDataPage extends State<ImportDataPage> {
       asyncTask: (() async {
         final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
         if (journeyDataMaybeRaw == null) {
-          Fluttertoast.showToast(msg: context.tr("import.empty_data"));
           return false;
         }
 
@@ -143,7 +150,6 @@ class _ImportDataPage extends State<ImportDataPage> {
               vectorData: r, importProcessor: processor),
         };
         if (journeyData == null) {
-          Fluttertoast.showToast(msg: context.tr("import.empty_data"));
           return false;
         }
         await import_api.importJourneyData(
@@ -155,6 +161,11 @@ class _ImportDataPage extends State<ImportDataPage> {
       await showCommonDialog(
         context,
         context.tr("import.successful"),
+      );
+    }else {
+      await showCommonDialog(
+        context,
+        context.tr("import.empty_data"),
       );
     }
   }
