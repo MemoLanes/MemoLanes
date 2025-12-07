@@ -90,16 +90,16 @@ class PermissionService {
       }
     }
 
-    if (Platform.isAndroid) {
-      var bgStatus = await Permission.locationAlways.status;
-      if (!bgStatus.isGranted) {
-        bgStatus = await Permission.locationAlways.request();
-        if (bgStatus.isPermanentlyDenied) {
-          await _showPermissionDeniedDialog(
-            context.tr(
-                "location_service.background_location_permission_permanently_denied"),
-          );
-        }
+    var bgStatus = await Permission.locationAlways.status;
+    if (!bgStatus.isGranted) {
+      bgStatus = await Permission.locationAlways.request();
+      // It seems this does not wait for the result on iOS, and always
+      // permission is not strictly required.
+      if (Platform.isAndroid &&!bgStatus.isGranted) {
+        await _showPermissionDeniedDialog(
+          context.tr(
+              "location_service.background_location_permission_permanently_denied"),
+        );
       }
     }
   }
@@ -123,7 +123,7 @@ class PermissionService {
       final result = await Permission.ignoreBatteryOptimizations.request();
       if (!result.isGranted) {
         await _showPermissionDeniedDialog(
-          context.tr("location_service.battery_optimization_recommended"),
+          context.tr("location_service.battery_optimization_denied"),
         );
       }
     }
@@ -137,15 +137,22 @@ class PermissionService {
       MMKVUtil.putBool(MMKVKey.isUnexpectedExitNotificationEnabled, true);
       return;
     }
+    if (status.isPermanentlyDenied) return;
 
     final context = navigatorKey.currentState?.context;
-    if (context != null && context.mounted) {
-      await _showPermissionDeniedDialog(context
-          .tr("unexpected_exit_notification.notification_permission_reason"));
-    }
+    if (context == null || !context.mounted) return;
+    await _showPermissionDeniedDialog(context
+        .tr("unexpected_exit_notification.notification_permission_reason"));
 
     final result = await Permission.notification.request();
     MMKVUtil.putBool(
         MMKVKey.isUnexpectedExitNotificationEnabled, result.isGranted);
+
+    if (!result.isGranted) {
+      await _showPermissionDeniedDialog(
+        context
+            .tr("unexpected_exit_notification.notification_permission_denied"),
+      );
+    }
   }
 }
