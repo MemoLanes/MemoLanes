@@ -19,9 +19,12 @@ class PermissionService {
   Future<bool> checkAndRequestPermission() async {
     try {
       if (await checkLocationPermission()) {
+        await _requestIgnoreBatteryOptimization();
         return true;
       }
-      await ensureAllPermissions();
+      await _requestLocationPermission();
+      await _requestNotificationPermission();
+      await _requestIgnoreBatteryOptimization();
       var hasPermission = await checkLocationPermission();
       return hasPermission;
     } catch (e) {
@@ -43,12 +46,6 @@ class PermissionService {
     } catch (e) {
       return false;
     }
-  }
-
-  Future<void> ensureAllPermissions() async {
-    await _requestLocationPermission();
-    await _requestNotificationPermission();
-    await _requestIgnoreBatteryOptimization();
   }
 
   Future<void> _showPermissionDeniedDialog(String message) async {
@@ -110,6 +107,11 @@ class PermissionService {
   Future<void> _requestIgnoreBatteryOptimization() async {
     if (!Platform.isAndroid) return;
 
+    final requestBatteryOptimization = MMKVUtil.getBool(
+        MMKVKey.requestBatteryOptimization,
+        defaultValue: false);
+    if (requestBatteryOptimization) return;
+
     final context = navigatorKey.currentState?.context;
     if (context == null || !context.mounted) return;
 
@@ -125,6 +127,7 @@ class PermissionService {
         );
       }
     }
+    MMKVUtil.putBool(MMKVKey.requestBatteryOptimization, true);
   }
 
   Future<void> _requestNotificationPermission() async {
