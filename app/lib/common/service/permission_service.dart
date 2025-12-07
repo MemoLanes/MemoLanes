@@ -18,14 +18,13 @@ class PermissionService {
 
   Future<bool> checkAndRequestPermission() async {
     try {
-      if (await checkLocationPermission()) {
-        await _requestIgnoreBatteryOptimization();
-        return true;
+      bool hasPermission = await checkLocationPermission();
+      if (!hasPermission) {
+        await _requestLocationPermission();
+        hasPermission = await checkLocationPermission();
       }
-      await _requestLocationPermission();
-      await _requestNotificationPermission();
       await _requestIgnoreBatteryOptimization();
-      var hasPermission = await checkLocationPermission();
+      await _requestNotificationPermission();
       return hasPermission;
     } catch (e) {
       log.error("[PermissionService] checkAndRequestPermission failed $e");
@@ -95,7 +94,7 @@ class PermissionService {
       bgStatus = await Permission.locationAlways.request();
       // It seems this does not wait for the result on iOS, and always
       // permission is not strictly required.
-      if (Platform.isAndroid &&!bgStatus.isGranted) {
+      if (Platform.isAndroid && !bgStatus.isGranted) {
         await _showPermissionDeniedDialog(
           context.tr(
               "location_service.background_location_permission_permanently_denied"),
@@ -107,10 +106,10 @@ class PermissionService {
   Future<void> _requestIgnoreBatteryOptimization() async {
     if (!Platform.isAndroid) return;
 
-    final requestBatteryOptimization = MMKVUtil.getBool(
+    final alreadyRequested = MMKVUtil.getBool(
         MMKVKey.requestBatteryOptimization,
         defaultValue: false);
-    if (requestBatteryOptimization) return;
+    if (alreadyRequested) return;
 
     final context = navigatorKey.currentState?.context;
     if (context == null || !context.mounted) return;
@@ -133,20 +132,30 @@ class PermissionService {
   Future<void> _requestNotificationPermission() async {
     final status = await Permission.notification.status;
 
-    if (status.isGranted) {
-      MMKVUtil.putBool(MMKVKey.isUnexpectedExitNotificationEnabled, true);
+    final alreadyRequested = MMKVUtil.getBool(
+      MMKVKey.requestNotification,
+      defaultValue: false,
+    );
+
+    if (status.isGranted || alreadyRequested || status.isPermanentlyDenied) {
+      if (status.isGranted) {
+        MMKVUtil.putBool(MMKVKey.isUnexpectedExitNotificationEnabled, true);
+      }
       return;
     }
-    if (status.isPermanentlyDenied) return;
 
     final context = navigatorKey.currentState?.context;
     if (context == null || !context.mounted) return;
-    await _showPermissionDeniedDialog(context
-        .tr("unexpected_exit_notification.notification_permission_reason"));
+    await _showPermissionDeniedDialog(
+      context.tr("unexpected_exit_notification.notification_permission_reason"),
+    );
 
     final result = await Permission.notification.request();
+
     MMKVUtil.putBool(
-        MMKVKey.isUnexpectedExitNotificationEnabled, result.isGranted);
+      MMKVKey.isUnexpectedExitNotificationEnabled,
+      result.isGranted,
+    );
 
     if (!result.isGranted) {
       await _showPermissionDeniedDialog(
@@ -154,5 +163,6 @@ class PermissionService {
             .tr("unexpected_exit_notification.notification_permission_denied"),
       );
     }
+    MMKVUtil.putBool(MMKVKey.requestNotification, true);
   }
 }
