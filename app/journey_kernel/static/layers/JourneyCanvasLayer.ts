@@ -1,11 +1,62 @@
-import { tileXYToLngLat } from "./utils.js";
+import { tileXYToLngLat } from "./utils";
+import type maplibregl from "maplibre-gl";
+import type { TileBuffer } from "../../pkg";
+import type { JourneyTileProvider } from "../JourneyTileProvider";
+
+/**
+ * RGBA color tuple: [red, green, blue, alpha]
+ * Values are in range [0, 1]
+ */
+// TODO: move this to utils?
+type RGBAColor = [number, number, number, number];
+
+/**
+ * Tile buffer callback function type
+ */
+type TileBufferCallback = (
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  z: number,
+  bufferSizePower: number,
+  tileBuffer: TileBuffer | null
+) => void;
+
+/**
+ * Source configuration for canvas source
+ */
+interface CanvasSourceConfig {
+  type: "canvas";
+  canvas: HTMLCanvasElement;
+  animate: boolean;
+  coordinates: [number, number][];
+}
+
+/**
+ * Canvas source interface
+ */
+// TODO: import from maplibre-gl?
+interface CanvasSource {
+  setCoordinates(coords: [number, number][]): void;
+  play(): void;
+  pause(): void;
+}
 
 export class JourneyCanvasLayer {
+  private map: maplibregl.Map;
+  private journeyTileProvider: JourneyTileProvider;
+  private bgColor: string;
+  private fgColor: string;
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+  private _repaintCallback?: TileBufferCallback;
+
   constructor(
-    map,
-    journeyTileProvider,
-    bgColor = [0.0, 0.0, 0.0, 0.5],
-    fgColor = [1.0, 1.0, 1.0, 0.0],
+    map: maplibregl.Map,
+    journeyTileProvider: JourneyTileProvider,
+    bgColor: RGBAColor = [0.0, 0.0, 0.0, 0.5],
+    fgColor: RGBAColor = [1.0, 1.0, 1.0, 0.0]
   ) {
     this.map = map;
     this.journeyTileProvider = journeyTileProvider;
@@ -23,13 +74,15 @@ export class JourneyCanvasLayer {
     this.fgColor = `rgba(${r}, ${g}, ${b}, ${a})`;
 
     this.canvas = document.createElement("canvas");
-    this.ctx = this.canvas.getContext("2d");
-    this.currentTileRange = [0, 0, 0, 0];
-    this.currentZoom = -1;
+    const ctx = this.canvas.getContext("2d");
+    if (!ctx) {
+      throw new Error("Failed to get 2D context from canvas");
+    }
+    this.ctx = ctx;
   }
 
-  initialize() {
-    this.map.addSource("main-canvas-source", this.getSourceConfig());
+  initialize(): void {
+    this.map.addSource("main-canvas-source", this.getSourceConfig() as any);
     this.map.addLayer({
       id: "memolanes-journey-layer",
       source: "main-canvas-source",
@@ -39,13 +92,21 @@ export class JourneyCanvasLayer {
       },
     });
 
-    this._repaintCallback = (x, y, w, h, z, bufferSizePower, tileBuffer) => {
+    this._repaintCallback = (
+      x: number,
+      y: number,
+      w: number,
+      h: number,
+      z: number,
+      bufferSizePower: number,
+      tileBuffer: TileBuffer | null
+    ): void => {
       this.redrawCanvas(x, y, w, h, z, bufferSizePower, tileBuffer);
     };
     this.journeyTileProvider.registerTileBufferCallback(this._repaintCallback);
   }
 
-  getSourceConfig() {
+  getSourceConfig(): CanvasSourceConfig {
     return {
       type: "canvas",
       canvas: this.canvas,
@@ -59,7 +120,15 @@ export class JourneyCanvasLayer {
     };
   }
 
-  redrawCanvas(x_raw, y, w_raw, h, z, bufferSizePower, tileBuffer) {
+  redrawCanvas(
+    x_raw: number,
+    y: number,
+    w_raw: number,
+    h: number,
+    z: number,
+    bufferSizePower: number,
+    tileBuffer: TileBuffer | null
+  ): void {
     if (!tileBuffer) {
       return;
     }
@@ -99,7 +168,7 @@ export class JourneyCanvasLayer {
       for (let y = top; y < bottom; y++) {
         if (y < 0 || y >= n) continue;
 
-        let xNorm = ((x % n) + n) % n;
+        const xNorm = ((x % n) + n) % n;
 
         const dx = (x - left) * tileSize;
         const dy = (y - top) * tileSize;
@@ -139,20 +208,27 @@ export class JourneyCanvasLayer {
     //  https://github.com/maplibre/maplibre-gl-js/blob/8895e414984a6348a1260ed986a0d2d7753367a8/src/source/image_source.ts#L228
     //  https://github.com/maplibre/maplibre-gl-js/blob/8895e414984a6348a1260ed986a0d2d7753367a8/src/source/image_source.ts#L350
     //  https://github.com/maplibre/maplibre-gl-js/blob/08fce0cfbf28f4da2cde60025588a8cb9323c9fe/src/source/tile_id.ts#L23
-    const almost = (x) => x * 0.999999;
+    const almost = (x: number): number => x * 0.999999;
 
-    const nw = tileXYToLngLat([almost(left), top], z);
-    const ne = tileXYToLngLat([almost(right), top], z);
-    const se = tileXYToLngLat([almost(right), bottom], z);
-    const sw = tileXYToLngLat([almost(left), bottom], z);
+    const nw = tileXYToLngLat(almost(left), top, z);
+    const ne = tileXYToLngLat(almost(right), top, z);
+    const se = tileXYToLngLat(almost(right), bottom, z);
+    const sw = tileXYToLngLat(almost(left), bottom, z);
 
-    const mainCanvasSource = this.map.getSource("main-canvas-source");
-    mainCanvasSource?.setCoordinates([nw, ne, se, sw]);
+    const mainCanvasSource = this.map.getSource(
+      "main-canvas-source"
+    ) as CanvasSource | undefined;
+    mainCanvasSource?.setCoordinates([
+      [nw.lng, nw.lat],
+      [ne.lng, ne.lat],
+      [se.lng, se.lat],
+      [sw.lng, sw.lat],
+    ]);
     mainCanvasSource?.play();
     mainCanvasSource?.pause();
   }
 
-  remove() {
+  remove(): void {
     if (this.map.getLayer("memolanes-journey-layer")) {
       this.map.removeLayer("memolanes-journey-layer");
     }
@@ -161,9 +237,9 @@ export class JourneyCanvasLayer {
       this.map.removeSource("main-canvas-source");
     }
 
-    if (this.journeyTileProvider) {
+    if (this.journeyTileProvider && this._repaintCallback) {
       this.journeyTileProvider.unregisterTileBufferCallback(
-        this._repaintCallback,
+        this._repaintCallback
       );
     }
   }
