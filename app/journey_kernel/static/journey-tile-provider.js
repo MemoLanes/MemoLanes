@@ -226,6 +226,8 @@ export class JourneyTileProvider {
         c.charCodeAt(0),
       );
 
+      // TODO: the tileBuffer wasm deserialization can take up to 2000ms in dev mode, and 30ms in prod mode.
+      // consider move this into web worker so that it won't block the main thread.
       // Deserialize into a TileBuffer object using the WebAssembly module
       this.tileBuffer = TileBuffer.from_bytes(bytes);
 
