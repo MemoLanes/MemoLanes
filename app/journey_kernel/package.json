@@ -4,6 +4,7 @@
   "description": "WebView and native part of the MemoLanes app",
   "scripts": {
     "build": "rimraf dist pkg && webpack --mode production",
+    "preview": "rimraf dist pkg && webpack serve --mode production",
     "dev": "rimraf dist pkg && webpack serve --mode development",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,html}\"",
     "check-format": "prettier --check \"**/*.{js,jsx,ts,tsx,html}\""
@@ -13,6 +14,9 @@
     "maplibregl-mapbox-request-transformer": "^0.0.3"
   },
   "devDependencies": {
+    "@types/node": "^24.10.1",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.9.3",
     "@wasm-tool/wasm-pack-plugin": "^1.7.0",
     "copy-webpack-plugin": "^12.0.2",
     "css-loader": "^6.10.0",
