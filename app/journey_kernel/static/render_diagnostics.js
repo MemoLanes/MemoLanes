@@ -25,7 +25,7 @@
   }
 }
 
-import { MultiRequest } from "./multirequest.js";
+import { MultiRequest } from "./MultiRequest";
 
 let isRunning = false;
 let intervalId = null;

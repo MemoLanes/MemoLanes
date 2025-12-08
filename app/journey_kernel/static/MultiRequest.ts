@@ -1,9 +1,70 @@
 /**
  * MultiRequest Module
  *
- * A unified JavaScript class for handling both HTTP and Flutter IPC communications
+ * A unified TypeScript class for handling both HTTP and Flutter IPC communications
  * with a consistent API.
  */
+
+/**
+ * Unified request format matching Rust Request struct
+ */
+interface UnifiedRequest {
+  requestId: string;
+  query: string;
+  payload: Record<string, any>;
+}
+
+/**
+ * Unified response format
+ */
+interface UnifiedResponse {
+  requestId: string;
+  [key: string]: any;
+}
+
+/**
+ * Pending request info
+ */
+interface PendingRequest {
+  resolve: (value: UnifiedResponse) => void;
+  reject: (reason: Error) => void;
+}
+
+/**
+ * Fetch options
+ */
+interface FetchOptions extends RequestInit {
+  timeout?: number;
+}
+
+/**
+ * Status information
+ */
+interface StatusInfo {
+  endpoint: string | null;
+  channelName: string | null;
+  channelAvailable: boolean;
+  pendingRequests: number;
+  isFlutterMode: boolean;
+  isHttpMode: boolean;
+}
+
+/**
+ * Flutter channel interface
+ */
+interface FlutterChannel {
+  postMessage(message: string): void;
+}
+
+/**
+ * Extended window interface for Flutter channels
+ */
+declare global {
+  interface Window {
+    [key: string]: any;
+    MultiRequest?: typeof MultiRequest;
+  }
+}
 
 /**
  * MultiRequest Class
@@ -12,10 +73,17 @@
  * Automatically routes requests based on the endpoint protocol (http:// vs flutter://).
  */
 class MultiRequest {
-  constructor(cgiEndpoint = null) {
+  private cgiEndpoint: string | null;
+  private requestId: number;
+  private pendingRequests: Map<number, PendingRequest>;
+  private channelName: string | null;
+  private channel: FlutterChannel | null;
+  private timeout: number;
+
+  constructor(cgiEndpoint: string | null = null) {
     this.cgiEndpoint = cgiEndpoint;
     this.requestId = 0;
-    this.pendingRequests = new Map();
+    this.pendingRequests = new Map<number, PendingRequest>();
     this.channelName = null;
     this.channel = null;
     this.timeout = 30000; // Default 30 second timeout
@@ -23,7 +91,7 @@ class MultiRequest {
     // Parse flutter:// endpoints
     if (cgiEndpoint && cgiEndpoint.startsWith("flutter://")) {
       this.channelName = cgiEndpoint.replace("flutter://", "");
-      this.channel = window[this.channelName];
+      this.channel = window[this.channelName] as FlutterChannel;
 
       // Set up response handler for this specific instance
       this._setupResponseHandler();
@@ -33,13 +101,13 @@ class MultiRequest {
   /**
    * Set up response handler for Flutter IPC for this specific instance
    */
-  _setupResponseHandler() {
+  private _setupResponseHandler(): void {
     if (!this.channelName) return;
 
     // Set up JSON response handler
     const jsonHandlerName = `handle_${this.channelName}_JsonResponse`;
     if (!window[jsonHandlerName]) {
-      window[jsonHandlerName] = (responseJson) => {
+      window[jsonHandlerName] = (responseJson: UnifiedResponse): void => {
         this._handleJsonResponse(responseJson);
       };
     }
@@ -48,7 +116,7 @@ class MultiRequest {
   /**
    * Handle object IPC response for this instance
    */
-  _handleJsonResponse(responseData) {
+  private _handleJsonResponse(responseData: UnifiedResponse): void {
     try {
       // Directly use the object response (no parsing needed)
       const jsonResponse = responseData;
@@ -62,13 +130,16 @@ class MultiRequest {
         return;
       }
 
-      const { resolve, reject } = this.pendingRequests.get(requestId);
+      const pendingRequest = this.pendingRequests.get(requestId);
+      if (!pendingRequest) return;
+
+      const { resolve, reject } = pendingRequest;
 
       try {
         // Return the JSON response directly
         resolve(jsonResponse);
       } catch (error) {
-        reject(error);
+        reject(error as Error);
       } finally {
         this.pendingRequests.delete(requestId);
       }
@@ -81,13 +152,13 @@ class MultiRequest {
   /**
    * Set the CGI endpoint for this instance
    */
-  setEndpoint(cgiEndpoint) {
+  setEndpoint(cgiEndpoint: string | null): void {
     this.cgiEndpoint = cgiEndpoint;
 
     // Re-parse if it's a flutter endpoint
     if (cgiEndpoint && cgiEndpoint.startsWith("flutter://")) {
       this.channelName = cgiEndpoint.replace("flutter://", "");
-      this.channel = window[this.channelName];
+      this.channel = window[this.channelName] as FlutterChannel;
       this._setupResponseHandler();
     } else {
       this.channelName = null;
@@ -98,14 +169,18 @@ class MultiRequest {
   /**
    * Set timeout for requests
    */
-  setTimeout(timeout) {
+  setTimeout(timeout: number): void {
     this.timeout = timeout;
   }
 
   /**
    * Main fetch method that routes to HTTP or Flutter IPC
    */
-  async fetch(resource, params = null, options = {}) {
+  async fetch(
+    resource: string,
+    params: Record<string, any> | null = null,
+    options: FetchOptions = {}
+  ): Promise<UnifiedResponse> {
     if (!this.cgiEndpoint) {
       throw new Error("No CGI endpoint set. Call setEndpoint() first.");
     }
@@ -120,20 +195,24 @@ class MultiRequest {
   /**
    * HTTP fetch implementation - Always uses unified JSON API
    */
-  async fetchViaHttp(resource, params = null, options = {}) {
+  async fetchViaHttp(
+    resource: string,
+    params: Record<string, any> | null = null,
+    options: FetchOptions = {}
+  ): Promise<UnifiedResponse> {
     const url = `${this.cgiEndpoint}/api`;
 
     // Generate unique request ID
     const requestId = `http_${this.requestId++}_${Date.now()}`;
 
     // Create unified request payload matching Rust Request struct
-    const unifiedRequest = {
+    const unifiedRequest: UnifiedRequest = {
       requestId: requestId,
       query: resource,
       payload: params || {},
     };
 
-    const fetchOptions = {
+    const fetchOptions: RequestInit = {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -147,7 +226,7 @@ class MultiRequest {
     const response = await fetch(url, fetchOptions);
 
     if (response.ok) {
-      const jsonResponse = await response.json();
+      const jsonResponse: UnifiedResponse = await response.json();
       // Return the unified response directly
       return jsonResponse;
     } else {
@@ -158,12 +237,16 @@ class MultiRequest {
   /**
    * Flutter IPC fetch implementation
    */
-  async fetchViaFlutter(resource, params = null, options = {}) {
+  async fetchViaFlutter(
+    resource: string,
+    params: Record<string, any> | null = null,
+    options: FetchOptions = {}
+  ): Promise<UnifiedResponse> {
     if (!this.channel) {
       throw new Error(`Flutter channel '${this.channelName}' not available`);
     }
 
-    return new Promise((resolve, reject) => {
+    return new Promise<UnifiedResponse>((resolve, reject) => {
       const requestId = ++this.requestId;
 
       // Store request info
@@ -174,18 +257,18 @@ class MultiRequest {
 
       // Send unified request format via JavaScript channel
       try {
-        const unifiedRequest = {
+        const unifiedRequest: UnifiedRequest = {
           requestId: requestId.toString(),
           query: resource,
           payload: params || {},
         };
 
-        this.channel.postMessage(JSON.stringify(unifiedRequest));
+        this.channel!.postMessage(JSON.stringify(unifiedRequest));
       } catch (error) {
         this.pendingRequests.delete(requestId);
-        reject(
-          new Error(`Failed to send Flutter IPC request: ${error.message}`),
-        );
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        reject(new Error(`Failed to send Flutter IPC request: ${errorMessage}`));
         return;
       }
 
@@ -203,24 +286,26 @@ class MultiRequest {
   /**
    * Get status information for this instance
    */
-  getStatus() {
+  getStatus(): StatusInfo {
     return {
       endpoint: this.cgiEndpoint,
       channelName: this.channelName,
       channelAvailable: !!this.channel,
       pendingRequests: this.pendingRequests.size,
       isFlutterMode:
-        this.cgiEndpoint && this.cgiEndpoint.startsWith("flutter://"),
+        this.cgiEndpoint !== null &&
+        this.cgiEndpoint.startsWith("flutter://"),
       isHttpMode:
-        this.cgiEndpoint && !this.cgiEndpoint.startsWith("flutter://"),
+        this.cgiEndpoint !== null &&
+        !this.cgiEndpoint.startsWith("flutter://"),
     };
   }
 
   /**
    * Clear all pending requests (useful for cleanup)
    */
-  clearPending() {
-    for (const [requestId, { reject }] of this.pendingRequests) {
+  clearPending(): void {
+    for (const [_, { reject }] of this.pendingRequests) {
       reject(new Error("Request cancelled"));
     }
     this.pendingRequests.clear();

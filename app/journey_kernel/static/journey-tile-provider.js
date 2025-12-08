@@ -1,6 +1,6 @@
 import { JourneyBitmap, TileBuffer } from "../pkg";
-import { getViewportTileRange } from "./utils";
-import { MultiRequest } from "./multirequest.js";
+import { getViewportTileRange } from "./layers/utils";
+import { MultiRequest } from "./MultiRequest";
 
 export class JourneyTileProvider {
   constructor(map, journeyId, bufferSizePower = 8) {
