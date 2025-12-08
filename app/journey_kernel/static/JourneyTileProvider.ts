@@ -1,9 +1,92 @@
-import { JourneyBitmap, TileBuffer } from "../pkg";
+import { TileBuffer } from "../pkg";
 import { getViewportTileRange } from "./layers/utils";
 import { MultiRequest } from "./MultiRequest";
+import type maplibregl from "maplibre-gl";
+
+/**
+ * View range tuple: [x, y, width, height, zoom]
+ */
+type ViewRange = [number, number, number, number, number];
+
+/**
+ * Tile buffer callback function type
+ */
+type TileBufferCallback = (
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  z: number,
+  bufferSizePower: number,
+  tileBuffer: TileBuffer | null
+) => void;
+
+/**
+ * Request parameters for tile buffer fetch
+ */
+interface TileBufferRequestParams {
+  id: string;
+  x: number;
+  y: number;
+  z: number;
+  width: number;
+  height: number;
+  buffer_size_power: number;
+  cached_version?: string;
+}
+
+/**
+ * Tile buffer response data structure
+ */
+interface TileBufferResponseData {
+  status?: number;
+  headers?: {
+    version?: string;
+  };
+  body?: string; // base64 encoded
+}
+
+/**
+ * Tile buffer response structure
+ */
+interface TileBufferResponse {
+  success: boolean;
+  error?: string;
+  data?: TileBufferResponseData;
+  requestId?: string;
+}
+
+/**
+ * Extended window interface for external parameters
+ */
+declare global {
+  interface Window {
+    EXTERNAL_PARAMS: {
+      cgi_endpoint?: string;
+      [key: string]: any;
+    };
+  }
+}
 
 export class JourneyTileProvider {
-  constructor(map, journeyId, bufferSizePower = 8) {
+  private map: maplibregl.Map;
+  private journeyId: string;
+  private currentVersion: string | null; // Store the current version
+  private viewRange: ViewRange | null; // Store the current viewport tile range [x, y, w, h, z]
+  private tileBuffer: TileBuffer | null; // Store the tile buffer data
+  private viewRangeUpdated: boolean; // Flag indicating view range has been updated
+  private downloadInProgress: boolean; // Flag indicating download is in progress
+  private bufferSizePower: number;
+  private isGlobeProjection: boolean; // Flag indicating if globe projection is used
+  private tileBufferCallbacks: TileBufferCallback[]; // Array to store tile buffer update callbacks
+  private multiRequest: MultiRequest;
+
+  constructor(
+    map: maplibregl.Map,
+    journeyId: string,
+    bufferSizePower: number = 8,
+    isGlobeProjection: boolean = false
+  ) {
     this.map = map;
     this.journeyId = journeyId;
     this.currentVersion = null; // Store the current version
@@ -12,6 +95,8 @@ export class JourneyTileProvider {
     this.viewRangeUpdated = false; // Flag indicating view range has been updated
     this.downloadInProgress = false; // Flag indicating download is in progress
     this.bufferSizePower = bufferSizePower;
+    // TODO: better handling of globe projection
+    this.isGlobeProjection = isGlobeProjection;
 
     this.tileBufferCallbacks = []; // Array to store tile buffer update callbacks
 
@@ -25,7 +110,7 @@ export class JourneyTileProvider {
   }
 
   // Initialize MultiRequest instance based on endpoint configuration
-  initializeMultiRequest() {
+  private initializeMultiRequest(): MultiRequest {
     // Use cgi_endpoint if provided, otherwise default to current directory
     const endpointUrl = window.EXTERNAL_PARAMS.cgi_endpoint || ".";
 
@@ -37,7 +122,7 @@ export class JourneyTileProvider {
 
   // typically two use cases: if the original page detect a data change, then no cache (forceUpdate = true)
   // if it is just a periodic update or normal check, then use cache (forceUpdate = false)
-  async pollForJourneyUpdates(forceUpdate = false) {
+  async pollForJourneyUpdates(forceUpdate: boolean = false): Promise<boolean | null> {
     try {
       // console.log("Checking for journey updates via tile buffer");
 
@@ -52,7 +137,7 @@ export class JourneyTileProvider {
     }
   }
 
-  setBufferSizePower(bufferSizePower) {
+  setBufferSizePower(bufferSizePower: number): void {
     if (this.bufferSizePower === bufferSizePower) {
       return;
     }
@@ -65,8 +150,11 @@ export class JourneyTileProvider {
   }
 
   // Try to update the current viewport tile range, only if it has changed
-  tryUpdateViewRange() {
-    const [x, y, w, h, z] = getViewportTileRange(this.map);
+  tryUpdateViewRange(): ViewRange | null {
+    const [x, y, w, h, z] = getViewportTileRange(
+      this.map,
+      this.isGlobeProjection,
+    );
 
     // Skip update if the values haven't changed
     if (
@@ -94,7 +182,7 @@ export class JourneyTileProvider {
   }
 
   // Check state and fetch tile buffer if needed
-  async checkAndFetchTileBuffer(forceUpdate = false) {
+  private async checkAndFetchTileBuffer(forceUpdate: boolean = false): Promise<boolean> {
     // If no download is in progress and view range has been updated, fetch new tile buffer
     if (!this.downloadInProgress && this.viewRangeUpdated) {
       return await this.fetchTileBuffer(forceUpdate);
@@ -103,28 +191,30 @@ export class JourneyTileProvider {
   }
 
   // Register a callback to be called when new tile buffer is ready
-  registerTileBufferCallback(callback) {
+  registerTileBufferCallback(callback: TileBufferCallback): boolean {
     if (
       typeof callback === "function" &&
       !this.tileBufferCallbacks.includes(callback)
     ) {
       this.tileBufferCallbacks.push(callback);
-      callback(
-        this.viewRange[0],
-        this.viewRange[1],
-        this.viewRange[2],
-        this.viewRange[3],
-        this.viewRange[4],
-        this.bufferSizePower,
-        this.tileBuffer,
-      );
+      if (this.viewRange) {
+        callback(
+          this.viewRange[0],
+          this.viewRange[1],
+          this.viewRange[2],
+          this.viewRange[3],
+          this.viewRange[4],
+          this.bufferSizePower,
+          this.tileBuffer,
+        );
+      }
       return true;
     }
     return false;
   }
 
   // Remove a previously registered callback
-  unregisterTileBufferCallback(callback) {
+  unregisterTileBufferCallback(callback: TileBufferCallback): boolean {
     const index = this.tileBufferCallbacks.indexOf(callback);
     if (index !== -1) {
       this.tileBufferCallbacks.splice(index, 1);
@@ -134,7 +224,15 @@ export class JourneyTileProvider {
   }
 
   // Notify all registered callbacks with tile range and buffer
-  notifyTileBufferReady(x, y, w, h, z, bufferSizePower, tileBuffer) {
+  private notifyTileBufferReady(
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    z: number,
+    bufferSizePower: number,
+    tileBuffer: TileBuffer | null
+  ): void {
     for (const callback of this.tileBufferCallbacks) {
       try {
         callback(x, y, w, h, z, bufferSizePower, tileBuffer);
@@ -145,7 +243,7 @@ export class JourneyTileProvider {
   }
 
   // Fetch tile buffer for current view range
-  async fetchTileBuffer(forceUpdate = false) {
+  private async fetchTileBuffer(forceUpdate: boolean = false): Promise<boolean> {
     if (!this.viewRange) return false;
 
     // Reset update flag and set download flag
@@ -155,7 +253,7 @@ export class JourneyTileProvider {
     const [x, y, w, h, z] = this.viewRange;
 
     // Create request parameters for MultiRequest
-    const requestParams = {
+    const requestParams: TileBufferRequestParams = {
       id: this.journeyId,
       x: x,
       y: y,
@@ -180,10 +278,10 @@ export class JourneyTileProvider {
 
     try {
       // Make the request - response is now a direct JS object
-      const response = await this.multiRequest.fetch(
+      const response = (await this.multiRequest.fetch(
         "tile_range",
         requestParams,
-      );
+      )) as TileBufferResponse;
 
       // Check success status directly
       if (!response.success) {
@@ -222,6 +320,10 @@ export class JourneyTileProvider {
 
       // Get the binary data
       // response.data.body is base64 encoded, so decode it
+      if (!response.data?.body) {
+        throw new Error("No body in response data");
+      }
+
       const bytes = Uint8Array.from(atob(response.data.body), (c) =>
         c.charCodeAt(0),
       );
@@ -267,13 +369,13 @@ export class JourneyTileProvider {
   }
 
   // Helper method to build URL for logging purposes
-  buildLogUrl(params) {
-    const endpoint = this.multiRequest.cgiEndpoint;
-    if (endpoint.startsWith("flutter://")) {
+  private buildLogUrl(params: TileBufferRequestParams): string {
+    const endpoint = (this.multiRequest as any).cgiEndpoint;
+    if (endpoint && endpoint.startsWith("flutter://")) {
       return `${endpoint}/tile_range`;
     }
 
-    const urlParams = new URLSearchParams(params).toString();
+    const urlParams = new URLSearchParams(params as any).toString();
     return `${endpoint}/tile_range?${urlParams}`;
   }
 }
