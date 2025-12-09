@@ -1,3 +1,5 @@
+use crate::journey_data::JourneyData;
+use crate::journey_vector::JourneyVector;
 use anyhow::Result;
 pub use chrono::NaiveDate;
 use flutter_rust_bridge::frb;
@@ -15,4 +17,11 @@ pub fn naive_date_to_string(date: &NaiveDate) -> String {
 #[frb(sync)]
 pub fn naive_date_of_string(str: &str) -> Result<NaiveDate> {
     Ok(NaiveDate::parse_from_str(str, "%Y-%m-%d")?)
+}
+
+#[frb(sync)]
+pub fn empty_journey_data() -> JourneyData {
+    JourneyData::Vector(JourneyVector {
+        track_segments: Vec::new(),
+    })
 }
