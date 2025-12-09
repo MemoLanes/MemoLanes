@@ -165,13 +165,13 @@ fn prepare_real_cache_dir(
                     format!("Old cache dir {:?} exists: move Data", old_dir),
                 ));
 
-                if let Err(e) = std::fs::create_dir_all(&final_path) {
+                std::fs::create_dir_all(&final_path).map_err(|e| {
                     logs.push((
                         LogLevel::Error,
                         format!("Failed to create final cache dir {:?}: {:?}", final_path, e),
                     ));
-                    return Ok((final_path.to_string_lossy().into_owned(), Some(logs)));
-                }
+                    e
+                })?;
 
                 let old_db = old_dir.join("cache.db");
                 let new_db = final_path.join("cache.db");
