@@ -156,19 +156,70 @@ fn prepare_real_cache_dir(
                 LogLevel::Info,
                 format!("Setting up real cache dir for Android at {:?}", final_path),
             ));
+            // TODO this can be delete when most people have rolled pass this.
             let old_dir = Path::new(system_cache_dir);
             if old_dir.exists() {
-                if let Err(e) = std::fs::rename(old_dir, &final_path) {
+                logs.push((
+                    LogLevel::Info,
+                    format!("Old cache dir {:?} exists: migration Data", old_dir),
+                ));
+
+                if let Err(e) = std::fs::create_dir_all(&final_path) {
                     logs.push((
                         LogLevel::Error,
-                        format!(
-                            "Failed to migrate cache dir from {:?} to {:?}: {:?}",
-                            old_dir, final_path, e
-                        ),
+                        format!("Failed to create final cache dir {:?}: {:?}", final_path, e),
                     ));
+                    return Ok((final_path.to_string_lossy().into_owned(), Some(logs)));
                 }
+
+                let old_db = old_dir.join("cache.db");
+                let new_db = final_path.join("cache.db");
+
+                if old_db.exists() {
+                    logs.push((
+                        LogLevel::Info,
+                        format!("Found {:?}, migrating to {:?}", old_db, new_db),
+                    ));
+
+                    match std::fs::rename(&old_db, &new_db) {
+                        Ok(_) => logs.push((
+                            LogLevel::Info,
+                            format!("Successfully migrated cache.db to {:?}", new_db),
+                        )),
+                        Err(e) => logs.push((
+                            LogLevel::Error,
+                            format!("Failed to migrate cache.db: {:?}", e),
+                        )),
+                    }
+                }
+
+                let old_log = old_dir.join("log");
+                let new_log = final_path.join("log");
+
+                if old_log.exists() {
+                    logs.push((
+                        LogLevel::Info,
+                        format!("Found log directory {:?}, migrating to {:?}", old_log, new_log),
+                    ));
+
+                    match std::fs::rename(&old_log, &new_log) {
+                        Ok(_) => logs.push((
+                            LogLevel::Info,
+                            format!("Successfully migrated log directory to {:?}", new_log),
+                        )),
+                        Err(e) => logs.push((
+                            LogLevel::Error,
+                            format!("Failed to migrate log directory: {:?}", e),
+                        )),
+                    }
+                }
+            } else {
+                logs.push((
+                    LogLevel::Info,
+                    format!("Old cache dir {:?} does not exist → no migration needed", old_dir),
+                ));
+                std::fs::create_dir_all(&final_path)?;
             }
-            std::fs::create_dir_all(&final_path)?;
             Some(logs)
         } else {
             None
