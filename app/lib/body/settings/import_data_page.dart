@@ -39,19 +39,36 @@ class _ImportDataPage extends State<ImportDataPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initFlow(true);
+      _loadData();
     });
   }
 
-  Future<void> _initFlow(bool init) async {
+  Future<void> _loadData() async {
     final future = () async {
-      if (init) {
-        await _readData(widget.path);
+      if (journeyDataMaybeRaw == null) {
+        final result = await _readFile(widget.path, widget.importType);
+
+        final (loadedJourneyInfo, loadedData) = result;
+
+        if (loadedJourneyInfo == null || loadedData == null) {
+          return false;
+        }
+
+        journeyInfo = loadedJourneyInfo;
+        journeyDataMaybeRaw = loadedData;
       }
-      if (journeyInfo != null) {
-        return await _previewDataInternal(_currentProcessor);
+
+      try {
+        final currentJourneyData = journeyDataMaybeRaw;
+        if (currentJourneyData != null) {
+          return await _previewDataInternal(
+              currentJourneyData, _currentProcessor);
+        }
+        return false;
+      } catch (e) {
+        log.error("[import_data] Preview failed: $e");
+        return false;
       }
-      return true;
     }();
 
     try {
@@ -59,62 +76,67 @@ class _ImportDataPage extends State<ImportDataPage> {
         context: context,
         asyncTask: future,
       );
+
+      if (!mounted) return;
+
       if (!success) {
         await showCommonDialog(
           context,
           context.tr("import.empty_data"),
         );
-        Navigator.pop(context);
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
       }
     } catch (error) {
+      if (!mounted) return;
+
       await showCommonDialog(context, context.tr("import.parsing_failed"));
       log.error("[import_data] Data parsing failed $error");
-      Navigator.pop(context);
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
     }
   }
 
-  Future<void> _readData(String path) async {
-    switch (widget.importType) {
+  Future<
+      (
+        import_api.JourneyInfo?,
+        f.Either<JourneyData, import_api.RawVectorData>?
+      )> _readFile(String path, ImportType importType) async {
+    switch (importType) {
       case ImportType.fow:
         var (journeyInfo, journeyData) =
             await import_api.loadFowData(filePath: path);
-        setState(() {
-          this.journeyInfo = journeyInfo;
-          journeyDataMaybeRaw = f.Either.left(journeyData);
-        });
-        break;
+        return (
+          journeyInfo,
+          f.Either<JourneyData, import_api.RawVectorData>.left(journeyData)
+        );
+
       case ImportType.gpxOrKml:
         var (journeyInfo, rawVectorData) =
             await import_api.loadGpxOrKml(filePath: path);
-        setState(() {
-          this.journeyInfo = journeyInfo;
-          journeyDataMaybeRaw = f.Either.right(rawVectorData);
-        });
-        break;
+        return (
+          journeyInfo,
+          f.Either<JourneyData, import_api.RawVectorData>.right(rawVectorData)
+        );
     }
   }
 
   Future<void> _previewData(import_api.ImportPreprocessor processor) async {
     if (processor == _currentProcessor) return;
     _currentProcessor = processor;
-    _initFlow(false);
+    _loadData();
   }
 
   Future<bool> _previewDataInternal(
+      f.Either<JourneyData, import_api.RawVectorData> journeyDataMaybeRaw,
       import_api.ImportPreprocessor processor) async {
-    final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
-    if (journeyDataMaybeRaw == null) {
-      return false;
-    }
-
     final journeyData = switch (journeyDataMaybeRaw) {
       f.Left(value: final l) => l,
       f.Right(value: final r) => await import_api.processVectorData(
           vectorData: r, importProcessor: processor),
     };
-    if (journeyData == null) {
-      return false;
-    }
     final mapRendererProxyAndCameraOption =
         await api.getMapRendererProxyForJourneyData(journeyData: journeyData);
     setState(() {
@@ -146,9 +168,6 @@ class _ImportDataPage extends State<ImportDataPage> {
           f.Right(value: final r) => await import_api.processVectorData(
               vectorData: r, importProcessor: processor),
         };
-        if (journeyData == null) {
-          return false;
-        }
         await import_api.importJourneyData(
             journeyInfo: journeyInfo, journeyData: journeyData);
         return true;
