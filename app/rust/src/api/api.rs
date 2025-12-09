@@ -193,8 +193,8 @@ fn prepare_real_cache_dir(
                     }
                 }
 
-                let old_log = old_dir.join("log");
-                let new_log = final_path.join("log");
+                let old_log = old_dir.join("logs");
+                let new_log = final_path.join("logs");
 
                 if old_log.exists() {
                     logs.push((
