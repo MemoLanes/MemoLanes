@@ -143,6 +143,7 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, system_cache
 // the cache folder may be cleared even when the app is running,
 // which is troublesome for us. Also the app request the whole cache while running,
 // it will create the whole thing if missing so clearing the cache randomly doesn't provide much value.
+#[allow(clippy::type_complexity)]
 fn prepare_real_cache_dir(
     support_dir: &str,
     system_cache_dir: &str,
