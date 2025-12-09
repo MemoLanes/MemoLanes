@@ -161,7 +161,7 @@ fn prepare_real_cache_dir(
             if old_dir.exists() {
                 logs.push((
                     LogLevel::Info,
-                    format!("Old cache dir {:?} exists: migration Data", old_dir),
+                    format!("Old cache dir {:?} exists: move Data", old_dir),
                 ));
 
                 if let Err(e) = std::fs::create_dir_all(&final_path) {
@@ -178,17 +178,17 @@ fn prepare_real_cache_dir(
                 if old_db.exists() {
                     logs.push((
                         LogLevel::Info,
-                        format!("Found {:?}, migrating to {:?}", old_db, new_db),
+                        format!("Found {:?}, move to {:?}", old_db, new_db),
                     ));
 
                     match std::fs::rename(&old_db, &new_db) {
                         Ok(_) => logs.push((
                             LogLevel::Info,
-                            format!("Successfully migrated cache.db to {:?}", new_db),
+                            format!("Successfully moved cache.db to {:?}", new_db),
                         )),
                         Err(e) => logs.push((
                             LogLevel::Error,
-                            format!("Failed to migrate cache.db: {:?}", e),
+                            format!("Failed to move cache.db: {:?}", e),
                         )),
                     }
                 }
@@ -199,17 +199,17 @@ fn prepare_real_cache_dir(
                 if old_log.exists() {
                     logs.push((
                         LogLevel::Info,
-                        format!("Found log directory {:?}, migrating to {:?}", old_log, new_log),
+                        format!("Found log directory {:?}, move to {:?}", old_log, new_log),
                     ));
 
                     match std::fs::rename(&old_log, &new_log) {
                         Ok(_) => logs.push((
                             LogLevel::Info,
-                            format!("Successfully migrated log directory to {:?}", new_log),
+                            format!("Successfully moved log directory to {:?}", new_log),
                         )),
                         Err(e) => logs.push((
                             LogLevel::Error,
-                            format!("Failed to migrate log directory: {:?}", e),
+                            format!("Failed to move log directory: {:?}", e),
                         )),
                     }
                 }
