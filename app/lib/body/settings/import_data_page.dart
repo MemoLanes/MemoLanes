@@ -9,7 +9,6 @@ import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
-import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/src/rust/journey_data.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
@@ -113,8 +112,7 @@ class _ImportDataPage extends State<ImportDataPage> {
           vectorData: r, importProcessor: processor),
     };
     final mapRendererProxyAndCameraOption =
-        await api.getMapRendererProxyForJourneyData(
-            journeyData: journeyData ?? emptyJourneyData());
+        await api.getMapRendererProxyForJourneyData(journeyData: journeyData);
     setState(() {
       _mapRendererProxy = mapRendererProxyAndCameraOption.$1;
       final cameraOption = mapRendererProxyAndCameraOption.$2;
@@ -126,7 +124,7 @@ class _ImportDataPage extends State<ImportDataPage> {
         );
       }
     });
-    return (journeyData != null);
+    return (!await import_api.isJourneyDataEmpty(journeyData: journeyData));
   }
 
   Future<void> _saveData(import_api.JourneyInfo journeyInfo,
@@ -140,7 +138,7 @@ class _ImportDataPage extends State<ImportDataPage> {
           f.Right(value: final r) => await import_api.processVectorData(
               vectorData: r, importProcessor: processor),
         };
-        if (journeyData == null) {
+        if (await import_api.isJourneyDataEmpty(journeyData: journeyData)) {
           return false;
         }
         await import_api.importJourneyData(
