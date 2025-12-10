@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -370,6 +371,16 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
               width: double.infinity,
               height: double.infinity,
             ),
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: MediaQuery.of(context).padding.bottom,
+          child: PointerInterceptor(
+            intercepting: Platform.isIOS,
+            child: const ColoredBox(color: Colors.transparent),
           ),
         ),
       ],
