@@ -99,10 +99,10 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
 
   Future<String> _generateExportFile(
       JourneyHeader journeyHeader, ExportType exportType) async {
-    var tmpDir = await getTemporaryDirectory();
-    var dateStr = naiveDateToString(date: journeyHeader.journeyDate);
-    var filepath =
-        "${tmpDir.path}/$dateStr-${journeyHeader.revision}.${exportType.name}";
+    final tmpDir = await getTemporaryDirectory();
+    final dateStr = naiveDateToString(date: journeyHeader.journeyDate);
+    final filepath =
+        "${tmpDir.path}/${dateStr}-${journeyHeader.revision}.${exportType.name}";
     switch (exportType) {
       case ExportType.mldx:
         await api.generateSingleArchive(
