@@ -26,6 +26,7 @@ import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
 GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 bool mainMapInitialized = false;
@@ -202,6 +203,31 @@ class _MyHomePageState extends State<MyHomePage> {
         showLoadingDialog(context: context, asyncTask: api.initMainMap());
       }
     });
+
+    // 处理启动分享
+    ReceiveSharingIntent.instance.getInitialMedia().then((files) {
+      if (files.isNotEmpty) {
+        _handleSharedFile(files.first);
+      }
+      ReceiveSharingIntent.instance.reset();
+    });
+
+    // 监听运行中分享
+    ReceiveSharingIntent.instance.getMediaStream().listen((files) {
+      if (files.isNotEmpty) {
+        _handleSharedFile(files.first);
+      }
+    });
+  }
+
+  void _handleSharedFile(SharedMediaFile file) {
+    // 文件后缀判断，双保险
+    if (file.path.endsWith('.kml') || file.path.endsWith('.gpx')) {
+      print('收到文件: ${file.path}');
+      // TODO: 处理文件
+    } else {
+      print('非 kml/gpx 文件，忽略');
+    }
   }
 
   Future<void> _handleOnPop() async {
