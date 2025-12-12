@@ -3,8 +3,63 @@
  * Shows when debug=true is in URL hash
  */
 
+// Interface for layer configuration
+interface LayerConfig {
+  name: string;
+  description: string;
+  layer?: any; // The actual layer implementation
+}
+
+// Interface for available layers map
+interface AvailableLayers {
+  [key: string]: LayerConfig;
+}
+
+// Interface for URL hash parameters
+interface UrlHashParams {
+  [key: string]: string | null;
+}
+
+// Interface for tile download timing event detail
+interface TileDownloadTimingDetail {
+  duration: number;
+}
+
+// Type for Leaflet-like map object
+interface MapInstance {
+  on(event: string, callback: () => void): void;
+  getZoom(): number;
+  getCenter(): { lng: number; lat: number };
+  getBounds(): {
+    getNorthEast(): { lng: number; lat: number };
+    getSouthWest(): { lng: number; lat: number };
+  } | null;
+}
+
 export class DebugPanel {
-  constructor(map, availableLayers = {}) {
+  private map: MapInstance;
+  private panel: HTMLDivElement | null;
+  private visible: boolean;
+  private availableLayers: AvailableLayers;
+
+  // Framerate monitoring
+  private fps: number;
+  private frameCount: number;
+  private lastTime: number;
+  private fpsHistory: number[];
+  private maxHistorySize: number;
+  private animationId: number | null;
+  private fpsCanvas: HTMLCanvasElement | null;
+  private fpsCtx: CanvasRenderingContext2D | null;
+
+  // Network timing monitoring
+  private lastNetworkDelay: number;
+  private networkDelayHistory: number[];
+  private maxNetworkHistorySize: number;
+  private networkCanvas: HTMLCanvasElement | null;
+  private networkCtx: CanvasRenderingContext2D | null;
+
+  constructor(map: MapInstance, availableLayers: AvailableLayers = {}) {
     this.map = map;
     this.panel = null;
     this.visible = false;
@@ -28,15 +83,15 @@ export class DebugPanel {
     this.networkCtx = null;
   }
 
-  initialize() {
+  initialize(): void {
     // Create panel element
     this.panel = document.createElement("div");
     this.panel.className = "debug-panel";
     this.panel.style.display = "none";
 
     // Build rendering mode options based on available layers
-    const renderingOptions = Object.entries(this.availableLayers)
-      .map(([key, layer]) => {
+    const renderingOptions: string = Object.entries(this.availableLayers)
+      .map(([key, layer]: [string, LayerConfig]) => {
         return `<option value="${key}" title="${layer.description}">${layer.name}</option>`;
       })
       .join("");
@@ -96,26 +151,31 @@ export class DebugPanel {
     this._checkDebugStatus();
   }
 
-  _setupEventListeners() {
+  private _setupEventListeners(): void {
     // Close button
-    document.getElementById("close-debug").addEventListener("click", () => {
-      this.hide();
-      this._updateUrlHash({ debug: "false" });
-    });
+    const closeButton = document.getElementById("close-debug");
+    if (closeButton) {
+      closeButton.addEventListener("click", () => {
+        this.hide();
+        this._updateUrlHash({ debug: "false" });
+      });
+    }
 
     // Rendering mode direct change handler
-    document
-      .getElementById("rendering-mode")
-      .addEventListener("change", (e) => {
-        const renderingMode = e.target.value;
+    const renderingModeSelect = document.getElementById("rendering-mode");
+    if (renderingModeSelect) {
+      renderingModeSelect.addEventListener("change", (e: Event) => {
+        const target = e.target as HTMLSelectElement;
+        const renderingMode = target.value;
         this._updateUrlHash({ render: renderingMode });
         if (
-          window.switchRenderingLayer &&
+          (window as any).switchRenderingLayer &&
           this.availableLayers[renderingMode]
         ) {
-          window.switchRenderingLayer(renderingMode);
+          (window as any).switchRenderingLayer(renderingMode);
         }
       });
+    }
 
     // Listen for map movement to update viewpoint info
     this.map.on("moveend", () => {
@@ -128,32 +188,46 @@ export class DebugPanel {
     });
   }
 
-  _updateViewpointInfo() {
+  private _updateViewpointInfo(): void {
     if (!this.visible) return;
 
-    const zoom = this.map.getZoom();
+    const zoom: number = this.map.getZoom();
     const center = this.map.getCenter();
     const bounds = this.map.getBounds();
 
-    document.getElementById("zoom-level").textContent = zoom.toFixed(2);
-    document.getElementById("center-coords").textContent =
-      `${center.lng.toFixed(5)}, ${center.lat.toFixed(5)}`;
+    const zoomElement = document.getElementById("zoom-level");
+    if (zoomElement) {
+      zoomElement.textContent = zoom.toFixed(2);
+    }
+
+    const centerElement = document.getElementById("center-coords");
+    if (centerElement) {
+      centerElement.textContent = `${center.lng.toFixed(5)}, ${center.lat.toFixed(5)}`;
+    }
 
     if (bounds) {
       const ne = bounds.getNorthEast();
       const sw = bounds.getSouthWest();
-      document.getElementById("bounds-coords").textContent =
-        `SW: ${sw.lng.toFixed(5)}, ${sw.lat.toFixed(5)} | NE: ${ne.lng.toFixed(5)}, ${ne.lat.toFixed(5)}`;
+      const boundsElement = document.getElementById("bounds-coords");
+      if (boundsElement) {
+        boundsElement.textContent = `SW: ${sw.lng.toFixed(5)}, ${sw.lat.toFixed(5)} | NE: ${ne.lng.toFixed(5)}, ${ne.lat.toFixed(5)}`;
+      }
     }
   }
 
-  _setupFpsMonitoring() {
+  private _setupFpsMonitoring(): void {
     // Get canvas elements and contexts
-    this.fpsCanvas = document.getElementById("fps-graph");
-    this.fpsCtx = this.fpsCanvas.getContext("2d");
+    const fpsCanvas = document.getElementById("fps-graph") as HTMLCanvasElement | null;
+    if (fpsCanvas) {
+      this.fpsCanvas = fpsCanvas;
+      this.fpsCtx = fpsCanvas.getContext("2d");
+    }
 
-    this.networkCanvas = document.getElementById("network-graph");
-    this.networkCtx = this.networkCanvas.getContext("2d");
+    const networkCanvas = document.getElementById("network-graph") as HTMLCanvasElement | null;
+    if (networkCanvas) {
+      this.networkCanvas = networkCanvas;
+      this.networkCtx = networkCanvas.getContext("2d");
+    }
 
     // Start FPS monitoring loop
     this._startFpsLoop();
@@ -162,8 +236,8 @@ export class DebugPanel {
     this._setupNetworkMonitoring();
   }
 
-  _startFpsLoop() {
-    const measureFps = (currentTime) => {
+  private _startFpsLoop(): void {
+    const measureFps = (currentTime: number): void => {
       this.frameCount++;
 
       // Calculate FPS every second
@@ -191,17 +265,18 @@ export class DebugPanel {
     this.animationId = requestAnimationFrame(measureFps);
   }
 
-  _stopFpsLoop() {
+  private _stopFpsLoop(): void {
     if (this.animationId) {
       cancelAnimationFrame(this.animationId);
       this.animationId = null;
     }
   }
 
-  _setupNetworkMonitoring() {
+  private _setupNetworkMonitoring(): void {
     // Listen for network timing events
-    window.addEventListener("tileDownloadTiming", (event) => {
-      const { duration } = event.detail;
+    window.addEventListener("tileDownloadTiming", (event: Event) => {
+      const customEvent = event as CustomEvent<TileDownloadTimingDetail>;
+      const { duration } = customEvent.detail;
       this.lastNetworkDelay = Math.round(duration);
 
       // Add to history
@@ -216,12 +291,12 @@ export class DebugPanel {
     });
   }
 
-  _updateFpsDisplay() {
+  private _updateFpsDisplay(): void {
     if (!this.visible) return;
 
     const fpsElement = document.getElementById("fps-display");
     if (fpsElement) {
-      fpsElement.textContent = this.fps;
+      fpsElement.textContent = this.fps.toString();
 
       // Color code based on FPS
       if (this.fps >= 50) {
@@ -234,12 +309,12 @@ export class DebugPanel {
     }
   }
 
-  _updateNetworkDisplay() {
+  private _updateNetworkDisplay(): void {
     if (!this.visible) return;
 
     const networkElement = document.getElementById("network-delay-display");
     if (networkElement) {
-      networkElement.textContent = this.lastNetworkDelay;
+      networkElement.textContent = this.lastNetworkDelay.toString();
 
       // Color code based on network delay
       if (this.lastNetworkDelay <= 100) {
@@ -252,13 +327,13 @@ export class DebugPanel {
     }
   }
 
-  _renderFpsGraph() {
-    if (!this.visible || !this.fpsCtx) return;
+  private _renderFpsGraph(): void {
+    if (!this.visible || !this.fpsCtx || !this.fpsCanvas) return;
 
     const canvas = this.fpsCanvas;
     const ctx = this.fpsCtx;
-    const width = canvas.width;
-    const height = canvas.height;
+    const width: number = canvas.width;
+    const height: number = canvas.height;
 
     // Clear canvas
     ctx.clearRect(0, 0, width, height);
@@ -270,9 +345,9 @@ export class DebugPanel {
     ctx.lineWidth = 1;
 
     // Horizontal grid lines (FPS values)
-    const gridLines = [30, 60];
-    gridLines.forEach((fps) => {
-      const y = height - (fps / 60) * height;
+    const gridLines: number[] = [30, 60];
+    gridLines.forEach((fps: number) => {
+      const y: number = height - (fps / 60) * height;
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(width, y);
@@ -284,11 +359,11 @@ export class DebugPanel {
     ctx.lineWidth = 2;
     ctx.beginPath();
 
-    const stepX = width / (this.maxHistorySize - 1);
+    const stepX: number = width / (this.maxHistorySize - 1);
 
-    this.fpsHistory.forEach((fps, index) => {
-      const x = index * stepX;
-      const y = height - Math.min(fps / 60, 1) * height; // Normalize to 60 FPS max
+    this.fpsHistory.forEach((fps: number, index: number) => {
+      const x: number = index * stepX;
+      const y: number = height - Math.min(fps / 60, 1) * height; // Normalize to 60 FPS max
 
       if (index === 0) {
         ctx.moveTo(x, y);
@@ -308,13 +383,13 @@ export class DebugPanel {
     ctx.fillText("0", 2, height - 2);
   }
 
-  _renderNetworkGraph() {
-    if (!this.visible || !this.networkCtx) return;
+  private _renderNetworkGraph(): void {
+    if (!this.visible || !this.networkCtx || !this.networkCanvas) return;
 
     const canvas = this.networkCanvas;
     const ctx = this.networkCtx;
-    const width = canvas.width;
-    const height = canvas.height;
+    const width: number = canvas.width;
+    const height: number = canvas.height;
 
     // Clear canvas
     ctx.clearRect(0, 0, width, height);
@@ -322,17 +397,17 @@ export class DebugPanel {
     if (this.networkDelayHistory.length < 2) return;
 
     // Calculate max delay for scaling (minimum 1000ms for consistent scale)
-    const maxDelay = Math.max(1000, Math.max(...this.networkDelayHistory));
+    const maxDelay: number = Math.max(1000, Math.max(...this.networkDelayHistory));
 
     // Draw grid lines
     ctx.strokeStyle = "#555";
     ctx.lineWidth = 1;
 
     // Horizontal grid lines (delay values)
-    const gridLines = [500, 1000];
-    gridLines.forEach((delay) => {
+    const gridLines: number[] = [500, 1000];
+    gridLines.forEach((delay: number) => {
       if (delay <= maxDelay) {
-        const y = height - (delay / maxDelay) * height;
+        const y: number = height - (delay / maxDelay) * height;
         ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(width, y);
@@ -345,11 +420,11 @@ export class DebugPanel {
     ctx.lineWidth = 2;
     ctx.beginPath();
 
-    const stepX = width / (this.maxNetworkHistorySize - 1);
+    const stepX: number = width / (this.maxNetworkHistorySize - 1);
 
-    this.networkDelayHistory.forEach((delay, index) => {
-      const x = index * stepX;
-      const y = height - (delay / maxDelay) * height;
+    this.networkDelayHistory.forEach((delay: number, index: number) => {
+      const x: number = index * stepX;
+      const y: number = height - (delay / maxDelay) * height;
 
       if (index === 0) {
         ctx.moveTo(x, y);
@@ -373,16 +448,16 @@ export class DebugPanel {
     ctx.fillText("0", 2, height - 2);
   }
 
-  _updateUrlHash(params) {
-    const hash = window.location.hash.slice(1);
+  private _updateUrlHash(params: UrlHashParams): void {
+    const hash: string = window.location.hash.slice(1);
     const urlParams = new URLSearchParams(hash);
 
     // Update or add provided params
-    Object.keys(params).forEach((key) => {
+    Object.keys(params).forEach((key: string) => {
       if (params[key] === null) {
         urlParams.delete(key);
       } else {
-        urlParams.set(key, params[key]);
+        urlParams.set(key, params[key] as string);
       }
     });
 
@@ -390,18 +465,18 @@ export class DebugPanel {
     window.location.hash = urlParams.toString();
   }
 
-  _checkDebugStatus() {
-    const hash = window.location.hash.slice(1);
+  private _checkDebugStatus(): void {
+    const hash: string = window.location.hash.slice(1);
     const urlParams = new URLSearchParams(hash);
-    const debugParam = urlParams.get("debug");
+    const debugParam: string | null = urlParams.get("debug");
 
     if (debugParam === "true") {
       this.show();
 
-      const renderingMode = urlParams.get("render") || "canvas";
+      const renderingMode: string = urlParams.get("render") || "canvas";
 
       // Only set rendering mode if it's available
-      const renderingModeSelect = document.getElementById("rendering-mode");
+      const renderingModeSelect = document.getElementById("rendering-mode") as HTMLSelectElement | null;
       if (this.availableLayers[renderingMode] && renderingModeSelect) {
         renderingModeSelect.value = renderingMode;
       }
@@ -413,7 +488,9 @@ export class DebugPanel {
     }
   }
 
-  show() {
+  show(): void {
+    if (!this.panel) return;
+    
     this.panel.style.display = "block";
     this.visible = true;
     this._updateViewpointInfo();
@@ -426,7 +503,9 @@ export class DebugPanel {
     }
   }
 
-  hide() {
+  hide(): void {
+    if (!this.panel) return;
+    
     this.panel.style.display = "none";
     this.visible = false;
 
@@ -435,14 +514,14 @@ export class DebugPanel {
   }
 
   // Listen for hash changes to show/hide panel
-  listenForHashChanges() {
+  listenForHashChanges(): void {
     window.addEventListener("hashchange", () => {
       this._checkDebugStatus();
     });
   }
 
   // Clean up resources
-  destroy() {
+  destroy(): void {
     this._stopFpsLoop();
     if (this.panel && this.panel.parentNode) {
       this.panel.parentNode.removeChild(this.panel);
