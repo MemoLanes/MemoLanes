@@ -4,11 +4,12 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:memolanes/common/app_lifecycle_service.dart';
 import 'package:memolanes/common/location/geolocator_service.dart';
 import 'package:memolanes/common/location/location_service.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/utils.dart';
-import 'package:memolanes/common/log.dart';
 import 'package:memolanes/main.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/gps_processor.dart';
@@ -191,6 +192,7 @@ class GpsManager extends ChangeNotifier {
       // turnning off if needed
       if (oldState != _InternalState.off) {
         await _locationService.stopLocationUpdates();
+        AppLifecycleService.instance.stop();
         await _locationUpdateSub?.cancel();
         _locationUpdateSub = null;
         latestPosition = null;
@@ -205,7 +207,7 @@ class GpsManager extends ChangeNotifier {
         log.info("[GpsManager] turning on gps stream. new state: $newState");
         bool enableBackground = newState == _InternalState.recording;
         await _locationService.startLocationUpdates(enableBackground);
-
+        AppLifecycleService.instance.start();
         _locationUpdateSub = _locationService.onLocationUpdate((data) async {
           if (_positionTooOld(data)) {
             return;
