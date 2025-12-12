@@ -1,5 +1,6 @@
 import { tileXYToLngLat } from "./utils";
 import type maplibregl from "maplibre-gl";
+import type { CanvasSource, CanvasSourceSpecification } from "maplibre-gl";
 import type { TileBuffer } from "../../pkg";
 import type { JourneyTileProvider } from "../JourneyTileProvider";
 
@@ -22,26 +23,6 @@ type TileBufferCallback = (
   bufferSizePower: number,
   tileBuffer: TileBuffer | null
 ) => void;
-
-/**
- * Source configuration for canvas source
- */
-interface CanvasSourceConfig {
-  type: "canvas";
-  canvas: HTMLCanvasElement;
-  animate: boolean;
-  coordinates: [number, number][];
-}
-
-/**
- * Canvas source interface
- */
-// TODO: import from maplibre-gl?
-interface CanvasSource {
-  setCoordinates(coords: [number, number][]): void;
-  play(): void;
-  pause(): void;
-}
 
 export class JourneyCanvasLayer {
   private map: maplibregl.Map;
@@ -106,7 +87,7 @@ export class JourneyCanvasLayer {
     this.journeyTileProvider.registerTileBufferCallback(this._repaintCallback);
   }
 
-  getSourceConfig(): CanvasSourceConfig {
+  getSourceConfig(): CanvasSourceSpecification {
     return {
       type: "canvas",
       canvas: this.canvas,
