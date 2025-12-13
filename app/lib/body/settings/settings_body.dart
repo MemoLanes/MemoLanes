@@ -214,7 +214,7 @@ class _SettingsBodyState extends State<SettingsBody> {
             var tmpDir = await getTemporaryDirectory();
             final now = DateTime.now();
             final timestamp = DateFormat('yyyy-MM-dd-HH-mm-ss').format(now);
-            final filepath = "${tmpDir.path}/all-journey-$timestamp.mldx";
+            final filepath = "${tmpDir.path}/all-journeys-$timestamp.mldx";
             if (!context.mounted) return;
             await showLoadingDialog(
               context: context,
