@@ -1,9 +1,10 @@
+import 'dart:io';
+
 import 'package:badges/badges.dart' as badges;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/body/settings/advanced_settings_page.dart';
 import 'package:memolanes/body/settings/import_data_page.dart';
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
@@ -12,6 +13,7 @@ import 'package:memolanes/common/component/scroll_views/single_child_scroll_view
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/component/tiles/label_tile_title.dart';
+import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -153,7 +155,16 @@ class _SettingsBodyState extends State<SettingsBody> {
                 ),
           onTap: () async {
             if (updateUrl != null) {
-              _launchUrl(updateUrl);
+              if (Platform.isAndroid) {
+                if (await showCommonDialog(
+                    context, context.tr("general.version.update_prompt"),
+                    hasCancel: true,
+                    title: context.tr("general.version.update_title"))) {
+                  await showUpdateAPk(context, updateUrl);
+                }
+              } else {
+                _launchUrl(updateUrl);
+              }
               return;
             }
             await showCommonDialog(
