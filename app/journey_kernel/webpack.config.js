@@ -42,7 +42,7 @@ module.exports = (env, argv) => {
 
   return {
     entry: {
-      main: "./static/index.js",
+      main: "./static/index.ts",
       render_diagnostics: "./static/render_diagnostics.js",
     },
     output: {

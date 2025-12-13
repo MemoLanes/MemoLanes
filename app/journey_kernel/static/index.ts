@@ -1,13 +1,14 @@
-{
-  window.SETUP_PENDING = false;
-  window.EXTERNAL_PARAMS = {};
-}
-
 import { JourneyCanvasLayer } from "./layers/JourneyCanvasLayer";
 import { JourneyTileProvider } from "./JourneyTileProvider";
 import { DebugPanel } from "./DebugPanel";
 import init from "../pkg/index.js";
 import maplibregl from "maplibre-gl";
+import type {
+  Map as MaplibreMap,
+  Marker,
+  RequestTransformFunction,
+  ResourceType,
+} from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
   isMapboxURL,
@@ -20,31 +21,69 @@ import { transformStyle } from "./utils";
 
 import "./debug-panel.css";
 
+// Extend Window interface for custom properties
+declare global {
+  interface Window {
+    SETUP_PENDING: boolean;
+    EXTERNAL_PARAMS: {
+      [key: string]: any;
+      cgi_endpoint?: string;
+    };
+    trySetup?: () => Promise<void>;
+  }
+}
+
+// Initialize window properties
+window.SETUP_PENDING = false;
+window.EXTERNAL_PARAMS = {};
+
+// Type definitions for rendering layers
+interface LayerConfig {
+  name: string;
+  layerClass: typeof JourneyCanvasLayer;
+  bufferSizePower: number;
+  description: string;
+}
+
+interface AvailableLayers {
+  canvas: LayerConfig;
+  [key: string]: LayerConfig;
+}
+
 // Available rendering layers
-const AVAILABLE_LAYERS = {
+const AVAILABLE_LAYERS: AvailableLayers = {
   canvas: {
     name: "Canvas",
     layerClass: JourneyCanvasLayer,
     bufferSizePower: 8,
     description: "Uses Canvas API for rendering",
-  },
+  }
 };
 
-let currentJourneyLayer; // Store reference to current layer
-let currentJourneyId;
-let currentJourneyTileProvider;
-let pollingInterval; // Store reference to polling interval
-let locationMarker = null;
-let currentRenderingMode = "canvas"; // Default rendering mode
+// Global state variables
+let currentJourneyLayer: any; // Store reference to current layer
+let currentJourneyId: string;
+let currentJourneyTileProvider: JourneyTileProvider;
+let locationMarker: Marker | null = null;
+let currentRenderingMode: string = "canvas"; // Default rendering mode
 // TODO: This default is only used for testing with `rust/examples`, which is
 // a little weird.
-let currentMapStyle = "https://tiles.openfreemap.org/styles/liberty";
-let transformRequest = (url, resourceType) => {
+let currentMapStyle: string = "https://tiles.openfreemap.org/styles/liberty";
+// let currentMapStyle = "mapbox://styles/mapbox/streets-v12";
+let transformRequest: RequestTransformFunction = (
+  url: string,
+  _resourceType?: ResourceType,
+) => {
   return { url };
 };
 
-// Function to switch between rendering layers
-function switchRenderingLayer(map, renderingMode) {
+/**
+ * Function to switch between rendering layers
+ * @param map - MapLibre map instance
+ * @param renderingMode - Rendering mode to switch to ('canvas' or 'gl')
+ * @returns The newly created journey layer instance
+ */
+function switchRenderingLayer(map: MaplibreMap, renderingMode: string): any {
   if (!AVAILABLE_LAYERS[renderingMode]) {
     console.warn(
       `Rendering mode '${renderingMode}' not available, using canvas instead.`,
@@ -69,7 +108,10 @@ function switchRenderingLayer(map, renderingMode) {
   return currentJourneyLayer;
 }
 
-async function trySetup() {
+/**
+ * Try to setup and initialize the map with given parameters
+ */
+async function trySetup(): Promise<void> {
   // Parse URL hash if EXTERNAL_PARAMS is empty
   if (Object.keys(window.EXTERNAL_PARAMS).length === 0) {
     window.EXTERNAL_PARAMS = parseUrlHash();
@@ -106,9 +148,14 @@ async function trySetup() {
 
   // Configure transform request for Mapbox styles
   if (params.requiresMapboxToken && params.accessKey) {
-    transformRequest = (url, resourceType) => {
+    transformRequest = (url: string, resourceType?: ResourceType) => {
       if (isMapboxURL(url)) {
-        return transformMapboxUrl(url, resourceType, params.accessKey);
+        // transformMapboxUrl expects ResourceType to be string, safe to cast
+        return transformMapboxUrl(
+          url,
+          resourceType as any,
+          params.accessKey!,
+        );
       }
       return { url };
     };
@@ -145,7 +192,7 @@ async function trySetup() {
   map.dragRotate.disable();
   map.touchZoomRotate.disableRotation();
 
-  map.on("load", async (e) => {
+  map.on("load", async () => {
     // Create a DOM element for the marker
     const el = document.createElement("div");
     el.className = "location-marker";
@@ -184,7 +231,7 @@ async function trySetup() {
     });
 
     // Set up polling for updates
-    pollingInterval = setInterval(
+    setInterval(
       () => currentJourneyTileProvider.pollForJourneyUpdates(false),
       1000,
     );
@@ -197,11 +244,11 @@ async function trySetup() {
     // Initialize Flutter bridge
     const flutterBridge = new FlutterBridge({
       map,
-      locationMarker,
+      locationMarker: locationMarker!,
       journeyTileProvider: currentJourneyTileProvider,
       switchRenderingLayerFn: switchRenderingLayer,
       getCurrentJourneyId: () => currentJourneyId,
-      setCurrentJourneyId: (id) => {
+      setCurrentJourneyId: (id: string) => {
         currentJourneyId = id;
       },
     });
@@ -239,6 +286,8 @@ async function trySetup() {
     const newJourneyId = params.get("journey_id");
     if (newJourneyId !== currentJourneyId && newJourneyId !== null) {
       currentJourneyId = newJourneyId;
+      // TODO: fix this.
+      // @ts-ignore - accessing private property for compatibility, should be refactored to use a public setter
       currentJourneyTileProvider.journeyId = currentJourneyId;
       currentJourneyTileProvider.pollForJourneyUpdates(true);
     }
@@ -255,6 +304,7 @@ async function trySetup() {
   });
 }
 
+// Export trySetup to window for Flutter to call
 window.trySetup = trySetup;
 
 // Initialize platform-specific configurations and check compatibility
