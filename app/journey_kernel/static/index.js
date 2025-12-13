@@ -1,36 +1,11 @@
 {
   window.SETUP_PENDING = false;
   window.EXTERNAL_PARAMS = {};
-
-  const hash = window.location.hash.slice(1);
-  if (hash) {
-    // default cgiEndpoint (only available if hash parameters are provided)
-    window.EXTERNAL_PARAMS.cgi_endpoint = ".";
-
-    const params = new URLSearchParams(hash);
-
-    // Scan all hash parameters and store them in EXTERNAL_PARAMS after successful decoding
-    // Supported parameters for endpoint configuration:
-    // - cgi_endpoint: HTTP endpoint URL, "flutter://<channel>" for IPC mode, or "flutter" for legacy IPC
-    // - http_endpoint: Explicit HTTP endpoint (alternative to cgi_endpoint)
-    // Other parameters: journey_id, access_key, lng, lat, zoom, render, etc.
-    for (const [key, value] of params.entries()) {
-      if (value) {
-        try {
-          const decodedValue = decodeURIComponent(value);
-          window.EXTERNAL_PARAMS[key] = decodedValue;
-        } catch (error) {
-          console.warn(`Failed to decode parameter '${key}': ${error.message}`);
-          // Skip this parameter if decoding fails
-        }
-      }
-    }
-  }
 }
 
-import { JourneyCanvasLayer } from "./journey-canvas-layer.js";
-import { JourneyTileProvider } from "./journey-tile-provider.js";
-import { DebugPanel } from "./debug-panel.js";
+import { JourneyCanvasLayer } from "./layers/JourneyCanvasLayer";
+import { JourneyTileProvider } from "./JourneyTileProvider";
+import { DebugPanel } from "./DebugPanel";
 import init from "../pkg/index.js";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -39,6 +14,8 @@ import {
   transformMapboxUrl,
   transformMapboxStyle,
 } from "maplibregl-mapbox-request-transformer";
+import { disableMagnifierIfIOS } from "./utils";
+import { parseUrlHash, parseAndValidateParams } from "./params";
 
 import "./debug-panel.css";
 
@@ -154,75 +131,52 @@ function checkWebViewVersion() {
 }
 
 async function trySetup() {
+  // Parse URL hash if EXTERNAL_PARAMS is empty
+  if (Object.keys(window.EXTERNAL_PARAMS).length === 0) {
+    window.EXTERNAL_PARAMS = parseUrlHash();
+  }
+
   console.log(`parse external params`, window.EXTERNAL_PARAMS);
-  if (!window.EXTERNAL_PARAMS.cgi_endpoint) {
-    // no hash param and no default endpoint, stop setting up and waiting for next setup
-    return;
-  }
 
-  if (window.EXTERNAL_PARAMS.map_style) {
-    currentMapStyle = window.EXTERNAL_PARAMS.map_style;
-  }
+  // Validate and parse parameters
+  const validationResult = parseAndValidateParams(
+    window.EXTERNAL_PARAMS,
+    AVAILABLE_LAYERS,
+    currentMapStyle,
+    currentRenderingMode,
+  );
 
-  if (
-    typeof currentMapStyle === "string" &&
-    currentMapStyle.startsWith("mapbox://")
-  ) {
-    if (window.EXTERNAL_PARAMS.access_key) {
-      transformRequest = (url, resourceType) => {
-        if (isMapboxURL(url)) {
-          return transformMapboxUrl(
-            url,
-            resourceType,
-            window.EXTERNAL_PARAMS.access_key,
-          );
-        }
-        return { url };
-      };
-    } else {
-      document.body.innerHTML = `<div style="padding: 20px; font-family: Arial, sans-serif; color: red;"><h1>TOKEN not provided</h1></div>`;
-      tryNotifyFlutterReady();
+  // Handle validation errors
+  if (validationResult.type === "error") {
+    if (validationResult.detail === "cgi_endpoint parameter is required") {
+      // No hash param and no default endpoint, stop setting up and waiting for next setup
       return;
     }
-  }
 
-  // Check if journey_id is provided
-  if (!window.EXTERNAL_PARAMS.journey_id) {
-    document.body.innerHTML = `<div style="padding: 20px; font-family: Arial, sans-serif; color: red;"><h1>Journey ID not provided</h1></div>`;
+    // Display error message
+    document.body.innerHTML = `<div style="padding: 20px; font-family: Arial, sans-serif; color: red;"><h1>${validationResult.message}</h1>${validationResult.detail ? `<p>${validationResult.detail}</p>` : ""}</div>`;
     tryNotifyFlutterReady();
     return;
   }
 
-  // Get journey ID from EXTERNAL_PARAMS
-  currentJourneyId = window.EXTERNAL_PARAMS.journey_id;
+  // Extract validated parameters
+  const params = validationResult.params;
+  currentJourneyId = params.journeyId;
+  currentRenderingMode = params.renderMode;
+  currentMapStyle = params.mapStyle;
 
-  // Get rendering mode from EXTERNAL_PARAMS
-  if (
-    window.EXTERNAL_PARAMS.render &&
-    AVAILABLE_LAYERS[window.EXTERNAL_PARAMS.render]
-  ) {
-    currentRenderingMode = window.EXTERNAL_PARAMS.render;
+  // Configure transform request for Mapbox styles
+  if (params.requiresMapboxToken && params.accessKey) {
+    transformRequest = (url, resourceType) => {
+      if (isMapboxURL(url)) {
+        return transformMapboxUrl(url, resourceType, params.accessKey);
+      }
+      return { url };
+    };
   }
 
-  // Parse coordinates and zoom from EXTERNAL_PARAMS with fallbacks
-  const lng = window.EXTERNAL_PARAMS.lng
-    ? isNaN(parseFloat(window.EXTERNAL_PARAMS.lng))
-      ? 0
-      : parseFloat(window.EXTERNAL_PARAMS.lng)
-    : 0;
-  const lat = window.EXTERNAL_PARAMS.lat
-    ? isNaN(parseFloat(window.EXTERNAL_PARAMS.lat))
-      ? 0
-      : parseFloat(window.EXTERNAL_PARAMS.lat)
-    : 0;
-  const zoom = window.EXTERNAL_PARAMS.zoom
-    ? isNaN(parseFloat(window.EXTERNAL_PARAMS.zoom))
-      ? 2
-      : parseFloat(window.EXTERNAL_PARAMS.zoom)
-    : 2;
-
   console.log(
-    `journey_id: ${currentJourneyId}, render: ${currentRenderingMode}, lng: ${lng}, lat: ${lat}, zoom: ${zoom}`,
+    `journey_id: ${currentJourneyId}, render: ${currentRenderingMode}, lng: ${params.lng}, lat: ${params.lat}, zoom: ${params.zoom}`,
   );
   console.log(
     "EXTERNAL_PARAMS for endpoint configuration:",
@@ -231,8 +185,8 @@ async function trySetup() {
 
   const map = new maplibregl.Map({
     container: "map",
-    center: [lng, lat],
-    zoom: zoom,
+    center: [params.lng, params.lat],
+    zoom: params.zoom,
     maxZoom: 14,
     style: {
       version: 8,
@@ -448,6 +402,8 @@ if (!versionCheck.compatible) {
   tryNotifyFlutterReady();
   throw new Error("Incompatible WebView version - stopping JS execution.");
 }
+
+disableMagnifierIfIOS();
 
 // Ensure WASM module is initialized before using its exports downstream
 init()
