@@ -12,11 +12,11 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import {
   isMapboxURL,
   transformMapboxUrl,
-  transformMapboxStyle,
 } from "maplibregl-mapbox-request-transformer";
 import { parseUrlHash, parseAndValidateParams } from "./params";
 import { FlutterBridge, notifyFlutterReady } from "./flutter-bridge";
 import { initializePlatform, getPlatformDescription } from "./platform";
+import { transformStyle } from "./utils";
 
 import "./debug-panel.css";
 
@@ -214,7 +214,7 @@ async function trySetup() {
 
     // defer the map style initialization after memolanes layer added.
     map.setStyle(currentMapStyle, {
-      transformStyle: transformMapboxStyle,
+      transformStyle: transformStyle,
     });
 
     // In case mapbox completely fails to load (i.e. app running on mainland China
@@ -224,7 +224,7 @@ async function trySetup() {
       if (layerCount <= 1) {
         console.log("Re-attempt to load map style");
         map.setStyle(currentMapStyle, {
-          transformStyle: transformMapboxStyle,
+          transformStyle: transformStyle,
         });
       }
     }, 8 * 1000);
