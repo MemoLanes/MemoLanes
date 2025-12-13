@@ -373,6 +373,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             ),
           ),
         ),
+        // This is to prevent actions to iOS home indicator affects the
+        // underlying webview. (e.g. back to home gesture moves the map)
         Positioned(
           left: 0,
           right: 0,
