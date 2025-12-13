@@ -16,6 +16,7 @@ import {
 } from "maplibregl-mapbox-request-transformer";
 import { disableMagnifierIfIOS } from "./utils";
 import { parseUrlHash, parseAndValidateParams } from "./params";
+import { FlutterBridge, notifyFlutterReady } from "./flutter-bridge";
 
 import "./debug-panel.css";
 
@@ -66,12 +67,6 @@ function switchRenderingLayer(map, renderingMode) {
 
   currentRenderingMode = renderingMode;
   return currentJourneyLayer;
-}
-
-function tryNotifyFlutterReady() {
-  if (window.readyForDisplay) {
-    window.readyForDisplay.postMessage("");
-  }
 }
 
 // Function to check WebView version compatibility for Android and iOS
@@ -155,7 +150,7 @@ async function trySetup() {
 
     // Display error message
     document.body.innerHTML = `<div style="padding: 20px; font-family: Arial, sans-serif; color: red;"><h1>${validationResult.message}</h1>${validationResult.detail ? `<p>${validationResult.detail}</p>` : ""}</div>`;
-    tryNotifyFlutterReady();
+    notifyFlutterReady();
     return;
   }
 
@@ -212,32 +207,9 @@ async function trySetup() {
     el.className = "location-marker";
 
     // Create the marker but don't add it to the map yet
-    // locationMarker = new maplibregl.Marker(el);
     locationMarker = new maplibregl.Marker({
       element: el,
     });
-
-    // Add method to window object to update marker position
-    window.updateLocationMarker = function (
-      lng,
-      lat,
-      show = true,
-      flyto = false,
-    ) {
-      if (show) {
-        locationMarker.setLngLat([lng, lat]).addTo(map);
-        if (flyto) {
-          const currentZoom = map.getZoom();
-          map.flyTo({
-            center: [lng, lat],
-            zoom: currentZoom < 14 ? 16 : currentZoom,
-            essential: true,
-          });
-        }
-      } else {
-        locationMarker.remove();
-      }
-    };
 
     currentJourneyTileProvider = new JourneyTileProvider(
       map,
@@ -278,9 +250,22 @@ async function trySetup() {
     debugPanel.initialize();
     debugPanel.listenForHashChanges();
 
+    // Initialize Flutter bridge
+    const flutterBridge = new FlutterBridge({
+      map,
+      locationMarker,
+      journeyTileProvider: currentJourneyTileProvider,
+      switchRenderingLayerFn: switchRenderingLayer,
+      getCurrentJourneyId: () => currentJourneyId,
+      setCurrentJourneyId: (id) => {
+        currentJourneyId = id;
+      },
+    });
+    flutterBridge.initialize();
+
     // give the map a little time to render before notifying Flutter
     setTimeout(() => {
-      tryNotifyFlutterReady();
+      notifyFlutterReady();
     }, 200);
 
     // defer the map style initialization after memolanes layer added.
@@ -300,32 +285,6 @@ async function trySetup() {
       }
     }, 8 * 1000);
   });
-
-  // Replace the simple movestart listener with dragstart
-  map.on("dragstart", () => {
-    // Only notify Flutter when user drags the map
-    if (window.onMapMoved) {
-      window.onMapMoved.postMessage("");
-    }
-  });
-
-  // Listen for zoom changes
-  map.on("zoomstart", (event) => {
-    let fromUser = event.originalEvent && event.originalEvent.type !== "resize";
-    if (fromUser && window.onMapMoved) {
-      window.onMapMoved.postMessage("");
-    }
-  });
-
-  // Add method to window object to get current map view
-  window.getCurrentMapView = function () {
-    const center = map.getCenter();
-    return JSON.stringify({
-      lng: center.lng,
-      lat: center.lat,
-      zoom: map.getZoom(),
-    });
-  };
 
   // Listen for hash changes
   window.addEventListener("hashchange", () => {
@@ -350,47 +309,6 @@ async function trySetup() {
       switchRenderingLayer(map, newRenderMode);
     }
   });
-
-  // Add method to window object to trigger manual update
-  window.triggerJourneyUpdate = function () {
-    return currentJourneyTileProvider.pollForJourneyUpdates(false);
-  };
-
-  // Add method to switch rendering layers
-  window.switchRenderingLayer = function (renderingMode) {
-    return switchRenderingLayer(map, renderingMode);
-  };
-
-  // Add method to update journey ID
-  window.updateJourneyId = function (newJourneyId) {
-    if (!newJourneyId) {
-      console.warn("updateJourneyId: journey ID cannot be empty");
-      return false;
-    }
-
-    if (newJourneyId === currentJourneyId) {
-      console.log(
-        `updateJourneyId: journey ID is already set to '${newJourneyId}'`,
-      );
-      return false;
-    }
-
-    console.log(
-      `updateJourneyId: switching from '${currentJourneyId}' to '${newJourneyId}'`,
-    );
-
-    // Update the current journey ID
-    currentJourneyId = newJourneyId;
-
-    // Update the tile provider's journey ID
-    if (currentJourneyTileProvider) {
-      currentJourneyTileProvider.journeyId = currentJourneyId;
-      // Force update to fetch data for the new journey
-      currentJourneyTileProvider.pollForJourneyUpdates(true);
-    }
-
-    return true;
-  };
 }
 
 window.trySetup = trySetup;
@@ -399,7 +317,7 @@ window.trySetup = trySetup;
 const versionCheck = checkWebViewVersion();
 if (!versionCheck.compatible) {
   document.body.innerHTML = `<div style="padding: 20px; font-family: Arial, sans-serif; color: red;"><h1>${versionCheck.message}</h1><p>${versionCheck.detail}</p></div>`;
-  tryNotifyFlutterReady();
+  notifyFlutterReady();
   throw new Error("Incompatible WebView version - stopping JS execution.");
 }
 
