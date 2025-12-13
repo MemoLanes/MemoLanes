@@ -14,9 +14,9 @@ import {
   transformMapboxUrl,
   transformMapboxStyle,
 } from "maplibregl-mapbox-request-transformer";
-import { disableMagnifierIfIOS } from "./utils";
 import { parseUrlHash, parseAndValidateParams } from "./params";
 import { FlutterBridge, notifyFlutterReady } from "./flutter-bridge";
+import { initializePlatform, getPlatformDescription } from "./platform";
 
 import "./debug-panel.css";
 
@@ -67,62 +67,6 @@ function switchRenderingLayer(map, renderingMode) {
 
   currentRenderingMode = renderingMode;
   return currentJourneyLayer;
-}
-
-// Function to check WebView version compatibility for Android and iOS
-function checkWebViewVersion() {
-  const ua = navigator.userAgent;
-
-  // Check if it's Android
-  const isAndroid = /Android/i.test(ua);
-  if (isAndroid) {
-    // Extract Chrome version (WebView uses Chrome version)
-    const chromeMatch = ua.match(/Chrome\/(\d+)\.(\d+)\.(\d+)/);
-    if (!chromeMatch) {
-      return { compatible: true }; // Can't determine version, allow to proceed
-    }
-
-    const majorVersion = parseInt(chromeMatch[1], 10);
-
-    // Check if version is greater or equal to 96
-    if (majorVersion <= 95) {
-      return {
-        compatible: false,
-        message: "The system's WebView version is not compatible",
-        detail:
-          "Please update your Android System WebView to version 96 or higher.",
-      };
-    }
-
-    return { compatible: true };
-  }
-
-  // Check if it's iOS
-  const isIOS = /iPhone|iPad|iPod/i.test(ua);
-  if (isIOS) {
-    // Extract iOS version (format: "OS 15_1" or "OS 15_1_0")
-    const iosMatch = ua.match(/OS (\d+)_(\d+)(?:_(\d+))?/);
-    if (!iosMatch) {
-      return { compatible: true }; // Can't determine version, allow to proceed
-    }
-
-    const majorVersion = parseInt(iosMatch[1], 10);
-    const minorVersion = parseInt(iosMatch[2], 10);
-
-    // Check if version is greater than or equal to 15.1
-    if (majorVersion < 15 || (majorVersion === 15 && minorVersion < 1)) {
-      return {
-        compatible: false,
-        message: "The system's iOS version is not compatible",
-        detail: "Please update your iOS to version 15.1 or higher.",
-      };
-    }
-
-    return { compatible: true };
-  }
-
-  // Not Android or iOS, no check needed
-  return { compatible: true };
 }
 
 async function trySetup() {
@@ -313,15 +257,19 @@ async function trySetup() {
 
 window.trySetup = trySetup;
 
-// Check WebView version compatibility for Android and iOS (before wasm initialization)
-const versionCheck = checkWebViewVersion();
-if (!versionCheck.compatible) {
-  document.body.innerHTML = `<div style="padding: 20px; font-family: Arial, sans-serif; color: red;"><h1>${versionCheck.message}</h1><p>${versionCheck.detail}</p></div>`;
-  notifyFlutterReady();
-  throw new Error("Incompatible WebView version - stopping JS execution.");
-}
+// Initialize platform-specific configurations and check compatibility
+console.log(`Platform: ${getPlatformDescription()}`);
 
-disableMagnifierIfIOS();
+const platformCompatible = initializePlatform((result) => {
+  // Notify Flutter even on error so app can handle the error state
+  notifyFlutterReady();
+  throw new Error(`Incompatible platform: ${result.message}`);
+});
+
+if (!platformCompatible) {
+  // Platform initialization failed, error already displayed and exception thrown
+  throw new Error("Platform initialization failed");
+}
 
 // Ensure WASM module is initialized before using its exports downstream
 init()
