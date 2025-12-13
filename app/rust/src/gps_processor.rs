@@ -233,16 +233,62 @@ enum GpsPreprocessorState {
     },
 }
 
+#[derive(Clone, Copy, Debug)]
+struct SegmentGapRule {
+    distance_m: f64,
+    max_gap_sec: i64,
+}
+
+const DEFAULT_SEGMENT_GAP_RULES: [SegmentGapRule; 3] = [
+    SegmentGapRule {
+        distance_m: 5.0,
+        max_gap_sec: 3600,
+    },
+    SegmentGapRule {
+        distance_m: 50.0,
+        max_gap_sec: 20,
+    },
+    SegmentGapRule {
+        distance_m: 1000.0,
+        max_gap_sec: 4,
+    },
+];
+
+const STEP_OF_MY_WORLD_SEGMENT_GAP_RULES: [SegmentGapRule; 3] = [
+    SegmentGapRule {
+        distance_m: 5.0,
+        max_gap_sec: 3600,
+    },
+    SegmentGapRule {
+        distance_m: 150.0,
+        max_gap_sec: 240,
+    },
+    SegmentGapRule {
+        distance_m: 1000.0,
+        max_gap_sec: 120,
+    },
+];
+
 pub struct GpsPreprocessor {
     state: GpsPreprocessorState,
     bad_data_detector: BadDataDetector,
+    segment_gap_rules: &'static [SegmentGapRule; 3],
 }
 
 impl GpsPreprocessor {
     pub fn new() -> Self {
+        GpsPreprocessor::new_with_segment_gap_rules(&DEFAULT_SEGMENT_GAP_RULES)
+    }
+
+    pub fn new_step_of_my_world_rules() -> Self {
+        GpsPreprocessor::new_with_segment_gap_rules(&STEP_OF_MY_WORLD_SEGMENT_GAP_RULES)
+    }
+
+    fn new_with_segment_gap_rules(segment_gap_rules: &'static [SegmentGapRule; 3]) -> Self {
         GpsPreprocessor {
             state: GpsPreprocessorState::Empty,
             bad_data_detector: BadDataDetector::new(),
+            segment_gap_rules,
         }
     }
 
@@ -261,6 +307,7 @@ impl GpsPreprocessor {
     }
 
     fn process_moving_data(
+        segment_gap_rules: &[SegmentGapRule; 3],
         last_point: &Point,
         last_timestamp_ms: Option<i64>,
         curr_data: &RawData,
@@ -277,32 +324,20 @@ impl GpsPreprocessor {
                 (None, _) | (_, None) => None,
             };
 
-            if distance_in_m <= 1_000. {
-                match time_diff_in_ms {
-                    // don't have timestamp, just be conservative and append
-                    None => ProcessResult::Append,
-                    Some(time_diff_in_ms) => {
-                        // more willing to connect two points if they are close
-                        // in normal condition, we should have 1 data per sec
-                        // we should mostly trust the data here and try to
-                        // filter out bad ones in `BadDataDetector`.
-                        let time_threshold_in_sec = if distance_in_m < 5. {
-                            60 * 60 // 1h
-                        } else if distance_in_m < 50. {
-                            20 // 20 sec
-                        } else {
-                            4 // 4 sec
-                        };
-                        if time_diff_in_ms <= time_threshold_in_sec * 1000 {
-                            ProcessResult::Append
-                        } else {
-                            ProcessResult::NewSegment
+            match time_diff_in_ms {
+                None => ProcessResult::Append,
+                Some(time_diff_in_ms) => {
+                    for rule in segment_gap_rules.iter() {
+                        if distance_in_m <= rule.distance_m {
+                            return if time_diff_in_ms <= rule.max_gap_sec * 1000 {
+                                ProcessResult::Append
+                            } else {
+                                ProcessResult::NewSegment
+                            };
                         }
                     }
+                    ProcessResult::NewSegment
                 }
-            } else {
-                // Too far, start a new segment
-                ProcessResult::NewSegment
             }
         }
     }
@@ -332,6 +367,8 @@ impl GpsPreprocessor {
             return ProcessResult::Ignore;
         };
 
+        let segment_gap_rules = self.segment_gap_rules;
+
         let start_moving = |curr_data: &RawData| Moving {
             last_point: curr_data.point.clone(),
             last_timestamp_ms: curr_data.timestamp_ms,
@@ -352,7 +389,12 @@ impl GpsPreprocessor {
                 timestamp_ms_when_center_point_picked,
                 num_of_data_since_center_point_picked,
             } => {
-                let result = Self::process_moving_data(last_point, *last_timestamp_ms, curr_data);
+                let result = Self::process_moving_data(
+                    segment_gap_rules,
+                    last_point,
+                    *last_timestamp_ms,
+                    curr_data,
+                );
                 if result != ProcessResult::Ignore {
                     *last_point = curr_data.point.clone();
                     *last_timestamp_ms = curr_data.timestamp_ms;
@@ -408,8 +450,12 @@ impl GpsPreprocessor {
                     ProcessResult::Ignore
                 } else {
                     //then ending stationary change to move mode
-                    let result =
-                        Self::process_moving_data(center_point, *last_timestamp_ms, curr_data);
+                    let result = Self::process_moving_data(
+                        segment_gap_rules,
+                        center_point,
+                        *last_timestamp_ms,
+                        curr_data,
+                    );
                     self.state = start_moving(curr_data);
                     result
                 }

@@ -178,9 +178,21 @@ pub fn load_fow_snapshot_data(fwss_file_path: &str) -> Result<(JourneyBitmap, Op
     }
 }
 
+fn should_use_coarse_segment_gap_rules(creator: &str) -> bool {
+    let creator_lower = creator.to_ascii_lowercase();
+    creator_lower.contains("stepofmyworld") || creator_lower.contains("yourapp")
+}
+
 #[auto_context]
 pub fn load_gpx(file_path: &str) -> Result<Vec<Vec<RawData>>> {
+    Ok(load_gpx_with_metadata(file_path)?.0)
+}
+
+#[auto_context]
+pub fn load_gpx_with_metadata(file_path: &str) -> Result<(Vec<Vec<RawData>>, bool)> {
     let gpx_data = read(BufReader::new(File::open(file_path)?))?;
+    let use_coarse_segment_gap_rules =
+        should_use_coarse_segment_gap_rules(gpx_data.creator.as_deref().unwrap_or(""));
     let convert_to_timestamp = |time: &Option<gpx::Time>| -> Result<Option<i64>> {
         match time {
             Some(t) => {
@@ -232,7 +244,10 @@ pub fn load_gpx(file_path: &str) -> Result<Vec<Vec<RawData>>> {
         .filter_map(Result::ok)
         .filter(|v| !v.is_empty());
 
-    Ok(track_data.chain(route_data).collect())
+    Ok((
+        track_data.chain(route_data).collect(),
+        use_coarse_segment_gap_rules,
+    ))
 }
 
 /// Load and parse KML safely, skipping invalid <description> blocks.
@@ -455,9 +470,25 @@ pub fn journey_vector_from_raw_data_with_gps_preprocessor(
     raw_data: &[Vec<RawData>],
     enable_preprocessor: bool,
 ) -> Option<JourneyVector> {
+    journey_vector_from_raw_data_with_gps_preprocessor_and_gap_rules(
+        raw_data,
+        enable_preprocessor,
+        false,
+    )
+}
+
+pub fn journey_vector_from_raw_data_with_gps_preprocessor_and_gap_rules(
+    raw_data: &[Vec<RawData>],
+    enable_preprocessor: bool,
+    use_coarse_segment_gap_rules: bool,
+) -> Option<JourneyVector> {
     let processed_data = raw_data.iter().flat_map(move |x| {
         // we handle each segment separately
-        let mut gps_preprocessor = GpsPreprocessor::new();
+        let mut gps_preprocessor = if use_coarse_segment_gap_rules {
+            GpsPreprocessor::new_step_of_my_world_rules()
+        } else {
+            GpsPreprocessor::new()
+        };
         let mut first = true;
         x.iter().map(move |raw_data| {
             let process_result = if enable_preprocessor {
