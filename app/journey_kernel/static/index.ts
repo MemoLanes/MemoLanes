@@ -1,6 +1,6 @@
-import { JourneyCanvasLayer } from "./layers/JourneyCanvasLayer";
-import { JourneyTileProvider } from "./JourneyTileProvider";
-import { DebugPanel } from "./DebugPanel";
+import { JourneyCanvasLayer } from "./layers/journey-canvas-layer";
+import { JourneyTileProvider } from "./journey-tile-provider";
+import { DebugPanel } from "./debug-panel";
 import init from "../pkg/index.js";
 import maplibregl from "maplibre-gl";
 import type {

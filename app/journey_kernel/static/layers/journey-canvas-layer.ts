@@ -2,7 +2,7 @@ import { tileXYToLngLat } from "./utils";
 import type maplibregl from "maplibre-gl";
 import type { CanvasSource, CanvasSourceSpecification } from "maplibre-gl";
 import type { TileBuffer } from "../../pkg";
-import type { JourneyTileProvider } from "../JourneyTileProvider";
+import type { JourneyTileProvider } from "../journey-tile-provider";
 
 /**
  * RGBA color tuple: [red, green, blue, alpha]
