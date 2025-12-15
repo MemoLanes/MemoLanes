@@ -115,7 +115,8 @@
       "delete_backup_data": "Delete backup data"
     },
     "import_data": {
-      "title": "Import data"
+      "title": "Import data",
+      "unsupported_file": "Unsupported file"
     },
     "export_data": {
       "export_all": "Export All Data"
