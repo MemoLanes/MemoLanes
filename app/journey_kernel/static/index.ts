@@ -16,7 +16,7 @@ import {
 } from "maplibregl-mapbox-request-transformer";
 import { parseUrlHash, parseAndValidateParams } from "./params";
 import { FlutterBridge, notifyFlutterReady } from "./flutter-bridge";
-import { initializePlatform, getPlatformDescription } from "./platform";
+import { initializePlatform } from "./platform";
 import { transformStyle } from "./utils";
 
 import "./debug-panel.css";
@@ -302,9 +302,6 @@ async function trySetup(): Promise<void> {
 
 // Export trySetup to window for Flutter to call
 window.trySetup = trySetup;
-
-// Initialize platform-specific configurations and check compatibility
-console.log(`Platform: ${getPlatformDescription()}`);
 
 const platformCompatible = initializePlatform((result) => {
   // Notify Flutter even on error so app can handle the error state

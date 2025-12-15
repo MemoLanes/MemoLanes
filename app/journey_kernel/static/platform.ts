@@ -3,16 +3,7 @@
  * Handles platform-specific checks and configurations for Android, iOS, and web
  */
 
-// Platform detection results
-export interface PlatformInfo {
-  isAndroid: boolean;
-  isIOS: boolean;
-  isWeb: boolean;
-  userAgent: string;
-  androidVersion?: number;
-  iosVersion?: { major: number; minor: number; patch?: number };
-  chromeVersion?: number;
-}
+import UAParser from "ua-parser-js";
 
 // WebView compatibility check result
 export interface CompatibilityCheckResult {
@@ -22,65 +13,37 @@ export interface CompatibilityCheckResult {
 }
 
 /**
- * Detect current platform and extract version information
- * @returns PlatformInfo object with platform details
- */
-export function detectPlatform(): PlatformInfo {
-  const ua = navigator.userAgent;
-  const isAndroid = /Android/i.test(ua);
-  const isIOS = /iPhone|iPad|iPod/i.test(ua);
-
-  const platformInfo: PlatformInfo = {
-    isAndroid,
-    isIOS,
-    isWeb: !isAndroid && !isIOS,
-    userAgent: ua,
-  };
-
-  // Extract Android version
-  if (isAndroid) {
-    const androidMatch = ua.match(/Android\s+([\d.]+)/i);
-    if (androidMatch) {
-      platformInfo.androidVersion = parseFloat(androidMatch[1]);
-    }
-
-    // Extract Chrome/WebView version
-    const chromeMatch = ua.match(/Chrome\/(\d+)\.(\d+)\.(\d+)/);
-    if (chromeMatch) {
-      platformInfo.chromeVersion = parseInt(chromeMatch[1], 10);
-    }
-  }
-
-  // Extract iOS version
-  if (isIOS) {
-    const iosMatch = ua.match(/OS (\d+)_(\d+)(?:_(\d+))?/);
-    if (iosMatch) {
-      platformInfo.iosVersion = {
-        major: parseInt(iosMatch[1], 10),
-        minor: parseInt(iosMatch[2], 10),
-        patch: iosMatch[3] ? parseInt(iosMatch[3], 10) : undefined,
-      };
-    }
-  }
-
-  return platformInfo;
-}
-
-/**
- * Check WebView version compatibility for Android and iOS
+ * Check WebView version compatibility for Android and iOS using UAParser
+ * Also applies iOS-specific fixes if running on iOS
  * @returns CompatibilityCheckResult indicating if the platform is compatible
  */
 export function checkWebViewCompatibility(): CompatibilityCheckResult {
-  const platform = detectPlatform();
+  // Use type assertion to handle UAParser constructor
+  const parser = new (UAParser as any)(navigator.userAgent);
+  const result = parser.getResult();
+
+  const isAndroid = result.os.name === "Android";
+  const isIOS = result.os.name === "iOS";
 
   // Check Android WebView version
-  if (platform.isAndroid) {
-    if (!platform.chromeVersion) {
+  if (isAndroid) {
+    // Extract Chrome/WebView version
+    let chromeVersion: number | undefined;
+    if (result.browser.name === "Chrome" && result.browser.version) {
+      const majorVersion = result.browser.version.split(".")[0];
+      chromeVersion = parseInt(majorVersion, 10);
+    }
+
+    if (!chromeVersion) {
       return { compatible: true }; // Can't determine version, allow to proceed
     }
 
-    // Check if version is greater or equal to 96
-    if (platform.chromeVersion <= 95) {
+    // https://developer.mozilla.org/en-US/docs/WebAssembly#webassembly.reference-types
+    // our wasm module requires externref support in webassembly.reference-types
+    // which require Android Webview 96+ or iOS 15.1+
+
+    // Check if Chrome/WebView version is greater or equal to 96
+    if (chromeVersion < 96) {
       return {
         compatible: false,
         message: "The system's WebView version is not compatible",
@@ -93,12 +56,24 @@ export function checkWebViewCompatibility(): CompatibilityCheckResult {
   }
 
   // Check iOS version
-  if (platform.isIOS) {
-    if (!platform.iosVersion) {
-      return { compatible: true }; // Can't determine version, allow to proceed
+  if (isIOS) {
+    // Extract iOS version
+    let iosVersion: { major: number; minor: number } | undefined;
+    if (result.os.version) {
+      const versionParts = result.os.version.split(".");
+      iosVersion = {
+        major: parseInt(versionParts[0], 10),
+        minor: parseInt(versionParts[1] || "0", 10),
+      };
     }
 
-    const { major, minor } = platform.iosVersion;
+    if (!iosVersion) {
+      // Can't determine version, allow to proceed and apply iOS fixes
+      preventIOSMagnifier();
+      return { compatible: true };
+    }
+
+    const { major, minor } = iosVersion;
 
     // Check if version is greater than or equal to 15.1
     if (major < 15 || (major === 15 && minor < 1)) {
@@ -109,6 +84,8 @@ export function checkWebViewCompatibility(): CompatibilityCheckResult {
       };
     }
 
+    // Apply iOS-specific fixes for compatible iOS devices
+    preventIOSMagnifier();
     return { compatible: true };
   }
 
@@ -167,16 +144,6 @@ function preventIOSMagnifier(): void {
 }
 
 /**
- * Apply iOS-specific fixes if running on iOS
- */
-export function applyIOSFixes(): void {
-  const platform = detectPlatform();
-  if (platform.isIOS) {
-    preventIOSMagnifier();
-  }
-}
-
-/**
  * Display an error message for incompatible platforms
  * @param result The compatibility check result with error details
  */
@@ -190,13 +157,14 @@ export function displayCompatibilityError(
 
 /**
  * Initialize all platform-specific configurations
+ * Checks compatibility and applies platform-specific fixes (e.g., iOS magnifier prevention)
  * @param onIncompatible Optional callback when platform is incompatible
  * @returns true if platform is compatible, false otherwise
  */
 export function initializePlatform(
   onIncompatible?: (result: CompatibilityCheckResult) => void,
 ): boolean {
-  // Check compatibility first
+  // Check compatibility and apply platform-specific fixes
   const compatibilityResult = checkWebViewCompatibility();
 
   if (!compatibilityResult.compatible) {
@@ -207,35 +175,6 @@ export function initializePlatform(
     return false;
   }
 
-  // Apply platform-specific fixes
-  applyIOSFixes();
-
   return true;
 }
 
-/**
- * Get a human-readable platform description for logging
- * @returns Platform description string
- */
-export function getPlatformDescription(): string {
-  const platform = detectPlatform();
-
-  if (platform.isAndroid) {
-    const version = platform.androidVersion
-      ? ` ${platform.androidVersion}`
-      : "";
-    const chrome = platform.chromeVersion
-      ? ` (Chrome ${platform.chromeVersion})`
-      : "";
-    return `Android${version}${chrome}`;
-  }
-
-  if (platform.isIOS) {
-    const version = platform.iosVersion
-      ? ` ${platform.iosVersion.major}.${platform.iosVersion.minor}${platform.iosVersion.patch ? `.${platform.iosVersion.patch}` : ""}`
-      : "";
-    return `iOS${version}`;
-  }
-
-  return "Web Browser";
-}
