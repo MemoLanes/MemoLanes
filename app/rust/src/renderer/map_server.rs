@@ -223,8 +223,9 @@ impl MapServer {
     }
 
     pub fn get_http_url(&self, token: &MapRendererToken) -> String {
-        let dev_server = std::env::var("DEV_SERVER").unwrap_or_else(|_| "http://localhost:8080".to_string());
-    
+        let dev_server =
+            std::env::var("DEV_SERVER").unwrap_or_else(|_| "http://localhost:8080".to_string());
+
         let server_info = self.server_info.lock().unwrap();
         let camera_option = get_default_camera_option_from_journey_bitmap(
             token

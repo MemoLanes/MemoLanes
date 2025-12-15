@@ -51,8 +51,12 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("############ BREAK CHANGE NOTICE ###############");
     println!("Starting from Dec 2025, user need to hosting the static resouces by themselves and the rust side will only handle the dynamic requests.");
     println!("Please make sure you have `yarn dev` running in journey_kernal folder.");
-    println!("- By default, we assume the static resources are available at `http://localhost:8080`");
-    println!("- You may also pass the static resources url via the DEV_SERVER environment variable");
+    println!(
+        "- By default, we assume the static resources are available at `http://localhost:8080`"
+    );
+    println!(
+        "- You may also pass the static resources url via the DEV_SERVER environment variable"
+    );
     println!("    eg: `DEV_SERVER=http://localhost:8080 cargo run --release --example server -- --nocapture`");
     println!("################################################");
 

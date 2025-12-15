@@ -18,7 +18,7 @@ type TileBufferCallback = (
   h: number,
   z: number,
   bufferSizePower: number,
-  tileBuffer: TileBuffer | null
+  tileBuffer: TileBuffer | null,
 ) => void;
 
 /**
@@ -85,7 +85,7 @@ export class JourneyTileProvider {
     map: maplibregl.Map,
     journeyId: string,
     bufferSizePower: number = 8,
-    isGlobeProjection: boolean = false
+    isGlobeProjection: boolean = false,
   ) {
     this.map = map;
     this.journeyId = journeyId;
@@ -122,7 +122,9 @@ export class JourneyTileProvider {
 
   // typically two use cases: if the original page detect a data change, then no cache (forceUpdate = true)
   // if it is just a periodic update or normal check, then use cache (forceUpdate = false)
-  async pollForJourneyUpdates(forceUpdate: boolean = false): Promise<boolean | null> {
+  async pollForJourneyUpdates(
+    forceUpdate: boolean = false,
+  ): Promise<boolean | null> {
     try {
       // console.log("Checking for journey updates via tile buffer");
 
@@ -182,7 +184,9 @@ export class JourneyTileProvider {
   }
 
   // Check state and fetch tile buffer if needed
-  private async checkAndFetchTileBuffer(forceUpdate: boolean = false): Promise<boolean> {
+  private async checkAndFetchTileBuffer(
+    forceUpdate: boolean = false,
+  ): Promise<boolean> {
     // If no download is in progress and view range has been updated, fetch new tile buffer
     if (!this.downloadInProgress && this.viewRangeUpdated) {
       return await this.fetchTileBuffer(forceUpdate);
@@ -231,7 +235,7 @@ export class JourneyTileProvider {
     h: number,
     z: number,
     bufferSizePower: number,
-    tileBuffer: TileBuffer | null
+    tileBuffer: TileBuffer | null,
   ): void {
     for (const callback of this.tileBufferCallbacks) {
       try {
@@ -243,7 +247,9 @@ export class JourneyTileProvider {
   }
 
   // Fetch tile buffer for current view range
-  private async fetchTileBuffer(forceUpdate: boolean = false): Promise<boolean> {
+  private async fetchTileBuffer(
+    forceUpdate: boolean = false,
+  ): Promise<boolean> {
     if (!this.viewRange) return false;
 
     // Reset update flag and set download flag
