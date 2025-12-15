@@ -15,12 +15,6 @@ interface WasmFeatures {
   multiValue: boolean;
 }
 
-interface EndpointInfo {
-  path: string;
-  size: number;
-  isIpc: boolean;
-}
-
 interface PrecisionFormat {
   rangeMin: number;
   rangeMax: number;
@@ -95,96 +89,48 @@ declare global {
 let isRunning: boolean = false;
 let intervalId: number | null = null;
 let requestCounter: number = 0;
-let endpointCounter: number = 0;
 
-// === GLOBAL INSTANCES ===
-let httpRequester: MultiRequest | null = null;
-let flutterRequester: MultiRequest | null = null;
+// === GLOBAL INSTANCE ===
+let requester: MultiRequest | null = null;
 
 async function trySetup(): Promise<void> {
   // Check if we have any endpoint configuration
   const hasCgiEndpoint = window.EXTERNAL_PARAMS.cgi_endpoint;
-  const hasHttpEndpoint =
-    window.EXTERNAL_PARAMS.http_endpoint || window.EXTERNAL_PARAMS.httpEndpoint;
   const hasFlutterSetup = window.SETUP_PENDING;
 
-  if (!hasCgiEndpoint && !hasHttpEndpoint && !hasFlutterSetup) {
+  if (!hasCgiEndpoint && !hasFlutterSetup) {
     // No configuration available, wait for either hash params or Flutter injection
     return;
   }
 
   console.log("Initializing test with:", window.EXTERNAL_PARAMS);
 
-  let httpEndpointUrl: string | null = null;
-  let flutterEndpointUrl: string | null = null;
-
-  // Determine HTTP endpoint from hash params or Flutter injection
-  if (window.EXTERNAL_PARAMS.http_endpoint) {
-    // Use dedicated http_endpoint parameter
-    httpEndpointUrl = window.EXTERNAL_PARAMS.http_endpoint;
-  } else if (window.EXTERNAL_PARAMS.httpEndpoint) {
-    // Fallback to legacy Flutter-injected httpEndpoint
-    httpEndpointUrl = window.EXTERNAL_PARAMS.httpEndpoint;
+  // Use cgi_endpoint directly (can be http:// or flutter://)
+  const cgiEndpoint = window.EXTERNAL_PARAMS.cgi_endpoint;
+  
+  if (!cgiEndpoint) {
+    log("No cgi_endpoint configured");
+    return;
   }
 
-  // Determine Flutter endpoint from cgi_endpoint
-  if (window.EXTERNAL_PARAMS.cgi_endpoint) {
-    if (window.EXTERNAL_PARAMS.cgi_endpoint.startsWith("flutter://")) {
-      // Flutter IPC mode - use the full flutter:// URL
-      flutterEndpointUrl = window.EXTERNAL_PARAMS.cgi_endpoint;
-    } else {
-      // Use cgi_endpoint as HTTP endpoint if no separate http_endpoint provided
-      if (!httpEndpointUrl) {
-        httpEndpointUrl = window.EXTERNAL_PARAMS.cgi_endpoint;
-      }
-      // Also use default Flutter endpoint
-      flutterEndpointUrl = `flutter://RenderDiagnosticsChannel`;
-    }
-  } else {
-    // Default Flutter setup if no specific configuration
-    flutterEndpointUrl = `flutter://RenderDiagnosticsChannel`;
-  }
-
-  // Create MultiRequest instances
-  if (httpEndpointUrl) {
-    httpRequester = new MultiRequest(httpEndpointUrl);
-  }
-
-  if (flutterEndpointUrl) {
-    flutterRequester = new MultiRequest(flutterEndpointUrl);
-  }
+  // Create MultiRequest instance
+  requester = new MultiRequest(cgiEndpoint);
+  const status = requester.getStatus();
 
   // Update UI
   const statusDiv = document.getElementById("status") as HTMLDivElement;
   statusDiv.className = "status ready";
 
-  const httpStatus = httpRequester ? httpEndpointUrl : "Not configured";
-  const flutterChannel = flutterRequester
-    ? flutterEndpointUrl
-    : "Not configured";
-  statusDiv.textContent = `Ready! HTTP: ${httpStatus}, IPC: ${flutterChannel}`;
+  const endpointType = status.isFlutterMode ? "Flutter IPC" : "HTTP";
+  statusDiv.textContent = `Ready! Endpoint: ${cgiEndpoint} (${endpointType})`;
 
-  // Enable start button if we have at least one endpoint
-  if (httpRequester || flutterRequester) {
-    (document.getElementById("startBtn") as HTMLButtonElement).disabled = false;
-  }
+  // Enable start button
+  (document.getElementById("startBtn") as HTMLButtonElement).disabled = false;
 
   // Log configuration
-  if (httpRequester) {
-    log(`HTTP endpoint ready: ${httpEndpointUrl}`);
-    log(`HTTP status: ${JSON.stringify(httpRequester.getStatus())}`);
-  } else {
-    log("HTTP endpoint: Not configured");
-  }
-
-  if (flutterRequester) {
-    log(
-      `Flutter IPC ready: ${flutterEndpointUrl} (available: ${flutterRequester.getStatus().channelAvailable})`,
-    );
-    log(`Flutter status: ${JSON.stringify(flutterRequester.getStatus())}`);
-  } else {
-    log("Flutter IPC: Not configured");
-  }
+  log(`Endpoint ready: ${cgiEndpoint}`);
+  log(`Type: ${endpointType}`);
+  log(`Status: ${JSON.stringify(status)}`);
 
   // Log hash parameters that were used
   if (Object.keys(window.EXTERNAL_PARAMS).length > 0) {
@@ -205,128 +151,68 @@ window.handleIpcError = function (error: string): void {
 };
 
 // === REQUEST FUNCTIONS ===
-// Simplify the getCurrentEndpoint function since we only have two types now
-function getCurrentEndpoint(): EndpointInfo {
+function getRequestSize(): number {
   const sizeSelect = document.getElementById(
     "sizeSelect",
   ) as HTMLSelectElement | null;
   const size = sizeSelect ? sizeSelect.value : "1048576";
-
-  const groupIndex = Math.floor(endpointCounter / 5) % 2;
-  return {
-    path: groupIndex === 0 ? "random_data" : "ipc",
-    size: parseInt(size),
-    isIpc: groupIndex === 1, // Every other 5 requests use IPC
-  };
+  return parseInt(size);
 }
 
-// Update the makeRequest function to use MultiRequest instances
+// Make a request to the configured endpoint
 async function makeRequest(): Promise<void> {
-  if (!httpRequester && !flutterRequester) {
-    log("ERROR: No MultiRequest instances available!");
+  if (!requester) {
+    log("ERROR: No requester available!");
     return;
   }
 
   const requestId = ++requestCounter;
-  const { path, size, isIpc } = getCurrentEndpoint();
-  endpointCounter++;
+  const size = getRequestSize();
+  const status = requester.getStatus();
+  const endpointType = status.isFlutterMode ? "Flutter IPC" : "HTTP";
 
   const startTime = performance.now();
+  log(`Request #${requestId}: ${endpointType} - ${size} bytes - Starting...`);
 
-  if (isIpc) {
-    if (!flutterRequester) {
-      log(
-        `Request #${requestId}: IPC Channel - SKIPPED - Flutter requester not configured`,
-      );
-      return;
-    }
+  try {
+    // Use the unified fetch method (works for both HTTP and Flutter IPC)
+    const response = await requester.fetch("random_data", { size: size });
 
-    log(`Request #${requestId}: IPC Channel - ${size} bytes - Starting...`);
+    const endTime = performance.now();
+    const duration = Math.round(endTime - startTime);
 
-    try {
-      // Use the flutter requester with random_data query and size payload
-      const response = await flutterRequester.fetch("random_data", {
-        size: size,
-      });
-      const endTime = performance.now();
-      const duration = Math.round(endTime - startTime);
+    if (response.success) {
+      // Response is already a JS object, access data directly
       const actualSize = response.data?.size || size;
       log(
-        `Request #${requestId}: IPC Channel - SUCCESS - ${duration}ms total - ${actualSize} bytes`,
+        `Request #${requestId}: ${endpointType} - SUCCESS - ${duration}ms - ${actualSize} bytes`,
       );
-    } catch (error) {
-      const endTime = performance.now();
-      const duration = Math.round(endTime - startTime);
+    } else {
       log(
-        `Request #${requestId}: IPC Channel - ERROR - ${(error as Error).message} - ${duration}ms`,
+        `Request #${requestId}: ${endpointType} - ERROR - ${response.error || "Unknown error"} - ${duration}ms`,
       );
     }
-  } else {
-    if (!httpRequester) {
-      log(
-        `Request #${requestId}: HTTP (${path}) - SKIPPED - HTTP requester not configured`,
-      );
-      return;
-    }
-
-    // HTTP request using MultiRequest
-    log(`Request #${requestId}: HTTP (${path}) - ${size} bytes - Starting...`);
-
-    try {
-      // Use the unified JSON API endpoint with POST request
-      // The path 'random_data' maps directly to the RandomData payload in Rust
-      const response = await httpRequester.fetch("random_data", { size: size });
-
-      const endTime = performance.now();
-      const duration = Math.round(endTime - startTime);
-
-      if (response.success) {
-        // Response is already a JS object, access data directly
-        const actualSize = response.data?.size || size;
-        log(
-          `Request #${requestId}: HTTP (${path}) - SUCCESS - ${duration}ms - ${actualSize} bytes`,
-        );
-      } else {
-        log(
-          `Request #${requestId}: HTTP (${path}) - ERROR - ${response.error || "Unknown error"} - ${duration}ms`,
-        );
-      }
-    } catch (error) {
-      const endTime = performance.now();
-      const duration = Math.round(endTime - startTime);
-      log(
-        `Request #${requestId}: HTTP (${path}) - ERROR - ${(error as Error).message} - ${duration}ms`,
-      );
-    }
+  } catch (error) {
+    const endTime = performance.now();
+    const duration = Math.round(endTime - startTime);
+    log(
+      `Request #${requestId}: ${endpointType} - ERROR - ${(error as Error).message} - ${duration}ms`,
+    );
   }
 }
 
 function startTest(): void {
-  if (isRunning || (!httpRequester && !flutterRequester)) return;
+  if (isRunning || !requester) return;
 
   isRunning = true;
   (document.getElementById("startBtn") as HTMLButtonElement).disabled = true;
   (document.getElementById("stopBtn") as HTMLButtonElement).disabled = false;
 
-  const configuredEndpoints: string[] = [];
-  if (httpRequester) configuredEndpoints.push("HTTP (random_data)");
-  if (flutterRequester) configuredEndpoints.push("IPC (Flutter API)");
+  const status = requester.getStatus();
+  const endpointType = status.isFlutterMode ? "Flutter IPC" : "HTTP";
 
-  log(
-    `Test started - alternating between ${configuredEndpoints.join(" and ")} every 5 requests`,
-  );
-
-  if (httpRequester) {
-    log(`HTTP Status: ${JSON.stringify(httpRequester.getStatus())}`);
-  } else {
-    log("HTTP: Not configured - will skip HTTP requests");
-  }
-
-  if (flutterRequester) {
-    log(`Flutter Status: ${JSON.stringify(flutterRequester.getStatus())}`);
-  } else {
-    log("Flutter IPC: Not configured - will skip IPC requests");
-  }
+  log(`Test started - Endpoint: ${status.endpoint} (${endpointType})`);
+  log(`Status: ${JSON.stringify(status)}`);
 
   makeRequest();
   intervalId = setInterval(makeRequest, 1000) as any;
@@ -345,8 +231,7 @@ function stopTest(): void {
   }
 
   // Clear any pending requests
-  if (httpRequester) httpRequester.clearPending();
-  if (flutterRequester) flutterRequester.clearPending();
+  if (requester) requester.clearPending();
 
   log("Test stopped - all pending requests cleared");
 }
@@ -354,29 +239,15 @@ function stopTest(): void {
 function clearLog(): void {
   (document.getElementById("log") as HTMLDivElement).innerHTML = "";
   requestCounter = 0;
-  endpointCounter = 0;
 
-  if (httpRequester || flutterRequester) {
-    const httpStatus = httpRequester
-      ? httpRequester.getStatus().endpoint
-      : "Not configured";
-    const ipcStatus = flutterRequester
-      ? flutterRequester.getStatus().channelAvailable
-        ? "Available"
-        : "Not Available"
-      : "Not configured";
-
-    log(`Log cleared - HTTP: ${httpStatus}, IPC: ${ipcStatus}`);
-
-    if (httpRequester) {
-      log(`HTTP Status: ${JSON.stringify(httpRequester.getStatus())}`);
-    }
-
-    if (flutterRequester) {
-      log(`Flutter Status: ${JSON.stringify(flutterRequester.getStatus())}`);
-    }
+  if (requester) {
+    const status = requester.getStatus();
+    const endpointType = status.isFlutterMode ? "Flutter IPC" : "HTTP";
+    
+    log(`Log cleared - Endpoint: ${status.endpoint} (${endpointType})`);
+    log(`Status: ${JSON.stringify(status)}`);
   } else {
-    log("Log cleared - No endpoints configured");
+    log("Log cleared - No endpoint configured");
   }
 }
 

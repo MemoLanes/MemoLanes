@@ -6,7 +6,6 @@
 // Raw external parameters (from URL hash or Flutter)
 export interface ExternalParams {
   cgi_endpoint?: string;
-  http_endpoint?: string;
   journey_id?: string;
   access_key?: string;
   lng?: string;
@@ -84,7 +83,6 @@ export function parseUrlHash(): ExternalParams {
   // Scan all hash parameters and store them after successful decoding
   // Supported parameters for endpoint configuration:
   // - cgi_endpoint: HTTP endpoint URL, "flutter://<channel>" for IPC mode, or "flutter" for legacy IPC
-  // - http_endpoint: Explicit HTTP endpoint (alternative to cgi_endpoint)
   // Other parameters: journey_id, access_key, lng, lat, zoom, render, etc.
   for (const [key, value] of params.entries()) {
     if (value) {
