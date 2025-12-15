@@ -19,40 +19,40 @@ export function tileXYToLngLat(x: number, y: number, zoom: number): LngLat {
 }
 
 /* Get the range of tiles that covers the current map viewport
-* @param {Object} map - Mapbox map object
-* @returns {Array} - Array of [x, y, w, h, z] representing the tile range
-*/
+ * @param {Object} map - Mapbox map object
+ * @returns {Array} - Array of [x, y, w, h, z] representing the tile range
+ */
 export function getViewportTileRange(
- map: maplibregl.Map,
- isGlobeProjection: boolean,
+  map: maplibregl.Map,
+  isGlobeProjection: boolean,
 ): [number, number, number, number, number] {
- // Get the current zoom level
- const z = Math.max(0, Math.floor(map.getZoom()));
+  // Get the current zoom level
+  const z = Math.max(0, Math.floor(map.getZoom()));
 
- // Get the bounds of the map
- const bounds = map.getBounds();
- const sw = bounds.getSouthWest();
- const ne = bounds.getNorthEast();
+  // Get the bounds of the map
+  const bounds = map.getBounds();
+  const sw = bounds.getSouthWest();
+  const ne = bounds.getNorthEast();
 
- // Convert to tile coordinates
- const [swX, swY] = lngLatToTileXY(sw, z);
- const [neX, neY] = lngLatToTileXY(ne, z);
+  // Convert to tile coordinates
+  const [swX, swY] = lngLatToTileXY(sw, z);
+  const [neX, neY] = lngLatToTileXY(ne, z);
 
- // Calculate the minimum x and y coordinates
- const x = Math.min(swX, neX);
- // for maplibre, the calculated y may be out of range, we need to crop is accordingly
- const y = Math.min(Math.max(0, Math.min(neY, swY)), (1 << z) - 1);
+  // Calculate the minimum x and y coordinates
+  const x = Math.min(swX, neX);
+  // for maplibre, the calculated y may be out of range, we need to crop is accordingly
+  const y = Math.min(Math.max(0, Math.min(neY, swY)), (1 << z) - 1);
 
- // Calculate the width and height
- let w = Math.max(1, Math.abs(neX - swX) + 1);
- if (isGlobeProjection) {
-   w = Math.min(w, 1 << z);
- }
- // w=1;
- // on special case when map is at border, make sure h will not exceed the limit.
- const h = Math.min(Math.max(1, Math.abs(swY - neY) + 1), (1 << z) - y);
+  // Calculate the width and height
+  let w = Math.max(1, Math.abs(neX - swX) + 1);
+  if (isGlobeProjection) {
+    w = Math.min(w, 1 << z);
+  }
+  // w=1;
+  // on special case when map is at border, make sure h will not exceed the limit.
+  const h = Math.min(Math.max(1, Math.abs(swY - neY) + 1), (1 << z) - y);
 
- return [x, y, w, h, z];
+  return [x, y, w, h, z];
 }
 
 /**
@@ -71,7 +71,7 @@ export function tileXYZToKey(x: number, y: number, z: number): string {
  * @param {String} key - Tile key in the format "z/x/y"
  * @returns {Object} - Object with x, y, z properties
  */
-export function keyToTileXYZ(key: string): { x: number, y: number, z: number } {
+export function keyToTileXYZ(key: string): { x: number; y: number; z: number } {
   const [z, x, y] = key.split("/").map(Number);
   return { x, y, z };
 }

@@ -21,7 +21,7 @@ type TileBufferCallback = (
   h: number,
   z: number,
   bufferSizePower: number,
-  tileBuffer: TileBuffer | null
+  tileBuffer: TileBuffer | null,
 ) => void;
 
 export class JourneyCanvasLayer {
@@ -37,7 +37,7 @@ export class JourneyCanvasLayer {
     map: maplibregl.Map,
     journeyTileProvider: JourneyTileProvider,
     bgColor: RGBAColor = [0.0, 0.0, 0.0, 0.5],
-    fgColor: RGBAColor = [1.0, 1.0, 1.0, 0.0]
+    fgColor: RGBAColor = [1.0, 1.0, 1.0, 0.0],
   ) {
     this.map = map;
     this.journeyTileProvider = journeyTileProvider;
@@ -80,7 +80,7 @@ export class JourneyCanvasLayer {
       h: number,
       z: number,
       bufferSizePower: number,
-      tileBuffer: TileBuffer | null
+      tileBuffer: TileBuffer | null,
     ): void => {
       this.redrawCanvas(x, y, w, h, z, bufferSizePower, tileBuffer);
     };
@@ -108,7 +108,7 @@ export class JourneyCanvasLayer {
     h: number,
     z: number,
     bufferSizePower: number,
-    tileBuffer: TileBuffer | null
+    tileBuffer: TileBuffer | null,
   ): void {
     if (!tileBuffer) {
       return;
@@ -196,9 +196,9 @@ export class JourneyCanvasLayer {
     const se = tileXYToLngLat(almost(right), bottom, z);
     const sw = tileXYToLngLat(almost(left), bottom, z);
 
-    const mainCanvasSource = this.map.getSource(
-      "main-canvas-source"
-    ) as CanvasSource | undefined;
+    const mainCanvasSource = this.map.getSource("main-canvas-source") as
+      | CanvasSource
+      | undefined;
     mainCanvasSource?.setCoordinates([
       [nw.lng, nw.lat],
       [ne.lng, ne.lat],
@@ -220,7 +220,7 @@ export class JourneyCanvasLayer {
 
     if (this.journeyTileProvider && this._repaintCallback) {
       this.journeyTileProvider.unregisterTileBufferCallback(
-        this._repaintCallback
+        this._repaintCallback,
       );
     }
   }

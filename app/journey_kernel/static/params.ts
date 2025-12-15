@@ -158,10 +158,7 @@ export function parseAndValidateParams(
 
   // Parse and validate rendering mode
   let renderMode = defaultRenderMode;
-  if (
-    externalParams.render &&
-    availableRenderModes[externalParams.render]
-  ) {
+  if (externalParams.render && availableRenderModes[externalParams.render]) {
     renderMode = externalParams.render;
   } else if (
     externalParams.render &&
@@ -209,4 +206,3 @@ export function parseAndValidateParams(
     params: validatedParams,
   };
 }
-

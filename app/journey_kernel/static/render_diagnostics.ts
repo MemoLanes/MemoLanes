@@ -107,7 +107,7 @@ async function trySetup(): Promise<void> {
 
   // Use cgi_endpoint directly (can be http:// or flutter://)
   const cgiEndpoint = window.EXTERNAL_PARAMS.cgi_endpoint;
-  
+
   if (!cgiEndpoint) {
     log("No cgi_endpoint configured");
     return;
@@ -243,7 +243,7 @@ function clearLog(): void {
   if (requester) {
     const status = requester.getStatus();
     const endpointType = status.isFlutterMode ? "Flutter IPC" : "HTTP";
-    
+
     log(`Log cleared - Endpoint: ${status.endpoint} (${endpointType})`);
     log(`Status: ${JSON.stringify(status)}`);
   } else {
@@ -364,11 +364,31 @@ function detectWasmFeatures(): WasmFeatures {
     // This is a minimal WASM module that uses externref
     // (module (func (param externref)))
     const wasmBinary = new Uint8Array([
-      0x00, 0x61, 0x73, 0x6d, // magic: \0asm
-      0x01, 0x00, 0x00, 0x00, // version: 1
-      0x01, 0x05, 0x01, 0x60, 0x01, 0x6f, 0x00, // type section: func(externref)
-      0x03, 0x02, 0x01, 0x00, // func section
-      0x0a, 0x04, 0x01, 0x02, 0x00, 0x0b, // code section
+      0x00,
+      0x61,
+      0x73,
+      0x6d, // magic: \0asm
+      0x01,
+      0x00,
+      0x00,
+      0x00, // version: 1
+      0x01,
+      0x05,
+      0x01,
+      0x60,
+      0x01,
+      0x6f,
+      0x00, // type section: func(externref)
+      0x03,
+      0x02,
+      0x01,
+      0x00, // func section
+      0x0a,
+      0x04,
+      0x01,
+      0x02,
+      0x00,
+      0x0b, // code section
     ]);
     new WebAssembly.Module(wasmBinary);
     features.referenceTypes = true;
@@ -380,11 +400,36 @@ function detectWasmFeatures(): WasmFeatures {
   try {
     // (module (func (result v128) (v128.const i32x4 0 0 0 0)))
     const wasmBinary = new Uint8Array([
-      0x00, 0x61, 0x73, 0x6d, // magic
-      0x01, 0x00, 0x00, 0x00, // version
-      0x01, 0x05, 0x01, 0x60, 0x00, 0x01, 0x7b, // type: func()->v128
-      0x03, 0x02, 0x01, 0x00, // func
-      0x0a, 0x0a, 0x01, 0x08, 0x00, 0xfd, 0x0c, 0x00, 0x00, 0x00, 0x00,
+      0x00,
+      0x61,
+      0x73,
+      0x6d, // magic
+      0x01,
+      0x00,
+      0x00,
+      0x00, // version
+      0x01,
+      0x05,
+      0x01,
+      0x60,
+      0x00,
+      0x01,
+      0x7b, // type: func()->v128
+      0x03,
+      0x02,
+      0x01,
+      0x00, // func
+      0x0a,
+      0x0a,
+      0x01,
+      0x08,
+      0x00,
+      0xfd,
+      0x0c,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
       0x0b, // code: v128.const
     ]);
     new WebAssembly.Module(wasmBinary);
@@ -400,9 +445,20 @@ function detectWasmFeatures(): WasmFeatures {
       // Additional test: try to create a WASM module with shared memory
       // (module (memory 1 1 shared))
       const wasmBinary = new Uint8Array([
-        0x00, 0x61, 0x73, 0x6d, // magic
-        0x01, 0x00, 0x00, 0x00, // version
-        0x05, 0x04, 0x01, 0x03, 0x01, 0x01, // memory section: 1 1 shared
+        0x00,
+        0x61,
+        0x73,
+        0x6d, // magic
+        0x01,
+        0x00,
+        0x00,
+        0x00, // version
+        0x05,
+        0x04,
+        0x01,
+        0x03,
+        0x01,
+        0x01, // memory section: 1 1 shared
       ]);
       new WebAssembly.Module(wasmBinary);
     }
@@ -414,13 +470,44 @@ function detectWasmFeatures(): WasmFeatures {
   try {
     // (module (memory 1) (func (memory.fill (i32.const 0) (i32.const 0) (i32.const 0))))
     const wasmBinary = new Uint8Array([
-      0x00, 0x61, 0x73, 0x6d, // magic
-      0x01, 0x00, 0x00, 0x00, // version
-      0x05, 0x03, 0x01, 0x00, 0x01, // memory section
-      0x01, 0x04, 0x01, 0x60, 0x00, 0x00, // type section
-      0x03, 0x02, 0x01, 0x00, // func section
-      0x0a, 0x0e, 0x01, 0x0c, 0x00, 0x41, 0x00, 0x41, 0x00, 0x41, 0x00, 0xfc,
-      0x0b, 0x00, 0x0b, // code: memory.fill
+      0x00,
+      0x61,
+      0x73,
+      0x6d, // magic
+      0x01,
+      0x00,
+      0x00,
+      0x00, // version
+      0x05,
+      0x03,
+      0x01,
+      0x00,
+      0x01, // memory section
+      0x01,
+      0x04,
+      0x01,
+      0x60,
+      0x00,
+      0x00, // type section
+      0x03,
+      0x02,
+      0x01,
+      0x00, // func section
+      0x0a,
+      0x0e,
+      0x01,
+      0x0c,
+      0x00,
+      0x41,
+      0x00,
+      0x41,
+      0x00,
+      0x41,
+      0x00,
+      0xfc,
+      0x0b,
+      0x00,
+      0x0b, // code: memory.fill
     ]);
     new WebAssembly.Module(wasmBinary);
     features.bulkMemory = true;
@@ -432,11 +519,36 @@ function detectWasmFeatures(): WasmFeatures {
   try {
     // (module (func (result i32 i32) (i32.const 0) (i32.const 1)))
     const wasmBinary = new Uint8Array([
-      0x00, 0x61, 0x73, 0x6d, // magic
-      0x01, 0x00, 0x00, 0x00, // version
-      0x01, 0x06, 0x01, 0x60, 0x00, 0x02, 0x7f, 0x7f, // type: func()->(i32,i32)
-      0x03, 0x02, 0x01, 0x00, // func
-      0x0a, 0x09, 0x01, 0x07, 0x00, 0x41, 0x00, 0x41, 0x01, 0x0b, // code
+      0x00,
+      0x61,
+      0x73,
+      0x6d, // magic
+      0x01,
+      0x00,
+      0x00,
+      0x00, // version
+      0x01,
+      0x06,
+      0x01,
+      0x60,
+      0x00,
+      0x02,
+      0x7f,
+      0x7f, // type: func()->(i32,i32)
+      0x03,
+      0x02,
+      0x01,
+      0x00, // func
+      0x0a,
+      0x09,
+      0x01,
+      0x07,
+      0x00,
+      0x41,
+      0x00,
+      0x41,
+      0x01,
+      0x0b, // code
     ]);
     new WebAssembly.Module(wasmBinary);
     features.multiValue = true;

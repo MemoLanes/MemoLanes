@@ -43,7 +43,7 @@ module.exports = (env, argv) => {
   return {
     entry: {
       main: "./static/index.ts",
-      render_diagnostics: "./static/render_diagnostics.js",
+      render_diagnostics: "./static/render_diagnostics.ts",
     },
     output: {
       path: path.resolve(__dirname, "dist"),
@@ -59,7 +59,7 @@ module.exports = (env, argv) => {
       rules: [
         {
           test: /\.tsx?$/,
-          use: 'ts-loader',
+          use: "ts-loader",
           exclude: /node_modules/,
         },
         {
@@ -73,7 +73,7 @@ module.exports = (env, argv) => {
       ],
     },
     resolve: {
-      extensions: ['.tsx', '.ts', '.js'],
+      extensions: [".tsx", ".ts", ".js"],
     },
     plugins,
     devServer: {

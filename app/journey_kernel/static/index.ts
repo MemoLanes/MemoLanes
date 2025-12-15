@@ -151,11 +151,7 @@ async function trySetup(): Promise<void> {
     transformRequest = (url: string, resourceType?: ResourceType) => {
       if (isMapboxURL(url)) {
         // transformMapboxUrl expects ResourceType to be string, safe to cast
-        return transformMapboxUrl(
-          url,
-          resourceType as any,
-          params.accessKey!,
-        );
+        return transformMapboxUrl(url, resourceType as any, params.accessKey!);
       }
       return { url };
     };

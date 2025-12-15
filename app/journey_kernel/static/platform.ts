@@ -224,7 +224,9 @@ export function getPlatformDescription(): string {
     const version = platform.androidVersion
       ? ` ${platform.androidVersion}`
       : "";
-    const chrome = platform.chromeVersion ? ` (Chrome ${platform.chromeVersion})` : "";
+    const chrome = platform.chromeVersion
+      ? ` (Chrome ${platform.chromeVersion})`
+      : "";
     return `Android${version}${chrome}`;
   }
 
@@ -237,4 +239,3 @@ export function getPlatformDescription(): string {
 
   return "Web Browser";
 }
-

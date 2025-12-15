@@ -179,7 +179,7 @@ class MultiRequest {
   async fetch(
     resource: string,
     params: Record<string, any> | null = null,
-    options: FetchOptions = {}
+    options: FetchOptions = {},
   ): Promise<UnifiedResponse> {
     if (!this.cgiEndpoint) {
       throw new Error("No CGI endpoint set. Call setEndpoint() first.");
@@ -198,7 +198,7 @@ class MultiRequest {
   async fetchViaHttp(
     resource: string,
     params: Record<string, any> | null = null,
-    options: FetchOptions = {}
+    options: FetchOptions = {},
   ): Promise<UnifiedResponse> {
     const url = `${this.cgiEndpoint}/api`;
 
@@ -240,7 +240,7 @@ class MultiRequest {
   async fetchViaFlutter(
     resource: string,
     params: Record<string, any> | null = null,
-    options: FetchOptions = {}
+    options: FetchOptions = {},
   ): Promise<UnifiedResponse> {
     if (!this.channel) {
       throw new Error(`Flutter channel '${this.channelName}' not available`);
@@ -268,7 +268,9 @@ class MultiRequest {
         this.pendingRequests.delete(requestId);
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        reject(new Error(`Failed to send Flutter IPC request: ${errorMessage}`));
+        reject(
+          new Error(`Failed to send Flutter IPC request: ${errorMessage}`),
+        );
         return;
       }
 
@@ -293,11 +295,9 @@ class MultiRequest {
       channelAvailable: !!this.channel,
       pendingRequests: this.pendingRequests.size,
       isFlutterMode:
-        this.cgiEndpoint !== null &&
-        this.cgiEndpoint.startsWith("flutter://"),
+        this.cgiEndpoint !== null && this.cgiEndpoint.startsWith("flutter://"),
       isHttpMode:
-        this.cgiEndpoint !== null &&
-        !this.cgiEndpoint.startsWith("flutter://"),
+        this.cgiEndpoint !== null && !this.cgiEndpoint.startsWith("flutter://"),
     };
   }
 
