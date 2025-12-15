@@ -73,10 +73,7 @@ dependencies:
   fpdart: ^1.1.1
   sliding_up_panel: ^2.0.0+1
   mmkv: ^2.2.2
-  receive_sharing_intent:
-    git:
-      url: https://github.com/KasemJaffer/receive_sharing_intent.git
-      ref: master
+  flutter_sharing_intent: ^2.0.4
 
 dependency_overrides:
   geolocator_android:
