@@ -1,6 +1,6 @@
 import { TileBuffer } from "../pkg";
 import { getViewportTileRange } from "./layers/utils";
-import { MultiRequest } from "./MultiRequest";
+import { MultiRequest } from "./multi-requests";
 import type maplibregl from "maplibre-gl";
 
 /**
