@@ -16,7 +16,7 @@ import {
 } from "maplibregl-mapbox-request-transformer";
 import { parseUrlHash, parseAndValidateParams } from "./params";
 import { FlutterBridge, notifyFlutterReady } from "./flutter-bridge";
-import { initializePlatform } from "./platform";
+import { ensurePlatformCompatibility } from "./platform";
 import { transformStyle } from "./utils";
 
 import "./debug-panel.css";
@@ -303,15 +303,16 @@ async function trySetup(): Promise<void> {
 // Export trySetup to window for Flutter to call
 window.trySetup = trySetup;
 
-const platformCompatible = initializePlatform((result) => {
+try {
+  ensurePlatformCompatibility();
+} catch (error) {
+  // Display error message on the webpage
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  document.body.innerHTML = `<div style="padding: 20px; font-family: Arial, sans-serif; color: red;"><h1>Platform Compatibility Error</h1><p>${errorMessage}</p></div>`;
+  
   // Notify Flutter even on error so app can handle the error state
   notifyFlutterReady();
-  throw new Error(`Incompatible platform: ${result.message}`);
-});
-
-if (!platformCompatible) {
-  // Platform initialization failed, error already displayed and exception thrown
-  throw new Error("Platform initialization failed");
+  throw error;
 }
 
 // Ensure WASM module is initialized before using its exports downstream

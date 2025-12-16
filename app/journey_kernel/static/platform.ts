@@ -5,19 +5,13 @@
 
 import UAParser from "ua-parser-js";
 
-// WebView compatibility check result
-export interface CompatibilityCheckResult {
-  compatible: boolean;
-  message?: string;
-  detail?: string;
-}
-
 /**
- * Check WebView version compatibility for Android and iOS using UAParser
- * Also applies iOS-specific fixes if running on iOS
- * @returns CompatibilityCheckResult indicating if the platform is compatible
+ * Ensure platform compatibility by checking WebView versions and applying platform-specific fixes
+ * - For Android: Checks WebView version (requires v96+)
+ * - For iOS: Checks iOS version (requires v15.1+) and applies workarounds (prevents magnifier)
+ * @throws Error if the platform is not compatible
  */
-export function checkWebViewCompatibility(): CompatibilityCheckResult {
+export function ensurePlatformCompatibility(): void {
   // Use type assertion to handle UAParser constructor
   const parser = new (UAParser as any)(navigator.userAgent);
   const result = parser.getResult();
@@ -35,7 +29,7 @@ export function checkWebViewCompatibility(): CompatibilityCheckResult {
     }
 
     if (!chromeVersion) {
-      return { compatible: true }; // Can't determine version, allow to proceed
+      return; // Can't determine version, allow to proceed
     }
 
     // https://developer.mozilla.org/en-US/docs/WebAssembly#webassembly.reference-types
@@ -44,15 +38,12 @@ export function checkWebViewCompatibility(): CompatibilityCheckResult {
 
     // Check if Chrome/WebView version is greater or equal to 96
     if (chromeVersion < 96) {
-      return {
-        compatible: false,
-        message: "The system's WebView version is not compatible",
-        detail:
-          "Please update your Android System WebView to version 96 or higher.",
-      };
+      throw new Error(
+        "The system's WebView version is not compatible. Please update your Android System WebView to version 96 or higher.",
+      );
     }
 
-    return { compatible: true };
+    return;
   }
 
   // Check iOS version
@@ -70,27 +61,24 @@ export function checkWebViewCompatibility(): CompatibilityCheckResult {
     if (!iosVersion) {
       // Can't determine version, allow to proceed and apply iOS fixes
       preventIOSMagnifier();
-      return { compatible: true };
+      return;
     }
 
     const { major, minor } = iosVersion;
 
     // Check if version is greater than or equal to 15.1
     if (major < 15 || (major === 15 && minor < 1)) {
-      return {
-        compatible: false,
-        message: "The system's iOS version is not compatible",
-        detail: "Please update your iOS to version 15.1 or higher.",
-      };
+      throw new Error(
+        "The system's iOS version is not compatible. Please update your iOS to version 15.1 or higher.",
+      );
     }
 
     // Apply iOS-specific fixes for compatible iOS devices
     preventIOSMagnifier();
-    return { compatible: true };
+    return;
   }
 
   // Not Android or iOS, no check needed
-  return { compatible: true };
 }
 
 /**
@@ -142,39 +130,3 @@ function preventIOSMagnifier(): void {
     { passive: false },
   );
 }
-
-/**
- * Display an error message for incompatible platforms
- * @param result The compatibility check result with error details
- */
-export function displayCompatibilityError(
-  result: CompatibilityCheckResult,
-): void {
-  if (!result.compatible && result.message) {
-    document.body.innerHTML = `<div style="padding: 20px; font-family: Arial, sans-serif; color: red;"><h1>${result.message}</h1>${result.detail ? `<p>${result.detail}</p>` : ""}</div>`;
-  }
-}
-
-/**
- * Initialize all platform-specific configurations
- * Checks compatibility and applies platform-specific fixes (e.g., iOS magnifier prevention)
- * @param onIncompatible Optional callback when platform is incompatible
- * @returns true if platform is compatible, false otherwise
- */
-export function initializePlatform(
-  onIncompatible?: (result: CompatibilityCheckResult) => void,
-): boolean {
-  // Check compatibility and apply platform-specific fixes
-  const compatibilityResult = checkWebViewCompatibility();
-
-  if (!compatibilityResult.compatible) {
-    displayCompatibilityError(compatibilityResult);
-    if (onIncompatible) {
-      onIncompatible(compatibilityResult);
-    }
-    return false;
-  }
-
-  return true;
-}
-
