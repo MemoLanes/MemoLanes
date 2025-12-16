@@ -48,6 +48,9 @@ export function ensurePlatformCompatibility(): void {
 
   // Check iOS version
   if (isIOS) {
+    // Apply iOS-specific fixes first (needed for all iOS versions)
+    preventIOSMagnifier();
+
     // Extract iOS version
     let iosVersion: { major: number; minor: number } | undefined;
     if (result.os.version) {
@@ -59,8 +62,7 @@ export function ensurePlatformCompatibility(): void {
     }
 
     if (!iosVersion) {
-      // Can't determine version, allow to proceed and apply iOS fixes
-      preventIOSMagnifier();
+      // Can't determine version, allow to proceed (iOS fix already applied)
       return;
     }
 
@@ -73,8 +75,6 @@ export function ensurePlatformCompatibility(): void {
       );
     }
 
-    // Apply iOS-specific fixes for compatible iOS devices
-    preventIOSMagnifier();
     return;
   }
 
