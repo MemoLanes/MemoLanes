@@ -22,7 +22,7 @@ export function ensurePlatformCompatibility(): void {
   if (isAndroid) {
     // Extract Chrome/WebView version
     let chromeVersion: number | undefined;
-    if (result.browser.name === "Chrome" && result.browser.version) {
+    if (result.browser.name === "Chrome WebView" && result.browser.version) {
       const majorVersion = result.browser.version.split(".")[0];
       chromeVersion = parseInt(majorVersion, 10);
     }
