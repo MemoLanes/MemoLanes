@@ -3,7 +3,7 @@
  * Handles platform-specific checks and configurations for Android, iOS, and web
  */
 
-import UAParser from "ua-parser-js";
+import { UAParser } from "ua-parser-js";
 
 /**
  * Ensure platform compatibility by checking WebView versions and applying platform-specific fixes
@@ -12,8 +12,7 @@ import UAParser from "ua-parser-js";
  * @throws Error if the platform is not compatible
  */
 export function ensurePlatformCompatibility(): void {
-  // Use type assertion to handle UAParser constructor
-  const parser = new (UAParser as any)(navigator.userAgent);
+  const parser = new UAParser(navigator.userAgent);
   const result = parser.getResult();
 
   const isAndroid = result.os.name === "Android";
