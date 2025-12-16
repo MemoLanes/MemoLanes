@@ -17,7 +17,7 @@ import {
 import { parseUrlHash, parseAndValidateParams } from "./params";
 import { FlutterBridge, notifyFlutterReady } from "./flutter-bridge";
 import { ensurePlatformCompatibility } from "./platform";
-import { transformStyle } from "./utils";
+import { transformStyle, displayPageMessage } from "./utils";
 
 import "./debug-panel.css";
 
@@ -135,7 +135,7 @@ async function trySetup(): Promise<void> {
     }
 
     // Display error message
-    document.body.innerHTML = `<div style="padding: 20px; font-family: Arial, sans-serif; color: red;"><h1>${validationResult.message}</h1>${validationResult.detail ? `<p>${validationResult.detail}</p>` : ""}</div>`;
+    displayPageMessage(validationResult.message, validationResult.detail);
     notifyFlutterReady();
     return;
   }
@@ -308,7 +308,7 @@ try {
 } catch (error) {
   // Display error message on the webpage
   const errorMessage = error instanceof Error ? error.message : String(error);
-  document.body.innerHTML = `<div style="padding: 20px; font-family: Arial, sans-serif; color: red;"><h1>Platform Compatibility Error</h1><p>${errorMessage}</p></div>`;
+  displayPageMessage("Platform Compatibility Error", errorMessage);
   
   // Notify Flutter even on error so app can handle the error state
   notifyFlutterReady();
