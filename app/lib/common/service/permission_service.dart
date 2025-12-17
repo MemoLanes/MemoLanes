@@ -107,7 +107,7 @@ class PermissionService {
     if (!Platform.isAndroid) return;
 
     final alreadyRequested = MMKVUtil.getBool(
-        MMKVKey.requestBatteryOptimization,
+        MMKVKey.requestedBatteryOptimization,
         defaultValue: false);
     if (alreadyRequested) return;
 
@@ -126,14 +126,14 @@ class PermissionService {
         );
       }
     }
-    MMKVUtil.putBool(MMKVKey.requestBatteryOptimization, true);
+    MMKVUtil.putBool(MMKVKey.requestedBatteryOptimization, true);
   }
 
   Future<void> _requestNotificationPermission() async {
     final status = await Permission.notification.status;
 
     final alreadyRequested = MMKVUtil.getBool(
-      MMKVKey.requestNotification,
+      MMKVKey.requestedNotification,
       defaultValue: false,
     );
 
@@ -163,6 +163,6 @@ class PermissionService {
             .tr("unexpected_exit_notification.notification_permission_denied"),
       );
     }
-    MMKVUtil.putBool(MMKVKey.requestNotification, true);
+    MMKVUtil.putBool(MMKVKey.requestedNotification, true);
   }
 }
