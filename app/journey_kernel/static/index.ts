@@ -245,7 +245,7 @@ async function trySetup(): Promise<void> {
     }, 200);
 
     // defer the map style initialization after memolanes layer added.
-    map.setStyle(currentMapStyle, {
+    map.setStyle(params.mapStyle, {
       transformStyle: transformStyle,
     });
 
@@ -255,7 +255,7 @@ async function trySetup(): Promise<void> {
       const layerCount = map.getLayersOrder().length;
       if (layerCount <= 1) {
         console.log("Re-attempt to load map style");
-        map.setStyle(currentMapStyle, {
+        map.setStyle(params.mapStyle, {
           transformStyle: transformStyle,
         });
       }
