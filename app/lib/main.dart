@@ -104,7 +104,7 @@ void main() async {
         tempDir: (await getTemporaryDirectory()).path,
         docDir: (await getApplicationDocumentsDirectory()).path,
         supportDir: (await getApplicationSupportDirectory()).path,
-        cacheDir: (await getApplicationCacheDirectory()).path);
+        systemCacheDir: (await getApplicationCacheDirectory()).path);
     var updateNotifier = UpdateNotifier();
     delayedInit(updateNotifier);
     var gpsManager = GpsManager();
