@@ -2,6 +2,7 @@ import { TileBuffer } from "../pkg";
 import { getViewportTileRange } from "./layers/utils";
 import { MultiRequest } from "./multi-requests";
 import type maplibregl from "maplibre-gl";
+import type { ValidatedParams } from "./params";
 
 /**
  * View range tuple: [x, y, width, height, zoom]
@@ -70,7 +71,7 @@ declare global {
 
 export class JourneyTileProvider {
   private map: maplibregl.Map;
-  private journeyId: string;
+  private params: ValidatedParams;
   private currentVersion: string | null; // Store the current version
   private viewRange: ViewRange | null; // Store the current viewport tile range [x, y, w, h, z]
   private tileBuffer: TileBuffer | null; // Store the tile buffer data
@@ -83,12 +84,12 @@ export class JourneyTileProvider {
 
   constructor(
     map: maplibregl.Map,
-    journeyId: string,
+    params: ValidatedParams,
     bufferSizePower: number = 8,
     isGlobeProjection: boolean = false,
   ) {
     this.map = map;
-    this.journeyId = journeyId;
+    this.params = params;
     this.currentVersion = null; // Store the current version
     this.viewRange = null; // Store the current viewport tile range [x, y, w, h, z]
     this.tileBuffer = null; // Store the tile buffer data
@@ -260,7 +261,7 @@ export class JourneyTileProvider {
 
     // Create request parameters for MultiRequest
     const requestParams: TileBufferRequestParams = {
-      id: this.journeyId,
+      id: this.params.journeyId,
       x: x,
       y: y,
       z: z,
