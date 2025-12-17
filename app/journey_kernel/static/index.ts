@@ -62,33 +62,24 @@ const AVAILABLE_LAYERS: AvailableLayers = {
 
 // Global state variables
 let currentJourneyLayer: any; // Store reference to current layer
-let currentJourneyId: string;
 let currentJourneyTileProvider: JourneyTileProvider;
 let locationMarker: Marker | null = null;
-let currentRenderingMode: string = "canvas"; // Default rendering mode
-// TODO: This default is only used for testing with `rust/examples`, which is
-// a little weird.
-let currentMapStyle: string = "https://tiles.openfreemap.org/styles/liberty";
-// let currentMapStyle = "mapbox://styles/mapbox/streets-v12";
-let transformRequest: RequestTransformFunction = (
-  url: string,
-  _resourceType?: ResourceType,
-) => {
-  return { url };
-};
 
 /**
  * Function to switch between rendering layers
  * @param map - MapLibre map instance
- * @param renderingMode - Rendering mode to switch to ('canvas' or 'gl')
+ * @param params - Validated params object containing render mode
  * @returns The newly created journey layer instance
  */
-function switchRenderingLayer(map: MaplibreMap, renderingMode: string): any {
+function switchRenderingLayer(map: MaplibreMap, params: any): any {
+  let renderingMode = params.renderMode;
+  
   if (!AVAILABLE_LAYERS[renderingMode]) {
     console.warn(
       `Rendering mode '${renderingMode}' not available, using canvas instead.`,
     );
     renderingMode = "canvas";
+    params.renderMode = renderingMode; // Update params with fallback
   }
 
   // Clean up existing layer if present
@@ -103,8 +94,7 @@ function switchRenderingLayer(map: MaplibreMap, renderingMode: string): any {
   currentJourneyTileProvider.setBufferSizePower(bufferSizePower);
   currentJourneyLayer = new LayerClass(map, currentJourneyTileProvider);
   currentJourneyLayer.initialize();
-
-  currentRenderingMode = renderingMode;
+  
   return currentJourneyLayer;
 }
 
@@ -123,8 +113,6 @@ async function trySetup(): Promise<void> {
   const validationResult = parseAndValidateParams(
     window.EXTERNAL_PARAMS,
     AVAILABLE_LAYERS,
-    currentMapStyle,
-    currentRenderingMode,
   );
 
   // Handle validation errors
@@ -142,10 +130,14 @@ async function trySetup(): Promise<void> {
 
   // Extract validated parameters
   const params = validationResult.params;
-  currentJourneyId = params.journeyId;
-  currentRenderingMode = params.renderMode;
-  currentMapStyle = params.mapStyle;
 
+  let transformRequest: RequestTransformFunction = (
+    url: string,
+    _resourceType?: ResourceType,
+  ) => {
+    return { url };
+  };
+  
   // Configure transform request for Mapbox styles
   if (params.requiresMapboxToken && params.accessKey) {
     transformRequest = (url: string, resourceType?: ResourceType) => {
@@ -158,7 +150,7 @@ async function trySetup(): Promise<void> {
   }
 
   console.log(
-    `journey_id: ${currentJourneyId}, render: ${currentRenderingMode}, lng: ${params.lng}, lat: ${params.lat}, zoom: ${params.zoom}`,
+    `journey_id: ${params.journeyId}, render: ${params.renderMode}, lng: ${params.lng}, lat: ${params.lat}, zoom: ${params.zoom}`,
   );
   console.log(
     "EXTERNAL_PARAMS for endpoint configuration:",
@@ -200,21 +192,21 @@ async function trySetup(): Promise<void> {
 
     currentJourneyTileProvider = new JourneyTileProvider(
       map,
-      currentJourneyId,
-      AVAILABLE_LAYERS[currentRenderingMode].bufferSizePower,
+      params,
+      AVAILABLE_LAYERS[params.renderMode].bufferSizePower,
     );
 
     await currentJourneyTileProvider.pollForJourneyUpdates(true);
     console.log("initial tile buffer loaded");
 
     // Create and initialize journey layer with selected rendering mode
-    currentJourneyLayer = switchRenderingLayer(map, currentRenderingMode);
+    currentJourneyLayer = switchRenderingLayer(map, params);
     map.on("styledata", () => {
       console.log("styledata event received");
       const orderedLayerIds = map.getLayersOrder();
       const customIndex = orderedLayerIds.indexOf("memolanes-journey-layer");
       if (customIndex === -1) {
-        currentJourneyLayer = switchRenderingLayer(map, currentRenderingMode);
+        currentJourneyLayer = switchRenderingLayer(map, params);
       } else if (
         customIndex !== -1 &&
         customIndex !== orderedLayerIds.length - 1
@@ -242,11 +234,8 @@ async function trySetup(): Promise<void> {
       map,
       locationMarker: locationMarker!,
       journeyTileProvider: currentJourneyTileProvider,
-      switchRenderingLayerFn: switchRenderingLayer,
-      getCurrentJourneyId: () => currentJourneyId,
-      setCurrentJourneyId: (id: string) => {
-        currentJourneyId = id;
-      },
+      switchRenderingLayerFn: (map: any) => switchRenderingLayer(map, params),
+      params,
     });
     flutterBridge.initialize();
 

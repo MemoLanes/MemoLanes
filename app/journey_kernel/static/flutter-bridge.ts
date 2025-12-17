@@ -4,6 +4,7 @@
  */
 
 import type maplibregl from "maplibre-gl";
+import type { ValidatedParams } from "./params";
 
 // Type definitions for Flutter message channels
 interface FlutterMessageChannel {
@@ -33,26 +34,23 @@ export interface FlutterBridgeConfig {
   map: maplibregl.Map;
   locationMarker: maplibregl.Marker;
   journeyTileProvider: any; // JourneyTileProvider type
-  switchRenderingLayerFn: (map: any, renderingMode: string) => any;
-  getCurrentJourneyId: () => string;
-  setCurrentJourneyId: (id: string) => void;
+  switchRenderingLayerFn: (map: any) => any;
+  params: ValidatedParams;
 }
 
 export class FlutterBridge {
   private map: maplibregl.Map;
   private locationMarker: maplibregl.Marker;
   private journeyTileProvider: any;
-  private switchRenderingLayerFn: (map: any, renderingMode: string) => any;
-  private getCurrentJourneyId: () => string;
-  private setCurrentJourneyId: (id: string) => void;
+  private switchRenderingLayerFn: (map: any) => any;
+  private params: ValidatedParams;
 
   constructor(config: FlutterBridgeConfig) {
     this.map = config.map;
     this.locationMarker = config.locationMarker;
     this.journeyTileProvider = config.journeyTileProvider;
     this.switchRenderingLayerFn = config.switchRenderingLayerFn;
-    this.getCurrentJourneyId = config.getCurrentJourneyId;
-    this.setCurrentJourneyId = config.setCurrentJourneyId;
+    this.params = config.params;
   }
 
   /**
@@ -135,7 +133,9 @@ export class FlutterBridge {
 
     // Switch rendering layer
     window.switchRenderingLayer = (renderingMode: string) => {
-      return this.switchRenderingLayerFn(this.map, renderingMode);
+      // Update params first, then switch
+      this.params.renderMode = renderingMode;
+      return this.switchRenderingLayerFn(this.map);
     };
 
     // Update journey ID
@@ -145,8 +145,7 @@ export class FlutterBridge {
         return false;
       }
 
-      const currentJourneyId = this.getCurrentJourneyId();
-      if (newJourneyId === currentJourneyId) {
+      if (newJourneyId === this.params.journeyId) {
         console.log(
           `updateJourneyId: journey ID is already set to '${newJourneyId}'`,
         );
@@ -154,16 +153,14 @@ export class FlutterBridge {
       }
 
       console.log(
-        `updateJourneyId: switching from '${currentJourneyId}' to '${newJourneyId}'`,
+        `updateJourneyId: switching from '${this.params.journeyId}' to '${newJourneyId}'`,
       );
 
-      // Update the current journey ID
-      this.setCurrentJourneyId(newJourneyId);
+      // Update the journey ID in params object (shared reference)
+      this.params.journeyId = newJourneyId;
 
-      // Update the tile provider's journey ID
+      // Force update to fetch data for the new journey
       if (this.journeyTileProvider) {
-        this.journeyTileProvider.journeyId = newJourneyId;
-        // Force update to fetch data for the new journey
         this.journeyTileProvider.pollForJourneyUpdates(true);
       }
 
@@ -190,4 +187,3 @@ export function notifyFlutterReady(): void {
     window.readyForDisplay.postMessage("");
   }
 }
-

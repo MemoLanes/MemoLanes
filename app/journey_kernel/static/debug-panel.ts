@@ -217,13 +217,17 @@ export class DebugPanel {
 
   private _setupFpsMonitoring(): void {
     // Get canvas elements and contexts
-    const fpsCanvas = document.getElementById("fps-graph") as HTMLCanvasElement | null;
+    const fpsCanvas = document.getElementById(
+      "fps-graph",
+    ) as HTMLCanvasElement | null;
     if (fpsCanvas) {
       this.fpsCanvas = fpsCanvas;
       this.fpsCtx = fpsCanvas.getContext("2d");
     }
 
-    const networkCanvas = document.getElementById("network-graph") as HTMLCanvasElement | null;
+    const networkCanvas = document.getElementById(
+      "network-graph",
+    ) as HTMLCanvasElement | null;
     if (networkCanvas) {
       this.networkCanvas = networkCanvas;
       this.networkCtx = networkCanvas.getContext("2d");
@@ -397,7 +401,10 @@ export class DebugPanel {
     if (this.networkDelayHistory.length < 2) return;
 
     // Calculate max delay for scaling (minimum 1000ms for consistent scale)
-    const maxDelay: number = Math.max(1000, Math.max(...this.networkDelayHistory));
+    const maxDelay: number = Math.max(
+      1000,
+      Math.max(...this.networkDelayHistory),
+    );
 
     // Draw grid lines
     ctx.strokeStyle = "#555";
@@ -476,7 +483,9 @@ export class DebugPanel {
       const renderingMode: string = urlParams.get("render") || "canvas";
 
       // Only set rendering mode if it's available
-      const renderingModeSelect = document.getElementById("rendering-mode") as HTMLSelectElement | null;
+      const renderingModeSelect = document.getElementById(
+        "rendering-mode",
+      ) as HTMLSelectElement | null;
       if (this.availableLayers[renderingMode] && renderingModeSelect) {
         renderingModeSelect.value = renderingMode;
       }
@@ -490,7 +499,7 @@ export class DebugPanel {
 
   show(): void {
     if (!this.panel) return;
-    
+
     this.panel.style.display = "block";
     this.visible = true;
     this._updateViewpointInfo();
@@ -505,7 +514,7 @@ export class DebugPanel {
 
   hide(): void {
     if (!this.panel) return;
-    
+
     this.panel.style.display = "none";
     this.visible = false;
 
