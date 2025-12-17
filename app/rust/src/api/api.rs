@@ -155,20 +155,20 @@ fn prepare_real_cache_dir(
             let mut logs = Vec::new();
             logs.push((
                 LogLevel::Info,
-                format!("Setting up real cache dir for Android at {:?}", final_path),
+                format!("Setting up real cache dir for Android at {final_path:?}"),
             ));
             // TODO this can be delete when most people have rolled pass this.
             let old_dir = Path::new(system_cache_dir);
             if old_dir.exists() {
                 logs.push((
                     LogLevel::Info,
-                    format!("Old cache dir {:?} exists, move Data", old_dir),
+                    format!("Old cache dir {old_dir:?} exists, move Data"),
                 ));
 
                 std::fs::create_dir_all(&final_path).map_err(|e| {
                     logs.push((
                         LogLevel::Error,
-                        format!("Failed to create final cache dir {:?}: {:?}", final_path, e),
+                        format!("Failed to create final cache dir {final_path:?}: {e:?}"),
                     ));
                     e
                 })?;
@@ -179,16 +179,17 @@ fn prepare_real_cache_dir(
                 if old_db.exists() {
                     logs.push((
                         LogLevel::Info,
-                        format!("Found {:?}, move to {:?}", old_db, new_db),
+                        format!("Found {old_db:?}, move to {new_db:?}"),
                     ));
 
                     match std::fs::rename(&old_db, &new_db) {
                         Ok(()) => logs.push((
                             LogLevel::Info,
-                            format!("Successfully moved cache.db to {:?}", new_db),
+                            format!("Successfully moved cache.db to {new_db:?}"),
                         )),
-                        Err(e) => logs
-                            .push((LogLevel::Error, format!("Failed to move cache.db: {:?}", e))),
+                        Err(e) => {
+                            logs.push((LogLevel::Error, format!("Failed to move cache.db: {e:?}")))
+                        }
                     }
                 }
 
@@ -198,27 +199,24 @@ fn prepare_real_cache_dir(
                 if old_log.exists() {
                     logs.push((
                         LogLevel::Info,
-                        format!("Found log directory {:?}, move to {:?}", old_log, new_log),
+                        format!("Found log directory {old_log:?}, move to {new_log:?}"),
                     ));
 
                     match std::fs::rename(&old_log, &new_log) {
                         Ok(()) => logs.push((
                             LogLevel::Info,
-                            format!("Successfully moved log directory to {:?}", new_log),
+                            format!("Successfully moved log directory to {new_log:?}"),
                         )),
                         Err(e) => logs.push((
                             LogLevel::Error,
-                            format!("Failed to move log directory: {:?}", e),
+                            format!("Failed to move log directory: {e:?}"),
                         )),
                     }
                 }
             } else {
                 logs.push((
                     LogLevel::Info,
-                    format!(
-                        "Old cache dir {:?} does not exist, no migration needed",
-                        old_dir
-                    ),
+                    format!("Old cache dir {old_dir:?} does not exist, no migration needed"),
                 ));
                 std::fs::create_dir_all(&final_path)?;
             }
