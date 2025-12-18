@@ -2,7 +2,7 @@ import { TileBuffer } from "../pkg";
 import { getViewportTileRange } from "./layers/utils";
 import { MultiRequest } from "./multi-requests";
 import type maplibregl from "maplibre-gl";
-import type { ValidatedParams } from "./params";
+import type { ReactiveParams } from "./params";
 
 /**
  * View range tuple: [x, y, width, height, zoom]
@@ -71,7 +71,7 @@ declare global {
 
 export class JourneyTileProvider {
   private map: maplibregl.Map;
-  private params: ValidatedParams;
+  private params: ReactiveParams;
   private currentVersion: string | null; // Store the current version
   private viewRange: ViewRange | null; // Store the current viewport tile range [x, y, w, h, z]
   // TODO: evaluate whether we need to make this public (also the bufferSizePower)
@@ -85,7 +85,7 @@ export class JourneyTileProvider {
 
   constructor(
     map: maplibregl.Map,
-    params: ValidatedParams,
+    params: ReactiveParams,
     bufferSizePower: number = 8,
     isGlobeProjection: boolean = false,
   ) {

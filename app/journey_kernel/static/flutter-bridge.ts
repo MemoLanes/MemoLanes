@@ -1,10 +1,15 @@
 /**
  * Flutter Bridge Module
  * Manages all communication between WebView and Flutter
+ * 
+ * This module now uses ReactiveParams for parameter updates.
+ * When properties like renderMode or journeyId are set on params,
+ * the registered hooks in index.ts automatically handle the side effects
+ * (e.g., switching layers, refreshing tile data).
  */
 
 import type maplibregl from "maplibre-gl";
-import type { ValidatedParams } from "./params";
+import type { ReactiveParams } from "./params";
 
 // Type definitions for Flutter message channels
 interface FlutterMessageChannel {
@@ -25,31 +30,34 @@ declare global {
     ) => void;
     getCurrentMapView?: () => string;
     triggerJourneyUpdate?: () => Promise<void>;
-    switchRenderingLayer?: (renderingMode: string) => any;
+    switchRenderingLayer?: (renderingMode: string) => boolean;
     updateJourneyId?: (newJourneyId: string) => boolean;
   }
 }
 
+/**
+ * Configuration for FlutterBridge
+ * 
+ * Note: switchRenderingLayerFn is no longer needed because ReactiveParams
+ * handles this via hooks when params.renderMode is set.
+ */
 export interface FlutterBridgeConfig {
   map: maplibregl.Map;
   locationMarker: maplibregl.Marker;
   journeyTileProvider: any; // JourneyTileProvider type
-  switchRenderingLayerFn: (map: any) => any;
-  params: ValidatedParams;
+  params: ReactiveParams;
 }
 
 export class FlutterBridge {
   private map: maplibregl.Map;
   private locationMarker: maplibregl.Marker;
   private journeyTileProvider: any;
-  private switchRenderingLayerFn: (map: any) => any;
-  private params: ValidatedParams;
+  private params: ReactiveParams;
 
   constructor(config: FlutterBridgeConfig) {
     this.map = config.map;
     this.locationMarker = config.locationMarker;
     this.journeyTileProvider = config.journeyTileProvider;
-    this.switchRenderingLayerFn = config.switchRenderingLayerFn;
     this.params = config.params;
   }
 
@@ -92,6 +100,9 @@ export class FlutterBridge {
 
   /**
    * Setup all window methods that Flutter can call
+   * 
+   * These methods now use ReactiveParams setters, which automatically
+   * trigger the appropriate hooks registered in index.ts.
    */
   setupFlutterCallableMethods(): void {
     // Update location marker
@@ -131,14 +142,34 @@ export class FlutterBridge {
       return this.journeyTileProvider.pollForJourneyUpdates(false);
     };
 
-    // Switch rendering layer
-    window.switchRenderingLayer = (renderingMode: string) => {
-      // Update params first, then switch
+    /**
+     * Switch rendering layer
+     * 
+     * This method now simply sets params.renderMode.
+     * The ReactiveParams hook system automatically triggers switchRenderingLayer()
+     * when the value changes.
+     * 
+     * @param renderingMode - The new rendering mode (e.g., 'canvas', 'gl')
+     * @returns true if the mode was changed, false if it was already set to this value
+     */
+    window.switchRenderingLayer = (renderingMode: string): boolean => {
+      // The setter returns void, but we can check if it changed
+      // by comparing before and after values
+      const oldMode = this.params.renderMode;
       this.params.renderMode = renderingMode;
-      return this.switchRenderingLayerFn(this.map);
+      return oldMode !== renderingMode;
     };
 
-    // Update journey ID
+    /**
+     * Update journey ID
+     * 
+     * This method now simply sets params.journeyId.
+     * The ReactiveParams hook system automatically triggers pollForJourneyUpdates()
+     * when the value changes.
+     * 
+     * @param newJourneyId - The new journey ID
+     * @returns true if the journey ID was changed, false if empty or already set
+     */
     window.updateJourneyId = (newJourneyId: string): boolean => {
       if (!newJourneyId) {
         console.warn("updateJourneyId: journey ID cannot be empty");
@@ -156,13 +187,8 @@ export class FlutterBridge {
         `updateJourneyId: switching from '${this.params.journeyId}' to '${newJourneyId}'`,
       );
 
-      // Update the journey ID in params object (shared reference)
+      // Simply set the journeyId - the hook handles pollForJourneyUpdates
       this.params.journeyId = newJourneyId;
-
-      // Force update to fetch data for the new journey
-      if (this.journeyTileProvider) {
-        this.journeyTileProvider.pollForJourneyUpdates(true);
-      }
 
       return true;
     };

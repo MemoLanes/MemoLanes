@@ -13,7 +13,7 @@ import {
   isMapboxURL,
   transformMapboxUrl,
 } from "maplibregl-mapbox-request-transformer";
-import { parseUrlHash, parseAndValidateParams, AVAILABLE_LAYERS } from "./params";
+import { parseUrlHash, parseAndValidateParams, AVAILABLE_LAYERS, ReactiveParams } from "./params";
 import { FlutterBridge, notifyFlutterReady } from "./flutter-bridge";
 import { ensurePlatformCompatibility } from "./platform";
 import { transformStyle, displayPageMessage } from "./utils";
@@ -44,11 +44,14 @@ let locationMarker: Marker | null = null;
 
 /**
  * Function to switch between rendering layers
+ * This function handles the actual layer switching logic.
+ * It is called automatically when params.renderMode changes (via hook).
+ * 
  * @param map - MapLibre map instance
- * @param params - Validated params object containing render mode
+ * @param params - ReactiveParams instance containing render mode
  * @returns The newly created journey layer instance
  */
-function switchRenderingLayer(map: MaplibreMap, params: any): JourneyLayer {
+function switchRenderingLayer(map: MaplibreMap, params: ReactiveParams): JourneyLayer {
   let renderingMode = params.renderMode;
   
   if (!AVAILABLE_LAYERS[renderingMode]) {
@@ -56,7 +59,8 @@ function switchRenderingLayer(map: MaplibreMap, params: any): JourneyLayer {
       `Rendering mode '${renderingMode}' not available, using canvas instead.`,
     );
     renderingMode = "canvas";
-    params.renderMode = renderingMode; // Update params with fallback
+    // Note: We don't update params.renderMode here to avoid recursive hook calls
+    // The fallback is just for this rendering operation
   }
 
   // Clean up existing layer if present
@@ -73,6 +77,31 @@ function switchRenderingLayer(map: MaplibreMap, params: any): JourneyLayer {
   currentJourneyLayer.initialize();
   
   return currentJourneyLayer;
+}
+
+/**
+ * Register hooks on ReactiveParams to handle property changes
+ * This is the central place where we wire up reactive behaviors.
+ * 
+ * @param map - MapLibre map instance
+ * @param params - ReactiveParams instance to register hooks on
+ */
+function registerParamsHooks(map: MaplibreMap, params: ReactiveParams): void {
+  // Hook for renderMode changes
+  // When renderMode changes, automatically switch the rendering layer
+  params.on('renderMode', (newMode, oldMode) => {
+    console.log(`[ReactiveParams] renderMode changed: ${oldMode} -> ${newMode}`);
+    switchRenderingLayer(map, params);
+  });
+
+  // Hook for journeyId changes
+  // When journeyId changes, force update the tile provider
+  params.on('journeyId', (newId, oldId) => {
+    console.log(`[ReactiveParams] journeyId changed: ${oldId} -> ${newId}`);
+    if (currentJourneyTileProvider) {
+      currentJourneyTileProvider.pollForJourneyUpdates(true);
+    }
+  });
 }
 
 /**
@@ -105,7 +134,7 @@ async function trySetup(): Promise<void> {
     return;
   }
 
-  // Extract validated parameters
+  // Extract validated parameters (now ReactiveParams instance)
   const params = validationResult.params;
 
   let transformRequest: RequestTransformFunction = (
@@ -176,8 +205,14 @@ async function trySetup(): Promise<void> {
     await currentJourneyTileProvider.pollForJourneyUpdates(true);
     console.log("initial tile buffer loaded");
 
+    // Register hooks BEFORE creating the initial layer
+    // This ensures all future changes are automatically handled
+    registerParamsHooks(map, params);
+
     // Create and initialize journey layer with selected rendering mode
+    // Note: This is the initial setup, subsequent changes go through the hook
     currentJourneyLayer = switchRenderingLayer(map, params);
+    
     map.on("styledata", () => {
       console.log("styledata event received");
       const orderedLayerIds = map.getLayersOrder();
@@ -202,16 +237,17 @@ async function trySetup(): Promise<void> {
     );
 
     // Create and initialize the debug panel
-    const debugPanel = new DebugPanel(map, AVAILABLE_LAYERS);
+    const debugPanel = new DebugPanel(map, params, AVAILABLE_LAYERS);
     debugPanel.initialize();
     debugPanel.listenForHashChanges();
 
     // Initialize Flutter bridge
+    // Now FlutterBridge only needs the params - it can set properties directly
+    // and the hooks will handle the side effects
     const flutterBridge = new FlutterBridge({
       map,
       locationMarker: locationMarker!,
       journeyTileProvider: currentJourneyTileProvider,
-      switchRenderingLayerFn: (map: any) => switchRenderingLayer(map, params),
       params,
     });
     flutterBridge.initialize();
@@ -237,32 +273,6 @@ async function trySetup(): Promise<void> {
         });
       }
     }, 8 * 1000);
-  });
-
-  // Listen for hash changes
-  window.addEventListener("hashchange", () => {
-    const hash = window.location.hash.slice(1);
-    const params = new URLSearchParams(hash);
-
-    // Check if journey ID has changed
-    const newJourneyId = params.get("journey_id");
-    if (newJourneyId !== currentJourneyId && newJourneyId !== null) {
-      currentJourneyId = newJourneyId;
-      // TODO: fix this.
-      // @ts-ignore - accessing private property for compatibility, should be refactored to use a public setter
-      currentJourneyTileProvider.journeyId = currentJourneyId;
-      currentJourneyTileProvider.pollForJourneyUpdates(true);
-    }
-
-    // Check if rendering mode has changed
-    const newRenderMode = params.get("render");
-    if (
-      newRenderMode &&
-      newRenderMode !== currentRenderingMode &&
-      AVAILABLE_LAYERS[newRenderMode]
-    ) {
-      switchRenderingLayer(map, newRenderMode);
-    }
   });
 }
 

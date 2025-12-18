@@ -1,9 +1,13 @@
 /**
  * Debug Panel for Map Overlay
  * Shows when debug=true is in URL hash
+ * 
+ * This module now uses ReactiveParams for parameter updates.
+ * When the rendering mode dropdown changes, it simply sets params.renderMode,
+ * and the registered hooks automatically handle layer switching.
  */
 
-import type { LayerConfig, AvailableLayers } from "./params";
+import type { LayerConfig, AvailableLayers, ReactiveParams } from "./params";
 
 // Interface for URL hash parameters
 interface UrlHashParams {
@@ -28,6 +32,7 @@ interface MapInstance {
 
 export class DebugPanel {
   private map: MapInstance;
+  private params: ReactiveParams;
   private panel: HTMLDivElement | null;
   private visible: boolean;
   private availableLayers: AvailableLayers;
@@ -49,8 +54,9 @@ export class DebugPanel {
   private networkCanvas: HTMLCanvasElement | null;
   private networkCtx: CanvasRenderingContext2D | null;
 
-  constructor(map: MapInstance, availableLayers: AvailableLayers = {}) {
+  constructor(map: MapInstance, params: ReactiveParams, availableLayers: AvailableLayers = {}) {
     this.map = map;
+    this.params = params;
     this.panel = null;
     this.visible = false;
     this.availableLayers = availableLayers;
@@ -139,6 +145,32 @@ export class DebugPanel {
 
     // Check if debug mode is enabled in URL
     this._checkDebugStatus();
+
+    // Register hook to sync dropdown when renderMode changes externally
+    this._setupParamsHook();
+  }
+
+  /**
+   * Setup hook to sync the dropdown when renderMode changes from outside
+   * (e.g., from Flutter or URL hash change)
+   */
+  private _setupParamsHook(): void {
+    this.params.on('renderMode', (newMode, _oldMode) => {
+      this._syncRenderingModeDropdown(newMode);
+    });
+  }
+
+  /**
+   * Sync the rendering mode dropdown to match the current params value
+   */
+  private _syncRenderingModeDropdown(renderingMode: string): void {
+    const renderingModeSelect = document.getElementById(
+      "rendering-mode",
+    ) as HTMLSelectElement | null;
+    
+    if (renderingModeSelect && this.availableLayers[renderingMode]) {
+      renderingModeSelect.value = renderingMode;
+    }
   }
 
   private _setupEventListeners(): void {
@@ -152,17 +184,20 @@ export class DebugPanel {
     }
 
     // Rendering mode direct change handler
+    // Now simply sets params.renderMode - the hook system handles the rest
     const renderingModeSelect = document.getElementById("rendering-mode");
     if (renderingModeSelect) {
       renderingModeSelect.addEventListener("change", (e: Event) => {
         const target = e.target as HTMLSelectElement;
         const renderingMode = target.value;
+        
+        // Update URL hash
         this._updateUrlHash({ render: renderingMode });
-        if (
-          (window as any).switchRenderingLayer &&
-          this.availableLayers[renderingMode]
-        ) {
-          (window as any).switchRenderingLayer(renderingMode);
+        
+        // Simply set the renderMode on params
+        // The ReactiveParams hook system automatically triggers switchRenderingLayer()
+        if (this.availableLayers[renderingMode]) {
+          this.params.renderMode = renderingMode;
         }
       });
     }
@@ -470,15 +505,8 @@ export class DebugPanel {
     if (debugParam === "true") {
       this.show();
 
-      const renderingMode: string = urlParams.get("render") || "canvas";
-
-      // Only set rendering mode if it's available
-      const renderingModeSelect = document.getElementById(
-        "rendering-mode",
-      ) as HTMLSelectElement | null;
-      if (this.availableLayers[renderingMode] && renderingModeSelect) {
-        renderingModeSelect.value = renderingMode;
-      }
+      // Sync dropdown with current params value
+      this._syncRenderingModeDropdown(this.params.renderMode);
 
       // Update viewpoint info
       this._updateViewpointInfo();
