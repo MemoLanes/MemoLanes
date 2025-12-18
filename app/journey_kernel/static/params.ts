@@ -3,6 +3,10 @@
  * Handles parsing and validation of parameters from URL hash or external sources
  */
 
+// Default values for parameters
+const DEFAULT_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
+const DEFAULT_RENDER_MODE = "canvas";
+
 // Raw external parameters (from URL hash or Flutter)
 export interface ExternalParams {
   cgi_endpoint?: string;
@@ -19,13 +23,13 @@ export interface ExternalParams {
 // Validated and typed parameters ready for use
 export class ValidatedParams {
   readonly cgiEndpoint: string;
-  readonly journeyId: string;
+  journeyId: string; // Mutable to allow runtime updates
   readonly mapStyle: string;
   readonly accessKey: string | null;
   readonly lng: number;
   readonly lat: number;
   readonly zoom: number;
-  readonly renderMode: string;
+  renderMode: string; // Mutable to allow runtime updates
   readonly requiresMapboxToken: boolean;
 
   constructor(
@@ -105,15 +109,11 @@ export function parseUrlHash(): ExternalParams {
  * Parse and validate external parameters
  * @param externalParams Raw external parameters from URL hash or Flutter
  * @param availableRenderModes Map of available rendering modes
- * @param defaultMapStyle Default map style to use if not specified
- * @param defaultRenderMode Default rendering mode if not specified
  * @returns ValidationResult with either validated params or error
  */
 export function parseAndValidateParams(
   externalParams: ExternalParams,
   availableRenderModes: { [key: string]: any },
-  defaultMapStyle: string = "https://tiles.openfreemap.org/styles/liberty",
-  defaultRenderMode: string = "canvas",
 ): ValidationResult {
   // Check if cgi_endpoint is provided
   if (!externalParams.cgi_endpoint) {
@@ -137,7 +137,7 @@ export function parseAndValidateParams(
   const cgiEndpoint = externalParams.cgi_endpoint;
 
   // Determine map style
-  const mapStyle = externalParams.map_style || defaultMapStyle;
+  const mapStyle = externalParams.map_style || DEFAULT_MAP_STYLE;
 
   // Check if mapbox style requires access token
   const requiresMapboxToken =
@@ -157,7 +157,7 @@ export function parseAndValidateParams(
   }
 
   // Parse and validate rendering mode
-  let renderMode = defaultRenderMode;
+  let renderMode = DEFAULT_RENDER_MODE;
   if (externalParams.render && availableRenderModes[externalParams.render]) {
     renderMode = externalParams.render;
   } else if (
@@ -165,7 +165,7 @@ export function parseAndValidateParams(
     !availableRenderModes[externalParams.render]
   ) {
     console.warn(
-      `Rendering mode '${externalParams.render}' not available, using ${defaultRenderMode} instead.`,
+      `Rendering mode '${externalParams.render}' not available, using ${DEFAULT_RENDER_MODE} instead.`,
     );
   }
 
