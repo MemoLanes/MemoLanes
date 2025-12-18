@@ -1,4 +1,3 @@
-import { JourneyCanvasLayer } from "./layers/journey-canvas-layer";
 import { JourneyTileProvider } from "./journey-tile-provider";
 import { DebugPanel } from "./debug-panel";
 import init from "../pkg/index.js";
@@ -14,14 +13,11 @@ import {
   isMapboxURL,
   transformMapboxUrl,
 } from "maplibregl-mapbox-request-transformer";
-import { parseUrlHash, parseAndValidateParams } from "./params";
+import { parseUrlHash, parseAndValidateParams, AVAILABLE_LAYERS } from "./params";
 import { FlutterBridge, notifyFlutterReady } from "./flutter-bridge";
 import { ensurePlatformCompatibility } from "./platform";
 import { transformStyle, displayPageMessage } from "./utils";
-import type {
-  JourneyLayer,
-  JourneyLayerConstructor,
-} from "./layers/journey-layer-interface";
+import type { JourneyLayer } from "./layers/journey-layer-interface";
 
 import "./debug-panel.css";
 
@@ -40,29 +36,6 @@ declare global {
 // Initialize window properties
 window.SETUP_PENDING = false;
 window.EXTERNAL_PARAMS = {};
-
-// Type definitions for rendering layers
-interface LayerConfig {
-  name: string;
-  layerClass: JourneyLayerConstructor;
-  bufferSizePower: number;
-  description: string;
-}
-
-interface AvailableLayers {
-  canvas: LayerConfig;
-  [key: string]: LayerConfig;
-}
-
-// Available rendering layers
-const AVAILABLE_LAYERS: AvailableLayers = {
-  canvas: {
-    name: "Canvas",
-    layerClass: JourneyCanvasLayer,
-    bufferSizePower: 8,
-    description: "Uses Canvas API for rendering",
-  }
-};
 
 // Global state variables
 let currentJourneyLayer: JourneyLayer | null = null; // Store reference to current layer

@@ -3,9 +3,59 @@
  * Handles parsing and validation of parameters from URL hash or external sources
  */
 
+import { JourneyCanvasLayer } from "./layers/journey-canvas-layer";
+import type { JourneyLayerConstructor } from "./layers/journey-layer-interface";
+
 // Default values for parameters
 const DEFAULT_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 const DEFAULT_RENDER_MODE = "canvas";
+
+// ============================================================================
+// Layer Configuration
+// ============================================================================
+
+/**
+ * Configuration for a rendering layer.
+ * Add new layer implementations by creating a new LayerConfig entry.
+ */
+export interface LayerConfig {
+  /** Display name for the layer */
+  name: string;
+  /** The layer class constructor, must implement JourneyLayer interface */
+  layerClass: JourneyLayerConstructor;
+  /** Power of 2 for tile buffer size (e.g., 8 = 256px, 10 = 1024px) */
+  bufferSizePower: number;
+  /** Human-readable description */
+  description: string;
+}
+
+/** Map of layer key to LayerConfig */
+export type AvailableLayers = { [key: string]: LayerConfig };
+
+/**
+ * Available rendering layers.
+ *
+ * To add a new layer:
+ * 1. Create a class that implements the JourneyLayer interface
+ * 2. Import it at the top of this file
+ * 3. Add a new entry below with a unique key
+ *
+ * Example:
+ *   myNewLayer: {
+ *     name: "My New Layer",
+ *     layerClass: MyNewLayerClass,
+ *     bufferSizePower: 9,
+ *     description: "Description of my new layer",
+ *   },
+ */
+export const AVAILABLE_LAYERS: { [key: string]: LayerConfig } = {
+  canvas: {
+    name: "Canvas",
+    layerClass: JourneyCanvasLayer,
+    bufferSizePower: 8,
+    description: "Uses Canvas API for rendering",
+  },
+};
 
 // Raw external parameters (from URL hash or Flutter)
 export interface ExternalParams {

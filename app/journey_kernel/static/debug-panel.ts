@@ -3,17 +3,7 @@
  * Shows when debug=true is in URL hash
  */
 
-// Interface for layer configuration
-interface LayerConfig {
-  name: string;
-  description: string;
-  layer?: any; // The actual layer implementation
-}
-
-// Interface for available layers map
-interface AvailableLayers {
-  [key: string]: LayerConfig;
-}
+import type { LayerConfig, AvailableLayers } from "./params";
 
 // Interface for URL hash parameters
 interface UrlHashParams {
