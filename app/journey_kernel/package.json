@@ -10,13 +10,14 @@
     "check-format": "prettier --check \"**/*.{js,jsx,ts,tsx,html}\""
   },
   "dependencies": {
-    "maplibre-gl": "^5.7.3",
-    "maplibregl-mapbox-request-transformer": "^0.0.3"
+    "@types/ua-parser-js": "^0.7.39",
+    "maplibre-gl": "^5.15.0",
+    "maplibregl-mapbox-request-transformer": "^0.0.3",
+    "mathjs": "^15.0.0",
+    "ua-parser-js": "^2.0.7"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
-    "ts-loader": "^9.5.4",
-    "typescript": "^5.9.3",
     "@wasm-tool/wasm-pack-plugin": "^1.7.0",
     "copy-webpack-plugin": "^12.0.2",
     "css-loader": "^6.10.0",
@@ -24,6 +25,8 @@
     "prettier": "^3.6.2",
     "rimraf": "^5.0.0",
     "style-loader": "^3.3.4",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.9.3",
     "webpack": "^5.101.3",
     "webpack-cli": "^5.1.4",
     "webpack-dev-server": "^5.2.2"
