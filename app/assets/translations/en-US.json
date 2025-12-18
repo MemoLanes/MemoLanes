@@ -9,7 +9,12 @@
     "map_data_source_copyright_title": "Data Source"
   },
   "location_service": {
-    "location_permission_denied": "You have denied location permission. To ensure the use of positioning functions, please turn it on in settings.",
+    "location_service_disabled": "Location services are disabled. Please enable them in the settings.",
+    "location_permission_permanently_denied": "You have denied location permission. To ensure proper location functionality, please enable it in the app settings.",
+    "location_permission_reason": "We need your permission to access your location in order to provide accurate tracking and location-based features.",
+    "background_location_permission_permanently_denied": "To continuously access location information, background location permission is recommended. Please enable it in the app settings.",
+    "battery_optimization_reason": "To ensure continuous background location updates, please allow the app to ignore battery optimization.",
+    "battery_optimization_denied": "You have declined to ignore battery optimization, which may cause the app to run unstable in the background. Please allow it in the app settings.",
     "android_foreground_notification_channel_name": "Tracking Service",
     "android_foreground_notification_title": "Recording in Background",
     "android_foreground_notification_text": "MemoLanes will continue to record in the background",
