@@ -75,7 +75,7 @@ let locationMarker: Marker | null = null;
  * @param params - Validated params object containing render mode
  * @returns The newly created journey layer instance
  */
-function switchRenderingLayer(map: MaplibreMap, params: any): any {
+function switchRenderingLayer(map: MaplibreMap, params: any): JourneyLayer {
   let renderingMode = params.renderMode;
   
   if (!AVAILABLE_LAYERS[renderingMode]) {
