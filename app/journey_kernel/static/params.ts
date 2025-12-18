@@ -1,6 +1,11 @@
 /**
  * Frontend parameters management
- * Handles parsing and validation of parameters from URL hash or external sources
+ * Handles parsing and creation of ReactiveParams from URL hash or external sources
+ * 
+ * This module provides:
+ * 1. Parameter parsing from URL hash
+ * 2. ReactiveParams class with hook system for reactive updates
+ * 3. createReactiveParams function to build params from external input
  */
 
 import { JourneyCanvasLayer } from "./layers/journey-canvas-layer";
@@ -102,7 +107,8 @@ export type MutablePropertyName = 'renderMode' | 'journeyId';
  * 
  * Usage Example:
  * ```typescript
- * const params = new ReactiveParams(...);
+ * const params = createReactiveParams(externalParams, AVAILABLE_LAYERS);
+ * if (!params) return; // No endpoint yet, wait for next setup
  * 
  * // Register a hook for renderMode changes
  * const unsubscribe = params.on('renderMode', (newMode, oldMode) => {
@@ -305,28 +311,6 @@ export class ReactiveParams {
 }
 
 // ============================================================================
-// Backward Compatibility Alias
-// ============================================================================
-
-/**
- * @deprecated Use ReactiveParams instead
- * This alias is kept for backward compatibility during migration
- */
-export type ValidatedParams = ReactiveParams;
-
-// Validation error with optional detail message
-export interface ValidationError {
-  type: "error";
-  message: string;
-  detail?: string;
-}
-
-// Result type for validation
-export type ValidationResult =
-  | { type: "success"; params: ReactiveParams }
-  | ValidationError;
-
-// ============================================================================
 // Parameter Parsing Functions
 // ============================================================================
 
@@ -369,31 +353,27 @@ export function parseUrlHash(): ExternalParams {
 }
 
 /**
- * Parse and validate external parameters
- * @param externalParams Raw external parameters from URL hash or Flutter
- * @param availableRenderModes Map of available rendering modes
- * @returns ValidationResult with either validated params or error
+ * Create a ReactiveParams instance from external parameters
+ * 
+ * This function processes raw external parameters and creates a ReactiveParams object.
+ * It follows the same pattern as ensurePlatformCompatibility - throws on errors.
+ * 
+ * @param externalParams - Raw external parameters from URL hash or Flutter
+ * @returns ReactiveParams instance, or null if cgi_endpoint is not yet available
+ * @throws Error if required parameters are missing or invalid (except cgi_endpoint)
  */
-export function parseAndValidateParams(
+export function createReactiveParams(
   externalParams: ExternalParams,
-  availableRenderModes: { [key: string]: any },
-): ValidationResult {
+): ReactiveParams | null {
   // Check if cgi_endpoint is provided
+  // Return null instead of throwing - this indicates we should wait for next setup
   if (!externalParams.cgi_endpoint) {
-    return {
-      type: "error",
-      message: "No endpoint configuration",
-      detail: "cgi_endpoint parameter is required",
-    };
+    return null;
   }
 
   // Check if journey_id is provided
   if (!externalParams.journey_id) {
-    return {
-      type: "error",
-      message: "Journey ID not provided",
-      detail: "journey_id parameter is required",
-    };
+    throw new Error("Journey ID not provided. journey_id parameter is required.");
   }
 
   const journeyId = externalParams.journey_id;
@@ -410,22 +390,18 @@ export function parseAndValidateParams(
   let accessKey: string | null = null;
   if (requiresMapboxToken) {
     if (!externalParams.access_key) {
-      return {
-        type: "error",
-        message: "TOKEN not provided",
-        detail: "access_key is required for Mapbox styles",
-      };
+      throw new Error("Mapbox access token not provided. access_key is required for Mapbox styles.");
     }
     accessKey = externalParams.access_key;
   }
 
   // Parse and validate rendering mode
   let renderMode = DEFAULT_RENDER_MODE;
-  if (externalParams.render && availableRenderModes[externalParams.render]) {
+  if (externalParams.render && AVAILABLE_LAYERS[externalParams.render]) {
     renderMode = externalParams.render;
   } else if (
     externalParams.render &&
-    !availableRenderModes[externalParams.render]
+    !AVAILABLE_LAYERS[externalParams.render]
   ) {
     console.warn(
       `Rendering mode '${externalParams.render}' not available, using ${DEFAULT_RENDER_MODE} instead.`,
@@ -452,7 +428,7 @@ export function parseAndValidateParams(
     : 2;
 
   // Create and return ReactiveParams instance
-  const reactiveParams = new ReactiveParams(
+  return new ReactiveParams(
     cgiEndpoint,
     journeyId,
     mapStyle,
@@ -463,9 +439,4 @@ export function parseAndValidateParams(
     renderMode,
     requiresMapboxToken,
   );
-
-  return {
-    type: "success",
-    params: reactiveParams,
-  };
 }

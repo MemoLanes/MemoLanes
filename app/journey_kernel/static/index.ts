@@ -13,7 +13,7 @@ import {
   isMapboxURL,
   transformMapboxUrl,
 } from "maplibregl-mapbox-request-transformer";
-import { parseUrlHash, parseAndValidateParams, AVAILABLE_LAYERS, ReactiveParams } from "./params";
+import { parseUrlHash, createReactiveParams, AVAILABLE_LAYERS, ReactiveParams } from "./params";
 import { FlutterBridge, notifyFlutterReady } from "./flutter-bridge";
 import { ensurePlatformCompatibility } from "./platform";
 import { transformStyle, displayPageMessage } from "./utils";
@@ -115,27 +115,24 @@ async function trySetup(): Promise<void> {
 
   console.log(`parse external params`, window.EXTERNAL_PARAMS);
 
-  // Validate and parse parameters
-  const validationResult = parseAndValidateParams(
-    window.EXTERNAL_PARAMS,
-    AVAILABLE_LAYERS,
-  );
-
-  // Handle validation errors
-  if (validationResult.type === "error") {
-    if (validationResult.detail === "cgi_endpoint parameter is required") {
-      // No hash param and no default endpoint, stop setting up and waiting for next setup
+  // Create ReactiveParams from external parameters
+  // Returns null if cgi_endpoint is not available yet (waiting for Flutter)
+  // Throws error for other validation failures
+  let params: ReactiveParams;
+  try {
+    const result = createReactiveParams(window.EXTERNAL_PARAMS);
+    if (result === null) {
+      // No cgi_endpoint yet, stop setting up and wait for next setup call
       return;
     }
-
-    // Display error message
-    displayPageMessage(validationResult.message, validationResult.detail);
+    params = result;
+  } catch (error) {
+    // Display error message for validation failures
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    displayPageMessage("Configuration Error", errorMessage);
     notifyFlutterReady();
     return;
   }
-
-  // Extract validated parameters (now ReactiveParams instance)
-  const params = validationResult.params;
 
   let transformRequest: RequestTransformFunction = (
     url: string,
