@@ -1,7 +1,7 @@
 /**
  * Flutter Bridge Module
  * Manages all communication between WebView and Flutter
- * 
+ *
  * This module now uses ReactiveParams for parameter updates.
  * When properties like renderMode or journeyId are set on params,
  * the registered hooks in index.ts automatically handle the side effects
@@ -125,11 +125,11 @@ export class FlutterBridge {
 
     /**
      * Update journey ID
-     * 
+     *
      * This method now simply sets params.journeyId.
      * The ReactiveParams hook system automatically triggers pollForJourneyUpdates()
      * when the value changes.
-     * 
+     *
      * @param newJourneyId - The new journey ID
      * @returns true if the journey ID was changed, false if empty or already set
      */

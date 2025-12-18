@@ -13,7 +13,12 @@ import {
   isMapboxURL,
   transformMapboxUrl,
 } from "maplibregl-mapbox-request-transformer";
-import { parseUrlHash, createReactiveParams, AVAILABLE_LAYERS, ReactiveParams } from "./params";
+import {
+  parseUrlHash,
+  createReactiveParams,
+  AVAILABLE_LAYERS,
+  ReactiveParams,
+} from "./params";
 import { FlutterBridge, notifyFlutterReady } from "./flutter-bridge";
 import { ensurePlatformCompatibility } from "./platform";
 import { transformStyle, displayPageMessage } from "./utils";
@@ -46,14 +51,17 @@ let locationMarker: Marker | null = null;
  * Function to switch between rendering layers
  * This function handles the actual layer switching logic.
  * It is called automatically when params.renderMode changes (via hook).
- * 
+ *
  * @param map - MapLibre map instance
  * @param params - ReactiveParams instance containing render mode
  * @returns The newly created journey layer instance
  */
-function switchRenderingLayer(map: MaplibreMap, params: ReactiveParams): JourneyLayer {
+function switchRenderingLayer(
+  map: MaplibreMap,
+  params: ReactiveParams,
+): JourneyLayer {
   let renderingMode = params.renderMode;
-  
+
   if (!AVAILABLE_LAYERS[renderingMode]) {
     console.warn(
       `Rendering mode '${renderingMode}' not available, using canvas instead.`,
@@ -75,28 +83,30 @@ function switchRenderingLayer(map: MaplibreMap, params: ReactiveParams): Journey
   currentJourneyTileProvider.setBufferSizePower(bufferSizePower);
   currentJourneyLayer = new LayerClass(map, currentJourneyTileProvider);
   currentJourneyLayer.initialize();
-  
+
   return currentJourneyLayer;
 }
 
 /**
  * Register hooks on ReactiveParams to handle property changes
  * This is the central place where we wire up reactive behaviors.
- * 
+ *
  * @param map - MapLibre map instance
  * @param params - ReactiveParams instance to register hooks on
  */
 function registerParamsHooks(map: MaplibreMap, params: ReactiveParams): void {
   // Hook for renderMode changes
   // When renderMode changes, automatically switch the rendering layer
-  params.on('renderMode', (newMode, oldMode) => {
-    console.log(`[ReactiveParams] renderMode changed: ${oldMode} -> ${newMode}`);
+  params.on("renderMode", (newMode, oldMode) => {
+    console.log(
+      `[ReactiveParams] renderMode changed: ${oldMode} -> ${newMode}`,
+    );
     switchRenderingLayer(map, params);
   });
 
   // Hook for journeyId changes
   // When journeyId changes, force update the tile provider
-  params.on('journeyId', (newId, oldId) => {
+  params.on("journeyId", (newId, oldId) => {
     console.log(`[ReactiveParams] journeyId changed: ${oldId} -> ${newId}`);
     if (currentJourneyTileProvider) {
       currentJourneyTileProvider.pollForJourneyUpdates(true);
@@ -140,7 +150,7 @@ async function trySetup(): Promise<void> {
   ) => {
     return { url };
   };
-  
+
   // Configure transform request for Mapbox styles
   if (params.requiresMapboxToken && params.accessKey) {
     transformRequest = (url: string, resourceType?: ResourceType) => {
@@ -209,7 +219,7 @@ async function trySetup(): Promise<void> {
     // Create and initialize journey layer with selected rendering mode
     // Note: This is the initial setup, subsequent changes go through the hook
     currentJourneyLayer = switchRenderingLayer(map, params);
-    
+
     map.on("styledata", () => {
       console.log("styledata event received");
       const orderedLayerIds = map.getLayersOrder();
@@ -280,7 +290,7 @@ try {
   // Display error message on the webpage
   const errorMessage = error instanceof Error ? error.message : String(error);
   displayPageMessage("Platform Compatibility Error", errorMessage);
-  
+
   // Notify Flutter even on error so app can handle the error state
   notifyFlutterReady();
   throw error;

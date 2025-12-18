@@ -36,4 +36,3 @@ export interface JourneyLayerConstructor {
     fgColor?: RGBAColor,
   ): JourneyLayer;
 }
-

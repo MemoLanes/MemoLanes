@@ -1,13 +1,17 @@
 /**
  * Debug Panel for Map Overlay
  * Shows when debug=true is in URL hash
- * 
+ *
  * This module now uses ReactiveParams for parameter updates.
  * When the rendering mode dropdown changes, it simply sets params.renderMode,
  * and the registered hooks automatically handle layer switching.
  */
 
-import { AVAILABLE_LAYERS, type LayerConfig, type ReactiveParams } from "./params";
+import {
+  AVAILABLE_LAYERS,
+  type LayerConfig,
+  type ReactiveParams,
+} from "./params";
 
 // Interface for URL hash parameters
 interface UrlHashParams {
@@ -153,7 +157,7 @@ export class DebugPanel {
    * (e.g., from Flutter or URL hash change)
    */
   private _setupParamsHook(): void {
-    this.params.on('renderMode', (newMode, _oldMode) => {
+    this.params.on("renderMode", (newMode, _oldMode) => {
       this._syncRenderingModeDropdown(newMode);
     });
   }
@@ -165,7 +169,7 @@ export class DebugPanel {
     const renderingModeSelect = document.getElementById(
       "rendering-mode",
     ) as HTMLSelectElement | null;
-    
+
     if (renderingModeSelect && AVAILABLE_LAYERS[renderingMode]) {
       renderingModeSelect.value = renderingMode;
     }
@@ -188,10 +192,10 @@ export class DebugPanel {
       renderingModeSelect.addEventListener("change", (e: Event) => {
         const target = e.target as HTMLSelectElement;
         const renderingMode = target.value;
-        
+
         // Update URL hash
         this._updateUrlHash({ render: renderingMode });
-        
+
         // Simply set the renderMode on params
         // The ReactiveParams hook system automatically triggers switchRenderingLayer()
         if (AVAILABLE_LAYERS[renderingMode]) {

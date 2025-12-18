@@ -1,7 +1,7 @@
 /**
  * Frontend parameters management
  * Handles parsing and creation of ReactiveParams from URL hash or external sources
- * 
+ *
  * This module provides:
  * 1. Parameter parsing from URL hash
  * 2. ReactiveParams class with hook system for reactive updates
@@ -94,31 +94,31 @@ export type PropertyChangeCallback<T> = (newValue: T, oldValue: T) => void;
  * Mutable property names that support hooks
  * These are the properties that can be changed at runtime and trigger callbacks
  */
-export type MutablePropertyName = 'renderMode' | 'journeyId';
+export type MutablePropertyName = "renderMode" | "journeyId";
 
 /**
  * ReactiveParams - A reactive parameters class with hook support
- * 
+ *
  * This class wraps validated parameters and provides:
  * - Getters for all parameters
  * - Setters for mutable parameters that trigger registered hooks
  * - on() method to register callbacks for property changes
  * - set() method for generic property updates
- * 
+ *
  * Usage Example:
  * ```typescript
  * const params = createReactiveParams(externalParams, AVAILABLE_LAYERS);
  * if (!params) return; // No endpoint yet, wait for next setup
- * 
+ *
  * // Register a hook for renderMode changes
  * const unsubscribe = params.on('renderMode', (newMode, oldMode) => {
  *   console.log(`Render mode changed from ${oldMode} to ${newMode}`);
  *   switchRenderingLayer(map);
  * });
- * 
+ *
  * // Later, when renderMode changes, the hook is automatically called
  * params.renderMode = 'gl';
- * 
+ *
  * // Unsubscribe when no longer needed
  * unsubscribe();
  * ```
@@ -137,7 +137,8 @@ export class ReactiveParams {
 
   // Hooks storage - map of property name to set of callbacks
   // Using Set to allow multiple hooks per property and easy removal
-  private hooks: Map<MutablePropertyName, Set<PropertyChangeCallback<any>>> = new Map();
+  private hooks: Map<MutablePropertyName, Set<PropertyChangeCallback<any>>> =
+    new Map();
 
   constructor(
     cgiEndpoint: string,
@@ -167,16 +168,16 @@ export class ReactiveParams {
 
   /**
    * Register a callback to be called when a property changes
-   * 
+   *
    * @param property - The property name to watch ('renderMode' or 'journeyId')
    * @param callback - Function called with (newValue, oldValue) when property changes
    * @returns Unsubscribe function - call it to remove the hook
-   * 
+   *
    * Note: Hooks are only called when the value actually changes (oldValue !== newValue)
    */
   on<K extends MutablePropertyName>(
     property: K,
-    callback: PropertyChangeCallback<K extends 'renderMode' ? string : string>,
+    callback: PropertyChangeCallback<K extends "renderMode" ? string : string>,
   ): () => void {
     // Initialize the Set for this property if it doesn't exist
     if (!this.hooks.has(property)) {
@@ -197,7 +198,11 @@ export class ReactiveParams {
    * Trigger all registered hooks for a property
    * Called internally when a property value changes
    */
-  private triggerHooks<T>(property: MutablePropertyName, newValue: T, oldValue: T): void {
+  private triggerHooks<T>(
+    property: MutablePropertyName,
+    newValue: T,
+    oldValue: T,
+  ): void {
     const callbacks = this.hooks.get(property);
     if (!callbacks) return;
 
@@ -217,27 +222,27 @@ export class ReactiveParams {
   /**
    * Generic method to set a mutable property by name
    * This is useful when the property name is dynamic (e.g., from Flutter bridge)
-   * 
+   *
    * @param key - The property name ('renderMode' or 'journeyId')
    * @param value - The new value to set
    * @returns true if the value was changed, false if it was the same
    */
   set(key: MutablePropertyName, value: string): boolean {
     switch (key) {
-      case 'renderMode':
+      case "renderMode":
         if (this._renderMode === value) return false;
         const oldRenderMode = this._renderMode;
         this._renderMode = value;
-        this.triggerHooks('renderMode', value, oldRenderMode);
+        this.triggerHooks("renderMode", value, oldRenderMode);
         return true;
-      
-      case 'journeyId':
+
+      case "journeyId":
         if (this._journeyId === value) return false;
         const oldJourneyId = this._journeyId;
         this._journeyId = value;
-        this.triggerHooks('journeyId', value, oldJourneyId);
+        this.triggerHooks("journeyId", value, oldJourneyId);
         return true;
-      
+
       default:
         console.warn(`Unknown mutable property: ${key}`);
         return false;
@@ -278,7 +283,7 @@ export class ReactiveParams {
   }
 
   // Mutable properties - getters and setters with hook triggers
-  
+
   /**
    * Rendering mode (e.g., 'canvas', 'gl')
    * Setting this property triggers registered 'renderMode' hooks
@@ -291,7 +296,7 @@ export class ReactiveParams {
     if (this._renderMode === value) return;
     const oldValue = this._renderMode;
     this._renderMode = value;
-    this.triggerHooks('renderMode', value, oldValue);
+    this.triggerHooks("renderMode", value, oldValue);
   }
 
   /**
@@ -306,7 +311,7 @@ export class ReactiveParams {
     if (this._journeyId === value) return;
     const oldValue = this._journeyId;
     this._journeyId = value;
-    this.triggerHooks('journeyId', value, oldValue);
+    this.triggerHooks("journeyId", value, oldValue);
   }
 }
 
@@ -354,10 +359,10 @@ export function parseUrlHash(): ExternalParams {
 
 /**
  * Create a ReactiveParams instance from external parameters
- * 
+ *
  * This function processes raw external parameters and creates a ReactiveParams object.
  * It follows the same pattern as ensurePlatformCompatibility - throws on errors.
- * 
+ *
  * @param externalParams - Raw external parameters from URL hash or Flutter
  * @returns ReactiveParams instance, or null if cgi_endpoint is not yet available
  * @throws Error if required parameters are missing or invalid (except cgi_endpoint)
@@ -373,7 +378,9 @@ export function createReactiveParams(
 
   // Check if journey_id is provided
   if (!externalParams.journey_id) {
-    throw new Error("Journey ID not provided. journey_id parameter is required.");
+    throw new Error(
+      "Journey ID not provided. journey_id parameter is required.",
+    );
   }
 
   const journeyId = externalParams.journey_id;
@@ -390,7 +397,9 @@ export function createReactiveParams(
   let accessKey: string | null = null;
   if (requiresMapboxToken) {
     if (!externalParams.access_key) {
-      throw new Error("Mapbox access token not provided. access_key is required for Mapbox styles.");
+      throw new Error(
+        "Mapbox access token not provided. access_key is required for Mapbox styles.",
+      );
     }
     accessKey = externalParams.access_key;
   }
