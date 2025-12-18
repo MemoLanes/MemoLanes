@@ -234,9 +234,8 @@ async function trySetup(): Promise<void> {
     );
 
     // Create and initialize the debug panel
-    const debugPanel = new DebugPanel(map, params, AVAILABLE_LAYERS);
+    const debugPanel = new DebugPanel(map, params);
     debugPanel.initialize();
-    debugPanel.listenForHashChanges();
 
     // Initialize Flutter bridge
     // Now FlutterBridge only needs the params - it can set properties directly

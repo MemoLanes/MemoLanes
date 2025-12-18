@@ -7,7 +7,7 @@
  * and the registered hooks automatically handle layer switching.
  */
 
-import type { LayerConfig, AvailableLayers, ReactiveParams } from "./params";
+import { AVAILABLE_LAYERS, type LayerConfig, type ReactiveParams } from "./params";
 
 // Interface for URL hash parameters
 interface UrlHashParams {
@@ -35,7 +35,6 @@ export class DebugPanel {
   private params: ReactiveParams;
   private panel: HTMLDivElement | null;
   private visible: boolean;
-  private availableLayers: AvailableLayers;
 
   // Framerate monitoring
   private fps: number;
@@ -54,12 +53,11 @@ export class DebugPanel {
   private networkCanvas: HTMLCanvasElement | null;
   private networkCtx: CanvasRenderingContext2D | null;
 
-  constructor(map: MapInstance, params: ReactiveParams, availableLayers: AvailableLayers = {}) {
+  constructor(map: MapInstance, params: ReactiveParams) {
     this.map = map;
     this.params = params;
     this.panel = null;
     this.visible = false;
-    this.availableLayers = availableLayers;
 
     // Framerate monitoring
     this.fps = 0;
@@ -86,7 +84,7 @@ export class DebugPanel {
     this.panel.style.display = "none";
 
     // Build rendering mode options based on available layers
-    const renderingOptions: string = Object.entries(this.availableLayers)
+    const renderingOptions: string = Object.entries(AVAILABLE_LAYERS)
       .map(([key, layer]: [string, LayerConfig]) => {
         return `<option value="${key}" title="${layer.description}">${layer.name}</option>`;
       })
@@ -168,7 +166,7 @@ export class DebugPanel {
       "rendering-mode",
     ) as HTMLSelectElement | null;
     
-    if (renderingModeSelect && this.availableLayers[renderingMode]) {
+    if (renderingModeSelect && AVAILABLE_LAYERS[renderingMode]) {
       renderingModeSelect.value = renderingMode;
     }
   }
@@ -196,7 +194,7 @@ export class DebugPanel {
         
         // Simply set the renderMode on params
         // The ReactiveParams hook system automatically triggers switchRenderingLayer()
-        if (this.availableLayers[renderingMode]) {
+        if (AVAILABLE_LAYERS[renderingMode]) {
           this.params.renderMode = renderingMode;
         }
       });
@@ -538,13 +536,6 @@ export class DebugPanel {
 
     // Stop FPS monitoring when panel is hidden to save resources
     this._stopFpsLoop();
-  }
-
-  // Listen for hash changes to show/hide panel
-  listenForHashChanges(): void {
-    window.addEventListener("hashchange", () => {
-      this._checkDebugStatus();
-    });
   }
 
   // Clean up resources
