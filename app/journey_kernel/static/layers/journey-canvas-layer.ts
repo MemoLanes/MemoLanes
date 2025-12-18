@@ -3,13 +3,7 @@ import type maplibregl from "maplibre-gl";
 import type { CanvasSource, CanvasSourceSpecification } from "maplibre-gl";
 import type { TileBuffer } from "../../pkg";
 import type { JourneyTileProvider } from "../journey-tile-provider";
-
-/**
- * RGBA color tuple: [red, green, blue, alpha]
- * Values are in range [0, 1]
- */
-// TODO: move this to utils?
-type RGBAColor = [number, number, number, number];
+import type { JourneyLayer, RGBAColor } from "./journey-layer-interface";
 
 /**
  * Tile buffer callback function type
@@ -24,7 +18,13 @@ type TileBufferCallback = (
   tileBuffer: TileBuffer | null,
 ) => void;
 
-export class JourneyCanvasLayer {
+/**
+ * JourneyCanvasLayer is a Canvas-based journey layer that renders tracks
+ * using the HTML Canvas 2D API.
+ *
+ * Implements JourneyLayer for unified layer management.
+ */
+export class JourneyCanvasLayer implements JourneyLayer {
   private map: maplibregl.Map;
   private journeyTileProvider: JourneyTileProvider;
   private bgColor: string;
@@ -131,12 +131,12 @@ export class JourneyCanvasLayer {
 
     const tileSize = Math.pow(2, bufferSizePower);
 
+    // TODO: this bug is solved in maplibre, maybe we can remove this workaround.
     // previously, Mapbox had a bug when rendering a square canvas of dimension width = 64 * 2^n where n = 0,1,2...,
     // though Mapbox has solved this issue, maplibre v5.9.0 still has this issue (with no public discussion yet?).
     // https://github.com/mapbox/mapbox-gl-js/issues/9873
     // https://jsbin.com/godiyil/edit?html,output
     // the below is a workaround for this issue, so that the canvas won't be square.
-    // TODO: remove the extra pixel column once the upstream solve the issue.
     this.canvas.width = tileSize * w + 1;
     this.canvas.height = tileSize * h;
 

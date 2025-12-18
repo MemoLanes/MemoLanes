@@ -74,10 +74,11 @@ export class JourneyTileProvider {
   private params: ValidatedParams;
   private currentVersion: string | null; // Store the current version
   private viewRange: ViewRange | null; // Store the current viewport tile range [x, y, w, h, z]
-  private tileBuffer: TileBuffer | null; // Store the tile buffer data
+  // TODO: evaluate whether we need to make this public (also the bufferSizePower)
+  tileBuffer: TileBuffer | null; // Store the tile buffer data
   private viewRangeUpdated: boolean; // Flag indicating view range has been updated
   private downloadInProgress: boolean; // Flag indicating download is in progress
-  private bufferSizePower: number;
+  bufferSizePower: number;
   private isGlobeProjection: boolean; // Flag indicating if globe projection is used
   private tileBufferCallbacks: TileBufferCallback[]; // Array to store tile buffer update callbacks
   private multiRequest: MultiRequest;

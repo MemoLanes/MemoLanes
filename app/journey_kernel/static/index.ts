@@ -18,6 +18,10 @@ import { parseUrlHash, parseAndValidateParams } from "./params";
 import { FlutterBridge, notifyFlutterReady } from "./flutter-bridge";
 import { ensurePlatformCompatibility } from "./platform";
 import { transformStyle, displayPageMessage } from "./utils";
+import type {
+  JourneyLayer,
+  JourneyLayerConstructor,
+} from "./layers/journey-layer-interface";
 
 import "./debug-panel.css";
 
@@ -40,7 +44,7 @@ window.EXTERNAL_PARAMS = {};
 // Type definitions for rendering layers
 interface LayerConfig {
   name: string;
-  layerClass: typeof JourneyCanvasLayer;
+  layerClass: JourneyLayerConstructor;
   bufferSizePower: number;
   description: string;
 }
@@ -61,7 +65,7 @@ const AVAILABLE_LAYERS: AvailableLayers = {
 };
 
 // Global state variables
-let currentJourneyLayer: any; // Store reference to current layer
+let currentJourneyLayer: JourneyLayer | null = null; // Store reference to current layer
 let currentJourneyTileProvider: JourneyTileProvider;
 let locationMarker: Marker | null = null;
 
@@ -84,7 +88,7 @@ function switchRenderingLayer(map: MaplibreMap, params: any): any {
 
   // Clean up existing layer if present
   if (currentJourneyLayer) {
-    currentJourneyLayer.remove && currentJourneyLayer.remove();
+    currentJourneyLayer.remove();
   }
 
   // Create new layer instance
