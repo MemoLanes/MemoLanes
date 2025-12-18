@@ -29,35 +29,24 @@ declare global {
       flyto?: boolean,
     ) => void;
     getCurrentMapView?: () => string;
-    triggerJourneyUpdate?: () => Promise<void>;
-    switchRenderingLayer?: (renderingMode: string) => boolean;
     updateJourneyId?: (newJourneyId: string) => boolean;
   }
 }
 
-/**
- * Configuration for FlutterBridge
- * 
- * Note: switchRenderingLayerFn is no longer needed because ReactiveParams
- * handles this via hooks when params.renderMode is set.
- */
 export interface FlutterBridgeConfig {
   map: maplibregl.Map;
   locationMarker: maplibregl.Marker;
-  journeyTileProvider: any; // JourneyTileProvider type
   params: ReactiveParams;
 }
 
 export class FlutterBridge {
   private map: maplibregl.Map;
   private locationMarker: maplibregl.Marker;
-  private journeyTileProvider: any;
   private params: ReactiveParams;
 
   constructor(config: FlutterBridgeConfig) {
     this.map = config.map;
     this.locationMarker = config.locationMarker;
-    this.journeyTileProvider = config.journeyTileProvider;
     this.params = config.params;
   }
 
@@ -100,9 +89,6 @@ export class FlutterBridge {
 
   /**
    * Setup all window methods that Flutter can call
-   * 
-   * These methods now use ReactiveParams setters, which automatically
-   * trigger the appropriate hooks registered in index.ts.
    */
   setupFlutterCallableMethods(): void {
     // Update location marker
@@ -135,29 +121,6 @@ export class FlutterBridge {
         lat: center.lat,
         zoom: this.map.getZoom(),
       });
-    };
-
-    // Trigger journey update
-    window.triggerJourneyUpdate = () => {
-      return this.journeyTileProvider.pollForJourneyUpdates(false);
-    };
-
-    /**
-     * Switch rendering layer
-     * 
-     * This method now simply sets params.renderMode.
-     * The ReactiveParams hook system automatically triggers switchRenderingLayer()
-     * when the value changes.
-     * 
-     * @param renderingMode - The new rendering mode (e.g., 'canvas', 'gl')
-     * @returns true if the mode was changed, false if it was already set to this value
-     */
-    window.switchRenderingLayer = (renderingMode: string): boolean => {
-      // The setter returns void, but we can check if it changed
-      // by comparing before and after values
-      const oldMode = this.params.renderMode;
-      this.params.renderMode = renderingMode;
-      return oldMode !== renderingMode;
     };
 
     /**

@@ -247,7 +247,6 @@ async function trySetup(): Promise<void> {
     const flutterBridge = new FlutterBridge({
       map,
       locationMarker: locationMarker!,
-      journeyTileProvider: currentJourneyTileProvider,
       params,
     });
     flutterBridge.initialize();
