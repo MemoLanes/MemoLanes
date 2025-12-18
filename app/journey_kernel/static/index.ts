@@ -77,10 +77,9 @@ function switchRenderingLayer(
   }
 
   // Create new layer instance
+  // Note: bufferSizePower is automatically updated by JourneyTileProvider
+  // when it receives the renderMode change via its own hook
   const LayerClass = AVAILABLE_LAYERS[renderingMode].layerClass;
-  const bufferSizePower = AVAILABLE_LAYERS[renderingMode].bufferSizePower;
-
-  currentJourneyTileProvider.setBufferSizePower(bufferSizePower);
   currentJourneyLayer = new LayerClass(map, currentJourneyTileProvider);
   currentJourneyLayer.initialize();
 
@@ -203,11 +202,9 @@ async function trySetup(): Promise<void> {
       element: el,
     });
 
-    currentJourneyTileProvider = new JourneyTileProvider(
-      map,
-      params,
-      AVAILABLE_LAYERS[params.renderMode].bufferSizePower,
-    );
+    // JourneyTileProvider automatically gets bufferSizePower from params.renderMode
+    // and updates it when renderMode changes via its own hook
+    currentJourneyTileProvider = new JourneyTileProvider(map, params);
 
     await currentJourneyTileProvider.pollForJourneyUpdates(true);
     console.log("initial tile buffer loaded");

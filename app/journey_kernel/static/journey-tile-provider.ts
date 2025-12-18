@@ -2,7 +2,7 @@ import { TileBuffer } from "../pkg";
 import { getViewportTileRange } from "./layers/utils";
 import { MultiRequest } from "./multi-requests";
 import type maplibregl from "maplibre-gl";
-import type { ReactiveParams } from "./params";
+import { AVAILABLE_LAYERS, type ReactiveParams } from "./params";
 
 /**
  * View range tuple: [x, y, width, height, zoom]
@@ -86,7 +86,6 @@ export class JourneyTileProvider {
   constructor(
     map: maplibregl.Map,
     params: ReactiveParams,
-    bufferSizePower: number = 8,
     isGlobeProjection: boolean = false,
   ) {
     this.map = map;
@@ -96,7 +95,12 @@ export class JourneyTileProvider {
     this.tileBuffer = null; // Store the tile buffer data
     this.viewRangeUpdated = false; // Flag indicating view range has been updated
     this.downloadInProgress = false; // Flag indicating download is in progress
-    this.bufferSizePower = bufferSizePower;
+
+    // Get initial bufferSizePower from current render mode
+    this.bufferSizePower = this.getBufferSizePowerFromRenderMode(
+      params.renderMode,
+    );
+
     // TODO: better handling of globe projection
     this.isGlobeProjection = isGlobeProjection;
 
@@ -105,10 +109,28 @@ export class JourneyTileProvider {
     // Initialize MultiRequest instance based on endpoint configuration
     this.multiRequest = this.initializeMultiRequest();
 
+    // Register hook to update bufferSizePower when renderMode changes
+    this.params.on("renderMode", (newMode, _oldMode) => {
+      const newBufferSizePower = this.getBufferSizePowerFromRenderMode(newMode);
+      this.setBufferSizePower(newBufferSizePower);
+    });
+
     this.map.on("move", () => this.tryUpdateViewRange());
     this.map.on("moveend", () => this.tryUpdateViewRange());
     // Initial update
     this.tryUpdateViewRange();
+  }
+
+  /**
+   * Get bufferSizePower from AVAILABLE_LAYERS based on render mode
+   */
+  private getBufferSizePowerFromRenderMode(renderMode: string): number {
+    const layerConfig = AVAILABLE_LAYERS[renderMode];
+    if (layerConfig) {
+      return layerConfig.bufferSizePower;
+    }
+    // Fallback to canvas layer's buffer size power
+    return AVAILABLE_LAYERS["canvas"]?.bufferSizePower ?? 8;
   }
 
   // Initialize MultiRequest instance based on endpoint configuration
