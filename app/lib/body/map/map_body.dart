@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:json_annotation/json_annotation.dart';
@@ -93,11 +94,13 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     // Requesting the permission triggers an AppLifecycleState change,
     // which in turn initiates another permission request.
     // This recursive interaction results in a loop of repeated permission requests.
-    final hasPermission = await PermissionService().checkLocationPermission();
-    if (!hasPermission) {
-      setState(() => _currentTrackingMode = TrackingMode.off);
-      gpsManager.toggleMapTracking(false);
-      return;
+    if (Platform.isAndroid && _currentTrackingMode != TrackingMode.off) {
+      final hasPermission = await PermissionService().checkLocationPermission();
+      if (!hasPermission) {
+        setState(() => _currentTrackingMode = TrackingMode.off);
+        gpsManager.toggleMapTracking(false);
+        return;
+      }
     }
 
     switch (state) {
