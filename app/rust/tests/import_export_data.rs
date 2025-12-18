@@ -41,7 +41,7 @@ fn verify_fow_snapshot_data() {
 pub fn gpx() {
     const IMPORT_PATH: &str = "./tests/data/raw_gps_laojunshan.gpx";
     const EXPORT_PATH: &str = "./tests/for_inspection/laojunshan.gpx";
-    let raw_vecotr_data1 = import_data::load_gpx(IMPORT_PATH).unwrap();
+    let (raw_vecotr_data1, _preprocessor) = import_data::load_gpx(IMPORT_PATH).unwrap();
     let journey_info = import_data::journey_info_from_raw_vector_data(&raw_vecotr_data1);
     let start_time = journey_info.start_time.unwrap().timestamp_millis();
     let end_time = journey_info.end_time.unwrap().timestamp_millis();
@@ -51,7 +51,7 @@ pub fn gpx() {
     export_data::journey_vector_to_gpx_file(&vector1, &mut File::create(EXPORT_PATH).unwrap())
         .unwrap();
 
-    let raw_vecotr_data2 = import_data::load_gpx(EXPORT_PATH).unwrap();
+    let (raw_vecotr_data2, _preprocessor) = import_data::load_gpx(EXPORT_PATH).unwrap();
     let vector2 =
         import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_vecotr_data2, false)
             .unwrap();
@@ -80,15 +80,14 @@ pub fn gpx() {
 pub fn gpx_2bulu() {
     const IMPORT_PATH: &str = "./tests/data/2bulu.gpx";
     const EXPORT_PATH: &str = "./tests/for_inspection/2bulu.gpx";
-    let raw_vecotr_data1 = import_data::load_gpx(IMPORT_PATH).unwrap();
+    let (raw_vecotr_data1, _preprocessor) = import_data::load_gpx(IMPORT_PATH).unwrap();
     import_data::journey_info_from_raw_vector_data(&raw_vecotr_data1);
     let vector1 =
         import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_vecotr_data1, false)
             .unwrap();
     export_data::journey_vector_to_gpx_file(&vector1, &mut File::create(EXPORT_PATH).unwrap())
         .unwrap();
-
-    let raw_vecotr_data2 = import_data::load_gpx(EXPORT_PATH).unwrap();
+    let (raw_vecotr_data2, _preprocessor) = import_data::load_gpx(EXPORT_PATH).unwrap();
     let vector2 =
         import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_vecotr_data2, false)
             .unwrap();
@@ -115,14 +114,14 @@ pub fn gpx_2bulu() {
 pub fn kml_2bulu() {
     const IMPORT_PATH: &str = "./tests/data/2bulu.kml";
     const EXPORT_PATH: &str = "./tests/for_inspection/2bulu.kml";
-    let raw_vecotr_data1 = import_data::load_kml(IMPORT_PATH).unwrap();
+    let (raw_vecotr_data1, _preprocessor) = import_data::load_kml(IMPORT_PATH).unwrap();
     let vector1 =
         import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_vecotr_data1, false)
             .unwrap();
 
     export_data::journey_vector_to_kml_file(&vector1, &mut File::create(EXPORT_PATH).unwrap())
         .unwrap();
-    let raw_vecotr_data2 = import_data::load_kml(EXPORT_PATH).unwrap();
+    let (raw_vecotr_data2, _preprocessor) = import_data::load_kml(EXPORT_PATH).unwrap();
     let vector2 =
         import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_vecotr_data2, false)
             .unwrap();
@@ -151,7 +150,7 @@ pub fn kml_2bulu() {
 pub fn kml_track() {
     const IMPORT_PATH: &str = "./tests/data/raw_gps_laojunshan.kml";
     const EXPORT_PATH: &str = "./tests/for_inspection/laojunshan.kml";
-    let raw_vecotr_data1 = import_data::load_kml(IMPORT_PATH).unwrap();
+    let (raw_vecotr_data1, _preprocessor) = import_data::load_kml(IMPORT_PATH).unwrap();
     let journey_info = import_data::journey_info_from_raw_vector_data(&raw_vecotr_data1);
     let start_time = journey_info
         .start_time
@@ -164,7 +163,7 @@ pub fn kml_track() {
 
     export_data::journey_vector_to_kml_file(&vector1, &mut File::create(EXPORT_PATH).unwrap())
         .unwrap();
-    let raw_vecotr_data2 = import_data::load_kml(EXPORT_PATH).unwrap();
+    let (raw_vecotr_data2, _preprocessor) = import_data::load_kml(EXPORT_PATH).unwrap();
     let vector2 =
         import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_vecotr_data2, false)
             .unwrap();
@@ -193,14 +192,14 @@ pub fn kml_track() {
 pub fn kml_line_string() {
     const IMPORT_PATH: &str = "./tests/data/2024-08-24-2104.kml";
     const EXPORT_PATH: &str = "./tests/for_inspection/2024-08-24-2104.kml";
-    let raw_vecotr_data1 = import_data::load_kml(IMPORT_PATH).unwrap();
+    let (raw_vecotr_data1, _preprocessor) = import_data::load_kml(IMPORT_PATH).unwrap();
     let vector1 =
         import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_vecotr_data1, false)
             .unwrap();
 
     export_data::journey_vector_to_kml_file(&vector1, &mut File::create(EXPORT_PATH).unwrap())
         .unwrap();
-    let raw_vecotr_data2 = import_data::load_kml(EXPORT_PATH).unwrap();
+    let (raw_vecotr_data2, _preprocessor) = import_data::load_kml(EXPORT_PATH).unwrap();
     let vector2 =
         import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_vecotr_data2, false)
             .unwrap();

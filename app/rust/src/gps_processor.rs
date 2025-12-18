@@ -234,12 +234,14 @@ enum GpsPreprocessorState {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct SegmentGapRule {
-    distance_m: f64,
-    max_gap_sec: i64,
+pub struct SegmentGapRule {
+    pub distance_m: f64,
+    pub max_gap_sec: i64,
 }
 
-const DEFAULT_SEGMENT_GAP_RULES: [SegmentGapRule; 3] = [
+pub type SegmentGapRules = &'static [SegmentGapRule; 3];
+
+pub const DEFAULT_SEGMENT_GAP_RULES: SegmentGapRules = &[
     SegmentGapRule {
         distance_m: 5.0,
         max_gap_sec: 3600,
@@ -254,7 +256,7 @@ const DEFAULT_SEGMENT_GAP_RULES: [SegmentGapRule; 3] = [
     },
 ];
 
-const STEP_OF_MY_WORLD_SEGMENT_GAP_RULES: [SegmentGapRule; 3] = [
+pub const STEP_OF_MY_WORLD_SEGMENT_GAP_RULES: SegmentGapRules = &[
     SegmentGapRule {
         distance_m: 5.0,
         max_gap_sec: 3600,
@@ -272,23 +274,19 @@ const STEP_OF_MY_WORLD_SEGMENT_GAP_RULES: [SegmentGapRule; 3] = [
 pub struct GpsPreprocessor {
     state: GpsPreprocessorState,
     bad_data_detector: BadDataDetector,
-    segment_gap_rules: &'static [SegmentGapRule; 3],
+    segment_gap_rules: SegmentGapRules,
 }
 
 impl GpsPreprocessor {
     pub fn new() -> Self {
-        GpsPreprocessor::new_with_segment_gap_rules(&DEFAULT_SEGMENT_GAP_RULES)
+        Self::new_with_rules(DEFAULT_SEGMENT_GAP_RULES)
     }
 
-    pub fn new_step_of_my_world_rules() -> Self {
-        GpsPreprocessor::new_with_segment_gap_rules(&STEP_OF_MY_WORLD_SEGMENT_GAP_RULES)
-    }
-
-    fn new_with_segment_gap_rules(segment_gap_rules: &'static [SegmentGapRule; 3]) -> Self {
-        GpsPreprocessor {
+    pub fn new_with_rules(rules: SegmentGapRules) -> Self {
+        Self {
             state: GpsPreprocessorState::Empty,
             bad_data_detector: BadDataDetector::new(),
-            segment_gap_rules,
+            segment_gap_rules: rules,
         }
     }
 
@@ -307,7 +305,7 @@ impl GpsPreprocessor {
     }
 
     fn process_moving_data(
-        segment_gap_rules: &[SegmentGapRule; 3],
+        segment_gap_rules: &[SegmentGapRule],
         last_point: &Point,
         last_timestamp_ms: Option<i64>,
         curr_data: &RawData,

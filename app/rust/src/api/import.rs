@@ -5,6 +5,8 @@ use auto_context::auto_context;
 use chrono::{DateTime, Local, NaiveDate, Utc};
 use flutter_rust_bridge::frb;
 
+use super::api;
+use crate::gps_processor::{DEFAULT_SEGMENT_GAP_RULES, STEP_OF_MY_WORLD_SEGMENT_GAP_RULES};
 use crate::{
     flight_track_processor,
     gps_processor::RawData,
@@ -12,8 +14,6 @@ use crate::{
     journey_data::JourneyData,
     journey_header::JourneyKind,
 };
-
-use super::api;
 
 #[derive(Debug)]
 #[frb(non_opaque)]
@@ -28,7 +28,6 @@ pub struct JourneyInfo {
 #[frb(opaque)]
 pub struct RawVectorData {
     data: Vec<Vec<RawData>>,
-    use_coarse_segment_gap_rules: bool,
 }
 
 #[auto_context]
@@ -55,15 +54,17 @@ pub fn load_fow_data(file_path: String) -> Result<(JourneyInfo, JourneyData)> {
 }
 
 #[auto_context]
-pub fn load_gpx_or_kml(file_path: String) -> Result<(JourneyInfo, RawVectorData)> {
-    let (raw_vector_data, use_coarse_segment_gap_rules) = match Path::new(&file_path)
+pub fn load_gpx_or_kml(
+    file_path: String,
+) -> Result<(JourneyInfo, RawVectorData, ImportPreprocessor)> {
+    let (raw_vector_data, import_preprocessor) = match Path::new(&file_path)
         .extension()
         .and_then(OsStr::to_str)
         .map(|x| x.to_lowercase())
         .as_deref()
     {
-        Some("gpx") => import_data::load_gpx_with_metadata(&file_path)?,
-        Some("kml") => (import_data::load_kml(&file_path)?, false),
+        Some("gpx") => import_data::load_gpx(&file_path)?,
+        Some("kml") => import_data::load_kml(&file_path)?,
         extension => return Err(anyhow!("Unknown extension: {extension:?}")),
     };
 
@@ -71,8 +72,8 @@ pub fn load_gpx_or_kml(file_path: String) -> Result<(JourneyInfo, RawVectorData)
         journey_info_from_raw_vector_data(&raw_vector_data),
         RawVectorData {
             data: raw_vector_data,
-            use_coarse_segment_gap_rules,
         },
+        import_preprocessor,
     ))
 }
 
@@ -96,6 +97,7 @@ pub enum ImportPreprocessor {
     None,
     Generic,
     FlightTrack,
+    StepOfMyWorld,
 }
 
 #[auto_context]
@@ -103,22 +105,23 @@ pub fn process_vector_data(
     vector_data: &RawVectorData,
     import_processor: ImportPreprocessor,
 ) -> Result<Option<JourneyData>> {
-    let use_coarse_segment_gap_rules = vector_data.use_coarse_segment_gap_rules;
     let journey_vector = match import_processor {
-        ImportPreprocessor::None => {
-            import_data::journey_vector_from_raw_data_with_gps_preprocessor(
-                &vector_data.data,
-                false,
-            )
-        }
-        ImportPreprocessor::Generic => {
-            import_data::journey_vector_from_raw_data_with_gps_preprocessor_and_gap_rules(
-                &vector_data.data,
-                true,
-                use_coarse_segment_gap_rules,
-            )
-        }
+        ImportPreprocessor::None => import_data::journey_vector_from_raw_data_with_rules(
+            &vector_data.data,
+            false,
+            DEFAULT_SEGMENT_GAP_RULES,
+        ),
+        ImportPreprocessor::Generic => import_data::journey_vector_from_raw_data_with_rules(
+            &vector_data.data,
+            true,
+            DEFAULT_SEGMENT_GAP_RULES,
+        ),
         ImportPreprocessor::FlightTrack => flight_track_processor::process(&vector_data.data),
+        ImportPreprocessor::StepOfMyWorld => import_data::journey_vector_from_raw_data_with_rules(
+            &vector_data.data,
+            true,
+            STEP_OF_MY_WORLD_SEGMENT_GAP_RULES,
+        ),
     };
 
     match journey_vector {
