@@ -6,6 +6,7 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
@@ -48,9 +49,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   bool _readyForDisplay = false;
 
   // TODO: define a proper type to make it more type-safe
-  // TODO: we may let user to choose base map providers.
-  final _mapStyle = "https://tiles.openfreemap.org/styles/liberty";
-  // final _mapStyle = "mapbox://styles/mapbox/streets-v12";
+  String _mapStyle = "https://tiles.openfreemap.org/styles/liberty";
+  double _fogDensity = 0.5;
 
   // It is rough because we don't update it frequently.
   MapView? _currentRoughMapView;
@@ -101,6 +101,20 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _gpsManager.addListener(_updateLocationMarker);
     _currentRoughMapView = widget.initialMapView;
     _currentJourneyId = widget.mapRendererProxy.getJourneyId();
+
+    var style = MMKVUtil.getString(MMKVKey.mapStyle,
+        defaultValue: "https://tiles.openfreemap.org/styles/liberty");
+    if (!style.startsWith("http") &&
+        !style.startsWith("mapbox://") &&
+        style != "none") {
+      style = "https://tiles.openfreemap.org/styles/liberty";
+    }
+    _mapStyle = style;
+
+    final fogDensityStr =
+        MMKVUtil.getString(MMKVKey.fogDensity, defaultValue: "0.5");
+    _fogDensity = double.tryParse(fogDensityStr) ?? 0.5;
+
     _roughMapViewUpdateTimer =
         Timer.periodic(Duration(seconds: 5), (Timer t) async {
       final newMapView = await _getCurrentMapView();
@@ -271,6 +285,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         journey_id: "$journeyId",
         render: "canvas",
         map_style: "$_mapStyle",
+        fog_density: $_fogDensity,
         access_key: ${accessKey != null ? "\"$accessKey\"" : "null"},
         lng: $lngParam,
         lat: $latParam,
@@ -358,9 +373,11 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
                 key: const ValueKey('map_webview'),
                 controller: _webViewController)),
         GestureDetector(
-            child: MapCopyrightButton(
-          textMarkdown: mapCopyrightTextMarkdown,
-        )),
+            child: _mapStyle == "none"
+                ? const SizedBox.shrink()
+                : MapCopyrightButton(
+                    textMarkdown: mapCopyrightTextMarkdown,
+                  )),
         IgnorePointer(
           ignoring: true,
           child: AnimatedOpacity(

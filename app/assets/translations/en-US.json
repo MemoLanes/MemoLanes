@@ -98,6 +98,19 @@
       "title": "Version",
       "currently_the_latest_version": "Currently the latest version"
     },
+    "map_settings": {
+      "title": "Map Settings",
+      "style": "Map Style",
+      "style_normal": "Normal",
+      "style_satellite": "Satellite",
+      "style_hybrid": "Hybrid",
+      "style_none": "None",
+      "style_custom": "Custom",
+      "enter_custom_url": "Enter Custom Style URL",
+      "url_invalid_title": "Map Error",
+      "url_invalid_message": "The custom map URL seems incorrect and may cause the map to not display. Do you want to continue anyway?",
+      "fog_density": "Fog Density"
+    },
     "advance_settings": {
       "title": "Advance settings",
       "export_logs": "Export Logs",

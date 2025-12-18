@@ -84,7 +84,18 @@ function switchRenderingLayer(map, renderingMode) {
   const bufferSizePower = AVAILABLE_LAYERS[renderingMode].bufferSizePower;
 
   currentJourneyTileProvider.setBufferSizePower(bufferSizePower);
-  currentJourneyLayer = new LayerClass(map, currentJourneyTileProvider);
+
+  let fogDensity = 0.5;
+  if (window.EXTERNAL_PARAMS.fog_density !== undefined) {
+    fogDensity = parseFloat(window.EXTERNAL_PARAMS.fog_density);
+  }
+  const bgColor = [0.0, 0.0, 0.0, fogDensity];
+
+  currentJourneyLayer = new LayerClass(
+    map,
+    currentJourneyTileProvider,
+    bgColor,
+  );
   currentJourneyLayer.initialize();
 
   currentRenderingMode = renderingMode;
@@ -330,15 +341,17 @@ async function trySetup() {
     }, 200);
 
     // defer the map style initialization after memolanes layer added.
-    map.setStyle(currentMapStyle, {
-      transformStyle: transformMapboxStyle,
-    });
+    if (currentMapStyle !== "none") {
+      map.setStyle(currentMapStyle, {
+        transformStyle: transformMapboxStyle,
+      });
+    }
 
     // In case mapbox completely fails to load (i.e. app running on mainland China
     // iPhone does not have network access by default)
     setInterval(() => {
       const layerCount = map.getLayersOrder().length;
-      if (layerCount <= 1) {
+      if (layerCount <= 1 && currentMapStyle !== "none") {
         console.log("Re-attempt to load map style");
         map.setStyle(currentMapStyle, {
           transformStyle: transformMapboxStyle,
