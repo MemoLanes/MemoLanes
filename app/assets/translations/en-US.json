@@ -54,6 +54,7 @@
     "export_journey_as_gpx": "Export as GPX",
     "export_journey_as_mldx": "Export as MLDX",
     "delete_all": "Delete All Journeys",
+    "delete_all_success": "All journeys are deleted!",
     "preprocessor": "Preprocessor",
     "journey_date": "Journey Date",
     "journey_kind": "Journey Kind",
@@ -80,10 +81,14 @@
     "none": "None",
     "description_md": "Preprocessor can optimize your journey data:\n- **Generic** suitable for most tracks, filtering out abnormal data and reasonably segmenting the data.\n- **FlightTrack** suitable for flight tracks, etc., using interpolation to complete missing parts of the path."
   },
-  "import_fow_data": {
-    "button": "Import [Fog of World] data",
-    "description_md": "Import data generated from the Fog of World app.\n\nThis feature supports the following formats:\n1. Zip format: Compress the Fog of World cloud sync \"Sync\" folder into a Zip archive.\n2. Fwss format: Fog of World snapshot file.\n\nThe Fog of World app data does not include history. The exported data only contains the whole tracks from the start until the export point. If you have multiple historical Fog of World data, you can try uploading these to [Fog Machine - Time Machine](https://fogmachine.8bits.io/time-machine) and using the \"Export MemoLanes Archive\" feature.",
-    "warning_for_import_multiple_data_md": "Note: The database already contains Fog of World data.\n\nWhen importing multiple data snapshots, please ensure that these snapshots do not overlap, or use the \"Export MemoLanes Archive\" feature in [Fog Machine - Time Machine](https://fogmachine.8bits.io/time-machine). This feature processes snapshots one by one by calculating differences, achieving the effect of matching historical tracks with their corresponding time."
+  "import": {
+    "empty_data": "Journey is empty",
+    "successful": "Import successful",
+    "parsing_failed": "Data parsing failed",
+    "import_fow_data": {
+      "description_md": "Import data generated from the Fog of World app.\n\nThis feature supports the following formats:\n1. Zip format: Compress the Fog of World cloud sync \"Sync\" folder into a Zip archive.\n2. Fwss format: Fog of World snapshot file.\n\nThe Fog of World app data does not include history. The exported data only contains the whole tracks from the start until the export point. If you have multiple historical Fog of World data, you can try uploading these to [Fog Machine - Time Machine](https://fogmachine.8bits.io/time-machine) and using the \"Export MemoLanes Archive\" feature.",
+      "warning_for_import_multiple_data_md": "Note: The database already contains Fog of World data.\n\nWhen importing multiple data snapshots, please ensure that these snapshots do not overlap, or use the \"Export MemoLanes Archive\" feature in [Fog Machine - Time Machine](https://fogmachine.8bits.io/time-machine). This feature processes snapshots one by one by calculating differences, achieving the effect of matching historical tracks with their corresponding time."
+    }
   },
   "unexpected_exit_notification": {
     "setting_title": "Unexpected exit notification",
