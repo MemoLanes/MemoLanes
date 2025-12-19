@@ -1,33 +1,30 @@
-import { JourneyTileProvider } from "./journey-tile-provider";
+/**
+ * Main Entry Point - Application Initialization and Module Coordination
+ *
+ * This module serves as the application's entry point and coordinator:
+ * - WASM module initialization
+ * - Platform compatibility checks
+ * - Parameter parsing and validation
+ * - Module instantiation and wiring (MapController, DebugPanel, FlutterBridge)
+ * - Window exports for Flutter communication
+ *
+ * Map-centric logic has been moved to MapController for better separation of concerns.
+ */
+
 import { DebugPanel } from "./debug-panel";
 import init from "../pkg/index.js";
-import maplibregl from "maplibre-gl";
-import type {
-  Map as MaplibreMap,
-  RequestTransformFunction,
-  ResourceType,
-} from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
-import {
-  isMapboxURL,
-  transformMapboxUrl,
-} from "maplibregl-mapbox-request-transformer";
-import {
-  parseUrlHash,
-  createReactiveParams,
-  AVAILABLE_LAYERS,
-  ReactiveParams,
-  ProjectionType,
-} from "./params";
+import { parseUrlHash, createReactiveParams, ReactiveParams } from "./params";
 import { FlutterBridge, notifyFlutterReady } from "./flutter-bridge";
 import { ensurePlatformCompatibility } from "./platform";
-import { transformStyleWithProjection, displayPageMessage } from "./utils";
-import { JOURNEY_LAYER_ID } from "./layers/journey-layer-interface";
-import type { JourneyLayer } from "./layers/journey-layer-interface";
+import { displayPageMessage } from "./utils";
+import { MapController } from "./map-controller";
 
 import "./debug-panel.css";
 
-// Extend Window interface for custom properties
+// ============================================================================
+// Window Interface Extensions
+// ============================================================================
+
 declare global {
   interface Window {
     SETUP_PENDING: boolean;
@@ -39,114 +36,21 @@ declare global {
   }
 }
 
-// Initialize window properties
+// Initialize window properties for external communication
 window.SETUP_PENDING = false;
 window.EXTERNAL_PARAMS = {};
 
-// Global state variables
-let currentJourneyLayer: JourneyLayer | null = null; // Store reference to current layer
-let currentJourneyTileProvider: JourneyTileProvider;
+// ============================================================================
+// Main Setup Function
+// ============================================================================
 
 /**
- * Function to switch between rendering layers
- * This function handles the actual layer switching logic.
- * It is called automatically when params.renderMode changes (via hook).
- *
- * @param map - MapLibre map instance
- * @param params - ReactiveParams instance containing render mode
- * @returns The newly created journey layer instance
- */
-function switchRenderingLayer(
-  map: MaplibreMap,
-  params: ReactiveParams,
-): JourneyLayer {
-  let renderingMode = params.renderMode;
-
-  if (!AVAILABLE_LAYERS[renderingMode]) {
-    console.warn(
-      `Rendering mode '${renderingMode}' not available, using canvas instead.`,
-    );
-    renderingMode = "canvas";
-    // Note: We don't update params.renderMode here to avoid recursive hook calls
-    // The fallback is just for this rendering operation
-  }
-
-  // Clean up existing layer if present
-  if (currentJourneyLayer) {
-    currentJourneyLayer.remove();
-  }
-
-  // Create new layer instance
-  // Note: bufferSizePower is automatically updated by JourneyTileProvider
-  // when it receives the renderMode change via its own hook
-  const LayerClass = AVAILABLE_LAYERS[renderingMode].layerClass;
-  // Use fogDensity as the alpha value for bgColor
-  const bgColor: [number, number, number, number] = [
-    0.0,
-    0.0,
-    0.0,
-    params.fogDensity,
-  ];
-  currentJourneyLayer = new LayerClass(
-    map,
-    currentJourneyTileProvider,
-    undefined, // use default layerId
-    bgColor,
-  );
-  currentJourneyLayer.initialize();
-
-  return currentJourneyLayer;
-}
-
-/**
- * Register hooks on ReactiveParams to handle property changes
- * This is the central place where we wire up reactive behaviors for the map/layer.
- *
- * Note: JourneyTileProvider registers its own hooks for renderMode (bufferSizePower)
- * and journeyId (pollForJourneyUpdates) internally.
- *
- * @param map - MapLibre map instance
- * @param params - ReactiveParams instance to register hooks on
- */
-function registerParamsHooks(map: MaplibreMap, params: ReactiveParams): void {
-  // Hook for renderMode changes
-  // When renderMode changes, automatically switch the rendering layer
-  params.on("renderMode", (newMode, oldMode) => {
-    console.log(
-      `[ReactiveParams] renderMode changed: ${oldMode} -> ${newMode}`,
-    );
-    switchRenderingLayer(map, params);
-  });
-
-  // Hook for fogDensity changes
-  // When fogDensity changes, recreate the layer with new bgColor alpha
-  params.on("fogDensity", (newDensity, oldDensity) => {
-    console.log(
-      `[ReactiveParams] fogDensity changed: ${oldDensity} -> ${newDensity}`,
-    );
-    switchRenderingLayer(map, params);
-  });
-
-  // Hook for projection changes
-  // When projection changes, update the map style with new projection
-  params.on("projection", (newProjection, oldProjection) => {
-    console.log(
-      `[ReactiveParams] projection changed: ${oldProjection} -> ${newProjection}`,
-    );
-    // Update map projection by reloading the style with new projection
-    map.setStyle(params.mapStyle, {
-      transformStyle: (previousStyle: any, nextStyle: any) =>
-        transformStyleWithProjection(
-          previousStyle,
-          nextStyle,
-          newProjection as ProjectionType,
-        ),
-    });
-  });
-}
-
-/**
- * Try to setup and initialize the map with given parameters
+ * Main setup function that initializes all application components
+ * This function orchestrates the initialization of:
+ * 1. Parameter parsing and validation
+ * 2. MapController (handles map, layers, tile provider)
+ * 3. DebugPanel (optional, when debug mode enabled)
+ * 4. FlutterBridge (handles Flutter-WebView communication)
  */
 async function trySetup(): Promise<void> {
   // Parse URL hash if EXTERNAL_PARAMS is empty
@@ -175,24 +79,6 @@ async function trySetup(): Promise<void> {
     return;
   }
 
-  let transformRequest: RequestTransformFunction = (
-    url: string,
-    _resourceType?: ResourceType,
-  ) => {
-    return { url };
-  };
-
-  // Configure transform request for Mapbox styles
-  if (params.requiresMapboxToken && params.accessKey) {
-    transformRequest = (url: string, resourceType?: ResourceType) => {
-      if (isMapboxURL(url)) {
-        // transformMapboxUrl expects ResourceType to be string, safe to cast
-        return transformMapboxUrl(url, resourceType as any, params.accessKey!);
-      }
-      return { url };
-    };
-  }
-
   console.log(
     `journey_id: ${params.journeyId}, render: ${params.renderMode}, lng: ${params.lng}, lat: ${params.lat}, zoom: ${params.zoom}`,
   );
@@ -201,138 +87,44 @@ async function trySetup(): Promise<void> {
     window.EXTERNAL_PARAMS,
   );
 
-  const map = new maplibregl.Map({
-    container: "map",
-    center: [params.lng, params.lat],
-    zoom: params.zoom,
-    maxZoom: 14,
-    style: {
-      version: 8,
-      sources: {},
-      layers: [
-        {
-          id: "background",
-          type: "background",
-          paint: {
-            "background-color": "#e8e4df", // Light beige background contrasting black universe
-          },
-        },
-      ],
-      projection: { type: params.projection },
-    },
-    // TODO: maplibre brings more canvas settings, we may fine tune them later
-    canvasContextAttributes: {
-      antialias: true,
-    },
-    transformRequest,
-    pitchWithRotate: false,
-    touchPitch: false,
-    attributionControl: false,
+  // Create and initialize MapController
+  // MapController handles: map instance, tile provider, layers, style management
+  const mapController = new MapController({
+    containerId: "map",
+    params,
   });
 
-  map.dragRotate.disable();
-  map.touchZoomRotate.disableRotation();
+  await mapController.initialize();
+  console.log("MapController initialized");
 
-  map.on("load", async () => {
-    // JourneyTileProvider automatically gets bufferSizePower from params.renderMode
-    // and updates it when renderMode changes via its own hook
-    currentJourneyTileProvider = new JourneyTileProvider(map, params);
+  // Initialize DebugPanel (only when debug mode is enabled)
+  if (params.debug) {
+    const debugPanel = new DebugPanel(mapController.getMap(), params);
+    debugPanel.initialize();
+  }
 
-    await currentJourneyTileProvider.pollForJourneyUpdates(true);
-    console.log("initial tile buffer loaded");
-
-    // Register hooks BEFORE creating the initial layer
-    // This ensures all future changes are automatically handled
-    registerParamsHooks(map, params);
-
-    // Create and initialize journey layer with selected rendering mode
-    // Note: This is the initial setup, subsequent changes go through the hook
-    currentJourneyLayer = switchRenderingLayer(map, params);
-
-    map.on("styledata", (_) => {
-      console.log("styledata event received");
-      const orderedLayerIds = map.getLayersOrder();
-
-      // after style reset, the previous layer may have different lifecycles:
-      // 1. for custom layers following the style spec, they will be erased so
-      //    we need to add them back.
-      // 2. for custom layers following the CustomLayerInterface, they will be kept
-      //    in the bottom of the layer stack so we need to move them to the top.
-
-      // console.log("orderedLayerIds:", orderedLayerIds);
-      const customIndex = orderedLayerIds.indexOf(JOURNEY_LAYER_ID);
-      if (customIndex === -1) {
-        console.log(`${JOURNEY_LAYER_ID} not found, add it into the map`);
-        currentJourneyLayer = switchRenderingLayer(map, params);
-      } else if (
-        customIndex !== -1 &&
-        customIndex !== orderedLayerIds.length - 1
-      ) {
-        console.log(
-          `${JOURNEY_LAYER_ID} is not the most front one, move it to the front`,
-        );
-        map.moveLayer(JOURNEY_LAYER_ID);
-      }
-    });
-
-    // Set up polling for updates
-    setInterval(
-      () => currentJourneyTileProvider.pollForJourneyUpdates(false),
-      1000,
-    );
-
-    // Create and initialize the debug panel only when debug mode is enabled
-    if (params.debug) {
-      const debugPanel = new DebugPanel(map, params);
-      debugPanel.initialize();
-    }
-
-    // Initialize Flutter bridge
-    // FlutterBridge manages its own locationMarker internally
-    // and uses params for reactive property updates
-    const flutterBridge = new FlutterBridge({
-      map,
-      params,
-    });
-    flutterBridge.initialize();
-
-    // give the map a little time to render before notifying Flutter
-    setTimeout(() => {
-      notifyFlutterReady();
-    }, 200);
-
-    // defer the map style initialization after memolanes layer added.
-    map.setStyle(params.mapStyle, {
-      transformStyle: (previousStyle: any, nextStyle: any) =>
-        transformStyleWithProjection(
-          previousStyle,
-          nextStyle,
-          params.projection,
-        ),
-    });
-
-    // In case mapbox completely fails to load (i.e. app running on mainland China
-    // iPhone does not have network access by default)
-    setInterval(() => {
-      const layerCount = map.getLayersOrder().length;
-      if (layerCount <= 1) {
-        console.log("Re-attempt to load map style");
-        map.setStyle(params.mapStyle, {
-          transformStyle: (previousStyle: any, nextStyle: any) =>
-            transformStyleWithProjection(
-              previousStyle,
-              nextStyle,
-              params.projection,
-            ),
-        });
-      }
-    }, 8 * 1000);
+  // Initialize FlutterBridge for Flutter-WebView communication
+  // FlutterBridge manages location marker and window methods for Flutter
+  const flutterBridge = new FlutterBridge({
+    map: mapController.getMap(),
+    params,
   });
+  flutterBridge.initialize();
+
+  // Notify Flutter that the map is ready (with small delay for rendering)
+  setTimeout(() => {
+    notifyFlutterReady();
+  }, 200);
 }
 
 // Export trySetup to window for Flutter to call
 window.trySetup = trySetup;
 
+// ============================================================================
+// Application Bootstrap
+// ============================================================================
+
+// Check platform compatibility before initializing
 try {
   ensurePlatformCompatibility();
 } catch (error) {
@@ -345,7 +137,7 @@ try {
   throw error;
 }
 
-// Ensure WASM module is initialized before using its exports downstream
+// Initialize WASM module and start setup
 init()
   .then(() => {
     console.log("WASM module initialized");
