@@ -131,7 +131,37 @@ export class DebugPanel {
         <div id="viewpoint-info" style="font-family: monospace; font-size: 12px;">
           <div>Zoom: <span id="zoom-level">-</span></div>
           <div>Center: <span id="center-coords">-</span></div>
-          <div>Bounds: <span id="bounds-coords">-</span></div>
+          <div>SW: <span id="bounds-sw">-</span></div>
+          <div>NE: <span id="bounds-ne">-</span></div>
+        </div>
+      </div>
+      
+      <div class="separator"></div>
+      
+      <div style="margin-bottom: 10px;">
+        <div style="font-weight: bold; margin-bottom: 5px;">Flutter Bridge Test</div>
+        <div style="margin-bottom: 8px;">
+          <div style="font-size: 11px; color: rgba(255, 255, 255, 0.7); margin-bottom: 4px;">Location Marker</div>
+          <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px;">
+            <label style="font-size: 11px; display: flex; align-items: center; gap: 4px;">
+              <input type="checkbox" id="marker-show" checked> Show
+            </label>
+            <label style="font-size: 11px; display: flex; align-items: center; gap: 4px;">
+              <input type="checkbox" id="marker-flyto" checked> Fly To
+            </label>
+          </div>
+          <button id="test-marker-btn" style="width: 100%; padding: 4px 8px; font-size: 11px; cursor: pointer;">
+            Go to (0, 0)
+          </button>
+        </div>
+        <div>
+          <div style="font-size: 11px; color: rgba(255, 255, 255, 0.7); margin-bottom: 4px;">Journey ID</div>
+          <div style="display: flex; gap: 4px;">
+            <input type="text" id="journey-id-input" placeholder="Enter journey ID" 
+              style="flex: 1; padding: 4px; font-size: 11px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 3px;">
+            <button id="set-journey-btn" style="padding: 4px 8px; font-size: 11px; cursor: pointer;">Set</button>
+          </div>
+          <div id="journey-id-status" style="font-size: 10px; color: rgba(255,255,255,0.5); margin-top: 4px;">Current: -</div>
         </div>
       </div>
     `;
@@ -159,6 +189,14 @@ export class DebugPanel {
   private _setupParamsHook(): void {
     this.params.on("renderMode", (newMode, _oldMode) => {
       this._syncRenderingModeDropdown(newMode);
+    });
+
+    // Sync journey ID display when it changes
+    this.params.on("journeyId", (newId, _oldId) => {
+      const statusElement = document.getElementById("journey-id-status");
+      if (statusElement) {
+        statusElement.textContent = `Current: ${newId || "-"}`;
+      }
     });
   }
 
@@ -213,6 +251,73 @@ export class DebugPanel {
     this.map.on("zoomend", () => {
       this._updateViewpointInfo();
     });
+
+    // Flutter Bridge test: Location marker button
+    const testMarkerBtn = document.getElementById("test-marker-btn");
+    if (testMarkerBtn) {
+      testMarkerBtn.addEventListener("click", () => {
+        const showCheckbox = document.getElementById(
+          "marker-show",
+        ) as HTMLInputElement | null;
+        const flytoCheckbox = document.getElementById(
+          "marker-flyto",
+        ) as HTMLInputElement | null;
+
+        const show = showCheckbox?.checked ?? true;
+        const flyto = flytoCheckbox?.checked ?? true;
+
+        if (window.updateLocationMarker) {
+          window.updateLocationMarker(0, 0, show, flyto);
+          console.log(
+            `[DebugPanel] Called updateLocationMarker(0, 0, ${show}, ${flyto})`,
+          );
+        } else {
+          console.warn(
+            "[DebugPanel] window.updateLocationMarker is not available",
+          );
+        }
+      });
+    }
+
+    // Flutter Bridge test: Set journey ID button
+    const setJourneyBtn = document.getElementById("set-journey-btn");
+    const journeyIdInput = document.getElementById(
+      "journey-id-input",
+    ) as HTMLInputElement | null;
+
+    if (setJourneyBtn && journeyIdInput) {
+      setJourneyBtn.addEventListener("click", () => {
+        const newJourneyId = journeyIdInput.value.trim();
+        if (!newJourneyId) {
+          this._updateJourneyIdStatus("Error: Empty journey ID", true);
+          return;
+        }
+
+        if (window.updateJourneyId) {
+          const result = window.updateJourneyId(newJourneyId);
+          if (result) {
+            this._updateJourneyIdStatus(`Set to: ${newJourneyId}`, false);
+          } else {
+            this._updateJourneyIdStatus(`Already set or failed`, true);
+          }
+          console.log(
+            `[DebugPanel] Called updateJourneyId('${newJourneyId}') => ${result}`,
+          );
+        } else {
+          this._updateJourneyIdStatus("API not available", true);
+          console.warn(
+            "[DebugPanel] window.updateJourneyId is not available",
+          );
+        }
+      });
+
+      // Also support Enter key in the input
+      journeyIdInput.addEventListener("keydown", (e: KeyboardEvent) => {
+        if (e.key === "Enter") {
+          setJourneyBtn.click();
+        }
+      });
+    }
   }
 
   private _updateViewpointInfo(): void {
@@ -235,9 +340,13 @@ export class DebugPanel {
     if (bounds) {
       const ne = bounds.getNorthEast();
       const sw = bounds.getSouthWest();
-      const boundsElement = document.getElementById("bounds-coords");
-      if (boundsElement) {
-        boundsElement.textContent = `SW: ${sw.lng.toFixed(5)}, ${sw.lat.toFixed(5)} | NE: ${ne.lng.toFixed(5)}, ${ne.lat.toFixed(5)}`;
+      const swElement = document.getElementById("bounds-sw");
+      const neElement = document.getElementById("bounds-ne");
+      if (swElement) {
+        swElement.textContent = `${sw.lng.toFixed(5)}, ${sw.lat.toFixed(5)}`;
+      }
+      if (neElement) {
+        neElement.textContent = `${ne.lng.toFixed(5)}, ${ne.lat.toFixed(5)}`;
       }
     }
   }
@@ -355,6 +464,16 @@ export class DebugPanel {
       } else {
         networkElement.style.color = "#F44336"; // Red - Slow
       }
+    }
+  }
+
+  private _updateJourneyIdStatus(message: string, isError: boolean): void {
+    const statusElement = document.getElementById("journey-id-status");
+    if (statusElement) {
+      statusElement.textContent = message;
+      statusElement.style.color = isError
+        ? "#F44336"
+        : "rgba(255, 255, 255, 0.5)";
     }
   }
 
@@ -512,8 +631,26 @@ export class DebugPanel {
 
       // Update viewpoint info
       this._updateViewpointInfo();
+
+      // Update journey ID status
+      this._syncJourneyIdDisplay();
     } else {
       this.hide();
+    }
+  }
+
+  private _syncJourneyIdDisplay(): void {
+    const journeyIdInput = document.getElementById(
+      "journey-id-input",
+    ) as HTMLInputElement | null;
+    const statusElement = document.getElementById("journey-id-status");
+
+    if (journeyIdInput && this.params.journeyId) {
+      journeyIdInput.value = this.params.journeyId;
+    }
+
+    if (statusElement) {
+      statusElement.textContent = `Current: ${this.params.journeyId || "-"}`;
     }
   }
 
