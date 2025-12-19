@@ -273,9 +273,7 @@ export class MapController {
         console.log(`${JOURNEY_LAYER_ID} not found, adding to map`);
         this.switchRenderingLayer();
       } else if (customIndex !== orderedLayerIds.length - 1) {
-        console.log(
-          `${JOURNEY_LAYER_ID} is not frontmost, moving to front`,
-        );
+        console.log(`${JOURNEY_LAYER_ID} is not frontmost, moving to front`);
         this.map.moveLayer(JOURNEY_LAYER_ID);
       }
     });
@@ -328,4 +326,3 @@ export class MapController {
     this.map.remove();
   }
 }
-
