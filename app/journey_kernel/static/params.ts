@@ -94,7 +94,7 @@ export type PropertyChangeCallback<T> = (newValue: T, oldValue: T) => void;
  * Mutable property names that support hooks
  * These are the properties that can be changed at runtime and trigger callbacks
  */
-export type MutablePropertyName = "renderMode" | "journeyId";
+export type MutablePropertyName = "renderMode" | "journeyId" | "fogDensity";
 
 /**
  * ReactiveParams - A reactive parameters class with hook support
@@ -134,6 +134,7 @@ export class ReactiveParams {
   private _zoom: number;
   private _renderMode: string;
   private _requiresMapboxToken: boolean;
+  private _fogDensity: number;
 
   // Hooks storage - map of property name to set of callbacks
   // Using Set to allow multiple hooks per property and easy removal
@@ -150,6 +151,7 @@ export class ReactiveParams {
     zoom: number,
     renderMode: string,
     requiresMapboxToken: boolean,
+    fogDensity: number,
   ) {
     this._cgiEndpoint = cgiEndpoint;
     this._journeyId = journeyId;
@@ -160,6 +162,7 @@ export class ReactiveParams {
     this._zoom = zoom;
     this._renderMode = renderMode;
     this._requiresMapboxToken = requiresMapboxToken;
+    this._fogDensity = fogDensity;
   }
 
   // ============================================================================
@@ -177,7 +180,7 @@ export class ReactiveParams {
    */
   on<K extends MutablePropertyName>(
     property: K,
-    callback: PropertyChangeCallback<K extends "renderMode" ? string : string>,
+    callback: PropertyChangeCallback<K extends "fogDensity" ? number : string>,
   ): () => void {
     // Initialize the Set for this property if it doesn't exist
     if (!this.hooks.has(property)) {
@@ -223,24 +226,33 @@ export class ReactiveParams {
    * Generic method to set a mutable property by name
    * This is useful when the property name is dynamic (e.g., from Flutter bridge)
    *
-   * @param key - The property name ('renderMode' or 'journeyId')
-   * @param value - The new value to set
+   * @param key - The property name ('renderMode', 'journeyId', or 'fogDensity')
+   * @param value - The new value to set (string for renderMode/journeyId, number for fogDensity)
    * @returns true if the value was changed, false if it was the same
    */
-  set(key: MutablePropertyName, value: string): boolean {
+  set(key: MutablePropertyName, value: string | number): boolean {
     switch (key) {
       case "renderMode":
         if (this._renderMode === value) return false;
         const oldRenderMode = this._renderMode;
-        this._renderMode = value;
+        this._renderMode = value as string;
         this.triggerHooks("renderMode", value, oldRenderMode);
         return true;
 
       case "journeyId":
         if (this._journeyId === value) return false;
         const oldJourneyId = this._journeyId;
-        this._journeyId = value;
+        this._journeyId = value as string;
         this.triggerHooks("journeyId", value, oldJourneyId);
+        return true;
+
+      case "fogDensity":
+        const numValue = typeof value === "number" ? value : parseFloat(value);
+        const clampedValue = Math.max(0, Math.min(1, numValue));
+        if (this._fogDensity === clampedValue) return false;
+        const oldFogDensity = this._fogDensity;
+        this._fogDensity = clampedValue;
+        this.triggerHooks("fogDensity", clampedValue, oldFogDensity);
         return true;
 
       default:
@@ -312,6 +324,23 @@ export class ReactiveParams {
     const oldValue = this._journeyId;
     this._journeyId = value;
     this.triggerHooks("journeyId", value, oldValue);
+  }
+
+  /**
+   * Fog density for the map (0-1)
+   * Setting this property triggers registered 'fogDensity' hooks
+   */
+  get fogDensity(): number {
+    return this._fogDensity;
+  }
+
+  set fogDensity(value: number) {
+    // Clamp value between 0 and 1
+    const clampedValue = Math.max(0, Math.min(1, value));
+    if (this._fogDensity === clampedValue) return;
+    const oldValue = this._fogDensity;
+    this._fogDensity = clampedValue;
+    this.triggerHooks("fogDensity", clampedValue, oldValue);
   }
 }
 
@@ -436,6 +465,13 @@ export function createReactiveParams(
       : parseFloat(externalParams.zoom)
     : 2;
 
+  // Parse fog density with default value of 0.5
+  const fogDensity = externalParams.fog_density
+    ? isNaN(parseFloat(externalParams.fog_density))
+      ? 0.5
+      : Math.max(0, Math.min(1, parseFloat(externalParams.fog_density)))
+    : 0.5;
+
   // Create and return ReactiveParams instance
   return new ReactiveParams(
     cgiEndpoint,
@@ -447,5 +483,6 @@ export function createReactiveParams(
     zoom,
     renderMode,
     requiresMapboxToken,
+    fogDensity,
   );
 }
