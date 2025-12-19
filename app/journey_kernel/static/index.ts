@@ -170,7 +170,17 @@ async function trySetup(): Promise<void> {
     style: {
       version: 8,
       sources: {},
-      layers: [],
+      layers: [
+        {
+          id: "background",
+          type: "background",
+          paint: {
+            "background-color": "#e8e4df", // Light beige background contrasting black universe
+          },
+        },
+      ],
+      // TODO: use the projection mode passed in params later.
+      projection: { type: "globe" },
     },
     // TODO: maplibre brings more canvas settings, we may fine tune them later
     canvasContextAttributes: {
