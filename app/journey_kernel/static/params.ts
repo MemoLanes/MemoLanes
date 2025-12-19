@@ -76,6 +76,7 @@ export interface ExternalParams {
   zoom?: string;
   render?: string;
   map_style?: string;
+  fog_density?: string; // Optional fog density value (0-1)
   [key: string]: string | undefined; // Allow additional parameters
 }
 
