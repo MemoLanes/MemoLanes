@@ -6,18 +6,34 @@
  */
 
 import { transformMapboxStyle } from "maplibregl-mapbox-request-transformer";
+import type { ProjectionType } from "./params";
 
 /**
- * Transform map style and add globe projection
+ * Transform map style and add globe projection (default behavior)
  * @param previousStyle - Previous map style
  * @param nextStyle - Next map style to apply
  * @returns Transformed style with globe projection
  */
 export function transformStyle(previousStyle: any, nextStyle: any): any {
+  return transformStyleWithProjection(previousStyle, nextStyle, "globe");
+}
+
+/**
+ * Transform map style with specified projection type
+ * @param previousStyle - Previous map style
+ * @param nextStyle - Next map style to apply
+ * @param projection - Projection type ("mercator" or "globe")
+ * @returns Transformed style with specified projection
+ */
+export function transformStyleWithProjection(
+  previousStyle: any,
+  nextStyle: any,
+  projection: ProjectionType,
+): any {
   const convertedStyle = transformMapboxStyle(previousStyle, nextStyle);
   return {
     ...convertedStyle,
-    projection: { type: "globe" },
+    projection: { type: projection },
   };
 }
 

@@ -15,6 +15,9 @@ import type { JourneyLayerConstructor } from "./layers/journey-layer-interface";
 const DEFAULT_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 const DEFAULT_RENDER_MODE = "canvas";
 
+/** Valid projection types for the map */
+export type ProjectionType = "mercator" | "globe";
+
 // ============================================================================
 // Layer Configuration
 // ============================================================================
@@ -77,6 +80,7 @@ export interface ExternalParams {
   render?: string;
   map_style?: string;
   fog_density?: string; // Optional fog density value (0-1)
+  projection?: string; // Map projection: "mercator" or "globe" (default: "globe")
   [key: string]: string | undefined; // Allow additional parameters
 }
 
@@ -95,7 +99,7 @@ export type PropertyChangeCallback<T> = (newValue: T, oldValue: T) => void;
  * Mutable property names that support hooks
  * These are the properties that can be changed at runtime and trigger callbacks
  */
-export type MutablePropertyName = "renderMode" | "journeyId" | "fogDensity";
+export type MutablePropertyName = "renderMode" | "journeyId" | "fogDensity" | "projection";
 
 /**
  * ReactiveParams - A reactive parameters class with hook support
@@ -136,6 +140,7 @@ export class ReactiveParams {
   private _renderMode: string;
   private _requiresMapboxToken: boolean;
   private _fogDensity: number;
+  private _projection: ProjectionType;
 
   // Hooks storage - map of property name to set of callbacks
   // Using Set to allow multiple hooks per property and easy removal
@@ -153,6 +158,7 @@ export class ReactiveParams {
     renderMode: string,
     requiresMapboxToken: boolean,
     fogDensity: number,
+    projection: ProjectionType,
   ) {
     this._cgiEndpoint = cgiEndpoint;
     this._journeyId = journeyId;
@@ -164,6 +170,7 @@ export class ReactiveParams {
     this._renderMode = renderMode;
     this._requiresMapboxToken = requiresMapboxToken;
     this._fogDensity = fogDensity;
+    this._projection = projection;
   }
 
   // ============================================================================
@@ -227,8 +234,8 @@ export class ReactiveParams {
    * Generic method to set a mutable property by name
    * This is useful when the property name is dynamic (e.g., from Flutter bridge)
    *
-   * @param key - The property name ('renderMode', 'journeyId', or 'fogDensity')
-   * @param value - The new value to set (string for renderMode/journeyId, number for fogDensity)
+   * @param key - The property name ('renderMode', 'journeyId', 'fogDensity', or 'projection')
+   * @param value - The new value to set (string for renderMode/journeyId/projection, number for fogDensity)
    * @returns true if the value was changed, false if it was the same
    */
   set(key: MutablePropertyName, value: string | number): boolean {
@@ -254,6 +261,15 @@ export class ReactiveParams {
         const oldFogDensity = this._fogDensity;
         this._fogDensity = clampedValue;
         this.triggerHooks("fogDensity", clampedValue, oldFogDensity);
+        return true;
+
+      case "projection":
+        // Validate projection value
+        const projectionValue = value === "mercator" ? "mercator" : "globe";
+        if (this._projection === projectionValue) return false;
+        const oldProjection = this._projection;
+        this._projection = projectionValue;
+        this.triggerHooks("projection", projectionValue, oldProjection);
         return true;
 
       default:
@@ -342,6 +358,23 @@ export class ReactiveParams {
     const oldValue = this._fogDensity;
     this._fogDensity = clampedValue;
     this.triggerHooks("fogDensity", clampedValue, oldValue);
+  }
+
+  /**
+   * Map projection type ("mercator" or "globe")
+   * Setting this property triggers registered 'projection' hooks
+   */
+  get projection(): ProjectionType {
+    return this._projection;
+  }
+
+  set projection(value: ProjectionType) {
+    // Validate and normalize the projection value
+    const normalizedValue: ProjectionType = value === "mercator" ? "mercator" : "globe";
+    if (this._projection === normalizedValue) return;
+    const oldValue = this._projection;
+    this._projection = normalizedValue;
+    this.triggerHooks("projection", normalizedValue, oldValue);
   }
 }
 
@@ -473,6 +506,10 @@ export function createReactiveParams(
       : Math.max(0, Math.min(1, parseFloat(externalParams.fog_density)))
     : 0.5;
 
+  // Parse projection with validation (default: "globe")
+  const projection: ProjectionType =
+    externalParams.projection === "mercator" ? "mercator" : "globe";
+
   // Create and return ReactiveParams instance
   return new ReactiveParams(
     cgiEndpoint,
@@ -485,5 +522,6 @@ export function createReactiveParams(
     renderMode,
     requiresMapboxToken,
     fogDensity,
+    projection,
   );
 }

@@ -17,10 +17,11 @@ import {
   createReactiveParams,
   AVAILABLE_LAYERS,
   ReactiveParams,
+  ProjectionType,
 } from "./params";
 import { FlutterBridge, notifyFlutterReady } from "./flutter-bridge";
 import { ensurePlatformCompatibility } from "./platform";
-import { transformStyle, displayPageMessage } from "./utils";
+import { transformStyleWithProjection, displayPageMessage } from "./utils";
 import { JOURNEY_LAYER_ID } from "./layers/journey-layer-interface";
 import type { JourneyLayer } from "./layers/journey-layer-interface";
 
@@ -125,6 +126,19 @@ function registerParamsHooks(map: MaplibreMap, params: ReactiveParams): void {
     );
     switchRenderingLayer(map, params);
   });
+
+  // Hook for projection changes
+  // When projection changes, update the map style with new projection
+  params.on("projection", (newProjection, oldProjection) => {
+    console.log(
+      `[ReactiveParams] projection changed: ${oldProjection} -> ${newProjection}`,
+    );
+    // Update map projection by reloading the style with new projection
+    map.setStyle(params.mapStyle, {
+      transformStyle: (previousStyle: any, nextStyle: any) =>
+        transformStyleWithProjection(previousStyle, nextStyle, newProjection as ProjectionType),
+    });
+  });
 }
 
 /**
@@ -200,8 +214,7 @@ async function trySetup(): Promise<void> {
           },
         },
       ],
-      // TODO: use the projection mode passed in params later.
-      projection: { type: "globe" },
+      projection: { type: params.projection },
     },
     // TODO: maplibre brings more canvas settings, we may fine tune them later
     canvasContextAttributes: {
@@ -284,7 +297,8 @@ async function trySetup(): Promise<void> {
 
     // defer the map style initialization after memolanes layer added.
     map.setStyle(params.mapStyle, {
-      transformStyle: transformStyle,
+      transformStyle: (previousStyle: any, nextStyle: any) =>
+        transformStyleWithProjection(previousStyle, nextStyle, params.projection),
     });
 
     // In case mapbox completely fails to load (i.e. app running on mainland China
@@ -294,7 +308,8 @@ async function trySetup(): Promise<void> {
       if (layerCount <= 1) {
         console.log("Re-attempt to load map style");
         map.setStyle(params.mapStyle, {
-          transformStyle: transformStyle,
+          transformStyle: (previousStyle: any, nextStyle: any) =>
+            transformStyleWithProjection(previousStyle, nextStyle, params.projection),
         });
       }
     }, 8 * 1000);
