@@ -4,8 +4,8 @@ import 'package:async/async.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:memolanes/common/location/location_service.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/common/service/location/location_service.dart';
 
 /// `PokeGeolocatorTask` is a hacky workround.
 /// The behvior we observe is that the position stream from geolocator will
