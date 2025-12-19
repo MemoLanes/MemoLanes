@@ -21,6 +21,7 @@ import {
 import { FlutterBridge, notifyFlutterReady } from "./flutter-bridge";
 import { ensurePlatformCompatibility } from "./platform";
 import { transformStyle, displayPageMessage } from "./utils";
+import { JOURNEY_LAYER_ID } from "./layers/journey-layer-interface";
 import type { JourneyLayer } from "./layers/journey-layer-interface";
 
 import "./debug-panel.css";
@@ -200,20 +201,29 @@ async function trySetup(): Promise<void> {
     // Note: This is the initial setup, subsequent changes go through the hook
     currentJourneyLayer = switchRenderingLayer(map, params);
 
-    map.on("styledata", () => {
+    map.on("styledata", (_) => {
       console.log("styledata event received");
       const orderedLayerIds = map.getLayersOrder();
-      const customIndex = orderedLayerIds.indexOf("memolanes-journey-layer");
+
+      // after style reset, the previous layer may have different lifecycles:
+      // 1. for custom layers following the style spec, they will be erased so
+      //    we need to add them back.
+      // 2. for custom layers following the CustomLayerInterface, they will be kept
+      //    in the bottom of the layer stack so we need to move them to the top.
+
+      // console.log("orderedLayerIds:", orderedLayerIds);
+      const customIndex = orderedLayerIds.indexOf(JOURNEY_LAYER_ID);
       if (customIndex === -1) {
+        console.log(`${JOURNEY_LAYER_ID} not found, add it into the map`);
         currentJourneyLayer = switchRenderingLayer(map, params);
       } else if (
         customIndex !== -1 &&
         customIndex !== orderedLayerIds.length - 1
       ) {
         console.log(
-          "memolanes-journey-layer is not the most front one, move it to the front",
+          `${JOURNEY_LAYER_ID} is not the most front one, move it to the front`,
         );
-        map.moveLayer("memolanes-journey-layer");
+        map.moveLayer(JOURNEY_LAYER_ID);
       }
     });
 

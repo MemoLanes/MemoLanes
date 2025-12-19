@@ -3,6 +3,7 @@ import type maplibregl from "maplibre-gl";
 import type { CanvasSource, CanvasSourceSpecification } from "maplibre-gl";
 import type { TileBuffer } from "../../pkg";
 import type { JourneyTileProvider } from "../journey-tile-provider";
+import { JOURNEY_LAYER_ID } from "./journey-layer-interface";
 import type { JourneyLayer, RGBAColor } from "./journey-layer-interface";
 
 /**
@@ -27,6 +28,8 @@ type TileBufferCallback = (
 export class JourneyCanvasLayer implements JourneyLayer {
   private map: maplibregl.Map;
   private journeyTileProvider: JourneyTileProvider;
+  private layerId: string;
+  private sourceId: string;
   private bgColor: string;
   private fgColor: string;
   private canvas: HTMLCanvasElement;
@@ -36,11 +39,14 @@ export class JourneyCanvasLayer implements JourneyLayer {
   constructor(
     map: maplibregl.Map,
     journeyTileProvider: JourneyTileProvider,
+    layerId: string = JOURNEY_LAYER_ID,
     bgColor: RGBAColor = [0.0, 0.0, 0.0, 0.5],
     fgColor: RGBAColor = [1.0, 1.0, 1.0, 0.0],
   ) {
     this.map = map;
     this.journeyTileProvider = journeyTileProvider;
+    this.layerId = layerId;
+    this.sourceId = `${layerId}-canvas-source`;
 
     let r = Math.round(bgColor[0] * 255);
     let g = Math.round(bgColor[1] * 255);
@@ -63,10 +69,10 @@ export class JourneyCanvasLayer implements JourneyLayer {
   }
 
   initialize(): void {
-    this.map.addSource("main-canvas-source", this.getSourceConfig() as any);
+    this.map.addSource(this.sourceId, this.getSourceConfig() as any);
     this.map.addLayer({
-      id: "memolanes-journey-layer",
-      source: "main-canvas-source",
+      id: this.layerId,
+      source: this.sourceId,
       type: "raster",
       paint: {
         "raster-fade-duration": 0,
@@ -190,7 +196,7 @@ export class JourneyCanvasLayer implements JourneyLayer {
     const se = tileXYToLngLat(almost(right), bottom, z);
     const sw = tileXYToLngLat(almost(left), bottom, z);
 
-    const mainCanvasSource = this.map.getSource("main-canvas-source") as
+    const mainCanvasSource = this.map.getSource(this.sourceId) as
       | CanvasSource
       | undefined;
     mainCanvasSource?.setCoordinates([
@@ -204,12 +210,12 @@ export class JourneyCanvasLayer implements JourneyLayer {
   }
 
   remove(): void {
-    if (this.map.getLayer("memolanes-journey-layer")) {
-      this.map.removeLayer("memolanes-journey-layer");
+    if (this.map.getLayer(this.layerId)) {
+      this.map.removeLayer(this.layerId);
     }
 
-    if (this.map.getSource("main-canvas-source")) {
-      this.map.removeSource("main-canvas-source");
+    if (this.map.getSource(this.sourceId)) {
+      this.map.removeSource(this.sourceId);
     }
 
     if (this.journeyTileProvider && this._repaintCallback) {

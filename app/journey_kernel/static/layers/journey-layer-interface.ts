@@ -2,6 +2,12 @@ import type { Map } from "maplibre-gl";
 import type { JourneyTileProvider } from "../journey-tile-provider";
 
 /**
+ * Default layer ID used by all journey layers.
+ * This constant should be passed to layer constructors and used for layer lookups.
+ */
+export const JOURNEY_LAYER_ID = "memolanes-journey-layer";
+
+/**
  * RGBA color tuple: [red, green, blue, alpha]
  * Values are in range [0, 1]
  */
@@ -32,6 +38,7 @@ export interface JourneyLayerConstructor {
   new (
     map: Map,
     journeyTileProvider: JourneyTileProvider,
+    layerId?: string,
     bgColor?: RGBAColor,
     fgColor?: RGBAColor,
   ): JourneyLayer;
