@@ -136,7 +136,11 @@ function registerParamsHooks(map: MaplibreMap, params: ReactiveParams): void {
     // Update map projection by reloading the style with new projection
     map.setStyle(params.mapStyle, {
       transformStyle: (previousStyle: any, nextStyle: any) =>
-        transformStyleWithProjection(previousStyle, nextStyle, newProjection as ProjectionType),
+        transformStyleWithProjection(
+          previousStyle,
+          nextStyle,
+          newProjection as ProjectionType,
+        ),
     });
   });
 }
@@ -277,9 +281,11 @@ async function trySetup(): Promise<void> {
       1000,
     );
 
-    // Create and initialize the debug panel
-    const debugPanel = new DebugPanel(map, params);
-    debugPanel.initialize();
+    // Create and initialize the debug panel only when debug mode is enabled
+    if (params.debug) {
+      const debugPanel = new DebugPanel(map, params);
+      debugPanel.initialize();
+    }
 
     // Initialize Flutter bridge
     // FlutterBridge manages its own locationMarker internally
@@ -298,7 +304,11 @@ async function trySetup(): Promise<void> {
     // defer the map style initialization after memolanes layer added.
     map.setStyle(params.mapStyle, {
       transformStyle: (previousStyle: any, nextStyle: any) =>
-        transformStyleWithProjection(previousStyle, nextStyle, params.projection),
+        transformStyleWithProjection(
+          previousStyle,
+          nextStyle,
+          params.projection,
+        ),
     });
 
     // In case mapbox completely fails to load (i.e. app running on mainland China
@@ -309,7 +319,11 @@ async function trySetup(): Promise<void> {
         console.log("Re-attempt to load map style");
         map.setStyle(params.mapStyle, {
           transformStyle: (previousStyle: any, nextStyle: any) =>
-            transformStyleWithProjection(previousStyle, nextStyle, params.projection),
+            transformStyleWithProjection(
+              previousStyle,
+              nextStyle,
+              params.projection,
+            ),
         });
       }
     }, 8 * 1000);

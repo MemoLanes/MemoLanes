@@ -81,6 +81,7 @@ export interface ExternalParams {
   map_style?: string;
   fog_density?: string; // Optional fog density value (0-1)
   projection?: string; // Map projection: "mercator" or "globe" (default: "globe")
+  debug?: string; // Enable debug panel: "true" or "false" (default: "false")
   [key: string]: string | undefined; // Allow additional parameters
 }
 
@@ -99,7 +100,11 @@ export type PropertyChangeCallback<T> = (newValue: T, oldValue: T) => void;
  * Mutable property names that support hooks
  * These are the properties that can be changed at runtime and trigger callbacks
  */
-export type MutablePropertyName = "renderMode" | "journeyId" | "fogDensity" | "projection";
+export type MutablePropertyName =
+  | "renderMode"
+  | "journeyId"
+  | "fogDensity"
+  | "projection";
 
 /**
  * ReactiveParams - A reactive parameters class with hook support
@@ -141,6 +146,7 @@ export class ReactiveParams {
   private _requiresMapboxToken: boolean;
   private _fogDensity: number;
   private _projection: ProjectionType;
+  private _debug: boolean;
 
   // Hooks storage - map of property name to set of callbacks
   // Using Set to allow multiple hooks per property and easy removal
@@ -159,6 +165,7 @@ export class ReactiveParams {
     requiresMapboxToken: boolean,
     fogDensity: number,
     projection: ProjectionType,
+    debug: boolean,
   ) {
     this._cgiEndpoint = cgiEndpoint;
     this._journeyId = journeyId;
@@ -171,6 +178,7 @@ export class ReactiveParams {
     this._requiresMapboxToken = requiresMapboxToken;
     this._fogDensity = fogDensity;
     this._projection = projection;
+    this._debug = debug;
   }
 
   // ============================================================================
@@ -376,6 +384,14 @@ export class ReactiveParams {
     this._projection = normalizedValue;
     this.triggerHooks("projection", normalizedValue, oldValue);
   }
+
+  /**
+   * Debug mode flag (readonly)
+   * When true, the debug panel is initialized
+   */
+  get debug(): boolean {
+    return this._debug;
+  }
 }
 
 // ============================================================================
@@ -510,6 +526,9 @@ export function createReactiveParams(
   const projection: ProjectionType =
     externalParams.projection === "mercator" ? "mercator" : "globe";
 
+  // Parse debug flag (default: false)
+  const debug = externalParams.debug === "true";
+
   // Create and return ReactiveParams instance
   return new ReactiveParams(
     cgiEndpoint,
@@ -523,5 +542,6 @@ export function createReactiveParams(
     requiresMapboxToken,
     fogDensity,
     projection,
+    debug,
   );
 }
