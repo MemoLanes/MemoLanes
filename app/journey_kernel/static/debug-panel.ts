@@ -113,6 +113,17 @@ export class DebugPanel {
       <div class="separator"></div>
       
       <div style="margin-bottom: 10px;">
+        <label for="fog-density" title="Controls the fog density on the map (0-1)">Fog Density:</label>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input type="range" id="fog-density" min="0" max="1" step="0.01" value="0.5" 
+            style="flex: 1; cursor: pointer;">
+          <span id="fog-density-value" style="font-family: monospace; font-size: 12px; min-width: 36px;">0.50</span>
+        </div>
+      </div>
+      
+      <div class="separator"></div>
+      
+      <div style="margin-bottom: 10px;">
         <div style="font-weight: bold; margin-bottom: 5px;">Performance</div>
         <div style="font-family: monospace; font-size: 12px; margin-bottom: 8px;">
           <div>FPS: <span id="fps-display" style="color: #4CAF50;">-</span></div>
@@ -198,6 +209,11 @@ export class DebugPanel {
         statusElement.textContent = `Current: ${newId || "-"}`;
       }
     });
+
+    // Sync fog density slider when it changes externally
+    this.params.on("fogDensity", (newValue, _oldValue) => {
+      this._syncFogDensitySlider(newValue);
+    });
   }
 
   /**
@@ -210,6 +226,23 @@ export class DebugPanel {
 
     if (renderingModeSelect && AVAILABLE_LAYERS[renderingMode]) {
       renderingModeSelect.value = renderingMode;
+    }
+  }
+
+  /**
+   * Sync the fog density slider to match the current params value
+   */
+  private _syncFogDensitySlider(fogDensity: number): void {
+    const slider = document.getElementById(
+      "fog-density",
+    ) as HTMLInputElement | null;
+    const valueDisplay = document.getElementById("fog-density-value");
+
+    if (slider) {
+      slider.value = fogDensity.toString();
+    }
+    if (valueDisplay) {
+      valueDisplay.textContent = fogDensity.toFixed(2);
     }
   }
 
@@ -239,6 +272,27 @@ export class DebugPanel {
         if (AVAILABLE_LAYERS[renderingMode]) {
           this.params.renderMode = renderingMode;
         }
+      });
+    }
+
+    // Fog density slider change handler
+    const fogDensitySlider = document.getElementById("fog-density");
+    const fogDensityValue = document.getElementById("fog-density-value");
+    if (fogDensitySlider) {
+      fogDensitySlider.addEventListener("input", (e: Event) => {
+        const target = e.target as HTMLInputElement;
+        const value = parseFloat(target.value);
+
+        // Update the display value
+        if (fogDensityValue) {
+          fogDensityValue.textContent = value.toFixed(2);
+        }
+
+        // Update URL hash
+        this._updateUrlHash({ fog_density: value.toString() });
+
+        // Set the fogDensity on params - hooks will handle the rest
+        this.params.fogDensity = value;
       });
     }
 
@@ -305,9 +359,7 @@ export class DebugPanel {
           );
         } else {
           this._updateJourneyIdStatus("API not available", true);
-          console.warn(
-            "[DebugPanel] window.updateJourneyId is not available",
-          );
+          console.warn("[DebugPanel] window.updateJourneyId is not available");
         }
       });
 
@@ -628,6 +680,9 @@ export class DebugPanel {
 
       // Sync dropdown with current params value
       this._syncRenderingModeDropdown(this.params.renderMode);
+
+      // Sync fog density slider with current params value
+      this._syncFogDensitySlider(this.params.fogDensity);
 
       // Update viewpoint info
       this._updateViewpointInfo();

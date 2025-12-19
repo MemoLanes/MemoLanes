@@ -79,7 +79,19 @@ function switchRenderingLayer(
   // Note: bufferSizePower is automatically updated by JourneyTileProvider
   // when it receives the renderMode change via its own hook
   const LayerClass = AVAILABLE_LAYERS[renderingMode].layerClass;
-  currentJourneyLayer = new LayerClass(map, currentJourneyTileProvider);
+  // Use fogDensity as the alpha value for bgColor
+  const bgColor: [number, number, number, number] = [
+    0.0,
+    0.0,
+    0.0,
+    params.fogDensity,
+  ];
+  currentJourneyLayer = new LayerClass(
+    map,
+    currentJourneyTileProvider,
+    undefined, // use default layerId
+    bgColor,
+  );
   currentJourneyLayer.initialize();
 
   return currentJourneyLayer;
@@ -101,6 +113,15 @@ function registerParamsHooks(map: MaplibreMap, params: ReactiveParams): void {
   params.on("renderMode", (newMode, oldMode) => {
     console.log(
       `[ReactiveParams] renderMode changed: ${oldMode} -> ${newMode}`,
+    );
+    switchRenderingLayer(map, params);
+  });
+
+  // Hook for fogDensity changes
+  // When fogDensity changes, recreate the layer with new bgColor alpha
+  params.on("fogDensity", (newDensity, oldDensity) => {
+    console.log(
+      `[ReactiveParams] fogDensity changed: ${oldDensity} -> ${newDensity}`,
     );
     switchRenderingLayer(map, params);
   });
