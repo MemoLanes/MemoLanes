@@ -11,6 +11,7 @@ import {
   AVAILABLE_LAYERS,
   type LayerConfig,
   type ReactiveParams,
+  type ProjectionType,
 } from "./params";
 
 // Interface for URL hash parameters
@@ -124,6 +125,16 @@ export class DebugPanel {
       <div class="separator"></div>
       
       <div style="margin-bottom: 10px;">
+        <label for="projection-mode" title="Map projection type">Projection:</label>
+        <select id="projection-mode">
+          <option value="globe" title="3D globe projection">Globe</option>
+          <option value="mercator" title="Flat mercator projection">Mercator</option>
+        </select>
+      </div>
+      
+      <div class="separator"></div>
+      
+      <div style="margin-bottom: 10px;">
         <div style="font-weight: bold; margin-bottom: 5px;">Performance</div>
         <div style="font-family: monospace; font-size: 12px; margin-bottom: 8px;">
           <div>FPS: <span id="fps-display" style="color: #4CAF50;">-</span></div>
@@ -214,6 +225,11 @@ export class DebugPanel {
     this.params.on("fogDensity", (newValue, _oldValue) => {
       this._syncFogDensitySlider(newValue);
     });
+
+    // Sync projection dropdown when it changes externally
+    this.params.on("projection", (newValue, _oldValue) => {
+      this._syncProjectionDropdown(newValue as ProjectionType);
+    });
   }
 
   /**
@@ -243,6 +259,19 @@ export class DebugPanel {
     }
     if (valueDisplay) {
       valueDisplay.textContent = fogDensity.toFixed(2);
+    }
+  }
+
+  /**
+   * Sync the projection dropdown to match the current params value
+   */
+  private _syncProjectionDropdown(projection: ProjectionType): void {
+    const projectionSelect = document.getElementById(
+      "projection-mode",
+    ) as HTMLSelectElement | null;
+
+    if (projectionSelect) {
+      projectionSelect.value = projection;
     }
   }
 
@@ -293,6 +322,21 @@ export class DebugPanel {
 
         // Set the fogDensity on params - hooks will handle the rest
         this.params.fogDensity = value;
+      });
+    }
+
+    // Projection mode dropdown change handler
+    const projectionSelect = document.getElementById("projection-mode");
+    if (projectionSelect) {
+      projectionSelect.addEventListener("change", (e: Event) => {
+        const target = e.target as HTMLSelectElement;
+        const projection = target.value as ProjectionType;
+
+        // Update URL hash
+        this._updateUrlHash({ projection: projection });
+
+        // Set the projection on params - hooks will handle the rest
+        this.params.projection = projection;
       });
     }
 
@@ -683,6 +727,9 @@ export class DebugPanel {
 
       // Sync fog density slider with current params value
       this._syncFogDensitySlider(this.params.fogDensity);
+
+      // Sync projection dropdown with current params value
+      this._syncProjectionDropdown(this.params.projection);
 
       // Update viewpoint info
       this._updateViewpointInfo();
