@@ -378,7 +378,8 @@ export class ReactiveParams {
 
   set projection(value: ProjectionType) {
     // Validate and normalize the projection value
-    const normalizedValue: ProjectionType = value === "mercator" ? "mercator" : "globe";
+    const normalizedValue: ProjectionType =
+      value === "mercator" ? "mercator" : "globe";
     if (this._projection === normalizedValue) return;
     const oldValue = this._projection;
     this._projection = normalizedValue;
