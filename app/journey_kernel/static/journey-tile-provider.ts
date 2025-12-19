@@ -113,6 +113,15 @@ export class JourneyTileProvider {
     this.params.on("renderMode", (newMode, _oldMode) => {
       const newBufferSizePower = this.getBufferSizePowerFromRenderMode(newMode);
       this.setBufferSizePower(newBufferSizePower);
+      // TODO: should we also refresh the tile buffer?
+    });
+
+    // Register hook to refresh data when journeyId changes
+    this.params.on("journeyId", (newId, oldId) => {
+      console.log(
+        `[JourneyTileProvider] journeyId changed: ${oldId} -> ${newId}`,
+      );
+      this.pollForJourneyUpdates(true);
     });
 
     this.map.on("move", () => this.tryUpdateViewRange());

@@ -88,7 +88,10 @@ function switchRenderingLayer(
 
 /**
  * Register hooks on ReactiveParams to handle property changes
- * This is the central place where we wire up reactive behaviors.
+ * This is the central place where we wire up reactive behaviors for the map/layer.
+ *
+ * Note: JourneyTileProvider registers its own hooks for renderMode (bufferSizePower)
+ * and journeyId (pollForJourneyUpdates) internally.
  *
  * @param map - MapLibre map instance
  * @param params - ReactiveParams instance to register hooks on
@@ -101,15 +104,6 @@ function registerParamsHooks(map: MaplibreMap, params: ReactiveParams): void {
       `[ReactiveParams] renderMode changed: ${oldMode} -> ${newMode}`,
     );
     switchRenderingLayer(map, params);
-  });
-
-  // Hook for journeyId changes
-  // When journeyId changes, force update the tile provider
-  params.on("journeyId", (newId, oldId) => {
-    console.log(`[ReactiveParams] journeyId changed: ${oldId} -> ${newId}`);
-    if (currentJourneyTileProvider) {
-      currentJourneyTileProvider.pollForJourneyUpdates(true);
-    }
   });
 }
 
