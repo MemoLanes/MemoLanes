@@ -8,7 +8,7 @@
  * (e.g., switching layers, refreshing tile data).
  */
 
-import type maplibregl from "maplibre-gl";
+import maplibregl from "maplibre-gl";
 import type { ReactiveParams } from "./params";
 
 // Type definitions for Flutter message channels
@@ -35,7 +35,6 @@ declare global {
 
 export interface FlutterBridgeConfig {
   map: maplibregl.Map;
-  locationMarker: maplibregl.Marker;
   params: ReactiveParams;
 }
 
@@ -46,8 +45,16 @@ export class FlutterBridge {
 
   constructor(config: FlutterBridgeConfig) {
     this.map = config.map;
-    this.locationMarker = config.locationMarker;
     this.params = config.params;
+
+    // Create location marker element
+    const el = document.createElement("div");
+    el.className = "location-marker";
+
+    // Create the marker (not added to map until updateLocationMarker is called)
+    this.locationMarker = new maplibregl.Marker({
+      element: el,
+    });
   }
 
   /**

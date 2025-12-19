@@ -4,7 +4,6 @@ import init from "../pkg/index.js";
 import maplibregl from "maplibre-gl";
 import type {
   Map as MaplibreMap,
-  Marker,
   RequestTransformFunction,
   ResourceType,
 } from "maplibre-gl";
@@ -45,7 +44,6 @@ window.EXTERNAL_PARAMS = {};
 // Global state variables
 let currentJourneyLayer: JourneyLayer | null = null; // Store reference to current layer
 let currentJourneyTileProvider: JourneyTileProvider;
-let locationMarker: Marker | null = null;
 
 /**
  * Function to switch between rendering layers
@@ -187,15 +185,6 @@ async function trySetup(): Promise<void> {
   map.touchZoomRotate.disableRotation();
 
   map.on("load", async () => {
-    // Create a DOM element for the marker
-    const el = document.createElement("div");
-    el.className = "location-marker";
-
-    // Create the marker but don't add it to the map yet
-    locationMarker = new maplibregl.Marker({
-      element: el,
-    });
-
     // JourneyTileProvider automatically gets bufferSizePower from params.renderMode
     // and updates it when renderMode changes via its own hook
     currentJourneyTileProvider = new JourneyTileProvider(map, params);
@@ -239,11 +228,10 @@ async function trySetup(): Promise<void> {
     debugPanel.initialize();
 
     // Initialize Flutter bridge
-    // Now FlutterBridge only needs the params - it can set properties directly
-    // and the hooks will handle the side effects
+    // FlutterBridge manages its own locationMarker internally
+    // and uses params for reactive property updates
     const flutterBridge = new FlutterBridge({
       map,
-      locationMarker: locationMarker!,
       params,
     });
     flutterBridge.initialize();
