@@ -55,7 +55,8 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
               try {
                 await api.deleteAllJourneys();
                 if (context.mounted) {
-                  await showCommonDialog(context, "All journeys are deleted.");
+                  await showCommonDialog(
+                      context, context.tr("journey.delete_all_success"));
                 }
               } catch (e) {
                 if (context.mounted) {
