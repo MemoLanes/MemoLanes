@@ -5,8 +5,6 @@ use auto_context::auto_context;
 use chrono::{DateTime, Local, NaiveDate, Utc};
 use flutter_rust_bridge::frb;
 
-use super::api;
-use crate::gps_processor::{DEFAULT_SEGMENT_GAP_RULES, STEP_OF_MY_WORLD_SEGMENT_GAP_RULES};
 use crate::{
     flight_track_processor,
     gps_processor::RawData,
@@ -14,6 +12,9 @@ use crate::{
     journey_data::JourneyData,
     journey_header::JourneyKind,
 };
+use crate::gps_processor::{DEFAULT_SEGMENT_GAP_RULES, STEP_OF_MY_WORLD_SEGMENT_GAP_RULES};
+use crate::journey_vector::JourneyVector;
+use super::api;
 
 #[derive(Debug)]
 #[frb(non_opaque)]
@@ -104,8 +105,8 @@ pub enum ImportPreprocessor {
 pub fn process_vector_data(
     vector_data: &RawVectorData,
     import_processor: ImportPreprocessor,
-) -> Result<Option<JourneyData>> {
-    let journey_vector = match import_processor {
+) -> Result<JourneyData> {
+    let journey_vector_opt = match import_processor {
         ImportPreprocessor::None => import_data::journey_vector_from_raw_data_with_rules(
             &vector_data.data,
             false,
@@ -124,8 +125,16 @@ pub fn process_vector_data(
         ),
     };
 
-    match journey_vector {
-        None => Ok(None),
-        Some(journey_vector) => Ok(Some(JourneyData::Vector(journey_vector))),
+    let journey_vector = journey_vector_opt.unwrap_or_else(|| JourneyVector {
+        track_segments: vec![],
+    });
+    Ok(JourneyData::Vector(journey_vector))
+}
+
+#[auto_context]
+pub fn is_journey_data_empty(journey_data: &JourneyData) -> bool {
+    match journey_data {
+        JourneyData::Vector(vector_data) => vector_data.track_segments.is_empty(),
+        JourneyData::Bitmap(bitmap_data) => bitmap_data.tiles.is_empty(),
     }
 }

@@ -9,7 +9,12 @@
     "map_data_source_copyright_title": "数据来源"
   },
   "location_service": {
-    "location_permission_denied": "你已拒绝获取位置权限，为了保障定位功能的使用，请在设置中打开。",
+    "location_service_disabled": "定位服务未开启，请在设置中启用。",
+    "location_permission_permanently_denied": "你已拒绝获取位置权限，为了保障定位功能的使用，请在设置中打开。",
+    "location_permission_reason": "为了提供准确的定位和位置相关功能，我们需要您授权应用使用定位权限。",
+    "background_location_permission_permanently_denied": "为了持续获取位置信息，我们需要您授权后台定位权限建议开启，请在应用设置中允许。",
+    "battery_optimization_reason": "为确保后台持续获取位置信息，请允许应用忽略电池优化。",
+    "battery_optimization_denied": "您拒绝了忽略电池优化，可能导致应用无法在后台稳定运行，请在应用设置中允许。",
     "android_foreground_notification_channel_name": "轨迹记录服务",
     "android_foreground_notification_title": "后台记录中",
     "android_foreground_notification_text": "迹忆将在后台持续记录",
@@ -49,6 +54,7 @@
     "export_journey_as_gpx": "导出为 GPX",
     "export_journey_as_mldx": "导出为 MLDX",
     "delete_all": "删除所有旅程",
+    "delete_all_success": "所有旅程已清除!",
     "preprocessor": "预处理器",
     "journey_date": "旅程日期",
     "journey_kind": "图层标签",
@@ -75,10 +81,14 @@
     "none": "不使用",
     "description_md": "预处理器可以帮助你优化旅程数据:\n- **通用** 适用于大部分轨迹，可以过滤掉异常的数据并将数据合理分段。\n- **航迹** 适用于飞行轨迹等，会通过差值算法补全轨迹。"
   },
-  "import_fow_data": {
-    "button": "导入“世界迷雾”数据",
-    "description_md": "导入世界迷雾 App 中产生的数据。\n\n支持以下格式：\n1. Zip 格式：将世界迷雾网盘同步 Sync 文件夹压缩为 Zip 格式压缩包。\n2. Fwss 格式：世界迷雾快照文件。  \n\n世界迷雾 App 数据不包含轨迹历史变化过程，实际导出数据为从使用开始到导出时点的所有轨迹。如您保留了多个世界迷雾历史文件，可尝试将数据上传至 [迷雾机器-时光机](https://fogmachine.8bits.io/time-machine)，并使用“导出迹忆归档”功能。",
-    "warning_for_import_multiple_data_md": "请注意，数据库中已经包含世界迷雾数据。\n\n导入多段数据时请确保数据不重叠，或者使用 [迷雾机器-时光机](https://fogmachine.8bits.io/time-machine) 中的“导出迹忆归档”功能。该功能通过计算数据差异的方式逐一处理快照，达到历史足迹与时间对应的效果。"
+  "import": {
+    "empty_data": "旅途数据为空",
+    "successful": "导入成功",
+    "parsing_failed": "数据解析失败",
+    "import_fow_data": {
+      "description_md": "导入世界迷雾 App 中产生的数据。\n\n支持以下格式：\n1. Zip 格式：将世界迷雾网盘同步 Sync 文件夹压缩为 Zip 格式压缩包。\n2. Fwss 格式：世界迷雾快照文件。  \n\n世界迷雾 App 数据不包含轨迹历史变化过程，实际导出数据为从使用开始到导出时点的所有轨迹。如您保留了多个世界迷雾历史文件，可尝试将数据上传至 [迷雾机器-时光机](https://fogmachine.8bits.io/time-machine)，并使用“导出迹忆归档”功能。",
+      "warning_for_import_multiple_data_md": "请注意，数据库中已经包含世界迷雾数据。\n\n导入多段数据时请确保数据不重叠，或者使用 [迷雾机器-时光机](https://fogmachine.8bits.io/time-machine) 中的“导出迹忆归档”功能。该功能通过计算数据差异的方式逐一处理快照，达到历史足迹与时间对应的效果。"
+    }
   },
   "unexpected_exit_notification": {
     "setting_title": "意外退出通知",

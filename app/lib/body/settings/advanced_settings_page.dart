@@ -55,7 +55,8 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
               try {
                 await api.deleteAllJourneys();
                 if (context.mounted) {
-                  await showCommonDialog(context, "All journeys are deleted.");
+                  await showCommonDialog(
+                      context, context.tr("journey.delete_all_success"));
                 }
               } catch (e) {
                 if (context.mounted) {
@@ -100,8 +101,9 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
             position: LabelTilePosition.middle,
             onTap: () async {
               var tmpDir = await getTemporaryDirectory();
-              var ts = DateTime.now().millisecondsSinceEpoch;
-              var filepath = "${tmpDir.path}/${ts.toString()}.zip";
+              final now = DateTime.now();
+              final timestamp = DateFormat('yyyy-MM-dd-HH-mm-ss').format(now);
+              final filepath = "${tmpDir.path}/logs-$timestamp.zip";
               await api.exportLogs(targetFilePath: filepath);
               if (!context.mounted) return;
               await showCommonExport(context, filepath, deleteFile: true);

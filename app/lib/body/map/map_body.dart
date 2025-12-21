@@ -1,15 +1,17 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:json_annotation/json_annotation.dart';
-import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/map_controls/accuracy_display.dart';
 import 'package:memolanes/common/component/map_controls/layer_button.dart';
 import 'package:memolanes/common/component/map_controls/tracking_button.dart';
 import 'package:memolanes/common/component/rec_indicator.dart';
 import 'package:memolanes/common/component/recording_buttons.dart';
+import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/service/permission_service.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
@@ -84,11 +86,34 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _syncTrackingModeWithGpsManager();
-    } else if (state == AppLifecycleState.paused) {
-      Provider.of<GpsManager>(context, listen: false).toggleMapTracking(false);
+  Future<void> didChangeAppLifecycleState(AppLifecycleState state) async {
+    final gpsManager = Provider.of<GpsManager>(context, listen: false);
+    // On certain Android ROMs,
+    // when the user disables location permission from the system settings,
+    // permission_handler returns denied instead of permanentlyDenied.
+    // Requesting the permission triggers an AppLifecycleState change,
+    // which in turn initiates another permission request.
+    // This recursive interaction results in a loop of repeated permission requests.
+    if (Platform.isAndroid && _currentTrackingMode != TrackingMode.off) {
+      final hasPermission = await PermissionService().checkLocationPermission();
+      if (!hasPermission) {
+        setState(() => _currentTrackingMode = TrackingMode.off);
+        gpsManager.toggleMapTracking(false);
+        return;
+      }
+    }
+
+    switch (state) {
+      case AppLifecycleState.resumed:
+        _syncTrackingModeWithGpsManager();
+        break;
+
+      case AppLifecycleState.paused:
+        gpsManager.toggleMapTracking(false);
+        break;
+
+      default:
+        break;
     }
   }
 
