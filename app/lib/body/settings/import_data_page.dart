@@ -28,6 +28,7 @@ enum ImportType { fow, gpxOrKml }
 
 class _ImportDataPage extends State<ImportDataPage> {
   import_api.JourneyInfo? journeyInfo;
+  import_api.ImportPreprocessor? importPreprocessor;
   late final f.Either<JourneyData, import_api.RawVectorData>
       journeyDataMaybeRaw;
   api.MapRendererProxy? _mapRendererProxy;
@@ -77,10 +78,11 @@ class _ImportDataPage extends State<ImportDataPage> {
         });
         break;
       case ImportType.gpxOrKml:
-        var (journeyInfo, rawVectorData) =
+        var (journeyInfo, rawVectorData, importPreprocessor) =
             await import_api.loadGpxOrKml(filePath: path);
         setState(() {
           this.journeyInfo = journeyInfo;
+          this.importPreprocessor = importPreprocessor;
           journeyDataMaybeRaw = f.Either.right(rawVectorData);
         });
         break;
@@ -201,6 +203,7 @@ class _ImportDataPage extends State<ImportDataPage> {
                           saveData: _saveData,
                           previewData: _previewData,
                           importType: widget.importType,
+                          preprocessor: importPreprocessor,
                         ),
                       ],
                     ),
