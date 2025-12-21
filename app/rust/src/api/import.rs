@@ -5,6 +5,9 @@ use auto_context::auto_context;
 use chrono::{DateTime, Local, NaiveDate, Utc};
 use flutter_rust_bridge::frb;
 
+use super::api;
+use crate::gps_processor::{DEFAULT_SEGMENT_GAP_RULES, STEP_OF_MY_WORLD_SEGMENT_GAP_RULES};
+use crate::journey_vector::JourneyVector;
 use crate::{
     flight_track_processor,
     gps_processor::RawData,
@@ -12,9 +15,6 @@ use crate::{
     journey_data::JourneyData,
     journey_header::JourneyKind,
 };
-use crate::gps_processor::{DEFAULT_SEGMENT_GAP_RULES, STEP_OF_MY_WORLD_SEGMENT_GAP_RULES};
-use crate::journey_vector::JourneyVector;
-use super::api;
 
 #[derive(Debug)]
 #[frb(non_opaque)]
