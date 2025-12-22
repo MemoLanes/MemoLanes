@@ -1,6 +1,8 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Latency Test</title>
     <style>
       body {
@@ -53,7 +55,24 @@
     </style>
   </head>
   <body>
-    <h3>Latency Test - HTTP vs IPC Channel</h3>
+    <h3>Render Diagnostics</h3>
+
+    <div
+      id="browserCapabilities"
+      style="
+        margin: 10px 0;
+        padding: 10px;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+      "
+    >
+      <h4 style="margin: 5px 0 10px 0">Browser Capabilities</h4>
+      <div id="capabilitiesInfo" style="font-size: 14px; line-height: 1.6">
+        Detecting...
+      </div>
+      <div id="precisionTable" style="margin-top: 10px"></div>
+    </div>
 
     <div id="status" class="status waiting">
       Waiting for API endpoint from Flutter...

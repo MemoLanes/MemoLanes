@@ -1,0 +1,791 @@
+/**
+ * Debug Panel for Map Overlay
+ * Shows when debug=true is in URL hash
+ *
+ * This module now uses ReactiveParams for parameter updates.
+ * When the rendering mode dropdown changes, it simply sets params.renderMode,
+ * and the registered hooks automatically handle layer switching.
+ */
+
+import {
+  AVAILABLE_LAYERS,
+  type LayerConfig,
+  type ReactiveParams,
+  type ProjectionType,
+} from "./params";
+
+// Interface for URL hash parameters
+interface UrlHashParams {
+  [key: string]: string | null;
+}
+
+// Interface for tile download timing event detail
+interface TileDownloadTimingDetail {
+  duration: number;
+}
+
+// Type for Leaflet-like map object
+interface MapInstance {
+  on(event: string, callback: () => void): void;
+  getZoom(): number;
+  getCenter(): { lng: number; lat: number };
+  getBounds(): {
+    getNorthEast(): { lng: number; lat: number };
+    getSouthWest(): { lng: number; lat: number };
+  } | null;
+}
+
+export class DebugPanel {
+  private map: MapInstance;
+  private params: ReactiveParams;
+  private panel: HTMLDivElement | null;
+  private visible: boolean;
+
+  // Framerate monitoring
+  private fps: number;
+  private frameCount: number;
+  private lastTime: number;
+  private fpsHistory: number[];
+  private maxHistorySize: number;
+  private animationId: number | null;
+  private fpsCanvas: HTMLCanvasElement | null;
+  private fpsCtx: CanvasRenderingContext2D | null;
+
+  // Network timing monitoring
+  private lastNetworkDelay: number;
+  private networkDelayHistory: number[];
+  private maxNetworkHistorySize: number;
+  private networkCanvas: HTMLCanvasElement | null;
+  private networkCtx: CanvasRenderingContext2D | null;
+
+  constructor(map: MapInstance, params: ReactiveParams) {
+    this.map = map;
+    this.params = params;
+    this.panel = null;
+    this.visible = false;
+
+    // Framerate monitoring
+    this.fps = 0;
+    this.frameCount = 0;
+    this.lastTime = performance.now();
+    this.fpsHistory = [];
+    this.maxHistorySize = 60; // Keep 60 FPS readings for the graph
+    this.animationId = null;
+    this.fpsCanvas = null;
+    this.fpsCtx = null;
+
+    // Network timing monitoring
+    this.lastNetworkDelay = 0;
+    this.networkDelayHistory = [];
+    this.maxNetworkHistorySize = 30; // Keep 30 network timing readings
+    this.networkCanvas = null;
+    this.networkCtx = null;
+  }
+
+  initialize(): void {
+    // Create panel element
+    this.panel = document.createElement("div");
+    this.panel.className = "debug-panel";
+    this.panel.style.display = "none";
+
+    // Build rendering mode options based on available layers
+    const renderingOptions: string = Object.entries(AVAILABLE_LAYERS)
+      .map(([key, layer]: [string, LayerConfig]) => {
+        return `<option value="${key}" title="${layer.description}">${layer.name}</option>`;
+      })
+      .join("");
+
+    // Add content to panel
+    this.panel.innerHTML = `
+      <div style="font-weight: bold; margin-bottom: 10px; display: flex; justify-content: space-between;">
+        <span>Debug Panel</span>
+        <button id="close-debug">×</button>
+      </div>
+      
+      <div class="separator"></div>
+      
+      <div style="margin-bottom: 10px;">
+        <label for="rendering-mode" title="Controls how map data is rendered on screen">Rendering Mode:</label>
+        <select id="rendering-mode">
+          ${renderingOptions || '<option value="canvas">Canvas</option>'}
+        </select>
+      </div>
+      
+      <div class="separator"></div>
+      
+      <div style="margin-bottom: 10px;">
+        <label for="fog-density" title="Controls the fog density on the map (0-1)">Fog Density:</label>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input type="range" id="fog-density" min="0" max="1" step="0.01" value="0.5" 
+            style="flex: 1; cursor: pointer;">
+          <span id="fog-density-value" style="font-family: monospace; font-size: 12px; min-width: 36px;">0.50</span>
+        </div>
+      </div>
+      
+      <div class="separator"></div>
+      
+      <div style="margin-bottom: 10px;">
+        <label for="projection-mode" title="Map projection type">Projection:</label>
+        <select id="projection-mode">
+          <option value="globe" title="3D globe projection">Globe</option>
+          <option value="mercator" title="Flat mercator projection">Mercator</option>
+        </select>
+      </div>
+      
+      <div class="separator"></div>
+      
+      <div style="margin-bottom: 10px;">
+        <div style="font-weight: bold; margin-bottom: 5px;">Performance</div>
+        <div style="font-family: monospace; font-size: 12px; margin-bottom: 8px;">
+          <div>FPS: <span id="fps-display" style="color: #4CAF50;">-</span></div>
+          <div>Network: <span id="network-delay-display" style="color: #2196F3;">-</span> ms</div>
+        </div>
+        <div style="font-size: 10px; margin-bottom: 4px; color: rgba(255, 255, 255, 0.7);">FPS</div>
+        <canvas id="fps-graph" width="200" height="50"></canvas>
+        <div style="font-size: 10px; margin: 4px 0; color: rgba(255, 255, 255, 0.7);">Network Delay</div>
+        <canvas id="network-graph" width="200" height="50"></canvas>
+      </div>
+      
+      <div class="separator"></div>
+      
+      <div style="margin-bottom: 10px;">
+        <div style="font-weight: bold; margin-bottom: 5px;">Map Viewpoint</div>
+        <div id="viewpoint-info" style="font-family: monospace; font-size: 12px;">
+          <div>Zoom: <span id="zoom-level">-</span></div>
+          <div>Center: <span id="center-coords">-</span></div>
+          <div>SW: <span id="bounds-sw">-</span></div>
+          <div>NE: <span id="bounds-ne">-</span></div>
+        </div>
+      </div>
+      
+      <div class="separator"></div>
+      
+      <div style="margin-bottom: 10px;">
+        <div style="font-weight: bold; margin-bottom: 5px;">Flutter Bridge Test</div>
+        <div style="margin-bottom: 8px;">
+          <div style="font-size: 11px; color: rgba(255, 255, 255, 0.7); margin-bottom: 4px;">Location Marker</div>
+          <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px;">
+            <label style="font-size: 11px; display: flex; align-items: center; gap: 4px;">
+              <input type="checkbox" id="marker-show" checked> Show
+            </label>
+            <label style="font-size: 11px; display: flex; align-items: center; gap: 4px;">
+              <input type="checkbox" id="marker-flyto" checked> Fly To
+            </label>
+          </div>
+          <button id="test-marker-btn" style="width: 100%; padding: 4px 8px; font-size: 11px; cursor: pointer;">
+            Go to (0, 0)
+          </button>
+        </div>
+        <div>
+          <div style="font-size: 11px; color: rgba(255, 255, 255, 0.7); margin-bottom: 4px;">Journey ID</div>
+          <div style="display: flex; gap: 4px;">
+            <input type="text" id="journey-id-input" placeholder="Enter journey ID" 
+              style="flex: 1; padding: 4px; font-size: 11px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 3px;">
+            <button id="set-journey-btn" style="padding: 4px 8px; font-size: 11px; cursor: pointer;">Set</button>
+          </div>
+          <div id="journey-id-status" style="font-size: 10px; color: rgba(255,255,255,0.5); margin-top: 4px;">Current: -</div>
+        </div>
+      </div>
+    `;
+
+    // Add panel to document
+    document.body.appendChild(this.panel);
+
+    // Set up event listeners
+    this._setupEventListeners();
+
+    // Set up FPS monitoring
+    this._setupFpsMonitoring();
+
+    // Check if debug mode is enabled in URL
+    this._checkDebugStatus();
+
+    // Register hook to sync dropdown when renderMode changes externally
+    this._setupParamsHook();
+  }
+
+  /**
+   * Setup hook to sync the dropdown when renderMode changes from outside
+   * (e.g., from Flutter or URL hash change)
+   */
+  private _setupParamsHook(): void {
+    this.params.on("renderMode", (newMode, _oldMode) => {
+      this._syncRenderingModeDropdown(newMode);
+    });
+
+    // Sync journey ID display when it changes
+    this.params.on("journeyId", (newId, _oldId) => {
+      const statusElement = document.getElementById("journey-id-status");
+      if (statusElement) {
+        statusElement.textContent = `Current: ${newId || "-"}`;
+      }
+    });
+
+    // Sync fog density slider when it changes externally
+    this.params.on("fogDensity", (newValue, _oldValue) => {
+      this._syncFogDensitySlider(newValue);
+    });
+
+    // Sync projection dropdown when it changes externally
+    this.params.on("projection", (newValue, _oldValue) => {
+      this._syncProjectionDropdown(newValue as ProjectionType);
+    });
+  }
+
+  /**
+   * Sync the rendering mode dropdown to match the current params value
+   */
+  private _syncRenderingModeDropdown(renderingMode: string): void {
+    const renderingModeSelect = document.getElementById(
+      "rendering-mode",
+    ) as HTMLSelectElement | null;
+
+    if (renderingModeSelect && AVAILABLE_LAYERS[renderingMode]) {
+      renderingModeSelect.value = renderingMode;
+    }
+  }
+
+  /**
+   * Sync the fog density slider to match the current params value
+   */
+  private _syncFogDensitySlider(fogDensity: number): void {
+    const slider = document.getElementById(
+      "fog-density",
+    ) as HTMLInputElement | null;
+    const valueDisplay = document.getElementById("fog-density-value");
+
+    if (slider) {
+      slider.value = fogDensity.toString();
+    }
+    if (valueDisplay) {
+      valueDisplay.textContent = fogDensity.toFixed(2);
+    }
+  }
+
+  /**
+   * Sync the projection dropdown to match the current params value
+   */
+  private _syncProjectionDropdown(projection: ProjectionType): void {
+    const projectionSelect = document.getElementById(
+      "projection-mode",
+    ) as HTMLSelectElement | null;
+
+    if (projectionSelect) {
+      projectionSelect.value = projection;
+    }
+  }
+
+  private _setupEventListeners(): void {
+    // Close button
+    const closeButton = document.getElementById("close-debug");
+    if (closeButton) {
+      closeButton.addEventListener("click", () => {
+        this.hide();
+        this._updateUrlHash({ debug: "false" });
+      });
+    }
+
+    // Rendering mode direct change handler
+    // Now simply sets params.renderMode - the hook system handles the rest
+    const renderingModeSelect = document.getElementById("rendering-mode");
+    if (renderingModeSelect) {
+      renderingModeSelect.addEventListener("change", (e: Event) => {
+        const target = e.target as HTMLSelectElement;
+        const renderingMode = target.value;
+
+        // Update URL hash
+        this._updateUrlHash({ render: renderingMode });
+
+        // Simply set the renderMode on params
+        // The ReactiveParams hook system automatically triggers switchRenderingLayer()
+        if (AVAILABLE_LAYERS[renderingMode]) {
+          this.params.renderMode = renderingMode;
+        }
+      });
+    }
+
+    // Fog density slider change handler
+    const fogDensitySlider = document.getElementById("fog-density");
+    const fogDensityValue = document.getElementById("fog-density-value");
+    if (fogDensitySlider) {
+      fogDensitySlider.addEventListener("input", (e: Event) => {
+        const target = e.target as HTMLInputElement;
+        const value = parseFloat(target.value);
+
+        // Update the display value
+        if (fogDensityValue) {
+          fogDensityValue.textContent = value.toFixed(2);
+        }
+
+        // Update URL hash
+        this._updateUrlHash({ fog_density: value.toString() });
+
+        // Set the fogDensity on params - hooks will handle the rest
+        this.params.fogDensity = value;
+      });
+    }
+
+    // Projection mode dropdown change handler
+    const projectionSelect = document.getElementById("projection-mode");
+    if (projectionSelect) {
+      projectionSelect.addEventListener("change", (e: Event) => {
+        const target = e.target as HTMLSelectElement;
+        const projection = target.value as ProjectionType;
+
+        // Update URL hash
+        this._updateUrlHash({ projection: projection });
+
+        // Set the projection on params - hooks will handle the rest
+        this.params.projection = projection;
+      });
+    }
+
+    // Listen for map movement to update viewpoint info
+    this.map.on("moveend", () => {
+      this._updateViewpointInfo();
+    });
+
+    // Also listen for zoom changes
+    this.map.on("zoomend", () => {
+      this._updateViewpointInfo();
+    });
+
+    // Flutter Bridge test: Location marker button
+    const testMarkerBtn = document.getElementById("test-marker-btn");
+    if (testMarkerBtn) {
+      testMarkerBtn.addEventListener("click", () => {
+        const showCheckbox = document.getElementById(
+          "marker-show",
+        ) as HTMLInputElement | null;
+        const flytoCheckbox = document.getElementById(
+          "marker-flyto",
+        ) as HTMLInputElement | null;
+
+        const show = showCheckbox?.checked ?? true;
+        const flyto = flytoCheckbox?.checked ?? true;
+
+        if (window.updateLocationMarker) {
+          window.updateLocationMarker(0, 0, show, flyto);
+          console.log(
+            `[DebugPanel] Called updateLocationMarker(0, 0, ${show}, ${flyto})`,
+          );
+        } else {
+          console.warn(
+            "[DebugPanel] window.updateLocationMarker is not available",
+          );
+        }
+      });
+    }
+
+    // Flutter Bridge test: Set journey ID button
+    const setJourneyBtn = document.getElementById("set-journey-btn");
+    const journeyIdInput = document.getElementById(
+      "journey-id-input",
+    ) as HTMLInputElement | null;
+
+    if (setJourneyBtn && journeyIdInput) {
+      setJourneyBtn.addEventListener("click", () => {
+        const newJourneyId = journeyIdInput.value.trim();
+        if (!newJourneyId) {
+          this._updateJourneyIdStatus("Error: Empty journey ID", true);
+          return;
+        }
+
+        if (window.updateJourneyId) {
+          const result = window.updateJourneyId(newJourneyId);
+          if (result) {
+            this._updateJourneyIdStatus(`Set to: ${newJourneyId}`, false);
+          } else {
+            this._updateJourneyIdStatus(`Already set or failed`, true);
+          }
+          console.log(
+            `[DebugPanel] Called updateJourneyId('${newJourneyId}') => ${result}`,
+          );
+        } else {
+          this._updateJourneyIdStatus("API not available", true);
+          console.warn("[DebugPanel] window.updateJourneyId is not available");
+        }
+      });
+
+      // Also support Enter key in the input
+      journeyIdInput.addEventListener("keydown", (e: KeyboardEvent) => {
+        if (e.key === "Enter") {
+          setJourneyBtn.click();
+        }
+      });
+    }
+  }
+
+  private _updateViewpointInfo(): void {
+    if (!this.visible) return;
+
+    const zoom: number = this.map.getZoom();
+    const center = this.map.getCenter();
+    const bounds = this.map.getBounds();
+
+    const zoomElement = document.getElementById("zoom-level");
+    if (zoomElement) {
+      zoomElement.textContent = zoom.toFixed(2);
+    }
+
+    const centerElement = document.getElementById("center-coords");
+    if (centerElement) {
+      centerElement.textContent = `${center.lng.toFixed(5)}, ${center.lat.toFixed(5)}`;
+    }
+
+    if (bounds) {
+      const ne = bounds.getNorthEast();
+      const sw = bounds.getSouthWest();
+      const swElement = document.getElementById("bounds-sw");
+      const neElement = document.getElementById("bounds-ne");
+      if (swElement) {
+        swElement.textContent = `${sw.lng.toFixed(5)}, ${sw.lat.toFixed(5)}`;
+      }
+      if (neElement) {
+        neElement.textContent = `${ne.lng.toFixed(5)}, ${ne.lat.toFixed(5)}`;
+      }
+    }
+  }
+
+  private _setupFpsMonitoring(): void {
+    // Get canvas elements and contexts
+    const fpsCanvas = document.getElementById(
+      "fps-graph",
+    ) as HTMLCanvasElement | null;
+    if (fpsCanvas) {
+      this.fpsCanvas = fpsCanvas;
+      this.fpsCtx = fpsCanvas.getContext("2d");
+    }
+
+    const networkCanvas = document.getElementById(
+      "network-graph",
+    ) as HTMLCanvasElement | null;
+    if (networkCanvas) {
+      this.networkCanvas = networkCanvas;
+      this.networkCtx = networkCanvas.getContext("2d");
+    }
+
+    // Start FPS monitoring loop
+    this._startFpsLoop();
+
+    // Set up network timing listener
+    this._setupNetworkMonitoring();
+  }
+
+  private _startFpsLoop(): void {
+    const measureFps = (currentTime: number): void => {
+      this.frameCount++;
+
+      // Calculate FPS every second
+      if (currentTime - this.lastTime >= 1000) {
+        this.fps = Math.round(
+          (this.frameCount * 1000) / (currentTime - this.lastTime),
+        );
+        this.frameCount = 0;
+        this.lastTime = currentTime;
+
+        // Add to history
+        this.fpsHistory.push(this.fps);
+        if (this.fpsHistory.length > this.maxHistorySize) {
+          this.fpsHistory.shift();
+        }
+
+        // Update display
+        this._updateFpsDisplay();
+        this._renderFpsGraph();
+      }
+
+      this.animationId = requestAnimationFrame(measureFps);
+    };
+
+    this.animationId = requestAnimationFrame(measureFps);
+  }
+
+  private _stopFpsLoop(): void {
+    if (this.animationId) {
+      cancelAnimationFrame(this.animationId);
+      this.animationId = null;
+    }
+  }
+
+  private _setupNetworkMonitoring(): void {
+    // Listen for network timing events
+    window.addEventListener("tileDownloadTiming", (event: Event) => {
+      const customEvent = event as CustomEvent<TileDownloadTimingDetail>;
+      const { duration } = customEvent.detail;
+      this.lastNetworkDelay = Math.round(duration);
+
+      // Add to history
+      this.networkDelayHistory.push(this.lastNetworkDelay);
+      if (this.networkDelayHistory.length > this.maxNetworkHistorySize) {
+        this.networkDelayHistory.shift();
+      }
+
+      // Update display
+      this._updateNetworkDisplay();
+      this._renderNetworkGraph();
+    });
+  }
+
+  private _updateFpsDisplay(): void {
+    if (!this.visible) return;
+
+    const fpsElement = document.getElementById("fps-display");
+    if (fpsElement) {
+      fpsElement.textContent = this.fps.toString();
+
+      // Color code based on FPS
+      if (this.fps >= 50) {
+        fpsElement.style.color = "#4CAF50"; // Green
+      } else if (this.fps >= 30) {
+        fpsElement.style.color = "#FF9800"; // Orange
+      } else {
+        fpsElement.style.color = "#F44336"; // Red
+      }
+    }
+  }
+
+  private _updateNetworkDisplay(): void {
+    if (!this.visible) return;
+
+    const networkElement = document.getElementById("network-delay-display");
+    if (networkElement) {
+      networkElement.textContent = this.lastNetworkDelay.toString();
+
+      // Color code based on network delay
+      if (this.lastNetworkDelay <= 100) {
+        networkElement.style.color = "#4CAF50"; // Green - Fast
+      } else if (this.lastNetworkDelay <= 500) {
+        networkElement.style.color = "#FF9800"; // Orange - Moderate
+      } else {
+        networkElement.style.color = "#F44336"; // Red - Slow
+      }
+    }
+  }
+
+  private _updateJourneyIdStatus(message: string, isError: boolean): void {
+    const statusElement = document.getElementById("journey-id-status");
+    if (statusElement) {
+      statusElement.textContent = message;
+      statusElement.style.color = isError
+        ? "#F44336"
+        : "rgba(255, 255, 255, 0.5)";
+    }
+  }
+
+  private _renderFpsGraph(): void {
+    if (!this.visible || !this.fpsCtx || !this.fpsCanvas) return;
+
+    const canvas = this.fpsCanvas;
+    const ctx = this.fpsCtx;
+    const width: number = canvas.width;
+    const height: number = canvas.height;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, width, height);
+
+    if (this.fpsHistory.length < 2) return;
+
+    // Draw grid lines
+    ctx.strokeStyle = "#555";
+    ctx.lineWidth = 1;
+
+    // Horizontal grid lines (FPS values)
+    const gridLines: number[] = [30, 60];
+    gridLines.forEach((fps: number) => {
+      const y: number = height - (fps / 60) * height;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+    });
+
+    // Draw FPS line
+    ctx.strokeStyle = "#2196F3";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    const stepX: number = width / (this.maxHistorySize - 1);
+
+    this.fpsHistory.forEach((fps: number, index: number) => {
+      const x: number = index * stepX;
+      const y: number = height - Math.min(fps / 60, 1) * height; // Normalize to 60 FPS max
+
+      if (index === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    });
+
+    ctx.stroke();
+
+    // Draw FPS labels
+    ctx.fillStyle = "#ccc";
+    ctx.font = "8px monospace";
+    ctx.textAlign = "left";
+    ctx.fillText("60", 2, 10);
+    ctx.fillText("30", 2, height - 18);
+    ctx.fillText("0", 2, height - 2);
+  }
+
+  private _renderNetworkGraph(): void {
+    if (!this.visible || !this.networkCtx || !this.networkCanvas) return;
+
+    const canvas = this.networkCanvas;
+    const ctx = this.networkCtx;
+    const width: number = canvas.width;
+    const height: number = canvas.height;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, width, height);
+
+    if (this.networkDelayHistory.length < 2) return;
+
+    // Calculate max delay for scaling (minimum 1000ms for consistent scale)
+    const maxDelay: number = Math.max(
+      1000,
+      Math.max(...this.networkDelayHistory),
+    );
+
+    // Draw grid lines
+    ctx.strokeStyle = "#555";
+    ctx.lineWidth = 1;
+
+    // Horizontal grid lines (delay values)
+    const gridLines: number[] = [500, 1000];
+    gridLines.forEach((delay: number) => {
+      if (delay <= maxDelay) {
+        const y: number = height - (delay / maxDelay) * height;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+    });
+
+    // Draw network delay line
+    ctx.strokeStyle = "#FF9800";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    const stepX: number = width / (this.maxNetworkHistorySize - 1);
+
+    this.networkDelayHistory.forEach((delay: number, index: number) => {
+      const x: number = index * stepX;
+      const y: number = height - (delay / maxDelay) * height;
+
+      if (index === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    });
+
+    ctx.stroke();
+
+    // Draw delay labels
+    ctx.fillStyle = "#ccc";
+    ctx.font = "8px monospace";
+    ctx.textAlign = "left";
+    if (maxDelay >= 1000) {
+      ctx.fillText("1s", 2, 10);
+    }
+    if (maxDelay >= 500) {
+      ctx.fillText("500ms", 2, height - 18);
+    }
+    ctx.fillText("0", 2, height - 2);
+  }
+
+  private _updateUrlHash(params: UrlHashParams): void {
+    const hash: string = window.location.hash.slice(1);
+    const urlParams = new URLSearchParams(hash);
+
+    // Update or add provided params
+    Object.keys(params).forEach((key: string) => {
+      if (params[key] === null) {
+        urlParams.delete(key);
+      } else {
+        urlParams.set(key, params[key] as string);
+      }
+    });
+
+    // Update URL without reloading page
+    window.location.hash = urlParams.toString();
+  }
+
+  private _checkDebugStatus(): void {
+    const hash: string = window.location.hash.slice(1);
+    const urlParams = new URLSearchParams(hash);
+    const debugParam: string | null = urlParams.get("debug");
+
+    if (debugParam === "true") {
+      this.show();
+
+      // Sync dropdown with current params value
+      this._syncRenderingModeDropdown(this.params.renderMode);
+
+      // Sync fog density slider with current params value
+      this._syncFogDensitySlider(this.params.fogDensity);
+
+      // Sync projection dropdown with current params value
+      this._syncProjectionDropdown(this.params.projection);
+
+      // Update viewpoint info
+      this._updateViewpointInfo();
+
+      // Update journey ID status
+      this._syncJourneyIdDisplay();
+    } else {
+      this.hide();
+    }
+  }
+
+  private _syncJourneyIdDisplay(): void {
+    const journeyIdInput = document.getElementById(
+      "journey-id-input",
+    ) as HTMLInputElement | null;
+    const statusElement = document.getElementById("journey-id-status");
+
+    if (journeyIdInput && this.params.journeyId) {
+      journeyIdInput.value = this.params.journeyId;
+    }
+
+    if (statusElement) {
+      statusElement.textContent = `Current: ${this.params.journeyId || "-"}`;
+    }
+  }
+
+  show(): void {
+    if (!this.panel) return;
+
+    this.panel.style.display = "block";
+    this.visible = true;
+    this._updateViewpointInfo();
+    this._updateNetworkDisplay();
+    this._renderNetworkGraph();
+
+    // Start FPS monitoring when panel is shown
+    if (!this.animationId) {
+      this._startFpsLoop();
+    }
+  }
+
+  hide(): void {
+    if (!this.panel) return;
+
+    this.panel.style.display = "none";
+    this.visible = false;
+
+    // Stop FPS monitoring when panel is hidden to save resources
+    this._stopFpsLoop();
+  }
+
+  // Clean up resources
+  destroy(): void {
+    this._stopFpsLoop();
+    if (this.panel && this.panel.parentNode) {
+      this.panel.parentNode.removeChild(this.panel);
+    }
+  }
+}
