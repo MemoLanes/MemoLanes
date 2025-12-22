@@ -79,6 +79,7 @@
     "generic": "Generic",
     "flightTrack": "Flight Track",
     "none": "None",
+    "stepOfMyWorld": "stepOfMyWorld",
     "description_md": "Preprocessor can optimize your journey data:\n- **Generic** suitable for most tracks, filtering out abnormal data and reasonably segmenting the data.\n- **FlightTrack** suitable for flight tracks, etc., using interpolation to complete missing parts of the path."
   },
   "import": {

@@ -27,6 +27,7 @@ pub mod journey_vector;
 mod logs;
 pub mod main_db;
 pub mod merged_journey_builder;
+pub mod preclean;
 mod protos;
 pub mod renderer;
 pub mod storage;

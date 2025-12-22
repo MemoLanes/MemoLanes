@@ -333,19 +333,19 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
             },
           ),
           CardLabelTile(
+            position: CardLabelTilePosition.bottom,
+            label: context.tr("preprocessor.flightTrack"),
+            onTap: () {
+              _selectPreprocessor(import_api.ImportPreprocessor.flightTrack);
+            },
+          ),
+          CardLabelTile(
             position: CardLabelTilePosition.middle,
             label: context.tr("preprocessor.stepOfMyWorld"),
             onTap: () {
               _selectPreprocessor(import_api.ImportPreprocessor.stepOfMyWorld);
             },
           ),
-          CardLabelTile(
-            position: CardLabelTilePosition.bottom,
-            label: context.tr("preprocessor.flightTrack"),
-            onTap: () {
-              _selectPreprocessor(import_api.ImportPreprocessor.flightTrack);
-            },
-          )
         ],
       ),
     );
