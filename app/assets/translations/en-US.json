@@ -9,7 +9,12 @@
     "map_data_source_copyright_title": "Data Source"
   },
   "location_service": {
-    "location_permission_denied": "You have denied location permission. To ensure the use of positioning functions, please turn it on in settings.",
+    "location_service_disabled": "Location services are disabled. Please enable them in the settings.",
+    "location_permission_permanently_denied": "You have denied location permission. To ensure proper location functionality, please enable it in the app settings.",
+    "location_permission_reason": "We need your permission to access your location in order to provide accurate tracking and location-based features.",
+    "background_location_permission_permanently_denied": "To continuously access location information, background location permission is recommended. Please enable it in the app settings.",
+    "battery_optimization_reason": "To ensure continuous background location updates, please allow the app to ignore battery optimization.",
+    "battery_optimization_denied": "You have declined to ignore battery optimization, which may cause the app to run unstable in the background. Please allow it in the app settings.",
     "android_foreground_notification_channel_name": "Tracking Service",
     "android_foreground_notification_title": "Recording in Background",
     "android_foreground_notification_text": "MemoLanes will continue to record in the background",
@@ -49,6 +54,7 @@
     "export_journey_as_gpx": "Export as GPX",
     "export_journey_as_mldx": "Export as MLDX",
     "delete_all": "Delete All Journeys",
+    "delete_all_success": "All journeys are deleted!",
     "preprocessor": "Preprocessor",
     "journey_date": "Journey Date",
     "journey_kind": "Journey Kind",
@@ -75,10 +81,14 @@
     "none": "None",
     "description_md": "Preprocessor can optimize your journey data:\n- **Generic** suitable for most tracks, filtering out abnormal data and reasonably segmenting the data.\n- **FlightTrack** suitable for flight tracks, etc., using interpolation to complete missing parts of the path."
   },
-  "import_fow_data": {
-    "button": "Import [Fog of World] data",
-    "description_md": "Import data generated from the Fog of World app.\n\nThis feature supports the following formats:\n1. Zip format: Compress the Fog of World cloud sync \"Sync\" folder into a Zip archive.\n2. Fwss format: Fog of World snapshot file.\n\nThe Fog of World app data does not include history. The exported data only contains the whole tracks from the start until the export point. If you have multiple historical Fog of World data, you can try uploading these to [Fog Machine - Time Machine](https://fogmachine.8bits.io/time-machine) and using the \"Export MemoLanes Archive\" feature.",
-    "warning_for_import_multiple_data_md": "Note: The database already contains Fog of World data.\n\nWhen importing multiple data snapshots, please ensure that these snapshots do not overlap, or use the \"Export MemoLanes Archive\" feature in [Fog Machine - Time Machine](https://fogmachine.8bits.io/time-machine). This feature processes snapshots one by one by calculating differences, achieving the effect of matching historical tracks with their corresponding time."
+  "import": {
+    "empty_data": "Journey is empty",
+    "successful": "Import successful",
+    "parsing_failed": "Data parsing failed",
+    "import_fow_data": {
+      "description_md": "Import data generated from the Fog of World app.\n\nThis feature supports the following formats:\n1. Zip format: Compress the Fog of World cloud sync \"Sync\" folder into a Zip archive.\n2. Fwss format: Fog of World snapshot file.\n\nThe Fog of World app data does not include history. The exported data only contains the whole tracks from the start until the export point. If you have multiple historical Fog of World data, you can try uploading these to [Fog Machine - Time Machine](https://fogmachine.8bits.io/time-machine) and using the \"Export MemoLanes Archive\" feature.",
+      "warning_for_import_multiple_data_md": "Note: The database already contains Fog of World data.\n\nWhen importing multiple data snapshots, please ensure that these snapshots do not overlap, or use the \"Export MemoLanes Archive\" feature in [Fog Machine - Time Machine](https://fogmachine.8bits.io/time-machine). This feature processes snapshots one by one by calculating differences, achieving the effect of matching historical tracks with their corresponding time."
+    }
   },
   "unexpected_exit_notification": {
     "setting_title": "Unexpected exit notification",
