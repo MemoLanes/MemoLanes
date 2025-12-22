@@ -6,20 +6,23 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_sharing_intent/flutter_sharing_intent.dart';
+import 'package:flutter_sharing_intent/model/sharing_file.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:memolanes/body/achievement/achievement_body.dart';
 import 'package:memolanes/body/journey/journey_body.dart';
-import 'package:memolanes/body/privacy_agreement.dart';
-import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/body/map/map_body.dart';
+import 'package:memolanes/body/privacy_agreement.dart';
+import 'package:memolanes/body/settings/import_data_page.dart';
 import 'package:memolanes/body/settings/settings_body.dart';
 import 'package:memolanes/body/time_machine/time_machine_body.dart';
 import 'package:memolanes/common/component/bottom_nav_bar.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
+import 'package:memolanes/common/gps_manager.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/utils.dart';
-import 'package:memolanes/common/log.dart';
 import 'package:memolanes/constants/index.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/frb_generated.dart';
@@ -27,6 +30,12 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
+enum AppLaunchMode {
+  normal,
+  share,
+}
+
+AppLaunchMode appLaunchMode = AppLaunchMode.normal;
 GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 bool mainMapInitialized = false;
 
@@ -190,18 +199,93 @@ class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
   DateTime? _lastExitPopAt;
 
+  void _ensureMainMapInitialized(BuildContext context) {
+    if (mainMapInitialized) return;
+    mainMapInitialized = true;
+    showLoadingDialog(
+      context: context,
+      asyncTask: api.initMainMap(),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       Provider.of<GpsManager>(context, listen: false).readyToStart();
       showPrivacyAgreementIfNeeded(context);
-
-      if (!mainMapInitialized) {
-        mainMapInitialized = true;
-        showLoadingDialog(context: context, asyncTask: api.initMainMap());
+      if (appLaunchMode == AppLaunchMode.normal) {
+        _ensureMainMapInitialized(context);
       }
     });
+    FlutterSharingIntent.instance.getInitialSharing().then((files) {
+      if (files.isNotEmpty) {
+        appLaunchMode = AppLaunchMode.share;
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _handleSharedFile(files.first);
+          FlutterSharingIntent.instance.reset();
+        });
+      }
+    });
+
+    FlutterSharingIntent.instance.getMediaStream().listen((files) {
+      if (files.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _handleSharedFile(files.first);
+          FlutterSharingIntent.instance.reset();
+        });
+      }
+    });
+  }
+
+  Future<void> _handleSharedFile(SharedFile file) async {
+    final value = file.value;
+    if (value == null || value.isEmpty) return;
+
+    final lowerValue = value.toLowerCase();
+
+    if (lowerValue.endsWith('.mldx')) {
+      await showLoadingDialog(
+        context: context,
+        asyncTask: api.importArchive(mldxFilePath: value),
+      );
+      return;
+    }
+
+    final importType = _resolveImportType(lowerValue);
+    if (importType == null) {
+      await showCommonDialog(
+          context, context.tr("data.import_data.unsupported_file"));
+      return;
+    }
+
+    if (!context.mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ImportDataPage(
+          path: value,
+          importType: importType,
+        ),
+      ),
+    );
+  }
+
+  ImportType? _resolveImportType(String lowerValue) {
+    const trackExtensions = ['.kml', '.gpx'];
+    const fowExtensions = ['.fwss', '.zip'];
+
+    if (trackExtensions.any(lowerValue.endsWith)) {
+      return ImportType.gpxOrKml;
+    }
+
+    if (fowExtensions.any(lowerValue.endsWith)) {
+      return ImportType.fow;
+    }
+
+    return null;
   }
 
   Future<void> _handleOnPop() async {
@@ -257,8 +341,12 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                   child: BottomNavBar(
                     selectedIndex: _selectedIndex,
-                    onIndexChanged: (index) =>
-                        setState(() => _selectedIndex = index),
+                    onIndexChanged: (index) {
+                      setState(() => _selectedIndex = index);
+                      if (index == 0) {
+                        _ensureMainMapInitialized(context);
+                      }
+                    },
                     hasUpdateNotification:
                         context.watch<UpdateNotifier>().hasUpdateNotification,
                   ),
