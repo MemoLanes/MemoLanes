@@ -49,8 +49,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     std::thread::sleep(Duration::from_millis(200));
 
     println!("############ BREAK CHANGE NOTICE ###############");
-    println!("Starting from Dec 2025, user need to hosting the static resouces by themselves and the rust side will only handle the dynamic requests.");
-    println!("Please make sure you have `yarn dev` running in journey_kernal folder.");
+    println!("Starting from Dec 2025, user need to hosting the static resource by themselves and the rust side will only handle the dynamic requests.");
+    println!("Please make sure you have `yarn dev` running in journey_kernel folder.");
     println!(
         "- By default, we assume the static resources are available at `http://localhost:8080`"
     );
