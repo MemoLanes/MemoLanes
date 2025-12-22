@@ -20,7 +20,7 @@ use gpx::{read, Waypoint};
 use kml::types::{Element, Geometry};
 use kml::Kml::Placemark;
 use kml::{Kml, KmlReader};
-use quick_xml::events::Event;
+use quick_xml::events::{BytesText, Event};
 use quick_xml::{Reader, Writer};
 use std::cell::RefCell;
 use std::io::Cursor;
@@ -192,7 +192,9 @@ fn recommend_import_preprocessor_from_gpx(gpx: &gpx::Gpx) -> ImportPreprocessor 
 
 #[auto_context]
 pub fn load_gpx(file_path: &str) -> Result<(Vec<Vec<RawData>>, ImportPreprocessor)> {
-    let gpx = read(BufReader::new(File::open(file_path)?))?;
+    let xml = fs::read_to_string(file_path)?;
+    let xml = read_gpx_and_normalize_step_of_my_world_time(&xml)?;
+    let gpx = read(xml.as_bytes())?;
     let raw_data = load_gpx_raw_data(&gpx)?;
     let preprocessor = recommend_import_preprocessor_from_gpx(&gpx);
     Ok((raw_data, preprocessor))
@@ -250,6 +252,84 @@ pub fn load_gpx_raw_data(gpx_data: &gpx::Gpx) -> Result<Vec<Vec<RawData>>> {
 
     Ok(track_data.chain(route_data).collect())
 }
+
+/// Step Of My World GPX contains localized Chinese time strings in <time>,
+/// which breaks the GPX parser. Normalize them before parsing.
+#[auto_context]
+fn read_gpx_and_normalize_step_of_my_world_time(xml: &str) -> Result<String> {
+    let mut reader = Reader::from_str(xml);
+    reader.config_mut().trim_text(true);
+
+    let mut writer = Writer::new(Vec::new());
+    let mut buf = Vec::new();
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(e)) if e.name().as_ref() == b"time" => {
+                let raw = reader.read_text(e.name())?;
+                let normalized = normalize_step_of_my_world_time(&raw)
+                    .unwrap_or(raw.parse()?);
+
+                writer.write_event(Event::Start(e.to_owned()))?;
+                writer.write_event(Event::Text(BytesText::new(&normalized)))?;
+                writer.write_event(Event::End(e.to_end().to_owned()))?;
+            }
+
+            Ok(Event::Start(e)) => writer.write_event(Event::Start(e.into_owned()))?,
+            Ok(Event::Empty(e)) => writer.write_event(Event::Empty(e.into_owned()))?,
+            Ok(Event::End(e)) => writer.write_event(Event::End(e.into_owned()))?,
+            Ok(Event::Text(e)) => writer.write_event(Event::Text(e.into_owned()))?,
+            Ok(Event::CData(e)) => writer.write_event(Event::CData(e.into_owned()))?,
+            Ok(Event::Decl(e)) => writer.write_event(Event::Decl(e.into_owned()))?,
+            Ok(Event::Eof) => break,
+
+            Ok(_) => {}
+            Err(e) => anyhow::bail!("XML parse error: {e:?}"),
+        }
+
+        buf.clear();
+    }
+
+    Ok(String::from_utf8(writer.into_inner())?)
+}
+
+fn normalize_step_of_my_world_time(input: &str) -> Option<String> {
+    let input = input.trim();
+
+    if !input.contains('上') && !input.contains('下') {
+        return None;
+    }
+
+    let input = input.trim_end_matches('Z');
+    let (date, rest) = input.split_once('T')?;
+
+    let (period, time) = if rest.starts_with("上午") {
+        ("AM", rest.trim_start_matches("上午"))
+    } else if rest.starts_with("下午") {
+        ("PM", rest.trim_start_matches("下午"))
+    } else {
+        return None;
+    };
+
+    let mut parts = time.split(':');
+    let hour: i32 = parts.next()?.parse().ok()?;
+    let min = parts.next()?;
+    let sec = parts.next()?;
+
+    let hour_24 = match (period, hour) {
+        ("AM", 12) => 0,
+        ("AM", h) => h,
+        ("PM", 12) => 12,
+        ("PM", h) => h + 12,
+        _ => return None,
+    };
+
+    Some(format!(
+        "{}T{:02}:{}:{}Z",
+        date, hour_24, min, sec
+    ))
+}
+
 
 /// Load and parse KML safely, skipping invalid <description> blocks.
 #[auto_context]
