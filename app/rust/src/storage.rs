@@ -193,7 +193,7 @@ impl Storage {
                                             JourneyData::Vector(vector) =>
                                                 merged_journey_builder::add_journey_vector_to_journey_bitmap(
                                                     current_cache, &vector
-                                            ),
+                                                ),
                                         }
                                     }
                                     Ok(())

@@ -1,4 +1,5 @@
 use std::fs::File;
+use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
 
 use anyhow::{Context, Result};
@@ -71,15 +72,24 @@ fn reload_main_map_bitmap(
     Ok(())
 }
 
-pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: String) {
+pub fn init(temp_dir: String, doc_dir: String, support_dir: String, system_cache_dir: String) {
     let mut already_initialized = true;
     MAIN_STATE.get_or_init(|| {
         already_initialized = false;
 
-        // init logging
-        logs::init(&cache_dir).expect("Failed to initialize logging");
+        let (real_cache_dir, logs) = prepare_real_cache_dir(&support_dir, &system_cache_dir)
+            .expect("Failed to initialize cache dir");
 
-        let mut storage = Storage::init(temp_dir, doc_dir, support_dir, cache_dir);
+        // init logging
+        logs::init(&real_cache_dir).expect("Failed to initialize logging");
+
+        if let Some(logs) = logs {
+            for (level, message) in logs {
+                write_log(message, level);
+            }
+        }
+
+        let mut storage = Storage::init(temp_dir, doc_dir, support_dir, real_cache_dir);
         info!("initialized");
 
         let registry = Arc::new(Mutex::new(Registry::new()));
@@ -122,6 +132,101 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, cache_dir: S
     });
     if already_initialized {
         warn!("`init` is called multiple times");
+    }
+}
+
+// On iOS, we use `NSCachesDirectory` for storing cache file,
+// it won't be cleared by the system and also won't be included in icloud backup,
+// which is exactly what we want.
+// On Android, we don't use `getCacheDir()` but create our own folder under `getFilesDir()`.
+// The reason is that on Android,
+// the cache folder may be cleared even when the app is running,
+// which is troublesome for us. Also the app request the whole cache while running,
+// it will create the whole thing if missing so clearing the cache randomly doesn't provide much value.
+#[allow(clippy::type_complexity)]
+fn prepare_real_cache_dir(
+    support_dir: &str,
+    system_cache_dir: &str,
+) -> Result<(String, Option<Vec<(LogLevel, String)>>)> {
+    if std::env::consts::OS == "android" {
+        let final_path = Path::new(support_dir).join("cache");
+        // Migrate cache data
+        let logs = if !final_path.exists() {
+            let mut logs = Vec::new();
+            logs.push((
+                LogLevel::Info,
+                format!("Setting up real cache dir for Android at {final_path:?}"),
+            ));
+            // TODO this can be delete when most people have rolled pass this.
+            let old_dir = Path::new(system_cache_dir);
+            if old_dir.exists() {
+                logs.push((
+                    LogLevel::Info,
+                    format!("Old cache dir {old_dir:?} exists, move Data"),
+                ));
+
+                std::fs::create_dir_all(&final_path).map_err(|e| {
+                    logs.push((
+                        LogLevel::Error,
+                        format!("Failed to create final cache dir {final_path:?}: {e:?}"),
+                    ));
+                    e
+                })?;
+
+                let old_db = old_dir.join("cache.db");
+                let new_db = final_path.join("cache.db");
+
+                if old_db.exists() {
+                    logs.push((
+                        LogLevel::Info,
+                        format!("Found {old_db:?}, move to {new_db:?}"),
+                    ));
+
+                    match std::fs::rename(&old_db, &new_db) {
+                        Ok(()) => logs.push((
+                            LogLevel::Info,
+                            format!("Successfully moved cache.db to {new_db:?}"),
+                        )),
+                        Err(e) => {
+                            logs.push((LogLevel::Error, format!("Failed to move cache.db: {e:?}")))
+                        }
+                    }
+                }
+
+                let old_log = old_dir.join("logs");
+                let new_log = final_path.join("logs");
+
+                if old_log.exists() {
+                    logs.push((
+                        LogLevel::Info,
+                        format!("Found log directory {old_log:?}, move to {new_log:?}"),
+                    ));
+
+                    match std::fs::rename(&old_log, &new_log) {
+                        Ok(()) => logs.push((
+                            LogLevel::Info,
+                            format!("Successfully moved log directory to {new_log:?}"),
+                        )),
+                        Err(e) => logs.push((
+                            LogLevel::Error,
+                            format!("Failed to move log directory: {e:?}"),
+                        )),
+                    }
+                }
+            } else {
+                logs.push((
+                    LogLevel::Info,
+                    format!("Old cache dir {old_dir:?} does not exist, no migration needed"),
+                ));
+                std::fs::create_dir_all(&final_path)?;
+            }
+            Some(logs)
+        } else {
+            None
+        };
+        Ok((final_path.to_string_lossy().into_owned(), logs))
+    } else {
+        Ok((system_cache_dir.to_string(), None))
     }
 }
 

@@ -1,12 +1,12 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:fpdart/fpdart.dart' as f;
 import 'package:memolanes/body/journey/journey_edit_page.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
 import 'package:memolanes/src/rust/journey_data.dart';
@@ -28,59 +28,89 @@ enum ImportType { fow, gpxOrKml }
 
 class _ImportDataPage extends State<ImportDataPage> {
   import_api.JourneyInfo? journeyInfo;
-  f.Either<JourneyData, import_api.RawVectorData>? journeyDataMaybeRaw;
+  late final f.Either<JourneyData, import_api.RawVectorData>
+      journeyDataMaybeRaw;
   api.MapRendererProxy? _mapRendererProxy;
   MapView? _initialMapView;
+  import_api.ImportPreprocessor _currentProcessor =
+      import_api.ImportPreprocessor.generic;
 
   @override
   void initState() {
     super.initState();
-    _readData(widget.path);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initFlow();
+    });
   }
 
-  void _readData(String path) async {
+  Future<void> _initFlow() async {
     try {
-      switch (widget.importType) {
-        case ImportType.fow:
-          var (journeyInfo, journeyData) =
-              await import_api.loadFowData(filePath: path);
-          setState(() {
-            this.journeyInfo = journeyInfo;
-            journeyDataMaybeRaw = f.Either.left(journeyData);
-          });
-          break;
-        case ImportType.gpxOrKml:
-          var (journeyInfo, rawVectorData) =
-              await import_api.loadGpxOrKml(filePath: path);
-          setState(() {
-            this.journeyInfo = journeyInfo;
-            journeyDataMaybeRaw = f.Either.right(rawVectorData);
-          });
-          break;
+      if (!await showLoadingDialog(
+        context: context,
+        asyncTask: () async {
+          await _loadFile(widget.path);
+          return await _previewDataInternal(_currentProcessor);
+        }(),
+      )) {
+        await showCommonDialog(
+          context,
+          context.tr("import.empty_data"),
+        );
       }
     } catch (error) {
-      Fluttertoast.showToast(msg: "Data parsing failed");
+      await showCommonDialog(context, context.tr("import.parsing_failed"));
       log.error("[import_data] Data parsing failed $error");
-      Navigator.pop(context);
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
     }
   }
 
-  void _previewData(import_api.ImportPreprocessor processor) async {
-    final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
-    if (journeyDataMaybeRaw == null) {
-      Fluttertoast.showToast(msg: "JourneyData is empty");
-      return;
+  Future<void> _loadFile(String path) async {
+    switch (widget.importType) {
+      case ImportType.fow:
+        var (journeyInfo, journeyData) =
+            await import_api.loadFowData(filePath: path);
+        setState(() {
+          this.journeyInfo = journeyInfo;
+          journeyDataMaybeRaw = f.Either.left(journeyData);
+        });
+        break;
+      case ImportType.gpxOrKml:
+        var (journeyInfo, rawVectorData) =
+            await import_api.loadGpxOrKml(filePath: path);
+        setState(() {
+          this.journeyInfo = journeyInfo;
+          journeyDataMaybeRaw = f.Either.right(rawVectorData);
+        });
+        break;
     }
+  }
 
-    final journeyData = switch (journeyDataMaybeRaw) {
+  Future<void> _previewData(import_api.ImportPreprocessor processor) async {
+    if (processor == _currentProcessor) return;
+    _currentProcessor = processor;
+
+    if (!await showLoadingDialog(
+      context: context,
+      asyncTask: () async {
+        return await _previewDataInternal(_currentProcessor);
+      }(),
+    )) {
+      await showCommonDialog(
+        context,
+        context.tr("import.empty_data"),
+      );
+    }
+  }
+
+  Future<bool> _previewDataInternal(
+      import_api.ImportPreprocessor processor) async {
+    var journeyData = switch (journeyDataMaybeRaw) {
       f.Left(value: final l) => l,
       f.Right(value: final r) => await import_api.processVectorData(
           vectorData: r, importProcessor: processor),
     };
-    if (journeyData == null) {
-      Fluttertoast.showToast(msg: "JourneyData is empty");
-      return;
-    }
     final mapRendererProxyAndCameraOption =
         await api.getMapRendererProxyForJourneyData(journeyData: journeyData);
     setState(() {
@@ -94,55 +124,56 @@ class _ImportDataPage extends State<ImportDataPage> {
         );
       }
     });
+    return (!await import_api.isJourneyDataEmpty(journeyData: journeyData));
   }
 
-  void _saveData(import_api.JourneyInfo journeyInfo,
+  Future<void> _saveData(import_api.JourneyInfo journeyInfo,
       import_api.ImportPreprocessor processor) async {
-    final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
-    if (journeyDataMaybeRaw == null) {
-      Fluttertoast.showToast(msg: "JourneyData is empty");
-      return;
+    final success = await showLoadingDialog<bool>(
+      context: context,
+      asyncTask: (() async {
+        final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
+        final journeyData = switch (journeyDataMaybeRaw) {
+          f.Left(value: final l) => l,
+          f.Right(value: final r) => await import_api.processVectorData(
+              vectorData: r, importProcessor: processor),
+        };
+        if (await import_api.isJourneyDataEmpty(journeyData: journeyData)) {
+          return false;
+        }
+        await import_api.importJourneyData(
+            journeyInfo: journeyInfo, journeyData: journeyData);
+        return true;
+      })(),
+    );
+    if (success) {
+      await showCommonDialog(
+        context,
+        context.tr("import.successful"),
+      );
+    } else {
+      await showCommonDialog(
+        context,
+        context.tr("import.empty_data"),
+      );
+      // Blocking the return after the save process completes
+      throw Exception("[import_data] Save data is empty");
     }
-
-    final journeyData = switch (journeyDataMaybeRaw) {
-      f.Left(value: final l) => l,
-      f.Right(value: final r) => await import_api.processVectorData(
-          vectorData: r, importProcessor: processor),
-    };
-    if (journeyData == null) {
-      Fluttertoast.showToast(msg: "JourneyData is empty");
-      return;
-    }
-    await import_api.importJourneyData(
-        journeyInfo: journeyInfo, journeyData: journeyData);
-
-    Fluttertoast.showToast(msg: "Import successful");
   }
 
   @override
   Widget build(BuildContext context) {
-    var journeyInfo = this.journeyInfo;
-    final mapRendererProxy = _mapRendererProxy;
+    final journeyInfo = this.journeyInfo;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(context.tr("data.import_data.title")),
       ),
       body: journeyInfo == null
-          ? Center(
-              child: const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    "Reading data, please wait",
-                    style: TextStyle(fontSize: 22.0),
-                  ),
-                  CircularProgressIndicator()
-                ],
-              ),
-            )
+          ? const SizedBox.shrink()
           : SlidingUpPanel(
               color: Colors.black,
-              borderRadius: BorderRadius.only(
+              borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16.0),
                 topRight: Radius.circular(16.0),
               ),
@@ -154,17 +185,14 @@ class _ImportDataPage extends State<ImportDataPage> {
                     child: Column(
                       children: [
                         Padding(
-                          padding: EdgeInsets.only(top: 12.0),
-                          child: Center(
-                            child: CustomPaint(
-                              size: Size(40.0, 4.0),
-                              painter: LinePainter(
-                                color: const Color(0xFFB5B5B5),
-                              ),
-                            ),
+                          padding: const EdgeInsets.only(top: 12.0),
+                          child: CustomPaint(
+                            size: const Size(40.0, 4.0),
+                            painter:
+                                LinePainter(color: const Color(0xFFB5B5B5)),
                           ),
                         ),
-                        SizedBox(height: 16.0),
+                        const SizedBox(height: 16.0),
                         JourneyInfoEditPage(
                           startTime: journeyInfo.startTime,
                           endTime: journeyInfo.endTime,
@@ -179,11 +207,11 @@ class _ImportDataPage extends State<ImportDataPage> {
                   ),
                 ),
               ),
-              body: mapRendererProxy == null
-                  ? const CircularProgressIndicator()
+              body: _mapRendererProxy == null
+                  ? const SizedBox.shrink()
                   : BaseMapWebview(
                       key: const ValueKey("mapWidget"),
-                      mapRendererProxy: mapRendererProxy,
+                      mapRendererProxy: _mapRendererProxy!,
                       initialMapView: _initialMapView,
                     ),
             ),

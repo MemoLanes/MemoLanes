@@ -3,14 +3,11 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:memolanes/common/app_lifecycle_service.dart';
-import 'package:memolanes/common/location/geolocator_service.dart';
-import 'package:memolanes/common/location/location_service.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
-import 'package:memolanes/common/utils.dart';
-import 'package:memolanes/main.dart';
+import 'package:memolanes/common/service/location/geolocator_service.dart';
+import 'package:memolanes/common/service/location/location_service.dart';
+import 'package:memolanes/common/service/permission_service.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/gps_processor.dart';
 import 'package:mutex/mutex.dart';
@@ -74,7 +71,7 @@ class GpsManager extends ChangeNotifier {
       });
 
       if (MMKVUtil.getBool(MMKVKey.isRecording) &&
-          await _checkLocationPermission()) {
+          await PermissionService().checkLocationPermission()) {
         recordingStatus = GpsRecordingStatus.recording;
       } else {
         if (await api.hasOngoingJourney()) {
@@ -84,85 +81,6 @@ class GpsManager extends ChangeNotifier {
       await _readyToStart.future;
       await _syncInternalStateWithoutLock();
     });
-  }
-
-  Future<bool> _checkLocationPermission() async {
-    try {
-      if (!await Geolocator.isLocationServiceEnabled()) {
-        return false;
-      }
-      if (!(await Permission.location.isGranted ||
-          await Permission.locationAlways.isGranted)) {
-        return false;
-      }
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<void> _requestNotificationPermission() async {
-    final status = await Permission.notification.status;
-
-    if (status.isGranted) {
-      MMKVUtil.putBool(MMKVKey.isUnexpectedExitNotificationEnabled, true);
-      return;
-    }
-
-    var context = navigatorKey.currentState?.context;
-    if (context != null && context.mounted) {
-      await showCommonDialog(
-          context,
-          context.tr(
-              "unexpected_exit_notification.notification_permission_reason"));
-    }
-
-    final result = await Permission.notification.request();
-    MMKVUtil.putBool(
-        MMKVKey.isUnexpectedExitNotificationEnabled, result.isGranted);
-  }
-
-  Future<void> _locationPermissionDeniedDialog() async {
-    var context = navigatorKey.currentState?.context;
-    if (context != null && context.mounted) {
-      await showCommonDialog(
-          context, context.tr("location_service.location_permission_denied"));
-    }
-  }
-
-  Future<void> _requestLocationPermission() async {
-    // TODO: I think there are still a lot we could improve here:
-    // 1. more guidance?
-    // 2. Using dialog instead of toast for some cases.
-    // 3. more granular permissions?
-    if (!await Geolocator.isLocationServiceEnabled()) {
-      if (!await Geolocator.openLocationSettings()) {
-        throw "Location services not enabled";
-      }
-    }
-
-    if (await Permission.location.isPermanentlyDenied) {
-      await _locationPermissionDeniedDialog();
-      await Geolocator.openAppSettings();
-      throw "Please allow location permissions";
-    }
-
-    if (!await Permission.location.isGranted) {
-      if (!await Permission.location.request().isGranted) {
-        await _locationPermissionDeniedDialog();
-        throw "location permission not granted";
-      }
-    }
-
-    if (!await Permission.locationAlways.isGranted) {
-      // It seems this does not wait for the result on iOS, and always
-      // permission is not strictly required.
-      await Permission.locationAlways.request();
-      if (await Permission.locationAlways.isPermanentlyDenied) {
-        Fluttertoast.showToast(
-            msg: "Location always permission is recommended");
-      }
-    }
   }
 
   Future<void> _tryFinalizeJourneyWithoutLock() async {
@@ -192,7 +110,6 @@ class GpsManager extends ChangeNotifier {
       // turnning off if needed
       if (oldState != _InternalState.off) {
         await _locationService.stopLocationUpdates();
-        AppLifecycleService.instance.stop();
         await _locationUpdateSub?.cancel();
         _locationUpdateSub = null;
         latestPosition = null;
@@ -207,7 +124,7 @@ class GpsManager extends ChangeNotifier {
         log.info("[GpsManager] turning on gps stream. new state: $newState");
         bool enableBackground = newState == _InternalState.recording;
         await _locationService.startLocationUpdates(enableBackground);
-        AppLifecycleService.instance.start();
+
         _locationUpdateSub = _locationService.onLocationUpdate((data) async {
           if (_positionTooOld(data)) {
             return;
@@ -280,27 +197,9 @@ class GpsManager extends ChangeNotifier {
     }
   }
 
-  Future<bool> _checkAndRequestPermission() async {
-    try {
-      if (await _checkLocationPermission()) {
-        return true;
-      }
-      await _requestLocationPermission();
-      await _requestNotificationPermission();
-      var hasPermission = await _checkLocationPermission();
-      if (!hasPermission) {
-        Fluttertoast.showToast(msg: "Permission not granted");
-      }
-      return hasPermission;
-    } catch (e) {
-      Fluttertoast.showToast(msg: e.toString());
-      return false;
-    }
-  }
-
   Future<void> changeRecordingState(GpsRecordingStatus to) async {
     if (to == GpsRecordingStatus.recording) {
-      if (!await _checkAndRequestPermission()) {
+      if (!await PermissionService().checkAndRequestPermission()) {
         return;
       }
     }
@@ -329,7 +228,7 @@ class GpsManager extends ChangeNotifier {
 
   Future<void> toggleMapTracking(bool enable) async {
     if (enable) {
-      if (!await _checkAndRequestPermission()) {
+      if (!await PermissionService().checkAndRequestPermission()) {
         return;
       }
     }
