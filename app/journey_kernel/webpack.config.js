@@ -42,8 +42,8 @@ module.exports = (env, argv) => {
 
   return {
     entry: {
-      main: "./static/index.js",
-      render_diagnostics: "./static/render_diagnostics.js",
+      main: "./static/index.ts",
+      render_diagnostics: "./static/render_diagnostics.ts",
     },
     output: {
       path: path.resolve(__dirname, "dist"),
@@ -58,6 +58,11 @@ module.exports = (env, argv) => {
     module: {
       rules: [
         {
+          test: /\.tsx?$/,
+          use: "ts-loader",
+          exclude: /node_modules/,
+        },
+        {
           test: /\.css$/i,
           use: ["style-loader", "css-loader"],
         },
@@ -66,6 +71,9 @@ module.exports = (env, argv) => {
           type: "asset/inline",
         },
       ],
+    },
+    resolve: {
+      extensions: [".tsx", ".ts", ".js"],
     },
     plugins,
     devServer: {
