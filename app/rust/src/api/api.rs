@@ -402,31 +402,35 @@ pub fn on_location_update(raw_data: gps_processor::RawData, received_timestamp_m
     // we need handle a batch in one go so we hold the lock for the whole time
     let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
     let mut map_renderer = state.main_map_renderer.lock().unwrap();
+    let main_map_layer_filter = state.main_map_layer_filter.lock().unwrap();
 
     let last_point = gps_preprocessor.last_kept_point();
     let process_result = gps_preprocessor.preprocess(&raw_data);
-    let line_to_add = match process_result {
-        ProcessResult::Ignore => None,
-        ProcessResult::NewSegment => Some((&raw_data.point, &raw_data.point)),
-        ProcessResult::Append => {
-            let start = last_point.as_ref().unwrap_or(&raw_data.point);
-            Some((start, &raw_data.point))
-        }
+    if main_map_layer_filter.current_journey {
+        let line_to_add = match process_result {
+            ProcessResult::Ignore => None,
+            ProcessResult::NewSegment => Some((&raw_data.point, &raw_data.point)),
+            ProcessResult::Append => {
+                let start = last_point.as_ref().unwrap_or(&raw_data.point);
+                Some((start, &raw_data.point))
+            }
+        };
+        match line_to_add {
+            None => (),
+            Some((start, end)) => {
+                map_renderer.update(|journey_bitmap, tile_changed| {
+                    journey_bitmap.add_line_with_change_callback(
+                        start.longitude,
+                        start.latitude,
+                        end.longitude,
+                        end.latitude,
+                        tile_changed,
+                    );
+                });
+            }
+        };
     };
-    match line_to_add {
-        None => (),
-        Some((start, end)) => {
-            map_renderer.update(|journey_bitmap, tile_changed| {
-                journey_bitmap.add_line_with_change_callback(
-                    start.longitude,
-                    start.latitude,
-                    end.longitude,
-                    end.latitude,
-                    tile_changed,
-                );
-            });
-        }
-    };
+
     state
         .storage
         .record_gps_data(&raw_data, process_result, received_timestamp_ms);
