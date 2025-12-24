@@ -18,8 +18,12 @@ class AchievementBodyState extends State<AchievementBody> {
   void _loadExploredArea() async {
     var exploredAreaInSquareMeter = await api.areaOfMainMap();
     setState(() {
-      _exploredAreaInSquareKM =
-          exploredAreaInSquareMeter.toDouble() / 1_000_000;
+      if (exploredAreaInSquareMeter == null) {
+        _exploredAreaInSquareKM = null;
+      } else {
+        _exploredAreaInSquareKM =
+            exploredAreaInSquareMeter.toDouble() / 1_000_000;
+      }
     });
   }
 

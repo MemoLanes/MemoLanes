@@ -52,7 +52,7 @@ class _JourneyBodyState extends State<JourneyBody> {
   }
 
   void _updateJourneyHeaderList() async {
-    final journeyHeaderList = await api.listJournyOnDate(
+    final journeyHeaderList = await api.listJourneyOnDate(
         year: _selectedDate.year,
         month: _selectedDate.month,
         day: _selectedDate.day);

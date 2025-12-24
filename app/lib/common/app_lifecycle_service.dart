@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_fgbg/flutter_fgbg.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/src/rust/api/api.dart' as api;
 
 class AppLifecycleService {
   static final AppLifecycleService instance = AppLifecycleService._internal();
@@ -63,11 +64,12 @@ class AppLifecycleService {
   void _freeResource() {
     final triggerTime = DateTime.now();
     log.info('[AppLifecycleService][$triggerTime] Try to free resource.');
-    // TODO:  API
+    api.freeResourceForLongTimeBackground();
   }
 
   void _reloadResource() {
-    // TODO:  API
+    // TODO: would be nice if we can display a loading indicator if this is taking very long
+    api.reloadResourceForForeground();
   }
 
   void stop() {
