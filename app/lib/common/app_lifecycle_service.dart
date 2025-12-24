@@ -8,9 +8,8 @@ class AppLifecycleService {
   AppLifecycleService._internal();
 
   StreamSubscription? _sub;
-  Timer? _checker;
-
-  bool canceled = false;
+  Timer? _freeResourceCountdown;
+  bool _countdownCanceled = false;
 
   bool get isRunning => _sub != null;
 
@@ -21,47 +20,53 @@ class AppLifecycleService {
       final triggerTime = DateTime.now();
 
       if (event == FGBGType.background) {
-        log.info('[${triggerTime.toIso8601String()}] Background event received.');
-        canceled = false;
-        _startChecker();
+        log.info(
+            '[AppLifecycleService][$triggerTime] Background event received.');
+        _countdownCanceled = false;
+        _startFreeResourceCountdown();
       } else if (event == FGBGType.foreground) {
-        log.info('[${triggerTime.toIso8601String()}] Foreground event received.');
-        _reset();_reload();
+        log.info(
+            '[AppLifecycleService][$triggerTime] Foreground event received.');
+        _reset();
+        _reloadResource();
       }
     });
   }
 
   void _reset() {
-    _checker?.cancel();
-    _checker = null;
-    canceled = true;
+    _freeResourceCountdown?.cancel();
+    _freeResourceCountdown = null;
+    _countdownCanceled = true;
   }
 
-  void _startChecker() {
-    if (_checker != null) {
-      _checker!.cancel();
-      _checker = null;
+  void _startFreeResourceCountdown() {
+    if (_freeResourceCountdown != null) {
+      _freeResourceCountdown!.cancel();
+      _freeResourceCountdown = null;
     }
 
-    _checker = Timer(const Duration(seconds: 30), () {
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (!canceled) {
-          _clean();
+    // try to free resource after 2 minutes in background
+    _freeResourceCountdown = Timer(const Duration(seconds: 2 * 60), () {
+      // delay a bit to avoid flicker with foreground event
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (!_countdownCanceled) {
+          _freeResource();
         } else {
           final triggerTime = DateTime.now();
           log.info(
-              '[${triggerTime.toIso8601String()}] Scheduled task skipped (canceled).');
+              '[AppLifecycleService][$triggerTime] free resource task skipped.');
         }
       });
     });
   }
-  void _clean() {
+
+  void _freeResource() {
     final triggerTime = DateTime.now();
-    log.info('[${triggerTime.toIso8601String()}] Running scheduled task.');
+    log.info('[AppLifecycleService][$triggerTime] Try to free resource.');
     // TODO:  API
   }
 
-  void _reload() {
+  void _reloadResource() {
     // TODO:  API
   }
 
