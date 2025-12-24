@@ -134,7 +134,7 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, system_cache
             storage,
             gps_preprocessor: Mutex::new(GpsPreprocessor::new()),
             registry,
-            main_map_state: main_map_state,
+            main_map_state,
             main_map_renderer,
             main_map_renderer_token,
         }
@@ -490,7 +490,7 @@ struct MainMapState {
 
 #[frb(sync)]
 pub fn get_current_main_map_layer_filter() -> LayerFilter {
-    *&get().main_map_state.lock().unwrap().layer_filter
+    get().main_map_state.lock().unwrap().layer_filter
 }
 
 pub fn set_main_map_layer_filter(new_layer_filter: &LayerFilter) -> Result<()> {
@@ -695,7 +695,7 @@ pub fn area_of_main_map() -> Option<u64> {
     let mut main_map_renderer = state.main_map_renderer.lock().unwrap();
     let main_map_state = state.main_map_state.lock().unwrap();
     if main_map_state.dropped_for_power_saving {
-        return None;
+        None
     } else {
         Some(main_map_renderer.get_current_area())
     }
