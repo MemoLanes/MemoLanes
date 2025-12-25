@@ -13,17 +13,17 @@ anyhow = { version = "1.0", features = ["backtrace"] }
 chrono = "0.4"
 flutter_rust_bridge = { version = "=2.11.1", features = ["chrono"] }
 log = "0.4"
-rusqlite = { version = "0.37", features = ["bundled"] }
+rusqlite = { version = "0.38", features = ["bundled"] }
 simplelog = "0.12"
 protobuf = "3.7"
-uuid = { version = "1.18", features = ["v4", "fast-rng", "macro-diagnostics", "serde"] }
+uuid = { version = "1.19", features = ["v4", "fast-rng", "macro-diagnostics", "serde"] }
 sql_split = "0.1"
 zstd = "0.13"
 itertools = "0.14"
 strum = "0.27"
 strum_macros = "0.27"
 random-string = "1.1"
-zip = "6.0"
+zip = "7.0"
 sha1 = "0.10"
 hex = "0.4"
 integer-encoding = "4.1"
@@ -39,14 +39,14 @@ serde_json = "1.0"
 rand = "0.9"
 actix = "0.13"
 actix-web-actors = "4.3"
-actix-web = "4.11"
+actix-web = "4.12"
 serde = "1.0"
 tokio = { version = "1.48", features = ["full"] }
 ctrlc = "3.5"
 pollster = "0.4.0"
 splines = { version = "5.0.0" }
 base64 = "0.22.1"
-serde_with = { version = "3.15", features = ["base64"] }
+serde_with = { version = "3.16", features = ["base64"] }
 quick-xml = "0.38"
 bitvec = "1.0.1"
 auto-context = "0.1.1"
@@ -56,7 +56,7 @@ tempdir = "0.3"
 csv = "1.4"
 rand = "0.9"
 assert_float_eq = "1.2"
-criterion = "0.7"
+criterion = "0.8"
 sha2 = "0.10"
 serde_json = "1.0"
 crossterm = "0.29"
