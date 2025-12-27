@@ -70,10 +70,12 @@ Future<T> showLoadingDialog<T>({
   if (taskCompleteEarly) return asyncTask;
   if (!context.mounted) return asyncTask;
 
+  BuildContext? dialogContext;
   showDialog(
     context: context,
     barrierDismissible: false,
     builder: (BuildContext context) {
+      dialogContext = context;
       return Padding(
         padding: const EdgeInsets.only(top: 10),
         child: Center(
@@ -97,14 +99,20 @@ Future<T> showLoadingDialog<T>({
       );
     },
   );
+
+  await Future.delayed(const Duration(milliseconds: 50));
+
   T result;
   try {
     await WakelockPlus.enable();
     result = await asyncTask;
   } finally {
     await WakelockPlus.disable();
-    if (context.mounted) {
-      Navigator.of(context).pop();
+    var context = dialogContext;
+    if (context != null) {
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
     }
   }
   return result;
