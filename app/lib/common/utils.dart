@@ -100,7 +100,8 @@ Future<T> showLoadingDialog<T>({
     },
   );
 
-  await Future.delayed(const Duration(milliseconds: 50));
+  // don't want the window to flicker
+  await Future.delayed(const Duration(milliseconds: 100));
 
   T result;
   try {
@@ -111,7 +112,7 @@ Future<T> showLoadingDialog<T>({
     var context = dialogContext;
     if (context != null) {
       if (context.mounted) {
-        Navigator.of(context).pop();
+        Navigator.of(context, rootNavigator: true).pop();
       }
     }
   }
