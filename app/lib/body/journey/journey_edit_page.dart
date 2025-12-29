@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:memolanes/body/journey/journey_map_edit_page.dart';
 import 'package:memolanes/body/settings/import_data_page.dart' show ImportType;
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
@@ -25,6 +26,7 @@ class JourneyInfoEditPage extends StatefulWidget {
     this.previewData,
     this.journeyKind,
     this.importType,
+    this.journeyId,
   });
 
   final DateTime? startTime;
@@ -35,6 +37,7 @@ class JourneyInfoEditPage extends StatefulWidget {
   final Function saveData;
   final Function? previewData;
   final ImportType? importType;
+  final String? journeyId;
 
   @override
   State<JourneyInfoEditPage> createState() => _JourneyInfoEditPageState();
@@ -259,6 +262,31 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
               ),
             ),
           ),
+          if (widget.journeyId != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16.0),
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => JourneyMapEditPage(
+                        journeyId: widget.journeyId!,
+                      ),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  fixedSize: Size(280, 42),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(25.0),
+                  ),
+                ),
+                child: Text(context.tr("journey.edit_journey_map_title")),
+              ),
+            ),
           ElevatedButton(
             onPressed: () => _saveData(context),
             style: ElevatedButton.styleFrom(

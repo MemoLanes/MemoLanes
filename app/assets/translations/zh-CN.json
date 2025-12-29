@@ -47,6 +47,7 @@
     "delete_all_journey_message": "这将删除此应用中的所有行程，您确定吗？",
     "journey_info_page_title": "旅程信息",
     "journey_info_edit_page_title": "编辑旅程信息",
+    "edit_journey_map_title": "旅程编辑器",
     "import_mldx_data": "导入 MLDX 数据",
     "import_kml_gpx_data": "导入 KML/GPX 数据",
     "import_fog_of_world_data": "导入 世界迷雾 数据",

@@ -47,6 +47,7 @@
     "delete_all_journey_message": "This will delete all journeys in this app. Are you sure?",
     "journey_info_page_title": "Journey Information",
     "journey_info_edit_page_title": "Edit Journey Information",
+    "edit_journey_map_title": "Journey Editor",
     "import_mldx_data": "Import MLDX Data",
     "import_kml_gpx_data": "Import KML/GPX Data",
     "import_fog_of_world_data": "Import [Fog of World] Data",
