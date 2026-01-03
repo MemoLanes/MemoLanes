@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use memolanes_core::preclean::{normalize_generic_time, normalize_step_of_my_world_time};
 use memolanes_core::{export_data, import_data};
 use std::fs::File;
 
@@ -74,6 +75,21 @@ pub fn gpx() {
     assert_eq!(points1, points2);
     assert_eq!(start_time, 1696383677000);
     assert_eq!(end_time, 1696386835000);
+}
+
+#[test]
+fn test_normalize_times() {
+    let input = "2025-07-02 18:07:33 +0000";
+    let normalized = normalize_generic_time(input).unwrap();
+    assert_eq!(normalized, "2025-07-02T18:07:33+00:00");
+
+    let input = "2020-07-21T上午7:38:32Z";
+    let normalized = normalize_step_of_my_world_time(input).unwrap();
+    assert_eq!(normalized, "2020-07-21T07:38:32Z");
+
+    let input_pm = "2020-07-21T下午7:38:32Z";
+    let normalized_pm = normalize_step_of_my_world_time(input_pm).unwrap();
+    assert_eq!(normalized_pm, "2020-07-21T19:38:32Z");
 }
 
 #[test]
