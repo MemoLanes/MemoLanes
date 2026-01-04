@@ -4,16 +4,16 @@ import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:easy_localization/easy_localization.dart';
 
-class JourneyMapEditPage extends StatefulWidget {
+class JourneyTrackEditPage extends StatefulWidget {
   final String journeyId;
 
-  const JourneyMapEditPage({super.key, required this.journeyId});
+  const JourneyTrackEditPage({super.key, required this.journeyId});
 
   @override
-  State<JourneyMapEditPage> createState() => _JourneyMapEditPageState();
+  State<JourneyTrackEditPage> createState() => _JourneyTrackEditPageState();
 }
 
-class _JourneyMapEditPageState extends State<JourneyMapEditPage> {
+class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   api.MapRendererProxy? _mapRendererProxy;
   MapView? _initialMapView;
 
@@ -45,7 +45,7 @@ class _JourneyMapEditPageState extends State<JourneyMapEditPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(context.tr("journey.edit_journey_map_title")),
+        title: Text(context.tr("journey.journey_track_edit_title")),
       ),
       body: SafeAreaWrapper(
         child: Stack(
@@ -60,24 +60,15 @@ class _JourneyMapEditPageState extends State<JourneyMapEditPage> {
               const Center(child: CircularProgressIndicator()),
             Positioned(
               bottom: 16,
-              right: 16,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   FloatingActionButton(
-                    heroTag: "add_track",
-                    onPressed: () {
-                      // TODO: Implement add track functionality
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                            content: Text("Add track not implemented yet")),
-                      );
-                    },
-                    child: const Icon(Icons.add),
-                  ),
-                  const SizedBox(height: 16),
-                  FloatingActionButton(
                     heroTag: "delete_track",
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
                     onPressed: () {
                       // TODO: Implement delete track functionality
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -85,7 +76,33 @@ class _JourneyMapEditPageState extends State<JourneyMapEditPage> {
                             content: Text("Delete track not implemented yet")),
                       );
                     },
-                    child: const Icon(Icons.delete),
+                    child: const Icon(Icons.cleaning_services),
+                  ),
+                  const SizedBox(width: 32),
+                  FloatingActionButton(
+                    heroTag: "add_track",
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    onPressed: () {
+                      // TODO: Implement add track functionality
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content: Text("Add track not implemented yet")),
+                      );
+                    },
+                    child: const Icon(Icons.edit),
+                  ),
+                  const SizedBox(width: 32),
+                  FloatingActionButton(
+                    heroTag: "save_track",
+                    onPressed: () {
+                      // TODO: Implement save track functionality
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content: Text("Save track not implemented yet")),
+                      );
+                    },
+                    child: const Icon(Icons.save),
                   ),
                 ],
               ),
