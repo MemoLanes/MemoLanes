@@ -11,6 +11,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:memolanes/body/achievement/achievement_body.dart';
 import 'package:memolanes/body/journey/journey_body.dart';
 import 'package:memolanes/body/privacy_agreement.dart';
+import 'package:memolanes/common/app_lifecycle_service.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/body/map/map_body.dart';
 import 'package:memolanes/body/settings/settings_body.dart';
@@ -108,6 +109,7 @@ void main() async {
     var updateNotifier = UpdateNotifier();
     delayedInit(updateNotifier);
     var gpsManager = GpsManager();
+    AppLifecycleService.instance.start();
     runApp(EasyLocalization(
         supportedLocales: const [Locale('en', 'US'), Locale('zh', 'CN')],
         path: 'assets/translations',

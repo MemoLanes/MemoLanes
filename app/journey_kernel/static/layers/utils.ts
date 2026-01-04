@@ -1,39 +1,31 @@
-/**
- * Convert longitude/latitude coordinates to tile XY coordinates at a specific zoom level
- * @param {Array} lngLat - Array of [longitude, latitude]
- * @param {Number} zoom - Zoom level
- * @returns {Array} - Array of [x, y] tile coordinates
- */
-export function lngLatToTileXY([lng, lat], zoom) {
+import maplibregl, { LngLat } from "maplibre-gl";
+
+export function lngLatToTileXY(lngLat: LngLat, zoom: number): [number, number] {
   const n = Math.pow(2, zoom);
-  const x = Math.floor(((lng + 180) / 360) * n);
-  const latRad = (lat * Math.PI) / 180;
+  const x = Math.floor(((lngLat.lng + 180) / 360) * n);
+  const latRad = (lngLat.lat * Math.PI) / 180;
   const y = Math.floor(
     ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n,
   );
-  return [x, y];
+  return [x, y] as [number, number];
 }
 
-/**
- * Convert tile XY coordinates to longitude/latitude at a specific zoom level
- * @param {Array} tileXY - Array of [x, y] tile coordinates
- * @param {Number} zoom - Zoom level
- * @returns {Array} - Array of [longitude, latitude]
- */
-export function tileXYToLngLat([x, y], zoom) {
+export function tileXYToLngLat(x: number, y: number, zoom: number): LngLat {
   const n = Math.pow(2, zoom);
   const lng = (x / n) * 360 - 180;
   const latRad = Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n)));
   const lat = (latRad * 180) / Math.PI;
-  return [lng, lat];
+  return new LngLat(lng, lat);
 }
 
-/**
- * Get the range of tiles that covers the current map viewport
+/* Get the range of tiles that covers the current map viewport
  * @param {Object} map - Mapbox map object
  * @returns {Array} - Array of [x, y, w, h, z] representing the tile range
  */
-export function getViewportTileRange(map) {
+export function getViewportTileRange(
+  map: maplibregl.Map,
+  isGlobeProjection: boolean,
+): [number, number, number, number, number] {
   // Get the current zoom level
   const z = Math.max(0, Math.floor(map.getZoom()));
 
@@ -43,8 +35,8 @@ export function getViewportTileRange(map) {
   const ne = bounds.getNorthEast();
 
   // Convert to tile coordinates
-  const [swX, swY] = lngLatToTileXY([sw.lng, sw.lat], z);
-  const [neX, neY] = lngLatToTileXY([ne.lng, ne.lat], z);
+  const [swX, swY] = lngLatToTileXY(sw, z);
+  const [neX, neY] = lngLatToTileXY(ne, z);
 
   // Calculate the minimum x and y coordinates
   const x = Math.min(swX, neX);
@@ -52,7 +44,11 @@ export function getViewportTileRange(map) {
   const y = Math.min(Math.max(0, Math.min(neY, swY)), (1 << z) - 1);
 
   // Calculate the width and height
-  const w = Math.max(1, Math.abs(neX - swX) + 1);
+  let w = Math.max(1, Math.abs(neX - swX) + 1);
+  if (isGlobeProjection) {
+    w = Math.min(w, 1 << z);
+  }
+  // w=1;
   // on special case when map is at border, make sure h will not exceed the limit.
   const h = Math.min(Math.max(1, Math.abs(swY - neY) + 1), (1 << z) - y);
 
@@ -66,7 +62,7 @@ export function getViewportTileRange(map) {
  * @param {Number} z - Zoom level
  * @returns {String} - Tile key in the format "z/x/y"
  */
-export function tileXYZToKey(x, y, z) {
+export function tileXYZToKey(x: number, y: number, z: number): string {
   return `${z}/${x}/${y}`;
 }
 
@@ -75,7 +71,7 @@ export function tileXYZToKey(x, y, z) {
  * @param {String} key - Tile key in the format "z/x/y"
  * @returns {Object} - Object with x, y, z properties
  */
-export function keyToTileXYZ(key) {
+export function keyToTileXYZ(key: string): { x: number; y: number; z: number } {
   const [z, x, y] = key.split("/").map(Number);
   return { x, y, z };
 }
