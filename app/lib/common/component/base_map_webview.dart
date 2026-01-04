@@ -28,6 +28,10 @@ class BaseMapWebview extends StatefulWidget {
   final TrackingMode trackingMode;
   final void Function()? onMapMoved;
   final void Function(MapView)? onRoughMapViewUpdate;
+  final void Function(double lat, double lng)? onTrackSelected;
+  final void Function(
+          double startLat, double startLng, double endLat, double endLng)?
+      onSelectionBox;
 
   const BaseMapWebview(
       {super.key,
@@ -35,7 +39,9 @@ class BaseMapWebview extends StatefulWidget {
       this.initialMapView,
       this.trackingMode = TrackingMode.off,
       this.onMapMoved,
-      this.onRoughMapViewUpdate});
+      this.onRoughMapViewUpdate,
+      this.onTrackSelected,
+      this.onSelectionBox});
 
   @override
   State<StatefulWidget> createState() => BaseMapWebviewState();
@@ -60,6 +66,14 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   // For bug workaround
   bool _isiOS18 = false;
+
+  void setDeleteMode(bool enabled) {
+    _webViewController.runJavaScript('''
+      if (typeof setDeleteMode === 'function') {
+        setDeleteMode($enabled);
+      }
+    ''');
+  }
 
   @override
   void didUpdateWidget(BaseMapWebview oldWidget) {
@@ -242,6 +256,38 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         'TileProviderChannel',
         onMessageReceived: (JavaScriptMessage message) {
           _handleTileProviderRequest(message.message);
+        },
+      )
+      ..addJavaScriptChannel(
+        'onTrackSelected',
+        onMessageReceived: (JavaScriptMessage message) {
+          if (widget.onTrackSelected != null) {
+            try {
+              final data = jsonDecode(message.message);
+              final lat = data['lat'] as double;
+              final lng = data['lng'] as double;
+              widget.onTrackSelected!(lat, lng);
+            } catch (e) {
+              log.error('Error parsing onTrackSelected message: $e');
+            }
+          }
+        },
+      )
+      ..addJavaScriptChannel(
+        'onSelectionBox',
+        onMessageReceived: (JavaScriptMessage message) {
+          if (widget.onSelectionBox != null) {
+            try {
+              final data = jsonDecode(message.message);
+              final startLat = data['startLat'] as double;
+              final startLng = data['startLng'] as double;
+              final endLat = data['endLat'] as double;
+              final endLng = data['endLng'] as double;
+              widget.onSelectionBox!(startLat, startLng, endLat, endLng);
+            } catch (e) {
+              log.error('Error parsing onSelectionBox message: $e');
+            }
+          }
         },
       );
     final assetPath = 'assets/map_webview/index.html';

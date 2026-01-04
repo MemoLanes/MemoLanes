@@ -16,6 +16,8 @@ class JourneyTrackEditPage extends StatefulWidget {
 class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   api.MapRendererProxy? _mapRendererProxy;
   MapView? _initialMapView;
+  bool _isDeleteMode = false;
+  final GlobalKey<BaseMapWebviewState> _mapWebviewKey = GlobalKey();
 
   @override
   void initState() {
@@ -24,8 +26,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   }
 
   Future<void> _loadMap() async {
-    final result =
-        await api.getMapRendererProxyForJourney(journeyId: widget.journeyId);
+    final result = await api.startJourneyEdit(journeyId: widget.journeyId);
     if (mounted) {
       setState(() {
         _mapRendererProxy = result.$1;
@@ -41,6 +42,39 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     }
   }
 
+  void _onTrackSelected(double lat, double lng) async {
+    if (_isDeleteMode) {
+      final result = await api.deletePointInEdit(lat: lat, lng: lng);
+      if (mounted) {
+        setState(() {
+          _mapRendererProxy = result.$1;
+        });
+      }
+    }
+  }
+
+  void _onSelectionBox(
+      double startLat, double startLng, double endLat, double endLng) async {
+    if (_isDeleteMode) {
+      final result = await api.deletePointsInBoxInEdit(
+          startLat: startLat,
+          startLng: startLng,
+          endLat: endLat,
+          endLng: endLng);
+      if (mounted) {
+        setState(() {
+          _mapRendererProxy = result.$1;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    api.discardJourneyEdit();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -52,9 +86,12 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
           children: [
             if (_mapRendererProxy != null)
               BaseMapWebview(
+                key: _mapWebviewKey,
                 mapRendererProxy: _mapRendererProxy!,
                 initialMapView: _initialMapView,
                 trackingMode: TrackingMode.off,
+                onTrackSelected: _onTrackSelected,
+                onSelectionBox: _onSelectionBox,
               )
             else
               const Center(child: CircularProgressIndicator()),
@@ -67,13 +104,18 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                 children: [
                   FloatingActionButton(
                     heroTag: "delete_track",
-                    backgroundColor: Colors.red,
+                    backgroundColor: _isDeleteMode ? Colors.red : Colors.grey,
                     foregroundColor: Colors.white,
                     onPressed: () {
-                      // TODO: Implement delete track functionality
+                      setState(() {
+                        _isDeleteMode = !_isDeleteMode;
+                      });
+                      _mapWebviewKey.currentState?.setDeleteMode(_isDeleteMode);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                            content: Text("Delete track not implemented yet")),
+                            content: Text(_isDeleteMode
+                                ? "Delete mode enabled. Drag to select area to delete."
+                                : "Delete mode disabled.")),
                       );
                     },
                     child: const Icon(Icons.cleaning_services),
@@ -95,12 +137,15 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                   const SizedBox(width: 32),
                   FloatingActionButton(
                     heroTag: "save_track",
-                    onPressed: () {
-                      // TODO: Implement save track functionality
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                            content: Text("Save track not implemented yet")),
-                      );
+                    onPressed: () async {
+                      await api.saveJourneyEdit();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                              content: Text(context.tr("common.save_success"))),
+                        );
+                        Navigator.pop(context);
+                      }
                     },
                     child: const Icon(Icons.save),
                   ),

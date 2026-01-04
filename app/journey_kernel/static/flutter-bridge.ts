@@ -30,6 +30,9 @@ declare global {
     ) => void;
     getCurrentMapView?: () => string;
     updateJourneyId?: (newJourneyId: string) => boolean;
+    setDeleteMode?: (enabled: boolean) => void;
+    onTrackSelected?: FlutterMessageChannel;
+    onSelectionBox?: FlutterMessageChannel;
   }
 }
 
@@ -42,6 +45,11 @@ export class FlutterBridge {
   private map: maplibregl.Map;
   private locationMarker: maplibregl.Marker;
   private params: ReactiveParams;
+  private deleteMode: boolean = false;
+  private startPoint: maplibregl.Point | null = null;
+  private startLngLat: maplibregl.LngLat | null = null;
+  private boxElement: HTMLDivElement | null = null;
+  private startMarker: HTMLDivElement | null = null;
 
   constructor(config: FlutterBridgeConfig) {
     this.map = config.map;
@@ -79,6 +87,12 @@ export class FlutterBridge {
    * Setup all map event listeners that notify Flutter
    */
   setupMapEventListeners(): void {
+    // Ensure selection overlays (absolute positioned) are relative to the map container.
+    const container = this.map.getContainer();
+    if (window.getComputedStyle(container).position === "static") {
+      container.style.position = "relative";
+    }
+
     // Notify Flutter when user drags the map
     this.map.on("dragstart", () => {
       this.notifyMapMoved();
@@ -92,12 +106,152 @@ export class FlutterBridge {
         this.notifyMapMoved();
       }
     });
+
+    this.map.on("click", (e) => {
+      if (this.deleteMode) {
+        const { lng, lat } = e.lngLat;
+        console.log(`Clicked at ${lng}, ${lat} in delete mode`);
+        if (window.onTrackSelected) {
+          window.onTrackSelected.postMessage(JSON.stringify({ lng, lat }));
+        }
+      }
+    });
+
+    // Box selection logic (support both mouse + touch; WebView on mobile uses touch)
+    const startSelectionBox = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
+      if (!this.deleteMode) return;
+
+      const originalEvent = (e as any).originalEvent as any;
+      if (originalEvent?.shiftKey) return; // Allow normal box zoom with shift
+      if (originalEvent?.touches && originalEvent.touches.length > 1) return; // ignore pinch zoom
+      (e as any).preventDefault?.();
+
+      this.startPoint = e.point;
+      this.startLngLat = e.lngLat;
+      this.map.dragPan.disable();
+
+      // Create start marker
+      this.startMarker = document.createElement("div");
+      this.startMarker.style.position = "absolute";
+      this.startMarker.style.width = "10px";
+      this.startMarker.style.height = "10px";
+      this.startMarker.style.backgroundColor = "red";
+      this.startMarker.style.borderRadius = "50%";
+      this.startMarker.style.transform = "translate(-50%, -50%)";
+      this.startMarker.style.pointerEvents = "none";
+      this.startMarker.style.zIndex = "10000";
+      this.startMarker.style.left = this.startPoint.x + "px";
+      this.startMarker.style.top = this.startPoint.y + "px";
+      container.appendChild(this.startMarker);
+
+      this.boxElement = document.createElement("div");
+      this.boxElement.classList.add("box-selection");
+      this.boxElement.style.position = "absolute";
+      this.boxElement.style.border = "2px dashed red";
+      this.boxElement.style.backgroundColor = "rgba(255, 0, 0, 0.2)";
+      this.boxElement.style.zIndex = "9999";
+      this.boxElement.style.pointerEvents = "none";
+      this.boxElement.style.left = this.startPoint.x + "px";
+      this.boxElement.style.top = this.startPoint.y + "px";
+      this.boxElement.style.width = "0px";
+      this.boxElement.style.height = "0px";
+      container.appendChild(this.boxElement);
+    };
+
+    const moveSelectionBox = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
+      if (!this.deleteMode || !this.startPoint || !this.boxElement) return;
+
+      const originalEvent = (e as any).originalEvent as any;
+      if (originalEvent?.touches && originalEvent.touches.length > 1) return; // ignore pinch
+      (e as any).preventDefault?.();
+
+      const currentPoint = e.point;
+      const minX = Math.min(this.startPoint.x, currentPoint.x);
+      const maxX = Math.max(this.startPoint.x, currentPoint.x);
+      const minY = Math.min(this.startPoint.y, currentPoint.y);
+      const maxY = Math.max(this.startPoint.y, currentPoint.y);
+
+      this.boxElement.style.left = minX + "px";
+      this.boxElement.style.top = minY + "px";
+      this.boxElement.style.width = maxX - minX + "px";
+      this.boxElement.style.height = maxY - minY + "px";
+    };
+
+    const endSelectionBox = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
+      if (!this.deleteMode || !this.startPoint || !this.boxElement) return;
+
+      const startLngLat = this.startLngLat;
+      const endLngLat = (e as any).lngLat ?? this.map.unproject(e.point);
+
+      // Only trigger if box has some size (avoid triggering on simple clicks)
+      if (
+        Math.abs(e.point.x - this.startPoint.x) > 5 ||
+        Math.abs(e.point.y - this.startPoint.y) > 5
+      ) {
+        if (window.onSelectionBox && startLngLat) {
+          window.onSelectionBox.postMessage(
+            JSON.stringify({
+              startLat: startLngLat.lat,
+              startLng: startLngLat.lng,
+              endLat: endLngLat.lat,
+              endLng: endLngLat.lng,
+            }),
+          );
+        }
+      }
+
+      this.boxElement.remove();
+      this.boxElement = null;
+      if (this.startMarker) {
+        this.startMarker.remove();
+        this.startMarker = null;
+      }
+      this.startPoint = null;
+      this.startLngLat = null;
+      // Keep dragPan disabled if we are still in delete mode
+      if (!this.deleteMode) {
+        this.map.dragPan.enable();
+      }
+    };
+
+    this.map.on("mousedown", startSelectionBox);
+    this.map.on("touchstart", startSelectionBox);
+    this.map.on("mousemove", moveSelectionBox);
+    this.map.on("touchmove", moveSelectionBox);
+    this.map.on("mouseup", endSelectionBox);
+    this.map.on("touchend", endSelectionBox);
+    this.map.on("touchcancel", endSelectionBox);
   }
 
   /**
    * Setup all window methods that Flutter can call
    */
   setupFlutterCallableMethods(): void {
+    window.setDeleteMode = (enabled: boolean) => {
+      this.deleteMode = enabled;
+      console.log(`Delete mode set to ${enabled}`);
+      // Change cursor to indicate delete mode
+      this.map.getCanvas().style.cursor = enabled ? "crosshair" : "";
+      
+      if (enabled) {
+        this.map.dragPan.disable();
+      } else {
+        this.map.dragPan.enable();
+        
+        // Clean up any active selection
+        if (this.boxElement) {
+            this.boxElement.remove();
+            this.boxElement = null;
+        }
+        if (this.startMarker) {
+            this.startMarker.remove();
+            this.startMarker = null;
+        }
+        this.startPoint = null;
+        this.startLngLat = null;
+      }
+    };
+
     // Update location marker
     window.updateLocationMarker = (
       lng: number,
