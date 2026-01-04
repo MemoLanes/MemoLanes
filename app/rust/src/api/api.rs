@@ -823,16 +823,161 @@ pub fn delete_points_in_box_in_edit(
             let min_lng = start_lng.min(end_lng);
             let max_lng = start_lng.max(end_lng);
 
-            for segment in &mut vector.track_segments {
-                segment.track_points.retain(|point| {
-                    point.latitude < min_lat
-                        || point.latitude > max_lat
-                        || point.longitude < min_lng
-                        || point.longitude > max_lng
-                });
+            let inside = |p: &crate::journey_vector::TrackPoint| -> bool {
+                p.latitude >= min_lat
+                    && p.latitude <= max_lat
+                    && p.longitude >= min_lng
+                    && p.longitude <= max_lng
+            };
+
+            let segment_intersections = |
+                a: &crate::journey_vector::TrackPoint,
+                b: &crate::journey_vector::TrackPoint,
+            | -> Vec<(f64, crate::journey_vector::TrackPoint)> {
+                let x0 = a.longitude;
+                let y0 = a.latitude;
+                let x1 = b.longitude;
+                let y1 = b.latitude;
+                let dx = x1 - x0;
+                let dy = y1 - y0;
+
+                let mut hits: Vec<(f64, crate::journey_vector::TrackPoint)> = Vec::new();
+                let eps = 1e-12_f64;
+
+                let mut push_hit = |t: f64, x: f64, y: f64| {
+                    if t < -eps || t > 1.0 + eps {
+                        return;
+                    }
+                    let t = t.clamp(0.0, 1.0);
+                    // de-dup by t
+                    if hits.iter().any(|(t0, _)| (*t0 - t).abs() < 1e-9) {
+                        return;
+                    }
+                    hits.push((
+                        t,
+                        crate::journey_vector::TrackPoint {
+                            latitude: y,
+                            longitude: x,
+                        },
+                    ));
+                };
+
+                // Intersect with vertical edges (lng = const)
+                if dx.abs() > eps {
+                    for x_edge in [min_lng, max_lng] {
+                        let t = (x_edge - x0) / dx;
+                        let y = y0 + t * dy;
+                        if y >= min_lat - eps && y <= max_lat + eps {
+                            push_hit(t, x_edge, y);
+                        }
+                    }
+                }
+
+                // Intersect with horizontal edges (lat = const)
+                if dy.abs() > eps {
+                    for y_edge in [min_lat, max_lat] {
+                        let t = (y_edge - y0) / dy;
+                        let x = x0 + t * dx;
+                        if x >= min_lng - eps && x <= max_lng + eps {
+                            push_hit(t, x, y_edge);
+                        }
+                    }
+                }
+
+                hits.sort_by(|(t1, _), (t2, _)| t1.partial_cmp(t2).unwrap());
+                hits
+            };
+
+            let mut new_segments: Vec<crate::journey_vector::TrackSegment> = Vec::new();
+
+            for segment in &vector.track_segments {
+                let pts = &segment.track_points;
+                if pts.len() < 2 {
+                    continue;
+                }
+
+                let mut current: Vec<crate::journey_vector::TrackPoint> = Vec::new();
+                if !inside(&pts[0]) {
+                    current.push(pts[0].clone());
+                }
+
+                for i in 0..(pts.len() - 1) {
+                    let a = &pts[i];
+                    let b = &pts[i + 1];
+                    let inside_a = inside(a);
+                    let inside_b = inside(b);
+                    let hits = segment_intersections(a, b);
+
+                    match (inside_a, inside_b) {
+                        (false, false) => {
+                            if hits.len() >= 2 {
+                                let entry = hits.first().unwrap().1.clone();
+                                let exit = hits.last().unwrap().1.clone();
+
+                                if current.last() != Some(&entry) {
+                                    current.push(entry);
+                                }
+                                if current.len() >= 2 {
+                                    new_segments.push(crate::journey_vector::TrackSegment {
+                                        track_points: current,
+                                    });
+                                }
+
+                                current = vec![exit];
+                                if current.last() != Some(b) {
+                                    current.push(b.clone());
+                                }
+                            } else {
+                                if current.is_empty() {
+                                    current.push(a.clone());
+                                }
+                                if current.last() != Some(b) {
+                                    current.push(b.clone());
+                                }
+                            }
+                        }
+                        (true, true) => {
+                            // Fully inside: drop
+                        }
+                        (false, true) => {
+                            // Outside -> inside: close current segment at boundary
+                            if let Some(hit) = hits.first().map(|x| x.1.clone()) {
+                                if current.is_empty() {
+                                    current.push(a.clone());
+                                }
+                                if current.last() != Some(&hit) {
+                                    current.push(hit);
+                                }
+                            }
+                            if current.len() >= 2 {
+                                new_segments.push(crate::journey_vector::TrackSegment {
+                                    track_points: current,
+                                });
+                            }
+                            current = Vec::new();
+                        }
+                        (true, false) => {
+                            // Inside -> outside: start a new segment at boundary
+                            if let Some(hit) = hits.last().map(|x| x.1.clone()) {
+                                current = vec![hit];
+                            } else {
+                                current = Vec::new();
+                            }
+                            if current.last() != Some(b) {
+                                current.push(b.clone());
+                            }
+                        }
+                    }
+                }
+
+                if current.len() >= 2 {
+                    new_segments.push(crate::journey_vector::TrackSegment {
+                        track_points: current,
+                    });
+                }
             }
-            // Remove empty segments
-            vector.track_segments.retain(|s| !s.track_points.is_empty());
+
+            vector.track_segments = new_segments;
         }
 
         return get_map_renderer_proxy_for_journey_data_internal(state, session.data.clone());
