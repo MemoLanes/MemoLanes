@@ -92,7 +92,8 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                 children: [
                   FloatingActionButton(
                     heroTag: "delete_track",
-                    backgroundColor: _isDeleteMode ? Colors.red : Colors.grey,
+                    backgroundColor:
+                        _isDeleteMode ? Colors.grey : const Color(0xFFEC4162),
                     foregroundColor: Colors.white,
                     onPressed: () {
                       setState(() {
@@ -111,7 +112,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                   const SizedBox(width: 32),
                   FloatingActionButton(
                     heroTag: "add_track",
-                    backgroundColor: Colors.green,
+                    backgroundColor: const Color(0xFFB6E13D),
                     foregroundColor: Colors.white,
                     onPressed: () {
                       // TODO: Implement add track functionality
@@ -125,6 +126,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                   const SizedBox(width: 32),
                   FloatingActionButton(
                     heroTag: "save_track",
+                    backgroundColor: const Color(0xFFFFFFFF),
                     onPressed: () async {
                       await api.saveJourneyEdit();
                       if (context.mounted) {
