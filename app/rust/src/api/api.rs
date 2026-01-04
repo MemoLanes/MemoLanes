@@ -807,40 +807,6 @@ pub fn start_journey_edit(journey_id: String) -> Result<(MapRendererProxy, Optio
     get_map_renderer_proxy_for_journey_data_internal(state, journey_data)
 }
 
-pub fn delete_point_in_edit(lat: f64, lng: f64) -> Result<(MapRendererProxy, Option<CameraOption>)> {
-    let state = get();
-    let mut session_guard = state.edit_session.lock().unwrap();
-
-    if let Some(session) = session_guard.as_mut() {
-        if let JourneyData::Vector(vector) = &mut session.data {
-            let mut min_dist = f64::MAX;
-            let mut target_seg_idx = None;
-            let mut target_point_idx = None;
-
-            for (seg_idx, segment) in vector.track_segments.iter().enumerate() {
-                for (point_idx, point) in segment.track_points.iter().enumerate() {
-                    let dist = (point.latitude - lat).powi(2) + (point.longitude - lng).powi(2);
-                    if dist < min_dist {
-                        min_dist = dist;
-                        target_seg_idx = Some(seg_idx);
-                        target_point_idx = Some(point_idx);
-                    }
-                }
-            }
-
-            if let (Some(seg_idx), Some(point_idx)) = (target_seg_idx, target_point_idx) {
-                vector.track_segments[seg_idx].track_points.remove(point_idx);
-                if vector.track_segments[seg_idx].track_points.is_empty() {
-                    vector.track_segments.remove(seg_idx);
-                }
-            }
-        }
-
-        get_map_renderer_proxy_for_journey_data_internal(state, session.data.clone())
-    }
-    bail!("No active edit session");
-}
-
 pub fn delete_points_in_box_in_edit(
     start_lat: f64,
     start_lng: f64,
@@ -869,7 +835,7 @@ pub fn delete_points_in_box_in_edit(
             vector.track_segments.retain(|s| !s.track_points.is_empty());
         }
 
-        get_map_renderer_proxy_for_journey_data_internal(state, session.data.clone())
+        return get_map_renderer_proxy_for_journey_data_internal(state, session.data.clone());
     }
     bail!("No active edit session");
 }

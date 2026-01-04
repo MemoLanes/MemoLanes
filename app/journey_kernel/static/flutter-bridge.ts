@@ -107,16 +107,6 @@ export class FlutterBridge {
       }
     });
 
-    this.map.on("click", (e) => {
-      if (this.deleteMode) {
-        const { lng, lat } = e.lngLat;
-        console.log(`Clicked at ${lng}, ${lat} in delete mode`);
-        if (window.onTrackSelected) {
-          window.onTrackSelected.postMessage(JSON.stringify({ lng, lat }));
-        }
-      }
-    });
-
     // Box selection logic (support both mouse + touch; WebView on mobile uses touch)
     const startSelectionBox = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
       if (!this.deleteMode) return;

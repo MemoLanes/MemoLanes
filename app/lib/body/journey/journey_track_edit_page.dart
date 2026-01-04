@@ -42,17 +42,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     }
   }
 
-  void _onTrackSelected(double lat, double lng) async {
-    if (_isDeleteMode) {
-      final result = await api.deletePointInEdit(lat: lat, lng: lng);
-      if (mounted) {
-        setState(() {
-          _mapRendererProxy = result.$1;
-        });
-      }
-    }
-  }
-
   void _onSelectionBox(
       double startLat, double startLng, double endLat, double endLng) async {
     if (_isDeleteMode) {
@@ -90,7 +79,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                 mapRendererProxy: _mapRendererProxy!,
                 initialMapView: _initialMapView,
                 trackingMode: TrackingMode.off,
-                onTrackSelected: _onTrackSelected,
                 onSelectionBox: _onSelectionBox,
               )
             else

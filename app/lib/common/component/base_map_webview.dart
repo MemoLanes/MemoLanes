@@ -28,7 +28,6 @@ class BaseMapWebview extends StatefulWidget {
   final TrackingMode trackingMode;
   final void Function()? onMapMoved;
   final void Function(MapView)? onRoughMapViewUpdate;
-  final void Function(double lat, double lng)? onTrackSelected;
   final void Function(
           double startLat, double startLng, double endLat, double endLng)?
       onSelectionBox;
@@ -40,7 +39,6 @@ class BaseMapWebview extends StatefulWidget {
       this.trackingMode = TrackingMode.off,
       this.onMapMoved,
       this.onRoughMapViewUpdate,
-      this.onTrackSelected,
       this.onSelectionBox});
 
   @override
@@ -256,21 +254,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         'TileProviderChannel',
         onMessageReceived: (JavaScriptMessage message) {
           _handleTileProviderRequest(message.message);
-        },
-      )
-      ..addJavaScriptChannel(
-        'onTrackSelected',
-        onMessageReceived: (JavaScriptMessage message) {
-          if (widget.onTrackSelected != null) {
-            try {
-              final data = jsonDecode(message.message);
-              final lat = data['lat'] as double;
-              final lng = data['lng'] as double;
-              widget.onTrackSelected!(lat, lng);
-            } catch (e) {
-              log.error('Error parsing onTrackSelected message: $e');
-            }
-          }
         },
       )
       ..addJavaScriptChannel(
