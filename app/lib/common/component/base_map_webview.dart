@@ -15,6 +15,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'map_controls/map_copyright_button.dart';
 
 typedef MapView = ({double lng, double lat, double zoom});
+typedef DrawPoint = ({double lat, double lng});
 
 enum TrackingMode {
   displayAndTracking,
@@ -31,6 +32,7 @@ class BaseMapWebview extends StatefulWidget {
   final void Function(
           double startLat, double startLng, double endLat, double endLng)?
       onSelectionBox;
+  final void Function(List<DrawPoint> points)? onDrawPath;
 
   const BaseMapWebview(
       {super.key,
@@ -39,7 +41,8 @@ class BaseMapWebview extends StatefulWidget {
       this.trackingMode = TrackingMode.off,
       this.onMapMoved,
       this.onRoughMapViewUpdate,
-      this.onSelectionBox});
+      this.onSelectionBox,
+      this.onDrawPath});
 
   @override
   State<StatefulWidget> createState() => BaseMapWebviewState();
@@ -69,6 +72,14 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _webViewController.runJavaScript('''
       if (typeof setDeleteMode === 'function') {
         setDeleteMode($enabled);
+      }
+    ''');
+  }
+
+  void setDrawMode(bool enabled) {
+    _webViewController.runJavaScript('''
+      if (typeof setDrawMode === 'function') {
+        setDrawMode($enabled);
       }
     ''');
   }
@@ -273,6 +284,27 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
           }
         },
       );
+
+    _webViewController.addJavaScriptChannel(
+      'onDrawPath',
+      onMessageReceived: (JavaScriptMessage message) {
+        if (widget.onDrawPath != null) {
+          try {
+            final data = jsonDecode(message.message);
+            final rawPoints = data['points'] as List<dynamic>;
+            final points = rawPoints
+                .map((p) => (
+                      lat: (p['lat'] as num).toDouble(),
+                      lng: (p['lng'] as num).toDouble(),
+                    ))
+                .toList(growable: false);
+            widget.onDrawPath!(points);
+          } catch (e) {
+            log.error('Error parsing onDrawPath message: $e');
+          }
+        }
+      },
+    );
     final assetPath = 'assets/map_webview/index.html';
     log.info('[base_map_webview] Initial loading asset: $assetPath');
     await _webViewController.loadFlutterAsset(assetPath);

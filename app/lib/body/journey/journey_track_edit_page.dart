@@ -16,6 +16,7 @@ class JourneyTrackEditPage extends StatefulWidget {
 class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   api.MapRendererProxy? _mapRendererProxy;
   MapView? _initialMapView;
+  bool _isAddMode = false;
   bool _isDeleteMode = false;
   final GlobalKey<BaseMapWebviewState> _mapWebviewKey = GlobalKey();
 
@@ -42,20 +43,51 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     }
   }
 
-  void _onSelectionBox(
-      double startLat, double startLng, double endLat, double endLng) async {
-    if (_isDeleteMode) {
-      final result = await api.deletePointsInBoxInEdit(
-          startLat: startLat,
-          startLng: startLng,
-          endLat: endLat,
-          endLng: endLng);
-      if (mounted) {
-        setState(() {
-          _mapRendererProxy = result.$1;
-        });
-      }
+  Future<void> _onDrawPath(List<DrawPoint> points) async {
+    if (!_isAddMode) return;
+    if (points.length < 2) return;
+
+    // Approximate the freehand path by adding many small straight segments.
+    api.MapRendererProxy? latestProxy = _mapRendererProxy;
+    for (var i = 0; i < points.length - 1; i++) {
+      final a = points[i];
+      final b = points[i + 1];
+      final result = await api.addLineInEdit(
+        startLat: a.lat,
+        startLng: a.lng,
+        endLat: b.lat,
+        endLng: b.lng,
+      );
+      latestProxy = result.$1;
     }
+
+    if (!mounted) return;
+    if (latestProxy != null) {
+      setState(() {
+        _mapRendererProxy = latestProxy;
+      });
+    }
+  }
+
+  Future<void> _onSelectionBox(
+    double startLat,
+    double startLng,
+    double endLat,
+    double endLng,
+  ) async {
+    if (!_isDeleteMode) return;
+
+    final result = await api.deletePointsInBoxInEdit(
+      startLat: startLat,
+      startLng: startLng,
+      endLat: endLat,
+      endLng: endLng,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _mapRendererProxy = result.$1;
+    });
   }
 
   @override
@@ -80,6 +112,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                 initialMapView: _initialMapView,
                 trackingMode: TrackingMode.off,
                 onSelectionBox: _onSelectionBox,
+                onDrawPath: _onDrawPath,
               )
             else
               const Center(child: CircularProgressIndicator()),
@@ -91,37 +124,60 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   FloatingActionButton(
-                    heroTag: "delete_track",
-                    backgroundColor:
-                        _isDeleteMode ? Colors.grey : const Color(0xFFEC4162),
-                    foregroundColor: Colors.white,
-                    onPressed: () {
-                      setState(() {
-                        _isDeleteMode = !_isDeleteMode;
-                      });
-                      _mapWebviewKey.currentState?.setDeleteMode(_isDeleteMode);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                            content: Text(_isDeleteMode
-                                ? "Delete mode enabled. Drag to select area to delete."
-                                : "Delete mode disabled.")),
-                      );
-                    },
-                    child: const Icon(Icons.cleaning_services),
-                  ),
-                  const SizedBox(width: 32),
-                  FloatingActionButton(
                     heroTag: "add_track",
                     backgroundColor: const Color(0xFFB6E13D),
                     foregroundColor: Colors.white,
                     onPressed: () {
-                      // TODO: Implement add track functionality
+                      setState(() {
+                        _isAddMode = !_isAddMode;
+                        if (_isAddMode) {
+                          _isDeleteMode = false;
+                        }
+                      });
+                      _mapWebviewKey.currentState?.setDeleteMode(false);
+                      _mapWebviewKey.currentState?.setDrawMode(_isAddMode);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                            content: Text("Add track not implemented yet")),
+                            content: Text(_isAddMode
+                                ? context.tr(
+                                    "journey.journey_track_edit_add_mode_enabled",
+                                  )
+                                : context.tr(
+                                    "journey.journey_track_edit_add_mode_disabled",
+                                  ))),
                       );
                     },
                     child: const Icon(Icons.edit),
+                  ),
+                  const SizedBox(width: 32),
+                  FloatingActionButton(
+                    heroTag: "delete_track",
+                    backgroundColor: const Color(0xFFE13D3D),
+                    foregroundColor: Colors.white,
+                    onPressed: () {
+                      setState(() {
+                        _isDeleteMode = !_isDeleteMode;
+                        if (_isDeleteMode) {
+                          _isAddMode = false;
+                        }
+                      });
+                      _mapWebviewKey.currentState?.setDrawMode(false);
+                      _mapWebviewKey.currentState?.setDeleteMode(_isDeleteMode);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            _isDeleteMode
+                                ? context.tr(
+                                    "journey.journey_track_edit_delete_mode_enabled",
+                                  )
+                                : context.tr(
+                                    "journey.journey_track_edit_delete_mode_disabled",
+                                  ),
+                          ),
+                        ),
+                      );
+                    },
+                    child: const Icon(Icons.delete),
                   ),
                   const SizedBox(width: 32),
                   FloatingActionButton(

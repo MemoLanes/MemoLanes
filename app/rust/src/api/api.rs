@@ -985,6 +985,45 @@ pub fn delete_points_in_box_in_edit(
     bail!("No active edit session");
 }
 
+pub fn add_line_in_edit(
+    start_lat: f64,
+    start_lng: f64,
+    end_lat: f64,
+    end_lng: f64,
+) -> Result<(MapRendererProxy, Option<CameraOption>)> {
+    let state = get();
+    let mut session_guard = state.edit_session.lock().unwrap();
+
+    if let Some(session) = session_guard.as_mut() {
+        if let JourneyData::Vector(vector) = &mut session.data {
+            // Add a new segment consisting of a single straight line.
+            // (The JS side already avoids tiny drags, but keep a guard here too.)
+            let eps = 1e-12_f64;
+            if (start_lat - end_lat).abs() < eps && (start_lng - end_lng).abs() < eps {
+                return get_map_renderer_proxy_for_journey_data_internal(state, session.data.clone());
+            }
+
+            vector
+                .track_segments
+                .push(crate::journey_vector::TrackSegment {
+                    track_points: vec![
+                        crate::journey_vector::TrackPoint {
+                            latitude: start_lat,
+                            longitude: start_lng,
+                        },
+                        crate::journey_vector::TrackPoint {
+                            latitude: end_lat,
+                            longitude: end_lng,
+                        },
+                    ],
+                });
+        }
+
+        return get_map_renderer_proxy_for_journey_data_internal(state, session.data.clone());
+    }
+    bail!("No active edit session");
+}
+
 pub fn save_journey_edit() -> Result<()> {
     let state = get();
     let mut session_guard = state.edit_session.lock().unwrap();

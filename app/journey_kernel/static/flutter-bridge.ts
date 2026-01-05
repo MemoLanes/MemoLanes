@@ -31,8 +31,10 @@ declare global {
     getCurrentMapView?: () => string;
     updateJourneyId?: (newJourneyId: string) => boolean;
     setDeleteMode?: (enabled: boolean) => void;
+    setDrawMode?: (enabled: boolean) => void;
     onTrackSelected?: FlutterMessageChannel;
     onSelectionBox?: FlutterMessageChannel;
+    onDrawPath?: FlutterMessageChannel;
   }
 }
 
@@ -46,10 +48,16 @@ export class FlutterBridge {
   private locationMarker: maplibregl.Marker;
   private params: ReactiveParams;
   private deleteMode: boolean = false;
+  private drawMode: boolean = false;
   private startPoint: maplibregl.Point | null = null;
   private startLngLat: maplibregl.LngLat | null = null;
   private boxElement: HTMLDivElement | null = null;
   private startMarker: HTMLDivElement | null = null;
+
+  // Freehand draw state
+  private drawPoints: maplibregl.LngLat[] = [];
+  private drawSourceId = "_flutter_draw_path";
+  private drawLayerId = "_flutter_draw_path_layer";
 
   constructor(config: FlutterBridgeConfig) {
     this.map = config.map;
@@ -109,7 +117,7 @@ export class FlutterBridge {
 
     // Box selection logic (support both mouse + touch; WebView on mobile uses touch)
     const startSelectionBox = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
-      if (!this.deleteMode) return;
+      if (!this.deleteMode || this.drawMode) return;
 
       const originalEvent = (e as any).originalEvent as any;
       if (originalEvent?.shiftKey) return; // Allow normal box zoom with shift
@@ -149,7 +157,7 @@ export class FlutterBridge {
     };
 
     const moveSelectionBox = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
-      if (!this.deleteMode || !this.startPoint || !this.boxElement) return;
+      if (!this.deleteMode || this.drawMode || !this.startPoint || !this.boxElement) return;
 
       const originalEvent = (e as any).originalEvent as any;
       if (originalEvent?.touches && originalEvent.touches.length > 1) return; // ignore pinch
@@ -168,7 +176,7 @@ export class FlutterBridge {
     };
 
     const endSelectionBox = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
-      if (!this.deleteMode || !this.startPoint || !this.boxElement) return;
+      if (!this.deleteMode || this.drawMode || !this.startPoint || !this.boxElement) return;
 
       const startLngLat = this.startLngLat;
       const endLngLat = (e as any).lngLat ?? this.map.unproject(e.point);
@@ -211,6 +219,127 @@ export class FlutterBridge {
     this.map.on("mouseup", endSelectionBox);
     this.map.on("touchend", endSelectionBox);
     this.map.on("touchcancel", endSelectionBox);
+
+    // Freehand draw logic (mouse + touch)
+    const ensureDrawLayer = () => {
+      const srcAny = (this.map.getSource(this.drawSourceId) as any) ?? null;
+      if (!srcAny) {
+        this.map.addSource(this.drawSourceId, {
+          type: "geojson",
+          data: {
+            type: "Feature",
+            geometry: { type: "LineString", coordinates: [] },
+          },
+        } as any);
+      }
+      if (!this.map.getLayer(this.drawLayerId)) {
+        this.map.addLayer({
+          id: this.drawLayerId,
+          type: "line",
+          source: this.drawSourceId,
+          layout: {
+            "line-join": "round",
+            "line-cap": "round",
+          },
+          paint: {
+            "line-color": "#B6E13D",
+            "line-width": 4,
+            "line-opacity": 0.9,
+          },
+        } as any);
+      }
+    };
+
+    const updateDrawLayer = () => {
+      const src = this.map.getSource(this.drawSourceId) as any;
+      if (!src) return;
+      const coords = this.drawPoints.map((p) => [p.lng, p.lat]);
+      src.setData({
+        type: "Feature",
+        geometry: { type: "LineString", coordinates: coords },
+      });
+    };
+
+    const clearDrawLayer = () => {
+      this.drawPoints = [];
+      updateDrawLayer();
+    };
+
+    const startDraw = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
+      if (!this.drawMode || this.deleteMode) return;
+
+      const originalEvent = (e as any).originalEvent as any;
+      if (originalEvent?.shiftKey) return;
+      if (originalEvent?.touches && originalEvent.touches.length > 1) return;
+      (e as any).preventDefault?.();
+
+      ensureDrawLayer();
+      clearDrawLayer();
+
+      const lngLat = (e as any).lngLat ?? this.map.unproject(e.point);
+      this.drawPoints = [lngLat];
+      updateDrawLayer();
+
+      this.map.dragPan.disable();
+    };
+
+    const moveDraw = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
+      if (!this.drawMode || this.deleteMode) return;
+      const originalEvent = (e as any).originalEvent as any;
+      if (originalEvent?.touches && originalEvent.touches.length > 1) return;
+      (e as any).preventDefault?.();
+
+      if (this.drawPoints.length === 0) return;
+      const lngLat = (e as any).lngLat ?? this.map.unproject(e.point);
+      const last = this.drawPoints[this.drawPoints.length - 1];
+
+      // Simple sampling guard: only add if moved a bit
+      const eps = 1e-6;
+      if (Math.abs(lngLat.lng - last.lng) < eps && Math.abs(lngLat.lat - last.lat) < eps) {
+        return;
+      }
+
+      this.drawPoints.push(lngLat);
+      updateDrawLayer();
+    };
+
+    const endDraw = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
+      if (!this.drawMode || this.deleteMode) return;
+      const originalEvent = (e as any).originalEvent as any;
+      if (originalEvent?.touches && originalEvent.touches.length > 1) return;
+      (e as any).preventDefault?.();
+
+      // Add final point
+      if (this.drawPoints.length > 0) {
+        const lngLat = (e as any).lngLat ?? this.map.unproject(e.point);
+        this.drawPoints.push(lngLat);
+      }
+
+      if (this.drawPoints.length >= 2) {
+        if (window.onDrawPath) {
+          window.onDrawPath.postMessage(
+            JSON.stringify({
+              points: this.drawPoints.map((p) => ({ lat: p.lat, lng: p.lng })),
+            }),
+          );
+        }
+      }
+
+      // Clear the temporary overlay; the real track will be rendered by Rust after update.
+      clearDrawLayer();
+
+      if (!this.drawMode) {
+        this.map.dragPan.enable();
+      }
+    };
+
+    this.map.on("mousedown", startDraw);
+    this.map.on("touchstart", startDraw);
+    this.map.on("mousemove", moveDraw);
+    this.map.on("touchmove", moveDraw);
+    this.map.on("mouseup", endDraw);
+    this.map.on("touchend", endDraw);
+    this.map.on("touchcancel", endDraw);
   }
 
   /**
@@ -222,6 +351,11 @@ export class FlutterBridge {
       console.log(`Delete mode set to ${enabled}`);
       // Change cursor to indicate delete mode
       this.map.getCanvas().style.cursor = enabled ? "crosshair" : "";
+
+      // Delete and draw modes are mutually exclusive.
+      if (enabled) {
+        this.drawMode = false;
+      }
       
       if (enabled) {
         this.map.dragPan.disable();
@@ -239,6 +373,44 @@ export class FlutterBridge {
         }
         this.startPoint = null;
         this.startLngLat = null;
+      }
+    };
+
+    window.setDrawMode = (enabled: boolean) => {
+      this.drawMode = enabled;
+      console.log(`Draw mode set to ${enabled}`);
+      // Change cursor to indicate draw mode
+      this.map.getCanvas().style.cursor = enabled ? "crosshair" : "";
+
+      // Draw and delete modes are mutually exclusive.
+      if (enabled) {
+        this.deleteMode = false;
+      }
+
+      if (enabled) {
+        // Ensure any active selection UI is removed.
+        if (this.boxElement) {
+          this.boxElement.remove();
+          this.boxElement = null;
+        }
+        if (this.startMarker) {
+          this.startMarker.remove();
+          this.startMarker = null;
+        }
+        this.startPoint = null;
+        this.startLngLat = null;
+        this.map.dragPan.disable();
+      } else {
+        this.map.dragPan.enable();
+        // Clear temporary draw overlay.
+        this.drawPoints = [];
+        const src = this.map.getSource(this.drawSourceId) as any;
+        if (src) {
+          src.setData({
+            type: "Feature",
+            geometry: { type: "LineString", coordinates: [] },
+          });
+        }
       }
     };
 
