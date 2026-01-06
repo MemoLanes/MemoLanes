@@ -9,6 +9,7 @@ import 'package:memolanes/common/component/map_controls/layer_button.dart';
 import 'package:memolanes/common/component/map_controls/tracking_button.dart';
 import 'package:memolanes/common/component/rec_indicator.dart';
 import 'package:memolanes/common/component/recording_buttons.dart';
+import 'package:memolanes/common/component/screenshot_mode_button.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/service/permission_service.dart';
@@ -160,6 +161,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
     var gpsManager = context.watch<GpsManager>();
+    var screenshotMode = context.watch<ValueNotifier<bool>>();
 
     // TODO: Add profile button top right
     if (_roughMapView == null) {
@@ -179,6 +181,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
               _saveMapState();
             },
             onMapMoved: () {
+              screenshotMode.value = false;
               if (_currentTrackingMode == TrackingMode.displayAndTracking) {
                 setState(() {
                   _currentTrackingMode = TrackingMode.displayOnly;
@@ -188,38 +191,42 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
               }
             },
           ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Spacer(),
-                  Padding(
-                    padding: EdgeInsets.only(
-                      right: 8,
-                      bottom: isLandscape ? 16 : screenSize.height * 0.08,
-                    ),
-                    child: PointerInterceptor(
+          if (!screenshotMode.value)
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Spacer(),
+                    Padding(
+                      padding: EdgeInsets.only(
+                        right: 8,
+                        bottom: isLandscape ? 16 : screenSize.height * 0.08,
+                      ),
+                      child: PointerInterceptor(
                         child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        TrackingButton(
-                          trackingMode: _currentTrackingMode,
-                          onPressed: _trackingModeButton,
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            TrackingButton(
+                              trackingMode: _currentTrackingMode,
+                              onPressed: _trackingModeButton,
+                            ),
+                            const AccuracyDisplay(),
+                            LayerButton(),
+                            ScreenshotButton(),
+                          ],
                         ),
-                        const AccuracyDisplay(),
-                        LayerButton(),
-                      ],
-                    )),
-                  ),
-                  const RecordingButtons(),
-                  const SizedBox(height: 116),
-                ],
+                      ),
+                    ),
+                    const RecordingButtons(),
+                    const SizedBox(height: 116),
+                  ],
+                ),
               ),
             ),
-          ),
+          if (!screenshotMode.value)
           RecIndicator(
             isRecording:
                 gpsManager.recordingStatus == GpsRecordingStatus.recording,
