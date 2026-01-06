@@ -24,6 +24,7 @@ class JourneyInfoEditPage extends StatefulWidget {
     required this.note,
     required this.saveData,
     this.previewData,
+    this.onTrackEdited,
     this.journeyKind,
     this.importType,
     this.journeyId,
@@ -36,6 +37,7 @@ class JourneyInfoEditPage extends StatefulWidget {
   final JourneyKind? journeyKind;
   final Function saveData;
   final Function? previewData;
+  final ValueChanged<bool>? onTrackEdited;
   final ImportType? importType;
   final String? journeyId;
 
@@ -266,8 +268,8 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16.0),
               child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
+                onPressed: () async {
+                  final changed = await Navigator.push<bool>(
                     context,
                     MaterialPageRoute(
                       builder: (context) => JourneyTrackEditPage(
@@ -275,6 +277,9 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
                       ),
                     ),
                   );
+                  if (changed == true) {
+                    widget.onTrackEdited?.call(true);
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,

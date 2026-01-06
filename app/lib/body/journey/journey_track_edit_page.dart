@@ -395,7 +395,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                               setState(() {
                                 _popAllowed = true;
                               });
-                              Navigator.pop(context);
+                              Navigator.pop(context, true);
                             },
                       child: const Icon(Icons.save),
                     ),
