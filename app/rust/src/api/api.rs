@@ -44,6 +44,7 @@ pub(super) struct MainState {
 pub struct EditSession {
     pub journey_id: String,
     pub data: JourneyData,
+    undo_stack: Vec<JourneyData>,
 }
 
 static MAIN_STATE: OnceLock<MainState> = OnceLock::new();
@@ -802,9 +803,53 @@ pub fn start_journey_edit(journey_id: String) -> Result<(MapRendererProxy, Optio
     *session = Some(EditSession {
         journey_id: journey_id.clone(),
         data: journey_data.clone(),
+        undo_stack: Vec::new(),
     });
 
     get_map_renderer_proxy_for_journey_data_internal(state, journey_data)
+}
+
+pub fn push_undo_checkpoint_in_edit() -> Result<bool> {
+    let state = get();
+    let mut session_guard = state.edit_session.lock().unwrap();
+
+    if let Some(session) = session_guard.as_mut() {
+        // Store current state so a subsequent undo can revert to it.
+        // Avoid pushing identical snapshots (e.g. if called repeatedly without edits).
+        if session.undo_stack.last() != Some(&session.data) {
+            session.undo_stack.push(session.data.clone());
+            return Ok(true);
+        }
+        return Ok(false);
+    }
+
+    bail!("No active edit session");
+}
+
+pub fn can_undo_in_edit() -> Result<bool> {
+    let state = get();
+    let session_guard = state.edit_session.lock().unwrap();
+
+    if let Some(session) = session_guard.as_ref() {
+        return Ok(!session.undo_stack.is_empty());
+    }
+
+    Ok(false)
+}
+
+pub fn undo_in_edit() -> Result<(MapRendererProxy, Option<CameraOption>)> {
+    let state = get();
+    let mut session_guard = state.edit_session.lock().unwrap();
+
+    if let Some(session) = session_guard.as_mut() {
+        if let Some(previous) = session.undo_stack.pop() {
+            session.data = previous;
+            return get_map_renderer_proxy_for_journey_data_internal(state, session.data.clone());
+        }
+        bail!("Nothing to undo");
+    }
+
+    bail!("No active edit session");
 }
 
 pub fn delete_points_in_box_in_edit(

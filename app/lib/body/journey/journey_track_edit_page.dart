@@ -18,6 +18,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   MapView? _initialMapView;
   bool _isAddMode = false;
   bool _isDeleteMode = false;
+  bool _canUndo = false;
   final GlobalKey<BaseMapWebviewState> _mapWebviewKey = GlobalKey();
 
   @override
@@ -39,13 +40,24 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
             zoom: cameraOption.zoom,
           );
         }
+        _canUndo = false;
       });
     }
+  }
+
+  Future<void> _refreshCanUndo() async {
+    final canUndo = await api.canUndoInEdit();
+    if (!mounted) return;
+    setState(() {
+      _canUndo = canUndo;
+    });
   }
 
   Future<void> _onDrawPath(List<DrawPoint> points) async {
     if (!_isAddMode) return;
     if (points.length < 2) return;
+
+    await api.pushUndoCheckpointInEdit();
 
     // Approximate the freehand path by adding many small straight segments.
     api.MapRendererProxy? latestProxy = _mapRendererProxy;
@@ -67,6 +79,8 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
         _mapRendererProxy = latestProxy;
       });
     }
+
+    await _refreshCanUndo();
   }
 
   Future<void> _onSelectionBox(
@@ -76,6 +90,8 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     double endLng,
   ) async {
     if (!_isDeleteMode) return;
+
+    await api.pushUndoCheckpointInEdit();
 
     final result = await api.deletePointsInBoxInEdit(
       startLat: startLat,
@@ -88,6 +104,8 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     setState(() {
       _mapRendererProxy = result.$1;
     });
+
+    await _refreshCanUndo();
   }
 
   @override
@@ -123,9 +141,28 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  if (_canUndo)
+                    FloatingActionButton(
+                      heroTag: "undo_track_edit",
+                      backgroundColor: const Color(0xFFFFFFFF),
+                      foregroundColor: Colors.black,
+                      onPressed: () async {
+                        final result = await api.undoInEdit();
+                        if (!mounted) return;
+                        setState(() {
+                          _mapRendererProxy = result.$1;
+                        });
+                        await _refreshCanUndo();
+                      },
+                      child: const Icon(Icons.undo),
+                    )
+                  else
+                    const SizedBox(width: 56, height: 56),
+                  const SizedBox(width: 32),
                   FloatingActionButton(
                     heroTag: "add_track",
-                    backgroundColor: const Color(0xFFB6E13D),
+                    backgroundColor:
+                        _isAddMode ? const Color(0xFFB6E13D) : Colors.grey,
                     foregroundColor: Colors.white,
                     onPressed: () {
                       setState(() {
@@ -152,7 +189,8 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                   const SizedBox(width: 32),
                   FloatingActionButton(
                     heroTag: "delete_track",
-                    backgroundColor: const Color(0xFFE13D3D),
+                    backgroundColor:
+                        _isDeleteMode ? const Color(0xFFE13D3D) : Colors.grey,
                     foregroundColor: Colors.white,
                     onPressed: () {
                       setState(() {
