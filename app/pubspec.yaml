@@ -74,6 +74,7 @@ dependencies:
   sliding_up_panel: ^2.0.0+1
   mmkv: ^2.2.2
   flutter_sharing_intent: ^2.0.4
+  flutter_fgbg: ^0.7.1
 
 dependency_overrides:
   geolocator_android:

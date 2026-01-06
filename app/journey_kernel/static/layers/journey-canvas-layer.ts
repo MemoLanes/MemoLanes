@@ -1,14 +1,52 @@
-import { tileXYToLngLat } from "./utils.js";
+import { tileXYToLngLat } from "./utils";
+import type maplibregl from "maplibre-gl";
+import type { CanvasSource, CanvasSourceSpecification } from "maplibre-gl";
+import type { TileBuffer } from "../../pkg";
+import type { JourneyTileProvider } from "../journey-tile-provider";
+import { JOURNEY_LAYER_ID } from "./journey-layer-interface";
+import type { JourneyLayer, RGBAColor } from "./journey-layer-interface";
 
-export class JourneyCanvasLayer {
+/**
+ * Tile buffer callback function type
+ */
+type TileBufferCallback = (
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  z: number,
+  bufferSizePower: number,
+  tileBuffer: TileBuffer | null,
+) => void;
+
+/**
+ * JourneyCanvasLayer is a Canvas-based journey layer that renders tracks
+ * using the HTML Canvas 2D API.
+ *
+ * Implements JourneyLayer for unified layer management.
+ */
+export class JourneyCanvasLayer implements JourneyLayer {
+  private map: maplibregl.Map;
+  private journeyTileProvider: JourneyTileProvider;
+  private layerId: string;
+  private sourceId: string;
+  private bgColor: string;
+  private fgColor: string;
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+  private _repaintCallback?: TileBufferCallback;
+
   constructor(
-    map,
-    journeyTileProvider,
-    bgColor = [0.0, 0.0, 0.0, 0.5],
-    fgColor = [1.0, 1.0, 1.0, 0.0],
+    map: maplibregl.Map,
+    journeyTileProvider: JourneyTileProvider,
+    layerId: string = JOURNEY_LAYER_ID,
+    bgColor: RGBAColor = [0.0, 0.0, 0.0, 0.5],
+    fgColor: RGBAColor = [1.0, 1.0, 1.0, 0.0],
   ) {
     this.map = map;
     this.journeyTileProvider = journeyTileProvider;
+    this.layerId = layerId;
+    this.sourceId = `${layerId}-canvas-source`;
 
     let r = Math.round(bgColor[0] * 255);
     let g = Math.round(bgColor[1] * 255);
@@ -23,29 +61,39 @@ export class JourneyCanvasLayer {
     this.fgColor = `rgba(${r}, ${g}, ${b}, ${a})`;
 
     this.canvas = document.createElement("canvas");
-    this.ctx = this.canvas.getContext("2d");
-    this.currentTileRange = [0, 0, 0, 0];
-    this.currentZoom = -1;
+    const ctx = this.canvas.getContext("2d");
+    if (!ctx) {
+      throw new Error("Failed to get 2D context from canvas");
+    }
+    this.ctx = ctx;
   }
 
-  initialize() {
-    this.map.addSource("main-canvas-source", this.getSourceConfig());
+  initialize(): void {
+    this.map.addSource(this.sourceId, this.getSourceConfig() as any);
     this.map.addLayer({
-      id: "memolanes-journey-layer",
-      source: "main-canvas-source",
+      id: this.layerId,
+      source: this.sourceId,
       type: "raster",
       paint: {
         "raster-fade-duration": 0,
       },
     });
 
-    this._repaintCallback = (x, y, w, h, z, bufferSizePower, tileBuffer) => {
+    this._repaintCallback = (
+      x: number,
+      y: number,
+      w: number,
+      h: number,
+      z: number,
+      bufferSizePower: number,
+      tileBuffer: TileBuffer | null,
+    ): void => {
       this.redrawCanvas(x, y, w, h, z, bufferSizePower, tileBuffer);
     };
     this.journeyTileProvider.registerTileBufferCallback(this._repaintCallback);
   }
 
-  getSourceConfig() {
+  getSourceConfig(): CanvasSourceSpecification {
     return {
       type: "canvas",
       canvas: this.canvas,
@@ -59,7 +107,15 @@ export class JourneyCanvasLayer {
     };
   }
 
-  redrawCanvas(x_raw, y, w_raw, h, z, bufferSizePower, tileBuffer) {
+  redrawCanvas(
+    x_raw: number,
+    y: number,
+    w_raw: number,
+    h: number,
+    z: number,
+    bufferSizePower: number,
+    tileBuffer: TileBuffer | null,
+  ): void {
     if (!tileBuffer) {
       return;
     }
@@ -81,13 +137,7 @@ export class JourneyCanvasLayer {
 
     const tileSize = Math.pow(2, bufferSizePower);
 
-    // previously, Mapbox had a bug when rendering a square canvas of dimension width = 64 * 2^n where n = 0,1,2...,
-    // though Mapbox has solved this issue, maplibre v5.9.0 still has this issue (with no public discussion yet?).
-    // https://github.com/mapbox/mapbox-gl-js/issues/9873
-    // https://jsbin.com/godiyil/edit?html,output
-    // the below is a workaround for this issue, so that the canvas won't be square.
-    // TODO: remove the extra pixel column once the upstream solve the issue.
-    this.canvas.width = tileSize * w + 1;
+    this.canvas.width = tileSize * w;
     this.canvas.height = tileSize * h;
 
     const n = Math.pow(2, z);
@@ -99,7 +149,7 @@ export class JourneyCanvasLayer {
       for (let y = top; y < bottom; y++) {
         if (y < 0 || y >= n) continue;
 
-        let xNorm = ((x % n) + n) % n;
+        const xNorm = ((x % n) + n) % n;
 
         const dx = (x - left) * tileSize;
         const dy = (y - top) * tileSize;
@@ -139,29 +189,36 @@ export class JourneyCanvasLayer {
     //  https://github.com/maplibre/maplibre-gl-js/blob/8895e414984a6348a1260ed986a0d2d7753367a8/src/source/image_source.ts#L228
     //  https://github.com/maplibre/maplibre-gl-js/blob/8895e414984a6348a1260ed986a0d2d7753367a8/src/source/image_source.ts#L350
     //  https://github.com/maplibre/maplibre-gl-js/blob/08fce0cfbf28f4da2cde60025588a8cb9323c9fe/src/source/tile_id.ts#L23
-    const almost = (x) => x * 0.999999;
+    const almost = (x: number): number => x * 0.999999;
 
-    const nw = tileXYToLngLat([almost(left), top], z);
-    const ne = tileXYToLngLat([almost(right), top], z);
-    const se = tileXYToLngLat([almost(right), bottom], z);
-    const sw = tileXYToLngLat([almost(left), bottom], z);
+    const nw = tileXYToLngLat(almost(left), top, z);
+    const ne = tileXYToLngLat(almost(right), top, z);
+    const se = tileXYToLngLat(almost(right), bottom, z);
+    const sw = tileXYToLngLat(almost(left), bottom, z);
 
-    const mainCanvasSource = this.map.getSource("main-canvas-source");
-    mainCanvasSource?.setCoordinates([nw, ne, se, sw]);
+    const mainCanvasSource = this.map.getSource(this.sourceId) as
+      | CanvasSource
+      | undefined;
+    mainCanvasSource?.setCoordinates([
+      [nw.lng, nw.lat],
+      [ne.lng, ne.lat],
+      [se.lng, se.lat],
+      [sw.lng, sw.lat],
+    ]);
     mainCanvasSource?.play();
     mainCanvasSource?.pause();
   }
 
-  remove() {
-    if (this.map.getLayer("memolanes-journey-layer")) {
-      this.map.removeLayer("memolanes-journey-layer");
+  remove(): void {
+    if (this.map.getLayer(this.layerId)) {
+      this.map.removeLayer(this.layerId);
     }
 
-    if (this.map.getSource("main-canvas-source")) {
-      this.map.removeSource("main-canvas-source");
+    if (this.map.getSource(this.sourceId)) {
+      this.map.removeSource(this.sourceId);
     }
 
-    if (this.journeyTileProvider) {
+    if (this.journeyTileProvider && this._repaintCallback) {
       this.journeyTileProvider.unregisterTileBufferCallback(
         this._repaintCallback,
       );
