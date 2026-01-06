@@ -284,7 +284,7 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
                     borderRadius: BorderRadius.circular(25.0),
                   ),
                 ),
-                child: Text(context.tr("journey.journey_track_edit_title")),
+                child: Text(context.tr("journey.journey_track_edit_button")),
               ),
             ),
           ElevatedButton(

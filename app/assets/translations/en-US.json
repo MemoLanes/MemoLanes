@@ -36,7 +36,8 @@
     "delete": "Delete",
     "please_enter": "Please enter",
     "still_under_development": "Still under development",
-    "copy_success": "Copied"
+    "copy_success": "Copied",
+    "save_success": "Saved successfully"
   },
   "journey": {
     "no_data": "There's no data yet, go ahead and explore the world!",
@@ -48,10 +49,13 @@
     "journey_info_page_title": "Journey Information",
     "journey_info_edit_page_title": "Edit Journey Information",
     "journey_track_edit_title": "Journey Track Editor",
-    "journey_track_edit_add_mode_enabled": "Draw mode enabled. Draw to add a new segment.",
+    "journey_track_edit_button": "Edit Journey Track",
+    "journey_track_edit_add_mode_enabled": "Draw mode enabled. Draw to add a new segment.\n Press the draw button again to disable draw mode and move the map.",
     "journey_track_edit_add_mode_disabled": "Draw mode disabled.",
-    "journey_track_edit_delete_mode_enabled": "Delete mode enabled. Draw a box to delete points.",
+    "journey_track_edit_delete_mode_enabled": "Delete mode enabled. Draw a box to delete points.\n Press the delete button again to disable delete mode and move the map.",
     "journey_track_edit_delete_mode_disabled": "Delete mode disabled.",
+    "journey_track_edit_bitmap_not_supported": "This track is not a MemoLanes record, can't be edited.",
+    "journey_track_edit_discard_changes_confirm": "Unsaved changes will be lost. Do you want to continue?",
     "import_mldx_data": "Import MLDX Data",
     "import_kml_gpx_data": "Import KML/GPX Data",
     "import_fog_of_world_data": "Import [Fog of World] Data",

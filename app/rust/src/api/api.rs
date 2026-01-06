@@ -837,6 +837,17 @@ pub fn can_undo_in_edit() -> Result<bool> {
     Ok(false)
 }
 
+pub fn is_journey_edit_vector() -> Result<bool> {
+    let state = get();
+    let session_guard = state.edit_session.lock().unwrap();
+
+    if let Some(session) = session_guard.as_ref() {
+        return Ok(matches!(session.data, JourneyData::Vector(_)));
+    }
+
+    Ok(false)
+}
+
 pub fn undo_in_edit() -> Result<(MapRendererProxy, Option<CameraOption>)> {
     let state = get();
     let mut session_guard = state.edit_session.lock().unwrap();
@@ -1023,6 +1034,8 @@ pub fn delete_points_in_box_in_edit(
             }
 
             vector.track_segments = new_segments;
+        } else {
+            bail!("Bitmap journey is not editable");
         }
 
         return get_map_renderer_proxy_for_journey_data_internal(state, session.data.clone());
@@ -1062,6 +1075,8 @@ pub fn add_line_in_edit(
                         },
                     ],
                 });
+        } else {
+            bail!("Bitmap journey is not editable");
         }
 
         return get_map_renderer_proxy_for_journey_data_internal(state, session.data.clone());
