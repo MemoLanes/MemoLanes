@@ -82,6 +82,11 @@
     "description_md": "Preprocessor can optimize your journey data:\n- **Generic** suitable for most tracks, filtering out abnormal data and reasonably segmenting the data.\n- **FlightTrack** suitable for flight tracks, etc., using interpolation to complete missing parts of the path."
   },
   "import": {
+    "shared_file": {
+      "confirm_title": "Import data",
+      "confirm_message": "Do you want to import the file: {}?"
+    },
+    "unsupported_file_failed": "Unsupported file",
     "empty_data": "Journey is empty",
     "successful": "Import successful",
     "parsing_failed": "Data parsing failed",
