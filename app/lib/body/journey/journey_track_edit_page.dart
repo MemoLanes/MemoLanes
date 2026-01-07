@@ -22,6 +22,9 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   bool _editingSupported = true;
   bool _popAllowed = false;
   final GlobalKey<BaseMapWebviewState> _mapWebviewKey = GlobalKey();
+  ScaffoldMessengerState? _snackBarMessenger;
+  ScaffoldFeatureController<SnackBar, SnackBarClosedReason>?
+      _activeSnackBarController;
 
   Widget _snackBarText(
     String message, {
@@ -97,8 +100,9 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     }
 
     final messenger = ScaffoldMessenger.of(context);
+    _snackBarMessenger = messenger;
     messenger.removeCurrentSnackBar();
-    messenger.showSnackBar(
+    final controller = messenger.showSnackBar(
       SnackBar(
         content: _snackBarText(
           message,
@@ -116,10 +120,19 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
         ),
       ),
     );
+
+    _activeSnackBarController = controller;
+    controller.closed.whenComplete(() {
+      if (!mounted) return;
+      if (identical(_activeSnackBarController, controller)) {
+        _activeSnackBarController = null;
+      }
+    });
   }
 
   void _showDefaultSnackBar(BuildContext context, String message) {
     final messenger = ScaffoldMessenger.of(context);
+    messenger.removeCurrentSnackBar();
     messenger.showSnackBar(
       SnackBar(
         content: _snackBarText(message),
@@ -209,7 +222,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
         _showFloatingSnackBar(
           context,
           context.tr("journey.journey_track_edit_bitmap_not_supported"),
-          mapRelativeY: 0.6,
+          mapRelativeY: 0.4,
         );
       });
     }
@@ -282,6 +295,10 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   @override
   void dispose() {
+    // If user manually pops this page while a SnackBar is visible, ensure the
+    // SnackBar is dismissed and doesn't remain on the previous page.
+    _activeSnackBarController?.close();
+    _snackBarMessenger?.removeCurrentSnackBar();
     api.discardJourneyEdit();
     super.dispose();
   }
