@@ -29,12 +29,6 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
-enum AppLaunchMode {
-  normal,
-  share,
-}
-
-AppLaunchMode appLaunchMode = AppLaunchMode.normal;
 GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 bool mainMapInitialized = false;
 
@@ -199,25 +193,17 @@ class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
   DateTime? _lastExitPopAt;
 
-  void _ensureMainMapInitialized(BuildContext context) {
-    if (mainMapInitialized) return;
-    mainMapInitialized = true;
-    showLoadingDialog(
-      context: context,
-      asyncTask: api.initMainMap(),
-    );
-  }
-
   @override
   void initState() {
     super.initState();
-    // 初始化共享文件处理
     ShareHandlerUtil.init(context);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       Provider.of<GpsManager>(context, listen: false).readyToStart();
       showPrivacyAgreementIfNeeded(context);
-      if (appLaunchMode == AppLaunchMode.normal) {
-        _ensureMainMapInitialized(context);
+
+      if (!mainMapInitialized) {
+        mainMapInitialized = true;
+        showLoadingDialog(context: context, asyncTask: api.initMainMap());
       }
     });
   }
@@ -275,12 +261,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                   child: BottomNavBar(
                     selectedIndex: _selectedIndex,
-                    onIndexChanged: (index) {
-                      setState(() => _selectedIndex = index);
-                      if (index == 0) {
-                        _ensureMainMapInitialized(context);
-                      }
-                    },
+                    onIndexChanged: (index) =>
+                        setState(() => _selectedIndex = index),
                     hasUpdateNotification:
                         context.watch<UpdateNotifier>().hasUpdateNotification,
                   ),
