@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'package:collection/collection.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/settings/import_data_page.dart';
 import 'package:memolanes/common/utils.dart';
-import 'package:share_handler_platform_interface/share_handler_platform_interface.dart';
+import 'package:memolanes/common/log.dart';
+import 'package:share_handler/share_handler.dart';
 
 class ShareHandlerUtil {
   ShareHandlerUtil._();
@@ -13,29 +13,42 @@ class ShareHandlerUtil {
     final handler = ShareHandlerPlatform.instance;
 
     handler.getInitialSharedMedia().then((media) {
-      final path = media?.attachments?.firstOrNull?.path;
-      if (path != null) {
-        _handleSharedFile(context, path);
-      }
+      final attachments = media?.attachments ?? const [];
+      _handleSharedFile(context, attachments);
     }).catchError((e) {
-      debugPrint('Failed to get initial shared media: $e');
+      log.error('Failed to get initial shared media: $e');
     });
 
     final subscription = handler.sharedMediaStream.listen((media) {
-      final path = media.attachments?.firstOrNull?.path;
-      if (path != null) {
-        _handleSharedFile(context, path);
-      }
+      final attachments = media.attachments ?? const [];
+      _handleSharedFile(context, attachments);
     }, onError: (err) {
-      debugPrint('Error in sharedMediaStream: $err');
+      log.error('Error in sharedMediaStream: $err');
     });
 
     return subscription;
   }
 
   static Future<void> _handleSharedFile(
-      BuildContext context, String path) async {
-    if (path.isEmpty) return;
+      BuildContext context, List<SharedAttachment?> attachments) async {
+    final paths = attachments
+        .whereType<SharedAttachment>()
+        .map((e) => e.path)
+        .whereType<String>()
+        .where((p) => p.isNotEmpty)
+        .toList();
+
+    if (paths.isEmpty) return;
+
+    if (paths.length > 1) {
+      await showCommonDialog(
+        context,
+        context.tr("import.shared_file.multi_message"),
+      );
+      return;
+    }
+
+    final path = paths.single;
 
     final lowerPath = path.toLowerCase();
 

@@ -84,7 +84,8 @@
   "import": {
     "shared_file": {
       "confirm_title": "导入数据",
-      "confirm_message": "是否导入文件: {}?"
+      "confirm_message": "是否导入文件: {}?",
+      "multi_message": "当前选择了多个文件，仅支持一次导入一个文件。\n请重新选择单个文件后再尝试。"
     },
     "unsupported_file_failed": "不支持的文件",
     "empty_data": "旅途数据为空",
