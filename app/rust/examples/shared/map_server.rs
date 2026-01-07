@@ -1,12 +1,13 @@
-use super::internal_server::{handle_tile_range_query, Registry, Request, TileRangeQuery};
-use super::MapRenderer;
-use crate::api::api::get_default_camera_option_from_journey_bitmap;
-use crate::build_info;
-use crate::renderer::internal_server::MapRendererToken;
 use actix_web::{
     dev::ServerHandle, http::Method, web, App, HttpResponse, HttpResponseBuilder, HttpServer,
 };
 use anyhow::Result;
+use memolanes_core::build_info;
+use memolanes_core::renderer::internal_server::MapRendererToken;
+use memolanes_core::renderer::internal_server::{
+    handle_tile_range_query, Registry, Request, TileRangeQuery,
+};
+use memolanes_core::renderer::{get_default_camera_option_from_journey_bitmap, MapRenderer};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use tokio::runtime::Runtime;
@@ -273,7 +274,7 @@ impl MapServer {
         match camera_option {
             Some(camera) => format!(
                 "file://{}/journey_kernel/index.html#cgi_endpoint=http%3A%2F%2F{}%3A{}&journey_id={}&debug=true&lng={}&lat={}&zoom={}&access_key={}", 
-                env!("OUT_DIR"), 
+                std::env::var("OUT_DIR").unwrap_or_else(|_| ".".to_string()), 
                 server_info.host,
                 server_info.port,
                 token.journey_id(),
@@ -284,7 +285,7 @@ impl MapServer {
             ),
             None => format!(
                 "file://{}/journey_kernel/index.html#cgi_endpoint=http%3A%2F%2F{}%3A{}&journey_id={}&debug=true&access_key={}", 
-                env!("OUT_DIR"), 
+                std::env::var("OUT_DIR").unwrap_or_else(|_| ".".to_string()), 
                 server_info.host,
                 server_info.port,
                 token.journey_id(),
@@ -334,7 +335,7 @@ async fn handle_preflight() -> HttpResponse {
 
 #[cfg(test)]
 mod tests {
-    use crate::renderer::internal_server::{
+    use memolanes_core::renderer::internal_server::{
         Request, RequestPayload, RequestResponse, TileRangeQuery, TileRangeResponse,
     };
     use serde_json;
