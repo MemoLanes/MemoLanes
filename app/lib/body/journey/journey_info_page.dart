@@ -69,7 +69,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
         );
       }
       if (latestHeader != null) {
-        _journeyHeader = latestHeader!;
+        _journeyHeader = latestHeader;
       }
     });
   }

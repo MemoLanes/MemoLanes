@@ -63,9 +63,38 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     );
   }
 
-  void _showFloatingSnackBar(BuildContext context, String message) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final bottomMargin = screenHeight * 0.75;
+  void _showFloatingSnackBar(
+    BuildContext context,
+    String message, {
+    double mapRelativeY = 0.25,
+  }) {
+    EdgeInsets margin = const EdgeInsets.fromLTRB(16, 0, 16, 16);
+    final overlayState = Overlay.maybeOf(context);
+    final overlayBox = overlayState?.context.findRenderObject() as RenderBox?;
+    final mapBox =
+        _mapWebviewKey.currentContext?.findRenderObject() as RenderBox?;
+    if (overlayBox != null && mapBox != null) {
+      final mapTopLeft =
+          mapBox.localToGlobal(Offset.zero, ancestor: overlayBox);
+      final mapTop = mapTopLeft.dy;
+      final mapBottom = mapTop + mapBox.size.height;
+      final overlayHeight = overlayBox.size.height;
+
+      final relative = mapRelativeY.clamp(0.0, 1.0).toDouble();
+
+      final topMargin = mapTop + 16;
+      final targetBottomY = mapTop + mapBox.size.height * relative;
+      double bottomMargin = (overlayHeight - targetBottomY) + 16;
+
+      // Prevent impossible constraints (negative available height) in edge cases.
+      final minBottomMargin = (overlayHeight - mapBottom) + 16;
+      double maxBottomMargin = overlayHeight - topMargin - 56;
+      if (maxBottomMargin < 16) maxBottomMargin = 16;
+      bottomMargin =
+          bottomMargin.clamp(minBottomMargin, maxBottomMargin).toDouble();
+
+      margin = EdgeInsets.fromLTRB(16, topMargin, 16, bottomMargin);
+    }
 
     final messenger = ScaffoldMessenger.of(context);
     messenger.removeCurrentSnackBar();
@@ -78,7 +107,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
         ),
         backgroundColor: Colors.black.withValues(alpha: 0.4),
         behavior: SnackBarBehavior.floating,
-        margin: EdgeInsets.fromLTRB(16, 0, 16, bottomMargin),
+        margin: margin,
         action: SnackBarAction(
           label: 'OK',
           onPressed: () {
@@ -180,6 +209,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
         _showFloatingSnackBar(
           context,
           context.tr("journey.journey_track_edit_bitmap_not_supported"),
+          mapRelativeY: 0.6,
         );
       });
     }
@@ -301,8 +331,11 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                     if (_canUndo)
                       FloatingActionButton(
                         heroTag: "undo_track_edit",
-                        backgroundColor: const Color(0xFFFFFFFF),
-                        foregroundColor: Colors.black,
+                        backgroundColor: _editingSupported
+                            ? const Color(0xFFFFFFFF)
+                            : Colors.grey,
+                        foregroundColor:
+                            _editingSupported ? Colors.black : Colors.white,
                         onPressed: !_editingSupported
                             ? null
                             : () async {
@@ -320,9 +353,14 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                     const SizedBox(width: 32),
                     FloatingActionButton(
                       heroTag: "add_track",
-                      backgroundColor:
-                          _isAddMode ? const Color(0xFFB6E13D) : Colors.grey,
-                      foregroundColor: Colors.white,
+                      backgroundColor: !_editingSupported
+                          ? Colors.grey
+                          : (_isAddMode
+                              ? const Color(0xFFB6E13D)
+                              : const Color(0xFFFFFFFF)),
+                      foregroundColor: !_editingSupported
+                          ? Colors.white
+                          : (_isAddMode ? Colors.white : Colors.black),
                       onPressed: !_editingSupported
                           ? null
                           : () {
@@ -351,9 +389,14 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                     const SizedBox(width: 32),
                     FloatingActionButton(
                       heroTag: "delete_track",
-                      backgroundColor:
-                          _isDeleteMode ? const Color(0xFFE13D3D) : Colors.grey,
-                      foregroundColor: Colors.white,
+                      backgroundColor: !_editingSupported
+                          ? Colors.grey
+                          : (_isDeleteMode
+                              ? const Color(0xFFE13D3D)
+                              : const Color(0xFFFFFFFF)),
+                      foregroundColor: !_editingSupported
+                          ? Colors.white
+                          : (_isDeleteMode ? Colors.white : Colors.black),
                       onPressed: !_editingSupported
                           ? null
                           : () {
@@ -382,7 +425,11 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                     const SizedBox(width: 32),
                     FloatingActionButton(
                       heroTag: "save_track",
-                      backgroundColor: const Color(0xFFFFFFFF),
+                      backgroundColor: _editingSupported
+                          ? const Color(0xFFFFFFFF)
+                          : Colors.grey,
+                      foregroundColor:
+                          _editingSupported ? Colors.black : Colors.white,
                       onPressed: !_editingSupported
                           ? null
                           : () async {
