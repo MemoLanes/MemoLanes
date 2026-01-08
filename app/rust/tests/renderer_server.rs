@@ -1,9 +1,19 @@
+#[macro_use]
+extern crate log;
+#[macro_use]
+extern crate anyhow;
+
 pub mod test_utils;
+
+// Include the shared examples module
+#[path = "../examples/shared/mod.rs"]
+mod examples_shared;
+use examples_shared::MapServer;
+
 use memolanes_core::import_data;
 use memolanes_core::renderer::internal_server::Registry;
 use memolanes_core::renderer::internal_server::Request;
 use memolanes_core::renderer::MapRenderer;
-use memolanes_core::renderer::MapServer;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
