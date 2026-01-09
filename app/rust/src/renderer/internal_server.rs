@@ -296,18 +296,11 @@ mod tests {
     }
 }
 
-/// Handle TileRangeQuery and return TileRangeResponse
-pub fn handle_tile_range_query(
+/// Handle TileRangeQuery with a MapRenderer reference directly (no registry lookup)
+pub fn handle_tile_range_query_with_renderer(
     query: &TileRangeQuery,
-    registry: Arc<Mutex<Registry>>,
+    map_renderer: &MapRenderer,
 ) -> Result<TileRangeResponse, String> {
-    // Get the map renderer from registry
-    let locked_registry = registry.lock().unwrap();
-    let map_renderer = match locked_registry.get(&query.id) {
-        Some(item) => item.lock().unwrap(),
-        None => return Err("Map renderer not found".to_string()),
-    };
-
     // Get the latest bitmap if it has changed
     let (_, version) =
         match map_renderer.get_latest_bitmap_if_changed(query.cached_version.as_deref()) {
@@ -351,6 +344,21 @@ pub fn handle_tile_range_query(
         }
         Err(e) => Err(format!("Failed to serialize tile buffer: {e}")),
     }
+}
+
+/// Handle TileRangeQuery and return TileRangeResponse (looks up MapRenderer from registry)
+pub fn handle_tile_range_query(
+    query: &TileRangeQuery,
+    registry: Arc<Mutex<Registry>>,
+) -> Result<TileRangeResponse, String> {
+    // Get the map renderer from registry
+    let locked_registry = registry.lock().unwrap();
+    let map_renderer = match locked_registry.get(&query.id) {
+        Some(item) => item.lock().unwrap(),
+        None => return Err("Map renderer not found".to_string()),
+    };
+
+    handle_tile_range_query_with_renderer(query, &map_renderer)
 }
 
 impl Request {
