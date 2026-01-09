@@ -1,8 +1,3 @@
-#[macro_use]
-extern crate log;
-#[macro_use]
-extern crate anyhow;
-
 pub mod test_utils;
 
 // Include the shared examples module

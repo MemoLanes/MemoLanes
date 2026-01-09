@@ -140,7 +140,7 @@ impl MapServer {
         };
         let runtime = Runtime::new()?;
         runtime.block_on(async move {
-            info!("Setting up map server ...");
+            eprintln!("[INFO] Setting up map server ...");
             let data = web::Data::new(registry);
             let server = HttpServer::new(move || {
                 App::new()
@@ -164,11 +164,11 @@ impl MapServer {
                     if let Some(addr) = server.addrs().first() {
                         addr.port()
                     } else {
-                        return Err(anyhow!("Failed to get server address"));
+                        return Err(anyhow::anyhow!("Failed to get server address"));
                     }
                 }
             };
-            info!("Server bound successfully to {host}:{actual_port}");
+            eprintln!("[INFO] Server bound successfully to {host}:{actual_port}");
 
             let server = server.run();
             let server_handle = server.handle();
@@ -198,7 +198,7 @@ impl MapServer {
             ) {
                 let _ = tx.send(Err(e));
             }
-            info!("Map server stopped");
+            eprintln!("[INFO] Map server stopped");
         });
         let (actual_port, server_handle) = rx.recv()??;
         let server_info = ServerInfo {

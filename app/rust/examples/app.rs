@@ -1,8 +1,3 @@
-#[macro_use]
-extern crate log;
-#[macro_use]
-extern crate anyhow;
-
 use memolanes_core::api::api::{
     get_map_renderer_proxy_for_main_map, get_registry, import_archive, init,
 };
