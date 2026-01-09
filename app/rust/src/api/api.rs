@@ -7,12 +7,15 @@ use auto_context::auto_context;
 use chrono::NaiveDate;
 use flutter_rust_bridge::frb;
 
+use super::import::JourneyInfo;
 use crate::cache_db::LayerKind;
 use crate::frb_generated::StreamSink;
 use crate::gps_processor::{GpsPreprocessor, ProcessResult};
-use crate::journey_bitmap::{JourneyBitmap, MAP_WIDTH_OFFSET, TILE_WIDTH, TILE_WIDTH_OFFSET};
+use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
+use crate::logs;
+use crate::renderer::get_default_camera_option_from_journey_bitmap;
 use crate::renderer::internal_server::MapRendererToken;
 use crate::renderer::internal_server::{register_map_renderer, Registry, Request};
 use crate::renderer::MapRenderer;
@@ -20,10 +23,10 @@ use crate::storage::Storage;
 use crate::{
     archive, build_info, export_data, gps_processor, main_db, merged_journey_builder, storage,
 };
-use crate::{logs, utils};
-use serde::{Deserialize, Serialize};
 
-use super::import::JourneyInfo;
+use crate::renderer::CameraOptionInternal;
+
+type CameraOption = CameraOptionInternal;
 
 use log::{error, info, warn};
 
@@ -321,45 +324,6 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
     let token = register_map_renderer(state.registry.clone(), Arc::new(Mutex::new(map_renderer)));
 
     Ok(MapRendererProxy::Token(token))
-}
-
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
-pub struct CameraOption {
-    pub zoom: f64,
-    pub lng: f64,
-    pub lat: f64,
-}
-
-// TODO: redesign this interface at a better position
-pub(crate) fn get_default_camera_option_from_journey_bitmap(
-    journey_bitmap: &JourneyBitmap,
-) -> Option<CameraOption> {
-    // TODO: Currently we use the coordinate of the top left of a random block (first one in the hashtbl),
-    // then just pick a hardcoded zoom level.
-    // A better version could be finding a bounding box (need to be careful with the antimeridian).
-    journey_bitmap
-        .tiles
-        .iter()
-        .next()
-        .and_then(|(tile_pos, tile)| {
-            // we shouldn't have empty tile or block
-            tile.iter().next().map(|(block_key, _)| {
-                let blockzoomed_x: i32 =
-                    TILE_WIDTH as i32 * tile_pos.0 as i32 + block_key.x() as i32;
-                let blockzoomed_y: i32 =
-                    TILE_WIDTH as i32 * tile_pos.1 as i32 + block_key.y() as i32;
-                let (lng, lat) = utils::tile_x_y_to_lng_lat(
-                    blockzoomed_x,
-                    blockzoomed_y,
-                    (TILE_WIDTH_OFFSET + MAP_WIDTH_OFFSET) as i32,
-                );
-                CameraOption {
-                    zoom: 12.0,
-                    lng,
-                    lat,
-                }
-            })
-        })
 }
 
 fn get_map_renderer_proxy_for_journey_data_internal(
