@@ -281,6 +281,7 @@ pub enum LogLevel {
 #[frb(opaque)]
 pub enum MapRendererProxy {
     Token(MapRendererToken),
+    Renderer(MapRenderer),
 }
 
 impl MapRendererProxy {
@@ -288,7 +289,26 @@ impl MapRendererProxy {
     pub fn get_journey_id(&self) -> String {
         match self {
             MapRendererProxy::Token(token) => token.journey_id(),
+            MapRendererProxy::Renderer(_) => String::new(), // Return empty string for direct renderer
         }
+    }
+
+    pub fn handle_webview_request(&self, request: String) -> Result<String> {
+        let request = Request::parse(&request)?;
+        let response = match self {
+            MapRendererProxy::Token(_) => {
+                // Use registry lookup for token-based proxy
+                let state = get();
+                let registry = state.registry.clone();
+                request.handle(registry)
+            }
+            MapRendererProxy::Renderer(map_renderer) => {
+                // Directly use the map renderer reference
+                request.handle_map_renderer(map_renderer)
+            }
+        };
+        serde_json::to_string(&response)
+            .map_err(|e| anyhow::anyhow!("Failed to serialize response: {e}"))
     }
 }
 
