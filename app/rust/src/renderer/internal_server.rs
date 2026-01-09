@@ -417,6 +417,62 @@ impl Request {
             }
         }
     }
+
+    /// Handle the request with a MapRenderer reference directly (id in query is ignored)
+    pub fn handle_map_renderer(
+        &self,
+        map_renderer: &MapRenderer,
+    ) -> RequestResponse<serde_json::Value> {
+        match &self.payload {
+            RequestPayload::TileRange(query) => {
+                match handle_tile_range_query_with_renderer(query, map_renderer) {
+                    Ok(response_data) => match serde_json::to_value(response_data) {
+                        Ok(value) => RequestResponse {
+                            request_id: self.request_id.clone(),
+                            success: true,
+                            data: Some(value),
+                            error: None,
+                        },
+                        Err(e) => RequestResponse {
+                            request_id: self.request_id.clone(),
+                            success: false,
+                            data: None,
+                            error: Some(format!("Failed to serialize response: {e}")),
+                        },
+                    },
+                    Err(e) => RequestResponse {
+                        request_id: self.request_id.clone(),
+                        success: false,
+                        data: None,
+                        error: Some(e),
+                    },
+                }
+            }
+            RequestPayload::RandomData(query) => {
+                let size = query.size.unwrap_or(1_048_576); // Default 1MB
+                match generate_random_data(size) {
+                    Ok(data) => {
+                        let response_data = serde_json::json!({
+                            "size": size,
+                            "data": general_purpose::STANDARD.encode(&data)
+                        });
+                        RequestResponse {
+                            request_id: self.request_id.clone(),
+                            success: true,
+                            data: Some(response_data),
+                            error: None,
+                        }
+                    }
+                    Err(e) => RequestResponse {
+                        request_id: self.request_id.clone(),
+                        success: false,
+                        data: None,
+                        error: Some(e),
+                    },
+                }
+            }
+        }
+    }
 }
 
 // Move the random data generation to a separate function
