@@ -4,7 +4,7 @@ import 'package:memolanes/common/component/cards/card_label_tile.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/utils.dart';
-import 'package:memolanes/src/rust/api/api.dart';
+import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/storage.dart';
 
 class RawDataSwitch extends StatefulWidget {
@@ -20,7 +20,7 @@ class _RawDataSwitchState extends State<RawDataSwitch> {
   @override
   initState() {
     super.initState();
-    getRawDataMode().then((value) => setState(() {
+    api.getRawDataMode().then((value) => setState(() {
           enabled = value;
         }));
   }
@@ -35,7 +35,7 @@ class _RawDataSwitchState extends State<RawDataSwitch> {
         trailing: Switch(
           value: enabled,
           onChanged: (bool value) async {
-            await toggleRawDataMode(enable: value);
+            await api.toggleRawDataMode(enable: value);
             setState(() {
               enabled = value;
             });
@@ -63,20 +63,20 @@ class _RawDataPage extends State<RawDataPage> {
   }
 
   void _loadList() async {
-    var list = await listAllRawData();
+    var list = await api.listAllRawData();
     setState(() {
       items = list;
     });
   }
 
-  void _showExportCard(BuildContext context,String filePath) {
+  void _showExportCard(BuildContext context, String filePath) {
     showBasicCard(
       context,
       child: OptionCard(
         children: [
           CardLabelTile(
             position: CardLabelTilePosition.top,
-            label: context.tr("journey.raw_data_export_csv"),
+            label: context.tr("general.advance_settings.raw_data_export_csv"),
             onTap: () {
               showCommonExport(context, filePath, deleteFile: false);
             },
@@ -84,9 +84,11 @@ class _RawDataPage extends State<RawDataPage> {
           ),
           CardLabelTile(
             position: CardLabelTilePosition.bottom,
-            label: context.tr("journey.raw_data_export_gpx"),
-            onTap: () {
-
+            label: context.tr("general.advance_settings.raw_data_export_gpx"),
+            onTap: () async {
+              final gpxPath =
+                  await api.exportRawDataGpxFile(csvFilepath: filePath);
+              showCommonExport(context, gpxPath, deleteFile: true);
             },
           ),
         ],
@@ -114,7 +116,7 @@ class _RawDataPage extends State<RawDataPage> {
                   leading: const Icon(Icons.description),
                   title: Text(item.name),
                   onTap: () {
-                    _showExportCard(context,item.path);
+                    _showExportCard(context, item.path);
                   },
                   trailing: ElevatedButton(
                     onPressed: () async {
@@ -125,7 +127,7 @@ class _RawDataPage extends State<RawDataPage> {
                           confirmButtonText: context.tr("common.delete"),
                           confirmGroundColor: Colors.red,
                           confirmTextColor: Colors.white)) {
-                        await deleteRawDataFile(filename: item.name);
+                        await api.deleteRawDataFile(filename: item.name);
                         _loadList();
                       }
                     },

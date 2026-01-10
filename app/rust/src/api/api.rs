@@ -27,8 +27,8 @@ use serde::{Deserialize, Serialize};
 
 use super::import::JourneyInfo;
 
-use log::{error, info, warn};
 use crate::export_data::raw_data_csv_to_gpx_file;
+use log::{error, info, warn};
 
 // TODO: we have way too many locking here and now it is hard to track.
 //  e.g. we could mess up with the order and cause a deadlock
@@ -621,7 +621,6 @@ pub fn export_journey(
     }
 }
 
-
 #[auto_context]
 pub fn export_raw_data_gpx_file(csv_filepath: String) -> Result<String> {
     let csv_path = Path::new(&csv_filepath);
@@ -654,8 +653,6 @@ pub fn export_raw_data_gpx_file(csv_filepath: String) -> Result<String> {
 
     raw_data_csv_to_gpx_file(&mut reader, &mut writer)
         .with_context(|| format!("Failed to convert CSV to GPX: {}", csv_filepath))?;
-
-    writer.flush().context("Failed to sync data to disk")?;
 
     Ok(gpx_path_str)
 }

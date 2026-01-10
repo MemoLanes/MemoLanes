@@ -117,6 +117,7 @@ impl RawDataRecorder {
         });
         let row: RawCsvRow = (raw_data, received_timestamp_ms).into();
         current_raw_data_file.writer.serialize(row).unwrap();
+        current_raw_data_file.writer.flush().unwrap();
     }
 }
 
@@ -260,7 +261,14 @@ impl Storage {
 
     #[auto_context]
     pub fn delete_raw_data_file(&self, filename: String) -> Result<()> {
+        let filename = if Path::new(&filename).extension().is_some() {
+            filename
+        } else {
+            format!("{filename}.csv")
+        };
+
         let mut raw_data_recorder = self.raw_data_recorder.lock().unwrap();
+
         if let Some(ref mut x) = *raw_data_recorder {
             if let Some(current_raw_data_file) = &x.current_raw_data_file {
                 if current_raw_data_file.filename == filename {
@@ -268,11 +276,14 @@ impl Storage {
                 }
             }
         }
-        remove_file(
-            Path::new(&self.support_dir)
-                .join("raw_data/")
-                .join(&filename),
-        )?;
+
+        let path = Path::new(&self.support_dir)
+            .join("raw_data")
+            .join(&filename);
+
+        remove_file(&path)
+            .with_context(|| format!("failed to remove raw data file: {}", path.display()))?;
+
         Ok(())
     }
 

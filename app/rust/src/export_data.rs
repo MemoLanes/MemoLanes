@@ -19,22 +19,16 @@ use std::{
 // bit annoying. Ideally I don't want to fake data (e.g. generating timestamps
 // for all points based on begin and end time). So maybe also treat them as
 // custom attributes or just add timestamp for the first and last point if possible.
-#[auto_context]
-pub fn journey_vector_to_gpx_file<T: Write + Seek>(
-    journey_vector: &JourneyVector,
+fn write_gpx_with_segments<T: Write + Seek>(
+    segments: Vec<TrackSegment>,
     writer: &mut T,
 ) -> Result<()> {
-    let mut segments = Vec::new();
-    // Add track point
-    for track_segment in &journey_vector.track_segments {
-        let mut points = Vec::new();
-        track_segment.track_points.iter().for_each(|point| {
-            points.push(Waypoint::new(Point::new(point.longitude, point.latitude)));
-        });
-        segments.push(TrackSegment { points });
+    if segments.is_empty() {
+        anyhow::bail!("No track segments");
     }
+
     let track = Track {
-        name: Some("Track 1".to_string()),
+        name: Some("Track".to_string()),
         comment: None,
         description: None,
         source: None,
@@ -43,16 +37,36 @@ pub fn journey_vector_to_gpx_file<T: Write + Seek>(
         number: None,
         segments,
     };
+
     let gpx = Gpx {
         version: GpxVersion::Gpx11,
-        creator: None,
+        creator: Some("memolanes".to_string()),
         metadata: None,
         waypoints: vec![],
         tracks: vec![track],
         routes: vec![],
     };
+
     gpx::write(&gpx, writer)?;
     Ok(())
+}
+
+#[auto_context]
+pub fn journey_vector_to_gpx_file<T: Write + Seek>(
+    journey_vector: &JourneyVector,
+    writer: &mut T,
+) -> Result<()> {
+    let mut segments = Vec::new();
+
+    for track_segment in &journey_vector.track_segments {
+        let mut points = Vec::new();
+        track_segment.track_points.iter().for_each(|point| {
+            points.push(Waypoint::new(Point::new(point.longitude, point.latitude)));
+        });
+        segments.push(TrackSegment { points });
+    }
+
+    write_gpx_with_segments(segments, writer)
 }
 
 #[auto_context]
@@ -81,29 +95,7 @@ pub fn raw_data_csv_to_gpx_file<R: std::io::Read, W: Write + Seek>(
         anyhow::bail!("No valid points found in CSV");
     }
 
-    let track = Track {
-        name: Some("CSV Track".to_string()),
-        comment: None,
-        description: None,
-        source: Some("raw_data_csv_to_gpx_file".to_string()),
-        links: vec![],
-        type_: None,
-        number: None,
-        segments: vec![segment],
-    };
-
-    let gpx = Gpx {
-        version: GpxVersion::Gpx11,
-        creator: Some("memolanes".to_string()),
-        metadata: None,
-        waypoints: vec![],
-        tracks: vec![track],
-        routes: vec![],
-    };
-
-    gpx::write(&gpx, writer)?;
-
-    Ok(())
+    write_gpx_with_segments(vec![segment], writer)
 }
 
 #[auto_context]
