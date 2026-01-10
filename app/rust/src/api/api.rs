@@ -290,8 +290,10 @@ impl MapRendererProxy {
     pub fn get_journey_id(&self) -> String {
         match self {
             MapRendererProxy::Token(token) => token.journey_id(),
-            MapRendererProxy::Renderer(_) => String::new(), // Return empty string for direct renderer
-            MapRendererProxy::MainMapRenderer => String::new(), // Return empty string for main map renderer
+            // TODO: the frontend now require journeyId be non-empty, now we just use a random uuid for place holder. 
+            // We'll completely remove the id later.
+            MapRendererProxy::Renderer(_) => "ddc22dae-715a-44e3-a302-0b8183211cad".to_string(), // Return empty string for direct renderer
+            MapRendererProxy::MainMapRenderer => "ddc22dae-715a-44e3-a302-0b8183211cad".to_string(), // Return empty string for main map renderer
         }
     }
 
@@ -309,9 +311,9 @@ impl MapRendererProxy {
                 request.handle_map_renderer(map_renderer)
             }
             MapRendererProxy::MainMapRenderer => {
-                // Use the main map renderer from MAIN_STATE
-                let state = get();
-                let map_renderer = state.main_map_renderer.lock().unwrap();
+                // Clone the Arc to release the state reference quickly
+                let map_renderer_arc = get().main_map_renderer.clone();
+                let map_renderer = map_renderer_arc.lock().unwrap();
                 request.handle_map_renderer(&map_renderer)
             }
         };
@@ -322,21 +324,15 @@ impl MapRendererProxy {
 
 #[frb(sync)]
 pub fn get_map_renderer_proxy_for_main_map() -> MapRendererProxy {
-    let token = get().main_map_renderer_token.clone_temporary_token();
-
-    MapRendererProxy::Token(token)
+    MapRendererProxy::MainMapRenderer
 }
 
 // TODO: does this interface necessary?
 #[frb(sync)]
 pub fn get_empty_map_renderer_proxy() -> MapRendererProxy {
-    let state = get();
-
     let journey_bitmap = JourneyBitmap::new();
-
     let map_renderer = MapRenderer::new(journey_bitmap);
-    let token = register_map_renderer(state.registry.clone(), Arc::new(Mutex::new(map_renderer)));
-    MapRendererProxy::Token(token)
+    MapRendererProxy::Renderer(map_renderer)
 }
 
 pub fn get_map_renderer_proxy_for_journey_date_range(
@@ -349,13 +345,10 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
     })?;
 
     let map_renderer = MapRenderer::new(journey_bitmap);
-    let token = register_map_renderer(state.registry.clone(), Arc::new(Mutex::new(map_renderer)));
-
-    Ok(MapRendererProxy::Token(token))
+    Ok(MapRendererProxy::Renderer(map_renderer))
 }
 
 fn get_map_renderer_proxy_for_journey_data_internal(
-    state: &'static MainState,
     journey_data: JourneyData,
 ) -> Result<(MapRendererProxy, Option<CameraOption>)> {
     let journey_bitmap = match journey_data {
@@ -370,27 +363,24 @@ fn get_map_renderer_proxy_for_journey_data_internal(
     let default_camera_option = get_default_camera_option_from_journey_bitmap(&journey_bitmap);
 
     let map_renderer = MapRenderer::new(journey_bitmap);
-    let token = register_map_renderer(state.registry.clone(), Arc::new(Mutex::new(map_renderer)));
-    Ok((MapRendererProxy::Token(token), default_camera_option))
+    Ok((MapRendererProxy::Renderer(map_renderer), default_camera_option))
 }
 
 pub fn get_map_renderer_proxy_for_journey(
     journey_id: &str,
 ) -> Result<(MapRendererProxy, Option<CameraOption>)> {
-    let state = get();
-    let journey_data = state
+    let journey_data = get()
         .storage
         .with_db_txn(|txn| txn.get_journey_data(journey_id))?;
-    get_map_renderer_proxy_for_journey_data_internal(state, journey_data)
+    get_map_renderer_proxy_for_journey_data_internal(journey_data)
 }
 
 pub fn get_map_renderer_proxy_for_journey_data(
     journey_data: &JourneyData,
 ) -> Result<(MapRendererProxy, Option<CameraOption>)> {
-    let state = get();
     // TODO: the clone here is not ideal, we should redesign the interface,
     // maybe consider Arc.
-    get_map_renderer_proxy_for_journey_data_internal(state, journey_data.clone())
+    get_map_renderer_proxy_for_journey_data_internal(journey_data.clone())
 }
 
 // Return `true` if this update contains meaningful data.
