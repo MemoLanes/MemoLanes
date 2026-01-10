@@ -112,6 +112,8 @@
       "title": "高级设置",
       "export_logs": "导出日志",
       "raw_data_mode": "原始数据模式",
+      "raw_data_export_csv": "导出为 CSV",
+      "raw_data_export_gpx": "导出为 GPX",
       "rebuild_cache": "重建缓存",
       "render_diagnostics": "渲染诊断"
     }
