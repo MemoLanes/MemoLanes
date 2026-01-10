@@ -282,6 +282,7 @@ pub enum LogLevel {
 pub enum MapRendererProxy {
     Token(MapRendererToken),
     Renderer(MapRenderer),
+    MainMapRenderer,
 }
 
 impl MapRendererProxy {
@@ -290,10 +291,11 @@ impl MapRendererProxy {
         match self {
             MapRendererProxy::Token(token) => token.journey_id(),
             MapRendererProxy::Renderer(_) => String::new(), // Return empty string for direct renderer
+            MapRendererProxy::MainMapRenderer => String::new(), // Return empty string for main map renderer
         }
     }
 
-    pub fn handle_webview_request(&self, request: String) -> Result<String> {
+    pub fn handle_webview_requests(&self, request: String) -> Result<String> {
         let request = Request::parse(&request)?;
         let response = match self {
             MapRendererProxy::Token(_) => {
@@ -305,6 +307,12 @@ impl MapRendererProxy {
             MapRendererProxy::Renderer(map_renderer) => {
                 // Directly use the map renderer reference
                 request.handle_map_renderer(map_renderer)
+            }
+            MapRendererProxy::MainMapRenderer => {
+                // Use the main map renderer from MAIN_STATE
+                let state = get();
+                let map_renderer = state.main_map_renderer.lock().unwrap();
+                request.handle_map_renderer(&map_renderer)
             }
         };
         serde_json::to_string(&response)

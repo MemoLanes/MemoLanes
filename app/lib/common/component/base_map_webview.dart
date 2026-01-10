@@ -296,7 +296,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       // debugPrint('Tile Provider IPC Request: $message');
 
       // Forward the JSON request transparently to Rust and get raw JSON response
-      final responseJson = await api.handleWebviewRequests(request: message);
+      final responseJson = await widget.mapRendererProxy.handleWebviewRequests(
+        request: message,
+      );
 
       // final truncatedResponse = responseJson.length > 100
       //     ? '${responseJson.substring(0, 100)}...'
