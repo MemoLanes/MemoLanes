@@ -17,7 +17,7 @@ use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::logs;
 use crate::renderer::get_default_camera_option_from_journey_bitmap;
 use crate::renderer::internal_server::MapRendererToken;
-use crate::renderer::internal_server::{register_map_renderer, Registry, Request};
+use crate::renderer::internal_server::Request;
 use crate::renderer::MapRenderer;
 use crate::storage::Storage;
 use crate::{
@@ -36,11 +36,9 @@ use log::{error, info, warn};
 pub(super) struct MainState {
     pub storage: Storage,
     pub gps_preprocessor: Mutex<GpsPreprocessor>,
-    pub registry: Arc<Mutex<Registry>>,
     // TODO: we should reconsider the way we handle the main map
     main_map_state: Arc<Mutex<MainMapState>>,
     pub main_map_renderer: Arc<Mutex<MapRenderer>>,
-    pub main_map_renderer_token: MapRendererToken,
 }
 
 static MAIN_STATE: OnceLock<MainState> = OnceLock::new();
@@ -101,8 +99,6 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, system_cache
         let mut storage = Storage::init(temp_dir, doc_dir, support_dir, real_cache_dir);
         info!("initialized");
 
-        let registry = Arc::new(Mutex::new(Registry::new()));
-
         let default_layer_filter = LayerFilter {
             current_journey: true,
             default_kind: true,
@@ -129,17 +125,13 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, system_cache
                 }
             }
         }));
-        let main_map_renderer_token =
-            register_map_renderer(registry.clone(), main_map_renderer.clone());
         info!("main map renderer initialized");
 
         MainState {
             storage,
             gps_preprocessor: Mutex::new(GpsPreprocessor::new()),
-            registry,
             main_map_state,
             main_map_renderer,
-            main_map_renderer_token,
         }
     });
     if already_initialized {
@@ -301,10 +293,8 @@ impl MapRendererProxy {
         let request = Request::parse(&request)?;
         let response = match self {
             MapRendererProxy::Token(_) => {
-                // Use registry lookup for token-based proxy
-                let state = get();
-                let registry = state.registry.clone();
-                request.handle(registry)
+                // TODO: remove this
+                unimplemented!()
             }
             MapRendererProxy::Renderer(map_renderer) => {
                 // Directly use the map renderer reference
@@ -718,11 +708,6 @@ pub mod for_testing {
     pub fn get_main_map_renderer() -> Arc<Mutex<MapRenderer>> {
         super::get().main_map_renderer.clone()
     }
-}
-
-#[frb(ignore)]
-pub fn get_registry() -> Arc<Mutex<Registry>> {
-    get().registry.clone()
 }
 
 #[frb(sync)]
