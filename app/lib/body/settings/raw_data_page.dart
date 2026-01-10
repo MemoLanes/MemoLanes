@@ -1,5 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/component/cards/card_label_tile.dart';
+import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart';
@@ -67,6 +69,31 @@ class _RawDataPage extends State<RawDataPage> {
     });
   }
 
+  void _showExportCard(BuildContext context,String filePath) {
+    showBasicCard(
+      context,
+      child: OptionCard(
+        children: [
+          CardLabelTile(
+            position: CardLabelTilePosition.top,
+            label: context.tr("journey.raw_data_export_csv"),
+            onTap: () {
+              showCommonExport(context, filePath, deleteFile: false);
+            },
+            top: false,
+          ),
+          CardLabelTile(
+            position: CardLabelTilePosition.bottom,
+            label: context.tr("journey.raw_data_export_gpx"),
+            onTap: () {
+
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -87,7 +114,7 @@ class _RawDataPage extends State<RawDataPage> {
                   leading: const Icon(Icons.description),
                   title: Text(item.name),
                   onTap: () {
-                    showCommonExport(context, item.path, deleteFile: false);
+                    _showExportCard(context,item.path);
                   },
                   trailing: ElevatedButton(
                     onPressed: () async {
