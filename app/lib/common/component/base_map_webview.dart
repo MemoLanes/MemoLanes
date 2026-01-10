@@ -15,6 +15,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'map_controls/map_copyright_button.dart';
 
 typedef MapView = ({double lng, double lat, double zoom});
+typedef DrawPoint = ({double lat, double lng});
 
 enum TrackingMode {
   displayAndTracking,
@@ -28,6 +29,10 @@ class BaseMapWebview extends StatefulWidget {
   final TrackingMode trackingMode;
   final void Function()? onMapMoved;
   final void Function(MapView)? onRoughMapViewUpdate;
+  final void Function(
+          double startLat, double startLng, double endLat, double endLng)?
+      onSelectionBox;
+  final void Function(List<DrawPoint> points)? onDrawPath;
 
   const BaseMapWebview(
       {super.key,
@@ -35,7 +40,9 @@ class BaseMapWebview extends StatefulWidget {
       this.initialMapView,
       this.trackingMode = TrackingMode.off,
       this.onMapMoved,
-      this.onRoughMapViewUpdate});
+      this.onRoughMapViewUpdate,
+      this.onSelectionBox,
+      this.onDrawPath});
 
   @override
   State<StatefulWidget> createState() => BaseMapWebviewState();
@@ -60,6 +67,22 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   // For bug workaround
   bool _isiOS18 = false;
+
+  void setDeleteMode(bool enabled) {
+    _webViewController.runJavaScript('''
+      if (typeof setDeleteMode === 'function') {
+        setDeleteMode($enabled);
+      }
+    ''');
+  }
+
+  void setDrawMode(bool enabled) {
+    _webViewController.runJavaScript('''
+      if (typeof setDrawMode === 'function') {
+        setDrawMode($enabled);
+      }
+    ''');
+  }
 
   @override
   void didUpdateWidget(BaseMapWebview oldWidget) {
@@ -243,7 +266,45 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         onMessageReceived: (JavaScriptMessage message) {
           _handleTileProviderRequest(message.message);
         },
+      )
+      ..addJavaScriptChannel(
+        'onSelectionBox',
+        onMessageReceived: (JavaScriptMessage message) {
+          if (widget.onSelectionBox != null) {
+            try {
+              final data = jsonDecode(message.message);
+              final startLat = data['startLat'] as double;
+              final startLng = data['startLng'] as double;
+              final endLat = data['endLat'] as double;
+              final endLng = data['endLng'] as double;
+              widget.onSelectionBox!(startLat, startLng, endLat, endLng);
+            } catch (e) {
+              log.error('Error parsing onSelectionBox message: $e');
+            }
+          }
+        },
       );
+
+    _webViewController.addJavaScriptChannel(
+      'onDrawPath',
+      onMessageReceived: (JavaScriptMessage message) {
+        if (widget.onDrawPath != null) {
+          try {
+            final data = jsonDecode(message.message);
+            final rawPoints = data['points'] as List<dynamic>;
+            final points = rawPoints
+                .map((p) => (
+                      lat: (p['lat'] as num).toDouble(),
+                      lng: (p['lng'] as num).toDouble(),
+                    ))
+                .toList(growable: false);
+            widget.onDrawPath!(points);
+          } catch (e) {
+            log.error('Error parsing onDrawPath message: $e');
+          }
+        }
+      },
+    );
     final assetPath = 'assets/map_webview/index.html';
     log.info('[base_map_webview] Initial loading asset: $assetPath');
     await _webViewController.loadFlutterAsset(assetPath);
