@@ -282,7 +282,7 @@ impl MapRendererProxy {
     pub fn get_journey_id(&self) -> String {
         match self {
             MapRendererProxy::Token(token) => token.journey_id(),
-            // TODO: the frontend now require journeyId be non-empty, now we just use a random uuid for place holder. 
+            // TODO: the frontend now require journeyId be non-empty, now we just use a random uuid for place holder.
             // We'll completely remove the id later.
             MapRendererProxy::Renderer(_) => "ddc22dae-715a-44e3-a302-0b8183211cad".to_string(), // Return empty string for direct renderer
             MapRendererProxy::MainMapRenderer => "ddc22dae-715a-44e3-a302-0b8183211cad".to_string(), // Return empty string for main map renderer
@@ -353,7 +353,10 @@ fn get_map_renderer_proxy_for_journey_data_internal(
     let default_camera_option = get_default_camera_option_from_journey_bitmap(&journey_bitmap);
 
     let map_renderer = MapRenderer::new(journey_bitmap);
-    Ok((MapRendererProxy::Renderer(map_renderer), default_camera_option))
+    Ok((
+        MapRendererProxy::Renderer(map_renderer),
+        default_camera_option,
+    ))
 }
 
 pub fn get_map_renderer_proxy_for_journey(

@@ -10,18 +10,20 @@ use super::MapRenderer;
 
 use rand::RngCore;
 
-pub type Registry = HashMap<Uuid, Arc<Mutex<MapRenderer>>>;
+// Registry now stores only a single MapRenderer (the last one set)
+// The id in queries is kept for compatibility but the registry returns its only renderer
+pub type Registry = Option<Arc<Mutex<MapRenderer>>>;
 
 pub fn register_map_renderer(
     registry: Arc<Mutex<Registry>>,
     map_renderer: Arc<Mutex<MapRenderer>>,
 ) -> MapRendererToken {
-    let id = {
+    let id = Uuid::new_v4();
+    {
         let mut registry = registry.lock().unwrap();
-        let id = Uuid::new_v4();
-        registry.insert(id, map_renderer);
-        id
-    };
+        // Replace the previous renderer with the new one
+        *registry = Some(map_renderer);
+    }
     MapRendererToken {
         id,
         registry: Arc::downgrade(&registry),
@@ -41,17 +43,19 @@ impl MapRendererToken {
     }
 
     pub fn get_map_renderer(&self) -> Option<Arc<Mutex<MapRenderer>>> {
+        // Returns the single renderer regardless of the id
         if let Some(registry) = self.registry.upgrade() {
             let registry = registry.lock().unwrap();
-            return registry.get(&self.id).cloned();
+            return registry.clone();
         }
         None
     }
 
     pub fn unregister(&self) {
+        // Clear the single renderer from registry
         if let Some(registry) = self.registry.upgrade() {
             let mut registry = registry.lock().unwrap();
-            registry.remove(&self.id);
+            *registry = None;
         }
     }
 
@@ -146,8 +150,8 @@ mod tests {
 
         let request = Request::parse(request_json).expect("Failed to parse request");
 
-        // Create a dummy registry (empty is fine for IPC test)
-        let registry = Arc::new(Mutex::new(HashMap::new()));
+        // Create a dummy registry (None is fine for IPC test with random_data)
+        let registry = Arc::new(Mutex::new(None));
 
         let response = request.handle(registry);
 
@@ -193,13 +197,9 @@ mod tests {
         let journey_bitmap = JourneyBitmap::new();
         let map_renderer = MapRenderer::new(journey_bitmap);
 
-        // Create registry and add the map renderer
-        let registry = Arc::new(Mutex::new(HashMap::new()));
-        let id = Uuid::new_v4();
-        registry
-            .lock()
-            .unwrap()
-            .insert(id, Arc::new(Mutex::new(map_renderer)));
+        // Create registry and set the single map renderer
+        let registry = Arc::new(Mutex::new(Some(Arc::new(Mutex::new(map_renderer)))));
+        let id = Uuid::new_v4(); // id is kept for compatibility but ignored in lookup
 
         // Create tile range request
         let request_json = format!(
@@ -256,13 +256,9 @@ mod tests {
         let map_renderer = MapRenderer::new(journey_bitmap);
         let version = map_renderer.get_version_string();
 
-        // Create registry and add the map renderer
-        let registry = Arc::new(Mutex::new(HashMap::new()));
-        let id = Uuid::new_v4();
-        registry
-            .lock()
-            .unwrap()
-            .insert(id, Arc::new(Mutex::new(map_renderer)));
+        // Create registry and set the single map renderer
+        let registry = Arc::new(Mutex::new(Some(Arc::new(Mutex::new(map_renderer)))));
+        let id = Uuid::new_v4(); // id is kept for compatibility but ignored in lookup
 
         // Create tile range query with current version (should trigger 302)
         let query = TileRangeQuery {
@@ -347,13 +343,14 @@ pub fn handle_tile_range_query_with_renderer(
 }
 
 /// Handle TileRangeQuery and return TileRangeResponse (looks up MapRenderer from registry)
+/// Note: The id in query is ignored; the registry returns its only renderer
 pub fn handle_tile_range_query(
     query: &TileRangeQuery,
     registry: Arc<Mutex<Registry>>,
 ) -> Result<TileRangeResponse, String> {
-    // Get the map renderer from registry
+    // Get the single map renderer from registry (id is ignored)
     let locked_registry = registry.lock().unwrap();
-    let map_renderer = match locked_registry.get(&query.id) {
+    let map_renderer = match locked_registry.as_ref() {
         Some(item) => item.lock().unwrap(),
         None => return Err("Map renderer not found".to_string()),
     };

@@ -298,12 +298,12 @@ impl MapServer {
         &mut self,
         map_renderer: Arc<Mutex<MapRenderer>>,
     ) -> MapRendererToken {
-        let id = {
+        let id = Uuid::new_v4();
+        {
             let mut registry = self.registry.lock().unwrap();
-            let id = Uuid::new_v4();
-            registry.insert(id, map_renderer);
-            id
-        };
+            // Replace the previous renderer with the new one
+            *registry = Some(map_renderer);
+        }
         MapRendererToken {
             id,
             registry: Arc::downgrade(&self.registry),

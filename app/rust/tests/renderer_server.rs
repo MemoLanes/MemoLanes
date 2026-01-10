@@ -6,7 +6,6 @@ mod examples_shared;
 use examples_shared::MapServer;
 
 use memolanes_core::import_data;
-use memolanes_core::renderer::internal_server::Registry;
 use memolanes_core::renderer::internal_server::Request;
 use memolanes_core::renderer::MapRenderer;
 use std::sync::Arc;
@@ -15,7 +14,7 @@ use std::time::Duration;
 
 #[test]
 pub fn renderer_server() -> Result<(), Box<dyn std::error::Error>> {
-    let registry = Arc::new(Mutex::new(Registry::new()));
+    let registry = Arc::new(Mutex::new(None));
 
     let server = Arc::new(Mutex::new(
         MapServer::create_and_start_with_registry("localhost", None, registry.clone())

@@ -2,7 +2,6 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use memolanes_core::import_data;
 use memolanes_core::journey_bitmap::JourneyBitmap;
-use memolanes_core::renderer::internal_server::Registry;
 use memolanes_core::renderer::MapRenderer;
 mod shared;
 use shared::MapServer;
@@ -52,7 +51,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("################################################");
 
     // ========== Server 1: Simple Map (static with crossed lines) ==========
-    let registry_simple = Arc::new(Mutex::new(Registry::new()));
+    let registry_simple = Arc::new(Mutex::new(None));
     let mut server_simple =
         MapServer::create_and_start_with_registry("localhost", None, registry_simple.clone())
             .expect("Failed to start simple map server");
@@ -64,7 +63,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     draw_line4(&mut journey_bitmap);
 
     let map_renderer_static = MapRenderer::new(journey_bitmap);
-    let token_simple = server_simple.register_map_renderer(Arc::new(Mutex::new(map_renderer_static)));
+    let token_simple =
+        server_simple.register_map_renderer(Arc::new(Mutex::new(map_renderer_static)));
 
     println!("================================================");
     println!(
@@ -77,7 +77,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // ========== Server 2: Medium Map (loaded from fow_3.zip) ==========
-    let registry_medium = Arc::new(Mutex::new(Registry::new()));
+    let registry_medium = Arc::new(Mutex::new(None));
     let mut server_medium =
         MapServer::create_and_start_with_registry("localhost", None, registry_medium.clone())
             .expect("Failed to start medium map server");
@@ -93,7 +93,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // ========== Server 3: Dynamic Map (randomly drawn lines) ==========
-    let registry_dynamic = Arc::new(Mutex::new(Registry::new()));
+    let registry_dynamic = Arc::new(Mutex::new(None));
     let mut server_dynamic =
         MapServer::create_and_start_with_registry("localhost", None, registry_dynamic.clone())
             .expect("Failed to start dynamic map server");
