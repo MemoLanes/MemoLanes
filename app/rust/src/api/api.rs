@@ -1,10 +1,12 @@
 use std::fs::File;
+use std::io::{BufReader, BufWriter, Write};
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
 
 use anyhow::{Context, Result};
 use auto_context::auto_context;
 use chrono::NaiveDate;
+use csv::Reader;
 use flutter_rust_bridge::frb;
 
 use crate::cache_db::LayerKind;
@@ -26,6 +28,7 @@ use serde::{Deserialize, Serialize};
 use super::import::JourneyInfo;
 
 use log::{error, info, warn};
+use crate::export_data::raw_data_csv_to_gpx_file;
 
 // TODO: we have way too many locking here and now it is hard to track.
 //  e.g. we could mess up with the order and cause a deadlock
@@ -616,6 +619,45 @@ pub fn export_journey(
             Ok(())
         }
     }
+}
+
+
+#[auto_context]
+pub fn export_raw_data_gpx_file(csv_filepath: String) -> Result<String> {
+    let csv_path = Path::new(&csv_filepath);
+    let file_name = csv_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| anyhow::anyhow!("Failed to parse filename: {}", csv_filepath))?;
+
+    let target_dir = Path::new(&get().storage.cache_dir).join("raw_data");
+
+    if !target_dir.exists() {
+        std::fs::create_dir_all(&target_dir)?;
+    }
+
+    let gpx_path = target_dir.join(file_name).with_extension("gpx");
+    let gpx_path_str = gpx_path.to_string_lossy().to_string();
+
+    if gpx_path.exists() {
+        return Ok(gpx_path_str);
+    }
+
+    let csv_file = File::open(&csv_path)
+        .with_context(|| format!("Failed to open source CSV file: {}", csv_filepath))?;
+    let mut reader = Reader::from_reader(BufReader::new(csv_file));
+
+    let gpx_file = File::create(&gpx_path)
+        .with_context(|| format!("Failed to create target GPX file: {}", gpx_path_str))?;
+
+    let mut writer = BufWriter::new(gpx_file);
+
+    raw_data_csv_to_gpx_file(&mut reader, &mut writer)
+        .with_context(|| format!("Failed to convert CSV to GPX: {}", csv_filepath))?;
+
+    writer.flush().context("Failed to sync data to disk")?;
+
+    Ok(gpx_path_str)
 }
 
 pub fn delete_all_journeys() -> Result<()> {

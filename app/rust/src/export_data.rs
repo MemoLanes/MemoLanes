@@ -1,6 +1,11 @@
 use crate::journey_vector::JourneyVector;
+use crate::storage::RawCsvRow;
+use actix_web::cookie::time::{Duration, OffsetDateTime};
+use actix_web::dev::Extensions;
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
+use chrono::{TimeZone, Utc};
+use csv::Reader;
 use geo_types::Point;
 use gpx::{Gpx, GpxVersion, Track, TrackSegment, Waypoint};
 use kml::{Kml, KmlDocument, KmlWriter};
@@ -47,6 +52,57 @@ pub fn journey_vector_to_gpx_file<T: Write + Seek>(
         routes: vec![],
     };
     gpx::write(&gpx, writer)?;
+    Ok(())
+}
+
+#[auto_context]
+pub fn raw_data_csv_to_gpx_file<R: std::io::Read, W: Write + Seek>(
+    csv_reader: &mut Reader<R>,
+    writer: &mut W,
+) -> Result<()> {
+    let mut segment = TrackSegment { points: Vec::new() };
+
+    for result in csv_reader.deserialize::<RawCsvRow>() {
+        let raw: RawCsvRow = result?;
+
+        let mut wp = Waypoint::new(Point::new(raw.longitude, raw.latitude));
+
+        if let Some(ts) = raw.timestamp_ms {
+            if ts > 0 {
+                let dt = OffsetDateTime::UNIX_EPOCH + Duration::milliseconds(ts);
+                wp.time = Some(dt.into());
+            }
+        }
+
+        segment.points.push(wp);
+    }
+
+    if segment.points.is_empty() {
+        anyhow::bail!("No valid points found in CSV");
+    }
+
+    let track = Track {
+        name: Some("CSV Track".to_string()),
+        comment: None,
+        description: None,
+        source: Some("raw_data_csv_to_gpx_file".to_string()),
+        links: vec![],
+        type_: None,
+        number: None,
+        segments: vec![segment],
+    };
+
+    let gpx = Gpx {
+        version: GpxVersion::Gpx11,
+        creator: Some("memolanes".to_string()),
+        metadata: None,
+        waypoints: vec![],
+        tracks: vec![track],
+        routes: vec![],
+    };
+
+    gpx::write(&gpx, writer)?;
+
     Ok(())
 }
 
