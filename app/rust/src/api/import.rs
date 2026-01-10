@@ -98,7 +98,7 @@ pub enum ImportPreprocessor {
     None,
     Generic,
     FlightTrack,
-    StepOfMyWorld,
+    Sparse,
 }
 
 #[auto_context]
@@ -118,7 +118,7 @@ pub fn process_vector_data(
             DEFAULT_SEGMENT_GAP_RULES,
         ),
         ImportPreprocessor::FlightTrack => flight_track_processor::process(&vector_data.data),
-        ImportPreprocessor::StepOfMyWorld => import_data::journey_vector_from_raw_data_with_rules(
+        ImportPreprocessor::Sparse => import_data::journey_vector_from_raw_data_with_rules(
             &vector_data.data,
             true,
             STEP_OF_MY_WORLD_SEGMENT_GAP_RULES,
