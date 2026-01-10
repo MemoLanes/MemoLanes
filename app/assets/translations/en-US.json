@@ -76,11 +76,12 @@
     "current": "Current"
   },
   "preprocessor": {
-    "generic": "Generic",
-    "flightTrack": "Flight Track",
+    "generic": "Generic Mode",
+    "flightTrack": "Flight Track Mode",
     "none": "None",
-    "stepOfMyWorld": "stepOfMyWorld",
-    "description_md": "Preprocessor can optimize your journey data:\n- **Generic** suitable for most tracks, filtering out abnormal data and reasonably segmenting the data.\n- **FlightTrack** suitable for flight tracks, etc., using interpolation to complete missing parts of the path."
+    "sparse": "Sparse Mode",
+    "description_md": "Preprocessor can optimize your journey data:\n- **Generic** suitable for most tracks, filtering out abnormal data and reasonably segmenting the data.\n- **FlightTrack** suitable for flight tracks, etc., using interpolation to complete missing parts of the path.",
+    "sparse_md": "Your data appears to come from \"StepOfMyWorld\" or \"YourApp\". The use of \"Sparse Mode\" is recommended.\nYou may also try other preprocessing options, but due to the sparsity of the data, the results may be limited."
   },
   "import": {
     "empty_data": "Journey is empty",

@@ -57,6 +57,15 @@ class _ImportDataPage extends State<ImportDataPage> {
           context,
           context.tr("import.empty_data"),
         );
+        return;
+      }
+      if (context.mounted &&
+          importPreprocessor == import_api.ImportPreprocessor.sparse) {
+        showCommonDialog(
+          context,
+          context.tr("preprocessor.sparse_md"),
+          markdown: true,
+        );
       }
     } catch (error) {
       await showCommonDialog(context, context.tr("import.parsing_failed"));

@@ -14,12 +14,15 @@ fn run_gpx_integrity_check(
 ) -> (Vec<TrackPoint>, JourneyInfo, ImportPreprocessor) {
     let (raw_data1, preprocessor) = import_data::load_gpx(import_path).unwrap();
     let info = import_data::journey_info_from_raw_vector_data(&raw_data1);
-    let vector1 = import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data1, false).unwrap();
+    let vector1 =
+        import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data1, false).unwrap();
 
-    export_data::journey_vector_to_gpx_file(&vector1, &mut File::create(export_path).unwrap()).unwrap();
+    export_data::journey_vector_to_gpx_file(&vector1, &mut File::create(export_path).unwrap())
+        .unwrap();
 
     let (raw_data2, _) = import_data::load_gpx(export_path).unwrap();
-    let vector2 = import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data2, false).unwrap();
+    let vector2 =
+        import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data2, false).unwrap();
 
     let points1 = vector1
         .track_segments
@@ -32,7 +35,11 @@ fn run_gpx_integrity_check(
         .flat_map(|t| t.track_points)
         .collect_vec();
 
-    assert_eq!(points1, points2, "Data integrity check failed for {}", import_path);
+    assert_eq!(
+        points1, points2,
+        "Data integrity check failed for {}",
+        import_path
+    );
     (points1, info, preprocessor)
 }
 
@@ -42,12 +49,15 @@ fn run_kml_integrity_check(
 ) -> (Vec<TrackPoint>, JourneyInfo, ImportPreprocessor) {
     let (raw_data1, preprocessor) = import_data::load_kml(import_path).unwrap();
     let info = import_data::journey_info_from_raw_vector_data(&raw_data1);
-    let vector1 = import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data1, false).unwrap();
+    let vector1 =
+        import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data1, false).unwrap();
 
-    export_data::journey_vector_to_kml_file(&vector1, &mut File::create(export_path).unwrap()).unwrap();
+    export_data::journey_vector_to_kml_file(&vector1, &mut File::create(export_path).unwrap())
+        .unwrap();
 
     let (raw_data2, _) = import_data::load_kml(export_path).unwrap();
-    let vector2 = import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data2, false).unwrap();
+    let vector2 =
+        import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data2, false).unwrap();
 
     let points1 = vector1
         .track_segments
@@ -60,7 +70,11 @@ fn run_kml_integrity_check(
         .flat_map(|t| t.track_points)
         .collect_vec();
 
-    assert_eq!(points1, points2, "Data integrity check failed for {}", import_path);
+    assert_eq!(
+        points1, points2,
+        "Data integrity check failed for {}",
+        import_path
+    );
     (points1, info, preprocessor)
 }
 
