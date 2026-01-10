@@ -720,16 +720,6 @@ pub mod for_testing {
     }
 }
 
-pub fn handle_webview_requests(request: String) -> Result<String> {
-    let state = get();
-    let registry = state.registry.clone();
-    let request = Request::parse(&request)?;
-    let response = request.handle(registry);
-    // Direct JSON serialization - more explicit and efficient
-    serde_json::to_string(&response)
-        .map_err(|e| anyhow::anyhow!("Failed to serialize response: {e}"))
-}
-
 #[frb(ignore)]
 pub fn get_registry() -> Arc<Mutex<Registry>> {
     get().registry.clone()
