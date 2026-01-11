@@ -80,7 +80,7 @@ async function trySetup(): Promise<void> {
   }
 
   console.log(
-    `journey_id: ${params.journeyId}, render: ${params.renderMode}, lng: ${params.lng}, lat: ${params.lat}, zoom: ${params.zoom}`,
+    `render: ${params.renderMode}, lng: ${params.lng}, lat: ${params.lat}, zoom: ${params.zoom}`,
   );
   console.log(
     "EXTERNAL_PARAMS for endpoint configuration:",
@@ -107,7 +107,6 @@ async function trySetup(): Promise<void> {
   // FlutterBridge manages location marker and window methods for Flutter
   const flutterBridge = new FlutterBridge({
     map: mapController.getMap(),
-    params,
   });
   flutterBridge.initialize();
 

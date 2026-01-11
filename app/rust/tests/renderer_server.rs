@@ -26,19 +26,16 @@ pub fn renderer_server() -> Result<(), Box<dyn std::error::Error>> {
     let (joruney_bitmap_fow, _) =
         import_data::load_fow_sync_data("./tests/data/fow_3.zip").unwrap();
     let map_renderer_fow = MapRenderer::new(joruney_bitmap_fow);
-    let token_fow = server
+    let _token_fow = server
         .lock()
         .unwrap()
         .register_map_renderer(Arc::new(Mutex::new(map_renderer_fow)));
-    let journey_id = token_fow.journey_id();
 
-    let request_str = format!(
-        r#"
-    {{
+    let request_str = r#"
+    {
         "requestId": "test-123",
         "query": "tile_range",
-        "payload": {{
-            "id": "{journey_id}",
+        "payload": {
             "x": 0,
             "y": 0,
             "z": 0,
@@ -46,10 +43,9 @@ pub fn renderer_server() -> Result<(), Box<dyn std::error::Error>> {
             "height": 1,
             "buffer_size_power": 6,
             "cached_version": "test-123"
-        }}
-    }}
-    "#
-    );
+        }
+    }
+    "#;
 
     // println!("request: {}", request_str);
 

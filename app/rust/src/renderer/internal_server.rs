@@ -80,7 +80,6 @@ impl Drop for MapRendererToken {
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct TileRangeQuery {
-    pub id: Uuid,
     pub x: i64,
     pub y: i64,
     pub z: i16,
@@ -191,7 +190,6 @@ mod tests {
     #[test]
     fn test_tile_range_request_includes_version() {
         use crate::journey_bitmap::JourneyBitmap;
-        use uuid::Uuid;
 
         // Create a dummy journey bitmap
         let journey_bitmap = JourneyBitmap::new();
@@ -199,15 +197,12 @@ mod tests {
 
         // Create registry and set the single map renderer
         let registry = Arc::new(Mutex::new(Some(Arc::new(Mutex::new(map_renderer)))));
-        let id = Uuid::new_v4(); // id is kept for compatibility but ignored in lookup
 
         // Create tile range request
-        let request_json = format!(
-            r#"{{
+        let request_json = r#"{
             "requestId": "test-version-123",
             "query": "tile_range",
-            "payload": {{
-                "id": "{id}",
+            "payload": {
                 "x": 0,
                 "y": 0,
                 "z": 0,
@@ -215,9 +210,8 @@ mod tests {
                 "height": 1,
                 "buffer_size_power": 6,
                 "cached_version": null
-            }}
-        }}"#
-        );
+            }
+        }"#;
 
         let request = Request::parse(&request_json).expect("Failed to parse request");
         let response = request.handle(registry);
@@ -249,7 +243,6 @@ mod tests {
     #[test]
     fn test_tile_range_request_returns_304_when_no_changes() {
         use crate::journey_bitmap::JourneyBitmap;
-        use uuid::Uuid;
 
         // Create a dummy journey bitmap
         let journey_bitmap = JourneyBitmap::new();
@@ -258,11 +251,9 @@ mod tests {
 
         // Create registry and set the single map renderer
         let registry = Arc::new(Mutex::new(Some(Arc::new(Mutex::new(map_renderer)))));
-        let id = Uuid::new_v4(); // id is kept for compatibility but ignored in lookup
 
         // Create tile range query with current version (should trigger 302)
         let query = TileRangeQuery {
-            id,
             x: 0,
             y: 0,
             z: 0,

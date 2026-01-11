@@ -124,7 +124,7 @@ export class MapController {
   async initialize(): Promise<void> {
     return new Promise((resolve) => {
       this.map.on("load", async () => {
-        // Create JourneyTileProvider (it registers its own hooks for renderMode and journeyId)
+        // Create JourneyTileProvider (it registers its own hooks for renderMode)
         this.journeyTileProvider = new JourneyTileProvider(
           this.map,
           this.params,

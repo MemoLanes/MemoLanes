@@ -340,12 +340,10 @@ mod tests {
     };
     use serde_json;
     use std::collections::HashMap;
-    use uuid::uuid;
 
     #[test]
     fn test_tile_range_query_roundtrip_serialization() {
         let original_query = TileRangeQuery {
-            id: uuid!("25506f47-b66a-4ddc-bfbe-2a7a2ae543e3"),
             x: -999,
             y: 999,
             z: 20,
@@ -359,7 +357,7 @@ mod tests {
         let json = serde_json::to_string(&original_query).expect("Failed to serialize");
         assert_eq!(
             json,
-            r#"{"id":"25506f47-b66a-4ddc-bfbe-2a7a2ae543e3","x":-999,"y":999,"z":20,"width":4096,"height":2048,"buffer_size_power":12,"cached_version":"test-version-123"}"#
+            r#"{"x":-999,"y":999,"z":20,"width":4096,"height":2048,"buffer_size_power":12,"cached_version":"test-version-123"}"#
         );
 
         // Deserialize back from JSON
@@ -418,7 +416,6 @@ mod tests {
             "requestId": "test-123",
             "query": "tile_range",
             "payload": {
-                "id": "25506f47-b66a-4ddc-bfbe-2a7a2ae543e3",
                 "x": 0,
                 "y": 0,
                 "z": 0,
@@ -434,7 +431,6 @@ mod tests {
         assert_eq!(request.request_id, "test-123");
         match request.payload {
             RequestPayload::TileRange(query) => {
-                assert_eq!(query.id, uuid!("25506f47-b66a-4ddc-bfbe-2a7a2ae543e3"));
                 assert_eq!(query.x, 0);
                 assert_eq!(query.y, 0);
                 assert_eq!(query.z, 0);
