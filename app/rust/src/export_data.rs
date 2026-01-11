@@ -1,10 +1,8 @@
 use crate::journey_vector::JourneyVector;
 use crate::storage::RawCsvRow;
 use actix_web::cookie::time::{Duration, OffsetDateTime};
-use actix_web::dev::Extensions;
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
-use chrono::{TimeZone, Utc};
 use csv::Reader;
 use geo_types::Point;
 use gpx::{Gpx, GpxVersion, Track, TrackSegment, Waypoint};
@@ -28,7 +26,7 @@ fn write_gpx_with_segments<T: Write + Seek>(
     }
 
     let track = Track {
-        name: Some("Track".to_string()),
+        name: Some("MemoLanes Track".to_string()),
         comment: None,
         description: None,
         source: None,
@@ -40,7 +38,7 @@ fn write_gpx_with_segments<T: Write + Seek>(
 
     let gpx = Gpx {
         version: GpxVersion::Gpx11,
-        creator: Some("memolanes".to_string()),
+        creator: Some("MemoLanes".to_string()),
         metadata: None,
         waypoints: vec![],
         tracks: vec![track],

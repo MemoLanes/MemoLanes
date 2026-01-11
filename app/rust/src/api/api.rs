@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Write};
+use std::io::{BufReader, BufWriter};
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
 
@@ -642,7 +642,7 @@ pub fn export_raw_data_gpx_file(csv_filepath: String) -> Result<String> {
         return Ok(gpx_path_str);
     }
 
-    let csv_file = File::open(&csv_path)
+    let csv_file = File::open(csv_path)
         .with_context(|| format!("Failed to open source CSV file: {}", csv_filepath))?;
     let mut reader = Reader::from_reader(BufReader::new(csv_file));
 
