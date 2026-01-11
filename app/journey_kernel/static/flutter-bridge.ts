@@ -9,6 +9,7 @@
  */
 
 import maplibregl from "maplibre-gl";
+import { MapController } from "./map-controller";
 
 // Type definitions for Flutter message channels
 interface FlutterMessageChannel {
@@ -28,19 +29,18 @@ declare global {
       flyto?: boolean,
     ) => void;
     getCurrentMapView?: () => string;
+    refreshMapData?: () => Promise<boolean | null>;
   }
 }
 
-export interface FlutterBridgeConfig {
-  map: maplibregl.Map;
-}
-
 export class FlutterBridge {
+  private mapController: MapController;
   private map: maplibregl.Map;
   private locationMarker: maplibregl.Marker;
 
-  constructor(config: FlutterBridgeConfig) {
-    this.map = config.map;
+  constructor(mapController: MapController) {
+    this.mapController = mapController;
+    this.map = mapController.getMap();
 
     // Create location marker element
     const el = document.createElement("div");
@@ -124,6 +124,9 @@ export class FlutterBridge {
         zoom: this.map.getZoom(),
       });
     };
+
+    // Refresh map data - allows Flutter to trigger a data refresh
+    window.refreshMapData = () => this.mapController.refreshMapData();
   }
 
   /**

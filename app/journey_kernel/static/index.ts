@@ -33,7 +33,6 @@ declare global {
       cgi_endpoint?: string;
     };
     trySetup?: () => Promise<void>;
-    refreshMapData?: () => Promise<boolean | null>;
   }
 }
 
@@ -98,10 +97,6 @@ async function trySetup(): Promise<void> {
   await mapController.initialize();
   console.log("MapController initialized");
 
-  // Expose refreshMapData to window for Flutter to call
-  // This allows Flutter to trigger a data refresh when underlying data changes
-  window.refreshMapData = () => mapController.refreshMapData();
-
   // Initialize DebugPanel (only when debug mode is enabled)
   if (params.debug) {
     const debugPanel = new DebugPanel(mapController.getMap(), params);
@@ -109,10 +104,8 @@ async function trySetup(): Promise<void> {
   }
 
   // Initialize FlutterBridge for Flutter-WebView communication
-  // FlutterBridge manages location marker and window methods for Flutter
-  const flutterBridge = new FlutterBridge({
-    map: mapController.getMap(),
-  });
+  // FlutterBridge manages location marker, refreshMapData, and other window methods for Flutter
+  const flutterBridge = new FlutterBridge(mapController);
   flutterBridge.initialize();
 
   // Notify Flutter that the map is ready (with small delay for rendering)
