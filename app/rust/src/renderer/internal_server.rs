@@ -267,10 +267,7 @@ impl Request {
     }
 
     /// Handle the request with a MapRenderer reference
-    pub fn handle(
-        &self,
-        map_renderer: &MapRenderer,
-    ) -> RequestResponse<serde_json::Value> {
+    pub fn handle(&self, map_renderer: &MapRenderer) -> RequestResponse<serde_json::Value> {
         match &self.payload {
             RequestPayload::TileRange(query) => {
                 match handle_tile_range_query(query, map_renderer) {

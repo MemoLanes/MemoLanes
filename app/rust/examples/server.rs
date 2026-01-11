@@ -51,48 +51,35 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("################################################");
 
     // ========== Server 1: Simple Map (static with crossed lines) ==========
-    let registry_simple = Arc::new(Mutex::new(None));
-    let server_simple =
-        MapServer::create_and_start_with_registry("localhost", None, registry_simple.clone())
-            .expect("Failed to start simple map server");
-
     let mut journey_bitmap = JourneyBitmap::new();
     draw_line1(&mut journey_bitmap);
     draw_line2(&mut journey_bitmap);
     draw_line3(&mut journey_bitmap);
     draw_line4(&mut journey_bitmap);
 
-    let map_renderer_static = MapRenderer::new(journey_bitmap);
-    server_simple.set_map_renderer(Arc::new(Mutex::new(map_renderer_static)));
+    let map_renderer_static = Arc::new(Mutex::new(MapRenderer::new(journey_bitmap)));
+    let server_simple = MapServer::create_and_start("localhost", None, map_renderer_static)
+        .expect("Failed to start simple map server");
 
     println!("================================================");
     println!("[Simple Map Server]:   {}", server_simple.get_http_url());
     println!("[Simple Map Local]:    {}", server_simple.get_file_url());
 
     // ========== Server 2: Medium Map (loaded from fow_3.zip) ==========
-    let registry_medium = Arc::new(Mutex::new(None));
-    let server_medium =
-        MapServer::create_and_start_with_registry("localhost", None, registry_medium.clone())
-            .expect("Failed to start medium map server");
-
     let (joruney_bitmap_fow, _) =
         import_data::load_fow_sync_data("./tests/data/fow_3.zip").unwrap();
-    let map_renderer_fow = MapRenderer::new(joruney_bitmap_fow);
-    server_medium.set_map_renderer(Arc::new(Mutex::new(map_renderer_fow)));
+    let map_renderer_fow = Arc::new(Mutex::new(MapRenderer::new(joruney_bitmap_fow)));
+    let server_medium = MapServer::create_and_start("localhost", None, map_renderer_fow)
+        .expect("Failed to start medium map server");
 
     println!("[Medium Map Server]:   {}", server_medium.get_http_url());
 
     // ========== Server 3: Dynamic Map (randomly drawn lines) ==========
-    let registry_dynamic = Arc::new(Mutex::new(None));
-    let server_dynamic =
-        MapServer::create_and_start_with_registry("localhost", None, registry_dynamic.clone())
-            .expect("Failed to start dynamic map server");
-
     let journey_bitmap2 = JourneyBitmap::new();
-    let map_renderer = MapRenderer::new(journey_bitmap2);
-    let map_renderer_arc = Arc::new(Mutex::new(map_renderer));
-    let map_renderer_arc_clone = map_renderer_arc.clone();
-    server_dynamic.set_map_renderer(map_renderer_arc);
+    let map_renderer_dynamic = Arc::new(Mutex::new(MapRenderer::new(journey_bitmap2)));
+    let map_renderer_arc_clone = map_renderer_dynamic.clone();
+    let server_dynamic = MapServer::create_and_start("localhost", None, map_renderer_dynamic)
+        .expect("Failed to start dynamic map server");
 
     println!("[Dynamic Map Server]:  {}", server_dynamic.get_http_url());
 

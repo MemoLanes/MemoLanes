@@ -3,16 +3,11 @@ use actix_web::{
 };
 use anyhow::Result;
 use memolanes_core::build_info;
-use memolanes_core::renderer::internal_server::{
-    handle_tile_range_query, Request, TileRangeQuery,
-};
+use memolanes_core::renderer::internal_server::{handle_tile_range_query, Request, TileRangeQuery};
 use memolanes_core::renderer::{get_default_camera_option_from_journey_bitmap, MapRenderer};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use tokio::runtime::Runtime;
-
-// Registry is just a shared MapRenderer (optional because it can be set after server starts)
-type Registry = Option<Arc<Mutex<MapRenderer>>>;
 
 /// Helper function to add standard CORS headers to an HttpResponseBuilder
 fn add_cors_headers(builder: &mut HttpResponseBuilder) -> &mut HttpResponseBuilder {
@@ -27,22 +22,10 @@ fn add_cors_headers(builder: &mut HttpResponseBuilder) -> &mut HttpResponseBuild
 
 async fn serve_journey_tile_range(
     query: web::Query<TileRangeQuery>,
-    data: web::Data<Arc<Mutex<Registry>>>,
+    data: web::Data<Arc<Mutex<MapRenderer>>>,
 ) -> HttpResponse {
-    // Get the map renderer from registry
-    let registry = data.get_ref().lock().unwrap();
-    let map_renderer = match registry.as_ref() {
-        Some(renderer) => renderer.clone(),
-        None => {
-            return add_cors_headers(&mut HttpResponse::NotFound())
-                .content_type("text/plain")
-                .body("Map renderer not found");
-        }
-    };
-    drop(registry); // Release the lock early
-
-    let renderer = map_renderer.lock().unwrap();
-    match handle_tile_range_query(&query.into_inner(), &renderer) {
+    let map_renderer = data.get_ref().lock().unwrap();
+    match handle_tile_range_query(&query.into_inner(), &map_renderer) {
         Ok(tile_response) => {
             match tile_response.status {
                 200 => {
@@ -66,18 +49,16 @@ async fn serve_journey_tile_range(
                 }
             }
         }
-        Err(error_message) => {
-            add_cors_headers(&mut HttpResponse::InternalServerError())
-                .content_type("text/plain")
-                .body(error_message)
-        }
+        Err(error_message) => add_cors_headers(&mut HttpResponse::InternalServerError())
+            .content_type("text/plain")
+            .body(error_message),
     }
 }
 
 // Unified JSON POST endpoint that handles all request types
 async fn serve_unified_json_request(
     body: web::Bytes,
-    data: web::Data<Arc<Mutex<Registry>>>,
+    data: web::Data<Arc<Mutex<MapRenderer>>>,
 ) -> HttpResponse {
     // Parse the JSON request
     let request_str = match std::str::from_utf8(&body) {
@@ -98,21 +79,9 @@ async fn serve_unified_json_request(
         }
     };
 
-    // Get the map renderer from registry
-    let registry = data.get_ref().lock().unwrap();
-    let map_renderer = match registry.as_ref() {
-        Some(renderer) => renderer.clone(),
-        None => {
-            return add_cors_headers(&mut HttpResponse::NotFound())
-                .content_type("application/json")
-                .body(r#"{"error": "Map renderer not found"}"#);
-        }
-    };
-    drop(registry); // Release the lock early
-
     // Handle the request using the unified interface
-    let renderer = map_renderer.lock().unwrap();
-    let response = request.handle(&renderer);
+    let map_renderer = data.get_ref().lock().unwrap();
+    let response = request.handle(&map_renderer);
 
     // Convert to JSON and return HTTP response
     match serde_json::to_string(&response) {
@@ -140,7 +109,7 @@ pub struct ServerInfo {
 
 pub struct MapServer {
     handles: Option<(JoinHandle<()>, ServerHandle)>,
-    registry: Arc<Mutex<Registry>>,
+    map_renderer: Arc<Mutex<MapRenderer>>,
     server_info: Arc<Mutex<ServerInfo>>,
 }
 
@@ -148,7 +117,7 @@ impl MapServer {
     fn start_server_blocking<F>(
         host: &str,
         port: Option<u16>,
-        registry: Arc<Mutex<Registry>>,
+        map_renderer: Arc<Mutex<MapRenderer>>,
         ready_with_port: F,
     ) -> Result<()>
     where
@@ -161,7 +130,7 @@ impl MapServer {
         let runtime = Runtime::new()?;
         runtime.block_on(async move {
             eprintln!("[INFO] Setting up map server ...");
-            let data = web::Data::new(registry);
+            let data = web::Data::new(map_renderer);
             let server = HttpServer::new(move || {
                 App::new()
                     .app_data(data.clone())
@@ -203,7 +172,7 @@ impl MapServer {
     fn start_server(
         host: &str,
         port: Option<u16>,
-        registry: Arc<Mutex<Registry>>,
+        map_renderer: Arc<Mutex<MapRenderer>>,
     ) -> Result<((JoinHandle<()>, ServerHandle), ServerInfo)> {
         let (tx, rx) = std::sync::mpsc::channel();
         let host_for_move = host.to_owned();
@@ -211,7 +180,7 @@ impl MapServer {
             if let Err(e) = Self::start_server_blocking(
                 &host_for_move,
                 port,
-                registry,
+                map_renderer,
                 |actual_port, server_handle| {
                     let _ = tx.send(Ok((actual_port, server_handle)));
                 },
@@ -228,17 +197,17 @@ impl MapServer {
         Ok(((handle, server_handle), server_info))
     }
 
-    pub fn create_and_start_with_registry(
+    pub fn create_and_start(
         host: &str,
         port: Option<u16>,
-        registry: Arc<Mutex<Registry>>,
+        map_renderer: Arc<Mutex<MapRenderer>>,
     ) -> Result<Self> {
-        let registry_for_move = registry.clone();
-        let (handles, server_info) = Self::start_server(host, port, registry_for_move)?;
+        let map_renderer_clone = map_renderer.clone();
+        let (handles, server_info) = Self::start_server(host, port, map_renderer_clone)?;
 
         Ok(Self {
             handles: Some(handles),
-            registry,
+            map_renderer,
             server_info: Arc::new(Mutex::new(server_info)),
         })
     }
@@ -248,12 +217,9 @@ impl MapServer {
             std::env::var("DEV_SERVER").unwrap_or_else(|_| "http://localhost:8080".to_string());
 
         let server_info = self.server_info.lock().unwrap();
-        let registry = self.registry.lock().unwrap();
-        let camera_option = registry.as_ref().and_then(|renderer| {
-            get_default_camera_option_from_journey_bitmap(
-                renderer.lock().unwrap().peek_latest_bitmap(),
-            )
-        });
+        let map_renderer = self.map_renderer.lock().unwrap();
+        let camera_option =
+            get_default_camera_option_from_journey_bitmap(map_renderer.peek_latest_bitmap());
 
         match camera_option {
             Some(camera) => format!(
@@ -278,12 +244,9 @@ impl MapServer {
 
     pub fn get_file_url(&self) -> String {
         let server_info = self.server_info.lock().unwrap();
-        let registry = self.registry.lock().unwrap();
-        let camera_option = registry.as_ref().and_then(|renderer| {
-            get_default_camera_option_from_journey_bitmap(
-                renderer.lock().unwrap().peek_latest_bitmap(),
-            )
-        });
+        let map_renderer = self.map_renderer.lock().unwrap();
+        let camera_option =
+            get_default_camera_option_from_journey_bitmap(map_renderer.peek_latest_bitmap());
 
         match camera_option {
             Some(camera) => format!(
@@ -304,11 +267,6 @@ impl MapServer {
                 build_info::MAPBOX_ACCESS_TOKEN.unwrap_or(""),
             )
         }
-    }
-
-    pub fn set_map_renderer(&self, map_renderer: Arc<Mutex<MapRenderer>>) {
-        let mut registry = self.registry.lock().unwrap();
-        *registry = Some(map_renderer);
     }
 
     // TODO: maybe shutdown the server when switched to background

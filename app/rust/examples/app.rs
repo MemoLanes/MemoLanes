@@ -25,11 +25,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    // Get the main map renderer and create a registry with it
+    // Get the main map renderer
     let main_map_renderer = get_main_map_renderer();
-    let registry = Arc::new(Mutex::new(Some(main_map_renderer)));
 
-    let server = MapServer::create_and_start_with_registry("localhost", None, registry)
+    let server = MapServer::create_and_start("localhost", None, main_map_renderer)
         .expect("Failed to start server");
 
     println!("view map at: {}", server.get_http_url());

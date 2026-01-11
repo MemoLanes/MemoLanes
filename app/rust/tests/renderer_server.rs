@@ -14,24 +14,17 @@ use std::time::Duration;
 
 #[test]
 pub fn renderer_server() -> Result<(), Box<dyn std::error::Error>> {
-    let registry = Arc::new(Mutex::new(None));
+    let (joruney_bitmap_fow, _) =
+        import_data::load_fow_sync_data("./tests/data/fow_3.zip").unwrap();
+    let map_renderer_fow = Arc::new(Mutex::new(MapRenderer::new(joruney_bitmap_fow)));
+    let map_renderer_clone = map_renderer_fow.clone();
 
     let _server = Arc::new(Mutex::new(
-        MapServer::create_and_start_with_registry("localhost", None, registry.clone())
+        MapServer::create_and_start("localhost", None, map_renderer_fow)
             .expect("Failed to start server"),
     ));
 
     std::thread::sleep(Duration::from_millis(200));
-
-    let (joruney_bitmap_fow, _) =
-        import_data::load_fow_sync_data("./tests/data/fow_3.zip").unwrap();
-    let map_renderer_fow = MapRenderer::new(joruney_bitmap_fow);
-
-    // Set the map renderer in the registry
-    {
-        let mut reg = registry.lock().unwrap();
-        *reg = Some(Arc::new(Mutex::new(map_renderer_fow)));
-    }
 
     let request_str = r#"
     {
@@ -52,13 +45,11 @@ pub fn renderer_server() -> Result<(), Box<dyn std::error::Error>> {
     // println!("request: {}", request_str);
 
     let request = Request::parse(&request_str)?;
-    
+
     // Get the map renderer and handle the request
-    let reg = registry.lock().unwrap();
-    let map_renderer = reg.as_ref().unwrap().lock().unwrap();
+    let map_renderer = map_renderer_clone.lock().unwrap();
     let response = request.handle(&map_renderer);
     drop(map_renderer);
-    drop(reg);
 
     let body = response.data.as_ref().unwrap()["body"].as_str().unwrap();
 
