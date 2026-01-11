@@ -118,7 +118,7 @@ impl RawDataRecorder {
                 date: current_date,
             }
         });
-        let row = RawCsvRow::create_from_raw_data(&raw_data, received_timestamp_ms);
+        let row = RawCsvRow::create_from_raw_data(raw_data, received_timestamp_ms);
         current_raw_data_file.writer.serialize(row).unwrap();
         current_raw_data_file.writer.flush().unwrap();
     }

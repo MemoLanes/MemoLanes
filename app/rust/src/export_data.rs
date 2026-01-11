@@ -11,7 +11,6 @@ use std::{
     collections::HashMap,
     io::{Seek, Write},
 };
-use tokio::fs::metadata;
 
 // TODO: Pull in more metadata to the exported files, e.g. timestamp, note, etc
 // For most things, we could put them as custom attributes. The timestamp is a
@@ -88,6 +87,10 @@ pub fn raw_data_csv_to_gpx_file<R: std::io::Read, W: Write + Seek>(
                 let dt = OffsetDateTime::UNIX_EPOCH + Duration::milliseconds(ts);
                 wp.time = Some(dt.into());
             }
+        }
+
+        if let Some(alt) = raw.altitude {
+            wp.elevation = Some(alt as f64);
         }
 
         segment.points.push(wp);

@@ -18,10 +18,8 @@ use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::renderer::internal_server::MapRendererToken;
 use crate::renderer::internal_server::{register_map_renderer, Registry, Request};
 use crate::renderer::MapRenderer;
-use crate::storage::Storage;
-use crate::{
-    archive, build_info, export_data, gps_processor, main_db, merged_journey_builder, storage,
-};
+use crate::storage::{RawDataFile, Storage};
+use crate::{archive, build_info, export_data, gps_processor, main_db, merged_journey_builder};
 use crate::{logs, utils};
 use serde::{Deserialize, Serialize};
 
@@ -453,7 +451,7 @@ pub fn on_location_update(raw_data: gps_processor::RawData, received_timestamp_m
     }
 }
 
-pub fn list_all_raw_data() -> Vec<storage::RawDataFile> {
+pub fn list_all_raw_data() -> Result<Vec<RawDataFile>> {
     get().storage.list_all_raw_data()
 }
 
