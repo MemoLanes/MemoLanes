@@ -1,6 +1,10 @@
 use itertools::Itertools;
 use memolanes_core::{export_data, import_data};
 use std::fs::File;
+use std::io::{BufReader, BufWriter};
+use memolanes_core::api::api::export_raw_data_gpx_file;
+use memolanes_core::export_data::raw_data_csv_to_gpx_file;
+use memolanes_core::gps_processor::RawData;
 
 #[macro_use]
 extern crate assert_float_eq;
@@ -224,3 +228,38 @@ pub fn kml_line_string() {
     assert_f64_near!(points1[0].latitude, 36.6986802655);
     assert_f64_near!(points1[0].longitude, 117.1179554744);
 }
+
+#[test]
+fn test_raw_data_csv_to_gpx_file() -> anyhow::Result<()> {
+    const CSV_PATH: &str = "./tests/data/test_raw_data.csv";
+    const GPX_EXPORT_PATH: &str = "./tests/for_inspection/test_raw_data_direct.gpx";
+
+    let csv_file = File::open(CSV_PATH)?;
+    let mut reader = csv::Reader::from_reader(BufReader::new(csv_file));
+
+    let gpx_file = File::create(GPX_EXPORT_PATH)?;
+    let mut writer = BufWriter::new(gpx_file);
+
+    raw_data_csv_to_gpx_file(&mut reader, &mut writer)?;
+    
+    let gpx_file = File::open(GPX_EXPORT_PATH)?;
+    let gpx = gpx::read(&mut BufReader::new(gpx_file))?;
+
+    assert_eq!(gpx.tracks.len(), 1);
+
+    let track_points: Vec<_> = gpx.tracks[0]
+        .segments
+        .iter()
+        .flat_map(|seg| seg.points.iter())
+        .collect_vec();
+
+    assert_eq!(track_points.len(), 10);
+
+    assert_f64_near!(track_points[0].point().x(), 36.6986802655);
+    assert_f64_near!(track_points[0].point().y(), 117.1179554744);
+
+    let metadata = gpx.metadata.expect("GPX metadata should exist");
+    assert_eq!(metadata.name.as_deref(), Some("MemoLanes RawData"));
+    Ok(())
+}
+

@@ -5,12 +5,13 @@ use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
 use csv::Reader;
 use geo_types::Point;
-use gpx::{Gpx, GpxVersion, Track, TrackSegment, Waypoint};
+use gpx::{Gpx, GpxVersion, Metadata, Track, TrackSegment, Waypoint};
 use kml::{Kml, KmlDocument, KmlWriter};
 use std::{
     collections::HashMap,
     io::{Seek, Write},
 };
+use tokio::fs::metadata;
 
 // TODO: Pull in more metadata to the exported files, e.g. timestamp, note, etc
 // For most things, we could put them as custom attributes. The timestamp is a
@@ -19,6 +20,7 @@ use std::{
 // custom attributes or just add timestamp for the first and last point if possible.
 fn write_gpx_with_segments<T: Write + Seek>(
     segments: Vec<TrackSegment>,
+    name: Option<String>,
     writer: &mut T,
 ) -> Result<()> {
     if segments.is_empty() {
@@ -39,7 +41,10 @@ fn write_gpx_with_segments<T: Write + Seek>(
     let gpx = Gpx {
         version: GpxVersion::Gpx11,
         creator: Some("MemoLanes".to_string()),
-        metadata: None,
+        metadata: Some(Metadata {
+            name,
+            ..Default::default()
+        }),
         waypoints: vec![],
         tracks: vec![track],
         routes: vec![],
@@ -63,8 +68,7 @@ pub fn journey_vector_to_gpx_file<T: Write + Seek>(
         });
         segments.push(TrackSegment { points });
     }
-
-    write_gpx_with_segments(segments, writer)
+    write_gpx_with_segments(segments, Some("MemoLanes Journey".to_string()), writer)
 }
 
 #[auto_context]
@@ -88,12 +92,7 @@ pub fn raw_data_csv_to_gpx_file<R: std::io::Read, W: Write + Seek>(
 
         segment.points.push(wp);
     }
-
-    if segment.points.is_empty() {
-        anyhow::bail!("No valid points found in CSV");
-    }
-
-    write_gpx_with_segments(vec![segment], writer)
+    write_gpx_with_segments(vec![segment], Some("MemoLanes RawData".to_string()), writer)
 }
 
 #[auto_context]

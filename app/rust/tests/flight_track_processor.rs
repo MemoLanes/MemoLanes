@@ -16,7 +16,7 @@ fn run_tests() {
         "tokyo_hawaii",
         "TV9882-3bf27ed6",
     ] {
-        const GENERATE_RESULT_GPX_FOR_INSPECTION: bool = false;
+        const GENERATE_RESULT_GPX_FOR_INSPECTION: bool = true;
 
         let loaded_data =
             import_data::load_kml(&format!("./tests/data/flight_{name}.kml")).unwrap();
@@ -26,7 +26,7 @@ fn run_tests() {
         verify_gpx(name, &gpx);
         if GENERATE_RESULT_GPX_FOR_INSPECTION {
             let mut file = File::create(format!(
-                "./tests/for_inspection/flight_track_processor_{name}.gpx"
+                "./tests/for_inspection/flight_track_processor_{name}_lod.gpx"
             ))
             .unwrap();
             file.write_all(&gpx).unwrap();

@@ -40,8 +40,11 @@ pub struct RawCsvRow {
     pub speed: Option<f32>,
 }
 
-impl From<(&gps_processor::RawData, i64)> for RawCsvRow {
-    fn from((raw_data, received_timestamp_ms): (&gps_processor::RawData, i64)) -> Self {
+impl RawCsvRow {
+    pub fn create_from_raw_data(
+        raw_data: &gps_processor::RawData,
+        received_timestamp_ms: i64,
+    ) -> Self {
         Self {
             timestamp_ms: raw_data.timestamp_ms,
             received_timestamp_ms,
@@ -53,6 +56,7 @@ impl From<(&gps_processor::RawData, i64)> for RawCsvRow {
         }
     }
 }
+
 
 /* This is an optional feature that should be off by default: storing raw GPS
    data with detailed timestamp. It is designed for advanced user or debugging.
@@ -114,7 +118,7 @@ impl RawDataRecorder {
                 date: current_date,
             }
         });
-        let row: RawCsvRow = (raw_data, received_timestamp_ms).into();
+        let row = RawCsvRow::create_from_raw_data(&raw_data, received_timestamp_ms);
         current_raw_data_file.writer.serialize(row).unwrap();
         current_raw_data_file.writer.flush().unwrap();
     }
@@ -302,37 +306,38 @@ impl Storage {
         main_db.record(raw_data, process_result).unwrap();
     }
 
-    pub fn list_all_raw_data(&self) -> Vec<RawDataFile> {
+    pub fn list_all_raw_data(&self) -> Result<Vec<RawDataFile>> {
         let dir = Path::new(&self.support_dir).join("raw_data");
 
-        if !dir.exists() || !dir.is_dir() {
-            return Vec::new();
+        if !dir.exists() {
+            return Ok(Vec::new());
         }
 
-        let mut result: Vec<RawDataFile> = match std::fs::read_dir(&dir) {
-            Result::Ok(entries) => entries
-                .filter_map(|entry_res| {
-                    let entry = entry_res.ok()?;
-                    let path = entry.path();
-                    if path.is_file() && path.extension()?.to_str()? == "csv" {
-                        let name = path
-                            .file_stem()
-                            .map(|s| s.to_string_lossy().to_string())
-                            .unwrap_or_default();
-                        Some(RawDataFile {
-                            name,
-                            path: path.to_string_lossy().to_string(),
-                        })
-                    } else {
-                        None
-                    }
-                })
-                .collect(),
-            Err(_) => Vec::new(),
-        };
+        if !dir.is_dir() {
+            anyhow::bail!("raw_data path exists but is not a directory: {:?}", dir);
+        }
+
+        let mut result: Vec<RawDataFile> = std::fs::read_dir(&dir)?
+            .filter_map(|entry_res| {
+                let entry = entry_res.ok()?;
+                let path = entry.path();
+                if path.is_file() && path.extension()?.to_str()? == "csv" {
+                    let name = path
+                        .file_stem()
+                        .map(|s| s.to_string_lossy().to_string())
+                        .unwrap_or_default();
+                    Some(RawDataFile {
+                        name,
+                        path: path.to_string_lossy().to_string(),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect();
 
         result.sort_by(|a, b| b.name.cmp(&a.name));
-        result
+        Ok(result)
     }
 
     pub fn set_finalized_journey_changed_callback(
