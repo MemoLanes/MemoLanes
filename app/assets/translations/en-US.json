@@ -108,8 +108,8 @@
       "title": "Version",
       "currently_the_latest_version": "Currently the latest version"
     },
-    "advance_settings": {
-      "title": "Advance settings",
+    "advanced_settings": {
+      "title": "Advanced settings",
       "export_logs": "Export Logs",
       "raw_data_mode": "Raw Data Mode",
       "rebuild_cache": "Rebuild Cache",

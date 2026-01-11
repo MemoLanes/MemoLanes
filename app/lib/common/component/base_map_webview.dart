@@ -104,7 +104,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _roughMapViewUpdateTimer =
         Timer.periodic(Duration(seconds: 5), (Timer t) async {
       final newMapView = await _getCurrentMapView();
-      if (newMapView != _currentRoughMapView) {
+      if (newMapView != null && newMapView != _currentRoughMapView) {
         _currentRoughMapView = newMapView;
         widget.onRoughMapViewUpdate?.call(newMapView);
       }
@@ -131,10 +131,12 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     super.dispose();
   }
 
-  Future<({double lng, double lat, double zoom})> _getCurrentMapView() async {
+  Future<({double lng, double lat, double zoom})?> _getCurrentMapView() async {
     // TODO: `runJavaScriptReturningResult` is very buggy. I only made it work
     // by forcing the js side only return string with the platform hack below.
     // See more: https://github.com/flutter/flutter/issues/80328
+    if (!_readyForDisplay) return null;
+
     String jsonString =
         await _webViewController.runJavaScriptReturningResult('''
         if (typeof getCurrentMapView === 'function') {
@@ -178,12 +180,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     }
   }
 
-// TODO: solve the following known issues:
-// 1. ios tap-and-hold triggers a magnifier
-//     ref: https://stackoverflow.com/questions/75628788/disable-double-tap-magnifying-glass-in-safari-ios
-//     but the settings seems not be exposed by current webview_flutter
-//     ref (another WKPreference setting): https://github.com/flutter/flutter/issues/112276
-// 2. ios double-tap zoom not working (triple tap needed, maybe related to tap event capture)
   Future<void> _initWebView() async {
     _webViewController
       ..setJavaScriptMode(JavaScriptMode.unrestricted)

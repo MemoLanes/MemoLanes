@@ -108,7 +108,7 @@
       "title": "版本",
       "currently_the_latest_version": "当前已经是最新版本"
     },
-    "advance_settings": {
+    "advanced_settings": {
       "title": "高级设置",
       "export_logs": "导出日志",
       "raw_data_mode": "原始数据模式",
