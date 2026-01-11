@@ -11,7 +11,6 @@ use memolanes_core::renderer::{get_default_camera_option_from_journey_bitmap, Ma
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use tokio::runtime::Runtime;
-use uuid::Uuid;
 
 /// Helper function to add standard CORS headers to an HttpResponseBuilder
 fn add_cors_headers(builder: &mut HttpResponseBuilder) -> &mut HttpResponseBuilder {
@@ -239,22 +238,20 @@ impl MapServer {
 
         match camera_option {
             Some(camera) => format!(
-                "{}#cgi_endpoint=http%3A%2F%2F{}%3A{}&journey_id={}&debug=true&lng={}&lat={}&zoom={}&access_key={}",
+                "{}#cgi_endpoint=http%3A%2F%2F{}%3A{}&debug=true&lng={}&lat={}&zoom={}&access_key={}",
                 dev_server,
                 server_info.host,
                 server_info.port,
-                token.journey_id(),
                 camera.lng,
                 camera.lat,
                 camera.zoom,
                 build_info::MAPBOX_ACCESS_TOKEN.unwrap_or("")
             ),
             None => format!(
-                "{}#cgi_endpoint=http%3A%2F%2F{}%3A{}&journey_id={}&debug=true&access_key={}",
+                "{}#cgi_endpoint=http%3A%2F%2F{}%3A{}&debug=true&access_key={}",
                 dev_server,
                 server_info.host,
                 server_info.port,
-                token.journey_id(),
                 build_info::MAPBOX_ACCESS_TOKEN.unwrap_or("")
             ),
         }
@@ -273,22 +270,20 @@ impl MapServer {
 
         match camera_option {
             Some(camera) => format!(
-                "file://{}/journey_kernel/index.html#cgi_endpoint=http%3A%2F%2F{}%3A{}&journey_id={}&debug=true&lng={}&lat={}&zoom={}&access_key={}", 
+                "file://{}/journey_kernel/index.html#cgi_endpoint=http%3A%2F%2F{}%3A{}&debug=true&lng={}&lat={}&zoom={}&access_key={}", 
                 std::env::var("OUT_DIR").unwrap_or_else(|_| ".".to_string()), 
                 server_info.host,
                 server_info.port,
-                token.journey_id(),
                 camera.lng,
                 camera.lat,
                 camera.zoom,
                 build_info::MAPBOX_ACCESS_TOKEN.unwrap_or(""),
             ),
             None => format!(
-                "file://{}/journey_kernel/index.html#cgi_endpoint=http%3A%2F%2F{}%3A{}&journey_id={}&debug=true&access_key={}", 
+                "file://{}/journey_kernel/index.html#cgi_endpoint=http%3A%2F%2F{}%3A{}&debug=true&access_key={}", 
                 std::env::var("OUT_DIR").unwrap_or_else(|_| ".".to_string()), 
                 server_info.host,
                 server_info.port,
-                token.journey_id(),
                 build_info::MAPBOX_ACCESS_TOKEN.unwrap_or(""),
             )
         }
@@ -298,14 +293,12 @@ impl MapServer {
         &mut self,
         map_renderer: Arc<Mutex<MapRenderer>>,
     ) -> MapRendererToken {
-        let id = Uuid::new_v4();
         {
             let mut registry = self.registry.lock().unwrap();
             // Replace the previous renderer with the new one
             *registry = Some(map_renderer);
         }
         MapRendererToken {
-            id,
             registry: Arc::downgrade(&self.registry),
             is_primitive: true,
         }

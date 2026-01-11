@@ -4,46 +4,36 @@ use serde::{Deserialize, Serialize};
 use serde_with::{base64::Base64, serde_as};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, Weak};
-use uuid::Uuid;
 
 use super::MapRenderer;
 
 use rand::RngCore;
 
-// Registry now stores only a single MapRenderer (the last one set)
-// The id in queries is kept for compatibility but the registry returns its only renderer
+// Registry stores only a single MapRenderer (the last one set)
 pub type Registry = Option<Arc<Mutex<MapRenderer>>>;
 
 pub fn register_map_renderer(
     registry: Arc<Mutex<Registry>>,
     map_renderer: Arc<Mutex<MapRenderer>>,
 ) -> MapRendererToken {
-    let id = Uuid::new_v4();
     {
         let mut registry = registry.lock().unwrap();
         // Replace the previous renderer with the new one
         *registry = Some(map_renderer);
     }
     MapRendererToken {
-        id,
         registry: Arc::downgrade(&registry),
         is_primitive: true,
     }
 }
 
 pub struct MapRendererToken {
-    pub id: Uuid,
     pub registry: Weak<Mutex<Registry>>,
     pub is_primitive: bool,
 }
 
 impl MapRendererToken {
-    pub fn journey_id(&self) -> String {
-        self.id.to_string()
-    }
-
     pub fn get_map_renderer(&self) -> Option<Arc<Mutex<MapRenderer>>> {
-        // Returns the single renderer regardless of the id
         if let Some(registry) = self.registry.upgrade() {
             let registry = registry.lock().unwrap();
             return registry.clone();
@@ -63,7 +53,6 @@ impl MapRendererToken {
     // we should remove this when we have a better way to handle the main map token
     pub fn clone_temporary_token(&self) -> MapRendererToken {
         MapRendererToken {
-            id: self.id,
             registry: self.registry.clone(),
             is_primitive: false,
         }

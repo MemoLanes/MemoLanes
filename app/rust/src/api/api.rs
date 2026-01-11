@@ -16,7 +16,6 @@ use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::logs;
 use crate::renderer::get_default_camera_option_from_journey_bitmap;
-use crate::renderer::internal_server::MapRendererToken;
 use crate::renderer::internal_server::Request;
 use crate::renderer::MapRenderer;
 use crate::storage::Storage;
@@ -272,30 +271,14 @@ pub enum LogLevel {
 
 #[frb(opaque)]
 pub enum MapRendererProxy {
-    Token(MapRendererToken),
     Renderer(MapRenderer),
     MainMapRenderer,
 }
 
 impl MapRendererProxy {
-    #[frb(sync)]
-    pub fn get_journey_id(&self) -> String {
-        match self {
-            MapRendererProxy::Token(token) => token.journey_id(),
-            // TODO: the frontend now require journeyId be non-empty, now we just use a random uuid for place holder.
-            // We'll completely remove the id later.
-            MapRendererProxy::Renderer(_) => "ddc22dae-715a-44e3-a302-0b8183211cad".to_string(), // Return empty string for direct renderer
-            MapRendererProxy::MainMapRenderer => "ddc22dae-715a-44e3-a302-0b8183211cad".to_string(), // Return empty string for main map renderer
-        }
-    }
-
     pub fn handle_webview_requests(&self, request: String) -> Result<String> {
         let request = Request::parse(&request)?;
         let response = match self {
-            MapRendererProxy::Token(_) => {
-                // TODO: remove this
-                unimplemented!()
-            }
             MapRendererProxy::Renderer(map_renderer) => {
                 // Directly use the map renderer reference
                 request.handle_map_renderer(map_renderer)
