@@ -4,12 +4,15 @@ use actix_web::{
 use anyhow::Result;
 use memolanes_core::build_info;
 use memolanes_core::renderer::internal_server::{
-    handle_tile_range_query, Registry, Request, TileRangeQuery,
+    handle_tile_range_query, Request, TileRangeQuery,
 };
 use memolanes_core::renderer::{get_default_camera_option_from_journey_bitmap, MapRenderer};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use tokio::runtime::Runtime;
+
+// Registry is just a shared MapRenderer (optional because it can be set after server starts)
+type Registry = Option<Arc<Mutex<MapRenderer>>>;
 
 /// Helper function to add standard CORS headers to an HttpResponseBuilder
 fn add_cors_headers(builder: &mut HttpResponseBuilder) -> &mut HttpResponseBuilder {
@@ -26,8 +29,20 @@ async fn serve_journey_tile_range(
     query: web::Query<TileRangeQuery>,
     data: web::Data<Arc<Mutex<Registry>>>,
 ) -> HttpResponse {
-    // Use the tile-specific handler directly
-    match handle_tile_range_query(&query.into_inner(), data.get_ref().clone()) {
+    // Get the map renderer from registry
+    let registry = data.get_ref().lock().unwrap();
+    let map_renderer = match registry.as_ref() {
+        Some(renderer) => renderer.clone(),
+        None => {
+            return add_cors_headers(&mut HttpResponse::NotFound())
+                .content_type("text/plain")
+                .body("Map renderer not found");
+        }
+    };
+    drop(registry); // Release the lock early
+
+    let renderer = map_renderer.lock().unwrap();
+    match handle_tile_range_query(&query.into_inner(), &renderer) {
         Ok(tile_response) => {
             match tile_response.status {
                 200 => {
@@ -52,15 +67,9 @@ async fn serve_journey_tile_range(
             }
         }
         Err(error_message) => {
-            if error_message.contains("Map renderer not found") {
-                add_cors_headers(&mut HttpResponse::NotFound())
-                    .content_type("text/plain")
-                    .body(error_message)
-            } else {
-                add_cors_headers(&mut HttpResponse::InternalServerError())
-                    .content_type("text/plain")
-                    .body(error_message)
-            }
+            add_cors_headers(&mut HttpResponse::InternalServerError())
+                .content_type("text/plain")
+                .body(error_message)
         }
     }
 }
@@ -89,8 +98,21 @@ async fn serve_unified_json_request(
         }
     };
 
+    // Get the map renderer from registry
+    let registry = data.get_ref().lock().unwrap();
+    let map_renderer = match registry.as_ref() {
+        Some(renderer) => renderer.clone(),
+        None => {
+            return add_cors_headers(&mut HttpResponse::NotFound())
+                .content_type("application/json")
+                .body(r#"{"error": "Map renderer not found"}"#);
+        }
+    };
+    drop(registry); // Release the lock early
+
     // Handle the request using the unified interface
-    let response = request.handle(data.get_ref().clone());
+    let renderer = map_renderer.lock().unwrap();
+    let response = request.handle(&renderer);
 
     // Convert to JSON and return HTTP response
     match serde_json::to_string(&response) {

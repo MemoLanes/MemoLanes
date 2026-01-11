@@ -281,13 +281,13 @@ impl MapRendererProxy {
         let response = match self {
             MapRendererProxy::Renderer(map_renderer) => {
                 // Directly use the map renderer reference
-                request.handle_map_renderer(map_renderer)
+                request.handle(map_renderer)
             }
             MapRendererProxy::MainMapRenderer => {
                 // Clone the Arc to release the state reference quickly
                 let map_renderer_arc = get().main_map_renderer.clone();
                 let map_renderer = map_renderer_arc.lock().unwrap();
-                request.handle_map_renderer(&map_renderer)
+                request.handle(&map_renderer)
             }
         };
         serde_json::to_string(&response)

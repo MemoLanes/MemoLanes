@@ -3,14 +3,10 @@ use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
 use serde_with::{base64::Base64, serde_as};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 
 use super::MapRenderer;
 
 use rand::RngCore;
-
-// Registry stores only a single optional MapRenderer
-pub type Registry = Option<Arc<Mutex<MapRenderer>>>;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct TileRangeQuery {
@@ -73,6 +69,8 @@ mod tests {
 
     #[test]
     fn test_end_to_end_random_data_request() {
+        use crate::journey_bitmap::JourneyBitmap;
+
         let request_json = r#"{
             "requestId": "test-123",
             "query": "random_data",
@@ -83,10 +81,11 @@ mod tests {
 
         let request = Request::parse(request_json).expect("Failed to parse request");
 
-        // Create a dummy registry (None is fine for IPC test with random_data)
-        let registry = Arc::new(Mutex::new(None));
+        // Create a dummy map renderer for testing
+        let journey_bitmap = JourneyBitmap::new();
+        let map_renderer = MapRenderer::new(journey_bitmap);
 
-        let response = request.handle(registry);
+        let response = request.handle(&map_renderer);
 
         // Verify response structure
         assert_eq!(response.request_id, "test-123");
@@ -129,9 +128,6 @@ mod tests {
         let journey_bitmap = JourneyBitmap::new();
         let map_renderer = MapRenderer::new(journey_bitmap);
 
-        // Create registry and set the single map renderer
-        let registry = Arc::new(Mutex::new(Some(Arc::new(Mutex::new(map_renderer)))));
-
         // Create tile range request
         let request_json = r#"{
             "requestId": "test-version-123",
@@ -148,7 +144,7 @@ mod tests {
         }"#;
 
         let request = Request::parse(&request_json).expect("Failed to parse request");
-        let response = request.handle(registry);
+        let response = request.handle(&map_renderer);
 
         // Verify response structure
         assert_eq!(response.request_id, "test-version-123");
@@ -183,10 +179,7 @@ mod tests {
         let map_renderer = MapRenderer::new(journey_bitmap);
         let version = map_renderer.get_version_string();
 
-        // Create registry and set the single map renderer
-        let registry = Arc::new(Mutex::new(Some(Arc::new(Mutex::new(map_renderer)))));
-
-        // Create tile range query with current version (should trigger 302)
+        // Create tile range query with current version (should trigger 304)
         let query = TileRangeQuery {
             x: 0,
             y: 0,
@@ -197,7 +190,7 @@ mod tests {
             cached_version: Some(version), // Use current version to trigger no-change scenario
         };
 
-        let response = handle_tile_range_query(&query, registry);
+        let response = handle_tile_range_query(&query, &map_renderer);
 
         // Verify 304 response
         assert!(response.is_ok(), "Expected successful response");
@@ -217,8 +210,8 @@ mod tests {
     }
 }
 
-/// Handle TileRangeQuery with a MapRenderer reference directly (no registry lookup)
-pub fn handle_tile_range_query_with_renderer(
+/// Handle TileRangeQuery with a MapRenderer reference
+pub fn handle_tile_range_query(
     query: &TileRangeQuery,
     map_renderer: &MapRenderer,
 ) -> Result<TileRangeResponse, String> {
@@ -267,85 +260,20 @@ pub fn handle_tile_range_query_with_renderer(
     }
 }
 
-/// Handle TileRangeQuery and return TileRangeResponse (looks up MapRenderer from registry)
-pub fn handle_tile_range_query(
-    query: &TileRangeQuery,
-    registry: Arc<Mutex<Registry>>,
-) -> Result<TileRangeResponse, String> {
-    let locked_registry = registry.lock().unwrap();
-    let map_renderer = match locked_registry.as_ref() {
-        Some(item) => item.lock().unwrap(),
-        None => return Err("Map renderer not found".to_string()),
-    };
-
-    handle_tile_range_query_with_renderer(query, &map_renderer)
-}
-
 impl Request {
     /// Parse a JSON string into a Request
     pub fn parse(json_str: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(json_str)
     }
 
-    /// Handle the request and return an appropriate response
-    pub fn handle(&self, registry: Arc<Mutex<Registry>>) -> RequestResponse<serde_json::Value> {
-        match &self.payload {
-            RequestPayload::TileRange(query) => match handle_tile_range_query(query, registry) {
-                Ok(response_data) => match serde_json::to_value(response_data) {
-                    Ok(value) => RequestResponse {
-                        request_id: self.request_id.clone(),
-                        success: true,
-                        data: Some(value),
-                        error: None,
-                    },
-                    Err(e) => RequestResponse {
-                        request_id: self.request_id.clone(),
-                        success: false,
-                        data: None,
-                        error: Some(format!("Failed to serialize response: {e}")),
-                    },
-                },
-                Err(e) => RequestResponse {
-                    request_id: self.request_id.clone(),
-                    success: false,
-                    data: None,
-                    error: Some(e),
-                },
-            },
-            RequestPayload::RandomData(query) => {
-                let size = query.size.unwrap_or(1_048_576); // Default 1MB
-                match generate_random_data(size) {
-                    Ok(data) => {
-                        let response_data = serde_json::json!({
-                            "size": size,
-                            "data": general_purpose::STANDARD.encode(&data)
-                        });
-                        RequestResponse {
-                            request_id: self.request_id.clone(),
-                            success: true,
-                            data: Some(response_data),
-                            error: None,
-                        }
-                    }
-                    Err(e) => RequestResponse {
-                        request_id: self.request_id.clone(),
-                        success: false,
-                        data: None,
-                        error: Some(e),
-                    },
-                }
-            }
-        }
-    }
-
-    /// Handle the request with a MapRenderer reference directly
-    pub fn handle_map_renderer(
+    /// Handle the request with a MapRenderer reference
+    pub fn handle(
         &self,
         map_renderer: &MapRenderer,
     ) -> RequestResponse<serde_json::Value> {
         match &self.payload {
             RequestPayload::TileRange(query) => {
-                match handle_tile_range_query_with_renderer(query, map_renderer) {
+                match handle_tile_range_query(query, map_renderer) {
                     Ok(response_data) => match serde_json::to_value(response_data) {
                         Ok(value) => RequestResponse {
                             request_id: self.request_id.clone(),
