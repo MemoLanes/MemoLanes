@@ -3,69 +3,14 @@ use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
 use serde_with::{base64::Base64, serde_as};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Mutex};
 
 use super::MapRenderer;
 
 use rand::RngCore;
 
-// Registry stores only a single MapRenderer (the last one set)
+// Registry stores only a single optional MapRenderer
 pub type Registry = Option<Arc<Mutex<MapRenderer>>>;
-
-pub fn register_map_renderer(
-    registry: Arc<Mutex<Registry>>,
-    map_renderer: Arc<Mutex<MapRenderer>>,
-) -> MapRendererToken {
-    {
-        let mut registry = registry.lock().unwrap();
-        // Replace the previous renderer with the new one
-        *registry = Some(map_renderer);
-    }
-    MapRendererToken {
-        registry: Arc::downgrade(&registry),
-        is_primitive: true,
-    }
-}
-
-pub struct MapRendererToken {
-    pub registry: Weak<Mutex<Registry>>,
-    pub is_primitive: bool,
-}
-
-impl MapRendererToken {
-    pub fn get_map_renderer(&self) -> Option<Arc<Mutex<MapRenderer>>> {
-        if let Some(registry) = self.registry.upgrade() {
-            let registry = registry.lock().unwrap();
-            return registry.clone();
-        }
-        None
-    }
-
-    pub fn unregister(&self) {
-        // Clear the single renderer from registry
-        if let Some(registry) = self.registry.upgrade() {
-            let mut registry = registry.lock().unwrap();
-            *registry = None;
-        }
-    }
-
-    // TODO: this is a workaround for returning main map without server-side lifetime control
-    // we should remove this when we have a better way to handle the main map token
-    pub fn clone_temporary_token(&self) -> MapRendererToken {
-        MapRendererToken {
-            registry: self.registry.clone(),
-            is_primitive: false,
-        }
-    }
-}
-
-impl Drop for MapRendererToken {
-    fn drop(&mut self) {
-        if self.is_primitive {
-            self.unregister();
-        }
-    }
-}
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct TileRangeQuery {
@@ -323,12 +268,10 @@ pub fn handle_tile_range_query_with_renderer(
 }
 
 /// Handle TileRangeQuery and return TileRangeResponse (looks up MapRenderer from registry)
-/// Note: The id in query is ignored; the registry returns its only renderer
 pub fn handle_tile_range_query(
     query: &TileRangeQuery,
     registry: Arc<Mutex<Registry>>,
 ) -> Result<TileRangeResponse, String> {
-    // Get the single map renderer from registry (id is ignored)
     let locked_registry = registry.lock().unwrap();
     let map_renderer = match locked_registry.as_ref() {
         Some(item) => item.lock().unwrap(),
@@ -395,7 +338,7 @@ impl Request {
         }
     }
 
-    /// Handle the request with a MapRenderer reference directly (id in query is ignored)
+    /// Handle the request with a MapRenderer reference directly
     pub fn handle_map_renderer(
         &self,
         map_renderer: &MapRenderer,

@@ -52,7 +52,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ========== Server 1: Simple Map (static with crossed lines) ==========
     let registry_simple = Arc::new(Mutex::new(None));
-    let mut server_simple =
+    let server_simple =
         MapServer::create_and_start_with_registry("localhost", None, registry_simple.clone())
             .expect("Failed to start simple map server");
 
@@ -63,38 +63,37 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     draw_line4(&mut journey_bitmap);
 
     let map_renderer_static = MapRenderer::new(journey_bitmap);
-    let token_simple =
-        server_simple.register_map_renderer(Arc::new(Mutex::new(map_renderer_static)));
+    server_simple.set_map_renderer(Arc::new(Mutex::new(map_renderer_static)));
 
     println!("================================================");
     println!(
         "[Simple Map Server]:   {}",
-        server_simple.get_http_url(&token_simple)
+        server_simple.get_http_url()
     );
     println!(
         "[Simple Map Local]:    {}",
-        server_simple.get_file_url(&token_simple)
+        server_simple.get_file_url()
     );
 
     // ========== Server 2: Medium Map (loaded from fow_3.zip) ==========
     let registry_medium = Arc::new(Mutex::new(None));
-    let mut server_medium =
+    let server_medium =
         MapServer::create_and_start_with_registry("localhost", None, registry_medium.clone())
             .expect("Failed to start medium map server");
 
     let (joruney_bitmap_fow, _) =
         import_data::load_fow_sync_data("./tests/data/fow_3.zip").unwrap();
     let map_renderer_fow = MapRenderer::new(joruney_bitmap_fow);
-    let token_medium = server_medium.register_map_renderer(Arc::new(Mutex::new(map_renderer_fow)));
+    server_medium.set_map_renderer(Arc::new(Mutex::new(map_renderer_fow)));
 
     println!(
         "[Medium Map Server]:   {}",
-        server_medium.get_http_url(&token_medium)
+        server_medium.get_http_url()
     );
 
     // ========== Server 3: Dynamic Map (randomly drawn lines) ==========
     let registry_dynamic = Arc::new(Mutex::new(None));
-    let mut server_dynamic =
+    let server_dynamic =
         MapServer::create_and_start_with_registry("localhost", None, registry_dynamic.clone())
             .expect("Failed to start dynamic map server");
 
@@ -102,11 +101,11 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let map_renderer = MapRenderer::new(journey_bitmap2);
     let map_renderer_arc = Arc::new(Mutex::new(map_renderer));
     let map_renderer_arc_clone = map_renderer_arc.clone();
-    let token_dynamic = server_dynamic.register_map_renderer(map_renderer_arc);
+    server_dynamic.set_map_renderer(map_renderer_arc);
 
     println!(
         "[Dynamic Map Server]:  {}",
-        server_dynamic.get_http_url(&token_dynamic)
+        server_dynamic.get_http_url()
     );
 
     // Wrap servers in Arc<Mutex<>> for thread-safe access

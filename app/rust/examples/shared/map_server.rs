@@ -3,7 +3,6 @@ use actix_web::{
 };
 use anyhow::Result;
 use memolanes_core::build_info;
-use memolanes_core::renderer::internal_server::MapRendererToken;
 use memolanes_core::renderer::internal_server::{
     handle_tile_range_query, Registry, Request, TileRangeQuery,
 };
@@ -222,19 +221,17 @@ impl MapServer {
         })
     }
 
-    pub fn get_http_url(&self, token: &MapRendererToken) -> String {
+    pub fn get_http_url(&self) -> String {
         let dev_server =
             std::env::var("DEV_SERVER").unwrap_or_else(|_| "http://localhost:8080".to_string());
 
         let server_info = self.server_info.lock().unwrap();
-        let camera_option = get_default_camera_option_from_journey_bitmap(
-            token
-                .get_map_renderer()
-                .unwrap()
-                .lock()
-                .unwrap()
-                .peek_latest_bitmap(),
-        );
+        let registry = self.registry.lock().unwrap();
+        let camera_option = registry.as_ref().and_then(|renderer| {
+            get_default_camera_option_from_journey_bitmap(
+                renderer.lock().unwrap().peek_latest_bitmap(),
+            )
+        });
 
         match camera_option {
             Some(camera) => format!(
@@ -257,16 +254,14 @@ impl MapServer {
         }
     }
 
-    pub fn get_file_url(&self, token: &MapRendererToken) -> String {
+    pub fn get_file_url(&self) -> String {
         let server_info = self.server_info.lock().unwrap();
-        let camera_option = get_default_camera_option_from_journey_bitmap(
-            token
-                .get_map_renderer()
-                .unwrap()
-                .lock()
-                .unwrap()
-                .peek_latest_bitmap(),
-        );
+        let registry = self.registry.lock().unwrap();
+        let camera_option = registry.as_ref().and_then(|renderer| {
+            get_default_camera_option_from_journey_bitmap(
+                renderer.lock().unwrap().peek_latest_bitmap(),
+            )
+        });
 
         match camera_option {
             Some(camera) => format!(
@@ -289,19 +284,9 @@ impl MapServer {
         }
     }
 
-    pub fn register_map_renderer(
-        &mut self,
-        map_renderer: Arc<Mutex<MapRenderer>>,
-    ) -> MapRendererToken {
-        {
-            let mut registry = self.registry.lock().unwrap();
-            // Replace the previous renderer with the new one
-            *registry = Some(map_renderer);
-        }
-        MapRendererToken {
-            registry: Arc::downgrade(&self.registry),
-            is_primitive: true,
-        }
+    pub fn set_map_renderer(&self, map_renderer: Arc<Mutex<MapRenderer>>) {
+        let mut registry = self.registry.lock().unwrap();
+        *registry = Some(map_renderer);
     }
 
     // TODO: maybe shutdown the server when switched to background
