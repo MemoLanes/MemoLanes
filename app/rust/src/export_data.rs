@@ -93,6 +93,10 @@ pub fn raw_data_csv_to_gpx_file<R: std::io::Read, W: Write + Seek>(
             wp.elevation = Some(alt as f64);
         }
 
+        if let Some(acc) = raw.accuracy {
+            wp.hdop = Some(acc as f64);
+        }
+
         segment.points.push(wp);
     }
     write_gpx_with_segments(vec![segment], Some("MemoLanes RawData".to_string()), writer)
