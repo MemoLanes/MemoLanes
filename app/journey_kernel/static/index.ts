@@ -33,6 +33,7 @@ declare global {
       cgi_endpoint?: string;
     };
     trySetup?: () => Promise<void>;
+    refreshMapData?: () => Promise<boolean | null>;
   }
 }
 
@@ -96,6 +97,10 @@ async function trySetup(): Promise<void> {
 
   await mapController.initialize();
   console.log("MapController initialized");
+
+  // Expose refreshMapData to window for Flutter to call
+  // This allows Flutter to trigger a data refresh when underlying data changes
+  window.refreshMapData = () => mapController.refreshMapData();
 
   // Initialize DebugPanel (only when debug mode is enabled)
   if (params.debug) {

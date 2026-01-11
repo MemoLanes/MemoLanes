@@ -55,9 +55,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   // It is rough because we don't update it frequently.
   MapView? _currentRoughMapView;
 
-  // Track current journey ID to detect changes
-  String? _currentJourneyId;
-
   // For bug workaround
   bool _isiOS18 = false;
 
@@ -66,31 +63,23 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.trackingMode != widget.trackingMode) _updateLocationMarker();
 
-    // Check if journey ID has changed and update via JavaScript API
+    // Refresh map data when the renderer proxy changes
     if (oldWidget.mapRendererProxy != widget.mapRendererProxy) {
-      _updateJourneyIdIfChanged();
+      _refreshMapData();
     }
   }
 
-  Future<void> _updateJourneyIdIfChanged() async {
-    final newJourneyId = widget.mapRendererProxy.getJourneyId();
-
-    // Check if journey ID has actually changed
-    if (_currentJourneyId != newJourneyId) {
-      log.info(
-          '[base_map_webview] Journey ID changed from $_currentJourneyId to $newJourneyId');
-      _currentJourneyId = newJourneyId;
-
-      // Update journey ID via JavaScript API instead of reloading the page
-      await _webViewController.runJavaScript('''
-        if (typeof updateJourneyId === 'function') {
-          console.log('Updating journey ID to: $newJourneyId');
-          updateJourneyId('$newJourneyId');
-        } else {
-          console.warn('updateJourneyId function not available yet');
-        }
-      ''');
-    }
+  /// Request the WebView to refresh map data from the backend
+  Future<void> _refreshMapData() async {
+    log.info('[base_map_webview] Refreshing map data');
+    await _webViewController.runJavaScript('''
+      if (typeof refreshMapData === 'function') {
+        console.log('Refreshing map data');
+        refreshMapData();
+      } else {
+        console.warn('refreshMapData function not available yet');
+      }
+    ''');
   }
 
   @override
@@ -100,7 +89,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _gpsManager = Provider.of<GpsManager>(context, listen: false);
     _gpsManager.addListener(_updateLocationMarker);
     _currentRoughMapView = widget.initialMapView;
-    _currentJourneyId = widget.mapRendererProxy.getJourneyId();
     _roughMapViewUpdateTimer =
         Timer.periodic(Duration(seconds: 5), (Timer t) async {
       final newMapView = await _getCurrentMapView();
@@ -252,8 +240,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   Future<void> _injectApiEndpoint() async {
     final accessKey = api.getMapboxAccessToken();
 
-    final journeyId = widget.mapRendererProxy.getJourneyId();
-
     // Get map view coordinates
     final mapView = _currentRoughMapView;
     final lngParam = mapView?.lng.toString() ?? 'null';
@@ -268,7 +254,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       // Set the params
       window.EXTERNAL_PARAMS = {
         cgi_endpoint: "flutter://TileProviderChannel",
-        journey_id: "$journeyId",
         render: "canvas",
         map_style: "$_mapStyle",
         access_key: ${accessKey != null ? "\"$accessKey\"" : "null"},

@@ -175,6 +175,20 @@ export class MapController {
   }
 
   /**
+   * Refresh map data by forcing a tile buffer update
+   * This is called when the underlying data has changed (e.g., new journey data imported)
+   * @returns Promise<boolean | null> - true if data was updated, false if no change, null on error
+   */
+  async refreshMapData(): Promise<boolean | null> {
+    if (!this.journeyTileProvider) {
+      console.warn("[MapController] Cannot refresh: tile provider not initialized");
+      return null;
+    }
+    console.log("[MapController] Refreshing map data");
+    return await this.journeyTileProvider.pollForJourneyUpdates(true);
+  }
+
+  /**
    * Switch between rendering layers based on current params.renderMode
    * This handles cleanup of the old layer and creation of a new one
    *
