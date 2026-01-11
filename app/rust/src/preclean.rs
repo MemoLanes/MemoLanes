@@ -18,14 +18,14 @@ pub fn analyze_and_prepare_gpx(xml: &str) -> Result<(String, ImportPreprocessor)
 
 fn detect_gpx_preprocessor(xml: &str) -> ImportPreprocessor {
     const PROBE_LIMIT: usize = 8 * 1024;
-    let head = &xml[..xml.len().min(PROBE_LIMIT)];
+    let limit = xml.len().min(PROBE_LIMIT);
+    let head = xml.get(..limit).unwrap_or(xml);
+    let head = head.to_ascii_lowercase();
 
-    if head.contains("stepofmyworld")
-        || head.contains("StepOfMyWorld")
-        || head.contains("yourapp")
-        || head.contains("YourApp")
-    {
+    if head.contains("stepofmyworld") || head.contains("yourapp") {
         ImportPreprocessor::Sparse
+    } else if head.contains("memolanes journey") {
+        ImportPreprocessor::None
     } else {
         ImportPreprocessor::Generic
     }
