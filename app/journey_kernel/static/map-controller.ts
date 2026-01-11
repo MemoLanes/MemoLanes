@@ -181,7 +181,9 @@ export class MapController {
    */
   async refreshMapData(): Promise<boolean | null> {
     if (!this.journeyTileProvider) {
-      console.warn("[MapController] Cannot refresh: tile provider not initialized");
+      console.warn(
+        "[MapController] Cannot refresh: tile provider not initialized",
+      );
       return null;
     }
     console.log("[MapController] Refreshing map data");

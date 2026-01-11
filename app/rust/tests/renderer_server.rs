@@ -26,10 +26,10 @@ pub fn renderer_server() -> Result<(), Box<dyn std::error::Error>> {
     let (joruney_bitmap_fow, _) =
         import_data::load_fow_sync_data("./tests/data/fow_3.zip").unwrap();
     let map_renderer_fow = MapRenderer::new(joruney_bitmap_fow);
-    let _token_fow = server
+    server
         .lock()
         .unwrap()
-        .register_map_renderer(Arc::new(Mutex::new(map_renderer_fow)));
+        .set_map_renderer(Arc::new(Mutex::new(map_renderer_fow)));
 
     let request_str = r#"
     {

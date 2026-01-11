@@ -66,14 +66,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     server_simple.set_map_renderer(Arc::new(Mutex::new(map_renderer_static)));
 
     println!("================================================");
-    println!(
-        "[Simple Map Server]:   {}",
-        server_simple.get_http_url()
-    );
-    println!(
-        "[Simple Map Local]:    {}",
-        server_simple.get_file_url()
-    );
+    println!("[Simple Map Server]:   {}", server_simple.get_http_url());
+    println!("[Simple Map Local]:    {}", server_simple.get_file_url());
 
     // ========== Server 2: Medium Map (loaded from fow_3.zip) ==========
     let registry_medium = Arc::new(Mutex::new(None));
@@ -86,10 +80,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let map_renderer_fow = MapRenderer::new(joruney_bitmap_fow);
     server_medium.set_map_renderer(Arc::new(Mutex::new(map_renderer_fow)));
 
-    println!(
-        "[Medium Map Server]:   {}",
-        server_medium.get_http_url()
-    );
+    println!("[Medium Map Server]:   {}", server_medium.get_http_url());
 
     // ========== Server 3: Dynamic Map (randomly drawn lines) ==========
     let registry_dynamic = Arc::new(Mutex::new(None));
@@ -103,10 +94,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let map_renderer_arc_clone = map_renderer_arc.clone();
     server_dynamic.set_map_renderer(map_renderer_arc);
 
-    println!(
-        "[Dynamic Map Server]:  {}",
-        server_dynamic.get_http_url()
-    );
+    println!("[Dynamic Map Server]:  {}", server_dynamic.get_http_url());
 
     // Wrap servers in Arc<Mutex<>> for thread-safe access
     let server_simple = Arc::new(Mutex::new(server_simple));
