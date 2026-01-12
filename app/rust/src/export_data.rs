@@ -1,6 +1,5 @@
 use crate::journey_vector::JourneyVector;
 use crate::storage::RawCsvRow;
-use actix_web::cookie::time::{Duration, OffsetDateTime};
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
 use csv::Reader;
@@ -11,6 +10,8 @@ use std::{
     collections::HashMap,
     io::{Seek, Write},
 };
+use time::Duration;
+use time::OffsetDateTime;
 
 // TODO: Pull in more metadata to the exported files, e.g. timestamp, note, etc
 // For most things, we could put them as custom attributes. The timestamp is a
