@@ -284,9 +284,7 @@ impl MapRendererProxy {
                 request.handle(map_renderer)
             }
             MapRendererProxy::MainMapRenderer => {
-                // Clone the Arc to release the state reference quickly
-                let map_renderer_arc = get().main_map_renderer.clone();
-                let map_renderer = map_renderer_arc.lock().unwrap();
+                let map_renderer = get().main_map_renderer.lock().unwrap();
                 request.handle(&map_renderer)
             }
         };
