@@ -44,7 +44,6 @@ class BaseMapWebview extends StatefulWidget {
 class BaseMapWebviewState extends State<BaseMapWebview> {
   late WebViewController _webViewController;
   late GpsManager _gpsManager;
-  late Timer _roughMapViewUpdateTimer;
   bool _readyForDisplay = false;
 
   // TODO: define a proper type to make it more type-safe
@@ -101,14 +100,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _gpsManager.addListener(_updateLocationMarker);
     _currentRoughMapView = widget.initialMapView;
     _currentJourneyId = widget.mapRendererProxy.getJourneyId();
-    _roughMapViewUpdateTimer =
-        Timer.periodic(Duration(seconds: 5), (Timer t) async {
-      final newMapView = await _getCurrentMapView();
-      if (newMapView != _currentRoughMapView) {
-        _currentRoughMapView = newMapView;
-        widget.onRoughMapViewUpdate?.call(newMapView);
-      }
-    });
     _initWebView();
 
     () async {
@@ -127,31 +118,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   @override
   void dispose() {
     _gpsManager.removeListener(_updateLocationMarker);
-    _roughMapViewUpdateTimer.cancel();
     super.dispose();
-  }
-
-  Future<({double lng, double lat, double zoom})> _getCurrentMapView() async {
-    // TODO: `runJavaScriptReturningResult` is very buggy. I only made it work
-    // by forcing the js side only return string with the platform hack below.
-    // See more: https://github.com/flutter/flutter/issues/80328
-    String jsonString =
-        await _webViewController.runJavaScriptReturningResult('''
-        if (typeof getCurrentMapView === 'function') {
-          getCurrentMapView();
-        }
-      ''') as String;
-    if (Platform.isAndroid) {
-      jsonString = jsonDecode(jsonString) as String;
-    }
-
-    // NOTE: when js is returning a double, we may get an int.
-    final map = jsonDecode(jsonString);
-    return (
-      lng: map['lng'].toDouble() as double,
-      lat: map['lat'].toDouble() as double,
-      zoom: map['zoom'].toDouble() as double,
-    );
   }
 
   void _updateLocationMarker() {
@@ -243,6 +210,12 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         onMessageReceived: (JavaScriptMessage message) {
           _handleTileProviderRequest(message.message);
         },
+      )
+      ..addJavaScriptChannel(
+        'onMapViewChanged',
+        onMessageReceived: (JavaScriptMessage message) async {
+          _handleMapViewPush(message.message);
+        },
       );
     final assetPath = 'assets/map_webview/index.html';
     log.info('[base_map_webview] Initial loading asset: $assetPath');
@@ -289,6 +262,30 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     ''');
 
     debugPrint('Initialization completed');
+  }
+
+  void _handleMapViewPush(String message) {
+    try {
+      final map = jsonDecode(message);
+
+      double readNum(dynamic v, String key) {
+        if (v is num) return v.toDouble();
+        throw StateError('Invalid $key: $v');
+      }
+
+      final mapView = (
+      lng: readNum(map['lng'], 'lng'),
+      lat: readNum(map['lat'], 'lat'),
+      zoom: readNum(map['zoom'], 'zoom'),
+      );
+
+      if (mapView != _currentRoughMapView) {
+        _currentRoughMapView = mapView;
+        widget.onRoughMapViewUpdate?.call(mapView);
+      }
+    } catch (e) {
+      log.error('[base_map_webview] invalid mapView push: $message, error=$e');
+    }
   }
 
   void _handleTileProviderRequest(String message) async {

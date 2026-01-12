@@ -21,6 +21,7 @@ declare global {
   interface Window {
     readyForDisplay?: FlutterMessageChannel;
     onMapMoved?: FlutterMessageChannel;
+    onMapViewChanged?: FlutterMessageChannel;
     trySetup?: () => Promise<void>;
     updateLocationMarker?: (
       lng: number,
@@ -76,6 +77,44 @@ export class FlutterBridge {
   }
 
   /**
+   * Notify Flutter that the map view has changed
+   */
+  notifyMapViewChanged = (() => {
+    let lastPushedMapView: string | undefined;
+    let lastPushTime = 0;
+
+    const THROTTLE_MS = 5_000;
+
+    return () => {
+      if (!window.onMapViewChanged) return;
+
+      const now = Date.now();
+      if (now - lastPushTime < THROTTLE_MS) {
+        return;
+      }
+
+      const center = this.map.getCenter();
+      const payload = {
+        lng: Number(center.lng.toFixed(6)),
+        lat: Number(center.lat.toFixed(6)),
+        zoom: Number(this.map.getZoom().toFixed(2)),
+        bearing: Number(this.map.getBearing().toFixed(2)),
+        pitch: Number(this.map.getPitch().toFixed(2)),
+      };
+
+      const json = JSON.stringify(payload);
+
+      if (json === lastPushedMapView) return;
+
+      window.onMapViewChanged.postMessage(json);
+      lastPushedMapView = json;
+      lastPushTime = now;
+    };
+  })();
+
+
+
+  /**
    * Setup all map event listeners that notify Flutter
    */
   setupMapEventListeners(): void {
@@ -91,6 +130,11 @@ export class FlutterBridge {
       if (fromUser) {
         this.notifyMapMoved();
       }
+    });
+
+    // Notify Flutter when map view changed
+    this.map.on("idle", () => {
+      this.notifyMapViewChanged();
     });
   }
 
