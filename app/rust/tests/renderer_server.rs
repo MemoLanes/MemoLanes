@@ -6,7 +6,6 @@ mod examples_shared;
 use examples_shared::MapServer;
 
 use memolanes_core::import_data;
-use memolanes_core::renderer::internal_server::Registry;
 use memolanes_core::renderer::internal_server::Request;
 use memolanes_core::renderer::MapRenderer;
 use std::sync::Arc;
@@ -15,31 +14,23 @@ use std::time::Duration;
 
 #[test]
 pub fn renderer_server() -> Result<(), Box<dyn std::error::Error>> {
-    let registry = Arc::new(Mutex::new(Registry::new()));
+    let (joruney_bitmap_fow, _) =
+        import_data::load_fow_sync_data("./tests/data/fow_3.zip").unwrap();
+    let map_renderer_fow = Arc::new(Mutex::new(MapRenderer::new(joruney_bitmap_fow)));
+    let map_renderer_clone = map_renderer_fow.clone();
 
-    let server = Arc::new(Mutex::new(
-        MapServer::create_and_start_with_registry("localhost", None, registry.clone())
+    let _server = Arc::new(Mutex::new(
+        MapServer::create_and_start("localhost", None, map_renderer_fow)
             .expect("Failed to start server"),
     ));
 
     std::thread::sleep(Duration::from_millis(200));
 
-    let (joruney_bitmap_fow, _) =
-        import_data::load_fow_sync_data("./tests/data/fow_3.zip").unwrap();
-    let map_renderer_fow = MapRenderer::new(joruney_bitmap_fow);
-    let token_fow = server
-        .lock()
-        .unwrap()
-        .register_map_renderer(Arc::new(Mutex::new(map_renderer_fow)));
-    let journey_id = token_fow.journey_id();
-
-    let request_str = format!(
-        r#"
-    {{
+    let request_str = r#"
+    {
         "requestId": "test-123",
         "query": "tile_range",
-        "payload": {{
-            "id": "{journey_id}",
+        "payload": {
             "x": 0,
             "y": 0,
             "z": 0,
@@ -47,15 +38,18 @@ pub fn renderer_server() -> Result<(), Box<dyn std::error::Error>> {
             "height": 1,
             "buffer_size_power": 6,
             "cached_version": "test-123"
-        }}
-    }}
-    "#
-    );
+        }
+    }
+    "#;
 
     // println!("request: {}", request_str);
 
     let request = Request::parse(&request_str)?;
-    let response = request.handle(registry);
+
+    // Get the map renderer and handle the request
+    let map_renderer = map_renderer_clone.lock().unwrap();
+    let response = request.handle(&map_renderer);
+    drop(map_renderer);
 
     let body = response.data.as_ref().unwrap()["body"].as_str().unwrap();
 
