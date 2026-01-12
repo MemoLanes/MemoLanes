@@ -9,19 +9,26 @@ use chrono::NaiveDate;
 use csv::Reader;
 use flutter_rust_bridge::frb;
 
+use super::import::JourneyInfo;
 use crate::cache_db::LayerKind;
 use crate::frb_generated::StreamSink;
 use crate::gps_processor::{GpsPreprocessor, ProcessResult};
-use crate::journey_bitmap::{JourneyBitmap, MAP_WIDTH_OFFSET, TILE_WIDTH, TILE_WIDTH_OFFSET};
+use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
+use crate::logs;
+use crate::renderer::get_default_camera_option_from_journey_bitmap;
 use crate::renderer::internal_server::MapRendererToken;
 use crate::renderer::internal_server::{register_map_renderer, Registry, Request};
 use crate::renderer::MapRenderer;
 use crate::storage::{RawDataFile, Storage};
-use crate::{archive, build_info, export_data, gps_processor, main_db, merged_journey_builder};
+use crate::{
+    archive, build_info, export_data, gps_processor, main_db, merged_journey_builder, storage,
+};
 
-use super::import::JourneyInfo;
+use crate::renderer::CameraOptionInternal;
+
+type CameraOption = CameraOptionInternal;
 
 use crate::export_data::raw_data_csv_to_gpx_file;
 use log::{error, info, warn};
