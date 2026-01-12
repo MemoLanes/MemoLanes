@@ -10,17 +10,18 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:memolanes/body/achievement/achievement_body.dart';
 import 'package:memolanes/body/journey/journey_body.dart';
-import 'package:memolanes/body/privacy_agreement.dart';
-import 'package:memolanes/common/app_lifecycle_service.dart';
-import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/body/map/map_body.dart';
+import 'package:memolanes/body/privacy_agreement.dart';
 import 'package:memolanes/body/settings/settings_body.dart';
 import 'package:memolanes/body/time_machine/time_machine_body.dart';
+import 'package:memolanes/common/app_lifecycle_service.dart';
 import 'package:memolanes/common/component/bottom_nav_bar.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
-import 'package:memolanes/common/mmkv_util.dart';
-import 'package:memolanes/common/utils.dart';
+import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/share_handler_util.dart';
+import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/index.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/frb_generated.dart';
@@ -195,6 +196,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
+    ShareHandlerUtil.init(context);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       Provider.of<GpsManager>(context, listen: false).readyToStart();
       showPrivacyAgreementIfNeeded(context);
