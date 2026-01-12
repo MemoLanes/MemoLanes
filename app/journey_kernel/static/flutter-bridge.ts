@@ -100,37 +100,47 @@ export class FlutterBridge {
   setupFlutterCallableMethods(): void {
     // Update location marker
     window.updateLocationMarker = (() => {
-    let isFlying = false;
-    return (
-      lng: number,
-      lat: number,
-      show: boolean = true,
-      flyto: boolean = false
-    ) => {
-      if (show) {
-        this.locationMarker.setLngLat([lng, lat]).addTo(this.map);
+      let isFlying = false;
+      return (
+        lng: number,
+        lat: number,
+        show: boolean = true,
+        flyto: boolean = false,
+      ) => {
+        if (show) {
+          this.locationMarker.setLngLat([lng, lat]).addTo(this.map);
 
-        if (flyto && !isFlying) {
-          const currentZoom = this.map.getZoom();
-          isFlying = true;
+          if (flyto && !isFlying) {
+            const currentZoom = this.map.getZoom();
+            isFlying = true;
 
-          this.map.flyTo({
-            center: [lng, lat],
-            zoom: currentZoom < 14 ? 16 : currentZoom,
-            essential: true,
-          });
+            this.map.flyTo({
+              center: [lng, lat],
+              zoom: currentZoom < 14 ? 16 : currentZoom,
+              essential: true,
+            });
 
-          const onMoveEnd = () => {
-            isFlying = false;
-            this.map.off('moveend', onMoveEnd);
-          };
-          this.map.on('moveend', onMoveEnd);
+            const onMoveEnd = () => {
+              isFlying = false;
+              this.map.off("moveend", onMoveEnd);
+            };
+            this.map.on("moveend", onMoveEnd);
+          }
+        } else {
+          this.locationMarker.remove();
         }
-      } else {
-        this.locationMarker.remove();
-      }
+      };
+    })();
+
+    // Get current map view
+    window.getCurrentMapView = () => {
+      const center = this.map.getCenter();
+      return JSON.stringify({
+        lng: center.lng,
+        lat: center.lat,
+        zoom: this.map.getZoom(),
+      });
     };
-  })();
 
     /**
      * Update journey ID
