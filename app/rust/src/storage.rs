@@ -57,7 +57,6 @@ impl RawCsvRow {
     }
 }
 
-
 /* This is an optional feature that should be off by default: storing raw GPS
    data with detailed timestamp. It is designed for advanced user or debugging.
    It stores data in a simple csv format and will be using a new file every time
