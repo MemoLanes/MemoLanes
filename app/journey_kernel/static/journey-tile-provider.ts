@@ -26,7 +26,6 @@ type TileBufferCallback = (
  * Request parameters for tile buffer fetch
  */
 interface TileBufferRequestParams {
-  id: string;
   x: number;
   y: number;
   z: number;
@@ -114,14 +113,6 @@ export class JourneyTileProvider {
       const newBufferSizePower = this.getBufferSizePowerFromRenderMode(newMode);
       this.setBufferSizePower(newBufferSizePower);
       // TODO: should we also refresh the tile buffer?
-    });
-
-    // Register hook to refresh data when journeyId changes
-    this.params.on("journeyId", (newId, oldId) => {
-      console.log(
-        `[JourneyTileProvider] journeyId changed: ${oldId} -> ${newId}`,
-      );
-      this.pollForJourneyUpdates(true);
     });
 
     this.map.on("move", () => this.tryUpdateViewRange());
@@ -293,7 +284,6 @@ export class JourneyTileProvider {
 
     // Create request parameters for MultiRequest
     const requestParams: TileBufferRequestParams = {
-      id: this.params.journeyId,
       x: x,
       y: y,
       z: z,

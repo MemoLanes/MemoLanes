@@ -61,7 +61,6 @@ export const AVAILABLE_LAYERS: { [key: string]: LayerConfig } = {
 // Raw external parameters (from URL hash or Flutter)
 export interface ExternalParams {
   cgi_endpoint?: string;
-  journey_id?: string;
   access_key?: string;
   lng?: string;
   lat?: string;
@@ -82,11 +81,7 @@ export interface ExternalParams {
 export type PropertyChangeCallback<T> = (newValue: T, oldValue: T) => void;
 
 /** Mutable property names that support hooks */
-export type MutablePropertyName =
-  | "renderMode"
-  | "journeyId"
-  | "fogDensity"
-  | "projection";
+export type MutablePropertyName = "renderMode" | "fogDensity" | "projection";
 
 /** Internal data structure for ReactiveParams */
 interface ParamsData {
@@ -101,7 +96,6 @@ interface ParamsData {
   debug: boolean;
   // Mutable properties
   renderMode: string;
-  journeyId: string;
   fogDensity: number;
   projection: ProjectionType;
 }
@@ -110,7 +104,7 @@ interface ParamsData {
  * ReactiveParams - A Proxy-based reactive parameters object
  *
  * Properties can be accessed and set directly. Setting mutable properties
- * (renderMode, journeyId, fogDensity, projection) triggers registered hooks.
+ * (renderMode, fogDensity, projection) triggers registered hooks.
  *
  * Usage:
  * ```typescript
@@ -150,7 +144,6 @@ export interface ReactiveParams extends ParamsData {
 /** Set of properties that trigger hooks when changed */
 const MUTABLE_PROPERTIES = new Set<MutablePropertyName>([
   "renderMode",
-  "journeyId",
   "fogDensity",
   "projection",
 ]);
@@ -278,13 +271,6 @@ export function createReactiveParams(
     return null;
   }
 
-  // Validate journey_id
-  if (!externalParams.journey_id) {
-    throw new Error(
-      "Journey ID not provided. journey_id parameter is required.",
-    );
-  }
-
   // Determine map style
   const mapStyle = externalParams.map_style || DEFAULT_MAP_STYLE;
   const requiresMapboxToken = mapStyle.startsWith("mapbox://");
@@ -318,7 +304,6 @@ export function createReactiveParams(
   // Create the reactive proxy
   return createReactiveProxy({
     cgiEndpoint: externalParams.cgi_endpoint,
-    journeyId: externalParams.journey_id,
     mapStyle,
     accessKey: requiresMapboxToken ? externalParams.access_key! : null,
     lng: parseNum(externalParams.lng, 0),
