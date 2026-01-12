@@ -148,7 +148,7 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(context.tr("general.advance_settings.render_diagnostics")),
+        title: Text(context.tr("general.advanced_settings.render_diagnostics")),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: WebViewWidget(controller: _controller),

@@ -78,7 +78,7 @@ export class FlutterBridge {
     let lastPushedMapView: string | undefined;
     let lastPushTime = 0;
 
-    const THROTTLE_MS = 5_000;
+    const THROTTLE_MS = 1_000;
 
     return () => {
       if (!window.onMapViewChanged) return;

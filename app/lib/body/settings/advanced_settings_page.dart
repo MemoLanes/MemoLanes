@@ -25,7 +25,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(context.tr("general.advance_settings.title")),
+        title: Text(context.tr("general.advanced_settings.title")),
       ),
       body: MlSingleChildScrollView(
         padding: EdgeInsets.all(8.0),
@@ -97,7 +97,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
             },
           ),
           LabelTile(
-            label: context.tr("general.advance_settings.export_logs"),
+            label: context.tr("general.advanced_settings.export_logs"),
             position: LabelTilePosition.middle,
             onTap: () async {
               var tmpDir = await getTemporaryDirectory();
@@ -110,7 +110,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
             },
           ),
           LabelTile(
-            label: context.tr("general.advance_settings.raw_data_mode"),
+            label: context.tr("general.advanced_settings.raw_data_mode"),
             position: LabelTilePosition.middle,
             onTap: () => Navigator.push(
               context,
@@ -122,7 +122,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
             ),
           ),
           LabelTile(
-            label: context.tr("general.advance_settings.rebuild_cache"),
+            label: context.tr("general.advanced_settings.rebuild_cache"),
             position: LabelTilePosition.middle,
             onTap: () async => await showLoadingDialog(
               context: context,
@@ -136,7 +136,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
                 content: gpsManager.locationBackend.displayName(context)),
           ),
           LabelTile(
-            label: context.tr("general.advance_settings.render_diagnostics"),
+            label: context.tr("general.advanced_settings.render_diagnostics"),
             position: LabelTilePosition.bottom,
             onTap: () => Navigator.push(
               context,

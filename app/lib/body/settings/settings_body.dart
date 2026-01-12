@@ -163,7 +163,7 @@ class _SettingsBodyState extends State<SettingsBody> {
           },
         ),
         LabelTile(
-          label: context.tr("general.advance_settings.title"),
+          label: context.tr("general.advanced_settings.title"),
           position: LabelTilePosition.bottom,
           trailing: LabelTileContent(showArrow: true),
           onTap: () => Navigator.push(
