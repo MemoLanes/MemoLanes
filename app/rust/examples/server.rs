@@ -5,7 +5,8 @@ use memolanes_core::journey_bitmap::JourneyBitmap;
 use memolanes_core::renderer::internal_server::register_map_renderer;
 use memolanes_core::renderer::internal_server::Registry;
 use memolanes_core::renderer::MapRenderer;
-use memolanes_core::renderer::MapServer;
+mod shared;
+use shared::MapServer;
 
 use rand::Rng;
 use std::sync::Arc;

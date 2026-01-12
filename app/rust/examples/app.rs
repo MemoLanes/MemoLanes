@@ -1,7 +1,8 @@
 use memolanes_core::api::api::{
     get_map_renderer_proxy_for_main_map, get_registry, import_archive, init,
 };
-use memolanes_core::renderer::MapServer;
+mod shared;
+use shared::MapServer;
 use std::env;
 use std::sync::{Arc, Mutex};
 
