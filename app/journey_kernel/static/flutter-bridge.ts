@@ -136,26 +136,36 @@ export class FlutterBridge {
    */
   setupFlutterCallableMethods(): void {
     // Update location marker
-    window.updateLocationMarker = (
-      lng: number,
-      lat: number,
-      show: boolean = true,
-      flyto: boolean = false,
-    ) => {
-      if (show) {
-        this.locationMarker.setLngLat([lng, lat]).addTo(this.map);
-        if (flyto) {
-          const currentZoom = this.map.getZoom();
-          this.map.flyTo({
-            center: [lng, lat],
-            zoom: currentZoom < 14 ? 16 : currentZoom,
-            essential: true,
-          });
+    window.updateLocationMarker = (() => {
+      let isFlying = false;
+      const onMoveEnd = () => {
+        isFlying = false;
+      };
+      this.map.on("moveend", onMoveEnd);
+      return (
+        lng: number,
+        lat: number,
+        show: boolean = true,
+        flyto: boolean = false,
+      ) => {
+        if (show) {
+          this.locationMarker.setLngLat([lng, lat]).addTo(this.map);
+
+          if (flyto && !isFlying) {
+            const currentZoom = this.map.getZoom();
+            isFlying = true;
+
+            this.map.flyTo({
+              center: [lng, lat],
+              zoom: currentZoom < 14 ? 16 : currentZoom,
+              essential: true,
+            });
+          }
+        } else {
+          this.locationMarker.remove();
         }
-      } else {
-        this.locationMarker.remove();
-      }
-    };
+      };
+    })();
 
     // Get current map view
     window.getCurrentMapView = () => {
