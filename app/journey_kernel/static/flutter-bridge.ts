@@ -112,8 +112,6 @@ export class FlutterBridge {
     };
   })();
 
-
-
   /**
    * Setup all map event listeners that notify Flutter
    */

@@ -274,9 +274,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       }
 
       final mapView = (
-      lng: readNum(map['lng'], 'lng'),
-      lat: readNum(map['lat'], 'lat'),
-      zoom: readNum(map['zoom'], 'zoom'),
+        lng: readNum(map['lng'], 'lng'),
+        lat: readNum(map['lat'], 'lat'),
+        zoom: readNum(map['zoom'], 'zoom'),
       );
 
       if (mapView != _currentRoughMapView) {
