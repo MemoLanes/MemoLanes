@@ -82,6 +82,12 @@
     "description_md": "Preprocessor can optimize your journey data:\n- **Generic** suitable for most tracks, filtering out abnormal data and reasonably segmenting the data.\n- **FlightTrack** suitable for flight tracks, etc., using interpolation to complete missing parts of the path."
   },
   "import": {
+    "shared_file": {
+      "confirm_title": "Import data",
+      "confirm_message": "Do you want to import the file: {}?",
+      "multi_message": "You selected multiple files. Only one file can be imported at a time.\nPlease select a single file and try again."
+    },
+    "unsupported_file_failed": "Unsupported file",
     "empty_data": "Journey is empty",
     "successful": "Import successful",
     "parsing_failed": "Data parsing failed",
@@ -127,7 +133,8 @@
       "delete_backup_data": "Delete backup data"
     },
     "import_data": {
-      "title": "Import data"
+      "title": "Import data",
+      "unsupported_file": "Unsupported file"
     },
     "export_data": {
       "export_all": "Export All Data"
