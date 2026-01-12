@@ -13,10 +13,14 @@ class RenderDiagnosticsPage extends StatefulWidget {
 
 class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
   late final WebViewController _controller;
+  late final api.MapRendererProxy _mapRendererProxy;
 
   @override
   void initState() {
     super.initState();
+
+    // Create an empty map renderer proxy for handling webview requests
+    _mapRendererProxy = api.getEmptyMapRendererProxy();
 
     // Initialize the WebView controller
     _controller = WebViewController()
@@ -59,8 +63,10 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
     try {
       debugPrint('Render Diagnostics Request: $message');
 
-      // Forward the JSON request transparently to Rust and get raw JSON response
-      final responseJson = await api.handleWebviewRequests(request: message);
+      // Forward the JSON request transparently to Rust via the map renderer proxy
+      final responseJson = await _mapRendererProxy.handleWebviewRequests(
+        request: message,
+      );
 
       final endTime = DateTime.now().microsecondsSinceEpoch;
       final processingTimeMs = (endTime - startTime) / 1000;

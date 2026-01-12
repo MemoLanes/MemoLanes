@@ -82,6 +82,12 @@
     "description_md": "预处理器可以帮助你优化旅程数据:\n- **通用** 适用于大部分轨迹，可以过滤掉异常的数据并将数据合理分段。\n- **航迹** 适用于飞行轨迹等，会通过差值算法补全轨迹。"
   },
   "import": {
+    "shared_file": {
+      "confirm_title": "导入数据",
+      "confirm_message": "是否导入文件: {}?",
+      "multi_message": "当前选择了多个文件，仅支持一次导入一个文件。\n请重新选择单个文件后再尝试。"
+    },
+    "unsupported_file_failed": "不支持的文件",
     "empty_data": "旅途数据为空",
     "successful": "导入成功",
     "parsing_failed": "数据解析失败",
@@ -125,7 +131,8 @@
       "delete_backup_data": "删除备份数据"
     },
     "import_data": {
-      "title": "导入数据"
+      "title": "导入数据",
+      "unsupported_file": "不支持的文件"
     },
     "export_data": {
       "export_all": "导出所有数据"

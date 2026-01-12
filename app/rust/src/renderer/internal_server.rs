@@ -3,80 +3,13 @@ use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
 use serde_with::{base64::Base64, serde_as};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, Weak};
-use uuid::Uuid;
 
 use super::MapRenderer;
 
 use rand::RngCore;
 
-pub type Registry = HashMap<Uuid, Arc<Mutex<MapRenderer>>>;
-
-pub fn register_map_renderer(
-    registry: Arc<Mutex<Registry>>,
-    map_renderer: Arc<Mutex<MapRenderer>>,
-) -> MapRendererToken {
-    let id = {
-        let mut registry = registry.lock().unwrap();
-        let id = Uuid::new_v4();
-        registry.insert(id, map_renderer);
-        id
-    };
-    MapRendererToken {
-        id,
-        registry: Arc::downgrade(&registry),
-        is_primitive: true,
-    }
-}
-
-pub struct MapRendererToken {
-    pub id: Uuid,
-    pub registry: Weak<Mutex<Registry>>,
-    pub is_primitive: bool,
-}
-
-impl MapRendererToken {
-    pub fn journey_id(&self) -> String {
-        self.id.to_string()
-    }
-
-    pub fn get_map_renderer(&self) -> Option<Arc<Mutex<MapRenderer>>> {
-        if let Some(registry) = self.registry.upgrade() {
-            let registry = registry.lock().unwrap();
-            return registry.get(&self.id).cloned();
-        }
-        None
-    }
-
-    pub fn unregister(&self) {
-        if let Some(registry) = self.registry.upgrade() {
-            let mut registry = registry.lock().unwrap();
-            registry.remove(&self.id);
-        }
-    }
-
-    // TODO: this is a workaround for returning main map without server-side lifetime control
-    // we should remove this when we have a better way to handle the main map token
-    pub fn clone_temporary_token(&self) -> MapRendererToken {
-        MapRendererToken {
-            id: self.id,
-            registry: self.registry.clone(),
-            is_primitive: false,
-        }
-    }
-}
-
-impl Drop for MapRendererToken {
-    fn drop(&mut self) {
-        if self.is_primitive {
-            self.unregister();
-        }
-    }
-}
-
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct TileRangeQuery {
-    pub id: Uuid,
     pub x: i64,
     pub y: i64,
     pub z: i16,
@@ -136,6 +69,8 @@ mod tests {
 
     #[test]
     fn test_end_to_end_random_data_request() {
+        use crate::journey_bitmap::JourneyBitmap;
+
         let request_json = r#"{
             "requestId": "test-123",
             "query": "random_data",
@@ -146,10 +81,11 @@ mod tests {
 
         let request = Request::parse(request_json).expect("Failed to parse request");
 
-        // Create a dummy registry (empty is fine for IPC test)
-        let registry = Arc::new(Mutex::new(HashMap::new()));
+        // Create a dummy map renderer for testing
+        let journey_bitmap = JourneyBitmap::new();
+        let map_renderer = MapRenderer::new(journey_bitmap);
 
-        let response = request.handle(registry);
+        let response = request.handle(&map_renderer);
 
         // Verify response structure
         assert_eq!(response.request_id, "test-123");
@@ -187,27 +123,16 @@ mod tests {
     #[test]
     fn test_tile_range_request_includes_version() {
         use crate::journey_bitmap::JourneyBitmap;
-        use uuid::Uuid;
 
         // Create a dummy journey bitmap
         let journey_bitmap = JourneyBitmap::new();
         let map_renderer = MapRenderer::new(journey_bitmap);
 
-        // Create registry and add the map renderer
-        let registry = Arc::new(Mutex::new(HashMap::new()));
-        let id = Uuid::new_v4();
-        registry
-            .lock()
-            .unwrap()
-            .insert(id, Arc::new(Mutex::new(map_renderer)));
-
         // Create tile range request
-        let request_json = format!(
-            r#"{{
+        let request_json = r#"{
             "requestId": "test-version-123",
             "query": "tile_range",
-            "payload": {{
-                "id": "{id}",
+            "payload": {
                 "x": 0,
                 "y": 0,
                 "z": 0,
@@ -215,12 +140,11 @@ mod tests {
                 "height": 1,
                 "buffer_size_power": 6,
                 "cached_version": null
-            }}
-        }}"#
-        );
+            }
+        }"#;
 
         let request = Request::parse(&request_json).expect("Failed to parse request");
-        let response = request.handle(registry);
+        let response = request.handle(&map_renderer);
 
         // Verify response structure
         assert_eq!(response.request_id, "test-version-123");
@@ -249,24 +173,14 @@ mod tests {
     #[test]
     fn test_tile_range_request_returns_304_when_no_changes() {
         use crate::journey_bitmap::JourneyBitmap;
-        use uuid::Uuid;
 
         // Create a dummy journey bitmap
         let journey_bitmap = JourneyBitmap::new();
         let map_renderer = MapRenderer::new(journey_bitmap);
         let version = map_renderer.get_version_string();
 
-        // Create registry and add the map renderer
-        let registry = Arc::new(Mutex::new(HashMap::new()));
-        let id = Uuid::new_v4();
-        registry
-            .lock()
-            .unwrap()
-            .insert(id, Arc::new(Mutex::new(map_renderer)));
-
-        // Create tile range query with current version (should trigger 302)
+        // Create tile range query with current version (should trigger 304)
         let query = TileRangeQuery {
-            id,
             x: 0,
             y: 0,
             z: 0,
@@ -276,7 +190,7 @@ mod tests {
             cached_version: Some(version), // Use current version to trigger no-change scenario
         };
 
-        let response = handle_tile_range_query(&query, registry);
+        let response = handle_tile_range_query(&query, &map_renderer);
 
         // Verify 304 response
         assert!(response.is_ok(), "Expected successful response");
@@ -296,18 +210,11 @@ mod tests {
     }
 }
 
-/// Handle TileRangeQuery and return TileRangeResponse
+/// Handle TileRangeQuery with a MapRenderer reference
 pub fn handle_tile_range_query(
     query: &TileRangeQuery,
-    registry: Arc<Mutex<Registry>>,
+    map_renderer: &MapRenderer,
 ) -> Result<TileRangeResponse, String> {
-    // Get the map renderer from registry
-    let locked_registry = registry.lock().unwrap();
-    let map_renderer = match locked_registry.get(&query.id) {
-        Some(item) => item.lock().unwrap(),
-        None => return Err("Map renderer not found".to_string()),
-    };
-
     // Get the latest bitmap if it has changed
     let (_, version) =
         match map_renderer.get_latest_bitmap_if_changed(query.cached_version.as_deref()) {
@@ -359,31 +266,33 @@ impl Request {
         serde_json::from_str(json_str)
     }
 
-    /// Handle the request and return an appropriate response
-    pub fn handle(&self, registry: Arc<Mutex<Registry>>) -> RequestResponse<serde_json::Value> {
+    /// Handle the request with a MapRenderer reference
+    pub fn handle(&self, map_renderer: &MapRenderer) -> RequestResponse<serde_json::Value> {
         match &self.payload {
-            RequestPayload::TileRange(query) => match handle_tile_range_query(query, registry) {
-                Ok(response_data) => match serde_json::to_value(response_data) {
-                    Ok(value) => RequestResponse {
-                        request_id: self.request_id.clone(),
-                        success: true,
-                        data: Some(value),
-                        error: None,
+            RequestPayload::TileRange(query) => {
+                match handle_tile_range_query(query, map_renderer) {
+                    Ok(response_data) => match serde_json::to_value(response_data) {
+                        Ok(value) => RequestResponse {
+                            request_id: self.request_id.clone(),
+                            success: true,
+                            data: Some(value),
+                            error: None,
+                        },
+                        Err(e) => RequestResponse {
+                            request_id: self.request_id.clone(),
+                            success: false,
+                            data: None,
+                            error: Some(format!("Failed to serialize response: {e}")),
+                        },
                     },
                     Err(e) => RequestResponse {
                         request_id: self.request_id.clone(),
                         success: false,
                         data: None,
-                        error: Some(format!("Failed to serialize response: {e}")),
+                        error: Some(e),
                     },
-                },
-                Err(e) => RequestResponse {
-                    request_id: self.request_id.clone(),
-                    success: false,
-                    data: None,
-                    error: Some(e),
-                },
-            },
+                }
+            }
             RequestPayload::RandomData(query) => {
                 let size = query.size.unwrap_or(1_048_576); // Default 1MB
                 match generate_random_data(size) {

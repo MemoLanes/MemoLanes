@@ -44,7 +44,6 @@ class BaseMapWebview extends StatefulWidget {
 class BaseMapWebviewState extends State<BaseMapWebview> {
   late WebViewController _webViewController;
   late GpsManager _gpsManager;
-  late Timer _roughMapViewUpdateTimer;
   bool _readyForDisplay = false;
 
   // TODO: define a proper type to make it more type-safe
@@ -55,9 +54,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   // It is rough because we don't update it frequently.
   MapView? _currentRoughMapView;
 
-  // Track current journey ID to detect changes
-  String? _currentJourneyId;
-
   // For bug workaround
   bool _isiOS18 = false;
 
@@ -66,31 +62,23 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.trackingMode != widget.trackingMode) _updateLocationMarker();
 
-    // Check if journey ID has changed and update via JavaScript API
+    // Refresh map data when the renderer proxy changes
     if (oldWidget.mapRendererProxy != widget.mapRendererProxy) {
-      _updateJourneyIdIfChanged();
+      _refreshMapData();
     }
   }
 
-  Future<void> _updateJourneyIdIfChanged() async {
-    final newJourneyId = widget.mapRendererProxy.getJourneyId();
-
-    // Check if journey ID has actually changed
-    if (_currentJourneyId != newJourneyId) {
-      log.info(
-          '[base_map_webview] Journey ID changed from $_currentJourneyId to $newJourneyId');
-      _currentJourneyId = newJourneyId;
-
-      // Update journey ID via JavaScript API instead of reloading the page
-      await _webViewController.runJavaScript('''
-        if (typeof updateJourneyId === 'function') {
-          console.log('Updating journey ID to: $newJourneyId');
-          updateJourneyId('$newJourneyId');
-        } else {
-          console.warn('updateJourneyId function not available yet');
-        }
-      ''');
-    }
+  /// Request the WebView to refresh map data from the backend
+  Future<void> _refreshMapData() async {
+    log.info('[base_map_webview] Refreshing map data');
+    await _webViewController.runJavaScript('''
+      if (typeof refreshMapData === 'function') {
+        console.log('Refreshing map data');
+        refreshMapData();
+      } else {
+        console.warn('refreshMapData function not available yet');
+      }
+    ''');
   }
 
   @override
@@ -100,15 +88,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _gpsManager = Provider.of<GpsManager>(context, listen: false);
     _gpsManager.addListener(_updateLocationMarker);
     _currentRoughMapView = widget.initialMapView;
-    _currentJourneyId = widget.mapRendererProxy.getJourneyId();
-    _roughMapViewUpdateTimer =
-        Timer.periodic(Duration(seconds: 5), (Timer t) async {
-      final newMapView = await _getCurrentMapView();
-      if (newMapView != null && newMapView != _currentRoughMapView) {
-        _currentRoughMapView = newMapView;
-        widget.onRoughMapViewUpdate?.call(newMapView);
-      }
-    });
     _initWebView();
 
     () async {
@@ -127,33 +106,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   @override
   void dispose() {
     _gpsManager.removeListener(_updateLocationMarker);
-    _roughMapViewUpdateTimer.cancel();
     super.dispose();
-  }
-
-  Future<({double lng, double lat, double zoom})?> _getCurrentMapView() async {
-    // TODO: `runJavaScriptReturningResult` is very buggy. I only made it work
-    // by forcing the js side only return string with the platform hack below.
-    // See more: https://github.com/flutter/flutter/issues/80328
-    if (!_readyForDisplay) return null;
-
-    String jsonString =
-        await _webViewController.runJavaScriptReturningResult('''
-        if (typeof getCurrentMapView === 'function') {
-          getCurrentMapView();
-        }
-      ''') as String;
-    if (Platform.isAndroid) {
-      jsonString = jsonDecode(jsonString) as String;
-    }
-
-    // NOTE: when js is returning a double, we may get an int.
-    final map = jsonDecode(jsonString);
-    return (
-      lng: map['lng'].toDouble() as double,
-      lat: map['lat'].toDouble() as double,
-      zoom: map['zoom'].toDouble() as double,
-    );
   }
 
   void _updateLocationMarker() {
@@ -239,6 +192,12 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         onMessageReceived: (JavaScriptMessage message) {
           _handleTileProviderRequest(message.message);
         },
+      )
+      ..addJavaScriptChannel(
+        'onMapViewChanged',
+        onMessageReceived: (JavaScriptMessage message) async {
+          _handleMapViewPush(message.message);
+        },
       );
     final assetPath = 'assets/map_webview/index.html';
     log.info('[base_map_webview] Initial loading asset: $assetPath');
@@ -247,8 +206,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   Future<void> _injectApiEndpoint() async {
     final accessKey = api.getMapboxAccessToken();
-
-    final journeyId = widget.mapRendererProxy.getJourneyId();
 
     // Get map view coordinates
     final mapView = _currentRoughMapView;
@@ -264,7 +221,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       // Set the params
       window.EXTERNAL_PARAMS = {
         cgi_endpoint: "flutter://TileProviderChannel",
-        journey_id: "$journeyId",
         render: "canvas",
         map_style: "$_mapStyle",
         access_key: ${accessKey != null ? "\"$accessKey\"" : "null"},
@@ -287,12 +243,38 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     debugPrint('Initialization completed');
   }
 
+  void _handleMapViewPush(String message) {
+    try {
+      final map = jsonDecode(message);
+
+      double readNum(dynamic v, String key) {
+        if (v is num) return v.toDouble();
+        throw StateError('Invalid $key: $v');
+      }
+
+      final mapView = (
+        lng: readNum(map['lng'], 'lng'),
+        lat: readNum(map['lat'], 'lat'),
+        zoom: readNum(map['zoom'], 'zoom'),
+      );
+
+      if (mapView != _currentRoughMapView) {
+        _currentRoughMapView = mapView;
+        widget.onRoughMapViewUpdate?.call(mapView);
+      }
+    } catch (e) {
+      log.error('[base_map_webview] invalid mapView push: $message, error=$e');
+    }
+  }
+
   void _handleTileProviderRequest(String message) async {
     try {
       // debugPrint('Tile Provider IPC Request: $message');
 
       // Forward the JSON request transparently to Rust and get raw JSON response
-      final responseJson = await api.handleWebviewRequests(request: message);
+      final responseJson = await widget.mapRendererProxy.handleWebviewRequests(
+        request: message,
+      );
 
       // final truncatedResponse = responseJson.length > 100
       //     ? '${responseJson.substring(0, 100)}...'

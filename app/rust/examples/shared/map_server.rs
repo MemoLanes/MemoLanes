@@ -3,15 +3,11 @@ use actix_web::{
 };
 use anyhow::Result;
 use memolanes_core::build_info;
-use memolanes_core::renderer::internal_server::MapRendererToken;
-use memolanes_core::renderer::internal_server::{
-    handle_tile_range_query, Registry, Request, TileRangeQuery,
-};
+use memolanes_core::renderer::internal_server::{handle_tile_range_query, Request, TileRangeQuery};
 use memolanes_core::renderer::{get_default_camera_option_from_journey_bitmap, MapRenderer};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use tokio::runtime::Runtime;
-use uuid::Uuid;
 
 /// Helper function to add standard CORS headers to an HttpResponseBuilder
 fn add_cors_headers(builder: &mut HttpResponseBuilder) -> &mut HttpResponseBuilder {
@@ -26,10 +22,10 @@ fn add_cors_headers(builder: &mut HttpResponseBuilder) -> &mut HttpResponseBuild
 
 async fn serve_journey_tile_range(
     query: web::Query<TileRangeQuery>,
-    data: web::Data<Arc<Mutex<Registry>>>,
+    data: web::Data<Arc<Mutex<MapRenderer>>>,
 ) -> HttpResponse {
-    // Use the tile-specific handler directly
-    match handle_tile_range_query(&query.into_inner(), data.get_ref().clone()) {
+    let map_renderer = data.get_ref().lock().unwrap();
+    match handle_tile_range_query(&query.into_inner(), &map_renderer) {
         Ok(tile_response) => {
             match tile_response.status {
                 200 => {
@@ -53,24 +49,16 @@ async fn serve_journey_tile_range(
                 }
             }
         }
-        Err(error_message) => {
-            if error_message.contains("Map renderer not found") {
-                add_cors_headers(&mut HttpResponse::NotFound())
-                    .content_type("text/plain")
-                    .body(error_message)
-            } else {
-                add_cors_headers(&mut HttpResponse::InternalServerError())
-                    .content_type("text/plain")
-                    .body(error_message)
-            }
-        }
+        Err(error_message) => add_cors_headers(&mut HttpResponse::InternalServerError())
+            .content_type("text/plain")
+            .body(error_message),
     }
 }
 
 // Unified JSON POST endpoint that handles all request types
 async fn serve_unified_json_request(
     body: web::Bytes,
-    data: web::Data<Arc<Mutex<Registry>>>,
+    data: web::Data<Arc<Mutex<MapRenderer>>>,
 ) -> HttpResponse {
     // Parse the JSON request
     let request_str = match std::str::from_utf8(&body) {
@@ -92,7 +80,8 @@ async fn serve_unified_json_request(
     };
 
     // Handle the request using the unified interface
-    let response = request.handle(data.get_ref().clone());
+    let map_renderer = data.get_ref().lock().unwrap();
+    let response = request.handle(&map_renderer);
 
     // Convert to JSON and return HTTP response
     match serde_json::to_string(&response) {
@@ -120,7 +109,7 @@ pub struct ServerInfo {
 
 pub struct MapServer {
     handles: Option<(JoinHandle<()>, ServerHandle)>,
-    registry: Arc<Mutex<Registry>>,
+    map_renderer: Arc<Mutex<MapRenderer>>,
     server_info: Arc<Mutex<ServerInfo>>,
 }
 
@@ -128,7 +117,7 @@ impl MapServer {
     fn start_server_blocking<F>(
         host: &str,
         port: Option<u16>,
-        registry: Arc<Mutex<Registry>>,
+        map_renderer: Arc<Mutex<MapRenderer>>,
         ready_with_port: F,
     ) -> Result<()>
     where
@@ -141,7 +130,7 @@ impl MapServer {
         let runtime = Runtime::new()?;
         runtime.block_on(async move {
             eprintln!("[INFO] Setting up map server ...");
-            let data = web::Data::new(registry);
+            let data = web::Data::new(map_renderer);
             let server = HttpServer::new(move || {
                 App::new()
                     .app_data(data.clone())
@@ -183,7 +172,7 @@ impl MapServer {
     fn start_server(
         host: &str,
         port: Option<u16>,
-        registry: Arc<Mutex<Registry>>,
+        map_renderer: Arc<Mutex<MapRenderer>>,
     ) -> Result<((JoinHandle<()>, ServerHandle), ServerInfo)> {
         let (tx, rx) = std::sync::mpsc::channel();
         let host_for_move = host.to_owned();
@@ -191,7 +180,7 @@ impl MapServer {
             if let Err(e) = Self::start_server_blocking(
                 &host_for_move,
                 port,
-                registry,
+                map_renderer,
                 |actual_port, server_handle| {
                     let _ = tx.send(Ok((actual_port, server_handle)));
                 },
@@ -208,106 +197,75 @@ impl MapServer {
         Ok(((handle, server_handle), server_info))
     }
 
-    pub fn create_and_start_with_registry(
+    pub fn create_and_start(
         host: &str,
         port: Option<u16>,
-        registry: Arc<Mutex<Registry>>,
+        map_renderer: Arc<Mutex<MapRenderer>>,
     ) -> Result<Self> {
-        let registry_for_move = registry.clone();
-        let (handles, server_info) = Self::start_server(host, port, registry_for_move)?;
+        let map_renderer_clone = map_renderer.clone();
+        let (handles, server_info) = Self::start_server(host, port, map_renderer_clone)?;
 
         Ok(Self {
             handles: Some(handles),
-            registry,
+            map_renderer,
             server_info: Arc::new(Mutex::new(server_info)),
         })
     }
 
-    pub fn get_http_url(&self, token: &MapRendererToken) -> String {
+    pub fn get_http_url(&self) -> String {
         let dev_server =
             std::env::var("DEV_SERVER").unwrap_or_else(|_| "http://localhost:8080".to_string());
 
         let server_info = self.server_info.lock().unwrap();
-        let camera_option = get_default_camera_option_from_journey_bitmap(
-            token
-                .get_map_renderer()
-                .unwrap()
-                .lock()
-                .unwrap()
-                .peek_latest_bitmap(),
-        );
+        let map_renderer = self.map_renderer.lock().unwrap();
+        let camera_option =
+            get_default_camera_option_from_journey_bitmap(map_renderer.peek_latest_bitmap());
 
         match camera_option {
             Some(camera) => format!(
-                "{}#cgi_endpoint=http%3A%2F%2F{}%3A{}&journey_id={}&debug=true&lng={}&lat={}&zoom={}&access_key={}",
+                "{}#cgi_endpoint=http%3A%2F%2F{}%3A{}&debug=true&lng={}&lat={}&zoom={}&access_key={}",
                 dev_server,
                 server_info.host,
                 server_info.port,
-                token.journey_id(),
                 camera.lng,
                 camera.lat,
                 camera.zoom,
                 build_info::MAPBOX_ACCESS_TOKEN.unwrap_or("")
             ),
             None => format!(
-                "{}#cgi_endpoint=http%3A%2F%2F{}%3A{}&journey_id={}&debug=true&access_key={}",
+                "{}#cgi_endpoint=http%3A%2F%2F{}%3A{}&debug=true&access_key={}",
                 dev_server,
                 server_info.host,
                 server_info.port,
-                token.journey_id(),
                 build_info::MAPBOX_ACCESS_TOKEN.unwrap_or("")
             ),
         }
     }
 
-    pub fn get_file_url(&self, token: &MapRendererToken) -> String {
+    pub fn get_file_url(&self) -> String {
         let server_info = self.server_info.lock().unwrap();
-        let camera_option = get_default_camera_option_from_journey_bitmap(
-            token
-                .get_map_renderer()
-                .unwrap()
-                .lock()
-                .unwrap()
-                .peek_latest_bitmap(),
-        );
+        let map_renderer = self.map_renderer.lock().unwrap();
+        let camera_option =
+            get_default_camera_option_from_journey_bitmap(map_renderer.peek_latest_bitmap());
 
         match camera_option {
             Some(camera) => format!(
-                "file://{}/journey_kernel/index.html#cgi_endpoint=http%3A%2F%2F{}%3A{}&journey_id={}&debug=true&lng={}&lat={}&zoom={}&access_key={}", 
+                "file://{}/journey_kernel/index.html#cgi_endpoint=http%3A%2F%2F{}%3A{}&debug=true&lng={}&lat={}&zoom={}&access_key={}", 
                 std::env::var("OUT_DIR").unwrap_or_else(|_| ".".to_string()), 
                 server_info.host,
                 server_info.port,
-                token.journey_id(),
                 camera.lng,
                 camera.lat,
                 camera.zoom,
                 build_info::MAPBOX_ACCESS_TOKEN.unwrap_or(""),
             ),
             None => format!(
-                "file://{}/journey_kernel/index.html#cgi_endpoint=http%3A%2F%2F{}%3A{}&journey_id={}&debug=true&access_key={}", 
+                "file://{}/journey_kernel/index.html#cgi_endpoint=http%3A%2F%2F{}%3A{}&debug=true&access_key={}", 
                 std::env::var("OUT_DIR").unwrap_or_else(|_| ".".to_string()), 
                 server_info.host,
                 server_info.port,
-                token.journey_id(),
                 build_info::MAPBOX_ACCESS_TOKEN.unwrap_or(""),
             )
-        }
-    }
-
-    pub fn register_map_renderer(
-        &mut self,
-        map_renderer: Arc<Mutex<MapRenderer>>,
-    ) -> MapRendererToken {
-        let id = {
-            let mut registry = self.registry.lock().unwrap();
-            let id = Uuid::new_v4();
-            registry.insert(id, map_renderer);
-            id
-        };
-        MapRendererToken {
-            id,
-            registry: Arc::downgrade(&self.registry),
-            is_primitive: true,
         }
     }
 
@@ -340,12 +298,10 @@ mod tests {
     };
     use serde_json;
     use std::collections::HashMap;
-    use uuid::uuid;
 
     #[test]
     fn test_tile_range_query_roundtrip_serialization() {
         let original_query = TileRangeQuery {
-            id: uuid!("25506f47-b66a-4ddc-bfbe-2a7a2ae543e3"),
             x: -999,
             y: 999,
             z: 20,
@@ -359,7 +315,7 @@ mod tests {
         let json = serde_json::to_string(&original_query).expect("Failed to serialize");
         assert_eq!(
             json,
-            r#"{"id":"25506f47-b66a-4ddc-bfbe-2a7a2ae543e3","x":-999,"y":999,"z":20,"width":4096,"height":2048,"buffer_size_power":12,"cached_version":"test-version-123"}"#
+            r#"{"x":-999,"y":999,"z":20,"width":4096,"height":2048,"buffer_size_power":12,"cached_version":"test-version-123"}"#
         );
 
         // Deserialize back from JSON
@@ -418,7 +374,6 @@ mod tests {
             "requestId": "test-123",
             "query": "tile_range",
             "payload": {
-                "id": "25506f47-b66a-4ddc-bfbe-2a7a2ae543e3",
                 "x": 0,
                 "y": 0,
                 "z": 0,
@@ -434,7 +389,6 @@ mod tests {
         assert_eq!(request.request_id, "test-123");
         match request.payload {
             RequestPayload::TileRange(query) => {
-                assert_eq!(query.id, uuid!("25506f47-b66a-4ddc-bfbe-2a7a2ae543e3"));
                 assert_eq!(query.x, 0);
                 assert_eq!(query.y, 0);
                 assert_eq!(query.z, 0);

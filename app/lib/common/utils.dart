@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
 import 'package:memolanes/common/component/common_export.dart';
+import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:memolanes/common/log.dart';
 
 Future<bool> showCommonDialog(BuildContext context, String message,
     {hasCancel = false,
@@ -184,4 +186,24 @@ void showBasicCard(
       );
     },
   );
+}
+
+Future<void> importMldx(BuildContext context, String path) async {
+  try {
+    await showLoadingDialog(
+      context: context,
+      asyncTask: api.importArchive(mldxFilePath: path),
+    );
+    if (context.mounted) {
+      await showCommonDialog(
+        context,
+        context.tr("import.successful"),
+      );
+    }
+  } catch (error) {
+    if (context.mounted) {
+      await showCommonDialog(context, context.tr("import.parsing_failed"));
+      log.error("[import_data] Data parsing failed $error");
+    }
+  }
 }
