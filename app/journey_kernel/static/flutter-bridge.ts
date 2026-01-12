@@ -143,6 +143,10 @@ export class FlutterBridge {
     // Update location marker
     window.updateLocationMarker = (() => {
       let isFlying = false;
+      const onMoveEnd = () => {
+        isFlying = false;
+      };
+      this.map.on("moveend", onMoveEnd);
       return (
         lng: number,
         lat: number,
@@ -161,12 +165,6 @@ export class FlutterBridge {
               zoom: currentZoom < 14 ? 16 : currentZoom,
               essential: true,
             });
-
-            const onMoveEnd = () => {
-              isFlying = false;
-              this.map.off("moveend", onMoveEnd);
-            };
-            this.map.on("moveend", onMoveEnd);
           }
         } else {
           this.locationMarker.remove();
