@@ -68,6 +68,17 @@ flutter run --dart-define=DEV_SERVER=http://<your-ip>:8080
 
 This will make the app load the map webview from the dev server instead of the bundled assets.
 
+**Enabling Debug Panel in Flutter:**
+
+To enable the frontend debug panel when running in Flutter, set `debug: "true"` in the `window.EXTERNAL_PARAMS` object in `base_map_webview.dart`:
+
+```dart
+window.EXTERNAL_PARAMS = {
+  // ... other params ...
+  debug: "true",
+};
+```
+
 #### Testing with Rust Demo Server
 
 The Rust demo server only handles dynamic requests (e.g., tile data). You need to host the static resources separately via `yarn dev`.
