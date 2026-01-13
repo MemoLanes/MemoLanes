@@ -650,11 +650,9 @@ export class DebugPanel {
   }
 
   private _checkDebugStatus(): void {
-    const hash: string = window.location.hash.slice(1);
-    const urlParams = new URLSearchParams(hash);
-    const debugParam: string | null = urlParams.get("debug");
-
-    if (debugParam === "true") {
+    // Use params.debug instead of checking URL hash
+    // This allows hard-coded debug mode to work properly
+    if (this.params.debug) {
       this.show();
 
       // Sync dropdown with current params value
