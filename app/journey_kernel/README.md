@@ -75,10 +75,6 @@ These two files are statically generated in dev mode, but will be hosted dynamic
 
 ### Development
 
-1. Run `setup_token.py` in the `app` folder to generate the `token.json` file.
-2. Run `cargo test` in the `app/journey_kernel` folder to generate the `journey_bitmap.bin` file.
-3. Run `yarn dev` in the `app/journey_kernel` folder to start the webpack dev server.
-
 #### Testing with Flutter App
 
 To test the webpack dev server with the Flutter app (useful for hot-reload during web development):
