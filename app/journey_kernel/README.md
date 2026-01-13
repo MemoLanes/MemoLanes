@@ -2,40 +2,46 @@
 
 
 ```
-⚠️ When making changes to this library, remember to bump the ver`sion number in `Cargo.toml`. 
-This ensures main rust project will properly rebuild the WASM module with the changes.
+⚠️ When making changes to this library, remember to run `just pre-build` in the `app` folder.
+This ensures the frontend assets are up to date before building the app.
 ```
 
 This library is used to render journey bitmaps in the app. It supports both native and WASM.
 
 ## JavaScript APIs
 
+> 📖 For the most up-to-date API definitions, refer to [`static/flutter-bridge.ts`](static/flutter-bridge.ts).
+
 | API | Description | Parameters | Return Value |
 |-----|-------------|------------|--------------|
 | `window.updateLocationMarker(lng, lat, show, flyto)` | Updates the current location marker | `lng`: longitude (number)<br>`lat`: latitude (number)<br>`show`: visibility (boolean, default: true)<br>`flyto`: animate to location (boolean, default: false) | void |
-| `window.getCurrentMapView()` | Gets current map position | none | `{lng: number, lat: number, zoom: number}` |
-| `window.triggerJourneyUpdate()` | Manually triggers data update | none | Promise |
+| `window.getCurrentMapView()` | Gets current map position | none | `{lng: number, lat: number, zoom: number}` (JSON string) |
+| `window.refreshMapData()` | Manually triggers data refresh | none | `Promise<boolean \| null>` |
 
 ### URL Hash Parameters
 
+> 📖 For the most up-to-date parameter definitions, refer to the `ExternalParams` interface in [`static/params.ts`](static/params.ts).
+
 Since flutter webview may not have a reliable way to inject JS *before* the page loads, we use URL hash parameters to optionally set the initial map position. The hash parameters can guarantee the location is set before the map is initialized.
 
-All the parameters are optional.
+All the parameters are optional (except `cgi_endpoint` which is required when using hash parameters).
 
 ```
-https://example.com/#journey_id=XXXXX&lng=100.0&lat=30.0&zoom=19
+https://example.com/#cgi_endpoint=.&lng=100.0&lat=30.0&zoom=19&map_style=https://...
 ```
 
-| Parameter | Description | Type |
-|-----------|-------------|------|
-| `journey_id` | Initial journey id | string |
-| `lng` | Initial longitude | number |
-| `lat` | Initial latitude | number |
-| `zoom` | Initial zoom level | number |
-| `render`| Render method | 'canvas' |
-| `debug`| debug panel | bool |
-
-The page will listen to the hash change of `render` and `debug` and apply accordingly.
+| Parameter | Description | Type | Default |
+|-----------|-------------|------|---------|
+| `cgi_endpoint` | CGI endpoint URL | string | Required |
+| `access_key` | Mapbox access token (required for Mapbox styles) | string | - |
+| `lng` | Initial longitude | number | 0 |
+| `lat` | Initial latitude | number | 0 |
+| `zoom` | Initial zoom level | number | 2 |
+| `render` | Render method | `'canvas'` | `'canvas'` |
+| `map_style` | Map style URL | string | OpenFreeMap Liberty |
+| `fog_density` | Fog density (0-1) | number | 0.5 |
+| `projection` | Map projection | `'mercator'` \| `'globe'` | `'globe'` |
+| `debug` | Show debug panel | `'true'` \| `'false'` | `'false'` |
 
 ## Web Development
 
