@@ -18,17 +18,38 @@ This library is used to render journey bitmaps in the app. It supports both nati
 | `window.getCurrentMapView()` | Gets current map position | none | `{lng: number, lat: number, zoom: number}` (JSON string) |
 | `window.refreshMapData()` | Manually triggers data refresh | none | `Promise<boolean \| null>` |
 
-### URL Hash Parameters
+### Initialization Parameters
 
 > 📖 For the most up-to-date parameter definitions, refer to the `ExternalParams` interface in [`static/params.ts`](static/params.ts).
 
-Since flutter webview may not have a reliable way to inject JS *before* the page loads, we use URL hash parameters to optionally set the initial map position. The hash parameters can guarantee the location is set before the map is initialized.
+Parameters can be provided in two ways - what matters is that `window.EXTERNAL_PARAMS` gets populated before `trySetup()` is called:
 
-All the parameters are optional (except `cgi_endpoint` which is required when using hash parameters).
+**1. URL Hash (for web development)**
 
 ```
 https://example.com/#cgi_endpoint=.&lng=100.0&lat=30.0&zoom=19&map_style=https://...
 ```
+
+If `window.EXTERNAL_PARAMS` is empty when the page initializes, the hash will be parsed automatically.
+
+**2. Flutter JS Injection (for production)**
+
+Flutter injects parameters via JavaScript after page load, then calls `trySetup()`:
+
+```javascript
+window.EXTERNAL_PARAMS = {
+  cgi_endpoint: "flutter://TileProviderChannel",
+  render: "canvas",
+  // ... other params
+};
+trySetup();
+```
+
+See [`static/index.ts`](static/index.ts) for the complete setup flow.
+
+**Available Parameters:**
+
+All parameters are optional except `cgi_endpoint` which is required.
 
 | Parameter | Description | Type | Default |
 |-----------|-------------|------|---------|
