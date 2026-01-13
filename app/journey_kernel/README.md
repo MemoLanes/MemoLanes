@@ -52,13 +52,45 @@ These two files are statically generated in dev mode, but will be hosted dynamic
 2. Run `cargo test` in the `app/journey_kernel` folder to generate the `journey_bitmap.bin` file.
 3. Run `yarn dev` in the `app/journey_kernel` folder to start the webpack dev server.
 
-### Production
+#### Testing with Flutter App
 
-1. run `yarn build` to generate the static sites without the above two files. The output will be in the `dist` folder. (As an intermediate step, the wasm-pack will also generate wasm files in the `pkg` folder.)
-2. run the following command in the `app/rust` folder:
+To test the webpack dev server with the Flutter app (useful for hot-reload during web development):
+
+```bash
+flutter run --dart-define=DEV_SERVER=http://<your-ip>:8080
+```
+
+This will make the app load the map webview from the dev server instead of the bundled assets.
+
+#### Testing with Rust Demo Server
+
+The Rust demo server only handles dynamic requests (e.g., tile data). You need to host the static resources separately via `yarn dev`.
+
+1. Start the webpack dev server: `yarn dev` in the `app/journey_kernel` folder.
+2. Start the Rust demo server in the `app/rust` folder:
 
 ```bash
 cargo run --example server
 ```
 
-The rust demo server is exactly the same as the one in the app. You may check the file at `app/rust/src/renderer/map_server.rs`.
+By default, the server assumes static resources are available at `http://localhost:8080`. You can override this with the `DEV_SERVER` environment variable:
+
+```bash
+DEV_SERVER=http://localhost:8080 cargo run --example server
+```
+
+The Rust demo server logic is the same as the one in the app. You may check the file at `app/rust/src/renderer/map_server.rs`.
+
+### Production Build
+
+To generate the production build for the Flutter app:
+
+```bash
+# In the app folder
+just pre-build
+```
+
+This command will:
+1. Run `yarn build` to generate the static sites (output in `dist` folder, wasm files in `pkg` folder)
+2. Copy the assets to Flutter's `assets/map_webview` folder
+3. Generate the FRB code
