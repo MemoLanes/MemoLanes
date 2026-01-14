@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
+import 'package:memolanes/body/journey/editor/edit_session_ext.dart';
 import 'package:memolanes/body/journey/editor/journey_editor_map_view.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
 import 'package:easy_localization/easy_localization.dart';
 
 class JourneyTrackEditPage extends StatefulWidget {
@@ -14,6 +16,7 @@ class JourneyTrackEditPage extends StatefulWidget {
 }
 
 class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
+  EditSession? _editSession;
   api.MapRendererProxy? _mapRendererProxy;
   JourneyEditorMapViewCamera? _initialMapView;
   bool _isAddMode = false;
@@ -182,9 +185,11 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   }
 
   Future<void> _loadMap() async {
-    final result = await api.startJourneyEdit(journeyId: widget.journeyId);
+    final session = await api.createEditSession(journeyId: widget.journeyId);
+    final result = await session.getMapRendererProxy();
     if (mounted) {
       setState(() {
+        _editSession = session;
         _mapRendererProxy = result.$1;
         final cameraOption = result.$2;
         if (cameraOption != null) {
@@ -194,18 +199,13 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
             zoom: cameraOption.zoom,
           );
         }
-        _canUndo = false;
+        _canUndo = session.canUndo();
         _editingSupported = true;
       });
     }
 
     // Detect whether the edit session is backed by a vector journey.
-    bool supported = true;
-    try {
-      await api.addLineInEdit(startLat: 0, startLng: 0, endLat: 0, endLng: 0);
-    } catch (_) {
-      supported = false;
-    }
+    final supported = session.isVector();
 
     if (!mounted) return;
     if (!supported) {
@@ -229,7 +229,9 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   }
 
   Future<void> _refreshCanUndo() async {
-    final canUndo = await api.canUndoInEdit();
+    final session = _editSession;
+    if (session == null) return;
+    final canUndo = session.canUndo();
     if (!mounted) return;
     setState(() {
       _canUndo = canUndo;
@@ -241,14 +243,17 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     if (!_isAddMode) return;
     if (points.length < 2) return;
 
-    await api.pushUndoCheckpointInEdit();
+    final session = _editSession;
+    if (session == null) return;
+
+    await session.pushUndoCheckpoint();
 
     // Approximate the freehand path by adding many small straight segments.
     api.MapRendererProxy? latestProxy = _mapRendererProxy;
     for (var i = 0; i < points.length - 1; i++) {
       final a = points[i];
       final b = points[i + 1];
-      final result = await api.addLineInEdit(
+      final result = await session.addLine(
         startLat: a.lat,
         startLng: a.lng,
         endLat: b.lat,
@@ -276,9 +281,12 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     if (!_editingSupported) return;
     if (!_isDeleteMode) return;
 
-    await api.pushUndoCheckpointInEdit();
+    final session = _editSession;
+    if (session == null) return;
 
-    final result = await api.deletePointsInBoxInEdit(
+    await session.pushUndoCheckpoint();
+
+    final result = await session.deletePointsInBox(
       startLat: startLat,
       startLng: startLng,
       endLat: endLat,
@@ -299,7 +307,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     // SnackBar is dismissed and doesn't remain on the previous page.
     _activeSnackBarController?.close();
     _snackBarMessenger?.removeCurrentSnackBar();
-    api.discardJourneyEdit();
+    _editSession?.discard();
     super.dispose();
   }
 
@@ -355,7 +363,9 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                         onPressed: !_editingSupported
                             ? null
                             : () async {
-                                final result = await api.undoInEdit();
+                                final session = _editSession;
+                                if (session == null) return;
+                                final result = await session.undo();
                                 if (!mounted) return;
                                 setState(() {
                                   _mapRendererProxy = result.$1;
@@ -449,7 +459,9 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                       onPressed: !_editingSupported
                           ? null
                           : () async {
-                              await api.saveJourneyEdit();
+                              final session = _editSession;
+                              if (session == null) return;
+                              await session.commit();
                               if (!context.mounted) return;
                               _showDefaultSnackBar(
                                 context,

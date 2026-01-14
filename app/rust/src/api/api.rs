@@ -27,6 +27,68 @@ use super::import::JourneyInfo;
 
 use log::{error, info, warn};
 
+pub use super::edit_session::EditSession;
+
+#[frb(sync)]
+pub fn edit_session_journey_id(that: &EditSession) -> String {
+    that.journey_id()
+}
+
+#[frb(sync)]
+pub fn edit_session_is_vector(that: &EditSession) -> bool {
+    that.is_vector()
+}
+
+#[frb(sync)]
+pub fn edit_session_can_undo(that: &EditSession) -> bool {
+    that.can_undo()
+}
+
+pub fn edit_session_push_undo_checkpoint(that: &mut EditSession) -> bool {
+    that.push_undo_checkpoint()
+}
+
+pub fn edit_session_get_map_renderer_proxy(
+    that: &EditSession,
+) -> Result<(MapRendererProxy, Option<CameraOption>)> {
+    that.get_map_renderer_proxy()
+}
+
+pub fn edit_session_undo(
+    that: &mut EditSession,
+) -> Result<(MapRendererProxy, Option<CameraOption>)> {
+    that.undo()
+}
+
+pub fn edit_session_delete_points_in_box(
+    that: &mut EditSession,
+    start_lat: f64,
+    start_lng: f64,
+    end_lat: f64,
+    end_lng: f64,
+) -> Result<(MapRendererProxy, Option<CameraOption>)> {
+    that.delete_points_in_box(start_lat, start_lng, end_lat, end_lng)
+}
+
+pub fn edit_session_add_line(
+    that: &mut EditSession,
+    start_lat: f64,
+    start_lng: f64,
+    end_lat: f64,
+    end_lng: f64,
+) -> Result<(MapRendererProxy, Option<CameraOption>)> {
+    that.add_line(start_lat, start_lng, end_lat, end_lng)
+}
+
+pub fn edit_session_commit(that: &EditSession) -> Result<()> {
+    that.commit()
+}
+
+#[frb(sync)]
+pub fn edit_session_discard(that: &EditSession) {
+    that.discard()
+}
+
 // TODO: we have way too many locking here and now it is hard to track.
 //  e.g. we could mess up with the order and cause a deadlock
 #[frb(ignore)]
@@ -38,13 +100,6 @@ pub(super) struct MainState {
     main_map_state: Arc<Mutex<MainMapState>>,
     pub main_map_renderer: Arc<Mutex<MapRenderer>>,
     pub main_map_renderer_token: MapRendererToken,
-    pub edit_session: Mutex<Option<EditSession>>,
-}
-
-pub struct EditSession {
-    pub journey_id: String,
-    pub data: JourneyData,
-    undo_stack: Vec<JourneyData>,
 }
 
 static MAIN_STATE: OnceLock<MainState> = OnceLock::new();
@@ -144,7 +199,6 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, system_cache
             main_map_state,
             main_map_renderer,
             main_map_renderer_token,
-            edit_session: Mutex::new(None),
         }
     });
     if already_initialized {
@@ -370,7 +424,7 @@ pub(crate) fn get_default_camera_option_from_journey_bitmap(
         })
 }
 
-fn get_map_renderer_proxy_for_journey_data_internal(
+pub(super) fn get_map_renderer_proxy_for_journey_data_internal(
     state: &'static MainState,
     journey_data: JourneyData,
 ) -> Result<(MapRendererProxy, Option<CameraOption>)> {
@@ -793,312 +847,6 @@ pub fn reload_resource_for_foreground() -> Result<()> {
     Ok(())
 }
 
-pub fn start_journey_edit(journey_id: String) -> Result<(MapRendererProxy, Option<CameraOption>)> {
-    let state = get();
-    let journey_data = state
-        .storage
-        .with_db_txn(|txn| txn.get_journey_data(&journey_id))?;
-
-    let mut session = state.edit_session.lock().unwrap();
-    *session = Some(EditSession {
-        journey_id: journey_id.clone(),
-        data: journey_data.clone(),
-        undo_stack: Vec::new(),
-    });
-
-    get_map_renderer_proxy_for_journey_data_internal(state, journey_data)
-}
-
-pub fn push_undo_checkpoint_in_edit() -> Result<bool> {
-    let state = get();
-    let mut session_guard = state.edit_session.lock().unwrap();
-
-    if let Some(session) = session_guard.as_mut() {
-        // Store current state so a subsequent undo can revert to it.
-        // Avoid pushing identical snapshots (e.g. if called repeatedly without edits).
-        if session.undo_stack.last() != Some(&session.data) {
-            session.undo_stack.push(session.data.clone());
-            return Ok(true);
-        }
-        return Ok(false);
-    }
-
-    bail!("No active edit session");
-}
-
-pub fn can_undo_in_edit() -> Result<bool> {
-    let state = get();
-    let session_guard = state.edit_session.lock().unwrap();
-
-    if let Some(session) = session_guard.as_ref() {
-        return Ok(!session.undo_stack.is_empty());
-    }
-
-    Ok(false)
-}
-
-pub fn is_journey_edit_vector() -> Result<bool> {
-    let state = get();
-    let session_guard = state.edit_session.lock().unwrap();
-
-    if let Some(session) = session_guard.as_ref() {
-        return Ok(matches!(session.data, JourneyData::Vector(_)));
-    }
-
-    Ok(false)
-}
-
-pub fn undo_in_edit() -> Result<(MapRendererProxy, Option<CameraOption>)> {
-    let state = get();
-    let mut session_guard = state.edit_session.lock().unwrap();
-
-    if let Some(session) = session_guard.as_mut() {
-        if let Some(previous) = session.undo_stack.pop() {
-            session.data = previous;
-            return get_map_renderer_proxy_for_journey_data_internal(state, session.data.clone());
-        }
-        bail!("Nothing to undo");
-    }
-
-    bail!("No active edit session");
-}
-
-pub fn delete_points_in_box_in_edit(
-    start_lat: f64,
-    start_lng: f64,
-    end_lat: f64,
-    end_lng: f64,
-) -> Result<(MapRendererProxy, Option<CameraOption>)> {
-    let state = get();
-    let mut session_guard = state.edit_session.lock().unwrap();
-
-    if let Some(session) = session_guard.as_mut() {
-        if let JourneyData::Vector(vector) = &mut session.data {
-            let min_lat = start_lat.min(end_lat);
-            let max_lat = start_lat.max(end_lat);
-            let min_lng = start_lng.min(end_lng);
-            let max_lng = start_lng.max(end_lng);
-
-            let inside = |p: &crate::journey_vector::TrackPoint| -> bool {
-                p.latitude >= min_lat
-                    && p.latitude <= max_lat
-                    && p.longitude >= min_lng
-                    && p.longitude <= max_lng
-            };
-
-            let segment_intersections = |
-                a: &crate::journey_vector::TrackPoint,
-                b: &crate::journey_vector::TrackPoint,
-            | -> Vec<(f64, crate::journey_vector::TrackPoint)> {
-                let x0 = a.longitude;
-                let y0 = a.latitude;
-                let x1 = b.longitude;
-                let y1 = b.latitude;
-                let dx = x1 - x0;
-                let dy = y1 - y0;
-
-                let mut hits: Vec<(f64, crate::journey_vector::TrackPoint)> = Vec::new();
-                let eps = 1e-12_f64;
-
-                let mut push_hit = |t: f64, x: f64, y: f64| {
-                    if t < -eps || t > 1.0 + eps {
-                        return;
-                    }
-                    let t = t.clamp(0.0, 1.0);
-                    // de-dup by t
-                    if hits.iter().any(|(t0, _)| (*t0 - t).abs() < 1e-9) {
-                        return;
-                    }
-                    hits.push((
-                        t,
-                        crate::journey_vector::TrackPoint {
-                            latitude: y,
-                            longitude: x,
-                        },
-                    ));
-                };
-
-                // Intersect with vertical edges (lng = const)
-                if dx.abs() > eps {
-                    for x_edge in [min_lng, max_lng] {
-                        let t = (x_edge - x0) / dx;
-                        let y = y0 + t * dy;
-                        if y >= min_lat - eps && y <= max_lat + eps {
-                            push_hit(t, x_edge, y);
-                        }
-                    }
-                }
-
-                // Intersect with horizontal edges (lat = const)
-                if dy.abs() > eps {
-                    for y_edge in [min_lat, max_lat] {
-                        let t = (y_edge - y0) / dy;
-                        let x = x0 + t * dx;
-                        if x >= min_lng - eps && x <= max_lng + eps {
-                            push_hit(t, x, y_edge);
-                        }
-                    }
-                }
-
-                hits.sort_by(|(t1, _), (t2, _)| t1.partial_cmp(t2).unwrap());
-                hits
-            };
-
-            let mut new_segments: Vec<crate::journey_vector::TrackSegment> = Vec::new();
-
-            for segment in &vector.track_segments {
-                let pts = &segment.track_points;
-                if pts.len() < 2 {
-                    continue;
-                }
-
-                let mut current: Vec<crate::journey_vector::TrackPoint> = Vec::new();
-                if !inside(&pts[0]) {
-                    current.push(pts[0].clone());
-                }
-
-                for i in 0..(pts.len() - 1) {
-                    let a = &pts[i];
-                    let b = &pts[i + 1];
-                    let inside_a = inside(a);
-                    let inside_b = inside(b);
-                    let hits = segment_intersections(a, b);
-
-                    match (inside_a, inside_b) {
-                        (false, false) => {
-                            if hits.len() >= 2 {
-                                let entry = hits.first().unwrap().1.clone();
-                                let exit = hits.last().unwrap().1.clone();
-
-                                if current.last() != Some(&entry) {
-                                    current.push(entry);
-                                }
-                                if current.len() >= 2 {
-                                    new_segments.push(crate::journey_vector::TrackSegment {
-                                        track_points: current,
-                                    });
-                                }
-
-                                current = vec![exit];
-                                if current.last() != Some(b) {
-                                    current.push(b.clone());
-                                }
-                            } else {
-                                if current.is_empty() {
-                                    current.push(a.clone());
-                                }
-                                if current.last() != Some(b) {
-                                    current.push(b.clone());
-                                }
-                            }
-                        }
-                        (true, true) => {
-                            // Fully inside: drop
-                        }
-                        (false, true) => {
-                            // Outside -> inside: close current segment at boundary
-                            if let Some(hit) = hits.first().map(|x| x.1.clone()) {
-                                if current.is_empty() {
-                                    current.push(a.clone());
-                                }
-                                if current.last() != Some(&hit) {
-                                    current.push(hit);
-                                }
-                            }
-                            if current.len() >= 2 {
-                                new_segments.push(crate::journey_vector::TrackSegment {
-                                    track_points: current,
-                                });
-                            }
-                            current = Vec::new();
-                        }
-                        (true, false) => {
-                            // Inside -> outside: start a new segment at boundary
-                            if let Some(hit) = hits.last().map(|x| x.1.clone()) {
-                                current = vec![hit];
-                            } else {
-                                current = Vec::new();
-                            }
-                            if current.last() != Some(b) {
-                                current.push(b.clone());
-                            }
-                        }
-                    }
-                }
-
-                if current.len() >= 2 {
-                    new_segments.push(crate::journey_vector::TrackSegment {
-                        track_points: current,
-                    });
-                }
-            }
-
-            vector.track_segments = new_segments;
-        } else {
-            bail!("Bitmap journey is not editable");
-        }
-
-        return get_map_renderer_proxy_for_journey_data_internal(state, session.data.clone());
-    }
-    bail!("No active edit session");
-}
-
-pub fn add_line_in_edit(
-    start_lat: f64,
-    start_lng: f64,
-    end_lat: f64,
-    end_lng: f64,
-) -> Result<(MapRendererProxy, Option<CameraOption>)> {
-    let state = get();
-    let mut session_guard = state.edit_session.lock().unwrap();
-
-    if let Some(session) = session_guard.as_mut() {
-        if let JourneyData::Vector(vector) = &mut session.data {
-            // Add a new segment consisting of a single straight line.
-            // (The JS side already avoids tiny drags, but keep a guard here too.)
-            let eps = 1e-12_f64;
-            if (start_lat - end_lat).abs() < eps && (start_lng - end_lng).abs() < eps {
-                return get_map_renderer_proxy_for_journey_data_internal(state, session.data.clone());
-            }
-
-            vector
-                .track_segments
-                .push(crate::journey_vector::TrackSegment {
-                    track_points: vec![
-                        crate::journey_vector::TrackPoint {
-                            latitude: start_lat,
-                            longitude: start_lng,
-                        },
-                        crate::journey_vector::TrackPoint {
-                            latitude: end_lat,
-                            longitude: end_lng,
-                        },
-                    ],
-                });
-        } else {
-            bail!("Bitmap journey is not editable");
-        }
-
-        return get_map_renderer_proxy_for_journey_data_internal(state, session.data.clone());
-    }
-    bail!("No active edit session");
-}
-
-pub fn save_journey_edit() -> Result<()> {
-    let state = get();
-    let mut session_guard = state.edit_session.lock().unwrap();
-    if let Some(session) = session_guard.take() {
-        state.storage.with_db_txn(|txn| {
-            txn.update_journey_data(&session.journey_id, session.data, None)?;
-            txn.action = Some(crate::main_db::Action::CompleteRebuilt);
-            Ok(())
-        })?;
-    }
-    Ok(())
-}
-
-pub fn discard_journey_edit() {
-    let state = get();
-    let mut session_guard = state.edit_session.lock().unwrap();
-    *session_guard = None;
+pub fn create_edit_session(journey_id: String) -> Result<EditSession> {
+    EditSession::new(journey_id)
 }
