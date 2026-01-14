@@ -54,9 +54,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   // It is rough because we don't update it frequently.
   MapView? _currentRoughMapView;
 
-  // Track current journey ID to detect changes
-  String? _currentJourneyId;
-
   // For bug workaround
   bool _isiOS18 = false;
 
@@ -65,31 +62,23 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.trackingMode != widget.trackingMode) _updateLocationMarker();
 
-    // Check if journey ID has changed and update via JavaScript API
+    // Refresh map data when the renderer proxy changes
     if (oldWidget.mapRendererProxy != widget.mapRendererProxy) {
-      _updateJourneyIdIfChanged();
+      _refreshMapData();
     }
   }
 
-  Future<void> _updateJourneyIdIfChanged() async {
-    final newJourneyId = widget.mapRendererProxy.getJourneyId();
-
-    // Check if journey ID has actually changed
-    if (_currentJourneyId != newJourneyId) {
-      log.info(
-          '[base_map_webview] Journey ID changed from $_currentJourneyId to $newJourneyId');
-      _currentJourneyId = newJourneyId;
-
-      // Update journey ID via JavaScript API instead of reloading the page
-      await _webViewController.runJavaScript('''
-        if (typeof updateJourneyId === 'function') {
-          console.log('Updating journey ID to: $newJourneyId');
-          updateJourneyId('$newJourneyId');
-        } else {
-          console.warn('updateJourneyId function not available yet');
-        }
-      ''');
-    }
+  /// Request the WebView to refresh map data from the backend
+  Future<void> _refreshMapData() async {
+    log.info('[base_map_webview] Refreshing map data');
+    await _webViewController.runJavaScript('''
+      if (typeof refreshMapData === 'function') {
+        console.log('Refreshing map data');
+        refreshMapData();
+      } else {
+        console.warn('refreshMapData function not available yet');
+      }
+    ''');
   }
 
   @override
@@ -99,7 +88,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _gpsManager = Provider.of<GpsManager>(context, listen: false);
     _gpsManager.addListener(_updateLocationMarker);
     _currentRoughMapView = widget.initialMapView;
-    _currentJourneyId = widget.mapRendererProxy.getJourneyId();
     _initWebView();
 
     () async {
@@ -145,12 +133,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     }
   }
 
-// TODO: solve the following known issues:
-// 1. ios tap-and-hold triggers a magnifier
-//     ref: https://stackoverflow.com/questions/75628788/disable-double-tap-magnifying-glass-in-safari-ios
-//     but the settings seems not be exposed by current webview_flutter
-//     ref (another WKPreference setting): https://github.com/flutter/flutter/issues/112276
-// 2. ios double-tap zoom not working (triple tap needed, maybe related to tap event capture)
   Future<void> _initWebView() async {
     _webViewController
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -225,8 +207,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   Future<void> _injectApiEndpoint() async {
     final accessKey = api.getMapboxAccessToken();
 
-    final journeyId = widget.mapRendererProxy.getJourneyId();
-
     // Get map view coordinates
     final mapView = _currentRoughMapView;
     final lngParam = mapView?.lng.toString() ?? 'null';
@@ -241,7 +221,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       // Set the params
       window.EXTERNAL_PARAMS = {
         cgi_endpoint: "flutter://TileProviderChannel",
-        journey_id: "$journeyId",
         render: "canvas",
         map_style: "$_mapStyle",
         access_key: ${accessKey != null ? "\"$accessKey\"" : "null"},
@@ -293,7 +272,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       // debugPrint('Tile Provider IPC Request: $message');
 
       // Forward the JSON request transparently to Rust and get raw JSON response
-      final responseJson = await api.handleWebviewRequests(request: message);
+      final responseJson = await widget.mapRendererProxy.handleWebviewRequests(
+        request: message,
+      );
 
       // final truncatedResponse = responseJson.length > 100
       //     ? '${responseJson.substring(0, 100)}...'

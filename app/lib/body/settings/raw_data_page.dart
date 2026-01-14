@@ -30,7 +30,7 @@ class _RawDataSwitchState extends State<RawDataSwitch> {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 8.0),
       child: LabelTile(
-        label: context.tr("general.advance_settings.raw_data_mode"),
+        label: context.tr("general.advanced_settings.raw_data_mode"),
         position: LabelTilePosition.single,
         trailing: Switch(
           value: enabled,
@@ -100,7 +100,7 @@ class _RawDataPage extends State<RawDataPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(context.tr("general.advance_settings.raw_data_mode")),
+        title: Text(context.tr("general.advanced_settings.raw_data_mode")),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
