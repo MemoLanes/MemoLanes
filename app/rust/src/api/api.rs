@@ -581,7 +581,7 @@ pub fn export_raw_data_gpx_file(csv_filepath: String) -> Result<String> {
     let file_name = csv_path
         .file_stem()
         .and_then(|s| s.to_str())
-        .ok_or_else(|| anyhow::anyhow!("Failed to parse filename: {}", csv_filepath))?;
+        .ok_or_else(|| anyhow::anyhow!("Failed to parse filename: {csv_filepath}"))?;
 
     let target_dir = Path::new(&get().storage.cache_dir).join("raw_data");
 
@@ -597,16 +597,16 @@ pub fn export_raw_data_gpx_file(csv_filepath: String) -> Result<String> {
     }
 
     let csv_file = File::open(csv_path)
-        .with_context(|| format!("Failed to open source CSV file: {}", csv_filepath))?;
+        .with_context(|| format!("Failed to open source CSV file: {csv_filepath}"))?;
     let mut reader = Reader::from_reader(BufReader::new(csv_file));
 
     let gpx_file = File::create(&gpx_path)
-        .with_context(|| format!("Failed to create target GPX file: {}", gpx_path_str))?;
+        .with_context(|| format!("Failed to create target GPX file: {gpx_path_str}"))?;
 
     let mut writer = BufWriter::new(gpx_file);
 
     raw_data_csv_to_gpx_file(&mut reader, &mut writer)
-        .with_context(|| format!("Failed to convert CSV to GPX: {}", csv_filepath))?;
+        .with_context(|| format!("Failed to convert CSV to GPX: {csv_filepath}"))?;
 
     Ok(gpx_path_str)
 }

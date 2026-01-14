@@ -143,7 +143,7 @@ mod tests {
             }
         }"#;
 
-        let request = Request::parse(&request_json).expect("Failed to parse request");
+        let request = Request::parse(request_json).expect("Failed to parse request");
         let response = request.handle(&map_renderer);
 
         // Verify response structure

@@ -313,7 +313,7 @@ impl Storage {
         }
 
         if !dir.is_dir() {
-            anyhow::bail!("raw_data path exists but is not a directory: {:?}", dir);
+            anyhow::bail!("raw_data path exists but is not a directory: {dir:?}");
         }
 
         let mut result: Vec<RawDataFile> = std::fs::read_dir(&dir)?
