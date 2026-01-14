@@ -176,15 +176,6 @@ export class DebugPanel {
             Go to (0, 0)
           </button>
         </div>
-        <div>
-          <div style="font-size: 11px; color: rgba(255, 255, 255, 0.7); margin-bottom: 4px;">Journey ID</div>
-          <div style="display: flex; gap: 4px;">
-            <input type="text" id="journey-id-input" placeholder="Enter journey ID" 
-              style="flex: 1; padding: 4px; font-size: 11px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 3px;">
-            <button id="set-journey-btn" style="padding: 4px 8px; font-size: 11px; cursor: pointer;">Set</button>
-          </div>
-          <div id="journey-id-status" style="font-size: 10px; color: rgba(255,255,255,0.5); margin-top: 4px;">Current: -</div>
-        </div>
       </div>
     `;
 
@@ -211,14 +202,6 @@ export class DebugPanel {
   private _setupParamsHook(): void {
     this.params.on("renderMode", (newMode, _oldMode) => {
       this._syncRenderingModeDropdown(newMode);
-    });
-
-    // Sync journey ID display when it changes
-    this.params.on("journeyId", (newId, _oldId) => {
-      const statusElement = document.getElementById("journey-id-status");
-      if (statusElement) {
-        statusElement.textContent = `Current: ${newId || "-"}`;
-      }
     });
 
     // Sync fog density slider when it changes externally
@@ -376,44 +359,6 @@ export class DebugPanel {
         }
       });
     }
-
-    // Flutter Bridge test: Set journey ID button
-    const setJourneyBtn = document.getElementById("set-journey-btn");
-    const journeyIdInput = document.getElementById(
-      "journey-id-input",
-    ) as HTMLInputElement | null;
-
-    if (setJourneyBtn && journeyIdInput) {
-      setJourneyBtn.addEventListener("click", () => {
-        const newJourneyId = journeyIdInput.value.trim();
-        if (!newJourneyId) {
-          this._updateJourneyIdStatus("Error: Empty journey ID", true);
-          return;
-        }
-
-        if (window.updateJourneyId) {
-          const result = window.updateJourneyId(newJourneyId);
-          if (result) {
-            this._updateJourneyIdStatus(`Set to: ${newJourneyId}`, false);
-          } else {
-            this._updateJourneyIdStatus(`Already set or failed`, true);
-          }
-          console.log(
-            `[DebugPanel] Called updateJourneyId('${newJourneyId}') => ${result}`,
-          );
-        } else {
-          this._updateJourneyIdStatus("API not available", true);
-          console.warn("[DebugPanel] window.updateJourneyId is not available");
-        }
-      });
-
-      // Also support Enter key in the input
-      journeyIdInput.addEventListener("keydown", (e: KeyboardEvent) => {
-        if (e.key === "Enter") {
-          setJourneyBtn.click();
-        }
-      });
-    }
   }
 
   private _updateViewpointInfo(): void {
@@ -560,16 +505,6 @@ export class DebugPanel {
       } else {
         networkElement.style.color = "#F44336"; // Red - Slow
       }
-    }
-  }
-
-  private _updateJourneyIdStatus(message: string, isError: boolean): void {
-    const statusElement = document.getElementById("journey-id-status");
-    if (statusElement) {
-      statusElement.textContent = message;
-      statusElement.style.color = isError
-        ? "#F44336"
-        : "rgba(255, 255, 255, 0.5)";
     }
   }
 
@@ -733,26 +668,8 @@ export class DebugPanel {
 
       // Update viewpoint info
       this._updateViewpointInfo();
-
-      // Update journey ID status
-      this._syncJourneyIdDisplay();
     } else {
       this.hide();
-    }
-  }
-
-  private _syncJourneyIdDisplay(): void {
-    const journeyIdInput = document.getElementById(
-      "journey-id-input",
-    ) as HTMLInputElement | null;
-    const statusElement = document.getElementById("journey-id-status");
-
-    if (journeyIdInput && this.params.journeyId) {
-      journeyIdInput.value = this.params.journeyId;
-    }
-
-    if (statusElement) {
-      statusElement.textContent = `Current: ${this.params.journeyId || "-"}`;
     }
   }
 
