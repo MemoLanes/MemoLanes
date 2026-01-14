@@ -44,7 +44,7 @@ pub fn renderer_server() -> Result<(), Box<dyn std::error::Error>> {
 
     // println!("request: {}", request_str);
 
-    let request = Request::parse(&request_str)?;
+    let request = Request::parse(request_str)?;
 
     // Get the map renderer and handle the request
     let map_renderer = map_renderer_clone.lock().unwrap();
