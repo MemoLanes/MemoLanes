@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
+import 'package:memolanes/body/journey/editor/journey_editor_map_view.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:easy_localization/easy_localization.dart';
 
@@ -15,13 +15,13 @@ class JourneyTrackEditPage extends StatefulWidget {
 
 class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   api.MapRendererProxy? _mapRendererProxy;
-  MapView? _initialMapView;
+  JourneyEditorMapViewCamera? _initialMapView;
   bool _isAddMode = false;
   bool _isDeleteMode = false;
   bool _canUndo = false;
   bool _editingSupported = true;
   bool _popAllowed = false;
-  final GlobalKey<BaseMapWebviewState> _mapWebviewKey = GlobalKey();
+  final GlobalKey<JourneyEditorMapViewState> _mapWebviewKey = GlobalKey();
   ScaffoldMessengerState? _snackBarMessenger;
   ScaffoldFeatureController<SnackBar, SnackBarClosedReason>?
       _activeSnackBarController;
@@ -236,7 +236,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     });
   }
 
-  Future<void> _onDrawPath(List<DrawPoint> points) async {
+  Future<void> _onDrawPath(List<JourneyEditorDrawPoint> points) async {
     if (!_editingSupported) return;
     if (!_isAddMode) return;
     if (points.length < 2) return;
@@ -328,11 +328,10 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
           child: Stack(
             children: [
               if (_mapRendererProxy != null)
-                BaseMapWebview(
+                JourneyEditorMapView(
                   key: _mapWebviewKey,
                   mapRendererProxy: _mapRendererProxy!,
                   initialMapView: _initialMapView,
-                  trackingMode: TrackingMode.off,
                   onSelectionBox: _onSelectionBox,
                   onDrawPath: _onDrawPath,
                 )
