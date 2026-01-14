@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
-import 'package:memolanes/body/journey/editor/edit_session_ext.dart';
 import 'package:memolanes/body/journey/editor/journey_editor_map_view.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
@@ -185,7 +184,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   }
 
   Future<void> _loadMap() async {
-    final session = await api.createEditSession(journeyId: widget.journeyId);
+    final session = await EditSession.newInstance(journeyId: widget.journeyId);
     final result = await session.getMapRendererProxy();
     if (mounted) {
       setState(() {

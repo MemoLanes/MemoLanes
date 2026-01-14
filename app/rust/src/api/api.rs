@@ -29,66 +29,6 @@ use log::{error, info, warn};
 
 pub use super::edit_session::EditSession;
 
-#[frb(sync)]
-pub fn edit_session_journey_id(that: &EditSession) -> String {
-    that.journey_id()
-}
-
-#[frb(sync)]
-pub fn edit_session_is_vector(that: &EditSession) -> bool {
-    that.is_vector()
-}
-
-#[frb(sync)]
-pub fn edit_session_can_undo(that: &EditSession) -> bool {
-    that.can_undo()
-}
-
-pub fn edit_session_push_undo_checkpoint(that: &mut EditSession) -> bool {
-    that.push_undo_checkpoint()
-}
-
-pub fn edit_session_get_map_renderer_proxy(
-    that: &EditSession,
-) -> Result<(MapRendererProxy, Option<CameraOption>)> {
-    that.get_map_renderer_proxy()
-}
-
-pub fn edit_session_undo(
-    that: &mut EditSession,
-) -> Result<(MapRendererProxy, Option<CameraOption>)> {
-    that.undo()
-}
-
-pub fn edit_session_delete_points_in_box(
-    that: &mut EditSession,
-    start_lat: f64,
-    start_lng: f64,
-    end_lat: f64,
-    end_lng: f64,
-) -> Result<(MapRendererProxy, Option<CameraOption>)> {
-    that.delete_points_in_box(start_lat, start_lng, end_lat, end_lng)
-}
-
-pub fn edit_session_add_line(
-    that: &mut EditSession,
-    start_lat: f64,
-    start_lng: f64,
-    end_lat: f64,
-    end_lng: f64,
-) -> Result<(MapRendererProxy, Option<CameraOption>)> {
-    that.add_line(start_lat, start_lng, end_lat, end_lng)
-}
-
-pub fn edit_session_commit(that: &EditSession) -> Result<()> {
-    that.commit()
-}
-
-#[frb(sync)]
-pub fn edit_session_discard(that: &EditSession) {
-    that.discard()
-}
-
 // TODO: we have way too many locking here and now it is hard to track.
 //  e.g. we could mess up with the order and cause a deadlock
 #[frb(ignore)]
@@ -847,6 +787,3 @@ pub fn reload_resource_for_foreground() -> Result<()> {
     Ok(())
 }
 
-pub fn create_edit_session(journey_id: String) -> Result<EditSession> {
-    EditSession::new(journey_id)
-}
