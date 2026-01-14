@@ -27,8 +27,6 @@ use super::import::JourneyInfo;
 
 use log::{error, info, warn};
 
-pub use super::edit_session::EditSession;
-
 // TODO: we have way too many locking here and now it is hard to track.
 //  e.g. we could mess up with the order and cause a deadlock
 #[frb(ignore)]
