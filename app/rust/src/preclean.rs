@@ -22,6 +22,7 @@ fn detect_gpx_preprocessor(xml: &str) -> ImportPreprocessor {
     let head = xml.get(..limit).unwrap_or(xml);
     let head = head.to_ascii_lowercase();
 
+    // stepofmyworld (一生足迹), yourapp (灵感足迹)
     if head.contains("stepofmyworld") || head.contains("yourapp") {
         ImportPreprocessor::Sparse
     } else if head.contains("memolanes journey") {
