@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
+import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/body/journey/editor/journey_editor_map_view.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
 import 'package:easy_localization/easy_localization.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 class JourneyTrackEditPage extends StatefulWidget {
   final String journeyId;
@@ -149,31 +151,11 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   }
 
   Future<bool> _confirmDiscardUnsavedChanges() async {
-    final shouldExit = await showDialog<bool>(
-          context: context,
-          builder: (context) {
-            return AlertDialog(
-              title: Text(context.tr("common.info")),
-              content: Text(
-                context.tr(
-                  "journey.journey_track_edit_discard_changes_confirm",
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: Text(context.tr("common.cancel")),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: Text(context.tr("common.ok")),
-                ),
-              ],
-            );
-          },
-        ) ??
-        false;
-
+    final shouldExit = await showCommonDialog(
+      context,
+      context.tr("journey.journey_track_edit_discard_changes_confirm"),
+      hasCancel: true,
+    );
     return shouldExit;
   }
 
@@ -463,11 +445,16 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                       onPressed: !_editingSupported
                           ? null
                           : () async {
+                              final saveMessage =
+                                  context.tr("common.save_success");
                               final session = _editSession;
                               if (session == null) return;
                               await session.commit();
                               if (!context.mounted) return;
                               await _dismissSnackBarsAndWait();
+                              Fluttertoast.showToast(
+                                msg: saveMessage,
+                              );
                               setState(() {
                                 _popAllowed = true;
                               });
