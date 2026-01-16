@@ -28,6 +28,21 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   ScaffoldFeatureController<SnackBar, SnackBarClosedReason>?
       _activeSnackBarController;
 
+  Future<void> _dismissSnackBarsAndWait() async {
+    final controller = _activeSnackBarController;
+    if (controller != null) {
+      controller.close();
+      try {
+        await controller.closed;
+      } catch (_) {
+        // Ignore if already closed or disposed.
+      }
+    }
+    _snackBarMessenger?.removeCurrentSnackBar();
+    _snackBarMessenger?.clearSnackBars();
+    _activeSnackBarController = null;
+  }
+
   Widget _snackBarText(
     String message, {
     TextStyle? style,
@@ -104,6 +119,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     final messenger = ScaffoldMessenger.of(context);
     _snackBarMessenger = messenger;
     messenger.removeCurrentSnackBar();
+    messenger.clearSnackBars();
     final controller = messenger.showSnackBar(
       SnackBar(
         content: _snackBarText(
@@ -130,22 +146,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
         _activeSnackBarController = null;
       }
     });
-  }
-
-  void _showDefaultSnackBar(BuildContext context, String message) {
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.removeCurrentSnackBar();
-    messenger.showSnackBar(
-      SnackBar(
-        content: _snackBarText(message),
-        action: SnackBarAction(
-          label: 'OK',
-          onPressed: () {
-            messenger.hideCurrentSnackBar();
-          },
-        ),
-      ),
-    );
   }
 
   Future<bool> _confirmDiscardUnsavedChanges() async {
@@ -304,8 +304,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   void dispose() {
     // If user manually pops this page while a SnackBar is visible, ensure the
     // SnackBar is dismissed and doesn't remain on the previous page.
-    _activeSnackBarController?.close();
-    _snackBarMessenger?.removeCurrentSnackBar();
+    _dismissSnackBarsAndWait();
     _editSession?.discard();
     super.dispose();
   }
@@ -313,19 +312,25 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      // When there are unsaved changes, block the pop until user confirms.
-      canPop: !_canUndo || _popAllowed,
+      // Always intercept pop to dismiss SnackBar before exit.
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-        final shouldExit = await _confirmDiscardUnsavedChanges();
-        if (!mounted) return;
-        if (!context.mounted) return;
-        if (!shouldExit) return;
+        final needConfirm = _canUndo && !_popAllowed;
+        if (needConfirm) {
+          final shouldExit = await _confirmDiscardUnsavedChanges();
+          if (!mounted) return;
+          if (!context.mounted) return;
+          if (!shouldExit) return;
 
-        setState(() {
-          _popAllowed = true;
-        });
-        Navigator.of(context).pop();
+          setState(() {
+            _popAllowed = true;
+          });
+        }
+
+        await _dismissSnackBarsAndWait();
+        if (!context.mounted) return;
+        Navigator.of(context).pop(result);
       },
       child: Scaffold(
         appBar: AppBar(
@@ -462,10 +467,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                               if (session == null) return;
                               await session.commit();
                               if (!context.mounted) return;
-                              _showDefaultSnackBar(
-                                context,
-                                context.tr("common.save_success"),
-                              );
+                              await _dismissSnackBarsAndWait();
                               setState(() {
                                 _popAllowed = true;
                               });

@@ -116,12 +116,29 @@ export class FlutterBridge {
     });
 
     // Box selection logic (support both mouse + touch; WebView on mobile uses touch)
+    const cancelSelectionBox = () => {
+      if (this.boxElement) {
+        this.boxElement.remove();
+        this.boxElement = null;
+      }
+      if (this.startMarker) {
+        this.startMarker.remove();
+        this.startMarker = null;
+      }
+      this.startPoint = null;
+      this.startLngLat = null;
+    };
+
     const startSelectionBox = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
       if (!this.deleteMode || this.drawMode) return;
 
       const originalEvent = (e as any).originalEvent as any;
       if (originalEvent?.shiftKey) return; // Allow normal box zoom with shift
-      if (originalEvent?.touches && originalEvent.touches.length > 1) return; // ignore pinch zoom
+      if (originalEvent?.touches && originalEvent.touches.length > 1) {
+        // Multi-touch should be handled by map (pinch zoom), not edit.
+        cancelSelectionBox();
+        return;
+      }
       (e as any).preventDefault?.();
 
       this.startPoint = e.point;
@@ -160,7 +177,11 @@ export class FlutterBridge {
       if (!this.deleteMode || this.drawMode || !this.startPoint || !this.boxElement) return;
 
       const originalEvent = (e as any).originalEvent as any;
-      if (originalEvent?.touches && originalEvent.touches.length > 1) return; // ignore pinch
+      if (originalEvent?.touches && originalEvent.touches.length > 1) {
+        // Cancel selection when user starts pinch zoom.
+        cancelSelectionBox();
+        return;
+      }
       (e as any).preventDefault?.();
 
       const currentPoint = e.point;
@@ -177,6 +198,12 @@ export class FlutterBridge {
 
     const endSelectionBox = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
       if (!this.deleteMode || this.drawMode || !this.startPoint || !this.boxElement) return;
+
+      const originalEvent = (e as any).originalEvent as any;
+      if (originalEvent?.touches && originalEvent.touches.length > 1) {
+        cancelSelectionBox();
+        return;
+      }
 
       const startLngLat = this.startLngLat;
       const endLngLat = (e as any).lngLat ?? this.map.unproject(e.point);
@@ -198,14 +225,7 @@ export class FlutterBridge {
         }
       }
 
-      this.boxElement.remove();
-      this.boxElement = null;
-      if (this.startMarker) {
-        this.startMarker.remove();
-        this.startMarker = null;
-      }
-      this.startPoint = null;
-      this.startLngLat = null;
+      cancelSelectionBox();
       // Keep dragPan disabled if we are still in delete mode
       if (!this.deleteMode) {
         this.map.dragPan.enable();
@@ -265,12 +285,20 @@ export class FlutterBridge {
       updateDrawLayer();
     };
 
+    const cancelDraw = () => {
+      clearDrawLayer();
+    };
+
     const startDraw = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
       if (!this.drawMode || this.deleteMode) return;
 
       const originalEvent = (e as any).originalEvent as any;
       if (originalEvent?.shiftKey) return;
-      if (originalEvent?.touches && originalEvent.touches.length > 1) return;
+      if (originalEvent?.touches && originalEvent.touches.length > 1) {
+        // Let pinch zoom work without starting a draw.
+        cancelDraw();
+        return;
+      }
       (e as any).preventDefault?.();
 
       ensureDrawLayer();
@@ -286,7 +314,11 @@ export class FlutterBridge {
     const moveDraw = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
       if (!this.drawMode || this.deleteMode) return;
       const originalEvent = (e as any).originalEvent as any;
-      if (originalEvent?.touches && originalEvent.touches.length > 1) return;
+      if (originalEvent?.touches && originalEvent.touches.length > 1) {
+        // Cancel drawing when user starts pinch zoom.
+        cancelDraw();
+        return;
+      }
       (e as any).preventDefault?.();
 
       if (this.drawPoints.length === 0) return;
@@ -306,7 +338,10 @@ export class FlutterBridge {
     const endDraw = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
       if (!this.drawMode || this.deleteMode) return;
       const originalEvent = (e as any).originalEvent as any;
-      if (originalEvent?.touches && originalEvent.touches.length > 1) return;
+      if (originalEvent?.touches && originalEvent.touches.length > 1) {
+        cancelDraw();
+        return;
+      }
       (e as any).preventDefault?.();
 
       // Add final point
@@ -352,6 +387,9 @@ export class FlutterBridge {
       // Change cursor to indicate delete mode
       this.map.getCanvas().style.cursor = enabled ? "crosshair" : "";
 
+      // Ensure pinch zoom remains available in edit modes.
+      this.map.touchZoomRotate.enable();
+
       // Delete and draw modes are mutually exclusive.
       if (enabled) {
         this.drawMode = false;
@@ -381,6 +419,9 @@ export class FlutterBridge {
       console.log(`Draw mode set to ${enabled}`);
       // Change cursor to indicate draw mode
       this.map.getCanvas().style.cursor = enabled ? "crosshair" : "";
+
+      // Ensure pinch zoom remains available in edit modes.
+      this.map.touchZoomRotate.enable();
 
       // Draw and delete modes are mutually exclusive.
       if (enabled) {
