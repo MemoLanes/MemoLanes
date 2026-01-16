@@ -125,6 +125,7 @@ class _JourneyEditorMapWebviewState extends State<_JourneyEditorMapWebview> {
       mapRendererProxy: widget.mapRendererProxy,
       initialMapView: baseInitialMapView,
       trackingMode: TrackingMode.off,
+      isEditor: true,
       onMapMoved: widget.onMapMoved,
       extraJavaScriptChannels: [
         BaseMapJavaScriptChannel(

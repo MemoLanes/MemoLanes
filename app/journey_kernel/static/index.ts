@@ -15,6 +15,7 @@ import { DebugPanel } from "./debug-panel";
 import init from "../pkg/index.js";
 import { parseUrlHash, createReactiveParams, ReactiveParams } from "./params";
 import { FlutterBridge, notifyFlutterReady } from "./flutter-bridge";
+import { FlutterBridgeEditor } from "./flutter-bridge-editor";
 import { ensurePlatformCompatibility } from "./platform";
 import { displayPageMessage } from "./utils";
 import { MapController } from "./map-controller";
@@ -110,6 +111,17 @@ async function trySetup(): Promise<void> {
     params,
   });
   flutterBridge.initialize();
+
+  // Editor-specific bridge (used by journey track editor)
+  const isEditor =
+    window.EXTERNAL_PARAMS.editor === true ||
+    window.EXTERNAL_PARAMS.editor === "true";
+  if (isEditor) {
+    const flutterBridgeEditor = new FlutterBridgeEditor({
+      flutterBridge,
+    });
+    flutterBridgeEditor.initialize();
+  }
 
   // Notify Flutter that the map is ready (with small delay for rendering)
   setTimeout(() => {

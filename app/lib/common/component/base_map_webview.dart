@@ -38,6 +38,7 @@ class BaseMapWebview extends StatefulWidget {
   final api.MapRendererProxy mapRendererProxy;
   final MapView? initialMapView;
   final TrackingMode trackingMode;
+  final bool isEditor;
   final void Function()? onMapMoved;
   final void Function(MapView)? onRoughMapViewUpdate;
   final List<BaseMapJavaScriptChannel> extraJavaScriptChannels;
@@ -47,6 +48,7 @@ class BaseMapWebview extends StatefulWidget {
       required this.mapRendererProxy,
       this.initialMapView,
       this.trackingMode = TrackingMode.off,
+      this.isEditor = false,
       this.onMapMoved,
       this.onRoughMapViewUpdate,
       this.extraJavaScriptChannels = const []});
@@ -306,6 +308,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         lng: $lngParam,
         lat: $latParam,
         zoom: $zoomParam,
+        editor: ${widget.isEditor ? "true" : "false"},
       };
       
       // Check if JS is ready and trigger initialization if so
