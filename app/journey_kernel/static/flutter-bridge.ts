@@ -285,6 +285,33 @@ export class FlutterBridge {
       updateDrawLayer();
     };
 
+    const simplifyDrawPoints = (
+      points: maplibregl.LngLat[],
+      minPixelDistance: number,
+    ): maplibregl.LngLat[] => {
+      if (points.length <= 2) return points;
+
+      const simplified: maplibregl.LngLat[] = [points[0]];
+      let lastProjected = this.map.project(points[0]);
+
+      for (let i = 1; i < points.length - 1; i++) {
+        const projected = this.map.project(points[i]);
+        const dx = projected.x - lastProjected.x;
+        const dy = projected.y - lastProjected.y;
+        if (Math.hypot(dx, dy) >= minPixelDistance) {
+          simplified.push(points[i]);
+          lastProjected = projected;
+        }
+      }
+
+      // Always keep the last point to preserve the end of the stroke.
+      if (simplified[simplified.length - 1] !== points[points.length - 1]) {
+        simplified.push(points[points.length - 1]);
+      }
+
+      return simplified;
+    };
+
     const cancelDraw = () => {
       clearDrawLayer();
     };
@@ -350,11 +377,24 @@ export class FlutterBridge {
         this.drawPoints.push(lngLat);
       }
 
-      if (this.drawPoints.length >= 2) {
+      const zoom = this.map.getZoom();
+      const densityBoost = Math.min(
+        6,
+        Math.max(0, (this.drawPoints.length - 120) / 120),
+      );
+      const zoomFactor = Math.max(0, 10 - zoom) * 0.6;
+      const minPixelDistance = Math.min(14, 2 + densityBoost * 2 + zoomFactor);
+
+      const finalPoints = simplifyDrawPoints(
+        this.drawPoints,
+        minPixelDistance,
+      );
+
+      if (finalPoints.length >= 2) {
         if (window.onDrawPath) {
           window.onDrawPath.postMessage(
             JSON.stringify({
-              points: this.drawPoints.map((p) => ({ lat: p.lat, lng: p.lng })),
+              points: finalPoints.map((p) => ({ lat: p.lat, lng: p.lng })),
             }),
           );
         }

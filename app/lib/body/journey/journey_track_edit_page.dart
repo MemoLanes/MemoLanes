@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/utils.dart';
@@ -224,6 +225,13 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     if (!_isAddMode) return;
     if (points.length < 2) return;
 
+    // Downsample and limit the number of points to avoid too many segments.
+    final filteredPoints = _limitPointCount(
+      _downsampleDrawPoints(points),
+      maxPoints: 50,
+    );
+    if (filteredPoints.length < 2) return;
+
     final session = _editSession;
     if (session == null) return;
 
@@ -231,9 +239,9 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
     // Approximate the freehand path by adding many small straight segments.
     api.MapRendererProxy? latestProxy = _mapRendererProxy;
-    for (var i = 0; i < points.length - 1; i++) {
-      final a = points[i];
-      final b = points[i + 1];
+    for (var i = 0; i < filteredPoints.length - 1; i++) {
+      final a = filteredPoints[i];
+      final b = filteredPoints[i + 1];
       final result = await session.addLine(
         startLat: a.lat,
         startLng: a.lng,
@@ -251,6 +259,62 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     }
 
     await _refreshCanUndo();
+  }
+
+  List<JourneyEditorDrawPoint> _limitPointCount(
+    List<JourneyEditorDrawPoint> points, {
+    required int maxPoints,
+  }) {
+    if (points.length <= maxPoints) return points;
+    if (maxPoints < 2) return [points.first, points.last];
+
+    final stride = (points.length - 1) / (maxPoints - 1);
+    final result = <JourneyEditorDrawPoint>[];
+    for (var i = 0; i < maxPoints; i++) {
+      final index = (i * stride).round();
+      result.add(points[index]);
+    }
+
+    // Ensure last point is exact.
+    if (result.last != points.last) {
+      result[result.length - 1] = points.last;
+    }
+
+    return result;
+  }
+
+  List<JourneyEditorDrawPoint> _downsampleDrawPoints(
+    List<JourneyEditorDrawPoint> points,
+  ) {
+    if (points.length <= 2) return points;
+
+    const minDistanceMeters = 3.0;
+    final result = <JourneyEditorDrawPoint>[points.first];
+    var last = points.first;
+
+    for (var i = 1; i < points.length - 1; i++) {
+      final current = points[i];
+      if (_approxDistanceMeters(last, current) >= minDistanceMeters) {
+        result.add(current);
+        last = current;
+      }
+    }
+
+    // Always keep the last point to preserve the path end.
+    result.add(points.last);
+    return result;
+  }
+
+  double _approxDistanceMeters(
+    JourneyEditorDrawPoint a,
+    JourneyEditorDrawPoint b,
+  ) {
+    const metersPerDeg = 111320.0;
+    final latRad = (a.lat + b.lat) * 0.5 * (3.141592653589793 / 180.0);
+    final cosLat = math.cos(latRad);
+    final dx = (a.lng - b.lng) * metersPerDeg * cosLat;
+    final dy = (a.lat - b.lat) * metersPerDeg;
+    return math.sqrt(dx * dx + dy * dy);
   }
 
   Future<void> _onSelectionBox(
