@@ -56,6 +56,7 @@
     "journey_track_edit_delete_mode_disabled": "Delete mode disabled.",
     "journey_track_edit_bitmap_not_supported": "This track is not a MemoLanes record, can't be edited.",
     "journey_track_edit_discard_changes_confirm": "Unsaved changes will be lost. Do you want to continue?",
+    "journey_track_edit_zoom_too_low": "Zoom in to add a new segment.",
     "import_mldx_data": "Import MLDX Data",
     "import_kml_gpx_data": "Import KML/GPX Data",
     "import_fog_of_world_data": "Import [Fog of World] Data",

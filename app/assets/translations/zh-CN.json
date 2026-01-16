@@ -56,6 +56,7 @@
     "journey_track_edit_delete_mode_disabled": "删除模式已关闭。",
     "journey_track_edit_bitmap_not_supported": "当前轨迹非迹忆记录，暂不支持编辑。",
     "journey_track_edit_discard_changes_confirm": "未保存的操作都会丢失，是否继续？",
+    "journey_track_edit_zoom_too_low": "放大地图以新增轨迹。",
     "import_mldx_data": "导入 MLDX 数据",
     "import_kml_gpx_data": "导入 KML/GPX 数据",
     "import_fog_of_world_data": "导入 世界迷雾 数据",

@@ -15,6 +15,7 @@ class JourneyEditorMapView extends StatefulWidget {
           double startLat, double startLng, double endLat, double endLng)?
       onSelectionBox;
   final void Function(List<JourneyEditorDrawPoint> points)? onDrawPath;
+  final void Function()? onMapMoved;
 
   const JourneyEditorMapView({
     super.key,
@@ -22,6 +23,7 @@ class JourneyEditorMapView extends StatefulWidget {
     this.initialMapView,
     this.onSelectionBox,
     this.onDrawPath,
+    this.onMapMoved,
   });
 
   @override
@@ -39,6 +41,12 @@ class JourneyEditorMapViewState extends State<JourneyEditorMapView> {
     _innerKey.currentState?.setDrawMode(enabled);
   }
 
+  Future<JourneyEditorMapViewCamera?> getCurrentMapView() async {
+    final view = await _innerKey.currentState?.getCurrentMapView();
+    if (view == null) return null;
+    return (lng: view.lng, lat: view.lat, zoom: view.zoom);
+  }
+
   @override
   Widget build(BuildContext context) {
     // Use a RenderObject widget as the root so callers can measure the map
@@ -49,6 +57,7 @@ class JourneyEditorMapViewState extends State<JourneyEditorMapView> {
         mapRendererProxy: widget.mapRendererProxy,
         onSelectionBox: widget.onSelectionBox,
         onDrawPath: widget.onDrawPath,
+        onMapMoved: widget.onMapMoved,
         initialMapView: widget.initialMapView,
       ),
     );
@@ -62,6 +71,7 @@ class _JourneyEditorMapWebview extends StatefulWidget {
           double startLat, double startLng, double endLat, double endLng)?
       onSelectionBox;
   final void Function(List<JourneyEditorDrawPoint> points)? onDrawPath;
+  final void Function()? onMapMoved;
 
   const _JourneyEditorMapWebview({
     super.key,
@@ -69,6 +79,7 @@ class _JourneyEditorMapWebview extends StatefulWidget {
     this.initialMapView,
     this.onSelectionBox,
     this.onDrawPath,
+    this.onMapMoved,
   });
 
   @override
@@ -95,6 +106,10 @@ class _JourneyEditorMapWebviewState extends State<_JourneyEditorMapWebview> {
     ''');
   }
 
+  Future<MapView?> getCurrentMapView() async {
+    return _baseKey.currentState?.getCurrentMapView();
+  }
+
   @override
   Widget build(BuildContext context) {
     final baseInitialMapView = widget.initialMapView == null
@@ -110,6 +125,7 @@ class _JourneyEditorMapWebviewState extends State<_JourneyEditorMapWebview> {
       mapRendererProxy: widget.mapRendererProxy,
       initialMapView: baseInitialMapView,
       trackingMode: TrackingMode.off,
+      onMapMoved: widget.onMapMoved,
       extraJavaScriptChannels: [
         BaseMapJavaScriptChannel(
           name: 'onSelectionBox',

@@ -18,6 +18,8 @@ class JourneyTrackEditPage extends StatefulWidget {
 }
 
 class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
+  static const double _minEditZoom = 13.0;
+
   EditSession? _editSession;
   api.MapRendererProxy? _mapRendererProxy;
   JourneyEditorMapViewCamera? _initialMapView;
@@ -26,6 +28,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   bool _canUndo = false;
   bool _editingSupported = true;
   bool _popAllowed = false;
+  bool _restoreAddModeAfterZoom = false;
   final GlobalKey<JourneyEditorMapViewState> _mapWebviewKey = GlobalKey();
   ScaffoldMessengerState? _snackBarMessenger;
   ScaffoldFeatureController<SnackBar, SnackBarClosedReason>?
@@ -87,10 +90,10 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   }
 
   void _showFloatingSnackBar(
-    BuildContext context,
     String message, {
     double mapRelativeY = 0.25,
   }) {
+    if (!mounted) return;
     EdgeInsets margin = const EdgeInsets.fromLTRB(16, 0, 16, 16);
     final overlayState = Overlay.maybeOf(context);
     final overlayBox = overlayState?.context.findRenderObject() as RenderBox?;
@@ -202,7 +205,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _showFloatingSnackBar(
-          context,
           context.tr("journey.journey_track_edit_bitmap_not_supported"),
           mapRelativeY: 0.4,
         );
@@ -218,6 +220,37 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     setState(() {
       _canUndo = canUndo;
     });
+  }
+
+  Future<void> _handleMapMoved() async {
+    if (!_isAddMode && !_restoreAddModeAfterZoom) return;
+    final zoomTooLowMessage =
+        context.tr("journey.journey_track_edit_zoom_too_low");
+    final addEnabledMessage =
+        context.tr("journey.journey_track_edit_add_mode_enabled");
+    final mapView = await _mapWebviewKey.currentState?.getCurrentMapView();
+    if (mapView == null) return;
+    if (!mounted) return;
+
+    final zoomOk = mapView.zoom >= _minEditZoom;
+    if (_isAddMode && !zoomOk) {
+      setState(() {
+        _isAddMode = false;
+        _restoreAddModeAfterZoom = true;
+      });
+      _mapWebviewKey.currentState?.setDrawMode(false);
+      _showFloatingSnackBar(zoomTooLowMessage);
+      return;
+    }
+
+    if (_restoreAddModeAfterZoom && zoomOk && !_isDeleteMode) {
+      _restoreAddModeAfterZoom = false;
+      setState(() {
+        _isAddMode = true;
+      });
+      _mapWebviewKey.currentState?.setDrawMode(true);
+      _showFloatingSnackBar(addEnabledMessage);
+    }
   }
 
   Future<void> _onDrawPath(List<JourneyEditorDrawPoint> points) async {
@@ -362,11 +395,11 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
+        final navigator = Navigator.of(context);
         final needConfirm = _canUndo && !_popAllowed;
         if (needConfirm) {
           final shouldExit = await _confirmDiscardUnsavedChanges();
           if (!mounted) return;
-          if (!context.mounted) return;
           if (!shouldExit) return;
 
           setState(() {
@@ -375,8 +408,8 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
         }
 
         await _dismissSnackBarsAndWait();
-        if (!context.mounted) return;
-        Navigator.of(context).pop(result);
+        if (!mounted) return;
+        navigator.pop(result);
       },
       child: Scaffold(
         appBar: AppBar(
@@ -392,6 +425,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                   initialMapView: _initialMapView,
                   onSelectionBox: _onSelectionBox,
                   onDrawPath: _onDrawPath,
+                  onMapMoved: _handleMapMoved,
                 )
               else
                 const Center(child: CircularProgressIndicator()),
@@ -431,33 +465,79 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                       heroTag: "add_track",
                       backgroundColor: !_editingSupported
                           ? Colors.grey
-                          : (_isAddMode
-                              ? const Color(0xFFB6E13D)
-                              : const Color(0xFFFFFFFF)),
+                          : (_restoreAddModeAfterZoom && !_isAddMode)
+                              ? const Color(0xFFFFD54F)
+                              : (_isAddMode
+                                  ? const Color(0xFFB6E13D)
+                                  : const Color(0xFFFFFFFF)),
                       foregroundColor: !_editingSupported
                           ? Colors.white
                           : (_isAddMode ? Colors.white : Colors.black),
                       onPressed: !_editingSupported
                           ? null
-                          : () {
-                              setState(() {
-                                _isAddMode = !_isAddMode;
-                                if (_isAddMode) {
+                          : () async {
+                              if (_isAddMode) {
+                                setState(() {
+                                  _isAddMode = false;
+                                  _restoreAddModeAfterZoom = false;
+                                });
+                                _mapWebviewKey.currentState?.setDrawMode(false);
+                                _showFloatingSnackBar(
+                                  context.tr(
+                                    "journey.journey_track_edit_add_mode_disabled",
+                                  ),
+                                );
+                                return;
+                              }
+
+                              if (_restoreAddModeAfterZoom) {
+                                setState(() {
+                                  _restoreAddModeAfterZoom = false;
+                                });
+                                _showFloatingSnackBar(
+                                  context.tr(
+                                    "journey.journey_track_edit_add_mode_disabled",
+                                  ),
+                                );
+                                return;
+                              }
+
+                              if (_isDeleteMode) {
+                                setState(() {
                                   _isDeleteMode = false;
-                                }
+                                });
+                                _mapWebviewKey.currentState
+                                    ?.setDeleteMode(false);
+                              }
+
+                              final zoomTooLowMessage = context.tr(
+                                "journey.journey_track_edit_zoom_too_low",
+                              );
+                              final addEnabledMessage = context.tr(
+                                "journey.journey_track_edit_add_mode_enabled",
+                              );
+
+                              final mapView = await _mapWebviewKey.currentState
+                                  ?.getCurrentMapView();
+                              if (!mounted) return;
+                              if (mapView == null) return;
+
+                              if (mapView.zoom < _minEditZoom) {
+                                setState(() {
+                                  _restoreAddModeAfterZoom = true;
+                                });
+                                _showFloatingSnackBar(
+                                  zoomTooLowMessage,
+                                );
+                                return;
+                              }
+
+                              setState(() {
+                                _isAddMode = true;
                               });
-                              _mapWebviewKey.currentState?.setDeleteMode(false);
-                              _mapWebviewKey.currentState
-                                  ?.setDrawMode(_isAddMode);
+                              _mapWebviewKey.currentState?.setDrawMode(true);
                               _showFloatingSnackBar(
-                                context,
-                                _isAddMode
-                                    ? context.tr(
-                                        "journey.journey_track_edit_add_mode_enabled",
-                                      )
-                                    : context.tr(
-                                        "journey.journey_track_edit_add_mode_disabled",
-                                      ),
+                                addEnabledMessage,
                               );
                             },
                       child: const Icon(Icons.edit),
@@ -480,13 +560,13 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                                 _isDeleteMode = !_isDeleteMode;
                                 if (_isDeleteMode) {
                                   _isAddMode = false;
+                                  _restoreAddModeAfterZoom = false;
                                 }
                               });
                               _mapWebviewKey.currentState?.setDrawMode(false);
                               _mapWebviewKey.currentState
                                   ?.setDeleteMode(_isDeleteMode);
                               _showFloatingSnackBar(
-                                context,
                                 _isDeleteMode
                                     ? context.tr(
                                         "journey.journey_track_edit_delete_mode_enabled",
@@ -511,10 +591,11 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                           : () async {
                               final saveMessage =
                                   context.tr("common.save_success");
+                              final navigator = Navigator.of(context);
                               final session = _editSession;
                               if (session == null) return;
                               await session.commit();
-                              if (!context.mounted) return;
+                              if (!mounted) return;
                               await _dismissSnackBarsAndWait();
                               Fluttertoast.showToast(
                                 msg: saveMessage,
@@ -522,7 +603,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                               setState(() {
                                 _popAllowed = true;
                               });
-                              Navigator.pop(context, true);
+                              navigator.pop(true);
                             },
                       child: const Icon(Icons.save),
                     ),

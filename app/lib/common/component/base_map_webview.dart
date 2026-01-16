@@ -79,6 +79,10 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     return _webViewController.runJavaScript(javaScript);
   }
 
+  Future<MapView> getCurrentMapView() {
+    return _getCurrentMapView();
+  }
+
   @override
   void didUpdateWidget(BaseMapWebview oldWidget) {
     super.didUpdateWidget(oldWidget);
