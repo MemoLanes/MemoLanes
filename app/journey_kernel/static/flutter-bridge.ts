@@ -30,7 +30,6 @@ declare global {
     ) => void;
     getCurrentMapView?: () => string;
     updateJourneyId?: (newJourneyId: string) => boolean;
-    onTrackSelected?: FlutterMessageChannel;
   }
 }
 
@@ -100,7 +99,6 @@ export class FlutterBridge {
         this.notifyMapMoved();
       }
     });
-
   }
 
   /**

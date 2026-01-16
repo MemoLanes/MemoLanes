@@ -43,8 +43,9 @@ class JourneyEditorMapViewState extends State<JourneyEditorMapView> {
 
   Future<JourneyEditorMapViewCamera?> getCurrentMapView() async {
     final view = await _innerKey.currentState?.getCurrentMapView();
-    if (view == null) return null;
-    return (lng: view.lng, lat: view.lat, zoom: view.zoom);
+    return view == null
+        ? null
+        : (lng: view.lng, lat: view.lat, zoom: view.zoom);
   }
 
   @override

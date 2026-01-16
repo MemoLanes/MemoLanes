@@ -16,7 +16,6 @@ export interface FlutterBridgeEditorConfig {
 }
 
 export class FlutterBridgeEditor {
-  private flutterBridge: FlutterBridge;
   private map: maplibregl.Map;
   private deleteMode: boolean = false;
   private drawMode: boolean = false;
@@ -31,13 +30,104 @@ export class FlutterBridgeEditor {
   private drawLayerId = "_flutter_draw_path_layer";
 
   constructor(config: FlutterBridgeEditorConfig) {
-    this.flutterBridge = config.flutterBridge;
-    this.map = this.flutterBridge.getMap();
+    this.map = config.flutterBridge.getMap();
   }
 
   initialize(): void {
     this.setupEditorEventListeners();
     this.setupEditorCallableMethods();
+  }
+
+  private isMultiTouch(event: any): boolean {
+    return Boolean(event?.touches && event.touches.length > 1);
+  }
+
+  private preventDefault(event: any): void {
+    event?.preventDefault?.();
+  }
+
+  private clearSelectionOverlay(): void {
+    if (this.boxElement) {
+      this.boxElement.remove();
+      this.boxElement = null;
+    }
+    if (this.startMarker) {
+      this.startMarker.remove();
+      this.startMarker = null;
+    }
+    this.startPoint = null;
+    this.startLngLat = null;
+  }
+
+  private ensureDrawLayer(): void {
+    const srcAny = (this.map.getSource(this.drawSourceId) as any) ?? null;
+    if (!srcAny) {
+      this.map.addSource(this.drawSourceId, {
+        type: "geojson",
+        data: {
+          type: "Feature",
+          geometry: { type: "LineString", coordinates: [] },
+        },
+      } as any);
+    }
+    if (!this.map.getLayer(this.drawLayerId)) {
+      this.map.addLayer({
+        id: this.drawLayerId,
+        type: "line",
+        source: this.drawSourceId,
+        layout: {
+          "line-join": "round",
+          "line-cap": "round",
+        },
+        paint: {
+          "line-color": "#B6E13D",
+          "line-width": 4,
+          "line-opacity": 0.9,
+        },
+      } as any);
+    }
+  }
+
+  private updateDrawLayer(): void {
+    const src = this.map.getSource(this.drawSourceId) as any;
+    if (!src) return;
+    const coords = this.drawPoints.map((p) => [p.lng, p.lat]);
+    src.setData({
+      type: "Feature",
+      geometry: { type: "LineString", coordinates: coords },
+    });
+  }
+
+  private clearDrawLayer(): void {
+    this.drawPoints = [];
+    this.updateDrawLayer();
+  }
+
+  private simplifyDrawPoints(
+    points: maplibregl.LngLat[],
+    minPixelDistance: number,
+  ): maplibregl.LngLat[] {
+    if (points.length <= 2) return points;
+
+    const simplified: maplibregl.LngLat[] = [points[0]];
+    let lastProjected = this.map.project(points[0]);
+
+    for (let i = 1; i < points.length - 1; i++) {
+      const projected = this.map.project(points[i]);
+      const dx = projected.x - lastProjected.x;
+      const dy = projected.y - lastProjected.y;
+      if (Math.hypot(dx, dy) >= minPixelDistance) {
+        simplified.push(points[i]);
+        lastProjected = projected;
+      }
+    }
+
+    // Always keep the last point to preserve the end of the stroke.
+    if (simplified[simplified.length - 1] !== points[points.length - 1]) {
+      simplified.push(points[points.length - 1]);
+    }
+
+    return simplified;
   }
 
   private setupEditorEventListeners(): void {
@@ -48,19 +138,6 @@ export class FlutterBridgeEditor {
     }
 
     // Box selection logic (support both mouse + touch; WebView on mobile uses touch)
-    const cancelSelectionBox = () => {
-      if (this.boxElement) {
-        this.boxElement.remove();
-        this.boxElement = null;
-      }
-      if (this.startMarker) {
-        this.startMarker.remove();
-        this.startMarker = null;
-      }
-      this.startPoint = null;
-      this.startLngLat = null;
-    };
-
     const startSelectionBox = (
       e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent,
     ) => {
@@ -68,12 +145,12 @@ export class FlutterBridgeEditor {
 
       const originalEvent = (e as any).originalEvent as any;
       if (originalEvent?.shiftKey) return; // Allow normal box zoom with shift
-      if (originalEvent?.touches && originalEvent.touches.length > 1) {
+      if (this.isMultiTouch(originalEvent)) {
         // Multi-touch should be handled by map (pinch zoom), not edit.
-        cancelSelectionBox();
+        this.clearSelectionOverlay();
         return;
       }
-      (e as any).preventDefault?.();
+      this.preventDefault(originalEvent);
 
       this.startPoint = e.point;
       this.startLngLat = e.lngLat;
@@ -113,12 +190,12 @@ export class FlutterBridgeEditor {
       if (!this.deleteMode || this.drawMode || !this.startPoint || !this.boxElement) return;
 
       const originalEvent = (e as any).originalEvent as any;
-      if (originalEvent?.touches && originalEvent.touches.length > 1) {
+      if (this.isMultiTouch(originalEvent)) {
         // Cancel selection when user starts pinch zoom.
-        cancelSelectionBox();
+        this.clearSelectionOverlay();
         return;
       }
-      (e as any).preventDefault?.();
+      this.preventDefault(originalEvent);
 
       const currentPoint = e.point;
       const minX = Math.min(this.startPoint.x, currentPoint.x);
@@ -138,8 +215,8 @@ export class FlutterBridgeEditor {
       if (!this.deleteMode || this.drawMode || !this.startPoint || !this.boxElement) return;
 
       const originalEvent = (e as any).originalEvent as any;
-      if (originalEvent?.touches && originalEvent.touches.length > 1) {
-        cancelSelectionBox();
+      if (this.isMultiTouch(originalEvent)) {
+        this.clearSelectionOverlay();
         return;
       }
 
@@ -163,7 +240,7 @@ export class FlutterBridgeEditor {
         }
       }
 
-      cancelSelectionBox();
+      this.clearSelectionOverlay();
       // Keep dragPan disabled if we are still in delete mode
       if (!this.deleteMode) {
         this.map.dragPan.enable();
@@ -179,99 +256,24 @@ export class FlutterBridgeEditor {
     this.map.on("touchcancel", endSelectionBox);
 
     // Freehand draw logic (mouse + touch)
-    const ensureDrawLayer = () => {
-      const srcAny = (this.map.getSource(this.drawSourceId) as any) ?? null;
-      if (!srcAny) {
-        this.map.addSource(this.drawSourceId, {
-          type: "geojson",
-          data: {
-            type: "Feature",
-            geometry: { type: "LineString", coordinates: [] },
-          },
-        } as any);
-      }
-      if (!this.map.getLayer(this.drawLayerId)) {
-        this.map.addLayer({
-          id: this.drawLayerId,
-          type: "line",
-          source: this.drawSourceId,
-          layout: {
-            "line-join": "round",
-            "line-cap": "round",
-          },
-          paint: {
-            "line-color": "#B6E13D",
-            "line-width": 4,
-            "line-opacity": 0.9,
-          },
-        } as any);
-      }
-    };
-
-    const updateDrawLayer = () => {
-      const src = this.map.getSource(this.drawSourceId) as any;
-      if (!src) return;
-      const coords = this.drawPoints.map((p) => [p.lng, p.lat]);
-      src.setData({
-        type: "Feature",
-        geometry: { type: "LineString", coordinates: coords },
-      });
-    };
-
-    const clearDrawLayer = () => {
-      this.drawPoints = [];
-      updateDrawLayer();
-    };
-
-    const simplifyDrawPoints = (
-      points: maplibregl.LngLat[],
-      minPixelDistance: number,
-    ): maplibregl.LngLat[] => {
-      if (points.length <= 2) return points;
-
-      const simplified: maplibregl.LngLat[] = [points[0]];
-      let lastProjected = this.map.project(points[0]);
-
-      for (let i = 1; i < points.length - 1; i++) {
-        const projected = this.map.project(points[i]);
-        const dx = projected.x - lastProjected.x;
-        const dy = projected.y - lastProjected.y;
-        if (Math.hypot(dx, dy) >= minPixelDistance) {
-          simplified.push(points[i]);
-          lastProjected = projected;
-        }
-      }
-
-      // Always keep the last point to preserve the end of the stroke.
-      if (simplified[simplified.length - 1] !== points[points.length - 1]) {
-        simplified.push(points[points.length - 1]);
-      }
-
-      return simplified;
-    };
-
-    const cancelDraw = () => {
-      clearDrawLayer();
-    };
-
     const startDraw = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
       if (!this.drawMode || this.deleteMode) return;
 
       const originalEvent = (e as any).originalEvent as any;
       if (originalEvent?.shiftKey) return;
-      if (originalEvent?.touches && originalEvent.touches.length > 1) {
+      if (this.isMultiTouch(originalEvent)) {
         // Let pinch zoom work without starting a draw.
-        cancelDraw();
+        this.clearDrawLayer();
         return;
       }
-      (e as any).preventDefault?.();
+      this.preventDefault(originalEvent);
 
-      ensureDrawLayer();
-      clearDrawLayer();
+      this.ensureDrawLayer();
+      this.clearDrawLayer();
 
       const lngLat = (e as any).lngLat ?? this.map.unproject(e.point);
       this.drawPoints = [lngLat];
-      updateDrawLayer();
+      this.updateDrawLayer();
 
       this.map.dragPan.disable();
     };
@@ -279,12 +281,12 @@ export class FlutterBridgeEditor {
     const moveDraw = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
       if (!this.drawMode || this.deleteMode) return;
       const originalEvent = (e as any).originalEvent as any;
-      if (originalEvent?.touches && originalEvent.touches.length > 1) {
+      if (this.isMultiTouch(originalEvent)) {
         // Cancel drawing when user starts pinch zoom.
-        cancelDraw();
+        this.clearDrawLayer();
         return;
       }
-      (e as any).preventDefault?.();
+      this.preventDefault(originalEvent);
 
       if (this.drawPoints.length === 0) return;
       const lngLat = (e as any).lngLat ?? this.map.unproject(e.point);
@@ -297,17 +299,17 @@ export class FlutterBridgeEditor {
       }
 
       this.drawPoints.push(lngLat);
-      updateDrawLayer();
+      this.updateDrawLayer();
     };
 
     const endDraw = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
       if (!this.drawMode || this.deleteMode) return;
       const originalEvent = (e as any).originalEvent as any;
-      if (originalEvent?.touches && originalEvent.touches.length > 1) {
-        cancelDraw();
+      if (this.isMultiTouch(originalEvent)) {
+        this.clearDrawLayer();
         return;
       }
-      (e as any).preventDefault?.();
+      this.preventDefault(originalEvent);
 
       // Add final point
       if (this.drawPoints.length > 0) {
@@ -323,7 +325,7 @@ export class FlutterBridgeEditor {
       const zoomFactor = Math.max(0, 10 - zoom) * 0.6;
       const minPixelDistance = Math.min(14, 2 + densityBoost * 2 + zoomFactor);
 
-      const finalPoints = simplifyDrawPoints(
+      const finalPoints = this.simplifyDrawPoints(
         this.drawPoints,
         minPixelDistance,
       );
@@ -339,7 +341,7 @@ export class FlutterBridgeEditor {
       }
 
       // Clear the temporary overlay; the real track will be rendered by Rust after update.
-      clearDrawLayer();
+      this.clearDrawLayer();
 
       if (!this.drawMode) {
         this.map.dragPan.enable();
@@ -374,18 +376,7 @@ export class FlutterBridgeEditor {
         this.map.dragPan.disable();
       } else {
         this.map.dragPan.enable();
-
-        // Clean up any active selection
-        if (this.boxElement) {
-          this.boxElement.remove();
-          this.boxElement = null;
-        }
-        if (this.startMarker) {
-          this.startMarker.remove();
-          this.startMarker = null;
-        }
-        this.startPoint = null;
-        this.startLngLat = null;
+        this.clearSelectionOverlay();
       }
     };
 
@@ -405,28 +396,12 @@ export class FlutterBridgeEditor {
 
       if (enabled) {
         // Ensure any active selection UI is removed.
-        if (this.boxElement) {
-          this.boxElement.remove();
-          this.boxElement = null;
-        }
-        if (this.startMarker) {
-          this.startMarker.remove();
-          this.startMarker = null;
-        }
-        this.startPoint = null;
-        this.startLngLat = null;
+        this.clearSelectionOverlay();
         this.map.dragPan.disable();
       } else {
         this.map.dragPan.enable();
         // Clear temporary draw overlay.
-        this.drawPoints = [];
-        const src = this.map.getSource(this.drawSourceId) as any;
-        if (src) {
-          src.setData({
-            type: "Feature",
-            geometry: { type: "LineString", coordinates: [] },
-          });
-        }
+        this.clearDrawLayer();
       }
     };
   }

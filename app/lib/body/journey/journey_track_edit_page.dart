@@ -49,6 +49,18 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     _activeSnackBarController = null;
   }
 
+  void _showAddModeDisabled() {
+    _showFloatingSnackBar(
+      context.tr("journey.journey_track_edit_add_mode_disabled"),
+    );
+  }
+
+  void _showAddModeEnabled() {
+    _showFloatingSnackBar(
+      context.tr("journey.journey_track_edit_add_mode_enabled"),
+    );
+  }
+
   Widget _snackBarText(
     String message, {
     TextStyle? style,
@@ -226,8 +238,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     if (!_isAddMode && !_restoreAddModeAfterZoom) return;
     final zoomTooLowMessage =
         context.tr("journey.journey_track_edit_zoom_too_low");
-    final addEnabledMessage =
-        context.tr("journey.journey_track_edit_add_mode_enabled");
     final mapView = await _mapWebviewKey.currentState?.getCurrentMapView();
     if (mapView == null) return;
     if (!mounted) return;
@@ -249,7 +259,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
         _isAddMode = true;
       });
       _mapWebviewKey.currentState?.setDrawMode(true);
-      _showFloatingSnackBar(addEnabledMessage);
+      _showAddModeEnabled();
     }
   }
 
@@ -482,11 +492,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                                   _restoreAddModeAfterZoom = false;
                                 });
                                 _mapWebviewKey.currentState?.setDrawMode(false);
-                                _showFloatingSnackBar(
-                                  context.tr(
-                                    "journey.journey_track_edit_add_mode_disabled",
-                                  ),
-                                );
+                                _showAddModeDisabled();
                                 return;
                               }
 
@@ -494,11 +500,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                                 setState(() {
                                   _restoreAddModeAfterZoom = false;
                                 });
-                                _showFloatingSnackBar(
-                                  context.tr(
-                                    "journey.journey_track_edit_add_mode_disabled",
-                                  ),
-                                );
+                                _showAddModeDisabled();
                                 return;
                               }
 
@@ -536,9 +538,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                                 _isAddMode = true;
                               });
                               _mapWebviewKey.currentState?.setDrawMode(true);
-                              _showFloatingSnackBar(
-                                addEnabledMessage,
-                              );
+                              _showFloatingSnackBar(addEnabledMessage);
                             },
                       child: const Icon(Icons.edit),
                     ),
