@@ -6,6 +6,7 @@ use chrono::{DateTime, Local, NaiveDate, Utc};
 use flutter_rust_bridge::frb;
 
 use super::api;
+use crate::gps_processor::{DEFAULT_SEGMENT_GAP_RULES, STEP_OF_MY_WORLD_SEGMENT_GAP_RULES};
 use crate::journey_vector::JourneyVector;
 use crate::{
     flight_track_processor,
@@ -54,8 +55,10 @@ pub fn load_fow_data(file_path: String) -> Result<(JourneyInfo, JourneyData)> {
 }
 
 #[auto_context]
-pub fn load_gpx_or_kml(file_path: String) -> Result<(JourneyInfo, RawVectorData)> {
-    let raw_vector_data = match Path::new(&file_path)
+pub fn load_gpx_or_kml(
+    file_path: String,
+) -> Result<(JourneyInfo, RawVectorData, ImportPreprocessor)> {
+    let (raw_vector_data, import_preprocessor) = match Path::new(&file_path)
         .extension()
         .and_then(OsStr::to_str)
         .map(|x| x.to_lowercase())
@@ -71,6 +74,7 @@ pub fn load_gpx_or_kml(file_path: String) -> Result<(JourneyInfo, RawVectorData)
         RawVectorData {
             data: raw_vector_data,
         },
+        import_preprocessor,
     ))
 }
 
@@ -94,6 +98,7 @@ pub enum ImportPreprocessor {
     None,
     Generic,
     FlightTrack,
+    Sparse,
 }
 
 #[auto_context]
@@ -102,16 +107,22 @@ pub fn process_vector_data(
     import_processor: ImportPreprocessor,
 ) -> Result<JourneyData> {
     let journey_vector_opt = match import_processor {
-        ImportPreprocessor::None => {
-            import_data::journey_vector_from_raw_data_with_gps_preprocessor(
-                &vector_data.data,
-                false,
-            )
-        }
-        ImportPreprocessor::Generic => {
-            import_data::journey_vector_from_raw_data_with_gps_preprocessor(&vector_data.data, true)
-        }
+        ImportPreprocessor::None => import_data::journey_vector_from_raw_data_with_rules(
+            &vector_data.data,
+            false,
+            DEFAULT_SEGMENT_GAP_RULES,
+        ),
+        ImportPreprocessor::Generic => import_data::journey_vector_from_raw_data_with_rules(
+            &vector_data.data,
+            true,
+            DEFAULT_SEGMENT_GAP_RULES,
+        ),
         ImportPreprocessor::FlightTrack => flight_track_processor::process(&vector_data.data),
+        ImportPreprocessor::Sparse => import_data::journey_vector_from_raw_data_with_rules(
+            &vector_data.data,
+            true,
+            STEP_OF_MY_WORLD_SEGMENT_GAP_RULES,
+        ),
     };
 
     let journey_vector = journey_vector_opt.unwrap_or_else(|| JourneyVector {

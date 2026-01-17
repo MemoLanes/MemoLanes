@@ -13,11 +13,10 @@ use tempdir::TempDir;
 
 #[test]
 fn basic() {
-    let test_data: Vec<RawData> = import_data::load_gpx("./tests/data/raw_gps_shanghai.gpx")
-        .unwrap()
-        .into_iter()
-        .flatten()
-        .collect();
+    let (raw_data, _preprocessor) =
+        import_data::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
+
+    let test_data: Vec<RawData> = raw_data.into_iter().flatten().collect();
     let num_of_gpx_data_in_input = test_data.len();
     println!("total test data: {num_of_gpx_data_in_input}");
 

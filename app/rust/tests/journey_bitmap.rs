@@ -149,7 +149,7 @@ fn vector_to_bitmap(name: &str, zoom: i32, filename_override: Option<&str>) {
         None => format!("./tests/data/raw_gps_{name}.gpx"),
         Some(filename) => format!("./tests/data/{filename}"),
     };
-    let loaded_data = import_data::load_gpx(&filename).unwrap();
+    let (loaded_data, _preprocessor) = import_data::load_gpx(&filename).unwrap();
     let journey_vector =
         import_data::journey_vector_from_raw_data_with_gps_preprocessor(&loaded_data, true)
             .unwrap();

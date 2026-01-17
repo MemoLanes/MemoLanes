@@ -26,12 +26,9 @@ fn storage_for_main_map_renderer() {
         sub_folder("cache/"),
     );
 
-    for (i, raw_data) in import_data::load_gpx("./tests/data/raw_gps_shanghai.gpx")
-        .unwrap()
-        .iter()
-        .flatten()
-        .enumerate()
-    {
+    let (raw_data_groups, _preprocessor) =
+        import_data::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
+    for (i, raw_data) in raw_data_groups.iter().flatten().enumerate() {
         storage.record_gps_data(
             raw_data,
             ProcessResult::Append,

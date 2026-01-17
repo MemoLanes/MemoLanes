@@ -1,0 +1,2512 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="StepOfMyWorld" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+  <trk>
+    <name>StepOfMyWorld Track</name>
+    <trkseg>
+      <trkpt lat="35.42032300" lon="113.37025700">
+        <ele>341.20</ele>
+        <time>2025-12-24T下午4:00:01Z</time>
+        <extensions>
+          <speed>0.00</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41960100" lon="113.37044000">
+        <ele>333.05</ele>
+        <time>2025-12-25T上午12:58:51Z</time>
+        <extensions>
+          <speed>0.87</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41916500" lon="113.37116200">
+        <ele>343.98</ele>
+        <time>2025-12-25T上午1:00:01Z</time>
+        <extensions>
+          <speed>1.19</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41853100" lon="113.37159400">
+        <ele>332.21</ele>
+        <time>2025-12-25T上午1:01:03Z</time>
+        <extensions>
+          <speed>1.23</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41786800" lon="113.37197400">
+        <ele>330.16</ele>
+        <time>2025-12-25T上午1:02:06Z</time>
+        <extensions>
+          <speed>1.23</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41856700" lon="113.37157100">
+        <ele>327.70</ele>
+        <time>2025-12-25T上午1:09:34Z</time>
+        <extensions>
+          <speed>7.18</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41915400" lon="113.37089400">
+        <ele>332.73</ele>
+        <time>2025-12-25T上午1:09:45Z</time>
+        <extensions>
+          <speed>8.55</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41963500" lon="113.37022700">
+        <ele>330.63</ele>
+        <time>2025-12-25T上午1:09:56Z</time>
+        <extensions>
+          <speed>7.74</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41992300" lon="113.36935400">
+        <ele>328.74</ele>
+        <time>2025-12-25T上午1:10:07Z</time>
+        <extensions>
+          <speed>7.89</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42039800" lon="113.36864700">
+        <ele>327.01</ele>
+        <time>2025-12-25T上午1:10:27Z</time>
+        <extensions>
+          <speed>7.43</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42113700" lon="113.36890900">
+        <ele>329.48</ele>
+        <time>2025-12-25T上午1:10:37Z</time>
+        <extensions>
+          <speed>8.50</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42186100" lon="113.36903200">
+        <ele>331.55</ele>
+        <time>2025-12-25T上午1:10:51Z</time>
+        <extensions>
+          <speed>7.38</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42155800" lon="113.36821900">
+        <ele>325.91</ele>
+        <time>2025-12-25T上午1:11:00Z</time>
+        <extensions>
+          <speed>9.86</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42122400" lon="113.36732500">
+        <ele>321.79</ele>
+        <time>2025-12-25T上午1:11:09Z</time>
+        <extensions>
+          <speed>9.21</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42119800" lon="113.36642100">
+        <ele>322.64</ele>
+        <time>2025-12-25T上午1:11:59Z</time>
+        <extensions>
+          <speed>2.99</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42037000" lon="113.36638300">
+        <ele>319.89</ele>
+        <time>2025-12-25T上午1:12:16Z</time>
+        <extensions>
+          <speed>8.08</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41958900" lon="113.36639200">
+        <ele>317.42</ele>
+        <time>2025-12-25T上午1:12:28Z</time>
+        <extensions>
+          <speed>5.42</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41933800" lon="113.36542100">
+        <ele>315.70</ele>
+        <time>2025-12-25T上午1:12:40Z</time>
+        <extensions>
+          <speed>9.42</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41919000" lon="113.36439300">
+        <ele>322.99</ele>
+        <time>2025-12-25T上午1:12:50Z</time>
+        <extensions>
+          <speed>9.65</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41885900" lon="113.36355000">
+        <ele>328.38</ele>
+        <time>2025-12-25T上午1:12:59Z</time>
+        <extensions>
+          <speed>9.78</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41831100" lon="113.36279500">
+        <ele>335.30</ele>
+        <time>2025-12-25T上午1:13:09Z</time>
+        <extensions>
+          <speed>9.24</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41878200" lon="113.36211500">
+        <ele>339.40</ele>
+        <time>2025-12-25T上午1:13:18Z</time>
+        <extensions>
+          <speed>9.23</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41947500" lon="113.36180700">
+        <ele>344.27</ele>
+        <time>2025-12-25T上午1:13:27Z</time>
+        <extensions>
+          <speed>9.61</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42014400" lon="113.36222900">
+        <ele>343.60</ele>
+        <time>2025-12-25T上午1:13:35Z</time>
+        <extensions>
+          <speed>10.25</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42091800" lon="113.36197400">
+        <ele>347.48</ele>
+        <time>2025-12-25T上午1:13:45Z</time>
+        <extensions>
+          <speed>9.06</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42179200" lon="113.36206500">
+        <ele>352.32</ele>
+        <time>2025-12-25T上午1:13:56Z</time>
+        <extensions>
+          <speed>9.14</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42253600" lon="113.36236200">
+        <ele>356.28</ele>
+        <time>2025-12-25T上午1:14:06Z</time>
+        <extensions>
+          <speed>9.67</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42330900" lon="113.36226700">
+        <ele>357.88</ele>
+        <time>2025-12-25T上午1:14:14Z</time>
+        <extensions>
+          <speed>9.88</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42410900" lon="113.36204300">
+        <ele>359.71</ele>
+        <time>2025-12-25T上午1:14:24Z</time>
+        <extensions>
+          <speed>10.13</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42490600" lon="113.36210000">
+        <ele>359.69</ele>
+        <time>2025-12-25T上午1:14:32Z</time>
+        <extensions>
+          <speed>9.62</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42565000" lon="113.36186500">
+        <ele>359.88</ele>
+        <time>2025-12-25T上午1:14:41Z</time>
+        <extensions>
+          <speed>9.51</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42646100" lon="113.36181800">
+        <ele>364.02</ele>
+        <time>2025-12-25T上午1:14:51Z</time>
+        <extensions>
+          <speed>8.88</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42721200" lon="113.36190800">
+        <ele>367.67</ele>
+        <time>2025-12-25T上午1:15:00Z</time>
+        <extensions>
+          <speed>9.67</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42791800" lon="113.36147200">
+        <ele>372.29</ele>
+        <time>2025-12-25T上午1:15:09Z</time>
+        <extensions>
+          <speed>9.69</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42870800" lon="113.36134800">
+        <ele>376.83</ele>
+        <time>2025-12-25T上午1:15:19Z</time>
+        <extensions>
+          <speed>7.76</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42912400" lon="113.36048500">
+        <ele>387.06</ele>
+        <time>2025-12-25T上午1:16:15Z</time>
+        <extensions>
+          <speed>6.69</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42922700" lon="113.35951600">
+        <ele>395.73</ele>
+        <time>2025-12-25T上午1:16:27Z</time>
+        <extensions>
+          <speed>8.20</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42993800" lon="113.35932500">
+        <ele>398.26</ele>
+        <time>2025-12-25T上午1:16:36Z</time>
+        <extensions>
+          <speed>9.19</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43053300" lon="113.35983000">
+        <ele>396.38</ele>
+        <time>2025-12-25T上午1:16:45Z</time>
+        <extensions>
+          <speed>8.76</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43131400" lon="113.35955900">
+        <ele>394.89</ele>
+        <time>2025-12-25T上午1:16:57Z</time>
+        <extensions>
+          <speed>9.18</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43193500" lon="113.35907400">
+        <ele>395.48</ele>
+        <time>2025-12-25T上午1:17:06Z</time>
+        <extensions>
+          <speed>9.29</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43277600" lon="113.35918200">
+        <ele>397.51</ele>
+        <time>2025-12-25T上午1:17:16Z</time>
+        <extensions>
+          <speed>9.62</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43345900" lon="113.35977100">
+        <ele>402.94</ele>
+        <time>2025-12-25T上午1:17:27Z</time>
+        <extensions>
+          <speed>6.09</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43405700" lon="113.35924900">
+        <ele>413.16</ele>
+        <time>2025-12-25T上午1:18:38Z</time>
+        <extensions>
+          <speed>6.83</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43404500" lon="113.35825000">
+        <ele>426.26</ele>
+        <time>2025-12-25T上午1:32:45Z</time>
+        <extensions>
+          <speed>6.80</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43416300" lon="113.35724800">
+        <ele>432.29</ele>
+        <time>2025-12-25T上午1:32:57Z</time>
+        <extensions>
+          <speed>8.05</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43406900" lon="113.35629900">
+        <ele>438.51</ele>
+        <time>2025-12-25T上午1:33:08Z</time>
+        <extensions>
+          <speed>7.88</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43458000" lon="113.35566400">
+        <ele>437.21</ele>
+        <time>2025-12-25T上午1:33:21Z</time>
+        <extensions>
+          <speed>7.09</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43511100" lon="113.35500200">
+        <ele>432.77</ele>
+        <time>2025-12-25T上午1:33:32Z</time>
+        <extensions>
+          <speed>8.82</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43578700" lon="113.35435000">
+        <ele>428.92</ele>
+        <time>2025-12-25T上午1:33:43Z</time>
+        <extensions>
+          <speed>8.61</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43654100" lon="113.35406300">
+        <ele>427.82</ele>
+        <time>2025-12-25T上午1:33:53Z</time>
+        <extensions>
+          <speed>8.48</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43727300" lon="113.35374800">
+        <ele>430.01</ele>
+        <time>2025-12-25T上午1:34:04Z</time>
+        <extensions>
+          <speed>7.88</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43802400" lon="113.35366300">
+        <ele>434.02</ele>
+        <time>2025-12-25T上午1:34:16Z</time>
+        <extensions>
+          <speed>7.59</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43880100" lon="113.35363200">
+        <ele>432.67</ele>
+        <time>2025-12-25T上午1:34:27Z</time>
+        <extensions>
+          <speed>8.77</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43961900" lon="113.35375700">
+        <ele>428.04</ele>
+        <time>2025-12-25T上午1:34:36Z</time>
+        <extensions>
+          <speed>9.89</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44039900" lon="113.35377500">
+        <ele>426.05</ele>
+        <time>2025-12-25T上午1:34:46Z</time>
+        <extensions>
+          <speed>8.51</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44115400" lon="113.35360400">
+        <ele>426.87</ele>
+        <time>2025-12-25T上午1:34:57Z</time>
+        <extensions>
+          <speed>8.92</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44194000" lon="113.35366400">
+        <ele>424.39</ele>
+        <time>2025-12-25T上午1:35:07Z</time>
+        <extensions>
+          <speed>9.02</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44277200" lon="113.35347000">
+        <ele>421.96</ele>
+        <time>2025-12-25T上午1:35:17Z</time>
+        <extensions>
+          <speed>9.10</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44359000" lon="113.35363300">
+        <ele>420.02</ele>
+        <time>2025-12-25T上午1:35:27Z</time>
+        <extensions>
+          <speed>9.20</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44424900" lon="113.35401300">
+        <ele>419.14</ele>
+        <time>2025-12-25T上午1:35:37Z</time>
+        <extensions>
+          <speed>8.37</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44468800" lon="113.35323600">
+        <ele>420.84</ele>
+        <time>2025-12-25T上午1:36:04Z</time>
+        <extensions>
+          <speed>7.20</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44539900" lon="113.35293000">
+        <ele>421.53</ele>
+        <time>2025-12-25T上午1:36:14Z</time>
+        <extensions>
+          <speed>9.09</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44613200" lon="113.35269100">
+        <ele>425.65</ele>
+        <time>2025-12-25T上午1:36:23Z</time>
+        <extensions>
+          <speed>9.24</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44687200" lon="113.35238800">
+        <ele>424.00</ele>
+        <time>2025-12-25T上午1:36:32Z</time>
+        <extensions>
+          <speed>9.77</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44763700" lon="113.35221600">
+        <ele>423.43</ele>
+        <time>2025-12-25T上午1:36:41Z</time>
+        <extensions>
+          <speed>9.46</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44838900" lon="113.35169800">
+        <ele>424.40</ele>
+        <time>2025-12-25T上午1:36:51Z</time>
+        <extensions>
+          <speed>9.46</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44910500" lon="113.35131000">
+        <ele>426.90</ele>
+        <time>2025-12-25T上午1:37:01Z</time>
+        <extensions>
+          <speed>8.29</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44975400" lon="113.35081600">
+        <ele>428.36</ele>
+        <time>2025-12-25T上午1:37:11Z</time>
+        <extensions>
+          <speed>8.93</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45031900" lon="113.35013500">
+        <ele>430.89</ele>
+        <time>2025-12-25T上午1:37:21Z</time>
+        <extensions>
+          <speed>8.74</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45094800" lon="113.34966700">
+        <ele>430.70</ele>
+        <time>2025-12-25T上午1:37:30Z</time>
+        <extensions>
+          <speed>9.39</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45181500" lon="113.34944400">
+        <ele>431.20</ele>
+        <time>2025-12-25T上午1:37:41Z</time>
+        <extensions>
+          <speed>9.07</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45258000" lon="113.34933000">
+        <ele>438.50</ele>
+        <time>2025-12-25T上午1:37:50Z</time>
+        <extensions>
+          <speed>9.90</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45329100" lon="113.34907400">
+        <ele>439.87</ele>
+        <time>2025-12-25T上午1:37:59Z</time>
+        <extensions>
+          <speed>9.05</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45404700" lon="113.34881000">
+        <ele>435.08</ele>
+        <time>2025-12-25T上午1:38:08Z</time>
+        <extensions>
+          <speed>9.25</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45481900" lon="113.34864200">
+        <ele>429.56</ele>
+        <time>2025-12-25T上午1:38:18Z</time>
+        <extensions>
+          <speed>8.63</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45558500" lon="113.34856100">
+        <ele>426.01</ele>
+        <time>2025-12-25T上午1:38:27Z</time>
+        <extensions>
+          <speed>9.46</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45633700" lon="113.34824200">
+        <ele>426.09</ele>
+        <time>2025-12-25T上午1:38:37Z</time>
+        <extensions>
+          <speed>8.92</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45713500" lon="113.34785100">
+        <ele>431.33</ele>
+        <time>2025-12-25T上午1:38:48Z</time>
+        <extensions>
+          <speed>8.86</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45788100" lon="113.34757500">
+        <ele>434.63</ele>
+        <time>2025-12-25T上午1:38:58Z</time>
+        <extensions>
+          <speed>8.60</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45867600" lon="113.34749200">
+        <ele>438.10</ele>
+        <time>2025-12-25T上午1:39:08Z</time>
+        <extensions>
+          <speed>8.87</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45938400" lon="113.34720400">
+        <ele>441.09</ele>
+        <time>2025-12-25T上午1:39:17Z</time>
+        <extensions>
+          <speed>8.70</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46008000" lon="113.34674900">
+        <ele>441.36</ele>
+        <time>2025-12-25T上午1:39:27Z</time>
+        <extensions>
+          <speed>9.27</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46083500" lon="113.34640400">
+        <ele>442.13</ele>
+        <time>2025-12-25T上午1:39:37Z</time>
+        <extensions>
+          <speed>8.88</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46149700" lon="113.34579800">
+        <ele>441.17</ele>
+        <time>2025-12-25T上午1:39:47Z</time>
+        <extensions>
+          <speed>9.33</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46220600" lon="113.34529600">
+        <ele>441.78</ele>
+        <time>2025-12-25T上午1:39:57Z</time>
+        <extensions>
+          <speed>8.94</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46271000" lon="113.34465100">
+        <ele>443.77</ele>
+        <time>2025-12-25T上午1:40:07Z</time>
+        <extensions>
+          <speed>8.37</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46308900" lon="113.34384600">
+        <ele>445.96</ele>
+        <time>2025-12-25T上午1:40:17Z</time>
+        <extensions>
+          <speed>8.76</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46358100" lon="113.34307000">
+        <ele>448.19</ele>
+        <time>2025-12-25T上午1:40:26Z</time>
+        <extensions>
+          <speed>9.31</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46434200" lon="113.34284200">
+        <ele>449.70</ele>
+        <time>2025-12-25T上午1:40:35Z</time>
+        <extensions>
+          <speed>9.93</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46511200" lon="113.34318300">
+        <ele>452.74</ele>
+        <time>2025-12-25T上午1:40:45Z</time>
+        <extensions>
+          <speed>8.97</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46585300" lon="113.34346400">
+        <ele>453.64</ele>
+        <time>2025-12-25T上午1:40:55Z</time>
+        <extensions>
+          <speed>6.38</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46657700" lon="113.34346300">
+        <ele>462.23</ele>
+        <time>2025-12-25T上午1:47:40Z</time>
+        <extensions>
+          <speed>0.14</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46712000" lon="113.34285200">
+        <ele>463.91</ele>
+        <time>2025-12-25T上午1:50:02Z</time>
+        <extensions>
+          <speed>0.94</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46757400" lon="113.34215100">
+        <ele>457.47</ele>
+        <time>2025-12-25T上午1:51:38Z</time>
+        <extensions>
+          <speed>0.83</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46829400" lon="113.34219200">
+        <ele>467.10</ele>
+        <time>2025-12-25T上午1:54:41Z</time>
+        <extensions>
+          <speed>0.90</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46893500" lon="113.34261700">
+        <ele>474.80</ele>
+        <time>2025-12-25T上午1:56:33Z</time>
+        <extensions>
+          <speed>0.56</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46917100" lon="113.34345000">
+        <ele>478.54</ele>
+        <time>2025-12-25T上午1:58:22Z</time>
+        <extensions>
+          <speed>0.66</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46918300" lon="113.34433800">
+        <ele>484.48</ele>
+        <time>2025-12-25T上午2:00:01Z</time>
+        <extensions>
+          <speed>0.59</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46992300" lon="113.34440400">
+        <ele>503.58</ele>
+        <time>2025-12-25T上午2:01:48Z</time>
+        <extensions>
+          <speed>1.10</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.47013100" lon="113.34355000">
+        <ele>550.44</ele>
+        <time>2025-12-25T上午2:06:03Z</time>
+        <extensions>
+          <speed>0.60</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46959000" lon="113.34295300">
+        <ele>493.00</ele>
+        <time>2025-12-25T上午2:40:25Z</time>
+        <extensions>
+          <speed>0.64</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46891700" lon="113.34259800">
+        <ele>471.92</ele>
+        <time>2025-12-25T上午2:43:35Z</time>
+        <extensions>
+          <speed>0.89</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46824700" lon="113.34226500">
+        <ele>471.58</ele>
+        <time>2025-12-25T上午2:45:54Z</time>
+        <extensions>
+          <speed>0.56</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46813200" lon="113.34139400">
+        <ele>462.96</ele>
+        <time>2025-12-25T上午2:48:29Z</time>
+        <extensions>
+          <speed>0.37</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46828400" lon="113.34053100">
+        <ele>467.64</ele>
+        <time>2025-12-25T上午2:53:05Z</time>
+        <extensions>
+          <speed>0.52</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46849800" lon="113.33968400">
+        <ele>467.85</ele>
+        <time>2025-12-25T上午2:58:50Z</time>
+        <extensions>
+          <speed>0.65</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46873500" lon="113.33882800">
+        <ele>467.41</ele>
+        <time>2025-12-25T上午3:00:22Z</time>
+        <extensions>
+          <speed>0.98</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46905300" lon="113.33802900">
+        <ele>468.66</ele>
+        <time>2025-12-25T上午3:02:45Z</time>
+        <extensions>
+          <speed>0.26</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46960200" lon="113.33744500">
+        <ele>480.38</ele>
+        <time>2025-12-25T上午3:05:34Z</time>
+        <extensions>
+          <speed>0.71</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.47020400" lon="113.33694300">
+        <ele>490.18</ele>
+        <time>2025-12-25T上午3:08:58Z</time>
+        <extensions>
+          <speed>0.57</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.47074200" lon="113.33633900">
+        <ele>492.52</ele>
+        <time>2025-12-25T上午3:11:28Z</time>
+        <extensions>
+          <speed>0.69</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.47082600" lon="113.33543900">
+        <ele>492.71</ele>
+        <time>2025-12-25T上午3:14:36Z</time>
+        <extensions>
+          <speed>1.22</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.47155200" lon="113.33545600">
+        <ele>490.63</ele>
+        <time>2025-12-25T上午3:18:20Z</time>
+        <extensions>
+          <speed>0.46</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.47228500" lon="113.33542900">
+        <ele>503.54</ele>
+        <time>2025-12-25T上午3:24:45Z</time>
+        <extensions>
+          <speed>0.99</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.47295700" lon="113.33576200">
+        <ele>511.26</ele>
+        <time>2025-12-25T上午3:29:34Z</time>
+        <extensions>
+          <speed>0.75</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.47356300" lon="113.33624500">
+        <ele>535.19</ele>
+        <time>2025-12-25T上午3:35:20Z</time>
+        <extensions>
+          <speed>0.32</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.47424800" lon="113.33654000">
+        <ele>540.08</ele>
+        <time>2025-12-25T上午3:41:35Z</time>
+        <extensions>
+          <speed>0.57</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.47495600" lon="113.33635000">
+        <ele>548.06</ele>
+        <time>2025-12-25T上午3:43:56Z</time>
+        <extensions>
+          <speed>1.08</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.47556300" lon="113.33582500">
+        <ele>557.48</ele>
+        <time>2025-12-25T上午3:48:17Z</time>
+        <extensions>
+          <speed>1.20</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.47604700" lon="113.33516100">
+        <ele>587.54</ele>
+        <time>2025-12-25T上午3:56:09Z</time>
+        <extensions>
+          <speed>0.24</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.47673700" lon="113.33488000">
+        <ele>589.68</ele>
+        <time>2025-12-25T上午3:57:59Z</time>
+        <extensions>
+          <speed>0.75</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.47608000" lon="113.33526500">
+        <ele>589.14</ele>
+        <time>2025-12-25T上午4:15:11Z</time>
+        <extensions>
+          <speed>0.87</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.47558500" lon="113.33591300">
+        <ele>575.54</ele>
+        <time>2025-12-25T上午4:19:11Z</time>
+        <extensions>
+          <speed>1.09</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.47497400" lon="113.33638300">
+        <ele>565.81</ele>
+        <time>2025-12-25T上午4:20:41Z</time>
+        <extensions>
+          <speed>0.24</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.47428700" lon="113.33665900">
+        <ele>551.39</ele>
+        <time>2025-12-25T上午4:23:32Z</time>
+        <extensions>
+          <speed>1.03</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.47358500" lon="113.33637300">
+        <ele>530.32</ele>
+        <time>2025-12-25T上午4:25:54Z</time>
+        <extensions>
+          <speed>1.09</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.47297100" lon="113.33590900">
+        <ele>528.07</ele>
+        <time>2025-12-25T上午4:27:54Z</time>
+        <extensions>
+          <speed>0.55</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.47229500" lon="113.33556800">
+        <ele>529.95</ele>
+        <time>2025-12-25T上午4:31:53Z</time>
+        <extensions>
+          <speed>0.00</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.47156600" lon="113.33555200">
+        <ele>497.22</ele>
+        <time>2025-12-25T上午4:35:48Z</time>
+        <extensions>
+          <speed>0.58</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.47087700" lon="113.33582700">
+        <ele>501.83</ele>
+        <time>2025-12-25T上午4:39:00Z</time>
+        <extensions>
+          <speed>0.06</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.47063900" lon="113.33666600">
+        <ele>508.38</ele>
+        <time>2025-12-25T上午4:41:25Z</time>
+        <extensions>
+          <speed>0.91</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.47005800" lon="113.33719700">
+        <ele>502.28</ele>
+        <time>2025-12-25T上午4:42:56Z</time>
+        <extensions>
+          <speed>0.98</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46945500" lon="113.33772500">
+        <ele>493.65</ele>
+        <time>2025-12-25T上午4:44:18Z</time>
+        <extensions>
+          <speed>0.92</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46893700" lon="113.33835400">
+        <ele>471.55</ele>
+        <time>2025-12-25T上午4:46:03Z</time>
+        <extensions>
+          <speed>0.91</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46872700" lon="113.33921700">
+        <ele>471.11</ele>
+        <time>2025-12-25T上午4:47:32Z</time>
+        <extensions>
+          <speed>1.05</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46850600" lon="113.34007200">
+        <ele>465.84</ele>
+        <time>2025-12-25T上午4:48:51Z</time>
+        <extensions>
+          <speed>0.91</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46832500" lon="113.34093200">
+        <ele>466.98</ele>
+        <time>2025-12-25T上午4:50:15Z</time>
+        <extensions>
+          <speed>0.84</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46771500" lon="113.34141600">
+        <ele>473.48</ele>
+        <time>2025-12-25T上午4:51:56Z</time>
+        <extensions>
+          <speed>0.19</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46766900" lon="113.34051800">
+        <ele>461.19</ele>
+        <time>2025-12-25T上午5:07:33Z</time>
+        <extensions>
+          <speed>0.98</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46753600" lon="113.34138900">
+        <ele>463.42</ele>
+        <time>2025-12-25T上午5:11:16Z</time>
+        <extensions>
+          <speed>1.04</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46728400" lon="113.34221900">
+        <ele>461.94</ele>
+        <time>2025-12-25T上午5:12:31Z</time>
+        <extensions>
+          <speed>0.92</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46683400" lon="113.34291900">
+        <ele>457.93</ele>
+        <time>2025-12-25T上午5:13:44Z</time>
+        <extensions>
+          <speed>1.34</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46614400" lon="113.34318300">
+        <ele>460.83</ele>
+        <time>2025-12-25T上午5:14:50Z</time>
+        <extensions>
+          <speed>1.36</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46541400" lon="113.34304800">
+        <ele>461.24</ele>
+        <time>2025-12-25T上午5:16:04Z</time>
+        <extensions>
+          <speed>1.10</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46464700" lon="113.34299300">
+        <ele>457.41</ele>
+        <time>2025-12-25T上午5:22:09Z</time>
+        <extensions>
+          <speed>4.19</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46391800" lon="113.34287300">
+        <ele>459.37</ele>
+        <time>2025-12-25T上午5:22:22Z</time>
+        <extensions>
+          <speed>6.87</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46328800" lon="113.34346800">
+        <ele>456.92</ele>
+        <time>2025-12-25T上午5:22:34Z</time>
+        <extensions>
+          <speed>7.39</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46287700" lon="113.34424300">
+        <ele>453.50</ele>
+        <time>2025-12-25T上午5:22:43Z</time>
+        <extensions>
+          <speed>9.00</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46248200" lon="113.34503400">
+        <ele>450.02</ele>
+        <time>2025-12-25T上午5:22:53Z</time>
+        <extensions>
+          <speed>8.23</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46183200" lon="113.34554500">
+        <ele>447.74</ele>
+        <time>2025-12-25T上午5:23:02Z</time>
+        <extensions>
+          <speed>9.37</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46119400" lon="113.34610800">
+        <ele>447.48</ele>
+        <time>2025-12-25T上午5:23:12Z</time>
+        <extensions>
+          <speed>9.05</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.46056900" lon="113.34663700">
+        <ele>444.11</ele>
+        <time>2025-12-25T上午5:23:22Z</time>
+        <extensions>
+          <speed>8.40</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45975900" lon="113.34702200">
+        <ele>443.92</ele>
+        <time>2025-12-25T上午5:23:32Z</time>
+        <extensions>
+          <speed>9.36</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45898600" lon="113.34746400">
+        <ele>440.01</ele>
+        <time>2025-12-25T上午5:23:44Z</time>
+        <extensions>
+          <speed>9.11</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45813800" lon="113.34753900">
+        <ele>435.71</ele>
+        <time>2025-12-25T上午5:23:55Z</time>
+        <extensions>
+          <speed>8.44</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45737700" lon="113.34776500">
+        <ele>430.82</ele>
+        <time>2025-12-25T上午5:24:05Z</time>
+        <extensions>
+          <speed>8.05</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45659900" lon="113.34807000">
+        <ele>424.64</ele>
+        <time>2025-12-25T上午5:24:48Z</time>
+        <extensions>
+          <speed>6.98</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45593900" lon="113.34852600">
+        <ele>421.02</ele>
+        <time>2025-12-25T上午5:24:59Z</time>
+        <extensions>
+          <speed>7.61</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45507900" lon="113.34851000">
+        <ele>420.45</ele>
+        <time>2025-12-25T上午5:25:10Z</time>
+        <extensions>
+          <speed>8.86</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45429900" lon="113.34861800">
+        <ele>421.79</ele>
+        <time>2025-12-25T上午5:25:20Z</time>
+        <extensions>
+          <speed>9.11</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45355700" lon="113.34867900">
+        <ele>422.23</ele>
+        <time>2025-12-25T上午5:25:29Z</time>
+        <extensions>
+          <speed>9.50</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45277600" lon="113.34888700">
+        <ele>422.64</ele>
+        <time>2025-12-25T上午5:25:38Z</time>
+        <extensions>
+          <speed>9.71</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45195600" lon="113.34921700">
+        <ele>421.82</ele>
+        <time>2025-12-25T上午5:25:49Z</time>
+        <extensions>
+          <speed>9.02</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45120200" lon="113.34947100">
+        <ele>422.17</ele>
+        <time>2025-12-25T上午5:25:59Z</time>
+        <extensions>
+          <speed>8.60</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.45045400" lon="113.34992700">
+        <ele>425.83</ele>
+        <time>2025-12-25T上午5:26:10Z</time>
+        <extensions>
+          <speed>8.27</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44993700" lon="113.35062900">
+        <ele>424.94</ele>
+        <time>2025-12-25T上午5:26:19Z</time>
+        <extensions>
+          <speed>9.17</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44927300" lon="113.35134800">
+        <ele>421.32</ele>
+        <time>2025-12-25T上午5:26:30Z</time>
+        <extensions>
+          <speed>9.05</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44855200" lon="113.35160700">
+        <ele>419.75</ele>
+        <time>2025-12-25T上午5:26:39Z</time>
+        <extensions>
+          <speed>9.27</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44779600" lon="113.35211800">
+        <ele>418.13</ele>
+        <time>2025-12-25T上午5:26:50Z</time>
+        <extensions>
+          <speed>8.53</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44701400" lon="113.35238900">
+        <ele>418.59</ele>
+        <time>2025-12-25T上午5:27:00Z</time>
+        <extensions>
+          <speed>8.99</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44623700" lon="113.35269700">
+        <ele>422.73</ele>
+        <time>2025-12-25T上午5:27:10Z</time>
+        <extensions>
+          <speed>9.13</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44541400" lon="113.35294700">
+        <ele>420.62</ele>
+        <time>2025-12-25T上午5:27:20Z</time>
+        <extensions>
+          <speed>9.85</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44470800" lon="113.35320700">
+        <ele>419.42</ele>
+        <time>2025-12-25T上午5:27:30Z</time>
+        <extensions>
+          <speed>6.55</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44484500" lon="113.35419400">
+        <ele>421.31</ele>
+        <time>2025-12-25T上午5:27:42Z</time>
+        <extensions>
+          <speed>8.16</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44409200" lon="113.35379300">
+        <ele>425.56</ele>
+        <time>2025-12-25T上午5:28:02Z</time>
+        <extensions>
+          <speed>7.88</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44336000" lon="113.35362200">
+        <ele>423.37</ele>
+        <time>2025-12-25T上午5:28:13Z</time>
+        <extensions>
+          <speed>7.97</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44253900" lon="113.35355900">
+        <ele>429.00</ele>
+        <time>2025-12-25T上午5:28:25Z</time>
+        <extensions>
+          <speed>7.77</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44168500" lon="113.35360100">
+        <ele>430.46</ele>
+        <time>2025-12-25T上午5:28:37Z</time>
+        <extensions>
+          <speed>8.92</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44086200" lon="113.35367100">
+        <ele>431.16</ele>
+        <time>2025-12-25T上午5:28:48Z</time>
+        <extensions>
+          <speed>7.17</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.44010200" lon="113.35387400">
+        <ele>428.06</ele>
+        <time>2025-12-25T上午5:28:58Z</time>
+        <extensions>
+          <speed>9.21</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43938000" lon="113.35376500">
+        <ele>427.84</ele>
+        <time>2025-12-25T上午5:29:07Z</time>
+        <extensions>
+          <speed>9.33</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43854100" lon="113.35368500">
+        <ele>428.95</ele>
+        <time>2025-12-25T上午5:29:18Z</time>
+        <extensions>
+          <speed>7.99</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43780900" lon="113.35350400">
+        <ele>430.45</ele>
+        <time>2025-12-25T上午5:29:29Z</time>
+        <extensions>
+          <speed>7.25</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43707300" lon="113.35380400">
+        <ele>429.06</ele>
+        <time>2025-12-25T上午5:29:40Z</time>
+        <extensions>
+          <speed>8.86</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43632800" lon="113.35416400">
+        <ele>428.24</ele>
+        <time>2025-12-25T上午5:29:50Z</time>
+        <extensions>
+          <speed>9.31</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43563800" lon="113.35447500">
+        <ele>428.54</ele>
+        <time>2025-12-25T上午5:29:59Z</time>
+        <extensions>
+          <speed>8.95</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43508600" lon="113.35514200">
+        <ele>431.30</ele>
+        <time>2025-12-25T上午5:30:09Z</time>
+        <extensions>
+          <speed>8.79</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43446300" lon="113.35570500">
+        <ele>432.40</ele>
+        <time>2025-12-25T上午5:30:20Z</time>
+        <extensions>
+          <speed>7.81</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43408300" lon="113.35654900">
+        <ele>429.58</ele>
+        <time>2025-12-25T上午5:30:33Z</time>
+        <extensions>
+          <speed>7.47</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43410600" lon="113.35746100">
+        <ele>426.25</ele>
+        <time>2025-12-25T上午5:30:51Z</time>
+        <extensions>
+          <speed>2.00</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43403800" lon="113.35834000">
+        <ele>419.74</ele>
+        <time>2025-12-25T上午5:31:46Z</time>
+        <extensions>
+          <speed>8.64</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43427000" lon="113.35925500">
+        <ele>417.55</ele>
+        <time>2025-12-25T上午5:31:57Z</time>
+        <extensions>
+          <speed>8.11</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43409600" lon="113.36012800">
+        <ele>413.76</ele>
+        <time>2025-12-25T上午5:32:08Z</time>
+        <extensions>
+          <speed>8.59</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43333400" lon="113.35978500">
+        <ele>408.91</ele>
+        <time>2025-12-25T上午5:32:18Z</time>
+        <extensions>
+          <speed>9.48</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43279500" lon="113.35917200">
+        <ele>405.34</ele>
+        <time>2025-12-25T上午5:32:27Z</time>
+        <extensions>
+          <speed>9.31</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43205300" lon="113.35900100">
+        <ele>402.32</ele>
+        <time>2025-12-25T上午5:32:36Z</time>
+        <extensions>
+          <speed>9.61</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43134700" lon="113.35954000">
+        <ele>400.95</ele>
+        <time>2025-12-25T上午5:32:46Z</time>
+        <extensions>
+          <speed>9.04</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43062800" lon="113.35986600">
+        <ele>399.52</ele>
+        <time>2025-12-25T上午5:32:56Z</time>
+        <extensions>
+          <speed>8.76</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42995600" lon="113.35930300">
+        <ele>400.41</ele>
+        <time>2025-12-25T上午5:33:44Z</time>
+        <extensions>
+          <speed>6.40</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42920000" lon="113.35959600">
+        <ele>396.26</ele>
+        <time>2025-12-25T上午5:33:56Z</time>
+        <extensions>
+          <speed>8.31</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42918900" lon="113.36050600">
+        <ele>391.19</ele>
+        <time>2025-12-25T上午5:34:06Z</time>
+        <extensions>
+          <speed>8.98</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42877900" lon="113.36132600">
+        <ele>385.72</ele>
+        <time>2025-12-25T上午5:34:17Z</time>
+        <extensions>
+          <speed>8.99</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42800600" lon="113.36139500">
+        <ele>378.54</ele>
+        <time>2025-12-25T上午5:34:26Z</time>
+        <extensions>
+          <speed>9.24</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42726100" lon="113.36184900">
+        <ele>373.61</ele>
+        <time>2025-12-25T上午5:34:36Z</time>
+        <extensions>
+          <speed>9.30</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42651700" lon="113.36181100">
+        <ele>368.47</ele>
+        <time>2025-12-25T上午5:34:45Z</time>
+        <extensions>
+          <speed>8.80</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42572900" lon="113.36180800">
+        <ele>365.66</ele>
+        <time>2025-12-25T上午5:34:54Z</time>
+        <extensions>
+          <speed>9.45</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42490600" lon="113.36207600">
+        <ele>365.59</ele>
+        <time>2025-12-25T上午5:35:04Z</time>
+        <extensions>
+          <speed>9.48</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42418200" lon="113.36204200">
+        <ele>364.82</ele>
+        <time>2025-12-25T上午5:35:13Z</time>
+        <extensions>
+          <speed>9.28</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42338200" lon="113.36218700">
+        <ele>365.04</ele>
+        <time>2025-12-25T上午5:35:23Z</time>
+        <extensions>
+          <speed>10.20</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42254600" lon="113.36232400">
+        <ele>361.49</ele>
+        <time>2025-12-25T上午5:35:32Z</time>
+        <extensions>
+          <speed>9.49</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42180900" lon="113.36206500">
+        <ele>355.77</ele>
+        <time>2025-12-25T上午5:35:41Z</time>
+        <extensions>
+          <speed>9.39</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42109800" lon="113.36185600">
+        <ele>350.78</ele>
+        <time>2025-12-25T上午5:35:50Z</time>
+        <extensions>
+          <speed>9.31</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42038500" lon="113.36225000">
+        <ele>347.48</ele>
+        <time>2025-12-25T上午5:35:59Z</time>
+        <extensions>
+          <speed>9.24</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41969900" lon="113.36188400">
+        <ele>342.29</ele>
+        <time>2025-12-25T上午5:36:08Z</time>
+        <extensions>
+          <speed>9.49</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41886300" lon="113.36208700">
+        <ele>337.74</ele>
+        <time>2025-12-25T上午5:36:20Z</time>
+        <extensions>
+          <speed>9.18</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41833400" lon="113.36269200">
+        <ele>332.55</ele>
+        <time>2025-12-25T上午5:36:28Z</time>
+        <extensions>
+          <speed>8.80</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41876200" lon="113.36347500">
+        <ele>324.80</ele>
+        <time>2025-12-25T上午5:36:38Z</time>
+        <extensions>
+          <speed>9.11</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41924400" lon="113.36428100">
+        <ele>318.15</ele>
+        <time>2025-12-25T上午5:36:48Z</time>
+        <extensions>
+          <speed>9.35</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41941400" lon="113.36534100">
+        <ele>314.34</ele>
+        <time>2025-12-25T上午5:36:58Z</time>
+        <extensions>
+          <speed>9.50</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41955800" lon="113.36634100">
+        <ele>317.66</ele>
+        <time>2025-12-25T上午5:37:08Z</time>
+        <extensions>
+          <speed>9.14</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41957400" lon="113.36740100">
+        <ele>322.03</ele>
+        <time>2025-12-25T上午5:37:18Z</time>
+        <extensions>
+          <speed>9.70</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41980400" lon="113.36837500">
+        <ele>325.86</ele>
+        <time>2025-12-25T上午5:37:29Z</time>
+        <extensions>
+          <speed>8.19</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42053900" lon="113.36869600">
+        <ele>328.21</ele>
+        <time>2025-12-25T上午5:37:39Z</time>
+        <extensions>
+          <speed>8.85</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42124300" lon="113.36896500">
+        <ele>331.83</ele>
+        <time>2025-12-25T上午5:37:48Z</time>
+        <extensions>
+          <speed>9.10</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42155100" lon="113.36805400">
+        <ele>324.21</ele>
+        <time>2025-12-25T上午5:38:11Z</time>
+        <extensions>
+          <speed>9.50</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42128400" lon="113.36712000">
+        <ele>321.20</ele>
+        <time>2025-12-25T上午5:38:22Z</time>
+        <extensions>
+          <speed>4.95</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42121900" lon="113.36623400">
+        <ele>320.85</ele>
+        <time>2025-12-25T上午5:39:36Z</time>
+        <extensions>
+          <speed>3.41</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42048900" lon="113.36638100">
+        <ele>316.86</ele>
+        <time>2025-12-25T上午5:39:50Z</time>
+        <extensions>
+          <speed>8.23</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41970600" lon="113.36643100">
+        <ele>314.38</ele>
+        <time>2025-12-25T上午5:40:01Z</time>
+        <extensions>
+          <speed>5.98</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41957800" lon="113.36737600">
+        <ele>318.95</ele>
+        <time>2025-12-25T上午5:40:14Z</time>
+        <extensions>
+          <speed>9.43</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41966700" lon="113.36831500">
+        <ele>323.33</ele>
+        <time>2025-12-25T上午5:40:23Z</time>
+        <extensions>
+          <speed>9.66</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41997900" lon="113.36933100">
+        <ele>328.27</ele>
+        <time>2025-12-25T上午5:40:33Z</time>
+        <extensions>
+          <speed>9.55</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41965100" lon="113.37022300">
+        <ele>329.17</ele>
+        <time>2025-12-25T上午5:40:43Z</time>
+        <extensions>
+          <speed>9.80</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41913400" lon="113.37091800">
+        <ele>330.40</ele>
+        <time>2025-12-25T上午5:40:52Z</time>
+        <extensions>
+          <speed>9.35</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41862100" lon="113.37153800">
+        <ele>326.89</ele>
+        <time>2025-12-25T上午5:41:01Z</time>
+        <extensions>
+          <speed>8.45</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41936100" lon="113.37156700">
+        <ele>353.27</ele>
+        <time>2025-12-25T上午5:45:07Z</time>
+        <extensions>
+          <speed>0.68</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42000500" lon="113.37115500">
+        <ele>346.12</ele>
+        <time>2025-12-25T上午6:20:28Z</time>
+        <extensions>
+          <speed>0.88</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42007300" lon="113.37024600">
+        <ele>338.73</ele>
+        <time>2025-12-25T上午6:21:45Z</time>
+        <extensions>
+          <speed>1.35</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41944600" lon="113.37072400">
+        <ele>333.21</ele>
+        <time>2025-12-25T上午7:55:49Z</time>
+        <extensions>
+          <speed>1.36</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41884100" lon="113.37121500">
+        <ele>333.27</ele>
+        <time>2025-12-25T上午7:57:03Z</time>
+        <extensions>
+          <speed>1.20</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41826200" lon="113.37177400">
+        <ele>323.40</ele>
+        <time>2025-12-25T上午7:58:08Z</time>
+        <extensions>
+          <speed>1.30</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41942400" lon="113.37063000">
+        <ele>326.97</ele>
+        <time>2025-12-25T上午8:00:20Z</time>
+        <extensions>
+          <speed>8.32</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41991000" lon="113.36992400">
+        <ele>319.41</ele>
+        <time>2025-12-25T上午8:00:30Z</time>
+        <extensions>
+          <speed>8.40</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41988300" lon="113.36900800">
+        <ele>319.45</ele>
+        <time>2025-12-25T上午8:00:40Z</time>
+        <extensions>
+          <speed>8.75</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41963000" lon="113.36809200">
+        <ele>311.77</ele>
+        <time>2025-12-25T上午8:00:49Z</time>
+        <extensions>
+          <speed>9.88</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41959700" lon="113.36712500">
+        <ele>306.97</ele>
+        <time>2025-12-25T上午8:00:58Z</time>
+        <extensions>
+          <speed>9.58</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41953400" lon="113.36615800">
+        <ele>305.17</ele>
+        <time>2025-12-25T上午8:01:07Z</time>
+        <extensions>
+          <speed>9.72</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41939900" lon="113.36523100">
+        <ele>304.47</ele>
+        <time>2025-12-25T上午8:01:17Z</time>
+        <extensions>
+          <speed>9.69</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41923300" lon="113.36436300">
+        <ele>308.85</ele>
+        <time>2025-12-25T上午8:01:24Z</time>
+        <extensions>
+          <speed>10.04</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41885700" lon="113.36347000">
+        <ele>318.36</ele>
+        <time>2025-12-25T上午8:01:35Z</time>
+        <extensions>
+          <speed>8.41</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41833600" lon="113.36272700">
+        <ele>324.76</ele>
+        <time>2025-12-25T上午8:01:44Z</time>
+        <extensions>
+          <speed>9.80</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41890900" lon="113.36207900">
+        <ele>327.30</ele>
+        <time>2025-12-25T上午8:01:53Z</time>
+        <extensions>
+          <speed>10.15</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41970900" lon="113.36190400">
+        <ele>331.73</ele>
+        <time>2025-12-25T上午8:02:03Z</time>
+        <extensions>
+          <speed>9.28</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42050300" lon="113.36228200">
+        <ele>333.71</ele>
+        <time>2025-12-25T上午8:02:13Z</time>
+        <extensions>
+          <speed>9.01</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42116200" lon="113.36187700">
+        <ele>341.35</ele>
+        <time>2025-12-25T上午8:02:22Z</time>
+        <extensions>
+          <speed>8.52</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42188200" lon="113.36214000">
+        <ele>345.33</ele>
+        <time>2025-12-25T上午8:02:31Z</time>
+        <extensions>
+          <speed>9.03</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42263900" lon="113.36239500">
+        <ele>350.03</ele>
+        <time>2025-12-25T上午8:02:40Z</time>
+        <extensions>
+          <speed>8.74</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42352200" lon="113.36225100">
+        <ele>350.43</ele>
+        <time>2025-12-25T上午8:02:50Z</time>
+        <extensions>
+          <speed>9.50</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42438000" lon="113.36210100">
+        <ele>351.40</ele>
+        <time>2025-12-25T上午8:03:00Z</time>
+        <extensions>
+          <speed>9.49</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42520500" lon="113.36207900">
+        <ele>353.50</ele>
+        <time>2025-12-25T上午8:03:09Z</time>
+        <extensions>
+          <speed>9.88</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42591000" lon="113.36179500">
+        <ele>355.42</ele>
+        <time>2025-12-25T上午8:03:19Z</time>
+        <extensions>
+          <speed>9.19</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42675500" lon="113.36188500">
+        <ele>356.16</ele>
+        <time>2025-12-25T上午8:03:28Z</time>
+        <extensions>
+          <speed>9.39</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42755700" lon="113.36177000">
+        <ele>359.61</ele>
+        <time>2025-12-25T上午8:03:38Z</time>
+        <extensions>
+          <speed>9.20</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42828800" lon="113.36136100">
+        <ele>364.38</ele>
+        <time>2025-12-25T上午8:03:48Z</time>
+        <extensions>
+          <speed>8.74</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42900400" lon="113.36104800">
+        <ele>368.96</ele>
+        <time>2025-12-25T上午8:03:58Z</time>
+        <extensions>
+          <speed>8.10</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42911900" lon="113.36016000">
+        <ele>383.98</ele>
+        <time>2025-12-25T上午8:05:26Z</time>
+        <extensions>
+          <speed>1.11</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42907200" lon="113.35926600">
+        <ele>385.87</ele>
+        <time>2025-12-25T上午8:06:42Z</time>
+        <extensions>
+          <speed>1.05</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42940900" lon="113.35848300">
+        <ele>382.20</ele>
+        <time>2025-12-25T上午8:09:54Z</time>
+        <extensions>
+          <speed>1.08</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42935600" lon="113.35759600">
+        <ele>384.93</ele>
+        <time>2025-12-25T上午8:11:29Z</time>
+        <extensions>
+          <speed>0.83</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42870500" lon="113.35720700">
+        <ele>375.13</ele>
+        <time>2025-12-25T上午8:14:01Z</time>
+        <extensions>
+          <speed>0.14</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42844700" lon="113.35803500">
+        <ele>334.21</ele>
+        <time>2025-12-25T上午8:22:12Z</time>
+        <extensions>
+          <speed>0.87</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42915500" lon="113.35822700">
+        <ele>343.12</ele>
+        <time>2025-12-25T上午8:24:21Z</time>
+        <extensions>
+          <speed>1.29</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42973000" lon="113.35768000">
+        <ele>344.66</ele>
+        <time>2025-12-25T上午8:26:43Z</time>
+        <extensions>
+          <speed>0.13</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43025700" lon="113.35835800">
+        <ele>336.94</ele>
+        <time>2025-12-25T上午8:28:56Z</time>
+        <extensions>
+          <speed>1.84</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43097600" lon="113.35824400">
+        <ele>339.52</ele>
+        <time>2025-12-25T上午8:36:07Z</time>
+        <extensions>
+          <speed>0.48</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43170200" lon="113.35838100">
+        <ele>339.42</ele>
+        <time>2025-12-25T上午8:38:33Z</time>
+        <extensions>
+          <speed>0.82</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43240200" lon="113.35810500">
+        <ele>349.23</ele>
+        <time>2025-12-25T上午8:43:05Z</time>
+        <extensions>
+          <speed>1.27</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43262400" lon="113.35725200">
+        <ele>355.11</ele>
+        <time>2025-12-25T上午8:46:55Z</time>
+        <extensions>
+          <speed>0.80</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43306200" lon="113.35653600">
+        <ele>378.86</ele>
+        <time>2025-12-25T上午8:52:01Z</time>
+        <extensions>
+          <speed>0.13</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43258100" lon="113.35722200">
+        <ele>372.18</ele>
+        <time>2025-12-25T上午8:58:38Z</time>
+        <extensions>
+          <speed>0.89</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43253900" lon="113.35633300">
+        <ele>399.85</ele>
+        <time>2025-12-25T上午9:02:36Z</time>
+        <extensions>
+          <speed>0.80</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43242800" lon="113.35544800">
+        <ele>391.99</ele>
+        <time>2025-12-25T上午9:04:21Z</time>
+        <extensions>
+          <speed>0.71</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43260900" lon="113.35458900">
+        <ele>400.13</ele>
+        <time>2025-12-25T上午9:06:28Z</time>
+        <extensions>
+          <speed>0.68</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43314400" lon="113.35518400">
+        <ele>423.69</ele>
+        <time>2025-12-25T上午9:13:23Z</time>
+        <extensions>
+          <speed>1.04</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43364800" lon="113.35582500">
+        <ele>427.49</ele>
+        <time>2025-12-25T上午9:15:56Z</time>
+        <extensions>
+          <speed>0.92</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43386000" lon="113.35668200">
+        <ele>431.50</ele>
+        <time>2025-12-25T上午9:18:50Z</time>
+        <extensions>
+          <speed>0.95</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43413300" lon="113.35756500">
+        <ele>423.08</ele>
+        <time>2025-12-25T上午9:29:26Z</time>
+        <extensions>
+          <speed>2.06</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43408900" lon="113.35844700">
+        <ele>419.84</ele>
+        <time>2025-12-25T上午9:29:37Z</time>
+        <extensions>
+          <speed>5.16</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43412200" lon="113.35943600">
+        <ele>416.52</ele>
+        <time>2025-12-25T上午9:29:47Z</time>
+        <extensions>
+          <speed>7.43</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43446800" lon="113.36033700">
+        <ele>412.55</ele>
+        <time>2025-12-25T上午9:29:57Z</time>
+        <extensions>
+          <speed>8.63</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43366300" lon="113.36001700">
+        <ele>408.20</ele>
+        <time>2025-12-25T上午9:30:06Z</time>
+        <extensions>
+          <speed>3.33</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43302900" lon="113.35943400">
+        <ele>404.19</ele>
+        <time>2025-12-25T上午9:30:13Z</time>
+        <extensions>
+          <speed>11.17</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43244000" lon="113.35884800">
+        <ele>401.08</ele>
+        <time>2025-12-25T上午9:30:22Z</time>
+        <extensions>
+          <speed>13.89</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43161600" lon="113.35856800">
+        <ele>400.28</ele>
+        <time>2025-12-25T上午9:30:28Z</time>
+        <extensions>
+          <speed>15.55</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43071900" lon="113.35948100">
+        <ele>405.90</ele>
+        <time>2025-12-25T上午9:30:43Z</time>
+        <extensions>
+          <speed>9.10</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.43033500" lon="113.36024200">
+        <ele>379.48</ele>
+        <time>2025-12-25T上午9:30:53Z</time>
+        <extensions>
+          <speed>8.22</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42900600" lon="113.36067400">
+        <ele>297.01</ele>
+        <time>2025-12-25T上午9:31:07Z</time>
+        <extensions>
+          <speed>10.24</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42881400" lon="113.35931200">
+        <ele>471.82</ele>
+        <time>2025-12-25T上午9:31:17Z</time>
+        <extensions>
+          <speed>6.70</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42855300" lon="113.36073300">
+        <ele>427.30</ele>
+        <time>2025-12-25T上午9:31:32Z</time>
+        <extensions>
+          <speed>5.98</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42790500" lon="113.36119600">
+        <ele>572.15</ele>
+        <time>2025-12-25T上午9:31:43Z</time>
+        <extensions>
+          <speed>6.63</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42750600" lon="113.36194300">
+        <ele>501.42</ele>
+        <time>2025-12-25T上午9:31:48Z</time>
+        <extensions>
+          <speed>8.86</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42671500" lon="113.36203600">
+        <ele>476.50</ele>
+        <time>2025-12-25T上午9:31:56Z</time>
+        <extensions>
+          <speed>8.86</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42592700" lon="113.36201100">
+        <ele>435.23</ele>
+        <time>2025-12-25T上午9:32:06Z</time>
+        <extensions>
+          <speed>8.52</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41992700" lon="113.36962900">
+        <ele>333.36</ele>
+        <time>2025-12-25T上午9:34:45Z</time>
+        <extensions>
+          <speed>-1.00</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41957200" lon="113.37062800">
+        <ele>336.65</ele>
+        <time>2025-12-25T上午9:35:06Z</time>
+        <extensions>
+          <speed>-1.00</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41916900" lon="113.37148100">
+        <ele>337.52</ele>
+        <time>2025-12-25T上午9:35:12Z</time>
+        <extensions>
+          <speed>-1.00</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41822500" lon="113.37174500">
+        <ele>330.20</ele>
+        <time>2025-12-25T上午9:35:24Z</time>
+        <extensions>
+          <speed>-1.00</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41892200" lon="113.37148700">
+        <ele>333.95</ele>
+        <time>2025-12-25T上午9:37:38Z</time>
+        <extensions>
+          <speed>0.80</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41964500" lon="113.37150400">
+        <ele>344.24</ele>
+        <time>2025-12-25T上午9:41:35Z</time>
+        <extensions>
+          <speed>1.12</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.41984600" lon="113.37065000">
+        <ele>338.05</ele>
+        <time>2025-12-25T上午9:43:11Z</time>
+        <extensions>
+          <speed>0.81</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42048300" lon="113.37018500">
+        <ele>336.63</ele>
+        <time>2025-12-25T上午9:46:58Z</time>
+        <extensions>
+          <speed>1.63</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+      <trkpt lat="35.42035500" lon="113.37022400">
+        <ele>345.39</ele>
+        <time>2025-12-25T下午4:00:00Z</time>
+        <extensions>
+          <speed>0.00</speed>
+          <course>0.00</course>
+        </extensions>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>

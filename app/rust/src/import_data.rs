@@ -1,11 +1,14 @@
-use crate::api::import::JourneyInfo;
+use crate::api::import::{ImportPreprocessor, JourneyInfo};
 use crate::flight_track_processor;
-use crate::gps_processor::{Point, PreprocessedData, ProcessResult, RawData};
+use crate::gps_processor::{
+    Point, PreprocessedData, ProcessResult, RawData, SegmentGapRules, DEFAULT_SEGMENT_GAP_RULES,
+};
 use crate::journey_bitmap::{
     self, Block, BlockKey, JourneyBitmap, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH,
 };
 use crate::journey_date_picker::JourneyDatePicker;
 use crate::journey_header::JourneyKind;
+use crate::preclean::analyze_and_prepare_gpx;
 use crate::{
     gps_processor::{self, GpsPreprocessor},
     journey_vector::{JourneyVector, TrackPoint},
@@ -24,7 +27,7 @@ use std::cell::RefCell;
 use std::io::Cursor;
 use std::result::Result::Ok;
 use std::{fs, vec};
-use std::{fs::File, io::BufReader, io::Read, path::Path};
+use std::{fs::File, io::Read, path::Path};
 
 struct FoWTileId {
     x: u16,
@@ -179,8 +182,15 @@ pub fn load_fow_snapshot_data(fwss_file_path: &str) -> Result<(JourneyBitmap, Op
 }
 
 #[auto_context]
-pub fn load_gpx(file_path: &str) -> Result<Vec<Vec<RawData>>> {
-    let gpx_data = read(BufReader::new(File::open(file_path)?))?;
+pub fn load_gpx(file_path: &str) -> Result<(Vec<Vec<RawData>>, ImportPreprocessor)> {
+    let xml = fs::read_to_string(file_path)?;
+    let (xml, preprocessor) = analyze_and_prepare_gpx(&xml)?;
+    let gpx = read(xml.as_bytes())?;
+    let raw_data = load_gpx_raw_data(&gpx)?;
+    Ok((raw_data, preprocessor))
+}
+
+pub fn load_gpx_raw_data(gpx_data: &gpx::Gpx) -> Result<Vec<Vec<RawData>>> {
     let convert_to_timestamp = |time: &Option<gpx::Time>| -> Result<Option<i64>> {
         match time {
             Some(t) => {
@@ -192,7 +202,7 @@ pub fn load_gpx(file_path: &str) -> Result<Vec<Vec<RawData>>> {
         }
     };
 
-    let waypoint_to_rawdata = |point: Waypoint| -> Result<RawData> {
+    let waypoint_to_rawdata = |point: &Waypoint| -> Result<RawData> {
         Ok(RawData {
             point: Point {
                 latitude: point.point().y(),
@@ -207,12 +217,11 @@ pub fn load_gpx(file_path: &str) -> Result<Vec<Vec<RawData>>> {
 
     let track_data = gpx_data
         .tracks
-        .into_iter()
-        .flat_map(|track| track.segments.into_iter())
-        .map(|segment| {
-            segment
-                .points
-                .into_iter()
+        .iter()
+        .flat_map(|t| t.segments.iter())
+        .map(|s| {
+            s.points
+                .iter()
                 .map(waypoint_to_rawdata)
                 .collect::<Result<Vec<_>>>()
         })
@@ -221,11 +230,10 @@ pub fn load_gpx(file_path: &str) -> Result<Vec<Vec<RawData>>> {
 
     let route_data = gpx_data
         .routes
-        .into_iter()
-        .map(|route| {
-            route
-                .points
-                .into_iter()
+        .iter()
+        .map(|r| {
+            r.points
+                .iter()
                 .map(waypoint_to_rawdata)
                 .collect::<Result<Vec<_>>>()
         })
@@ -237,7 +245,7 @@ pub fn load_gpx(file_path: &str) -> Result<Vec<Vec<RawData>>> {
 
 /// Load and parse KML safely, skipping invalid <description> blocks.
 #[auto_context]
-pub fn load_kml(file_path: &str) -> Result<Vec<Vec<RawData>>> {
+pub fn load_kml(file_path: &str) -> Result<(Vec<Vec<RawData>>, ImportPreprocessor)> {
     let xml = fs::read_to_string(file_path)?;
     let (cleaned_xml, _descriptions) = read_kml_description_and_remove(&xml)?;
     // TODO: pass _descriptions to journey_info if needed later
@@ -248,7 +256,9 @@ pub fn load_kml(file_path: &str) -> Result<Vec<Vec<RawData>>> {
     if raw_vector_data.is_empty() {
         raw_vector_data = read_line_string(&flatten_data)?
     }
-    Ok(raw_vector_data)
+
+    // TODO KML currently has no additional processors.
+    Ok((raw_vector_data, ImportPreprocessor::Generic))
 }
 
 /// 2bulu generated KML contains HTML tags in <description>, which breaks the KML parser.
@@ -455,9 +465,21 @@ pub fn journey_vector_from_raw_data_with_gps_preprocessor(
     raw_data: &[Vec<RawData>],
     enable_preprocessor: bool,
 ) -> Option<JourneyVector> {
+    journey_vector_from_raw_data_with_rules(
+        raw_data,
+        enable_preprocessor,
+        DEFAULT_SEGMENT_GAP_RULES,
+    )
+}
+
+pub fn journey_vector_from_raw_data_with_rules(
+    raw_data: &[Vec<RawData>],
+    enable_preprocessor: bool,
+    segment_gap_policy: SegmentGapRules,
+) -> Option<JourneyVector> {
     let processed_data = raw_data.iter().flat_map(move |x| {
         // we handle each segment separately
-        let mut gps_preprocessor = GpsPreprocessor::new();
+        let mut gps_preprocessor = GpsPreprocessor::new_with_rules(segment_gap_policy);
         let mut first = true;
         x.iter().map(move |raw_data| {
             let process_result = if enable_preprocessor {
