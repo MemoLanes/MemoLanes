@@ -72,7 +72,7 @@ There are two main components of this app: 1. A rust library for the core logic;
 5. (If you are downgrading from a full setup, delete `src/frb_generated.rs` if it exists).
 6. Run relevant cargo command to make sure the setup is completed (e.g. `cargo check`, `cargo test`).
 
-### 2. Fultter Setup
+### 2. Flutter Setup
 1. Install [Flutter](https://docs.flutter.dev/get-started/install).
 2. Install [flutter_rust_bridge](https://cjycode.com/flutter_rust_bridge/quickstart). It is recommend install the specific version that this project is using by `cargo install 'flutter_rust_bridge_codegen@2.11.1'`. The real version can be found using `just get-frb-version` or looking at `app/pubspec.yaml`.
 3. Install [yarn](https://yarnpkg.com/getting-started/install). Go to `/app/journey_kernel` folder. Install node packages by `yarn install`.

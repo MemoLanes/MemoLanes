@@ -51,6 +51,10 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   final _mapStyle = "https://tiles.openfreemap.org/styles/liberty";
   // final _mapStyle = "mapbox://styles/mapbox/streets-v12";
 
+  // Dev server URL for loading map webview from a local dev server.
+  // Usage: flutter run --dart-define=DEV_SERVER=http://ip:port
+  static const _devServer = String.fromEnvironment('DEV_SERVER');
+
   // It is rough because we don't update it frequently.
   MapView? _currentRoughMapView;
 
@@ -144,6 +148,10 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             if (uri.scheme == 'file') {
               return NavigationDecision.navigate;
             }
+            // Allow dev server URLs during development
+            if (_devServer.isNotEmpty && request.url.startsWith(_devServer)) {
+              return NavigationDecision.navigate;
+            }
             // all other URLs will be opened in system browser
             launchUrl(
               Uri.parse(request.url),
@@ -199,9 +207,19 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
           _handleMapViewPush(message.message);
         },
       );
-    final assetPath = 'assets/map_webview/index.html';
-    log.info('[base_map_webview] Initial loading asset: $assetPath');
-    await _webViewController.loadFlutterAsset(assetPath);
+    if (_devServer.isNotEmpty) {
+      // Load from dev server for hot-reload during development
+      final devUrl = _devServer.endsWith('/')
+          ? '${_devServer}index.html'
+          : '$_devServer/index.html';
+      log.info('[base_map_webview] Loading from dev server: $devUrl');
+      await _webViewController.loadRequest(Uri.parse(devUrl));
+    } else {
+      // Load from bundled assets
+      final assetPath = 'assets/map_webview/index.html';
+      log.info('[base_map_webview] Loading asset: $assetPath');
+      await _webViewController.loadFlutterAsset(assetPath);
+    }
   }
 
   Future<void> _injectApiEndpoint() async {
