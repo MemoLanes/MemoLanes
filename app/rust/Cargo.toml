@@ -45,10 +45,11 @@ serde_with = { version = "3.16", features = ["base64"] }
 quick-xml = "0.38"
 bitvec = "1.0.1"
 auto-context = "0.1.1"
+csv = "1.4"
+time= "0.3"
 
 [dev-dependencies]
 tempdir = "0.3"
-csv = "1.4"
 rand = "0.9"
 assert_float_eq = "1.2"
 criterion = "0.8"
