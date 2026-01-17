@@ -12,7 +12,6 @@ import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/component/tiles/label_tile_title.dart';
 import 'package:memolanes/common/gps_manager.dart';
-import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -164,7 +163,7 @@ class _SettingsBodyState extends State<SettingsBody> {
           },
         ),
         LabelTile(
-          label: context.tr("general.advance_settings.title"),
+          label: context.tr("general.advanced_settings.title"),
           position: LabelTilePosition.bottom,
           trailing: LabelTileContent(showArrow: true),
           onTap: () => Navigator.push(
@@ -314,24 +313,7 @@ class _SettingsBodyState extends State<SettingsBody> {
               if (result != null) {
                 var path = result.files.single.path;
                 if (path != null) {
-                  try {
-                    await showLoadingDialog(
-                      context: context,
-                      asyncTask: api.importArchive(mldxFilePath: path),
-                    );
-                    if (context.mounted) {
-                      await showCommonDialog(
-                        context,
-                        context.tr("import.successful"),
-                      );
-                    }
-                  } catch (error) {
-                    if (context.mounted) {
-                      await showCommonDialog(
-                          context, context.tr("import.parsing_failed"));
-                      log.error("[import_data] Data parsing failed $error");
-                    }
-                  }
+                  await importMldx(context, path);
                 }
               }
             },

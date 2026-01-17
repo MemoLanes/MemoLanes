@@ -39,7 +39,7 @@ fn get_range_internal(
     txn: &main_db::Txn,
     from_date_inclusive: Option<NaiveDate>,
     to_date_inclusive: Option<NaiveDate>,
-    kind: Option<&JourneyKind>, // TODO: dpending on the future design, we might not want this to be optional.
+    kind: Option<&JourneyKind>, // TODO: depending on the future design, we might not want this to be optional.
 ) -> Result<JourneyBitmap> {
     let mut journey_map = JourneyBitmap::new();
 

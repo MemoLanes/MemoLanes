@@ -1,30 +1,33 @@
 use std::fs::File;
+use std::io::{BufReader, BufWriter};
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
 
 use anyhow::{Context, Result};
 use auto_context::auto_context;
 use chrono::NaiveDate;
+use csv::Reader;
 use flutter_rust_bridge::frb;
 
+use super::import::JourneyInfo;
 use crate::cache_db::LayerKind;
 use crate::frb_generated::StreamSink;
 use crate::gps_processor::{GpsPreprocessor, ProcessResult};
-use crate::journey_bitmap::{JourneyBitmap, MAP_WIDTH_OFFSET, TILE_WIDTH, TILE_WIDTH_OFFSET};
+use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
-use crate::renderer::internal_server::MapRendererToken;
-use crate::renderer::internal_server::{register_map_renderer, Registry, Request};
+use crate::logs;
+use crate::renderer::get_default_camera_option_from_journey_bitmap;
+use crate::renderer::internal_server::Request;
 use crate::renderer::MapRenderer;
-use crate::storage::Storage;
-use crate::{
-    archive, build_info, export_data, gps_processor, main_db, merged_journey_builder, storage,
-};
-use crate::{logs, utils};
-use serde::{Deserialize, Serialize};
+use crate::storage::{RawDataFile, Storage};
+use crate::{archive, build_info, export_data, gps_processor, main_db, merged_journey_builder};
 
-use super::import::JourneyInfo;
+use crate::renderer::CameraOptionInternal;
 
+type CameraOption = CameraOptionInternal;
+
+use crate::export_data::raw_data_csv_to_gpx_file;
 use log::{error, info, warn};
 
 // TODO: we have way too many locking here and now it is hard to track.
@@ -33,11 +36,9 @@ use log::{error, info, warn};
 pub(super) struct MainState {
     pub storage: Storage,
     pub gps_preprocessor: Mutex<GpsPreprocessor>,
-    pub registry: Arc<Mutex<Registry>>,
     // TODO: we should reconsider the way we handle the main map
     main_map_state: Arc<Mutex<MainMapState>>,
     pub main_map_renderer: Arc<Mutex<MapRenderer>>,
-    pub main_map_renderer_token: MapRendererToken,
 }
 
 static MAIN_STATE: OnceLock<MainState> = OnceLock::new();
@@ -98,8 +99,6 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, system_cache
         let mut storage = Storage::init(temp_dir, doc_dir, support_dir, real_cache_dir);
         info!("initialized");
 
-        let registry = Arc::new(Mutex::new(Registry::new()));
-
         let default_layer_filter = LayerFilter {
             current_journey: true,
             default_kind: true,
@@ -126,17 +125,13 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, system_cache
                 }
             }
         }));
-        let main_map_renderer_token =
-            register_map_renderer(registry.clone(), main_map_renderer.clone());
         info!("main map renderer initialized");
 
         MainState {
             storage,
             gps_preprocessor: Mutex::new(GpsPreprocessor::new()),
-            registry,
             main_map_state,
             main_map_renderer,
-            main_map_renderer_token,
         }
     });
     if already_initialized {
@@ -277,35 +272,39 @@ pub enum LogLevel {
 
 #[frb(opaque)]
 pub enum MapRendererProxy {
-    Token(MapRendererToken),
+    Renderer(MapRenderer),
+    MainMapRenderer,
 }
 
 impl MapRendererProxy {
-    #[frb(sync)]
-    pub fn get_journey_id(&self) -> String {
-        match self {
-            MapRendererProxy::Token(token) => token.journey_id(),
-        }
+    pub fn handle_webview_requests(&self, request: String) -> Result<String> {
+        let request = Request::parse(&request)?;
+        let response = match self {
+            MapRendererProxy::Renderer(map_renderer) => {
+                // Directly use the map renderer reference
+                request.handle(map_renderer)
+            }
+            MapRendererProxy::MainMapRenderer => {
+                let map_renderer = get().main_map_renderer.lock().unwrap();
+                request.handle(&map_renderer)
+            }
+        };
+        serde_json::to_string(&response)
+            .map_err(|e| anyhow::anyhow!("Failed to serialize response: {e}"))
     }
 }
 
 #[frb(sync)]
 pub fn get_map_renderer_proxy_for_main_map() -> MapRendererProxy {
-    let token = get().main_map_renderer_token.clone_temporary_token();
-
-    MapRendererProxy::Token(token)
+    MapRendererProxy::MainMapRenderer
 }
 
 // TODO: does this interface necessary?
 #[frb(sync)]
 pub fn get_empty_map_renderer_proxy() -> MapRendererProxy {
-    let state = get();
-
     let journey_bitmap = JourneyBitmap::new();
-
     let map_renderer = MapRenderer::new(journey_bitmap);
-    let token = register_map_renderer(state.registry.clone(), Arc::new(Mutex::new(map_renderer)));
-    MapRendererProxy::Token(token)
+    MapRendererProxy::Renderer(map_renderer)
 }
 
 pub fn get_map_renderer_proxy_for_journey_date_range(
@@ -318,52 +317,10 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
     })?;
 
     let map_renderer = MapRenderer::new(journey_bitmap);
-    let token = register_map_renderer(state.registry.clone(), Arc::new(Mutex::new(map_renderer)));
-
-    Ok(MapRendererProxy::Token(token))
-}
-
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
-pub struct CameraOption {
-    pub zoom: f64,
-    pub lng: f64,
-    pub lat: f64,
-}
-
-// TODO: redesign this interface at a better position
-pub(crate) fn get_default_camera_option_from_journey_bitmap(
-    journey_bitmap: &JourneyBitmap,
-) -> Option<CameraOption> {
-    // TODO: Currently we use the coordinate of the top left of a random block (first one in the hashtbl),
-    // then just pick a hardcoded zoom level.
-    // A better version could be finding a bounding box (need to be careful with the antimeridian).
-    journey_bitmap
-        .tiles
-        .iter()
-        .next()
-        .and_then(|(tile_pos, tile)| {
-            // we shouldn't have empty tile or block
-            tile.iter().next().map(|(block_key, _)| {
-                let blockzoomed_x: i32 =
-                    TILE_WIDTH as i32 * tile_pos.0 as i32 + block_key.x() as i32;
-                let blockzoomed_y: i32 =
-                    TILE_WIDTH as i32 * tile_pos.1 as i32 + block_key.y() as i32;
-                let (lng, lat) = utils::tile_x_y_to_lng_lat(
-                    blockzoomed_x,
-                    blockzoomed_y,
-                    (TILE_WIDTH_OFFSET + MAP_WIDTH_OFFSET) as i32,
-                );
-                CameraOption {
-                    zoom: 12.0,
-                    lng,
-                    lat,
-                }
-            })
-        })
+    Ok(MapRendererProxy::Renderer(map_renderer))
 }
 
 fn get_map_renderer_proxy_for_journey_data_internal(
-    state: &'static MainState,
     journey_data: JourneyData,
 ) -> Result<(MapRendererProxy, Option<CameraOption>)> {
     let journey_bitmap = match journey_data {
@@ -378,27 +335,27 @@ fn get_map_renderer_proxy_for_journey_data_internal(
     let default_camera_option = get_default_camera_option_from_journey_bitmap(&journey_bitmap);
 
     let map_renderer = MapRenderer::new(journey_bitmap);
-    let token = register_map_renderer(state.registry.clone(), Arc::new(Mutex::new(map_renderer)));
-    Ok((MapRendererProxy::Token(token), default_camera_option))
+    Ok((
+        MapRendererProxy::Renderer(map_renderer),
+        default_camera_option,
+    ))
 }
 
 pub fn get_map_renderer_proxy_for_journey(
     journey_id: &str,
 ) -> Result<(MapRendererProxy, Option<CameraOption>)> {
-    let state = get();
-    let journey_data = state
+    let journey_data = get()
         .storage
         .with_db_txn(|txn| txn.get_journey_data(journey_id))?;
-    get_map_renderer_proxy_for_journey_data_internal(state, journey_data)
+    get_map_renderer_proxy_for_journey_data_internal(journey_data)
 }
 
 pub fn get_map_renderer_proxy_for_journey_data(
     journey_data: &JourneyData,
 ) -> Result<(MapRendererProxy, Option<CameraOption>)> {
-    let state = get();
     // TODO: the clone here is not ideal, we should redesign the interface,
     // maybe consider Arc.
-    get_map_renderer_proxy_for_journey_data_internal(state, journey_data.clone())
+    get_map_renderer_proxy_for_journey_data_internal(journey_data.clone())
 }
 
 // Return `true` if this update contains meaningful data.
@@ -450,7 +407,7 @@ pub fn on_location_update(raw_data: gps_processor::RawData, received_timestamp_m
     }
 }
 
-pub fn list_all_raw_data() -> Vec<storage::RawDataFile> {
+pub fn list_all_raw_data() -> Result<Vec<RawDataFile>> {
     get().storage.list_all_raw_data()
 }
 
@@ -618,6 +575,42 @@ pub fn export_journey(
     }
 }
 
+#[auto_context]
+pub fn export_raw_data_gpx_file(csv_filepath: String) -> Result<String> {
+    let csv_path = Path::new(&csv_filepath);
+    let file_name = csv_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| anyhow::anyhow!("Failed to parse filename: {csv_filepath}"))?;
+
+    let target_dir = Path::new(&get().storage.cache_dir).join("raw_data");
+
+    if !target_dir.exists() {
+        std::fs::create_dir_all(&target_dir)?;
+    }
+
+    let gpx_path = target_dir.join(file_name).with_extension("gpx");
+    let gpx_path_str = gpx_path.to_string_lossy().to_string();
+
+    if gpx_path.exists() {
+        return Ok(gpx_path_str);
+    }
+
+    let csv_file = File::open(csv_path)
+        .with_context(|| format!("Failed to open source CSV file: {csv_filepath}"))?;
+    let mut reader = Reader::from_reader(BufReader::new(csv_file));
+
+    let gpx_file = File::create(&gpx_path)
+        .with_context(|| format!("Failed to create target GPX file: {gpx_path_str}"))?;
+
+    let mut writer = BufWriter::new(gpx_file);
+
+    raw_data_csv_to_gpx_file(&mut reader, &mut writer)
+        .with_context(|| format!("Failed to convert CSV to GPX: {csv_filepath}"))?;
+
+    Ok(gpx_path_str)
+}
+
 pub fn delete_all_journeys() -> Result<()> {
     info!("Delete all journeys");
     get().storage.with_db_txn(|txn| txn.delete_all_journeys())
@@ -736,21 +729,6 @@ pub mod for_testing {
     pub fn get_main_map_renderer() -> Arc<Mutex<MapRenderer>> {
         super::get().main_map_renderer.clone()
     }
-}
-
-pub fn handle_webview_requests(request: String) -> Result<String> {
-    let state = get();
-    let registry = state.registry.clone();
-    let request = Request::parse(&request)?;
-    let response = request.handle(registry);
-    // Direct JSON serialization - more explicit and efficient
-    serde_json::to_string(&response)
-        .map_err(|e| anyhow::anyhow!("Failed to serialize response: {e}"))
-}
-
-#[frb(ignore)]
-pub fn get_registry() -> Arc<Mutex<Registry>> {
-    get().registry.clone()
 }
 
 #[frb(sync)]

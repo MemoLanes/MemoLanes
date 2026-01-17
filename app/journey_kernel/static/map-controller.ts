@@ -124,7 +124,7 @@ export class MapController {
   async initialize(): Promise<void> {
     return new Promise((resolve) => {
       this.map.on("load", async () => {
-        // Create JourneyTileProvider (it registers its own hooks for renderMode and journeyId)
+        // Create JourneyTileProvider (it registers its own hooks for renderMode)
         this.journeyTileProvider = new JourneyTileProvider(
           this.map,
           this.params,
@@ -172,6 +172,22 @@ export class MapController {
    */
   getTileProvider(): JourneyTileProvider | null {
     return this.journeyTileProvider;
+  }
+
+  /**
+   * Refresh map data by forcing a tile buffer update
+   * This is called when the underlying data has changed (e.g., new journey data imported)
+   * @returns Promise<boolean | null> - true if data was updated, false if no change, null on error
+   */
+  async refreshMapData(): Promise<boolean | null> {
+    if (!this.journeyTileProvider) {
+      console.warn(
+        "[MapController] Cannot refresh: tile provider not initialized",
+      );
+      return null;
+    }
+    console.log("[MapController] Refreshing map data");
+    return await this.journeyTileProvider.pollForJourneyUpdates(true);
   }
 
   /**
