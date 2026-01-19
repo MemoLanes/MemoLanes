@@ -234,14 +234,14 @@ enum GpsPreprocessorState {
 }
 
 #[derive(Clone, Debug)]
-struct SegmentGapThreshold {
+pub struct SegmentGapThreshold {
     pub distance_m: f64,
     pub max_gap_sec: i64,
 }
 
 // Rules must be ordered by `distance_m` in ascending order.
 // The first matching rule is applied.
-type SegmentGapProfile = &'static [SegmentGapThreshold; 3];
+pub type SegmentGapProfile = &'static [SegmentGapThreshold; 3];
 
 const DEFAULT_SEGMENT_GAP_RULES: SegmentGapProfile = &[
     SegmentGapThreshold {

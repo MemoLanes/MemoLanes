@@ -1,5 +1,5 @@
 use crate::api::import::ImportPreprocessor;
-use crate::export_data::{JOURNEY_TYPE_NAME, RAWDATA_TYPE_NAME};
+use crate::export_data::JOURNEY_TYPE_NAME;
 use anyhow::Result;
 use chrono::Datelike;
 use quick_xml::events::{BytesText, Event};
