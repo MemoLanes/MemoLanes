@@ -218,8 +218,8 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
                           context.tr("preprocessor.generic"),
                         import_api.ImportPreprocessor.flightTrack =>
                           context.tr("preprocessor.flightTrack"),
-                        import_api.ImportPreprocessor.sparse =>
-                          context.tr("preprocessor.sparse"),
+                        import_api.ImportPreprocessor.spare =>
+                          context.tr("preprocessor.spare"),
                       },
                       showArrow: true,
                     ),
@@ -341,9 +341,9 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
           ),
           CardLabelTile(
             position: CardLabelTilePosition.middle,
-            label: context.tr("preprocessor.sparse"),
+            label: context.tr("preprocessor.spare"),
             onTap: () {
-              _selectPreprocessor(import_api.ImportPreprocessor.sparse);
+              _selectPreprocessor(import_api.ImportPreprocessor.spare);
             },
           ),
         ],

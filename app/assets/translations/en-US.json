@@ -79,9 +79,9 @@
     "generic": "Generic Mode",
     "flightTrack": "Flight Track Mode",
     "none": "None",
-    "sparse": "Sparse Mode",
+    "spare": "Spare Mode",
     "description_md": "Preprocessor can optimize your journey data:\n- **Generic** suitable for most tracks, filtering out abnormal data and reasonably segmenting the data.\n- **FlightTrack** suitable for flight tracks, etc., using interpolation to complete missing parts of the path.",
-    "sparse_md": "Your data appears to come from \"StepOfMyWorld\" or \"YourApp\". The use of \"Sparse Mode\" is recommended.\nYou may also try other preprocessing options, but due to the sparsity of the data, the results may be limited."
+    "spare_md": "Your data is relatively sparse, and Spare Mode has been automatically enabled.\nYou can try other preprocessing methods, but improvements may be limited given the current data density."
   },
   "import": {
     "shared_file": {

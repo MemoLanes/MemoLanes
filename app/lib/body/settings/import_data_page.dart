@@ -60,10 +60,10 @@ class _ImportDataPage extends State<ImportDataPage> {
         return;
       }
       if (context.mounted &&
-          importPreprocessor == import_api.ImportPreprocessor.sparse) {
+          importPreprocessor == import_api.ImportPreprocessor.spare) {
         showCommonDialog(
           context,
-          context.tr("preprocessor.sparse_md"),
+          context.tr("preprocessor.spare_md"),
           markdown: true,
         );
       }
