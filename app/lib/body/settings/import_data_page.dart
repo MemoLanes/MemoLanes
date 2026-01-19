@@ -28,13 +28,12 @@ enum ImportType { fow, gpxOrKml }
 
 class _ImportDataPage extends State<ImportDataPage> {
   import_api.JourneyInfo? journeyInfo;
-  import_api.ImportPreprocessor? importPreprocessor;
   late final f.Either<JourneyData, import_api.RawVectorData>
       journeyDataMaybeRaw;
   api.MapRendererProxy? _mapRendererProxy;
   MapView? _initialMapView;
-  import_api.ImportPreprocessor _currentProcessor =
-      import_api.ImportPreprocessor.generic;
+  import_api.ImportPreprocessor? _detectedProcessor;
+  late import_api.ImportPreprocessor _activeProcessor;
 
   @override
   void initState() {
@@ -50,7 +49,7 @@ class _ImportDataPage extends State<ImportDataPage> {
         context: context,
         asyncTask: () async {
           await _loadFile(widget.path);
-          return await _previewDataInternal(_currentProcessor);
+          return await _previewDataInternal();
         }(),
       )) {
         await showCommonDialog(
@@ -60,7 +59,7 @@ class _ImportDataPage extends State<ImportDataPage> {
         return;
       }
       if (context.mounted &&
-          importPreprocessor == import_api.ImportPreprocessor.spare) {
+          _detectedProcessor == import_api.ImportPreprocessor.spare) {
         showCommonDialog(
           context,
           context.tr("preprocessor.spare_md"),
@@ -84,28 +83,34 @@ class _ImportDataPage extends State<ImportDataPage> {
         setState(() {
           this.journeyInfo = journeyInfo;
           journeyDataMaybeRaw = f.Either.left(journeyData);
+          _activeProcessor = import_api.ImportPreprocessor.generic;
         });
         break;
+
       case ImportType.gpxOrKml:
-        var (journeyInfo, rawVectorData, importPreprocessor) =
+        var (journeyInfo, rawVectorData, detectedProcessor) =
             await import_api.loadGpxOrKml(filePath: path);
         setState(() {
           this.journeyInfo = journeyInfo;
-          this.importPreprocessor = importPreprocessor;
+          _detectedProcessor = detectedProcessor;
+          _activeProcessor = detectedProcessor;
           journeyDataMaybeRaw = f.Either.right(rawVectorData);
         });
         break;
     }
   }
 
-  Future<void> _previewData(import_api.ImportPreprocessor processor) async {
-    if (processor == _currentProcessor) return;
-    _currentProcessor = processor;
+  Future<void> _previewData(import_api.ImportPreprocessor nextProcessor) async {
+    if (nextProcessor == _activeProcessor) return;
+
+    setState(() {
+      _activeProcessor = nextProcessor;
+    });
 
     if (!await showLoadingDialog(
       context: context,
       asyncTask: () async {
-        return await _previewDataInternal(_currentProcessor);
+        return await _previewDataInternal();
       }(),
     )) {
       await showCommonDialog(
@@ -115,15 +120,19 @@ class _ImportDataPage extends State<ImportDataPage> {
     }
   }
 
-  Future<bool> _previewDataInternal(
-      import_api.ImportPreprocessor processor) async {
-    var journeyData = switch (journeyDataMaybeRaw) {
+  Future<bool> _previewDataInternal() async {
+    final journeyData = switch (journeyDataMaybeRaw) {
       f.Left(value: final l) => l,
       f.Right(value: final r) => await import_api.processVectorData(
-          vectorData: r, importProcessor: processor),
+          vectorData: r,
+          importProcessor: _activeProcessor,
+        ),
     };
     final mapRendererProxyAndCameraOption =
-        await api.getMapRendererProxyForJourneyData(journeyData: journeyData);
+        await api.getMapRendererProxyForJourneyData(
+      journeyData: journeyData,
+    );
+
     setState(() {
       _mapRendererProxy = mapRendererProxyAndCameraOption.$1;
       final cameraOption = mapRendererProxyAndCameraOption.$2;
@@ -135,7 +144,10 @@ class _ImportDataPage extends State<ImportDataPage> {
         );
       }
     });
-    return (!await import_api.isJourneyDataEmpty(journeyData: journeyData));
+
+    return !await import_api.isJourneyDataEmpty(
+      journeyData: journeyData,
+    );
   }
 
   Future<void> _saveData(import_api.JourneyInfo journeyInfo,
@@ -212,7 +224,7 @@ class _ImportDataPage extends State<ImportDataPage> {
                           saveData: _saveData,
                           previewData: _previewData,
                           importType: widget.importType,
-                          preprocessor: importPreprocessor,
+                          preprocessor: _detectedProcessor,
                         ),
                       ],
                     ),
