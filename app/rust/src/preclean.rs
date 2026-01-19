@@ -3,7 +3,7 @@ use anyhow::Result;
 use chrono::Datelike;
 use quick_xml::events::{BytesText, Event};
 use quick_xml::{Reader, Writer};
-use crate::export_data::RAWDATA_TYPE_NAME;
+use crate::export_data::{JOURNEY_TYPE_NAME, RAWDATA_TYPE_NAME};
 
 type TimeNormalizer = fn(&str) -> Option<String>;
 
@@ -32,7 +32,7 @@ fn detect_gpx_preprocessor(xml: &str) -> ImportPreprocessor {
     // stepofmyworld (一生足迹), yourapp (灵感足迹)
     if head.contains("stepofmyworld") || head.contains("yourapp") {
         ImportPreprocessor::Spare
-    } else if head.contains(&RAWDATA_TYPE_NAME.to_ascii_lowercase()) {
+    } else if head.contains(&JOURNEY_TYPE_NAME.to_ascii_lowercase()) {
         ImportPreprocessor::None
     } else {
         ImportPreprocessor::Generic
