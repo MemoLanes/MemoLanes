@@ -239,6 +239,8 @@ struct SegmentGapThreshold {
     pub max_gap_sec: i64,
 }
 
+// Rules must be ordered by `distance_m` in ascending order.
+// The first matching rule is applied.
 type SegmentGapProfile = &'static [SegmentGapThreshold; 3];
 
 const DEFAULT_SEGMENT_GAP_RULES: SegmentGapProfile = &[
@@ -339,8 +341,13 @@ impl GpsPreprocessor {
             };
 
             match time_diff_in_ms {
+                // don't have timestamp, just be conservative and append
                 None => ProcessResult::Append,
                 Some(time_diff_in_ms) => {
+                    // more willing to connect two points if they are close
+                    // in normal condition, we should have 1 data per sec
+                    // we should mostly trust the data here and try to
+                    // filter out bad ones in `BadDataDetector`.
                     for rule in segment_gap_rules.iter() {
                         if distance_in_m <= rule.distance_m {
                             return if time_diff_in_ms <= rule.max_gap_sec * 1000 {
@@ -350,6 +357,7 @@ impl GpsPreprocessor {
                             };
                         }
                     }
+                    // Too far, start a new segment
                     ProcessResult::NewSegment
                 }
             }
