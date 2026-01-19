@@ -3,16 +3,23 @@ use anyhow::Result;
 use chrono::Datelike;
 use quick_xml::events::{BytesText, Event};
 use quick_xml::{Reader, Writer};
+use crate::export_data::RAWDATA_TYPE_NAME;
 
 type TimeNormalizer = fn(&str) -> Option<String>;
 
 pub fn analyze_and_prepare_gpx(xml: &str) -> Result<(String, ImportPreprocessor)> {
     let preprocessor = detect_gpx_preprocessor(xml);
-    let xml = if matches!(preprocessor, ImportPreprocessor::Spare) {
-        normalize_gpx_time_with(xml, normalize_step_of_my_world_time)?
-    } else {
-        normalize_gpx_time_with(xml, normalize_generic_time)?
+
+    let xml = match preprocessor {
+        // TODO: For normal files, we new skip time normalization
+        ImportPreprocessor::Spare => {
+            normalize_gpx_time_with(xml, normalize_step_of_my_world_time)?
+        }
+        _ => {
+            normalize_gpx_time_with(xml, normalize_generic_time)?
+        }
     };
+
     Ok((xml, preprocessor))
 }
 
@@ -25,7 +32,7 @@ fn detect_gpx_preprocessor(xml: &str) -> ImportPreprocessor {
     // stepofmyworld (一生足迹), yourapp (灵感足迹)
     if head.contains("stepofmyworld") || head.contains("yourapp") {
         ImportPreprocessor::Spare
-    } else if head.contains("memolanes journey") {
+    } else if head.contains(&RAWDATA_TYPE_NAME.to_ascii_lowercase()) {
         ImportPreprocessor::None
     } else {
         ImportPreprocessor::Generic
