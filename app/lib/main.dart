@@ -110,6 +110,7 @@ void main() async {
     var updateNotifier = UpdateNotifier();
     delayedInit(updateNotifier);
     var gpsManager = GpsManager();
+    var screenshotMode = ValueNotifier<bool>(false);
     AppLifecycleService.instance.start();
     runApp(EasyLocalization(
         supportedLocales: const [Locale('en', 'US'), Locale('zh', 'CN')],
@@ -121,6 +122,7 @@ void main() async {
             // Do NOT use `create: (_) => gpsManager` here
             ChangeNotifierProvider.value(value: gpsManager),
             ChangeNotifierProvider.value(value: updateNotifier),
+            ChangeNotifierProvider.value(value: screenshotMode),
           ],
           child: const MyApp(),
         )));
@@ -227,6 +229,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    var screenshotMode = context.watch<ValueNotifier<bool>>().value;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (bool didPop, dynamic result) async {
@@ -248,6 +251,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 _ => throw FormatException('Invalid index: $_selectedIndex'),
               },
             ),
+            if (!screenshotMode)
             Positioned(
               left: 0,
               right: 0,
