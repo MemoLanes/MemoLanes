@@ -1,9 +1,9 @@
 use crate::api::import::ImportPreprocessor;
+use crate::export_data::{JOURNEY_TYPE_NAME, RAWDATA_TYPE_NAME};
 use anyhow::Result;
 use chrono::Datelike;
 use quick_xml::events::{BytesText, Event};
 use quick_xml::{Reader, Writer};
-use crate::export_data::{JOURNEY_TYPE_NAME, RAWDATA_TYPE_NAME};
 
 type TimeNormalizer = fn(&str) -> Option<String>;
 
@@ -12,12 +12,8 @@ pub fn analyze_and_prepare_gpx(xml: &str) -> Result<(String, ImportPreprocessor)
 
     let xml = match preprocessor {
         // TODO: For normal files, we new skip time normalization
-        ImportPreprocessor::Spare => {
-            normalize_gpx_time_with(xml, normalize_step_of_my_world_time)?
-        }
-        _ => {
-            normalize_gpx_time_with(xml, normalize_generic_time)?
-        }
+        ImportPreprocessor::Spare => normalize_gpx_time_with(xml, normalize_step_of_my_world_time)?,
+        _ => normalize_gpx_time_with(xml, normalize_generic_time)?,
     };
 
     Ok((xml, preprocessor))

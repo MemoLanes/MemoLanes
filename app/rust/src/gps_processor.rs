@@ -288,7 +288,6 @@ impl SegmentGapRule {
     }
 }
 
-
 pub struct GpsPreprocessor {
     state: GpsPreprocessorState,
     bad_data_detector: BadDataDetector,

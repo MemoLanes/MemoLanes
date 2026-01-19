@@ -463,11 +463,7 @@ pub fn journey_vector_from_raw_data_with_gps_preprocessor(
     raw_data: &[Vec<RawData>],
     enable_preprocessor: bool,
 ) -> Option<JourneyVector> {
-    journey_vector_from_raw_data_with_rules(
-        raw_data,
-        enable_preprocessor,
-        SegmentGapRule::Default,
-    )
+    journey_vector_from_raw_data_with_rules(raw_data, enable_preprocessor, SegmentGapRule::Default)
 }
 
 pub fn journey_vector_from_raw_data_with_rules(

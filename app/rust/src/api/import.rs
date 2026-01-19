@@ -6,7 +6,7 @@ use chrono::{DateTime, Local, NaiveDate, Utc};
 use flutter_rust_bridge::frb;
 
 use super::api;
-use crate::gps_processor::{SegmentGapRule};
+use crate::gps_processor::SegmentGapRule;
 use crate::journey_vector::JourneyVector;
 use crate::{
     flight_track_processor,
