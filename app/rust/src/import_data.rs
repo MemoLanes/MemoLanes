@@ -1,8 +1,6 @@
 use crate::api::import::{ImportPreprocessor, JourneyInfo};
 use crate::flight_track_processor;
-use crate::gps_processor::{
-    Point, PreprocessedData, ProcessResult, RawData, SegmentGapRules, DEFAULT_SEGMENT_GAP_RULES,
-};
+use crate::gps_processor::{Point, PreprocessedData, ProcessResult, RawData, SegmentGapRule};
 use crate::journey_bitmap::{
     self, Block, BlockKey, JourneyBitmap, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH,
 };
@@ -257,7 +255,7 @@ pub fn load_kml(file_path: &str) -> Result<(Vec<Vec<RawData>>, ImportPreprocesso
         raw_vector_data = read_line_string(&flatten_data)?
     }
 
-    // TODO KML currently has no additional processors.
+    // TODO: KML currently has no additional processors.
     Ok((raw_vector_data, ImportPreprocessor::Generic))
 }
 
@@ -468,18 +466,18 @@ pub fn journey_vector_from_raw_data_with_gps_preprocessor(
     journey_vector_from_raw_data_with_rules(
         raw_data,
         enable_preprocessor,
-        DEFAULT_SEGMENT_GAP_RULES,
+        SegmentGapRule::Default,
     )
 }
 
 pub fn journey_vector_from_raw_data_with_rules(
     raw_data: &[Vec<RawData>],
     enable_preprocessor: bool,
-    segment_gap_policy: SegmentGapRules,
+    segment_gap_policy: SegmentGapRule,
 ) -> Option<JourneyVector> {
     let processed_data = raw_data.iter().flat_map(move |x| {
         // we handle each segment separately
-        let mut gps_preprocessor = GpsPreprocessor::new_with_rules(segment_gap_policy);
+        let mut gps_preprocessor = GpsPreprocessor::new_with_rule(&segment_gap_policy);
         let mut first = true;
         x.iter().map(move |raw_data| {
             let process_result = if enable_preprocessor {

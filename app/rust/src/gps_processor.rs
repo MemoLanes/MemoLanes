@@ -233,60 +233,76 @@ enum GpsPreprocessorState {
     },
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct SegmentGapRule {
+#[derive(Clone, Debug)]
+struct SegmentGapThreshold {
     pub distance_m: f64,
     pub max_gap_sec: i64,
 }
 
-pub type SegmentGapRules = &'static [SegmentGapRule; 3];
+type SegmentGapProfile = &'static [SegmentGapThreshold; 3];
 
-pub const DEFAULT_SEGMENT_GAP_RULES: SegmentGapRules = &[
-    SegmentGapRule {
+const DEFAULT_SEGMENT_GAP_RULES: SegmentGapProfile = &[
+    SegmentGapThreshold {
         distance_m: 5.0,
         max_gap_sec: 3600,
     },
-    SegmentGapRule {
+    SegmentGapThreshold {
         distance_m: 50.0,
         max_gap_sec: 20,
     },
-    SegmentGapRule {
+    SegmentGapThreshold {
         distance_m: 1000.0,
         max_gap_sec: 4,
     },
 ];
 
-pub const STEP_OF_MY_WORLD_SEGMENT_GAP_RULES: SegmentGapRules = &[
-    SegmentGapRule {
+const SPARE_SEGMENT_GAP_RULES: SegmentGapProfile = &[
+    SegmentGapThreshold {
         distance_m: 5.0,
         max_gap_sec: 3600,
     },
-    SegmentGapRule {
+    SegmentGapThreshold {
         distance_m: 150.0,
         max_gap_sec: 240,
     },
-    SegmentGapRule {
+    SegmentGapThreshold {
         distance_m: 1000.0,
         max_gap_sec: 120,
     },
 ];
 
+#[derive(Clone, Debug)]
+pub enum SegmentGapRule {
+    Default,
+    Spare,
+}
+
+impl SegmentGapRule {
+    pub fn profile(&self) -> SegmentGapProfile {
+        match self {
+            SegmentGapRule::Default => DEFAULT_SEGMENT_GAP_RULES,
+            SegmentGapRule::Spare => SPARE_SEGMENT_GAP_RULES,
+        }
+    }
+}
+
+
 pub struct GpsPreprocessor {
     state: GpsPreprocessorState,
     bad_data_detector: BadDataDetector,
-    segment_gap_rules: SegmentGapRules,
+    segment_gap_rules: SegmentGapProfile,
 }
 
 impl GpsPreprocessor {
     pub fn new() -> Self {
-        Self::new_with_rules(DEFAULT_SEGMENT_GAP_RULES)
+        Self::new_with_rule(&SegmentGapRule::Default)
     }
 
-    pub fn new_with_rules(rules: SegmentGapRules) -> Self {
+    pub fn new_with_rule(rule: &SegmentGapRule) -> Self {
         Self {
             state: GpsPreprocessorState::Empty,
             bad_data_detector: BadDataDetector::new(),
-            segment_gap_rules: rules,
+            segment_gap_rules: rule.profile(),
         }
     }
 
@@ -305,7 +321,7 @@ impl GpsPreprocessor {
     }
 
     fn process_moving_data(
-        segment_gap_rules: &[SegmentGapRule],
+        segment_gap_rules: &[SegmentGapThreshold],
         last_point: &Point,
         last_timestamp_ms: Option<i64>,
         curr_data: &RawData,

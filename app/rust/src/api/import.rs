@@ -6,7 +6,7 @@ use chrono::{DateTime, Local, NaiveDate, Utc};
 use flutter_rust_bridge::frb;
 
 use super::api;
-use crate::gps_processor::{DEFAULT_SEGMENT_GAP_RULES, STEP_OF_MY_WORLD_SEGMENT_GAP_RULES};
+use crate::gps_processor::{SegmentGapRule};
 use crate::journey_vector::JourneyVector;
 use crate::{
     flight_track_processor,
@@ -98,7 +98,7 @@ pub enum ImportPreprocessor {
     None,
     Generic,
     FlightTrack,
-    Sparse,
+    Spare,
 }
 
 #[auto_context]
@@ -110,18 +110,18 @@ pub fn process_vector_data(
         ImportPreprocessor::None => import_data::journey_vector_from_raw_data_with_rules(
             &vector_data.data,
             false,
-            DEFAULT_SEGMENT_GAP_RULES,
+            SegmentGapRule::Default,
         ),
         ImportPreprocessor::Generic => import_data::journey_vector_from_raw_data_with_rules(
             &vector_data.data,
             true,
-            DEFAULT_SEGMENT_GAP_RULES,
+            SegmentGapRule::Default,
         ),
         ImportPreprocessor::FlightTrack => flight_track_processor::process(&vector_data.data),
-        ImportPreprocessor::Sparse => import_data::journey_vector_from_raw_data_with_rules(
+        ImportPreprocessor::Spare => import_data::journey_vector_from_raw_data_with_rules(
             &vector_data.data,
             true,
-            STEP_OF_MY_WORLD_SEGMENT_GAP_RULES,
+            SegmentGapRule::Spare,
         ),
     };
 

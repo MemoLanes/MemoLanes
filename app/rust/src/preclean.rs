@@ -8,7 +8,7 @@ type TimeNormalizer = fn(&str) -> Option<String>;
 
 pub fn analyze_and_prepare_gpx(xml: &str) -> Result<(String, ImportPreprocessor)> {
     let preprocessor = detect_gpx_preprocessor(xml);
-    let xml = if matches!(preprocessor, ImportPreprocessor::Sparse) {
+    let xml = if matches!(preprocessor, ImportPreprocessor::Spare) {
         normalize_gpx_time_with(xml, normalize_step_of_my_world_time)?
     } else {
         normalize_gpx_time_with(xml, normalize_generic_time)?
@@ -24,7 +24,7 @@ fn detect_gpx_preprocessor(xml: &str) -> ImportPreprocessor {
 
     // stepofmyworld (一生足迹), yourapp (灵感足迹)
     if head.contains("stepofmyworld") || head.contains("yourapp") {
-        ImportPreprocessor::Sparse
+        ImportPreprocessor::Spare
     } else if head.contains("memolanes journey") {
         ImportPreprocessor::None
     } else {

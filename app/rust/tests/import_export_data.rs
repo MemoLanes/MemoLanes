@@ -156,7 +156,7 @@ pub fn gpx_step_of_my_world() {
     assert_eq!(points.len(), 313);
     assert_eq!(start_time, 1766592001000);
     assert_eq!(end_time, 1766678400000);
-    assert!(matches!(preprocessor, ImportPreprocessor::Sparse));
+    assert!(matches!(preprocessor, ImportPreprocessor::Spare));
 }
 
 #[test]
@@ -172,7 +172,7 @@ pub fn gpx_your_app() {
     assert_eq!(points.len(), 400);
     assert_eq!(start_time, 1766624275000);
     assert_eq!(end_time, 1766665298000);
-    assert!(matches!(preprocessor, ImportPreprocessor::Sparse));
+    assert!(matches!(preprocessor, ImportPreprocessor::Spare));
 }
 
 #[test]
