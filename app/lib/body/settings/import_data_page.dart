@@ -32,8 +32,7 @@ class _ImportDataPage extends State<ImportDataPage> {
       journeyDataMaybeRaw;
   api.MapRendererProxy? _mapRendererProxy;
   MapView? _initialMapView;
-  import_api.ImportPreprocessor? _detectedProcessor;
-  late import_api.ImportPreprocessor _activeProcessor;
+  late import_api.ImportPreprocessor _preprocessor;
 
   @override
   void initState() {
@@ -59,7 +58,7 @@ class _ImportDataPage extends State<ImportDataPage> {
         return;
       }
       if (context.mounted &&
-          _detectedProcessor == import_api.ImportPreprocessor.spare) {
+          _preprocessor == import_api.ImportPreprocessor.spare) {
         showCommonDialog(
           context,
           context.tr("preprocessor.spare_md"),
@@ -67,8 +66,8 @@ class _ImportDataPage extends State<ImportDataPage> {
         );
       }
     } catch (error) {
-      await showCommonDialog(context, context.tr("import.parsing_failed"));
       log.error("[import_data] Data parsing failed $error");
+      await showCommonDialog(context, context.tr("import.parsing_failed"));
       if (Navigator.canPop(context)) {
         Navigator.pop(context);
       }
@@ -83,7 +82,7 @@ class _ImportDataPage extends State<ImportDataPage> {
         setState(() {
           this.journeyInfo = journeyInfo;
           journeyDataMaybeRaw = f.Either.left(journeyData);
-          _activeProcessor = import_api.ImportPreprocessor.generic;
+          _preprocessor = import_api.ImportPreprocessor.generic;
         });
         break;
 
@@ -92,19 +91,18 @@ class _ImportDataPage extends State<ImportDataPage> {
             await import_api.loadGpxOrKml(filePath: path);
         setState(() {
           this.journeyInfo = journeyInfo;
-          _detectedProcessor = detectedProcessor;
-          _activeProcessor = detectedProcessor;
+          _preprocessor = detectedProcessor;
           journeyDataMaybeRaw = f.Either.right(rawVectorData);
         });
         break;
     }
   }
 
-  Future<void> _previewData(import_api.ImportPreprocessor nextProcessor) async {
-    if (nextProcessor == _activeProcessor) return;
+  Future<void> _previewData(import_api.ImportPreprocessor preprocessor) async {
+    if (preprocessor == _preprocessor) return;
 
     setState(() {
-      _activeProcessor = nextProcessor;
+      _preprocessor = preprocessor;
     });
 
     if (!await showLoadingDialog(
@@ -125,7 +123,7 @@ class _ImportDataPage extends State<ImportDataPage> {
       f.Left(value: final l) => l,
       f.Right(value: final r) => await import_api.processVectorData(
           vectorData: r,
-          importProcessor: _activeProcessor,
+          importProcessor: _preprocessor,
         ),
     };
     final mapRendererProxyAndCameraOption =
@@ -224,7 +222,7 @@ class _ImportDataPage extends State<ImportDataPage> {
                           saveData: _saveData,
                           previewData: _previewData,
                           importType: widget.importType,
-                          preprocessor: _detectedProcessor,
+                          preprocessor: _preprocessor,
                         ),
                       ],
                     ),
