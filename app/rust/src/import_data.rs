@@ -458,31 +458,30 @@ fn flatten_kml(kml: Kml) -> Vec<Kml> {
         k => vec![k],
     }
 }
-
+/// `segment_gap_rule_for_preprocessor = None` meaning disable preprocessor
 pub fn journey_vector_from_raw_data_with_gps_preprocessor(
     raw_data: &[Vec<RawData>],
-    enable_preprocessor: bool,
-) -> Option<JourneyVector> {
-    journey_vector_from_raw_data_with_rules(raw_data, enable_preprocessor, SegmentGapRule::Default)
-}
-
-pub fn journey_vector_from_raw_data_with_rules(
-    raw_data: &[Vec<RawData>],
-    enable_preprocessor: bool,
-    segment_gap_policy: SegmentGapRule,
+    segment_gap_rule_for_preprocessor: Option<SegmentGapRule>,
 ) -> Option<JourneyVector> {
     let processed_data = raw_data.iter().flat_map(move |x| {
         // we handle each segment separately
-        let mut gps_preprocessor = GpsPreprocessor::new_with_rule(&segment_gap_policy);
+        let mut gps_preprocessor = match segment_gap_rule_for_preprocessor {
+            None => None,
+            Some(rule) => Some(GpsPreprocessor::new_with_rule(rule)),
+        };
+
         let mut first = true;
         x.iter().map(move |raw_data| {
-            let process_result = if enable_preprocessor {
-                gps_preprocessor.preprocess(raw_data)
-            } else if first {
-                first = false;
-                ProcessResult::NewSegment
-            } else {
-                ProcessResult::Append
+            let process_result = match &mut gps_preprocessor {
+                Some(preprocessor) => preprocessor.preprocess(raw_data),
+                None => {
+                    if first {
+                        first = false;
+                        ProcessResult::NewSegment
+                    } else {
+                        ProcessResult::Append
+                    }
+                }
             };
 
             Ok(PreprocessedData {

@@ -107,21 +107,19 @@ pub fn process_vector_data(
     import_processor: ImportPreprocessor,
 ) -> Result<JourneyData> {
     let journey_vector_opt = match import_processor {
-        ImportPreprocessor::None => import_data::journey_vector_from_raw_data_with_rules(
-            &vector_data.data,
-            false,
-            SegmentGapRule::Default,
-        ),
-        ImportPreprocessor::Generic => import_data::journey_vector_from_raw_data_with_rules(
-            &vector_data.data,
-            true,
-            SegmentGapRule::Default,
-        ),
+        ImportPreprocessor::None => {
+            import_data::journey_vector_from_raw_data_with_gps_preprocessor(&vector_data.data, None)
+        }
+        ImportPreprocessor::Generic => {
+            import_data::journey_vector_from_raw_data_with_gps_preprocessor(
+                &vector_data.data,
+                Some(SegmentGapRule::Default),
+            )
+        }
         ImportPreprocessor::FlightTrack => flight_track_processor::process(&vector_data.data),
-        ImportPreprocessor::Spare => import_data::journey_vector_from_raw_data_with_rules(
+        ImportPreprocessor::Spare => import_data::journey_vector_from_raw_data_with_gps_preprocessor(
             &vector_data.data,
-            true,
-            SegmentGapRule::Spare,
+            Some(SegmentGapRule::Spare),
         ),
     };
 

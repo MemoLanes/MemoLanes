@@ -233,77 +233,33 @@ enum GpsPreprocessorState {
     },
 }
 
-#[derive(Clone, Debug)]
-pub struct SegmentGapThreshold {
-    pub distance_m: f64,
-    pub max_gap_sec: i64,
+struct SegmentGapThreshold {
+    distance_m: f64,
+    max_gap_sec: i64,
 }
 
-// Rules must be ordered by `distance_m` in ascending order.
-// The first matching rule is applied.
-pub type SegmentGapProfile = &'static [SegmentGapThreshold; 3];
-
-const DEFAULT_SEGMENT_GAP_RULES: SegmentGapProfile = &[
-    SegmentGapThreshold {
-        distance_m: 5.0,
-        max_gap_sec: 3600,
-    },
-    SegmentGapThreshold {
-        distance_m: 50.0,
-        max_gap_sec: 20,
-    },
-    SegmentGapThreshold {
-        distance_m: 1000.0,
-        max_gap_sec: 4,
-    },
-];
-
-const SPARE_SEGMENT_GAP_RULES: SegmentGapProfile = &[
-    SegmentGapThreshold {
-        distance_m: 5.0,
-        max_gap_sec: 3600,
-    },
-    SegmentGapThreshold {
-        distance_m: 150.0,
-        max_gap_sec: 240,
-    },
-    SegmentGapThreshold {
-        distance_m: 1000.0,
-        max_gap_sec: 120,
-    },
-];
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum SegmentGapRule {
     Default,
     Spare,
 }
 
-impl SegmentGapRule {
-    pub fn profile(&self) -> SegmentGapProfile {
-        match self {
-            SegmentGapRule::Default => DEFAULT_SEGMENT_GAP_RULES,
-            SegmentGapRule::Spare => SPARE_SEGMENT_GAP_RULES,
-        }
-    }
-}
-
 pub struct GpsPreprocessor {
     state: GpsPreprocessorState,
     bad_data_detector: BadDataDetector,
-    segment_gap_rules: SegmentGapProfile,
+    rule: SegmentGapRule,
 }
 
 impl GpsPreprocessor {
     pub fn new() -> Self {
-        Self::new_with_rule(&SegmentGapRule::Default)
+        Self::new_with_rule(SegmentGapRule::Default)
     }
 
-    pub fn new_with_rule(rule: &SegmentGapRule) -> Self {
+    pub fn new_with_rule(rule: SegmentGapRule) -> Self {
         Self {
             state: GpsPreprocessorState::Empty,
             bad_data_detector: BadDataDetector::new(),
-            segment_gap_rules: rule.profile(),
+            rule,
         }
     }
 
@@ -322,11 +278,43 @@ impl GpsPreprocessor {
     }
 
     fn process_moving_data(
-        segment_gap_rules: &[SegmentGapThreshold],
+        rule: SegmentGapRule,
         last_point: &Point,
         last_timestamp_ms: Option<i64>,
         curr_data: &RawData,
     ) -> ProcessResult {
+        // Rules must be ordered by `distance_m` in ascending order.
+        // The first matching rule is applied.
+        type SegmentGapProfile = &'static [SegmentGapThreshold; 3];
+        const DEFAULT_SEGMENT_GAP_RULES: SegmentGapProfile = &[
+            SegmentGapThreshold {
+                distance_m: 5.0,
+                max_gap_sec: 3600,
+            },
+            SegmentGapThreshold {
+                distance_m: 50.0,
+                max_gap_sec: 20,
+            },
+            SegmentGapThreshold {
+                distance_m: 1000.0,
+                max_gap_sec: 4,
+            },
+        ];
+        const SPARE_SEGMENT_GAP_RULES: SegmentGapProfile = &[
+            SegmentGapThreshold {
+                distance_m: 5.0,
+                max_gap_sec: 3600,
+            },
+            SegmentGapThreshold {
+                distance_m: 150.0,
+                max_gap_sec: 240,
+            },
+            SegmentGapThreshold {
+                distance_m: 1000.0,
+                max_gap_sec: 120,
+            },
+        ];
+
         const TOO_CLOSE_DISTANCE_IN_M: f64 = 0.1;
 
         let distance_in_m = curr_data.point.haversine_distance(last_point);
@@ -347,7 +335,12 @@ impl GpsPreprocessor {
                     // in normal condition, we should have 1 data per sec
                     // we should mostly trust the data here and try to
                     // filter out bad ones in `BadDataDetector`.
-                    for rule in segment_gap_rules.iter() {
+                    for rule in match rule {
+                        SegmentGapRule::Default => DEFAULT_SEGMENT_GAP_RULES,
+                        SegmentGapRule::Spare => SPARE_SEGMENT_GAP_RULES,
+                    }
+                    .iter()
+                    {
                         if distance_in_m <= rule.distance_m {
                             return if time_diff_in_ms <= rule.max_gap_sec * 1000 {
                                 ProcessResult::Append
@@ -388,8 +381,6 @@ impl GpsPreprocessor {
             return ProcessResult::Ignore;
         };
 
-        let segment_gap_rules = self.segment_gap_rules;
-
         let start_moving = |curr_data: &RawData| Moving {
             last_point: curr_data.point.clone(),
             last_timestamp_ms: curr_data.timestamp_ms,
@@ -410,12 +401,8 @@ impl GpsPreprocessor {
                 timestamp_ms_when_center_point_picked,
                 num_of_data_since_center_point_picked,
             } => {
-                let result = Self::process_moving_data(
-                    segment_gap_rules,
-                    last_point,
-                    *last_timestamp_ms,
-                    curr_data,
-                );
+                let result =
+                    Self::process_moving_data(self.rule, last_point, *last_timestamp_ms, curr_data);
                 if result != ProcessResult::Ignore {
                     *last_point = curr_data.point.clone();
                     *last_timestamp_ms = curr_data.timestamp_ms;
@@ -472,7 +459,7 @@ impl GpsPreprocessor {
                 } else {
                     //then ending stationary change to move mode
                     let result = Self::process_moving_data(
-                        segment_gap_rules,
+                        self.rule,
                         center_point,
                         *last_timestamp_ms,
                         curr_data,
