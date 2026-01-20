@@ -1,6 +1,8 @@
 pub mod test_utils;
 
-use memolanes_core::gps_processor::{GpsPreprocessor, Point, ProcessResult, RawData};
+use memolanes_core::gps_processor::{
+    GpsPreprocessor, Point, ProcessResult, RawData, SegmentGapRule,
+};
 use memolanes_core::{export_data, import_data};
 use std::collections::HashMap;
 use std::fs::File;
@@ -151,9 +153,11 @@ fn run_though_test_data(name: &str) -> HashMap<ProcessResult, i32> {
     }
 
     if GENERATE_RESULT_GPX_FOR_INSPECTION {
-        let journey_vector =
-            import_data::journey_vector_from_raw_data_with_gps_preprocessor(&loaded_data, true)
-                .unwrap();
+        let journey_vector = import_data::journey_vector_from_raw_data_with_gps_preprocessor(
+            &loaded_data,
+            Some(SegmentGapRule::Default),
+        )
+        .unwrap();
 
         let mut file = File::create(format!(
             "./tests/for_inspection/gps_preprocessor_run_though_test_data_{name}.gpx"

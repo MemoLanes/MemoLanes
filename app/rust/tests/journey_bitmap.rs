@@ -3,8 +3,9 @@ use crate::test_utils::{
     draw_line1, draw_line2, draw_line3, draw_line4, END_LAT, END_LNG, START_LAT, START_LNG,
 };
 use memolanes_core::{
-    import_data, journey_area_utils, journey_bitmap::JourneyBitmap, journey_data::JourneyData,
-    journey_header::JourneyType, merged_journey_builder, renderer::MapRenderer,
+    gps_processor::SegmentGapRule, import_data, journey_area_utils, journey_bitmap::JourneyBitmap,
+    journey_data::JourneyData, journey_header::JourneyType, merged_journey_builder,
+    renderer::MapRenderer,
 };
 
 #[test]
@@ -150,9 +151,11 @@ fn vector_to_bitmap(name: &str, zoom: i32, filename_override: Option<&str>) {
         Some(filename) => format!("./tests/data/{filename}"),
     };
     let (loaded_data, _preprocessor) = import_data::load_gpx(&filename).unwrap();
-    let journey_vector =
-        import_data::journey_vector_from_raw_data_with_gps_preprocessor(&loaded_data, true)
-            .unwrap();
+    let journey_vector = import_data::journey_vector_from_raw_data_with_gps_preprocessor(
+        &loaded_data,
+        Some(SegmentGapRule::Default),
+    )
+    .unwrap();
     let mut journey_bitmap = JourneyBitmap::new();
     merged_journey_builder::add_journey_vector_to_journey_bitmap(
         &mut journey_bitmap,

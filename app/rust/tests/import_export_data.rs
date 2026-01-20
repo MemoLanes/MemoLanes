@@ -17,14 +17,14 @@ fn run_gpx_integrity_check(
     let (raw_data1, preprocessor) = import_data::load_gpx(import_path).unwrap();
     let info = import_data::journey_info_from_raw_vector_data(&raw_data1);
     let vector1 =
-        import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data1, false).unwrap();
+        import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data1, None).unwrap();
 
     export_data::journey_vector_to_gpx_file(&vector1, &mut File::create(export_path).unwrap())
         .unwrap();
 
     let (raw_data2, _) = import_data::load_gpx(export_path).unwrap();
     let vector2 =
-        import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data2, false).unwrap();
+        import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data2, None).unwrap();
 
     let points1 = vector1
         .track_segments
@@ -52,14 +52,14 @@ fn run_kml_integrity_check(
     let (raw_data1, preprocessor) = import_data::load_kml(import_path).unwrap();
     let info = import_data::journey_info_from_raw_vector_data(&raw_data1);
     let vector1 =
-        import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data1, false).unwrap();
+        import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data1, None).unwrap();
 
     export_data::journey_vector_to_kml_file(&vector1, &mut File::create(export_path).unwrap())
         .unwrap();
 
     let (raw_data2, _) = import_data::load_kml(export_path).unwrap();
     let vector2 =
-        import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data2, false).unwrap();
+        import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data2, None).unwrap();
 
     let points1 = vector1
         .track_segments
