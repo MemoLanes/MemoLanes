@@ -1,6 +1,8 @@
 pub mod test_utils;
 
-use memolanes_core::gps_processor::{GpsPreprocessor, Point, ProcessResult, RawData};
+use memolanes_core::gps_processor::{
+    GpsPreprocessor, Point, ProcessResult, RawData, SegmentGapRule,
+};
 use memolanes_core::{export_data, import_data};
 use std::collections::HashMap;
 use std::fs::File;
@@ -143,16 +145,19 @@ fn run_though_test_data(name: &str) -> HashMap<ProcessResult, i32> {
     const GENERATE_RESULT_GPX_FOR_INSPECTION: bool = false;
     let mut gps_preprocessor = GpsPreprocessor::new();
     let mut counter = HashMap::new();
-    let loaded_data = import_data::load_gpx(&format!("./tests/data/raw_gps_{name}.gpx")).unwrap();
+    let (loaded_data, _preprocessor) =
+        import_data::load_gpx(&format!("./tests/data/raw_gps_{name}.gpx")).unwrap();
     for data in loaded_data.iter().flatten() {
         let result = gps_preprocessor.preprocess(data);
         counter.entry(result).and_modify(|c| *c += 1).or_insert(1);
     }
 
     if GENERATE_RESULT_GPX_FOR_INSPECTION {
-        let journey_vector =
-            import_data::journey_vector_from_raw_data_with_gps_preprocessor(&loaded_data, true)
-                .unwrap();
+        let journey_vector = import_data::journey_vector_from_raw_data_with_gps_preprocessor(
+            &loaded_data,
+            Some(SegmentGapRule::Default),
+        )
+        .unwrap();
 
         let mut file = File::create(format!(
             "./tests/for_inspection/gps_preprocessor_run_though_test_data_{name}.gpx"

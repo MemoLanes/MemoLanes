@@ -76,7 +76,7 @@ class _RawDataPage extends State<RawDataPage> {
         children: [
           CardLabelTile(
             position: CardLabelTilePosition.top,
-            label: context.tr("general.advance_settings.raw_data_export_csv"),
+            label: context.tr("general.advanced_settings.raw_data_export_csv"),
             onTap: () {
               showCommonExport(context, filePath, deleteFile: false);
             },
@@ -84,7 +84,7 @@ class _RawDataPage extends State<RawDataPage> {
           ),
           CardLabelTile(
             position: CardLabelTilePosition.bottom,
-            label: context.tr("general.advance_settings.raw_data_export_gpx"),
+            label: context.tr("general.advanced_settings.raw_data_export_gpx"),
             onTap: () async {
               final gpxPath =
                   await api.exportRawDataGpxFile(csvFilepath: filePath);

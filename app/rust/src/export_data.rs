@@ -20,7 +20,7 @@ use time::OffsetDateTime;
 // custom attributes or just add timestamp for the first and last point if possible.
 fn write_gpx_with_segments<T: Write + Seek>(
     segments: Vec<TrackSegment>,
-    name: Option<String>,
+    name: Option<&str>,
     writer: &mut T,
 ) -> Result<()> {
     if segments.is_empty() {
@@ -42,7 +42,7 @@ fn write_gpx_with_segments<T: Write + Seek>(
         version: GpxVersion::Gpx11,
         creator: Some("MemoLanes".to_string()),
         metadata: Some(Metadata {
-            name,
+            name: name.map(str::to_string),
             ..Default::default()
         }),
         waypoints: vec![],
@@ -53,6 +53,8 @@ fn write_gpx_with_segments<T: Write + Seek>(
     gpx::write(&gpx, writer)?;
     Ok(())
 }
+pub const JOURNEY_TYPE_NAME: &str = "MemoLanes Journey";
+pub const RAWDATA_TYPE_NAME: &str = "MemoLanes RawData";
 
 #[auto_context]
 pub fn journey_vector_to_gpx_file<T: Write + Seek>(
@@ -68,7 +70,7 @@ pub fn journey_vector_to_gpx_file<T: Write + Seek>(
         });
         segments.push(TrackSegment { points });
     }
-    write_gpx_with_segments(segments, Some("MemoLanes Journey".to_string()), writer)
+    write_gpx_with_segments(segments, Some(JOURNEY_TYPE_NAME), writer)
 }
 
 #[auto_context]
@@ -100,7 +102,7 @@ pub fn raw_data_csv_to_gpx_file<R: std::io::Read, W: Write + Seek>(
 
         segment.points.push(wp);
     }
-    write_gpx_with_segments(vec![segment], Some("MemoLanes RawData".to_string()), writer)
+    write_gpx_with_segments(vec![segment], Some(RAWDATA_TYPE_NAME), writer)
 }
 
 #[auto_context]

@@ -73,11 +73,11 @@ class GpsManager extends ChangeNotifier {
       if (MMKVUtil.getBool(MMKVKey.isRecording) &&
           await PermissionService().checkLocationPermission()) {
         recordingStatus = GpsRecordingStatus.recording;
-      } else {
-        if (await api.hasOngoingJourney()) {
-          recordingStatus = GpsRecordingStatus.paused;
-        }
+      } else if (await api.hasOngoingJourney()) {
+        recordingStatus = GpsRecordingStatus.paused;
       }
+      // notify record button
+      notifyListeners();
     });
   }
 
