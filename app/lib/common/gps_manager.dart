@@ -51,8 +51,7 @@ class GpsManager extends ChangeNotifier {
 
   // We only start listening to the location service after this.
   // Otherwise we may start it before the app is fully ready (e.g. i18n not ready).
-  final Completer _readyToStart = Completer();
-  bool _initialized = false;
+  bool _fullReady = false;
 
   GpsManager() {
     _locationService = GeoLocatorService();
@@ -79,9 +78,6 @@ class GpsManager extends ChangeNotifier {
           recordingStatus = GpsRecordingStatus.paused;
         }
       }
-      await _readyToStart.future;
-      _initialized = true;
-      notifyListeners();
     });
   }
 
@@ -97,6 +93,12 @@ class GpsManager extends ChangeNotifier {
   }
 
   Future<void> _syncInternalStateWithoutLock() async {
+    // do nothing until fully ready, we will sync it again when it becomes ready
+    // for the first time.
+    if (!_fullReady) {
+      return;
+    }
+
     var newState = switch (recordingStatus) {
       GpsRecordingStatus.recording => _InternalState.recording,
       GpsRecordingStatus.paused || GpsRecordingStatus.none => switch (
@@ -212,9 +214,7 @@ class GpsManager extends ChangeNotifier {
       recordingStatus = to;
       notifyListeners();
 
-      if (_initialized) {
-        await _syncInternalStateWithoutLock();
-      }
+      await _syncInternalStateWithoutLock();
       MMKVUtil.putBool(
         MMKVKey.isRecording,
         recordingStatus == GpsRecordingStatus.recording,
@@ -239,21 +239,15 @@ class GpsManager extends ChangeNotifier {
 
     await _m.protect(() async {
       mapTracking = enable;
-      if (_initialized) {
-        await _syncInternalStateWithoutLock();
-      }
+      await _syncInternalStateWithoutLock();
     });
   }
 
   void readyToStart() {
-    if (!_readyToStart.isCompleted) {
-      _readyToStart.complete();
-    }
-
-    if (_initialized) {
-      _m.protect(() async {
-        await _syncInternalStateWithoutLock();
-      });
-    }
+    _fullReady = true;
+    // sync internal state for the first time
+    _m.protect(() async {
+      await _syncInternalStateWithoutLock();
+    });
   }
 }
