@@ -124,7 +124,7 @@ pub fn normalize_step_of_my_world_time(input: &str) -> Option<String> {
         _ => return None,
     };
 
-    Some(format!("{}T{:02}:{}:{}Z", date, hour_24, min, sec))
+    Some(format!("{date}T{hour_24:02}:{min}:{sec}Z"))
 }
 
 pub fn normalize_generic_time(input: &str) -> Option<String> {

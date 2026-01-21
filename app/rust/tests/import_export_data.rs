@@ -39,8 +39,7 @@ fn run_gpx_integrity_check(
 
     assert_eq!(
         points1, points2,
-        "Data integrity check failed for {}",
-        import_path
+        "Data integrity check failed for {import_path}"
     );
     (points1, info, preprocessor)
 }
@@ -74,8 +73,7 @@ fn run_kml_integrity_check(
 
     assert_eq!(
         points1, points2,
-        "Data integrity check failed for {}",
-        import_path
+        "Data integrity check failed for {import_path}"
     );
     (points1, info, preprocessor)
 }

@@ -467,10 +467,8 @@ pub fn journey_vector_from_raw_data_with_gps_preprocessor(
 ) -> Option<JourneyVector> {
     let processed_data = raw_data.iter().flat_map(move |x| {
         // we handle each segment separately
-        let mut gps_preprocessor = match segment_gap_rule_for_preprocessor {
-            None => None,
-            Some(rule) => Some(GpsPreprocessor::new_with_rule(rule)),
-        };
+        let mut gps_preprocessor =
+            segment_gap_rule_for_preprocessor.map(GpsPreprocessor::new_with_rule);
 
         let mut first = true;
         x.iter().map(move |raw_data| {
