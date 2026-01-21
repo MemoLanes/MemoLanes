@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
 import 'package:memolanes/common/component/common_export.dart';
+import 'package:memolanes/constants/style_constants.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 Future<bool> showCommonDialog(BuildContext context, String message,
@@ -15,11 +16,10 @@ Future<bool> showCommonDialog(BuildContext context, String message,
     confirmGroundColor,
     confirmTextColor = Colors.black,
     markdown = false}) async {
-  const defaultGroundColor = Color(0xFFB4EC51);
   confirmButtonText = confirmButtonText ?? context.tr("common.ok");
   cancelButtonText = cancelButtonText ?? context.tr("common.cancel");
   title = title ?? context.tr("common.info");
-  confirmGroundColor = confirmGroundColor ?? defaultGroundColor;
+  confirmGroundColor = confirmGroundColor ?? StyleConstants.defaultColor;
   final List<DialogButton> allButtons = [
     DialogButton(
       text: confirmButtonText,
@@ -32,9 +32,9 @@ Future<bool> showCommonDialog(BuildContext context, String message,
     if (hasCancel)
       DialogButton(
           text: cancelButtonText,
-          backgroundColor: confirmGroundColor == defaultGroundColor
+          backgroundColor: confirmGroundColor == StyleConstants.defaultColor
               ? Colors.grey
-              : defaultGroundColor,
+              : StyleConstants.defaultColor,
           onPressed: () {
             Navigator.of(context).pop(false);
           })
