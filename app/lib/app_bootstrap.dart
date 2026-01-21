@@ -78,7 +78,7 @@ void delayedInit(UpdateNotifier updateNotifier) {
 
 class AppBootstrap {
   static bool _started = false;
-  static Completer<void>? _initMainMapCompleter;
+  static final Completer<void> _mainMapReady = Completer<void>();
 
   static Future<void> initAppRuntime() async {
     // This is required since we are doing things before calling `runApp`.
@@ -103,13 +103,13 @@ class AppBootstrap {
   }) {
     if (_started) return;
     _started = true;
-    _initMainMapCompleter ??= Completer<void>();
+
     api.initMainMap().then(
       (_) {
-        _initMainMapCompleter!.complete();
+        _mainMapReady.complete();
       },
       onError: (e, s) {
-        _initMainMapCompleter!.completeError(e, s);
+        _mainMapReady.completeError(e, s);
         log.error("initMainMap error $e");
       },
     );
@@ -119,13 +119,8 @@ class AppBootstrap {
     delayedInit(updateNotifier);
   }
 
-  static bool get isMainMapReady => _initMainMapCompleter?.isCompleted ?? false;
-
-  static Future<void> get mainMapReady {
-    final c = _initMainMapCompleter;
-    if (c == null) {
-      throw StateError('Main map initialization has not been started');
-    }
-    return c.future;
+  /// the return value should be considered readonly
+  static Completer<void> get mainMapReady {
+    return _mainMapReady;
   }
 }

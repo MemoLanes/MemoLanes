@@ -132,10 +132,12 @@ class _MyHomePageState extends State<MyHomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       showPrivacyAgreementIfNeeded(context);
 
-      if (!AppBootstrap.isMainMapReady) {
+      var mainMapReady = AppBootstrap.mainMapReady;
+
+      if (!mainMapReady.isCompleted) {
         await showLoadingDialog(
           context: context,
-          asyncTask: AppBootstrap.mainMapReady,
+          asyncTask: mainMapReady.future,
         );
       }
     });
