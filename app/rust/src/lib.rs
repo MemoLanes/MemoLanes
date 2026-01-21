@@ -18,6 +18,7 @@ pub mod cache_db;
 pub mod export_data;
 pub mod flight_track_processor;
 pub mod gps_processor;
+pub mod gpx_file_utils;
 pub mod import_data;
 pub mod journey_area_utils;
 pub mod journey_bitmap;

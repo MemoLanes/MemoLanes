@@ -6,6 +6,7 @@ use chrono::{DateTime, Local, NaiveDate, Utc};
 use flutter_rust_bridge::frb;
 
 use super::api;
+use crate::gps_processor::SegmentGapRule;
 use crate::journey_vector::JourneyVector;
 use crate::{
     flight_track_processor,
@@ -54,8 +55,10 @@ pub fn load_fow_data(file_path: String) -> Result<(JourneyInfo, JourneyData)> {
 }
 
 #[auto_context]
-pub fn load_gpx_or_kml(file_path: String) -> Result<(JourneyInfo, RawVectorData)> {
-    let raw_vector_data = match Path::new(&file_path)
+pub fn load_gpx_or_kml(
+    file_path: String,
+) -> Result<(JourneyInfo, RawVectorData, ImportPreprocessor)> {
+    let (raw_vector_data, import_preprocessor) = match Path::new(&file_path)
         .extension()
         .and_then(OsStr::to_str)
         .map(|x| x.to_lowercase())
@@ -71,6 +74,7 @@ pub fn load_gpx_or_kml(file_path: String) -> Result<(JourneyInfo, RawVectorData)
         RawVectorData {
             data: raw_vector_data,
         },
+        import_preprocessor,
     ))
 }
 
@@ -94,6 +98,7 @@ pub enum ImportPreprocessor {
     None,
     Generic,
     FlightTrack,
+    Spare,
 }
 
 #[auto_context]
@@ -103,15 +108,21 @@ pub fn process_vector_data(
 ) -> Result<JourneyData> {
     let journey_vector_opt = match import_processor {
         ImportPreprocessor::None => {
-            import_data::journey_vector_from_raw_data_with_gps_preprocessor(
-                &vector_data.data,
-                false,
-            )
+            import_data::journey_vector_from_raw_data_with_gps_preprocessor(&vector_data.data, None)
         }
         ImportPreprocessor::Generic => {
-            import_data::journey_vector_from_raw_data_with_gps_preprocessor(&vector_data.data, true)
+            import_data::journey_vector_from_raw_data_with_gps_preprocessor(
+                &vector_data.data,
+                Some(SegmentGapRule::Default),
+            )
         }
         ImportPreprocessor::FlightTrack => flight_track_processor::process(&vector_data.data),
+        ImportPreprocessor::Spare => {
+            import_data::journey_vector_from_raw_data_with_gps_preprocessor(
+                &vector_data.data,
+                Some(SegmentGapRule::Spare),
+            )
+        }
     };
 
     let journey_vector = journey_vector_opt.unwrap_or_else(|| JourneyVector {
