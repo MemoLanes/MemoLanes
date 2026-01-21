@@ -31,9 +31,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   bool get _zoomOk => _currentZoom >= _minEditZoom;
 
-  bool get _canWrite =>
-      _mode == OperationMode.edit && _zoomOk;
-
+  bool get _canWrite => _mode == OperationMode.edit && _zoomOk;
 
   final GlobalKey<JourneyEditorMapViewState> _mapWebviewKey = GlobalKey();
   ScaffoldMessengerState? _snackBarMessenger;
@@ -269,9 +267,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
     setState(() {
       if (newMode == OperationMode.edit) {
-        _mode = _zoomOk
-            ? OperationMode.edit
-            : OperationMode.editReadonly;
+        _mode = _zoomOk ? OperationMode.edit : OperationMode.editReadonly;
       } else {
         _mode = newMode;
       }
@@ -279,7 +275,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
     _syncMapCapabilities();
   }
-
 
   Future<void> _handleMapMoved() async {
     final mapView = await _mapWebviewKey.currentState?.getCurrentMapView();
@@ -395,11 +390,11 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   }
 
   Future<void> _onSelectionBox(
-      double startLat,
-      double startLng,
-      double endLat,
-      double endLng,
-      ) async {
+    double startLat,
+    double startLng,
+    double endLat,
+    double endLng,
+  ) async {
     if (_mode != OperationMode.delete) return;
 
     final session = _editSession;
@@ -514,7 +509,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
                       Navigator.of(context).pop(true);
                     },
-
                   ),
                 ),
               ),

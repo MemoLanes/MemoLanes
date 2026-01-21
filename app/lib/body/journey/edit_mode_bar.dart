@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 enum OperationMode {
-  move,           // 移动
-  edit,           // 编辑（可写）
-  editReadonly,   // 编辑（不可写）
-  delete,         // 删除
+  move, // 移动
+  edit, // 编辑（可写）
+  editReadonly, // 编辑（不可写）
+  delete, // 删除
 }
 
 class ModeSwitchBar extends StatelessWidget {
@@ -60,7 +60,6 @@ class ModeSwitchBar extends StatelessWidget {
                     icon: Icons.open_with_rounded,
                     label: "移动",
                   ),
-
                   _buildModeItem(
                     mode: OperationMode.edit,
                     icon: Icons.gesture_rounded,
@@ -69,27 +68,23 @@ class ModeSwitchBar extends StatelessWidget {
                     isSelected: currentMode == OperationMode.edit ||
                         currentMode == OperationMode.editReadonly,
                   ),
-
                   _buildModeItem(
                     mode: OperationMode.delete,
                     icon: Icons.delete,
                     label: "擦除",
                   ),
-
                   Container(
                     width: 1,
                     height: 24,
                     margin: const EdgeInsets.symmetric(horizontal: 8),
                     color: Colors.black12,
                   ),
-
                   _buildActionButton(
                     icon: Icons.undo_rounded,
                     label: "撤销",
                     isEnabled: canUndo,
                     onTap: onUndo,
                   ),
-
                   _buildActionButton(
                     icon: Icons.save,
                     label: "保存",
@@ -121,9 +116,9 @@ class ModeSwitchBar extends StatelessWidget {
       isEnabled: isEnabled,
       onTap: isEnabled
           ? () {
-        HapticFeedback.lightImpact();
-        onModeChanged(mode);
-      }
+              HapticFeedback.lightImpact();
+              onModeChanged(mode);
+            }
           : null,
     );
   }
@@ -142,9 +137,9 @@ class ModeSwitchBar extends StatelessWidget {
       activeColor: activeColor,
       onTap: isEnabled
           ? () {
-        HapticFeedback.mediumImpact();
-        onTap?.call();
-      }
+              HapticFeedback.mediumImpact();
+              onTap?.call();
+            }
           : null,
     );
   }
@@ -173,15 +168,15 @@ class _BaseBarItem extends StatelessWidget {
 
     final Color bgColor = isSelected
         ? (isEnabled
-        ? themeColor.withValues(alpha: 0.12)
-        : Colors.black.withValues(alpha: 0.05))
+            ? themeColor.withValues(alpha: 0.12)
+            : Colors.black.withValues(alpha: 0.05))
         : Colors.transparent;
 
     final Color contentColor = !isEnabled
         ? Colors.grey.shade400
         : isSelected
-        ? themeColor
-        : Colors.grey.shade800;
+            ? themeColor
+            : Colors.grey.shade800;
 
     return GestureDetector(
       onTap: onTap,
@@ -203,8 +198,7 @@ class _BaseBarItem extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: 10,
-                fontWeight:
-                isSelected ? FontWeight.bold : FontWeight.w500,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                 color: contentColor,
               ),
             ),
