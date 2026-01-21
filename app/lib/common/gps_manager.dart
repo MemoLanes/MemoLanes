@@ -52,6 +52,7 @@ class GpsManager extends ChangeNotifier {
   // We only start listening to the location service after this.
   // Otherwise we may start it before the app is fully ready (e.g. i18n not ready).
   final Completer _readyToStart = Completer();
+  bool _initialized = false;
 
   GpsManager() {
     _locationService = GeoLocatorService();
@@ -79,7 +80,8 @@ class GpsManager extends ChangeNotifier {
         }
       }
       await _readyToStart.future;
-      await _syncInternalStateWithoutLock();
+      _initialized = true;
+      notifyListeners();
     });
   }
 
@@ -210,7 +212,9 @@ class GpsManager extends ChangeNotifier {
       recordingStatus = to;
       notifyListeners();
 
-      await _syncInternalStateWithoutLock();
+      if (_initialized) {
+        await _syncInternalStateWithoutLock();
+      }
       MMKVUtil.putBool(
         MMKVKey.isRecording,
         recordingStatus == GpsRecordingStatus.recording,
@@ -235,13 +239,21 @@ class GpsManager extends ChangeNotifier {
 
     await _m.protect(() async {
       mapTracking = enable;
-      await _syncInternalStateWithoutLock();
+      if (_initialized) {
+        await _syncInternalStateWithoutLock();
+      }
     });
   }
 
   void readyToStart() {
     if (!_readyToStart.isCompleted) {
       _readyToStart.complete();
+    }
+
+    if (_initialized) {
+      _m.protect(() async {
+        await _syncInternalStateWithoutLock();
+      });
     }
   }
 }
