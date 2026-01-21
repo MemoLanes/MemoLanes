@@ -1,12 +1,12 @@
 use crate::api::import::{ImportPreprocessor, JourneyInfo};
 use crate::flight_track_processor;
 use crate::gps_processor::{Point, PreprocessedData, ProcessResult, RawData, SegmentGapRule};
+use crate::gpx_file_utils::analyze_and_prepare_gpx;
 use crate::journey_bitmap::{
     self, Block, BlockKey, JourneyBitmap, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH,
 };
 use crate::journey_date_picker::JourneyDatePicker;
 use crate::journey_header::JourneyKind;
-use crate::preclean::analyze_and_prepare_gpx;
 use crate::{
     gps_processor::{self, GpsPreprocessor},
     journey_vector::{JourneyVector, TrackPoint},
