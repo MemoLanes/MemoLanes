@@ -257,7 +257,7 @@ pub fn load_kml(file_path: &str) -> Result<(Vec<Vec<RawData>>, ImportPreprocesso
         raw_vector_data = read_line_string(&flatten_data)?
     }
 
-    // TODO: KML currently has no additional processors.
+    // TODO: we currently do not have preprocessor detection for KML
     Ok((raw_vector_data, ImportPreprocessor::Generic))
 }
 
