@@ -51,7 +51,7 @@ class GpsManager extends ChangeNotifier {
 
   // We only start listening to the location service after this.
   // Otherwise we may start it before the app is fully ready (e.g. i18n not ready).
-  bool _fullReady = false;
+  bool _fullyReady = false;
 
   GpsManager() {
     _locationService = GeoLocatorService();
@@ -95,7 +95,7 @@ class GpsManager extends ChangeNotifier {
   Future<void> _syncInternalStateWithoutLock() async {
     // do nothing until fully ready, we will sync it again when it becomes ready
     // for the first time.
-    if (!_fullReady) {
+    if (!_fullyReady) {
       return;
     }
 
@@ -244,7 +244,7 @@ class GpsManager extends ChangeNotifier {
   }
 
   void readyToStart() {
-    _fullReady = true;
+    _fullyReady = true;
     // sync internal state for the first time
     _m.protect(() async {
       await _syncInternalStateWithoutLock();
