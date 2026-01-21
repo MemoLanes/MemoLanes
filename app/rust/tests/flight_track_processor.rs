@@ -18,7 +18,7 @@ fn run_tests() {
     ] {
         const GENERATE_RESULT_GPX_FOR_INSPECTION: bool = false;
 
-        let loaded_data =
+        let (loaded_data, _preprocessor) =
             import_data::load_kml(&format!("./tests/data/flight_{name}.kml")).unwrap();
         let result = flight_track_processor::process(&loaded_data).unwrap();
         let mut gpx = Vec::new();

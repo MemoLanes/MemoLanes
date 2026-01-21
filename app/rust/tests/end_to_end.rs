@@ -21,12 +21,10 @@ fn basic() {
         sub_folder("cache/"),
     );
 
-    let mut raw_data_list: Vec<RawData> =
-        import_data::load_gpx("./tests/data/raw_gps_shanghai.gpx")
-            .unwrap()
-            .into_iter()
-            .flatten()
-            .collect();
+    let (raw_data, _preprocessor) =
+        import_data::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
+
+    let mut raw_data_list: Vec<RawData> = raw_data.into_iter().flatten().collect();
     let (first_elements, remaining_elements) = raw_data_list.split_at_mut(2000);
     let map_renderer = api::for_testing::get_main_map_renderer();
 
