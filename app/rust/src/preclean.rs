@@ -10,8 +10,9 @@ type TimeNormalizer = fn(&str) -> Option<String>;
 pub fn analyze_and_prepare_gpx(xml: &str) -> Result<(String, ImportPreprocessor)> {
     let preprocessor = detect_gpx_preprocessor(xml);
 
+    // TODO: `normalize_gpx_time_with` is actually doing a full XML parse + rewrite.
+    // We should try to avoid calling it unless necessary.
     let xml = match preprocessor {
-        // TODO: For normal files, we new skip time normalization
         ImportPreprocessor::Spare => normalize_gpx_time_with(xml, normalize_step_of_my_world_time)?,
         _ => normalize_gpx_time_with(xml, normalize_generic_time)?,
     };
@@ -20,10 +21,17 @@ pub fn analyze_and_prepare_gpx(xml: &str) -> Result<(String, ImportPreprocessor)
 }
 
 fn detect_gpx_preprocessor(xml: &str) -> ImportPreprocessor {
+    // TODO: This is pretty hacky: trying to match some known strings at the 
+    // beginning of the file.
+    // Better approach could be parsing the XML / actually detecting the
+    // properties of the data in it (is it actually spare?)
     const PROBE_LIMIT: usize = 8 * 1024;
-    let limit = xml.len().min(PROBE_LIMIT);
-    let head = xml.get(..limit).unwrap_or(xml);
-    let head = head.to_ascii_lowercase();
+
+    let head = xml
+        .chars()
+        .take(PROBE_LIMIT)
+        .collect::<String>()
+        .to_ascii_lowercase();
 
     // stepofmyworld (一生足迹), yourapp (灵感足迹)
     if head.contains("stepofmyworld") || head.contains("yourapp") {

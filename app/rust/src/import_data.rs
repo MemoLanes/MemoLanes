@@ -181,6 +181,8 @@ pub fn load_fow_snapshot_data(fwss_file_path: &str) -> Result<(JourneyBitmap, Op
 
 #[auto_context]
 pub fn load_gpx(file_path: &str) -> Result<(Vec<Vec<RawData>>, ImportPreprocessor)> {
+    // TODO: it is pretty inefficient to read the whole file into memory first.
+    // Some of the GPX files can be very large. Probably we want streaming.
     let xml = fs::read_to_string(file_path)?;
     let (xml, preprocessor) = analyze_and_prepare_gpx(&xml)?;
     let gpx = read(xml.as_bytes())?;

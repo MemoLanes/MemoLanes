@@ -80,8 +80,8 @@
     "flightTrack": "Flight Track Mode",
     "none": "None",
     "spare": "Spare Mode",
-    "description_md": "Preprocessor can optimize your journey data:\n- **Generic** suitable for most tracks, filtering out abnormal data and reasonably segmenting the data.\n- **FlightTrack** suitable for flight tracks, etc., using interpolation to complete missing parts of the path.",
-    "spare_md": "Your data is relatively sparse, and Spare Mode has been automatically enabled.\nYou can try other preprocessing methods, but improvements may be limited given the current data density."
+    "description_md": "Preprocessor can optimize your journey data:\n- **Generic** suitable for most tracks, filtering out abnormal data and reasonably segmenting the data.\n- **FlightTrack** suitable for flight tracks, etc., using interpolation to complete missing parts of the path.\n- **Sparse**: Suitable for sparse data recorded at low frequency.",
+    "spare_md": "Based on the properties of the file, 'Spare Mode' has been automatically selected for you.\nYou can also try other preprocessors, but they may not perform well on low-density data."
   },
   "import": {
     "shared_file": {
