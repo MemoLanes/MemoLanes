@@ -117,10 +117,12 @@ pub fn process_vector_data(
             )
         }
         ImportPreprocessor::FlightTrack => flight_track_processor::process(&vector_data.data),
-        ImportPreprocessor::Spare => import_data::journey_vector_from_raw_data_with_gps_preprocessor(
-            &vector_data.data,
-            Some(SegmentGapRule::Spare),
-        ),
+        ImportPreprocessor::Spare => {
+            import_data::journey_vector_from_raw_data_with_gps_preprocessor(
+                &vector_data.data,
+                Some(SegmentGapRule::Spare),
+            )
+        }
     };
 
     let journey_vector = journey_vector_opt.unwrap_or_else(|| JourneyVector {

@@ -21,7 +21,7 @@ pub fn analyze_and_prepare_gpx(xml: &str) -> Result<(String, ImportPreprocessor)
 }
 
 fn detect_gpx_preprocessor(xml: &str) -> ImportPreprocessor {
-    // TODO: This is pretty hacky: trying to match some known strings at the 
+    // TODO: This is pretty hacky: trying to match some known strings at the
     // beginning of the file.
     // Better approach could be parsing the XML / actually detecting the
     // properties of the data in it (is it actually spare?)
