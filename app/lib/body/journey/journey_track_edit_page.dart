@@ -273,6 +273,14 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
       }
     });
 
+    if (newMode == OperationMode.edit) {
+      if (_mode == OperationMode.edit) {
+        _showAddModeEnabled();
+      } else if (_mode == OperationMode.editReadonly) {
+        _showAddModeDisabled();
+      }
+    }
+
     _syncMapCapabilities();
   }
 
@@ -286,11 +294,13 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
       // Downgrade to read-only edit mode if zoom level is too low
       if (_mode == OperationMode.edit && !_zoomOk) {
         _mode = OperationMode.editReadonly;
+        _showAddModeDisabled();
       }
 
       // Restore edit mode automatically when zoom level becomes sufficient
       if (_mode == OperationMode.editReadonly && _zoomOk) {
         _mode = OperationMode.edit;
+        _showAddModeEnabled();
       }
     });
 

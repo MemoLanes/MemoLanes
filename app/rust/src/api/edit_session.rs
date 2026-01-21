@@ -82,60 +82,60 @@ impl EditSession {
                     && p.longitude <= max_lng
             };
 
-            let segment_intersections = |
-                a: &crate::journey_vector::TrackPoint,
-                b: &crate::journey_vector::TrackPoint,
-            | -> Vec<(f64, crate::journey_vector::TrackPoint)> {
-                let x0 = a.longitude;
-                let y0 = a.latitude;
-                let x1 = b.longitude;
-                let y1 = b.latitude;
-                let dx = x1 - x0;
-                let dy = y1 - y0;
+            let segment_intersections =
+                |a: &crate::journey_vector::TrackPoint,
+                 b: &crate::journey_vector::TrackPoint|
+                 -> Vec<(f64, crate::journey_vector::TrackPoint)> {
+                    let x0 = a.longitude;
+                    let y0 = a.latitude;
+                    let x1 = b.longitude;
+                    let y1 = b.latitude;
+                    let dx = x1 - x0;
+                    let dy = y1 - y0;
 
-                let mut hits: Vec<(f64, crate::journey_vector::TrackPoint)> = Vec::new();
-                let eps = 1e-12_f64;
+                    let mut hits: Vec<(f64, crate::journey_vector::TrackPoint)> = Vec::new();
+                    let eps = 1e-12_f64;
 
-                let mut push_hit = |t: f64, x: f64, y: f64| {
-                    if t < -eps || t > 1.0 + eps {
-                        return;
+                    let mut push_hit = |t: f64, x: f64, y: f64| {
+                        if t < -eps || t > 1.0 + eps {
+                            return;
+                        }
+                        let t = t.clamp(0.0, 1.0);
+                        if hits.iter().any(|(t0, _)| (*t0 - t).abs() < 1e-9) {
+                            return;
+                        }
+                        hits.push((
+                            t,
+                            crate::journey_vector::TrackPoint {
+                                latitude: y,
+                                longitude: x,
+                            },
+                        ));
+                    };
+
+                    if dx.abs() > eps {
+                        for x_edge in [min_lng, max_lng] {
+                            let t = (x_edge - x0) / dx;
+                            let y = y0 + t * dy;
+                            if y >= min_lat - eps && y <= max_lat + eps {
+                                push_hit(t, x_edge, y);
+                            }
+                        }
                     }
-                    let t = t.clamp(0.0, 1.0);
-                    if hits.iter().any(|(t0, _)| (*t0 - t).abs() < 1e-9) {
-                        return;
+
+                    if dy.abs() > eps {
+                        for y_edge in [min_lat, max_lat] {
+                            let t = (y_edge - y0) / dy;
+                            let x = x0 + t * dx;
+                            if x >= min_lng - eps && x <= max_lng + eps {
+                                push_hit(t, x, y_edge);
+                            }
+                        }
                     }
-                    hits.push((
-                        t,
-                        crate::journey_vector::TrackPoint {
-                            latitude: y,
-                            longitude: x,
-                        },
-                    ));
+
+                    hits.sort_by(|(t1, _), (t2, _)| t1.partial_cmp(t2).unwrap());
+                    hits
                 };
-
-                if dx.abs() > eps {
-                    for x_edge in [min_lng, max_lng] {
-                        let t = (x_edge - x0) / dx;
-                        let y = y0 + t * dy;
-                        if y >= min_lat - eps && y <= max_lat + eps {
-                            push_hit(t, x_edge, y);
-                        }
-                    }
-                }
-
-                if dy.abs() > eps {
-                    for y_edge in [min_lat, max_lat] {
-                        let t = (y_edge - y0) / dy;
-                        let x = x0 + t * dx;
-                        if x >= min_lng - eps && x <= max_lng + eps {
-                            push_hit(t, x, y_edge);
-                        }
-                    }
-                }
-
-                hits.sort_by(|(t1, _), (t2, _)| t1.partial_cmp(t2).unwrap());
-                hits
-            };
 
             let mut new_segments: Vec<crate::journey_vector::TrackSegment> = Vec::new();
 

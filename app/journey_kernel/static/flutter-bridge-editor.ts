@@ -187,7 +187,13 @@ export class FlutterBridgeEditor {
     const moveSelectionBox = (
       e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent,
     ) => {
-      if (!this.deleteMode || this.drawMode || !this.startPoint || !this.boxElement) return;
+      if (
+        !this.deleteMode ||
+        this.drawMode ||
+        !this.startPoint ||
+        !this.boxElement
+      )
+        return;
 
       const originalEvent = (e as any).originalEvent as any;
       if (this.isMultiTouch(originalEvent)) {
@@ -212,7 +218,13 @@ export class FlutterBridgeEditor {
     const endSelectionBox = (
       e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent,
     ) => {
-      if (!this.deleteMode || this.drawMode || !this.startPoint || !this.boxElement) return;
+      if (
+        !this.deleteMode ||
+        this.drawMode ||
+        !this.startPoint ||
+        !this.boxElement
+      )
+        return;
 
       const originalEvent = (e as any).originalEvent as any;
       if (this.isMultiTouch(originalEvent)) {
@@ -256,7 +268,9 @@ export class FlutterBridgeEditor {
     this.map.on("touchcancel", endSelectionBox);
 
     // Freehand draw logic (mouse + touch)
-    const startDraw = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
+    const startDraw = (
+      e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent,
+    ) => {
       if (!this.drawMode || this.deleteMode) return;
 
       const originalEvent = (e as any).originalEvent as any;
@@ -278,7 +292,9 @@ export class FlutterBridgeEditor {
       this.map.dragPan.disable();
     };
 
-    const moveDraw = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
+    const moveDraw = (
+      e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent,
+    ) => {
       if (!this.drawMode || this.deleteMode) return;
       const originalEvent = (e as any).originalEvent as any;
       if (this.isMultiTouch(originalEvent)) {
@@ -294,7 +310,10 @@ export class FlutterBridgeEditor {
 
       // Simple sampling guard: only add if moved a bit
       const eps = 1e-6;
-      if (Math.abs(lngLat.lng - last.lng) < eps && Math.abs(lngLat.lat - last.lat) < eps) {
+      if (
+        Math.abs(lngLat.lng - last.lng) < eps &&
+        Math.abs(lngLat.lat - last.lat) < eps
+      ) {
         return;
       }
 
@@ -302,7 +321,9 @@ export class FlutterBridgeEditor {
       this.updateDrawLayer();
     };
 
-    const endDraw = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) => {
+    const endDraw = (
+      e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent,
+    ) => {
       if (!this.drawMode || this.deleteMode) return;
       const originalEvent = (e as any).originalEvent as any;
       if (this.isMultiTouch(originalEvent)) {

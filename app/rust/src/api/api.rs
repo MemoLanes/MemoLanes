@@ -784,4 +784,3 @@ pub fn reload_resource_for_foreground() -> Result<()> {
     }
     Ok(())
 }
-
