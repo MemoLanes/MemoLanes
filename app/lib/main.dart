@@ -1,118 +1,43 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:memolanes/app_bootstrap.dart';
 import 'package:memolanes/body/achievement/achievement_body.dart';
 import 'package:memolanes/body/journey/journey_body.dart';
 import 'package:memolanes/body/map/map_body.dart';
 import 'package:memolanes/body/privacy_agreement.dart';
 import 'package:memolanes/body/settings/settings_body.dart';
 import 'package:memolanes/body/time_machine/time_machine_body.dart';
-import 'package:memolanes/common/app_lifecycle_service.dart';
 import 'package:memolanes/common/component/bottom_nav_bar.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
-import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/share_handler_util.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/index.dart';
-import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:memolanes/src/rust/frb_generated.dart';
-import 'package:package_info_plus/package_info_plus.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 bool mainMapInitialized = false;
 
-void delayedInit(UpdateNotifier updateNotifier) {
-  Future.delayed(const Duration(milliseconds: 4000), () async {
-    DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
-    String? manufacturer;
-    String? model;
-    String? systemVersion;
-    bool isPhysicalDevice = false;
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      var androidInfo = await deviceInfo.androidInfo;
-      manufacturer = androidInfo.manufacturer;
-      model = androidInfo.model;
-      systemVersion = androidInfo.version.release;
-      isPhysicalDevice = androidInfo.isPhysicalDevice;
-    } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-      var iosInfo = await deviceInfo.iosInfo;
-      manufacturer = "Apple";
-      model = iosInfo.utsname.machine;
-      systemVersion = iosInfo.systemVersion;
-      isPhysicalDevice = iosInfo.isPhysicalDevice;
-    }
-
-    PackageInfo packageInfo = await PackageInfo.fromPlatform();
-
-    await api.delayedInit(
-        deviceInfo: api.DeviceInfo(
-            isPhysicalDevice: isPhysicalDevice,
-            manufacturer: manufacturer,
-            model: model,
-            systemVersion: systemVersion),
-        appInfo: api.AppInfo(
-            packageName: packageInfo.packageName,
-            version: packageInfo.version,
-            buildNumber: packageInfo.buildNumber));
-
-    // Db optimization check
-    const currentOptimizationCheckVersion = 1;
-    final dbOptimizeCheck = MMKVUtil.getInt(MMKVKey.dbOptimizationCheck);
-    if (dbOptimizeCheck < currentOptimizationCheckVersion) {
-      if (await api.mainDbRequireOptimization()) {
-        var context = navigatorKey.currentState?.context;
-        if (context != null && context.mounted) {
-          await showCommonDialog(
-              context, context.tr("db_optimization.notification"));
-        }
-      } else {
-        MMKVUtil.putInt(
-            MMKVKey.dbOptimizationCheck, currentOptimizationCheckVersion);
-      }
-    }
-
-    doRepeatWork() async {}
-
-    await doRepeatWork();
-    Timer.periodic(const Duration(minutes: 10), (_) async {
-      await api.tenMinutesHeartbeat();
-      await doRepeatWork();
-    });
-  });
-}
-
 void main() async {
   runZonedGuarded(() async {
-    // This is required since we are doing things before calling `runApp`.
-    WidgetsFlutterBinding.ensureInitialized();
-    await EasyLocalization.ensureInitialized();
-    await MMKVUtil.init();
+    await AppBootstrap.initAppRuntime();
 
-    // TODO: Consider using `flutter_native_splash`
-    await RustLib.init();
-    initLog();
-    await api.init(
-        tempDir: (await getTemporaryDirectory()).path,
-        docDir: (await getApplicationDocumentsDirectory()).path,
-        supportDir: (await getApplicationSupportDirectory()).path,
-        systemCacheDir: (await getApplicationCacheDirectory()).path);
-    var updateNotifier = UpdateNotifier();
-    delayedInit(updateNotifier);
-    var gpsManager = GpsManager();
-    AppLifecycleService.instance.start();
-    runApp(EasyLocalization(
-        supportedLocales: const [Locale('en', 'US'), Locale('zh', 'CN')],
+    final gpsManager = GpsManager();
+    final updateNotifier = UpdateNotifier();
+
+    runApp(
+      EasyLocalization(
+        supportedLocales: const [
+          Locale('en', 'US'),
+          Locale('zh', 'CN'),
+        ],
         path: 'assets/translations',
         fallbackLocale: const Locale('en', 'US'),
         saveLocale: false,
@@ -123,7 +48,14 @@ void main() async {
             ChangeNotifierProvider.value(value: updateNotifier),
           ],
           child: const MyApp(),
-        )));
+        ),
+      ),
+    );
+
+    AppBootstrap.startAppServices(
+      gpsManager: gpsManager,
+      updateNotifier: updateNotifier,
+    );
   }, (error, stackTrace) {
     log.error('Uncaught exception in Flutter: $error', stackTrace);
   });
@@ -198,12 +130,15 @@ class _MyHomePageState extends State<MyHomePage> {
     super.initState();
     ShareHandlerUtil.init(context);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      Provider.of<GpsManager>(context, listen: false).readyToStart();
       showPrivacyAgreementIfNeeded(context);
 
-      if (!mainMapInitialized) {
-        mainMapInitialized = true;
-        showLoadingDialog(context: context, asyncTask: api.initMainMap());
+      var mainMapReady = AppBootstrap.mainMapReady;
+
+      if (!mainMapReady.isCompleted) {
+        await showLoadingDialog(
+          context: context,
+          asyncTask: mainMapReady.future,
+        );
       }
     });
   }

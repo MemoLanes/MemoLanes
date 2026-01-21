@@ -51,7 +51,7 @@ class GpsManager extends ChangeNotifier {
 
   // We only start listening to the location service after this.
   // Otherwise we may start it before the app is fully ready (e.g. i18n not ready).
-  final Completer _readyToStart = Completer();
+  bool _fullyReady = false;
 
   GpsManager() {
     _locationService = GeoLocatorService();
@@ -73,13 +73,11 @@ class GpsManager extends ChangeNotifier {
       if (MMKVUtil.getBool(MMKVKey.isRecording) &&
           await PermissionService().checkLocationPermission()) {
         recordingStatus = GpsRecordingStatus.recording;
-      } else {
-        if (await api.hasOngoingJourney()) {
-          recordingStatus = GpsRecordingStatus.paused;
-        }
+      } else if (await api.hasOngoingJourney()) {
+        recordingStatus = GpsRecordingStatus.paused;
       }
-      await _readyToStart.future;
-      await _syncInternalStateWithoutLock();
+      // notify record button
+      notifyListeners();
     });
   }
 
@@ -95,6 +93,12 @@ class GpsManager extends ChangeNotifier {
   }
 
   Future<void> _syncInternalStateWithoutLock() async {
+    // do nothing until fully ready, we will sync it again when it becomes ready
+    // for the first time.
+    if (!_fullyReady) {
+      return;
+    }
+
     var newState = switch (recordingStatus) {
       GpsRecordingStatus.recording => _InternalState.recording,
       GpsRecordingStatus.paused || GpsRecordingStatus.none => switch (
@@ -240,8 +244,10 @@ class GpsManager extends ChangeNotifier {
   }
 
   void readyToStart() {
-    if (!_readyToStart.isCompleted) {
-      _readyToStart.complete();
-    }
+    _fullyReady = true;
+    // sync internal state for the first time
+    _m.protect(() async {
+      await _syncInternalStateWithoutLock();
+    });
   }
 }
