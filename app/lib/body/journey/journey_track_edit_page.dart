@@ -1,13 +1,13 @@
 import 'dart:math' as math;
+
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/body/journey/edit_mode_bar.dart';
-import 'package:memolanes/common/component/safe_area_wrapper.dart';
-import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/body/journey/editor/journey_editor_map_view.dart';
+import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
-import 'package:easy_localization/easy_localization.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 
 class JourneyTrackEditPage extends StatefulWidget {
   final String journeyId;
@@ -146,10 +146,10 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
       SnackBar(
         content: _snackBarText(
           message,
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: Colors.black),
           allowExplicitNewlines: true,
         ),
-        backgroundColor: Colors.black.withValues(alpha: 0.4),
+        backgroundColor: Colors.white.withValues(alpha: 0.75),
         behavior: SnackBarBehavior.floating,
         margin: margin,
         action: SnackBarAction(
@@ -466,73 +466,71 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
         appBar: AppBar(
           title: Text(context.tr("journey.journey_track_edit_title")),
         ),
-        body: SafeAreaWrapper(
-          child: Stack(
-            children: [
-              if (_mapRendererProxy != null)
-                JourneyEditorMapView(
-                  key: _mapWebviewKey,
-                  mapRendererProxy: _mapRendererProxy!,
-                  initialMapView: _initialMapView,
-                  onSelectionBox: _onSelectionBox,
-                  onDrawPath: _onDrawPath,
-                  onMapZoomChanged: _handleMapZoomUpdate,
-                )
-              else
-                const Center(child: CircularProgressIndicator()),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: SafeArea(
-                  minimum: const EdgeInsets.all(16),
-                  child: ModeSwitchBar(
-                    currentMode: _mode,
-                    onModeChanged: _handleModeChange,
-                    canUndo: _canUndo,
-                    onUndo: () async {
-                      final session = _editSession;
-                      if (session == null) return;
-                      final result = await session.undo();
-                      if (!mounted) return;
-                      setState(() {
-                        _mapRendererProxy = result.$1;
-                      });
-                      _refreshCanUndo();
-                    },
-                    canSave: _canUndo,
-                    onSave: () async {
-                      final session = _editSession;
-                      if (session == null) return;
+        body: Stack(
+          children: [
+            if (_mapRendererProxy != null)
+              JourneyEditorMapView(
+                key: _mapWebviewKey,
+                mapRendererProxy: _mapRendererProxy!,
+                initialMapView: _initialMapView,
+                onSelectionBox: _onSelectionBox,
+                onDrawPath: _onDrawPath,
+                onMapZoomChanged: _handleMapZoomUpdate,
+              )
+            else
+              const Center(child: CircularProgressIndicator()),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: SafeArea(
+                minimum: const EdgeInsets.all(16),
+                child: ModeSwitchBar(
+                  currentMode: _mode,
+                  onModeChanged: _handleModeChange,
+                  canUndo: _canUndo,
+                  onUndo: () async {
+                    final session = _editSession;
+                    if (session == null) return;
+                    final result = await session.undo();
+                    if (!mounted) return;
+                    setState(() {
+                      _mapRendererProxy = result.$1;
+                    });
+                    _refreshCanUndo();
+                  },
+                  canSave: _canUndo,
+                  onSave: () async {
+                    final session = _editSession;
+                    if (session == null) return;
 
-                      if (!_canUndo) {
-                        Navigator.of(context).pop(false);
-                        return;
-                      }
+                    if (!_canUndo) {
+                      Navigator.of(context).pop(false);
+                      return;
+                    }
 
-                      final shouldSave = await showCommonDialog(
-                        context,
-                        context.tr("journey.journey_track_edit_save_confirm"),
-                        hasCancel: true,
-                      );
-                      if (!mounted || !shouldSave) return;
+                    final shouldSave = await showCommonDialog(
+                      context,
+                      context.tr("journey.journey_track_edit_save_confirm"),
+                      hasCancel: true,
+                    );
+                    if (!mounted || !shouldSave) return;
 
-                      await session.commit();
-                      if (!mounted) return;
+                    await session.commit();
+                    if (!mounted) return;
 
-                      await _dismissSnackBarsAndWait();
+                    await _dismissSnackBarsAndWait();
 
-                      Fluttertoast.showToast(
-                        msg: context.tr("common.save_success"),
-                      );
+                    Fluttertoast.showToast(
+                      msg: context.tr("common.save_success"),
+                    );
 
-                      Navigator.of(context).pop(true);
-                    },
-                  ),
+                    Navigator.of(context).pop(true);
+                  },
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

@@ -1,12 +1,13 @@
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 enum OperationMode {
-  move, // 移动
-  edit, // 编辑（可写）
-  editReadonly, // 编辑（不可写）
-  delete, // 删除
+  move,
+  edit,
+  editReadonly,
+  delete,
 }
 
 class ModeSwitchBar extends StatelessWidget {

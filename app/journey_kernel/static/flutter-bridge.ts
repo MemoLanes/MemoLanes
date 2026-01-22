@@ -73,8 +73,8 @@ export class FlutterBridge {
   }
 
   /**
-  * Get the underlying map instance
-  */
+   * Get the underlying map instance
+   */
   getMap(): maplibregl.Map {
     return this.map;
   }
@@ -116,8 +116,8 @@ export class FlutterBridge {
   })();
 
   /**
- * Notify Flutter when the map zoom integer changes
- */
+   * Notify Flutter when the map zoom integer changes
+   */
   notifyMapZoomChanged = (() => {
     let lastZoom: number | undefined;
     let lastPushTime = 0;
@@ -163,11 +163,6 @@ export class FlutterBridge {
     // Notify Flutter when map view changed
     this.map.on("idle", () => {
       this.notifyMapViewChanged();
-    });
-
-    // Notify Flutter when map finished loading
-    this.map.on("load", () => {
-      this.notifyMapZoomChanged();
     });
 
     // Notify Flutter when zoom level changes
