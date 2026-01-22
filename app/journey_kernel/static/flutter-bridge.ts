@@ -22,6 +22,7 @@ declare global {
     readyForDisplay?: FlutterMessageChannel;
     onMapMoved?: FlutterMessageChannel;
     onMapViewChanged?: FlutterMessageChannel;
+    onMapZoomChanged?: FlutterMessageChannel;
     trySetup?: () => Promise<void>;
     updateLocationMarker?: (
       lng: number,
@@ -71,9 +72,9 @@ export class FlutterBridge {
     }
   }
 
-   /**
-   * Get the underlying map instance
-   */
+  /**
+  * Get the underlying map instance
+  */
   getMap(): maplibregl.Map {
     return this.map;
   }
@@ -115,6 +116,33 @@ export class FlutterBridge {
   })();
 
   /**
+ * Notify Flutter when the map zoom integer changes
+ */
+  notifyMapZoomChanged = (() => {
+    let lastZoom: number | undefined;
+    let lastPushTime = 0;
+
+    const THROTTLE_MS = 50;
+
+    return () => {
+      const messageHandler = window.onMapZoomChanged;
+      if (!messageHandler?.postMessage) return;
+
+      const now = Date.now();
+      if (now - lastPushTime < THROTTLE_MS) return;
+
+      const zoom = Math.trunc(this.map.getZoom());
+
+      if (zoom === lastZoom) return;
+
+      messageHandler.postMessage(zoom.toString());
+
+      lastZoom = zoom;
+      lastPushTime = now;
+    };
+  })();
+
+  /**
    * Setup all map event listeners that notify Flutter
    */
   setupMapEventListeners(): void {
@@ -135,6 +163,16 @@ export class FlutterBridge {
     // Notify Flutter when map view changed
     this.map.on("idle", () => {
       this.notifyMapViewChanged();
+    });
+
+    // Notify Flutter when map finished loading
+    this.map.on("load", () => {
+      this.notifyMapZoomChanged();
+    });
+
+    // Notify Flutter when zoom level changes
+    this.map.on("zoom", () => {
+      this.notifyMapZoomChanged();
     });
   }
 
