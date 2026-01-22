@@ -2,10 +2,9 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use memolanes_core::import_data;
 use memolanes_core::journey_bitmap::JourneyBitmap;
-use memolanes_core::renderer::internal_server::register_map_renderer;
-use memolanes_core::renderer::internal_server::Registry;
 use memolanes_core::renderer::MapRenderer;
-use memolanes_core::renderer::MapServer;
+mod shared;
+use shared::MapServer;
 
 use rand::Rng;
 use std::sync::Arc;
@@ -39,15 +38,6 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .format_module_path(false)
         .init();
 
-    let registry = Arc::new(Mutex::new(Registry::new()));
-
-    let server = Arc::new(Mutex::new(
-        MapServer::create_and_start_with_registry("localhost", None, registry.clone())
-            .expect("Failed to start server"),
-    ));
-
-    std::thread::sleep(Duration::from_millis(200));
-
     println!("############ BREAK CHANGE NOTICE ###############");
     println!("Starting from Dec 2025, user need to hosting the static resource by themselves and the rust side will only handle the dynamic requests.");
     println!("Please make sure you have `yarn dev` running in journey_kernel folder.");
@@ -60,54 +50,45 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("    eg: `DEV_SERVER=http://localhost:8080 cargo run --release --example server -- --nocapture`");
     println!("################################################");
 
-    // demo for a static map
+    // ========== Server 1: Simple Map (static with crossed lines) ==========
     let mut journey_bitmap = JourneyBitmap::new();
     draw_line1(&mut journey_bitmap);
     draw_line2(&mut journey_bitmap);
     draw_line3(&mut journey_bitmap);
     draw_line4(&mut journey_bitmap);
 
-    let map_renderer_static = MapRenderer::new(journey_bitmap);
-    let token = register_map_renderer(registry.clone(), Arc::new(Mutex::new(map_renderer_static)));
+    let map_renderer_static = Arc::new(Mutex::new(MapRenderer::new(journey_bitmap)));
+    let server_simple = MapServer::create_and_start("localhost", None, map_renderer_static)
+        .expect("Failed to start simple map server");
 
     println!("================================================");
-    println!(
-        "[Simple Map Server]:   {}",
-        server.lock().unwrap().get_http_url(&token)
-    );
-    println!(
-        "[Simple Map Local]:    {}",
-        server.lock().unwrap().get_file_url(&token)
-    );
+    println!("[Simple Map Server]:   {}", server_simple.get_http_url());
+    println!("[Simple Map Local]:    {}", server_simple.get_file_url());
 
+    // ========== Server 2: Medium Map (loaded from fow_3.zip) ==========
     let (joruney_bitmap_fow, _) =
         import_data::load_fow_sync_data("./tests/data/fow_3.zip").unwrap();
-    let map_renderer_fow = MapRenderer::new(joruney_bitmap_fow);
-    let token_fow = server
-        .lock()
-        .unwrap()
-        .register_map_renderer(Arc::new(Mutex::new(map_renderer_fow)));
-    println!(
-        "[Medium Map Server]:   {}",
-        server.lock().unwrap().get_http_url(&token_fow)
-    );
+    let map_renderer_fow = Arc::new(Mutex::new(MapRenderer::new(joruney_bitmap_fow)));
+    let server_medium = MapServer::create_and_start("localhost", None, map_renderer_fow)
+        .expect("Failed to start medium map server");
 
-    // demo for a dynamic map
+    println!("[Medium Map Server]:   {}", server_medium.get_http_url());
+
+    // ========== Server 3: Dynamic Map (randomly drawn lines) ==========
     let journey_bitmap2 = JourneyBitmap::new();
-    let map_renderer = MapRenderer::new(journey_bitmap2);
-    let map_renderer_arc = Arc::new(Mutex::new(map_renderer));
-    let map_renderer_arc_clone = map_renderer_arc.clone();
-    let token = server
-        .lock()
-        .unwrap()
-        .register_map_renderer(map_renderer_arc);
+    let map_renderer_dynamic = Arc::new(Mutex::new(MapRenderer::new(journey_bitmap2)));
+    let map_renderer_arc_clone = map_renderer_dynamic.clone();
+    let server_dynamic = MapServer::create_and_start("localhost", None, map_renderer_dynamic)
+        .expect("Failed to start dynamic map server");
 
-    println!(
-        "[Dynamic Map Server]:  {}",
-        server.lock().unwrap().get_http_url(&token)
-    );
+    println!("[Dynamic Map Server]:  {}", server_dynamic.get_http_url());
 
-    // Spawn the drawing thread
+    // Wrap servers in Arc<Mutex<>> for thread-safe access
+    let server_simple = Arc::new(Mutex::new(server_simple));
+    let server_medium = Arc::new(Mutex::new(server_medium));
+    let server_dynamic = Arc::new(Mutex::new(server_dynamic));
+
+    // Spawn the drawing thread for the dynamic map
     std::thread::spawn(move || {
         let mut rng = rand::rng();
         let mut lat = 30.0;
@@ -134,7 +115,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     // Set up keyboard input handling thread
-    let server_clone = server.clone();
+    let server_simple_clone = server_simple.clone();
+    let server_medium_clone = server_medium.clone();
+    let server_dynamic_clone = server_dynamic.clone();
     std::thread::spawn(move || {
         println!("Press Ctrl+C to exit");
 
@@ -152,8 +135,15 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                         // Handle Ctrl+C manually since we're in raw mode
                         disable_raw_mode().expect("Failed to disable raw mode");
 
-                        println!("Ctrl+C pressed. Stopping server...");
-                        if let Ok(mut server) = server_clone.lock() {
+                        println!("Ctrl+C pressed. Stopping all servers...");
+                        // Stop all three servers
+                        if let Ok(mut server) = server_simple_clone.lock() {
+                            let _ = server.stop();
+                        }
+                        if let Ok(mut server) = server_medium_clone.lock() {
+                            let _ = server.stop();
+                        }
+                        if let Ok(mut server) = server_dynamic_clone.lock() {
                             let _ = server.stop();
                         }
                         std::process::exit(0);
@@ -164,7 +154,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    // Block the main thread to keep server running
+    // Block the main thread to keep all servers running
     loop {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }

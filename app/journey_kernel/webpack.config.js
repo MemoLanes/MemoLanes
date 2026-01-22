@@ -78,6 +78,28 @@ module.exports = (env, argv) => {
     plugins,
     devServer: {
       static: "./dist",
+      client: {
+        overlay: {
+          // Show errors in overlay, but filter out aborted fetch errors
+          // which are normal during map panning/zooming
+          errors: true,
+          warnings: false,
+          runtimeErrors: (error) => {
+            // Suppress aborted fetch errors (common in map libraries)
+            if (error && error.message) {
+              const msg = error.message.toLowerCase();
+              if (
+                msg.includes("abort") ||
+                msg.includes("cancelled") ||
+                msg.includes("canceled")
+              ) {
+                return false;
+              }
+            }
+            return true;
+          },
+        },
+      },
     },
   };
 };

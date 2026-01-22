@@ -28,6 +28,7 @@ class JourneyInfoEditPage extends StatefulWidget {
     this.journeyKind,
     this.importType,
     this.journeyId,
+    this.preprocessor,
   });
 
   final DateTime? startTime;
@@ -40,6 +41,7 @@ class JourneyInfoEditPage extends StatefulWidget {
   final ValueChanged<bool>? onTrackEdited;
   final ImportType? importType;
   final String? journeyId;
+  final import_api.ImportPreprocessor? preprocessor;
 
   @override
   State<JourneyInfoEditPage> createState() => _JourneyInfoEditPageState();
@@ -56,8 +58,7 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
   JourneyKind _journeyKind = JourneyKind.defaultKind;
   import_api.JourneyInfo? journeyInfo;
   final TextEditingController _noteController = TextEditingController();
-  import_api.ImportPreprocessor _preprocessor =
-      import_api.ImportPreprocessor.generic;
+  late import_api.ImportPreprocessor _preprocessor;
 
   Future<DateTime?> selectDateAndTime(
       BuildContext context, DateTime? datetime) async {
@@ -70,28 +71,23 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
       lastDate: now,
     );
 
-    TimeOfDay initialTime =
-        TimeOfDay(hour: datetime.hour, minute: datetime.minute);
+    if (selectedDateTime == null) return null;
+    if (!context.mounted) return null;
 
-    if (selectedDateTime != null) {
-      if (!context.mounted) return null;
-      TimeOfDay? selectedTime = await showTimePicker(
-        context: context,
-        initialTime: initialTime,
-      );
+    TimeOfDay? selectedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: datetime.hour, minute: datetime.minute),
+    );
 
-      if (selectedTime != null) {
-        selectedDateTime = DateTime(
-          selectedDateTime.year,
-          selectedDateTime.month,
-          selectedDateTime.day,
-          selectedTime.hour,
-          selectedTime.minute,
-        );
-        return selectedDateTime;
-      }
-    }
-    return null;
+    if (selectedTime == null) return null;
+
+    return DateTime(
+      selectedDateTime.year,
+      selectedDateTime.month,
+      selectedDateTime.day,
+      selectedTime.hour,
+      selectedTime.minute,
+    );
   }
 
   @override
@@ -105,12 +101,14 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
       _note = widget.note;
       _journeyKind = widget.journeyKind ?? _journeyKind;
       _noteController.text = _note ?? "";
-      _noteController.addListener(() {
-        setState(() {
-          _note = _noteController.text;
-        });
+    });
+    _noteController.addListener(() {
+      setState(() {
+        _note = _noteController.text;
       });
     });
+    _preprocessor =
+        widget.preprocessor ?? import_api.ImportPreprocessor.generic;
     _selectPreprocessor(_preprocessor);
   }
 
@@ -225,6 +223,8 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
                           context.tr("preprocessor.generic"),
                         import_api.ImportPreprocessor.flightTrack =>
                           context.tr("preprocessor.flightTrack"),
+                        import_api.ImportPreprocessor.spare =>
+                          context.tr("preprocessor.spare"),
                       },
                       showArrow: true,
                     ),
@@ -359,7 +359,7 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
             top: false,
           ),
           CardLabelTile(
-            position: CardLabelTilePosition.bottom,
+            position: CardLabelTilePosition.middle,
             label: context.tr("preprocessor.generic"),
             onTap: () {
               _selectPreprocessor(import_api.ImportPreprocessor.generic);
@@ -371,7 +371,14 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
             onTap: () {
               _selectPreprocessor(import_api.ImportPreprocessor.flightTrack);
             },
-          )
+          ),
+          CardLabelTile(
+            position: CardLabelTilePosition.middle,
+            label: context.tr("preprocessor.spare"),
+            onTap: () {
+              _selectPreprocessor(import_api.ImportPreprocessor.spare);
+            },
+          ),
         ],
       ),
     );

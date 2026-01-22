@@ -86,12 +86,20 @@
     "current": "Current"
   },
   "preprocessor": {
-    "generic": "Generic",
-    "flightTrack": "Flight Track",
+    "generic": "Generic Mode",
+    "flightTrack": "Flight Track Mode",
     "none": "None",
-    "description_md": "Preprocessor can optimize your journey data:\n- **Generic** suitable for most tracks, filtering out abnormal data and reasonably segmenting the data.\n- **FlightTrack** suitable for flight tracks, etc., using interpolation to complete missing parts of the path."
+    "spare": "Spare Mode",
+    "description_md": "Preprocessor can optimize your journey data:\n- **Generic** suitable for most tracks, filtering out abnormal data and reasonably segmenting the data.\n- **FlightTrack** suitable for flight tracks, etc., using interpolation to complete missing parts of the path.\n- **Sparse**: Suitable for sparse data recorded at low frequency.",
+    "spare_md": "Based on the properties of the file, 'Spare Mode' has been automatically selected for you.\nYou can also try other preprocessors, but they may not perform well on low-density data."
   },
   "import": {
+    "shared_file": {
+      "confirm_title": "Import data",
+      "confirm_message": "Do you want to import the file: {}?",
+      "multi_message": "You selected multiple files. Only one file can be imported at a time.\nPlease select a single file and try again."
+    },
+    "unsupported_file_failed": "Unsupported file",
     "empty_data": "Journey is empty",
     "successful": "Import successful",
     "parsing_failed": "Data parsing failed",
@@ -118,10 +126,12 @@
       "title": "Version",
       "currently_the_latest_version": "Currently the latest version"
     },
-    "advance_settings": {
-      "title": "Advance settings",
+    "advanced_settings": {
+      "title": "Advanced settings",
       "export_logs": "Export Logs",
       "raw_data_mode": "Raw Data Mode",
+      "raw_data_export_csv": "Export as CSV",
+      "raw_data_export_gpx": "Export as GPX",
       "rebuild_cache": "Rebuild Cache",
       "render_diagnostics": "Render Diagnostics"
     }
@@ -135,7 +145,8 @@
       "delete_backup_data": "Delete backup data"
     },
     "import_data": {
-      "title": "Import data"
+      "title": "Import data",
+      "unsupported_file": "Unsupported file"
     },
     "export_data": {
       "export_all": "Export All Data"

@@ -2,40 +2,67 @@
 
 
 ```
-⚠️ When making changes to this library, remember to bump the ver`sion number in `Cargo.toml`. 
-This ensures main rust project will properly rebuild the WASM module with the changes.
+⚠️ When making changes to this library, remember to run `just pre-build` in the `app` folder.
+This ensures the frontend assets are up to date before building the app.
 ```
 
 This library is used to render journey bitmaps in the app. It supports both native and WASM.
 
 ## JavaScript APIs
 
+> 📖 For the most up-to-date API definitions, refer to [`static/flutter-bridge.ts`](static/flutter-bridge.ts).
+
 | API | Description | Parameters | Return Value |
 |-----|-------------|------------|--------------|
 | `window.updateLocationMarker(lng, lat, show, flyto)` | Updates the current location marker | `lng`: longitude (number)<br>`lat`: latitude (number)<br>`show`: visibility (boolean, default: true)<br>`flyto`: animate to location (boolean, default: false) | void |
-| `window.getCurrentMapView()` | Gets current map position | none | `{lng: number, lat: number, zoom: number}` |
-| `window.triggerJourneyUpdate()` | Manually triggers data update | none | Promise |
+| `window.getCurrentMapView()` | Gets current map position | none | `{lng: number, lat: number, zoom: number}` (JSON string) |
+| `window.refreshMapData()` | Manually triggers data refresh | none | `Promise<boolean \| null>` |
 
-### URL Hash Parameters
+### Initialization Parameters
 
-Since flutter webview may not have a reliable way to inject JS *before* the page loads, we use URL hash parameters to optionally set the initial map position. The hash parameters can guarantee the location is set before the map is initialized.
+> 📖 For the most up-to-date parameter definitions, refer to the `ExternalParams` interface in [`static/params.ts`](static/params.ts).
 
-All the parameters are optional.
+Parameters can be provided in two ways - what matters is that `window.EXTERNAL_PARAMS` gets populated before `trySetup()` is called:
+
+**1. URL Hash (for web development)**
 
 ```
-https://example.com/#journey_id=XXXXX&lng=100.0&lat=30.0&zoom=19
+https://example.com/#cgi_endpoint=.&lng=100.0&lat=30.0&zoom=19&map_style=https://...
 ```
 
-| Parameter | Description | Type |
-|-----------|-------------|------|
-| `journey_id` | Initial journey id | string |
-| `lng` | Initial longitude | number |
-| `lat` | Initial latitude | number |
-| `zoom` | Initial zoom level | number |
-| `render`| Render method | 'canvas' |
-| `debug`| debug panel | bool |
+If `window.EXTERNAL_PARAMS` is empty when the page initializes, the hash will be parsed automatically.
 
-The page will listen to the hash change of `render` and `debug` and apply accordingly.
+**2. Flutter JS Injection (for production)**
+
+Flutter injects parameters via JavaScript after page load, then calls `trySetup()`:
+
+```javascript
+window.EXTERNAL_PARAMS = {
+  cgi_endpoint: "flutter://TileProviderChannel",
+  render: "canvas",
+  // ... other params
+};
+trySetup();
+```
+
+See [`static/index.ts`](static/index.ts) for the complete setup flow.
+
+**Available Parameters:**
+
+All parameters are optional except `cgi_endpoint` which is required.
+
+| Parameter | Description | Type | Default |
+|-----------|-------------|------|---------|
+| `cgi_endpoint` | CGI endpoint URL | string | Required |
+| `access_key` | Mapbox access token (required for Mapbox styles) | string | - |
+| `lng` | Initial longitude | number | 0 |
+| `lat` | Initial latitude | number | 0 |
+| `zoom` | Initial zoom level | number | 2 |
+| `render` | Render method | `'canvas'` | `'canvas'` |
+| `map_style` | Map style URL | string | OpenFreeMap Liberty |
+| `fog_density` | Fog density (0-1) | number | 0.5 |
+| `projection` | Map projection | `'mercator'` \| `'globe'` | `'globe'` |
+| `debug` | Show debug panel | `'true'` \| `'false'` | `'false'` |
 
 ## Web Development
 
@@ -48,17 +75,56 @@ These two files are statically generated in dev mode, but will be hosted dynamic
 
 ### Development
 
-1. Run `setup_token.py` in the `app` folder to generate the `token.json` file.
-2. Run `cargo test` in the `app/journey_kernel` folder to generate the `journey_bitmap.bin` file.
-3. Run `yarn dev` in the `app/journey_kernel` folder to start the webpack dev server.
+#### Testing with Flutter App
 
-### Production
+To test the webpack dev server with the Flutter app (useful for hot-reload during web development):
 
-1. run `yarn build` to generate the static sites without the above two files. The output will be in the `dist` folder. (As an intermediate step, the wasm-pack will also generate wasm files in the `pkg` folder.)
-2. run the following command in the `app/rust` folder:
+```bash
+flutter run --dart-define=DEV_SERVER=http://<your-ip>:8080
+```
+
+This will make the app load the map webview from the dev server instead of the bundled assets.
+
+**Enabling Debug Panel in Flutter:**
+
+To enable the frontend debug panel when running in Flutter, set `debug: "true"` in the `window.EXTERNAL_PARAMS` object in `base_map_webview.dart`:
+
+```dart
+window.EXTERNAL_PARAMS = {
+  // ... other params ...
+  debug: "true",
+};
+```
+
+#### Testing with Rust Demo Server
+
+The Rust demo server only handles dynamic requests (e.g., tile data). You need to host the static resources separately via `yarn dev`.
+
+1. Start the webpack dev server: `yarn dev` in the `app/journey_kernel` folder.
+2. Start the Rust demo server in the `app/rust` folder:
 
 ```bash
 cargo run --example server
 ```
 
-The rust demo server is exactly the same as the one in the app. You may check the file at `app/rust/src/renderer/map_server.rs`.
+By default, the server assumes static resources are available at `http://localhost:8080`. You can override this with the `DEV_SERVER` environment variable:
+
+```bash
+DEV_SERVER=http://localhost:8080 cargo run --example server
+```
+
+The Rust demo server logic is the same as the one in the app. You may check the file at `app/rust/src/renderer/map_server.rs`.
+
+### Production Build
+
+To generate the production build for the Flutter app:
+
+```bash
+# In the app folder
+just pre-build
+```
+
+This command will:
+1. Run `yarn build` to generate the static sites (output in `dist` folder, wasm files in `pkg` folder)
+2. Copy the assets to Flutter's `assets/map_webview` folder
+3. Generate the FRB code

@@ -104,86 +104,100 @@ export class DebugPanel {
       
       <div class="separator"></div>
       
-      <div style="margin-bottom: 10px;">
-        <label for="rendering-mode" title="Controls how map data is rendered on screen">Rendering Mode:</label>
-        <select id="rendering-mode">
-          ${renderingOptions || '<option value="canvas">Canvas</option>'}
-        </select>
-      </div>
-      
-      <div class="separator"></div>
-      
-      <div style="margin-bottom: 10px;">
-        <label for="fog-density" title="Controls the fog density on the map (0-1)">Fog Density:</label>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <input type="range" id="fog-density" min="0" max="1" step="0.01" value="0.5" 
-            style="flex: 1; cursor: pointer;">
-          <span id="fog-density-value" style="font-family: monospace; font-size: 12px; min-width: 36px;">0.50</span>
+      <!-- Rendering Settings Section (collapsed by default) -->
+      <div class="collapsible-section">
+        <div class="section-header" data-section="rendering-settings" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 4px 0;">
+          <span style="font-weight: bold;">Rendering Settings</span>
+          <span class="collapse-icon" style="font-size: 10px;">▶</span>
         </div>
-      </div>
-      
-      <div class="separator"></div>
-      
-      <div style="margin-bottom: 10px;">
-        <label for="projection-mode" title="Map projection type">Projection:</label>
-        <select id="projection-mode">
-          <option value="globe" title="3D globe projection">Globe</option>
-          <option value="mercator" title="Flat mercator projection">Mercator</option>
-        </select>
-      </div>
-      
-      <div class="separator"></div>
-      
-      <div style="margin-bottom: 10px;">
-        <div style="font-weight: bold; margin-bottom: 5px;">Performance</div>
-        <div style="font-family: monospace; font-size: 12px; margin-bottom: 8px;">
-          <div>FPS: <span id="fps-display" style="color: #4CAF50;">-</span></div>
-          <div>Network: <span id="network-delay-display" style="color: #2196F3;">-</span> ms</div>
-        </div>
-        <div style="font-size: 10px; margin-bottom: 4px; color: rgba(255, 255, 255, 0.7);">FPS</div>
-        <canvas id="fps-graph" width="200" height="50"></canvas>
-        <div style="font-size: 10px; margin: 4px 0; color: rgba(255, 255, 255, 0.7);">Network Delay</div>
-        <canvas id="network-graph" width="200" height="50"></canvas>
-      </div>
-      
-      <div class="separator"></div>
-      
-      <div style="margin-bottom: 10px;">
-        <div style="font-weight: bold; margin-bottom: 5px;">Map Viewpoint</div>
-        <div id="viewpoint-info" style="font-family: monospace; font-size: 12px;">
-          <div>Zoom: <span id="zoom-level">-</span></div>
-          <div>Center: <span id="center-coords">-</span></div>
-          <div>SW: <span id="bounds-sw">-</span></div>
-          <div>NE: <span id="bounds-ne">-</span></div>
-        </div>
-      </div>
-      
-      <div class="separator"></div>
-      
-      <div style="margin-bottom: 10px;">
-        <div style="font-weight: bold; margin-bottom: 5px;">Flutter Bridge Test</div>
-        <div style="margin-bottom: 8px;">
-          <div style="font-size: 11px; color: rgba(255, 255, 255, 0.7); margin-bottom: 4px;">Location Marker</div>
-          <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px;">
-            <label style="font-size: 11px; display: flex; align-items: center; gap: 4px;">
-              <input type="checkbox" id="marker-show" checked> Show
-            </label>
-            <label style="font-size: 11px; display: flex; align-items: center; gap: 4px;">
-              <input type="checkbox" id="marker-flyto" checked> Fly To
-            </label>
+        <div class="section-content" id="rendering-settings-content" style="display: none; margin-top: 8px;">
+          <div style="margin-bottom: 10px;">
+            <label for="rendering-mode" title="Controls how map data is rendered on screen">Rendering Mode:</label>
+            <select id="rendering-mode">
+              ${renderingOptions || '<option value="canvas">Canvas</option>'}
+            </select>
           </div>
-          <button id="test-marker-btn" style="width: 100%; padding: 4px 8px; font-size: 11px; cursor: pointer;">
-            Go to (0, 0)
-          </button>
-        </div>
-        <div>
-          <div style="font-size: 11px; color: rgba(255, 255, 255, 0.7); margin-bottom: 4px;">Journey ID</div>
-          <div style="display: flex; gap: 4px;">
-            <input type="text" id="journey-id-input" placeholder="Enter journey ID" 
-              style="flex: 1; padding: 4px; font-size: 11px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 3px;">
-            <button id="set-journey-btn" style="padding: 4px 8px; font-size: 11px; cursor: pointer;">Set</button>
+          
+          <div style="margin-bottom: 10px;">
+            <label for="fog-density" title="Controls the fog density on the map (0-1)">Fog Density:</label>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <input type="range" id="fog-density" min="0" max="1" step="0.01" value="0.5" 
+                style="flex: 1; cursor: pointer;">
+              <span id="fog-density-value" style="font-family: monospace; font-size: 12px; min-width: 36px;">0.50</span>
+            </div>
           </div>
-          <div id="journey-id-status" style="font-size: 10px; color: rgba(255,255,255,0.5); margin-top: 4px;">Current: -</div>
+          
+          <div style="margin-bottom: 10px;">
+            <label for="projection-mode" title="Map projection type">Projection:</label>
+            <select id="projection-mode">
+              <option value="globe" title="3D globe projection">Globe</option>
+              <option value="mercator" title="Flat mercator projection">Mercator</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      
+      <div class="separator"></div>
+      
+      <!-- Performance Section (expanded by default) -->
+      <div class="collapsible-section">
+        <div class="section-header" data-section="performance" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 4px 0;">
+          <span style="font-weight: bold;">Performance</span>
+          <span class="collapse-icon" style="font-size: 10px;">▼</span>
+        </div>
+        <div class="section-content" id="performance-content" style="display: block; margin-top: 8px;">
+          <div style="font-family: monospace; font-size: 12px; margin-bottom: 8px;">
+            <div>FPS: <span id="fps-display" style="color: #4CAF50;">-</span></div>
+            <div>Network: <span id="network-delay-display" style="color: #2196F3;">-</span> ms</div>
+          </div>
+          <div style="font-size: 10px; margin-bottom: 4px; color: rgba(255, 255, 255, 0.7);">FPS</div>
+          <canvas id="fps-graph" width="200" height="50"></canvas>
+          <div style="font-size: 10px; margin: 4px 0; color: rgba(255, 255, 255, 0.7);">Network Delay</div>
+          <canvas id="network-graph" width="200" height="50"></canvas>
+        </div>
+      </div>
+      
+      <div class="separator"></div>
+      
+      <!-- Map Viewpoint Section (collapsed by default) -->
+      <div class="collapsible-section">
+        <div class="section-header" data-section="viewpoint" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 4px 0;">
+          <span style="font-weight: bold;">Map Viewpoint</span>
+          <span class="collapse-icon" style="font-size: 10px;">▶</span>
+        </div>
+        <div class="section-content" id="viewpoint-content" style="display: none; margin-top: 8px;">
+          <div id="viewpoint-info" style="font-family: monospace; font-size: 12px;">
+            <div>Zoom: <span id="zoom-level">-</span></div>
+            <div>Center: <span id="center-coords">-</span></div>
+            <div>SW: <span id="bounds-sw">-</span></div>
+            <div>NE: <span id="bounds-ne">-</span></div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="separator"></div>
+      
+      <!-- Flutter Bridge Test Section (collapsed by default) -->
+      <div class="collapsible-section">
+        <div class="section-header" data-section="flutter-bridge" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 4px 0;">
+          <span style="font-weight: bold;">Flutter Bridge Test</span>
+          <span class="collapse-icon" style="font-size: 10px;">▶</span>
+        </div>
+        <div class="section-content" id="flutter-bridge-content" style="display: none; margin-top: 8px;">
+          <div style="margin-bottom: 8px;">
+            <div style="font-size: 11px; color: rgba(255, 255, 255, 0.7); margin-bottom: 4px;">Location Marker</div>
+            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px;">
+              <label style="font-size: 11px; display: flex; align-items: center; gap: 4px;">
+                <input type="checkbox" id="marker-show" checked> Show
+              </label>
+              <label style="font-size: 11px; display: flex; align-items: center; gap: 4px;">
+                <input type="checkbox" id="marker-flyto" checked> Fly To
+              </label>
+            </div>
+            <button id="test-marker-btn" style="width: 100%; padding: 4px 8px; font-size: 11px; cursor: pointer;">
+              Go to (0, 0)
+            </button>
+          </div>
         </div>
       </div>
     `;
@@ -211,14 +225,6 @@ export class DebugPanel {
   private _setupParamsHook(): void {
     this.params.on("renderMode", (newMode, _oldMode) => {
       this._syncRenderingModeDropdown(newMode);
-    });
-
-    // Sync journey ID display when it changes
-    this.params.on("journeyId", (newId, _oldId) => {
-      const statusElement = document.getElementById("journey-id-status");
-      if (statusElement) {
-        statusElement.textContent = `Current: ${newId || "-"}`;
-      }
     });
 
     // Sync fog density slider when it changes externally
@@ -275,10 +281,60 @@ export class DebugPanel {
     }
   }
 
+  /**
+   * Setup collapsible section toggle behavior
+   */
+  private _setupCollapsibleSections(): void {
+    const sectionHeaders = this.panel?.querySelectorAll(".section-header");
+    if (!sectionHeaders) return;
+
+    sectionHeaders.forEach((header) => {
+      const headerElement = header as HTMLElement;
+      this._enableTouchSupport(headerElement);
+
+      headerElement.addEventListener("click", () => {
+        const sectionName = headerElement.dataset.section;
+        if (!sectionName) return;
+
+        const content = document.getElementById(`${sectionName}-content`);
+        const icon = headerElement.querySelector(".collapse-icon");
+        if (!content || !icon) return;
+
+        const isCollapsed = content.style.display === "none";
+        content.style.display = isCollapsed ? "block" : "none";
+        icon.textContent = isCollapsed ? "▼" : "▶";
+      });
+    });
+  }
+
+  /**
+   * Enable touch support for interactive elements in mobile webview
+   * Some webviews don't properly handle touch events on native elements
+   */
+  private _enableTouchSupport(element: HTMLElement): void {
+    // Add touchend handler to trigger click
+    element.addEventListener(
+      "touchend",
+      (e: TouchEvent) => {
+        e.preventDefault();
+        // Trigger a synthetic click
+        element.focus();
+        element.click();
+      },
+      { passive: false },
+    );
+  }
+
   private _setupEventListeners(): void {
+    // Setup collapsible sections
+    this._setupCollapsibleSections();
+
     // Close button
     const closeButton = document.getElementById("close-debug");
     if (closeButton) {
+      // Enable touch support for mobile webview
+      this._enableTouchSupport(closeButton);
+
       closeButton.addEventListener("click", () => {
         this.hide();
         this._updateUrlHash({ debug: "false" });
@@ -289,6 +345,9 @@ export class DebugPanel {
     // Now simply sets params.renderMode - the hook system handles the rest
     const renderingModeSelect = document.getElementById("rendering-mode");
     if (renderingModeSelect) {
+      // Enable touch support for mobile webview
+      this._enableTouchSupport(renderingModeSelect);
+
       renderingModeSelect.addEventListener("change", (e: Event) => {
         const target = e.target as HTMLSelectElement;
         const renderingMode = target.value;
@@ -328,6 +387,9 @@ export class DebugPanel {
     // Projection mode dropdown change handler
     const projectionSelect = document.getElementById("projection-mode");
     if (projectionSelect) {
+      // Enable touch support for mobile webview
+      this._enableTouchSupport(projectionSelect);
+
       projectionSelect.addEventListener("change", (e: Event) => {
         const target = e.target as HTMLSelectElement;
         const projection = target.value as ProjectionType;
@@ -350,19 +412,32 @@ export class DebugPanel {
       this._updateViewpointInfo();
     });
 
+    // Flutter Bridge test: Location marker checkboxes
+    const showCheckbox = document.getElementById("marker-show");
+    const flytoCheckbox = document.getElementById("marker-flyto");
+    if (showCheckbox) {
+      this._enableTouchSupport(showCheckbox);
+    }
+    if (flytoCheckbox) {
+      this._enableTouchSupport(flytoCheckbox);
+    }
+
     // Flutter Bridge test: Location marker button
     const testMarkerBtn = document.getElementById("test-marker-btn");
     if (testMarkerBtn) {
+      // Enable touch support for mobile webview
+      this._enableTouchSupport(testMarkerBtn);
+
       testMarkerBtn.addEventListener("click", () => {
-        const showCheckbox = document.getElementById(
+        const showInput = document.getElementById(
           "marker-show",
         ) as HTMLInputElement | null;
-        const flytoCheckbox = document.getElementById(
+        const flytoInput = document.getElementById(
           "marker-flyto",
         ) as HTMLInputElement | null;
 
-        const show = showCheckbox?.checked ?? true;
-        const flyto = flytoCheckbox?.checked ?? true;
+        const show = showInput?.checked ?? true;
+        const flyto = flytoInput?.checked ?? true;
 
         if (window.updateLocationMarker) {
           window.updateLocationMarker(0, 0, show, flyto);
@@ -373,44 +448,6 @@ export class DebugPanel {
           console.warn(
             "[DebugPanel] window.updateLocationMarker is not available",
           );
-        }
-      });
-    }
-
-    // Flutter Bridge test: Set journey ID button
-    const setJourneyBtn = document.getElementById("set-journey-btn");
-    const journeyIdInput = document.getElementById(
-      "journey-id-input",
-    ) as HTMLInputElement | null;
-
-    if (setJourneyBtn && journeyIdInput) {
-      setJourneyBtn.addEventListener("click", () => {
-        const newJourneyId = journeyIdInput.value.trim();
-        if (!newJourneyId) {
-          this._updateJourneyIdStatus("Error: Empty journey ID", true);
-          return;
-        }
-
-        if (window.updateJourneyId) {
-          const result = window.updateJourneyId(newJourneyId);
-          if (result) {
-            this._updateJourneyIdStatus(`Set to: ${newJourneyId}`, false);
-          } else {
-            this._updateJourneyIdStatus(`Already set or failed`, true);
-          }
-          console.log(
-            `[DebugPanel] Called updateJourneyId('${newJourneyId}') => ${result}`,
-          );
-        } else {
-          this._updateJourneyIdStatus("API not available", true);
-          console.warn("[DebugPanel] window.updateJourneyId is not available");
-        }
-      });
-
-      // Also support Enter key in the input
-      journeyIdInput.addEventListener("keydown", (e: KeyboardEvent) => {
-        if (e.key === "Enter") {
-          setJourneyBtn.click();
         }
       });
     }
@@ -563,16 +600,6 @@ export class DebugPanel {
     }
   }
 
-  private _updateJourneyIdStatus(message: string, isError: boolean): void {
-    const statusElement = document.getElementById("journey-id-status");
-    if (statusElement) {
-      statusElement.textContent = message;
-      statusElement.style.color = isError
-        ? "#F44336"
-        : "rgba(255, 255, 255, 0.5)";
-    }
-  }
-
   private _renderFpsGraph(): void {
     if (!this.visible || !this.fpsCtx || !this.fpsCanvas) return;
 
@@ -715,11 +742,9 @@ export class DebugPanel {
   }
 
   private _checkDebugStatus(): void {
-    const hash: string = window.location.hash.slice(1);
-    const urlParams = new URLSearchParams(hash);
-    const debugParam: string | null = urlParams.get("debug");
-
-    if (debugParam === "true") {
+    // Use params.debug instead of checking URL hash
+    // This allows hard-coded debug mode to work properly
+    if (this.params.debug) {
       this.show();
 
       // Sync dropdown with current params value
@@ -733,26 +758,8 @@ export class DebugPanel {
 
       // Update viewpoint info
       this._updateViewpointInfo();
-
-      // Update journey ID status
-      this._syncJourneyIdDisplay();
     } else {
       this.hide();
-    }
-  }
-
-  private _syncJourneyIdDisplay(): void {
-    const journeyIdInput = document.getElementById(
-      "journey-id-input",
-    ) as HTMLInputElement | null;
-    const statusElement = document.getElementById("journey-id-status");
-
-    if (journeyIdInput && this.params.journeyId) {
-      journeyIdInput.value = this.params.journeyId;
-    }
-
-    if (statusElement) {
-      statusElement.textContent = `Current: ${this.params.journeyId || "-"}`;
     }
   }
 
