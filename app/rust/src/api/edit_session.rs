@@ -50,8 +50,7 @@ impl EditSession {
     }
 
     pub fn get_map_renderer_proxy(&self) -> Result<(MapRendererProxy, Option<CameraOption>)> {
-        let state = get();
-        super::api::get_map_renderer_proxy_for_journey_data_internal(state, self.data.clone())
+        super::api::get_map_renderer_proxy_for_journey_data_internal(self.data.clone())
     }
 
     pub fn undo(&mut self) -> Result<(MapRendererProxy, Option<CameraOption>)> {

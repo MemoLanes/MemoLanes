@@ -19,7 +19,7 @@ class JourneyTrackEditPage extends StatefulWidget {
 }
 
 class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
-  static const double _minEditZoom = 13.0;
+  static const int _minEditZoom = 13;
 
   EditSession? _editSession;
   api.MapRendererProxy? _mapRendererProxy;
@@ -27,7 +27,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   OperationMode _mode = OperationMode.move;
   bool _canUndo = false;
-  double _currentZoom = 0;
+  int _currentZoom = 0;
 
   bool get _zoomOk => _currentZoom >= _minEditZoom;
 
@@ -284,23 +284,32 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     _syncMapCapabilities();
   }
 
-  Future<void> _handleMapMoved() async {
-    final mapView = await _mapWebviewKey.currentState?.getCurrentMapView();
-    if (mapView == null || !mounted) return;
+  Future<void> _handleMapZoomUpdate(int? zoom) async {
+    if (zoom == null) return;
+
+    final zoomOk = zoom >= _minEditZoom;
+    bool modeChanged = false;
+
+    OperationMode newMode = _mode;
+    if (_mode == OperationMode.edit && !zoomOk) {
+      newMode = OperationMode.editReadonly;
+      modeChanged = true;
+    } else if (_mode == OperationMode.editReadonly && zoomOk) {
+      newMode = OperationMode.edit;
+      modeChanged = true;
+    }
+
+    if (!mounted) return;
 
     setState(() {
-      _currentZoom = mapView.zoom;
-
-      // Downgrade to read-only edit mode if zoom level is too low
-      if (_mode == OperationMode.edit && !_zoomOk) {
-        _mode = OperationMode.editReadonly;
-        _showAddModeDisabled();
-      }
-
-      // Restore edit mode automatically when zoom level becomes sufficient
-      if (_mode == OperationMode.editReadonly && _zoomOk) {
-        _mode = OperationMode.edit;
-        _showAddModeEnabled();
+      _currentZoom = zoom;
+      if (modeChanged) {
+        _mode = newMode;
+        if (_mode == OperationMode.edit) {
+          _showAddModeEnabled();
+        } else if (_mode == OperationMode.editReadonly) {
+          _showAddModeDisabled();
+        }
       }
     });
 
@@ -467,7 +476,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                   initialMapView: _initialMapView,
                   onSelectionBox: _onSelectionBox,
                   onDrawPath: _onDrawPath,
-                  onMapMoved: _handleMapMoved,
+                  onMapZoomChanged: _handleMapZoomUpdate,
                 )
               else
                 const Center(child: CircularProgressIndicator()),

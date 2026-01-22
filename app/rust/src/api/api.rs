@@ -25,7 +25,7 @@ use crate::{archive, build_info, export_data, gps_processor, main_db, merged_jou
 
 use crate::renderer::CameraOptionInternal;
 
-type CameraOption = CameraOptionInternal;
+pub(crate) type CameraOption = CameraOptionInternal;
 
 use crate::export_data::raw_data_csv_to_gpx_file;
 use log::{error, info, warn};

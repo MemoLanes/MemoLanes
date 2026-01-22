@@ -41,6 +41,7 @@ class BaseMapWebview extends StatefulWidget {
   final bool isEditor;
   final void Function()? onMapMoved;
   final void Function(MapView)? onRoughMapViewUpdate;
+  final void Function(int)? onMapZoomChanged;
   final List<BaseMapJavaScriptChannel> extraJavaScriptChannels;
 
   const BaseMapWebview(
@@ -51,6 +52,7 @@ class BaseMapWebview extends StatefulWidget {
       this.isEditor = false,
       this.onMapMoved,
       this.onRoughMapViewUpdate,
+      this.onMapZoomChanged,
       this.extraJavaScriptChannels = const []});
 
   @override
@@ -79,10 +81,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   Future<void> runJavaScript(String javaScript) {
     return _webViewController.runJavaScript(javaScript);
-  }
-
-  Future<MapView> getCurrentMapView() {
-    return _getCurrentMapView();
   }
 
   @override
@@ -230,6 +228,12 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         onMessageReceived: (JavaScriptMessage message) async {
           _handleMapViewPush(message.message);
         },
+      )
+      ..addJavaScriptChannel(
+        'onMapZoomChanged',
+        onMessageReceived: (JavaScriptMessage message) async {
+          _handleMapZoomPush(message.message);
+        },
       );
 
     for (final channel in widget.extraJavaScriptChannels) {
@@ -319,6 +323,21 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       }
     } catch (e) {
       log.error('[base_map_webview] invalid mapView push: $message, error=$e');
+    }
+  }
+
+  void _handleMapZoomPush(String message) {
+    try {
+      final int? zoom = int.tryParse(message);
+
+      if (zoom == null) {
+        log.error('[base_map_webview] zoom is not a valid integer: $message');
+        return;
+      }
+
+      widget.onMapZoomChanged?.call(zoom);
+    } catch (e) {
+      log.error('[base_map_webview] error parsing zoom: $message, error=$e');
     }
   }
 
