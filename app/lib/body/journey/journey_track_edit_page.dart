@@ -21,7 +21,7 @@ class JourneyTrackEditPage extends StatefulWidget {
 class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   static const int _minEditZoom = 13;
 
-  EditSession? _editSession;
+  late EditSession _editSession;
   api.MapRendererProxy? _mapRendererProxy;
   JourneyEditorMapViewCamera? _initialMapView;
 
@@ -225,7 +225,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   Future<void> _refreshCanUndo() async {
     final session = _editSession;
-    if (session == null) return;
     final canUndo = session.canUndo();
     if (!mounted) return;
     setState(() {
@@ -238,7 +237,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
     OperationMode resolved = _mode;
 
-    // edit <-> editReadonly 只由 zoom 决定
     if (_mode == OperationMode.edit && !_zoomOk) {
       resolved = OperationMode.editReadonly;
     } else if (_mode == OperationMode.editReadonly && _zoomOk) {
@@ -256,7 +254,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
       _activeSnackBarController = null;
     }
 
-    // UI 副作用
     if (_mode == OperationMode.edit) {
       _showAddModeEnabled();
     }
@@ -314,7 +311,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     if (points.length < 2) return;
 
     final session = _editSession;
-    if (session == null) return;
 
     await session.pushUndoCheckpoint();
 
@@ -409,7 +405,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     if (_mode != OperationMode.delete) return;
 
     final session = _editSession;
-    if (session == null) return;
 
     await session.pushUndoCheckpoint();
 
