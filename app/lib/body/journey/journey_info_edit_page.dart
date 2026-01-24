@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:memolanes/body/journey/journey_track_edit_page.dart';
 import 'package:memolanes/body/settings/import_data_page.dart' show ImportType;
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
@@ -24,10 +23,8 @@ class JourneyInfoEditPage extends StatefulWidget {
     required this.note,
     required this.saveData,
     this.previewData,
-    this.onTrackEdited,
     this.journeyKind,
     this.importType,
-    this.journeyId,
     this.preprocessor,
   });
 
@@ -38,9 +35,7 @@ class JourneyInfoEditPage extends StatefulWidget {
   final JourneyKind? journeyKind;
   final Function saveData;
   final Function? previewData;
-  final ValueChanged<bool>? onTrackEdited;
   final ImportType? importType;
-  final String? journeyId;
   final import_api.ImportPreprocessor? preprocessor;
 
   @override
@@ -264,34 +259,6 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
               ),
             ),
           ),
-          if (widget.journeyId != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16.0),
-              child: ElevatedButton(
-                onPressed: () async {
-                  final changed = await Navigator.push<bool>(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => JourneyTrackEditPage(
-                        journeyId: widget.journeyId!,
-                      ),
-                    ),
-                  );
-                  if (changed == true) {
-                    widget.onTrackEdited?.call(true);
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  fixedSize: Size(280, 42),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(25.0),
-                  ),
-                ),
-                child: Text(context.tr("journey.journey_track_edit_button")),
-              ),
-            ),
           ElevatedButton(
             onPressed: () => _saveData(context),
             style: ElevatedButton.styleFrom(

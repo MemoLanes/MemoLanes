@@ -3,8 +3,8 @@ import 'dart:math' as math;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:memolanes/body/journey/edit_mode_bar.dart';
 import 'package:memolanes/body/journey/editor/journey_editor_map_view.dart';
+import 'package:memolanes/body/journey/journey_track_edit_mode_bar.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
@@ -31,8 +31,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   bool get _zoomOk => _currentZoom >= _minEditZoom;
 
-  bool get _canWrite => _mode == OperationMode.edit && _zoomOk;
-
   final GlobalKey<JourneyEditorMapViewState> _mapWebviewKey = GlobalKey();
   ScaffoldMessengerState? _snackBarMessenger;
   ScaffoldFeatureController<SnackBar, SnackBarClosedReason>?
@@ -53,15 +51,20 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     _activeSnackBarController = null;
   }
 
-  void _showAddModeDisabled() {
-    _showFloatingSnackBar(
-      context.tr("journey.journey_track_edit_add_mode_disabled"),
-    );
-  }
-
   void _showAddModeEnabled() {
     _showFloatingSnackBar(
       context.tr("journey.journey_track_edit_add_mode_enabled"),
+    );
+  }
+  void _showDeleteModeEnabled() {
+    _showFloatingSnackBar(
+      context.tr("journey.journey_track_edit_delete_mode_enabled"),
+    );
+  }
+
+  void _showZoomTooLow() {
+    _showFloatingSnackBar(
+      context.tr("journey.journey_track_edit_zoom_too_low"),
     );
   }
 
@@ -234,21 +237,46 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     });
   }
 
-  void _syncMapCapabilities() {
+  void _applyMode() {
     if (!mounted) return;
 
+    OperationMode resolved = _mode;
+
+    // edit <-> editReadonly 只由 zoom 决定
+    if (_mode == OperationMode.edit && !_zoomOk) {
+      resolved = OperationMode.editReadonly;
+    } else if (_mode == OperationMode.editReadonly && _zoomOk) {
+      resolved = OperationMode.edit;
+    }
+
+    setState(() {
+      _mode = resolved;
+    });
+
+    // UI 副作用
+    if (_mode == OperationMode.edit) {
+      _showAddModeEnabled();
+    }
+
+    if (_mode == OperationMode.editReadonly) {
+      _showZoomTooLow();
+    }
+    if (_mode == OperationMode.delete) {
+      _showDeleteModeEnabled();
+    }
+
+
+    _applyMapSideEffects();
+  }
+
+  void _applyMapSideEffects() {
     final map = _mapWebviewKey.currentState;
     if (map == null) return;
 
     switch (_mode) {
       case OperationMode.edit:
-        map.setDrawMode(_canWrite);
+        map.setDrawMode(true);
         map.setDeleteMode(false);
-        if (!_canWrite) {
-          _showFloatingSnackBar(
-            context.tr("journey.journey_track_edit_zoom_too_low"),
-          );
-        }
         break;
 
       case OperationMode.delete:
@@ -262,63 +290,28 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     }
   }
 
-  void _handleModeChange(OperationMode newMode) {
-    if (_mode == newMode) return;
 
+
+
+  void _handleModeChange(OperationMode mode) {
     setState(() {
-      if (newMode == OperationMode.edit) {
-        _mode = _zoomOk ? OperationMode.edit : OperationMode.editReadonly;
-      } else {
-        _mode = newMode;
-      }
+      _mode = mode;
     });
-
-    if (newMode == OperationMode.edit) {
-      if (_mode == OperationMode.edit) {
-        _showAddModeEnabled();
-      } else if (_mode == OperationMode.editReadonly) {
-        _showAddModeDisabled();
-      }
-    }
-
-    _syncMapCapabilities();
+    _applyMode();
   }
 
-  Future<void> _handleMapZoomUpdate(int? zoom) async {
+  void _handleMapZoomUpdate(int? zoom)  {
     if (zoom == null) return;
-
-    final zoomOk = zoom >= _minEditZoom;
-    bool modeChanged = false;
-
-    OperationMode newMode = _mode;
-    if (_mode == OperationMode.edit && !zoomOk) {
-      newMode = OperationMode.editReadonly;
-      modeChanged = true;
-    } else if (_mode == OperationMode.editReadonly && zoomOk) {
-      newMode = OperationMode.edit;
-      modeChanged = true;
-    }
-
-    if (!mounted) return;
 
     setState(() {
       _currentZoom = zoom;
-      if (modeChanged) {
-        _mode = newMode;
-        if (_mode == OperationMode.edit) {
-          _showAddModeEnabled();
-        } else if (_mode == OperationMode.editReadonly) {
-          _showAddModeDisabled();
-        }
-      }
     });
 
-    _syncMapCapabilities();
+    _applyMode();
   }
 
   Future<void> _onDrawPath(List<JourneyEditorDrawPoint> points) async {
     if (_mode != OperationMode.edit) return;
-    if (!_canWrite) return;
     if (points.length < 2) return;
 
     final session = _editSession;
@@ -463,9 +456,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
         Navigator.of(context).pop(result);
       },
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(context.tr("journey.journey_track_edit_title")),
-        ),
         body: Stack(
           children: [
             if (_mapRendererProxy != null)
@@ -511,7 +501,8 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
                     final shouldSave = await showCommonDialog(
                       context,
-                      context.tr("journey.journey_track_edit_save_confirm"),
+                      context.tr("common.save_confirm"),
+                      title: context.tr("common.save"),
                       hasCancel: true,
                     );
                     if (!mounted || !shouldSave) return;

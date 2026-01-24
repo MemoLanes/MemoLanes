@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:memolanes/body/journey/journey_edit_page.dart';
+import 'package:memolanes/body/journey/journey_info_edit_page.dart';
+import 'package:memolanes/body/journey/journey_track_edit_page.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
@@ -103,10 +104,6 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
             journeyDate: _journeyHeader.journeyDate,
             note: _journeyHeader.note,
             journeyKind: _journeyHeader.journeyKind,
-            journeyId: _journeyHeader.id,
-            onTrackEdited: (edited) {
-              trackEdited = trackEdited || edited;
-            },
             saveData: (JourneyInfo journeyInfo) async {
               await api.updateJourneyMetadata(
                   id: _journeyHeader.id, journeyInfo: journeyInfo);
@@ -120,6 +117,20 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     if (result == true || trackEdited) {
       await _refreshJourneyInfo();
     }
+  }
+
+  Future<void> _trackEdit(BuildContext context) async {
+    await Navigator.push(context, MaterialPageRoute(builder: (context) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(context.tr("journey.journey_track_edit_title")),
+        ),
+        body: JourneyTrackEditPage(
+          journeyId: _journeyHeader.id,
+        ),
+      );
+    }));
+
   }
 
   Future<String> _generateExportFile(
@@ -271,7 +282,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                       child: Text(context.tr("common.export")),
                     ),
                     ElevatedButton(
-                      onPressed: () async => await _editJourneyInfo(context),
+                      onPressed: () async => _showEditMenu(context),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFB6E13D),
                         foregroundColor: Colors.black,
@@ -342,6 +353,32 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
               },
             ),
           ]
+        ],
+      ),
+    );
+  }
+
+
+  void _showEditMenu(BuildContext context) {
+    showBasicCard(
+      context,
+      child: OptionCard(
+        children: [
+          CardLabelTile(
+            position: CardLabelTilePosition.top,
+            label: context.tr("journey.journey_info_edit_page_title"),
+            onTap: () {
+              _editJourneyInfo(context);
+            },
+            top: false,
+          ),
+          CardLabelTile(
+            position: CardLabelTilePosition.bottom,
+            label: context.tr("journey.journey_track_edit_title"),
+            onTap: () async {
+              _trackEdit(context);
+            },
+          ),
         ],
       ),
     );
