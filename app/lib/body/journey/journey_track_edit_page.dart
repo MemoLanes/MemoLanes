@@ -56,6 +56,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
       context.tr("journey.journey_track_edit_add_mode_enabled"),
     );
   }
+
   void _showDeleteModeEnabled() {
     _showFloatingSnackBar(
       context.tr("journey.journey_track_edit_delete_mode_enabled"),
@@ -265,7 +266,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
       _showDeleteModeEnabled();
     }
 
-
     _applyMapSideEffects();
   }
 
@@ -290,9 +290,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     }
   }
 
-
-
-
   void _handleModeChange(OperationMode mode) {
     setState(() {
       _mode = mode;
@@ -300,7 +297,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     _applyMode();
   }
 
-  void _handleMapZoomUpdate(int? zoom)  {
+  void _handleMapZoomUpdate(int? zoom) {
     if (zoom == null) return;
 
     setState(() {

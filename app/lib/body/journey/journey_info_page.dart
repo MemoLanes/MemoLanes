@@ -130,7 +130,6 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
         ),
       );
     }));
-
   }
 
   Future<String> _generateExportFile(
@@ -357,7 +356,6 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       ),
     );
   }
-
 
   void _showEditMenu(BuildContext context) {
     showBasicCard(
