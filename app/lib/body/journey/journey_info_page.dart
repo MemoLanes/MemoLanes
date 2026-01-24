@@ -130,6 +130,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
         ),
       );
     }));
+    await _refreshJourneyInfo();
   }
 
   Future<String> _generateExportFile(
