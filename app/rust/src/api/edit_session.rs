@@ -1,11 +1,17 @@
+use std::sync::{Arc, Mutex};
+
 use anyhow::{anyhow, bail, Result};
 use flutter_rust_bridge::frb;
 
 use crate::gps_processor::GpsPostprocessor;
+use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_data::JourneyData;
 use crate::journey_vector::JourneyVector;
 
 use super::api::{get, CameraOption, MapRendererProxy};
+use crate::merged_journey_builder;
+use crate::renderer::get_default_camera_option_from_journey_bitmap;
+use crate::renderer::MapRenderer;
 
 const EPS: f64 = 1e-12_f64;
 
@@ -13,6 +19,8 @@ const EPS: f64 = 1e-12_f64;
 pub struct EditSession {
     journey_id: String,
     journey_revision: String,
+    map_renderer: Arc<Mutex<MapRenderer>>,
+    initial_camera_option: Option<CameraOption>,
     data: JourneyVector,
     undo_stack: Vec<JourneyVector>,
 }
@@ -198,6 +206,12 @@ impl EditSession {
         new_segments
     }
 
+    fn build_bitmap_from_vector(vector: &JourneyVector) -> JourneyBitmap {
+        let mut bitmap = JourneyBitmap::new();
+        merged_journey_builder::add_journey_vector_to_journey_bitmap(&mut bitmap, vector);
+        bitmap
+    }
+
     pub fn new(journey_id: String) -> Result<Self> {
         let state = get();
         let journey_data = state
@@ -216,9 +230,15 @@ impl EditSession {
             }
         };
 
+        let bitmap = Self::build_bitmap_from_vector(&journey_vector);
+        let initial_camera_option = get_default_camera_option_from_journey_bitmap(&bitmap);
+        let map_renderer = Arc::new(Mutex::new(MapRenderer::new(bitmap)));
+
         Ok(Self {
             journey_id,
             journey_revision,
+            map_renderer,
+            initial_camera_option,
             data: journey_vector,
             undo_stack: Vec::new(),
         })
@@ -238,8 +258,9 @@ impl EditSession {
     }
 
     pub fn get_map_renderer_proxy(&self) -> Result<(MapRendererProxy, Option<CameraOption>)> {
-        super::api::get_map_renderer_proxy_for_journey_data_internal(JourneyData::Vector(
-            self.data.clone(),
+        Ok((
+            MapRendererProxy::Renderer(self.map_renderer.clone()),
+            self.initial_camera_option,
         ))
     }
 
@@ -260,14 +281,24 @@ impl EditSession {
         // TODO Unable to properly handle cases spanning ±180° of longitude.
         let (min_lat, max_lat, min_lng, max_lng) =
             Self::normalize_box(start_lat, start_lng, end_lat, end_lng);
-
-        self.data.track_segments = Self::delete_points_in_box_segments(
+        let new_segments = Self::delete_points_in_box_segments(
             &self.data.track_segments,
             min_lat,
             max_lat,
             min_lng,
             max_lng,
         );
+        if new_segments == self.data.track_segments {
+            return self.get_map_renderer_proxy();
+        }
+
+        self.data.track_segments = new_segments;
+        let bitmap = Self::build_bitmap_from_vector(&self.data);
+        let mut map_renderer = self
+            .map_renderer
+            .lock()
+            .map_err(|_| anyhow!("Failed to lock map renderer"))?;
+        map_renderer.replace(bitmap);
         self.get_map_renderer_proxy()
     }
 
@@ -281,6 +312,20 @@ impl EditSession {
         if (start_lat - end_lat).abs() < EPS && (start_lng - end_lng).abs() < EPS {
             return self.get_map_renderer_proxy();
         }
+
+        let mut map_renderer = self
+            .map_renderer
+            .lock()
+            .map_err(|_| anyhow!("Failed to lock map renderer"))?;
+        map_renderer.update(|journey_bitmap, tile_changed| {
+            journey_bitmap.add_line_with_change_callback(
+                start_lng,
+                start_lat,
+                end_lng,
+                end_lat,
+                tile_changed,
+            );
+        });
 
         self.data
             .track_segments

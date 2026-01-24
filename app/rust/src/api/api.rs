@@ -271,8 +271,9 @@ pub enum LogLevel {
 }
 
 #[frb(opaque)]
+#[derive(Clone)]
 pub enum MapRendererProxy {
-    Renderer(MapRenderer),
+    Renderer(Arc<Mutex<MapRenderer>>),
     MainMapRenderer,
 }
 
@@ -281,8 +282,8 @@ impl MapRendererProxy {
         let request = Request::parse(&request)?;
         let response = match self {
             MapRendererProxy::Renderer(map_renderer) => {
-                // Directly use the map renderer reference
-                request.handle(map_renderer)
+                let map_renderer = map_renderer.lock().unwrap();
+                request.handle(&map_renderer)
             }
             MapRendererProxy::MainMapRenderer => {
                 let map_renderer = get().main_map_renderer.lock().unwrap();
@@ -304,7 +305,7 @@ pub fn get_map_renderer_proxy_for_main_map() -> MapRendererProxy {
 pub fn get_empty_map_renderer_proxy() -> MapRendererProxy {
     let journey_bitmap = JourneyBitmap::new();
     let map_renderer = MapRenderer::new(journey_bitmap);
-    MapRendererProxy::Renderer(map_renderer)
+    MapRendererProxy::Renderer(Arc::new(Mutex::new(map_renderer)))
 }
 
 pub fn get_map_renderer_proxy_for_journey_date_range(
@@ -317,7 +318,7 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
     })?;
 
     let map_renderer = MapRenderer::new(journey_bitmap);
-    Ok(MapRendererProxy::Renderer(map_renderer))
+    Ok(MapRendererProxy::Renderer(Arc::new(Mutex::new(map_renderer))))
 }
 
 pub(super) fn get_map_renderer_proxy_for_journey_data_internal(
@@ -336,7 +337,7 @@ pub(super) fn get_map_renderer_proxy_for_journey_data_internal(
 
     let map_renderer = MapRenderer::new(journey_bitmap);
     Ok((
-        MapRendererProxy::Renderer(map_renderer),
+        MapRendererProxy::Renderer(Arc::new(Mutex::new(map_renderer))),
         default_camera_option,
     ))
 }

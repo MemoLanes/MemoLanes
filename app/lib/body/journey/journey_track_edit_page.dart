@@ -320,7 +320,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
     final filtered = _limitPointCount(
       _downsampleDrawPoints(points),
-      maxPoints: 50,
+      maxPoints: 300,
     );
 
     api.MapRendererProxy? latest = _mapRendererProxy;
