@@ -37,7 +37,8 @@
     "please_enter": "请输入",
     "still_under_development": "开发中",
     "copy_success": "复制成功",
-    "save_success": "保存成功"
+    "save_success": "保存成功",
+    "save_confirm": "是否保存？"
   },
   "journey": {
     "no_data": "当前暂无旅程数据，开始探索世界吧！",
@@ -48,12 +49,10 @@
     "delete_all_journey_message": "这将删除此应用中的所有行程，您确定吗？",
     "journey_info_page_title": "旅程信息",
     "journey_info_edit_page_title": "编辑旅程信息",
-    "journey_track_edit_title": "旅程轨迹编辑器",
-    "journey_track_edit_button": "编辑旅程轨迹",
-    "journey_track_edit_add_mode_enabled": "绘制模式已开启，在地图上绘制以新增轨迹。\n再次点击绘制按钮关闭绘制模式以移动地图。",
-    "journey_track_edit_add_mode_disabled": "绘制模式已关闭。",
-    "journey_track_edit_delete_mode_enabled": "删除模式已开启，框选区域以删除轨迹点。\n再次点击删除按钮关闭删除模式以移动地图。",
-    "journey_track_edit_delete_mode_disabled": "删除模式已关闭。",
+    "journey_track_edit_title": "编辑旅程轨迹",
+    "journey_track_edit_add_mode_enabled": "绘制模式已开启，请在地图上绘制以新增轨迹。",
+    "journey_track_edit_add_mode_disabled": "绘制模式已关闭，请使用双指捏合缩放地图，调整到合适的缩放级别后再进行编辑。",
+    "journey_track_edit_delete_mode_enabled": "删除模式已开启，框选区域以删除轨迹点。",
     "journey_track_edit_bitmap_not_supported": "当前轨迹非迹忆记录，暂不支持编辑。",
     "journey_track_edit_discard_changes_confirm": "未保存的操作都会丢失，是否继续？",
     "journey_track_edit_zoom_too_low": "放大地图以新增轨迹。",
