@@ -190,9 +190,11 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   }
 
   Future<void> _loadMap() async {
-    final session = await EditSession.newInstance(journeyId: widget.journeyId);
-    final result = await session.getMapRendererProxy();
-    if (mounted) {
+    try {
+      final session =
+          await EditSession.newInstance(journeyId: widget.journeyId);
+      final result = await session.getMapRendererProxy();
+      if (!mounted) return;
       setState(() {
         _editSession = session;
         _mapRendererProxy = result.$1;
@@ -206,16 +208,8 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
         }
         _canUndo = session.canUndo();
       });
-    }
-
-    // Detect whether the edit session is backed by a vector journey.
-    final supported = session.isVector();
-
-    if (!mounted) return;
-    if (!supported) {
-      setState(() {
-        _canUndo = false;
-      });
+    } catch (_) {
+      if (!mounted) return;
       _mapWebviewKey.currentState?.setDrawMode(false);
       _mapWebviewKey.currentState?.setDeleteMode(false);
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -224,6 +218,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
           context.tr("journey.journey_track_edit_bitmap_not_supported"),
           mapRelativeY: 0.4,
         );
+        Navigator.of(context).maybePop();
       });
     }
   }
@@ -431,7 +426,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     // If user manually pops this page while a SnackBar is visible, ensure the
     // SnackBar is dismissed and doesn't remain on the previous page.
     _dismissSnackBarsAndWait();
-    _editSession?.discard();
     super.dispose();
   }
 
