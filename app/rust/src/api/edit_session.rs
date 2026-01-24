@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use flutter_rust_bridge::frb;
 
 use crate::gps_processor::GpsPostprocessor;
@@ -12,6 +12,7 @@ const EPS: f64 = 1e-12_f64;
 #[frb(opaque)]
 pub struct EditSession {
     journey_id: String,
+    journey_revision: String,
     data: JourneyVector,
     undo_stack: Vec<JourneyVector>,
 }
@@ -202,6 +203,11 @@ impl EditSession {
         let journey_data = state
             .storage
             .with_db_txn(|txn| txn.get_journey_data(&journey_id))?;
+        let journey_revision = state.storage.with_db_txn(|txn| {
+            txn.get_journey_header(&journey_id)?
+                .ok_or_else(|| anyhow!("Missing journey header"))
+                .map(|header| header.revision)
+        })?;
 
         let journey_vector = match journey_data {
             JourneyData::Vector(vector) => vector,
@@ -212,6 +218,7 @@ impl EditSession {
 
         Ok(Self {
             journey_id,
+            journey_revision,
             data: journey_vector,
             undo_stack: Vec::new(),
         })
@@ -300,6 +307,13 @@ impl EditSession {
         let postprocessor_algo = Some(GpsPostprocessor::current_algo());
 
         state.storage.with_db_txn(|txn| {
+            let current_revision = txn
+                .get_journey_header(&journey_id)?
+                .ok_or_else(|| anyhow!("Missing journey header"))?
+                .revision;
+            if current_revision != self.journey_revision {
+                bail!("Journey has been modified. Please reopen the editor.")
+            }
             txn.update_journey_data(&journey_id, journey_data, postprocessor_algo)?;
             txn.optimize()?;
             txn.action = Some(crate::main_db::Action::CompleteRebuilt);

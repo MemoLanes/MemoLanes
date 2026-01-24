@@ -4,7 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/body/journey/editor/journey_editor_map_view.dart';
-import 'package:memolanes/body/journey/journey_track_edit_mode_bar.dart';
+import 'package:memolanes/body/journey/editor/journey_track_edit_mode_bar.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
@@ -248,6 +248,13 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     setState(() {
       _mode = resolved;
     });
+
+    if (_mode == OperationMode.move) {
+      _activeSnackBarController?.close();
+      _snackBarMessenger?.removeCurrentSnackBar();
+      _snackBarMessenger?.clearSnackBars();
+      _activeSnackBarController = null;
+    }
 
     // UI 副作用
     if (_mode == OperationMode.edit) {
