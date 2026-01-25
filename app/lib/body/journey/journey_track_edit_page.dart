@@ -21,7 +21,7 @@ class JourneyTrackEditPage extends StatefulWidget {
 class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   static const int _minEditZoom = 13;
 
-  late EditSession _editSession;
+  EditSession? _editSession;
   api.MapRendererProxy? _mapRendererProxy;
   JourneyEditorMapViewCamera? _initialMapView;
 
@@ -224,6 +224,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   Future<void> _refreshCanUndo() async {
     final session = _editSession;
+    if (session == null) return;
     final canUndo = session.canUndo();
     if (!mounted) return;
     setState(() {
@@ -299,6 +300,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     if (points.length < 2) return;
 
     final session = _editSession;
+    if (session == null) return;
 
     await session.pushUndoCheckpoint();
 
@@ -393,6 +395,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     if (_mode != OperationMode.delete) return;
 
     final session = _editSession;
+    if (session == null) return;
 
     await session.pushUndoCheckpoint();
 
@@ -473,6 +476,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                   canSave: _canUndo,
                   onSave: () async {
                     final session = _editSession;
+                    if (session == null) return;
 
                     if (!_canUndo) {
                       Navigator.of(context).pop(false);
