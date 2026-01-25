@@ -26,6 +26,16 @@ pub struct EditSession {
 }
 
 impl EditSession {
+    fn sync_renderer_from_data(&self) -> Result<()> {
+        let bitmap = Self::build_bitmap_from_vector(&self.data);
+        let mut map_renderer = self
+            .map_renderer
+            .lock()
+            .map_err(|_| anyhow!("Failed to lock map renderer"))?;
+        map_renderer.replace(bitmap);
+        Ok(())
+    }
+
     fn normalize_box(
         start_lat: f64,
         start_lng: f64,
@@ -267,6 +277,7 @@ impl EditSession {
     pub fn undo(&mut self) -> Result<(MapRendererProxy, Option<CameraOption>)> {
         if let Some(previous) = self.undo_stack.pop() {
             self.data = previous;
+            self.sync_renderer_from_data()?;
         }
         self.get_map_renderer_proxy()
     }
@@ -293,12 +304,7 @@ impl EditSession {
         }
 
         self.data.track_segments = new_segments;
-        let bitmap = Self::build_bitmap_from_vector(&self.data);
-        let mut map_renderer = self
-            .map_renderer
-            .lock()
-            .map_err(|_| anyhow!("Failed to lock map renderer"))?;
-        map_renderer.replace(bitmap);
+        self.sync_renderer_from_data()?;
         self.get_map_renderer_proxy()
     }
 

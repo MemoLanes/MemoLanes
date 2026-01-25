@@ -318,7 +318,9 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
     })?;
 
     let map_renderer = MapRenderer::new(journey_bitmap);
-    Ok(MapRendererProxy::Renderer(Arc::new(Mutex::new(map_renderer))))
+    Ok(MapRendererProxy::Renderer(Arc::new(Mutex::new(
+        map_renderer,
+    ))))
 }
 
 pub(super) fn get_map_renderer_proxy_for_journey_data_internal(
