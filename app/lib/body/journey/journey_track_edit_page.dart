@@ -27,9 +27,8 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   OperationMode _mode = OperationMode.move;
   bool _canUndo = false;
-  int _currentZoom = 0;
 
-  bool get _zoomOk => _currentZoom >= _minEditZoom;
+  bool _zoomOk = false;
 
   final GlobalKey<JourneyEditorMapViewState> _mapWebviewKey = GlobalKey();
   ScaffoldMessengerState? _snackBarMessenger;
@@ -232,78 +231,67 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     });
   }
 
-  void _applyMode() {
+  void _applyMode(OperationMode next) {
     if (!mounted) return;
 
-    OperationMode resolved = _mode;
-
-    if (_mode == OperationMode.edit && !_zoomOk) {
-      resolved = OperationMode.editReadonly;
-    } else if (_mode == OperationMode.editReadonly && _zoomOk) {
-      resolved = OperationMode.edit;
+    if (next == OperationMode.edit && !_zoomOk) {
+      next = OperationMode.editReadonly;
+    } else if (next == OperationMode.editReadonly && _zoomOk) {
+      next = OperationMode.edit;
     }
+
+    if (next == _mode) return;
 
     setState(() {
-      _mode = resolved;
+      _mode = next;
     });
 
-    if (_mode == OperationMode.move) {
-      _activeSnackBarController?.close();
-      _snackBarMessenger?.removeCurrentSnackBar();
-      _snackBarMessenger?.clearSnackBars();
-      _activeSnackBarController = null;
-    }
-
-    if (_mode == OperationMode.edit) {
-      _showAddModeEnabled();
-    }
-
-    if (_mode == OperationMode.editReadonly) {
-      _showZoomTooLow();
-    }
-    if (_mode == OperationMode.delete) {
-      _showDeleteModeEnabled();
-    }
-
-    _applyMapSideEffects();
-  }
-
-  void _applyMapSideEffects() {
     final map = _mapWebviewKey.currentState;
-    if (map == null) return;
 
-    switch (_mode) {
+    switch (next) {
+      case OperationMode.move:
+        _activeSnackBarController?.close();
+        _snackBarMessenger?.removeCurrentSnackBar();
+        _snackBarMessenger?.clearSnackBars();
+        _activeSnackBarController = null;
+        map?.setDrawMode(false);
+        map?.setDeleteMode(false);
+        break;
+
       case OperationMode.edit:
-        map.setDrawMode(true);
-        map.setDeleteMode(false);
+        _showAddModeEnabled();
+        map?.setDrawMode(true);
+        map?.setDeleteMode(false);
+        break;
+
+      case OperationMode.editReadonly:
+        _showZoomTooLow();
+        map?.setDrawMode(false);
+        map?.setDeleteMode(false);
         break;
 
       case OperationMode.delete:
-        map.setDrawMode(false);
-        map.setDeleteMode(true);
+        _showDeleteModeEnabled();
+        map?.setDrawMode(false);
+        map?.setDeleteMode(true);
         break;
-
-      default:
-        map.setDrawMode(false);
-        map.setDeleteMode(false);
     }
   }
 
   void _handleModeChange(OperationMode mode) {
-    setState(() {
-      _mode = mode;
-    });
-    _applyMode();
+    _applyMode(mode);
   }
 
   void _handleMapZoomUpdate(int? zoom) {
     if (zoom == null) return;
 
+    if ((zoom >= _minEditZoom) == _zoomOk) return;
+
     setState(() {
-      _currentZoom = zoom;
+      _zoomOk = !_zoomOk;
     });
 
-    _applyMode();
+    _applyMode(_mode);
   }
 
   Future<void> _onDrawPath(List<JourneyEditorDrawPoint> points) async {
@@ -485,7 +473,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                   canSave: _canUndo,
                   onSave: () async {
                     final session = _editSession;
-                    if (session == null) return;
 
                     if (!_canUndo) {
                       Navigator.of(context).pop(false);
