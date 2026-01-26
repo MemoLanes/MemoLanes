@@ -91,21 +91,31 @@ class TopPersistentToast {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (final line in lines)
-            Text(
-              line,
-              style: style,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                line,
+                style: style,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
         ],
       );
     }
 
-    return Text(
-      message,
-      style: style,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Text(
+        message,
+        style: style,
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.ellipsis,
+      ),
     );
   }
 }
