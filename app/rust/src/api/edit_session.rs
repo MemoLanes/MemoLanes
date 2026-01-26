@@ -81,7 +81,7 @@ impl EditSession {
         let mut hits: Vec<(f64, crate::journey_vector::TrackPoint)> = Vec::new();
 
         let mut push_hit = |t: f64, x: f64, y: f64| {
-            if t < -EPS || t > 1.0 + EPS {
+            if !(-EPS..=1.0 + EPS).contains(&t) {
                 return;
             }
             let t = t.clamp(0.0, 1.0);
