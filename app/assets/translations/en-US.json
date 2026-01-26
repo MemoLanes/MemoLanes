@@ -41,6 +41,15 @@
     "save_confirm": "Do you want to save the changes?"
   },
   "journey": {
+    "edit_bar": {
+      "move": "Move",
+      "edit": "Draw",
+      "delete": "Erase",
+      "undo": "Undo",
+      "save": "Save"
+    }
+},
+
     "no_data": "There's no data yet, go ahead and explore the world!",
     "journey_date_is_empty": "JourneyDate is empty",
     "delete_journey_title": "Delete Journey",

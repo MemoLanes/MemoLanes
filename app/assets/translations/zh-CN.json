@@ -41,6 +41,14 @@
     "save_confirm": "是否保存？"
   },
   "journey": {
+    "edit_bar": {
+      "move": "移动",
+      "edit": "绘制",
+      "delete": "擦除",
+      "undo": "撤销",
+      "save": "保存"
+    }
+  },
     "no_data": "当前暂无旅程数据，开始探索世界吧！",
     "journey_date_is_empty": "旅程日期是空的",
     "delete_journey_title": "删除旅程",

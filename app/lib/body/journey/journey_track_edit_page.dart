@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/body/journey/editor/journey_editor_map_view.dart';
 import 'package:memolanes/body/journey/editor/journey_track_edit_mode_bar.dart';
+import 'package:memolanes/body/journey/editor/top_persistent_toast.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
@@ -31,24 +32,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   bool _zoomOk = false;
 
   final GlobalKey<JourneyEditorMapViewState> _mapWebviewKey = GlobalKey();
-  ScaffoldMessengerState? _snackBarMessenger;
-  ScaffoldFeatureController<SnackBar, SnackBarClosedReason>?
-      _activeSnackBarController;
-
-  Future<void> _dismissSnackBarsAndWait() async {
-    final controller = _activeSnackBarController;
-    if (controller != null) {
-      controller.close();
-      try {
-        await controller.closed;
-      } catch (_) {
-        // Ignore if already closed or disposed.
-      }
-    }
-    _snackBarMessenger?.removeCurrentSnackBar();
-    _snackBarMessenger?.clearSnackBars();
-    _activeSnackBarController = null;
-  }
 
   void _showAddModeEnabled() {
     _showFloatingSnackBar(
@@ -68,109 +51,13 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     );
   }
 
-  Widget _snackBarText(
-    String message, {
-    TextStyle? style,
-    bool allowExplicitNewlines = false,
-  }) {
-    if (allowExplicitNewlines && message.contains('\n')) {
-      final lines = message.split('\n');
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (final line in lines)
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                line,
-                style: style,
-                maxLines: 1,
-                softWrap: false,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-        ],
-      );
-    }
-
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      alignment: Alignment.centerLeft,
-      child: Text(
-        message,
-        style: style,
-        maxLines: 1,
-        softWrap: false,
-        overflow: TextOverflow.ellipsis,
-      ),
-    );
+  void _showFloatingSnackBar(String message) {
+    if (!mounted) return;
+    TopPersistentToast().show(context, message);
   }
 
-  void _showFloatingSnackBar(
-    String message, {
-    double mapRelativeY = 0.25,
-  }) {
-    if (!mounted) return;
-    EdgeInsets margin = const EdgeInsets.fromLTRB(16, 0, 16, 16);
-    final overlayState = Overlay.maybeOf(context);
-    final overlayBox = overlayState?.context.findRenderObject() as RenderBox?;
-    final mapBox =
-        _mapWebviewKey.currentContext?.findRenderObject() as RenderBox?;
-    if (overlayBox != null && mapBox != null) {
-      final mapTopLeft =
-          mapBox.localToGlobal(Offset.zero, ancestor: overlayBox);
-      final mapTop = mapTopLeft.dy;
-      final mapBottom = mapTop + mapBox.size.height;
-      final overlayHeight = overlayBox.size.height;
-
-      final relative = mapRelativeY.clamp(0.0, 1.0).toDouble();
-
-      final topMargin = mapTop + 16;
-      final targetBottomY = mapTop + mapBox.size.height * relative;
-      double bottomMargin = (overlayHeight - targetBottomY) + 16;
-
-      // Prevent impossible constraints (negative available height) in edge cases.
-      final minBottomMargin = (overlayHeight - mapBottom) + 16;
-      double maxBottomMargin = overlayHeight - topMargin - 56;
-      if (maxBottomMargin < 16) maxBottomMargin = 16;
-      bottomMargin =
-          bottomMargin.clamp(minBottomMargin, maxBottomMargin).toDouble();
-
-      margin = EdgeInsets.fromLTRB(16, topMargin, 16, bottomMargin);
-    }
-
-    final messenger = ScaffoldMessenger.of(context);
-    _snackBarMessenger = messenger;
-    messenger.removeCurrentSnackBar();
-    messenger.clearSnackBars();
-    final controller = messenger.showSnackBar(
-      SnackBar(
-        content: _snackBarText(
-          message,
-          style: const TextStyle(color: Colors.black),
-          allowExplicitNewlines: true,
-        ),
-        backgroundColor: Colors.white.withValues(alpha: 0.75),
-        behavior: SnackBarBehavior.floating,
-        margin: margin,
-        action: SnackBarAction(
-          label: context.tr("common.ok"),
-          onPressed: () {
-            messenger.hideCurrentSnackBar();
-          },
-        ),
-      ),
-    );
-
-    _activeSnackBarController = controller;
-    controller.closed.whenComplete(() {
-      if (!mounted) return;
-      if (identical(_activeSnackBarController, controller)) {
-        _activeSnackBarController = null;
-      }
-    });
+  void _removeToast() {
+    TopPersistentToast().hide();
   }
 
   Future<bool> _confirmDiscardUnsavedChanges() async {
@@ -214,9 +101,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _showFloatingSnackBar(
-          context.tr("journey.journey_track_edit_bitmap_not_supported"),
-          mapRelativeY: 0.4,
-        );
+            context.tr("journey.journey_track_edit_bitmap_not_supported"));
         Navigator.of(context).maybePop();
       });
     }
@@ -251,10 +136,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
     switch (next) {
       case OperationMode.move:
-        _activeSnackBarController?.close();
-        _snackBarMessenger?.removeCurrentSnackBar();
-        _snackBarMessenger?.clearSnackBars();
-        _activeSnackBarController = null;
+        _removeToast();
         map?.setDrawMode(false);
         map?.setDeleteMode(false);
         break;
@@ -286,10 +168,11 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   void _handleMapZoomUpdate(int? zoom) {
     if (zoom == null) return;
 
-    if ((zoom >= _minEditZoom) == _zoomOk) return;
+    final nextZoomOk = zoom >= _minEditZoom;
+    if (nextZoomOk == _zoomOk) return;
 
     setState(() {
-      _zoomOk = !_zoomOk;
+      _zoomOk = nextZoomOk;
     });
 
     _applyMode(_mode);
@@ -418,7 +301,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   void dispose() {
     // If user manually pops this page while a SnackBar is visible, ensure the
     // SnackBar is dismissed and doesn't remain on the previous page.
-    _dismissSnackBarsAndWait();
+    _removeToast();
     super.dispose();
   }
 
@@ -433,8 +316,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
           final shouldExit = await _confirmDiscardUnsavedChanges();
           if (!mounted || !shouldExit) return;
         }
-
-        await _dismissSnackBarsAndWait();
+        _removeToast();
         if (!mounted) return;
 
         Navigator.of(context).pop(result);
@@ -493,9 +375,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
                     await session.commit();
                     if (!mounted) return;
-
-                    await _dismissSnackBarsAndWait();
-
+                    _removeToast();
                     Fluttertoast.showToast(
                       msg: context.tr("common.save_success"),
                     );

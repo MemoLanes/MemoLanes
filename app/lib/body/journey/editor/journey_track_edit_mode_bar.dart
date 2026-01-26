@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -28,6 +29,10 @@ class ModeSwitchBar extends StatelessWidget {
     this.canSave = false,
     this.onSave,
   });
+
+  bool get isEditReadonly => currentMode == OperationMode.editReadonly;
+
+  bool get isEditActive => currentMode == OperationMode.edit;
 
   @override
   Widget build(BuildContext context) {
@@ -59,20 +64,19 @@ class ModeSwitchBar extends StatelessWidget {
                   _buildModeItem(
                     mode: OperationMode.move,
                     icon: Icons.open_with_rounded,
-                    label: "移动",
+                    label: context.tr('journey.edit_bar.move'),
                   ),
                   _buildModeItem(
                     mode: OperationMode.edit,
                     icon: Icons.gesture_rounded,
-                    label: "绘制",
-                    isEnabled: currentMode != OperationMode.editReadonly,
+                    label: context.tr('journey.edit_bar.edit'),
                     isSelected: currentMode == OperationMode.edit ||
                         currentMode == OperationMode.editReadonly,
                   ),
                   _buildModeItem(
                     mode: OperationMode.delete,
                     icon: Icons.delete,
-                    label: "擦除",
+                    label: context.tr('journey.edit_bar.delete'),
                   ),
                   Container(
                     width: 1,
@@ -82,13 +86,13 @@ class ModeSwitchBar extends StatelessWidget {
                   ),
                   _buildActionButton(
                     icon: Icons.undo_rounded,
-                    label: "撤销",
+                    label: context.tr('journey.edit_bar.undo'),
                     isEnabled: canUndo,
                     onTap: onUndo,
                   ),
                   _buildActionButton(
                     icon: Icons.save,
-                    label: "保存",
+                    label: context.tr('journey.edit_bar.save'),
                     isEnabled: canSave,
                     onTap: onSave,
                   ),
