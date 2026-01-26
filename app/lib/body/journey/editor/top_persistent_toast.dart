@@ -1,11 +1,11 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 class TopPersistentToast {
   TopPersistentToast._internal();
 
   static final TopPersistentToast _instance = TopPersistentToast._internal();
-
   factory TopPersistentToast() => _instance;
 
   OverlayEntry? _overlayEntry;
@@ -26,36 +26,38 @@ class TopPersistentToast {
     final okText = context.tr("common.ok");
 
     _overlayEntry = OverlayEntry(
-      builder: (overlayContext) {
+      builder: (_) {
         return Positioned(
           top: topOffset,
           left: 16,
           right: 16,
           child: Material(
             color: Colors.transparent,
-            child: Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              insetPadding: EdgeInsets.zero,
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: _toastText(
-                        message,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                        allowExplicitNewlines: true,
+            child: PointerInterceptor(
+              child: Dialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                insetPadding: EdgeInsets.zero,
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: _toastText(
+                          message,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                          allowExplicitNewlines: true,
+                        ),
                       ),
-                    ),
-                    TextButton(
-                      onPressed: hide,
-                      child: Text(okText),
-                    ),
-                  ],
+                      TextButton(
+                        onPressed: hide,
+                        child: Text(okText),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -64,8 +66,7 @@ class TopPersistentToast {
       },
     );
 
-    final overlay = Overlay.of(context, rootOverlay: true);
-    overlay.insert(_overlayEntry!);
+    Overlay.of(context, rootOverlay: true).insert(_overlayEntry!);
   }
 
   void hide() {
