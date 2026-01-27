@@ -244,9 +244,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         },
       );
     }
-    final assetPath = 'assets/map_webview/index.html';
-    log.info('[base_map_webview] Initial loading asset: $assetPath');
-    await _webViewController.loadFlutterAsset(assetPath);
     if (_devServer.isNotEmpty) {
       // Load from dev server for hot-reload during development
       final devUrl = _devServer.endsWith('/')
