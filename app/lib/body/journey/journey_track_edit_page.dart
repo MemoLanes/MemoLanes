@@ -61,6 +61,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   }
 
   Future<bool> _confirmDiscardUnsavedChanges() async {
+    _removeToast();
     final shouldExit = await showCommonDialog(
       context,
       context.tr("journey.journey_track_edit_discard_changes_confirm"),
@@ -364,6 +365,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                       Navigator.of(context).pop(false);
                       return;
                     }
+                    _removeToast();
 
                     final shouldSave = await showCommonDialog(
                       context,

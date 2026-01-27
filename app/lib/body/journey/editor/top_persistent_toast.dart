@@ -21,9 +21,13 @@ class TopPersistentToast {
 
     final mediaQuery = MediaQuery.of(context);
     final screenHeight = mediaQuery.size.height;
-    final topOffset = screenHeight / 5;
+    final topOffset = screenHeight / 6;
 
     final okText = context.tr("common.ok");
+
+    final theme = Theme.of(context);
+    final dialogBg =
+        theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface;
 
     _overlayEntry = OverlayEntry(
       builder: (_) {
@@ -35,13 +39,13 @@ class TopPersistentToast {
             color: Colors.transparent,
             child: PointerInterceptor(
               child: Dialog(
+                backgroundColor: dialogBg.withOpacity(0.75),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
                 insetPadding: EdgeInsets.zero,
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
