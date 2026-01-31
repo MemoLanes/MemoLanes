@@ -3,7 +3,6 @@ use std::sync::{Arc, Mutex};
 use anyhow::{anyhow, bail, Result};
 use flutter_rust_bridge::frb;
 
-use crate::gps_processor::GpsPostprocessor;
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_data::JourneyData;
 use crate::journey_vector::JourneyVector;
@@ -14,6 +13,8 @@ use crate::renderer::get_default_camera_option_from_journey_bitmap;
 use crate::renderer::MapRenderer;
 
 const EPS: f64 = 1e-12_f64;
+
+// TODO: we want some test coverage here.
 
 #[frb(opaque)]
 pub struct EditSession {
@@ -354,8 +355,6 @@ impl EditSession {
     pub fn commit(&self) -> Result<()> {
         let state = get();
         let journey_id = self.journey_id.clone();
-        let journey_data = JourneyData::Vector(GpsPostprocessor::process(self.data.clone()));
-        let postprocessor_algo = Some(GpsPostprocessor::current_algo());
 
         state.storage.with_db_txn(|txn| {
             let current_revision = txn
@@ -365,8 +364,11 @@ impl EditSession {
             if current_revision != self.journey_revision {
                 bail!("Journey has been modified. Please reopen the editor.")
             }
-            txn.update_journey_data(&journey_id, journey_data, postprocessor_algo)?;
-            txn.optimize()?;
+            txn.update_journey_data_with_latest_postprocessor(
+                &journey_id,
+                // TODO: probably we could make this function drop self to avoid the clone.
+                JourneyData::Vector(self.data.clone()),
+            )?;
             txn.action = Some(crate::main_db::Action::CompleteRebuilt);
             Ok(())
         })
