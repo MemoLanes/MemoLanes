@@ -5,7 +5,7 @@ use flutter_rust_bridge::frb;
 
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_data::JourneyData;
-use crate::journey_vector::JourneyVector;
+use crate::journey_vector::{JourneyVector, TrackSegment};
 
 use super::api::{get, CameraOption, MapRendererProxy};
 use crate::merged_journey_builder;
@@ -313,40 +313,45 @@ impl EditSession {
 
     pub fn add_line(
         &mut self,
-        start_lat: f64,
-        start_lng: f64,
-        end_lat: f64,
-        end_lng: f64,
+        points: &[(f64, f64)],
     ) -> Result<()> {
-        if (start_lat - end_lat).abs() < EPS && (start_lng - end_lng).abs() < EPS {
+        if points.len() < 2 {
             return Ok(());
         }
 
         let mut map_renderer = self.map_renderer.lock().unwrap();
         map_renderer.update(|journey_bitmap, tile_changed| {
-            journey_bitmap.add_line_with_change_callback(
-                start_lng,
-                start_lat,
-                end_lng,
-                end_lat,
-                tile_changed,
-            );
+            for window in points.windows(2) {
+                let (start_lat, start_lng) = window[0];
+                let (end_lat, end_lng) = window[1];
+
+                if (start_lat - end_lat).abs() < EPS
+                    && (start_lng - end_lng).abs() < EPS
+                {
+                    continue;
+                }
+
+                journey_bitmap.add_line_with_change_callback(
+                    start_lng,
+                    start_lat,
+                    end_lng,
+                    end_lat,
+                    &mut *tile_changed
+                );
+            }
         });
 
-        self.data
-            .track_segments
-            .push(crate::journey_vector::TrackSegment {
-                track_points: vec![
-                    crate::journey_vector::TrackPoint {
-                        latitude: start_lat,
-                        longitude: start_lng,
-                    },
-                    crate::journey_vector::TrackPoint {
-                        latitude: end_lat,
-                        longitude: end_lng,
-                    },
-                ],
-            });
+        self.data.track_segments.push(
+            TrackSegment {
+                track_points: points
+                    .iter()
+                    .map(|(lat, lng)| crate::journey_vector::TrackPoint {
+                        latitude: *lat,
+                        longitude: *lng,
+                    })
+                    .collect(),
+            },
+        );
 
         Ok(())
     }
