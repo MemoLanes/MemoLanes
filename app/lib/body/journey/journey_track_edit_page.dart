@@ -9,6 +9,7 @@ import 'package:memolanes/body/journey/editor/top_persistent_toast.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
+import 'package:memolanes/common/log.dart';
 
 class JourneyTrackEditPage extends StatefulWidget {
   final String journeyId;
@@ -22,7 +23,7 @@ class JourneyTrackEditPage extends StatefulWidget {
 class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   static const int _minEditZoom = 13;
 
-  EditSession? _editSession;
+  late EditSession _editSession;
   api.MapRendererProxy? _mapRendererProxy;
   JourneyEditorMapViewCamera? _initialMapView;
 
@@ -78,8 +79,11 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   Future<void> _loadMap() async {
     try {
-      final session =
-          await EditSession.newInstance(journeyId: widget.journeyId);
+      EditSession? session = await EditSession.newInstance(journeyId: widget.journeyId);
+      if (session == null) {
+        return;
+      }
+
       final result = await session.getMapRendererProxy();
       if (!mounted) return;
       setState(() {
@@ -88,17 +92,21 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
         final cameraOption = result.$2;
         if (cameraOption != null) {
           _initialMapView = (
-            lng: cameraOption.lng,
-            lat: cameraOption.lat,
-            zoom: cameraOption.zoom,
+          lng: cameraOption.lng,
+          lat: cameraOption.lat,
+          zoom: cameraOption.zoom,
           );
         }
         _canUndo = session.canUndo();
       });
-    } catch (_) {
+    } catch (e) {
+      log.error("[JourneyTrackEditPage] Load map error: $e");
       if (!mounted) return;
+
+      // 发生错误时确保编辑模式关闭
       _mapWebviewKey.currentState?.setDrawMode(false);
       _mapWebviewKey.currentState?.setDeleteMode(false);
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _showFloatingSnackBar(
@@ -110,7 +118,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   Future<void> _refreshCanUndo() async {
     final session = _editSession;
-    if (session == null) return;
     final canUndo = session.canUndo();
     if (!mounted) return;
     setState(() {
@@ -184,90 +191,20 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     if (points.length < 2) return;
 
     final session = _editSession;
-    if (session == null) return;
 
     await session.pushUndoCheckpoint();
 
-    final filtered = _limitPointCount(
-      _downsampleDrawPoints(points),
-      maxPoints: 300,
-    );
+    final recordPoints = points
+        .map((p) => (p.lat, p.lng))
+        .toList();
 
-    api.MapRendererProxy? latest = _mapRendererProxy;
-    for (var i = 0; i < filtered.length - 1; i++) {
-      final a = filtered[i];
-      final b = filtered[i + 1];
-      final result = await session.addLine(
-        startLat: a.lat,
-        startLng: a.lng,
-        endLat: b.lat,
-        endLng: b.lng,
-      );
-      latest = result.$1;
-    }
+    await session.addLine(points: recordPoints);
 
     if (!mounted) return;
-    setState(() {
-      _mapRendererProxy = latest;
-    });
+
+    await _mapWebviewKey.currentState?.manualRefresh();
 
     _refreshCanUndo();
-  }
-
-  List<JourneyEditorDrawPoint> _limitPointCount(
-    List<JourneyEditorDrawPoint> points, {
-    required int maxPoints,
-  }) {
-    if (points.length <= maxPoints) return points;
-    if (maxPoints < 2) return [points.first, points.last];
-
-    final stride = (points.length - 1) / (maxPoints - 1);
-    final result = <JourneyEditorDrawPoint>[];
-    for (var i = 0; i < maxPoints; i++) {
-      final index = (i * stride).round();
-      result.add(points[index]);
-    }
-
-    // Ensure last point is exact.
-    if (result.last != points.last) {
-      result[result.length - 1] = points.last;
-    }
-
-    return result;
-  }
-
-  List<JourneyEditorDrawPoint> _downsampleDrawPoints(
-    List<JourneyEditorDrawPoint> points,
-  ) {
-    if (points.length <= 2) return points;
-
-    const minDistanceMeters = 3.0;
-    final result = <JourneyEditorDrawPoint>[points.first];
-    var last = points.first;
-
-    for (var i = 1; i < points.length - 1; i++) {
-      final current = points[i];
-      if (_approxDistanceMeters(last, current) >= minDistanceMeters) {
-        result.add(current);
-        last = current;
-      }
-    }
-
-    // Always keep the last point to preserve the path end.
-    result.add(points.last);
-    return result;
-  }
-
-  double _approxDistanceMeters(
-    JourneyEditorDrawPoint a,
-    JourneyEditorDrawPoint b,
-  ) {
-    const metersPerDeg = 111320.0;
-    final latRad = (a.lat + b.lat) * 0.5 * (3.141592653589793 / 180.0);
-    final cosLat = math.cos(latRad);
-    final dx = (a.lng - b.lng) * metersPerDeg * cosLat;
-    final dy = (a.lat - b.lat) * metersPerDeg;
-    return math.sqrt(dx * dx + dy * dy);
   }
 
   Future<void> _onSelectionBox(
@@ -279,11 +216,10 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     if (_mode != OperationMode.delete) return;
 
     final session = _editSession;
-    if (session == null) return;
 
     await session.pushUndoCheckpoint();
 
-    final result = await session.deletePointsInBox(
+    await session.deletePointsInBox(
       startLat: startLat,
       startLng: startLng,
       endLat: endLat,
@@ -291,9 +227,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     );
 
     if (!mounted) return;
-    setState(() {
-      _mapRendererProxy = result.$1;
-    });
+    await _mapWebviewKey.currentState?.manualRefresh();
 
     _refreshCanUndo();
   }
@@ -348,18 +282,14 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                   canUndo: _canUndo,
                   onUndo: () async {
                     final session = _editSession;
-                    if (session == null) return;
-                    final result = await session.undo();
+                    await session.undo();
                     if (!mounted) return;
-                    setState(() {
-                      _mapRendererProxy = result.$1;
-                    });
+                    await _mapWebviewKey.currentState?.manualRefresh();
                     _refreshCanUndo();
                   },
                   canSave: _canUndo,
                   onSave: () async {
                     final session = _editSession;
-                    if (session == null) return;
 
                     if (!_canUndo) {
                       Navigator.of(context).pop(false);
