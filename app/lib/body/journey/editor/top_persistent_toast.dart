@@ -74,12 +74,15 @@ class TopPersistentToast {
   }
 
   void hide() {
-    try {
-      _overlayEntry?.remove();
-    } catch (_) {
-    } finally {
-      _overlayEntry = null;
-      _lastMessage = null;
+    final entry = _overlayEntry;
+    _overlayEntry = null;
+    _lastMessage = null;
+
+    if (entry != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        entry.remove();
+        entry.dispose();
+      });
     }
   }
 

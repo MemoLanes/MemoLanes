@@ -35,6 +35,10 @@ class JourneyEditorMapView extends StatefulWidget {
 class JourneyEditorMapViewState extends State<JourneyEditorMapView> {
   final GlobalKey<_JourneyEditorMapWebviewState> _innerKey = GlobalKey();
 
+  Future<void> manualRefresh() async {
+    await _innerKey.currentState?.manualRefresh();
+  }
+
   void setDeleteMode(bool enabled) {
     _innerKey.currentState?.setDeleteMode(enabled);
   }
@@ -93,6 +97,13 @@ class _JourneyEditorMapWebviewState extends State<_JourneyEditorMapWebview> {
     _baseKey.currentState?.runJavaScript('''
       if (typeof setDeleteMode === 'function') {
         setDeleteMode($enabled);
+      }
+    ''');
+  }
+  Future<void> manualRefresh() async {
+    await _baseKey.currentState?.runJavaScript('''
+      if (typeof refreshMapData === 'function') {
+        refreshMapData();
       }
     ''');
   }
