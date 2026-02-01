@@ -223,7 +223,7 @@ impl EditSession {
         bitmap
     }
 
-    pub fn new(journey_id: String) -> Result<Self> {
+    pub fn new(journey_id: String) -> Result<Option<Self>> {
         let state = get();
         let journey_data = state
             .storage
@@ -237,7 +237,8 @@ impl EditSession {
         let journey_vector = match journey_data {
             JourneyData::Vector(vector) => vector,
             JourneyData::Bitmap(_) => {
-                bail!("Bitmap journey is not editable")
+                // Cannot edit bitmap journeys.
+                return Ok(None);
             }
         };
 
@@ -245,14 +246,14 @@ impl EditSession {
         let initial_camera_option = get_default_camera_option_from_journey_bitmap(&bitmap);
         let map_renderer = Arc::new(Mutex::new(MapRenderer::new(bitmap)));
 
-        Ok(Self {
+        Ok(Some(Self {
             journey_id,
             journey_revision,
             map_renderer,
             initial_camera_option,
             data: journey_vector,
             undo_stack: Vec::new(),
-        })
+        }))
     }
 
     #[frb(sync)]
@@ -261,6 +262,7 @@ impl EditSession {
     }
 
     pub fn push_undo_checkpoint(&mut self) -> bool {
+        // TODO: This equality check can be very expensive. Also we might want to limit the size of `undo_stack`.
         if self.undo_stack.last() != Some(&self.data) {
             self.undo_stack.push(self.data.clone());
             return true;
@@ -270,17 +272,17 @@ impl EditSession {
 
     pub fn get_map_renderer_proxy(&self) -> Result<(MapRendererProxy, Option<CameraOption>)> {
         Ok((
-            MapRendererProxy::Renderer(self.map_renderer.clone()),
+            MapRendererProxy::DynamicRenderer(self.map_renderer.clone()),
             self.initial_camera_option,
         ))
     }
 
-    pub fn undo(&mut self) -> Result<(MapRendererProxy, Option<CameraOption>)> {
+    pub fn undo(&mut self) -> Result<()> {
         if let Some(previous) = self.undo_stack.pop() {
             self.data = previous;
             self.sync_renderer_from_data()?;
         }
-        self.get_map_renderer_proxy()
+        Ok(())
     }
 
     pub fn delete_points_in_box(
@@ -289,7 +291,7 @@ impl EditSession {
         start_lng: f64,
         end_lat: f64,
         end_lng: f64,
-    ) -> Result<(MapRendererProxy, Option<CameraOption>)> {
+    ) -> Result<()> {
         // TODO Unable to properly handle cases spanning ±180° of longitude.
         let (min_lat, max_lat, min_lng, max_lng) =
             Self::normalize_box(start_lat, start_lng, end_lat, end_lng);
@@ -300,13 +302,13 @@ impl EditSession {
             min_lng,
             max_lng,
         );
-        if new_segments == self.data.track_segments {
-            return self.get_map_renderer_proxy();
+        // TODO: This equality check can be very expensive.
+        if new_segments != self.data.track_segments {
+            self.data.track_segments = new_segments;
+            self.sync_renderer_from_data()?;
         }
 
-        self.data.track_segments = new_segments;
-        self.sync_renderer_from_data()?;
-        self.get_map_renderer_proxy()
+        Ok(())
     }
 
     pub fn add_line(
@@ -315,15 +317,12 @@ impl EditSession {
         start_lng: f64,
         end_lat: f64,
         end_lng: f64,
-    ) -> Result<(MapRendererProxy, Option<CameraOption>)> {
+    ) -> Result<()> {
         if (start_lat - end_lat).abs() < EPS && (start_lng - end_lng).abs() < EPS {
-            return self.get_map_renderer_proxy();
+            return Ok(());
         }
 
-        let mut map_renderer = self
-            .map_renderer
-            .lock()
-            .map_err(|_| anyhow!("Failed to lock map renderer"))?;
+        let mut map_renderer = self.map_renderer.lock().unwrap();
         map_renderer.update(|journey_bitmap, tile_changed| {
             journey_bitmap.add_line_with_change_callback(
                 start_lng,
@@ -349,23 +348,22 @@ impl EditSession {
                 ],
             });
 
-        self.get_map_renderer_proxy()
+        Ok(())
     }
 
     pub fn commit(&self) -> Result<()> {
         let state = get();
-        let journey_id = self.journey_id.clone();
 
         state.storage.with_db_txn(|txn| {
             let current_revision = txn
-                .get_journey_header(&journey_id)?
+                .get_journey_header(&self.journey_id)?
                 .ok_or_else(|| anyhow!("Missing journey header"))?
                 .revision;
             if current_revision != self.journey_revision {
                 bail!("Journey has been modified. Please reopen the editor.")
             }
             txn.update_journey_data_with_latest_postprocessor(
-                &journey_id,
+                &self.journey_id,
                 // TODO: probably we could make this function drop self to avoid the clone.
                 JourneyData::Vector(self.data.clone()),
             )?;

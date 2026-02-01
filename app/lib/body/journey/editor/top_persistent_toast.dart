@@ -39,7 +39,7 @@ class TopPersistentToast {
             color: Colors.transparent,
             child: PointerInterceptor(
               child: Dialog(
-                backgroundColor: dialogBg.withOpacity(0.75),
+                backgroundColor: dialogBg.withValues(alpha: 0.75),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),

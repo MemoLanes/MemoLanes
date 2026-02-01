@@ -271,9 +271,9 @@ pub enum LogLevel {
 }
 
 #[frb(opaque)]
-#[derive(Clone)]
 pub enum MapRendererProxy {
-    Renderer(Arc<Mutex<MapRenderer>>),
+    StaticRenderer(MapRenderer),
+    DynamicRenderer(Arc<Mutex<MapRenderer>>),
     MainMapRenderer,
 }
 
@@ -281,7 +281,8 @@ impl MapRendererProxy {
     pub fn handle_webview_requests(&self, request: String) -> Result<String> {
         let request = Request::parse(&request)?;
         let response = match self {
-            MapRendererProxy::Renderer(map_renderer) => {
+            MapRendererProxy::StaticRenderer(map_renderer) => request.handle(map_renderer),
+            MapRendererProxy::DynamicRenderer(map_renderer) => {
                 let map_renderer = map_renderer.lock().unwrap();
                 request.handle(&map_renderer)
             }
@@ -305,7 +306,7 @@ pub fn get_map_renderer_proxy_for_main_map() -> MapRendererProxy {
 pub fn get_empty_map_renderer_proxy() -> MapRendererProxy {
     let journey_bitmap = JourneyBitmap::new();
     let map_renderer = MapRenderer::new(journey_bitmap);
-    MapRendererProxy::Renderer(Arc::new(Mutex::new(map_renderer)))
+    MapRendererProxy::StaticRenderer(map_renderer)
 }
 
 pub fn get_map_renderer_proxy_for_journey_date_range(
@@ -318,7 +319,7 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
     })?;
 
     let map_renderer = MapRenderer::new(journey_bitmap);
-    Ok(MapRendererProxy::Renderer(Arc::new(Mutex::new(
+    Ok(MapRendererProxy::DynamicRenderer(Arc::new(Mutex::new(
         map_renderer,
     ))))
 }
@@ -339,7 +340,7 @@ pub(super) fn get_map_renderer_proxy_for_journey_data_internal(
 
     let map_renderer = MapRenderer::new(journey_bitmap);
     Ok((
-        MapRendererProxy::Renderer(Arc::new(Mutex::new(map_renderer))),
+        MapRendererProxy::DynamicRenderer(Arc::new(Mutex::new(map_renderer))),
         default_camera_option,
     ))
 }
