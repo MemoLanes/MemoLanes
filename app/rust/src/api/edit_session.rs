@@ -27,12 +27,15 @@ pub struct EditSession {
 }
 
 impl EditSession {
+    fn build_bitmap_from_vector(vector: &JourneyVector) -> JourneyBitmap {
+        let mut bitmap = JourneyBitmap::new();
+        merged_journey_builder::add_journey_vector_to_journey_bitmap(&mut bitmap, vector);
+        bitmap
+    }
+
     fn sync_renderer_from_data(&self) -> Result<()> {
         let bitmap = Self::build_bitmap_from_vector(&self.data);
-        let mut map_renderer = self
-            .map_renderer
-            .lock()
-            .map_err(|_| anyhow!("Failed to lock map renderer"))?;
+        let mut map_renderer = self.map_renderer.lock().unwrap();
         map_renderer.replace(bitmap);
         Ok(())
     }
@@ -118,7 +121,7 @@ impl EditSession {
             }
         }
 
-        hits.sort_by(|(t1, _), (t2, _)| t1.partial_cmp(t2).unwrap());
+        hits.sort_by(|(t1, _), (t2, _)| t1.total_cmp(t2));
         hits
     }
 
@@ -217,12 +220,6 @@ impl EditSession {
         new_segments
     }
 
-    fn build_bitmap_from_vector(vector: &JourneyVector) -> JourneyBitmap {
-        let mut bitmap = JourneyBitmap::new();
-        merged_journey_builder::add_journey_vector_to_journey_bitmap(&mut bitmap, vector);
-        bitmap
-    }
-
     pub fn new(journey_id: String) -> Result<Option<Self>> {
         let state = get();
         let journey_data = state
@@ -261,13 +258,8 @@ impl EditSession {
         !self.undo_stack.is_empty()
     }
 
-    pub fn push_undo_checkpoint(&mut self) -> bool {
-        // TODO: This equality check can be very expensive. Also we might want to limit the size of `undo_stack`.
-        if self.undo_stack.last() != Some(&self.data) {
-            self.undo_stack.push(self.data.clone());
-            return true;
-        }
-        false
+    fn push_undo_checkpoint(&mut self, prev_data: JourneyVector) -> () {
+        self.undo_stack.push(prev_data);
     }
 
     pub fn get_map_renderer_proxy(&self) -> Result<(MapRendererProxy, Option<CameraOption>)> {
@@ -293,6 +285,7 @@ impl EditSession {
         end_lng: f64,
     ) -> Result<()> {
         // TODO Unable to properly handle cases spanning ±180° of longitude.
+
         let (min_lat, max_lat, min_lng, max_lng) =
             Self::normalize_box(start_lat, start_lng, end_lat, end_lng);
         let new_segments = Self::delete_points_in_box_segments(
@@ -302,8 +295,10 @@ impl EditSession {
             min_lng,
             max_lng,
         );
+
         // TODO: This equality check can be very expensive.
         if new_segments != self.data.track_segments {
+            self.push_undo_checkpoint(self.data.clone());
             self.data.track_segments = new_segments;
             self.sync_renderer_from_data()?;
         }
@@ -311,13 +306,22 @@ impl EditSession {
         Ok(())
     }
 
-    pub fn add_line(
-        &mut self,
-        points: &[(f64, f64)],
-    ) -> Result<()> {
+    pub fn add_lines(&mut self, points: &[(f64, f64)]) -> Result<()> {
+        // TODO: we could run the post processor here to simplify the added points first.
         if points.len() < 2 {
             return Ok(());
         }
+
+        self.push_undo_checkpoint(self.data.clone());
+        self.data.track_segments.push(TrackSegment {
+            track_points: points
+                .iter()
+                .map(|(lat, lng)| crate::journey_vector::TrackPoint {
+                    latitude: *lat,
+                    longitude: *lng,
+                })
+                .collect(),
+        });
 
         let mut map_renderer = self.map_renderer.lock().unwrap();
         map_renderer.update(|journey_bitmap, tile_changed| {
@@ -325,9 +329,7 @@ impl EditSession {
                 let (start_lat, start_lng) = window[0];
                 let (end_lat, end_lng) = window[1];
 
-                if (start_lat - end_lat).abs() < EPS
-                    && (start_lng - end_lng).abs() < EPS
-                {
+                if (start_lat - end_lat).abs() < EPS && (start_lng - end_lng).abs() < EPS {
                     continue;
                 }
 
@@ -336,22 +338,11 @@ impl EditSession {
                     start_lat,
                     end_lng,
                     end_lat,
-                    &mut *tile_changed
+                    &mut *tile_changed,
                 );
             }
         });
-
-        self.data.track_segments.push(
-            TrackSegment {
-                track_points: points
-                    .iter()
-                    .map(|(lat, lng)| crate::journey_vector::TrackPoint {
-                        latitude: *lat,
-                        longitude: *lng,
-                    })
-                    .collect(),
-            },
-        );
+        drop(map_renderer);
 
         Ok(())
     }
