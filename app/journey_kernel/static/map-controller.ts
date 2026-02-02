@@ -42,7 +42,7 @@ export interface MapControllerConfig {
    * Disable Mapdata automatic render loop.
    * Default: false
    */
-  disableAutoRender?: boolean;
+  DisableAutoRefresh?: boolean;
 }
 
 /**
@@ -51,7 +51,7 @@ export interface MapControllerConfig {
 export class MapController {
   private map: MaplibreMap;
   private params: ReactiveParams;
-  private disableAutoRender: boolean;
+  private DisableAutoRefresh: boolean;
   private currentJourneyLayer: JourneyLayer | null = null;
   private journeyTileProvider: JourneyTileProvider | null = null;
   private styleRetryIntervalId: ReturnType<typeof setInterval> | null = null;
@@ -59,7 +59,7 @@ export class MapController {
 
   constructor(config: MapControllerConfig) {
     this.params = config.params;
-    this.disableAutoRender = config.disableAutoRender ?? false;
+    this.DisableAutoRefresh = config.DisableAutoRefresh ?? false;
 
     // Build transform request function for Mapbox styles
     const transformRequest = this.buildTransformRequest();
@@ -151,7 +151,7 @@ export class MapController {
         this.setupStyleDataHandler();
 
         // Set up polling for tile updates
-        if (!this.disableAutoRender) {
+        if (!this.DisableAutoRefresh) {
           this.pollIntervalId = setInterval(
             () => this.journeyTileProvider?.pollForJourneyUpdates(false),
             1000,

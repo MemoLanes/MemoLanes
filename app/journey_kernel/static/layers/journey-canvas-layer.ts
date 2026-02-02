@@ -184,9 +184,7 @@ export class JourneyCanvasLayer implements JourneyLayer {
     //  it has a strict limit that the centor of the canvas fall into the half-open [-180, 180) range,
     //  or equivalently, the centor's mercator coordinate x must fall in [0, 1) range.
     //  but for our codes, in border case, the centor's mercator coordinate x may be 1.
-    //  so we multiply both left and right x by 0.999999 to make it fall into the [0, 1) range.
-    // We only nudge the right boundary when it exactly hits the world edge
-    // to avoid a systematic westward shift of the whole canvas.
+    //  so we nudge the right boundary when it exactly hits the world edge.
     // More info can be found at the calling stack referenced below,
     //  https://github.com/maplibre/maplibre-gl-js/blob/8895e414984a6348a1260ed986a0d2d7753367a8/src/source/image_source.ts#L228
     //  https://github.com/maplibre/maplibre-gl-js/blob/8895e414984a6348a1260ed986a0d2d7753367a8/src/source/image_source.ts#L350

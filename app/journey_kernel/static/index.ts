@@ -96,7 +96,7 @@ async function trySetup(): Promise<void> {
   const mapController = new MapController({
     containerId: "map",
     params,
-    disableAutoRender: isEditor,
+    DisableAutoRefresh: isEditor,
   });
 
   await mapController.initialize();

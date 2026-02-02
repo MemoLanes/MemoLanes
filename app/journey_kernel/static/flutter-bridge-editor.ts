@@ -308,6 +308,7 @@ export class FlutterBridgeEditor {
       const lngLat = (e as any).lngLat ?? this.map.unproject(e.point);
       const last = this.drawPoints[this.drawPoints.length - 1];
 
+      // TODO: This `eps` is very sus, it compare the lng/lat directly without any transformation.
       // Simple sampling guard: only add if moved a bit
       const eps = 1e-6;
       if (
