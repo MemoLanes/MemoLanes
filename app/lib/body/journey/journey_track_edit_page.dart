@@ -10,9 +10,9 @@ import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
 
 class JourneyTrackEditPage extends StatefulWidget {
-  final String journeyId;
+  final EditSession editSession;
 
-  const JourneyTrackEditPage({super.key, required this.journeyId});
+  const JourneyTrackEditPage({super.key, required this.editSession});
 
   @override
   State<JourneyTrackEditPage> createState() => _JourneyTrackEditPageState();
@@ -21,7 +21,7 @@ class JourneyTrackEditPage extends StatefulWidget {
 class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   static const int _minEditZoom = 13;
 
-  late EditSession _editSession;
+  late final EditSession _editSession;
   api.MapRendererProxy? _mapRendererProxy;
   JourneyEditorMapViewCamera? _initialMapView;
 
@@ -77,17 +77,9 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   Future<void> _loadMap() async {
     try {
-      EditSession? session =
-          await EditSession.newInstance(journeyId: widget.journeyId);
-      if (session == null) {
-        log.error("[JourneyTrackEditPage] EditSession is null");
-        return;
-      }
-
-      final result = await session.getMapRendererProxy();
-      if (!mounted) return;
+      _editSession = widget.editSession;
+      final result = await _editSession.getMapRendererProxy();
       setState(() {
-        _editSession = session;
         _mapRendererProxy = result.$1;
         final cameraOption = result.$2;
         if (cameraOption != null) {
@@ -97,21 +89,12 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
             zoom: cameraOption.zoom,
           );
         }
-        _canUndo = session.canUndo();
+        _canUndo = _editSession.canUndo();
       });
     } catch (e) {
       log.error("[JourneyTrackEditPage] Load map error: $e");
-      if (!mounted) return;
-
       _mapWebviewKey.currentState?.setDrawMode(false);
       _mapWebviewKey.currentState?.setDeleteMode(false);
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _showFloatingSnackBar(
-            context.tr("journey.editor.bitmap_not_supported"));
-        Navigator.of(context).maybePop();
-      });
     }
   }
 

@@ -10,9 +10,9 @@ import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
-import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
 import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
@@ -48,19 +48,11 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     final mapRendererProxyAndCameraOption =
         await api.getMapRendererProxyForJourney(journeyId: _journeyHeader.id);
 
-    JourneyHeader? latestHeader;
-    try {
-      final allJourneys = await api.listAllJourneys();
-      latestHeader = allJourneys
-          .where((j) => j.id == _journeyHeader.id)
-          .cast<JourneyHeader?>()
-          .firstOrNull;
-    } catch (e) {
-      // Best-effort refresh; map renderer proxy is the important part for track changes.
-      log.error(
-        'Failed to refresh journey header (journeyId=${_journeyHeader.id}): $e',
-      );
-    }
+    final allJourneys = await api.listAllJourneys();
+    final latestHeader = allJourneys
+        .where((j) => j.id == _journeyHeader.id)
+        .cast<JourneyHeader?>()
+        .firstOrNull;
 
     if (!mounted) return;
     setState(() {
@@ -124,13 +116,22 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   }
 
   Future<void> _trackEdit(BuildContext context) async {
+    final session = await EditSession.newInstance(journeyId: _journeyHeader.id);
+    if (!context.mounted) return;
+    if (session == null) {
+      await showCommonDialog(
+        context,
+        context.tr("journey.editor.bitmap_not_supported"),
+      );
+      return;
+    }
     await Navigator.push(context, MaterialPageRoute(builder: (context) {
       return Scaffold(
         appBar: AppBar(
           title: Text(context.tr("journey.editor.page_title")),
         ),
         body: JourneyTrackEditPage(
-          journeyId: _journeyHeader.id,
+          editSession: session,
         ),
       );
     }));
