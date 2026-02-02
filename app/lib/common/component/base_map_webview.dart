@@ -6,6 +6,8 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/common/map_base_style.dart';
+import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
@@ -48,8 +50,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   // TODO: define a proper type to make it more type-safe
   // TODO: we may let user to choose base map providers.
-  final _mapStyle = "https://tiles.openfreemap.org/styles/liberty";
-  // final _mapStyle = "mapbox://styles/mapbox/streets-v12";
+  late String _mapStyle;
 
   // Dev server URL for loading map webview from a local dev server.
   // Usage: flutter run --dart-define=DEV_SERVER=http://ip:port
@@ -92,6 +93,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _gpsManager = Provider.of<GpsManager>(context, listen: false);
     _gpsManager.addListener(_updateLocationMarker);
     _currentRoughMapView = widget.initialMapView;
+    _mapStyle = _loadMapStyleFromStorage();
     _initWebView();
 
     () async {
@@ -259,6 +261,15 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     ''');
 
     debugPrint('Initialization completed');
+  }
+
+  String _loadMapStyleFromStorage() {
+    final styleName = MMKVUtil.getString(
+      MMKVKey.mapStyle,
+      defaultValue: MapBaseStyle.normal.name,
+    );
+
+    return MapBaseStyle.fromName(styleName).url;
   }
 
   void _handleMapViewPush(String message) {

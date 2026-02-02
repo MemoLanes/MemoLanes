@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/body/settings/advanced_settings_page.dart';
 import 'package:memolanes/body/settings/import_data_page.dart';
+import 'package:memolanes/body/settings/map_settings_page.dart';
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
@@ -161,6 +162,15 @@ class _SettingsBodyState extends State<SettingsBody> {
               context.tr("general.version.currently_the_latest_version"),
             );
           },
+        ),
+        LabelTile(
+          label: context.tr("general.map_settings.title"),
+          position: LabelTilePosition.middle,
+          trailing: LabelTileContent(showArrow: true),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const MapSettingsPage()),
+          ),
         ),
         LabelTile(
           label: context.tr("general.advanced_settings.title"),

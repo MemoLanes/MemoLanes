@@ -7,6 +7,7 @@ class MMKVKey {
   static const String mainMapState = "MainMap.mapState";
   static const String isRecording = "GpsManager.isRecording";
   static const String privacyAgreementAccepted = "privacyAgreementAccepted";
+  static const String mapStyle = "mapStyle";
   static const String requestedBatteryOptimization =
       'Permission.requestedBatteryOptimization';
   static const String requestedNotification =

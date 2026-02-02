@@ -23,6 +23,8 @@ declare global {
     onMapMoved?: FlutterMessageChannel;
     onMapViewChanged?: FlutterMessageChannel;
     trySetup?: () => Promise<void>;
+    setMapStyle?: (style: string) => void;
+    getCurrentMapStyle?: () => string;
     updateLocationMarker?: (
       lng: number,
       lat: number,
@@ -135,6 +137,12 @@ export class FlutterBridge {
    * Setup all window methods that Flutter can call
    */
   setupFlutterCallableMethods(): void {
+    // Map style (for settings)
+    window.setMapStyle = (style: string) => {
+      this.mapController.setMapStyle(style);
+    };
+    window.getCurrentMapStyle = () => this.mapController.getMapStyle();
+
     // Update location marker
     window.updateLocationMarker = (() => {
       let isFlying = false;

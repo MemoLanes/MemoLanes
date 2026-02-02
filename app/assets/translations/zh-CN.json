@@ -116,6 +116,13 @@
       "title": "版本",
       "currently_the_latest_version": "当前已经是最新版本"
     },
+    "map_settings": {
+      "title": "地图设置",
+      "style": "地图样式",
+      "style_normal": "标准",
+      "style_satellite": "卫星",
+      "style_hybrid": "混合"
+    },
     "advanced_settings": {
       "title": "高级设置",
       "export_logs": "导出日志",
