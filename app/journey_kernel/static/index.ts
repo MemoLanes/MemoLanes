@@ -89,7 +89,7 @@ async function trySetup(): Promise<void> {
   );
 
   // Editor-specific bridge (used by journey track editor)
-  const isEditor = String(window.EXTERNAL_PARAMS.editor) === "true";
+  const isEditor = window.EXTERNAL_PARAMS.editor === true;
 
   // Create and initialize MapController
   // MapController handles: map instance, tile provider, layers, style management

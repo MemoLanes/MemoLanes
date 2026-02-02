@@ -298,7 +298,10 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                     );
                     if (!mounted || !shouldSave) return;
 
-                    await session.commit();
+                    await showLoadingDialog(
+                      context: context,
+                      asyncTask: session.commit(),
+                    );
                     if (!mounted) return;
                     _removeToast();
                     Fluttertoast.showToast(
