@@ -107,6 +107,10 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     ''');
   }
 
+  Future<void> manualRefresh() async {
+    await _refreshMapData();
+  }
+
   @override
   void initState() {
     super.initState();

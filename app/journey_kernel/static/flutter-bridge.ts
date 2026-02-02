@@ -116,33 +116,6 @@ export class FlutterBridge {
   })();
 
   /**
-   * Notify Flutter when the map zoom integer changes
-   */
-  notifyMapZoomChanged = (() => {
-    let lastZoom: number | undefined;
-    let lastPushTime = 0;
-
-    const THROTTLE_MS = 50;
-
-    return () => {
-      const messageHandler = window.onMapZoomChanged;
-      if (!messageHandler?.postMessage) return;
-
-      const now = Date.now();
-      if (now - lastPushTime < THROTTLE_MS) return;
-
-      const zoom = Math.trunc(this.map.getZoom());
-
-      if (zoom === lastZoom) return;
-
-      messageHandler.postMessage(zoom.toString());
-
-      lastZoom = zoom;
-      lastPushTime = now;
-    };
-  })();
-
-  /**
    * Setup all map event listeners that notify Flutter
    */
   setupMapEventListeners(): void {
@@ -163,11 +136,6 @@ export class FlutterBridge {
     // Notify Flutter when map view changed
     this.map.on("idle", () => {
       this.notifyMapViewChanged();
-    });
-
-    // Notify Flutter when zoom level changes
-    this.map.on("zoom", () => {
-      this.notifyMapZoomChanged();
     });
   }
 

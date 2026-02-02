@@ -1,15 +1,13 @@
-import 'dart:math' as math;
-
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/body/journey/editor/journey_editor_map_view.dart';
 import 'package:memolanes/body/journey/editor/journey_track_edit_mode_bar.dart';
 import 'package:memolanes/body/journey/editor/top_persistent_toast.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
-import 'package:memolanes/common/log.dart';
 
 class JourneyTrackEditPage extends StatefulWidget {
   final String journeyId;
@@ -79,8 +77,10 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   Future<void> _loadMap() async {
     try {
-      EditSession? session = await EditSession.newInstance(journeyId: widget.journeyId);
+      EditSession? session =
+          await EditSession.newInstance(journeyId: widget.journeyId);
       if (session == null) {
+        log.error("[JourneyTrackEditPage] EditSession is null");
         return;
       }
 
@@ -92,9 +92,9 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
         final cameraOption = result.$2;
         if (cameraOption != null) {
           _initialMapView = (
-          lng: cameraOption.lng,
-          lat: cameraOption.lat,
-          zoom: cameraOption.zoom,
+            lng: cameraOption.lng,
+            lat: cameraOption.lat,
+            zoom: cameraOption.zoom,
           );
         }
         _canUndo = session.canUndo();
@@ -103,7 +103,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
       log.error("[JourneyTrackEditPage] Load map error: $e");
       if (!mounted) return;
 
-      // 发生错误时确保编辑模式关闭
       _mapWebviewKey.currentState?.setDrawMode(false);
       _mapWebviewKey.currentState?.setDeleteMode(false);
 
@@ -192,13 +191,9 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
     final session = _editSession;
 
-    await session.pushUndoCheckpoint();
+    final recordPoints = points.map((p) => (p.lat, p.lng)).toList();
 
-    final recordPoints = points
-        .map((p) => (p.lat, p.lng))
-        .toList();
-
-    await session.addLine(points: recordPoints);
+    await session.addLines(points: recordPoints);
 
     if (!mounted) return;
 
@@ -216,8 +211,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     if (_mode != OperationMode.delete) return;
 
     final session = _editSession;
-
-    await session.pushUndoCheckpoint();
 
     await session.deletePointsInBox(
       startLat: startLat,

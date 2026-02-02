@@ -88,11 +88,15 @@ async function trySetup(): Promise<void> {
     window.EXTERNAL_PARAMS,
   );
 
+  // Editor-specific bridge (used by journey track editor)
+  const isEditor = String(window.EXTERNAL_PARAMS.editor) === "true";
+
   // Create and initialize MapController
   // MapController handles: map instance, tile provider, layers, style management
   const mapController = new MapController({
     containerId: "map",
     params,
+    disableAutoRender: isEditor,
   });
 
   await mapController.initialize();
@@ -109,10 +113,6 @@ async function trySetup(): Promise<void> {
   const flutterBridge = new FlutterBridge(mapController);
   flutterBridge.initialize();
 
-  // Editor-specific bridge (used by journey track editor)
-  const isEditor =
-    window.EXTERNAL_PARAMS.editor === true ||
-    window.EXTERNAL_PARAMS.editor === "true";
   if (isEditor) {
     const flutterBridgeEditor = new FlutterBridgeEditor({
       flutterBridge,

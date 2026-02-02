@@ -258,7 +258,7 @@ impl EditSession {
         !self.undo_stack.is_empty()
     }
 
-    fn push_undo_checkpoint(&mut self, prev_data: JourneyVector) -> () {
+    fn push_undo_checkpoint(&mut self, prev_data: JourneyVector) {
         self.undo_stack.push(prev_data);
     }
 

@@ -100,6 +100,7 @@ class _JourneyEditorMapWebviewState extends State<_JourneyEditorMapWebview> {
       }
     ''');
   }
+
   Future<void> manualRefresh() async {
     await _baseKey.currentState?.runJavaScript('''
       if (typeof refreshMapData === 'function') {
