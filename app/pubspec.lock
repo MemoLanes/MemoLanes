@@ -1016,10 +1016,11 @@ packages:
   share_plus:
     dependency: "direct main"
     description:
-      name: share_plus
-      sha256: "14c8860d4de93d3a7e53af51bff479598c4e999605290756bbbe45cf65b37840"
-      url: "https://pub.dev"
-    source: hosted
+      path: "packages/share_plus/share_plus"
+      ref: main
+      resolved-ref: "2b865bc4fa51ecaa2d8eddc7f4b67ceeaee6a541"
+      url: "https://github.com/MemoLanes/plus_plugins"
+    source: git
     version: "12.0.1"
   share_plus_platform_interface:
     dependency: transitive
