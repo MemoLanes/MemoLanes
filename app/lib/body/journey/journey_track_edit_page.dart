@@ -34,19 +34,19 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   void _showAddModeEnabled() {
     _showFloatingSnackBar(
-      context.tr("journey.journey_track_edit_add_mode_enabled"),
+      context.tr("journey.editor.draw_mode_enabled"),
     );
   }
 
   void _showDeleteModeEnabled() {
     _showFloatingSnackBar(
-      context.tr("journey.journey_track_edit_delete_mode_enabled"),
+      context.tr("journey.editor.erase_mode_enabled"),
     );
   }
 
   void _showZoomTooLow() {
     _showFloatingSnackBar(
-      context.tr("journey.journey_track_edit_zoom_too_low"),
+      context.tr("journey.editor.zoom_too_low"),
     );
   }
 
@@ -63,7 +63,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     _removeToast();
     final shouldExit = await showCommonDialog(
       context,
-      context.tr("journey.journey_track_edit_discard_changes_confirm"),
+      context.tr("journey.editor.discard_changes_confirm"),
       hasCancel: true,
     );
     return shouldExit;
@@ -109,7 +109,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _showFloatingSnackBar(
-            context.tr("journey.journey_track_edit_bitmap_not_supported"));
+            context.tr("journey.editor.bitmap_not_supported"));
         Navigator.of(context).maybePop();
       });
     }

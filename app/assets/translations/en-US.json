@@ -41,12 +41,19 @@
     "save_confirm": "Do you want to save the changes?"
   },
   "journey": {
-    "edit_bar": {
+    "editor": {
       "move": "Move",
-      "edit": "Draw",
-      "delete": "Erase",
+      "draw": "Draw",
+      "erase": "Erase",
       "undo": "Undo",
-      "save": "Save"
+      "save": "Save",
+      "page_title": "Edit Journey Track",
+      "draw_mode_enabled": "Drawing mode is enabled. Draw on the map to add new tracks.",
+      "draw_mode_disabled": "Drawing mode is disabled. Use two fingers to pinch and zoom the map, then adjust to an appropriate zoom level to continue drawing.",
+      "erase_mode_enabled": "Erase mode enabled. Draw a box to delete tracks.",
+      "bitmap_not_supported": "Editing a bitmap record (usually imported from Fog of World) is not supported.",
+      "discard_changes_confirm": "Unsaved changes will be lost. Do you want to continue?",
+      "zoom_too_low": "Zoom in to add a new segment."
     },
     "no_data": "There's no data yet, go ahead and explore the world!",
     "journey_date_is_empty": "JourneyDate is empty",
@@ -56,13 +63,6 @@
     "delete_all_journey_message": "This will delete all journeys in this app. Are you sure?",
     "journey_info_page_title": "Journey Information",
     "journey_info_edit_page_title": "Edit Journey Information",
-    "journey_track_edit_title": "Edit Journey Track",
-    "journey_track_edit_add_mode_enabled": "Drawing mode is enabled. Draw on the map to add new track segments.",
-    "journey_track_edit_add_mode_disabled": "Drawing mode is disabled. Use two fingers to pinch and zoom the map, then adjust to an appropriate zoom level to continue editing.",
-    "journey_track_edit_delete_mode_enabled": "Delete mode enabled. Draw a box to delete points.",
-    "journey_track_edit_bitmap_not_supported": "This track is not a MemoLanes record, can't be edited.",
-    "journey_track_edit_discard_changes_confirm": "Unsaved changes will be lost. Do you want to continue?",
-    "journey_track_edit_zoom_too_low": "Zoom in to add a new segment.",
     "import_mldx_data": "Import MLDX Data",
     "import_kml_gpx_data": "Import KML/GPX Data",
     "import_fog_of_world_data": "Import [Fog of World] Data",

@@ -64,19 +64,19 @@ class ModeSwitchBar extends StatelessWidget {
                   _buildModeItem(
                     mode: OperationMode.move,
                     icon: Icons.open_with_rounded,
-                    label: context.tr('journey.edit_bar.move'),
+                    label: context.tr('journey.editor.move'),
                   ),
                   _buildModeItem(
                     mode: OperationMode.edit,
                     icon: Icons.gesture_rounded,
-                    label: context.tr('journey.edit_bar.edit'),
+                    label: context.tr('journey.editor.draw'),
                     isSelected: currentMode == OperationMode.edit ||
                         currentMode == OperationMode.editReadonly,
                   ),
                   _buildModeItem(
                     mode: OperationMode.delete,
                     icon: Icons.delete,
-                    label: context.tr('journey.edit_bar.delete'),
+                    label: context.tr('journey.editor.erase'),
                   ),
                   Container(
                     width: 1,
@@ -86,13 +86,13 @@ class ModeSwitchBar extends StatelessWidget {
                   ),
                   _buildActionButton(
                     icon: Icons.undo_rounded,
-                    label: context.tr('journey.edit_bar.undo'),
+                    label: context.tr('journey.editor.undo'),
                     isEnabled: canUndo,
                     onTap: onUndo,
                   ),
                   _buildActionButton(
                     icon: Icons.save,
-                    label: context.tr('journey.edit_bar.save'),
+                    label: context.tr('journey.editor.save'),
                     isEnabled: canSave,
                     onTap: onSave,
                   ),

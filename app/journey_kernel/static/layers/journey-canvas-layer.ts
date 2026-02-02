@@ -184,23 +184,17 @@ export class JourneyCanvasLayer implements JourneyLayer {
     //  it has a strict limit that the centor of the canvas fall into the half-open [-180, 180) range,
     //  or equivalently, the centor's mercator coordinate x must fall in [0, 1) range.
     //  but for our codes, in border case, the centor's mercator coordinate x may be 1.
-    //  so we nudge the right boundary when it exactly hits the world edge.
+    //  so we multiply both left and right x by a number that is close to 1 but smaller than 1
+    //  to make it fall into the [0, 1) range.
     // More info can be found at the calling stack referenced below,
     //  https://github.com/maplibre/maplibre-gl-js/blob/8895e414984a6348a1260ed986a0d2d7753367a8/src/source/image_source.ts#L228
     //  https://github.com/maplibre/maplibre-gl-js/blob/8895e414984a6348a1260ed986a0d2d7753367a8/src/source/image_source.ts#L350
     //  https://github.com/maplibre/maplibre-gl-js/blob/08fce0cfbf28f4da2cde60025588a8cb9323c9fe/src/source/tile_id.ts#L23
-    const nudgeWorldEdge = (value: number, n: number): number => {
-      const epsilon = 1e-6;
-      if (value >= n) return n - epsilon;
-      if (value <= 0) return 0;
-      return value;
-    };
-
-    const nTiles = Math.pow(2, z);
-    const nw = tileXYToLngLat(left, top, z);
-    const ne = tileXYToLngLat(nudgeWorldEdge(right, nTiles), top, z);
-    const se = tileXYToLngLat(nudgeWorldEdge(right, nTiles), bottom, z);
-    const sw = tileXYToLngLat(left, bottom, z);
+    const almost = (x: number): number => x * (1 - 10 * Number.EPSILON);
+    const nw = tileXYToLngLat(almost(left), top, z);
+    const ne = tileXYToLngLat(almost(right), top, z);
+    const se = tileXYToLngLat(almost(right), bottom, z);
+    const sw = tileXYToLngLat(almost(left), bottom, z);
 
     const mainCanvasSource = this.map.getSource(this.sourceId) as
       | CanvasSource

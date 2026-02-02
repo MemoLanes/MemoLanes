@@ -123,7 +123,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     await Navigator.push(context, MaterialPageRoute(builder: (context) {
       return Scaffold(
         appBar: AppBar(
-          title: Text(context.tr("journey.journey_track_edit_title")),
+          title: Text(context.tr("journey.editor.page_title")),
         ),
         body: JourneyTrackEditPage(
           journeyId: _journeyHeader.id,
@@ -373,7 +373,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
           ),
           CardLabelTile(
             position: CardLabelTilePosition.bottom,
-            label: context.tr("journey.journey_track_edit_title"),
+            label: context.tr("journey.editor.page_title"),
             onTap: () async {
               _trackEdit(context);
             },
