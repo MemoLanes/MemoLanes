@@ -10,6 +10,7 @@ import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart';
@@ -54,8 +55,11 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
           .where((j) => j.id == _journeyHeader.id)
           .cast<JourneyHeader?>()
           .firstOrNull;
-    } catch (_) {
+    } catch (e) {
       // Best-effort refresh; map renderer proxy is the important part for track changes.
+      log.error(
+        'Failed to refresh journey header (journeyId=${_journeyHeader.id}): $e',
+      );
     }
 
     if (!mounted) return;
