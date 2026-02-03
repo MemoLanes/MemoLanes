@@ -2,7 +2,7 @@
 ///
 /// - Persist to storage using [name] (e.g. "normal")
 /// - Inject to WebView using [url]
-/// - Display label using [i18nKey]
+/// - Display labels are hardcoded in map_settings_page.dart like other pages
 enum MapBaseStyle {
   normal,
   satellite,
@@ -19,11 +19,5 @@ enum MapBaseStyle {
         MapBaseStyle.normal => "https://tiles.openfreemap.org/styles/liberty",
         MapBaseStyle.satellite => "mapbox://styles/mapbox/satellite-v9",
         MapBaseStyle.hybrid => "mapbox://styles/mapbox/satellite-streets-v12",
-      };
-
-  String get i18nKey => switch (this) {
-        MapBaseStyle.normal => "general.map_settings.style_normal",
-        MapBaseStyle.satellite => "general.map_settings.style_satellite",
-        MapBaseStyle.hybrid => "general.map_settings.style_hybrid",
       };
 }

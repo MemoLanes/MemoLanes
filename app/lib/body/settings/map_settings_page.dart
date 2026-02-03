@@ -29,7 +29,12 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
     _current = MapBaseStyle.fromName(styleName);
   }
 
-  String get _currentLabel => context.tr(_current.i18nKey);
+  String get _currentLabel => switch (_current) {
+        MapBaseStyle.normal => context.tr("general.map_settings.style_normal"),
+        MapBaseStyle.satellite =>
+          context.tr("general.map_settings.style_satellite"),
+        MapBaseStyle.hybrid => context.tr("general.map_settings.style_hybrid"),
+      };
 
   void _updateStyle(MapBaseStyle style) {
     if (_current == style) return;
@@ -44,17 +49,17 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
       child: OptionCard(
         children: [
           CardLabelTile(
-            label: context.tr(MapBaseStyle.normal.i18nKey),
+            label: context.tr("general.map_settings.style_normal"),
             position: CardLabelTilePosition.top,
             onTap: () => _updateStyle(MapBaseStyle.normal),
           ),
           CardLabelTile(
-            label: context.tr(MapBaseStyle.satellite.i18nKey),
+            label: context.tr("general.map_settings.style_satellite"),
             position: CardLabelTilePosition.middle,
             onTap: () => _updateStyle(MapBaseStyle.satellite),
           ),
           CardLabelTile(
-            label: context.tr(MapBaseStyle.hybrid.i18nKey),
+            label: context.tr("general.map_settings.style_hybrid"),
             position: CardLabelTilePosition.bottom,
             onTap: () => _updateStyle(MapBaseStyle.hybrid),
           ),
