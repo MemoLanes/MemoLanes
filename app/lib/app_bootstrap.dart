@@ -4,8 +4,8 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
-import 'package:memolanes/body/settings/settings_body.dart';
 import 'package:memolanes/common/app_lifecycle_service.dart';
+import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
@@ -80,6 +80,18 @@ class AppBootstrap {
   static bool _started = false;
   static final Completer<void> _mainMapReady = Completer<void>();
 
+  /// 启动计时起点，用于输出 first_screen_ms / map_ready_ms 等可量化日志。
+  static DateTime? _launchStartedAt;
+
+  static void recordLaunchStartTime() {
+    _launchStartedAt = DateTime.now();
+  }
+
+  /// 自 recordLaunchStartTime 起经过的毫秒数，用于打点日志。
+  static int? get launchElapsedMs => _launchStartedAt != null
+      ? DateTime.now().difference(_launchStartedAt!).inMilliseconds
+      : null;
+
   static Future<void> initAppRuntime() async {
     // This is required since we are doing things before calling `runApp`.
     WidgetsFlutterBinding.ensureInitialized();
@@ -118,6 +130,12 @@ class AppBootstrap {
     api.initMainMap().then(
       (_) {
         _mainMapReady.complete();
+        final ms = launchElapsedMs;
+        if (ms != null) {
+          // 同时 print 便于控制台/logcat 直接看到；log.info 会写入 Rust 日志文件
+          print('[Startup] map_ready_ms=$ms');
+          log.info('[Startup] map_ready_ms=$ms');
+        }
       },
       onError: (e, s) {
         _mainMapReady.completeError(e, s);

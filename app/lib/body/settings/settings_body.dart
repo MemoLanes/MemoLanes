@@ -13,6 +13,7 @@ import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/component/tiles/label_tile_title.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:package_info_plus/package_info_plus.dart';
@@ -352,18 +353,5 @@ class _SettingsBodyState extends State<SettingsBody> {
         ],
       ),
     );
-  }
-}
-
-class UpdateNotifier extends ChangeNotifier {
-  String? updateUrl;
-
-  void setUpdateUrl(String? url) {
-    updateUrl = url;
-    notifyListeners();
-  }
-
-  bool hasUpdateNotification() {
-    return updateUrl != null;
   }
 }

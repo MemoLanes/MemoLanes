@@ -7,17 +7,18 @@ import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:memolanes/app_bootstrap.dart';
-import 'package:memolanes/body/achievement/achievement_body.dart';
-import 'package:memolanes/body/journey/journey_body.dart';
+import 'package:memolanes/body/achievement/achievement_body.dart' deferred as achievement;
+import 'package:memolanes/body/journey/journey_body.dart' deferred as journey;
 import 'package:memolanes/body/map/map_body.dart';
 import 'package:memolanes/body/privacy_agreement.dart';
-import 'package:memolanes/body/settings/settings_body.dart';
-import 'package:memolanes/body/time_machine/time_machine_body.dart';
+import 'package:memolanes/body/settings/settings_body.dart' deferred as settings;
+import 'package:memolanes/body/time_machine/time_machine_body.dart' deferred as time_machine;
 import 'package:memolanes/common/component/bottom_nav_bar.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/share_handler_util.dart';
+import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/index.dart';
 import 'package:provider/provider.dart';
@@ -27,6 +28,8 @@ bool mainMapInitialized = false;
 
 void main() async {
   runZonedGuarded(() async {
+    AppBootstrap.recordLaunchStartTime();
+
     await AppBootstrap.initAppRuntime();
 
     final gpsManager = GpsManager();
@@ -52,6 +55,16 @@ void main() async {
       ),
     );
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ms = AppBootstrap.launchElapsedMs;
+      if (ms != null) {
+        log.info('[Startup] first_screen_ms=$ms');
+      }
+      // 延后到首帧之后，避免阻塞首帧（intl 日期数据加载）。
+      initializeDateFormatting('en_US');
+      initializeDateFormatting('zh_CN');
+    });
+
     AppBootstrap.startAppServices(
       gpsManager: gpsManager,
       updateNotifier: updateNotifier,
@@ -74,7 +87,6 @@ class MyApp extends StatelessWidget {
     if (deviceLocale.languageCode == 'zh') {
       locale = const Locale('zh', 'CN');
     }
-    initializeDateFormatting(locale.toString());
     context.setLocale(locale);
   }
 
@@ -125,6 +137,12 @@ class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
   DateTime? _lastExitPopAt;
 
+  /// 非首屏 Tab 延迟加载，减少首帧前需要解析/执行的 Dart 代码量。
+  Future<void>? _timeMachineLib;
+  Future<void>? _journeyLib;
+  Future<void>? _achievementLib;
+  Future<void>? _settingsLib;
+
   @override
   void initState() {
     super.initState();
@@ -141,6 +159,19 @@ class _MyHomePageState extends State<MyHomePage> {
         );
       }
     });
+  }
+
+  Widget _buildDeferredBody(Future<void> loadFuture, Widget Function() body) {
+    return FutureBuilder<void>(
+      future: loadFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done &&
+            !snapshot.hasError) {
+          return body();
+        }
+        return const Center(child: CircularProgressIndicator());
+      },
+    );
   }
 
   Future<void> _handleOnPop() async {
@@ -176,10 +207,22 @@ class _MyHomePageState extends State<MyHomePage> {
                   0, // we don't need safe area for `MapUiBody`
               child: switch (_selectedIndex) {
                 0 => const MapBody(),
-                1 => const TimeMachineBody(),
-                2 => const JourneyBody(),
-                3 => const AchievementBody(),
-                4 => const SettingsBody(),
+                1 => _buildDeferredBody(
+                      _timeMachineLib ??= time_machine.loadLibrary(),
+                      () => time_machine.TimeMachineBody(),
+                    ),
+                2 => _buildDeferredBody(
+                      _journeyLib ??= journey.loadLibrary(),
+                      () => journey.JourneyBody(),
+                    ),
+                3 => _buildDeferredBody(
+                      _achievementLib ??= achievement.loadLibrary(),
+                      () => achievement.AchievementBody(),
+                    ),
+                4 => _buildDeferredBody(
+                      _settingsLib ??= settings.loadLibrary(),
+                      () => settings.SettingsBody(),
+                    ),
                 _ => throw FormatException('Invalid index: $_selectedIndex'),
               },
             ),
