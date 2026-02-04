@@ -58,6 +58,7 @@ void main() async {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final ms = AppBootstrap.launchElapsedMs;
       if (ms != null) {
+        print('[Startup] first_screen_ms=$ms');
         log.info('[Startup] first_screen_ms=$ms');
       }
       // 延后到首帧之后，避免阻塞首帧（intl 日期数据加载）。
