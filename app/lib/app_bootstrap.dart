@@ -83,17 +83,28 @@ class AppBootstrap {
   static Future<void> initAppRuntime() async {
     // This is required since we are doing things before calling `runApp`.
     WidgetsFlutterBinding.ensureInitialized();
-    await EasyLocalization.ensureInitialized();
-    await MMKVUtil.init();
 
-    // TODO: Consider using `flutter_native_splash`
-    await RustLib.init();
-    initLog();
+    // Run independent inits in parallel to speed up time to first frame.
+    final tempDirFuture = getTemporaryDirectory();
+    final docDirFuture = getApplicationDocumentsDirectory();
+    final supportDirFuture = getApplicationSupportDirectory();
+    final cacheDirFuture = getApplicationCacheDirectory();
+
+    await Future.wait([
+      EasyLocalization.ensureInitialized(),
+      MMKVUtil.init(),
+      RustLib.init().whenComplete(() => initLog()),
+      tempDirFuture,
+      docDirFuture,
+      supportDirFuture,
+      cacheDirFuture,
+    ]);
+
     await api.init(
-        tempDir: (await getTemporaryDirectory()).path,
-        docDir: (await getApplicationDocumentsDirectory()).path,
-        supportDir: (await getApplicationSupportDirectory()).path,
-        systemCacheDir: (await getApplicationCacheDirectory()).path);
+        tempDir: (await tempDirFuture).path,
+        docDir: (await docDirFuture).path,
+        supportDir: (await supportDirFuture).path,
+        systemCacheDir: (await cacheDirFuture).path);
   }
 
   // i18n is ready
