@@ -13,6 +13,7 @@ class ShareHandlerUtil {
     final handler = ShareHandlerPlatform.instance;
 
     handler.getInitialSharedMedia().then((media) {
+      if (!context.mounted) return;
       final attachments = media?.attachments ?? const [];
       _handleSharedFile(context, attachments);
     }).catchError((e) {
@@ -20,6 +21,7 @@ class ShareHandlerUtil {
     });
 
     final subscription = handler.sharedMediaStream.listen((media) {
+      if (!context.mounted) return;
       final attachments = media.attachments ?? const [];
       _handleSharedFile(context, attachments);
     }, onError: (err) {
@@ -41,6 +43,7 @@ class ShareHandlerUtil {
     if (paths.isEmpty) return;
 
     if (paths.length > 1) {
+      if (!context.mounted) return;
       await showCommonDialog(
         context,
         context.tr("import.shared_file.multi_message"),
@@ -53,6 +56,7 @@ class ShareHandlerUtil {
     final lowerPath = path.toLowerCase();
 
     final fileName = path.split('/').last;
+    if (!context.mounted) return;
     final confirm = await showCommonDialog(
       context,
       context.tr("import.shared_file.confirm_message", args: [fileName]),
@@ -63,12 +67,14 @@ class ShareHandlerUtil {
     if (confirm != true) return;
 
     if (lowerPath.endsWith('.mldx')) {
+      if (!context.mounted) return;
       await importMldx(context, path);
       return;
     }
 
     final importType = _resolveImportType(lowerPath);
     if (importType == null) {
+      if (!context.mounted) return;
       await showCommonDialog(
           context, context.tr("import.unsupported_file_failed"));
       return;

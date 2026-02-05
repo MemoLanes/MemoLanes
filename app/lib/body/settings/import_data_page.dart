@@ -51,14 +51,15 @@ class _ImportDataPage extends State<ImportDataPage> {
           return await _previewDataInternal();
         }(),
       )) {
+        if (!mounted) return;
         await showCommonDialog(
           context,
           context.tr("import.empty_data"),
         );
         return;
       }
-      if (context.mounted &&
-          _preprocessor == import_api.ImportPreprocessor.spare) {
+      if (!mounted) return;
+      if (_preprocessor == import_api.ImportPreprocessor.spare) {
         showCommonDialog(
           context,
           context.tr("preprocessor.spare_md"),
@@ -67,7 +68,9 @@ class _ImportDataPage extends State<ImportDataPage> {
       }
     } catch (error) {
       log.error("[import_data] Data parsing failed $error");
+      if (!mounted) return;
       await showCommonDialog(context, context.tr("import.parsing_failed"));
+      if (!mounted) return;
       if (Navigator.canPop(context)) {
         Navigator.pop(context);
       }
@@ -111,6 +114,7 @@ class _ImportDataPage extends State<ImportDataPage> {
         return await _previewDataInternal();
       }(),
     )) {
+      if (!mounted) return;
       await showCommonDialog(
         context,
         context.tr("import.empty_data"),
@@ -167,6 +171,7 @@ class _ImportDataPage extends State<ImportDataPage> {
         return true;
       })(),
     );
+    if (!mounted) return;
     if (success) {
       await showCommonDialog(
         context,
