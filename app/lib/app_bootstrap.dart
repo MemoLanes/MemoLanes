@@ -4,6 +4,7 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:memolanes/common/app_lifecycle_service.dart';
 import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/gps_manager.dart';
@@ -79,18 +80,29 @@ void delayedInit(UpdateNotifier updateNotifier) {
 class AppBootstrap {
   static bool _started = false;
   static final Completer<void> _mainMapReady = Completer<void>();
+  static bool _didApplyInitialLocale = false;
 
-  /// 启动计时起点，用于输出 first_screen_ms / map_ready_ms 等可量化日志。
-  static DateTime? _launchStartedAt;
+  static void onFirstFrame() {
+    final ctx = navigatorKey.currentState?.context;
+    if (ctx != null && ctx.mounted) {
+      if (!_didApplyInitialLocale) {
+        _didApplyInitialLocale = true;
 
-  static void recordLaunchStartTime() {
-    _launchStartedAt = DateTime.now();
+        // TODO: This naive version is good enough for now, as we only have two locales.
+        // The one provided by the lib is kinda weird. e.g. It will map `zh-Hans-HK` to
+        // `en-US` (I guess `Hans` + `HK` is a weird case).
+        // Maybe related to: https://github.com/aissat/easy_localization/issues/372
+        final deviceLocale = ctx.deviceLocale;
+        var locale = const Locale('en', 'US');
+        if (deviceLocale?.languageCode == 'zh') {
+          locale = const Locale('zh', 'CN');
+        }
+        ctx.setLocale(locale);
+
+        initializeDateFormatting(locale.toString());
+      }
+    }
   }
-
-  /// 自 recordLaunchStartTime 起经过的毫秒数，用于打点日志。
-  static int? get launchElapsedMs => _launchStartedAt != null
-      ? DateTime.now().difference(_launchStartedAt!).inMilliseconds
-      : null;
 
   static Future<void> initAppRuntime() async {
     // This is required since we are doing things before calling `runApp`.
@@ -130,12 +142,6 @@ class AppBootstrap {
     api.initMainMap().then(
       (_) {
         _mainMapReady.complete();
-        final ms = launchElapsedMs;
-        if (ms != null) {
-          // 同时 print 便于控制台/logcat 直接看到；log.info 会写入 Rust 日志文件
-          print('[Startup] map_ready_ms=$ms');
-          log.info('[Startup] map_ready_ms=$ms');
-        }
       },
       onError: (e, s) {
         _mainMapReady.completeError(e, s);

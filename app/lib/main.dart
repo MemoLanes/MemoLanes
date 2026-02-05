@@ -5,7 +5,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:intl/date_symbol_data_local.dart';
 import 'package:memolanes/app_bootstrap.dart';
 import 'package:memolanes/body/achievement/achievement_body.dart' deferred as achievement;
 import 'package:memolanes/body/journey/journey_body.dart' deferred as journey;
@@ -27,8 +26,6 @@ GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   runZonedGuarded(() async {
-    AppBootstrap.recordLaunchStartTime();
-
     await AppBootstrap.initAppRuntime();
 
     final gpsManager = GpsManager();
@@ -55,14 +52,7 @@ void main() async {
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final ms = AppBootstrap.launchElapsedMs;
-      if (ms != null) {
-        print('[Startup] first_screen_ms=$ms');
-        log.info('[Startup] first_screen_ms=$ms');
-      }
-      // 延后到首帧之后，避免阻塞首帧（intl 日期数据加载）。
-      initializeDateFormatting('en_US');
-      initializeDateFormatting('zh_CN');
+      AppBootstrap.onFirstFrame();
     });
 
     AppBootstrap.startAppServices(
@@ -77,22 +67,8 @@ void main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  void _naiveLocaleSelection(BuildContext context) {
-    // TODO: This naive version is good enough for now, as we only have two locales.
-    // The one provided by the lib is kinda weird. e.g. It will map `zh-Hans-HK` to
-    // `en-US` (I guess `Hans` + `HK` is a weird case).
-    // Maybe related to: https://github.com/aissat/easy_localization/issues/372
-    var deviceLocale = context.deviceLocale;
-    var locale = const Locale('en', 'US');
-    if (deviceLocale.languageCode == 'zh') {
-      locale = const Locale('zh', 'CN');
-    }
-    context.setLocale(locale);
-  }
-
   @override
   Widget build(BuildContext context) {
-    _naiveLocaleSelection(context);
     return MaterialApp(
       title: "MemoLanes",
       onGenerateTitle: (context) => context.tr('common.memolanes'),
@@ -137,7 +113,6 @@ class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
   DateTime? _lastExitPopAt;
 
-  /// 非首屏 Tab 延迟加载，减少首帧前需要解析/执行的 Dart 代码量。
   Future<void>? _timeMachineLib;
   Future<void>? _journeyLib;
   Future<void>? _achievementLib;
@@ -171,7 +146,6 @@ class _MyHomePageState extends State<MyHomePage> {
         }
 
         if (snapshot.hasError) {
-          // 不做复杂 UI，仅记录错误，便于排查。
           log.error('Deferred load failed ${snapshot.error}',
               snapshot.stackTrace);
         }
