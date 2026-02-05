@@ -146,8 +146,6 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
-    // 尽早注册分享监听，避免错过 very-early 的 stream 事件；
-    // 具体的 UI 交互（弹窗/跳转）已在 ShareHandlerUtil 内延后到首帧后执行。
     ShareHandlerUtil.init(context);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       showPrivacyAgreementIfNeeded(context);
