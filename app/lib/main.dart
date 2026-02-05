@@ -24,7 +24,6 @@ import 'package:memolanes/constants/index.dart';
 import 'package:provider/provider.dart';
 
 GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-bool mainMapInitialized = false;
 
 void main() async {
   runZonedGuarded(() async {
@@ -147,6 +146,8 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
+    // 尽早注册分享监听，避免错过 very-early 的 stream 事件；
+    // 具体的 UI 交互（弹窗/跳转）已在 ShareHandlerUtil 内延后到首帧后执行。
     ShareHandlerUtil.init(context);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       showPrivacyAgreementIfNeeded(context);
@@ -170,6 +171,13 @@ class _MyHomePageState extends State<MyHomePage> {
             !snapshot.hasError) {
           return body();
         }
+
+        if (snapshot.hasError) {
+          // 不做复杂 UI，仅记录错误，便于排查。
+          log.error('Deferred load failed ${snapshot.error}',
+              snapshot.stackTrace);
+        }
+
         return const Center(child: CircularProgressIndicator());
       },
     );

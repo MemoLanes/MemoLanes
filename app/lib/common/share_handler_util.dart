@@ -14,19 +14,30 @@ class ShareHandlerUtil {
 
     handler.getInitialSharedMedia().then((media) {
       final attachments = media?.attachments ?? const [];
-      _handleSharedFile(context, attachments);
+      _runAfterFirstFrame(context, () {
+        _handleSharedFile(context, attachments);
+      });
     }).catchError((e) {
       log.error('Failed to get initial shared media: $e');
     });
 
     final subscription = handler.sharedMediaStream.listen((media) {
       final attachments = media.attachments ?? const [];
-      _handleSharedFile(context, attachments);
+      _runAfterFirstFrame(context, () {
+        _handleSharedFile(context, attachments);
+      });
     }, onError: (err) {
       log.error('Error in sharedMediaStream: $err');
     });
 
     return subscription;
+  }
+
+  static void _runAfterFirstFrame(BuildContext context, VoidCallback cb) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+      cb();
+    });
   }
 
   static Future<void> _handleSharedFile(
