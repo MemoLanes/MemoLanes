@@ -8,6 +8,17 @@
     "double_back_exit": "Press back again to exit the app",
     "map_data_source_copyright_title": "Data Source"
   },
+  "permission_sheet": {
+    "title": "Authorize for full experience",
+    "enable_all": "Enable All",
+    "skip": "Skip",
+    "location_title": "Location (Always)",
+    "location_desc": "Silently record your footprints",
+    "battery_title": "Battery optimization",
+    "battery_desc": "Allow background recording",
+    "notification_title": "Notifications",
+    "notification_desc": "Alert when recording is interrupted"
+  },
   "location_service": {
     "location_service_disabled": "Location services are disabled. Please enable them in the settings.",
     "location_permission_permanently_denied": "You have denied location permission. To ensure proper location functionality, please enable it in the app settings.",

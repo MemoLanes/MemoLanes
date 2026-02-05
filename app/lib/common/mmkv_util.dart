@@ -11,6 +11,8 @@ class MMKVKey {
       'Permission.requestedBatteryOptimization';
   static const String requestedNotification =
       'Permission.requestedNotification';
+  /// 是否已弹出过统一权限申请底部层（仅首次主动弹出，之后不再主动弹出）
+  static const String permissionSheetShown = 'Permission.sheetShown';
 }
 
 class MMKVUtil {

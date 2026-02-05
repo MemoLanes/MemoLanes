@@ -17,6 +17,7 @@ import 'package:memolanes/common/component/bottom_nav_bar.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/common/service/permission_service.dart';
 import 'package:memolanes/common/share_handler_util.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/index.dart';
@@ -140,6 +141,9 @@ class _MyHomePageState extends State<MyHomePage> {
           asyncTask: mainMapReady.future,
         );
       }
+      if (!context.mounted) return;
+      // 仅首次打开 app 时若有权限未授予则主动弹出权限层，之后不再主动弹出
+      await PermissionService().tryShowPermissionSheetIfFirstTime();
     });
   }
 

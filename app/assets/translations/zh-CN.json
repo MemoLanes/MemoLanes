@@ -8,6 +8,17 @@
     "double_back_exit": "再按一次退出应用",
     "map_data_source_copyright_title": "数据来源"
   },
+  "permission_sheet": {
+    "title": "授权以体验完整功能",
+    "enable_all": "全部开启",
+    "skip": "跳过",
+    "location_title": "位置 (始终允许)",
+    "location_desc": "静默记录足迹",
+    "battery_title": "电池优化",
+    "battery_desc": "允许后台持续记录",
+    "notification_title": "通知",
+    "notification_desc": "记录中断时提醒"
+  },
   "location_service": {
     "location_service_disabled": "定位服务未开启，请在设置中启用。",
     "location_permission_permanently_denied": "你已拒绝获取位置权限，为了保障定位功能的使用，请在设置中打开。",
