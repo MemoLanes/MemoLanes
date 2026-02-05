@@ -94,7 +94,7 @@ class AppBootstrap {
         // Maybe related to: https://github.com/aissat/easy_localization/issues/372
         final deviceLocale = ctx.deviceLocale;
         var locale = const Locale('en', 'US');
-        if (deviceLocale?.languageCode == 'zh') {
+        if (deviceLocale.languageCode == 'zh') {
           locale = const Locale('zh', 'CN');
         }
         ctx.setLocale(locale);

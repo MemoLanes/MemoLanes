@@ -6,12 +6,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/app_bootstrap.dart';
-import 'package:memolanes/body/achievement/achievement_body.dart' deferred as achievement;
+import 'package:memolanes/body/achievement/achievement_body.dart'
+    deferred as achievement;
 import 'package:memolanes/body/journey/journey_body.dart' deferred as journey;
 import 'package:memolanes/body/map/map_body.dart';
 import 'package:memolanes/body/privacy_agreement.dart';
-import 'package:memolanes/body/settings/settings_body.dart' deferred as settings;
-import 'package:memolanes/body/time_machine/time_machine_body.dart' deferred as time_machine;
+import 'package:memolanes/body/settings/settings_body.dart'
+    deferred as settings;
+import 'package:memolanes/body/time_machine/time_machine_body.dart'
+    deferred as time_machine;
 import 'package:memolanes/common/component/bottom_nav_bar.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/gps_manager.dart';
@@ -146,8 +149,8 @@ class _MyHomePageState extends State<MyHomePage> {
         }
 
         if (snapshot.hasError) {
-          log.error('Deferred load failed ${snapshot.error}',
-              snapshot.stackTrace);
+          log.error(
+              'Deferred load failed ${snapshot.error}', snapshot.stackTrace);
         }
 
         return const Center(child: CircularProgressIndicator());
@@ -189,21 +192,21 @@ class _MyHomePageState extends State<MyHomePage> {
               child: switch (_selectedIndex) {
                 0 => const MapBody(),
                 1 => _buildDeferredBody(
-                      _timeMachineLib ??= time_machine.loadLibrary(),
-                      () => time_machine.TimeMachineBody(),
-                    ),
+                    _timeMachineLib ??= time_machine.loadLibrary(),
+                    () => time_machine.TimeMachineBody(),
+                  ),
                 2 => _buildDeferredBody(
-                      _journeyLib ??= journey.loadLibrary(),
-                      () => journey.JourneyBody(),
-                    ),
+                    _journeyLib ??= journey.loadLibrary(),
+                    () => journey.JourneyBody(),
+                  ),
                 3 => _buildDeferredBody(
-                      _achievementLib ??= achievement.loadLibrary(),
-                      () => achievement.AchievementBody(),
-                    ),
+                    _achievementLib ??= achievement.loadLibrary(),
+                    () => achievement.AchievementBody(),
+                  ),
                 4 => _buildDeferredBody(
-                      _settingsLib ??= settings.loadLibrary(),
-                      () => settings.SettingsBody(),
-                    ),
+                    _settingsLib ??= settings.loadLibrary(),
+                    () => settings.SettingsBody(),
+                  ),
                 _ => throw FormatException('Invalid index: $_selectedIndex'),
               },
             ),
