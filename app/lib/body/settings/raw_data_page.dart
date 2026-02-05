@@ -88,6 +88,7 @@ class _RawDataPage extends State<RawDataPage> {
             onTap: () async {
               final gpxPath =
                   await api.exportRawDataGpxFile(csvFilepath: filePath);
+              if (!context.mounted) return;
               showCommonExport(context, gpxPath, deleteFile: true);
             },
           ),
