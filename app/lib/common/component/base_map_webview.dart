@@ -16,6 +16,18 @@ import 'map_controls/map_copyright_button.dart';
 
 typedef MapView = ({double lng, double lat, double zoom});
 
+typedef BaseMapJavaScriptMessageHandler = void Function(String message);
+
+class BaseMapJavaScriptChannel {
+  final String name;
+  final BaseMapJavaScriptMessageHandler onMessageReceived;
+
+  const BaseMapJavaScriptChannel({
+    required this.name,
+    required this.onMessageReceived,
+  });
+}
+
 enum TrackingMode {
   displayAndTracking,
   displayOnly,
@@ -26,16 +38,22 @@ class BaseMapWebview extends StatefulWidget {
   final api.MapRendererProxy mapRendererProxy;
   final MapView? initialMapView;
   final TrackingMode trackingMode;
+  final bool isEditor;
   final void Function()? onMapMoved;
   final void Function(MapView)? onRoughMapViewUpdate;
+  final void Function(int)? onMapZoomChanged;
+  final List<BaseMapJavaScriptChannel> extraJavaScriptChannels;
 
   const BaseMapWebview(
       {super.key,
       required this.mapRendererProxy,
       this.initialMapView,
       this.trackingMode = TrackingMode.off,
+      this.isEditor = false,
       this.onMapMoved,
-      this.onRoughMapViewUpdate});
+      this.onRoughMapViewUpdate,
+      this.onMapZoomChanged,
+      this.extraJavaScriptChannels = const []});
 
   @override
   State<StatefulWidget> createState() => BaseMapWebviewState();
@@ -61,6 +79,10 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   // For bug workaround
   bool _isiOS18 = false;
 
+  Future<void> runJavaScript(String javaScript) {
+    return _webViewController.runJavaScript(javaScript);
+  }
+
   @override
   void didUpdateWidget(BaseMapWebview oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -83,6 +105,10 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         console.warn('refreshMapData function not available yet');
       }
     ''');
+  }
+
+  Future<void> manualRefresh() async {
+    await _refreshMapData();
   }
 
   @override
@@ -206,7 +232,22 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         onMessageReceived: (JavaScriptMessage message) async {
           _handleMapViewPush(message.message);
         },
+      )
+      ..addJavaScriptChannel(
+        'onMapZoomChanged',
+        onMessageReceived: (JavaScriptMessage message) async {
+          _handleMapZoomPush(message.message);
+        },
       );
+
+    for (final channel in widget.extraJavaScriptChannels) {
+      _webViewController.addJavaScriptChannel(
+        channel.name,
+        onMessageReceived: (JavaScriptMessage message) {
+          channel.onMessageReceived(message.message);
+        },
+      );
+    }
     if (_devServer.isNotEmpty) {
       // Load from dev server for hot-reload during development
       final devUrl = _devServer.endsWith('/')
@@ -245,6 +286,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         lng: $lngParam,
         lat: $latParam,
         zoom: $zoomParam,
+        editor: ${widget.isEditor ? "true" : "false"},
       };
       
       // Check if JS is ready and trigger initialization if so
@@ -282,6 +324,21 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       }
     } catch (e) {
       log.error('[base_map_webview] invalid mapView push: $message, error=$e');
+    }
+  }
+
+  void _handleMapZoomPush(String message) {
+    try {
+      final int? zoom = int.tryParse(message);
+
+      if (zoom == null) {
+        log.error('[base_map_webview] zoom is not a valid integer: $message');
+        return;
+      }
+
+      widget.onMapZoomChanged?.call(zoom);
+    } catch (e) {
+      log.error('[base_map_webview] error parsing zoom: $message, error=$e');
     }
   }
 
