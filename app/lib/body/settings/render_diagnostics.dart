@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -146,10 +147,12 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
-        title: Text(context.tr("general.advanced_settings.render_diagnostics")),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+      appBar: CapsuleStyleAppBar(
+        title: context.tr("general.advanced_settings.render_diagnostics"),
+        backgroundColor: theme.colorScheme.inversePrimary,
+        foregroundColor: theme.colorScheme.onInverseSurface,
       ),
       body: WebViewWidget(controller: _controller),
     );

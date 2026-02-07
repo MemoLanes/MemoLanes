@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/body/journey/journey_edit_page.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
+import 'package:memolanes/common/component/capsule_style_app_bar.dart';
+import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
@@ -10,6 +12,7 @@ import 'package:memolanes/common/component/scroll_views/single_child_scroll_view
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/utils.dart';
+import 'package:memolanes/constants/index.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/src/rust/api/utils.dart';
@@ -72,8 +75,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     final result =
         await Navigator.push(context, MaterialPageRoute(builder: (context) {
       return Scaffold(
-        appBar: AppBar(
-          title: Text(context.tr("journey.journey_info_edit_page_title")),
+        appBar: CapsuleStyleAppBar(
+          title: context.tr("journey.journey_info_edit_page_title"),
         ),
         body: SafeAreaWrapper(
           child: JourneyInfoEditPage(
@@ -139,10 +142,9 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       JourneyKind.flight => context.tr("journey_kind.flight"),
     };
     return Scaffold(
-      appBar: AppBar(
-        title: Text(context.tr("journey.journey_info_page_title")),
-      ),
-      body: SlidingUpPanel(
+      body: Stack(
+        children: [
+          SlidingUpPanel(
         color: Colors.black,
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(16.0),
@@ -151,130 +153,128 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
         maxHeight: 480,
         defaultPanelState: PanelState.OPEN,
         panel: PointerInterceptor(
-          child: SafeAreaWrapper(
-            child: Column(
-              children: [
-                Padding(
-                  padding: EdgeInsets.only(top: 12.0),
-                  child: Center(
-                    child: CustomPaint(
-                      size: Size(40.0, 4.0),
-                      painter: LinePainter(
-                        color: const Color(0xFFB5B5B5),
-                      ),
+          child: Column(
+            children: [
+              Padding(
+                padding: EdgeInsets.only(top: 12.0),
+                child: Center(
+                  child: CustomPaint(
+                    size: Size(40.0, 4.0),
+                    painter: LinePainter(
+                      color: const Color(0xFFB5B5B5),
                     ),
                   ),
                 ),
-                SizedBox(height: 16.0),
-                SizedBox(
-                  height: 340,
-                  child: MlSingleChildScrollView(
-                    children: [
-                      LabelTile(
-                        label: context.tr("journey.journey_date"),
-                        position: LabelTilePosition.top,
-                        trailing: LabelTileContent(
-                          content: naiveDateToString(
-                            date: widget.journeyHeader.journeyDate,
-                          ),
-                        ),
-                      ),
-                      LabelTile(
-                        label: context.tr("journey.journey_kind"),
-                        position: LabelTilePosition.middle,
-                        trailing: LabelTileContent(
-                          content: journeyKindName,
-                        ),
-                      ),
-                      LabelTile(
-                        label: context.tr("journey.start_time"),
-                        position: LabelTilePosition.middle,
-                        trailing: LabelTileContent(
-                          content: widget.journeyHeader.start != null
-                              ? fmt
-                                  .format(widget.journeyHeader.start!.toLocal())
-                              : "",
-                        ),
-                      ),
-                      LabelTile(
-                        label: context.tr("journey.end_time"),
-                        position: LabelTilePosition.middle,
-                        trailing: LabelTileContent(
-                          content: widget.journeyHeader.end != null
-                              ? fmt.format(widget.journeyHeader.end!.toLocal())
-                              : "",
-                        ),
-                      ),
-                      LabelTile(
-                        label: context.tr("journey.created_at"),
-                        position: LabelTilePosition.middle,
-                        trailing: LabelTileContent(
-                          content: fmt
-                              .format(widget.journeyHeader.createdAt.toLocal()),
-                        ),
-                      ),
-                      LabelTile(
-                        label: context.tr("journey.note"),
-                        position: LabelTilePosition.bottom,
-                        maxHeight: 150,
-                        trailing: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8.0),
-                          child: LabelTileContent(
-                            content: widget.journeyHeader.note ?? "",
-                            contentMaxLines: 5,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: 16.0),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              ),
+              SizedBox(height: 16.0),
+              SizedBox(
+                height: 340,
+                child: MlSingleChildScrollView(
                   children: [
-                    ElevatedButton(
-                      onPressed: () => _showExportDataCard(
-                        context,
-                        widget.journeyHeader.journeyType,
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFFFFF),
-                        foregroundColor: Colors.black,
-                        fixedSize: Size(100, 42),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25.0),
+                    LabelTile(
+                      label: context.tr("journey.journey_date"),
+                      position: LabelTilePosition.top,
+                      trailing: LabelTileContent(
+                        content: naiveDateToString(
+                          date: widget.journeyHeader.journeyDate,
                         ),
                       ),
-                      child: Text(context.tr("common.export")),
                     ),
-                    ElevatedButton(
-                      onPressed: () async => await _editJourneyInfo(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFB6E13D),
-                        foregroundColor: Colors.black,
-                        fixedSize: Size(100, 42),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25.0),
-                        ),
+                    LabelTile(
+                      label: context.tr("journey.journey_kind"),
+                      position: LabelTilePosition.middle,
+                      trailing: LabelTileContent(
+                        content: journeyKindName,
                       ),
-                      child: Text(context.tr("common.edit")),
                     ),
-                    ElevatedButton(
-                      onPressed: () async => await _deleteJourneyInfo(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFEC4162),
-                        foregroundColor: Colors.black,
-                        fixedSize: Size(100, 42),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25.0),
+                    LabelTile(
+                      label: context.tr("journey.start_time"),
+                      position: LabelTilePosition.middle,
+                      trailing: LabelTileContent(
+                        content: widget.journeyHeader.start != null
+                            ? fmt
+                            .format(widget.journeyHeader.start!.toLocal())
+                            : "",
+                      ),
+                    ),
+                    LabelTile(
+                      label: context.tr("journey.end_time"),
+                      position: LabelTilePosition.middle,
+                      trailing: LabelTileContent(
+                        content: widget.journeyHeader.end != null
+                            ? fmt.format(widget.journeyHeader.end!.toLocal())
+                            : "",
+                      ),
+                    ),
+                    LabelTile(
+                      label: context.tr("journey.created_at"),
+                      position: LabelTilePosition.middle,
+                      trailing: LabelTileContent(
+                        content: fmt
+                            .format(widget.journeyHeader.createdAt.toLocal()),
+                      ),
+                    ),
+                    LabelTile(
+                      label: context.tr("journey.note"),
+                      position: LabelTilePosition.bottom,
+                      maxHeight: 150,
+                      trailing: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8.0),
+                        child: LabelTileContent(
+                          content: widget.journeyHeader.note ?? "",
+                          contentMaxLines: 5,
                         ),
                       ),
-                      child: Text(context.tr("common.delete")),
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              SizedBox(height: 16.0),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton(
+                    onPressed: () => _showExportDataCard(
+                      context,
+                      widget.journeyHeader.journeyType,
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFFFFFF),
+                      foregroundColor: Colors.black,
+                      fixedSize: Size(100, 42),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(25.0),
+                      ),
+                    ),
+                    child: Text(context.tr("common.export")),
+                  ),
+                  ElevatedButton(
+                    onPressed: () async => await _editJourneyInfo(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFB6E13D),
+                      foregroundColor: Colors.black,
+                      fixedSize: Size(100, 42),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(25.0),
+                      ),
+                    ),
+                    child: Text(context.tr("common.edit")),
+                  ),
+                  ElevatedButton(
+                    onPressed: () async => await _deleteJourneyInfo(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFEC4162),
+                      foregroundColor: Colors.black,
+                      fixedSize: Size(100, 42),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(25.0),
+                      ),
+                    ),
+                    child: Text(context.tr("common.delete")),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
         body: mapRendererProxy == null
@@ -284,6 +284,16 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                 mapRendererProxy: mapRendererProxy,
                 initialMapView: _initialMapView,
               ),
+          ),
+          CapsuleStyleOverlayAppBar.overlayBar(
+            title: context.tr("journey.journey_info_page_title"),
+            moreMenuContent: _JourneyMoreMenuContent(
+              onExport: () => _showExportDataCard(context, widget.journeyHeader.journeyType),
+              onEdit: () => _editJourneyInfo(context),
+              onDelete: () => _deleteJourneyInfo(context),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -320,6 +330,67 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
             ),
           ]
         ],
+      ),
+    );
+  }
+}
+
+class _JourneyMoreMenuContent extends StatelessWidget {
+  const _JourneyMoreMenuContent({
+    required this.onExport,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final VoidCallback onExport;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  static const Color _textColor = Color(0xFFE5E5E7);
+
+  @override
+  Widget build(BuildContext context) {
+    return IntrinsicWidth(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _menuTile(
+            context,
+            context.tr("common.export"),
+            onExport,
+          ),
+          _menuTile(
+            context,
+            context.tr("common.edit"),
+            onEdit,
+          ),
+          _menuTile(
+            context,
+            context.tr("common.delete"),
+            onDelete,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _menuTile(
+    BuildContext context,
+    String label,
+    VoidCallback onTap,
+  ) {
+    return InkWell(
+      onTap: () {
+        Navigator.pop(context);
+        onTap();
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        child: Text(
+          label,
+          style: const TextStyle(color: _textColor, fontSize: 14),
+        ),
       ),
     );
   }

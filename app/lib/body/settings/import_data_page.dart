@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fpdart/fpdart.dart' as f;
 import 'package:memolanes/body/journey/journey_edit_page.dart';
+import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
@@ -187,8 +188,8 @@ class _ImportDataPage extends State<ImportDataPage> {
     final journeyInfo = this.journeyInfo;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(context.tr("data.import_data.title")),
+      appBar: CapsuleStyleAppBar(
+        title: context.tr("data.import_data.title"),
       ),
       body: journeyInfo == null
           ? const SizedBox.shrink()
