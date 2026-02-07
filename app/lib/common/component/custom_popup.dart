@@ -242,7 +242,6 @@ class _PopupRoute extends PopupRoute<void> {
         break;
     }
 
-    // 限制在屏幕内且考虑安全区（刘海、Home 条等）
     if (_left != null) {
       _left = _left!.clamp(
         padding.left,
