@@ -6,6 +6,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:memolanes/common/app_lifecycle_service.dart';
+import 'package:memolanes/common/share_handler_util.dart';
 import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
@@ -84,23 +85,23 @@ class AppBootstrap {
 
   static void onFirstFrame() {
     final ctx = navigatorKey.currentState?.context;
-    if (ctx != null && ctx.mounted) {
-      if (!_didApplyInitialLocale) {
-        _didApplyInitialLocale = true;
+    if (ctx == null || !ctx.mounted) return;
 
-        // TODO: This naive version is good enough for now, as we only have two locales.
-        // The one provided by the lib is kinda weird. e.g. It will map `zh-Hans-HK` to
-        // `en-US` (I guess `Hans` + `HK` is a weird case).
-        // Maybe related to: https://github.com/aissat/easy_localization/issues/372
-        final deviceLocale = ctx.deviceLocale;
-        var locale = const Locale('en', 'US');
-        if (deviceLocale.languageCode == 'zh') {
-          locale = const Locale('zh', 'CN');
-        }
-        ctx.setLocale(locale);
+    if (!_didApplyInitialLocale) {
+      _didApplyInitialLocale = true;
 
-        initializeDateFormatting(locale.toString());
+      // TODO: This naive version is good enough for now, as we only have two locales.
+      // The one provided by the lib is kinda weird. e.g. It will map `zh-Hans-HK` to
+      // `en-US` (I guess `Hans` + `HK` is a weird case).
+      // Maybe related to: https://github.com/aissat/easy_localization/issues/372
+      final deviceLocale = ctx.deviceLocale;
+      var locale = const Locale('en', 'US');
+      if (deviceLocale.languageCode == 'zh') {
+        locale = const Locale('zh', 'CN');
       }
+      ctx.setLocale(locale);
+
+      initializeDateFormatting(locale.toString());
     }
   }
 
@@ -138,6 +139,12 @@ class AppBootstrap {
   }) {
     if (_started) return;
     _started = true;
+
+    ShareHandlerUtil.init(navigatorKey: navigatorKey);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      onFirstFrame();
+    });
 
     api.initMainMap().then(
       (_) {

@@ -19,7 +19,6 @@ import 'package:memolanes/common/component/bottom_nav_bar.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
-import 'package:memolanes/common/share_handler_util.dart';
 import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/index.dart';
@@ -53,10 +52,6 @@ void main() async {
         ),
       ),
     );
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      AppBootstrap.onFirstFrame();
-    });
 
     AppBootstrap.startAppServices(
       gpsManager: gpsManager,
@@ -124,7 +119,6 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
-    ShareHandlerUtil.init(context);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       showPrivacyAgreementIfNeeded(context);
 
