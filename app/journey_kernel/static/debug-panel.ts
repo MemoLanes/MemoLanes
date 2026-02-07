@@ -134,6 +134,25 @@ export class DebugPanel {
               <option value="mercator" title="Flat mercator projection">Mercator</option>
             </select>
           </div>
+
+          <div style="margin-bottom: 10px;">
+            <label for="map-style" title="Map style URL (MapLibre style JSON URL)">Map Style:</label>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <input
+                id="map-style"
+                type="text"
+                placeholder="https://.../style.json"
+                style="flex: 1; font-family: monospace; font-size: 11px; padding: 4px 6px;"
+              />
+              <button
+                id="apply-map-style"
+                style="padding: 4px 8px; font-size: 11px; cursor: pointer;"
+                title="Apply new map style"
+              >
+                Apply
+              </button>
+            </div>
+          </div>
         </div>
       </div>
       
@@ -236,6 +255,11 @@ export class DebugPanel {
     this.params.on("projection", (newValue, _oldValue) => {
       this._syncProjectionDropdown(newValue as ProjectionType);
     });
+
+    // Sync map style input when it changes externally
+    this.params.on("mapStyle", (newValue, _oldValue) => {
+      this._syncMapStyleInput(newValue);
+    });
   }
 
   /**
@@ -278,6 +302,19 @@ export class DebugPanel {
 
     if (projectionSelect) {
       projectionSelect.value = projection;
+    }
+  }
+
+  /**
+   * Sync the map style input to match the current params value
+   */
+  private _syncMapStyleInput(mapStyle: string): void {
+    const mapStyleInput = document.getElementById(
+      "map-style",
+    ) as HTMLInputElement | null;
+
+    if (mapStyleInput) {
+      mapStyleInput.value = mapStyle;
     }
   }
 
@@ -399,6 +436,48 @@ export class DebugPanel {
 
         // Set the projection on params - hooks will handle the rest
         this.params.projection = projection;
+      });
+    }
+
+    // Map style input + apply button
+    const mapStyleInput = document.getElementById(
+      "map-style",
+    ) as HTMLInputElement | null;
+    const applyMapStyleBtn = document.getElementById("apply-map-style");
+    const applyMapStyle = () => {
+      const raw = mapStyleInput?.value ?? "";
+      const style = raw.trim();
+
+      if (!style) {
+        // Reset to default: remove hash param and let params normalize the empty value
+        this._updateUrlHash({ map_style: null });
+        this.params.mapStyle = "";
+        return;
+      }
+
+      // Update URL hash
+      this._updateUrlHash({ map_style: style });
+
+      // Set on params - MapController hook will reload style
+      this.params.mapStyle = style;
+    };
+
+    if (mapStyleInput) {
+      // Initialize from params
+      this._syncMapStyleInput(this.params.mapStyle);
+
+      // Apply on Enter
+      mapStyleInput.addEventListener("keydown", (e: KeyboardEvent) => {
+        if (e.key === "Enter") {
+          applyMapStyle();
+        }
+      });
+    }
+
+    if (applyMapStyleBtn) {
+      this._enableTouchSupport(applyMapStyleBtn as HTMLElement);
+      applyMapStyleBtn.addEventListener("click", () => {
+        applyMapStyle();
       });
     }
 
@@ -755,6 +834,9 @@ export class DebugPanel {
 
       // Sync projection dropdown with current params value
       this._syncProjectionDropdown(this.params.projection);
+
+      // Sync map style input with current params value
+      this._syncMapStyleInput(this.params.mapStyle);
 
       // Update viewpoint info
       this._updateViewpointInfo();

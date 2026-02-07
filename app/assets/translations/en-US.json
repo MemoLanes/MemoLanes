@@ -132,6 +132,13 @@
       "title": "Version",
       "currently_the_latest_version": "Currently the latest version"
     },
+    "map_settings": {
+      "title": "Map Settings",
+      "style": "Map Style",
+      "style_normal": "Standard",
+      "style_satellite": "Satellite",
+      "style_hybrid": "Hybrid"
+    },
     "advanced_settings": {
       "title": "Advanced settings",
       "export_logs": "Export Logs",
