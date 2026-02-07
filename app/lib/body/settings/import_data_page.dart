@@ -2,10 +2,9 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fpdart/fpdart.dart' as f;
 import 'package:memolanes/body/journey/journey_edit_page.dart';
-import 'package:memolanes/common/component/capsule_style_app_bar.dart';
+import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
-import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -188,55 +187,58 @@ class _ImportDataPage extends State<ImportDataPage> {
     final journeyInfo = this.journeyInfo;
 
     return Scaffold(
-      appBar: CapsuleStyleAppBar(
-        title: context.tr("data.import_data.title"),
-      ),
       body: journeyInfo == null
           ? const SizedBox.shrink()
-          : SlidingUpPanel(
-              color: Colors.black,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16.0),
-                topRight: Radius.circular(16.0),
-              ),
-              maxHeight: widget.importType == ImportType.gpxOrKml ? 530 : 510,
-              defaultPanelState: PanelState.OPEN,
-              panel: PointerInterceptor(
-                child: SafeAreaWrapper(
-                  child: Center(
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(top: 12.0),
-                          child: CustomPaint(
-                            size: const Size(40.0, 4.0),
-                            painter:
-                                LinePainter(color: const Color(0xFFB5B5B5)),
+          : Stack(
+              children: [
+                SlidingUpPanel(
+                  color: Colors.black,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16.0),
+                    topRight: Radius.circular(16.0),
+                  ),
+                  maxHeight:
+                      widget.importType == ImportType.gpxOrKml ? 530 : 510,
+                  defaultPanelState: PanelState.OPEN,
+                  panel: PointerInterceptor(
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12.0),
+                            child: CustomPaint(
+                              size: const Size(40.0, 4.0),
+                              painter:
+                                  LinePainter(color: const Color(0xFFB5B5B5)),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 16.0),
-                        JourneyInfoEditPage(
-                          startTime: journeyInfo.startTime,
-                          endTime: journeyInfo.endTime,
-                          journeyDate: journeyInfo.journeyDate,
-                          note: journeyInfo.note,
-                          saveData: _saveData,
-                          previewData: _previewData,
-                          importType: widget.importType,
-                          preprocessor: _preprocessor,
-                        ),
-                      ],
+                          const SizedBox(height: 16.0),
+                          JourneyInfoEditPage(
+                            startTime: journeyInfo.startTime,
+                            endTime: journeyInfo.endTime,
+                            journeyDate: journeyInfo.journeyDate,
+                            note: journeyInfo.note,
+                            saveData: _saveData,
+                            previewData: _previewData,
+                            importType: widget.importType,
+                            preprocessor: _preprocessor,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
+                  body: _mapRendererProxy == null
+                      ? const SizedBox.shrink()
+                      : BaseMapWebview(
+                          key: const ValueKey("mapWidget"),
+                          mapRendererProxy: _mapRendererProxy!,
+                          initialMapView: _initialMapView,
+                        ),
                 ),
-              ),
-              body: _mapRendererProxy == null
-                  ? const SizedBox.shrink()
-                  : BaseMapWebview(
-                      key: const ValueKey("mapWidget"),
-                      mapRendererProxy: _mapRendererProxy!,
-                      initialMapView: _initialMapView,
-                    ),
+                CapsuleStyleOverlayAppBar.overlayBar(
+                  title: context.tr("data.import_data.title"),
+                ),
+              ],
             ),
     );
   }
