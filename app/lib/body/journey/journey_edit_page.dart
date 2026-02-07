@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -12,7 +14,6 @@ import 'package:memolanes/src/rust/api/import.dart' as import_api;
 import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 
-/// 导入流程等使用的旅程信息编辑页，含预处理器等表单项。
 class JourneyInfoEditPage extends StatefulWidget {
   const JourneyInfoEditPage({
     super.key,
