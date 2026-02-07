@@ -29,8 +29,8 @@ class CapsuleStyleOverlayAppBar extends StatelessWidget
   final Color? foregroundColor;
 
   @override
-  Size get preferredSize => const Size.fromHeight(
-      CapsuleBarConstants.barContentHeight +
+  Size get preferredSize =>
+      const Size.fromHeight(CapsuleBarConstants.barContentHeight +
           CapsuleBarConstants.barBottomInset +
           CapsuleBarConstants.maxSafeTop);
 
@@ -113,7 +113,8 @@ class CapsuleStyleOverlayAppBar extends StatelessWidget
         ),
       ),
       child: Padding(
-        padding: EdgeInsets.only(top: topInset, bottom: CapsuleBarConstants.barBottomInset),
+        padding: EdgeInsets.only(
+            top: topInset, bottom: CapsuleBarConstants.barBottomInset),
         child: CapsuleBarContent(
           showOnlyBackButton: showOnlyBackButton,
           title: title,
@@ -121,7 +122,8 @@ class CapsuleStyleOverlayAppBar extends StatelessWidget
           onBack: onBack,
           onMoreTap: onMoreTap,
           moreIcon: moreIcon,
-          foregroundColor: foregroundColor ?? CapsuleBarConstants.defaultForeground,
+          foregroundColor:
+              foregroundColor ?? CapsuleBarConstants.defaultForeground,
           pillColor: pillColor,
           subtitleFg: subtitleFg,
         ),
@@ -164,7 +166,8 @@ class _OverlayBarOnly extends StatelessWidget {
             CapsuleBarConstants.barBottomInset,
         color: Colors.transparent,
         child: Padding(
-          padding: EdgeInsets.only(top: topInset, bottom: CapsuleBarConstants.barBottomInset),
+          padding: EdgeInsets.only(
+              top: topInset, bottom: CapsuleBarConstants.barBottomInset),
           child: CapsuleBarContent(
             showOnlyBackButton: showOnlyBackButton,
             title: title,
@@ -218,7 +221,8 @@ class _CapsuleOverlayConnection extends StatelessWidget {
     final barBody = Container(
       color: Colors.transparent,
       child: Padding(
-        padding: EdgeInsets.only(top: topInset, bottom: CapsuleBarConstants.barBottomInset),
+        padding: EdgeInsets.only(
+            top: topInset, bottom: CapsuleBarConstants.barBottomInset),
         child: CapsuleBarContent(
           showOnlyBackButton: showOnlyBackButton,
           title: title,
@@ -226,7 +230,8 @@ class _CapsuleOverlayConnection extends StatelessWidget {
           onBack: onBack,
           onMoreTap: onMoreTap,
           moreIcon: moreIcon,
-          foregroundColor: foregroundColor ?? CapsuleBarConstants.defaultForeground,
+          foregroundColor:
+              foregroundColor ?? CapsuleBarConstants.defaultForeground,
           pillColor: CapsuleBarConstants.defaultPill,
           subtitleFg: CapsuleBarConstants.defaultSubtitleFg,
         ),

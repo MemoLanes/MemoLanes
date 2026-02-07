@@ -102,7 +102,8 @@ class CapsuleBarContent extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: _pill,
-                      borderRadius: BorderRadius.circular(CapsuleBarConstants.pillRadius),
+                      borderRadius:
+                          BorderRadius.circular(CapsuleBarConstants.pillRadius),
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
