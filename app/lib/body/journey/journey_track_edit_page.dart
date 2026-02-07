@@ -71,17 +71,17 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   @override
   void initState() {
+    _editSession = widget.editSession;
     super.initState();
     _loadMap();
   }
 
   Future<void> _loadMap() async {
     try {
-      _editSession = widget.editSession;
-      final result = await _editSession.getMapRendererProxy();
+      final (rendererProxy, cameraOption) =
+          await _editSession.getMapRendererProxy();
       setState(() {
-        _mapRendererProxy = result.$1;
-        final cameraOption = result.$2;
+        _mapRendererProxy = rendererProxy;
         if (cameraOption != null) {
           _initialMapView = (
             lng: cameraOption.lng,
@@ -99,8 +99,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   }
 
   Future<void> _refreshCanUndo() async {
-    final session = _editSession;
-    final canUndo = session.canUndo();
+    final canUndo = _editSession.canUndo();
     if (!mounted) return;
     setState(() {
       _canUndo = canUndo;
@@ -171,15 +170,11 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   Future<void> _onDrawPath(List<JourneyEditorDrawPoint> points) async {
     if (_mode != OperationMode.edit) return;
     if (points.length < 2) return;
-
-    final session = _editSession;
-
     final recordPoints = points.map((p) => (p.lat, p.lng)).toList();
 
-    await session.addLines(points: recordPoints);
+    await _editSession.addLines(points: recordPoints);
 
     if (!mounted) return;
-
     await _mapWebviewKey.currentState?.manualRefresh();
 
     _refreshCanUndo();
@@ -193,9 +188,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   ) async {
     if (_mode != OperationMode.delete) return;
 
-    final session = _editSession;
-
-    await session.deletePointsInBox(
+    await _editSession.deletePointsInBox(
       startLat: startLat,
       startLng: startLng,
       endLat: endLat,
@@ -257,16 +250,13 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                   onModeChanged: _handleModeChange,
                   canUndo: _canUndo,
                   onUndo: () async {
-                    final session = _editSession;
-                    await session.undo();
+                    await _editSession.undo();
                     if (!mounted) return;
                     await _mapWebviewKey.currentState?.manualRefresh();
                     _refreshCanUndo();
                   },
                   canSave: _canUndo,
                   onSave: () async {
-                    final session = _editSession;
-
                     if (!_canUndo) {
                       Navigator.of(context).pop(false);
                       return;
@@ -283,7 +273,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
                     await showLoadingDialog(
                       context: context,
-                      asyncTask: session.commit(),
+                      asyncTask: _editSession.commit(),
                     );
                     if (!mounted) return;
                     _removeToast();

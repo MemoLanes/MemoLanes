@@ -12,6 +12,7 @@ use crate::merged_journey_builder;
 use crate::renderer::get_default_camera_option_from_journey_bitmap;
 use crate::renderer::MapRenderer;
 
+// TODO: This is a bit sus, it is comparing the lng/lat and doesn't handle anti-meridian.
 const EPS: f64 = 1e-12_f64;
 
 // TODO: we want some test coverage here.
@@ -222,13 +223,13 @@ impl EditSession {
 
     pub fn new(journey_id: String) -> Result<Option<Self>> {
         let state = get();
-        let journey_data = state
-            .storage
-            .with_db_txn(|txn| txn.get_journey_data(&journey_id))?;
-        let journey_revision = state.storage.with_db_txn(|txn| {
-            txn.get_journey_header(&journey_id)?
-                .ok_or_else(|| anyhow!("Missing journey header"))
-                .map(|header| header.revision)
+        let (journey_data, journey_revision) = state.storage.with_db_txn(|txn| {
+            Ok((
+                txn.get_journey_data(&journey_id)?,
+                txn.get_journey_header(&journey_id)?
+                    .ok_or_else(|| anyhow!("Missing journey header"))?
+                    .revision,
+            ))
         })?;
 
         let journey_vector = match journey_data {
@@ -284,7 +285,7 @@ impl EditSession {
         end_lat: f64,
         end_lng: f64,
     ) -> Result<()> {
-        // TODO Unable to properly handle cases spanning ±180° of longitude.
+        // TODO: Unable to properly handle cases spanning ±180° of longitude.
 
         let (min_lat, max_lat, min_lng, max_lng) =
             Self::normalize_box(start_lat, start_lng, end_lat, end_lng);
