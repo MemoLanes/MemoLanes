@@ -83,7 +83,7 @@ class AppBootstrap {
   static final Completer<void> _mainMapReady = Completer<void>();
   static bool _didApplyInitialLocale = false;
 
-  static void onFirstFrame() {
+  static Future<void> _onFirstFrame() async {
     final ctx = navigatorKey.currentState?.context;
     if (ctx == null || !ctx.mounted) return;
 
@@ -99,9 +99,9 @@ class AppBootstrap {
       if (deviceLocale.languageCode == 'zh') {
         locale = const Locale('zh', 'CN');
       }
-      ctx.setLocale(locale);
+      await ctx.setLocale(locale);
 
-      initializeDateFormatting(locale.toString());
+      await initializeDateFormatting(locale.toString());
     }
   }
 
@@ -132,7 +132,6 @@ class AppBootstrap {
         systemCacheDir: (await cacheDirFuture).path);
   }
 
-  // i18n is ready
   static void startAppServices({
     required GpsManager gpsManager,
     required UpdateNotifier updateNotifier,
@@ -142,8 +141,9 @@ class AppBootstrap {
 
     ShareHandlerUtil.init(navigatorKey: navigatorKey);
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      onFirstFrame();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _onFirstFrame();
+      gpsManager.readyToStart();
     });
 
     api.initMainMap().then(
@@ -156,7 +156,6 @@ class AppBootstrap {
       },
     );
     AppLifecycleService.instance.start();
-    gpsManager.readyToStart();
 
     delayedInit(updateNotifier);
   }
