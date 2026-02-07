@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/body/journey/journey_info_edit_page.dart';
 import 'package:memolanes/body/journey/journey_track_edit_page.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
+import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
@@ -91,8 +92,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     final result =
         await Navigator.push(context, MaterialPageRoute(builder: (context) {
       return Scaffold(
-        appBar: AppBar(
-          title: Text(context.tr("journey.journey_info_edit_page_title")),
+        appBar: CapsuleStyleAppBar(
+          title: context.tr("journey.journey_info_edit_page_title"),
         ),
         body: SafeAreaWrapper(
           child: JourneyInfoEditPage(
