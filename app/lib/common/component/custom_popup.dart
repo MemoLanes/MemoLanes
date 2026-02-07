@@ -196,8 +196,9 @@ class _PopupRoute extends PopupRoute<void> {
   void _calculateChildOffset(Rect? childRect) {
     if (childRect == null) return;
 
-    final screenSize =
-        MediaQueryData.fromView(WidgetsBinding.instance.window).size;
+    final media = MediaQueryData.fromView(WidgetsBinding.instance.window);
+    final screenSize = media.size;
+    final padding = media.padding;
 
     switch (position) {
       case PopupPosition.top:
@@ -239,6 +240,23 @@ class _PopupRoute extends PopupRoute<void> {
             childRect.width / 2 +
             (horizontalOffset ?? 0);
         break;
+    }
+
+    if (_left != null) {
+      _left = _left!.clamp(
+        padding.left,
+        screenSize.width - childRect.width - padding.right,
+      );
+    }
+    if (_top != null) {
+      _top = _top!.clamp(
+        padding.top,
+        screenSize.height - childRect.height - padding.bottom,
+      );
+    }
+    if (_bottom != null) {
+      final maxBottom = screenSize.height - childRect.height - padding.top;
+      _bottom = _bottom!.clamp(padding.bottom, maxBottom);
     }
   }
 
