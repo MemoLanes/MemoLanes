@@ -311,11 +311,10 @@ impl Txn<'_> {
     }
 
     #[auto_context]
-    pub fn update_journey_data(
+    pub fn update_journey_data_with_latest_postprocessor(
         &mut self,
         id: &str,
         journey_data: JourneyData,
-        postprocessor_algo: Option<String>,
     ) -> Result<()> {
         info!("Updating journey data with ID {}", &id);
 
@@ -323,7 +322,14 @@ impl Txn<'_> {
             .get_journey_header(id)?
             .ok_or_else(|| anyhow!("Updating non existent journey, journey id = {id}"))?;
 
-        header.postprocessor_algo = postprocessor_algo;
+        let (journey_data, algo) = match journey_data {
+            JourneyData::Bitmap(bitmap) => (JourneyData::Bitmap(bitmap), None),
+            JourneyData::Vector(vector) => (
+                JourneyData::Vector(GpsPostprocessor::process(vector)),
+                Some(GpsPostprocessor::current_algo()),
+            ),
+        };
+        header.postprocessor_algo = algo;
 
         // must change during update
         header.updated_at = Some(Utc::now());
@@ -568,10 +574,9 @@ impl Txn<'_> {
                     JourneyData::Bitmap(_) => (),
                     JourneyData::Vector(journey_vector) => {
                         let journey_vector = GpsPostprocessor::process(journey_vector);
-                        self.update_journey_data(
+                        self.update_journey_data_with_latest_postprocessor(
                             &journey_header.id,
                             JourneyData::Vector(journey_vector),
-                            Some(GpsPostprocessor::current_algo()),
                         )?;
                     }
                 }

@@ -36,9 +36,25 @@
     "delete": "删除",
     "please_enter": "请输入",
     "still_under_development": "开发中",
-    "copy_success": "复制成功"
+    "copy_success": "复制成功",
+    "save_success": "保存成功",
+    "save_confirm": "是否保存？"
   },
   "journey": {
+    "editor": {
+      "move": "移动",
+      "draw": "绘制",
+      "erase": "擦除",
+      "undo": "撤销",
+      "save": "保存",
+      "page_title": "编辑旅程轨迹",
+      "draw_mode_enabled": "绘制模式已开启，请在地图上绘制以新增轨迹。",
+      "draw_mode_disabled": "绘制模式已关闭，请使用双指捏合缩放地图，调整到合适的缩放级别后再进行编辑。",
+      "erase_mode_enabled": "删除模式已开启，框选区域以删除轨迹。",
+      "bitmap_not_supported": "暂不支持编辑编辑当前记录（通常为从世界迷雾导入的数据）。",
+      "discard_changes_confirm": "未保存的操作都会丢失，是否继续？",
+      "zoom_too_low": "放大地图以新增轨迹。"
+    },
     "no_data": "当前暂无旅程数据，开始探索世界吧！",
     "journey_date_is_empty": "旅程日期是空的",
     "delete_journey_title": "删除旅程",

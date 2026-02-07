@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:memolanes/body/journey/journey_edit_page.dart';
+import 'package:memolanes/body/journey/journey_info_edit_page.dart';
+import 'package:memolanes/body/journey/journey_track_edit_page.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
@@ -11,6 +12,7 @@ import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
 import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
@@ -31,26 +33,41 @@ class JourneyInfoPage extends StatefulWidget {
 
 class _JourneyInfoPage extends State<JourneyInfoPage> {
   final fmt = DateFormat('yyyy-MM-dd HH:mm:ss');
+  late JourneyHeader _journeyHeader;
   api.MapRendererProxy? _mapRendererProxy;
   MapView? _initialMapView;
 
   @override
   void initState() {
     super.initState();
-    api
-        .getMapRendererProxyForJourney(journeyId: widget.journeyHeader.id)
-        .then((mapRendererProxyAndCameraOption) {
-      setState(() {
-        _mapRendererProxy = mapRendererProxyAndCameraOption.$1;
-        final cameraOption = mapRendererProxyAndCameraOption.$2;
-        if (cameraOption != null) {
-          _initialMapView = (
-            lng: cameraOption.lng,
-            lat: cameraOption.lat,
-            zoom: cameraOption.zoom,
-          );
-        }
-      });
+    _journeyHeader = widget.journeyHeader;
+    _refreshJourneyInfo();
+  }
+
+  Future<void> _refreshJourneyInfo() async {
+    final mapRendererProxyAndCameraOption =
+        await api.getMapRendererProxyForJourney(journeyId: _journeyHeader.id);
+
+    final allJourneys = await api.listAllJourneys();
+    final latestHeader = allJourneys
+        .where((j) => j.id == _journeyHeader.id)
+        .cast<JourneyHeader?>()
+        .firstOrNull;
+
+    if (!mounted) return;
+    setState(() {
+      _mapRendererProxy = mapRendererProxyAndCameraOption.$1;
+      final cameraOption = mapRendererProxyAndCameraOption.$2;
+      if (cameraOption != null) {
+        _initialMapView = (
+          lng: cameraOption.lng,
+          lat: cameraOption.lat,
+          zoom: cameraOption.zoom,
+        );
+      }
+      if (latestHeader != null) {
+        _journeyHeader = latestHeader;
+      }
     });
   }
 
@@ -62,13 +79,14 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
         confirmButtonText: context.tr("common.delete"),
         confirmGroundColor: Colors.red,
         confirmTextColor: Colors.white)) {
-      await api.deleteJourney(journeyId: widget.journeyHeader.id);
+      await api.deleteJourney(journeyId: _journeyHeader.id);
       if (!context.mounted) return;
       Navigator.pop(context, true);
     }
   }
 
   Future<void> _editJourneyInfo(BuildContext context) async {
+    var trackEdited = false;
     final result =
         await Navigator.push(context, MaterialPageRoute(builder: (context) {
       return Scaffold(
@@ -77,24 +95,47 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
         ),
         body: SafeAreaWrapper(
           child: JourneyInfoEditPage(
-            startTime: widget.journeyHeader.start,
-            endTime: widget.journeyHeader.end,
-            journeyDate: widget.journeyHeader.journeyDate,
-            note: widget.journeyHeader.note,
-            journeyKind: widget.journeyHeader.journeyKind,
+            startTime: _journeyHeader.start,
+            endTime: _journeyHeader.end,
+            journeyDate: _journeyHeader.journeyDate,
+            note: _journeyHeader.note,
+            journeyKind: _journeyHeader.journeyKind,
             saveData: (JourneyInfo journeyInfo) async {
               await api.updateJourneyMetadata(
-                  id: widget.journeyHeader.id, journeyInfo: journeyInfo);
+                  id: _journeyHeader.id, journeyInfo: journeyInfo);
             },
           ),
         ),
       );
     }));
-    if (result == true) {
-      // TODO: We should just refresh the page instead of closing it.
-      if (!context.mounted) return;
-      Navigator.pop(context, true);
+
+    // `JourneyInfoEditPage` pops with `true` when metadata is saved.
+    if (result == true || trackEdited) {
+      await _refreshJourneyInfo();
     }
+  }
+
+  Future<void> _trackEdit(BuildContext context) async {
+    final session = await EditSession.newInstance(journeyId: _journeyHeader.id);
+    if (!context.mounted) return;
+    if (session == null) {
+      await showCommonDialog(
+        context,
+        context.tr("journey.editor.bitmap_not_supported"),
+      );
+      return;
+    }
+    await Navigator.push(context, MaterialPageRoute(builder: (context) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(context.tr("journey.editor.page_title")),
+        ),
+        body: JourneyTrackEditPage(
+          editSession: session,
+        ),
+      );
+    }));
+    await _refreshJourneyInfo();
   }
 
   Future<String> _generateExportFile(
@@ -102,7 +143,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     final tmpDir = await getTemporaryDirectory();
     final dateStr = naiveDateToString(date: journeyHeader.journeyDate);
     final filepath =
-        "${tmpDir.path}/${dateStr}-${journeyHeader.revision}.${exportType.name}";
+        "${tmpDir.path}/$dateStr-${journeyHeader.revision}.${exportType.name}";
     switch (exportType) {
       case ExportType.mldx:
         await api.generateSingleArchive(
@@ -125,8 +166,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   }
 
   void _export(ExportType exportType) async {
-    String filePath =
-        await _generateExportFile(widget.journeyHeader, exportType);
+    String filePath = await _generateExportFile(_journeyHeader, exportType);
     if (!mounted) return;
     await showCommonExport(context, filePath, deleteFile: true);
   }
@@ -134,7 +174,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   @override
   Widget build(BuildContext context) {
     final mapRendererProxy = _mapRendererProxy;
-    final journeyKindName = switch (widget.journeyHeader.journeyKind) {
+    final journeyKindName = switch (_journeyHeader.journeyKind) {
       JourneyKind.defaultKind => context.tr("journey_kind.default"),
       JourneyKind.flight => context.tr("journey_kind.flight"),
     };
@@ -175,7 +215,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                         position: LabelTilePosition.top,
                         trailing: LabelTileContent(
                           content: naiveDateToString(
-                            date: widget.journeyHeader.journeyDate,
+                            date: _journeyHeader.journeyDate,
                           ),
                         ),
                       ),
@@ -190,9 +230,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                         label: context.tr("journey.start_time"),
                         position: LabelTilePosition.middle,
                         trailing: LabelTileContent(
-                          content: widget.journeyHeader.start != null
-                              ? fmt
-                                  .format(widget.journeyHeader.start!.toLocal())
+                          content: _journeyHeader.start != null
+                              ? fmt.format(_journeyHeader.start!.toLocal())
                               : "",
                         ),
                       ),
@@ -200,8 +239,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                         label: context.tr("journey.end_time"),
                         position: LabelTilePosition.middle,
                         trailing: LabelTileContent(
-                          content: widget.journeyHeader.end != null
-                              ? fmt.format(widget.journeyHeader.end!.toLocal())
+                          content: _journeyHeader.end != null
+                              ? fmt.format(_journeyHeader.end!.toLocal())
                               : "",
                         ),
                       ),
@@ -209,8 +248,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                         label: context.tr("journey.created_at"),
                         position: LabelTilePosition.middle,
                         trailing: LabelTileContent(
-                          content: fmt
-                              .format(widget.journeyHeader.createdAt.toLocal()),
+                          content:
+                              fmt.format(_journeyHeader.createdAt.toLocal()),
                         ),
                       ),
                       LabelTile(
@@ -220,7 +259,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                         trailing: Padding(
                           padding: EdgeInsets.symmetric(vertical: 8.0),
                           child: LabelTileContent(
-                            content: widget.journeyHeader.note ?? "",
+                            content: _journeyHeader.note ?? "",
                             contentMaxLines: 5,
                           ),
                         ),
@@ -235,7 +274,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                     ElevatedButton(
                       onPressed: () => _showExportDataCard(
                         context,
-                        widget.journeyHeader.journeyType,
+                        _journeyHeader.journeyType,
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFFFFFFF),
@@ -248,7 +287,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                       child: Text(context.tr("common.export")),
                     ),
                     ElevatedButton(
-                      onPressed: () async => await _editJourneyInfo(context),
+                      onPressed: () async => _showEditMenu(context),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFB6E13D),
                         foregroundColor: Colors.black,
@@ -319,6 +358,31 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
               },
             ),
           ]
+        ],
+      ),
+    );
+  }
+
+  void _showEditMenu(BuildContext context) {
+    showBasicCard(
+      context,
+      child: OptionCard(
+        children: [
+          CardLabelTile(
+            position: CardLabelTilePosition.top,
+            label: context.tr("journey.journey_info_edit_page_title"),
+            onTap: () {
+              _editJourneyInfo(context);
+            },
+            top: false,
+          ),
+          CardLabelTile(
+            position: CardLabelTilePosition.bottom,
+            label: context.tr("journey.editor.page_title"),
+            onTap: () async {
+              _trackEdit(context);
+            },
+          ),
         ],
       ),
     );
