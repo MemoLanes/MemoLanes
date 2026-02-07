@@ -1,13 +1,11 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:memolanes/body/journey/journey_edit_page.dart';
+import 'package:memolanes/body/journey/journey_info_edit_form.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
-import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
-import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
@@ -36,6 +34,22 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   final fmt = DateFormat('yyyy-MM-dd HH:mm:ss');
   api.MapRendererProxy? _mapRendererProxy;
   MapView? _initialMapView;
+  final PanelController _panelController = PanelController();
+
+  bool _isEditMode = false;
+  DateTime? _displayStart;
+  DateTime? _displayEnd;
+  NaiveDate? _displayJourneyDate;
+  String? _displayNote;
+  JourneyKind? _displayJourneyKind;
+
+  DateTime? get _start => _displayStart ?? widget.journeyHeader.start;
+  DateTime? get _end => _displayEnd ?? widget.journeyHeader.end;
+  NaiveDate get _journeyDate =>
+      _displayJourneyDate ?? widget.journeyHeader.journeyDate;
+  String get _note => _displayNote ?? widget.journeyHeader.note ?? '';
+  JourneyKind get _journeyKind =>
+      _displayJourneyKind ?? widget.journeyHeader.journeyKind;
 
   @override
   void initState() {
@@ -57,6 +71,16 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     });
   }
 
+  void _enterEditMode() {
+    setState(() => _isEditMode = true);
+    _panelController.animatePanelToPosition(1.0);
+  }
+
+  void _exitEditMode() {
+    setState(() => _isEditMode = false);
+    _panelController.close();
+  }
+
   Future<void> _deleteJourneyInfo(BuildContext context) async {
     if (await showCommonDialog(
         context, context.tr("journey.delete_journey_message"),
@@ -66,35 +90,6 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
         confirmGroundColor: Colors.red,
         confirmTextColor: Colors.white)) {
       await api.deleteJourney(journeyId: widget.journeyHeader.id);
-      if (!context.mounted) return;
-      Navigator.pop(context, true);
-    }
-  }
-
-  Future<void> _editJourneyInfo(BuildContext context) async {
-    final result =
-        await Navigator.push(context, MaterialPageRoute(builder: (context) {
-      return Scaffold(
-        appBar: CapsuleStyleAppBar(
-          title: context.tr("journey.journey_info_edit_page_title"),
-        ),
-        body: SafeAreaWrapper(
-          child: JourneyInfoEditPage(
-            startTime: widget.journeyHeader.start,
-            endTime: widget.journeyHeader.end,
-            journeyDate: widget.journeyHeader.journeyDate,
-            note: widget.journeyHeader.note,
-            journeyKind: widget.journeyHeader.journeyKind,
-            saveData: (JourneyInfo journeyInfo) async {
-              await api.updateJourneyMetadata(
-                  id: widget.journeyHeader.id, journeyInfo: journeyInfo);
-            },
-          ),
-        ),
-      );
-    }));
-    if (result == true) {
-      // TODO: We should just refresh the page instead of closing it.
       if (!context.mounted) return;
       Navigator.pop(context, true);
     }
@@ -137,7 +132,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   @override
   Widget build(BuildContext context) {
     final mapRendererProxy = _mapRendererProxy;
-    final journeyKindName = switch (widget.journeyHeader.journeyKind) {
+    final journeyKindName = switch (_journeyKind) {
       JourneyKind.defaultKind => context.tr("journey_kind.default"),
       JourneyKind.flight => context.tr("journey_kind.flight"),
     };
@@ -145,13 +140,14 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       body: Stack(
         children: [
           SlidingUpPanel(
+        controller: _panelController,
         color: Colors.black,
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(16.0),
           topRight: Radius.circular(16.0),
         ),
         maxHeight: 480,
-        defaultPanelState: PanelState.OPEN,
+        defaultPanelState: PanelState.CLOSED,
         panel: PointerInterceptor(
           child: Column(
             children: [
@@ -167,112 +163,40 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                 ),
               ),
               SizedBox(height: 16.0),
-              SizedBox(
-                height: 340,
+              Expanded(
                 child: MlSingleChildScrollView(
+                  padding: EdgeInsets.symmetric(vertical: 16.0),
                   children: [
-                    LabelTile(
-                      label: context.tr("journey.journey_date"),
-                      position: LabelTilePosition.top,
-                      trailing: LabelTileContent(
-                        content: naiveDateToString(
-                          date: widget.journeyHeader.journeyDate,
-                        ),
-                      ),
-                    ),
-                    LabelTile(
-                      label: context.tr("journey.journey_kind"),
-                      position: LabelTilePosition.middle,
-                      trailing: LabelTileContent(
-                        content: journeyKindName,
-                      ),
-                    ),
-                    LabelTile(
-                      label: context.tr("journey.start_time"),
-                      position: LabelTilePosition.middle,
-                      trailing: LabelTileContent(
-                        content: widget.journeyHeader.start != null
-                            ? fmt
-                            .format(widget.journeyHeader.start!.toLocal())
-                            : "",
-                      ),
-                    ),
-                    LabelTile(
-                      label: context.tr("journey.end_time"),
-                      position: LabelTilePosition.middle,
-                      trailing: LabelTileContent(
-                        content: widget.journeyHeader.end != null
-                            ? fmt.format(widget.journeyHeader.end!.toLocal())
-                            : "",
-                      ),
-                    ),
-                    LabelTile(
-                      label: context.tr("journey.created_at"),
-                      position: LabelTilePosition.middle,
-                      trailing: LabelTileContent(
-                        content: fmt
-                            .format(widget.journeyHeader.createdAt.toLocal()),
-                      ),
-                    ),
-                    LabelTile(
-                      label: context.tr("journey.note"),
-                      position: LabelTilePosition.bottom,
-                      maxHeight: 150,
-                      trailing: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8.0),
-                        child: LabelTileContent(
-                          content: widget.journeyHeader.note ?? "",
-                          contentMaxLines: 5,
-                        ),
-                      ),
-                    ),
+                    if (_isEditMode)
+                      JourneyInfoEditForm(
+                        initialStartTime: _start,
+                        initialEndTime: _end,
+                        initialJourneyDate: _journeyDate,
+                        initialNote: _note,
+                        initialJourneyKind: _journeyKind,
+                        onSave: (JourneyInfo info) async {
+                          await api.updateJourneyMetadata(
+                            id: widget.journeyHeader.id,
+                            journeyInfo: info,
+                          );
+                          if (!mounted) return;
+                          setState(() {
+                            _displayStart = info.startTime;
+                            _displayEnd = info.endTime;
+                            _displayJourneyDate = info.journeyDate;
+                            _displayNote = info.note;
+                            _displayJourneyKind = info.journeyKind;
+                            _isEditMode = false;
+                          });
+                          _panelController.close();
+                        },
+                        onCancel: _exitEditMode,
+                        showCancelButton: true,
+                      )
+                    else
+                      _buildViewContent(context, journeyKindName),
                   ],
                 ),
-              ),
-              SizedBox(height: 16.0),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  ElevatedButton(
-                    onPressed: () => _showExportDataCard(
-                      context,
-                      widget.journeyHeader.journeyType,
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFFFFFF),
-                      foregroundColor: Colors.black,
-                      fixedSize: Size(100, 42),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25.0),
-                      ),
-                    ),
-                    child: Text(context.tr("common.export")),
-                  ),
-                  ElevatedButton(
-                    onPressed: () async => await _editJourneyInfo(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFB6E13D),
-                      foregroundColor: Colors.black,
-                      fixedSize: Size(100, 42),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25.0),
-                      ),
-                    ),
-                    child: Text(context.tr("common.edit")),
-                  ),
-                  ElevatedButton(
-                    onPressed: () async => await _deleteJourneyInfo(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFEC4162),
-                      foregroundColor: Colors.black,
-                      fixedSize: Size(100, 42),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25.0),
-                      ),
-                    ),
-                    child: Text(context.tr("common.delete")),
-                  ),
-                ],
               ),
             ],
           ),
@@ -288,13 +212,68 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
           CapsuleStyleOverlayAppBar.overlayBar(
             title: context.tr("journey.journey_info_page_title"),
             moreMenuContent: _JourneyMoreMenuContent(
+              isEditMode: _isEditMode,
               onExport: () => _showExportDataCard(context, widget.journeyHeader.journeyType),
-              onEdit: () => _editJourneyInfo(context),
+              onEdit: () => _enterEditMode(),
+              onCancelEdit: () => _exitEditMode(),
               onDelete: () => _deleteJourneyInfo(context),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildViewContent(BuildContext context, String journeyKindName) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        LabelTile(
+          label: context.tr("journey.journey_date"),
+          position: LabelTilePosition.top,
+          trailing: LabelTileContent(
+            content: naiveDateToString(date: _journeyDate),
+          ),
+        ),
+        LabelTile(
+          label: context.tr("journey.journey_kind"),
+          position: LabelTilePosition.middle,
+          trailing: LabelTileContent(content: journeyKindName),
+        ),
+        LabelTile(
+          label: context.tr("journey.start_time"),
+          position: LabelTilePosition.middle,
+          trailing: LabelTileContent(
+            content: _start != null ? fmt.format(_start!.toLocal()) : "",
+          ),
+        ),
+        LabelTile(
+          label: context.tr("journey.end_time"),
+          position: LabelTilePosition.middle,
+          trailing: LabelTileContent(
+            content: _end != null ? fmt.format(_end!.toLocal()) : "",
+          ),
+        ),
+        LabelTile(
+          label: context.tr("journey.created_at"),
+          position: LabelTilePosition.middle,
+          trailing: LabelTileContent(
+            content: fmt.format(widget.journeyHeader.createdAt.toLocal()),
+          ),
+        ),
+        LabelTile(
+          label: context.tr("journey.note"),
+          position: LabelTilePosition.bottom,
+          maxHeight: 150,
+          trailing: Padding(
+            padding: EdgeInsets.symmetric(vertical: 8.0),
+            child: LabelTileContent(
+              content: _note,
+              contentMaxLines: 5,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -337,13 +316,17 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
 
 class _JourneyMoreMenuContent extends StatelessWidget {
   const _JourneyMoreMenuContent({
+    required this.isEditMode,
     required this.onExport,
     required this.onEdit,
+    required this.onCancelEdit,
     required this.onDelete,
   });
 
+  final bool isEditMode;
   final VoidCallback onExport;
   final VoidCallback onEdit;
+  final VoidCallback onCancelEdit;
   final VoidCallback onDelete;
 
   static const Color _textColor = Color(0xFFE5E5E7);
@@ -362,8 +345,8 @@ class _JourneyMoreMenuContent extends StatelessWidget {
           ),
           _menuTile(
             context,
-            context.tr("common.edit"),
-            onEdit,
+            isEditMode ? context.tr("common.cancel") : context.tr("common.edit"),
+            isEditMode ? onCancelEdit : onEdit,
           ),
           _menuTile(
             context,
