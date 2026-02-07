@@ -147,12 +147,9 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
       appBar: CapsuleStyleAppBar(
         title: context.tr("general.advanced_settings.render_diagnostics"),
-        backgroundColor: theme.colorScheme.inversePrimary,
-        foregroundColor: theme.colorScheme.onInverseSurface,
       ),
       body: WebViewWidget(controller: _controller),
     );
