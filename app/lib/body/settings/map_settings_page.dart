@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
@@ -68,7 +69,9 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(context.tr("general.map_settings.title"))),
+      appBar: CapsuleStyleAppBar(
+        title: context.tr("general.map_settings.title"),
+      ),
       body: MlSingleChildScrollView(
         padding: const EdgeInsets.all(8.0),
         children: [
