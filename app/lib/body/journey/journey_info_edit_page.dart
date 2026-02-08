@@ -51,7 +51,6 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
   DateTime? _journeyDate;
   String? _note;
   JourneyKind _journeyKind = JourneyKind.defaultKind;
-  import_api.JourneyInfo? journeyInfo;
   final TextEditingController _noteController = TextEditingController();
   late import_api.ImportPreprocessor _preprocessor;
 
@@ -144,6 +143,7 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
         minHeight: 420,
       ),
       child: MlSingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: 16.0),
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           LabelTile(

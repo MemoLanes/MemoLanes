@@ -5,25 +5,26 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:intl/date_symbol_data_local.dart';
 import 'package:memolanes/app_bootstrap.dart';
-import 'package:memolanes/body/achievement/achievement_body.dart';
-import 'package:memolanes/body/journey/journey_body.dart';
+import 'package:memolanes/body/achievement/achievement_body.dart'
+    deferred as achievement;
+import 'package:memolanes/body/journey/journey_body.dart' deferred as journey;
 import 'package:memolanes/body/map/map_body.dart';
 import 'package:memolanes/body/privacy_agreement.dart';
-import 'package:memolanes/body/settings/settings_body.dart';
-import 'package:memolanes/body/time_machine/time_machine_body.dart';
+import 'package:memolanes/body/settings/settings_body.dart'
+    deferred as settings;
+import 'package:memolanes/body/time_machine/time_machine_body.dart'
+    deferred as time_machine;
 import 'package:memolanes/common/component/bottom_nav_bar.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
-import 'package:memolanes/common/share_handler_util.dart';
+import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/index.dart';
 import 'package:provider/provider.dart';
 
 GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-bool mainMapInitialized = false;
 
 void main() async {
   runZonedGuarded(() async {
@@ -64,23 +65,8 @@ void main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  void _naiveLocaleSelection(BuildContext context) {
-    // TODO: This naive version is good enough for now, as we only have two locales.
-    // The one provided by the lib is kinda weird. e.g. It will map `zh-Hans-HK` to
-    // `en-US` (I guess `Hans` + `HK` is a weird case).
-    // Maybe related to: https://github.com/aissat/easy_localization/issues/372
-    var deviceLocale = context.deviceLocale;
-    var locale = const Locale('en', 'US');
-    if (deviceLocale.languageCode == 'zh') {
-      locale = const Locale('zh', 'CN');
-    }
-    initializeDateFormatting(locale.toString());
-    context.setLocale(locale);
-  }
-
   @override
   Widget build(BuildContext context) {
-    _naiveLocaleSelection(context);
     return MaterialApp(
       title: "MemoLanes",
       onGenerateTitle: (context) => context.tr('common.memolanes'),
@@ -125,10 +111,14 @@ class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
   DateTime? _lastExitPopAt;
 
+  Future<void>? _timeMachineLib;
+  Future<void>? _journeyLib;
+  Future<void>? _achievementLib;
+  Future<void>? _settingsLib;
+
   @override
   void initState() {
     super.initState();
-    ShareHandlerUtil.init(context);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       showPrivacyAgreementIfNeeded(context);
 
@@ -141,6 +131,25 @@ class _MyHomePageState extends State<MyHomePage> {
         );
       }
     });
+  }
+
+  Widget _buildDeferredBody(Future<void> loadFuture, Widget Function() body) {
+    return FutureBuilder<void>(
+      future: loadFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done &&
+            !snapshot.hasError) {
+          return body();
+        }
+
+        if (snapshot.hasError) {
+          log.error(
+              'Deferred load failed ${snapshot.error}', snapshot.stackTrace);
+        }
+
+        return const Center(child: CircularProgressIndicator());
+      },
+    );
   }
 
   Future<void> _handleOnPop() async {
@@ -176,10 +185,22 @@ class _MyHomePageState extends State<MyHomePage> {
                   0, // we don't need safe area for `MapUiBody`
               child: switch (_selectedIndex) {
                 0 => const MapBody(),
-                1 => const TimeMachineBody(),
-                2 => const JourneyBody(),
-                3 => const AchievementBody(),
-                4 => const SettingsBody(),
+                1 => _buildDeferredBody(
+                    _timeMachineLib ??= time_machine.loadLibrary(),
+                    () => time_machine.TimeMachineBody(),
+                  ),
+                2 => _buildDeferredBody(
+                    _journeyLib ??= journey.loadLibrary(),
+                    () => journey.JourneyBody(),
+                  ),
+                3 => _buildDeferredBody(
+                    _achievementLib ??= achievement.loadLibrary(),
+                    () => achievement.AchievementBody(),
+                  ),
+                4 => _buildDeferredBody(
+                    _settingsLib ??= settings.loadLibrary(),
+                    () => settings.SettingsBody(),
+                  ),
                 _ => throw FormatException('Invalid index: $_selectedIndex'),
               },
             ),

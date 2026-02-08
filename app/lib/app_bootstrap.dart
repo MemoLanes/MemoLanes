@@ -4,8 +4,10 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
-import 'package:memolanes/body/settings/settings_body.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:memolanes/common/app_lifecycle_service.dart';
+import 'package:memolanes/common/share_handler_util.dart';
+import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
@@ -79,30 +81,70 @@ void delayedInit(UpdateNotifier updateNotifier) {
 class AppBootstrap {
   static bool _started = false;
   static final Completer<void> _mainMapReady = Completer<void>();
+  static bool _didApplyInitialLocale = false;
+
+  static Future<void> _onFirstFrame() async {
+    final ctx = navigatorKey.currentState?.context;
+    if (ctx == null || !ctx.mounted) return;
+
+    if (!_didApplyInitialLocale) {
+      _didApplyInitialLocale = true;
+
+      // TODO: This naive version is good enough for now, as we only have two locales.
+      // The one provided by the lib is kinda weird. e.g. It will map `zh-Hans-HK` to
+      // `en-US` (I guess `Hans` + `HK` is a weird case).
+      // Maybe related to: https://github.com/aissat/easy_localization/issues/372
+      final deviceLocale = ctx.deviceLocale;
+      var locale = const Locale('en', 'US');
+      if (deviceLocale.languageCode == 'zh') {
+        locale = const Locale('zh', 'CN');
+      }
+      await ctx.setLocale(locale);
+
+      await initializeDateFormatting(locale.toString());
+    }
+  }
 
   static Future<void> initAppRuntime() async {
     // This is required since we are doing things before calling `runApp`.
     WidgetsFlutterBinding.ensureInitialized();
-    await EasyLocalization.ensureInitialized();
-    await MMKVUtil.init();
 
-    // TODO: Consider using `flutter_native_splash`
-    await RustLib.init();
-    initLog();
+    // Run independent inits in parallel to speed up time to first frame.
+    final tempDirFuture = getTemporaryDirectory();
+    final docDirFuture = getApplicationDocumentsDirectory();
+    final supportDirFuture = getApplicationSupportDirectory();
+    final cacheDirFuture = getApplicationCacheDirectory();
+
+    await Future.wait([
+      EasyLocalization.ensureInitialized(),
+      MMKVUtil.init(),
+      RustLib.init().whenComplete(() => initLog()),
+      tempDirFuture,
+      docDirFuture,
+      supportDirFuture,
+      cacheDirFuture,
+    ]);
+
     await api.init(
-        tempDir: (await getTemporaryDirectory()).path,
-        docDir: (await getApplicationDocumentsDirectory()).path,
-        supportDir: (await getApplicationSupportDirectory()).path,
-        systemCacheDir: (await getApplicationCacheDirectory()).path);
+        tempDir: (await tempDirFuture).path,
+        docDir: (await docDirFuture).path,
+        supportDir: (await supportDirFuture).path,
+        systemCacheDir: (await cacheDirFuture).path);
   }
 
-  // i18n is ready
   static void startAppServices({
     required GpsManager gpsManager,
     required UpdateNotifier updateNotifier,
   }) {
     if (_started) return;
     _started = true;
+
+    ShareHandlerUtil.init(navigatorKey: navigatorKey);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _onFirstFrame();
+      gpsManager.readyToStart();
+    });
 
     api.initMainMap().then(
       (_) {
@@ -114,7 +156,6 @@ class AppBootstrap {
       },
     );
     AppLifecycleService.instance.start();
-    gpsManager.readyToStart();
 
     delayedInit(updateNotifier);
   }

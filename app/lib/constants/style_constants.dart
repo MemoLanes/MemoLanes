@@ -9,4 +9,5 @@ class StyleConstants {
   static const double navBarHorizontalPadding = 24;
   static const double navBarSafeArea = navBarHeight + navBarBottomPadding;
   static const Color defaultColor = Color(0xFFB4EC51);
+  static const double overlayFloatingRadius = 16.0;
 }
