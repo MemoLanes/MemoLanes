@@ -45,6 +45,7 @@ class MapBody extends StatefulWidget {
 
 class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   final _mapRendererProxy = api.getMapRendererProxyForMainMap();
+  final _webViewKey = GlobalKey<BaseMapWebviewState>();
   MapView? _roughMapView;
 
   TrackingMode _currentTrackingMode = TrackingMode.off;
@@ -106,10 +107,12 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     switch (state) {
       case AppLifecycleState.resumed:
         _syncTrackingModeWithGpsManager();
+        _webViewKey.currentState?.setAutoRefresh(true);
         break;
 
       case AppLifecycleState.paused:
         gpsManager.toggleMapTracking(false);
+        _webViewKey.currentState?.setAutoRefresh(false);
         break;
 
       default:
@@ -170,7 +173,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
       return Stack(
         children: [
           BaseMapWebview(
-            key: const ValueKey("mainMap"),
+            key: _webViewKey,
             mapRendererProxy: _mapRendererProxy,
             initialMapView: _roughMapView,
             trackingMode: _currentTrackingMode,
@@ -210,7 +213,10 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
                           onPressed: _trackingModeButton,
                         ),
                         const AccuracyDisplay(),
-                        LayerButton(),
+                        LayerButton(
+                          onLayerChanged: () =>
+                              _webViewKey.currentState?.manualRefresh(),
+                        ),
                       ],
                     )),
                   ),

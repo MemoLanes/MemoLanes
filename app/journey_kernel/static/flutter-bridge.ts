@@ -32,6 +32,7 @@ declare global {
     ) => void;
     getCurrentMapView?: () => string;
     refreshMapData?: () => Promise<boolean | null>;
+    setAutoRefresh?: (enabled: boolean) => void;
   }
 }
 
@@ -187,6 +188,9 @@ export class FlutterBridge {
 
     // Refresh map data - allows Flutter to trigger a data refresh
     window.refreshMapData = () => this.mapController.refreshMapData();
+    // Lifecycle: Flutter passes true to enable tile refresh, false to pause
+    window.setAutoRefresh = (enabled: boolean) =>
+      this.mapController.setAutoRefresh(enabled);
   }
 
   /**

@@ -39,7 +39,7 @@ export interface MapControllerConfig {
   /** ReactiveParams instance with validated parameters */
   params: ReactiveParams;
   /**
-   * Disable Mapdata automatic render loop.
+   * Disable mapdata automatic render loop (e.g. editor, or from Flutter lifecycle).
    * Default: false
    */
   DisableAutoRefresh?: boolean;
@@ -197,6 +197,31 @@ export class MapController {
     }
     console.log("[MapController] Refreshing map data");
     return await this.journeyTileProvider.pollForJourneyUpdates(true);
+  }
+
+  /**
+   * Set auto-refresh at runtime (e.g. from Flutter lifecycle). enabled true = run polling, false = pause.
+   */
+  setAutoRefresh(enabled: boolean): void {
+    if (!enabled) {
+      if (this.pollIntervalId !== null) {
+        clearInterval(this.pollIntervalId);
+        this.pollIntervalId = null;
+        console.log("[MapController] Auto refresh disabled");
+      }
+    } else {
+      if (
+        !this.DisableAutoRefresh &&
+        this.pollIntervalId === null &&
+        this.journeyTileProvider
+      ) {
+        this.pollIntervalId = setInterval(
+          () => this.journeyTileProvider?.pollForJourneyUpdates(false),
+          1000,
+        );
+        console.log("[MapController] Auto refresh enabled");
+      }
+    }
   }
 
   /**
