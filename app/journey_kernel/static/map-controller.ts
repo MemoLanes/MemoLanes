@@ -106,6 +106,7 @@ export class MapController {
     if (this.params.requiresMapboxToken && this.params.accessKey) {
       return (url: string, resourceType?: ResourceType) => {
         if (isMapboxURL(url)) {
+          // transformMapboxUrl expects ResourceType to be string, safe to cast
           return transformMapboxUrl(
             url,
             resourceType as any,
@@ -115,6 +116,7 @@ export class MapController {
         return { url };
       };
     }
+
     return (url: string, _resourceType?: ResourceType) => {
       return { url };
     };
