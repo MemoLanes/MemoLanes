@@ -103,17 +103,19 @@ export class MapController {
    * Build the transform request function for Mapbox URL transformation
    */
   private buildTransformRequest(): RequestTransformFunction {
-    return (url: string, resourceType?: ResourceType) => {
-      // Only transform Mapbox URLs when we have a token.
-      // This keeps the request transformer safe even if mapStyle changes at runtime.
-      if (this.params.accessKey && isMapboxURL(url)) {
-        // transformMapboxUrl expects ResourceType to be string, safe to cast
-        return transformMapboxUrl(
-          url,
-          resourceType as any,
-          this.params.accessKey,
-        );
-      }
+    if (this.params.requiresMapboxToken && this.params.accessKey) {
+      return (url: string, resourceType?: ResourceType) => {
+        if (isMapboxURL(url)) {
+          return transformMapboxUrl(
+            url,
+            resourceType as any,
+            this.params.accessKey!,
+          );
+        }
+        return { url };
+      };
+    }
+    return (url: string, _resourceType?: ResourceType) => {
       return { url };
     };
   }
@@ -180,21 +182,6 @@ export class MapController {
   }
 
   /**
-   * Update the map style (used by settings / Flutter bridge).
-   * Side effects (map.setStyle + projection transform) are handled by hooks.
-   */
-  setMapStyle(mapStyle: string): void {
-    this.params.mapStyle = mapStyle;
-  }
-
-  /**
-   * Get the current map style URL
-   */
-  getMapStyle(): string {
-    return this.params.mapStyle;
-  }
-
-  /**
    * Refresh map data by forcing a tile buffer update
    * This is called when the underlying data has changed (e.g., new journey data imported)
    * @returns Promise<boolean | null> - true if data was updated, false if no change, null on error
@@ -256,7 +243,7 @@ export class MapController {
 
   /**
    * Register hooks on ReactiveParams to handle property changes
-   * These hooks automatically respond to changes in renderMode, fogDensity, projection, and mapStyle
+   * These hooks automatically respond to changes in renderMode, fogDensity, and projection
    */
   private registerParamsHooks(): void {
     // Hook for renderMode changes - switch rendering layer
@@ -288,14 +275,6 @@ export class MapController {
             newProjection as ProjectionType,
           ),
       });
-    });
-
-    // Hook for mapStyle changes - reload map style while preserving projection
-    this.params.on("mapStyle", (newStyle, oldStyle) => {
-      console.log(
-        `[MapController] mapStyle changed: ${oldStyle} -> ${newStyle}`,
-      );
-      this.applyMapStyle();
     });
   }
 

@@ -5,7 +5,7 @@ import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
-import 'package:memolanes/common/map_base_style.dart';
+import 'package:memolanes/common/map_style.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/utils.dart';
 
@@ -17,30 +17,31 @@ class MapSettingsPage extends StatefulWidget {
 }
 
 class _MapSettingsPageState extends State<MapSettingsPage> {
-  late MapBaseStyle _current;
+  late MapStyle _current;
 
   @override
   void initState() {
     super.initState();
-    final styleName = MMKVUtil.getString(
+    final id = MMKVUtil.getString(
       MMKVKey.mapStyle,
-      defaultValue: MapBaseStyle.normal.name,
+      defaultValue: MapStyle.normal.id,
     );
-    _current = MapBaseStyle.fromName(styleName);
+    _current = MapStyle.findById(id);
   }
 
-  String get _currentLabel => switch (_current) {
-        MapBaseStyle.normal => context.tr("general.map_settings.style_normal"),
-        MapBaseStyle.satellite =>
-          context.tr("general.map_settings.style_satellite"),
-        MapBaseStyle.hybrid => context.tr("general.map_settings.style_hybrid"),
-      };
+  String _labelFor(MapStyle style) {
+    return switch (style.id) {
+      'normal' => context.tr("general.map_settings.style_normal"),
+      'satellite' => context.tr("general.map_settings.style_satellite"),
+      'hybrid' => context.tr("general.map_settings.style_hybrid"),
+      _ => style.id,
+    };
+  }
 
-  void _updateStyle(MapBaseStyle style) {
-    if (_current == style) return;
+  void _updateStyle(MapStyle style) {
+    if (_current.id == style.id) return;
     setState(() => _current = style);
-    // Persist enum name instead of URL.
-    MMKVUtil.putString(MMKVKey.mapStyle, style.name);
+    MMKVUtil.putString(MMKVKey.mapStyle, style.id);
   }
 
   void _showMapStylePicker() {
@@ -48,21 +49,17 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
       context,
       child: OptionCard(
         children: [
-          CardLabelTile(
-            label: context.tr("general.map_settings.style_normal"),
-            position: CardLabelTilePosition.top,
-            onTap: () => _updateStyle(MapBaseStyle.normal),
-          ),
-          CardLabelTile(
-            label: context.tr("general.map_settings.style_satellite"),
-            position: CardLabelTilePosition.middle,
-            onTap: () => _updateStyle(MapBaseStyle.satellite),
-          ),
-          CardLabelTile(
-            label: context.tr("general.map_settings.style_hybrid"),
-            position: CardLabelTilePosition.bottom,
-            onTap: () => _updateStyle(MapBaseStyle.hybrid),
-          ),
+          for (int i = 0; i < MapStyle.all.length; i++) ...[
+            CardLabelTile(
+              label: _labelFor(MapStyle.all[i]),
+              position: i == 0
+                  ? CardLabelTilePosition.top
+                  : i == MapStyle.all.length - 1
+                      ? CardLabelTilePosition.bottom
+                      : CardLabelTilePosition.middle,
+              onTap: () => _updateStyle(MapStyle.all[i]),
+            ),
+          ],
         ],
       ),
     );
@@ -79,7 +76,7 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
             label: context.tr("general.map_settings.style"),
             position: LabelTilePosition.single,
             trailing: LabelTileContent(
-              content: _currentLabel,
+              content: _labelFor(_current),
               showArrow: true,
             ),
             onTap: _showMapStylePicker,

@@ -81,11 +81,7 @@ export interface ExternalParams {
 export type PropertyChangeCallback<T> = (newValue: T, oldValue: T) => void;
 
 /** Mutable property names that support hooks */
-export type MutablePropertyName =
-  | "renderMode"
-  | "fogDensity"
-  | "projection"
-  | "mapStyle";
+export type MutablePropertyName = "renderMode" | "fogDensity" | "projection";
 
 /** Internal data structure for ReactiveParams */
 interface ParamsData {
@@ -108,7 +104,7 @@ interface ParamsData {
  * ReactiveParams - A Proxy-based reactive parameters object
  *
  * Properties can be accessed and set directly. Setting mutable properties
- * (renderMode, fogDensity, projection, mapStyle) triggers registered hooks.
+ * (renderMode, fogDensity, projection) triggers registered hooks.
  *
  * Usage:
  * ```typescript
@@ -150,7 +146,6 @@ const MUTABLE_PROPERTIES = new Set<MutablePropertyName>([
   "renderMode",
   "fogDensity",
   "projection",
-  "mapStyle",
 ]);
 
 /**
@@ -196,12 +191,6 @@ function createReactiveProxy(data: ParamsData): ReactiveParams {
       } else if (prop === "projection") {
         // Normalize projection value
         newValue = value === "mercator" ? "mercator" : "globe";
-      } else if (prop === "mapStyle") {
-        // Normalize mapStyle: trim and fallback to default
-        newValue = typeof value === "string" ? value.trim() : "";
-        if (!newValue) {
-          newValue = DEFAULT_MAP_STYLE;
-        }
       }
 
       // Skip if value unchanged
