@@ -132,6 +132,14 @@
       "title": "Version",
       "currently_the_latest_version": "Currently the latest version"
     },
+    "map_settings": {
+      "title": "Map Settings",
+      "style": "Map Style",
+      "style_name": {
+        "maplibre": "MapLibre Demo Tile",
+        "openfreemap": "OpenFreeMap"
+      }
+    },
     "advanced_settings": {
       "title": "Advanced settings",
       "export_logs": "Export Logs",

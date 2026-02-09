@@ -132,6 +132,14 @@
       "title": "版本",
       "currently_the_latest_version": "当前已经是最新版本"
     },
+    "map_settings": {
+      "title": "地图设置",
+      "style": "地图样式",
+      "style_name": {
+        "maplibre": "MapLibre 演示瓦片",
+        "openfreemap": "OpenFreeMap"
+      }
+    },
     "advanced_settings": {
       "title": "高级设置",
       "export_logs": "导出日志",
