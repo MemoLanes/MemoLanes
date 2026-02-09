@@ -135,9 +135,10 @@
     "map_settings": {
       "title": "Map Settings",
       "style": "Map Style",
-      "style_normal": "Standard",
-      "style_satellite": "Satellite",
-      "style_hybrid": "Hybrid"
+      "style_name": {
+        "maplibre": "MapLibre Demo Tile",
+        "openfreemap": "OpenFreeMap"
+      }
     },
     "advanced_settings": {
       "title": "Advanced settings",

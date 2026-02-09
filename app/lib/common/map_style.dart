@@ -13,40 +13,27 @@ class MapStyle {
   final String copyright;
   final double fogOpacity;
 
+  // first one is the default.
   static const List<MapStyle> all = [
-    normal,
-    satellite,
-    hybrid,
+    MapStyle(
+      id: 'openfreemap',
+      url: 'https://tiles.openfreemap.org/styles/liberty',
+      copyright:
+          '[OpenFreeMap](https://openfreemap.org) [© OpenMapTiles](https://www.openmaptiles.org/) Data from [OpenStreetMap](https://www.openstreetmap.org/copyright)',
+      fogOpacity: 0.5,
+    ),
+    MapStyle(
+      id: 'maplibre',
+      url: 'https://demotiles.maplibre.org/style.json',
+      copyright: '[MapLibre](https://maplibre.org/)',
+      fogOpacity: 0.5,
+    ),
   ];
-
-  static const MapStyle normal = MapStyle(
-    id: 'normal',
-    url: 'https://tiles.openfreemap.org/styles/liberty',
-    copyright:
-        '[OpenFreeMap](https://openfreemap.org) [© OpenMapTiles](https://www.openmaptiles.org/) Data from [OpenStreetMap](https://www.openstreetmap.org/copyright)',
-    fogOpacity: 0.5,
-  );
-
-  static const MapStyle satellite = MapStyle(
-    id: 'satellite',
-    url: 'mapbox://styles/mapbox/satellite-v9',
-    copyright:
-        '[© Mapbox](https://www.mapbox.com/about/maps) [© OpenStreetMap](https://www.openstreetmap.org/copyright/) [Improve this map](https://www.mapbox.com/contribute/)',
-    fogOpacity: 0.5,
-  );
-
-  static const MapStyle hybrid = MapStyle(
-    id: 'hybrid',
-    url: 'mapbox://styles/mapbox/satellite-streets-v12',
-    copyright:
-        '[© Mapbox](https://www.mapbox.com/about/maps) [© OpenStreetMap](https://www.openstreetmap.org/copyright/) [Improve this map](https://www.mapbox.com/contribute/)',
-    fogOpacity: 0.5,
-  );
 
   static MapStyle findById(String? id) {
     return all.firstWhere(
       (s) => s.id == id,
-      orElse: () => normal,
+      orElse: () => all[0],
     );
   }
 }

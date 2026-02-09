@@ -306,10 +306,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   }
 
   MapStyle _loadMapStyleFromStorage() {
-    final id = MMKVUtil.getString(
-      MMKVKey.mapStyle,
-      defaultValue: MapStyle.normal.id,
-    );
+    final id = MMKVUtil.getString(MMKVKey.mapStyle);
     return MapStyle.findById(id);
   }
 

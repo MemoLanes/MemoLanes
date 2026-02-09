@@ -23,20 +23,12 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
   @override
   void initState() {
     super.initState();
-    final id = MMKVUtil.getString(
-      MMKVKey.mapStyle,
-      defaultValue: MapStyle.normal.id,
-    );
+    final id = MMKVUtil.getStringOpt(MMKVKey.mapStyle);
     _current = MapStyle.findById(id);
   }
 
   String _labelFor(MapStyle style) {
-    return switch (style.id) {
-      'normal' => context.tr("general.map_settings.style_normal"),
-      'satellite' => context.tr("general.map_settings.style_satellite"),
-      'hybrid' => context.tr("general.map_settings.style_hybrid"),
-      _ => style.id,
-    };
+    return context.tr("general.map_settings.style_name.${style.id}");
   }
 
   void _updateStyle(MapStyle style) {

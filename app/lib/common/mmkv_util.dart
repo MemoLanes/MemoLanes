@@ -52,6 +52,11 @@ class MMKVUtil {
     return _mmkv.decodeString(key) ?? defaultValue;
   }
 
+  /// get string optional
+  static String? getStringOpt(String key) {
+    return _mmkv.decodeString(key);
+  }
+
   /// remove key
   static void removeAppKey(String key) {
     return _mmkv.removeValue(key);
