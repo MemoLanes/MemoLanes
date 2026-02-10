@@ -12,7 +12,17 @@ class AppLifecycleService {
   Timer? _freeResourceCountdown;
   bool _countdownCanceled = false;
 
+  void Function(bool enabled)? _setMapAutoRefresh;
+
   bool get isRunning => _sub != null;
+
+  void registerMapAutoRefresh(void Function(bool enabled) callback) {
+    _setMapAutoRefresh = callback;
+  }
+
+  void unregisterMapAutoRefresh() {
+    _setMapAutoRefresh = null;
+  }
 
   void start() {
     if (_sub != null) return;
@@ -24,12 +34,14 @@ class AppLifecycleService {
         log.info(
             '[AppLifecycleService][$triggerTime] Background event received.');
         _countdownCanceled = false;
+        _setMapAutoRefresh?.call(false);
         _startFreeResourceCountdown();
       } else if (event == FGBGType.foreground) {
         log.info(
             '[AppLifecycleService][$triggerTime] Foreground event received.');
         _reset();
         _reloadResource();
+        _setMapAutoRefresh?.call(true);
       }
     });
   }

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:json_annotation/json_annotation.dart';
+import 'package:memolanes/common/app_lifecycle_service.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/map_controls/accuracy_display.dart';
 import 'package:memolanes/common/component/map_controls/layer_button.dart';
@@ -71,11 +72,14 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     super.initState();
     _loadMapState();
     WidgetsBinding.instance.addObserver(this);
+    AppLifecycleService.instance.registerMapAutoRefresh(
+        (enabled) => _webViewKey.currentState?.setAutoRefresh(enabled));
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    AppLifecycleService.instance.unregisterMapAutoRefresh();
     _saveMapState();
     super.dispose();
   }
@@ -107,12 +111,10 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     switch (state) {
       case AppLifecycleState.resumed:
         _syncTrackingModeWithGpsManager();
-        _webViewKey.currentState?.setAutoRefresh(true);
         break;
 
       case AppLifecycleState.paused:
         gpsManager.toggleMapTracking(false);
-        _webViewKey.currentState?.setAutoRefresh(false);
         break;
 
       default:
