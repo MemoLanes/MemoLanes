@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_fgbg/flutter_fgbg.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -8,21 +9,13 @@ class AppLifecycleService {
   static final AppLifecycleService instance = AppLifecycleService._internal();
   AppLifecycleService._internal();
 
+  static ValueNotifier<bool> isResourceLoaded = ValueNotifier(true);
+
   StreamSubscription? _sub;
   Timer? _freeResourceCountdown;
   bool _countdownCanceled = false;
 
-  void Function(bool enabled)? _setMapAutoRefresh;
-
   bool get isRunning => _sub != null;
-
-  void registerMapAutoRefresh(void Function(bool enabled) callback) {
-    _setMapAutoRefresh = callback;
-  }
-
-  void unregisterMapAutoRefresh() {
-    _setMapAutoRefresh = null;
-  }
 
   void start() {
     if (_sub != null) return;
@@ -34,14 +27,12 @@ class AppLifecycleService {
         log.info(
             '[AppLifecycleService][$triggerTime] Background event received.');
         _countdownCanceled = false;
-        _setMapAutoRefresh?.call(false);
         _startFreeResourceCountdown();
       } else if (event == FGBGType.foreground) {
         log.info(
             '[AppLifecycleService][$triggerTime] Foreground event received.');
         _reset();
         _reloadResource();
-        _setMapAutoRefresh?.call(true);
       }
     });
   }
@@ -76,12 +67,14 @@ class AppLifecycleService {
   void _freeResource() {
     final triggerTime = DateTime.now();
     log.info('[AppLifecycleService][$triggerTime] Try to free resource.');
+    isResourceLoaded.value = false;
     api.freeResourceForLongTimeBackground();
   }
 
-  void _reloadResource() {
+  void _reloadResource() async {
     // TODO: would be nice if we can display a loading indicator if this is taking very long
-    api.reloadResourceForForeground();
+    await api.reloadResourceForForeground();
+    isResourceLoaded.value = true;
   }
 
   void stop() {

@@ -38,11 +38,8 @@ export interface MapControllerConfig {
   containerId: string;
   /** ReactiveParams instance with validated parameters */
   params: ReactiveParams;
-  /**
-   * Disable mapdata automatic render loop (e.g. editor, or from Flutter lifecycle).
-   * Default: false
-   */
-  DisableAutoRefresh?: boolean;
+  /** Default: true */
+  autoRefresh?: boolean;
 }
 
 /**
@@ -51,7 +48,7 @@ export interface MapControllerConfig {
 export class MapController {
   private map: MaplibreMap;
   private params: ReactiveParams;
-  private DisableAutoRefresh: boolean;
+  private autoRefresh: boolean;
   private currentJourneyLayer: JourneyLayer | null = null;
   private journeyTileProvider: JourneyTileProvider | null = null;
   private styleRetryIntervalId: ReturnType<typeof setInterval> | null = null;
@@ -59,7 +56,7 @@ export class MapController {
 
   constructor(config: MapControllerConfig) {
     this.params = config.params;
-    this.DisableAutoRefresh = config.DisableAutoRefresh ?? false;
+    this.autoRefresh = config.autoRefresh ?? true;
 
     // Build transform request function for Mapbox styles
     const transformRequest = this.buildTransformRequest();
@@ -150,13 +147,7 @@ export class MapController {
         // Handle style changes to maintain journey layer position
         this.setupStyleDataHandler();
 
-        // Set up polling for tile updates
-        if (!this.DisableAutoRefresh) {
-          this.pollIntervalId = setInterval(
-            () => this.journeyTileProvider?.pollForJourneyUpdates(false),
-            1000,
-          );
-        }
+        this.setAutoRefresh(this.autoRefresh);
 
         // Apply the actual map style (deferred until journey layer is added)
         this.applyMapStyle();
@@ -200,9 +191,10 @@ export class MapController {
   }
 
   /**
-   * Set auto-refresh at runtime (e.g. from Flutter lifecycle). enabled true = run polling, false = pause.
+   * Set auto-refresh at runtime
    */
   setAutoRefresh(enabled: boolean): void {
+    this.autoRefresh = enabled;
     if (!enabled) {
       if (this.pollIntervalId !== null) {
         clearInterval(this.pollIntervalId);
@@ -210,11 +202,7 @@ export class MapController {
         console.log("[MapController] Auto refresh disabled");
       }
     } else {
-      if (
-        !this.DisableAutoRefresh &&
-        this.pollIntervalId === null &&
-        this.journeyTileProvider
-      ) {
+      if (this.pollIntervalId === null) {
         this.pollIntervalId = setInterval(
           () => this.journeyTileProvider?.pollForJourneyUpdates(false),
           1000,

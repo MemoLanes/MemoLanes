@@ -45,7 +45,7 @@ class BaseMapWebview extends StatefulWidget {
   final void Function(MapView)? onRoughMapViewUpdate;
   final void Function(int)? onMapZoomChanged;
   final List<BaseMapJavaScriptChannel> extraJavaScriptChannels;
-  final bool autoRefreshEnabled;
+  final bool autoRefresh;
 
   const BaseMapWebview(
       {super.key,
@@ -57,7 +57,7 @@ class BaseMapWebview extends StatefulWidget {
       this.onRoughMapViewUpdate,
       this.onMapZoomChanged,
       this.extraJavaScriptChannels = const [],
-      this.autoRefreshEnabled = true});
+      required this.autoRefresh});
 
   @override
   State<StatefulWidget> createState() => BaseMapWebviewState();
@@ -94,8 +94,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       _refreshMapData();
     }
     // Only push when changed (no inject on init)
-    if (oldWidget.autoRefreshEnabled != widget.autoRefreshEnabled) {
-      setAutoRefresh(widget.autoRefreshEnabled);
+    if (oldWidget.autoRefresh != widget.autoRefresh) {
+      setAutoRefresh(widget.autoRefresh);
     }
   }
 
@@ -304,7 +304,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         lat: $latParam,
         zoom: $zoomParam,
         editor: ${widget.isEditor ? "true" : "false"},
-        autoRefreshEnabled: ${widget.autoRefreshEnabled},
+        autoRefresh: ${widget.autoRefresh},
       };
       
       // Check if JS is ready and trigger initialization if so

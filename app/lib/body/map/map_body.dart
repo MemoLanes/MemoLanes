@@ -72,14 +72,11 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     super.initState();
     _loadMapState();
     WidgetsBinding.instance.addObserver(this);
-    AppLifecycleService.instance.registerMapAutoRefresh(
-        (enabled) => _webViewKey.currentState?.setAutoRefresh(enabled));
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    AppLifecycleService.instance.unregisterMapAutoRefresh();
     _saveMapState();
     super.dispose();
   }
@@ -174,25 +171,33 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     } else {
       return Stack(
         children: [
-          BaseMapWebview(
-            key: _webViewKey,
-            mapRendererProxy: _mapRendererProxy,
-            initialMapView: _roughMapView,
-            trackingMode: _currentTrackingMode,
-            onRoughMapViewUpdate: (roughMapView) {
-              _roughMapView = roughMapView;
-              _saveMapState();
-            },
-            onMapMoved: () {
-              if (_currentTrackingMode == TrackingMode.displayAndTracking) {
-                setState(() {
-                  _currentTrackingMode = TrackingMode.displayOnly;
-                });
-                _syncTrackingModeWithGpsManager();
-                _saveMapState();
-              }
-            },
-          ),
+          ValueListenableBuilder(
+              valueListenable: AppLifecycleService.isResourceLoaded,
+              builder: (context, isResourceLoaded, _) {
+                return BaseMapWebview(
+                  key: _webViewKey,
+                  mapRendererProxy: _mapRendererProxy,
+                  initialMapView: _roughMapView,
+                  trackingMode: _currentTrackingMode,
+                  onRoughMapViewUpdate: (roughMapView) {
+                    _roughMapView = roughMapView;
+                    _saveMapState();
+                  },
+                  autoRefresh:
+                      isResourceLoaded // stop refreshing when resource is freed
+                  ,
+                  onMapMoved: () {
+                    if (_currentTrackingMode ==
+                        TrackingMode.displayAndTracking) {
+                      setState(() {
+                        _currentTrackingMode = TrackingMode.displayOnly;
+                      });
+                      _syncTrackingModeWithGpsManager();
+                      _saveMapState();
+                    }
+                  },
+                );
+              }),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
