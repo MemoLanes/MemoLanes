@@ -6,6 +6,8 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/common/map_style.dart';
+import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
@@ -66,10 +68,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   late GpsManager _gpsManager;
   bool _readyForDisplay = false;
 
-  // TODO: define a proper type to make it more type-safe
-  // TODO: we may let user to choose base map providers.
-  final _mapStyle = "https://tiles.openfreemap.org/styles/liberty";
-  // final _mapStyle = "mapbox://styles/mapbox/streets-v12";
+  late MapStyle _selectedMapStyle;
 
   // Dev server URL for loading map webview from a local dev server.
   // Usage: flutter run --dart-define=DEV_SERVER=http://ip:port
@@ -133,6 +132,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _gpsManager = Provider.of<GpsManager>(context, listen: false);
     _gpsManager.addListener(_updateLocationMarker);
     _currentRoughMapView = widget.initialMapView;
+    _selectedMapStyle = _loadMapStyleFromStorage();
     _initWebView();
 
     () async {
@@ -291,12 +291,14 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     debugPrint('Injecting lat: $latParam');
     debugPrint('Injecting zoom: $zoomParam');
 
+    final style = _selectedMapStyle;
     await _webViewController.runJavaScript('''
       // Set the params
       window.EXTERNAL_PARAMS = {
         cgi_endpoint: "flutter://TileProviderChannel",
         render: "canvas",
-        map_style: "$_mapStyle",
+        map_style: "${style.url}",
+        fog_density: ${style.fogOpacity},
         access_key: ${accessKey != null ? "\"$accessKey\"" : "null"},
         lng: $lngParam,
         lat: $latParam,
@@ -317,6 +319,11 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     ''');
 
     debugPrint('Initialization completed');
+  }
+
+  MapStyle _loadMapStyleFromStorage() {
+    final id = MMKVUtil.getString(MMKVKey.mapStyle);
+    return MapStyle.findById(id);
   }
 
   void _handleMapViewPush(String message) {
@@ -410,14 +417,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     // https://github.com/flutter/flutter/issues/165305
     // But unfortunately, it only works for iOS 18, so we still have this weird
     // double tap behavior on older iOS versions.
-    var mapCopyrightTextMarkdown = 'UNKNOWN';
-    if (_mapStyle.contains('openfreemap.org')) {
-      mapCopyrightTextMarkdown =
-          "[OpenFreeMap](https://openfreemap.org) [© OpenMapTiles](https://www.openmaptiles.org/) Data from [OpenStreetMap](https://www.openstreetmap.org/copyright)";
-    } else if (_mapStyle.contains('mapbox')) {
-      mapCopyrightTextMarkdown =
-          '[© Mapbox](https://www.mapbox.com/about/maps) [© OpenStreetMap](https://www.openstreetmap.org/copyright/) [Improve this map](https://www.mapbox.com/contribute/)';
-    }
+    final mapCopyrightTextMarkdown = _selectedMapStyle.copyright;
 
     return Stack(
       children: [
