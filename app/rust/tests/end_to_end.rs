@@ -63,8 +63,14 @@ fn basic() {
 
     {
         let main_map_state = main_map_state.lock().unwrap();
-        let render_result =
-            test_utils::render_map_overlay(&main_map_state.map_renderer, 11, 121.39, 31.3146, 121.55, 31.18);
+        let render_result = test_utils::render_map_overlay(
+            &main_map_state.map_renderer,
+            11,
+            121.39,
+            31.3146,
+            121.55,
+            31.18,
+        );
         drop(main_map_state);
         test_utils::verify_image("end_to_end_basic_1", &render_result.data);
     }
