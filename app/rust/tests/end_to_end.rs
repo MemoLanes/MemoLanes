@@ -26,7 +26,7 @@ fn basic() {
 
     let mut raw_data_list: Vec<RawData> = raw_data.into_iter().flatten().collect();
     let (first_elements, remaining_elements) = raw_data_list.split_at_mut(2000);
-    let map_renderer = api::for_testing::get_main_map_renderer();
+    let main_map_state = api::for_testing::get_main_map_state();
 
     assert!(!api::has_ongoing_journey().unwrap());
     for (i, raw_data) in first_elements.iter().enumerate() {
@@ -39,10 +39,16 @@ fn basic() {
 
     // we have both ongoing journey and finalized journey at this point
     {
-        let map_renderer = map_renderer.lock().unwrap();
-        let render_result =
-            test_utils::render_map_overlay(&map_renderer, 11, 121.39, 31.3146, 121.55, 31.18);
-        drop(map_renderer);
+        let main_map_state = main_map_state.lock().unwrap();
+        let render_result = test_utils::render_map_overlay(
+            &main_map_state.map_renderer,
+            11,
+            121.39,
+            31.3146,
+            121.55,
+            31.18,
+        );
+        drop(main_map_state);
         test_utils::verify_image("end_to_end_basic_0", &render_result.data);
     }
 
@@ -56,10 +62,10 @@ fn basic() {
     }
 
     {
-        let map_renderer = map_renderer.lock().unwrap();
+        let main_map_state = main_map_state.lock().unwrap();
         let render_result =
-            test_utils::render_map_overlay(&map_renderer, 11, 121.39, 31.3146, 121.55, 31.18);
-        drop(map_renderer);
+            test_utils::render_map_overlay(&main_map_state.map_renderer, 11, 121.39, 31.3146, 121.55, 31.18);
+        drop(main_map_state);
         test_utils::verify_image("end_to_end_basic_1", &render_result.data);
     }
 
