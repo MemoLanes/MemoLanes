@@ -38,11 +38,8 @@ export interface MapControllerConfig {
   containerId: string;
   /** ReactiveParams instance with validated parameters */
   params: ReactiveParams;
-  /**
-   * Disable Mapdata automatic render loop.
-   * Default: false
-   */
-  DisableAutoRefresh?: boolean;
+  /** Default: true */
+  autoRefresh?: boolean;
 }
 
 /**
@@ -51,7 +48,7 @@ export interface MapControllerConfig {
 export class MapController {
   private map: MaplibreMap;
   private params: ReactiveParams;
-  private DisableAutoRefresh: boolean;
+  private autoRefresh: boolean;
   private currentJourneyLayer: JourneyLayer | null = null;
   private journeyTileProvider: JourneyTileProvider | null = null;
   private styleRetryIntervalId: ReturnType<typeof setInterval> | null = null;
@@ -59,7 +56,7 @@ export class MapController {
 
   constructor(config: MapControllerConfig) {
     this.params = config.params;
-    this.DisableAutoRefresh = config.DisableAutoRefresh ?? false;
+    this.autoRefresh = config.autoRefresh ?? true;
 
     // Build transform request function for Mapbox styles
     const transformRequest = this.buildTransformRequest();
@@ -150,13 +147,7 @@ export class MapController {
         // Handle style changes to maintain journey layer position
         this.setupStyleDataHandler();
 
-        // Set up polling for tile updates
-        if (!this.DisableAutoRefresh) {
-          this.pollIntervalId = setInterval(
-            () => this.journeyTileProvider?.pollForJourneyUpdates(false),
-            1000,
-          );
-        }
+        this.setAutoRefresh(this.autoRefresh);
 
         // Apply the actual map style (deferred until journey layer is added)
         this.applyMapStyle();
@@ -197,6 +188,28 @@ export class MapController {
     }
     console.log("[MapController] Refreshing map data");
     return await this.journeyTileProvider.pollForJourneyUpdates(true);
+  }
+
+  /**
+   * Set auto-refresh at runtime
+   */
+  setAutoRefresh(enabled: boolean): void {
+    this.autoRefresh = enabled;
+    if (!enabled) {
+      if (this.pollIntervalId !== null) {
+        clearInterval(this.pollIntervalId);
+        this.pollIntervalId = null;
+        console.log("[MapController] Auto refresh disabled");
+      }
+    } else {
+      if (this.pollIntervalId === null) {
+        this.pollIntervalId = setInterval(
+          () => this.journeyTileProvider?.pollForJourneyUpdates(false),
+          1000,
+        );
+        console.log("[MapController] Auto refresh enabled");
+      }
+    }
   }
 
   /**

@@ -315,6 +315,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                     key: const ValueKey("mapWidget"),
                     mapRendererProxy: mapRendererProxy,
                     initialMapView: _initialMapView,
+                    autoRefresh: false,
                   ),
           ),
           CapsuleStyleOverlayAppBar.overlayBar(

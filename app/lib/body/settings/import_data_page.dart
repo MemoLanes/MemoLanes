@@ -233,6 +233,7 @@ class _ImportDataPage extends State<ImportDataPage> {
                           key: const ValueKey("mapWidget"),
                           mapRendererProxy: _mapRendererProxy!,
                           initialMapView: _initialMapView,
+                          autoRefresh: false,
                         ),
                 ),
                 CapsuleStyleOverlayAppBar.overlayBar(

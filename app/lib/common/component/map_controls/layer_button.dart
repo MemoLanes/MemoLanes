@@ -11,7 +11,10 @@ import 'package:memolanes/src/rust/api/api.dart' as api;
 class LayerButton extends StatelessWidget {
   const LayerButton({
     super.key,
+    this.onLayerChanged,
   });
+
+  final VoidCallback? onLayerChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +23,8 @@ class LayerButton extends StatelessWidget {
       horizontalOffset: -16,
       contentRadius: 24,
       barrierColor: Colors.transparent,
-      content: PointerInterceptor(child: LayerPopupContent()),
+      content: PointerInterceptor(
+          child: LayerPopupContent(onLayerChanged: onLayerChanged)),
       child: PointerInterceptor(
           child: Container(
         width: 48,
@@ -44,7 +48,10 @@ class LayerButton extends StatelessWidget {
 class LayerPopupContent extends StatefulWidget {
   LayerPopupContent({
     super.key,
+    this.onLayerChanged,
   });
+
+  final VoidCallback? onLayerChanged;
 
   @override
   State<LayerPopupContent> createState() => _LayerPopupContentState();
@@ -104,6 +111,7 @@ class _LayerPopupContentState extends State<LayerPopupContent> {
         _actionTimer = Timer(const Duration(milliseconds: 600), () {
           _actionTimer = null;
           api.setMainMapLayerFilter(newLayerFilter: _layerFilter);
+          widget.onLayerChanged?.call();
         });
       },
       borderRadius: BorderRadius.circular(12),

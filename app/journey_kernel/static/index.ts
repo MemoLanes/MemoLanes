@@ -90,13 +90,15 @@ async function trySetup(): Promise<void> {
 
   // Editor-specific bridge (used by journey track editor)
   const isEditor = window.EXTERNAL_PARAMS.editor === true;
+  // DisableAutoRefresh: from Flutter (main map lifecycle or editor = true to disable)
+  const autoRefresh = window.EXTERNAL_PARAMS.autoRefresh === false;
 
   // Create and initialize MapController
   // MapController handles: map instance, tile provider, layers, style management
   const mapController = new MapController({
     containerId: "map",
     params,
-    DisableAutoRefresh: isEditor,
+    autoRefresh,
   });
 
   await mapController.initialize();

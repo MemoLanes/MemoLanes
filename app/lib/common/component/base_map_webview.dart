@@ -45,6 +45,7 @@ class BaseMapWebview extends StatefulWidget {
   final void Function(MapView)? onRoughMapViewUpdate;
   final void Function(int)? onMapZoomChanged;
   final List<BaseMapJavaScriptChannel> extraJavaScriptChannels;
+  final bool autoRefresh;
 
   const BaseMapWebview(
       {super.key,
@@ -55,7 +56,8 @@ class BaseMapWebview extends StatefulWidget {
       this.onMapMoved,
       this.onRoughMapViewUpdate,
       this.onMapZoomChanged,
-      this.extraJavaScriptChannels = const []});
+      this.extraJavaScriptChannels = const [],
+      required this.autoRefresh});
 
   @override
   State<StatefulWidget> createState() => BaseMapWebviewState();
@@ -91,6 +93,10 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     if (oldWidget.mapRendererProxy != widget.mapRendererProxy) {
       _refreshMapData();
     }
+    // Only push when changed (no inject on init)
+    if (oldWidget.autoRefresh != widget.autoRefresh) {
+      setAutoRefresh(widget.autoRefresh);
+    }
   }
 
   /// Request the WebView to refresh map data from the backend
@@ -102,6 +108,15 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         refreshMapData();
       } else {
         console.warn('refreshMapData function not available yet');
+      }
+    ''');
+  }
+
+  /// Set map tile auto-refresh on/off (e.g. from lifecycle in MapBody).
+  void setAutoRefresh(bool enabled) {
+    _webViewController.runJavaScript('''
+      if (typeof setAutoRefresh === 'function') {
+        setAutoRefresh(${enabled ? 'true' : 'false'});
       }
     ''');
   }
@@ -289,6 +304,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         lat: $latParam,
         zoom: $zoomParam,
         editor: ${widget.isEditor ? "true" : "false"},
+        autoRefresh: ${widget.autoRefresh},
       };
       
       // Check if JS is ready and trigger initialization if so

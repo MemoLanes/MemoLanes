@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:json_annotation/json_annotation.dart';
+import 'package:memolanes/common/app_lifecycle_service.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/map_controls/accuracy_display.dart';
 import 'package:memolanes/common/component/map_controls/layer_button.dart';
@@ -45,6 +46,7 @@ class MapBody extends StatefulWidget {
 
 class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   final _mapRendererProxy = api.getMapRendererProxyForMainMap();
+  final _webViewKey = GlobalKey<BaseMapWebviewState>();
   MapView? _roughMapView;
 
   TrackingMode _currentTrackingMode = TrackingMode.off;
@@ -169,25 +171,33 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     } else {
       return Stack(
         children: [
-          BaseMapWebview(
-            key: const ValueKey("mainMap"),
-            mapRendererProxy: _mapRendererProxy,
-            initialMapView: _roughMapView,
-            trackingMode: _currentTrackingMode,
-            onRoughMapViewUpdate: (roughMapView) {
-              _roughMapView = roughMapView;
-              _saveMapState();
-            },
-            onMapMoved: () {
-              if (_currentTrackingMode == TrackingMode.displayAndTracking) {
-                setState(() {
-                  _currentTrackingMode = TrackingMode.displayOnly;
-                });
-                _syncTrackingModeWithGpsManager();
-                _saveMapState();
-              }
-            },
-          ),
+          ValueListenableBuilder(
+              valueListenable: AppLifecycleService.isResourceLoaded,
+              builder: (context, isResourceLoaded, _) {
+                return BaseMapWebview(
+                  key: _webViewKey,
+                  mapRendererProxy: _mapRendererProxy,
+                  initialMapView: _roughMapView,
+                  trackingMode: _currentTrackingMode,
+                  onRoughMapViewUpdate: (roughMapView) {
+                    _roughMapView = roughMapView;
+                    _saveMapState();
+                  },
+                  autoRefresh:
+                      isResourceLoaded // stop refreshing when resource is freed
+                  ,
+                  onMapMoved: () {
+                    if (_currentTrackingMode ==
+                        TrackingMode.displayAndTracking) {
+                      setState(() {
+                        _currentTrackingMode = TrackingMode.displayOnly;
+                      });
+                      _syncTrackingModeWithGpsManager();
+                      _saveMapState();
+                    }
+                  },
+                );
+              }),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -210,7 +220,10 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
                           onPressed: _trackingModeButton,
                         ),
                         const AccuracyDisplay(),
-                        LayerButton(),
+                        LayerButton(
+                          onLayerChanged: () =>
+                              _webViewKey.currentState?.manualRefresh(),
+                        ),
                       ],
                     )),
                   ),

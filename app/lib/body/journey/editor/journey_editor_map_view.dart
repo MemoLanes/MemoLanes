@@ -133,6 +133,7 @@ class _JourneyEditorMapWebviewState extends State<_JourneyEditorMapWebview> {
       initialMapView: baseInitialMapView,
       trackingMode: TrackingMode.off,
       isEditor: true,
+      autoRefresh: false,
       onMapMoved: widget.onMapMoved,
       onMapZoomChanged: widget.onMapZoomChanged,
       extraJavaScriptChannels: [
