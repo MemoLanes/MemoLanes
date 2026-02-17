@@ -3,20 +3,25 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:json_annotation/json_annotation.dart';
+import 'package:memolanes/body/map/overlay/normal_map_overlay.dart';
+import 'package:memolanes/body/map/overlay/time_machine_overlay.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
-import 'package:memolanes/common/component/map_controls/accuracy_display.dart';
-import 'package:memolanes/common/component/map_controls/layer_button.dart';
-import 'package:memolanes/common/component/map_controls/tracking_button.dart';
-import 'package:memolanes/common/component/rec_indicator.dart';
-import 'package:memolanes/common/component/recording_buttons.dart';
 import 'package:memolanes/common/gps_manager.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/service/permission_service.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 
 part 'map.g.dart';
+
+/// 页面模式：同一地图上叠加不同层即不同页面。
+enum MapMode {
+  /// 首页：轨迹记录叠加层 [NormalMapOverlay]
+  normal,
+  /// 时光机：日期范围 + 历程地图叠加层 [TimeMachineOverlay]
+  timeMachine,
+}
 
 // TODO: `dart run build_runner build` is needed for generating `map.g.dart`,
 // we should automate this.
@@ -37,17 +42,29 @@ class MapState {
 }
 
 class MapBody extends StatefulWidget {
-  const MapBody({super.key});
+  const MapBody({super.key, this.mode = MapMode.normal});
+
+  final MapMode mode;
 
   @override
   State<StatefulWidget> createState() => MapBodyState();
 }
 
 class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
+  /// 主地图 proxy，仅此一处初始化，无重复（main 层用 GlobalKey 固定 MapBody 实例）。
   final _mapRendererProxy = api.getMapRendererProxyForMainMap();
   MapView? _roughMapView;
+  api.MapRendererProxy? _journeyMapRendererProxy;
 
   TrackingMode _currentTrackingMode = TrackingMode.off;
+
+  /// 用 GlobalKey 固定主地图 WebView 的 State，避免 0↔1 切换时被误判重建导致重载
+  final GlobalKey<BaseMapWebviewState> _mainMapKey =
+      GlobalKey<BaseMapWebviewState>();
+
+  void setJourneyMapRendererProxy(api.MapRendererProxy? proxy) {
+    setState(() => _journeyMapRendererProxy = proxy);
+  }
 
   void _syncTrackingModeWithGpsManager() {
     Provider.of<GpsManager>(context, listen: false)
@@ -154,79 +171,64 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     _syncTrackingModeWithGpsManager();
   }
 
+  Widget _buildMapLayer() {
+    // 时光机选日期后：复用同一 WebView，只换 proxy，由 didUpdateWidget 触发 refreshMapData()，不整页重载
+    final proxy = (widget.mode == MapMode.timeMachine &&
+            _journeyMapRendererProxy != null)
+        ? _journeyMapRendererProxy!
+        : _mapRendererProxy;
+    return BaseMapWebview(
+      key: _mainMapKey,
+      mapRendererProxy: proxy,
+      initialMapView: _roughMapView,
+      trackingMode: _currentTrackingMode,
+      onRoughMapViewUpdate: (roughMapView) {
+        _roughMapView = roughMapView;
+        _saveMapState();
+      },
+      onMapMoved: () {
+        if (_currentTrackingMode == TrackingMode.displayAndTracking) {
+          setState(() {
+            _currentTrackingMode = TrackingMode.displayOnly;
+          });
+          _syncTrackingModeWithGpsManager();
+          _saveMapState();
+        }
+      },
+    );
+  }
+
+  /// 按 mode 返回对应叠加层，叠加层均在独立文件中。
+  Widget _buildOverlay(BuildContext context, MapMode mode) {
+    switch (mode) {
+      case MapMode.normal:
+        return NormalMapOverlay(
+          trackingMode: _currentTrackingMode,
+          onTrackingPressed: _trackingModeButton,
+        );
+      case MapMode.timeMachine:
+        return TimeMachineOverlay(
+          onJourneyRangeLoaded: setJourneyMapRendererProxy,
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final isLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
-    var gpsManager = context.watch<GpsManager>();
+    final mode = widget.mode;
 
     // TODO: Add profile button top right
     if (_roughMapView == null) {
       // TODO: This should be a loading spinner and it should be cover the whole
       // screen until the map is fully loaded.
-      return SizedBox.shrink();
-    } else {
-      return Stack(
-        children: [
-          BaseMapWebview(
-            key: const ValueKey("mainMap"),
-            mapRendererProxy: _mapRendererProxy,
-            initialMapView: _roughMapView,
-            trackingMode: _currentTrackingMode,
-            onRoughMapViewUpdate: (roughMapView) {
-              _roughMapView = roughMapView;
-              _saveMapState();
-            },
-            onMapMoved: () {
-              if (_currentTrackingMode == TrackingMode.displayAndTracking) {
-                setState(() {
-                  _currentTrackingMode = TrackingMode.displayOnly;
-                });
-                _syncTrackingModeWithGpsManager();
-                _saveMapState();
-              }
-            },
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Spacer(),
-                  Padding(
-                    padding: EdgeInsets.only(
-                      right: 8,
-                      bottom: isLandscape ? 16 : screenSize.height * 0.08,
-                    ),
-                    child: PointerInterceptor(
-                        child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        TrackingButton(
-                          trackingMode: _currentTrackingMode,
-                          onPressed: _trackingModeButton,
-                        ),
-                        const AccuracyDisplay(),
-                        LayerButton(),
-                      ],
-                    )),
-                  ),
-                  const RecordingButtons(),
-                  const SizedBox(height: 116),
-                ],
-              ),
-            ),
-          ),
-          RecIndicator(
-            isRecording:
-                gpsManager.recordingStatus == GpsRecordingStatus.recording,
-            blinkDurationMs: 1000,
-          )
-        ],
-      );
+      return const SizedBox.shrink();
     }
+
+    final children = <Widget>[
+      _buildMapLayer(),
+      _buildOverlay(context, mode),
+    ];
+
+    return Stack(children: children);
   }
 }
