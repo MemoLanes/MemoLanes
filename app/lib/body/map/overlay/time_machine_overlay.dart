@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:memolanes/body/time_machine/time_range_picker.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/utils.dart';
+
+
 
 class TimeMachineOverlay extends StatefulWidget {
   const TimeMachineOverlay({
@@ -16,14 +19,24 @@ class TimeMachineOverlay extends StatefulWidget {
 }
 
 class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
-  final DateFormat _dateFormat = DateFormat("yyyy-MM-dd");
+  static final DateFormat _dateFormat = DateFormat('yyyy-MM-dd');
   DateTime? _earliestJourneyDate;
-
-  DateTime _fromDateInclusive = DateTime.now();
-  DateTime _toDateInclusive = DateTime.now();
-
   bool _loading = false;
-  bool _changed = true;
+
+  Future<void> _loadJourneyForRange(DateTime from, DateTime to) async {
+    if (_earliestJourneyDate == null) return;
+    if (from.isAfter(to)) return;
+    setState(() => _loading = true);
+    try {
+      final proxy = await api.getMapRendererProxyForJourneyDateRange(
+        fromDateInclusive: naiveDateOfString(str: _dateFormat.format(from)),
+        toDateInclusive: naiveDateOfString(str: _dateFormat.format(to)),
+      );
+      if (mounted) widget.onJourneyRangeLoaded(proxy);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   void initState() {
@@ -40,101 +53,32 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final earliestJourneyDate = _earliestJourneyDate;
-    if (earliestJourneyDate == null) {
+    final earliest = _earliestJourneyDate;
+    if (earliest == null) {
       return const Center(
         child: Text('No Data', style: TextStyle(fontSize: 24)),
       );
     }
 
+    final screenSize = MediaQuery.of(context).size;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
+
     return SafeArea(
-      child: Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: <Widget>[
-            Container(
-              padding: const EdgeInsets.all(10),
-              child: const Text(
-                "Naive TimeMachine",
-                style: TextStyle(fontSize: 20),
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Spacer(),
+            Padding(
+              padding: EdgeInsets.only(
+                bottom: isLandscape ? 40 : screenSize.height * 0.12,
               ),
-            ),
-            TextField(
-              readOnly: true,
-              controller: TextEditingController(
-                text: _dateFormat.format(_fromDateInclusive),
-              ),
-              onTap: () async {
-                final time = await showDatePicker(
-                  context: context,
-                  initialDate: _fromDateInclusive,
-                  firstDate: earliestJourneyDate,
-                  lastDate: DateTime.now(),
-                );
-                if (time != null) {
-                  setState(() {
-                    _changed = true;
-                    _fromDateInclusive = time;
-                  });
-                }
-              },
-              decoration: const InputDecoration(
-                label: Text("From: "),
-              ),
-            ),
-            TextField(
-              readOnly: true,
-              controller: TextEditingController(
-                text: _dateFormat.format(_toDateInclusive),
-              ),
-              onTap: () async {
-                final time = await showDatePicker(
-                  context: context,
-                  initialDate: _toDateInclusive,
-                  firstDate: earliestJourneyDate,
-                  lastDate: DateTime.now(),
-                );
-                if (time != null) {
-                  setState(() {
-                    _changed = true;
-                    _toDateInclusive = time;
-                  });
-                }
-              },
-              decoration: const InputDecoration(
-                label: Text("To: "),
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.all(10),
-              child: ElevatedButton(
-                onPressed: (_loading || !_changed)
-                    ? null
-                    : () async {
-                        setState(() {
-                          _loading = true;
-                          _changed = false;
-                        });
-                        try {
-                          final mapRendererProxy =
-                              await api.getMapRendererProxyForJourneyDateRange(
-                            fromDateInclusive: naiveDateOfString(
-                              str: _dateFormat.format(_fromDateInclusive),
-                            ),
-                            toDateInclusive: naiveDateOfString(
-                              str: _dateFormat.format(_toDateInclusive),
-                            ),
-                          );
-                          if (mounted) {
-                            widget.onJourneyRangeLoaded(mapRendererProxy);
-                          }
-                        } finally {
-                          if (mounted) {
-                            setState(() => _loading = false);
-                          }
-                        }
-                      },
-                child: Text(_loading ? "Loading" : "View"),
+              child: TimeRangePicker(
+                earliestDate: earliest,
+                loading: _loading,
+                onRangeChanged: _loadJourneyForRange,
               ),
             ),
           ],
