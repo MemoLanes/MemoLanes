@@ -44,6 +44,7 @@ class RulerScale extends StatefulWidget {
   final double step;
   final RulerScaleController? controller;
   final bool useScrollAnimation;
+
   /// Whether to animate when scrolling to [initialValue] on first layout; false means jumpTo.
   final bool animateInitialScroll;
   final Duration scrollAnimationDuration;
@@ -271,9 +272,8 @@ class _RulerScaleState extends State<RulerScale> {
       width: widget.direction == Axis.vertical ? calculatedWidth : null,
       height: widget.direction == Axis.horizontal ? calculatedHeight : null,
       decoration: widget.decoration,
-      clipBehavior: widget.decoration?.borderRadius != null
-          ? Clip.hardEdge
-          : Clip.none,
+      clipBehavior:
+          widget.decoration?.borderRadius != null ? Clip.hardEdge : Clip.none,
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -317,7 +317,7 @@ class _RulerScaleState extends State<RulerScale> {
                           physics: widget.isReadOnly
                               ? const NeverScrollableScrollPhysics()
                               : (widget.scrollPhysics ??
-                                    const AlwaysScrollableScrollPhysics()),
+                                  const AlwaysScrollableScrollPhysics()),
                           child: CustomPaint(
                             size: Size(totalContentLength, widget.rulerExtent),
                             painter: _RulerPainter(
@@ -360,7 +360,7 @@ class _RulerScaleState extends State<RulerScale> {
                           physics: widget.isReadOnly
                               ? const NeverScrollableScrollPhysics()
                               : (widget.scrollPhysics ??
-                                    const AlwaysScrollableScrollPhysics()),
+                                  const AlwaysScrollableScrollPhysics()),
                           child: CustomPaint(
                             size: Size(widget.rulerExtent, totalContentLength),
                             painter: _RulerPainter(
@@ -611,8 +611,7 @@ class _ActiveRangePainter extends CustomPainter {
       final double centerX = size.width / 2;
       final double halfWidth = highlightThickness / 2;
       canvas.drawRect(
-        Rect.fromLTRB(
-            centerX - halfWidth, 0, centerX + halfWidth, size.height),
+        Rect.fromLTRB(centerX - halfWidth, 0, centerX + halfWidth, size.height),
         paint,
       );
     } else {

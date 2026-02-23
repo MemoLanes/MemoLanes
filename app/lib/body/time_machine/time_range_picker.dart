@@ -127,7 +127,8 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
           ),
           child: PointerInterceptor(
             child: TimeRangeControllerBall(
-              key: ValueKey('ball-$_selectedYear-$_selectedMonth-$_selectedDay'),
+              key:
+                  ValueKey('ball-$_selectedYear-$_selectedMonth-$_selectedDay'),
               mode: _mode,
               selectedDate: _selectedDate,
               loading: widget.loading,
@@ -225,7 +226,8 @@ class _TimeMachineModeMenu extends StatelessWidget {
               },
               borderRadius: BorderRadius.circular(8),
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -412,32 +414,32 @@ class TimeRangeControllerBall extends StatelessWidget {
       width: _ballSize,
       height: _ballSize,
       decoration: BoxDecoration(
-          color: StyleConstants.defaultColor,
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: StyleConstants.defaultColor.withValues(alpha: 0.7),
-            width: 2,
+        color: StyleConstants.defaultColor,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: StyleConstants.defaultColor.withValues(alpha: 0.7),
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 20,
-              offset: const Offset(0, 4),
+        ],
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: content,
             ),
-          ],
-        ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: content,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -445,8 +447,10 @@ class TimeRangeControllerBall extends StatelessWidget {
 /// Ruler height (matches RulerScale rulerExtent).
 const double _kRulerExtent = 52.0;
 const double _kRulerUnitSpacing = 36.0;
+
 /// Fixed height for ruler / any picker block so the mode button position stays consistent.
 const double _kPickerBlockHeight = 88.0;
+
 /// Delay before snap-after-release to avoid clashing with inertia scroll.
 const Duration _kSnapDelay = Duration(milliseconds: 100);
 
@@ -504,7 +508,8 @@ class TimeRuler extends StatelessWidget {
 
     if (mode == TimeMachineMode.day) {
       final daysInMonth = DateTime(selectedYear, selectedMonth + 1, 0).day;
-      final labels = List.generate(daysInMonth, (i) => (i + 1).toString().padLeft(2, '0'));
+      final labels =
+          List.generate(daysInMonth, (i) => (i + 1).toString().padLeft(2, '0'));
       return _SnapRulerScaleRuler(
         key: ValueKey('day-$daysInMonth'),
         labels: labels,
@@ -537,7 +542,8 @@ class _SnapRulerScaleRuler extends StatefulWidget {
 class _SnapRulerScaleRulerState extends State<_SnapRulerScaleRuler> {
   final RulerScaleController _controller = RulerScaleController();
   late double _lastReportedValue;
-  int _lastReportedIndex = -1; // Only call onSelect when tick index changes to avoid duplicate loads on scroll/snap.
+  int _lastReportedIndex =
+      -1; // Only call onSelect when tick index changes to avoid duplicate loads on scroll/snap.
   Timer? _snapTimer;
   bool _isScrolling = false;
 
@@ -665,7 +671,8 @@ class _SnapRulerScaleRulerState extends State<_SnapRulerScaleRuler> {
             direction: Axis.horizontal,
             initialValue: selectedIndex.toDouble(),
             useScrollAnimation: true, // Animate on snap-after-release.
-            animateInitialScroll: false, // Show target value immediately on mode switch, no scroll animation.
+            animateInitialScroll:
+                false, // Show target value immediately on mode switch, no scroll animation.
             hapticFeedbackEnabled: true,
             showDefaultIndicator: true,
             decoration: null,
@@ -742,7 +749,8 @@ class TimeRangeOverlayPicker extends StatelessWidget {
                   child: _TapTile(
                     label: context.tr('journey.start_time'),
                     value: _fmt.format(fromDate),
-                    onTap: () => _showDatePicker(context, fromDate, onFromChanged),
+                    onTap: () =>
+                        _showDatePicker(context, fromDate, onFromChanged),
                   ),
                 ),
                 const SizedBox(width: 12),

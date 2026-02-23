@@ -15,11 +15,11 @@ import 'package:provider/provider.dart';
 
 part 'map.g.dart';
 
-/// 页面模式：同一地图上叠加不同层即不同页面。
 enum MapMode {
-  /// 首页：轨迹记录叠加层 [NormalMapOverlay]
+  /// NormalMapOverlay
   normal,
-  /// 时光机：日期范围 + 历程地图叠加层 [TimeMachineOverlay]
+
+  /// TimeMachineOverlay
   timeMachine,
 }
 
@@ -51,14 +51,16 @@ class MapBody extends StatefulWidget {
 }
 
 class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
-  /// 主地图 proxy，仅此一处初始化，无重复（main 层用 GlobalKey 固定 MapBody 实例）。
+  /// Main map proxy; initialized only here (main holds MapBody instance via
+  /// GlobalKey).
   final _mapRendererProxy = api.getMapRendererProxyForMainMap();
   MapView? _roughMapView;
   api.MapRendererProxy? _journeyMapRendererProxy;
 
   TrackingMode _currentTrackingMode = TrackingMode.off;
 
-  /// 用 GlobalKey 固定主地图 WebView 的 State，避免 0↔1 切换时被误判重建导致重载
+  /// GlobalKey pins the main map WebView's State so tab 0↔1 switch does not
+  /// cause mistaken rebuild and reload.
   final GlobalKey<BaseMapWebviewState> _mainMapKey =
       GlobalKey<BaseMapWebviewState>();
 
@@ -172,11 +174,12 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   }
 
   Widget _buildMapLayer() {
-    // 时光机选日期后：复用同一 WebView，只换 proxy，由 didUpdateWidget 触发 refreshMapData()，不整页重载
-    final proxy = (widget.mode == MapMode.timeMachine &&
-            _journeyMapRendererProxy != null)
-        ? _journeyMapRendererProxy!
-        : _mapRendererProxy;
+    // After Time Machine date selection: reuse same WebView, only swap proxy;
+    // didUpdateWidget triggers refreshMapData(), no full page reload.
+    final proxy =
+        (widget.mode == MapMode.timeMachine && _journeyMapRendererProxy != null)
+            ? _journeyMapRendererProxy!
+            : _mapRendererProxy;
     return BaseMapWebview(
       key: _mainMapKey,
       mapRendererProxy: proxy,
@@ -198,7 +201,8 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     );
   }
 
-  /// 按 mode 返回对应叠加层，叠加层均在独立文件中。
+  /// Returns the overlay for the given mode; each overlay lives in its own
+  /// file.
   Widget _buildOverlay(BuildContext context, MapMode mode) {
     switch (mode) {
       case MapMode.normal:

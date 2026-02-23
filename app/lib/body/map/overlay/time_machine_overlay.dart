@@ -4,8 +4,6 @@ import 'package:memolanes/body/time_machine/time_range_picker.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/utils.dart';
 
-
-
 class TimeMachineOverlay extends StatefulWidget {
   const TimeMachineOverlay({
     super.key,

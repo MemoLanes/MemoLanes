@@ -9,7 +9,6 @@ import 'package:memolanes/common/gps_manager.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 
-/// 首页（轨迹记录）叠加层：定位、图层层级、录制按钮、录制状态指示等。
 class NormalMapOverlay extends StatelessWidget {
   const NormalMapOverlay({
     super.key,

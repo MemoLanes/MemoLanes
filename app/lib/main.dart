@@ -113,7 +113,9 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void>? _achievementLib;
   Future<void>? _settingsLib;
 
-  /// 固定 MapBody 的 State，避免 0↔1 切换时父级 rebuild 导致 MapBody/WebView 被重建、网页重载
+  /// Keeps MapBody's State stable so that switching between tab 0 and 1 does
+  /// not trigger parent rebuild and thus avoids MapBody/WebView being
+  /// recreated and the web page reloading.
   final GlobalKey<MapBodyState> _mapBodyKey = GlobalKey<MapBodyState>();
 
   @override
@@ -169,7 +171,7 @@ class _MyHomePageState extends State<MyHomePage> {
     SystemNavigator.pop();
   }
 
-  /// 0、1：地图 tab（共用 MapBody）；2、3、4：各自独立页
+  /// Tabs 0 and 1: map (shared MapBody); tabs 2, 3, 4: separate pages.
   Widget _buildPageContent() {
     if (_selectedIndex <= 1) {
       return _buildMapTab();
@@ -177,7 +179,7 @@ class _MyHomePageState extends State<MyHomePage> {
     return _buildDeferredTabBody(_selectedIndex);
   }
 
-  /// 首页 + 时光机：同一 MapBody，仅叠加层不同
+  /// Home and Time Machine share the same MapBody; only the overlay differs.
   Widget _buildMapTab() {
     return Stack(
       children: [
@@ -199,17 +201,17 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget _buildDeferredTabBody(int index) {
     return switch (index) {
       2 => _buildDeferredBody(
-            _journeyLib ??= journey.loadLibrary(),
-            () => journey.JourneyBody(),
-          ),
+          _journeyLib ??= journey.loadLibrary(),
+          () => journey.JourneyBody(),
+        ),
       3 => _buildDeferredBody(
-            _achievementLib ??= achievement.loadLibrary(),
-            () => achievement.AchievementBody(),
-          ),
+          _achievementLib ??= achievement.loadLibrary(),
+          () => achievement.AchievementBody(),
+        ),
       4 => _buildDeferredBody(
-            _settingsLib ??= settings.loadLibrary(),
-            () => settings.SettingsBody(),
-          ),
+          _settingsLib ??= settings.loadLibrary(),
+          () => settings.SettingsBody(),
+        ),
       _ => throw RangeError('Invalid tab index: $index'),
     };
   }
