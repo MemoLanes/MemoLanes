@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:math' show min;
 import 'dart:ui';
 
-import 'package:advance_ruler_slider/advance_ruler_slider.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/body/time_machine/advance_ruler_slider.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:memolanes/constants/style_constants.dart';
@@ -421,7 +421,7 @@ class TimeRangeControllerBall extends StatelessWidget {
   }
 }
 
-/// 刻度尺高度（与 advance_ruler_slider 的 rulerExtent 一致）
+/// 刻度尺高度（与 RulerScale 的 rulerExtent 一致）
 const double _kRulerExtent = 52.0;
 const double _kRulerUnitSpacing = 36.0;
 /// 刻度尺 / any 时间选择区域统一高度，保证模式按钮垂直位置不变（需容纳 any 的 padding + 双行文字）
@@ -493,8 +493,7 @@ class TimeRuler extends StatelessWidget {
   }
 }
 
-/// 基于 [advance_ruler_slider] 的 RulerScale，增加松手自动吸附（参考 ranged_ruler_picker 的 100ms 延迟后吸附）。
-/// 不依赖 ranged_ruler_picker，保留 RulerScale 的连续滑动与自定义 label。
+/// 基于内部 [RulerScale] 的封装，增加松手自动吸附（100ms 延迟后吸附）。
 class _SnapRulerScaleRuler extends StatefulWidget {
   final List<String> labels;
   final int selectedIndex;
@@ -641,7 +640,8 @@ class _SnapRulerScaleRulerState extends State<_SnapRulerScaleRuler> {
             rulerExtent: _kRulerExtent,
             direction: Axis.horizontal,
             initialValue: selectedIndex.toDouble(),
-            useScrollAnimation: true,
+            useScrollAnimation: true, // 松手吸附时有动画
+            animateInitialScroll: false, // 模式切换时直接显示目标值，不播放滚动动画
             hapticFeedbackEnabled: true,
             showDefaultIndicator: true,
             decoration: null,
