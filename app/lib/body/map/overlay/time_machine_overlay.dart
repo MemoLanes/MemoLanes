@@ -40,12 +40,12 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
   void initState() {
     super.initState();
     api.earliestJourneyDate().then((value) {
-      if (value != null && mounted) {
-        setState(() {
-          _earliestJourneyDate =
-              _dateFormat.parse(naiveDateToString(date: value));
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _earliestJourneyDate = value != null
+            ? _dateFormat.parse(naiveDateToString(date: value))
+            : DateTime(DateTime.now().year, 1, 1);
+      });
     });
   }
 
@@ -53,9 +53,7 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
   Widget build(BuildContext context) {
     final earliest = _earliestJourneyDate;
     if (earliest == null) {
-      return const Center(
-        child: Text('No Data', style: TextStyle(fontSize: 24)),
-      );
+      return const SizedBox.shrink();
     }
 
     final screenSize = MediaQuery.of(context).size;
