@@ -1,14 +1,15 @@
 import 'dart:async';
-import 'dart:math' show min;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/time_machine/advance_ruler_slider.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
+import 'package:memolanes/common/component/custom_popup.dart';
 import 'package:memolanes/constants/style_constants.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 
-/// 时间维度：年 -> 月 -> 日；长按进入「任意时间」
+/// Time dimension: year / month / day / any; tap the button to open a single-select menu.
 enum TimeMachineMode {
   year,
   month,
@@ -16,8 +17,8 @@ enum TimeMachineMode {
   any,
 }
 
-/// 独立的时间范围选择组件：球 + 年/月/日刻度尺 或 任意时间区间选择器。
-/// 通过 [onRangeChanged] 向父组件上报当前选中的 [from]-[to] 范围。
+/// Time range picker: ball + year/month/day ruler or any date-range overlay.
+/// Reports the selected [from]-[to] range to the parent via [onRangeChanged].
 class TimeRangePicker extends StatefulWidget {
   final DateTime? earliestDate;
   final bool loading;
@@ -71,46 +72,17 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
     widget.onRangeChanged(_fromDate, _toDate);
   }
 
-  void _onModeCycle() {
+  void _onModeSelected(TimeMachineMode mode) {
+    if (mode == _mode) return;
     HapticFeedback.selectionClick();
     setState(() {
-      switch (_mode) {
-        case TimeMachineMode.year:
-          _mode = TimeMachineMode.month;
-          break;
-        case TimeMachineMode.month:
-          _mode = TimeMachineMode.day;
-          break;
-        case TimeMachineMode.day:
-          _mode = TimeMachineMode.year;
-          break;
-        case TimeMachineMode.any:
-          _mode = TimeMachineMode.year;
-          break;
-      }
+      _mode = mode;
       _applyCurrentRange();
       _notifyRange();
     });
   }
 
-  void _onBallLongPress() {
-    HapticFeedback.selectionClick();
-    setState(() {
-      _mode = TimeMachineMode.any;
-      _applyCurrentRange();
-      _notifyRange();
-    });
-  }
-
-  void _exitAnyMode() {
-    HapticFeedback.selectionClick();
-    setState(() {
-      _mode = TimeMachineMode.year;
-      _applyCurrentRange();
-    });
-  }
-
-  /// 当前选中的日期（用于按钮展示，不拼接「年/月/日」以利多语言）
+  /// Currently selected date for the ball display (no hardcoded year/month/day for i18n).
   DateTime get _selectedDate =>
       DateTime(_selectedYear, _selectedMonth, _selectedDay);
 
@@ -140,15 +112,27 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        TimeRangeControllerBall(
-          key: ValueKey('ball-$_selectedYear-$_selectedMonth-$_selectedDay'),
-          mode: _mode,
-          selectedDate: _selectedDate,
-          loading: widget.loading,
-          onTap: _onModeCycle,
-          onLongPress: _onBallLongPress,
-          isAnyMode: _mode == TimeMachineMode.any,
-          onExitAnyMode: _exitAnyMode,
+        CustomPopup(
+          position: PopupPosition.top,
+          verticalOffset: 12,
+          contentRadius: 12,
+          barrierColor: Colors.transparent,
+          content: PointerInterceptor(
+            child: _TimeMachineModeMenu(
+              currentMode: _mode,
+              onSelect: (mode) {
+                _onModeSelected(mode);
+              },
+            ),
+          ),
+          child: PointerInterceptor(
+            child: TimeRangeControllerBall(
+              key: ValueKey('ball-$_selectedYear-$_selectedMonth-$_selectedDay'),
+              mode: _mode,
+              selectedDate: _selectedDate,
+              loading: widget.loading,
+            ),
+          ),
         ),
         const SizedBox(height: 12),
         SizedBox(
@@ -209,26 +193,81 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
   }
 }
 
-/// 模式切换按钮：用数字 + 字号层级展示当前选择，不硬编码「年/月/日」以利多语言。
-/// 年模式突出年份，月模式突出月份，日模式突出日期。
+/// Mode selection popup: single-select menu (like [LayerButton]); closes on selection.
+class _TimeMachineModeMenu extends StatelessWidget {
+  final TimeMachineMode currentMode;
+  final void Function(TimeMachineMode) onSelect;
+
+  const _TimeMachineModeMenu({
+    required this.currentMode,
+    required this.onSelect,
+  });
+
+  static const _itemKeys = [
+    (TimeMachineMode.year, 'time_machine.menu_year'),
+    (TimeMachineMode.month, 'time_machine.menu_month'),
+    (TimeMachineMode.day, 'time_machine.menu_day'),
+    (TimeMachineMode.any, 'time_machine.menu_any'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: _itemKeys
+          .map(
+            (e) => InkWell(
+              onTap: () {
+                HapticFeedback.selectionClick();
+                onSelect(e.$1);
+                Navigator.of(context).pop();
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (e.$1 == currentMode)
+                      Icon(
+                        Icons.check,
+                        size: 18,
+                        color: StyleConstants.defaultColor,
+                      )
+                    else
+                      const SizedBox(width: 18, height: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      context.tr(e.$2),
+                      style: TextStyle(
+                        color: e.$1 == currentMode
+                            ? StyleConstants.defaultColor
+                            : Colors.white70,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+/// Mode button: shows current selection with typography hierarchy; tap opens [CustomPopup] menu.
 class TimeRangeControllerBall extends StatelessWidget {
   final TimeMachineMode mode;
   final DateTime selectedDate;
   final bool loading;
-  final VoidCallback onTap;
-  final VoidCallback onLongPress;
-  final bool isAnyMode;
-  final VoidCallback? onExitAnyMode;
 
   const TimeRangeControllerBall({
     super.key,
     required this.mode,
     required this.selectedDate,
     required this.loading,
-    required this.onTap,
-    required this.onLongPress,
-    required this.isAnyMode,
-    this.onExitAnyMode,
   });
 
   static const double _ballSize = 88;
@@ -244,12 +283,11 @@ class TimeRangeControllerBall extends StatelessWidget {
     final contentColor = Colors.grey.shade900;
     final contextColor = Colors.grey.shade700;
 
-    // 模式简短提示（可后续改为 context.tr('time_machine.mode_y') 等）
     final modeHint = switch (mode) {
-      TimeMachineMode.year => 'Y',
-      TimeMachineMode.month => 'M',
-      TimeMachineMode.day => 'D',
-      TimeMachineMode.any => '···',
+      TimeMachineMode.year => context.tr('time_machine.menu_year'),
+      TimeMachineMode.month => context.tr('time_machine.menu_month'),
+      TimeMachineMode.day => context.tr('time_machine.menu_day'),
+      TimeMachineMode.any => context.tr('time_machine.menu_any'),
     };
 
     Widget content;
@@ -358,7 +396,7 @@ class TimeRangeControllerBall extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              'Any',
+              context.tr('time_machine.menu_any'),
               style: TextStyle(
                 color: contentColor,
                 fontSize: _emphasisFontSize,
@@ -370,13 +408,10 @@ class TimeRangeControllerBall extends StatelessWidget {
         break;
     }
 
-    return GestureDetector(
-      onTap: isAnyMode ? onExitAnyMode : onTap,
-      onLongPress: isAnyMode ? null : onLongPress,
-      child: Container(
-        width: _ballSize,
-        height: _ballSize,
-        decoration: BoxDecoration(
+    return Container(
+      width: _ballSize,
+      height: _ballSize,
+      decoration: BoxDecoration(
           color: StyleConstants.defaultColor,
           shape: BoxShape.circle,
           border: Border.all(
@@ -401,32 +436,18 @@ class TimeRangeControllerBall extends StatelessWidget {
                 child: content,
               ),
             ),
-            if (loading)
-              Positioned.fill(
-                child: Center(
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.grey.shade700,
-                    ),
-                  ),
-                ),
-              ),
           ],
         ),
-      ),
     );
   }
 }
 
-/// 刻度尺高度（与 RulerScale 的 rulerExtent 一致）
+/// Ruler height (matches RulerScale rulerExtent).
 const double _kRulerExtent = 52.0;
 const double _kRulerUnitSpacing = 36.0;
-/// 刻度尺 / any 时间选择区域统一高度，保证模式按钮垂直位置不变（需容纳 any 的 padding + 双行文字）
+/// Fixed height for ruler / any picker block so the mode button position stays consistent.
 const double _kPickerBlockHeight = 88.0;
-/// 松手后延迟多久执行吸附动画，与 ranged_ruler_picker 一致，避免与惯性滚动冲突
+/// Delay before snap-after-release to avoid clashing with inertia scroll.
 const Duration _kSnapDelay = Duration(milliseconds: 100);
 
 class TimeRuler extends StatelessWidget {
@@ -455,7 +476,7 @@ class TimeRuler extends StatelessWidget {
   Widget build(BuildContext context) {
     if (mode == TimeMachineMode.year) {
       final endYear = DateTime.now().year;
-      // 有 earliest 时只显示 [earliest.year, 当前年]；没有则不填充，只显示当前年
+      // When earliest is set, show [earliest.year, current year]; otherwise only current year.
       final startYear = earliest != null ? earliest!.year : endYear;
       final yearCount = endYear - startYear + 1;
       final years = List.generate(yearCount, (i) => startYear + i);
@@ -469,7 +490,10 @@ class TimeRuler extends StatelessWidget {
     }
 
     if (mode == TimeMachineMode.month) {
-      final labels = List.generate(12, (i) => '${i + 1}月');
+      final labels = List.generate(
+        12,
+        (i) => context.tr('time_machine.month_format', args: ['${i + 1}']),
+      );
       return _SnapRulerScaleRuler(
         key: const ValueKey('month-12'),
         labels: labels,
@@ -493,7 +517,7 @@ class TimeRuler extends StatelessWidget {
   }
 }
 
-/// 基于内部 [RulerScale] 的封装，增加松手自动吸附（100ms 延迟后吸附）。
+/// Wrapper around internal [RulerScale] with snap-on-release (100ms delay).
 class _SnapRulerScaleRuler extends StatefulWidget {
   final List<String> labels;
   final int selectedIndex;
@@ -513,7 +537,7 @@ class _SnapRulerScaleRuler extends StatefulWidget {
 class _SnapRulerScaleRulerState extends State<_SnapRulerScaleRuler> {
   final RulerScaleController _controller = RulerScaleController();
   late double _lastReportedValue;
-  int _lastReportedIndex = -1; // 仅当刻度索引变化时才 onSelect，避免滑动/吸附导致多次加载
+  int _lastReportedIndex = -1; // Only call onSelect when tick index changes to avoid duplicate loads on scroll/snap.
   Timer? _snapTimer;
   bool _isScrolling = false;
 
@@ -525,7 +549,7 @@ class _SnapRulerScaleRulerState extends State<_SnapRulerScaleRuler> {
     _lastReportedIndex = idx;
   }
 
-  /// 与 any 模式时间选择框一致：半透明毛玻璃、圆角 12、白边
+  /// Same style as any-mode date picker: frosted glass, radius 12, white border.
   static Widget _rulerContainer({required Widget child}) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
@@ -556,7 +580,7 @@ class _SnapRulerScaleRulerState extends State<_SnapRulerScaleRuler> {
   @override
   void didUpdateWidget(_SnapRulerScaleRuler oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 父组件选中变化时（如切换模式、外部同步）同步刻度尺位置；滑动中不打断
+    // Sync ruler position when parent selection changes (e.g. mode switch); do not interrupt while scrolling.
     if (!_isScrolling &&
         oldWidget.selectedIndex != widget.selectedIndex &&
         widget.selectedIndex >= 0 &&
@@ -570,7 +594,7 @@ class _SnapRulerScaleRulerState extends State<_SnapRulerScaleRuler> {
   void _onScrollEnd() {
     _isScrolling = false;
     _snapTimer?.cancel();
-    // 等一帧再启动吸附：包在 postFrameCallback 里才调用 onValueChanged，延后确保 _lastReportedValue 已是松手位置
+    // Start snap after one frame so the package's postFrameCallback has run and _lastReportedValue is the release position.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _snapTimer = Timer(_kSnapDelay, () {
@@ -640,8 +664,8 @@ class _SnapRulerScaleRulerState extends State<_SnapRulerScaleRuler> {
             rulerExtent: _kRulerExtent,
             direction: Axis.horizontal,
             initialValue: selectedIndex.toDouble(),
-            useScrollAnimation: true, // 松手吸附时有动画
-            animateInitialScroll: false, // 模式切换时直接显示目标值，不播放滚动动画
+            useScrollAnimation: true, // Animate on snap-after-release.
+            animateInitialScroll: false, // Show target value immediately on mode switch, no scroll animation.
             hapticFeedbackEnabled: true,
             showDefaultIndicator: true,
             decoration: null,
@@ -694,7 +718,7 @@ class TimeRangeOverlayPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 与刻度尺相同的水平居中视觉：占满可用宽度 + 内部两列均分
+    // Same horizontal alignment as ruler: full width with two equal columns inside.
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: ClipRRect(
@@ -716,7 +740,7 @@ class TimeRangeOverlayPicker extends StatelessWidget {
               children: [
                 Expanded(
                   child: _TapTile(
-                    label: '开始时间',
+                    label: context.tr('journey.start_time'),
                     value: _fmt.format(fromDate),
                     onTap: () => _showDatePicker(context, fromDate, onFromChanged),
                   ),
@@ -724,7 +748,7 @@ class TimeRangeOverlayPicker extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: _TapTile(
-                    label: '结束时间',
+                    label: context.tr('journey.end_time'),
                     value: _fmt.format(toDate),
                     onTap: () => _showDatePicker(context, toDate, onToChanged),
                   ),

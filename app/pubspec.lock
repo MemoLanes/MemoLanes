@@ -9,14 +9,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "91.0.0"
-  advance_ruler_slider:
-    dependency: "direct main"
-    description:
-      name: advance_ruler_slider
-      sha256: "0338414cd81831954750b64d2a5255730cb30ee0931278316f9c7ccc5b37f5ac"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.1"
   analyzer:
     dependency: transitive
     description:

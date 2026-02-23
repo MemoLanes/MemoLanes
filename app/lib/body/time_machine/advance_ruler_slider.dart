@@ -1,5 +1,3 @@
-// 内联自 advance_ruler_slider 包，含 animateInitialScroll 支持。
-
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -22,7 +20,7 @@ class RulerScaleController {
   }
 }
 
-/// 刻度尺组件：可水平/垂直滑动，支持自定义刻度与标签，中心指示当前值。
+/// Ruler scale: horizontal or vertical scroll, custom ticks and labels, center indicates current value.
 class RulerScale extends StatefulWidget {
   final double minValue;
   final double maxValue;
@@ -46,7 +44,7 @@ class RulerScale extends StatefulWidget {
   final double step;
   final RulerScaleController? controller;
   final bool useScrollAnimation;
-  /// 首次布局滚到 [initialValue] 时是否动画；false 则直接 jumpTo。
+  /// Whether to animate when scrolling to [initialValue] on first layout; false means jumpTo.
   final bool animateInitialScroll;
   final Duration scrollAnimationDuration;
   final Curve scrollAnimationCurve;
