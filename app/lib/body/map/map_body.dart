@@ -7,7 +7,6 @@ import 'package:memolanes/body/map/overlay/normal_map_overlay.dart';
 import 'package:memolanes/body/map/overlay/time_machine_overlay.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/gps_manager.dart';
-import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/service/permission_service.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
