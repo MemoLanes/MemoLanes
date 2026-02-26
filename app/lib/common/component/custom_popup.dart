@@ -258,10 +258,8 @@ class _PopupRoute extends PopupRoute<void> {
       );
     }
     if (_bottom != null) {
-      final maxBottom = screenSize.height -
-          childRect.height -
-          padding.top -
-          _kEdgeMargin;
+      final maxBottom =
+          screenSize.height - childRect.height - padding.top - _kEdgeMargin;
       _bottom = _bottom!.clamp(padding.bottom + _kEdgeMargin, maxBottom);
     }
   }

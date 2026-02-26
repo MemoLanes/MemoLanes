@@ -328,14 +328,12 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
     let layer_filter = state.main_map_state.lock().unwrap().layer_filter;
     let (default_kind, flight_kind) = (layer_filter.default_kind, layer_filter.flight_kind);
 
-    let journey_bitmap = state.storage.with_db_txn(|txn| {
-        match (default_kind, flight_kind) {
-            (true, true) => merged_journey_builder::get_range(
-                txn,
-                from_date_inclusive,
-                to_date_inclusive,
-                None,
-            ),
+    let journey_bitmap = state
+        .storage
+        .with_db_txn(|txn| match (default_kind, flight_kind) {
+            (true, true) => {
+                merged_journey_builder::get_range(txn, from_date_inclusive, to_date_inclusive, None)
+            }
             (true, false) => merged_journey_builder::get_range(
                 txn,
                 from_date_inclusive,
@@ -349,8 +347,7 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
                 Some(&JourneyKind::Flight),
             ),
             (false, false) => Ok(JourneyBitmap::new()),
-        }
-    })?;
+        })?;
 
     let map_renderer = MapRenderer::new(journey_bitmap);
     Ok(MapRendererProxy::DynamicRenderer(Arc::new(Mutex::new(
