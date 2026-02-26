@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:ui';
 
-import 'package:flutter/material.dart';
-import 'package:memolanes/body/time_machine/advance_ruler_slider.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:memolanes/body/time_machine/advance_ruler_slider.dart';
 import 'package:memolanes/common/component/custom_popup.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -40,6 +40,10 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
   int _selectedYear = DateTime.now().year;
   int _selectedMonth = DateTime.now().month;
   int _selectedDay = DateTime.now().day;
+  /// Only for button display; updates in real time while scrolling; syncs with selected on release.
+  int _displayYear = DateTime.now().year;
+  int _displayMonth = DateTime.now().month;
+  int _displayDay = DateTime.now().day;
   DateTime _fromDate = DateTime.now();
   DateTime _toDate = DateTime.now();
 
@@ -56,7 +60,9 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
         to = DateTime(_selectedYear, _selectedMonth + 1, 0);
         break;
       case TimeMachineMode.day:
-        from = DateTime(_selectedYear, _selectedMonth, _selectedDay);
+        final lastDay = DateTime(_selectedYear, _selectedMonth + 1, 0).day;
+        final d = _selectedDay.clamp(1, lastDay);
+        from = DateTime(_selectedYear, _selectedMonth, d);
         to = from;
         break;
       case TimeMachineMode.any:
@@ -77,14 +83,30 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
     HapticFeedback.selectionClick();
     setState(() {
       _mode = mode;
+      _syncDisplayToSelected();
       _applyCurrentRange();
       _notifyRange();
     });
   }
 
-  /// Currently selected date for the ball display (no hardcoded year/month/day for i18n).
-  DateTime get _selectedDate =>
-      DateTime(_selectedYear, _selectedMonth, _selectedDay);
+  /// Date for the ball display: follows scroll (display) until release, then equals committed selection.
+  DateTime get _displayDate =>
+      DateTime(_displayYear, _displayMonth, _displayDay);
+
+  void _syncDisplayToSelected() {
+    _displayYear = _selectedYear;
+    _displayMonth = _selectedMonth;
+    _displayDay = _selectedDay;
+  }
+
+  void _commitRulerChange(void Function() apply) {
+    setState(() {
+      apply();
+      _syncDisplayToSelected();
+      _applyCurrentRange();
+      _notifyRange();
+    });
+  }
 
   @override
   void initState() {
@@ -97,9 +119,17 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
   void didUpdateWidget(TimeRangePicker oldWidget) {
     super.didUpdateWidget(oldWidget);
     final earliest = widget.earliestDate;
-    if (earliest != null && _selectedYear < earliest.year) {
+    final needFix = earliest != null && _selectedYear < earliest.year;
+    final monthClamped = _selectedMonth.clamp(1, 12);
+    final lastDay = DateTime(_selectedYear, monthClamped + 1, 0).day;
+    final dayClamped = _selectedDay.clamp(1, lastDay);
+    final needNormalize = monthClamped != _selectedMonth || dayClamped != _selectedDay;
+    if (needFix || needNormalize) {
       setState(() {
-        _selectedYear = earliest.year;
+        if (needFix) _selectedYear = earliest!.year;
+        _selectedMonth = monthClamped;
+        _selectedDay = dayClamped;
+        _syncDisplayToSelected();
         _applyCurrentRange();
         _notifyRange();
       });
@@ -115,25 +145,21 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
             selectedMonth: _selectedMonth,
             selectedDay: _selectedDay,
             earliest: widget.earliestDate,
-            onYearChanged: (y) {
+            onYearChanged: (y) => _commitRulerChange(() => _selectedYear = y),
+            onMonthChanged: (m) => _commitRulerChange(() => _selectedMonth = m),
+            onDayChanged: (d) => _commitRulerChange(() => _selectedDay = d),
+            onDisplayMonthChanged: (y, m) {
               setState(() {
-                _selectedYear = y;
-                _applyCurrentRange();
-                _notifyRange();
+                _displayYear = y;
+                _displayMonth = m;
+                _displayDay = _selectedDay;
               });
             },
-            onMonthChanged: (m) {
+            onDisplayDayChanged: (y, m, d) {
               setState(() {
-                _selectedMonth = m;
-                _applyCurrentRange();
-                _notifyRange();
-              });
-            },
-            onDayChanged: (d) {
-              setState(() {
-                _selectedDay = d;
-                _applyCurrentRange();
-                _notifyRange();
+                _displayYear = y;
+                _displayMonth = m;
+                _displayDay = d;
               });
             },
           )
@@ -176,9 +202,9 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
           child: PointerInterceptor(
             child: TimeRangeControllerBall(
               key:
-                  ValueKey('ball-$_selectedYear-$_selectedMonth-$_selectedDay'),
+                  ValueKey('ball-$_displayYear-$_displayMonth-$_displayDay'),
               mode: _mode,
-              selectedDate: _selectedDate,
+              selectedDate: _displayDate,
               loading: widget.loading,
             ),
           ),
@@ -278,56 +304,24 @@ class TimeRangeControllerBall extends StatelessWidget {
   static const double _borderRadius = 12;
   static const double _emphasisFontSize = 13;
 
+  static final TextStyle _contentStyle = TextStyle(
+    color: Colors.white,
+    fontSize: _emphasisFontSize,
+    fontWeight: FontWeight.w600,
+  );
+
   @override
   Widget build(BuildContext context) {
     final y = selectedDate.year;
     final m = selectedDate.month.toString().padLeft(2, '0');
-    final contentColor = Colors.white;
-
-    // Only show what the ruler doesn't: day mode -> 年月; month mode -> 年; year mode -> 年 (selected); any -> mode label only.
-    Widget content;
-    switch (mode) {
-      case TimeMachineMode.year:
-        content = Text(
-          '$y',
-          style: TextStyle(
-            color: contentColor,
-            fontSize: _emphasisFontSize,
-            fontWeight: FontWeight.w600,
-          ),
-        );
-        break;
-      case TimeMachineMode.month:
-        content = Text(
-          '$y',
-          style: TextStyle(
-            color: contentColor,
-            fontSize: _emphasisFontSize,
-            fontWeight: FontWeight.w600,
-          ),
-        );
-        break;
-      case TimeMachineMode.day:
-        content = Text(
-          '$y-$m',
-          style: TextStyle(
-            color: contentColor,
-            fontSize: _emphasisFontSize,
-            fontWeight: FontWeight.w600,
-          ),
-        );
-        break;
-      case TimeMachineMode.any:
-        content = Text(
-          context.tr('time_machine.menu_any'),
-          style: TextStyle(
-            color: contentColor,
-            fontSize: _emphasisFontSize,
-            fontWeight: FontWeight.w600,
-          ),
-        );
-        break;
-    }
+    // Only show what the ruler doesn't: day mode -> year-month; month mode -> year; year mode -> year; any -> mode label only.
+    final String text = switch (mode) {
+      TimeMachineMode.year => '$y',
+      TimeMachineMode.month => '$y',
+      TimeMachineMode.day => '$y-$m',
+      TimeMachineMode.any => context.tr('time_machine.menu_any'),
+    };
+    final content = Text(text, style: _contentStyle);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(_borderRadius),
@@ -379,6 +373,33 @@ const double _kPickerBlockHeight = 60.0;
 /// Delay before snap-after-release to avoid clashing with inertia scroll.
 const Duration _kSnapDelay = Duration(milliseconds: 100);
 
+const EdgeInsets _kRulerMargin = EdgeInsets.symmetric(horizontal: 16);
+
+TextStyle _rulerLabelTextStyle() => TextStyle(
+      color: Colors.white.withValues(alpha: 0.9),
+      fontSize: 11,
+    );
+
+Widget _buildRulerContainer(Widget child) {
+  return ClipRRect(
+    borderRadius: BorderRadius.circular(12),
+    child: BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.2),
+            width: 1,
+          ),
+        ),
+        child: child,
+      ),
+    ),
+  );
+}
+
 class TimeRuler extends StatelessWidget {
   final TimeMachineMode mode;
   final int selectedYear;
@@ -388,6 +409,8 @@ class TimeRuler extends StatelessWidget {
   final void Function(int) onYearChanged;
   final void Function(int) onMonthChanged;
   final void Function(int) onDayChanged;
+  final void Function(int year, int month)? onDisplayMonthChanged;
+  final void Function(int year, int month, int day)? onDisplayDayChanged;
 
   const TimeRuler({
     super.key,
@@ -399,6 +422,8 @@ class TimeRuler extends StatelessWidget {
     required this.onYearChanged,
     required this.onMonthChanged,
     required this.onDayChanged,
+    this.onDisplayMonthChanged,
+    this.onDisplayDayChanged,
   });
 
   @override
@@ -419,27 +444,48 @@ class TimeRuler extends StatelessWidget {
     }
 
     if (mode == TimeMachineMode.month) {
-      final labels = List.generate(
-        12,
-        (i) => context.tr('time_machine.month_format', args: ['${i + 1}']),
-      );
-      return _SnapRulerScaleRuler(
-        key: const ValueKey('month-12'),
-        labels: labels,
-        selectedIndex: (selectedMonth - 1).clamp(0, 11),
-        onSelect: (i) => onMonthChanged(i + 1),
+      final earliestDate = earliest ?? DateTime(DateTime.now().year - 1, 1, 1);
+      return _InfiniteTimeRuler(
+        key: const ValueKey('infinite-month'),
+        isMonthMode: true,
+        earliest: earliestDate,
+        selectedYear: selectedYear,
+        selectedMonth: selectedMonth,
+        selectedDay: selectedDay,
+        onMonthSelected: (y, m) {
+          onYearChanged(y);
+          onMonthChanged(m);
+        },
+        onDaySelected: (y, m, d) {
+          onYearChanged(y);
+          onMonthChanged(m);
+          onDayChanged(d);
+        },
+        onDisplayMonthChanged: onDisplayMonthChanged,
+        onDisplayDayChanged: onDisplayDayChanged,
       );
     }
 
     if (mode == TimeMachineMode.day) {
-      final daysInMonth = DateTime(selectedYear, selectedMonth + 1, 0).day;
-      final labels =
-          List.generate(daysInMonth, (i) => (i + 1).toString().padLeft(2, '0'));
-      return _SnapRulerScaleRuler(
-        key: ValueKey('day-$daysInMonth'),
-        labels: labels,
-        selectedIndex: (selectedDay - 1).clamp(0, daysInMonth - 1),
-        onSelect: (i) => onDayChanged(i + 1),
+      final earliestDate = earliest ?? DateTime(DateTime.now().year - 1, 1, 1);
+      return _InfiniteTimeRuler(
+        key: const ValueKey('infinite-day'),
+        isMonthMode: false,
+        earliest: earliestDate,
+        selectedYear: selectedYear,
+        selectedMonth: selectedMonth,
+        selectedDay: selectedDay,
+        onMonthSelected: (y, m) {
+          onYearChanged(y);
+          onMonthChanged(m);
+        },
+        onDaySelected: (y, m, d) {
+          onYearChanged(y);
+          onMonthChanged(m);
+          onDayChanged(d);
+        },
+        onDisplayMonthChanged: onDisplayMonthChanged,
+        onDisplayDayChanged: onDisplayDayChanged,
       );
     }
 
@@ -447,7 +493,376 @@ class TimeRuler extends StatelessWidget {
   }
 }
 
+/// Infinite scroll time ruler: ListView.builder with a sliding window for month/day.
+/// Both modes show a window around the selected value; on release the ruler regenerates around the
+/// new selection so the user can keep scrolling in either direction (infinite feel without building all items).
+/// Month: window = selected month ± _monthWindowHalfMonths (global month indices, clamped to earliest..now).
+/// Day: window = selected date ± _dayWindowHalfDays (clamped to earliest..today). Each day is
+/// start.add(Duration(days: i)), so month lengths (28/29/30/31) and Feb leap years are correct.
+class _InfiniteTimeRuler extends StatefulWidget {
+  final bool isMonthMode;
+  final DateTime earliest;
+  final int selectedYear;
+  final int selectedMonth;
+  final int selectedDay;
+  final void Function(int year, int month) onMonthSelected;
+  final void Function(int year, int month, int day) onDaySelected;
+  final void Function(int year, int month)? onDisplayMonthChanged;
+  final void Function(int year, int month, int day)? onDisplayDayChanged;
+
+  const _InfiniteTimeRuler({
+    super.key,
+    required this.isMonthMode,
+    required this.earliest,
+    required this.selectedYear,
+    required this.selectedMonth,
+    required this.selectedDay,
+    required this.onMonthSelected,
+    required this.onDaySelected,
+    this.onDisplayMonthChanged,
+    this.onDisplayDayChanged,
+  });
+
+  @override
+  State<_InfiniteTimeRuler> createState() => _InfiniteTimeRulerState();
+}
+
+class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
+  late ScrollController _scrollController;
+  Timer? _snapTimer;
+  bool _isScrolling = false;
+  int _lastReportedIndex = -1;
+  int _lastHapticIndex = -1; // Haptic when crossing a tick, same as year mode
+  double _viewportWidth = 0;
+
+  /// Sliding window half-size: on release ruler regenerates around new selection to feel infinite.
+  static const int _monthWindowHalfMonths = 90;
+  static const int _dayWindowHalfDays = 90;
+
+  // ----- Month mode: window = [center - half, center + half] in global month indices -----
+  int get _monthCenterIndex {
+    final earliestYear = widget.earliest.year;
+    return (widget.selectedYear - earliestYear) * 12 + (widget.selectedMonth - 1);
+  }
+
+  /// Total months from earliest year Jan up to and including current month (no future months).
+  int get _monthTotalCount {
+    final nowYear = DateTime.now().year;
+    final nowMonth = DateTime.now().month;
+    final earliestYear = widget.earliest.year;
+    final n = (nowYear - earliestYear) * 12 + nowMonth;
+    return n < 0 ? 0 : n;
+  }
+
+  int get _monthWindowStartIndex {
+    final total = _monthTotalCount;
+    if (total == 0) return 0;
+    final center = _monthCenterIndex.clamp(0, total - 1);
+    return (center - _monthWindowHalfMonths).clamp(0, total - 1);
+  }
+
+  int get _monthWindowEndIndex {
+    final total = _monthTotalCount;
+    if (total == 0) return 0;
+    final center = _monthCenterIndex.clamp(0, total - 1);
+    return (center + _monthWindowHalfMonths).clamp(0, total - 1);
+  }
+
+  // ----- Day mode: window = [center - half, center + half] in days -----
+  // Uses DateTime +/- Duration(days): calendar and Feb 28/29 (leap year) are handled correctly.
+  // Do not clamp day window start to earliest (first trajectory date), or months with no trajectory would fall outside the window and show blank.
+  // If selected date is after today (e.g. switched from month mode with a future month), use today as window end so start <= end and ticks are shown.
+  // Do not clamp start to (now.year - 2), or past months like 2012-02 would have start clamped to 2023 and yield start > end.
+  static DateTime _today() => DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+
+  /// Normalize day to valid range for the month so e.g. Feb 31 is not interpreted as Mar 2 and the ruler stays on the selected month.
+  static DateTime _selectedDateInDayMode(int y, int m, int d) {
+    final lastDay = DateTime(y, m + 1, 0).day;
+    return DateTime(y, m, d.clamp(1, lastDay));
+  }
+
+  DateTime get _dayWindowStart {
+    final sel = _selectedDateInDayMode(widget.selectedYear, widget.selectedMonth, widget.selectedDay);
+    final today = _today();
+    if (sel.isAfter(today)) {
+      return today.subtract(const Duration(days: _dayWindowHalfDays * 2));
+    }
+    return sel.subtract(const Duration(days: _dayWindowHalfDays));
+  }
+
+  DateTime get _dayWindowEnd {
+    final sel = _selectedDateInDayMode(widget.selectedYear, widget.selectedMonth, widget.selectedDay);
+    final today = _today();
+    if (sel.isAfter(today)) {
+      return today;
+    }
+    final end = sel.add(const Duration(days: _dayWindowHalfDays));
+    return end.isAfter(today) ? today : end;
+  }
+
+  // ----- Unified: item count and selected index within current window -----
+  int get _itemCount {
+    if (widget.isMonthMode) {
+      if (_monthTotalCount == 0) return 0;
+      final start = _monthWindowStartIndex;
+      final end = _monthWindowEndIndex;
+      return end - start + 1;
+    } else {
+      final start = _dayWindowStart;
+      final end = _dayWindowEnd;
+      final days = end.difference(start).inDays + 1;
+      return days < 0 ? 0 : days;
+    }
+  }
+
+  int get _selectedIndex {
+    final maxIdx = _itemCount > 0 ? _itemCount - 1 : 0;
+    if (widget.isMonthMode) {
+      final start = _monthWindowStartIndex;
+      final center = _monthCenterIndex;
+      return (center - start).clamp(0, maxIdx);
+    } else {
+      final start = _dayWindowStart;
+      final sel = _selectedDateInDayMode(widget.selectedYear, widget.selectedMonth, widget.selectedDay);
+      final days = sel.difference(start).inDays;
+      return days.clamp(0, maxIdx);
+    }
+  }
+
+  void _reportMonth(int indexInWindow) {
+    final earliestYear = widget.earliest.year;
+    final globalIndex = _monthWindowStartIndex + indexInWindow;
+    final year = earliestYear + globalIndex ~/ 12;
+    final month = globalIndex % 12 + 1;
+    widget.onMonthSelected(year, month);
+  }
+
+  void _reportDay(int indexInWindow) {
+    final start = _dayWindowStart;
+    final d = start.add(Duration(days: indexInWindow));
+    widget.onDaySelected(d.year, d.month, d.day);
+  }
+
+  /// True if index idx in current window equals current selection (avoid redundant report/rebuild).
+  bool _indexEqualsCurrentSelection(int indexInWindow) {
+    if (widget.isMonthMode) {
+      final earliestYear = widget.earliest.year;
+      final globalIndex = _monthWindowStartIndex + indexInWindow;
+      final y = earliestYear + globalIndex ~/ 12;
+      final m = globalIndex % 12 + 1;
+      return y == widget.selectedYear && m == widget.selectedMonth;
+    } else {
+      final start = _dayWindowStart;
+      final d = start.add(Duration(days: indexInWindow));
+      final sel = _selectedDateInDayMode(widget.selectedYear, widget.selectedMonth, widget.selectedDay);
+      return d.year == sel.year && d.month == sel.month && d.day == sel.day;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    _lastReportedIndex = _selectedIndex;
+    _lastHapticIndex = _selectedIndex;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      final idx = _selectedIndex.clamp(0, _itemCount - 1);
+      _scrollController.jumpTo((idx * _kRulerUnitSpacing).toDouble());
+    });
+  }
+
+  @override
+  void didUpdateWidget(_InfiniteTimeRuler oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final count = _itemCount;
+    if (count <= 0) return;
+    final selectionChanged = widget.isMonthMode
+        ? (oldWidget.selectedYear != widget.selectedYear || oldWidget.selectedMonth != widget.selectedMonth)
+        : (oldWidget.selectedYear != widget.selectedYear ||
+            oldWidget.selectedMonth != widget.selectedMonth ||
+            oldWidget.selectedDay != widget.selectedDay);
+    if (!_isScrolling && selectionChanged) {
+      final idx = _selectedIndex.clamp(0, count - 1);
+      _lastReportedIndex = idx;
+      _lastHapticIndex = idx;
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo((idx * _kRulerUnitSpacing).toDouble());
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _snapTimer?.cancel();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  int _indexAtScrollOffset(double scrollOffset) {
+    final maxIdx = _itemCount > 0 ? _itemCount - 1 : 0;
+    if (_viewportWidth <= 0) return (scrollOffset / _kRulerUnitSpacing).round().clamp(0, maxIdx);
+    final centerPadding = _viewportWidth / 2 - _kRulerUnitSpacing / 2;
+    final centerContent = scrollOffset + _viewportWidth / 2;
+    final index = ((centerContent - centerPadding - _kRulerUnitSpacing / 2) / _kRulerUnitSpacing).round();
+    return index.clamp(0, maxIdx);
+  }
+
+  /// Returns a Future that completes when the snap animation finishes.
+  Future<void> _snapToIndex(int index) async {
+    if (!_scrollController.hasClients) return;
+    final offset = (index * _kRulerUnitSpacing).toDouble();
+    await _scrollController.animateTo(
+      offset,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  /// During scroll: haptic when center crosses a tick; update display (button) only, no commit/reload.
+  void _onScrollUpdate(ScrollNotification n) {
+    if (_viewportWidth <= 0) return;
+    final idx = _indexAtScrollOffset(n.metrics.pixels);
+    if (idx != _lastHapticIndex) {
+      _lastHapticIndex = idx;
+      HapticFeedback.selectionClick();
+      if (widget.isMonthMode) {
+        final earliestYear = widget.earliest.year;
+        final globalIndex = _monthWindowStartIndex + idx;
+        final y = earliestYear + globalIndex ~/ 12;
+        final m = globalIndex % 12 + 1;
+        widget.onDisplayMonthChanged?.call(y, m);
+      } else {
+        final start = _dayWindowStart;
+        final d = start.add(Duration(days: idx));
+        widget.onDisplayDayChanged?.call(d.year, d.month, d.day);
+      }
+    }
+  }
+
+  void _onScrollEnd(ScrollNotification n) {
+    _isScrolling = false;
+    _snapTimer?.cancel();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _snapTimer = Timer(_kSnapDelay, () async {
+        if (!mounted || !_scrollController.hasClients) return;
+        final idx = _indexAtScrollOffset(_scrollController.offset);
+        _lastReportedIndex = idx;
+        _lastHapticIndex = idx;
+        await _snapToIndex(idx);
+        // Only after snap animation completes: report if selection changed → parent updates → ruler regenerates.
+        if (!mounted) return;
+        if (!_indexEqualsCurrentSelection(idx)) {
+          if (widget.isMonthMode) {
+            _reportMonth(idx);
+          } else {
+            _reportDay(idx);
+          }
+        }
+        _snapTimer = null;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final itemCount = _itemCount;
+    if (itemCount <= 0) {
+      return SizedBox(
+        height: _kRulerExtent,
+        child: Padding(
+          padding: _kRulerMargin,
+          child: _buildRulerContainer(const SizedBox()),
+        ),
+      );
+    }
+    final selectedIndex = _selectedIndex.clamp(0, itemCount - 1);
+    return SizedBox(
+      height: _kRulerExtent,
+      child: Padding(
+        padding: _kRulerMargin,
+        child: _buildRulerContainer(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final w = constraints.maxWidth;
+              if (w > 0 && w != _viewportWidth) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) setState(() => _viewportWidth = w);
+                });
+              }
+              final centerPadding = (w / 2 - _kRulerUnitSpacing / 2).clamp(0.0, double.infinity);
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  NotificationListener<ScrollNotification>(
+                    onNotification: (n) {
+                      if (n is ScrollStartNotification) _isScrolling = true;
+                      if (n is ScrollUpdateNotification) _onScrollUpdate(n);
+                      if (n is ScrollEndNotification) _onScrollEnd(n);
+                      return false;
+                    },
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      scrollDirection: Axis.horizontal,
+                      itemExtent: _kRulerUnitSpacing,
+                      itemCount: itemCount,
+                      padding: EdgeInsets.only(left: centerPadding, right: centerPadding),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemBuilder: (context, i) {
+                        if (widget.isMonthMode) {
+                          final earliestYear = widget.earliest.year;
+                          final globalIndex = _monthWindowStartIndex + i;
+                          final y = earliestYear + globalIndex ~/ 12;
+                          final m = globalIndex % 12 + 1;
+                          final label = context.tr('time_machine.month_format', args: ['$m']);
+                          return _buildTick(label, i == selectedIndex);
+                        } else {
+                          final start = _dayWindowStart;
+                          final d = start.add(Duration(days: i));
+                          final label = d.day.toString().padLeft(2, '0');
+                          return _buildTick(label, i == selectedIndex);
+                        }
+                      },
+                    ),
+                  ),
+                  IgnorePointer(
+                    child: Center(
+                      child: Container(
+                        width: 2,
+                        height: _kRulerExtent,
+                        color: StyleConstants.defaultColor,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTick(String label, bool isSelected) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          width: 2,
+          height: isSelected ? 10 : 6,
+          color: isSelected ? StyleConstants.defaultColor : Colors.white.withValues(alpha: 0.5),
+        ),
+        SizedBox(height: isSelected ? 4 : 6),
+        Text(label, style: _rulerLabelTextStyle()),
+      ],
+    );
+  }
+}
+
 /// Wrapper around internal [RulerScale] with snap-on-release (100ms delay).
+/// Used for year mode only; month/day use [ _InfiniteTimeRuler] for infinite scroll.
 class _SnapRulerScaleRuler extends StatefulWidget {
   final List<String> labels;
   final int selectedIndex;
@@ -479,34 +894,6 @@ class _SnapRulerScaleRulerState extends State<_SnapRulerScaleRuler> {
     _lastReportedValue = idx.toDouble();
     _lastReportedIndex = idx;
   }
-
-  /// Same style as any-mode date picker: frosted glass, radius 12, white border.
-  static Widget _rulerContainer({required Widget child}) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.2),
-              width: 1,
-            ),
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
-
-  static const EdgeInsets _rulerMargin = EdgeInsets.symmetric(horizontal: 16);
-
-  static TextStyle get _rulerLabelStyle => TextStyle(
-        color: Colors.white.withValues(alpha: 0.9),
-        fontSize: 11,
-      );
 
   @override
   void didUpdateWidget(_SnapRulerScaleRuler oldWidget) {
@@ -554,9 +941,9 @@ class _SnapRulerScaleRulerState extends State<_SnapRulerScaleRuler> {
       return SizedBox(
         height: _kRulerExtent,
         child: Padding(
-          padding: _rulerMargin,
-          child: _rulerContainer(
-            child: Center(
+          padding: _kRulerMargin,
+          child: _buildRulerContainer(
+            Center(
               child: labels.isEmpty
                   ? null
                   : Column(
@@ -568,7 +955,7 @@ class _SnapRulerScaleRulerState extends State<_SnapRulerScaleRuler> {
                           color: StyleConstants.defaultColor,
                         ),
                         const SizedBox(height: 4),
-                        Text(labels.first, style: _rulerLabelStyle),
+                        Text(labels.first, style: _rulerLabelTextStyle()),
                       ],
                     ),
             ),
@@ -583,9 +970,9 @@ class _SnapRulerScaleRulerState extends State<_SnapRulerScaleRuler> {
     return SizedBox(
       height: _kRulerExtent,
       child: Padding(
-        padding: _rulerMargin,
-        child: _rulerContainer(
-          child: RulerScale(
+        padding: _kRulerMargin,
+        child: _buildRulerContainer(
+          RulerScale(
             controller: _controller,
             minValue: 0,
             maxValue: maxValue,
@@ -608,7 +995,7 @@ class _SnapRulerScaleRulerState extends State<_SnapRulerScaleRuler> {
             selectedTickLength: 10,
             indicatorColor: StyleConstants.defaultColor,
             indicatorWidth: 2,
-            labelStyle: _rulerLabelStyle,
+            labelStyle: _rulerLabelTextStyle(),
             labelFormatter: (value) => labels[value.round()],
             onValueChanged: (value) {
               _lastReportedValue = value;
@@ -674,8 +1061,7 @@ class TimeRangeOverlayPicker extends StatelessWidget {
                   child: _TapTile(
                     label: context.tr('journey.start_time'),
                     value: _fmt.format(fromDate),
-                    onTap: () =>
-                        _showDatePicker(context, fromDate, onFromChanged),
+                    onTap: () => _showDatePicker(context, fromDate, earliest, onFromChanged),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -683,7 +1069,7 @@ class TimeRangeOverlayPicker extends StatelessWidget {
                   child: _TapTile(
                     label: context.tr('journey.end_time'),
                     value: _fmt.format(toDate),
-                    onTap: () => _showDatePicker(context, toDate, onToChanged),
+                    onTap: () => _showDatePicker(context, toDate, earliest, onToChanged),
                   ),
                 ),
               ],
@@ -694,13 +1080,14 @@ class TimeRangeOverlayPicker extends StatelessWidget {
     );
   }
 
-  Future<void> _showDatePicker(
+  static Future<void> _showDatePicker(
     BuildContext context,
     DateTime initial,
+    DateTime? earliestLimit,
     void Function(DateTime) onChanged,
   ) async {
     final last = DateTime.now();
-    final rawFirst = earliest ?? DateTime(initial.year - 10);
+    final rawFirst = earliestLimit ?? DateTime(initial.year - 10);
     final first = rawFirst.isAfter(last) ? last : rawFirst;
     var safeInitial = initial;
     if (safeInitial.isBefore(first)) safeInitial = first;
