@@ -193,6 +193,9 @@ class _PopupRoute extends PopupRoute<void> {
     return offset & renderBox.paintBounds.size;
   }
 
+  /// 弹出层与屏幕边缘的最小边距，避免贴边
+  static const double _kEdgeMargin = 8.0;
+
   void _calculateChildOffset(Rect? childRect) {
     if (childRect == null) return;
 
@@ -244,19 +247,22 @@ class _PopupRoute extends PopupRoute<void> {
 
     if (_left != null) {
       _left = _left!.clamp(
-        padding.left,
-        screenSize.width - childRect.width - padding.right,
+        padding.left + _kEdgeMargin,
+        screenSize.width - childRect.width - padding.right - _kEdgeMargin,
       );
     }
     if (_top != null) {
       _top = _top!.clamp(
-        padding.top,
-        screenSize.height - childRect.height - padding.bottom,
+        padding.top + _kEdgeMargin,
+        screenSize.height - childRect.height - padding.bottom - _kEdgeMargin,
       );
     }
     if (_bottom != null) {
-      final maxBottom = screenSize.height - childRect.height - padding.top;
-      _bottom = _bottom!.clamp(padding.bottom, maxBottom);
+      final maxBottom = screenSize.height -
+          childRect.height -
+          padding.top -
+          _kEdgeMargin;
+      _bottom = _bottom!.clamp(padding.bottom + _kEdgeMargin, maxBottom);
     }
   }
 

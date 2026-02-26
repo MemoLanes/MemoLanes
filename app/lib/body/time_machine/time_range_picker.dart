@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:memolanes/body/time_machine/advance_ruler_slider.dart';
 import 'package:memolanes/common/component/custom_popup.dart';
 import 'package:memolanes/constants/style_constants.dart';
+import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 /// Time dimension: year / month / day / any; tap the button to open a single-select menu.
@@ -23,12 +24,14 @@ class TimeRangePicker extends StatefulWidget {
   final DateTime? earliestDate;
   final bool loading;
   final void Function(DateTime from, DateTime to) onRangeChanged;
+  final VoidCallback? onLayerFilterChanged;
 
   const TimeRangePicker({
     super.key,
     this.earliestDate,
     this.loading = false,
     required this.onRangeChanged,
+    this.onLayerFilterChanged,
   });
 
   @override
@@ -40,7 +43,6 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
   int _selectedYear = DateTime.now().year;
   int _selectedMonth = DateTime.now().month;
   int _selectedDay = DateTime.now().day;
-
   /// Only for button display; updates in real time while scrolling; syncs with selected on release.
   int _displayYear = DateTime.now().year;
   int _displayMonth = DateTime.now().month;
@@ -124,8 +126,7 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
     final monthClamped = _selectedMonth.clamp(1, 12);
     final lastDay = DateTime(_selectedYear, monthClamped + 1, 0).day;
     final dayClamped = _selectedDay.clamp(1, lastDay);
-    final needNormalize =
-        monthClamped != _selectedMonth || dayClamped != _selectedDay;
+    final needNormalize = monthClamped != _selectedMonth || dayClamped != _selectedDay;
     if (needFix || needNormalize) {
       setState(() {
         if (needFix) _selectedYear = earliest!.year;
@@ -194,16 +195,16 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
           contentRadius: 12,
           barrierColor: Colors.transparent,
           content: PointerInterceptor(
-            child: _TimeMachineModeMenu(
+            child: _TimeMachineModeAndLayerMenu(
               currentMode: _mode,
-              onSelect: (mode) {
-                _onModeSelected(mode);
-              },
+              onModeSelect: _onModeSelected,
+              onLayerFilterChanged: widget.onLayerFilterChanged,
             ),
           ),
           child: PointerInterceptor(
             child: TimeRangeControllerBall(
-              key: ValueKey('ball-$_displayYear-$_displayMonth-$_displayDay'),
+              key:
+                  ValueKey('ball-$_displayYear-$_displayMonth-$_displayDay'),
               mode: _mode,
               selectedDate: _displayDate,
               loading: widget.loading,
@@ -222,70 +223,164 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
   }
 }
 
-/// Mode selection popup: single-select menu (like [LayerButton]); closes on selection.
-class _TimeMachineModeMenu extends StatelessWidget {
+/// Mode + layer popup: left column = 4 modes (single-select, closes on tap), right column = 2 layers (multi-select), vertical divider between.
+class _TimeMachineModeAndLayerMenu extends StatefulWidget {
   final TimeMachineMode currentMode;
-  final void Function(TimeMachineMode) onSelect;
+  final void Function(TimeMachineMode) onModeSelect;
+  final VoidCallback? onLayerFilterChanged;
 
-  const _TimeMachineModeMenu({
+  const _TimeMachineModeAndLayerMenu({
     required this.currentMode,
-    required this.onSelect,
+    required this.onModeSelect,
+    this.onLayerFilterChanged,
   });
 
-  static const _itemKeys = [
+  @override
+  State<_TimeMachineModeAndLayerMenu> createState() => _TimeMachineModeAndLayerMenuState();
+}
+
+class _TimeMachineModeAndLayerMenuState extends State<_TimeMachineModeAndLayerMenu> {
+  static const _modeKeys = [
     (TimeMachineMode.year, 'time_machine.menu_year'),
     (TimeMachineMode.month, 'time_machine.menu_month'),
     (TimeMachineMode.day, 'time_machine.menu_day'),
     (TimeMachineMode.any, 'time_machine.menu_any'),
   ];
 
+  static const _layerKeys = [
+    (_LayerKind.default_, 'journey_kind.default'),
+    (_LayerKind.flight, 'journey_kind.flight'),
+  ];
+
+  api.LayerFilter _layerFilter = api.getCurrentMainMapLayerFilter();
+  Timer? _layerTimer;
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: _itemKeys
-          .map(
-            (e) => InkWell(
-              onTap: () {
-                HapticFeedback.selectionClick();
-                onSelect(e.$1);
-                Navigator.of(context).pop();
-              },
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (e.$1 == currentMode)
-                      Icon(
-                        Icons.check,
-                        size: 18,
-                        color: StyleConstants.defaultColor,
-                      )
-                    else
-                      const SizedBox(width: 18, height: 18),
-                    const SizedBox(width: 8),
-                    Text(
-                      context.tr(e.$2),
-                      style: TextStyle(
-                        color: e.$1 == currentMode
-                            ? StyleConstants.defaultColor
-                            : Colors.white70,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
+    return IntrinsicHeight(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _buildColumnTitle(context.tr('time_machine.menu_title_time')),
+              ..._modeKeys.map((e) => _buildModeItem(e.$1, e.$2)),
+            ],
+          ),
+          VerticalDivider(
+            width: 1,
+            thickness: 1,
+            color: Colors.white24,
+            indent: 8,
+            endIndent: 8,
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _buildColumnTitle(context.tr('time_machine.menu_title_layer')),
+              ..._layerKeys.map((e) => _buildLayerItem(e.$1, e.$2)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildColumnTitle(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 12, right: 12, top: 8, bottom: 4),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: Colors.white54,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModeItem(TimeMachineMode mode, String labelKey) {
+    final isSelected = mode == widget.currentMode;
+    return InkWell(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        widget.onModeSelect(mode);
+        Navigator.of(context).pop();
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isSelected)
+              Icon(Icons.check, size: 18, color: StyleConstants.defaultColor)
+            else
+              const SizedBox(width: 18, height: 18),
+            const SizedBox(width: 8),
+            Text(
+              context.tr(labelKey),
+              style: TextStyle(
+                color: isSelected ? StyleConstants.defaultColor : Colors.white70,
+                fontSize: 14,
               ),
             ),
-          )
-          .toList(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLayerItem(_LayerKind kind, String labelKey) {
+    final isSelected = kind == _LayerKind.default_ ? _layerFilter.defaultKind : _layerFilter.flightKind;
+    return InkWell(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() {
+          if (kind == _LayerKind.default_) {
+            _layerFilter.defaultKind = !_layerFilter.defaultKind;
+          } else {
+            _layerFilter.flightKind = !_layerFilter.flightKind;
+          }
+        });
+        _layerTimer?.cancel();
+        _layerTimer = Timer(const Duration(milliseconds: 600), () {
+          _layerTimer = null;
+          api.setMainMapLayerFilter(newLayerFilter: _layerFilter);
+          widget.onLayerFilterChanged?.call();
+        });
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isSelected)
+              Icon(Icons.check, size: 18, color: StyleConstants.defaultColor)
+            else
+              const SizedBox(width: 18, height: 18),
+            const SizedBox(width: 8),
+            Text(
+              context.tr(labelKey),
+              style: TextStyle(
+                color: isSelected ? StyleConstants.defaultColor : Colors.white70,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
+
+enum _LayerKind { default_, flight }
 
 /// Mode button: square, semi-transparent (matches timeline style); tap opens [CustomPopup] menu.
 /// Day mode: only year-month (day is on ruler); month mode: only year (month is on ruler).
@@ -543,8 +638,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
   // ----- Month mode: window = [center - half, center + half] in global month indices -----
   int get _monthCenterIndex {
     final earliestYear = widget.earliest.year;
-    return (widget.selectedYear - earliestYear) * 12 +
-        (widget.selectedMonth - 1);
+    return (widget.selectedYear - earliestYear) * 12 + (widget.selectedMonth - 1);
   }
 
   /// Total months from earliest year Jan up to and including current month (no future months).
@@ -574,9 +668,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
   // Uses DateTime +/- Duration(days): calendar and Feb 28/29 (leap year) are handled correctly.
   // Do not clamp day window start to earliest (first trajectory date), or months with no trajectory would fall outside the window and show blank.
   // If selected date is after today (e.g. switched from month mode with a future month), use today as window end so start <= end and ticks are shown.
-  // Do not clamp start to (now.year - 2), or past months like 2012-02 would have start clamped to 2023 and yield start > end.
-  static DateTime _today() =>
-      DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+   static DateTime _today() => DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
 
   /// Normalize day to valid range for the month so e.g. Feb 31 is not interpreted as Mar 2 and the ruler stays on the selected month.
   static DateTime _selectedDateInDayMode(int y, int m, int d) {
@@ -585,8 +677,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
   }
 
   DateTime get _dayWindowStart {
-    final sel = _selectedDateInDayMode(
-        widget.selectedYear, widget.selectedMonth, widget.selectedDay);
+    final sel = _selectedDateInDayMode(widget.selectedYear, widget.selectedMonth, widget.selectedDay);
     final today = _today();
     if (sel.isAfter(today)) {
       return today.subtract(const Duration(days: _dayWindowHalfDays * 2));
@@ -595,8 +686,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
   }
 
   DateTime get _dayWindowEnd {
-    final sel = _selectedDateInDayMode(
-        widget.selectedYear, widget.selectedMonth, widget.selectedDay);
+    final sel = _selectedDateInDayMode(widget.selectedYear, widget.selectedMonth, widget.selectedDay);
     final today = _today();
     if (sel.isAfter(today)) {
       return today;
@@ -628,8 +718,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
       return (center - start).clamp(0, maxIdx);
     } else {
       final start = _dayWindowStart;
-      final sel = _selectedDateInDayMode(
-          widget.selectedYear, widget.selectedMonth, widget.selectedDay);
+      final sel = _selectedDateInDayMode(widget.selectedYear, widget.selectedMonth, widget.selectedDay);
       final days = sel.difference(start).inDays;
       return days.clamp(0, maxIdx);
     }
@@ -660,8 +749,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
     } else {
       final start = _dayWindowStart;
       final d = start.add(Duration(days: indexInWindow));
-      final sel = _selectedDateInDayMode(
-          widget.selectedYear, widget.selectedMonth, widget.selectedDay);
+      final sel = _selectedDateInDayMode(widget.selectedYear, widget.selectedMonth, widget.selectedDay);
       return d.year == sel.year && d.month == sel.month && d.day == sel.day;
     }
   }
@@ -685,8 +773,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
     final count = _itemCount;
     if (count <= 0) return;
     final selectionChanged = widget.isMonthMode
-        ? (oldWidget.selectedYear != widget.selectedYear ||
-            oldWidget.selectedMonth != widget.selectedMonth)
+        ? (oldWidget.selectedYear != widget.selectedYear || oldWidget.selectedMonth != widget.selectedMonth)
         : (oldWidget.selectedYear != widget.selectedYear ||
             oldWidget.selectedMonth != widget.selectedMonth ||
             oldWidget.selectedDay != widget.selectedDay);
@@ -709,13 +796,10 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
 
   int _indexAtScrollOffset(double scrollOffset) {
     final maxIdx = _itemCount > 0 ? _itemCount - 1 : 0;
-    if (_viewportWidth <= 0)
-      return (scrollOffset / _kRulerUnitSpacing).round().clamp(0, maxIdx);
+    if (_viewportWidth <= 0) return (scrollOffset / _kRulerUnitSpacing).round().clamp(0, maxIdx);
     final centerPadding = _viewportWidth / 2 - _kRulerUnitSpacing / 2;
     final centerContent = scrollOffset + _viewportWidth / 2;
-    final index = ((centerContent - centerPadding - _kRulerUnitSpacing / 2) /
-            _kRulerUnitSpacing)
-        .round();
+    final index = ((centerContent - centerPadding - _kRulerUnitSpacing / 2) / _kRulerUnitSpacing).round();
     return index.clamp(0, maxIdx);
   }
 
@@ -802,8 +886,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
                   if (mounted) setState(() => _viewportWidth = w);
                 });
               }
-              final centerPadding =
-                  (w / 2 - _kRulerUnitSpacing / 2).clamp(0.0, double.infinity);
+              final centerPadding = (w / 2 - _kRulerUnitSpacing / 2).clamp(0.0, double.infinity);
               return Stack(
                 alignment: Alignment.center,
                 children: [
@@ -819,8 +902,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
                       scrollDirection: Axis.horizontal,
                       itemExtent: _kRulerUnitSpacing,
                       itemCount: itemCount,
-                      padding: EdgeInsets.only(
-                          left: centerPadding, right: centerPadding),
+                      padding: EdgeInsets.only(left: centerPadding, right: centerPadding),
                       physics: const AlwaysScrollableScrollPhysics(),
                       itemBuilder: (context, i) {
                         if (widget.isMonthMode) {
@@ -828,8 +910,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
                           final globalIndex = _monthWindowStartIndex + i;
                           final y = earliestYear + globalIndex ~/ 12;
                           final m = globalIndex % 12 + 1;
-                          final label = context
-                              .tr('time_machine.month_format', args: ['$m']);
+                          final label = context.tr('time_machine.month_format', args: ['$m']);
                           return _buildTick(label, i == selectedIndex);
                         } else {
                           final start = _dayWindowStart;
@@ -866,9 +947,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
         Container(
           width: 2,
           height: isSelected ? 10 : 6,
-          color: isSelected
-              ? StyleConstants.defaultColor
-              : Colors.white.withValues(alpha: 0.5),
+          color: isSelected ? StyleConstants.defaultColor : Colors.white.withValues(alpha: 0.5),
         ),
         SizedBox(height: isSelected ? 4 : 6),
         Text(label, style: _rulerLabelTextStyle()),
@@ -1077,8 +1156,7 @@ class TimeRangeOverlayPicker extends StatelessWidget {
                   child: _TapTile(
                     label: context.tr('journey.start_time'),
                     value: _fmt.format(fromDate),
-                    onTap: () => _showDatePicker(
-                        context, fromDate, earliest, onFromChanged),
+                    onTap: () => _showDatePicker(context, fromDate, earliest, onFromChanged),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1086,8 +1164,7 @@ class TimeRangeOverlayPicker extends StatelessWidget {
                   child: _TapTile(
                     label: context.tr('journey.end_time'),
                     value: _fmt.format(toDate),
-                    onTap: () =>
-                        _showDatePicker(context, toDate, earliest, onToChanged),
+                    onTap: () => _showDatePicker(context, toDate, earliest, onToChanged),
                   ),
                 ),
               ],
