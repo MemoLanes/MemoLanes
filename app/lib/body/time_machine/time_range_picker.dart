@@ -145,7 +145,7 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
         monthClamped != _selectedMonth || dayClamped != _selectedDay;
     if (needFix || needNormalize) {
       setState(() {
-        if (needFix) _selectedYear = earliest!.year;
+        if (needFix) _selectedYear = earliest.year;
         _selectedMonth = monthClamped;
         _selectedDay = dayClamped;
         _syncDisplayToSelected();
@@ -258,7 +258,7 @@ class _TimeMachineModeAndLayerMenuState
     (_LayerKind.flight, 'journey_kind.flight'),
   ];
 
-  api.LayerFilter _layerFilter = api.getCurrentMainMapLayerFilter();
+  final api.LayerFilter _layerFilter = api.getCurrentMainMapLayerFilter();
   Timer? _layerTimer;
 
   @override
@@ -811,8 +811,9 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
 
   int _indexAtScrollOffset(double scrollOffset) {
     final maxIdx = _itemCount > 0 ? _itemCount - 1 : 0;
-    if (_viewportWidth <= 0)
+    if (_viewportWidth <= 0) {
       return (scrollOffset / _kRulerUnitSpacing).round().clamp(0, maxIdx);
+    }
     final centerPadding = _viewportWidth / 2 - _kRulerUnitSpacing / 2;
     final centerContent = scrollOffset + _viewportWidth / 2;
     final index = ((centerContent - centerPadding - _kRulerUnitSpacing / 2) /
