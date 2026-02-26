@@ -92,6 +92,8 @@
     "current": "Current"
   },
   "time_machine": {
+    "menu_title_time": "Time",
+    "menu_title_layer": "Layer",
     "menu_year": "Year",
     "menu_month": "Month",
     "menu_day": "Day",
