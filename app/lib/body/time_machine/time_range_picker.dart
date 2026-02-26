@@ -108,9 +108,57 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.end,
+    final rulerChild = _mode != TimeMachineMode.any
+        ? TimeRuler(
+            mode: _mode,
+            selectedYear: _selectedYear,
+            selectedMonth: _selectedMonth,
+            selectedDay: _selectedDay,
+            earliest: widget.earliestDate,
+            onYearChanged: (y) {
+              setState(() {
+                _selectedYear = y;
+                _applyCurrentRange();
+                _notifyRange();
+              });
+            },
+            onMonthChanged: (m) {
+              setState(() {
+                _selectedMonth = m;
+                _applyCurrentRange();
+                _notifyRange();
+              });
+            },
+            onDayChanged: (d) {
+              setState(() {
+                _selectedDay = d;
+                _applyCurrentRange();
+                _notifyRange();
+              });
+            },
+          )
+        : TimeRangeOverlayPicker(
+            fromDate: _fromDate,
+            toDate: _toDate,
+            earliest: widget.earliestDate,
+            onFromChanged: (d) {
+              setState(() {
+                _fromDate = d;
+                if (_toDate.isBefore(_fromDate)) _toDate = _fromDate;
+                _notifyRange();
+              });
+            },
+            onToChanged: (d) {
+              setState(() {
+                _toDate = d;
+                if (_fromDate.isAfter(_toDate)) _fromDate = _toDate;
+                _notifyRange();
+              });
+            },
+          );
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         CustomPopup(
           position: PopupPosition.top,
@@ -135,58 +183,11 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
             ),
           ),
         ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: _kPickerBlockHeight,
-          child: Center(
-            child: _mode != TimeMachineMode.any
-                ? TimeRuler(
-                    mode: _mode,
-                    selectedYear: _selectedYear,
-                    selectedMonth: _selectedMonth,
-                    selectedDay: _selectedDay,
-                    earliest: widget.earliestDate,
-                    onYearChanged: (y) {
-                      setState(() {
-                        _selectedYear = y;
-                        _applyCurrentRange();
-                        _notifyRange();
-                      });
-                    },
-                    onMonthChanged: (m) {
-                      setState(() {
-                        _selectedMonth = m;
-                        _applyCurrentRange();
-                        _notifyRange();
-                      });
-                    },
-                    onDayChanged: (d) {
-                      setState(() {
-                        _selectedDay = d;
-                        _applyCurrentRange();
-                        _notifyRange();
-                      });
-                    },
-                  )
-                : TimeRangeOverlayPicker(
-                    fromDate: _fromDate,
-                    toDate: _toDate,
-                    earliest: widget.earliestDate,
-                    onFromChanged: (d) {
-                      setState(() {
-                        _fromDate = d;
-                        if (_toDate.isBefore(_fromDate)) _toDate = _fromDate;
-                        _notifyRange();
-                      });
-                    },
-                    onToChanged: (d) {
-                      setState(() {
-                        _toDate = d;
-                        if (_fromDate.isAfter(_toDate)) _fromDate = _toDate;
-                        _notifyRange();
-                      });
-                    },
-                  ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: SizedBox(
+            height: _kPickerBlockHeight,
+            child: rulerChild,
           ),
         ),
       ],
@@ -259,7 +260,8 @@ class _TimeMachineModeMenu extends StatelessWidget {
   }
 }
 
-/// Mode button: shows current selection with typography hierarchy; tap opens [CustomPopup] menu.
+/// Mode button: square, semi-transparent (matches timeline style); tap opens [CustomPopup] menu.
+/// Day mode: only year-month (day is on ruler); month mode: only year (month is on ruler).
 class TimeRangeControllerBall extends StatelessWidget {
   final TimeMachineMode mode;
   final DateTime selectedDate;
@@ -272,184 +274,107 @@ class TimeRangeControllerBall extends StatelessWidget {
     required this.loading,
   });
 
-  static const double _ballSize = 88;
-  static const double _subFontSize = 9;
-  static const double _contextFontSize = 11;
-  static const double _emphasisFontSize = 17;
+  static const double _buttonSize = 60;
+  static const double _borderRadius = 12;
+  static const double _emphasisFontSize = 13;
 
   @override
   Widget build(BuildContext context) {
     final y = selectedDate.year;
     final m = selectedDate.month.toString().padLeft(2, '0');
-    final d = selectedDate.day.toString().padLeft(2, '0');
-    final contentColor = Colors.grey.shade900;
-    final contextColor = Colors.grey.shade700;
+    final contentColor = Colors.white;
 
-    final modeHint = switch (mode) {
-      TimeMachineMode.year => context.tr('time_machine.menu_year'),
-      TimeMachineMode.month => context.tr('time_machine.menu_month'),
-      TimeMachineMode.day => context.tr('time_machine.menu_day'),
-      TimeMachineMode.any => context.tr('time_machine.menu_any'),
-    };
-
+    // Only show what the ruler doesn't: day mode -> 年月; month mode -> 年; year mode -> 年 (selected); any -> mode label only.
     Widget content;
     switch (mode) {
       case TimeMachineMode.year:
-        content = Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              modeHint,
-              style: TextStyle(
-                color: contextColor,
-                fontSize: _subFontSize,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              '$y',
-              style: TextStyle(
-                color: contentColor,
-                fontSize: _emphasisFontSize,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
+        content = Text(
+          '$y',
+          style: TextStyle(
+            color: contentColor,
+            fontSize: _emphasisFontSize,
+            fontWeight: FontWeight.w600,
+          ),
         );
         break;
       case TimeMachineMode.month:
-        content = Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              modeHint,
-              style: TextStyle(
-                color: contextColor,
-                fontSize: _subFontSize,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              '$y',
-              style: TextStyle(
-                color: contextColor,
-                fontSize: _contextFontSize,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 1),
-            Text(
-              m,
-              style: TextStyle(
-                color: contentColor,
-                fontSize: _emphasisFontSize,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
+        content = Text(
+          '$y',
+          style: TextStyle(
+            color: contentColor,
+            fontSize: _emphasisFontSize,
+            fontWeight: FontWeight.w600,
+          ),
         );
         break;
       case TimeMachineMode.day:
-        content = Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              modeHint,
-              style: TextStyle(
-                color: contextColor,
-                fontSize: _subFontSize,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              '$y-$m',
-              style: TextStyle(
-                color: contextColor,
-                fontSize: _contextFontSize,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 1),
-            Text(
-              d,
-              style: TextStyle(
-                color: contentColor,
-                fontSize: _emphasisFontSize,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
+        content = Text(
+          '$y-$m',
+          style: TextStyle(
+            color: contentColor,
+            fontSize: _emphasisFontSize,
+            fontWeight: FontWeight.w600,
+          ),
         );
         break;
       case TimeMachineMode.any:
-        content = Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              modeHint,
-              style: TextStyle(
-                color: contextColor,
-                fontSize: _subFontSize,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              context.tr('time_machine.menu_any'),
-              style: TextStyle(
-                color: contentColor,
-                fontSize: _emphasisFontSize,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
+        content = Text(
+          context.tr('time_machine.menu_any'),
+          style: TextStyle(
+            color: contentColor,
+            fontSize: _emphasisFontSize,
+            fontWeight: FontWeight.w600,
+          ),
         );
         break;
     }
 
-    return Container(
-      width: _ballSize,
-      height: _ballSize,
-      decoration: BoxDecoration(
-        color: StyleConstants.defaultColor,
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: StyleConstants.defaultColor.withValues(alpha: 0.7),
-          width: 2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: content,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(_borderRadius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: Container(
+          width: _buttonSize,
+          height: _buttonSize,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(_borderRadius),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.35),
+              width: 1,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 12,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-        ],
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: content,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
-/// Ruler height (matches RulerScale rulerExtent).
-const double _kRulerExtent = 52.0;
+/// Ruler height (matches RulerScale rulerExtent); compact but readable.
+const double _kRulerExtent = 44.0;
 const double _kRulerUnitSpacing = 36.0;
 
-/// Fixed height for ruler / any picker block so the mode button position stays consistent.
-const double _kPickerBlockHeight = 88.0;
+/// Fixed height for ruler / any picker block; must fit both ruler and any-mode date tiles.
+const double _kPickerBlockHeight = 60.0;
 
 /// Delay before snap-after-release to avoid clashing with inertia scroll.
 const Duration _kSnapDelay = Duration(milliseconds: 100);
@@ -639,10 +564,10 @@ class _SnapRulerScaleRulerState extends State<_SnapRulerScaleRuler> {
                       children: [
                         Container(
                           width: 2,
-                          height: 12,
+                          height: 10,
                           color: StyleConstants.defaultColor,
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 4),
                         Text(labels.first, style: _rulerLabelStyle),
                       ],
                     ),
@@ -680,7 +605,7 @@ class _SnapRulerScaleRulerState extends State<_SnapRulerScaleRuler> {
             minorTickColor: Colors.white.withValues(alpha: 0.35),
             selectedTickColor: StyleConstants.defaultColor,
             selectedTickWidth: 2,
-            selectedTickLength: 12,
+            selectedTickLength: 10,
             indicatorColor: StyleConstants.defaultColor,
             indicatorWidth: 2,
             labelStyle: _rulerLabelStyle,
@@ -734,7 +659,7 @@ class TimeRangeOverlayPicker extends StatelessWidget {
           filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
@@ -809,7 +734,7 @@ class _TapTile extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -818,15 +743,15 @@ class _TapTile extends StatelessWidget {
                 label,
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.8),
-                  fontSize: 11,
+                  fontSize: 10,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
                 value,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 14,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
               ),

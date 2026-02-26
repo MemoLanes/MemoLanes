@@ -64,7 +64,7 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Spacer(),
             Padding(
