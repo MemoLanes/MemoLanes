@@ -193,7 +193,6 @@ class _PopupRoute extends PopupRoute<void> {
     return offset & renderBox.paintBounds.size;
   }
 
-  /// 弹出层与屏幕边缘的最小边距，避免贴边
   static const double _kEdgeMargin = 8.0;
 
   void _calculateChildOffset(Rect? childRect) {
