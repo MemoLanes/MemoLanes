@@ -4,7 +4,6 @@ import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:memolanes/body/time_machine/advance_ruler_slider.dart';
 import 'package:memolanes/common/component/custom_popup.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -16,6 +15,13 @@ enum TimeMachineMode {
   month,
   day,
   any,
+}
+
+/// Ruler granularity: year / month / day. Unified for reuse in _InfiniteTimeRuler.
+enum _RulerGranularity {
+  year,
+  month,
+  day,
 }
 
 /// Time range picker: ball + year/month/day ruler or any date-range overlay.
@@ -115,6 +121,7 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
   void initState() {
     super.initState();
     _applyCurrentRange();
+    // 首次加载：通知当前范围，触发父组件加载轨迹（父组件仅在 earliest 就绪后才挂载本 picker，故此处会正常触发一次加载）。
     WidgetsBinding.instance.addPostFrameCallback((_) => _notifyRange());
   }
 
@@ -151,6 +158,13 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
             onYearChanged: (y) => _commitRulerChange(() => _selectedYear = y),
             onMonthChanged: (m) => _commitRulerChange(() => _selectedMonth = m),
             onDayChanged: (d) => _commitRulerChange(() => _selectedDay = d),
+            onDisplayYearChanged: (y) {
+              setState(() {
+                _displayYear = y;
+                _displayMonth = _selectedMonth;
+                _displayDay = _selectedDay;
+              });
+            },
             onDisplayMonthChanged: (y, m) {
               setState(() {
                 _displayYear = y;
@@ -459,7 +473,7 @@ class TimeRangeControllerBall extends StatelessWidget {
   }
 }
 
-/// Ruler height (matches RulerScale rulerExtent); compact but readable.
+/// Ruler height; compact but readable.
 const double _kRulerExtent = 44.0;
 const double _kRulerUnitSpacing = 36.0;
 
@@ -505,6 +519,7 @@ class TimeRuler extends StatelessWidget {
   final void Function(int) onYearChanged;
   final void Function(int) onMonthChanged;
   final void Function(int) onDayChanged;
+  final void Function(int year)? onDisplayYearChanged;
   final void Function(int year, int month)? onDisplayMonthChanged;
   final void Function(int year, int month, int day)? onDisplayDayChanged;
 
@@ -518,36 +533,28 @@ class TimeRuler extends StatelessWidget {
     required this.onYearChanged,
     required this.onMonthChanged,
     required this.onDayChanged,
+    this.onDisplayYearChanged,
     this.onDisplayMonthChanged,
     this.onDisplayDayChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (mode == TimeMachineMode.year) {
-      final endYear = DateTime.now().year;
-      // When earliest is set, show [earliest.year, current year]; otherwise only current year.
-      final startYear = earliest != null ? earliest!.year : endYear;
-      final yearCount = endYear - startYear + 1;
-      final years = List.generate(yearCount, (i) => startYear + i);
-      final labels = years.map((y) => '$y').toList();
-      return _SnapRulerScaleRuler(
-        key: ValueKey('year-$yearCount'),
-        labels: labels,
-        selectedIndex: (selectedYear - startYear).clamp(0, yearCount - 1),
-        onSelect: (i) => onYearChanged(startYear + i),
-      );
-    }
-
-    if (mode == TimeMachineMode.month) {
+    if (mode == TimeMachineMode.year || mode == TimeMachineMode.month || mode == TimeMachineMode.day) {
       final earliestDate = earliest ?? DateTime(DateTime.now().year - 1, 1, 1);
+      final granularity = mode == TimeMachineMode.year
+          ? _RulerGranularity.year
+          : mode == TimeMachineMode.month
+              ? _RulerGranularity.month
+              : _RulerGranularity.day;
       return _InfiniteTimeRuler(
-        key: const ValueKey('infinite-month'),
-        isMonthMode: true,
+        key: ValueKey('infinite-$mode'),
+        granularity: granularity,
         earliest: earliestDate,
         selectedYear: selectedYear,
         selectedMonth: selectedMonth,
         selectedDay: selectedDay,
+        onYearSelected: onYearChanged,
         onMonthSelected: (y, m) {
           onYearChanged(y);
           onMonthChanged(m);
@@ -557,64 +564,45 @@ class TimeRuler extends StatelessWidget {
           onMonthChanged(m);
           onDayChanged(d);
         },
+        onDisplayYearChanged: onDisplayYearChanged,
         onDisplayMonthChanged: onDisplayMonthChanged,
         onDisplayDayChanged: onDisplayDayChanged,
       );
     }
-
-    if (mode == TimeMachineMode.day) {
-      final earliestDate = earliest ?? DateTime(DateTime.now().year - 1, 1, 1);
-      return _InfiniteTimeRuler(
-        key: const ValueKey('infinite-day'),
-        isMonthMode: false,
-        earliest: earliestDate,
-        selectedYear: selectedYear,
-        selectedMonth: selectedMonth,
-        selectedDay: selectedDay,
-        onMonthSelected: (y, m) {
-          onYearChanged(y);
-          onMonthChanged(m);
-        },
-        onDaySelected: (y, m, d) {
-          onYearChanged(y);
-          onMonthChanged(m);
-          onDayChanged(d);
-        },
-        onDisplayMonthChanged: onDisplayMonthChanged,
-        onDisplayDayChanged: onDisplayDayChanged,
-      );
-    }
-
     return const SizedBox.shrink();
   }
 }
 
-/// Infinite scroll time ruler: ListView.builder with a sliding window for month/day.
-/// Both modes show a window around the selected value; on release the ruler regenerates around the
+/// Infinite scroll time ruler: ListView.builder with a sliding window for year/month/day.
+/// All modes show a window around the selected value; on release the ruler regenerates around the
 /// new selection so the user can keep scrolling in either direction (infinite feel without building all items).
+/// Year: window = selected year ± _yearWindowHalfYears (clamped to earliest.year..now).
 /// Month: window = selected month ± _monthWindowHalfMonths (global month indices, clamped to earliest..now).
-/// Day: window = selected date ± _dayWindowHalfDays (clamped to earliest..today). Each day is
-/// start.add(Duration(days: i)), so month lengths (28/29/30/31) and Feb leap years are correct.
+/// Day: window = selected date ± _dayWindowHalfDays (clamped to earliest..today).
 class _InfiniteTimeRuler extends StatefulWidget {
-  final bool isMonthMode;
+  final _RulerGranularity granularity;
   final DateTime earliest;
   final int selectedYear;
   final int selectedMonth;
   final int selectedDay;
+  final void Function(int year) onYearSelected;
   final void Function(int year, int month) onMonthSelected;
   final void Function(int year, int month, int day) onDaySelected;
+  final void Function(int year)? onDisplayYearChanged;
   final void Function(int year, int month)? onDisplayMonthChanged;
   final void Function(int year, int month, int day)? onDisplayDayChanged;
 
   const _InfiniteTimeRuler({
     super.key,
-    required this.isMonthMode,
+    required this.granularity,
     required this.earliest,
     required this.selectedYear,
     required this.selectedMonth,
     required this.selectedDay,
+    required this.onYearSelected,
     required this.onMonthSelected,
     required this.onDaySelected,
+    this.onDisplayYearChanged,
     this.onDisplayMonthChanged,
     this.onDisplayDayChanged,
   });
@@ -632,8 +620,24 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
   double _viewportWidth = 0;
 
   /// Sliding window half-size: on release ruler regenerates around new selection to feel infinite.
+  static const int _yearWindowHalfYears = 30;
   static const int _monthWindowHalfMonths = 90;
   static const int _dayWindowHalfDays = 90;
+
+  // ----- Year mode: window = [center - half, center + half] in years -----
+  int get _yearWindowStart {
+    final endYear = DateTime.now().year;
+    final startYear = widget.earliest.year;
+    final center = widget.selectedYear.clamp(startYear, endYear);
+    return (center - _yearWindowHalfYears).clamp(startYear, endYear);
+  }
+
+  int get _yearWindowEnd {
+    final endYear = DateTime.now().year;
+    final startYear = widget.earliest.year;
+    final center = widget.selectedYear.clamp(startYear, endYear);
+    return (center + _yearWindowHalfYears).clamp(startYear, endYear);
+  }
 
   // ----- Month mode: window = [center - half, center + half] in global month indices -----
   int get _monthCenterIndex {
@@ -697,31 +701,41 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
 
   // ----- Unified: item count and selected index within current window -----
   int get _itemCount {
-    if (widget.isMonthMode) {
-      if (_monthTotalCount == 0) return 0;
-      final start = _monthWindowStartIndex;
-      final end = _monthWindowEndIndex;
-      return end - start + 1;
-    } else {
-      final start = _dayWindowStart;
-      final end = _dayWindowEnd;
-      final days = end.difference(start).inDays + 1;
-      return days < 0 ? 0 : days;
+    switch (widget.granularity) {
+      case _RulerGranularity.year:
+        return _yearWindowEnd - _yearWindowStart + 1;
+      case _RulerGranularity.month:
+        if (_monthTotalCount == 0) return 0;
+        final start = _monthWindowStartIndex;
+        final end = _monthWindowEndIndex;
+        return end - start + 1;
+      case _RulerGranularity.day:
+        final start = _dayWindowStart;
+        final end = _dayWindowEnd;
+        final days = end.difference(start).inDays + 1;
+        return days < 0 ? 0 : days;
     }
   }
 
   int get _selectedIndex {
     final maxIdx = _itemCount > 0 ? _itemCount - 1 : 0;
-    if (widget.isMonthMode) {
-      final start = _monthWindowStartIndex;
-      final center = _monthCenterIndex;
-      return (center - start).clamp(0, maxIdx);
-    } else {
-      final start = _dayWindowStart;
-      final sel = _selectedDateInDayMode(widget.selectedYear, widget.selectedMonth, widget.selectedDay);
-      final days = sel.difference(start).inDays;
-      return days.clamp(0, maxIdx);
+    switch (widget.granularity) {
+      case _RulerGranularity.year:
+        return (widget.selectedYear - _yearWindowStart).clamp(0, maxIdx);
+      case _RulerGranularity.month:
+        final start = _monthWindowStartIndex;
+        final center = _monthCenterIndex;
+        return (center - start).clamp(0, maxIdx);
+      case _RulerGranularity.day:
+        final start = _dayWindowStart;
+        final sel = _selectedDateInDayMode(widget.selectedYear, widget.selectedMonth, widget.selectedDay);
+        final days = sel.difference(start).inDays;
+        return days.clamp(0, maxIdx);
     }
+  }
+
+  void _reportYear(int indexInWindow) {
+    widget.onYearSelected(_yearWindowStart + indexInWindow);
   }
 
   void _reportMonth(int indexInWindow) {
@@ -740,17 +754,20 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
 
   /// True if index idx in current window equals current selection (avoid redundant report/rebuild).
   bool _indexEqualsCurrentSelection(int indexInWindow) {
-    if (widget.isMonthMode) {
-      final earliestYear = widget.earliest.year;
-      final globalIndex = _monthWindowStartIndex + indexInWindow;
-      final y = earliestYear + globalIndex ~/ 12;
-      final m = globalIndex % 12 + 1;
-      return y == widget.selectedYear && m == widget.selectedMonth;
-    } else {
-      final start = _dayWindowStart;
-      final d = start.add(Duration(days: indexInWindow));
-      final sel = _selectedDateInDayMode(widget.selectedYear, widget.selectedMonth, widget.selectedDay);
-      return d.year == sel.year && d.month == sel.month && d.day == sel.day;
+    switch (widget.granularity) {
+      case _RulerGranularity.year:
+        return (_yearWindowStart + indexInWindow) == widget.selectedYear;
+      case _RulerGranularity.month:
+        final earliestYear = widget.earliest.year;
+        final globalIndex = _monthWindowStartIndex + indexInWindow;
+        final y = earliestYear + globalIndex ~/ 12;
+        final m = globalIndex % 12 + 1;
+        return y == widget.selectedYear && m == widget.selectedMonth;
+      case _RulerGranularity.day:
+        final start = _dayWindowStart;
+        final d = start.add(Duration(days: indexInWindow));
+        final sel = _selectedDateInDayMode(widget.selectedYear, widget.selectedMonth, widget.selectedDay);
+        return d.year == sel.year && d.month == sel.month && d.day == sel.day;
     }
   }
 
@@ -772,11 +789,13 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
     super.didUpdateWidget(oldWidget);
     final count = _itemCount;
     if (count <= 0) return;
-    final selectionChanged = widget.isMonthMode
-        ? (oldWidget.selectedYear != widget.selectedYear || oldWidget.selectedMonth != widget.selectedMonth)
-        : (oldWidget.selectedYear != widget.selectedYear ||
-            oldWidget.selectedMonth != widget.selectedMonth ||
-            oldWidget.selectedDay != widget.selectedDay);
+    final selectionChanged = switch (widget.granularity) {
+      _RulerGranularity.year => oldWidget.selectedYear != widget.selectedYear,
+      _RulerGranularity.month => oldWidget.selectedYear != widget.selectedYear || oldWidget.selectedMonth != widget.selectedMonth,
+      _RulerGranularity.day => oldWidget.selectedYear != widget.selectedYear ||
+          oldWidget.selectedMonth != widget.selectedMonth ||
+          oldWidget.selectedDay != widget.selectedDay,
+    };
     if (!_isScrolling && selectionChanged) {
       final idx = _selectedIndex.clamp(0, count - 1);
       _lastReportedIndex = idx;
@@ -821,16 +840,22 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
     if (idx != _lastHapticIndex) {
       _lastHapticIndex = idx;
       HapticFeedback.selectionClick();
-      if (widget.isMonthMode) {
-        final earliestYear = widget.earliest.year;
-        final globalIndex = _monthWindowStartIndex + idx;
-        final y = earliestYear + globalIndex ~/ 12;
-        final m = globalIndex % 12 + 1;
-        widget.onDisplayMonthChanged?.call(y, m);
-      } else {
-        final start = _dayWindowStart;
-        final d = start.add(Duration(days: idx));
-        widget.onDisplayDayChanged?.call(d.year, d.month, d.day);
+      switch (widget.granularity) {
+        case _RulerGranularity.year:
+          widget.onDisplayYearChanged?.call(_yearWindowStart + idx);
+          break;
+        case _RulerGranularity.month:
+          final earliestYear = widget.earliest.year;
+          final globalIndex = _monthWindowStartIndex + idx;
+          final y = earliestYear + globalIndex ~/ 12;
+          final m = globalIndex % 12 + 1;
+          widget.onDisplayMonthChanged?.call(y, m);
+          break;
+        case _RulerGranularity.day:
+          final start = _dayWindowStart;
+          final d = start.add(Duration(days: idx));
+          widget.onDisplayDayChanged?.call(d.year, d.month, d.day);
+          break;
       }
     }
   }
@@ -849,10 +874,16 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
         // Only after snap animation completes: report if selection changed → parent updates → ruler regenerates.
         if (!mounted) return;
         if (!_indexEqualsCurrentSelection(idx)) {
-          if (widget.isMonthMode) {
-            _reportMonth(idx);
-          } else {
-            _reportDay(idx);
+          switch (widget.granularity) {
+            case _RulerGranularity.year:
+              _reportYear(idx);
+              break;
+            case _RulerGranularity.month:
+              _reportMonth(idx);
+              break;
+            case _RulerGranularity.day:
+              _reportDay(idx);
+              break;
           }
         }
         _snapTimer = null;
@@ -905,19 +936,22 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
                       padding: EdgeInsets.only(left: centerPadding, right: centerPadding),
                       physics: const AlwaysScrollableScrollPhysics(),
                       itemBuilder: (context, i) {
-                        if (widget.isMonthMode) {
-                          final earliestYear = widget.earliest.year;
-                          final globalIndex = _monthWindowStartIndex + i;
-                          final y = earliestYear + globalIndex ~/ 12;
-                          final m = globalIndex % 12 + 1;
-                          final label = context.tr('time_machine.month_format', args: ['$m']);
-                          return _buildTick(label, i == selectedIndex);
-                        } else {
-                          final start = _dayWindowStart;
-                          final d = start.add(Duration(days: i));
-                          final label = d.day.toString().padLeft(2, '0');
-                          return _buildTick(label, i == selectedIndex);
-                        }
+                        final label = switch (widget.granularity) {
+                          _RulerGranularity.year => '${_yearWindowStart + i}',
+                          _RulerGranularity.month => () {
+                              final earliestYear = widget.earliest.year;
+                              final globalIndex = _monthWindowStartIndex + i;
+                              final y = earliestYear + globalIndex ~/ 12;
+                              final m = globalIndex % 12 + 1;
+                              return context.tr('time_machine.month_format', args: ['$m']);
+                            }(),
+                          _RulerGranularity.day => () {
+                              final start = _dayWindowStart;
+                              final d = start.add(Duration(days: i));
+                              return d.day.toString().padLeft(2, '0');
+                            }(),
+                        };
+                        return _buildTick(label, i == selectedIndex);
                       },
                     ),
                   ),
@@ -952,162 +986,6 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
         SizedBox(height: isSelected ? 4 : 6),
         Text(label, style: _rulerLabelTextStyle()),
       ],
-    );
-  }
-}
-
-/// Wrapper around internal [RulerScale] with snap-on-release (100ms delay).
-/// Used for year mode only; month/day use [ _InfiniteTimeRuler] for infinite scroll.
-class _SnapRulerScaleRuler extends StatefulWidget {
-  final List<String> labels;
-  final int selectedIndex;
-  final void Function(int) onSelect;
-
-  const _SnapRulerScaleRuler({
-    super.key,
-    required this.labels,
-    required this.selectedIndex,
-    required this.onSelect,
-  });
-
-  @override
-  State<_SnapRulerScaleRuler> createState() => _SnapRulerScaleRulerState();
-}
-
-class _SnapRulerScaleRulerState extends State<_SnapRulerScaleRuler> {
-  final RulerScaleController _controller = RulerScaleController();
-  late double _lastReportedValue;
-  int _lastReportedIndex =
-      -1; // Only call onSelect when tick index changes to avoid duplicate loads on scroll/snap.
-  Timer? _snapTimer;
-  bool _isScrolling = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final idx = widget.selectedIndex.clamp(0, widget.labels.length - 1);
-    _lastReportedValue = idx.toDouble();
-    _lastReportedIndex = idx;
-  }
-
-  @override
-  void didUpdateWidget(_SnapRulerScaleRuler oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Sync ruler position when parent selection changes (e.g. mode switch); do not interrupt while scrolling.
-    if (!_isScrolling &&
-        oldWidget.selectedIndex != widget.selectedIndex &&
-        widget.selectedIndex >= 0 &&
-        widget.selectedIndex < widget.labels.length) {
-      _lastReportedValue = widget.selectedIndex.toDouble();
-      _lastReportedIndex = widget.selectedIndex;
-      _controller.jumpToValue(_lastReportedValue);
-    }
-  }
-
-  void _onScrollEnd() {
-    _isScrolling = false;
-    _snapTimer?.cancel();
-    // Start snap after one frame so the package's postFrameCallback has run and _lastReportedValue is the release position.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _snapTimer = Timer(_kSnapDelay, () {
-        if (!mounted) return;
-        _controller.jumpToValue(_lastReportedValue);
-        final idx = _lastReportedValue.round();
-        if (idx != _lastReportedIndex) {
-          _lastReportedIndex = idx;
-          widget.onSelect(idx);
-        }
-        _snapTimer = null;
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _snapTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final labels = widget.labels;
-    if (labels.length < 2) {
-      return SizedBox(
-        height: _kRulerExtent,
-        child: Padding(
-          padding: _kRulerMargin,
-          child: _buildRulerContainer(
-            Center(
-              child: labels.isEmpty
-                  ? null
-                  : Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 2,
-                          height: 10,
-                          color: StyleConstants.defaultColor,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(labels.first, style: _rulerLabelTextStyle()),
-                      ],
-                    ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    final maxValue = (labels.length - 1).toDouble();
-    final selectedIndex = widget.selectedIndex.clamp(0, labels.length - 1);
-
-    return SizedBox(
-      height: _kRulerExtent,
-      child: Padding(
-        padding: _kRulerMargin,
-        child: _buildRulerContainer(
-          RulerScale(
-            controller: _controller,
-            minValue: 0,
-            maxValue: maxValue,
-            step: 1,
-            majorTickInterval: 1,
-            unitSpacing: _kRulerUnitSpacing,
-            rulerExtent: _kRulerExtent,
-            direction: Axis.horizontal,
-            initialValue: selectedIndex.toDouble(),
-            useScrollAnimation: true, // Animate on snap-after-release.
-            animateInitialScroll:
-                false, // Show target value immediately on mode switch, no scroll animation.
-            hapticFeedbackEnabled: true,
-            showDefaultIndicator: true,
-            decoration: null,
-            majorTickColor: Colors.white.withValues(alpha: 0.5),
-            minorTickColor: Colors.white.withValues(alpha: 0.35),
-            selectedTickColor: StyleConstants.defaultColor,
-            selectedTickWidth: 2,
-            selectedTickLength: 10,
-            indicatorColor: StyleConstants.defaultColor,
-            indicatorWidth: 2,
-            labelStyle: _rulerLabelTextStyle(),
-            labelFormatter: (value) => labels[value.round()],
-            onValueChanged: (value) {
-              _lastReportedValue = value;
-              final idx = value.round();
-              if (idx != _lastReportedIndex) {
-                _lastReportedIndex = idx;
-                widget.onSelect(idx);
-              }
-            },
-            onScrollStart: () {
-              _isScrolling = true;
-              _snapTimer?.cancel();
-            },
-            onScrollEnd: _onScrollEnd,
-          ),
-        ),
-      ),
     );
   }
 }
