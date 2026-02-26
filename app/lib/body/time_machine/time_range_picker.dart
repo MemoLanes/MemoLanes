@@ -460,7 +460,7 @@ const double _kRulerUnitSpacing = 36.0;
 const double _kPickerBlockHeight = 60.0;
 
 /// Delay before snap-after-release to avoid clashing with inertia scroll.
-const Duration _kSnapDelay = Duration(milliseconds: 100);
+const Duration _kSnapDelay = Duration(milliseconds: 50);
 
 const EdgeInsets _kRulerMargin = EdgeInsets.symmetric(horizontal: 16);
 
@@ -834,6 +834,15 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
     }
   }
 
+  /// Called when user starts dragging. Cancels delayed snap so the new drag is not overwritten by a later snap.
+  /// Do not call position.jumpTo() here: by the time we receive ScrollStartNotification the position's activity
+  /// is already the user's ScrollDragController; replacing it with Idle would trigger 'activity!.isScrolling' assertion on drag update.
+  /// When snap animation (animateTo) is running and user touches, the framework already replaces DriveScrollActivity with the drag.
+  void _cancelSnap() {
+    _snapTimer?.cancel();
+    _snapTimer = null;
+  }
+
   void _onScrollEnd(ScrollNotification n) {
     _isScrolling = false;
     _snapTimer?.cancel();
@@ -896,7 +905,10 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
                 children: [
                   NotificationListener<ScrollNotification>(
                     onNotification: (n) {
-                      if (n is ScrollStartNotification) _isScrolling = true;
+                      if (n is ScrollStartNotification) {
+                        _isScrolling = true;
+                        _cancelSnap();
+                      }
                       if (n is ScrollUpdateNotification) _onScrollUpdate(n);
                       if (n is ScrollEndNotification) _onScrollEnd(n);
                       return false;
