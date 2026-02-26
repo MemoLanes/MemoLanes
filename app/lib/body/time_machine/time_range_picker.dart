@@ -40,6 +40,7 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
   int _selectedYear = DateTime.now().year;
   int _selectedMonth = DateTime.now().month;
   int _selectedDay = DateTime.now().day;
+
   /// Only for button display; updates in real time while scrolling; syncs with selected on release.
   int _displayYear = DateTime.now().year;
   int _displayMonth = DateTime.now().month;
@@ -123,7 +124,8 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
     final monthClamped = _selectedMonth.clamp(1, 12);
     final lastDay = DateTime(_selectedYear, monthClamped + 1, 0).day;
     final dayClamped = _selectedDay.clamp(1, lastDay);
-    final needNormalize = monthClamped != _selectedMonth || dayClamped != _selectedDay;
+    final needNormalize =
+        monthClamped != _selectedMonth || dayClamped != _selectedDay;
     if (needFix || needNormalize) {
       setState(() {
         if (needFix) _selectedYear = earliest!.year;
@@ -201,8 +203,7 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
           ),
           child: PointerInterceptor(
             child: TimeRangeControllerBall(
-              key:
-                  ValueKey('ball-$_displayYear-$_displayMonth-$_displayDay'),
+              key: ValueKey('ball-$_displayYear-$_displayMonth-$_displayDay'),
               mode: _mode,
               selectedDate: _displayDate,
               loading: widget.loading,
@@ -542,7 +543,8 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
   // ----- Month mode: window = [center - half, center + half] in global month indices -----
   int get _monthCenterIndex {
     final earliestYear = widget.earliest.year;
-    return (widget.selectedYear - earliestYear) * 12 + (widget.selectedMonth - 1);
+    return (widget.selectedYear - earliestYear) * 12 +
+        (widget.selectedMonth - 1);
   }
 
   /// Total months from earliest year Jan up to and including current month (no future months).
@@ -573,7 +575,8 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
   // Do not clamp day window start to earliest (first trajectory date), or months with no trajectory would fall outside the window and show blank.
   // If selected date is after today (e.g. switched from month mode with a future month), use today as window end so start <= end and ticks are shown.
   // Do not clamp start to (now.year - 2), or past months like 2012-02 would have start clamped to 2023 and yield start > end.
-  static DateTime _today() => DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+  static DateTime _today() =>
+      DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
 
   /// Normalize day to valid range for the month so e.g. Feb 31 is not interpreted as Mar 2 and the ruler stays on the selected month.
   static DateTime _selectedDateInDayMode(int y, int m, int d) {
@@ -582,7 +585,8 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
   }
 
   DateTime get _dayWindowStart {
-    final sel = _selectedDateInDayMode(widget.selectedYear, widget.selectedMonth, widget.selectedDay);
+    final sel = _selectedDateInDayMode(
+        widget.selectedYear, widget.selectedMonth, widget.selectedDay);
     final today = _today();
     if (sel.isAfter(today)) {
       return today.subtract(const Duration(days: _dayWindowHalfDays * 2));
@@ -591,7 +595,8 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
   }
 
   DateTime get _dayWindowEnd {
-    final sel = _selectedDateInDayMode(widget.selectedYear, widget.selectedMonth, widget.selectedDay);
+    final sel = _selectedDateInDayMode(
+        widget.selectedYear, widget.selectedMonth, widget.selectedDay);
     final today = _today();
     if (sel.isAfter(today)) {
       return today;
@@ -623,7 +628,8 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
       return (center - start).clamp(0, maxIdx);
     } else {
       final start = _dayWindowStart;
-      final sel = _selectedDateInDayMode(widget.selectedYear, widget.selectedMonth, widget.selectedDay);
+      final sel = _selectedDateInDayMode(
+          widget.selectedYear, widget.selectedMonth, widget.selectedDay);
       final days = sel.difference(start).inDays;
       return days.clamp(0, maxIdx);
     }
@@ -654,7 +660,8 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
     } else {
       final start = _dayWindowStart;
       final d = start.add(Duration(days: indexInWindow));
-      final sel = _selectedDateInDayMode(widget.selectedYear, widget.selectedMonth, widget.selectedDay);
+      final sel = _selectedDateInDayMode(
+          widget.selectedYear, widget.selectedMonth, widget.selectedDay);
       return d.year == sel.year && d.month == sel.month && d.day == sel.day;
     }
   }
@@ -678,7 +685,8 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
     final count = _itemCount;
     if (count <= 0) return;
     final selectionChanged = widget.isMonthMode
-        ? (oldWidget.selectedYear != widget.selectedYear || oldWidget.selectedMonth != widget.selectedMonth)
+        ? (oldWidget.selectedYear != widget.selectedYear ||
+            oldWidget.selectedMonth != widget.selectedMonth)
         : (oldWidget.selectedYear != widget.selectedYear ||
             oldWidget.selectedMonth != widget.selectedMonth ||
             oldWidget.selectedDay != widget.selectedDay);
@@ -701,10 +709,13 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
 
   int _indexAtScrollOffset(double scrollOffset) {
     final maxIdx = _itemCount > 0 ? _itemCount - 1 : 0;
-    if (_viewportWidth <= 0) return (scrollOffset / _kRulerUnitSpacing).round().clamp(0, maxIdx);
+    if (_viewportWidth <= 0)
+      return (scrollOffset / _kRulerUnitSpacing).round().clamp(0, maxIdx);
     final centerPadding = _viewportWidth / 2 - _kRulerUnitSpacing / 2;
     final centerContent = scrollOffset + _viewportWidth / 2;
-    final index = ((centerContent - centerPadding - _kRulerUnitSpacing / 2) / _kRulerUnitSpacing).round();
+    final index = ((centerContent - centerPadding - _kRulerUnitSpacing / 2) /
+            _kRulerUnitSpacing)
+        .round();
     return index.clamp(0, maxIdx);
   }
 
@@ -791,7 +802,8 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
                   if (mounted) setState(() => _viewportWidth = w);
                 });
               }
-              final centerPadding = (w / 2 - _kRulerUnitSpacing / 2).clamp(0.0, double.infinity);
+              final centerPadding =
+                  (w / 2 - _kRulerUnitSpacing / 2).clamp(0.0, double.infinity);
               return Stack(
                 alignment: Alignment.center,
                 children: [
@@ -807,7 +819,8 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
                       scrollDirection: Axis.horizontal,
                       itemExtent: _kRulerUnitSpacing,
                       itemCount: itemCount,
-                      padding: EdgeInsets.only(left: centerPadding, right: centerPadding),
+                      padding: EdgeInsets.only(
+                          left: centerPadding, right: centerPadding),
                       physics: const AlwaysScrollableScrollPhysics(),
                       itemBuilder: (context, i) {
                         if (widget.isMonthMode) {
@@ -815,7 +828,8 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
                           final globalIndex = _monthWindowStartIndex + i;
                           final y = earliestYear + globalIndex ~/ 12;
                           final m = globalIndex % 12 + 1;
-                          final label = context.tr('time_machine.month_format', args: ['$m']);
+                          final label = context
+                              .tr('time_machine.month_format', args: ['$m']);
                           return _buildTick(label, i == selectedIndex);
                         } else {
                           final start = _dayWindowStart;
@@ -852,7 +866,9 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
         Container(
           width: 2,
           height: isSelected ? 10 : 6,
-          color: isSelected ? StyleConstants.defaultColor : Colors.white.withValues(alpha: 0.5),
+          color: isSelected
+              ? StyleConstants.defaultColor
+              : Colors.white.withValues(alpha: 0.5),
         ),
         SizedBox(height: isSelected ? 4 : 6),
         Text(label, style: _rulerLabelTextStyle()),
@@ -1061,7 +1077,8 @@ class TimeRangeOverlayPicker extends StatelessWidget {
                   child: _TapTile(
                     label: context.tr('journey.start_time'),
                     value: _fmt.format(fromDate),
-                    onTap: () => _showDatePicker(context, fromDate, earliest, onFromChanged),
+                    onTap: () => _showDatePicker(
+                        context, fromDate, earliest, onFromChanged),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1069,7 +1086,8 @@ class TimeRangeOverlayPicker extends StatelessWidget {
                   child: _TapTile(
                     label: context.tr('journey.end_time'),
                     value: _fmt.format(toDate),
-                    onTap: () => _showDatePicker(context, toDate, earliest, onToChanged),
+                    onTap: () =>
+                        _showDatePicker(context, toDate, earliest, onToChanged),
                   ),
                 ),
               ],
