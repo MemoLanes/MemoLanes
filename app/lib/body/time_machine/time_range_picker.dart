@@ -834,13 +834,19 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
     }
   }
 
-  /// Called when user starts dragging. Cancels delayed snap so the new drag is not overwritten by a later snap.
-  /// Do not call position.jumpTo() here: by the time we receive ScrollStartNotification the position's activity
-  /// is already the user's ScrollDragController; replacing it with Idle would trigger 'activity!.isScrolling' assertion on drag update.
-  /// When snap animation (animateTo) is running and user touches, the framework already replaces DriveScrollActivity with the drag.
+  /// Cancels delayed snap timer only (used from ScrollStartNotification where we must not call jumpTo).
   void _cancelSnap() {
     _snapTimer?.cancel();
     _snapTimer = null;
+  }
+
+  /// Stops any in-progress snap animation so the upcoming drag can take over. Must be called from pointer down
+  /// (before Scrollable gets the gesture), not from ScrollStartNotification, otherwise we'd replace the user's drag activity.
+  void _stopSnapAnimation() {
+    if (_scrollController.hasClients) {
+      final pos = _scrollController.position;
+      pos.jumpTo(pos.pixels);
+    }
   }
 
   void _onScrollEnd(ScrollNotification n) {
@@ -938,6 +944,13 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
                         color: StyleConstants.defaultColor,
                       ),
                     ),
+                  ),
+                  Listener(
+                    behavior: HitTestBehavior.translucent,
+                    onPointerDown: (_) {
+                      _cancelSnap();
+                      _stopSnapAnimation();
+                    },
                   ),
                 ],
               );
