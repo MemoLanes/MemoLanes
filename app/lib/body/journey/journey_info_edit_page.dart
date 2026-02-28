@@ -90,8 +90,7 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
     setState(() {
       _startTime = widget.startTime;
       _endTime = widget.endTime;
-      _journeyDate =
-          dateFormat.parse(naiveDateToString(date: widget.journeyDate));
+      _journeyDate = naiveDateToDateTime(widget.journeyDate);
       _note = widget.note;
       _journeyKind = widget.journeyKind ?? _journeyKind;
       _noteController.text = _note ?? "";
@@ -119,7 +118,7 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
     }
     _note ??= "";
     import_api.JourneyInfo journeyInfo = import_api.JourneyInfo(
-        journeyDate: naiveDateOfString(str: dateFormat.format(_journeyDate!)),
+        journeyDate: dateTimeToNaiveDate(_journeyDate!),
         startTime: _startTime,
         endTime: _endTime,
         note: _note,

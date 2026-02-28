@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:memolanes/body/time_machine/time_range_picker.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/utils.dart';
+import 'package:memolanes/common/utils.dart';
 
 class TimeMachineOverlay extends StatefulWidget {
   const TimeMachineOverlay({
@@ -31,8 +32,8 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
     setState(() => _loading = true);
     try {
       final proxy = await api.getMapRendererProxyForJourneyDateRange(
-        fromDateInclusive: naiveDateOfString(str: _dateFormat.format(from)),
-        toDateInclusive: naiveDateOfString(str: _dateFormat.format(to)),
+        fromDateInclusive: dateTimeToNaiveDate(from),
+        toDateInclusive: dateTimeToNaiveDate(to),
       );
       if (mounted) widget.onJourneyRangeLoaded(proxy);
     } finally {
@@ -53,7 +54,7 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
       if (!mounted) return;
       setState(() {
         _earliestJourneyDate = value != null
-            ? _dateFormat.parse(naiveDateToString(date: value))
+            ? naiveDateToDateTime(value)
             : DateTime(DateTime.now().year, 1, 1);
       });
     });
