@@ -181,20 +181,9 @@ class _MyHomePageState extends State<MyHomePage> {
 
   /// Home and Time Machine share the same MapBody; only the overlay differs.
   Widget _buildMapTab() {
-    return Stack(
-      children: [
-        MapBody(
-          key: _mapBodyKey,
-          mode: _selectedIndex == 0 ? MapMode.normal : MapMode.timeMachine,
-        ),
-        IndexedStack(
-          index: _selectedIndex,
-          children: [
-            const SizedBox.shrink(),
-            const SizedBox.shrink(),
-          ],
-        ),
-      ],
+    return MapBody(
+      key: _mapBodyKey,
+      mode: _selectedIndex == 0 ? MapMode.normal : MapMode.timeMachine,
     );
   }
 

@@ -42,8 +42,10 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
   }
 
   void _onLayerFilterChanged() {
-    if (_lastFrom != null && _lastTo != null) {
-      _loadJourneyForRange(_lastFrom!, _lastTo!);
+    final from = _lastFrom;
+    final to = _lastTo;
+    if (from != null && to != null) {
+      _loadJourneyForRange(from, to);
     }
   }
 
