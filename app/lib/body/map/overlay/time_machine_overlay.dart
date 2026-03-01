@@ -69,7 +69,6 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
       return const SizedBox.shrink();
     }
 
-    final screenSize = MediaQuery.of(context).size;
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
 
@@ -82,7 +81,7 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
             const Spacer(),
             Padding(
               padding: EdgeInsets.only(
-                bottom: isLandscape ? 40 : screenSize.height * 0.12,
+                bottom: isLandscape ? 16 : 8,
               ),
               child: TimeRangePicker(
                 earliestDate: earliest,
@@ -91,6 +90,7 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
                 onLayerFilterChanged: _onLayerFilterChanged,
               ),
             ),
+            const SizedBox(height: 116),
           ],
         ),
       ),
