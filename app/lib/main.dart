@@ -13,8 +13,6 @@ import 'package:memolanes/body/map/map_body.dart';
 import 'package:memolanes/body/privacy_agreement.dart';
 import 'package:memolanes/body/settings/settings_body.dart'
     deferred as settings;
-import 'package:memolanes/body/time_machine/time_machine_body.dart'
-    deferred as time_machine;
 import 'package:memolanes/common/component/bottom_nav_bar.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/gps_manager.dart';
@@ -111,10 +109,14 @@ class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
   DateTime? _lastExitPopAt;
 
-  Future<void>? _timeMachineLib;
   Future<void>? _journeyLib;
   Future<void>? _achievementLib;
   Future<void>? _settingsLib;
+
+  /// Keeps MapBody's State stable so that switching between tab 0 and 1 does
+  /// not trigger parent rebuild and thus avoids MapBody/WebView being
+  /// recreated and the web page reloading.
+  final GlobalKey<MapBodyState> _mapBodyKey = GlobalKey<MapBodyState>();
 
   @override
   void initState() {
@@ -169,6 +171,35 @@ class _MyHomePageState extends State<MyHomePage> {
     SystemNavigator.pop();
   }
 
+  /// Tabs 0 and 1: map (shared MapBody, overlay switched by mode); tabs 2, 3, 4: separate pages.
+  Widget _buildPageContent() {
+    if (_selectedIndex <= 1) {
+      return MapBody(
+        key: _mapBodyKey,
+        mode: _selectedIndex == 0 ? MapMode.normal : MapMode.timeMachine,
+      );
+    }
+    return _buildDeferredTabBody(_selectedIndex);
+  }
+
+  Widget _buildDeferredTabBody(int index) {
+    return switch (index) {
+      2 => _buildDeferredBody(
+          _journeyLib ??= journey.loadLibrary(),
+          () => journey.JourneyBody(),
+        ),
+      3 => _buildDeferredBody(
+          _achievementLib ??= achievement.loadLibrary(),
+          () => achievement.AchievementBody(),
+        ),
+      4 => _buildDeferredBody(
+          _settingsLib ??= settings.loadLibrary(),
+          () => settings.SettingsBody(),
+        ),
+      _ => throw RangeError('Invalid tab index: $index'),
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -181,28 +212,8 @@ class _MyHomePageState extends State<MyHomePage> {
         body: Stack(
           children: [
             SafeAreaWrapper(
-              useSafeArea: _selectedIndex !=
-                  0, // we don't need safe area for `MapUiBody`
-              child: switch (_selectedIndex) {
-                0 => const MapBody(),
-                1 => _buildDeferredBody(
-                    _timeMachineLib ??= time_machine.loadLibrary(),
-                    () => time_machine.TimeMachineBody(),
-                  ),
-                2 => _buildDeferredBody(
-                    _journeyLib ??= journey.loadLibrary(),
-                    () => journey.JourneyBody(),
-                  ),
-                3 => _buildDeferredBody(
-                    _achievementLib ??= achievement.loadLibrary(),
-                    () => achievement.AchievementBody(),
-                  ),
-                4 => _buildDeferredBody(
-                    _settingsLib ??= settings.loadLibrary(),
-                    () => settings.SettingsBody(),
-                  ),
-                _ => throw FormatException('Invalid index: $_selectedIndex'),
-              },
+              useSafeArea: _selectedIndex > 1,
+              child: _buildPageContent(),
             ),
             Positioned(
               left: 0,

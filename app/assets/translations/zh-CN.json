@@ -91,6 +91,14 @@
     "flight": "飞行",
     "current": "当前"
   },
+  "time_machine": {
+    "menu_title_time": "时间选择",
+    "menu_title_layer": "图层选择",
+    "menu_year": "年",
+    "menu_month": "月",
+    "menu_day": "日",
+    "menu_any": "任意"
+  },
   "preprocessor": {
     "generic": "通用模式",
     "flightTrack": "航迹模式",

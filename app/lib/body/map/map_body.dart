@@ -3,20 +3,24 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:json_annotation/json_annotation.dart';
+import 'package:memolanes/body/map/overlay/normal_map_overlay.dart';
+import 'package:memolanes/body/map/overlay/time_machine_overlay.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
-import 'package:memolanes/common/component/map_controls/accuracy_display.dart';
-import 'package:memolanes/common/component/map_controls/layer_button.dart';
-import 'package:memolanes/common/component/map_controls/tracking_button.dart';
-import 'package:memolanes/common/component/rec_indicator.dart';
-import 'package:memolanes/common/component/recording_buttons.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/service/permission_service.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 
 part 'map.g.dart';
+
+enum MapMode {
+  /// NormalMapOverlay
+  normal,
+
+  /// TimeMachineOverlay
+  timeMachine,
+}
 
 // TODO: `dart run build_runner build` is needed for generating `map.g.dart`,
 // we should automate this.
@@ -37,21 +41,41 @@ class MapState {
 }
 
 class MapBody extends StatefulWidget {
-  const MapBody({super.key});
+  const MapBody({super.key, this.mode = MapMode.normal});
+
+  final MapMode mode;
 
   @override
   State<StatefulWidget> createState() => MapBodyState();
 }
 
 class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
+  /// Main map proxy; initialized only here (main holds MapBody instance via
+  /// GlobalKey).
   final _mapRendererProxy = api.getMapRendererProxyForMainMap();
   MapView? _roughMapView;
+  api.MapRendererProxy? _journeyMapRendererProxy;
 
   TrackingMode _currentTrackingMode = TrackingMode.off;
 
+  /// In timeMachine mode always treat as off ;
+  /// in normal mode use _currentTrackingMode (loaded from MMKV in init).
+  TrackingMode get _effectiveTrackingMode => widget.mode == MapMode.timeMachine
+      ? TrackingMode.off
+      : _currentTrackingMode;
+
+  /// GlobalKey pins the main map WebView's State so tab 0↔1 switch does not
+  /// cause mistaken rebuild and reload.
+  final GlobalKey<BaseMapWebviewState> _mainMapKey =
+      GlobalKey<BaseMapWebviewState>();
+
+  void setJourneyMapRendererProxy(api.MapRendererProxy? proxy) {
+    setState(() => _journeyMapRendererProxy = proxy);
+  }
+
   void _syncTrackingModeWithGpsManager() {
     Provider.of<GpsManager>(context, listen: false)
-        .toggleMapTracking(_currentTrackingMode != TrackingMode.off);
+        .toggleMapTracking(_effectiveTrackingMode != TrackingMode.off);
   }
 
   void _trackingModeButton() async {
@@ -77,6 +101,18 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _saveMapState();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant MapBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.mode == widget.mode) return;
+    final gpsManager = Provider.of<GpsManager>(context, listen: false);
+    if (widget.mode == MapMode.timeMachine) {
+      gpsManager.toggleMapTracking(false);
+    } else {
+      _syncTrackingModeWithGpsManager();
+    }
   }
 
   @override
@@ -154,79 +190,67 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     _syncTrackingModeWithGpsManager();
   }
 
+  Widget _buildMapLayer() {
+    // After Time Machine date selection: reuse same WebView, only swap proxy;
+    // didUpdateWidget triggers refreshMapData(), no full page reload.
+    final proxy =
+        (widget.mode == MapMode.timeMachine && _journeyMapRendererProxy != null)
+            ? _journeyMapRendererProxy!
+            : _mapRendererProxy;
+    return BaseMapWebview(
+      key: _mainMapKey,
+      mapRendererProxy: proxy,
+      initialMapView: _roughMapView,
+      trackingMode: _effectiveTrackingMode,
+      onRoughMapViewUpdate: (roughMapView) {
+        _roughMapView = roughMapView;
+        _saveMapState();
+      },
+      onMapMoved: () {
+        if (widget.mode == MapMode.normal &&
+            _currentTrackingMode == TrackingMode.displayAndTracking) {
+          setState(() {
+            _currentTrackingMode = TrackingMode.displayOnly;
+          });
+          _syncTrackingModeWithGpsManager();
+          _saveMapState();
+        }
+      },
+    );
+  }
+
+  /// Returns the overlay for the given mode; each overlay lives in its own
+  /// file.
+  Widget _buildOverlay(BuildContext context, MapMode mode) {
+    switch (mode) {
+      case MapMode.normal:
+        return NormalMapOverlay(
+          trackingMode: _effectiveTrackingMode,
+          onTrackingPressed: _trackingModeButton,
+        );
+      case MapMode.timeMachine:
+        return TimeMachineOverlay(
+          onJourneyRangeLoaded: setJourneyMapRendererProxy,
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final isLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
-    var gpsManager = context.watch<GpsManager>();
+    final mode = widget.mode;
 
     // TODO: Add profile button top right
     if (_roughMapView == null) {
       // TODO: This should be a loading spinner and it should be cover the whole
       // screen until the map is fully loaded.
-      return SizedBox.shrink();
-    } else {
-      return Stack(
-        children: [
-          BaseMapWebview(
-            key: const ValueKey("mainMap"),
-            mapRendererProxy: _mapRendererProxy,
-            initialMapView: _roughMapView,
-            trackingMode: _currentTrackingMode,
-            onRoughMapViewUpdate: (roughMapView) {
-              _roughMapView = roughMapView;
-              _saveMapState();
-            },
-            onMapMoved: () {
-              if (_currentTrackingMode == TrackingMode.displayAndTracking) {
-                setState(() {
-                  _currentTrackingMode = TrackingMode.displayOnly;
-                });
-                _syncTrackingModeWithGpsManager();
-                _saveMapState();
-              }
-            },
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Spacer(),
-                  Padding(
-                    padding: EdgeInsets.only(
-                      right: 8,
-                      bottom: isLandscape ? 16 : screenSize.height * 0.08,
-                    ),
-                    child: PointerInterceptor(
-                        child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        TrackingButton(
-                          trackingMode: _currentTrackingMode,
-                          onPressed: _trackingModeButton,
-                        ),
-                        const AccuracyDisplay(),
-                        LayerButton(),
-                      ],
-                    )),
-                  ),
-                  const RecordingButtons(),
-                  const SizedBox(height: 116),
-                ],
-              ),
-            ),
-          ),
-          RecIndicator(
-            isRecording:
-                gpsManager.recordingStatus == GpsRecordingStatus.recording,
-            blinkDurationMs: 1000,
-          )
-        ],
-      );
+      return const SizedBox.shrink();
     }
+
+    final children = <Widget>[
+      _buildMapLayer(),
+      _buildOverlay(context, mode),
+    ];
+
+    return Stack(children: children);
   }
 }
