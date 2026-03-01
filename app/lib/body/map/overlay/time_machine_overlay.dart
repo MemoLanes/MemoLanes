@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:memolanes/body/time_machine/time_range_picker.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/common/utils.dart';
 
 class TimeMachineOverlay extends StatefulWidget {
@@ -18,7 +16,6 @@ class TimeMachineOverlay extends StatefulWidget {
 }
 
 class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
-  static final DateFormat _dateFormat = DateFormat('yyyy-MM-dd');
   DateTime? _earliestJourneyDate;
   bool _loading = false;
   DateTime? _lastFrom;
