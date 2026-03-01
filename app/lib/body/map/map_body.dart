@@ -58,6 +58,13 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
 
   TrackingMode _currentTrackingMode = TrackingMode.off;
 
+  /// In timeMachine mode always treat as off ;
+  /// in normal mode use _currentTrackingMode (loaded from MMKV in init).
+  TrackingMode get _effectiveTrackingMode =>
+      widget.mode == MapMode.timeMachine
+          ? TrackingMode.off
+          : _currentTrackingMode;
+
   /// GlobalKey pins the main map WebView's State so tab 0↔1 switch does not
   /// cause mistaken rebuild and reload.
   final GlobalKey<BaseMapWebviewState> _mainMapKey =
@@ -69,7 +76,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
 
   void _syncTrackingModeWithGpsManager() {
     Provider.of<GpsManager>(context, listen: false)
-        .toggleMapTracking(_currentTrackingMode != TrackingMode.off);
+        .toggleMapTracking(_effectiveTrackingMode != TrackingMode.off);
   }
 
   void _trackingModeButton() async {
@@ -95,6 +102,18 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _saveMapState();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant MapBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.mode == widget.mode) return;
+    final gpsManager = Provider.of<GpsManager>(context, listen: false);
+    if (widget.mode == MapMode.timeMachine) {
+      gpsManager.toggleMapTracking(false);
+    } else {
+      _syncTrackingModeWithGpsManager();
+    }
   }
 
   @override
@@ -183,13 +202,14 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
       key: _mainMapKey,
       mapRendererProxy: proxy,
       initialMapView: _roughMapView,
-      trackingMode: _currentTrackingMode,
+      trackingMode: _effectiveTrackingMode,
       onRoughMapViewUpdate: (roughMapView) {
         _roughMapView = roughMapView;
         _saveMapState();
       },
       onMapMoved: () {
-        if (_currentTrackingMode == TrackingMode.displayAndTracking) {
+        if (widget.mode == MapMode.normal &&
+            _currentTrackingMode == TrackingMode.displayAndTracking) {
           setState(() {
             _currentTrackingMode = TrackingMode.displayOnly;
           });
@@ -206,7 +226,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     switch (mode) {
       case MapMode.normal:
         return NormalMapOverlay(
-          trackingMode: _currentTrackingMode,
+          trackingMode: _effectiveTrackingMode,
           onTrackingPressed: _trackingModeButton,
         );
       case MapMode.timeMachine:

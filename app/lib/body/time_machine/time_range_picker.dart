@@ -218,9 +218,11 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: SizedBox(
-            height: _kPickerBlockHeight,
-            child: rulerChild,
+          child: PointerInterceptor(
+            child: SizedBox(
+              height: _kPickerBlockHeight,
+              child: rulerChild,
+            ),
           ),
         ),
       ],
