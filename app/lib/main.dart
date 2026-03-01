@@ -171,20 +171,15 @@ class _MyHomePageState extends State<MyHomePage> {
     SystemNavigator.pop();
   }
 
-  /// Tabs 0 and 1: map (shared MapBody); tabs 2, 3, 4: separate pages.
+  /// Tabs 0 and 1: map (shared MapBody, overlay switched by mode); tabs 2, 3, 4: separate pages.
   Widget _buildPageContent() {
     if (_selectedIndex <= 1) {
-      return _buildMapTab();
+      return MapBody(
+        key: _mapBodyKey,
+        mode: _selectedIndex == 0 ? MapMode.normal : MapMode.timeMachine,
+      );
     }
     return _buildDeferredTabBody(_selectedIndex);
-  }
-
-  /// Home and Time Machine share the same MapBody; only the overlay differs.
-  Widget _buildMapTab() {
-    return MapBody(
-      key: _mapBodyKey,
-      mode: _selectedIndex == 0 ? MapMode.normal : MapMode.timeMachine,
-    );
   }
 
   Widget _buildDeferredTabBody(int index) {

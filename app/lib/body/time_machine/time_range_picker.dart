@@ -381,6 +381,12 @@ class _TimeMachineModeAndLayerMenuState
       },
     );
   }
+
+  @override
+  void dispose() {
+    _layerTimer?.cancel();
+    super.dispose();
+  }
 }
 
 enum _LayerKind { default_, flight }
