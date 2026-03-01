@@ -60,10 +60,9 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
 
   /// In timeMachine mode always treat as off ;
   /// in normal mode use _currentTrackingMode (loaded from MMKV in init).
-  TrackingMode get _effectiveTrackingMode =>
-      widget.mode == MapMode.timeMachine
-          ? TrackingMode.off
-          : _currentTrackingMode;
+  TrackingMode get _effectiveTrackingMode => widget.mode == MapMode.timeMachine
+      ? TrackingMode.off
+      : _currentTrackingMode;
 
   /// GlobalKey pins the main map WebView's State so tab 0↔1 switch does not
   /// cause mistaken rebuild and reload.
