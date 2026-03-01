@@ -97,8 +97,7 @@
     "menu_year": "Year",
     "menu_month": "Month",
     "menu_day": "Day",
-    "menu_any": "Any",
-    "month_format": "{}"
+    "menu_any": "Any"
   },
   "preprocessor": {
     "generic": "Generic Mode",

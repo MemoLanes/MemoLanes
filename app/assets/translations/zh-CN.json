@@ -97,8 +97,7 @@
     "menu_year": "年",
     "menu_month": "月",
     "menu_day": "日",
-    "menu_any": "任意",
-    "month_format": "{}月"
+    "menu_any": "任意"
   },
   "preprocessor": {
     "generic": "通用模式",

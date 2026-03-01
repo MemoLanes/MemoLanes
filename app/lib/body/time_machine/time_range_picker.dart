@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
 import 'package:memolanes/common/component/custom_popup.dart';
 import 'package:memolanes/constants/style_constants.dart';
@@ -953,10 +954,15 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
                       itemBuilder: (context, i) {
                         final label = switch (widget.granularity) {
                           _RulerGranularity.year => '${_yearWindowStart + i}',
-                          _RulerGranularity.month => context
-                                .tr('time_machine.month_format', args: [
-                              '${_monthAtGlobalIndex(_monthWindowStartIndex + i).$2}'
-                            ]),
+                          _RulerGranularity.month => DateFormat(
+                              'MMM',
+                              context.locale.toString(),
+                            ).format(DateTime(
+                              2000,
+                              _monthAtGlobalIndex(_monthWindowStartIndex + i)
+                                  .$2,
+                              1,
+                            )),
                           _RulerGranularity.day =>
                             _dayAtWindowIndex(i).day.toString().padLeft(2, '0'),
                         };
