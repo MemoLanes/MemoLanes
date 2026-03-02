@@ -69,6 +69,9 @@
     "export_journey_as_kml": "导出为 KML",
     "export_journey_as_gpx": "导出为 GPX",
     "export_journey_as_mldx": "导出为 MLDX",
+    "export_raw_data": "导出原始数据",
+    "export_raw_data_csv": "导出为 CSV",
+    "export_raw_data_gpx": "导出为 GPX",
     "delete_all": "删除所有旅程",
     "delete_all_success": "所有旅程已清除!",
     "preprocessor": "预处理器",
@@ -152,8 +155,6 @@
       "title": "高级设置",
       "export_logs": "导出日志",
       "raw_data_mode": "原始数据模式",
-      "raw_data_export_csv": "导出为 CSV",
-      "raw_data_export_gpx": "导出为 GPX",
       "rebuild_cache": "重建缓存",
       "render_diagnostics": "渲染诊断"
     }

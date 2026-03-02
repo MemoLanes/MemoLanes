@@ -22,7 +22,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 
-enum ExportType { mldx, kml, gpx }
+enum ExportType { mldx, kml, gpx, rawDataCsv, rawDataGpx }
 
 class JourneyInfoPage extends StatefulWidget {
   const JourneyInfoPage({super.key, required this.journeyHeader});
@@ -38,6 +38,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   late JourneyHeader _journeyHeader;
   api.MapRendererProxy? _mapRendererProxy;
   MapView? _initialMapView;
+  bool? _hasRawData;
 
   @override
   void initState() {
@@ -56,6 +57,9 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
         .cast<JourneyHeader?>()
         .firstOrNull;
 
+    final hasRawData =
+        await api.hasJourneyRawData(journeyId: _journeyHeader.id);
+
     if (!mounted) return;
     setState(() {
       _mapRendererProxy = mapRendererProxyAndCameraOption.$1;
@@ -70,6 +74,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       if (latestHeader != null) {
         _journeyHeader = latestHeader;
       }
+      _hasRawData = hasRawData;
     });
   }
 
@@ -137,8 +142,18 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       JourneyHeader journeyHeader, ExportType exportType) async {
     final tmpDir = await getTemporaryDirectory();
     final dateStr = naiveDateToString(date: journeyHeader.journeyDate);
+    final isRaw = exportType == ExportType.rawDataCsv ||
+        exportType == ExportType.rawDataGpx;
+    final suffix = isRaw ? '-raw' : '';
+    final ext = switch (exportType) {
+      ExportType.mldx => 'mldx',
+      ExportType.kml => 'kml',
+      ExportType.gpx => 'gpx',
+      ExportType.rawDataCsv => 'csv',
+      ExportType.rawDataGpx => 'gpx',
+    };
     final filepath =
-        "${tmpDir.path}/$dateStr-${journeyHeader.revision}.${exportType.name}";
+        "${tmpDir.path}/$dateStr-${journeyHeader.revision}$suffix.$ext";
     switch (exportType) {
       case ExportType.mldx:
         await api.generateSingleArchive(
@@ -156,6 +171,14 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
             journeyId: journeyHeader.id,
             exportType: api.ExportType.gpx);
         break;
+      case ExportType.rawDataCsv:
+        await api.exportJourneyRawDataCsv(
+            journeyId: journeyHeader.id, targetFilepath: filepath);
+        break;
+      case ExportType.rawDataGpx:
+        await api.exportJourneyRawDataGpx(
+            journeyId: journeyHeader.id, targetFilepath: filepath);
+        break;
     }
     return filepath;
   }
@@ -166,6 +189,56 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     await showCommonExport(context, filePath, deleteFile: true);
   }
 
+  Widget _buildActionButton({
+    required String label,
+    required Color backgroundColor,
+    required VoidCallback onPressed,
+  }) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: backgroundColor,
+        foregroundColor: Colors.black,
+        minimumSize: Size(88, 42),
+        padding: EdgeInsets.symmetric(horizontal: 16.0),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(25.0),
+        ),
+      ),
+      child: Text(label),
+    );
+  }
+
+  void _showExportOptionCard(
+    BuildContext context,
+    List<({String label, ExportType type})> options,
+  ) {
+    if (options.isEmpty) return;
+    final tiles = <CardLabelTile>[];
+    for (var i = 0; i < options.length; i++) {
+      final option = options[i];
+      final position = options.length == 1
+          ? CardLabelTilePosition.single
+          : i == 0
+              ? CardLabelTilePosition.top
+              : i == options.length - 1
+                  ? CardLabelTilePosition.bottom
+                  : CardLabelTilePosition.middle;
+      tiles.add(CardLabelTile(
+        position: position,
+        label: option.label,
+        onTap: () => _export(option.type),
+        top: i != 0,
+      ));
+    }
+    showBasicCard(
+      context,
+      child: OptionCard(
+        children: tiles,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final mapRendererProxy = _mapRendererProxy;
@@ -173,6 +246,9 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       JourneyKind.defaultKind => context.tr("journey_kind.default"),
       JourneyKind.flight => context.tr("journey_kind.flight"),
     };
+    final isSingleRowButtons = _hasRawData != true;
+    final panelMaxHeight = isSingleRowButtons ? 420.0 : 480.0;
+    final infoAreaHeight = isSingleRowButtons ? 334.0 : 340.0;
     return Scaffold(
       body: Stack(
         children: [
@@ -182,7 +258,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
               topLeft: Radius.circular(16.0),
               topRight: Radius.circular(16.0),
             ),
-            maxHeight: 480,
+            maxHeight: panelMaxHeight,
             defaultPanelState: PanelState.OPEN,
             panel: PointerInterceptor(
               child: Column(
@@ -200,7 +276,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                   ),
                   SizedBox(height: 16.0),
                   SizedBox(
-                    height: 340,
+                    height: infoAreaHeight,
                     child: MlSingleChildScrollView(
                       children: [
                         LabelTile(
@@ -260,51 +336,40 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                       ],
                     ),
                   ),
-                  SizedBox(height: 16.0),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      ElevatedButton(
-                        onPressed: () => _showExportDataCard(
-                          context,
-                          _journeyHeader.journeyType,
-                        ),
-                        style: ElevatedButton.styleFrom(
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 10.0,
+                      runSpacing: 10.0,
+                      children: [
+                        _buildActionButton(
+                          label: context.tr("common.export"),
                           backgroundColor: const Color(0xFFFFFFFF),
-                          foregroundColor: Colors.black,
-                          fixedSize: Size(100, 42),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25.0),
+                          onPressed: () => _showExportDataCard(
+                            context,
+                            _journeyHeader.journeyType,
                           ),
                         ),
-                        child: Text(context.tr("common.export")),
-                      ),
-                      ElevatedButton(
-                        onPressed: () async => _showEditMenu(context),
-                        style: ElevatedButton.styleFrom(
+                        _buildActionButton(
+                          label: context.tr("common.edit"),
                           backgroundColor: const Color(0xFFB6E13D),
-                          foregroundColor: Colors.black,
-                          fixedSize: Size(100, 42),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25.0),
-                          ),
+                          onPressed: () async => _showEditMenu(context),
                         ),
-                        child: Text(context.tr("common.edit")),
-                      ),
-                      ElevatedButton(
-                        onPressed: () async =>
-                            await _deleteJourneyInfo(context),
-                        style: ElevatedButton.styleFrom(
+                        _buildActionButton(
+                          label: context.tr("common.delete"),
                           backgroundColor: const Color(0xFFEC4162),
-                          foregroundColor: Colors.black,
-                          fixedSize: Size(100, 42),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25.0),
-                          ),
+                          onPressed: () async =>
+                              await _deleteJourneyInfo(context),
                         ),
-                        child: Text(context.tr("common.delete")),
-                      ),
-                    ],
+                        if (_hasRawData == true)
+                          _buildActionButton(
+                            label: context.tr("journey.export_raw_data"),
+                            backgroundColor: const Color(0xFFE8F4CC),
+                            onPressed: () => _showExportRawDataChoice(context),
+                          ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -326,39 +391,36 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   }
 
   void _showExportDataCard(BuildContext context, JourneyType journeyType) {
-    showBasicCard(
-      context,
-      child: OptionCard(
-        children: [
-          CardLabelTile(
-            position: journeyType != JourneyType.bitmap
-                ? CardLabelTilePosition.top
-                : CardLabelTilePosition.single,
-            label: context.tr("journey.export_journey_as_mldx"),
-            onTap: () {
-              _export(ExportType.mldx);
-            },
-            top: false,
-          ),
-          if (journeyType != JourneyType.bitmap) ...[
-            CardLabelTile(
-              position: CardLabelTilePosition.middle,
-              label: context.tr("journey.export_journey_as_kml"),
-              onTap: () {
-                _export(ExportType.kml);
-              },
-            ),
-            CardLabelTile(
-              position: CardLabelTilePosition.bottom,
-              label: context.tr("journey.export_journey_as_gpx"),
-              onTap: () {
-                _export(ExportType.gpx);
-              },
-            ),
-          ]
-        ],
+    final options = <({String label, ExportType type})>[
+      (
+        label: context.tr("journey.export_journey_as_mldx"),
+        type: ExportType.mldx,
       ),
-    );
+    ];
+    if (journeyType != JourneyType.bitmap) {
+      options.add((
+        label: context.tr("journey.export_journey_as_kml"),
+        type: ExportType.kml,
+      ));
+      options.add((
+        label: context.tr("journey.export_journey_as_gpx"),
+        type: ExportType.gpx,
+      ));
+    }
+    _showExportOptionCard(context, options);
+  }
+
+  void _showExportRawDataChoice(BuildContext context) {
+    _showExportOptionCard(context, [
+      (
+        label: context.tr("journey.export_raw_data_csv"),
+        type: ExportType.rawDataCsv,
+      ),
+      (
+        label: context.tr("journey.export_raw_data_gpx"),
+        type: ExportType.rawDataGpx,
+      ),
+    ]);
   }
 
   void _showEditMenu(BuildContext context) {

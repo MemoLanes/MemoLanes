@@ -130,6 +130,7 @@ fn increment_journey_and_verify_cache_same_kind() {
                     JourneyKind::DefaultKind,
                     None,
                     JourneyData::Bitmap(journey_bitmap1.clone()),
+                    None,
                 )
             })
             .unwrap();
@@ -146,6 +147,7 @@ fn increment_journey_and_verify_cache_same_kind() {
                     JourneyKind::DefaultKind,
                     None,
                     JourneyData::Bitmap(journey_bitmap2.clone()),
+                    None,
                 )
             })
             .unwrap();
@@ -185,6 +187,7 @@ fn increment_journey_and_verify_cache_different_kind() {
                     JourneyKind::DefaultKind,
                     None,
                     JourneyData::Bitmap(journey_bitmap1.clone()),
+                    None,
                 )
             })
             .unwrap();
@@ -201,6 +204,7 @@ fn increment_journey_and_verify_cache_different_kind() {
                     JourneyKind::Flight,
                     None,
                     JourneyData::Bitmap(journey_bitmap2.clone()),
+                    None,
                 )
             })
             .unwrap();

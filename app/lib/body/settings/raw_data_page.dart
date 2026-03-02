@@ -36,10 +36,15 @@ class _RawDataSwitchState extends State<RawDataSwitch> {
         trailing: Switch(
           value: enabled,
           onChanged: (bool value) async {
-            await api.toggleRawDataMode(enable: value);
-            setState(() {
-              enabled = value;
-            });
+            final ok = await api.toggleRawDataMode(enable: value);
+            if (ok) {
+              setState(() => enabled = value);
+            } else if (mounted) {
+              await showCommonDialog(
+                context,
+                context.tr("journey.stop_ongoing_journey"),
+              );
+            }
           },
         ),
       ),
@@ -77,7 +82,7 @@ class _RawDataPage extends State<RawDataPage> {
         children: [
           CardLabelTile(
             position: CardLabelTilePosition.top,
-            label: context.tr("general.advanced_settings.raw_data_export_csv"),
+            label: context.tr("journey.export_raw_data_csv"),
             onTap: () {
               showCommonExport(context, filePath, deleteFile: false);
             },
@@ -85,7 +90,7 @@ class _RawDataPage extends State<RawDataPage> {
           ),
           CardLabelTile(
             position: CardLabelTilePosition.bottom,
-            label: context.tr("general.advanced_settings.raw_data_export_gpx"),
+            label: context.tr("journey.export_raw_data_gpx"),
             onTap: () async {
               final gpxPath =
                   await api.exportRawDataGpxFile(csvFilepath: filePath);

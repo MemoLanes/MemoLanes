@@ -28,7 +28,6 @@ use crate::renderer::CameraOptionInternal;
 
 pub(crate) type CameraOption = CameraOptionInternal;
 
-use crate::export_data::raw_data_csv_to_gpx_file;
 use log::{error, info, warn};
 
 // TODO: we have way too many locking here and now it is hard to track.
@@ -461,7 +460,7 @@ pub fn delete_journey(journey_id: &str) -> Result<()> {
         .with_db_txn(|txn| txn.delete_journey(journey_id))
 }
 
-pub fn toggle_raw_data_mode(enable: bool) {
+pub fn toggle_raw_data_mode(enable: bool) -> bool {
     get().storage.toggle_raw_data_mode(enable)
 }
 
@@ -641,10 +640,31 @@ pub fn export_raw_data_gpx_file(csv_filepath: String) -> Result<String> {
 
     let mut writer = BufWriter::new(gpx_file);
 
-    raw_data_csv_to_gpx_file(&mut reader, &mut writer)
+    export_data::raw_data_csv_to_gpx_file(&mut reader, &mut writer)
         .with_context(|| format!("Failed to convert CSV to GPX: {csv_filepath}"))?;
 
     Ok(gpx_path_str)
+}
+
+pub fn has_journey_raw_data(journey_id: String) -> Result<bool> {
+    let has = get().storage.with_db_txn(|txn| {
+        Ok::<_, anyhow::Error>(txn.get_journey_raw_data(&journey_id)?.is_some())
+    })?;
+    Ok(has)
+}
+
+#[auto_context]
+pub fn export_journey_raw_data_csv(journey_id: String, target_filepath: String) -> Result<()> {
+    get()
+        .storage
+        .export_journey_raw_data_csv(&journey_id, Path::new(&target_filepath))
+}
+
+#[auto_context]
+pub fn export_journey_raw_data_gpx(journey_id: String, target_filepath: String) -> Result<()> {
+    get()
+        .storage
+        .export_journey_raw_data_gpx(&journey_id, Path::new(&target_filepath))
 }
 
 pub fn delete_all_journeys() -> Result<()> {

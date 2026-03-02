@@ -89,6 +89,7 @@ pub fn import_journey_data(journey_info: JourneyInfo, journey_data: JourneyData)
             journey_info.journey_kind,
             journey_info.note,
             journey_data,
+            None,
         )
     })?;
     Ok(())
