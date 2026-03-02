@@ -141,7 +141,7 @@ impl Storage {
         let main_db = &mut dbs.0;
         let current = main_db.get_setting_with_default(crate::main_db::Setting::RawDataMode, false);
         if current == enable {
-            return false;
+            return true;
         }
         main_db
             .set_setting(crate::main_db::Setting::RawDataMode, enable)
