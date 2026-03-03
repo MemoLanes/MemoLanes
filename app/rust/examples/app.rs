@@ -1,5 +1,7 @@
-use memolanes_core::api::api::{for_testing::get_main_map_renderer, import_archive, init};
+use memolanes_core::api::api::for_testing::get_main_map_state;
+use memolanes_core::api::api::{import_archive, init};
 mod shared;
+use memolanes_core::renderer::MapRenderer;
 use shared::MapServer;
 use std::env;
 use std::sync::{Arc, Mutex};
@@ -25,11 +27,20 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    // Get the main map renderer
-    let main_map_renderer = get_main_map_renderer();
-
-    let server = MapServer::create_and_start("localhost", None, main_map_renderer)
-        .expect("Failed to start server");
+    // HACK: we just make a full copy here, thus later updates won't be reflected in the server.
+    let main_map_state = get_main_map_state();
+    let journey_bitmap = main_map_state
+        .lock()
+        .unwrap()
+        .map_renderer
+        .peek_latest_bitmap()
+        .clone();
+    let server = MapServer::create_and_start(
+        "localhost",
+        None,
+        Arc::new(Mutex::new(MapRenderer::new(journey_bitmap))),
+    )
+    .expect("Failed to start server");
 
     println!("view map at: {}", server.get_http_url());
 

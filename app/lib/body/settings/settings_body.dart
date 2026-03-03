@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/body/settings/advanced_settings_page.dart';
 import 'package:memolanes/body/settings/import_data_page.dart';
+import 'package:memolanes/body/settings/map_settings_page.dart';
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
@@ -13,6 +14,7 @@ import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/component/tiles/label_tile_title.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:package_info_plus/package_info_plus.dart';
@@ -161,6 +163,15 @@ class _SettingsBodyState extends State<SettingsBody> {
               context.tr("general.version.currently_the_latest_version"),
             );
           },
+        ),
+        LabelTile(
+          label: context.tr("general.map_settings.title"),
+          position: LabelTilePosition.middle,
+          trailing: LabelTileContent(showArrow: true),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const MapSettingsPage()),
+          ),
         ),
         LabelTile(
           label: context.tr("general.advanced_settings.title"),
@@ -352,18 +363,5 @@ class _SettingsBodyState extends State<SettingsBody> {
         ],
       ),
     );
-  }
-}
-
-class UpdateNotifier extends ChangeNotifier {
-  String? updateUrl;
-
-  void setUpdateUrl(String? url) {
-    updateUrl = url;
-    notifyListeners();
-  }
-
-  bool hasUpdateNotification() {
-    return updateUrl != null;
   }
 }

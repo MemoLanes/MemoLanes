@@ -1,4 +1,5 @@
-import 'dart:ui';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -98,14 +99,13 @@ class _PopupContent extends StatelessWidget {
   final BoxDecoration? contentDecoration;
 
   const _PopupContent({
-    Key? key,
     required this.child,
     required this.childKey,
     this.backgroundColor,
     required this.contentPadding,
     this.contentRadius,
     this.contentDecoration,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -119,7 +119,7 @@ class _PopupContent extends StatelessWidget {
             borderRadius: BorderRadius.circular(contentRadius ?? 10),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 10,
               ),
             ],
@@ -169,7 +169,8 @@ class _PopupRoute extends PopupRoute<void> {
   });
 
   @override
-  Color? get barrierColor => barriersColor ?? Colors.black.withOpacity(0.1);
+  Color? get barrierColor =>
+      barriersColor ?? Colors.black.withValues(alpha: 0.1);
   @override
   bool get barrierDismissible => true;
   @override
@@ -194,11 +195,15 @@ class _PopupRoute extends PopupRoute<void> {
     return offset & renderBox.paintBounds.size;
   }
 
+  static const double _kEdgeMargin = 8.0;
+
   void _calculateChildOffset(Rect? childRect) {
     if (childRect == null) return;
 
-    final screenSize =
-        MediaQueryData.fromView(WidgetsBinding.instance.window).size;
+    final view = ui.PlatformDispatcher.instance.views.first;
+    final media = MediaQueryData.fromView(view);
+    final screenSize = media.size;
+    final padding = media.padding;
 
     switch (position) {
       case PopupPosition.top:
@@ -240,6 +245,24 @@ class _PopupRoute extends PopupRoute<void> {
             childRect.width / 2 +
             (horizontalOffset ?? 0);
         break;
+    }
+
+    if (_left != null) {
+      _left = _left!.clamp(
+        padding.left + _kEdgeMargin,
+        screenSize.width - childRect.width - padding.right - _kEdgeMargin,
+      );
+    }
+    if (_top != null) {
+      _top = _top!.clamp(
+        padding.top + _kEdgeMargin,
+        screenSize.height - childRect.height - padding.bottom - _kEdgeMargin,
+      );
+    }
+    if (_bottom != null) {
+      final maxBottom =
+          screenSize.height - childRect.height - padding.top - _kEdgeMargin;
+      _bottom = _bottom!.clamp(padding.bottom + _kEdgeMargin, maxBottom);
     }
   }
 

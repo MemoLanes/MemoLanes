@@ -22,6 +22,7 @@ declare global {
     readyForDisplay?: FlutterMessageChannel;
     onMapMoved?: FlutterMessageChannel;
     onMapViewChanged?: FlutterMessageChannel;
+    onMapZoomChanged?: FlutterMessageChannel;
     trySetup?: () => Promise<void>;
     updateLocationMarker?: (
       lng: number,
@@ -69,6 +70,13 @@ export class FlutterBridge {
     if (window.onMapMoved) {
       window.onMapMoved.postMessage("");
     }
+  }
+
+  /**
+   * Get the underlying map instance
+   */
+  getMap(): maplibregl.Map {
+    return this.map;
   }
 
   /**

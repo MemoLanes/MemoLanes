@@ -9,24 +9,47 @@ import 'package:share_handler/share_handler.dart';
 class ShareHandlerUtil {
   ShareHandlerUtil._();
 
-  static StreamSubscription<SharedMedia> init(BuildContext context) {
+  static GlobalKey<NavigatorState>? _navigatorKey;
+  static List<SharedAttachment?>? _pendingShare;
+
+  /// Subscribes to share intents immediately. [navigatorKey] is used to obtain
+  /// context for dialogs/navigation when handling shares.
+  static init({
+    required GlobalKey<NavigatorState> navigatorKey,
+  }) {
+    _navigatorKey = navigatorKey;
     final handler = ShareHandlerPlatform.instance;
 
     handler.getInitialSharedMedia().then((media) {
       final attachments = media?.attachments ?? const [];
-      _handleSharedFile(context, attachments);
+      _setPendingAndProcess(attachments);
     }).catchError((e) {
       log.error('Failed to get initial shared media: $e');
     });
 
-    final subscription = handler.sharedMediaStream.listen((media) {
+    handler.sharedMediaStream.listen((media) {
       final attachments = media.attachments ?? const [];
-      _handleSharedFile(context, attachments);
+      _setPendingAndProcess(attachments);
     }, onError: (err) {
       log.error('Error in sharedMediaStream: $err');
     });
+  }
 
-    return subscription;
+  static void _setPendingAndProcess(List<SharedAttachment?> attachments) {
+    if (attachments.isEmpty) return;
+    // Probably not really useful but we use `_pendingShare` to avoid receiving
+    // multiple share events in a very short time.
+    _pendingShare = attachments;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _processPending());
+  }
+
+  static Future<void> _processPending() async {
+    final attachments = _pendingShare;
+    if (attachments == null) return;
+    _pendingShare = null;
+    final ctx = _navigatorKey?.currentState?.context;
+    if (ctx == null || !ctx.mounted) return;
+    await _handleSharedFile(ctx, attachments);
   }
 
   static Future<void> _handleSharedFile(

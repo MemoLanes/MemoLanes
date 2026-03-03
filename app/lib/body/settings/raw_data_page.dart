@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
@@ -99,8 +100,8 @@ class _RawDataPage extends State<RawDataPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(context.tr("general.advanced_settings.raw_data_mode")),
+      appBar: CapsuleStyleAppBar(
+        title: context.tr("general.advanced_settings.raw_data_mode"),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.center,

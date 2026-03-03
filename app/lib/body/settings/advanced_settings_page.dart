@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/body/settings/raw_data_page.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
@@ -24,8 +25,8 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
     var gpsManager = context.watch<GpsManager>();
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(context.tr("general.advanced_settings.title")),
+      appBar: CapsuleStyleAppBar(
+        title: context.tr("general.advanced_settings.title"),
       ),
       body: MlSingleChildScrollView(
         padding: EdgeInsets.all(8.0),

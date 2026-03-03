@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
@@ -25,8 +26,8 @@ class _ContactUsPage extends State<ContactUsPage> {
     const emailText = "support@memolanes.com";
     const weiboUrl = "https://weibo.com/u/8445160502";
     return Scaffold(
-      appBar: AppBar(
-        title: Text(context.tr("contact_us.title")),
+      appBar: CapsuleStyleAppBar(
+        title: context.tr("contact_us.title"),
       ),
       body: MlSingleChildScrollView(
         padding: EdgeInsets.all(8.0),
