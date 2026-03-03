@@ -13,7 +13,7 @@
     "enable_all": "全部开启",
     "skip": "跳过",
     "location_title": "位置 (始终允许)",
-    "location_desc": "静默记录足迹",
+    "location_desc": "记录足迹",
     "battery_title": "电池优化",
     "battery_desc": "允许后台持续记录",
     "notification_title": "通知",
