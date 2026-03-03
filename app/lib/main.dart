@@ -124,7 +124,9 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      showPrivacyAgreementIfNeeded(context);
+      // 先等待欢迎/隐私弹窗关闭，再执行加载与权限流程，避免权限层抢先弹出
+      await showPrivacyAgreementIfNeeded(context);
+      if (!context.mounted) return;
 
       var mainMapReady = AppBootstrap.mainMapReady;
 
