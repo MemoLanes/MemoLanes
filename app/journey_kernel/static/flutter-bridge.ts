@@ -165,7 +165,7 @@ export class FlutterBridge {
 
             this.map.flyTo({
               center: [lng, lat],
-              zoom: currentZoom < 11 ? 16 : currentZoom,
+              zoom: currentZoom < 14 ? 16 : currentZoom,
               essential: true,
             });
           }
