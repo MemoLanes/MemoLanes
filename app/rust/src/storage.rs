@@ -1,16 +1,14 @@
 extern crate simplelog;
-use crate::cache_db::{CacheDb, LayerKind};
+use crate::cache_db::{CacheDb, CacheDbV1, LayerKind};
 use crate::gps_processor::{self, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
-use crate::journey_data::JourneyData;
 use crate::journey_header::JourneyKind;
 use crate::main_db::{self, Action, MainDb};
 use crate::merged_journey_builder;
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
-use chrono::Local;
+use chrono::{Local, NaiveDate};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fs::{remove_file, File};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -134,7 +132,7 @@ pub struct Storage {
     // but maybe do that when we know more.
     // NOTE: both db are deliberately hidden so all operations need to go
     // through `Storage` to make sure they are in sync.
-    dbs: Mutex<(MainDb, CacheDb)>,
+    dbs: Mutex<(MainDb, CacheDbV1)>,
     finalized_journey_changed_callback: FinalizedJourneyChangedCallback,
 }
 
@@ -146,7 +144,7 @@ impl Storage {
         cache_dir: String,
     ) -> Self {
         let mut main_db = MainDb::open(&support_dir);
-        let cache_db = CacheDb::open(&cache_dir);
+        let cache_db = CacheDbV1::open(&cache_dir);
         let raw_data_recorder =
             if main_db.get_setting_with_default(crate::main_db::Setting::RawDataMode, false) {
                 Some(RawDataRecorder::init(&support_dir))
@@ -180,40 +178,13 @@ impl Storage {
                 Some(action) => {
                     match action {
                         Action::CompleteRebuilt => {
-                            cache_db.clear_all_cache()?;
+                            cache_db.clear_all()?;
                         }
-                        Action::Merge { journey_ids } => {
-                            // TODO: This implementation is pretty naive, but we might not need it when we have cache v3
-                            cache_db.delete_full_journey_cache(&LayerKind::All)?;
-
-                            let mut kind_id_map: HashMap<JourneyKind, Vec<String>> = HashMap::new();
-
-                            for journey_id in journey_ids {
-                                if let Some(header) = txn.get_journey_header(journey_id)? {
-                                    kind_id_map
-                                        .entry(header.journey_kind)
-                                        .or_default()
-                                        .push(journey_id.clone());
-                                }
-                            }
-
-                            for (kind, journeyid_vec) in kind_id_map {
-                                let layer_kind = LayerKind::JourneyKind(kind);
-                                cache_db.update_full_journey_cache_if_exists(&layer_kind, |current_cache| {
-                                    for journey_id in journeyid_vec {
-                                        let journey_data = txn.get_journey_data(&journey_id)?;
-                                        match journey_data {
-                                            JourneyData::Bitmap(bitmap) =>
-                                                current_cache.merge(bitmap),
-                                            JourneyData::Vector(vector) =>
-                                                merged_journey_builder::add_journey_vector_to_journey_bitmap(
-                                                    current_cache, &vector
-                                                ),
-                                        }
-                                    }
-                                    Ok(())
-                                })?;
-                            }
+                        Action::Invalidate { entries } => {
+                            cache_db.invalidate(entries)?;
+                        }
+                        Action::MergeOne { entry, data } => {
+                            cache_db.merge_journey(entry, data)?;
                         }
                     };
                     finalized_journey_changed = true;
@@ -354,18 +325,40 @@ impl Storage {
     ) -> Result<JourneyBitmap> {
         let mut dbs = self.dbs.lock().unwrap();
         let (ref mut main_db, ref cache_db) = *dbs;
-        // passing `main_db` to `get_latest` directly is fine because it only reads `main_db`.
-        let journey_bitmap =
-            merged_journey_builder::get_latest(main_db, cache_db, layer_kind, include_ongoing)?;
+        let journey_bitmap = main_db.with_txn(|txn| {
+            merged_journey_builder::get_full(txn, cache_db, layer_kind, include_ongoing)
+        })?;
         drop(dbs);
 
         Ok(journey_bitmap)
     }
 
     #[auto_context]
+    pub fn get_range_bitmap(
+        &self,
+        from_date_inclusive: NaiveDate,
+        to_date_inclusive: NaiveDate,
+        kind: Option<&JourneyKind>,
+    ) -> Result<JourneyBitmap> {
+        let mut dbs = self.dbs.lock().unwrap();
+        let (ref mut main_db, ref cache_db) = *dbs;
+        main_db.with_txn(|txn| {
+            let bitmap = merged_journey_builder::get_range(
+                txn,
+                cache_db,
+                from_date_inclusive,
+                to_date_inclusive,
+                kind,
+            )?;
+            assert_eq!(txn.action, None);
+            Ok(bitmap)
+        })
+    }
+
+    #[auto_context]
     pub fn clear_all_cache(&self) -> Result<()> {
         let cache_db = &self.dbs.lock().unwrap().1;
-        cache_db.clear_all_cache()?;
+        cache_db.clear_all()?;
         Ok(())
     }
 
