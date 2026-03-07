@@ -4,8 +4,7 @@ use crate::test_utils::{
 };
 use memolanes_core::{
     gps_processor::SegmentGapRule, import_data, journey_area_utils, journey_bitmap::JourneyBitmap,
-    journey_data::JourneyData, journey_header::JourneyType, merged_journey_builder,
-    renderer::MapRenderer,
+    journey_data::JourneyData, journey_header::JourneyType, renderer::MapRenderer,
 };
 
 #[test]
@@ -157,10 +156,7 @@ fn vector_to_bitmap(name: &str, zoom: i32, filename_override: Option<&str>) {
     )
     .unwrap();
     let mut journey_bitmap = JourneyBitmap::new();
-    merged_journey_builder::add_journey_vector_to_journey_bitmap(
-        &mut journey_bitmap,
-        &journey_vector,
-    );
+    journey_bitmap.merge_vector(&journey_vector);
 
     // compute the bounding box
     let (mut left, mut right, mut top, mut bottom): (f64, f64, f64, f64) = (180., -180., -90., 90.);

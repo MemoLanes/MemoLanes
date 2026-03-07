@@ -174,6 +174,21 @@ impl JourneyBitmap {
         }
     }
 
+    pub fn merge_vector(&mut self, journey_vector: &crate::journey_vector::JourneyVector) {
+        for track_segment in &journey_vector.track_segments {
+            for (i, point) in track_segment.track_points.iter().enumerate() {
+                let prev_idx = i.saturating_sub(1);
+                let prev = &track_segment.track_points[prev_idx];
+                self.add_line(
+                    prev.longitude,
+                    prev.latitude,
+                    point.longitude,
+                    point.latitude,
+                );
+            }
+        }
+    }
+
     pub fn merge(&mut self, other_journey_bitmap: JourneyBitmap) {
         for (key, mut other_tile) in other_journey_bitmap.tiles {
             match self.tiles.get_mut(&key) {
@@ -190,6 +205,31 @@ impl JourneyBitmap {
                                 }
                                 Some(self_block) => {
                                     // merge other_block into self_block
+                                    self_block.merge_with(other_block.as_ref());
+                                }
+                            },
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn merge_with_partial_clone(&mut self, other_journey_bitmap: &JourneyBitmap) {
+        for (key, other_tile) in &other_journey_bitmap.tiles {
+            match self.tiles.get_mut(key) {
+                None => {
+                    self.tiles.insert(*key, other_tile.clone());
+                }
+                Some(self_tile) => {
+                    for i in 0..other_tile.blocks.len() {
+                        match &other_tile.blocks[i] {
+                            None => (),
+                            Some(other_block) => match &mut self_tile.blocks[i] {
+                                None => {
+                                    self_tile.blocks[i] = Some(other_block.clone());
+                                }
+                                Some(self_block) => {
                                     self_block.merge_with(other_block.as_ref());
                                 }
                             },
