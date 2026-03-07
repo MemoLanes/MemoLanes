@@ -23,7 +23,7 @@ pub enum LayerKind {
 }
 
 impl LayerKind {
-    pub(crate) fn to_sql(self) -> &'static str {
+    pub(self) fn to_sql(self) -> &'static str {
         match self {
             LayerKind::All => "All",
             LayerKind::JourneyKind(kind) => match kind {
@@ -35,9 +35,6 @@ impl LayerKind {
 }
 
 /// Cache for merged journey bitmaps.
-///
-/// **Thread-safety contract**: Implementations assume single-threaded access.
-/// The caller (e.g. `Storage`) must hold a `Mutex` to prevent concurrent access.
 pub trait CacheDb {
     /// Get or compute a bitmap for the given date range.
     ///
@@ -55,11 +52,6 @@ pub trait CacheDb {
     ) -> Result<JourneyBitmap>;
 
     /// Incrementally merge new journey data into the cache.
-    ///
-    /// If a cache entry covering `entry`'s date exists: merges `data` into it.
-    /// If none exists: no-op.
-    /// Always invalidates any aggregate full-table entries for the given kind
-    /// and `LayerKind::All`.
     fn merge_journey(&self, entry: &CacheEntry, data: &JourneyData) -> Result<()>;
 
     /// Invalidate cached data for the given entries and all affected aggregates.
