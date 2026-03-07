@@ -36,7 +36,7 @@ fn open_db(cache_dir: &str, file_name: &str) -> Result<Connection> {
             tx.execute(
                 &format!(
                     "CREATE TABLE IF NOT EXISTS `{TABLE_FULL}` (
-                    kind TEXT PRIMARY KEY,
+                    kind TEXT PRIMARY KEY NOT NULL UNIQUE,
                     data BLOB NOT NULL
                 )"
                 ),
@@ -171,7 +171,7 @@ impl CacheDb for CacheDbV1 {
                         }
                         bm
                     }
-                    _ => {
+                    LayerKind::JourneyKind(_) => {
                         // Compute from the full date range in the main DB.
                         match txn.journey_date_range()? {
                             Some((min, max)) => compute_range_from_txn(txn, min, max, layer_kind)?,
@@ -196,7 +196,7 @@ impl CacheDb for CacheDbV1 {
 
         // Merge into the per-kind full cache if it exists.
         if let Some(mut bm) = Self::get_full(&self.conn, &layer_kind)? {
-            data.merge_into(&mut bm);
+            data.merge_into_with_partial_clone(&mut bm);
             Self::set_full(&self.conn, &layer_kind, &bm)?;
         }
 
