@@ -134,7 +134,7 @@ impl MapRenderer {
 }
 
 /// Create a new TileBuffer from a JourneyBitmap for a range of tiles
-fn tile_buffer_from_journey_bitmap(
+pub fn tile_buffer_from_journey_bitmap(
     journey_bitmap: &JourneyBitmap,
     x: i64,
     y: i64,

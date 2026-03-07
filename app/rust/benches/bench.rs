@@ -1,5 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use memolanes_core::{import_data, journey_area_utils, journey_bitmap::JourneyBitmap};
+use memolanes_core::{
+    gps_processor::SegmentGapRule, import_data, journey_area_utils, journey_bitmap::JourneyBitmap,
+};
 
 fn journey_area_calculation(c: &mut Criterion) {
     let mut group = c.benchmark_group("area_calculation");
@@ -23,7 +25,7 @@ fn journey_area_calculation(c: &mut Criterion) {
                 import_data::load_gpx("./tests/data/nelson_to_wharariki_beach.gpx").unwrap();
 
             let journey_vector =
-                import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data, false)
+                import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data, None)
                     .unwrap();
             let mut journey_bitmap = JourneyBitmap::new();
             journey_bitmap.merge_vector(&journey_vector);
@@ -47,8 +49,11 @@ fn journey_bitmap(c: &mut Criterion) {
         let load_journey_vector = |name| {
             let filename = format!("./tests/data/{name}.gpx");
             let (raw_data, _preprocessor) = import_data::load_gpx(&filename).unwrap();
-            import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data, true)
-                .unwrap()
+            import_data::journey_vector_from_raw_data_with_gps_preprocessor(
+                &raw_data,
+                Some(SegmentGapRule::Default),
+            )
+            .unwrap()
         };
 
         let nelson_to_wharariki_beach = load_journey_vector("nelson_to_wharariki_beach");
