@@ -196,7 +196,7 @@ impl JourneyData {
 
     pub fn merge_into_with_partial_clone(&self, bitmap: &mut JourneyBitmap) {
         match self {
-            JourneyData::Bitmap(b) => bitmap.merge_ref(b),
+            JourneyData::Bitmap(b) => bitmap.merge_with_partial_clone(b),
             JourneyData::Vector(v) => bitmap.merge_vector(v),
         }
     }

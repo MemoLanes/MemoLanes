@@ -76,6 +76,7 @@ pub struct Txn<'a> {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Action {
+    /// `MergeOne` is aimed to optimize the most common case: end the current ongoing journey and update the internal state.
     MergeOne {
         entry: CacheEntry,
         data: JourneyData,

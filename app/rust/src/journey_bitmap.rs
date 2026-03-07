@@ -215,7 +215,7 @@ impl JourneyBitmap {
         }
     }
 
-    pub fn merge_ref(&mut self, other_journey_bitmap: &JourneyBitmap) {
+    pub fn merge_with_partial_clone(&mut self, other_journey_bitmap: &JourneyBitmap) {
         for (key, other_tile) in &other_journey_bitmap.tiles {
             match self.tiles.get_mut(key) {
                 None => {
