@@ -16,7 +16,7 @@ use chrono::NaiveDate;
 #[auto_context]
 pub fn get_range(
     txn: &mut main_db::Txn,
-    cache_db: &impl CacheDb,
+    cache_db: &dyn CacheDb,
     from_date_inclusive: NaiveDate,
     to_date_inclusive: NaiveDate,
     kind: Option<&JourneyKind>,
@@ -37,7 +37,7 @@ pub fn get_range(
 #[auto_context]
 pub fn get_full(
     txn: &main_db::Txn,
-    cache_db: &impl CacheDb,
+    cache_db: &dyn CacheDb,
     layer_kind: &Option<LayerKind>,
     include_ongoing: bool,
 ) -> Result<JourneyBitmap> {

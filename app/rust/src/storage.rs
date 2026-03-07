@@ -1,5 +1,5 @@
 extern crate simplelog;
-use crate::cache_db::{CacheDb, CacheDbV1, LayerKind};
+use crate::cache_db::{self, CacheDb, LayerKind};
 use crate::gps_processor::{self, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_header::JourneyKind;
@@ -132,7 +132,7 @@ pub struct Storage {
     // but maybe do that when we know more.
     // NOTE: both db are deliberately hidden so all operations need to go
     // through `Storage` to make sure they are in sync.
-    dbs: Mutex<(MainDb, CacheDbV1)>,
+    dbs: Mutex<(MainDb, Box<dyn CacheDb + Send>)>,
     finalized_journey_changed_callback: FinalizedJourneyChangedCallback,
 }
 
@@ -144,7 +144,7 @@ impl Storage {
         cache_dir: String,
     ) -> Self {
         let mut main_db = MainDb::open(&support_dir);
-        let cache_db = CacheDbV1::open(&cache_dir);
+        let cache_db: Box<dyn CacheDb + Send> = Box::new(cache_db::new(&cache_dir));
         let raw_data_recorder =
             if main_db.get_setting_with_default(crate::main_db::Setting::RawDataMode, false) {
                 Some(RawDataRecorder::init(&support_dir))
@@ -326,7 +326,7 @@ impl Storage {
         let mut dbs = self.dbs.lock().unwrap();
         let (ref mut main_db, ref cache_db) = *dbs;
         let journey_bitmap = main_db.with_txn(|txn| {
-            merged_journey_builder::get_full(txn, cache_db, layer_kind, include_ongoing)
+            merged_journey_builder::get_full(txn, cache_db.as_ref(), layer_kind, include_ongoing)
         })?;
         drop(dbs);
 
@@ -345,7 +345,7 @@ impl Storage {
         main_db.with_txn(|txn| {
             let bitmap = merged_journey_builder::get_range(
                 txn,
-                cache_db,
+                cache_db.as_ref(),
                 from_date_inclusive,
                 to_date_inclusive,
                 kind,

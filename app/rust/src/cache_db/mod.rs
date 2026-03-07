@@ -66,3 +66,7 @@ pub trait CacheDb {
     // TODO: add a function to populate/optimize the cache after invalidation/merging
     // to improve UX after add/edit/delete large amount of data.
 }
+
+pub fn new(cache_dir: &str) -> impl CacheDb {
+    CacheDbV1::open(cache_dir)
+}
