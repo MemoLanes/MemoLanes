@@ -8,12 +8,12 @@ use crate::journey_data::JourneyData;
 use crate::journey_vector::{JourneyVector, TrackSegment};
 
 use super::api::{get, CameraOption, MapRendererProxy};
-use crate::merged_journey_builder;
 use crate::renderer::get_default_camera_option_from_journey_bitmap;
 use crate::renderer::MapRenderer;
 
 // TODO: This is a bit sus, it is comparing the lng/lat and doesn't handle anti-meridian.
 const EPS: f64 = 1e-12_f64;
+const DEDUP_EPS: f64 = 1e-9_f64;
 
 // TODO: we want some test coverage here.
 
@@ -30,7 +30,7 @@ pub struct EditSession {
 impl EditSession {
     fn build_bitmap_from_vector(vector: &JourneyVector) -> JourneyBitmap {
         let mut bitmap = JourneyBitmap::new();
-        merged_journey_builder::add_journey_vector_to_journey_bitmap(&mut bitmap, vector);
+        bitmap.merge_vector(vector);
         bitmap
     }
 
@@ -90,7 +90,7 @@ impl EditSession {
                 return;
             }
             let t = t.clamp(0.0, 1.0);
-            if hits.iter().any(|(t0, _)| (*t0 - t).abs() < 1e-9) {
+            if hits.iter().any(|(t0, _)| (*t0 - t).abs() < DEDUP_EPS) {
                 return;
             }
             hits.push((
@@ -364,7 +364,6 @@ impl EditSession {
                 // TODO: probably we could make this function drop self to avoid the clone.
                 JourneyData::Vector(self.data.clone()),
             )?;
-            txn.action = Some(crate::main_db::Action::CompleteRebuilt);
             Ok(())
         })
     }
