@@ -76,15 +76,13 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     final enable = _effectiveTrackingMode != TrackingMode.off;
     final applied = await Provider.of<GpsManager>(context, listen: false)
         .toggleMapTracking(enable);
-    _fallbackToOffIfSyncFailed(enable, applied);
-  }
 
-  /// When we requested tracking but GpsManager could not enable (e.g. no
-  /// permission), set UI and MMKV to off so we do not persist invalid state.
-  void _fallbackToOffIfSyncFailed(bool wantedEnable, bool applied) {
-    if (!wantedEnable || applied || !mounted) return;
-    setState(() => _currentTrackingMode = TrackingMode.off);
-    _saveMapState();
+    // When we requested tracking but GpsManager could not enable (e.g. no
+    // permission), set UI and MMKV to off so we do not persist invalid state.
+    if (enable && !applied && mounted) {
+      setState(() => _currentTrackingMode = TrackingMode.off);
+      _saveMapState();
+    }
   }
 
   void _trackingModeButton() async {
