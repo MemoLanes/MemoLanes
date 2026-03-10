@@ -33,15 +33,18 @@ abstract class _RulerData {
 }
 
 class _YearRulerData extends _RulerData {
-  _YearRulerData(this.earliest, this.selectedYear, this.onSelected, this.onDisplay);
+  _YearRulerData(
+      this.earliest, this.selectedYear, this.onSelected, this.onDisplay);
   final DateTime earliest;
   final int selectedYear;
   final void Function(int year) onSelected;
   final void Function(int year)? onDisplay;
 
   static const int _half = 30;
-  int get _start => (selectedYear - _half).clamp(earliest.year, DateTime.now().year);
-  int get _end => (selectedYear + _half).clamp(earliest.year, DateTime.now().year);
+  int get _start =>
+      (selectedYear - _half).clamp(earliest.year, DateTime.now().year);
+  int get _end =>
+      (selectedYear + _half).clamp(earliest.year, DateTime.now().year);
 
   @override
   int get itemCount => _end - _start + 1;
@@ -56,14 +59,18 @@ class _YearRulerData extends _RulerData {
   bool indexEqualsSelection(int index) => (_start + index) == selectedYear;
 
   @override
-  void reportSelection(int index) => onSelected(_start + index);
+  void reportSelection(int index) {
+    onSelected(_start + index);
+  }
 
   @override
   void notifyDisplay(int index) => onDisplay?.call(_start + index);
 }
 
+/// Month mode: window from (earliest.year, earliest.month) to current month; no months before earliest.
 class _MonthRulerData extends _RulerData {
-  _MonthRulerData(this.earliest, this.selectedYear, this.selectedMonth, this.onSelected, this.onDisplay);
+  _MonthRulerData(this.earliest, this.selectedYear, this.selectedMonth,
+      this.onSelected, this.onDisplay);
   final DateTime earliest;
   final int selectedYear;
   final int selectedMonth;
@@ -71,36 +78,54 @@ class _MonthRulerData extends _RulerData {
   final void Function(int y, int m)? onDisplay;
 
   static const int _half = 90;
+
+  /// Number of months from (earliest.year, earliest.month) to (now.year, now.month) inclusive.
   int get _totalMonths {
     final now = DateTime.now();
-    final n = (now.year - earliest.year) * 12 + now.month;
+    final n =
+        (now.year - earliest.year) * 12 + (now.month - earliest.month) + 1;
     return n < 0 ? 0 : n;
   }
 
-  int get _centerIndex => (selectedYear - earliest.year) * 12 + (selectedMonth - 1);
+  /// Global index of selected month (0 = earliest month); clamped to 0 if before earliest.
+  int get _centerIndex {
+    final raw =
+        (selectedYear - earliest.year) * 12 + (selectedMonth - earliest.month);
+    final total = _totalMonths;
+    if (total <= 0) return 0;
+    return raw.clamp(0, total - 1);
+  }
+
   int get _start {
     final total = _totalMonths;
     if (total <= 0) return 0;
     return (_centerIndex - _half).clamp(0, total - 1);
   }
+
   int get _end {
     final total = _totalMonths;
     if (total <= 0) return 0;
     return (_centerIndex + _half).clamp(0, total - 1);
   }
 
-  (int y, int m) _at(int globalIndex) => (earliest.year + globalIndex ~/ 12, globalIndex % 12 + 1);
+  /// globalIndex 0 = (earliest.year, earliest.month), then increment by month.
+  (int y, int m) _at(int globalIndex) {
+    final monthOffset = earliest.month - 1 + globalIndex;
+    return (earliest.year + monthOffset ~/ 12, monthOffset % 12 + 1);
+  }
 
   @override
   int get itemCount => _totalMonths <= 0 ? 0 : _end - _start + 1;
 
   @override
-  int get selectedIndex => (itemCount <= 0) ? 0 : (_centerIndex - _start).clamp(0, itemCount - 1);
+  int get selectedIndex =>
+      (itemCount <= 0) ? 0 : (_centerIndex - _start).clamp(0, itemCount - 1);
 
   @override
   String labelAt(BuildContext context, int index) {
     final (_, m) = _at(_start + index);
-    return DateFormat('MMM', Localizations.localeOf(context).toString()).format(DateTime(2000, m, 1));
+    return DateFormat('MMM', Localizations.localeOf(context).toString())
+        .format(DateTime(2000, m, 1));
   }
 
   @override
@@ -122,8 +147,11 @@ class _MonthRulerData extends _RulerData {
   }
 }
 
+/// Day mode: window start is not before earliest, so selection is never before trajectory start.
 class _DayRulerData extends _RulerData {
-  _DayRulerData(this.selectedYear, this.selectedMonth, this.selectedDay, this.onSelected, this.onDisplay);
+  _DayRulerData(this.earliest, this.selectedYear, this.selectedMonth,
+      this.selectedDay, this.onSelected, this.onDisplay);
+  final DateTime earliest;
   final int selectedYear;
   final int selectedMonth;
   final int selectedDay;
@@ -131,7 +159,10 @@ class _DayRulerData extends _RulerData {
   final void Function(int y, int m, int d)? onDisplay;
 
   static const int _half = 90;
-  static DateTime get _today => DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+  static DateTime get _today =>
+      DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+  DateTime get _earliestDay =>
+      DateTime(earliest.year, earliest.month, earliest.day);
 
   DateTime get _selected {
     final lastDay = DateTime(selectedYear, selectedMonth + 1, 0).day;
@@ -140,8 +171,10 @@ class _DayRulerData extends _RulerData {
 
   DateTime get _windowStart {
     final sel = _selected;
-    if (sel.isAfter(_today)) return _today.subtract(const Duration(days: _half * 2));
-    return sel.subtract(const Duration(days: _half));
+    if (sel.isAfter(_today))
+      return _today.subtract(const Duration(days: _half * 2));
+    final start = sel.subtract(const Duration(days: _half));
+    return start.isBefore(_earliestDay) ? _earliestDay : start;
   }
 
   DateTime get _windowEnd {
@@ -163,20 +196,25 @@ class _DayRulerData extends _RulerData {
     return days.clamp(0, itemCount > 0 ? itemCount - 1 : 0);
   }
 
+  /// Day mode: DateTime + Duration handles cross-year, cross-month, and leap year correctly.
   DateTime _dateAt(int index) => _windowStart.add(Duration(days: index));
 
   @override
-  String labelAt(BuildContext context, int index) => _dateAt(index).day.toString().padLeft(2, '0');
+  String labelAt(BuildContext context, int index) =>
+      _dateAt(index).day.toString().padLeft(2, '0');
 
   @override
   bool indexEqualsSelection(int index) {
     final d = _dateAt(index);
-    return d.year == selectedYear && d.month == selectedMonth && d.day == selectedDay;
+    return d.year == selectedYear &&
+        d.month == selectedMonth &&
+        d.day == selectedDay;
   }
 
   @override
   void reportSelection(int index) {
-    final d = _dateAt(index);
+    final safeIdx = index.clamp(0, itemCount > 0 ? itemCount - 1 : 0);
+    final d = _dateAt(safeIdx);
     onSelected(d.year, d.month, d.day);
   }
 
@@ -197,7 +235,8 @@ Widget _rulerContainer(Widget child) => ClipRRect(
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
+            border: Border.all(
+                color: Colors.white.withValues(alpha: 0.2), width: 1),
           ),
           child: child,
         ),
@@ -298,17 +337,18 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
     return switch (w.mode) {
       TimeMachineMode.year => _YearRulerData(
           w.earliest, w.selectedYear, w.onYearChanged, w.onDisplayYearChanged),
-      TimeMachineMode.month => _MonthRulerData(w.earliest, w.selectedYear, w.selectedMonth,
-          (y, m) {
-        w.onYearChanged(y);
-        w.onMonthChanged(m);
-      }, w.onDisplayMonthChanged),
+      TimeMachineMode.month =>
+        _MonthRulerData(w.earliest, w.selectedYear, w.selectedMonth, (y, m) {
+          w.onYearChanged(y);
+          w.onMonthChanged(m);
+        }, w.onDisplayMonthChanged),
       TimeMachineMode.day => _DayRulerData(
-          w.selectedYear, w.selectedMonth, w.selectedDay, (y, m, d) {
-        w.onYearChanged(y);
-        w.onMonthChanged(m);
-        w.onDayChanged(d);
-      }, w.onDisplayDayChanged),
+            w.earliest, w.selectedYear, w.selectedMonth, w.selectedDay,
+            (y, m, d) {
+          w.onYearChanged(y);
+          w.onMonthChanged(m);
+          w.onDayChanged(d);
+        }, w.onDisplayDayChanged),
       TimeMachineMode.any => throw StateError('any mode has no ruler'),
     };
   }
@@ -348,12 +388,25 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
     super.dispose();
   }
 
+  Future<void> _runSnapAndReport() async {
+    if (!mounted || !_scrollController.hasClients) return;
+    final idx = _indexAtOffset(_scrollController.offset);
+    final aligned = _isAlignedToTick(idx);
+    _lastHapticIndex = idx;
+    if (!aligned) await _snapToIndex(idx);
+    if (!mounted) return;
+    if (!_data.indexEqualsSelection(idx)) _data.reportSelection(idx);
+  }
+
   int _indexAtOffset(double pixels) {
     final maxIdx = _data.itemCount > 0 ? _data.itemCount - 1 : 0;
-    if (_viewportWidth <= 0) return (pixels / kRulerUnitSpacing).round().clamp(0, maxIdx);
+    if (_viewportWidth <= 0)
+      return (pixels / kRulerUnitSpacing).round().clamp(0, maxIdx);
     final centerContent = pixels + _viewportWidth / 2;
     final centerPadding = _viewportWidth / 2 - kRulerUnitSpacing / 2;
-    final index = ((centerContent - centerPadding - kRulerUnitSpacing / 2) / kRulerUnitSpacing).round();
+    final index = ((centerContent - centerPadding - kRulerUnitSpacing / 2) /
+            kRulerUnitSpacing)
+        .round();
     return index.clamp(0, maxIdx);
   }
 
@@ -386,17 +439,10 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
   void _onScrollEnd(ScrollNotification n) {
     _isScrolling = false;
     _snapTimer?.cancel();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scrollController.hasClients) return;
-      _snapTimer = Timer(kRulerSnapDelay, () async {
-        if (!mounted || !_scrollController.hasClients) return;
-        final idx = _indexAtOffset(_scrollController.offset);
-        _lastHapticIndex = idx;
-        if (!_isAlignedToTick(idx)) await _snapToIndex(idx);
-        if (!mounted) return;
-        if (!_data.indexEqualsSelection(idx)) _data.reportSelection(idx);
-        _snapTimer = null;
-      });
+    if (!mounted || !_scrollController.hasClients) return;
+    _snapTimer = Timer(kRulerSnapDelay, () async {
+      await _runSnapAndReport();
+      if (mounted) _snapTimer = null;
     });
   }
 
@@ -406,7 +452,8 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
     if (count <= 0) {
       return SizedBox(
         height: kRulerExtent,
-        child: Padding(padding: kRulerMargin, child: _rulerContainer(const SizedBox())),
+        child: Padding(
+            padding: kRulerMargin, child: _rulerContainer(const SizedBox())),
       );
     }
     final selectedIndex = _data.selectedIndex.clamp(0, count - 1);
@@ -423,7 +470,8 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
                   if (mounted) setState(() => _viewportWidth = w);
                 });
               }
-              final centerPadding = (w / 2 - kRulerUnitSpacing / 2).clamp(0.0, double.infinity);
+              final centerPadding =
+                  (w / 2 - kRulerUnitSpacing / 2).clamp(0.0, double.infinity);
               return Stack(
                 alignment: Alignment.center,
                 children: [
@@ -443,7 +491,8 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
                       scrollDirection: Axis.horizontal,
                       itemExtent: kRulerUnitSpacing,
                       itemCount: count,
-                      padding: EdgeInsets.only(left: centerPadding, right: centerPadding),
+                      padding: EdgeInsets.only(
+                          left: centerPadding, right: centerPadding),
                       physics: const AlwaysScrollableScrollPhysics(),
                       itemBuilder: (context, i) => _buildTick(
                         context,
@@ -461,17 +510,6 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
                       ),
                     ),
                   ),
-                  Listener(
-                    behavior: HitTestBehavior.translucent,
-                    onPointerDown: (_) {
-                      _snapTimer?.cancel();
-                      _snapTimer = null;
-                      if (_scrollController.hasClients) {
-                        final pos = _scrollController.position;
-                        pos.jumpTo(pos.pixels);
-                      }
-                    },
-                  ),
                 ],
               );
             },
@@ -481,7 +519,8 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
     );
   }
 
-  static Widget _buildTick(BuildContext context, String label, bool isSelected) {
+  static Widget _buildTick(
+      BuildContext context, String label, bool isSelected) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
@@ -489,10 +528,14 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
         Container(
           width: 2,
           height: isSelected ? 10 : 6,
-          color: isSelected ? StyleConstants.defaultColor : Colors.white.withValues(alpha: 0.5),
+          color: isSelected
+              ? StyleConstants.defaultColor
+              : Colors.white.withValues(alpha: 0.5),
         ),
         SizedBox(height: isSelected ? 4 : 6),
-        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 11)),
+        Text(label,
+            style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.9), fontSize: 11)),
       ],
     );
   }

@@ -134,9 +134,14 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
         monthClamped != _selectedMonth || dayClamped != _selectedDay;
     if (needFix || needNormalize) {
       setState(() {
-        if (needFix) _selectedYear = earliest.year;
-        _selectedMonth = monthClamped;
-        _selectedDay = dayClamped;
+        if (needFix) {
+          _selectedYear = earliest.year;
+          _selectedMonth = earliest.month;
+          _selectedDay = earliest.day;
+        } else {
+          _selectedMonth = monthClamped;
+          _selectedDay = dayClamped;
+        }
         _syncDisplayToSelected();
         _applyCurrentRange();
         _notifyRange();
