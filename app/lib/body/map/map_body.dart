@@ -238,13 +238,6 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final mode = widget.mode;
 
-    // TODO: Add profile button top right
-    if (_roughMapView == null) {
-      // TODO: This should be a loading spinner and it should be cover the whole
-      // screen until the map is fully loaded.
-      return const SizedBox.shrink();
-    }
-
     final children = <Widget>[
       _buildMapLayer(),
       _buildOverlay(context, mode),
