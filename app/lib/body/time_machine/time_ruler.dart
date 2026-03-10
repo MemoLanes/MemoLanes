@@ -158,7 +158,7 @@ class _DayRulerData extends _RulerData {
   final void Function(int y, int m, int d) onSelected;
   final void Function(int y, int m, int d)? onDisplay;
 
-  static const int _half = 90;
+  static const int _half = 180;
   static DateTime get _today =>
       DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
   DateTime get _earliestDay =>
