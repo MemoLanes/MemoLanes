@@ -10,8 +10,8 @@ import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/src/rust/journey_data.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 
-class MldxImportPreviewPage extends StatefulWidget {
-  const MldxImportPreviewPage({
+class MldxImportPage extends StatefulWidget {
+  const MldxImportPage({
     super.key,
     required this.preview,
   });
@@ -19,10 +19,10 @@ class MldxImportPreviewPage extends StatefulWidget {
   final api.MldxImportPreview preview;
 
   @override
-  State<MldxImportPreviewPage> createState() => _MldxImportPreviewPageState();
+  State<MldxImportPage> createState() => _MldxImportPageState();
 }
 
-class _MldxImportPreviewPageState extends State<MldxImportPreviewPage> {
+class _MldxImportPageState extends State<MldxImportPage> {
   late Set<String> _selectedIds;
 
   @override
