@@ -77,8 +77,16 @@ fn archive_and_import() {
     drop(file);
     main_db.with_txn(|txn| txn.delete_all_journeys()).unwrap();
 
+    let (_, new_journeys, _) = main_db
+        .with_txn(|txn| archive::analyze_mldx_import(txn, mldx_file_path.to_str().unwrap()))
+        .unwrap();
     main_db
-        .with_txn(|txn| archive::import_mldx(txn, mldx_file_path.to_str().unwrap()))
+        .with_txn(|txn| {
+            for (header, journey_data, _) in new_journeys {
+                txn.insert_journey(header, journey_data)?;
+            }
+            Ok(())
+        })
         .unwrap();
     assert_eq!(all_journeys_before, all_journeys(&mut main_db));
 }
@@ -111,9 +119,9 @@ fn import_broken_archive_and_roll_back() {
     file.write_all("hello".as_bytes()).unwrap();
     drop(file);
 
-    // recover
+    // analyze fails on broken file, DB unchanged
     assert!(main_db
-        .with_txn(|txn| archive::import_mldx(txn, mldx_file_path.to_str().unwrap()))
+        .with_txn(|txn| archive::analyze_mldx_import(txn, mldx_file_path.to_str().unwrap()))
         .is_err());
     assert_eq!(all_journeys_before, all_journeys(&mut main_db));
 }
@@ -134,7 +142,7 @@ fn import_skips_existing_journeys() {
         .unwrap();
     drop(file);
 
-    // let's delete one journey
+    // delete one journey
     main_db
         .with_txn(|txn| txn.delete_journey(&all_journeys_before[0].0.id))
         .unwrap();
@@ -143,9 +151,17 @@ fn import_skips_existing_journeys() {
         all_journeys_before.len() - 1
     );
 
-    // import the archive again, it should skip all exisiting journeys but import the deleted one
+    // analyze: existing journeys = skipped, deleted one = new; import only new
+    let (_, new_journeys, _) = main_db
+        .with_txn(|txn| archive::analyze_mldx_import(txn, mldx_file_path.to_str().unwrap()))
+        .unwrap();
     main_db
-        .with_txn(|txn| archive::import_mldx(txn, mldx_file_path.to_str().unwrap()))
+        .with_txn(|txn| {
+            for (header, journey_data, _) in new_journeys {
+                txn.insert_journey(header, journey_data)?;
+            }
+            Ok(())
+        })
         .unwrap();
     assert_eq!(all_journeys_before, all_journeys(&mut main_db));
 }

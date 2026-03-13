@@ -6,6 +6,7 @@ import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
+import 'package:memolanes/body/settings/mldx_import_preview_page.dart';
 import 'package:memolanes/common/component/common_export.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -200,16 +201,16 @@ void showBasicCard(
 
 Future<void> importMldx(BuildContext context, String path) async {
   try {
-    await showLoadingDialog(
+    final preview = await showLoadingDialog<api.MldxImportPreview>(
       context: context,
-      asyncTask: api.importArchive(mldxFilePath: path),
+      asyncTask: api.analyzeMldxImport(mldxFilePath: path),
     );
-    if (context.mounted) {
-      await showCommonDialog(
-        context,
-        context.tr("import.successful"),
-      );
-    }
+    if (!context.mounted) return;
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (context) => MldxImportPreviewPage(preview: preview),
+      ),
+    );
   } catch (error) {
     if (context.mounted) {
       await showCommonDialog(context, context.tr("import.parsing_failed"));

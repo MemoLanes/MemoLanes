@@ -644,11 +644,35 @@ pub fn delete_all_journeys() -> Result<()> {
     get().storage.with_db_txn(|txn| txn.delete_all_journeys())
 }
 
-pub fn import_archive(mldx_file_path: String) -> Result<()> {
-    info!("Import Archived Data");
-    get()
-        .storage
-        .with_db_txn(|txn| archive::import_mldx(txn, &mldx_file_path))?;
+#[frb]
+pub struct MldxImportPreview {
+    pub skipped_count: u32,
+    pub journey: Vec<(JourneyHeader, JourneyData, bool)>,
+    pub conflict_count: u32,
+}
+
+pub fn analyze_mldx_import(mldx_file_path: String) -> Result<MldxImportPreview> {
+    let (skipped_count, journeys, conflict_count) =
+        get().storage.with_db_txn(|txn| archive::analyze_mldx_import(txn, &mldx_file_path))?;
+    Ok(MldxImportPreview {
+        skipped_count,
+        journey: journeys,
+        conflict_count,
+    })
+}
+
+/// Import the given journeys into DB. When is_conflict is true, deletes existing then inserts (overwrite).
+pub fn import_journeys(journeys: Vec<(JourneyHeader, JourneyData, bool)>) -> Result<()> {
+    info!("Import journeys (from pre-parsed list)");
+    get().storage.with_db_txn(|txn| {
+        for (header, journey_data, is_conflict) in journeys {
+            if is_conflict {
+                txn.delete_journey(&header.id)?;
+            }
+            txn.insert_journey(header, journey_data)?;
+        }
+        Ok(())
+    })?;
     Ok(())
 }
 
