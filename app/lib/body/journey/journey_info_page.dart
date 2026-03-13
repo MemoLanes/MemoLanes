@@ -55,12 +55,10 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   bool get _isPreviewMode => widget.previewJourneyData != null;
 
   Future<void> _refreshJourneyInfo() async {
-    final mapRendererProxyAndCameraOption =
-        widget.previewJourneyData != null
-            ? await api.getMapRendererProxyForJourneyData(
-                journeyData: widget.previewJourneyData!)
-            : await api.getMapRendererProxyForJourney(
-                journeyId: _journeyHeader.id);
+    final mapRendererProxyAndCameraOption = widget.previewJourneyData != null
+        ? await api.getMapRendererProxyForJourneyData(
+            journeyData: widget.previewJourneyData!)
+        : await api.getMapRendererProxyForJourney(journeyId: _journeyHeader.id);
 
     if (_isPreviewMode) {
       if (!mounted) return;

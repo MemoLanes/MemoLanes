@@ -26,8 +26,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 import_journeys(preview.journey)?;
                 println!(
                     "Successfully imported {} journey(s) (skipped {} identical)",
-                    n,
-                    preview.skipped_count
+                    n, preview.skipped_count
                 );
                 if preview.conflict_count > 0 {
                     println!(

@@ -653,8 +653,9 @@ pub struct MldxImportPreview {
 }
 
 pub fn analyze_mldx_import(mldx_file_path: String) -> Result<MldxImportPreview> {
-    let (skipped_count, journeys, conflict_count) =
-        get().storage.with_db_txn(|txn| archive::analyze_mldx_import(txn, &mldx_file_path))?;
+    let (skipped_count, journeys, conflict_count) = get()
+        .storage
+        .with_db_txn(|txn| archive::analyze_mldx_import(txn, &mldx_file_path))?;
     Ok(MldxImportPreview {
         skipped_count,
         journey: journeys,

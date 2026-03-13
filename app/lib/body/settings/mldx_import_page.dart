@@ -29,10 +29,8 @@ class _MldxImportPageState extends State<MldxImportPage> {
   void initState() {
     super.initState();
     // Conflict items are unchecked by default
-    _selectedIds = widget.preview.journey
-        .where((j) => !j.$3)
-        .map((j) => j.$1.id)
-        .toSet();
+    _selectedIds =
+        widget.preview.journey.where((j) => !j.$3).map((j) => j.$1.id).toSet();
   }
 
   String _journeyDateLabel(JourneyHeader h) {
@@ -40,8 +38,7 @@ class _MldxImportPageState extends State<MldxImportPage> {
   }
 
   bool get _allSelected {
-    final newIds =
-        widget.preview.journey.map((j) => j.$1.id).toSet();
+    final newIds = widget.preview.journey.map((j) => j.$1.id).toSet();
     return newIds.length == _selectedIds.length &&
         newIds.every(_selectedIds.contains);
   }
@@ -63,8 +60,7 @@ class _MldxImportPageState extends State<MldxImportPage> {
       if (!ok || !mounted) return;
     }
     setState(() {
-      _selectedIds =
-          widget.preview.journey.map((j) => j.$1.id).toSet();
+      _selectedIds = widget.preview.journey.map((j) => j.$1.id).toSet();
     });
   }
 
@@ -75,7 +71,8 @@ class _MldxImportPageState extends State<MldxImportPage> {
     return header.revision;
   }
 
-  String _conflictHintText(BuildContext context, api.MldxImportPreview preview) {
+  String _conflictHintText(
+      BuildContext context, api.MldxImportPreview preview) {
     return context
         .tr('import.mldx_preview.conflict_hint')
         .replaceAll('{}', '${preview.conflictCount}');
@@ -92,7 +89,8 @@ class _MldxImportPageState extends State<MldxImportPage> {
     );
   }
 
-  Future<void> _onToggleItem((JourneyHeader, JourneyData, bool) j, bool newValue) async {
+  Future<void> _onToggleItem(
+      (JourneyHeader, JourneyData, bool) j, bool newValue) async {
     final isConflict = j.$3;
     if (newValue && isConflict) {
       final ok = await showCommonDialog(
@@ -143,7 +141,8 @@ class _MldxImportPageState extends State<MldxImportPage> {
 
   // Conflicts first, then the rest sorted by journey date
   List<(JourneyHeader, JourneyData, bool)> _sortedJourney() {
-    final list = List<(JourneyHeader, JourneyData, bool)>.from(widget.preview.journey);
+    final list =
+        List<(JourneyHeader, JourneyData, bool)>.from(widget.preview.journey);
     list.sort((a, b) {
       final aConflict = a.$3;
       final bConflict = b.$3;
@@ -176,7 +175,8 @@ class _MldxImportPageState extends State<MldxImportPage> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Text(
-                      context.tr('import.mldx_preview.skipped_identical')
+                      context
+                          .tr('import.mldx_preview.skipped_identical')
                           .replaceAll('{}', '${preview.skippedCount}'),
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
@@ -191,7 +191,8 @@ class _MldxImportPageState extends State<MldxImportPage> {
                   ),
                 ],
                 Text(
-                  context.tr('import.mldx_preview.new_count')
+                  context
+                      .tr('import.mldx_preview.new_count')
                       .replaceAll('{}', '${journey.length}'),
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
