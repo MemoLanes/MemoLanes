@@ -117,6 +117,21 @@
     "empty_data": "旅途数据为空",
     "successful": "导入成功",
     "parsing_failed": "数据解析失败",
+    "mldx_preview": {
+      "title": "归档导入",
+      "skipped_identical": "已跳过 {} 条完全相同的旅程",
+      "new_count": "新增 {} 条",
+      "list_section_title": "待导入旅程",
+      "select_all": "全选",
+      "deselect_all": "取消全选",
+      "confirm_import": "确认导入",
+      "preview_dialog_title": "旅程预览",
+      "conflict_error": "存在 {} 条冲突的旅程，无法导入。冲突的日期：{}。请解决冲突后再试。",
+      "conflict_label": "冲突",
+      "conflict_force_confirm": "强制覆盖？选择后将覆盖本地该日期的旅程数据。",
+      "conflict_hint": "以下 {} 条与本地冲突，已默认不勾选。",
+      "select_at_least_one": "请至少选择一条要导入的旅程。"
+    },
     "import_fow_data": {
       "description_md": "导入世界迷雾 App 中产生的数据。\n\n支持以下格式：\n1. Zip 格式：将世界迷雾网盘同步 Sync 文件夹压缩为 Zip 格式压缩包。\n2. Fwss 格式：世界迷雾快照文件。  \n\n世界迷雾 App 数据不包含轨迹历史变化过程，实际导出数据为从使用开始到导出时点的所有轨迹。如您保留了多个世界迷雾历史文件，可尝试将数据上传至 [迷雾机器-时光机](https://fogmachine.8bits.io/time-machine)，并使用“导出迹忆归档”功能。",
       "warning_for_import_multiple_data_md": "请注意，数据库中已经包含世界迷雾数据。\n\n导入多段数据时请确保数据不重叠，或者使用 [迷雾机器-时光机](https://fogmachine.8bits.io/time-machine) 中的“导出迹忆归档”功能。该功能通过计算数据差异的方式逐一处理快照，达到历史足迹与时间对应的效果。"
