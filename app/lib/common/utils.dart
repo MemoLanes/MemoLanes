@@ -10,6 +10,7 @@ import 'package:memolanes/body/settings/mldx_import_page.dart';
 import 'package:memolanes/common/component/common_export.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/src/rust/archive.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:memolanes/common/log.dart';
 
@@ -201,7 +202,7 @@ void showBasicCard(
 
 Future<void> importMldx(BuildContext context, String path) async {
   try {
-    final preview = await showLoadingDialog<api.MldxImportPreview>(
+    final preview = await showLoadingDialog<MldxImportPreview>(
       context: context,
       asyncTask: api.analyzeMldxImport(mldxFilePath: path),
     );

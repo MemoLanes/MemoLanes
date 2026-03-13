@@ -7,6 +7,7 @@ import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/utils.dart';
+import 'package:memolanes/src/rust/archive.dart';
 import 'package:memolanes/src/rust/journey_data.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 
@@ -16,7 +17,7 @@ class MldxImportPage extends StatefulWidget {
     required this.preview,
   });
 
-  final api.MldxImportPreview preview;
+  final MldxImportPreview preview;
 
   @override
   State<MldxImportPage> createState() => _MldxImportPageState();
@@ -71,8 +72,7 @@ class _MldxImportPageState extends State<MldxImportPage> {
     return header.revision;
   }
 
-  String _conflictHintText(
-      BuildContext context, api.MldxImportPreview preview) {
+  String _conflictHintText(BuildContext context, MldxImportPreview preview) {
     return context
         .tr('import.mldx_preview.conflict_hint')
         .replaceAll('{}', '${preview.conflictCount}');
