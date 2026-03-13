@@ -647,6 +647,7 @@ pub fn delete_all_journeys() -> Result<()> {
 #[frb]
 pub struct MldxImportPreview {
     pub skipped_count: u32,
+    // (header, data, is_conflict). Conflict items unchecked by default; checking and importing overwrites local.
     pub journey: Vec<(JourneyHeader, JourneyData, bool)>,
     pub conflict_count: u32,
 }

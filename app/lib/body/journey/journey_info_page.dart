@@ -33,7 +33,6 @@ class JourneyInfoPage extends StatefulWidget {
   });
 
   final JourneyHeader journeyHeader;
-  /// 非空时为预览模式（如 MLDX 导入前预览），仅展示地图与信息，不可编辑/导出/删除
   final JourneyData? previewJourneyData;
 
   @override

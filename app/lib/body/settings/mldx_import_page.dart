@@ -28,7 +28,7 @@ class _MldxImportPageState extends State<MldxImportPage> {
   @override
   void initState() {
     super.initState();
-    // 冲突的旅途默认不勾选
+    // Conflict items are unchecked by default
     _selectedIds = widget.preview.journey
         .where((j) => !j.$3)
         .map((j) => j.$1.id)
@@ -141,7 +141,7 @@ class _MldxImportPageState extends State<MldxImportPage> {
     }
   }
 
-  /// 冲突的排最前，其余按旅途日期排序（展示用的那个日期）
+  // Conflicts first, then the rest sorted by journey date
   List<(JourneyHeader, JourneyData, bool)> _sortedJourney() {
     final list = List<(JourneyHeader, JourneyData, bool)>.from(widget.preview.journey);
     list.sort((a, b) {
