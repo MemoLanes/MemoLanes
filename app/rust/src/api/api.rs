@@ -644,23 +644,12 @@ pub fn delete_all_journeys() -> Result<()> {
     get().storage.with_db_txn(|txn| txn.delete_all_journeys())
 }
 
-#[frb]
-pub struct MldxImportPreview {
-    pub skipped_count: u32,
-    // (header, data, is_conflict). Conflict items unchecked by default; checking and importing overwrites local.
-    pub journey: Vec<(JourneyHeader, JourneyData, bool)>,
-    pub conflict_count: u32,
-}
+pub use crate::archive::MldxImportPreview;
 
 pub fn analyze_mldx_import(mldx_file_path: String) -> Result<MldxImportPreview> {
-    let (skipped_count, journeys, conflict_count) = get()
+    get()
         .storage
-        .with_db_txn(|txn| archive::analyze_mldx_import(txn, &mldx_file_path))?;
-    Ok(MldxImportPreview {
-        skipped_count,
-        journey: journeys,
-        conflict_count,
-    })
+        .with_db_txn(|txn| archive::analyze_mldx_import(txn, &mldx_file_path))
 }
 
 /// Import the given journeys into DB. When is_conflict is true, deletes existing then inserts (overwrite).

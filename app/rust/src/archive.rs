@@ -1,6 +1,7 @@
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
 use chrono::{Datelike, Utc};
+use flutter_rust_bridge::frb;
 use hex::ToHex;
 use integer_encoding::*;
 use protobuf::{EnumOrUnknown, Message};
@@ -40,13 +41,18 @@ const SECTION_MAGIC_HEADER: [u8; 3] = [b'M', b'L', b'S'];
 // TODO: consider return more detail about this import: e.g. how many journeys
 // are added, how many are skipped.
 
-/// Returns (skipped_count, journeys with full data and is_conflict flag, conflict_count).
+/// Result of analyzing an MLDX file. Re-exported by api as the FFI return type.
+#[frb]
+pub struct MldxImportPreview {
+    pub skipped_count: u32,
+    /// (header, data, is_conflict). Conflict items unchecked by default; checking and importing overwrites local.
+    pub journey: Vec<(JourneyHeader, JourneyData, bool)>,
+    pub conflict_count: u32,
+}
+
 /// Parses MLDX once; conflict items are included with is_conflict=true (default unchecked in UI; import overwrites).
 #[auto_context]
-pub fn analyze_mldx_import(
-    txn: &main_db::Txn,
-    mldx_file: &str,
-) -> Result<(u32, Vec<(JourneyHeader, JourneyData, bool)>, u32)> {
+pub fn analyze_mldx_import(txn: &main_db::Txn, mldx_file: &str) -> Result<MldxImportPreview> {
     let mut zip = zip::ZipArchive::new(File::open(mldx_file)?)?;
     let mut file = zip.by_name("metadata.xxm")?;
     let mut magic_header: [u8; 3] = [0; 3];
@@ -116,7 +122,11 @@ pub fn analyze_mldx_import(
             }
         }
     }
-    Ok((skipped_count, journeys, conflict_count))
+    Ok(MldxImportPreview {
+        skipped_count,
+        journey: journeys,
+        conflict_count,
+    })
 }
 
 // TODO: support conflict resolvation by asking user what to do.
