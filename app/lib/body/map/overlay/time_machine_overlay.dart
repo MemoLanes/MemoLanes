@@ -21,7 +21,6 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
   DateTime? _lastFrom;
   DateTime? _lastTo;
 
-  /// 时光机独立图层筛选，不修改主地图的 layer filter。
   late api.LayerFilter _timeMachineLayerFilter;
 
   @override
