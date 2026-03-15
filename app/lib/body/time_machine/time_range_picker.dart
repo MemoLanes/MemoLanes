@@ -158,9 +158,11 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
             selectedMonth: _selectedMonth,
             selectedDay: _selectedDay,
             earliest: widget.earliestDate,
-            onYearChanged: (y) => _commitRulerChange(() => _selectedYear = y),
-            onMonthChanged: (m) => _commitRulerChange(() => _selectedMonth = m),
-            onDayChanged: (d) => _commitRulerChange(() => _selectedDay = d),
+            onSelectionChanged: (selection) => _commitRulerChange(() {
+              _selectedYear = selection.$1;
+              if (selection.$2 != null) _selectedMonth = selection.$2!;
+              if (selection.$3 != null) _selectedDay = selection.$3!;
+            }),
             onDisplayYearChanged: (y) => _updateDisplay(y),
             onDisplayMonthChanged: (y, m) => _updateDisplay(y, m),
             onDisplayDayChanged: (y, m, d) => _updateDisplay(y, m, d),

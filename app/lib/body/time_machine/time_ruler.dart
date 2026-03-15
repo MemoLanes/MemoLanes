@@ -14,6 +14,8 @@ enum TimeMachineMode {
   any,
 }
 
+typedef TimeRulerSelection = (int year, int? month, int? day);
+
 // --- Constants ---
 
 const double kRulerExtent = 44.0;
@@ -252,9 +254,7 @@ class TimeRuler extends StatelessWidget {
     required this.selectedMonth,
     required this.selectedDay,
     required this.earliest,
-    required this.onYearChanged,
-    required this.onMonthChanged,
-    required this.onDayChanged,
+    required this.onSelectionChanged,
     this.onDisplayYearChanged,
     this.onDisplayMonthChanged,
     this.onDisplayDayChanged,
@@ -265,9 +265,7 @@ class TimeRuler extends StatelessWidget {
   final int selectedMonth;
   final int selectedDay;
   final DateTime? earliest;
-  final void Function(int) onYearChanged;
-  final void Function(int) onMonthChanged;
-  final void Function(int) onDayChanged;
+  final void Function(TimeRulerSelection) onSelectionChanged;
   final void Function(int year)? onDisplayYearChanged;
   final void Function(int year, int month)? onDisplayMonthChanged;
   final void Function(int year, int month, int day)? onDisplayDayChanged;
@@ -282,9 +280,7 @@ class TimeRuler extends StatelessWidget {
       selectedMonth: selectedMonth,
       selectedDay: selectedDay,
       earliest: earliest ?? DateTime(DateTime.now().year - 1, 1, 1),
-      onYearChanged: onYearChanged,
-      onMonthChanged: onMonthChanged,
-      onDayChanged: onDayChanged,
+      onSelectionChanged: onSelectionChanged,
       onDisplayYearChanged: onDisplayYearChanged,
       onDisplayMonthChanged: onDisplayMonthChanged,
       onDisplayDayChanged: onDisplayDayChanged,
@@ -300,9 +296,7 @@ class _InfiniteTimeRuler extends StatefulWidget {
     required this.selectedMonth,
     required this.selectedDay,
     required this.earliest,
-    required this.onYearChanged,
-    required this.onMonthChanged,
-    required this.onDayChanged,
+    required this.onSelectionChanged,
     this.onDisplayYearChanged,
     this.onDisplayMonthChanged,
     this.onDisplayDayChanged,
@@ -313,9 +307,7 @@ class _InfiniteTimeRuler extends StatefulWidget {
   final int selectedMonth;
   final int selectedDay;
   final DateTime earliest;
-  final void Function(int) onYearChanged;
-  final void Function(int) onMonthChanged;
-  final void Function(int) onDayChanged;
+  final void Function(TimeRulerSelection) onSelectionChanged;
   final void Function(int year)? onDisplayYearChanged;
   final void Function(int year, int month)? onDisplayMonthChanged;
   final void Function(int year, int month, int day)? onDisplayDayChanged;
@@ -335,20 +327,21 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
 
   static _RulerData _buildData(_InfiniteTimeRuler w) {
     return switch (w.mode) {
-      TimeMachineMode.year => _YearRulerData(
-          w.earliest, w.selectedYear, w.onYearChanged, w.onDisplayYearChanged),
-      TimeMachineMode.month =>
-        _MonthRulerData(w.earliest, w.selectedYear, w.selectedMonth, (y, m) {
-          w.onYearChanged(y);
-          w.onMonthChanged(m);
-        }, w.onDisplayMonthChanged),
+      TimeMachineMode.year => _YearRulerData(w.earliest, w.selectedYear,
+          (y) => w.onSelectionChanged((y, null, null)), w.onDisplayYearChanged),
+      TimeMachineMode.month => _MonthRulerData(
+          w.earliest,
+          w.selectedYear,
+          w.selectedMonth,
+          (y, m) => w.onSelectionChanged((y, m, null)),
+          w.onDisplayMonthChanged),
       TimeMachineMode.day => _DayRulerData(
-            w.earliest, w.selectedYear, w.selectedMonth, w.selectedDay,
-            (y, m, d) {
-          w.onYearChanged(y);
-          w.onMonthChanged(m);
-          w.onDayChanged(d);
-        }, w.onDisplayDayChanged),
+          w.earliest,
+          w.selectedYear,
+          w.selectedMonth,
+          w.selectedDay,
+          (y, m, d) => w.onSelectionChanged((y, m, d)),
+          w.onDisplayDayChanged),
       TimeMachineMode.any => throw StateError('any mode has no ruler'),
     };
   }
