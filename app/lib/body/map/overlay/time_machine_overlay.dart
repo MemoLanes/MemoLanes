@@ -21,6 +21,24 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
   DateTime? _lastFrom;
   DateTime? _lastTo;
 
+  /// 时光机独立图层筛选，不修改主地图的 layer filter。
+  late api.LayerFilter _timeMachineLayerFilter;
+
+  @override
+  void initState() {
+    super.initState();
+    _timeMachineLayerFilter =
+        ensureTimeMachineDefaultKind(api.getCurrentMainMapLayerFilter());
+    api.earliestJourneyDate().then((value) {
+      if (!mounted) return;
+      setState(() {
+        _earliestJourneyDate = value != null
+            ? naiveDateToDateTime(value)
+            : DateTime(DateTime.now().year, 1, 1);
+      });
+    });
+  }
+
   Future<void> _loadJourneyForRange(DateTime from, DateTime to) async {
     if (_earliestJourneyDate == null) return;
     if (from.isAfter(to)) return;
@@ -31,6 +49,7 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
       final proxy = await api.getMapRendererProxyForJourneyDateRange(
         fromDateInclusive: dateTimeToNaiveDate(from),
         toDateInclusive: dateTimeToNaiveDate(to),
+        layerFilter: _timeMachineLayerFilter,
       );
       if (mounted) widget.onJourneyRangeLoaded(proxy);
     } finally {
@@ -38,25 +57,13 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
     }
   }
 
-  void _onLayerFilterChanged() {
+  void _onLayerFilterChanged(api.LayerFilter newFilter) {
+    setState(() => _timeMachineLayerFilter = newFilter);
     final from = _lastFrom;
     final to = _lastTo;
     if (from != null && to != null) {
       _loadJourneyForRange(from, to);
     }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    api.earliestJourneyDate().then((value) {
-      if (!mounted) return;
-      setState(() {
-        _earliestJourneyDate = value != null
-            ? naiveDateToDateTime(value)
-            : DateTime(DateTime.now().year, 1, 1);
-      });
-    });
   }
 
   @override
@@ -84,6 +91,7 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
                 earliestDate: earliest,
                 loading: _loading,
                 onRangeChanged: _loadJourneyForRange,
+                timeMachineLayerFilter: _timeMachineLayerFilter,
                 onLayerFilterChanged: _onLayerFilterChanged,
               ),
             ),

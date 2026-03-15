@@ -13,19 +13,30 @@ import 'time_ruler.dart';
 
 export 'time_ruler.dart' show TimeMachineMode, TimeRuler;
 
+api.LayerFilter ensureTimeMachineDefaultKind(api.LayerFilter f) {
+  if (f.defaultKind) return f;
+  return api.LayerFilter(
+    currentJourney: f.currentJourney,
+    defaultKind: true,
+    flightKind: f.flightKind,
+  );
+}
+
 /// Time range picker: ball + year/month/day ruler or any date-range overlay.
 /// Reports the selected [from]-[to] range to the parent via [onRangeChanged].
 class TimeRangePicker extends StatefulWidget {
   final DateTime? earliestDate;
   final bool loading;
   final void Function(DateTime from, DateTime to) onRangeChanged;
-  final VoidCallback? onLayerFilterChanged;
+  final api.LayerFilter? timeMachineLayerFilter;
+  final void Function(api.LayerFilter)? onLayerFilterChanged;
 
   const TimeRangePicker({
     super.key,
     this.earliestDate,
     this.loading = false,
     required this.onRangeChanged,
+    this.timeMachineLayerFilter,
     this.onLayerFilterChanged,
   });
 
@@ -199,6 +210,9 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
             child: _TimeMachineModeAndLayerMenu(
               currentMode: _mode,
               onModeSelect: _onModeSelected,
+              layerFilter: ensureTimeMachineDefaultKind(
+                  widget.timeMachineLayerFilter ??
+                      api.getCurrentMainMapLayerFilter()),
               onLayerFilterChanged: widget.onLayerFilterChanged,
             ),
           ),
@@ -229,11 +243,13 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
 class _TimeMachineModeAndLayerMenu extends StatefulWidget {
   final TimeMachineMode currentMode;
   final void Function(TimeMachineMode) onModeSelect;
-  final VoidCallback? onLayerFilterChanged;
+  final api.LayerFilter layerFilter;
+  final void Function(api.LayerFilter)? onLayerFilterChanged;
 
   const _TimeMachineModeAndLayerMenu({
     required this.currentMode,
     required this.onModeSelect,
+    required this.layerFilter,
     this.onLayerFilterChanged,
   });
 
@@ -256,8 +272,30 @@ class _TimeMachineModeAndLayerMenuState
     (_LayerKind.flight, 'journey_kind.flight'),
   ];
 
-  final api.LayerFilter _layerFilter = api.getCurrentMainMapLayerFilter();
+  late api.LayerFilter _localFilter;
   Timer? _layerTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _localFilter = api.LayerFilter(
+      currentJourney: widget.layerFilter.currentJourney,
+      defaultKind: widget.layerFilter.defaultKind,
+      flightKind: widget.layerFilter.flightKind,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _TimeMachineModeAndLayerMenu oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.layerFilter != widget.layerFilter) {
+      _localFilter = api.LayerFilter(
+        currentJourney: widget.layerFilter.currentJourney,
+        defaultKind: widget.layerFilter.defaultKind,
+        flightKind: widget.layerFilter.flightKind,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -352,8 +390,8 @@ class _TimeMachineModeAndLayerMenuState
 
   Widget _buildLayerItem(_LayerKind kind, String labelKey) {
     final isSelected = kind == _LayerKind.default_
-        ? _layerFilter.defaultKind
-        : _layerFilter.flightKind;
+        ? _localFilter.defaultKind
+        : _localFilter.flightKind;
     return _buildMenuTile(
       context,
       labelKey,
@@ -361,17 +399,20 @@ class _TimeMachineModeAndLayerMenuState
       () {
         HapticFeedback.selectionClick();
         setState(() {
-          if (kind == _LayerKind.default_) {
-            _layerFilter.defaultKind = !_layerFilter.defaultKind;
-          } else {
-            _layerFilter.flightKind = !_layerFilter.flightKind;
-          }
+          _localFilter = api.LayerFilter(
+            currentJourney: _localFilter.currentJourney,
+            defaultKind: kind == _LayerKind.default_
+                ? !_localFilter.defaultKind
+                : _localFilter.defaultKind,
+            flightKind: kind == _LayerKind.flight
+                ? !_localFilter.flightKind
+                : _localFilter.flightKind,
+          );
         });
         _layerTimer?.cancel();
         _layerTimer = Timer(const Duration(milliseconds: 600), () {
           _layerTimer = null;
-          api.setMainMapLayerFilter(newLayerFilter: _layerFilter);
-          widget.onLayerFilterChanged?.call();
+          widget.onLayerFilterChanged?.call(_localFilter);
         });
       },
     );

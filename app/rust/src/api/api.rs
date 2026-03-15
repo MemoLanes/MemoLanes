@@ -323,9 +323,9 @@ pub fn get_empty_map_renderer_proxy() -> MapRendererProxy {
 pub fn get_map_renderer_proxy_for_journey_date_range(
     from_date_inclusive: NaiveDate,
     to_date_inclusive: NaiveDate,
+    layer_filter: LayerFilter,
 ) -> Result<MapRendererProxy> {
     let state = get();
-    let layer_filter = state.main_map_state.lock().unwrap().layer_filter;
     let (default_kind, flight_kind) = (layer_filter.default_kind, layer_filter.flight_kind);
 
     let journey_bitmap = match (default_kind, flight_kind) {
