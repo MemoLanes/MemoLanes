@@ -40,7 +40,7 @@ class _YearRulerData extends _RulerData {
   final DateTime earliest;
   final int selectedYear;
   final void Function(int year) onSelected;
-  final void Function(int year)? onDisplay;
+  final void Function(TimeRulerSelection)? onDisplay;
 
   static const int _half = 30;
   int get _start =>
@@ -66,7 +66,8 @@ class _YearRulerData extends _RulerData {
   }
 
   @override
-  void notifyDisplay(int index) => onDisplay?.call(_start + index);
+  void notifyDisplay(int index) =>
+      onDisplay?.call((_start + index, null, null));
 }
 
 /// Month mode: window from (earliest.year, earliest.month) to current month; no months before earliest.
@@ -77,7 +78,7 @@ class _MonthRulerData extends _RulerData {
   final int selectedYear;
   final int selectedMonth;
   final void Function(int y, int m) onSelected;
-  final void Function(int y, int m)? onDisplay;
+  final void Function(TimeRulerSelection)? onDisplay;
 
   static const int _half = 90;
 
@@ -145,7 +146,7 @@ class _MonthRulerData extends _RulerData {
   @override
   void notifyDisplay(int index) {
     final (y, m) = _at(_start + index);
-    onDisplay?.call(y, m);
+    onDisplay?.call((y, m, null));
   }
 }
 
@@ -158,7 +159,7 @@ class _DayRulerData extends _RulerData {
   final int selectedMonth;
   final int selectedDay;
   final void Function(int y, int m, int d) onSelected;
-  final void Function(int y, int m, int d)? onDisplay;
+  final void Function(TimeRulerSelection)? onDisplay;
 
   static const int _half = 180;
   static DateTime get _today =>
@@ -223,7 +224,7 @@ class _DayRulerData extends _RulerData {
   @override
   void notifyDisplay(int index) {
     final d = _dateAt(index);
-    onDisplay?.call(d.year, d.month, d.day);
+    onDisplay?.call((d.year, d.month, d.day));
   }
 }
 
@@ -255,9 +256,7 @@ class TimeRuler extends StatelessWidget {
     required this.selectedDay,
     required this.earliest,
     required this.onSelectionChanged,
-    this.onDisplayYearChanged,
-    this.onDisplayMonthChanged,
-    this.onDisplayDayChanged,
+    this.onDisplayChanged,
   });
 
   final TimeMachineMode mode;
@@ -266,9 +265,7 @@ class TimeRuler extends StatelessWidget {
   final int selectedDay;
   final DateTime? earliest;
   final void Function(TimeRulerSelection) onSelectionChanged;
-  final void Function(int year)? onDisplayYearChanged;
-  final void Function(int year, int month)? onDisplayMonthChanged;
-  final void Function(int year, int month, int day)? onDisplayDayChanged;
+  final void Function(TimeRulerSelection)? onDisplayChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -281,9 +278,7 @@ class TimeRuler extends StatelessWidget {
       selectedDay: selectedDay,
       earliest: earliest ?? DateTime(DateTime.now().year - 1, 1, 1),
       onSelectionChanged: onSelectionChanged,
-      onDisplayYearChanged: onDisplayYearChanged,
-      onDisplayMonthChanged: onDisplayMonthChanged,
-      onDisplayDayChanged: onDisplayDayChanged,
+      onDisplayChanged: onDisplayChanged,
     );
   }
 }
@@ -297,9 +292,7 @@ class _InfiniteTimeRuler extends StatefulWidget {
     required this.selectedDay,
     required this.earliest,
     required this.onSelectionChanged,
-    this.onDisplayYearChanged,
-    this.onDisplayMonthChanged,
-    this.onDisplayDayChanged,
+    this.onDisplayChanged,
   });
 
   final TimeMachineMode mode;
@@ -308,9 +301,7 @@ class _InfiniteTimeRuler extends StatefulWidget {
   final int selectedDay;
   final DateTime earliest;
   final void Function(TimeRulerSelection) onSelectionChanged;
-  final void Function(int year)? onDisplayYearChanged;
-  final void Function(int year, int month)? onDisplayMonthChanged;
-  final void Function(int year, int month, int day)? onDisplayDayChanged;
+  final void Function(TimeRulerSelection)? onDisplayChanged;
 
   @override
   State<_InfiniteTimeRuler> createState() => _InfiniteTimeRulerState();
@@ -328,20 +319,20 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
   static _RulerData _buildData(_InfiniteTimeRuler w) {
     return switch (w.mode) {
       TimeMachineMode.year => _YearRulerData(w.earliest, w.selectedYear,
-          (y) => w.onSelectionChanged((y, null, null)), w.onDisplayYearChanged),
+          (y) => w.onSelectionChanged((y, null, null)), w.onDisplayChanged),
       TimeMachineMode.month => _MonthRulerData(
           w.earliest,
           w.selectedYear,
           w.selectedMonth,
           (y, m) => w.onSelectionChanged((y, m, null)),
-          w.onDisplayMonthChanged),
+          w.onDisplayChanged),
       TimeMachineMode.day => _DayRulerData(
           w.earliest,
           w.selectedYear,
           w.selectedMonth,
           w.selectedDay,
           (y, m, d) => w.onSelectionChanged((y, m, d)),
-          w.onDisplayDayChanged),
+          w.onDisplayChanged),
       TimeMachineMode.any => throw StateError('any mode has no ruler'),
     };
   }

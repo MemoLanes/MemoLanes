@@ -13,6 +13,58 @@ import 'time_ruler.dart';
 
 export 'time_ruler.dart' show TimeMachineMode, TimeRuler;
 
+/// Clamps (y, m, d) to the valid range for [mode] and [earliest], matching the ruler.
+/// When [earliest] is null, only normalizes month/day to valid values.
+(int, int, int) clampTimeRulerSelection(
+  TimeMachineMode mode,
+  DateTime? earliest,
+  int y,
+  int m,
+  int d,
+) {
+  if (earliest == null) {
+    m = m.clamp(1, 12);
+    d = d.clamp(1, DateTime(y, m + 1, 0).day);
+    return (y, m, d);
+  }
+  final now = DateTime.now();
+  switch (mode) {
+    case TimeMachineMode.year:
+      y = y.clamp(earliest.year, now.year);
+      m = m.clamp(1, 12);
+      d = d.clamp(1, DateTime(y, m + 1, 0).day);
+      return (y, m, d);
+    case TimeMachineMode.month:
+      if (y < earliest.year || (y == earliest.year && m < earliest.month)) {
+        y = earliest.year;
+        m = earliest.month;
+      } else if (y > now.year || (y == now.year && m > now.month)) {
+        y = now.year;
+        m = now.month;
+      }
+      m = m.clamp(1, 12);
+      d = d.clamp(1, DateTime(y, m + 1, 0).day);
+      return (y, m, d);
+    case TimeMachineMode.day:
+      final earliestDay = DateTime(earliest.year, earliest.month, earliest.day);
+      final today = DateTime(now.year, now.month, now.day);
+      m = m.clamp(1, 12);
+      d = d.clamp(1, DateTime(y, m + 1, 0).day);
+      final sel = DateTime(y, m, d);
+      if (sel.isBefore(earliestDay)) {
+        return (earliest.year, earliest.month, earliest.day);
+      }
+      if (sel.isAfter(today)) {
+        return (now.year, now.month, now.day);
+      }
+      return (y, m, d);
+    case TimeMachineMode.any:
+      m = m.clamp(1, 12);
+      d = d.clamp(1, DateTime(y, m + 1, 0).day);
+      return (y, m, d);
+  }
+}
+
 api.LayerFilter ensureTimeMachineDefaultKind(api.LayerFilter f) {
   if (f.defaultKind) return f;
   return api.LayerFilter(
@@ -93,34 +145,46 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
     HapticFeedback.selectionClick();
     setState(() {
       _mode = mode;
-      _syncDisplayToSelected();
-      _applyCurrentRange();
-      _notifyRange();
+      _applySelectionInRange();
     });
   }
 
-  /// Date for the ball display: follows scroll (display) until release, then equals committed selection.
+  /// If current selection is outside [earliest] range, clamps it and syncs display/range. Returns true if changed.
+  bool _applySelectionInRange() {
+    final earliest = widget.earliestDate;
+    if (earliest == null) return false;
+    final (cy, cm, cd) = clampTimeRulerSelection(
+      _mode,
+      earliest,
+      _selectedYear,
+      _selectedMonth,
+      _selectedDay,
+    );
+    if (cy == _selectedYear && cm == _selectedMonth && cd == _selectedDay) {
+      return false;
+    }
+    _selectedYear = cy;
+    _selectedMonth = cm;
+    _selectedDay = cd;
+    _updateDisplay(cy, cm, cd);
+    _applyCurrentRange();
+    _notifyRange();
+    return true;
+  }
+
   DateTime get _displayDate =>
       DateTime(_displayYear, _displayMonth, _displayDay);
 
   void _updateDisplay(int y, [int? m, int? d]) {
-    setState(() {
-      _displayYear = y;
-      _displayMonth = m ?? _selectedMonth;
-      _displayDay = d ?? _selectedDay;
-    });
-  }
-
-  void _syncDisplayToSelected() {
-    _displayYear = _selectedYear;
-    _displayMonth = _selectedMonth;
-    _displayDay = _selectedDay;
+    _displayYear = y;
+    _displayMonth = m ?? _selectedMonth;
+    _displayDay = d ?? _selectedDay;
   }
 
   void _commitRulerChange(void Function() apply) {
     setState(() {
       apply();
-      _syncDisplayToSelected();
+      _updateDisplay(_selectedYear, _selectedMonth, _selectedDay);
       _applyCurrentRange();
       _notifyRange();
     });
@@ -136,28 +200,7 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
   @override
   void didUpdateWidget(TimeRangePicker oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final earliest = widget.earliestDate;
-    final needFix = earliest != null && _selectedYear < earliest.year;
-    final monthClamped = _selectedMonth.clamp(1, 12);
-    final lastDay = DateTime(_selectedYear, monthClamped + 1, 0).day;
-    final dayClamped = _selectedDay.clamp(1, lastDay);
-    final needNormalize =
-        monthClamped != _selectedMonth || dayClamped != _selectedDay;
-    if (needFix || needNormalize) {
-      setState(() {
-        if (needFix) {
-          _selectedYear = earliest.year;
-          _selectedMonth = earliest.month;
-          _selectedDay = earliest.day;
-        } else {
-          _selectedMonth = monthClamped;
-          _selectedDay = dayClamped;
-        }
-        _syncDisplayToSelected();
-        _applyCurrentRange();
-        _notifyRange();
-      });
-    }
+    if (_applySelectionInRange()) setState(() {});
   }
 
   @override
@@ -174,9 +217,8 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
               if (selection.$2 != null) _selectedMonth = selection.$2!;
               if (selection.$3 != null) _selectedDay = selection.$3!;
             }),
-            onDisplayYearChanged: (y) => _updateDisplay(y),
-            onDisplayMonthChanged: (y, m) => _updateDisplay(y, m),
-            onDisplayDayChanged: (y, m, d) => _updateDisplay(y, m, d),
+            onDisplayChanged: (s) =>
+                setState(() => _updateDisplay(s.$1, s.$2, s.$3)),
           )
         : TimeRangeOverlayPicker(
             fromDate: _fromDate,
