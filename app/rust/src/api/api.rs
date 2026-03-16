@@ -334,11 +334,9 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
             to_date_inclusive,
             journey_kinds.iter().next(),
         )?,
-        _ => state.storage.get_range_bitmap(
-            from_date_inclusive,
-            to_date_inclusive,
-            None,
-        )?,
+        _ => state
+            .storage
+            .get_range_bitmap(from_date_inclusive, to_date_inclusive, None)?,
     };
 
     let map_renderer = MapRenderer::new(journey_bitmap);
