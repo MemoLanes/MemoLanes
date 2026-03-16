@@ -344,6 +344,9 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
       final d = _data;
+      if (d.itemCount <= 0) {
+        return;
+      }
       final idx = d.selectedIndex.clamp(0, d.itemCount - 1);
       _lastHapticIndex = idx;
       _scrollController.jumpTo((idx * kRulerUnitSpacing).toDouble());
