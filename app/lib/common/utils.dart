@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
 import 'package:memolanes/common/component/common_export.dart';
+import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -72,62 +73,17 @@ Future<T> showLoadingDialog<T>({
   required BuildContext context,
   required Future<T> asyncTask,
 }) async {
-  var taskCompleteEarly = false;
-  asyncTask.whenComplete(() {
-    taskCompleteEarly = true;
-  });
-
-  // Do not show the loading dialog if the task is fast
-  await Future.delayed(const Duration(milliseconds: 200));
-  if (taskCompleteEarly) return asyncTask;
-  if (!context.mounted) return asyncTask;
-
-  BuildContext? dialogContext;
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (BuildContext context) {
-      dialogContext = context;
-      return Padding(
-        padding: const EdgeInsets.only(top: 10),
-        child: Center(
-          child: Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(
-                  strokeWidth: 3.0,
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
+  // 兼容旧接口：内部改为使用全局 Loading 管理器
+  final result = await GlobalLoadingManager.instance.runWithLoading<T>(
+    () async {
+      try {
+        await WakelockPlus.enable();
+        return await asyncTask;
+      } finally {
+        await WakelockPlus.disable();
+      }
     },
   );
-
-  // don't want the window to flicker
-  await Future.delayed(const Duration(milliseconds: 100));
-
-  T result;
-  try {
-    await WakelockPlus.enable();
-    result = await asyncTask;
-  } finally {
-    await WakelockPlus.disable();
-    var context = dialogContext;
-    if (context != null) {
-      if (context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
-    }
-  }
   return result;
 }
 

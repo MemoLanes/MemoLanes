@@ -19,6 +19,7 @@ import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/utils.dart';
+import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/constants/index.dart';
 import 'package:provider/provider.dart';
 
@@ -65,33 +66,35 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: "MemoLanes",
-      onGenerateTitle: (context) => context.tr('common.memolanes'),
-      supportedLocales: context.supportedLocales,
-      localizationsDelegates: context.localizationDelegates,
-      locale: context.locale,
-      navigatorKey: navigatorKey,
-      theme: ThemeData(
-        useMaterial3: true,
-        fontFamilyFallback:
-            Platform.isIOS ? ['.AppleSystemUIFont', 'PingFang SC'] : null,
-        scaffoldBackgroundColor: const Color(0xFF141414),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFB6E13D),
-          brightness: Brightness.dark,
+    return GlobalLoadingOverlay(
+      child: MaterialApp(
+        title: "MemoLanes",
+        onGenerateTitle: (context) => context.tr('common.memolanes'),
+        supportedLocales: context.supportedLocales,
+        localizationsDelegates: context.localizationDelegates,
+        locale: context.locale,
+        navigatorKey: navigatorKey,
+        theme: ThemeData(
+          useMaterial3: true,
+          fontFamilyFallback:
+              Platform.isIOS ? ['.AppleSystemUIFont', 'PingFang SC'] : null,
+          scaffoldBackgroundColor: const Color(0xFF141414),
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFFB6E13D),
+            brightness: Brightness.dark,
+          ),
+          iconTheme: const IconThemeData(
+            color: Colors.black87,
+          ),
+          bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+            elevation: 8,
+            backgroundColor: Colors.white,
+            selectedItemColor: Colors.black,
+            unselectedItemColor: Colors.black54,
+          ),
         ),
-        iconTheme: const IconThemeData(
-          color: Colors.black87,
-        ),
-        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-          elevation: 8,
-          backgroundColor: Colors.white,
-          selectedItemColor: Colors.black,
-          unselectedItemColor: Colors.black54,
-        ),
+        home: const MyHomePage(title: 'MemoLanes [OSS]'),
       ),
-      home: const MyHomePage(title: 'MemoLanes [OSS]'),
     );
   }
 }
@@ -126,12 +129,14 @@ class _MyHomePageState extends State<MyHomePage> {
 
       var mainMapReady = AppBootstrap.mainMapReady;
 
-      if (!mainMapReady.isCompleted) {
+
         await showLoadingDialog(
           context: context,
-          asyncTask: mainMapReady.future,
+          asyncTask: () async {
+            await mainMapReady.future;                     // 原来的任务
+            await Future.delayed(const Duration(seconds: 10)); // 额外等 10 秒
+          }(),
         );
-      }
     });
   }
 
