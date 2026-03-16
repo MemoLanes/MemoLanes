@@ -347,6 +347,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
       final idx = d.selectedIndex.clamp(0, d.itemCount - 1);
       _lastHapticIndex = idx;
       _scrollController.jumpTo((idx * kRulerUnitSpacing).toDouble());
+      d.reportSelection(idx);
     });
   }
 

@@ -6,73 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:memolanes/common/component/custom_popup.dart';
 import 'package:memolanes/constants/style_constants.dart';
-import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 import 'time_ruler.dart';
+import 'package:memolanes/src/rust/journey_header.dart';
 
 export 'time_ruler.dart' show TimeMachineMode, TimeRuler;
-
-/// Clamps (y, m, d) to the valid range for [mode] and [earliest], matching the ruler.
-/// When [earliest] is null, only normalizes month/day to valid values.
-(int, int, int) clampTimeRulerSelection(
-  TimeMachineMode mode,
-  DateTime? earliest,
-  int y,
-  int m,
-  int d,
-) {
-  if (earliest == null) {
-    m = m.clamp(1, 12);
-    d = d.clamp(1, DateTime(y, m + 1, 0).day);
-    return (y, m, d);
-  }
-  final now = DateTime.now();
-  switch (mode) {
-    case TimeMachineMode.year:
-      y = y.clamp(earliest.year, now.year);
-      m = m.clamp(1, 12);
-      d = d.clamp(1, DateTime(y, m + 1, 0).day);
-      return (y, m, d);
-    case TimeMachineMode.month:
-      if (y < earliest.year || (y == earliest.year && m < earliest.month)) {
-        y = earliest.year;
-        m = earliest.month;
-      } else if (y > now.year || (y == now.year && m > now.month)) {
-        y = now.year;
-        m = now.month;
-      }
-      m = m.clamp(1, 12);
-      d = d.clamp(1, DateTime(y, m + 1, 0).day);
-      return (y, m, d);
-    case TimeMachineMode.day:
-      final earliestDay = DateTime(earliest.year, earliest.month, earliest.day);
-      final today = DateTime(now.year, now.month, now.day);
-      m = m.clamp(1, 12);
-      d = d.clamp(1, DateTime(y, m + 1, 0).day);
-      final sel = DateTime(y, m, d);
-      if (sel.isBefore(earliestDay)) {
-        return (earliest.year, earliest.month, earliest.day);
-      }
-      if (sel.isAfter(today)) {
-        return (now.year, now.month, now.day);
-      }
-      return (y, m, d);
-    case TimeMachineMode.any:
-      m = m.clamp(1, 12);
-      d = d.clamp(1, DateTime(y, m + 1, 0).day);
-      return (y, m, d);
-  }
-}
-
-api.LayerFilter ensureTimeMachineDefaultKind(api.LayerFilter f) {
-  if (f.defaultKind) return f;
-  return api.LayerFilter(
-    currentJourney: f.currentJourney,
-    defaultKind: true,
-    flightKind: f.flightKind,
-  );
-}
 
 /// Time range picker: ball + year/month/day ruler or any date-range overlay.
 /// Reports the selected [from]-[to] range to the parent via [onRangeChanged].
@@ -80,16 +19,16 @@ class TimeRangePicker extends StatefulWidget {
   final DateTime? earliestDate;
   final bool loading;
   final void Function(DateTime from, DateTime to) onRangeChanged;
-  final api.LayerFilter? timeMachineLayerFilter;
-  final void Function(api.LayerFilter)? onLayerFilterChanged;
+  final Set<JourneyKind> selectedJourneyKinds;
+  final void Function(Set<JourneyKind>)? onJourneyKindsChanged;
 
   const TimeRangePicker({
     super.key,
     this.earliestDate,
     this.loading = false,
     required this.onRangeChanged,
-    this.timeMachineLayerFilter,
-    this.onLayerFilterChanged,
+    required this.selectedJourneyKinds,
+    this.onJourneyKindsChanged,
   });
 
   @override
@@ -145,31 +84,9 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
     HapticFeedback.selectionClick();
     setState(() {
       _mode = mode;
-      _applySelectionInRange();
+      _applyCurrentRange();
     });
-  }
-
-  /// If current selection is outside [earliest] range, clamps it and syncs display/range. Returns true if changed.
-  bool _applySelectionInRange() {
-    final earliest = widget.earliestDate;
-    if (earliest == null) return false;
-    final (cy, cm, cd) = clampTimeRulerSelection(
-      _mode,
-      earliest,
-      _selectedYear,
-      _selectedMonth,
-      _selectedDay,
-    );
-    if (cy == _selectedYear && cm == _selectedMonth && cd == _selectedDay) {
-      return false;
-    }
-    _selectedYear = cy;
-    _selectedMonth = cm;
-    _selectedDay = cd;
-    _updateDisplay(cy, cm, cd);
-    _applyCurrentRange();
-    _notifyRange();
-    return true;
+    if (mode == TimeMachineMode.any) _notifyRange();
   }
 
   DateTime get _displayDate =>
@@ -195,12 +112,6 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
     super.initState();
     _applyCurrentRange();
     WidgetsBinding.instance.addPostFrameCallback((_) => _notifyRange());
-  }
-
-  @override
-  void didUpdateWidget(TimeRangePicker oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (_applySelectionInRange()) setState(() {});
   }
 
   @override
@@ -252,10 +163,8 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
             child: _TimeMachineModeAndLayerMenu(
               currentMode: _mode,
               onModeSelect: _onModeSelected,
-              layerFilter: ensureTimeMachineDefaultKind(
-                  widget.timeMachineLayerFilter ??
-                      api.getCurrentMainMapLayerFilter()),
-              onLayerFilterChanged: widget.onLayerFilterChanged,
+              selectedJourneyKinds: widget.selectedJourneyKinds,
+              onJourneyKindsChanged: widget.onJourneyKindsChanged,
             ),
           ),
           child: PointerInterceptor(
@@ -285,14 +194,14 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
 class _TimeMachineModeAndLayerMenu extends StatefulWidget {
   final TimeMachineMode currentMode;
   final void Function(TimeMachineMode) onModeSelect;
-  final api.LayerFilter layerFilter;
-  final void Function(api.LayerFilter)? onLayerFilterChanged;
+  final Set<JourneyKind> selectedJourneyKinds;
+  final void Function(Set<JourneyKind>)? onJourneyKindsChanged;
 
   const _TimeMachineModeAndLayerMenu({
     required this.currentMode,
     required this.onModeSelect,
-    required this.layerFilter,
-    this.onLayerFilterChanged,
+    required this.selectedJourneyKinds,
+    this.onJourneyKindsChanged,
   });
 
   @override
@@ -310,32 +219,24 @@ class _TimeMachineModeAndLayerMenuState
   ];
 
   static const _layerKeys = [
-    (_LayerKind.default_, 'journey_kind.default'),
-    (_LayerKind.flight, 'journey_kind.flight'),
+    (JourneyKind.defaultKind, 'journey_kind.default'),
+    (JourneyKind.flight, 'journey_kind.flight'),
   ];
 
-  late api.LayerFilter _localFilter;
+  late Set<JourneyKind> _localKinds;
   Timer? _layerTimer;
 
   @override
   void initState() {
     super.initState();
-    _localFilter = api.LayerFilter(
-      currentJourney: widget.layerFilter.currentJourney,
-      defaultKind: widget.layerFilter.defaultKind,
-      flightKind: widget.layerFilter.flightKind,
-    );
+    _localKinds = Set.from(widget.selectedJourneyKinds);
   }
 
   @override
   void didUpdateWidget(covariant _TimeMachineModeAndLayerMenu oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.layerFilter != widget.layerFilter) {
-      _localFilter = api.LayerFilter(
-        currentJourney: widget.layerFilter.currentJourney,
-        defaultKind: widget.layerFilter.defaultKind,
-        flightKind: widget.layerFilter.flightKind,
-      );
+    if (oldWidget.selectedJourneyKinds != widget.selectedJourneyKinds) {
+      _localKinds = Set.from(widget.selectedJourneyKinds);
     }
   }
 
@@ -430,10 +331,8 @@ class _TimeMachineModeAndLayerMenuState
     );
   }
 
-  Widget _buildLayerItem(_LayerKind kind, String labelKey) {
-    final isSelected = kind == _LayerKind.default_
-        ? _localFilter.defaultKind
-        : _localFilter.flightKind;
+  Widget _buildLayerItem(JourneyKind kind, String labelKey) {
+    final isSelected = _localKinds.contains(kind);
     return _buildMenuTile(
       context,
       labelKey,
@@ -441,20 +340,18 @@ class _TimeMachineModeAndLayerMenuState
       () {
         HapticFeedback.selectionClick();
         setState(() {
-          _localFilter = api.LayerFilter(
-            currentJourney: _localFilter.currentJourney,
-            defaultKind: kind == _LayerKind.default_
-                ? !_localFilter.defaultKind
-                : _localFilter.defaultKind,
-            flightKind: kind == _LayerKind.flight
-                ? !_localFilter.flightKind
-                : _localFilter.flightKind,
-          );
+          final next = Set<JourneyKind>.from(_localKinds);
+          if (next.contains(kind)) {
+            next.remove(kind);
+          } else {
+            next.add(kind);
+          }
+          _localKinds = next;
         });
         _layerTimer?.cancel();
         _layerTimer = Timer(const Duration(milliseconds: 600), () {
           _layerTimer = null;
-          widget.onLayerFilterChanged?.call(_localFilter);
+          widget.onJourneyKindsChanged?.call(_localKinds);
         });
       },
     );
@@ -466,8 +363,6 @@ class _TimeMachineModeAndLayerMenuState
     super.dispose();
   }
 }
-
-enum _LayerKind { default_, flight }
 
 /// Mode button: square, semi-transparent (matches timeline style); tap opens [CustomPopup] menu.
 /// Day mode: only year-month (day is on ruler); month mode: only year (month is on ruler).
