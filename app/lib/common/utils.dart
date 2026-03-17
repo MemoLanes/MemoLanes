@@ -10,7 +10,6 @@ import 'package:memolanes/common/component/common_export.dart';
 import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:memolanes/common/log.dart';
 
 final _naiveDateFormat = DateFormat('yyyy-MM-dd');
@@ -73,14 +72,7 @@ Future<T> showLoadingDialog<T>({
   required Future<T> asyncTask,
 }) async {
   final result = await GlobalLoadingManager.instance.runWithLoading<T>(
-    () async {
-      try {
-        await WakelockPlus.enable();
-        return await asyncTask;
-      } finally {
-        await WakelockPlus.disable();
-      }
-    },
+    () => asyncTask,
   );
   return result;
 }

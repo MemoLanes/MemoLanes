@@ -6,6 +6,7 @@ import 'package:memolanes/body/settings/raw_data_page.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
+import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:path_provider/path_provider.dart';
@@ -114,7 +115,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
             position: LabelTilePosition.middle,
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(
+              GlobalLoadingMaterialPageRoute(
                 builder: (context) {
                   return RawDataPage();
                 },
@@ -139,7 +140,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
             position: LabelTilePosition.bottom,
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(
+              GlobalLoadingMaterialPageRoute(
                 builder: (context) {
                   return RenderDiagnosticsPage();
                 },

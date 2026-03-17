@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/settings/import_data_page.dart';
+import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:share_handler/share_handler.dart';
@@ -101,7 +102,7 @@ class ShareHandlerUtil {
 
     Navigator.push(
       context,
-      MaterialPageRoute(
+      GlobalLoadingMaterialPageRoute(
         builder: (_) => ImportDataPage(
           path: path,
           importType: importType,

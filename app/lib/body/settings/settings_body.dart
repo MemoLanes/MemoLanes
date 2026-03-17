@@ -13,6 +13,7 @@ import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/component/tiles/label_tile_title.dart';
 import 'package:memolanes/common/gps_manager.dart';
+import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/utils.dart';
@@ -78,7 +79,7 @@ class _SettingsBodyState extends State<SettingsBody> {
     if (path != null && context.mounted) {
       Navigator.push(
         context,
-        MaterialPageRoute(
+        GlobalLoadingMaterialPageRoute(
           builder: (context) {
             return ImportDataPage(path: path, importType: importType);
           },
@@ -170,7 +171,9 @@ class _SettingsBodyState extends State<SettingsBody> {
           trailing: LabelTileContent(showArrow: true),
           onTap: () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const MapSettingsPage()),
+            GlobalLoadingMaterialPageRoute(
+              builder: (_) => const MapSettingsPage(),
+            ),
           ),
         ),
         LabelTile(
@@ -179,7 +182,7 @@ class _SettingsBodyState extends State<SettingsBody> {
           trailing: LabelTileContent(showArrow: true),
           onTap: () => Navigator.push(
             context,
-            MaterialPageRoute(
+            GlobalLoadingMaterialPageRoute(
               builder: (context) {
                 return AdvancedSettingsPage();
               },

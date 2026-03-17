@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:memolanes/constants/style_constants.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 /// Global loading manager (singleton + reference counting).
 class GlobalLoadingManager extends ChangeNotifier {
@@ -56,6 +58,9 @@ class GlobalLoadingManager extends ChangeNotifier {
   }
 
   void _increment() {
+    if (_activeTaskCount == 0) {
+      unawaited(WakelockPlus.enable());
+    }
     _activeTaskCount += 1;
     notifyListeners();
   }
@@ -63,6 +68,9 @@ class GlobalLoadingManager extends ChangeNotifier {
   void _decrement() {
     if (_activeTaskCount > 0) {
       _activeTaskCount -= 1;
+    }
+    if (_activeTaskCount == 0) {
+      unawaited(WakelockPlus.disable());
     }
     notifyListeners();
   }
@@ -89,27 +97,59 @@ class GlobalLoadingOverlay extends StatelessWidget {
       builder: (context, _) {
         final isLoading = manager.isLoading;
 
-        return Stack(
-          alignment: Alignment.topLeft,
-          children: [
-            child,
-            if (isLoading)
-              Positioned.fill(
-                child: IgnorePointer(
-                  ignoring: false,
-                  child: Container(
-                    color: Colors.black.withOpacity(0.35),
-                    child: const Center(
-                      child: _DefaultLoadingCard(),
-                    ),
+        return PopScope(
+          canPop: !isLoading,
+          child: Stack(
+            alignment: Alignment.topLeft,
+            children: [
+              child,
+              if (isLoading)
+                Positioned.fill(
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      ModalBarrier(
+                        dismissible: false,
+                        color: StyleConstants.loadingMaskColor,
+                      ),
+                      const Center(child: _DefaultLoadingCard()),
+                    ],
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         );
       },
     );
   }
+}
+
+/// A [MaterialPageRoute] that blocks route pop while global loading is active.
+///
+/// This is a low-intrusion way to apply "loading blocks back gesture/button"
+/// to all routes created via [MaterialPageRoute] in the app.
+class GlobalLoadingMaterialPageRoute<T> extends MaterialPageRoute<T> {
+  GlobalLoadingMaterialPageRoute({
+    required WidgetBuilder builder,
+    super.settings,
+    super.maintainState,
+    super.fullscreenDialog,
+    super.allowSnapshotting,
+  }) : super(
+          builder: (context) {
+            final manager = GlobalLoadingManager.instance;
+            return AnimatedBuilder(
+              animation: manager,
+              child: Builder(builder: builder),
+              builder: (context, child) {
+                return PopScope(
+                  canPop: !manager.isLoading,
+                  child: child!,
+                );
+              },
+            );
+          },
+        );
 }
 
 /// Default global loading UI.

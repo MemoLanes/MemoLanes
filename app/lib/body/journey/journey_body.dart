@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/body/journey/journey_info_page.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
+import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/constants/index.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/utils.dart';
@@ -185,7 +186,7 @@ class _JourneyBodyState extends State<JourneyBody> {
                     date: _journeyHeaderList[index].journeyDate),
             trailing: LabelTileContent(showArrow: true),
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(
+              Navigator.push(context, GlobalLoadingMaterialPageRoute(
                 builder: (context) {
                   return JourneyInfoPage(
                     journeyHeader: _journeyHeaderList[index],

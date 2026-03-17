@@ -66,35 +66,38 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlobalLoadingOverlay(
-      child: MaterialApp(
-        title: "MemoLanes",
-        onGenerateTitle: (context) => context.tr('common.memolanes'),
-        supportedLocales: context.supportedLocales,
-        localizationsDelegates: context.localizationDelegates,
-        locale: context.locale,
-        navigatorKey: navigatorKey,
-        theme: ThemeData(
-          useMaterial3: true,
-          fontFamilyFallback:
-              Platform.isIOS ? ['.AppleSystemUIFont', 'PingFang SC'] : null,
-          scaffoldBackgroundColor: const Color(0xFF141414),
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFFB6E13D),
-            brightness: Brightness.dark,
-          ),
-          iconTheme: const IconThemeData(
-            color: Colors.black87,
-          ),
-          bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-            elevation: 8,
-            backgroundColor: Colors.white,
-            selectedItemColor: Colors.black,
-            unselectedItemColor: Colors.black54,
-          ),
+    return MaterialApp(
+      title: "MemoLanes",
+      onGenerateTitle: (context) => context.tr('common.memolanes'),
+      supportedLocales: context.supportedLocales,
+      localizationsDelegates: context.localizationDelegates,
+      locale: context.locale,
+      navigatorKey: navigatorKey,
+      builder: (context, child) {
+        return GlobalLoadingOverlay(
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+      theme: ThemeData(
+        useMaterial3: true,
+        fontFamilyFallback:
+            Platform.isIOS ? ['.AppleSystemUIFont', 'PingFang SC'] : null,
+        scaffoldBackgroundColor: const Color(0xFF141414),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFFB6E13D),
+          brightness: Brightness.dark,
         ),
-        home: const MyHomePage(title: 'MemoLanes [OSS]'),
+        iconTheme: const IconThemeData(
+          color: Colors.black87,
+        ),
+        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+          elevation: 8,
+          backgroundColor: Colors.white,
+          selectedItemColor: Colors.black,
+          unselectedItemColor: Colors.black54,
+        ),
       ),
+      home: const MyHomePage(title: 'MemoLanes [OSS]'),
     );
   }
 }
@@ -157,6 +160,8 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _handleOnPop() async {
+    if (GlobalLoadingManager.instance.isLoading) return;
+
     if (_selectedIndex != 0) {
       setState(() => _selectedIndex = 0);
       return;
