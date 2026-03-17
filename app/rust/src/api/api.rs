@@ -327,16 +327,19 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
     journey_kinds: HashSet<JourneyKind>,
 ) -> Result<MapRendererProxy> {
     let state = get();
-    let journey_bitmap = match journey_kinds.len() {
-        0 => JourneyBitmap::new(),
-        1 => state.storage.get_range_bitmap(
-            from_date_inclusive,
-            to_date_inclusive,
-            journey_kinds.iter().next(),
-        )?,
-        _ => state
+    let get = |journey_kind| {
+        state
             .storage
-            .get_range_bitmap(from_date_inclusive, to_date_inclusive, None)?,
+            .get_range_bitmap(from_date_inclusive, to_date_inclusive, journey_kind)
+    };
+    let journey_bitmap = match (
+        journey_kinds.contains(&JourneyKind::DefaultKind),
+        journey_kinds.contains(&JourneyKind::Flight),
+    ) {
+        (false, false) => JourneyBitmap::new(),
+        (true, false) => get(Some(&JourneyKind::DefaultKind))?,
+        (false, true) => get(Some(&JourneyKind::Flight))?,
+        (true, true) => get(None)?,
     };
 
     let map_renderer = MapRenderer::new(journey_bitmap);
