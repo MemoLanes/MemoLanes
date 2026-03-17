@@ -32,7 +32,7 @@ class _MldxImportPageState extends State<MldxImportPage> {
     super.initState();
     // Conflict items are unchecked by default
     _selectedIds =
-        widget.preview.journey.where((j) => !j.$3).map((j) => j.$1.id).toSet();
+        widget.preview.journeys.where((j) => !j.$3).map((j) => j.$1.id).toSet();
   }
 
   String _journeyDateLabel(JourneyHeader h) {
@@ -45,7 +45,7 @@ class _MldxImportPageState extends State<MldxImportPage> {
   }
 
   bool get _allSelected {
-    final newIds = widget.preview.journey.map((j) => j.$1.id).toSet();
+    final newIds = widget.preview.journeys.map((j) => j.$1.id).toSet();
     return newIds.length == _selectedIds.length &&
         newIds.every(_selectedIds.contains);
   }
@@ -55,7 +55,7 @@ class _MldxImportPageState extends State<MldxImportPage> {
       setState(() => _selectedIds.clear());
       return;
     }
-    final hasConflict = widget.preview.journey.any((j) => j.$3);
+    final hasConflict = widget.preview.journeys.any((j) => j.$3);
     if (hasConflict) {
       final ok = await showCommonDialog(
         context,
@@ -67,14 +67,12 @@ class _MldxImportPageState extends State<MldxImportPage> {
       if (!ok || !mounted) return;
     }
     setState(() {
-      _selectedIds = widget.preview.journey.map((j) => j.$1.id).toSet();
+      _selectedIds = widget.preview.journeys.map((j) => j.$1.id).toSet();
     });
   }
 
   String _itemDesc(JourneyHeader header, bool isConflict) {
-    final lastModified = context
-        .tr('import.mldx_preview.last_modified_time')
-        .replaceAll('{}', _lastModifiedLabel(header));
+    final lastModified = _lastModifiedLabel(header);
     if (isConflict) {
       return '$lastModified · ${context.tr('import.mldx_preview.conflict_label')}';
     }
@@ -82,9 +80,10 @@ class _MldxImportPageState extends State<MldxImportPage> {
   }
 
   String _conflictHintText(BuildContext context, MldxImportPreview preview) {
-    return context
-        .tr('import.mldx_preview.conflict_hint')
-        .replaceAll('{}', '${preview.conflictCount}');
+    return context.tr(
+      'import.mldx_preview.conflict_hint',
+      args: ['${preview.conflictCount}'],
+    );
   }
 
   void _openJourneyPreview((JourneyHeader, JourneyData, bool) j) {
@@ -128,7 +127,7 @@ class _MldxImportPageState extends State<MldxImportPage> {
       }
       return;
     }
-    final selected = widget.preview.journey
+    final selected = widget.preview.journeys
         .where((j) => _selectedIds.contains(j.$1.id))
         .toList();
     final navigator = Navigator.of(context);
@@ -151,7 +150,7 @@ class _MldxImportPageState extends State<MldxImportPage> {
   // Conflicts first, then the rest sorted by journey date
   List<(JourneyHeader, JourneyData, bool)> _sortedJourney() {
     final list =
-        List<(JourneyHeader, JourneyData, bool)>.from(widget.preview.journey);
+        List<(JourneyHeader, JourneyData, bool)>.from(widget.preview.journeys);
     list.sort((a, b) {
       final aConflict = a.$3;
       final bConflict = b.$3;
@@ -184,9 +183,10 @@ class _MldxImportPageState extends State<MldxImportPage> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Text(
-                      context
-                          .tr('import.mldx_preview.skipped_identical')
-                          .replaceAll('{}', '${preview.skippedCount}'),
+                      context.tr(
+                        'import.mldx_preview.skipped_identical',
+                        args: ['${preview.skippedCount}'],
+                      ),
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ),
@@ -200,9 +200,10 @@ class _MldxImportPageState extends State<MldxImportPage> {
                   ),
                 ],
                 Text(
-                  context
-                      .tr('import.mldx_preview.new_count')
-                      .replaceAll('{}', '${journey.length}'),
+                  context.tr(
+                    'import.mldx_preview.new_count',
+                    args: ['${journey.length}'],
+                  ),
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],

@@ -77,9 +77,10 @@ fn archive_and_import() {
     drop(file);
     main_db.with_txn(|txn| txn.delete_all_journeys()).unwrap();
 
-    let (_, new_journeys, _) = main_db
+    let preview = main_db
         .with_txn(|txn| archive::analyze_mldx_import(txn, mldx_file_path.to_str().unwrap()))
         .unwrap();
+    let new_journeys = preview.journeys;
     main_db
         .with_txn(|txn| {
             for (header, journey_data, _) in new_journeys {
@@ -152,9 +153,10 @@ fn import_skips_existing_journeys() {
     );
 
     // analyze: existing journeys = skipped, deleted one = new; import only new
-    let (_, new_journeys, _) = main_db
+    let preview = main_db
         .with_txn(|txn| archive::analyze_mldx_import(txn, mldx_file_path.to_str().unwrap()))
         .unwrap();
+    let new_journeys = preview.journeys;
     main_db
         .with_txn(|txn| {
             for (header, journey_data, _) in new_journeys {

@@ -208,13 +208,14 @@ Future<void> importMldx(BuildContext context, String path) async {
     if (!context.mounted) return;
 
     // If everything is skipped, end the flow here.
-    // Total = skippedCount + preview.journey.length
-    if (preview.journey.isEmpty && preview.skippedCount > 0) {
+    // Total = skippedCount + preview.journeys.length
+    if (preview.journeys.isEmpty && preview.skippedCount > 0) {
       await showCommonDialog(
         context,
-        context
-            .tr('import.mldx_preview.all_skipped')
-            .replaceAll('{}', '${preview.skippedCount}'),
+        context.tr(
+          'import.mldx_preview.all_skipped',
+          args: ['${preview.skippedCount}'],
+        ),
       );
       return;
     }

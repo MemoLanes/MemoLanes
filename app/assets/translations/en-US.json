@@ -131,7 +131,6 @@
       "conflict_force_confirm": "Force overwrite? Selected journey(s) will overwrite local data for that date.",
       "conflict_hint": "{} journey(s) conflict with local, unchecked by default.",
       "select_at_least_one": "Please select at least one journey to import.",
-      "last_modified_time": "Modified: {}",
       "all_skipped": "{} identical journey(s) skipped. Nothing to import."
     },
     "import_fow_data": {

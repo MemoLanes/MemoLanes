@@ -22,16 +22,21 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Importing MLDX file: {mldx_file_path}");
         match analyze_mldx_import(mldx_file_path.to_string()) {
             Ok(preview) => {
-                let n = preview.journey.len();
-                import_journeys(preview.journey)?;
+                let memolanes_core::archive::MldxImportPreview {
+                    skipped_count,
+                    journeys,
+                    conflict_count,
+                } = preview;
+                let n = journeys.len();
+                import_journeys(journeys)?;
                 println!(
                     "Successfully imported {} journey(s) (skipped {} identical)",
-                    n, preview.skipped_count
+                    n, skipped_count
                 );
-                if preview.conflict_count > 0 {
+                if conflict_count > 0 {
                     println!(
                         "{} of them overwrote existing conflicting journey(s).",
-                        preview.conflict_count
+                        conflict_count
                     );
                 }
             }

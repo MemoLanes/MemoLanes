@@ -46,7 +46,7 @@ const SECTION_MAGIC_HEADER: [u8; 3] = [b'M', b'L', b'S'];
 pub struct MldxImportPreview {
     pub skipped_count: u32,
     /// (header, data, is_conflict). Conflict items unchecked by default; checking and importing overwrites local.
-    pub journey: Vec<(JourneyHeader, JourneyData, bool)>,
+    pub journeys: Vec<(JourneyHeader, JourneyData, bool)>,
     pub conflict_count: u32,
 }
 
@@ -124,7 +124,7 @@ pub fn analyze_mldx_import(txn: &main_db::Txn, mldx_file: &str) -> Result<MldxIm
     }
     Ok(MldxImportPreview {
         skipped_count,
-        journey: journeys,
+        journeys,
         conflict_count,
     })
 }

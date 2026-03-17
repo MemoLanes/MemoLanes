@@ -131,7 +131,6 @@
       "conflict_force_confirm": "强制覆盖？选择后将覆盖本地该日期的旅程数据。",
       "conflict_hint": "以下 {} 条与本地冲突，已默认不勾选。",
       "select_at_least_one": "请至少选择一条要导入的旅程。",
-      "last_modified_time": "修改时间：{}",
       "all_skipped": "已跳过 {} 条完全相同的旅程，没有可导入的内容。"
     },
     "import_fow_data": {
