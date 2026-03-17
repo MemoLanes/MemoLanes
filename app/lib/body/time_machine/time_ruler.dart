@@ -174,8 +174,10 @@ class _DayRulerData extends _RulerData {
 
   DateTime get _windowStart {
     final sel = _selected;
-    if (sel.isAfter(_today))
-      return _today.subtract(const Duration(days: _half * 2));
+    if (sel.isAfter(_today)) {
+      final start = _today.subtract(const Duration(days: _half * 2));
+      return start.isBefore(_earliestDay) ? _earliestDay : start;
+    }
     final start = sel.subtract(const Duration(days: _half));
     return start.isBefore(_earliestDay) ? _earliestDay : start;
   }
