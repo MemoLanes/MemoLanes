@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
-import 'package:intl/intl.dart';
 import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
@@ -207,6 +206,18 @@ Future<void> importMldx(BuildContext context, String path) async {
       asyncTask: api.analyzeMldxImport(mldxFilePath: path),
     );
     if (!context.mounted) return;
+
+    // If everything is skipped, end the flow here.
+    // Total = skippedCount + preview.journey.length
+    if (preview.journey.isEmpty && preview.skippedCount > 0) {
+      await showCommonDialog(
+        context,
+        context
+            .tr('import.mldx_preview.all_skipped')
+            .replaceAll('{}', '${preview.skippedCount}'),
+      );
+      return;
+    }
     await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (context) => MldxImportPage(preview: preview),

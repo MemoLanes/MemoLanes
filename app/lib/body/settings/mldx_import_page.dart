@@ -25,6 +25,7 @@ class MldxImportPage extends StatefulWidget {
 
 class _MldxImportPageState extends State<MldxImportPage> {
   late Set<String> _selectedIds;
+  static final _lastModifiedFormat = DateFormat('yyyy-MM-dd HH:mm');
 
   @override
   void initState() {
@@ -36,6 +37,11 @@ class _MldxImportPageState extends State<MldxImportPage> {
 
   String _journeyDateLabel(JourneyHeader h) {
     return naiveDateToString(date: h.journeyDate);
+  }
+
+  String _lastModifiedLabel(JourneyHeader h) {
+    final t = h.updatedAt ?? h.createdAt;
+    return _lastModifiedFormat.format(t.toLocal());
   }
 
   bool get _allSelected {
@@ -66,10 +72,13 @@ class _MldxImportPageState extends State<MldxImportPage> {
   }
 
   String _itemDesc(JourneyHeader header, bool isConflict) {
+    final lastModified = context
+        .tr('import.mldx_preview.last_modified_time')
+        .replaceAll('{}', _lastModifiedLabel(header));
     if (isConflict) {
-      return '${header.revision} · ${context.tr('import.mldx_preview.conflict_label')}';
+      return '$lastModified · ${context.tr('import.mldx_preview.conflict_label')}';
     }
-    return header.revision;
+    return lastModified;
   }
 
   String _conflictHintText(BuildContext context, MldxImportPreview preview) {
