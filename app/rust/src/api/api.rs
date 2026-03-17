@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
@@ -320,31 +320,26 @@ pub fn get_empty_map_renderer_proxy() -> MapRendererProxy {
     MapRendererProxy::StaticRenderer(map_renderer)
 }
 
+/// [journey_kinds]: empty = no layers; len 1 = that kind only; len 2 = both (pass None).
 pub fn get_map_renderer_proxy_for_journey_date_range(
     from_date_inclusive: NaiveDate,
     to_date_inclusive: NaiveDate,
+    journey_kinds: HashSet<JourneyKind>,
 ) -> Result<MapRendererProxy> {
     let state = get();
-    let layer_filter = state.main_map_state.lock().unwrap().layer_filter;
-    let (default_kind, flight_kind) = (layer_filter.default_kind, layer_filter.flight_kind);
-
-    let journey_bitmap = match (default_kind, flight_kind) {
-        (true, true) => {
-            state
-                .storage
-                .get_range_bitmap(from_date_inclusive, to_date_inclusive, None)?
-        }
-        (true, false) => state.storage.get_range_bitmap(
-            from_date_inclusive,
-            to_date_inclusive,
-            Some(&JourneyKind::DefaultKind),
-        )?,
-        (false, true) => state.storage.get_range_bitmap(
-            from_date_inclusive,
-            to_date_inclusive,
-            Some(&JourneyKind::Flight),
-        )?,
+    let get = |journey_kind| {
+        state
+            .storage
+            .get_range_bitmap(from_date_inclusive, to_date_inclusive, journey_kind)
+    };
+    let journey_bitmap = match (
+        journey_kinds.contains(&JourneyKind::DefaultKind),
+        journey_kinds.contains(&JourneyKind::Flight),
+    ) {
         (false, false) => JourneyBitmap::new(),
+        (true, false) => get(Some(&JourneyKind::DefaultKind))?,
+        (false, true) => get(Some(&JourneyKind::Flight))?,
+        (true, true) => get(None)?,
     };
 
     let map_renderer = MapRenderer::new(journey_bitmap);
