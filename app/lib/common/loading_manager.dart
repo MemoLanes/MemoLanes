@@ -9,13 +9,9 @@ class GlobalLoadingManager extends ChangeNotifier {
   static final GlobalLoadingManager instance = GlobalLoadingManager._internal();
 
   int _activeTaskCount = 0;
-  int _currentMaxPriority = 0;
 
   /// Whether there is any active loading task.
   bool get isLoading => _activeTaskCount > 0;
-
-  /// Current max priority (reserved for future style switching/extension).
-  int get currentPriority => _currentMaxPriority;
 
   /// Manages the loading lifecycle for async tasks in a unified way.
   ///
@@ -23,51 +19,50 @@ class GlobalLoadingManager extends ChangeNotifier {
   /// - Supports timeout (timeout only affects the result, not counter cleanup).
   Future<T> runWithLoading<T>(
     Future<T> Function() task, {
-    int priority = 0,
     Duration? timeout,
     // How long to wait before showing loading (prevents flicker).
-    Duration minDelayBeforeShow = const Duration(milliseconds: 300),
+    Duration minDelayBeforeShow = const Duration(milliseconds: 200),
   }) async {
-    var taskCompletedEarly = false;
+    final Future<T> future = Future<T>.sync(task);
 
-    final future = task();
-    future.whenComplete(() {
-      taskCompletedEarly = true;
-    });
-
-    if (minDelayBeforeShow > Duration.zero) {
-      await Future.delayed(minDelayBeforeShow);
-    }
-
-    if (taskCompletedEarly) {
-      return timeout == null ? await future : await future.timeout(timeout);
-    }
-
-    _increment(priority: priority);
-    try {
-      if (timeout != null) {
-        return await future.timeout(timeout);
+    if (minDelayBeforeShow <= Duration.zero) {
+      _increment();
+      try {
+        return timeout == null ? await future : await future.timeout(timeout);
+      } finally {
+        _decrement();
       }
-      return await future;
+    }
+
+    final Object delayToken = Object();
+    final delay = Future<void>.delayed(minDelayBeforeShow);
+    final first = await Future.any<Object?>(<Future<Object?>>[
+      future.then<Object?>((v) => v),
+      delay.then<Object?>((_) => delayToken),
+    ]);
+
+    // If task finished before the delay, return immediately without showing loading.
+    if (!identical(first, delayToken)) {
+      // Still apply timeout here for compatibility with the old behavior.
+      return timeout == null ? (first as T) : await future.timeout(timeout);
+    }
+
+    _increment();
+    try {
+      return timeout == null ? await future : await future.timeout(timeout);
     } finally {
       _decrement();
     }
   }
 
-  void _increment({required int priority}) {
+  void _increment() {
     _activeTaskCount += 1;
-    if (priority > _currentMaxPriority) {
-      _currentMaxPriority = priority;
-    }
     notifyListeners();
   }
 
   void _decrement() {
     if (_activeTaskCount > 0) {
       _activeTaskCount -= 1;
-    }
-    if (_activeTaskCount == 0) {
-      _currentMaxPriority = 0;
     }
     notifyListeners();
   }
