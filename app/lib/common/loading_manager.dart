@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-/// 全局 Loading 管理器（单例 + 引用计数）
+/// Global loading manager (singleton + reference counting).
 class GlobalLoadingManager extends ChangeNotifier {
   GlobalLoadingManager._internal();
 
@@ -11,42 +11,38 @@ class GlobalLoadingManager extends ChangeNotifier {
   int _activeTaskCount = 0;
   int _currentMaxPriority = 0;
 
-  /// 当前是否有正在进行的 loading 任务
+  /// Whether there is any active loading task.
   bool get isLoading => _activeTaskCount > 0;
 
-  /// 当前最高优先级（暂未用于切换样式，但为未来扩展预留）
+  /// Current max priority (reserved for future style switching/extension).
   int get currentPriority => _currentMaxPriority;
 
-  /// 统一管理异步任务的 loading 生命周期
+  /// Manages the loading lifecycle for async tasks in a unified way.
   ///
-  /// - 支持并行 / 嵌套任务（引用计数）
-  /// - 支持超时（超时只影响结果，不影响计数的正确回收）
+  /// - Supports parallel/nested tasks (reference counting).
+  /// - Supports timeout (timeout only affects the result, not counter cleanup).
   Future<T> runWithLoading<T>(
     Future<T> Function() task, {
     int priority = 0,
     Duration? timeout,
-    // 任务开始后多久才考虑显示 Loading（防止闪烁）
+    // How long to wait before showing loading (prevents flicker).
     Duration minDelayBeforeShow = const Duration(milliseconds: 300),
   }) async {
     var taskCompletedEarly = false;
 
-    // 先启动任务
     final future = task();
     future.whenComplete(() {
       taskCompletedEarly = true;
     });
 
-    // 等待一小段时间，避免闪烁
     if (minDelayBeforeShow > Duration.zero) {
       await Future.delayed(minDelayBeforeShow);
     }
 
-    // 任务已经完成，就不展示 loading，直接返回结果
     if (taskCompletedEarly) {
       return timeout == null ? await future : await future.timeout(timeout);
     }
 
-    // 任务仍在进行，增加引用计数并展示全局 loading
     _increment(priority: priority);
     try {
       if (timeout != null) {
@@ -77,9 +73,10 @@ class GlobalLoadingManager extends ChangeNotifier {
   }
 }
 
-/// 根部包裹用的全局 Loading Overlay
+/// Global loading overlay that wraps the app root.
 ///
-/// 将整个应用内容包在 [child] 之上，当有全局 loading 时在最上层展示遮罩和动画。
+/// Wraps the entire app content with [child] and shows a mask + animation on top
+/// when global loading is active.
 class GlobalLoadingOverlay extends StatelessWidget {
   final Widget child;
 
@@ -120,7 +117,7 @@ class GlobalLoadingOverlay extends StatelessWidget {
   }
 }
 
-/// 默认的全局 loading 样式
+/// Default global loading UI.
 class _DefaultLoadingCard extends StatelessWidget {
   const _DefaultLoadingCard();
 
@@ -145,4 +142,3 @@ class _DefaultLoadingCard extends StatelessWidget {
     );
   }
 }
-

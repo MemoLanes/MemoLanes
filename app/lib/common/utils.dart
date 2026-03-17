@@ -70,10 +70,8 @@ Future<bool> showCommonDialog(BuildContext context, String message,
 }
 
 Future<T> showLoadingDialog<T>({
-  required BuildContext context,
   required Future<T> asyncTask,
 }) async {
-  // 兼容旧接口：内部改为使用全局 Loading 管理器
   final result = await GlobalLoadingManager.instance.runWithLoading<T>(
     () async {
       try {
@@ -157,7 +155,6 @@ void showBasicCard(
 Future<void> importMldx(BuildContext context, String path) async {
   try {
     await showLoadingDialog(
-      context: context,
       asyncTask: api.importArchive(mldxFilePath: path),
     );
     if (context.mounted) {

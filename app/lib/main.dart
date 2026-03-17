@@ -129,14 +129,11 @@ class _MyHomePageState extends State<MyHomePage> {
 
       var mainMapReady = AppBootstrap.mainMapReady;
 
-
+      if (!mainMapReady.isCompleted) {
         await showLoadingDialog(
-          context: context,
-          asyncTask: () async {
-            await mainMapReady.future;                     // 原来的任务
-            await Future.delayed(const Duration(seconds: 10)); // 额外等 10 秒
-          }(),
+          asyncTask: mainMapReady.future,
         );
+      }
     });
   }
 

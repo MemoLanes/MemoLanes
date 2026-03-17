@@ -85,7 +85,6 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
                 )) {
                   if (!context.mounted) return;
                   await showLoadingDialog(
-                    context: context,
                     asyncTask: api.optimizeMainDb(),
                   );
                   if (!context.mounted) return;
@@ -126,7 +125,6 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
             label: context.tr("general.advanced_settings.rebuild_cache"),
             position: LabelTilePosition.middle,
             onTap: () async => await showLoadingDialog(
-              context: context,
               asyncTask: api.rebuildCache(),
             ),
           ),

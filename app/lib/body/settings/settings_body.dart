@@ -228,7 +228,6 @@ class _SettingsBodyState extends State<SettingsBody> {
             final filepath = "${tmpDir.path}/all-journeys-$timestamp.mldx";
             if (!context.mounted) return;
             await showLoadingDialog(
-              context: context,
               asyncTask: api.generateFullArchive(targetFilepath: filepath),
             );
             if (!context.mounted) return;
