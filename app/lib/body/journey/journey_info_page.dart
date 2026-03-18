@@ -90,7 +90,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
 
   Future<void> _editJourneyInfo(BuildContext context) async {
     var trackEdited = false;
-    final result = await pushNoPop(
+    final result = await navigator_push(
       context,
       page: Scaffold(
         appBar: CapsuleStyleAppBar(
@@ -128,7 +128,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       );
       return;
     }
-    await pushNoPop(
+    await navigator_push(
       context,
       page: JourneyTrackEditPage(editSession: session),
     );

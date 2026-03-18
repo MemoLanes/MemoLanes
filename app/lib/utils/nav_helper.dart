@@ -5,7 +5,7 @@ import 'package:memolanes/common/loading_manager.dart';
 ///
 /// All helpers here wrap the destination page with [GlobalPopScope] so that
 /// back button / back gesture is blocked while global loading is active.
-Future<T?> pushNoPop<T>(
+Future<T?> navigator_push<T>(
   BuildContext context, {
   required Widget page,
   RouteSettings? settings,

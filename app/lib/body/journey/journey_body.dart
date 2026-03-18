@@ -186,7 +186,7 @@ class _JourneyBodyState extends State<JourneyBody> {
                     date: _journeyHeaderList[index].journeyDate),
             trailing: LabelTileContent(showArrow: true),
             onTap: () {
-              pushNoPop(
+              navigator_push(
                 context,
                 page: JourneyInfoPage(
                   journeyHeader: _journeyHeaderList[index],
