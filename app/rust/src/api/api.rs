@@ -547,6 +547,12 @@ pub fn list_all_journeys() -> Result<Vec<JourneyHeader>> {
         .with_db_txn(|txn| txn.query_journeys(None, None))
 }
 
+pub fn get_journey_header(journey_id: String) -> Result<Option<JourneyHeader>> {
+    get()
+        .storage
+        .with_db_txn(|txn| txn.get_journey_header(&journey_id))
+}
+
 pub fn generate_full_archive(target_filepath: String) -> Result<()> {
     info!("generating full archive");
     let mut file = File::create(target_filepath)?;

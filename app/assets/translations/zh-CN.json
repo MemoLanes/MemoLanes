@@ -131,7 +131,10 @@
       "conflict_force_confirm": "强制覆盖？选择后将覆盖本地该日期的旅程数据。",
       "conflict_hint": "以下 {} 条与本地冲突，已默认不勾选。",
       "select_at_least_one": "请至少选择一条要导入的旅程。",
-      "all_skipped": "已跳过 {} 条完全相同的旅程，没有可导入的内容。"
+      "all_skipped": "已跳过 {} 条完全相同的旅程，没有可导入的内容。",
+      "last_modified": "修改时间：{}",
+      "local_last_modified": "本地修改时间：{}",
+      "import_last_modified": "导入修改时间：{}"
     },
     "import_fow_data": {
       "description_md": "导入世界迷雾 App 中产生的数据。\n\n支持以下格式：\n1. Zip 格式：将世界迷雾网盘同步 Sync 文件夹压缩为 Zip 格式压缩包。\n2. Fwss 格式：世界迷雾快照文件。  \n\n世界迷雾 App 数据不包含轨迹历史变化过程，实际导出数据为从使用开始到导出时点的所有轨迹。如您保留了多个世界迷雾历史文件，可尝试将数据上传至 [迷雾机器-时光机](https://fogmachine.8bits.io/time-machine)，并使用“导出迹忆归档”功能。",

@@ -13,6 +13,7 @@ class LabelTile extends StatelessWidget {
     this.position = LabelTilePosition.single,
     required this.label,
     this.desc = '',
+    this.descMaxLines = 1,
     this.prefix,
     this.suffix,
     this.trailing,
@@ -23,6 +24,7 @@ class LabelTile extends StatelessWidget {
     this.decoration,
     this.bottom = true,
     this.maxHeight,
+    this.minHeight = 54.0,
   });
 
   final LabelTilePosition position;
@@ -30,6 +32,8 @@ class LabelTile extends StatelessWidget {
   final String label;
 
   final String desc;
+
+  final int descMaxLines;
 
   final Widget? prefix;
 
@@ -50,6 +54,8 @@ class LabelTile extends StatelessWidget {
   final bool bottom;
 
   final double? maxHeight;
+
+  final double minHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -77,37 +83,34 @@ class LabelTile extends StatelessWidget {
     List<Widget> children = [
       GestureDetector(
         onTap: infoLabelOnTap,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 54.0),
-          child: Row(
-            children: [
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+        child: Row(
+          children: [
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (desc.isNotEmpty)
                   Text(
-                    label,
-                    maxLines: 1,
+                    desc,
+                    maxLines: descMaxLines,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (desc.isNotEmpty)
-                    Text(
-                      desc,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                ],
-              ),
-              if (infoLabelOnTap != null) ...[
-                const SizedBox(width: 6),
-                const Icon(
-                  Icons.info_outline,
-                  size: 18.0,
-                  color: Color(0x99FFFFFF),
-                ),
               ],
+            ),
+            if (infoLabelOnTap != null) ...[
+              const SizedBox(width: 6),
+              const Icon(
+                Icons.info_outline,
+                size: 18.0,
+                color: Color(0x99FFFFFF),
+              ),
             ],
-          ),
+          ],
         ),
       )
     ];
@@ -131,7 +134,7 @@ class LabelTile extends StatelessWidget {
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   maxHeight: maxHeight ?? 54.0,
-                  minHeight: 54.0,
+                  minHeight: minHeight,
                 ),
                 child: Ink(
                   padding: EdgeInsets.symmetric(horizontal: 16.0),
@@ -139,10 +142,12 @@ class LabelTile extends StatelessWidget {
                     color: const Color(0x1AFFFFFF),
                     borderRadius: borderRadius,
                   ),
-                  child: Row(
-                    mainAxisAlignment: mainAxisAlignment,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: children,
+                  child: IntrinsicHeight(
+                    child: Row(
+                      mainAxisAlignment: mainAxisAlignment,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: children,
+                    ),
                   ),
                 ),
               ),

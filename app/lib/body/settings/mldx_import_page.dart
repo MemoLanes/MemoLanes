@@ -25,6 +25,8 @@ class MldxImportPage extends StatefulWidget {
 
 class _MldxImportPageState extends State<MldxImportPage> {
   late Set<String> _selectedIds;
+  late final List<(JourneyHeader, JourneyData, bool)> _sortedJourney;
+  final Map<String, JourneyHeader> _localHeadersById = {};
   static final _lastModifiedFormat = DateFormat('yyyy-MM-dd HH:mm');
 
   @override
@@ -33,6 +35,46 @@ class _MldxImportPageState extends State<MldxImportPage> {
     // Conflict items are unchecked by default
     _selectedIds =
         widget.preview.journeys.where((j) => !j.$3).map((j) => j.$1.id).toSet();
+    _sortedJourney = _sortJourneys(widget.preview.journeys);
+    _loadLocalHeadersForConflicts();
+  }
+
+  static List<(JourneyHeader, JourneyData, bool)> _sortJourneys(
+    List<(JourneyHeader, JourneyData, bool)> list,
+  ) {
+    final result = List<(JourneyHeader, JourneyData, bool)>.from(list);
+    result.sort((a, b) {
+      final aConflict = a.$3;
+      final bConflict = b.$3;
+      if (aConflict != bConflict) return aConflict ? -1 : 1;
+      final aStr = naiveDateToString(date: a.$1.journeyDate);
+      final bStr = naiveDateToString(date: b.$1.journeyDate);
+      return aStr.compareTo(bStr);
+    });
+    return result;
+  }
+
+  Future<void> _loadLocalHeadersForConflicts() async {
+    final conflictIds =
+        widget.preview.journeys.where((j) => j.$3).map((j) => j.$1.id).toSet();
+    if (conflictIds.isEmpty) return;
+
+    final futures = conflictIds.map((id) async {
+      try {
+        final local = await api.getJourneyHeader(journeyId: id);
+        return MapEntry(id, local);
+      } catch (e) {
+        return MapEntry<String, JourneyHeader?>(id, null);
+      }
+    });
+    final results = await Future.wait(futures);
+    if (!mounted) return;
+    final updates = <String, JourneyHeader>{};
+    for (final entry in results) {
+      if (entry.value != null) updates[entry.key] = entry.value!;
+    }
+    if (updates.isEmpty) return;
+    setState(() => _localHeadersById.addAll(updates));
   }
 
   String _journeyDateLabel(JourneyHeader h) {
@@ -71,12 +113,28 @@ class _MldxImportPageState extends State<MldxImportPage> {
     });
   }
 
-  String _itemDesc(JourneyHeader header, bool isConflict) {
-    final lastModified = _lastModifiedLabel(header);
-    if (isConflict) {
-      return '$lastModified · ${context.tr('import.mldx_preview.conflict_label')}';
+  String _itemDesc(JourneyHeader importHeader, bool isConflict) {
+    final importLastModified = _lastModifiedLabel(importHeader);
+    if (!isConflict) {
+      return context.tr(
+        'import.mldx_preview.last_modified',
+        args: [importLastModified],
+      );
     }
-    return lastModified;
+
+    final localHeader = _localHeadersById[importHeader.id];
+    final localLastModified =
+        localHeader == null ? '-' : _lastModifiedLabel(localHeader);
+
+    final localLine = context.tr(
+      'import.mldx_preview.local_last_modified',
+      args: [localLastModified],
+    );
+    final importLine = context.tr(
+      'import.mldx_preview.import_last_modified',
+      args: [importLastModified],
+    );
+    return '$localLine\n$importLine';
   }
 
   String _conflictHintText(BuildContext context, MldxImportPreview preview) {
@@ -140,32 +198,17 @@ class _MldxImportPageState extends State<MldxImportPage> {
         await showCommonDialog(context, context.tr('import.successful'));
         navigator.pop(true);
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         await showCommonDialog(context, context.tr('import.parsing_failed'));
       }
     }
   }
 
-  // Conflicts first, then the rest sorted by journey date
-  List<(JourneyHeader, JourneyData, bool)> _sortedJourney() {
-    final list =
-        List<(JourneyHeader, JourneyData, bool)>.from(widget.preview.journeys);
-    list.sort((a, b) {
-      final aConflict = a.$3;
-      final bConflict = b.$3;
-      if (aConflict != bConflict) return aConflict ? -1 : 1;
-      final aStr = naiveDateToString(date: a.$1.journeyDate);
-      final bStr = naiveDateToString(date: b.$1.journeyDate);
-      return aStr.compareTo(bStr);
-    });
-    return list;
-  }
-
   @override
   Widget build(BuildContext context) {
     final preview = widget.preview;
-    final journey = _sortedJourney();
+    final journey = _sortedJourney;
 
     return Scaffold(
       appBar: CapsuleStyleAppBar(
@@ -220,7 +263,7 @@ class _MldxImportPageState extends State<MldxImportPage> {
                   ),
                   const Spacer(),
                   TextButton.icon(
-                    onPressed: () => _toggleSelectAll(),
+                    onPressed: () async => await _toggleSelectAll(),
                     icon: Icon(
                       _allSelected
                           ? Icons.check_box
@@ -249,6 +292,9 @@ class _MldxImportPageState extends State<MldxImportPage> {
                 return LabelTile(
                   label: _journeyDateLabel(header),
                   desc: _itemDesc(header, isConflict),
+                  descMaxLines: isConflict ? 2 : 1,
+                  minHeight: isConflict ? 72.0 : 54.0,
+                  maxHeight: isConflict ? 72.0 : null,
                   prefix: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () => _onToggleItem(j, !selected),
@@ -263,10 +309,23 @@ class _MldxImportPageState extends State<MldxImportPage> {
                       ? Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(
-                              Icons.error_outline,
-                              size: 30,
-                              color: Colors.red,
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.error_outline,
+                                  size: 30,
+                                  color: Colors.red,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  context.tr('import.mldx_preview.conflict_label'),
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.red,
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(width: 8),
                             const LabelTileContent(showArrow: true),
