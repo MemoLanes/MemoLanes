@@ -100,7 +100,7 @@ class ShareHandlerUtil {
 
     if (!context.mounted) return;
 
-    navigator_push(
+    navigatorPush(
       context,
       page: ImportDataPage(
         path: path,

@@ -21,10 +21,9 @@ class GlobalLoadingManager extends ChangeNotifier {
   ///
   /// - Supports parallel/nested tasks (reference counting).
   Future<T> runWithLoading<T>(Future<T> Function() task) async {
-    final Future<T> future = Future<T>.sync(task);
     _increment();
     try {
-      return await future;
+      return await task();
     } finally {
       _decrement();
     }

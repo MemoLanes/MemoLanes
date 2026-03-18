@@ -34,7 +34,7 @@ dart_code_metrics:
     - banned-usage:
         entries:
           - ident: Navigator.push
-            description: "Use navigator_push() instead of Navigator.push() directly."
+            description: "Use navigatorPush() instead of Navigator.push() directly."
             excludes:
               - lib/utils/nav_helper.dart
 

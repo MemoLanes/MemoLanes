@@ -77,7 +77,7 @@ class _SettingsBodyState extends State<SettingsBody> {
     final result = await FilePicker.platform.pickFiles(type: FileType.any);
     final path = result?.files.single.path;
     if (path != null && context.mounted) {
-      navigator_push(
+      navigatorPush(
         context,
         page: ImportDataPage(path: path, importType: importType),
       );
@@ -165,13 +165,13 @@ class _SettingsBodyState extends State<SettingsBody> {
           label: context.tr("general.map_settings.title"),
           position: LabelTilePosition.middle,
           trailing: LabelTileContent(showArrow: true),
-          onTap: () => navigator_push(context, page: const MapSettingsPage()),
+          onTap: () => navigatorPush(context, page: const MapSettingsPage()),
         ),
         LabelTile(
           label: context.tr("general.advanced_settings.title"),
           position: LabelTilePosition.bottom,
           trailing: LabelTileContent(showArrow: true),
-          onTap: () => navigator_push(context, page: AdvancedSettingsPage()),
+          onTap: () => navigatorPush(context, page: AdvancedSettingsPage()),
         ),
         LabelTileTitle(
           label: context.tr("data.title"),
@@ -279,7 +279,7 @@ class _SettingsBodyState extends State<SettingsBody> {
           label: context.tr("contact_us.title"),
           position: LabelTilePosition.bottom,
           trailing: LabelTileContent(rightIcon: Icons.arrow_forward_ios),
-          onTap: () => navigator_push(context, page: ContactUsPage()),
+          onTap: () => navigatorPush(context, page: ContactUsPage()),
         ),
       ],
     );

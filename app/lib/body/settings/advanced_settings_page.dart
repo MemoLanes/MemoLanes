@@ -113,7 +113,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
           LabelTile(
             label: context.tr("general.advanced_settings.raw_data_mode"),
             position: LabelTilePosition.middle,
-            onTap: () => navigator_push(context, page: RawDataPage()),
+            onTap: () => navigatorPush(context, page: RawDataPage()),
           ),
           LabelTile(
             label: context.tr("general.advanced_settings.rebuild_cache"),
@@ -131,7 +131,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
           LabelTile(
             label: context.tr("general.advanced_settings.render_diagnostics"),
             position: LabelTilePosition.bottom,
-            onTap: () => navigator_push(context, page: RenderDiagnosticsPage()),
+            onTap: () => navigatorPush(context, page: RenderDiagnosticsPage()),
           )
         ],
       ),
