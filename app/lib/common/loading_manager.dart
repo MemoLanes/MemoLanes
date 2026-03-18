@@ -11,47 +11,20 @@ class GlobalLoadingManager extends ChangeNotifier {
   static final GlobalLoadingManager instance = GlobalLoadingManager._internal();
 
   int _activeTaskCount = 0;
+  bool _isLoading = false;
+  Timer? _loadingDelayTimer;
 
   /// Whether there is any active loading task.
-  bool get isLoading => _activeTaskCount > 0;
+  bool get isLoading => _isLoading;
 
   /// Manages the loading lifecycle for async tasks in a unified way.
   ///
   /// - Supports parallel/nested tasks (reference counting).
-  /// - Supports timeout (timeout only affects the result, not counter cleanup).
-  Future<T> runWithLoading<T>(
-    Future<T> Function() task, {
-    Duration? timeout,
-    // How long to wait before showing loading (prevents flicker).
-    Duration minDelayBeforeShow = const Duration(milliseconds: 200),
-  }) async {
+  Future<T> runWithLoading<T>(Future<T> Function() task) async {
     final Future<T> future = Future<T>.sync(task);
-
-    if (minDelayBeforeShow <= Duration.zero) {
-      _increment();
-      try {
-        return timeout == null ? await future : await future.timeout(timeout);
-      } finally {
-        _decrement();
-      }
-    }
-
-    final Object delayToken = Object();
-    final delay = Future<void>.delayed(minDelayBeforeShow);
-    final first = await Future.any<Object?>(<Future<Object?>>[
-      future.then<Object?>((v) => v),
-      delay.then<Object?>((_) => delayToken),
-    ]);
-
-    // If task finished before the delay, return immediately without showing loading.
-    if (!identical(first, delayToken)) {
-      // Still apply timeout here for compatibility with the old behavior.
-      return timeout == null ? (first as T) : await future.timeout(timeout);
-    }
-
     _increment();
     try {
-      return timeout == null ? await future : await future.timeout(timeout);
+      return await future;
     } finally {
       _decrement();
     }
@@ -60,9 +33,14 @@ class GlobalLoadingManager extends ChangeNotifier {
   void _increment() {
     if (_activeTaskCount == 0) {
       unawaited(WakelockPlus.enable());
+      _loadingDelayTimer?.cancel();
+      // Delay showing the loading UI a bit to avoid flickering for very fast tasks.
+      _loadingDelayTimer = Timer(const Duration(milliseconds: 200), () {
+        _isLoading = true;
+        notifyListeners();
+      });
     }
     _activeTaskCount += 1;
-    notifyListeners();
   }
 
   void _decrement() {
@@ -71,8 +49,11 @@ class GlobalLoadingManager extends ChangeNotifier {
     }
     if (_activeTaskCount == 0) {
       unawaited(WakelockPlus.disable());
+      _loadingDelayTimer?.cancel();
+      _loadingDelayTimer = null;
+      _isLoading = false;
+      notifyListeners();
     }
-    notifyListeners();
   }
 }
 
