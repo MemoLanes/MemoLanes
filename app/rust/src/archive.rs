@@ -1,6 +1,7 @@
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
 use chrono::{Datelike, Utc};
+use flutter_rust_bridge::frb;
 use hex::ToHex;
 use integer_encoding::*;
 use protobuf::{EnumOrUnknown, Message};
@@ -39,8 +40,19 @@ const SECTION_MAGIC_HEADER: [u8; 3] = [b'M', b'L', b'S'];
 
 // TODO: consider return more detail about this import: e.g. how many journeys
 // are added, how many are skipped.
+
+/// Result of analyzing an MLDX file. Re-exported by api as the FFI return type.
+#[frb]
+pub struct MldxImportPreview {
+    pub skipped_count: u32,
+    /// (header, data, is_conflict). Conflict items unchecked by default; checking and importing overwrites local.
+    pub journeys: Vec<(JourneyHeader, JourneyData, bool)>,
+    pub conflict_count: u32,
+}
+
+/// Parses MLDX once; conflict items are included with is_conflict=true (default unchecked in UI; import overwrites).
 #[auto_context]
-pub fn import_mldx(txn: &mut main_db::Txn, mldx_file: &str) -> Result<()> {
+pub fn analyze_mldx_import(txn: &main_db::Txn, mldx_file: &str) -> Result<MldxImportPreview> {
     let mut zip = zip::ZipArchive::new(File::open(mldx_file)?)?;
     let mut file = zip.by_name("metadata.xxm")?;
     let mut magic_header: [u8; 3] = [0; 3];
@@ -59,6 +71,10 @@ pub fn import_mldx(txn: &mut main_db::Txn, mldx_file: &str) -> Result<()> {
     let mut decoder = zstd::Decoder::new(file.take(len))?;
     let metadata_proto: Metadata = Message::parse_from_reader(&mut decoder)?;
     drop(decoder);
+
+    let mut skipped_count: u32 = 0;
+    let mut journeys = Vec::new();
+    let mut conflict_count: u32 = 0;
 
     for section_info in metadata_proto.section_infos {
         let mut file = zip.by_name(&section_info.section_id)?;
@@ -79,17 +95,38 @@ pub fn import_mldx(txn: &mut main_db::Txn, mldx_file: &str) -> Result<()> {
         drop(decoder);
 
         for header in section_header.journey_headers {
-            let len: u64 = file.read_varint()?;
-            let mut buf = vec![0_u8; len as usize];
-            file.read_exact(&mut buf)?;
-
             let journey_header = JourneyHeader::of_proto(header)?;
-            let journey_data =
-                JourneyData::deserialize(buf.as_slice(), journey_header.journey_type)?;
-            txn.insert_journey(journey_header, journey_data)?;
+            let data_len: u64 = file.read_varint()?;
+
+            match txn.get_journey_header(&journey_header.id)? {
+                Some(existing) => {
+                    if existing.revision == journey_header.revision {
+                        skipped_count += 1;
+                        std::io::copy(&mut file.by_ref().take(data_len), &mut std::io::sink())?;
+                    } else {
+                        conflict_count += 1;
+                        let mut buf = vec![0_u8; data_len as usize];
+                        file.read_exact(&mut buf)?;
+                        let journey_data =
+                            JourneyData::deserialize(buf.as_slice(), journey_header.journey_type)?;
+                        journeys.push((journey_header, journey_data, true));
+                    }
+                }
+                None => {
+                    let mut buf = vec![0_u8; data_len as usize];
+                    file.read_exact(&mut buf)?;
+                    let journey_data =
+                        JourneyData::deserialize(buf.as_slice(), journey_header.journey_type)?;
+                    journeys.push((journey_header, journey_data, false));
+                }
+            }
         }
     }
-    Ok(())
+    Ok(MldxImportPreview {
+        skipped_count,
+        journeys,
+        conflict_count,
+    })
 }
 
 // TODO: support conflict resolvation by asking user what to do.

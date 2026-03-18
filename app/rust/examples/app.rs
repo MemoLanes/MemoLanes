@@ -1,5 +1,5 @@
 use memolanes_core::api::api::for_testing::get_main_map_state;
-use memolanes_core::api::api::{import_archive, init};
+use memolanes_core::api::api::{analyze_mldx_import, import_journeys, init};
 mod shared;
 use memolanes_core::renderer::MapRenderer;
 use shared::MapServer;
@@ -20,8 +20,26 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     if args.len() > 1 {
         let mldx_file_path = &args[1];
         println!("Importing MLDX file: {mldx_file_path}");
-        match import_archive(mldx_file_path.to_string()) {
-            Ok(_) => println!("Successfully imported MLDX file"),
+        match analyze_mldx_import(mldx_file_path.to_string()) {
+            Ok(preview) => {
+                let memolanes_core::archive::MldxImportPreview {
+                    skipped_count,
+                    journeys,
+                    conflict_count,
+                } = preview;
+                let n = journeys.len();
+                import_journeys(journeys)?;
+                println!(
+                    "Successfully imported {} journey(s) (skipped {} identical)",
+                    n, skipped_count
+                );
+                if conflict_count > 0 {
+                    println!(
+                        "{} of them overwrote existing conflicting journey(s).",
+                        conflict_count
+                    );
+                }
+            }
             Err(e) => eprintln!("Failed to import MLDX file: {e:?}"),
         }
         return Ok(());

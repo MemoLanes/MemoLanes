@@ -1,14 +1,15 @@
 import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
-import 'package:intl/intl.dart';
 import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
+import 'package:memolanes/body/settings/mldx_import_page.dart';
 import 'package:memolanes/common/component/common_export.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/src/rust/archive.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:memolanes/common/log.dart';
 
@@ -200,16 +201,29 @@ void showBasicCard(
 
 Future<void> importMldx(BuildContext context, String path) async {
   try {
-    await showLoadingDialog(
+    final preview = await showLoadingDialog<MldxImportPreview>(
       context: context,
-      asyncTask: api.importArchive(mldxFilePath: path),
+      asyncTask: api.analyzeMldxImport(mldxFilePath: path),
     );
-    if (context.mounted) {
+    if (!context.mounted) return;
+
+    // If everything is skipped, end the flow here.
+    // Total = skippedCount + preview.journeys.length
+    if (preview.journeys.isEmpty && preview.skippedCount > 0) {
       await showCommonDialog(
         context,
-        context.tr("import.successful"),
+        context.tr(
+          'import.mldx_preview.all_skipped',
+          args: ['${preview.skippedCount}'],
+        ),
       );
+      return;
     }
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (context) => MldxImportPage(preview: preview),
+      ),
+    );
   } catch (error) {
     if (context.mounted) {
       await showCommonDialog(context, context.tr("import.parsing_failed"));
