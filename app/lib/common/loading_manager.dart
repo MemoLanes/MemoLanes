@@ -105,32 +105,29 @@ class GlobalLoadingOverlay extends StatelessWidget {
   }
 }
 
-/// A [MaterialPageRoute] that blocks route pop while global loading is active.
+/// Blocks route pop (back button / back gesture) while global loading is active.
 ///
-/// This is a low-intrusion way to apply "loading blocks back gesture/button"
-/// to all routes created via [MaterialPageRoute] in the app.
-class GlobalLoadingMaterialPageRoute<T> extends MaterialPageRoute<T> {
-  GlobalLoadingMaterialPageRoute({
-    required WidgetBuilder builder,
-    super.settings,
-    super.maintainState,
-    super.fullscreenDialog,
-    super.allowSnapshotting,
-  }) : super(
-          builder: (context) {
-            final manager = GlobalLoadingManager.instance;
-            return AnimatedBuilder(
-              animation: manager,
-              child: Builder(builder: builder),
-              builder: (context, child) {
-                return PopScope(
-                  canPop: !manager.isLoading,
-                  child: child!,
-                );
-              },
-            );
-          },
+/// Place this widget inside each page route to ensure pop interception works
+/// for that route.
+class GlobalPopScope extends StatelessWidget {
+  final Widget child;
+
+  const GlobalPopScope({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final manager = GlobalLoadingManager.instance;
+    return AnimatedBuilder(
+      animation: manager,
+      child: child,
+      builder: (context, child) {
+        return PopScope(
+          canPop: !manager.isLoading,
+          child: child!,
         );
+      },
+    );
+  }
 }
 
 /// Default global loading UI.
