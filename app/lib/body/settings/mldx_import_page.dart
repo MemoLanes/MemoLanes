@@ -295,9 +295,6 @@ class _MldxImportPageState extends State<MldxImportPage> {
                 return LabelTile(
                   label: _journeyDateLabel(header),
                   desc: _itemDesc(header, isConflict),
-                  descMaxLines: 1,
-                  minHeight: 54.0,
-                  maxHeight: null,
                   prefix: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () => _onToggleItem(j, !selected),
