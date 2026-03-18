@@ -6,9 +6,9 @@ import 'package:memolanes/body/settings/raw_data_page.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
-import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/utils/nav_helper.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:memolanes/body/settings/render_diagnostics.dart';
@@ -113,14 +113,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
           LabelTile(
             label: context.tr("general.advanced_settings.raw_data_mode"),
             position: LabelTilePosition.middle,
-            onTap: () => Navigator.push(
-              context,
-              GlobalLoadingMaterialPageRoute(
-                builder: (context) {
-                  return RawDataPage();
-                },
-              ),
-            ),
+            onTap: () => pushNoPop(context, page: RawDataPage()),
           ),
           LabelTile(
             label: context.tr("general.advanced_settings.rebuild_cache"),
@@ -138,14 +131,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
           LabelTile(
             label: context.tr("general.advanced_settings.render_diagnostics"),
             position: LabelTilePosition.bottom,
-            onTap: () => Navigator.push(
-              context,
-              GlobalLoadingMaterialPageRoute(
-                builder: (context) {
-                  return RenderDiagnosticsPage();
-                },
-              ),
-            ),
+            onTap: () => pushNoPop(context, page: RenderDiagnosticsPage()),
           )
         ],
       ),

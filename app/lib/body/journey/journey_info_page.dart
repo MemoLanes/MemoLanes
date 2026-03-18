@@ -12,9 +12,9 @@ import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
-import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
 import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/src/rust/api/utils.dart';
@@ -90,9 +90,9 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
 
   Future<void> _editJourneyInfo(BuildContext context) async {
     var trackEdited = false;
-    final result = await Navigator.push(context,
-        GlobalLoadingMaterialPageRoute(builder: (context) {
-      return Scaffold(
+    final result = await pushNoPop(
+      context,
+      page: Scaffold(
         appBar: CapsuleStyleAppBar(
           title: context.tr("journey.journey_info_edit_page_title"),
         ),
@@ -109,8 +109,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
             },
           ),
         ),
-      );
-    }));
+      ),
+    );
 
     // `JourneyInfoEditPage` pops with `true` when metadata is saved.
     if (result == true || trackEdited) {
@@ -128,10 +128,10 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       );
       return;
     }
-    await Navigator.push(context,
-        GlobalLoadingMaterialPageRoute(builder: (context) {
-      return JourneyTrackEditPage(editSession: session);
-    }));
+    await pushNoPop(
+      context,
+      page: JourneyTrackEditPage(editSession: session),
+    );
     await _refreshJourneyInfo();
   }
 
