@@ -27,7 +27,7 @@ class _MldxImportPageState extends State<MldxImportPage> {
   late Set<String> _selectedIds;
   late final List<(JourneyHeader, JourneyData, bool)> _sortedJourney;
   final Map<String, JourneyHeader> _localHeadersById = {};
-  static final _lastModifiedFormat = DateFormat('yyyy-MM-dd HH:mm');
+  static final _lastModifiedFormat = DateFormat('yyyy-MM-dd');
 
   @override
   void initState() {
@@ -81,9 +81,12 @@ class _MldxImportPageState extends State<MldxImportPage> {
     return naiveDateToString(date: h.journeyDate);
   }
 
+  DateTime _lastModifiedTime(JourneyHeader h) {
+    return (h.updatedAt ?? h.createdAt).toLocal();
+  }
+
   String _lastModifiedLabel(JourneyHeader h) {
-    final t = h.updatedAt ?? h.createdAt;
-    return _lastModifiedFormat.format(t.toLocal());
+    return _lastModifiedFormat.format(_lastModifiedTime(h));
   }
 
   bool get _allSelected {
@@ -123,18 +126,18 @@ class _MldxImportPageState extends State<MldxImportPage> {
     }
 
     final localHeader = _localHeadersById[importHeader.id];
-    final localLastModified =
-        localHeader == null ? '-' : _lastModifiedLabel(localHeader);
-
-    final localLine = context.tr(
-      'import.mldx_preview.local_last_modified',
-      args: [localLastModified],
-    );
-    final importLine = context.tr(
-      'import.mldx_preview.import_last_modified',
-      args: [importLastModified],
-    );
-    return '$localLine\n$importLine';
+    return () {
+      if (localHeader == null) return context.tr('import.mldx_preview.conflict_desc_unknown');
+      final localT = _lastModifiedTime(localHeader);
+      final importT = _lastModifiedTime(importHeader);
+      if (importT.isAfter(localT)) {
+        return context.tr('import.mldx_preview.conflict_desc_import_newer');
+      }
+      if (localT.isAfter(importT)) {
+        return context.tr('import.mldx_preview.conflict_desc_local_newer');
+      }
+      return context.tr('import.mldx_preview.conflict_desc_same_time');
+    }();
   }
 
   String _conflictHintText(BuildContext context, MldxImportPreview preview) {
@@ -292,9 +295,9 @@ class _MldxImportPageState extends State<MldxImportPage> {
                 return LabelTile(
                   label: _journeyDateLabel(header),
                   desc: _itemDesc(header, isConflict),
-                  descMaxLines: isConflict ? 2 : 1,
-                  minHeight: isConflict ? 72.0 : 54.0,
-                  maxHeight: isConflict ? 72.0 : null,
+                  descMaxLines: 1,
+                  minHeight: 54.0,
+                  maxHeight: null,
                   prefix: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () => _onToggleItem(j, !selected),
