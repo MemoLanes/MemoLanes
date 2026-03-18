@@ -21,17 +21,20 @@ class GlobalLoadingManager extends ChangeNotifier {
   ///
   /// - Supports parallel/nested tasks (reference counting).
   Future<T> runWithLoading<T>(Future<T> Function() task) async {
-    _increment();
+    await _increment();
     try {
       return await task();
     } finally {
-      _decrement();
+      await _decrement();
     }
   }
 
-  void _increment() {
-    if (_activeTaskCount == 0) {
-      unawaited(WakelockPlus.enable());
+  Future<void> _increment() async {
+    final bool wasIdle = _activeTaskCount == 0;
+    _activeTaskCount += 1;
+
+    if (wasIdle) {
+      await WakelockPlus.enable();
       _loadingDelayTimer?.cancel();
       // Delay showing the loading UI a bit to avoid flickering for very fast tasks.
       _loadingDelayTimer = Timer(const Duration(milliseconds: 200), () {
@@ -39,15 +42,14 @@ class GlobalLoadingManager extends ChangeNotifier {
         notifyListeners();
       });
     }
-    _activeTaskCount += 1;
   }
 
-  void _decrement() {
+  Future<void> _decrement() async {
     if (_activeTaskCount > 0) {
       _activeTaskCount -= 1;
     }
     if (_activeTaskCount == 0) {
-      unawaited(WakelockPlus.disable());
+      await WakelockPlus.disable();
       _loadingDelayTimer?.cancel();
       _loadingDelayTimer = null;
       _isLoading = false;
