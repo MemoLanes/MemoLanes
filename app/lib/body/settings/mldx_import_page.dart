@@ -127,7 +127,8 @@ class _MldxImportPageState extends State<MldxImportPage> {
 
     final localHeader = _localHeadersById[importHeader.id];
     return () {
-      if (localHeader == null) return context.tr('import.mldx_preview.conflict_desc_unknown');
+      if (localHeader == null)
+        return context.tr('import.mldx_preview.conflict_desc_unknown');
       final localT = _lastModifiedTime(localHeader);
       final importT = _lastModifiedTime(importHeader);
       if (importT.isAfter(localT)) {
@@ -320,10 +321,14 @@ class _MldxImportPageState extends State<MldxImportPage> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  context.tr('import.mldx_preview.conflict_label'),
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Colors.red,
-                                  ),
+                                  context
+                                      .tr('import.mldx_preview.conflict_label'),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
+                                        color: Colors.red,
+                                      ),
                                 ),
                               ],
                             ),
