@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/body/settings/import_data_page.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/utils/nav_helper.dart';
 import 'package:share_handler/share_handler.dart';
 
 class ShareHandlerUtil {
@@ -99,13 +100,11 @@ class ShareHandlerUtil {
 
     if (!context.mounted) return;
 
-    Navigator.push(
+    navigatorPush(
       context,
-      MaterialPageRoute(
-        builder: (_) => ImportDataPage(
-          path: path,
-          importType: importType,
-        ),
+      page: ImportDataPage(
+        path: path,
+        importType: importType,
       ),
     );
   }
