@@ -29,14 +29,5 @@ analyzer:
     - 'rust_builder/**'
     - 'lib/src/rust/**'
 
-dart_code_metrics:
-  rules:
-    - banned-usage:
-        entries:
-          - ident: Navigator.push
-            description: "Use navigatorPush() instead of Navigator.push() directly."
-            excludes:
-              - lib/utils/nav_helper.dart
-
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options
