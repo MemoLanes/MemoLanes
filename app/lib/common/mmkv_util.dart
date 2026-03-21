@@ -7,6 +7,7 @@ class MMKVKey {
   static const String mainMapState = "MainMap.mapState";
   static const String isRecording = "GpsManager.isRecording";
   static const String privacyAgreementAccepted = "privacyAgreementAccepted";
+  static const String mapStyle = "mapStyle";
   static const String requestedBatteryOptimization =
       'Permission.requestedBatteryOptimization';
   static const String requestedNotification =
@@ -49,6 +50,11 @@ class MMKVUtil {
   /// get string
   static String getString(String key, {String defaultValue = ''}) {
     return _mmkv.decodeString(key) ?? defaultValue;
+  }
+
+  /// get string optional
+  static String? getStringOpt(String key) {
+    return _mmkv.decodeString(key);
   }
 
   /// remove key

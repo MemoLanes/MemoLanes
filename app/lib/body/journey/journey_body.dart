@@ -7,7 +7,9 @@ import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/constants/index.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/utils.dart';
+import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
+import 'package:memolanes/utils/nav_helper.dart';
 
 class JourneyBody extends StatefulWidget {
   const JourneyBody({super.key});
@@ -37,7 +39,7 @@ class _JourneyBodyState extends State<JourneyBody> {
   Future<void> _initialize() async {
     NaiveDate? earliestDate = await api.earliestJourneyDate();
     if (earliestDate != null) {
-      _firstDate = DateTime.parse(naiveDateToString(date: earliestDate));
+      _firstDate = naiveDateToDateTime(earliestDate);
     } else {
       _firstDate = null;
     }
@@ -184,13 +186,12 @@ class _JourneyBodyState extends State<JourneyBody> {
                     date: _journeyHeaderList[index].journeyDate),
             trailing: LabelTileContent(showArrow: true),
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(
-                builder: (context) {
-                  return JourneyInfoPage(
-                    journeyHeader: _journeyHeaderList[index],
-                  );
-                },
-              )).then((refresh) async {
+              navigatorPush(
+                context,
+                page: JourneyInfoPage(
+                  journeyHeader: _journeyHeaderList[index],
+                ),
+              ).then((refresh) async {
                 if (refresh != null && refresh) {
                   _yearsWithJourneyList = await api.yearsWithJourney();
                   _monthsWithJourneyList =

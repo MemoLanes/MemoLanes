@@ -1,3 +1,4 @@
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
@@ -18,14 +19,14 @@ use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::logs;
 use crate::renderer::get_default_camera_option_from_journey_bitmap;
-use crate::renderer::internal_server::Request;
+use crate::renderer::internal_server::{Request, RequestResponse, TileRangeResponse};
 use crate::renderer::MapRenderer;
 use crate::storage::{RawDataFile, Storage};
-use crate::{archive, build_info, export_data, gps_processor, main_db, merged_journey_builder};
+use crate::{archive, build_info, export_data, gps_processor, main_db};
 
 use crate::renderer::CameraOptionInternal;
 
-type CameraOption = CameraOptionInternal;
+pub(crate) type CameraOption = CameraOptionInternal;
 
 use crate::export_data::raw_data_csv_to_gpx_file;
 use log::{error, info, warn};
@@ -36,9 +37,7 @@ use log::{error, info, warn};
 pub(super) struct MainState {
     pub storage: Storage,
     pub gps_preprocessor: Mutex<GpsPreprocessor>,
-    // TODO: we should reconsider the way we handle the main map
     main_map_state: Arc<Mutex<MainMapState>>,
-    pub main_map_renderer: Arc<Mutex<MapRenderer>>,
 }
 
 static MAIN_STATE: OnceLock<MainState> = OnceLock::new();
@@ -54,11 +53,7 @@ pub fn short_commit_hash() -> String {
 }
 
 #[auto_context]
-fn reload_main_map_bitmap(
-    storage: &Storage,
-    main_map_renderer: &mut MapRenderer,
-    main_map_state: &MainMapState,
-) -> Result<()> {
+fn reload_main_map_bitmap(storage: &Storage, main_map_state: &mut MainMapState) -> Result<()> {
     if main_map_state.dropped_for_power_saving {
         return Ok(());
     }
@@ -75,7 +70,7 @@ fn reload_main_map_bitmap(
 
     let journey_bitmap = storage
         .get_latest_bitmap_for_main_map_renderer(&layer_kind, layer_filter.current_journey)?;
-    main_map_renderer.replace(journey_bitmap);
+    main_map_state.map_renderer.replace(journey_bitmap);
     Ok(())
 }
 
@@ -105,20 +100,19 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, system_cache
             flight_kind: false,
         };
 
+        // TODO: use an empty journey bitmap first, because loading could be slow (especially when we don't have cache).
+        // Ideally, we should support main map renderer being none, combine together with `dropped_for_power_saving`
+        // to be more type safe.
         let main_map_state = Arc::new(Mutex::new(MainMapState {
+            map_renderer: MapRenderer::new(JourneyBitmap::new()),
             dropped_for_power_saving: false,
             layer_filter: default_layer_filter,
         }));
         let main_map_state_copy = main_map_state.clone();
-        // TODO: use an empty journey bitmap first, because loading could be slow (especially when we don't have cache).
-        // Ideally, we should support main map renderer being none. e.g. we free it when the user is not using the map.
-        let main_map_renderer = Arc::new(Mutex::new(MapRenderer::new(JourneyBitmap::new())));
-        let main_map_renderer_copy = main_map_renderer.clone();
         // TODO: redesign the callback to better handle locks and avoid deadlocks
         storage.set_finalized_journey_changed_callback(Box::new(move |storage| {
-            let mut map_renderer = main_map_renderer_copy.lock().unwrap();
-            let main_map_state = main_map_state_copy.lock().unwrap();
-            match reload_main_map_bitmap(storage, &mut map_renderer, &main_map_state) {
+            let mut main_map_state = main_map_state_copy.lock().unwrap();
+            match reload_main_map_bitmap(storage, &mut main_map_state) {
                 Ok(()) => (),
                 Err(e) => {
                     error!("Failed to get latest bitmap for main map renderer: {e:?}");
@@ -131,7 +125,6 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, system_cache
             storage,
             gps_preprocessor: Mutex::new(GpsPreprocessor::new()),
             main_map_state,
-            main_map_renderer,
         }
     });
     if already_initialized {
@@ -237,9 +230,8 @@ fn prepare_real_cache_dir(
 // TODO: this design is not ideal, we need this because the `init` above uses an empty one.
 pub fn init_main_map() -> Result<()> {
     let state = get();
-    let mut map_renderer = state.main_map_renderer.lock().unwrap();
-    let main_map_state = state.main_map_state.lock().unwrap();
-    reload_main_map_bitmap(&state.storage, &mut map_renderer, &main_map_state)
+    let mut main_map_state = state.main_map_state.lock().unwrap();
+    reload_main_map_bitmap(&state.storage, &mut main_map_state)
 }
 
 pub fn subscribe_to_log_stream(sink: StreamSink<String>) -> Result<()> {
@@ -272,7 +264,8 @@ pub enum LogLevel {
 
 #[frb(opaque)]
 pub enum MapRendererProxy {
-    Renderer(MapRenderer),
+    StaticRenderer(MapRenderer),
+    DynamicRenderer(Arc<Mutex<MapRenderer>>),
     MainMapRenderer,
 }
 
@@ -280,13 +273,33 @@ impl MapRendererProxy {
     pub fn handle_webview_requests(&self, request: String) -> Result<String> {
         let request = Request::parse(&request)?;
         let response = match self {
-            MapRendererProxy::Renderer(map_renderer) => {
-                // Directly use the map renderer reference
-                request.handle(map_renderer)
+            MapRendererProxy::StaticRenderer(map_renderer) => request.handle(map_renderer),
+            MapRendererProxy::DynamicRenderer(map_renderer) => {
+                let map_renderer = map_renderer.lock().unwrap();
+                request.handle(&map_renderer)
             }
             MapRendererProxy::MainMapRenderer => {
-                let map_renderer = get().main_map_renderer.lock().unwrap();
-                request.handle(&map_renderer)
+                let main_map_state = get().main_map_state.lock().unwrap();
+                match main_map_state.dropped_for_power_saving {
+                    false => request.handle(&main_map_state.map_renderer),
+                    true =>
+                    // TODO: This is hacky. I think we should make the type better here for `main_map_state`.
+                    // Also have a dedicate value for this case in the response. Right now we reuse the case that
+                    // indicates nothing changed in the map.
+                    {
+                        let response_data = TileRangeResponse {
+                            status: 304,
+                            headers: HashMap::new(),
+                            body: Vec::new(),
+                        };
+                        RequestResponse {
+                            request_id: request.request_id.clone(),
+                            success: true,
+                            data: Some(serde_json::to_value(response_data)?),
+                            error: None,
+                        }
+                    }
+                }
             }
         };
         serde_json::to_string(&response)
@@ -304,39 +317,48 @@ pub fn get_map_renderer_proxy_for_main_map() -> MapRendererProxy {
 pub fn get_empty_map_renderer_proxy() -> MapRendererProxy {
     let journey_bitmap = JourneyBitmap::new();
     let map_renderer = MapRenderer::new(journey_bitmap);
-    MapRendererProxy::Renderer(map_renderer)
+    MapRendererProxy::StaticRenderer(map_renderer)
 }
 
+/// [journey_kinds]: empty = no layers; len 1 = that kind only; len 2 = both (pass None).
 pub fn get_map_renderer_proxy_for_journey_date_range(
     from_date_inclusive: NaiveDate,
     to_date_inclusive: NaiveDate,
+    journey_kinds: HashSet<JourneyKind>,
 ) -> Result<MapRendererProxy> {
     let state = get();
-    let journey_bitmap = state.storage.with_db_txn(|txn| {
-        merged_journey_builder::get_range(txn, from_date_inclusive, to_date_inclusive, None)
-    })?;
+    let get = |journey_kind| {
+        state
+            .storage
+            .get_range_bitmap(from_date_inclusive, to_date_inclusive, journey_kind)
+    };
+    let journey_bitmap = match (
+        journey_kinds.contains(&JourneyKind::DefaultKind),
+        journey_kinds.contains(&JourneyKind::Flight),
+    ) {
+        (false, false) => JourneyBitmap::new(),
+        (true, false) => get(Some(&JourneyKind::DefaultKind))?,
+        (false, true) => get(Some(&JourneyKind::Flight))?,
+        (true, true) => get(None)?,
+    };
 
     let map_renderer = MapRenderer::new(journey_bitmap);
-    Ok(MapRendererProxy::Renderer(map_renderer))
+    Ok(MapRendererProxy::DynamicRenderer(Arc::new(Mutex::new(
+        map_renderer,
+    ))))
 }
 
-fn get_map_renderer_proxy_for_journey_data_internal(
+pub(super) fn get_map_renderer_proxy_for_journey_data_internal(
     journey_data: JourneyData,
 ) -> Result<(MapRendererProxy, Option<CameraOption>)> {
-    let journey_bitmap = match journey_data {
-        JourneyData::Bitmap(bitmap) => bitmap,
-        JourneyData::Vector(vector) => {
-            let mut bitmap = JourneyBitmap::new();
-            merged_journey_builder::add_journey_vector_to_journey_bitmap(&mut bitmap, &vector);
-            bitmap
-        }
-    };
+    let mut journey_bitmap = JourneyBitmap::new();
+    journey_data.merge_into(&mut journey_bitmap);
 
     let default_camera_option = get_default_camera_option_from_journey_bitmap(&journey_bitmap);
 
     let map_renderer = MapRenderer::new(journey_bitmap);
     Ok((
-        MapRendererProxy::Renderer(map_renderer),
+        MapRendererProxy::DynamicRenderer(Arc::new(Mutex::new(map_renderer))),
         default_camera_option,
     ))
 }
@@ -367,8 +389,7 @@ pub fn on_location_update(raw_data: gps_processor::RawData, received_timestamp_m
 
     // we need handle a batch in one go so we hold the lock for the whole time
     let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
-    let mut map_renderer = state.main_map_renderer.lock().unwrap();
-    let main_map_state = state.main_map_state.lock().unwrap();
+    let mut main_map_state = state.main_map_state.lock().unwrap();
 
     let last_point = gps_preprocessor.last_kept_point();
     let process_result = gps_preprocessor.preprocess(&raw_data);
@@ -384,15 +405,17 @@ pub fn on_location_update(raw_data: gps_processor::RawData, received_timestamp_m
         match line_to_add {
             None => (),
             Some((start, end)) => {
-                map_renderer.update(|journey_bitmap, tile_changed| {
-                    journey_bitmap.add_line_with_change_callback(
-                        start.longitude,
-                        start.latitude,
-                        end.longitude,
-                        end.latitude,
-                        tile_changed,
-                    );
-                });
+                main_map_state.map_renderer.update(
+                    |journey_bitmap: &mut crate::journey_bitmap::JourneyBitmap, tile_changed| {
+                        journey_bitmap.add_line_with_change_callback(
+                            start.longitude,
+                            start.latitude,
+                            end.longitude,
+                            end.latitude,
+                            tile_changed,
+                        );
+                    },
+                );
             }
         };
     };
@@ -440,9 +463,10 @@ pub struct LayerFilter {
     pub flight_kind: bool,
 }
 
-struct MainMapState {
-    dropped_for_power_saving: bool,
-    layer_filter: LayerFilter,
+pub struct MainMapState {
+    pub map_renderer: MapRenderer,
+    pub dropped_for_power_saving: bool,
+    pub layer_filter: LayerFilter,
 }
 
 #[frb(sync)]
@@ -452,12 +476,11 @@ pub fn get_current_main_map_layer_filter() -> LayerFilter {
 
 pub fn set_main_map_layer_filter(new_layer_filter: &LayerFilter) -> Result<()> {
     let state = get();
-    let mut map_renderer = state.main_map_renderer.lock().unwrap();
     let mut main_map_state = state.main_map_state.lock().unwrap();
 
     if *new_layer_filter != main_map_state.layer_filter {
         main_map_state.layer_filter = *new_layer_filter;
-        reload_main_map_bitmap(&state.storage, &mut map_renderer, &main_map_state)?;
+        reload_main_map_bitmap(&state.storage, &mut main_map_state)?;
     }
     Ok(())
 }
@@ -685,21 +708,19 @@ pub fn optimize_main_db() -> Result<()> {
 
 pub fn area_of_main_map() -> Option<u64> {
     let state = get();
-    let mut main_map_renderer = state.main_map_renderer.lock().unwrap();
-    let main_map_state = state.main_map_state.lock().unwrap();
+    let mut main_map_state = state.main_map_state.lock().unwrap();
     if main_map_state.dropped_for_power_saving {
         None
     } else {
-        Some(main_map_renderer.get_current_area())
+        Some(main_map_state.map_renderer.get_current_area())
     }
 }
 
 pub fn rebuild_cache() -> Result<()> {
     let state = get();
     state.storage.clear_all_cache()?;
-    let mut map_renderer = state.main_map_renderer.lock().unwrap();
-    let main_map_state = state.main_map_state.lock().unwrap();
-    reload_main_map_bitmap(&state.storage, &mut map_renderer, &main_map_state)
+    let mut main_map_state = state.main_map_state.lock().unwrap();
+    reload_main_map_bitmap(&state.storage, &mut main_map_state)
 }
 
 // This is used for showing additional prompt to the user when trying to import
@@ -724,10 +745,10 @@ pub fn contains_bitmap_journey() -> Result<bool> {
 pub mod for_testing {
     use std::sync::{Arc, Mutex};
 
-    use crate::renderer::MapRenderer;
+    use super::MainMapState;
 
-    pub fn get_main_map_renderer() -> Arc<Mutex<MapRenderer>> {
-        super::get().main_map_renderer.clone()
+    pub fn get_main_map_state() -> Arc<Mutex<MainMapState>> {
+        super::get().main_map_state.clone()
     }
 }
 
@@ -738,26 +759,24 @@ pub fn get_mapbox_access_token() -> Option<String> {
 
 pub fn free_resource_for_long_time_background() {
     let state = get();
-    let mut main_map_renderer = state.main_map_renderer.lock().unwrap();
     let mut main_map_state = state.main_map_state.lock().unwrap();
     // TODO: ideally we want to free the whole map renderer and make it optional.
     // The current approach of having a flag and replacing the bitmap with an
     // empty one is a bit error-prone.
     if !main_map_state.dropped_for_power_saving {
         main_map_state.dropped_for_power_saving = true;
-        main_map_renderer.replace(JourneyBitmap::new());
+        main_map_state.map_renderer.replace(JourneyBitmap::new());
         info!("Journey bitmap for the main map is dropped for power saving.");
     }
 }
 
 pub fn reload_resource_for_foreground() -> Result<()> {
     let state = get();
-    let mut main_map_renderer = state.main_map_renderer.lock().unwrap();
     let mut main_map_state = state.main_map_state.lock().unwrap();
     if main_map_state.dropped_for_power_saving {
         info!("loading back main map");
         main_map_state.dropped_for_power_saving = false;
-        reload_main_map_bitmap(&state.storage, &mut main_map_renderer, &main_map_state)?;
+        reload_main_map_bitmap(&state.storage, &mut main_map_state)?;
         info!("main map loaded");
     }
     Ok(())

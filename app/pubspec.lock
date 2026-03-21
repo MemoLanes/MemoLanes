@@ -294,6 +294,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_appbar:
+    dependency: "direct main"
+    description:
+      name: flutter_appbar
+      sha256: "7baf0d0acef84f698bc1a9a5fb460f20b7677427b20abe8fd546a62b76d5efc5"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.9.0"
   flutter_fgbg:
     dependency: "direct main"
     description:

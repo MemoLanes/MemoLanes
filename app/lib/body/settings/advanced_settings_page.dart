@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/body/settings/raw_data_page.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
@@ -7,6 +8,7 @@ import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/utils/nav_helper.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:memolanes/body/settings/render_diagnostics.dart';
@@ -24,8 +26,8 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
     var gpsManager = context.watch<GpsManager>();
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(context.tr("general.advanced_settings.title")),
+      appBar: CapsuleStyleAppBar(
+        title: context.tr("general.advanced_settings.title"),
       ),
       body: MlSingleChildScrollView(
         padding: EdgeInsets.all(8.0),
@@ -84,7 +86,6 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
                 )) {
                   if (!context.mounted) return;
                   await showLoadingDialog(
-                    context: context,
                     asyncTask: api.optimizeMainDb(),
                   );
                   if (!context.mounted) return;
@@ -112,20 +113,12 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
           LabelTile(
             label: context.tr("general.advanced_settings.raw_data_mode"),
             position: LabelTilePosition.middle,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) {
-                  return RawDataPage();
-                },
-              ),
-            ),
+            onTap: () => navigatorPush(context, page: RawDataPage()),
           ),
           LabelTile(
             label: context.tr("general.advanced_settings.rebuild_cache"),
             position: LabelTilePosition.middle,
             onTap: () async => await showLoadingDialog(
-              context: context,
               asyncTask: api.rebuildCache(),
             ),
           ),
@@ -138,14 +131,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
           LabelTile(
             label: context.tr("general.advanced_settings.render_diagnostics"),
             position: LabelTilePosition.bottom,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) {
-                  return RenderDiagnosticsPage();
-                },
-              ),
-            ),
+            onTap: () => navigatorPush(context, page: RenderDiagnosticsPage()),
           )
         ],
       ),

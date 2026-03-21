@@ -1,13 +1,24 @@
 import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
+import 'package:intl/intl.dart';
+import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
 import 'package:memolanes/common/component/common_export.dart';
+import 'package:memolanes/common/loading_manager.dart';
+import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:memolanes/common/log.dart';
+
+final _naiveDateFormat = DateFormat('yyyy-MM-dd');
+
+NaiveDate dateTimeToNaiveDate(DateTime dateTime) =>
+    naiveDateOfString(str: _naiveDateFormat.format(dateTime));
+
+DateTime naiveDateToDateTime(NaiveDate naiveDate) =>
+    _naiveDateFormat.parse(naiveDateToString(date: naiveDate));
 
 Future<bool> showCommonDialog(BuildContext context, String message,
     {hasCancel = false,
@@ -17,11 +28,10 @@ Future<bool> showCommonDialog(BuildContext context, String message,
     confirmGroundColor,
     confirmTextColor = Colors.black,
     markdown = false}) async {
-  const defaultGroundColor = Color(0xFFB4EC51);
   confirmButtonText = confirmButtonText ?? context.tr("common.ok");
   cancelButtonText = cancelButtonText ?? context.tr("common.cancel");
   title = title ?? context.tr("common.info");
-  confirmGroundColor = confirmGroundColor ?? defaultGroundColor;
+  confirmGroundColor = confirmGroundColor ?? StyleConstants.defaultColor;
   final List<DialogButton> allButtons = [
     DialogButton(
       text: confirmButtonText,
@@ -34,9 +44,9 @@ Future<bool> showCommonDialog(BuildContext context, String message,
     if (hasCancel)
       DialogButton(
           text: cancelButtonText,
-          backgroundColor: confirmGroundColor == defaultGroundColor
+          backgroundColor: confirmGroundColor == StyleConstants.defaultColor
               ? Colors.grey
-              : defaultGroundColor,
+              : StyleConstants.defaultColor,
           onPressed: () {
             Navigator.of(context).pop(false);
           })
@@ -59,65 +69,11 @@ Future<bool> showCommonDialog(BuildContext context, String message,
 }
 
 Future<T> showLoadingDialog<T>({
-  required BuildContext context,
   required Future<T> asyncTask,
 }) async {
-  var taskCompleteEarly = false;
-  asyncTask.whenComplete(() {
-    taskCompleteEarly = true;
-  });
-
-  // Do not show the loading dialog if the task is fast
-  await Future.delayed(const Duration(milliseconds: 200));
-  if (taskCompleteEarly) return asyncTask;
-  if (!context.mounted) return asyncTask;
-
-  BuildContext? dialogContext;
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (BuildContext context) {
-      dialogContext = context;
-      return Padding(
-        padding: const EdgeInsets.only(top: 10),
-        child: Center(
-          child: Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(
-                  strokeWidth: 3.0,
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    },
+  final result = await GlobalLoadingManager.instance.runWithLoading<T>(
+    () => asyncTask,
   );
-
-  // don't want the window to flicker
-  await Future.delayed(const Duration(milliseconds: 100));
-
-  T result;
-  try {
-    await WakelockPlus.enable();
-    result = await asyncTask;
-  } finally {
-    await WakelockPlus.disable();
-    var context = dialogContext;
-    if (context != null) {
-      if (context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
-    }
-  }
   return result;
 }
 
@@ -191,7 +147,6 @@ void showBasicCard(
 Future<void> importMldx(BuildContext context, String path) async {
   try {
     await showLoadingDialog(
-      context: context,
       asyncTask: api.importArchive(mldxFilePath: path),
     );
     if (context.mounted) {

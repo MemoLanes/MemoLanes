@@ -230,17 +230,16 @@ class GpsManager extends ChangeNotifier {
     });
   }
 
-  Future<void> toggleMapTracking(bool enable) async {
-    if (enable) {
-      if (!await PermissionService().checkAndRequestPermission()) {
-        return;
-      }
+  Future<bool> toggleMapTracking(bool enable) async {
+    if (enable && !await PermissionService().checkLocationPermission()) {
+      return false;
     }
 
     await _m.protect(() async {
       mapTracking = enable;
       await _syncInternalStateWithoutLock();
     });
+    return true;
   }
 
   void readyToStart() {

@@ -10,6 +10,8 @@ fn tile_buffer_creation_benchmarks(c: &mut Criterion) {
     let (bitmap_data, _warnings) =
         import_data::load_fow_sync_data("./tests/data/fow_3.zip").unwrap();
 
+    let map_renderer = map_renderer::MapRenderer::new(bitmap_data);
+
     // Shenzhen universiade
     let lng = 114.212470;
     let lat = 22.697006;
@@ -40,16 +42,16 @@ fn tile_buffer_creation_benchmarks(c: &mut Criterion) {
                 |b, (zoom, width, height, tile_x, tile_y, buffer_size_power)| {
                     b.iter(|| {
                         std::hint::black_box(
-                            map_renderer::tile_buffer_from_journey_bitmap(
-                                &bitmap_data,
-                                *tile_x, // use calculated x coordinate
-                                *tile_y, // use calculated y coordinate
-                                **zoom,
-                                *width,
-                                *height,
-                                **buffer_size_power,
-                            )
-                            .unwrap(),
+                            map_renderer
+                                .get_tile_buffer(
+                                    *tile_x, // use calculated x coordinate
+                                    *tile_y, // use calculated y coordinate
+                                    **zoom,
+                                    *width,
+                                    *height,
+                                    **buffer_size_power,
+                                )
+                                .unwrap(),
                         )
                     })
                 },

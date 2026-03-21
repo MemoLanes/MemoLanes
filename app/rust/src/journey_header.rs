@@ -60,7 +60,7 @@ mod tests {
     }
 }
 
-#[derive(Eq, Hash, Clone, Copy, Debug, PartialEq)]
+#[derive(Eq, Hash, Clone, Copy, Debug, PartialEq, EnumIter)]
 pub enum JourneyKind {
     DefaultKind,
     Flight,

@@ -187,6 +187,20 @@ pub fn deserialize_journey_bitmap<T: Read>(mut reader: T) -> Result<JourneyBitma
 }
 
 impl JourneyData {
+    pub fn merge_into(self, bitmap: &mut JourneyBitmap) {
+        match self {
+            JourneyData::Bitmap(b) => bitmap.merge(b),
+            JourneyData::Vector(v) => bitmap.merge_vector(&v),
+        }
+    }
+
+    pub fn merge_into_with_partial_clone(&self, bitmap: &mut JourneyBitmap) {
+        match self {
+            JourneyData::Bitmap(b) => bitmap.merge_with_partial_clone(b),
+            JourneyData::Vector(v) => bitmap.merge_vector(v),
+        }
+    }
+
     pub fn type_(&self) -> JourneyType {
         match self {
             JourneyData::Vector(_) => JourneyType::Vector,

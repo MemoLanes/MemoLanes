@@ -51,7 +51,6 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
   DateTime? _journeyDate;
   String? _note;
   JourneyKind _journeyKind = JourneyKind.defaultKind;
-  import_api.JourneyInfo? journeyInfo;
   final TextEditingController _noteController = TextEditingController();
   late import_api.ImportPreprocessor _preprocessor;
 
@@ -91,8 +90,7 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
     setState(() {
       _startTime = widget.startTime;
       _endTime = widget.endTime;
-      _journeyDate =
-          dateFormat.parse(naiveDateToString(date: widget.journeyDate));
+      _journeyDate = naiveDateToDateTime(widget.journeyDate);
       _note = widget.note;
       _journeyKind = widget.journeyKind ?? _journeyKind;
       _noteController.text = _note ?? "";
@@ -120,7 +118,7 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
     }
     _note ??= "";
     import_api.JourneyInfo journeyInfo = import_api.JourneyInfo(
-        journeyDate: naiveDateOfString(str: dateFormat.format(_journeyDate!)),
+        journeyDate: dateTimeToNaiveDate(_journeyDate!),
         startTime: _startTime,
         endTime: _endTime,
         note: _note,
@@ -144,6 +142,7 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
         minHeight: 420,
       ),
       child: MlSingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: 16.0),
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           LabelTile(
