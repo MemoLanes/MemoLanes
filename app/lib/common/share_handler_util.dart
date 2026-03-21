@@ -15,14 +15,15 @@ class ShareHandlerUtil {
 
   /// Subscribes to share intents immediately. [navigatorKey] is used to obtain
   /// context for dialogs/navigation when handling shares.
-  static init({
+  static void init({
     required GlobalKey<NavigatorState> navigatorKey,
   }) {
     _navigatorKey = navigatorKey;
     final handler = ShareHandlerPlatform.instance;
 
     handler.getInitialSharedMedia().then((media) {
-      if (!context.mounted) return;
+      final ctx = _navigatorKey?.currentState?.context;
+      if (ctx == null || !ctx.mounted) return;
       final attachments = media?.attachments ?? const [];
       _setPendingAndProcess(attachments);
     }).catchError((e) {
