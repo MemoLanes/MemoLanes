@@ -16,7 +16,8 @@ class ShortcutHandlerUtil {
         try {
           switch (selection) {
             case 'start_recording':
-              await gpsManager.changeRecordingState(GpsRecordingStatus.recording);
+              await gpsManager
+                  .changeRecordingState(GpsRecordingStatus.recording);
               break;
             case 'stop_recording':
               await gpsManager.changeRecordingState(GpsRecordingStatus.none);

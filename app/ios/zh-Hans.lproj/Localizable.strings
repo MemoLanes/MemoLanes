@@ -1,0 +1,10 @@
+/* App Intents / Shortcuts — keys match AppDelegate LocalizedStringResource */
+
+"memolanes_intent_start_title" = "开始记录";
+"memolanes_intent_start_desc" = "在迹忆中开始记录轨迹";
+
+"memolanes_intent_stop_title" = "停止记录";
+"memolanes_intent_stop_desc" = "停止当前记录";
+
+"memolanes_intent_pause_title" = "暂停记录";
+"memolanes_intent_pause_desc" = "暂停当前记录";
