@@ -93,8 +93,7 @@ class PermissionService {
       // permission is not strictly required.
       if (Platform.isAndroid && !bgStatus.isGranted) {
         await _showPermissionDeniedDialog(
-          tr(
-              "location_service.background_location_permission_permanently_denied"),
+          tr("location_service.background_location_permission_permanently_denied"),
         );
       }
     }

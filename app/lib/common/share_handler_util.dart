@@ -22,8 +22,6 @@ class ShareHandlerUtil {
     final handler = ShareHandlerPlatform.instance;
 
     handler.getInitialSharedMedia().then((media) {
-      final ctx = _navigatorKey?.currentState?.context;
-      if (ctx == null || !ctx.mounted) return;
       final attachments = media?.attachments ?? const [];
       _setPendingAndProcess(attachments);
     }).catchError((e) {
