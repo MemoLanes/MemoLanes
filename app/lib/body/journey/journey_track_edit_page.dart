@@ -276,7 +276,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                     if (!mounted || !shouldSave) return;
 
                     await showLoadingDialog(
-                      context: context,
                       asyncTask: _editSession.commit(),
                     );
                     if (!mounted) return;

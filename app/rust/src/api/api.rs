@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
@@ -22,7 +22,7 @@ use crate::renderer::get_default_camera_option_from_journey_bitmap;
 use crate::renderer::internal_server::{Request, RequestResponse, TileRangeResponse};
 use crate::renderer::MapRenderer;
 use crate::storage::{RawDataFile, Storage};
-use crate::{archive, build_info, export_data, gps_processor, main_db, merged_journey_builder};
+use crate::{archive, build_info, export_data, gps_processor, main_db};
 
 use crate::renderer::CameraOptionInternal;
 
@@ -319,34 +319,27 @@ pub fn get_empty_map_renderer_proxy() -> MapRendererProxy {
     MapRendererProxy::StaticRenderer(map_renderer)
 }
 
+/// [journey_kinds]: empty = no layers; len 1 = that kind only; len 2 = both (pass None).
 pub fn get_map_renderer_proxy_for_journey_date_range(
     from_date_inclusive: NaiveDate,
     to_date_inclusive: NaiveDate,
+    journey_kinds: HashSet<JourneyKind>,
 ) -> Result<MapRendererProxy> {
     let state = get();
-    let layer_filter = state.main_map_state.lock().unwrap().layer_filter;
-    let (default_kind, flight_kind) = (layer_filter.default_kind, layer_filter.flight_kind);
-
-    let journey_bitmap = state
-        .storage
-        .with_db_txn(|txn| match (default_kind, flight_kind) {
-            (true, true) => {
-                merged_journey_builder::get_range(txn, from_date_inclusive, to_date_inclusive, None)
-            }
-            (true, false) => merged_journey_builder::get_range(
-                txn,
-                from_date_inclusive,
-                to_date_inclusive,
-                Some(&JourneyKind::DefaultKind),
-            ),
-            (false, true) => merged_journey_builder::get_range(
-                txn,
-                from_date_inclusive,
-                to_date_inclusive,
-                Some(&JourneyKind::Flight),
-            ),
-            (false, false) => Ok(JourneyBitmap::new()),
-        })?;
+    let get = |journey_kind| {
+        state
+            .storage
+            .get_range_bitmap(from_date_inclusive, to_date_inclusive, journey_kind)
+    };
+    let journey_bitmap = match (
+        journey_kinds.contains(&JourneyKind::DefaultKind),
+        journey_kinds.contains(&JourneyKind::Flight),
+    ) {
+        (false, false) => JourneyBitmap::new(),
+        (true, false) => get(Some(&JourneyKind::DefaultKind))?,
+        (false, true) => get(Some(&JourneyKind::Flight))?,
+        (true, true) => get(None)?,
+    };
 
     let map_renderer = MapRenderer::new(journey_bitmap);
     Ok(MapRendererProxy::DynamicRenderer(Arc::new(Mutex::new(
@@ -357,14 +350,8 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
 pub(super) fn get_map_renderer_proxy_for_journey_data_internal(
     journey_data: JourneyData,
 ) -> Result<(MapRendererProxy, Option<CameraOption>)> {
-    let journey_bitmap = match journey_data {
-        JourneyData::Bitmap(bitmap) => bitmap,
-        JourneyData::Vector(vector) => {
-            let mut bitmap = JourneyBitmap::new();
-            merged_journey_builder::add_journey_vector_to_journey_bitmap(&mut bitmap, &vector);
-            bitmap
-        }
-    };
+    let mut journey_bitmap = JourneyBitmap::new();
+    journey_data.merge_into(&mut journey_bitmap);
 
     let default_camera_option = get_default_camera_option_from_journey_bitmap(&journey_bitmap);
 

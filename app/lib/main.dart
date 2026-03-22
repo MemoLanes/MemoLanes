@@ -19,6 +19,7 @@ import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/utils.dart';
+import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/constants/index.dart';
 import 'package:provider/provider.dart';
 
@@ -72,6 +73,11 @@ class MyApp extends StatelessWidget {
       localizationsDelegates: context.localizationDelegates,
       locale: context.locale,
       navigatorKey: navigatorKey,
+      builder: (context, child) {
+        return GlobalLoadingOverlay(
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       theme: ThemeData(
         useMaterial3: true,
         fontFamilyFallback:
@@ -128,7 +134,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
       if (!mainMapReady.isCompleted) {
         await showLoadingDialog(
-          context: context,
           asyncTask: mainMapReady.future,
         );
       }
@@ -155,6 +160,8 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _handleOnPop() async {
+    if (GlobalLoadingManager.instance.isLoading) return;
+
     if (_selectedIndex != 0) {
       setState(() => _selectedIndex = 0);
       return;

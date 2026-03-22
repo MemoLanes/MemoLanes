@@ -45,7 +45,6 @@ class _ImportDataPage extends State<ImportDataPage> {
   Future<void> _initFlow() async {
     try {
       if (!await showLoadingDialog(
-        context: context,
         asyncTask: () async {
           await _loadFile(widget.path);
           return await _previewDataInternal();
@@ -106,7 +105,6 @@ class _ImportDataPage extends State<ImportDataPage> {
     });
 
     if (!await showLoadingDialog(
-      context: context,
       asyncTask: () async {
         return await _previewDataInternal();
       }(),
@@ -151,7 +149,6 @@ class _ImportDataPage extends State<ImportDataPage> {
   Future<void> _saveData(import_api.JourneyInfo journeyInfo,
       import_api.ImportPreprocessor processor) async {
     final success = await showLoadingDialog<bool>(
-      context: context,
       asyncTask: (() async {
         final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
         final journeyData = switch (journeyDataMaybeRaw) {

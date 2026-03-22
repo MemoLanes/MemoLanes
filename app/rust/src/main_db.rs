@@ -10,6 +10,7 @@ use std::path::Path;
 use std::str::FromStr;
 use uuid::Uuid;
 
+pub use crate::cache_db::CacheEntry;
 use crate::gps_processor::{
     self, GpsPostprocessor, JourneyRawData, JourneyRawDataPoint, PreprocessedData, ProcessResult,
 };
@@ -75,9 +76,16 @@ pub struct Txn<'a> {
     pub action: Option<Action>,
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Action {
-    Merge { journey_ids: Vec<String> },
+    /// `MergeOne` is aimed to optimize the most common case: end the current ongoing journey and update the internal state.
+    MergeOne {
+        entry: CacheEntry,
+        data: JourneyData,
+    },
+    Invalidate {
+        entries: Vec<CacheEntry>,
+    },
     CompleteRebuilt,
 }
 
@@ -88,6 +96,27 @@ fn generate_random_revision() -> String {
 // NOTE: the `Txn` here is not only for making operation atomic, the `storage`
 // will also use this to make sure the `cache_db` is in sync.
 impl Txn<'_> {
+    fn set_invalidate_action(&mut self, new_entries: Vec<CacheEntry>) -> Result<()> {
+        self.action = Some(match self.action.take() {
+            Some(Action::CompleteRebuilt) => Action::CompleteRebuilt,
+            Some(Action::Invalidate { mut entries }) => {
+                entries.extend(new_entries);
+                Action::Invalidate { entries }
+            }
+            Some(Action::MergeOne {
+                entry: prev_entry, ..
+            }) => {
+                let mut entries = new_entries;
+                entries.push(prev_entry);
+                Action::Invalidate { entries }
+            }
+            None => Action::Invalidate {
+                entries: new_entries,
+            },
+        });
+        Ok(())
+    }
+
     pub fn get_ongoing_journey(
         &self,
         journey_date_picker: Option<&mut JourneyDatePicker>,
@@ -223,15 +252,20 @@ impl Txn<'_> {
     #[auto_context]
     pub fn delete_journey(&mut self, id: &str) -> Result<()> {
         info!("Deleting journey: id={id}");
+        let header = self
+            .get_journey_header(id)?
+            .ok_or_else(|| anyhow!("Failed to find journey with id = {id}"))?;
         let changes = self
             .db_txn
             .execute("DELETE FROM journey WHERE id = ?1;", (id,))?;
-        self.action = Some(Action::CompleteRebuilt);
-        if changes == 1 {
-            Ok(())
-        } else {
-            Err(anyhow!("Failed to find journey with id = {id}"))
+        if changes != 1 {
+            return Err(anyhow!("Failed to delete journey with id = {id}"));
         }
+        self.set_invalidate_action(vec![CacheEntry {
+            date: header.journey_date,
+            kind: header.journey_kind,
+        }])?;
+        Ok(())
     }
 
     // TODO: consider return structured result so the caller know if it is skipped or other cases
@@ -268,7 +302,9 @@ impl Txn<'_> {
             }
         }
 
-        let journey_date = utils::date_to_days_since_epoch(header.journey_date);
+        let insert_date = header.journey_date;
+        let insert_kind = header.journey_kind;
+        let journey_date = utils::date_to_days_since_epoch(insert_date);
         // use start time first, then fallback to endtime
         let timestamp_for_ordering = header.start.or(header.end).map(|x| x.timestamp());
 
@@ -291,11 +327,19 @@ impl Txn<'_> {
             ),
         )?;
 
-        match self.action.get_or_insert(Action::Merge {
-            journey_ids: vec![],
-        }) {
-            Action::Merge { journey_ids } => journey_ids.push(id),
-            Action::CompleteRebuilt => (),
+        if self.action.is_none() {
+            self.action = Some(Action::MergeOne {
+                entry: CacheEntry {
+                    date: insert_date,
+                    kind: insert_kind,
+                },
+                data,
+            });
+        } else {
+            self.set_invalidate_action(vec![CacheEntry {
+                date: insert_date,
+                kind: insert_kind,
+            }])?;
         }
 
         Ok(())
@@ -383,7 +427,16 @@ impl Txn<'_> {
         )?;
 
         if old_journey_date != new_journey_date || old_journey_kind != new_journey_kind {
-            self.action = Some(Action::CompleteRebuilt);
+            self.set_invalidate_action(vec![
+                CacheEntry {
+                    date: old_journey_date,
+                    kind: old_journey_kind,
+                },
+                CacheEntry {
+                    date: new_journey_date,
+                    kind: new_journey_kind,
+                },
+            ])?;
         }
 
         Ok(())
@@ -415,6 +468,8 @@ impl Txn<'_> {
         header.revision = generate_random_revision();
         header.journey_type = journey_data.type_();
 
+        let journey_date = header.journey_date;
+        let journey_kind = header.journey_kind;
         let header_bytes = header.to_proto().write_to_bytes()?;
         let mut data_bytes = Vec::new();
         journey_data.serialize(&mut data_bytes)?;
@@ -425,7 +480,10 @@ impl Txn<'_> {
             (&id, journey_data.type_().to_int(), header_bytes, data_bytes),
         )?;
 
-        self.action = Some(Action::CompleteRebuilt);
+        self.set_invalidate_action(vec![CacheEntry {
+            date: journey_date,
+            kind: journey_kind,
+        }])?;
         Ok(())
     }
 
@@ -653,6 +711,24 @@ impl Txn<'_> {
             .query_row((), |row| Ok(utils::date_of_days_since_epoch(row.get(0)?)))
             .optional()
             .context("earliest_journey_date")
+    }
+
+    pub fn journey_date_range(&self) -> Result<Option<(NaiveDate, NaiveDate)>> {
+        let mut query = self
+            .db_txn
+            .prepare("SELECT MIN(journey_date), MAX(journey_date) FROM journey;")?;
+        query
+            .query_row((), |row| {
+                let min: Option<i32> = row.get(0)?;
+                let max: Option<i32> = row.get(1)?;
+                Ok(min.zip(max).map(|(min, max)| {
+                    (
+                        utils::date_of_days_since_epoch(min),
+                        utils::date_of_days_since_epoch(max),
+                    )
+                }))
+            })
+            .context("journey_date_range")
     }
 
     pub fn require_optimization(&self) -> Result<bool> {

@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use memolanes_core::{
-    import_data, journey_area_utils, journey_bitmap::JourneyBitmap, merged_journey_builder,
+    gps_processor::SegmentGapRule, import_data, journey_area_utils, journey_bitmap::JourneyBitmap,
 };
 
 fn journey_area_calculation(c: &mut Criterion) {
@@ -25,13 +25,10 @@ fn journey_area_calculation(c: &mut Criterion) {
                 import_data::load_gpx("./tests/data/nelson_to_wharariki_beach.gpx").unwrap();
 
             let journey_vector =
-                import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data, false)
+                import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data, None)
                     .unwrap();
             let mut journey_bitmap = JourneyBitmap::new();
-            merged_journey_builder::add_journey_vector_to_journey_bitmap(
-                &mut journey_bitmap,
-                &journey_vector,
-            );
+            journey_bitmap.merge_vector(&journey_vector);
             b.iter(|| {
                 std::hint::black_box(journey_area_utils::compute_journey_bitmap_area(
                     &journey_bitmap,
@@ -48,12 +45,15 @@ fn journey_bitmap(c: &mut Criterion) {
     let mut group = c.benchmark_group("journey_bitmap");
     group.sample_size(40);
 
-    group.bench_function("add_journey_vector_to_journey_bitmap", |b| {
+    group.bench_function("merge_vector", |b| {
         let load_journey_vector = |name| {
             let filename = format!("./tests/data/{name}.gpx");
             let (raw_data, _preprocessor) = import_data::load_gpx(&filename).unwrap();
-            import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data, true)
-                .unwrap()
+            import_data::journey_vector_from_raw_data_with_gps_preprocessor(
+                &raw_data,
+                Some(SegmentGapRule::Default),
+            )
+            .unwrap()
         };
 
         let nelson_to_wharariki_beach = load_journey_vector("nelson_to_wharariki_beach");
@@ -61,18 +61,8 @@ fn journey_bitmap(c: &mut Criterion) {
 
         b.iter(|| {
             let mut journey_bitmap = JourneyBitmap::new();
-            std::hint::black_box(
-                merged_journey_builder::add_journey_vector_to_journey_bitmap(
-                    &mut journey_bitmap,
-                    &nelson_to_wharariki_beach,
-                ),
-            );
-            std::hint::black_box(
-                merged_journey_builder::add_journey_vector_to_journey_bitmap(
-                    &mut journey_bitmap,
-                    &heihe,
-                ),
-            );
+            std::hint::black_box(journey_bitmap.merge_vector(&nelson_to_wharariki_beach));
+            std::hint::black_box(journey_bitmap.merge_vector(&heihe));
             journey_bitmap
         })
     });
