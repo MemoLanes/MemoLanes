@@ -35,7 +35,7 @@ struct StartRecordingIntent: AppIntent {
         LocalizedStringResource("memolanes_intent_start_desc", table: "Localizable")
     )
 
-    static var openAppWhenRun: Bool = true
+    static var openAppWhenRun: Bool = false
 
     @MainActor
     func perform() async throws -> some IntentResult {
@@ -55,7 +55,7 @@ struct StopRecordingIntent: AppIntent {
         LocalizedStringResource("memolanes_intent_stop_desc", table: "Localizable")
     )
 
-    static var openAppWhenRun: Bool = true
+    static var openAppWhenRun: Bool = false
 
     @MainActor
     func perform() async throws -> some IntentResult {
@@ -75,7 +75,7 @@ struct PauseRecordingIntent: AppIntent {
         LocalizedStringResource("memolanes_intent_pause_desc", table: "Localizable")
     )
 
-    static var openAppWhenRun: Bool = true
+    static var openAppWhenRun: Bool = false
 
     @MainActor
     func perform() async throws -> some IntentResult {
