@@ -48,7 +48,7 @@ dependencies:
   share_plus: ^12.0.0
   permission_handler: ^12.0.1
   file_picker: ^10.1.2
-  freezed_annotation: ^2.4.4
+  freezed_annotation: ^3.0.0
   fluttertoast: ^9.0.0
   intl: ^0.20.2
   package_info_plus: ^9.0.0
@@ -79,6 +79,7 @@ dependencies:
   flutter_appbar: ^1.9.0
 
 dependency_overrides:
+  freezed_annotation: ^3.0.0
   geolocator_android:
     git:
       url: https://github.com/MemoLanes/flutter-geolocator
@@ -101,7 +102,7 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   ffigen: ^20.0.0
-  freezed: ^2.5.8
+  freezed: ^3.0.2
   build_runner: ^2.4.9
   json_serializable: ^6.8.0
 
