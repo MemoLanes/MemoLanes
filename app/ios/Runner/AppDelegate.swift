@@ -49,6 +49,18 @@ struct StopRecordingIntent: AppIntent {
 }
 
 @available(iOS 16.0, *)
+struct PauseRecordingIntent: AppIntent {
+  static var title: LocalizedStringResource = "暂停记录"
+  static var openAppWhenRun: Bool = false
+
+  @MainActor
+  func perform() async throws -> some IntentResult {
+    IntelligencePlugin.notifier.push("pause_recording")
+    return .result()
+  }
+}
+
+@available(iOS 16.0, *)
 struct MemoLanesAppShortcuts: AppShortcutsProvider {
   static var appShortcuts: [AppShortcut] {
     AppShortcut(
@@ -74,6 +86,18 @@ struct MemoLanesAppShortcuts: AppShortcutsProvider {
         "Stop trip recording in \(.applicationName)"
       ],
       shortTitle: "停止记录"
+    )
+    AppShortcut(
+      intent: PauseRecordingIntent(),
+      phrases: [
+        "暂停记录 \(.applicationName)",
+        "暂停轨迹记录 \(.applicationName)",
+        "暂停行程记录 \(.applicationName)",
+        "在 \(.applicationName) 暂停记录",
+        "Pause recording in \(.applicationName)",
+        "Pause trip recording in \(.applicationName)"
+      ],
+      shortTitle: "暂停记录"
     )
   }
 }

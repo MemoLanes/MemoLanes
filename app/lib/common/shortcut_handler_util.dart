@@ -21,6 +21,9 @@ class ShortcutHandlerUtil {
             case 'stop_recording':
               await gpsManager.changeRecordingState(GpsRecordingStatus.none);
               break;
+            case 'pause_recording':
+              await gpsManager.changeRecordingState(GpsRecordingStatus.paused);
+              break;
             default:
               log.warning('Unknown shortcut selection: $selection');
           }
