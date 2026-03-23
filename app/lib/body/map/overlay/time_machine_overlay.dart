@@ -10,8 +10,9 @@ Set<JourneyKind> _initialJourneyKindsFromMainMap() {
   final defaultOn = f.defaultKind;
   final flightOn = f.flightKind;
   if (!defaultOn && !flightOn) return {JourneyKind.defaultKind};
-  if (defaultOn && flightOn)
+  if (defaultOn && flightOn) {
     return {JourneyKind.defaultKind, JourneyKind.flight};
+  }
   if (defaultOn) return {JourneyKind.defaultKind};
   return {JourneyKind.flight};
 }

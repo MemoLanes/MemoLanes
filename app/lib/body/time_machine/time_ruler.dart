@@ -390,8 +390,9 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
 
   int _indexAtOffset(double pixels) {
     final maxIdx = _data.itemCount > 0 ? _data.itemCount - 1 : 0;
-    if (_viewportWidth <= 0)
+    if (_viewportWidth <= 0) {
       return (pixels / kRulerUnitSpacing).round().clamp(0, maxIdx);
+    }
     final centerContent = pixels + _viewportWidth / 2;
     final centerPadding = _viewportWidth / 2 - kRulerUnitSpacing / 2;
     final index = ((centerContent - centerPadding - kRulerUnitSpacing / 2) /
