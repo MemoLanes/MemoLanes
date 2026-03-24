@@ -96,7 +96,7 @@ struct AppShortcuts: AppShortcutsProvider {
                 "在 \(.applicationName) 中开始记录",
             ],
             shortTitle: LocalizedStringResource("memolanes_intent_start_title", table: "Localizable"),
-            systemImageName: "record.circle"
+            systemImageName: "play.circle"
         )
         AppShortcut(
             intent: StopRecordingIntent(),
