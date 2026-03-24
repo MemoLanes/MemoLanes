@@ -3,7 +3,7 @@
 "memolanes_intent_start_title" = "Start recording";
 "memolanes_intent_start_desc" = "Start recording a track in MemoLanes";
 
-"memolanes_intent_stop_title" = "Stop recording";
+"memolanes_intent_stop_title" = "End current journey";
 "memolanes_intent_stop_desc" = "Stop the current recording";
 
 "memolanes_intent_pause_title" = "Pause recording";

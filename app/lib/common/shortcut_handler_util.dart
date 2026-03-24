@@ -10,7 +10,12 @@ class ShortcutHandlerUtil {
   static StreamSubscription<String>? _selectionSub;
 
   static void init({required GpsManager gpsManager}) {
-    _selectionSub?.cancel();
+    final previousSub = _selectionSub;
+    if (previousSub != null) {
+      log.warning(
+          'ShortcutHandlerUtil.init called more than once, cancelling previous subscription.');
+      previousSub.cancel();
+    }
     _selectionSub = Intelligence().selectionsStream().listen(
       (selection) async {
         try {
