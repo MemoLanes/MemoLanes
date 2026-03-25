@@ -11,7 +11,7 @@ import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'time_ruler.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 
-export 'time_ruler.dart' show TimeMachineMode, TimeRuler;
+export 'time_ruler.dart' show TimeRulerMode, TimeRuler;
 
 /// Time range picker: ball + year/month/day ruler or any date-range overlay.
 /// Reports the selected [from]-[to] range to the parent via [onRangeChanged].
@@ -35,8 +35,20 @@ class TimeRangePicker extends StatefulWidget {
   State<TimeRangePicker> createState() => _TimeRangePickerState();
 }
 
+enum TimeMachineMode {
+  /// Show only the selected period (year/month/day).
+  period,
+
+  /// Show cumulative range from earliest to the selected period end.
+  fromStart,
+
+  /// User picks an arbitrary [from]-[to] range.
+  custom,
+}
+
 class _TimeRangePickerState extends State<TimeRangePicker> {
-  TimeMachineMode _mode = TimeMachineMode.year;
+  TimeMachineMode _viewMode = TimeMachineMode.period;
+  TimeRulerMode _rulerMode = TimeRulerMode.year;
   int _selectedYear = DateTime.now().year;
   int _selectedMonth = DateTime.now().month;
   int _selectedDay = DateTime.now().day;
@@ -48,45 +60,67 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
   DateTime _fromDate = DateTime.now();
   DateTime _toDate = DateTime.now();
 
-  void _applyCurrentRange() {
-    DateTime from;
-    DateTime to;
-    switch (_mode) {
-      case TimeMachineMode.year:
-        from = DateTime(_selectedYear, 1, 1);
-        to = DateTime(_selectedYear, 12, 31);
-        break;
-      case TimeMachineMode.month:
-        from = DateTime(_selectedYear, _selectedMonth, 1);
-        to = DateTime(_selectedYear, _selectedMonth + 1, 0);
-        break;
-      case TimeMachineMode.day:
+  DateTime get _earliestFallback =>
+      widget.earliestDate ?? DateTime(_selectedYear, 1, 1);
+
+  (DateTime from, DateTime to) _periodRangeForSelection() {
+    switch (_rulerMode) {
+      case TimeRulerMode.year:
+        return (DateTime(_selectedYear, 1, 1), DateTime(_selectedYear, 12, 31));
+      case TimeRulerMode.month:
+        return (
+          DateTime(_selectedYear, _selectedMonth, 1),
+          DateTime(_selectedYear, _selectedMonth + 1, 0),
+        );
+      case TimeRulerMode.day:
         final lastDay = DateTime(_selectedYear, _selectedMonth + 1, 0).day;
         final d = _selectedDay.clamp(1, lastDay);
-        from = DateTime(_selectedYear, _selectedMonth, d);
-        to = from;
-        break;
-      case TimeMachineMode.any:
-        from = _fromDate;
-        to = _toDate;
-        break;
+        final date = DateTime(_selectedYear, _selectedMonth, d);
+        return (date, date);
+      case TimeRulerMode.any:
+        return (_fromDate, _toDate);
     }
-    _fromDate = from;
-    _toDate = to;
+  }
+
+  void _applyCurrentRange() {
+    switch (_viewMode) {
+      case TimeMachineMode.custom:
+        return;
+      case TimeMachineMode.period:
+        final period = _periodRangeForSelection();
+        _fromDate = period.$1;
+        _toDate = period.$2;
+        return;
+      case TimeMachineMode.fromStart:
+        final period = _periodRangeForSelection();
+        _fromDate = _earliestFallback;
+        _toDate = period.$2;
+        return;
+    }
   }
 
   void _notifyRange() {
     widget.onRangeChanged(_fromDate, _toDate);
   }
 
-  void _onModeSelected(TimeMachineMode mode) {
-    if (mode == _mode) return;
+  void _onRulerModeSelected(TimeRulerMode rulerMode) {
+    if (rulerMode == _rulerMode) return;
     HapticFeedback.selectionClick();
     setState(() {
-      _mode = mode;
+      _rulerMode = rulerMode;
       _applyCurrentRange();
     });
-    if (mode == TimeMachineMode.any) _notifyRange();
+    _notifyRange();
+  }
+
+  void _onViewModeSelected(TimeMachineMode viewMode) {
+    if (viewMode == _viewMode) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _viewMode = viewMode;
+      _applyCurrentRange();
+    });
+    _notifyRange();
   }
 
   DateTime get _displayDate =>
@@ -116,9 +150,9 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
 
   @override
   Widget build(BuildContext context) {
-    final rulerChild = _mode != TimeMachineMode.any
+    final rulerChild = _viewMode != TimeMachineMode.custom
         ? TimeRuler(
-            mode: _mode,
+            rulerMode: _rulerMode,
             selectedYear: _selectedYear,
             selectedMonth: _selectedMonth,
             selectedDay: _selectedDay,
@@ -161,8 +195,10 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
           barrierColor: Colors.transparent,
           content: PointerInterceptor(
             child: _TimeMachineModeAndLayerMenu(
-              currentMode: _mode,
-              onModeSelect: _onModeSelected,
+              currentViewMode: _viewMode,
+              onViewModeSelect: _onViewModeSelected,
+              currentRulerMode: _rulerMode,
+              onRulerModeSelect: _onRulerModeSelected,
               selectedJourneyKinds: widget.selectedJourneyKinds,
               onJourneyKindsChanged: widget.onJourneyKindsChanged,
             ),
@@ -170,8 +206,10 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
           child: PointerInterceptor(
             child: TimeRangeControllerBall(
               key: ValueKey('ball-$_displayYear-$_displayMonth-$_displayDay'),
-              mode: _mode,
-              selectedDate: _displayDate,
+              viewMode: _viewMode,
+              rulerMode: _rulerMode,
+              selectedDate:
+                  _viewMode == TimeMachineMode.custom ? _toDate : _displayDate,
               loading: widget.loading,
             ),
           ),
@@ -190,16 +228,23 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
   }
 }
 
-/// Mode + layer popup: left column = 4 modes (single-select, closes on tap), right column = 2 layers (multi-select), vertical divider between.
+/// View mode + granularity + layer popup:
+/// - left column = view modes (single-select)
+/// - middle column = granularity (year/month/day, disabled in custom)
+/// - right column = layers (multi-select)
 class _TimeMachineModeAndLayerMenu extends StatefulWidget {
-  final TimeMachineMode currentMode;
-  final void Function(TimeMachineMode) onModeSelect;
+  final TimeMachineMode currentViewMode;
+  final void Function(TimeMachineMode) onViewModeSelect;
+  final TimeRulerMode currentRulerMode;
+  final void Function(TimeRulerMode) onRulerModeSelect;
   final Set<JourneyKind> selectedJourneyKinds;
   final void Function(Set<JourneyKind>)? onJourneyKindsChanged;
 
   const _TimeMachineModeAndLayerMenu({
-    required this.currentMode,
-    required this.onModeSelect,
+    required this.currentViewMode,
+    required this.onViewModeSelect,
+    required this.currentRulerMode,
+    required this.onRulerModeSelect,
     required this.selectedJourneyKinds,
     this.onJourneyKindsChanged,
   });
@@ -211,11 +256,16 @@ class _TimeMachineModeAndLayerMenu extends StatefulWidget {
 
 class _TimeMachineModeAndLayerMenuState
     extends State<_TimeMachineModeAndLayerMenu> {
-  static const _modeKeys = [
-    (TimeMachineMode.year, 'time_machine.menu_year'),
-    (TimeMachineMode.month, 'time_machine.menu_month'),
-    (TimeMachineMode.day, 'time_machine.menu_day'),
-    (TimeMachineMode.any, 'time_machine.menu_any'),
+  static const _viewModeKeys = [
+    (TimeMachineMode.period, 'time_machine.menu_view_period'),
+    (TimeMachineMode.fromStart, 'time_machine.menu_view_from_start'),
+    (TimeMachineMode.custom, 'time_machine.menu_view_custom'),
+  ];
+
+  static const _granularityKeys = [
+    (TimeRulerMode.year, 'time_machine.menu_year'),
+    (TimeRulerMode.month, 'time_machine.menu_month'),
+    (TimeRulerMode.day, 'time_machine.menu_day'),
   ];
 
   static const _layerKeys = [
@@ -224,12 +274,16 @@ class _TimeMachineModeAndLayerMenuState
   ];
 
   late Set<JourneyKind> _localKinds;
+  late TimeMachineMode _localViewMode;
+  late TimeRulerMode _localRulerMode;
   Timer? _layerTimer;
 
   @override
   void initState() {
     super.initState();
     _localKinds = Set.from(widget.selectedJourneyKinds);
+    _localViewMode = widget.currentViewMode;
+    _localRulerMode = widget.currentRulerMode;
   }
 
   @override
@@ -238,11 +292,17 @@ class _TimeMachineModeAndLayerMenuState
     if (oldWidget.selectedJourneyKinds != widget.selectedJourneyKinds) {
       _localKinds = Set.from(widget.selectedJourneyKinds);
     }
+    if (oldWidget.currentViewMode != widget.currentViewMode) {
+      _localViewMode = widget.currentViewMode;
+    }
+    if (oldWidget.currentRulerMode != widget.currentRulerMode) {
+      _localRulerMode = widget.currentRulerMode;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return IntrinsicHeight(
+    final content = IntrinsicHeight(
       child: Row(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -251,8 +311,24 @@ class _TimeMachineModeAndLayerMenuState
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _buildColumnTitle(context.tr('time_machine.menu_title_time')),
-              ..._modeKeys.map((e) => _buildModeItem(e.$1, e.$2)),
+              _buildColumnTitle(context.tr('time_machine.menu_title_view')),
+              ..._viewModeKeys.map((e) => _buildViewModeItem(e.$1, e.$2)),
+            ],
+          ),
+          VerticalDivider(
+            width: 1,
+            thickness: 1,
+            color: Colors.white24,
+            indent: 8,
+            endIndent: 8,
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _buildColumnTitle(
+                  context.tr('time_machine.menu_title_granularity')),
+              ..._granularityKeys.map((e) => _buildGranularityItem(e.$1, e.$2)),
             ],
           ),
           VerticalDivider(
@@ -272,6 +348,13 @@ class _TimeMachineModeAndLayerMenuState
           ),
         ],
       ),
+    );
+
+    // Popup may have a narrow max width (small screens). Allow horizontal scroll
+    // instead of letting the Row overflow.
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: content,
     );
   }
 
@@ -318,16 +401,36 @@ class _TimeMachineModeAndLayerMenuState
     );
   }
 
-  Widget _buildModeItem(TimeMachineMode mode, String labelKey) {
+  Widget _buildViewModeItem(TimeMachineMode mode, String labelKey) {
     return _buildMenuTile(
       context,
       labelKey,
-      mode == widget.currentMode,
+      mode == _localViewMode,
       () {
         HapticFeedback.selectionClick();
-        widget.onModeSelect(mode);
-        Navigator.of(context).pop();
+        setState(() => _localViewMode = mode);
+        widget.onViewModeSelect(mode);
       },
+    );
+  }
+
+  Widget _buildGranularityItem(TimeRulerMode rulerMode, String labelKey) {
+    final disabled = _localViewMode == TimeMachineMode.custom;
+    return Opacity(
+      opacity: disabled ? 0.28 : 1,
+      child: IgnorePointer(
+        ignoring: disabled,
+        child: _buildMenuTile(
+          context,
+          labelKey,
+          rulerMode == _localRulerMode,
+          () {
+            HapticFeedback.selectionClick();
+            setState(() => _localRulerMode = rulerMode);
+            widget.onRulerModeSelect(rulerMode);
+          },
+        ),
+      ),
     );
   }
 
@@ -367,13 +470,15 @@ class _TimeMachineModeAndLayerMenuState
 /// Mode button: square, semi-transparent (matches timeline style); tap opens [CustomPopup] menu.
 /// Day mode: only year-month (day is on ruler); month mode: only year (month is on ruler).
 class TimeRangeControllerBall extends StatelessWidget {
-  final TimeMachineMode mode;
+  final TimeMachineMode viewMode;
+  final TimeRulerMode rulerMode;
   final DateTime selectedDate;
   final bool loading;
 
   const TimeRangeControllerBall({
     super.key,
-    required this.mode,
+    required this.viewMode,
+    required this.rulerMode,
     required this.selectedDate,
     required this.loading,
   });
@@ -392,14 +497,44 @@ class TimeRangeControllerBall extends StatelessWidget {
   Widget build(BuildContext context) {
     final y = selectedDate.year;
     final m = selectedDate.month.toString().padLeft(2, '0');
-    // Only show what the ruler doesn't: day mode -> year-month; month mode -> year; year mode -> year; any -> mode label only.
-    final String text = switch (mode) {
-      TimeMachineMode.year => '$y',
-      TimeMachineMode.month => '$y',
-      TimeMachineMode.day => '$y-$m',
-      TimeMachineMode.any => context.tr('time_machine.menu_any'),
+    final bool isCustom = viewMode == TimeMachineMode.custom;
+
+    final String caption = switch (viewMode) {
+      TimeMachineMode.period => context.tr('time_machine.menu_view_period'),
+      TimeMachineMode.fromStart =>
+        context.tr('time_machine.menu_view_from_start'),
+      TimeMachineMode.custom => '',
     };
-    final content = Text(text, style: _contentStyle);
+
+    // Only show what the ruler doesn't: day mode -> year-month; month mode -> year; year mode -> year.
+    final String mainText = isCustom
+        ? context.tr('time_machine.menu_view_custom')
+        : switch (rulerMode) {
+            TimeRulerMode.year => '$y',
+            TimeRulerMode.month => '$y',
+            TimeRulerMode.day => '$y-$m',
+            TimeRulerMode.any => '$y',
+          };
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (caption.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: Text(
+              caption,
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        Text(mainText, style: _contentStyle),
+      ],
+    );
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(_borderRadius),
