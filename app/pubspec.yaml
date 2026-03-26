@@ -74,12 +74,11 @@ dependencies:
   sliding_up_panel: ^2.0.0+1
   mmkv: ^2.2.2
   share_handler: ^0.0.25
-  intelligence: ^0.2.0
   flutter_fgbg: ^0.7.1
   flutter_appbar: ^1.9.0
+  flutter_app_intents: ^0.7.0
 
 dependency_overrides:
-  freezed_annotation: ^3.0.0
   geolocator_android:
     git:
       url: https://github.com/MemoLanes/flutter-geolocator
