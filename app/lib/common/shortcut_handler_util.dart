@@ -20,24 +20,18 @@ class ShortcutHandlerUtil {
     await _register(
       client,
       id: 'com.memolanes.StartRecordingIntent',
-      title: 'Start Recording',
-      description: 'Start recording a journey in MemoLanes',
       status: GpsRecordingStatus.recording,
       okValue: 'Started recording',
     );
     await _register(
       client,
       id: 'com.memolanes.StopRecordingIntent',
-      title: 'Stop Recording',
-      description: 'Stop recording and save the journey in MemoLanes',
       status: GpsRecordingStatus.none,
       okValue: 'Stopped recording',
     );
     await _register(
       client,
       id: 'com.memolanes.PauseRecordingIntent',
-      title: 'Pause Recording',
-      description: 'Pause the current journey recording in MemoLanes',
       status: GpsRecordingStatus.paused,
       okValue: 'Paused recording',
     );
@@ -48,16 +42,10 @@ class ShortcutHandlerUtil {
   static Future<void> _register(
     FlutterAppIntentsClient client, {
     required String id,
-    required String title,
-    required String description,
     required GpsRecordingStatus status,
     required String okValue,
   }) async {
-    final intent = AppIntentBuilder()
-        .identifier(id)
-        .title(title)
-        .description(description)
-        .build();
+    final intent = AppIntentBuilder().identifier(id).build();
 
     await client.registerIntent(intent, (_) async {
       final gps = _gps;
