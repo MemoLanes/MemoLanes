@@ -27,11 +27,11 @@ class ShortcutHandlerUtil {
     );
     await _register(
       client,
-      id: 'com.memolanes.StopRecordingIntent',
-      title: 'Stop Recording',
-      description: 'Stop recording and save the journey in MemoLanes',
+      id: 'com.memolanes.EndRecordingIntent',
+      title: 'End Recording',
+      description: 'End recording and save the journey in MemoLanes',
       status: GpsRecordingStatus.none,
-      okValue: 'Stopped recording',
+      okValue: 'Ended recording',
     );
     await _register(
       client,

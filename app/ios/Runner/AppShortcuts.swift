@@ -25,21 +25,21 @@ struct StartRecordingIntentSpec: AppIntent {
 }
 
 @available(iOS 16.0, *)
-struct StopRecordingIntentSpec: AppIntent {
+struct EndRecordingIntentSpec: AppIntent {
     static let title: LocalizedStringResource = LocalizedStringResource(
-        "memolanes_intent_stop_title",
+        "memolanes_intent_end_title",
         table: "Localizable"
     )
 
     static let description: IntentDescription = IntentDescription(
-        LocalizedStringResource("memolanes_intent_stop_desc", table: "Localizable")
+        LocalizedStringResource("memolanes_intent_end_desc", table: "Localizable")
     )
 
     @MainActor
     func perform() async throws -> some IntentResult {
         let plugin = FlutterAppIntentsPlugin.shared
         let result = await plugin.handleIntentInvocation(
-            identifier: "com.memolanes.StopRecordingIntent",
+            identifier: "com.memolanes.EndRecordingIntent",
             parameters: [:]
         )
         try ensureIntentSuccess(result)
@@ -98,13 +98,12 @@ struct AppShortcuts: AppShortcutsProvider {
             systemImageName: "play.circle"
         )
         AppShortcut(
-            intent: StopRecordingIntentSpec(),
+            intent: EndRecordingIntentSpec(),
             phrases: [
-                "Stop recording in \(.applicationName)",
                 "End recording in \(.applicationName)",
-                "在 \(.applicationName) 中停止记录",
+                "在 \(.applicationName) 中结束记录",
             ],
-            shortTitle: LocalizedStringResource("memolanes_intent_stop_title", table: "Localizable"),
+            shortTitle: LocalizedStringResource("memolanes_intent_end_title", table: "Localizable"),
             systemImageName: "stop.circle"
         )
         AppShortcut(
