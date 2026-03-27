@@ -219,10 +219,10 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
         if (_canUndo) {
           final shouldExit = await _confirmDiscardUnsavedChanges();
-          if (!mounted || !shouldExit) return;
+          if (!context.mounted || !shouldExit) return;
         }
         _removeToast();
-        if (!mounted) return;
+        if (!context.mounted) return;
 
         Navigator.of(context).pop(result);
       },
@@ -273,12 +273,12 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                       title: context.tr("common.save"),
                       hasCancel: true,
                     );
-                    if (!mounted || !shouldSave) return;
+                    if (!context.mounted || !shouldSave) return;
 
                     await showLoadingDialog(
                       asyncTask: _editSession.commit(),
                     );
-                    if (!mounted) return;
+                    if (!context.mounted) return;
                     _removeToast();
                     Fluttertoast.showToast(
                       msg: context.tr("common.save_success"),
