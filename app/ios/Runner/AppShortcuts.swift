@@ -4,12 +4,12 @@ import flutter_app_intents
 @available(iOS 16.0, *)
 struct StartRecordingIntentSpec: AppIntent {
     static let title: LocalizedStringResource = LocalizedStringResource(
-        "memolanes_intent_start_title",
+        "memolanes_intent_start_recording_title",
         table: "Localizable"
     )
 
     static let description: IntentDescription = IntentDescription(
-        LocalizedStringResource("memolanes_intent_start_desc", table: "Localizable")
+        LocalizedStringResource("memolanes_intent_start_recording_desc", table: "Localizable")
     )
 
     @MainActor
@@ -25,21 +25,21 @@ struct StartRecordingIntentSpec: AppIntent {
 }
 
 @available(iOS 16.0, *)
-struct EndRecordingIntentSpec: AppIntent {
+struct EndJourneyIntentSpec: AppIntent {
     static let title: LocalizedStringResource = LocalizedStringResource(
-        "memolanes_intent_end_title",
+        "memolanes_intent_end_journey_title",
         table: "Localizable"
     )
 
     static let description: IntentDescription = IntentDescription(
-        LocalizedStringResource("memolanes_intent_end_desc", table: "Localizable")
+        LocalizedStringResource("memolanes_intent_end_journey_desc", table: "Localizable")
     )
 
     @MainActor
     func perform() async throws -> some IntentResult {
         let plugin = FlutterAppIntentsPlugin.shared
         let result = await plugin.handleIntentInvocation(
-            identifier: "com.memolanes.EndRecordingIntent",
+            identifier: "com.memolanes.EndJourneyIntent",
             parameters: [:]
         )
         try ensureIntentSuccess(result)
@@ -50,12 +50,12 @@ struct EndRecordingIntentSpec: AppIntent {
 @available(iOS 16.0, *)
 struct PauseRecordingIntentSpec: AppIntent {
     static let title: LocalizedStringResource = LocalizedStringResource(
-        "memolanes_intent_pause_title",
+        "memolanes_intent_pause_recording_title",
         table: "Localizable"
     )
 
     static let description: IntentDescription = IntentDescription(
-        LocalizedStringResource("memolanes_intent_pause_desc", table: "Localizable")
+        LocalizedStringResource("memolanes_intent_pause_recording_desc", table: "Localizable")
     )
 
     @MainActor
@@ -91,19 +91,20 @@ struct AppShortcuts: AppShortcutsProvider {
             intent: StartRecordingIntentSpec(),
             phrases: [
                 "Start recording in \(.applicationName)",
-                "Begin recording in \(.applicationName)",
+                "Resume recording in \(.applicationName)",
                 "在 \(.applicationName) 中开始记录",
+                "在 \(.applicationName) 中恢复记录",
             ],
-            shortTitle: LocalizedStringResource("memolanes_intent_start_title", table: "Localizable"),
+            shortTitle: LocalizedStringResource("memolanes_intent_start_recording_title", table: "Localizable"),
             systemImageName: "play.circle"
         )
         AppShortcut(
-            intent: EndRecordingIntentSpec(),
+            intent: EndJourneyIntentSpec(),
             phrases: [
-                "End recording in \(.applicationName)",
-                "在 \(.applicationName) 中结束记录",
+                "End journey in \(.applicationName)",
+                "在 \(.applicationName) 中结束旅程",
             ],
-            shortTitle: LocalizedStringResource("memolanes_intent_end_title", table: "Localizable"),
+            shortTitle: LocalizedStringResource("memolanes_intent_end_journey_title", table: "Localizable"),
             systemImageName: "stop.circle"
         )
         AppShortcut(
@@ -112,7 +113,7 @@ struct AppShortcuts: AppShortcutsProvider {
                 "Pause recording in \(.applicationName)",
                 "在 \(.applicationName) 中暂停记录",
             ],
-            shortTitle: LocalizedStringResource("memolanes_intent_pause_title", table: "Localizable"),
+            shortTitle: LocalizedStringResource("memolanes_intent_pause_recording_title", table: "Localizable"),
             systemImageName: "pause.circle"
         )
     }
