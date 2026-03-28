@@ -99,15 +99,6 @@ struct AppShortcuts: AppShortcutsProvider {
             systemImageName: "play.circle"
         )
         AppShortcut(
-            intent: EndJourneyIntentSpec(),
-            phrases: [
-                "End journey in \(.applicationName)",
-                "在 \(.applicationName) 中结束旅程",
-            ],
-            shortTitle: LocalizedStringResource("memolanes_intent_end_journey_title", table: "Localizable"),
-            systemImageName: "stop.circle"
-        )
-        AppShortcut(
             intent: PauseRecordingIntentSpec(),
             phrases: [
                 "Pause recording in \(.applicationName)",
@@ -115,6 +106,15 @@ struct AppShortcuts: AppShortcutsProvider {
             ],
             shortTitle: LocalizedStringResource("memolanes_intent_pause_recording_title", table: "Localizable"),
             systemImageName: "pause.circle"
+        )
+        AppShortcut(
+            intent: EndJourneyIntentSpec(),
+            phrases: [
+                "End journey in \(.applicationName)",
+                "在 \(.applicationName) 中结束旅程",
+            ],
+            shortTitle: LocalizedStringResource("memolanes_intent_end_journey_title", table: "Localizable"),
+            systemImageName: "stop.circle"
         )
     }
 }
