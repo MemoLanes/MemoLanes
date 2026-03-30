@@ -697,6 +697,9 @@ class _TapTile extends StatelessWidget {
             children: [
               Text(
                 label,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.8),
                   fontSize: 10,
@@ -705,6 +708,9 @@ class _TapTile extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 value,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 12,
