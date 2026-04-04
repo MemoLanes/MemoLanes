@@ -10,7 +10,7 @@ fn tile_buffer_creation_benchmarks(c: &mut Criterion) {
     let (bitmap_data, _warnings) =
         import_data::load_fow_sync_data("./tests/data/fow_3.zip").unwrap();
 
-    let map_renderer = map_renderer::MapRenderer::new(bitmap_data);
+    let mut map_renderer = map_renderer::MapRenderer::new(bitmap_data);
 
     // Shenzhen universiade
     let lng = 114.212470;

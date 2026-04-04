@@ -29,10 +29,10 @@ fn add_line_cross_antimeridian() {
         (-175.3644029, -28.3186185, 175.4708788, -49.4963078);
     journey_bitmap.add_line(start_lng, start_lat, end_lng, end_lat);
 
-    let map_renderer = MapRenderer::new(journey_bitmap);
+    let mut map_renderer = MapRenderer::new(journey_bitmap);
 
     let render_result =
-        test_utils::render_map_overlay(&map_renderer, 0, -170.0, 80.0, 170.0, -80.0);
+        test_utils::render_map_overlay(&mut map_renderer, 0, -170.0, 80.0, 170.0, -80.0);
     test_utils::verify_image(
         "journey_bitmap_add_line_cross_antimeridian",
         &render_result.data,
@@ -47,10 +47,16 @@ fn basic() {
     journey_bitmap.add_line(START_LNG, START_LAT, START_LNG, END_LAT);
     journey_bitmap.add_line(END_LNG, END_LAT, END_LNG, START_LAT);
 
-    let map_renderer = MapRenderer::new(journey_bitmap);
+    let mut map_renderer = MapRenderer::new(journey_bitmap);
 
-    let render_result =
-        test_utils::render_map_overlay(&map_renderer, 12, START_LNG, START_LAT, END_LNG, END_LAT);
+    let render_result = test_utils::render_map_overlay(
+        &mut map_renderer,
+        12,
+        START_LNG,
+        START_LAT,
+        END_LNG,
+        END_LAT,
+    );
     test_utils::verify_image("journey_bitmap_basic", &render_result.data);
 }
 
@@ -69,10 +75,16 @@ fn merge_with_render() {
     draw_line2(&mut sample_journaey_bitmap);
     assert_eq!(journey_bitmap, sample_journaey_bitmap);
 
-    let map_renderer = MapRenderer::new(journey_bitmap);
+    let mut map_renderer = MapRenderer::new(journey_bitmap);
 
-    let render_result =
-        test_utils::render_map_overlay(&map_renderer, 12, START_LNG, START_LAT, END_LNG, END_LAT);
+    let render_result = test_utils::render_map_overlay(
+        &mut map_renderer,
+        12,
+        START_LNG,
+        START_LAT,
+        END_LNG,
+        END_LAT,
+    );
     test_utils::verify_image("journey_bitmap_merge_with_render", &render_result.data);
 }
 
@@ -132,7 +144,7 @@ fn serialization() {
     draw_line2(&mut journey_bitmap);
     draw_line3(&mut journey_bitmap);
     draw_line4(&mut journey_bitmap);
-    let journey_data = JourneyData::Bitmap(journey_bitmap);
+    let mut journey_data = JourneyData::Bitmap(journey_bitmap);
 
     let mut buf = Vec::new();
     journey_data.serialize(&mut buf).unwrap();
@@ -140,7 +152,7 @@ fn serialization() {
     println!("size: {}", buf.len());
 
     let journey_data_roundtrip =
-        JourneyData::deserialize(buf.as_slice(), JourneyType::Bitmap).unwrap();
+        JourneyData::deserialize(buf.as_slice(), JourneyType::Bitmap, true).unwrap();
     assert_eq!(journey_data, journey_data_roundtrip);
 }
 
@@ -169,10 +181,10 @@ fn vector_to_bitmap(name: &str, zoom: i32, filename_override: Option<&str>) {
         }
     }
 
-    let map_renderer = MapRenderer::new(journey_bitmap);
+    let mut map_renderer = MapRenderer::new(journey_bitmap);
 
     let render_result =
-        test_utils::render_map_overlay(&map_renderer, zoom, left, top, right, bottom);
+        test_utils::render_map_overlay(&mut map_renderer, zoom, left, top, right, bottom);
     test_utils::verify_image(
         &format!("journey_bitmap_vector_to_bitmap_{name}"),
         &render_result.data,
@@ -265,10 +277,10 @@ fn draw_line_with_width2() {
     journey_bitmap.add_line(120.01, 60.01, 120.0, 60.0);
     journey_bitmap.add_line(120.0, 60.0, 120.005, 60.0);
 
-    let map_renderer = MapRenderer::new(journey_bitmap);
+    let mut map_renderer = MapRenderer::new(journey_bitmap);
 
     let render_result =
-        test_utils::render_map_overlay(&map_renderer, 13, 120.0, 60.01, 120.01, 60.0);
+        test_utils::render_map_overlay(&mut map_renderer, 13, 120.0, 60.01, 120.01, 60.0);
     test_utils::verify_image("draw_line_with_width2", &render_result.data);
 }
 
@@ -281,9 +293,9 @@ fn draw_line_with_width3() {
     journey_bitmap.add_line(120.01, 70.01, 120.0, 70.0);
     journey_bitmap.add_line(120.0, 70.0, 120.005, 70.0);
 
-    let map_renderer = MapRenderer::new(journey_bitmap);
+    let mut map_renderer = MapRenderer::new(journey_bitmap);
 
     let render_result =
-        test_utils::render_map_overlay(&map_renderer, 13, 120.0, 70.01, 120.01, 70.0);
+        test_utils::render_map_overlay(&mut map_renderer, 13, 120.0, 70.01, 120.01, 70.0);
     test_utils::verify_image("draw_line_with_width3", &render_result.data);
 }

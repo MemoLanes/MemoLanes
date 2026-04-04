@@ -85,7 +85,7 @@ pub fn verify_image(name: &str, image: &Vec<u8>) {
 }
 
 pub fn render_map_overlay(
-    map_renderer: &MapRenderer,
+    map_renderer: &mut MapRenderer,
     // map view area (coordinates are in lat or lng)
     zoom: i32,
     left: f64,
@@ -127,7 +127,7 @@ pub fn render_map_overlay(
 }
 
 fn render_map_overlay_internal(
-    map_renderer: &MapRenderer,
+    map_renderer: &mut MapRenderer,
     render_area: &RenderArea,
 ) -> RenderResult {
     /* for test, map_renderer initialized by MapRenderer::new, tilerenderer size is default size.  */

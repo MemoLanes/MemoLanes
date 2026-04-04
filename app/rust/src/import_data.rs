@@ -3,7 +3,7 @@ use crate::flight_track_processor;
 use crate::gps_processor::{Point, PreprocessedData, ProcessResult, RawData, SegmentGapRule};
 use crate::gpx_file_utils::analyze_and_prepare_gpx;
 use crate::journey_bitmap::{
-    self, Block, BlockKey, JourneyBitmap, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH,
+    self, Block, BlockKey, JourneyBitmap, TileKey, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH,
 };
 use crate::journey_date_picker::JourneyDatePicker;
 use crate::journey_header::JourneyKind;
@@ -88,10 +88,10 @@ fn parse_fow_bitmap_file<R: Read>(
                     let mut bitmap: [u8; BLOCK_BITMAP_SIZE] = [0; BLOCK_BITMAP_SIZE];
                     bitmap.copy_from_slice(&data[start_offset..end_offset]);
                     let block = Block::new_with_data(bitmap);
-                    tile.set(block_key, block);
+                    tile.set(&block_key, block);
                 }
             }
-            journey_bitmap.tiles.insert((id.x, id.y), tile);
+            journey_bitmap.insert_tile(&TileKey::new(id.x, id.y), tile);
         }
     }
     Ok(())
@@ -130,7 +130,7 @@ pub fn load_fow_sync_data(mldx_file_path: &str) -> Result<(JourneyBitmap, Option
         Some(warnings.join("\n"))
     };
 
-    if journey_bitmap.tiles.is_empty() {
+    if journey_bitmap.is_empty() {
         Err(anyhow!(
             "empty data. warnings: {}",
             warnings.unwrap_or("".to_owned())
@@ -169,7 +169,7 @@ pub fn load_fow_snapshot_data(fwss_file_path: &str) -> Result<(JourneyBitmap, Op
         Some(warnings.join("\n"))
     };
 
-    if journey_bitmap.tiles.is_empty() {
+    if journey_bitmap.is_empty() {
         Err(anyhow!(
             "empty data. warnings: {}",
             warnings.unwrap_or_default()

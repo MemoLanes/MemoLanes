@@ -1,19 +1,17 @@
 use std::io::{Read, Write};
 
+use crate::{
+    journey_bitmap::{JourneyBitmap, TileKey},
+    journey_header::JourneyType,
+    journey_vector::{JourneyVector, TrackPoint, TrackSegment},
+};
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
 use flutter_rust_bridge::frb;
 use integer_encoding::*;
-use itertools::Itertools;
-
-use crate::{
-    journey_bitmap::{self, Block, BlockKey, JourneyBitmap, Tile},
-    journey_header::JourneyType,
-    journey_vector::{JourneyVector, TrackPoint, TrackSegment},
-};
 
 #[derive(Debug, PartialEq, Clone)]
-#[frb(opaque)]
+#[frb(ignore)]
 pub enum JourneyData {
     Vector(JourneyVector),
     Bitmap(JourneyBitmap),
@@ -91,85 +89,40 @@ pub fn deserialize_journey_vector<T: Read>(mut reader: T) -> Result<JourneyVecto
 
 #[auto_context]
 pub fn serialize_journey_bitmap<T: Write>(
-    journey_bitmap: &JourneyBitmap,
+    journey_bitmap: &mut JourneyBitmap,
     mut writer: T,
 ) -> Result<()> {
-    let serialize_tile = |tile: &Tile| -> Result<Vec<u8>> {
-        let mut buf = Vec::new();
-        let mut encoder = zstd::Encoder::new(&mut buf, ZSTD_COMPRESS_LEVEL)?.auto_finish();
-        // We put all block ids in front so we could get all blocks without
-        // deserializing the whole block.
-        // A bitmap seems more efficient for this case.
-        let mut block_keys =
-            [0_u8; (journey_bitmap::TILE_WIDTH * journey_bitmap::TILE_WIDTH / 8) as usize];
-        for (block_key, _) in tile.iter() {
-            let i = block_key.index();
-            let byte_index = i / 8;
-            block_keys[byte_index] |= 1 << (i % 8);
-        }
-        encoder.write_all(&block_keys)?;
-
-        for (byte_index, _val) in block_keys.iter().enumerate() {
-            for offset in 0..8 {
-                if block_keys[byte_index] & (1 << offset) != 0 {
-                    let block_key = BlockKey::from_index(byte_index * 8 + offset);
-                    let block = tile.get(block_key).unwrap();
-                    encoder.write_all(&block.data)?;
-                }
-            }
-        }
-
-        drop(encoder);
-        Ok(buf)
-    };
-
     // magic header
     writer.write_all(&JOURNEY_BITMAP_MAGIC_HEADER)?;
 
-    writer.write_all(&(journey_bitmap.tiles.len() as u64).encode_var_vec())?;
-    for (x, y) in journey_bitmap.tiles.keys().sorted() {
-        let tile = journey_bitmap.tiles.get(&(*x, *y)).unwrap();
-        let serialized_tile = serialize_tile(tile)?;
-        writer.write_all(&x.to_be_bytes())?;
-        writer.write_all(&y.to_be_bytes())?;
+    let mut keys = journey_bitmap.all_tile_keys().cloned().collect::<Vec<_>>();
+    keys.sort();
+
+    writer.write_all(&(keys.len() as u64).encode_var_vec())?;
+    for key in &keys {
+        writer.write_all(&key.x.to_be_bytes())?;
+        writer.write_all(&key.y.to_be_bytes())?;
         // Also write down the size of the tile so we could load the bitmap
         // without eagerly deserialize all tiles.
-        writer.write_all(&(serialized_tile.len() as u64).encode_var_vec())?;
-        writer.write_all(&serialized_tile)?;
+        let tile_bytes = journey_bitmap.get_tile_bytes(key).unwrap(); //must exists
+        writer.write_all(&(tile_bytes.len() as u64).encode_var_vec())?;
+        writer.write_all(tile_bytes)?;
     }
-
     Ok(())
 }
 
 #[auto_context]
-fn deserialize_tile<T: Read>(reader: T) -> Result<Tile> {
-    let mut decoder = zstd::Decoder::new(reader)?;
-    let mut tile = Tile::new();
-    let mut block_keys =
-        [0_u8; (journey_bitmap::TILE_WIDTH * journey_bitmap::TILE_WIDTH / 8) as usize];
-    decoder.read_exact(&mut block_keys)?;
-
-    for (byte_index, _val) in block_keys.iter().enumerate() {
-        for offset in 0..8 {
-            if block_keys[byte_index] & (1 << offset) != 0 {
-                let block_key = BlockKey::from_index(byte_index * 8 + offset);
-                let mut block_data = [0_u8; journey_bitmap::BITMAP_SIZE];
-                decoder.read_exact(&mut block_data)?;
-                let block = Block::new_with_data(block_data);
-                tile.set(block_key, block);
-            }
-        }
-    }
-
-    Ok(tile)
-}
-
-#[auto_context]
-pub fn deserialize_journey_bitmap<T: Read>(mut reader: T) -> Result<JourneyBitmap> {
+/// `full_validation = true`  will fully deserialize (instead of a lazy version)
+/// the bitmap to make sure it is valid. It can be slow but is required for
+/// loading data from the outside.
+pub fn deserialize_journey_bitmap<T: Read>(
+    mut reader: T,
+    full_validation: bool,
+) -> Result<JourneyBitmap> {
     validate_magic_header(&mut reader, &JOURNEY_BITMAP_MAGIC_HEADER)?;
 
-    let mut journey_bitmap = JourneyBitmap::new();
-    let tiles_count: u64 = reader.read_varint()?;
+    let tiles_count: usize = reader.read_varint()?;
+    let mut tiles_and_bytes = Vec::with_capacity(tiles_count);
     for _ in 0..tiles_count {
         let mut buf: [u8; 2] = [0; 2];
         reader.read_exact(&mut buf)?;
@@ -179,10 +132,15 @@ pub fn deserialize_journey_bitmap<T: Read>(mut reader: T) -> Result<JourneyBitma
         let tile_y = u16::from_be_bytes(buf);
 
         let tile_data_len: u64 = reader.read_varint()?;
-        let tile = deserialize_tile(reader.by_ref().take(tile_data_len))?;
-        journey_bitmap.tiles.insert((tile_x, tile_y), tile);
+        let mut tile_bytes = vec![0u8; tile_data_len as usize];
+        reader.read_exact(&mut tile_bytes)?;
+        tiles_and_bytes.push((TileKey::new(tile_x, tile_y), tile_bytes));
     }
 
+    let journey_bitmap = JourneyBitmap::of_tile_bytes_without_validation(tiles_and_bytes)?;
+    if full_validation {
+        journey_bitmap.validate()?;
+    }
     Ok(journey_bitmap)
 }
 
@@ -208,7 +166,7 @@ impl JourneyData {
         }
     }
 
-    pub fn serialize<T: Write>(&self, writer: T) -> Result<()> {
+    pub fn serialize<T: Write>(&mut self, writer: T) -> Result<()> {
         match self {
             JourneyData::Vector(vector) => serialize_journey_vector(vector, writer)?,
             JourneyData::Bitmap(bitmap) => serialize_journey_bitmap(bitmap, writer)?,
@@ -216,10 +174,20 @@ impl JourneyData {
         Ok(())
     }
 
-    pub fn deserialize<T: Read>(reader: T, journey_type: JourneyType) -> Result<JourneyData> {
+    /// `full_validation = true`  will fully deserialize (instead of a lazy version)
+    /// the bitmap to make sure it is valid. It can be slow but is required for
+    /// loading data from the outside.
+    pub fn deserialize<T: Read>(
+        reader: T,
+        journey_type: JourneyType,
+        full_validation: bool,
+    ) -> Result<JourneyData> {
         match journey_type {
             JourneyType::Vector => Ok(JourneyData::Vector(deserialize_journey_vector(reader)?)),
-            JourneyType::Bitmap => Ok(JourneyData::Bitmap(deserialize_journey_bitmap(reader)?)),
+            JourneyType::Bitmap => Ok(JourneyData::Bitmap(deserialize_journey_bitmap(
+                reader,
+                full_validation,
+            )?)),
         }
     }
 }
