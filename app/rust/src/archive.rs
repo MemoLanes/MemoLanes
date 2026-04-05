@@ -85,7 +85,7 @@ pub fn import_mldx(txn: &mut main_db::Txn, mldx_file: &str) -> Result<()> {
 
             let journey_header = JourneyHeader::of_proto(header)?;
             let journey_data =
-                JourneyData::deserialize(buf.as_slice(), journey_header.journey_type)?;
+                JourneyData::deserialize(buf.as_slice(), journey_header.journey_type, true)?;
             txn.insert_journey(journey_header, journey_data)?;
         }
     }
@@ -229,7 +229,7 @@ pub fn export_as_mldx<T: Write + Seek>(
         for j in journeys {
             // TODO: maybe we want to just take the bytes from db without doing
             // a roundtrip.
-            let journey_data = txn.get_journey_data(&j.id)?;
+            let mut journey_data = txn.get_journey_data(&j.id)?;
             let mut buf = Vec::new();
             journey_data.serialize(&mut buf)?;
             write_bytes_with_size_header(&mut zip, &buf)?;

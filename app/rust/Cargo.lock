@@ -2276,6 +2276,7 @@ dependencies = [
  "crossterm",
  "csv",
  "ctrlc",
+ "either",
  "env_logger",
  "file-rotate",
  "flate2",

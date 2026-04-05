@@ -9,7 +9,6 @@ import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
-import 'package:memolanes/src/rust/journey_data.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 
@@ -28,7 +27,7 @@ enum ImportType { fow, gpxOrKml }
 
 class _ImportDataPage extends State<ImportDataPage> {
   import_api.JourneyInfo? journeyInfo;
-  late final f.Either<JourneyData, import_api.RawVectorData>
+  late final f.Either<api.OpaqueJourneyData, import_api.RawVectorData>
       journeyDataMaybeRaw;
   api.MapRendererProxy? _mapRendererProxy;
   MapView? _initialMapView;
