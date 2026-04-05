@@ -47,6 +47,7 @@ bitvec = "1.0.1"
 auto-context = "0.1.1"
 csv = "1.4"
 time= "0.3"
+either = "1.15.0"
 
 [dev-dependencies]
 tempdir = "0.3"
