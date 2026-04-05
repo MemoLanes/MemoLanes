@@ -25,9 +25,9 @@ impl MapRenderer {
         }
     }
 
-    pub fn update<F>(&mut self, f: F)
+    pub fn update<F>(&mut self, mut f: F)
     where
-        F: Fn(&mut JourneyBitmap, &mut dyn FnMut(TileKey)),
+        F: FnMut(&mut JourneyBitmap, &mut dyn FnMut(TileKey)),
     {
         // Collect changed tile positions first
         let mut changed_tiles = Vec::new();

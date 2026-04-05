@@ -1,7 +1,6 @@
 use crate::utils;
 use anyhow::Result;
 use bitvec::prelude::*;
-use itertools::Itertools;
 use std::cell::RefCell;
 use std::io::{Read, Write};
 use std::{clone::Clone, collections::HashMap, mem::take};
@@ -29,6 +28,7 @@ pub const MIPMAP_BIT_SIZE: usize = {
 };
 
 const ALL_OFFSET: i16 = TILE_WIDTH_OFFSET + BITMAP_WIDTH_OFFSET;
+const TILE_ZSTD_COMPRESS_LEVEL: i32 = 3;
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Hash, PartialOrd, Ord)]
 pub struct TileKey {
@@ -94,7 +94,7 @@ impl JourneyBitmap {
     }
 
     pub fn get_tile_mut_or_insert_empty(&mut self, key: &TileKey) -> &mut Tile {
-        self.tiles.entry(*key).or_insert_with(Tile::new)
+        self.tiles.entry(*key).or_default()
     }
 
     pub fn peek_tile_without_updating_cache<F, R>(&self, key: &TileKey, mut f: F) -> R
@@ -108,17 +108,11 @@ impl JourneyBitmap {
     }
 
     pub fn get_tile_summary(&mut self, key: &TileKey) -> Option<TileSummary<'_>> {
-        match self.tiles.get(key) {
-            None => None,
-            Some(tile) => Some(TileSummary::Tile(tile)),
-        }
+        self.tiles.get(key).map(TileSummary::Tile)
     }
 
     pub fn get_tile_bytes(&mut self, key: &TileKey) -> Option<Vec<u8>> {
-        match self.tiles.get(key) {
-            None => None,
-            Some(tile) => Some(tile.serialize()),
-        }
+        self.tiles.get(key).map(|tile| tile.serialize())
     }
 
     pub fn all_tile_keys(&self) -> impl Iterator<Item = &TileKey> {
@@ -253,26 +247,13 @@ impl JourneyBitmap {
     }
 
     pub fn merge(&mut self, other_journey_bitmap: JourneyBitmap) {
-        for (key, mut other_tile) in other_journey_bitmap.tiles {
+        for (key, other_tile) in other_journey_bitmap.tiles {
             match self.tiles.get_mut(&key) {
                 None => {
                     self.tiles.insert(key, other_tile);
                 }
                 Some(self_tile) => {
-                    for i in 0..other_tile.blocks.len() {
-                        match take(&mut other_tile.blocks[i]) {
-                            None => (),
-                            Some(other_block) => match &mut self_tile.blocks[i] {
-                                None => {
-                                    self_tile.blocks[i] = Some(other_block);
-                                }
-                                Some(self_block) => {
-                                    // merge other_block into self_block
-                                    self_block.merge_with(other_block.as_ref());
-                                }
-                            },
-                        }
-                    }
+                    self_tile.merge(other_tile);
                 }
             }
         }
@@ -285,19 +266,7 @@ impl JourneyBitmap {
                     self.tiles.insert(*key, other_tile.clone());
                 }
                 Some(self_tile) => {
-                    for i in 0..other_tile.blocks.len() {
-                        match &other_tile.blocks[i] {
-                            None => (),
-                            Some(other_block) => match &mut self_tile.blocks[i] {
-                                None => {
-                                    self_tile.blocks[i] = Some(other_block.clone());
-                                }
-                                Some(self_block) => {
-                                    self_block.merge_with(other_block.as_ref());
-                                }
-                            },
-                        }
-                    }
+                    self_tile.merge_with_partial_clone(other_tile);
                 }
             }
         }
@@ -402,11 +371,6 @@ impl BlockKeyBitset {
         self.0[i / 8] |= 1 << (i % 8);
     }
 
-    fn contains(&self, block_key: &BlockKey) -> bool {
-        let i = block_key.index();
-        self.0[i / 8] & (1 << (i % 8)) != 0
-    }
-
     fn iter(&self) -> impl Iterator<Item = BlockKey> + '_ {
         self.0.iter().enumerate().flat_map(|(byte_index, &byte)| {
             (0..8_usize).filter_map(move |offset| {
@@ -428,15 +392,6 @@ impl BlockKeyBitset {
         let mut bitset = BlockKeyBitset::new();
         reader.read_exact(&mut bitset.0)?;
         Ok(bitset)
-    }
-
-    fn of_tile_bytes_internal(data: &[u8]) -> anyhow::Result<Self> {
-        let mut decoder = zstd::Decoder::new(data)?;
-        Self::read_from(&mut decoder)
-    }
-
-    fn of_tile_bytes_exn(data: &[u8]) -> Self {
-        Self::of_tile_bytes_internal(data).expect("failed to deserialize tile")
     }
 }
 

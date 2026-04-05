@@ -143,20 +143,21 @@ fn render_map_overlay_internal(
 
     for x in 0..width_by_tile {
         for y in 0..height_by_tile {
-            // TODO: cache?
-
-            TileShader::render_on_image(
-                &mut image,
-                x * tile_size,
-                y * tile_size,
-                map_renderer.peek_latest_bitmap(),
-                render_area.left_idx as i64 + x as i64,
-                render_area.top_idx as i64 + y as i64,
-                render_area.zoom as i16,
-                DEFAULT_TILE_SIZE.power(), // 9
-                DEFAULT_BG_COLOR,
-                DEFAULT_FG_COLOR,
-            );
+            map_renderer.update(|journey_bitmap, _change_callback| {
+                // No actual change here
+                TileShader::render_on_image(
+                    &mut image,
+                    x * tile_size,
+                    y * tile_size,
+                    journey_bitmap,
+                    render_area.left_idx as i64 + x as i64,
+                    render_area.top_idx as i64 + y as i64,
+                    render_area.zoom as i16,
+                    DEFAULT_TILE_SIZE.power(), // 9
+                    DEFAULT_BG_COLOR,
+                    DEFAULT_FG_COLOR,
+                );
+            });
         }
     }
 
