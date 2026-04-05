@@ -74,7 +74,7 @@ There are two main components of this app: 1. A rust library for the core logic;
 
 ### 2. Flutter Setup
 1. Install [Flutter](https://docs.flutter.dev/get-started/install).
-2. Install [flutter_rust_bridge](https://cjycode.com/flutter_rust_bridge/quickstart). It is recommend install the specific version that this project is using by `cargo install 'flutter_rust_bridge_codegen@2.11.1'`. The real version can be found using `just get-frb-version` or looking at `app/pubspec.yaml`.
+2. Install [flutter_rust_bridge](https://cjycode.com/flutter_rust_bridge/quickstart). It is recommend install the specific version that this project is using by `cargo install 'flutter_rust_bridge_codegen@2.12.0'`. The real version can be found using `just get-frb-version` or looking at `app/pubspec.yaml`.
 3. Install [yarn](https://yarnpkg.com/getting-started/install). Go to `/app/journey_kernel` folder. Install node packages by `yarn install`.
 4. Go to `/app` folder.
 5. Running pre-build via `just pre-build`. Note that this need to be reran every time rust api or journey kernel is updated.
