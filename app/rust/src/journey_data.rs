@@ -104,7 +104,7 @@ pub fn serialize_journey_bitmap<T: Write>(
         writer.write_all(&key.y.to_be_bytes())?;
         // Also write down the size of the tile so we could load the bitmap
         // without eagerly deserialize all tiles.
-        let tile_bytes = journey_bitmap.get_tile_bytes(key).unwrap(); //must exists
+        let tile_bytes = journey_bitmap.get_tile_bytes(key).unwrap(); // must exists
         writer.write_all(&(tile_bytes.len() as u64).encode_var_vec())?;
         writer.write_all(&tile_bytes)?;
     }

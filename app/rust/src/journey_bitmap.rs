@@ -833,7 +833,7 @@ impl Block {
     }
 
     fn update_mipmap_for_point(&self, x: usize, y: usize, val: bool) {
-        if val == false {
+        if !val {
             // setting a point to false is not a common operation.
             // So we just invalid the cache to keep it simple.
             *self.mipmap.borrow_mut() = None;
