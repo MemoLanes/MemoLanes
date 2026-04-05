@@ -217,7 +217,7 @@ impl MapServer {
             std::env::var("DEV_SERVER").unwrap_or_else(|_| "http://localhost:8080".to_string());
 
         let server_info = self.server_info.lock().unwrap();
-        let mut map_renderer = self.map_renderer.lock().unwrap();
+        let map_renderer = self.map_renderer.lock().unwrap();
         let camera_option =
             get_default_camera_option_from_journey_bitmap(map_renderer.peek_latest_bitmap());
 
@@ -244,7 +244,7 @@ impl MapServer {
 
     pub fn get_file_url(&self) -> String {
         let server_info = self.server_info.lock().unwrap();
-        let mut map_renderer = self.map_renderer.lock().unwrap();
+        let map_renderer = self.map_renderer.lock().unwrap();
         let camera_option =
             get_default_camera_option_from_journey_bitmap(map_renderer.peek_latest_bitmap());
 
