@@ -641,14 +641,24 @@ impl Block {
         &self.data
     }
 
-    /// Merge `other` into `self` (bitwise OR). Clears mipmap cache.
+    /// Merge `other` into `self` (bitwise OR). Incrementally updates mipmap if cached.
     pub fn merge_with(&mut self, other: &Block) {
         for i in 0..self.data.len() {
             self.data[i] |= other.data[i];
         }
-        // TODO: maybe we should consider merging mipmap directly or only reset
-        // it when there is a real change.
-        *self.mipmap.borrow_mut() = None;
+
+        if let Some(self_mipmap) = self.mipmap.get_mut() {
+            match other.mipmap.borrow().as_ref() {
+                Some(other_mipmap) => {
+                    let self_raw = self_mipmap.as_raw_mut_slice();
+                    let other_raw = other_mipmap.as_raw_slice();
+                    for i in 0..self_raw.len() {
+                        self_raw[i] |= other_raw[i];
+                    }
+                }
+                None => *self.mipmap.get_mut() = None,
+            }
+        }
     }
 
     /// Subtract `other` from `self` (self = self & !other). Clears mipmap cache.
@@ -822,6 +832,36 @@ impl Block {
         }
     }
 
+    fn update_mipmap_for_point(&self, x: usize, y: usize, val: bool) {
+        if val == false {
+            // setting a point to false is not a common operation.
+            // So we just invalid the cache to keep it simple.
+            *self.mipmap.borrow_mut() = None;
+            return;
+        }
+        let mut mipmap_cell = self.mipmap.borrow_mut();
+        let mipmap = match mipmap_cell.as_mut() {
+            Some(m) => m,
+            None => return,
+        };
+
+        let mut cur_x = x;
+        let mut cur_y = y;
+        let mut dst_offset: usize = 0;
+
+        for &dim in &MIPMAP_LEVELS {
+            let dst_x = cur_x / 2;
+            let dst_y = cur_y / 2;
+            let dst_idx = dst_offset + dst_y * dim + dst_x;
+
+            mipmap.set(dst_idx, true);
+
+            cur_x = dst_x;
+            cur_y = dst_y;
+            dst_offset += dim * dim;
+        }
+    }
+
     // x ∈ [0,63], y ∈ [0，63]
     fn set_point(&mut self, x: u8, y: u8, val: bool) {
         if x > 63 || y > 63 {
@@ -834,7 +874,7 @@ impl Block {
         let current = self.data[i + j * 8];
         self.data[i + j * 8] = (current & !(1 << bit_offset)) | (val_number << bit_offset);
         if self.data[i + j * 8] != current {
-            *self.mipmap.borrow_mut() = None;
+            self.update_mipmap_for_point(x as usize, y as usize, val);
         }
     }
 
@@ -942,5 +982,77 @@ mod tests {
         block.merge_with(&other);
         block.intersect_with(&Block::new());
         assert!(!block.get_at_level(0, 0, 0));
+    }
+
+    fn assert_mipmap_matches_regenerated(block: &Block) {
+        let cached = block.mipmap.borrow();
+        let cached = cached.as_ref().expect("mipmap should be cached");
+        let fresh = block.regenerate_mipmaps();
+        assert_eq!(
+            *cached, fresh,
+            "incremental mipmap does not match regenerated mipmap"
+        );
+    }
+
+    fn has_mipmap(block: &Block) -> bool {
+        block.mipmap.borrow().is_some()
+    }
+
+    #[test]
+    fn incremental_mipmap_set_true() {
+        let mut block = Block::new();
+        // Trigger initial mipmap generation
+        block.get_at_level(0, 0, 0);
+        assert!(has_mipmap(&block));
+
+        for (x, y) in [(10, 10), (50, 30), (0, 0), (63, 63), (32, 32), (1, 62)] {
+            block.set_point(x, y, true);
+            assert!(has_mipmap(&block));
+            assert_mipmap_matches_regenerated(&block);
+        }
+    }
+
+    #[test]
+    fn incremental_mipmap_set_false() {
+        let mut block = Block::new();
+        let points: &[(u8, u8)] = &[(10, 10), (10, 11), (20, 20), (0, 0), (63, 63)];
+        for &(x, y) in points {
+            block.set_point(x, y, true);
+        }
+        // Generate mipmap
+        block.get_at_level(0, 0, 0);
+        assert!(has_mipmap(&block));
+
+        for &(x, y) in points {
+            block.set_point(x, y, false);
+            assert!(!has_mipmap(&block));
+        }
+    }
+
+    #[test]
+    fn incremental_mipmap_merge() {
+        let mut block_a = Block::new();
+        block_a.set_point(5, 5, true);
+        block_a.set_point(10, 10, true);
+        block_a.get_at_level(0, 0, 0);
+        assert!(has_mipmap(&block_a));
+
+        // Merge with block that has no mipmap
+        let mut block_b = Block::new();
+        block_b.set_point(30, 30, true);
+        block_b.set_point(50, 50, true);
+        block_a.merge_with(&block_b);
+        assert!(!has_mipmap(&block_a));
+
+        // Merge with block that has a mipmap
+        block_a.get_at_level(0, 0, 0);
+        assert!(has_mipmap(&block_a));
+        let mut block_c = Block::new();
+        block_c.set_point(0, 0, true);
+        block_c.set_point(63, 63, true);
+        block_c.get_at_level(0, 0, 0);
+        block_a.merge_with(&block_c);
+        assert!(has_mipmap(&block_a));
+        assert_mipmap_matches_regenerated(&block_a);
     }
 }
