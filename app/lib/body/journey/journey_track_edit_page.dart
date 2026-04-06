@@ -28,6 +28,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   OperationMode _mode = OperationMode.move;
   bool _canUndo = false;
+  bool _drawAlignEnabled = false;
 
   bool _zoomOk = false;
 
@@ -35,7 +36,11 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   void _showAddModeEnabled() {
     _showFloatingSnackBar(
-      context.tr("journey.editor.draw_mode_enabled"),
+      context.tr(
+        _drawAlignEnabled
+            ? "journey.editor.draw_mode_enabled_with_align"
+            : "journey.editor.draw_mode_enabled",
+      ),
     );
   }
 
@@ -155,6 +160,21 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     _applyMode(mode);
   }
 
+  void _handleDrawEntrySelected(DrawEntryMode mode) {
+    final wasMode = _mode;
+
+    setState(() {
+      _drawAlignEnabled = mode == DrawEntryMode.linked;
+    });
+
+    if (wasMode == OperationMode.edit) {
+      _showAddModeEnabled();
+      return;
+    }
+
+    _applyMode(OperationMode.edit);
+  }
+
   void _handleMapZoomUpdate(int? zoom) {
     if (zoom == null) return;
 
@@ -173,7 +193,10 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     if (points.length < 2) return;
     final recordPoints = points.map((p) => (p.lat, p.lng)).toList();
 
-    await _editSession.addLines(points: recordPoints);
+    await _editSession.addLines(
+      points: recordPoints,
+      snapEndpoints: _drawAlignEnabled,
+    );
 
     if (!mounted) return;
     await _mapWebviewKey.currentState?.manualRefresh();
@@ -252,6 +275,8 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                 child: ModeSwitchBar(
                   currentMode: _mode,
                   onModeChanged: _handleModeChange,
+                  isDrawAlignEnabled: _drawAlignEnabled,
+                  onDrawEntrySelected: _handleDrawEntrySelected,
                   canUndo: _canUndo,
                   onUndo: () async {
                     await _editSession.undo();
