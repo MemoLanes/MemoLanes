@@ -19,7 +19,7 @@ enum DrawEntryMode {
 class ModeSwitchBar extends StatelessWidget {
   final OperationMode currentMode;
   final ValueChanged<OperationMode> onModeChanged;
-  final bool isDrawAlignEnabled;
+  final bool isLinkedDrawEnabled;
   final ValueChanged<DrawEntryMode>? onDrawEntrySelected;
   final bool canUndo;
   final VoidCallback? onUndo;
@@ -30,7 +30,7 @@ class ModeSwitchBar extends StatelessWidget {
     super.key,
     required this.currentMode,
     required this.onModeChanged,
-    this.isDrawAlignEnabled = false,
+    this.isLinkedDrawEnabled = false,
     this.onDrawEntrySelected,
     this.canUndo = false,
     this.onUndo,
@@ -109,13 +109,13 @@ class ModeSwitchBar extends StatelessWidget {
         _buildDrawEntryButton(
           icon: Icons.draw_rounded,
           label: context.tr('journey.editor.free_draw'),
-          isSelected: !isDrawAlignEnabled,
+          isSelected: !isLinkedDrawEnabled,
           onTap: () => onDrawEntrySelected?.call(DrawEntryMode.freehand),
         ),
         _buildDrawEntryButton(
           icon: Icons.link_rounded,
           label: context.tr('journey.editor.linked_draw'),
-          isSelected: isDrawAlignEnabled,
+          isSelected: isLinkedDrawEnabled,
           onTap: () => onDrawEntrySelected?.call(DrawEntryMode.linked),
         ),
       ];
@@ -151,14 +151,12 @@ class ModeSwitchBar extends StatelessWidget {
     required IconData icon,
     required String label,
     required bool isSelected,
-    Color? activeColor,
     required VoidCallback onTap,
   }) {
     return _BaseBarItem(
       icon: icon,
       label: label,
       isSelected: isSelected,
-      activeColor: activeColor,
       onTap: () {
         HapticFeedback.selectionClick();
         onTap();
@@ -172,8 +170,6 @@ class ModeSwitchBar extends StatelessWidget {
     required String label,
     bool isEnabled = true,
     bool? isSelected,
-    Color? activeColor,
-    IconData? badgeIcon,
   }) {
     final selected = isSelected ?? currentMode == mode;
 
@@ -182,8 +178,6 @@ class ModeSwitchBar extends StatelessWidget {
       label: label,
       isSelected: selected,
       isEnabled: isEnabled,
-      activeColor: activeColor,
-      badgeIcon: badgeIcon,
       onTap: isEnabled
           ? () {
               HapticFeedback.lightImpact();
@@ -198,13 +192,11 @@ class ModeSwitchBar extends StatelessWidget {
     required String label,
     required bool isEnabled,
     VoidCallback? onTap,
-    Color? activeColor,
   }) {
     return _BaseBarItem(
       icon: icon,
       label: label,
       isEnabled: isEnabled,
-      activeColor: activeColor,
       onTap: isEnabled
           ? () {
               HapticFeedback.mediumImpact();
@@ -221,8 +213,6 @@ class _BaseBarItem extends StatelessWidget {
   final bool isSelected;
   final bool isEnabled;
   final VoidCallback? onTap;
-  final Color? activeColor;
-  final IconData? badgeIcon;
 
   const _BaseBarItem({
     required this.icon,
@@ -230,13 +220,11 @@ class _BaseBarItem extends StatelessWidget {
     this.isSelected = false,
     this.isEnabled = true,
     this.onTap,
-    this.activeColor,
-    this.badgeIcon,
   });
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = activeColor ?? Colors.black;
+    const themeColor = Colors.black;
 
     final Color bgColor = isSelected
         ? (isEnabled
@@ -274,16 +262,6 @@ class _BaseBarItem extends StatelessWidget {
                     alignment: Alignment.center,
                     child: Icon(icon, color: contentColor, size: 22),
                   ),
-                  if (badgeIcon != null)
-                    Positioned(
-                      top: -3,
-                      right: -5,
-                      child: Icon(
-                        badgeIcon,
-                        color: contentColor,
-                        size: 11,
-                      ),
-                    ),
                 ],
               ),
             ),

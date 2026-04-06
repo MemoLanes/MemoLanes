@@ -28,18 +28,18 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   OperationMode _mode = OperationMode.move;
   bool _canUndo = false;
-  bool _drawAlignEnabled = false;
+  bool _isLinkedDrawEnabled = false;
 
   bool _zoomOk = false;
 
   final GlobalKey<JourneyEditorMapViewState> _mapWebviewKey = GlobalKey();
 
-  void _showAddModeEnabled() {
+  void _showDrawModeEnabledToast() {
     _showFloatingSnackBar(
       context.tr(
-        _drawAlignEnabled
-            ? "journey.editor.draw_mode_enabled_with_align"
-            : "journey.editor.draw_mode_enabled",
+        _isLinkedDrawEnabled
+            ? "journey.editor.linked_draw_mode_enabled"
+            : "journey.editor.free_draw_mode_enabled",
       ),
     );
   }
@@ -137,7 +137,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
         break;
 
       case OperationMode.edit:
-        _showAddModeEnabled();
+        _showDrawModeEnabledToast();
         map?.setDrawMode(true);
         map?.setDeleteMode(false);
         break;
@@ -164,11 +164,11 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     final wasMode = _mode;
 
     setState(() {
-      _drawAlignEnabled = mode == DrawEntryMode.linked;
+      _isLinkedDrawEnabled = mode == DrawEntryMode.linked;
     });
 
     if (wasMode == OperationMode.edit) {
-      _showAddModeEnabled();
+      _showDrawModeEnabledToast();
       return;
     }
 
@@ -195,7 +195,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
     await _editSession.addLines(
       points: recordPoints,
-      snapEndpoints: _drawAlignEnabled,
+      snapEndpoints: _isLinkedDrawEnabled,
     );
 
     if (!mounted) return;
@@ -275,7 +275,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                 child: ModeSwitchBar(
                   currentMode: _mode,
                   onModeChanged: _handleModeChange,
-                  isDrawAlignEnabled: _drawAlignEnabled,
+                  isLinkedDrawEnabled: _isLinkedDrawEnabled,
                   onDrawEntrySelected: _handleDrawEntrySelected,
                   canUndo: _canUndo,
                   onUndo: () async {
