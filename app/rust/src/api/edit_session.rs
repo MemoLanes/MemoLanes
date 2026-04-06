@@ -32,8 +32,7 @@ impl EditSession {
         a: &crate::journey_vector::TrackPoint,
         b: &crate::journey_vector::TrackPoint,
     ) -> bool {
-        (a.latitude - b.latitude).abs() < DEDUP_EPS
-            && (a.longitude - b.longitude).abs() < DEDUP_EPS
+        (a.latitude - b.latitude).abs() < DEDUP_EPS && (a.longitude - b.longitude).abs() < DEDUP_EPS
     }
 
     fn dedup_adjacent_track_points(
@@ -83,8 +82,8 @@ impl EditSession {
         let t = t.clamp(0.0, 1.0);
         let nearest_lng = ax + dx * t;
         let nearest_lat = ay + dy * t;
-        let distance_sq = (px - nearest_lng) * (px - nearest_lng)
-            + (py - nearest_lat) * (py - nearest_lat);
+        let distance_sq =
+            (px - nearest_lng) * (px - nearest_lng) + (py - nearest_lat) * (py - nearest_lat);
 
         (
             distance_sq,
@@ -465,9 +464,7 @@ impl EditSession {
             .collect();
 
         self.push_undo_checkpoint(self.data.clone());
-        self.data.track_segments.push(TrackSegment {
-            track_points,
-        });
+        self.data.track_segments.push(TrackSegment { track_points });
 
         let mut map_renderer = self.map_renderer.lock().unwrap();
         map_renderer.update(|journey_bitmap, tile_changed| {
