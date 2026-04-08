@@ -57,13 +57,13 @@ fn query_bitmap(
     let mut stmt = conn.prepare(sql)?;
     stmt.query_row(params, |row| {
         let data = row.get_ref(0)?.as_blob()?;
-        Ok(journey_data::deserialize_journey_bitmap(data))
+        Ok(journey_data::deserialize_journey_bitmap(data, false))
     })
     .optional()?
     .transpose()
 }
 
-fn serialize_bitmap(bitmap: &JourneyBitmap) -> Result<Vec<u8>> {
+fn serialize_bitmap(bitmap: &mut JourneyBitmap) -> Result<Vec<u8>> {
     let mut data = Vec::new();
     journey_data::serialize_journey_bitmap(bitmap, &mut data)?;
     Ok(data)
@@ -118,7 +118,7 @@ impl CacheDbV1 {
     fn set_full(
         conn: &Connection,
         layer_kind: &LayerKind,
-        journey_bitmap: &JourneyBitmap,
+        journey_bitmap: &mut JourneyBitmap,
     ) -> Result<()> {
         let data = serialize_bitmap(journey_bitmap)?;
         conn.execute(
@@ -158,7 +158,7 @@ impl CacheDb for CacheDbV1 {
                     return Ok(bm);
                 }
 
-                let result = match *layer_kind {
+                let mut result = match *layer_kind {
                     LayerKind::All => {
                         let mut bm = JourneyBitmap::new();
                         for jk in JourneyKind::iter() {
@@ -180,7 +180,7 @@ impl CacheDb for CacheDbV1 {
                     }
                 };
 
-                Self::set_full(&self.conn, layer_kind, &result)?;
+                Self::set_full(&self.conn, layer_kind, &mut result)?;
                 Ok(result)
             }
             _ => bail!("from and to must both be Some or both be None"),
@@ -197,7 +197,7 @@ impl CacheDb for CacheDbV1 {
         // Merge into the per-kind full cache if it exists.
         if let Some(mut bm) = Self::get_full(&self.conn, &layer_kind)? {
             data.merge_into_with_partial_clone(&mut bm);
-            Self::set_full(&self.conn, &layer_kind, &bm)?;
+            Self::set_full(&self.conn, &layer_kind, &mut bm)?;
         }
 
         Ok(())

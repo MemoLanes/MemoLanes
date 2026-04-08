@@ -199,7 +199,7 @@ impl Txn<'_> {
 
     // TODO: consider return structured result so the caller know if it is skipped or other cases
     #[auto_context]
-    pub fn insert_journey(&mut self, header: JourneyHeader, data: JourneyData) -> Result<()> {
+    pub fn insert_journey(&mut self, header: JourneyHeader, mut data: JourneyData) -> Result<()> {
         let journey_type = header.journey_type;
         if journey_type != data.type_() {
             bail!("[insert_journey] Mismatch journey type")
@@ -375,7 +375,7 @@ impl Txn<'_> {
             .get_journey_header(id)?
             .ok_or_else(|| anyhow!("Updating non existent journey, journey id = {id}"))?;
 
-        let (journey_data, algo) = match journey_data {
+        let (mut journey_data, algo) = match journey_data {
             JourneyData::Bitmap(bitmap) => (JourneyData::Bitmap(bitmap), None),
             JourneyData::Vector(vector) => (
                 JourneyData::Vector(GpsPostprocessor::process(vector)),
@@ -517,7 +517,7 @@ impl Txn<'_> {
                 let f = || {
                     let journey_type = JourneyType::of_int(i8::try_from(type_)?)?;
                     let data = row.get_ref(1)?.as_blob()?;
-                    JourneyData::deserialize(data, journey_type)
+                    JourneyData::deserialize(data, journey_type, false)
                 };
                 Ok(f())
             })

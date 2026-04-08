@@ -1,22 +1,22 @@
+use flutter_rust_bridge::frb;
 use journey_kernel::TileBuffer;
 
 use crate::journey_area_utils;
-use crate::journey_bitmap::{JourneyBitmap, Tile};
+use crate::journey_bitmap::{JourneyBitmap, TileKey};
 use crate::renderer::tile_shader2::TileShader2;
 use std::collections::HashMap;
 
+#[frb(ignore)]
 pub struct MapRenderer {
     journey_bitmap: JourneyBitmap,
     /* for each tile of 512*512 tiles in a JourneyBitmap, use buffered area to record any update */
-    tile_area_cache: HashMap<(u16, u16), f64>,
+    tile_area_cache: HashMap<TileKey, f64>,
     version: u64,
     current_area: Option<u64>,
 }
 
 impl MapRenderer {
     pub fn new(journey_bitmap: JourneyBitmap) -> Self {
-        let mut journey_bitmap = journey_bitmap;
-        Self::prepare_journey_bitmap_for_rendering(&mut journey_bitmap);
         Self {
             journey_bitmap,
             tile_area_cache: HashMap::new(),
@@ -25,35 +25,20 @@ impl MapRenderer {
         }
     }
 
-    fn prepare_journey_bitmap_for_rendering(journey_bitmap: &mut JourneyBitmap) {
-        for tile in journey_bitmap.tiles.values_mut() {
-            Self::prepare_tiles_for_rendering(tile);
-        }
-    }
-
-    fn prepare_tiles_for_rendering(_tile: &mut Tile) {
-        // just a place holder for future implementation
-    }
-
-    pub fn update<F>(&mut self, f: F)
+    pub fn update<F>(&mut self, mut f: F)
     where
-        F: Fn(&mut JourneyBitmap, &mut dyn FnMut((u16, u16))),
+        F: FnMut(&mut JourneyBitmap, &mut dyn FnMut(TileKey)),
     {
         // Collect changed tile positions first
         let mut changed_tiles = Vec::new();
-        let mut tile_changed = |tile_pos: (u16, u16)| {
+        let mut tile_changed = |tile_pos: TileKey| {
             changed_tiles.push(tile_pos);
         };
 
         // Apply the update function
         f(&mut self.journey_bitmap, &mut tile_changed);
 
-        // Now prepare tiles for rendering for all changed tiles
         for tile_pos in changed_tiles {
-            if let Some(tile) = self.journey_bitmap.tiles.get_mut(&tile_pos) {
-                Self::prepare_tiles_for_rendering(tile);
-            }
-            // Invalidate cache for this tile
             self.tile_area_cache.remove(&tile_pos);
         }
 
@@ -62,8 +47,6 @@ impl MapRenderer {
     }
 
     pub fn replace(&mut self, journey_bitmap: JourneyBitmap) {
-        let mut journey_bitmap = journey_bitmap;
-        Self::prepare_journey_bitmap_for_rendering(&mut journey_bitmap);
         self.journey_bitmap = journey_bitmap;
         self.tile_area_cache.clear();
         self.reset();
@@ -113,7 +96,7 @@ impl MapRenderer {
     }
 
     pub fn get_tile_buffer(
-        &self,
+        &mut self,
         x: i64,
         y: i64,
         z: i16,
@@ -122,7 +105,7 @@ impl MapRenderer {
         buffer_size_power: i16,
     ) -> Result<TileBuffer, String> {
         tile_buffer_from_journey_bitmap(
-            &self.journey_bitmap,
+            &mut self.journey_bitmap,
             x,
             y,
             z,
@@ -135,7 +118,7 @@ impl MapRenderer {
 
 /// Create a new TileBuffer from a JourneyBitmap for a range of tiles
 fn tile_buffer_from_journey_bitmap(
-    journey_bitmap: &JourneyBitmap,
+    journey_bitmap: &mut JourneyBitmap,
     x: i64,
     y: i64,
     z: i16,

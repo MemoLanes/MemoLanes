@@ -1,6 +1,11 @@
 use crate::utils;
+use anyhow::Result;
 use bitvec::prelude::*;
+use std::cell::RefCell;
+use std::io::{Read, Write};
 use std::{clone::Clone, collections::HashMap, mem::take};
+
+// NOTE: Interface here can be weird in some cases, these are for journey bitmap v2.
 
 pub const TILE_WIDTH_OFFSET: i16 = 7;
 pub const MAP_WIDTH_OFFSET: i16 = 9;
@@ -23,24 +28,113 @@ pub const MIPMAP_BIT_SIZE: usize = {
 };
 
 const ALL_OFFSET: i16 = TILE_WIDTH_OFFSET + BITMAP_WIDTH_OFFSET;
+const TILE_ZSTD_COMPRESS_LEVEL: i32 = 3;
+
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Hash, PartialOrd, Ord)]
+pub struct TileKey {
+    pub x: u16,
+    pub y: u16,
+}
+
+impl TileKey {
+    pub fn new(x: u16, y: u16) -> Self {
+        TileKey { x, y }
+    }
+}
 
 // we have 512*512 tiles, 128*128 blocks and a single block contains
 // a 64*64 bitmap.
-#[derive(PartialEq, Eq, Debug, Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct JourneyBitmap {
-    pub tiles: HashMap<(u16, u16), Tile>,
+    tiles: HashMap<TileKey, Tile>,
 }
+
+impl PartialEq for JourneyBitmap {
+    fn eq(&self, other: &Self) -> bool {
+        self.tiles == other.tiles
+    }
+}
+
+impl Eq for JourneyBitmap {}
 
 impl JourneyBitmap {
     pub fn new() -> Self {
         Self::default()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.tiles.is_empty()
+    }
+
+    // `validate` should be called immediately after when using this on imported data.
+    pub fn of_tile_bytes_without_validation(data: Vec<(TileKey, Vec<u8>)>) -> Result<Self> {
+        let mut journey_bitmap = Self::new();
+        for (key, serialized_bytes) in data {
+            journey_bitmap
+                .tiles
+                .insert(key, Tile::deserialize(&serialized_bytes)?);
+        }
+        Ok(journey_bitmap)
+    }
+
+    pub fn tile_count(&self) -> usize {
+        self.tiles.len()
+    }
+
+    pub fn contains_tile(&self, key: &TileKey) -> bool {
+        self.tiles.contains_key(key)
+    }
+
+    pub fn get_tile(&mut self, key: &TileKey) -> Option<&Tile> {
+        self.tiles.get(key)
+    }
+
+    pub fn get_tile_mut(&mut self, key: &TileKey) -> Option<&mut Tile> {
+        self.tiles.get_mut(key)
+    }
+
+    pub fn get_tile_mut_or_insert_empty(&mut self, key: &TileKey) -> &mut Tile {
+        self.tiles.entry(*key).or_default()
+    }
+
+    pub fn peek_tile_without_updating_cache<F, R>(&self, key: &TileKey, mut f: F) -> R
+    where
+        F: FnMut(Option<&Tile>) -> R,
+    {
+        match self.tiles.get(key) {
+            None => f(None),
+            Some(tile) => f(Some(tile)),
+        }
+    }
+
+    pub fn get_tile_summary(&mut self, key: &TileKey) -> Option<TileSummary<'_>> {
+        self.tiles.get(key).map(TileSummary::Tile)
+    }
+
+    pub fn get_tile_bytes(&mut self, key: &TileKey) -> Option<Vec<u8>> {
+        self.tiles.get(key).map(|tile| tile.serialize())
+    }
+
+    pub fn all_tile_keys(&self) -> impl Iterator<Item = &TileKey> {
+        self.tiles.keys()
+    }
+
+    pub fn insert_tile(&mut self, key: &TileKey, tile: Tile) {
+        self.tiles.insert(*key, tile);
+    }
+
+    /// Validate that all serialized tiles can be deserialized successfully.
+    /// This is necessary when importing data. Other parts of the code assume
+    /// deserialization will always succeed.
+    pub fn validate(&self) -> anyhow::Result<()> {
+        // Actually nothing needs to be done here.
+        Ok(())
+    }
+
     // NOTE: `add_line` is cherry picked from: https://github.com/tavimori/fogcore/blob/d0888508e25652164742db8e7d879e651b6607d7/src/fogmaps.rs
     // TODO: clean up the code:
     //       - make sure we are using the consistent and correct one of `u64`/`i64`/`i32`.
     //       - better variable naming.
-    //       - reduce code duplications.
 
     pub fn add_line(&mut self, start_lng: f64, start_lat: f64, end_lng: f64, end_lat: f64) {
         self.add_line_with_change_callback(start_lng, start_lat, end_lng, end_lat, |_| {});
@@ -54,7 +148,7 @@ impl JourneyBitmap {
         end_lat: f64,
         mut tile_changed: F,
     ) where
-        F: FnMut((u16, u16)),
+        F: FnMut(TileKey),
     {
         use std::f64::consts::PI;
 
@@ -75,7 +169,6 @@ impl JourneyBitmap {
             x1 += 2 * x_half;
         }
 
-        // Iterators, counters required by algorithm
         // Calculate line deltas
         let dx = x1 as i64 - x0 as i64;
         let dy = y1 as i64 - y0 as i64;
@@ -83,93 +176,57 @@ impl JourneyBitmap {
         let dx0 = dx.abs();
         let dy0 = dy.abs();
         // Calculate error intervals for both axis
-        let mut px = 2 * dy0 - dx0;
-        let mut py = 2 * dx0 - dy0;
+        let px = 2 * dy0 - dx0;
+        let py = 2 * dx0 - dy0;
 
-        // The line is X-axis dominant or only in one tile
-        if dy0 <= dx0 {
-            let (mut x, mut y, xe) = if dx >= 0 {
-                // Line is drawn left to right
-                (x0 as i64, y0 as i64, x1 as i64)
-            } else {
-                // Line is drawn right to left (swap ends)
-                (x1 as i64, y1 as i64, x0 as i64)
-            };
-            loop {
-                // tile_x is not rounded, it may exceed the antimeridian
-                let (tile_x, tile_y) = (x >> ALL_OFFSET, y >> ALL_OFFSET);
-                let (_, tile_lat) = utils::tile_x_y_to_lng_lat(
-                    x as i32,
-                    y as i32,
-                    (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32,
-                );
-                let latirad = tile_lat * PI / 180.0;
-                let width: u8 = (1.0 / latirad.cos()).round() as u8;
+        let xaxis = dy0 <= dx0;
+        let quadrants13 = (dx < 0 && dy < 0) || (dx > 0 && dy > 0);
 
-                let tile_pos = ((tile_x % MAP_WIDTH) as u16, tile_y as u16);
-                let tile = self.tiles.entry(tile_pos).or_default();
-                (x, y, px) = tile.add_line(
-                    x - (tile_x << ALL_OFFSET),
-                    y - (tile_y << ALL_OFFSET),
-                    xe - (tile_x << ALL_OFFSET),
-                    px,
-                    dx0,
-                    dy0,
-                    true,
-                    (dx < 0 && dy < 0) || (dx > 0 && dy > 0),
-                    width,
-                );
-                // TODO: We might want to check if the tile is actually changed
-                tile_changed(tile_pos);
-
-                x += tile_x << ALL_OFFSET;
-                y += tile_y << ALL_OFFSET;
-
-                if x >= xe {
-                    break;
-                }
-            }
+        // Ensure we always draw in the positive primary direction
+        let primary_delta = if xaxis { dx } else { dy };
+        let ((mut x, mut y), (end_x, end_y)) = if primary_delta >= 0 {
+            ((x0 as i64, y0 as i64), (x1 as i64, y1 as i64))
         } else {
-            // The line is Y-axis dominant
-            let (mut x, mut y, ye) = if dy >= 0 {
-                // Line is drawn bottom to top
-                (x0 as i64, y0 as i64, y1 as i64)
-            } else {
-                // Line is drawn top to bottom
-                (x1 as i64, y1 as i64, y0 as i64)
-            };
-            loop {
-                // tile_x is not rounded, it may exceed the antimeridian
-                let (tile_x, tile_y) = (x >> ALL_OFFSET, y >> ALL_OFFSET);
-                let (_, tile_lat) = utils::tile_x_y_to_lng_lat(
-                    x as i32,
-                    y as i32,
-                    (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32,
-                );
-                let latirad = tile_lat * PI / 180.0;
-                let width: u8 = (1.0 / latirad.cos()).round() as u8;
-                let tile_pos = ((tile_x % MAP_WIDTH) as u16, tile_y as u16);
-                let tile = self.tiles.entry(tile_pos).or_default();
-                (x, y, py) = tile.add_line(
-                    x - (tile_x << ALL_OFFSET),
-                    y - (tile_y << ALL_OFFSET),
-                    ye - (tile_y << ALL_OFFSET),
-                    py,
+            ((x1 as i64, y1 as i64), (x0 as i64, y0 as i64))
+        };
+        let end = if xaxis { end_x } else { end_y };
+        let mut p = if xaxis { px } else { py };
+
+        loop {
+            // tile_x is not rounded, it may exceed the antimeridian
+            let (tile_x, tile_y) = (x >> ALL_OFFSET, y >> ALL_OFFSET);
+            let (_, tile_lat) = utils::tile_x_y_to_lng_lat(
+                x as i32,
+                y as i32,
+                (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32,
+            );
+            let latirad = tile_lat * PI / 180.0;
+            let width: u8 = (1.0 / latirad.cos()).round() as u8;
+
+            let tile_key = TileKey::new((tile_x % MAP_WIDTH) as u16, tile_y as u16);
+            let (tile_x_offset, tile_y_offset) = (tile_x << ALL_OFFSET, tile_y << ALL_OFFSET);
+            {
+                let tile = self.get_tile_mut_or_insert_empty(&tile_key);
+                (x, y, p) = tile.add_line(
+                    x - tile_x_offset,
+                    y - tile_y_offset,
+                    end - if xaxis { tile_x_offset } else { tile_y_offset },
+                    p,
                     dx0,
                     dy0,
-                    false,
-                    (dx < 0 && dy < 0) || (dx > 0 && dy > 0),
+                    xaxis,
+                    quadrants13,
                     width,
                 );
-                // TODO: We might want to check if the tile is actually changed
-                tile_changed(tile_pos);
+            }
+            // TODO: We might want to check if the tile is actually changed
+            tile_changed(tile_key);
 
-                x += tile_x << ALL_OFFSET;
-                y += tile_y << ALL_OFFSET;
+            x += tile_x_offset;
+            y += tile_y_offset;
 
-                if y >= ye {
-                    break;
-                }
+            if (if xaxis { x } else { y }) >= end {
+                break;
             }
         }
     }
@@ -190,26 +247,13 @@ impl JourneyBitmap {
     }
 
     pub fn merge(&mut self, other_journey_bitmap: JourneyBitmap) {
-        for (key, mut other_tile) in other_journey_bitmap.tiles {
+        for (key, other_tile) in other_journey_bitmap.tiles {
             match self.tiles.get_mut(&key) {
                 None => {
                     self.tiles.insert(key, other_tile);
                 }
                 Some(self_tile) => {
-                    for i in 0..other_tile.blocks.len() {
-                        match take(&mut other_tile.blocks[i]) {
-                            None => (),
-                            Some(other_block) => match &mut self_tile.blocks[i] {
-                                None => {
-                                    self_tile.blocks[i] = Some(other_block);
-                                }
-                                Some(self_block) => {
-                                    // merge other_block into self_block
-                                    self_block.merge_with(other_block.as_ref());
-                                }
-                            },
-                        }
-                    }
+                    self_tile.merge(other_tile);
                 }
             }
         }
@@ -222,19 +266,7 @@ impl JourneyBitmap {
                     self.tiles.insert(*key, other_tile.clone());
                 }
                 Some(self_tile) => {
-                    for i in 0..other_tile.blocks.len() {
-                        match &other_tile.blocks[i] {
-                            None => (),
-                            Some(other_block) => match &mut self_tile.blocks[i] {
-                                None => {
-                                    self_tile.blocks[i] = Some(other_block.clone());
-                                }
-                                Some(self_block) => {
-                                    self_block.merge_with(other_block.as_ref());
-                                }
-                            },
-                        }
-                    }
+                    self_tile.merge_with_partial_clone(other_tile);
                 }
             }
         }
@@ -289,6 +321,11 @@ impl JourneyBitmap {
             },
         );
     }
+
+    pub fn check_invariant_and_debug_log(&mut self) {
+        let total_tiles = self.tiles.len();
+        info!("total tiles: {}", total_tiles);
+    }
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
@@ -316,6 +353,58 @@ impl BlockKey {
 
     pub fn index(&self) -> usize {
         self.0
+    }
+}
+
+const BLOCK_KEYS_SIZE: usize = (TILE_WIDTH * TILE_WIDTH / 8) as usize;
+
+#[derive(Debug, Clone)]
+pub struct BlockKeyBitset([u8; BLOCK_KEYS_SIZE]);
+
+impl BlockKeyBitset {
+    fn new() -> Self {
+        BlockKeyBitset([0; BLOCK_KEYS_SIZE])
+    }
+
+    fn set(&mut self, block_key: BlockKey) {
+        let i = block_key.index();
+        self.0[i / 8] |= 1 << (i % 8);
+    }
+
+    fn iter(&self) -> impl Iterator<Item = BlockKey> + '_ {
+        self.0.iter().enumerate().flat_map(|(byte_index, &byte)| {
+            (0..8_usize).filter_map(move |offset| {
+                if byte & (1 << offset) != 0 {
+                    Some(BlockKey::from_index(byte_index * 8 + offset))
+                } else {
+                    None
+                }
+            })
+        })
+    }
+
+    fn write_to<W: Write>(&self, writer: &mut W) -> anyhow::Result<()> {
+        writer.write_all(&self.0)?;
+        Ok(())
+    }
+
+    fn read_from<R: Read>(reader: &mut R) -> anyhow::Result<Self> {
+        let mut bitset = BlockKeyBitset::new();
+        reader.read_exact(&mut bitset.0)?;
+        Ok(bitset)
+    }
+}
+
+/// A lightweight tile that only provides information about which blocks are not empty.
+pub enum TileSummary<'a> {
+    Tile(&'a Tile),
+}
+
+impl<'a> TileSummary<'a> {
+    pub fn contains_block(&self, block_key: &BlockKey) -> bool {
+        match self {
+            TileSummary::Tile(tile) => tile.blocks[block_key.index()].is_some(),
+        }
     }
 }
 
@@ -353,11 +442,11 @@ impl Tile {
         })
     }
 
-    pub fn set(&mut self, block_key: BlockKey, block: Block) {
+    pub fn set(&mut self, block_key: &BlockKey, block: Block) {
         self.blocks[block_key.index()] = Some(Box::new(block));
     }
 
-    pub fn get(&self, block_key: BlockKey) -> Option<&Block> {
+    pub fn get(&self, block_key: &BlockKey) -> Option<&Block> {
         self.blocks[block_key.index()].as_deref()
     }
 
@@ -368,6 +457,38 @@ impl Tile {
             }
         }
         true
+    }
+
+    fn merge(&mut self, mut other_tile: Tile) {
+        for i in 0..other_tile.blocks.len() {
+            match take(&mut other_tile.blocks[i]) {
+                None => (),
+                Some(other_block) => match &mut self.blocks[i] {
+                    None => {
+                        self.blocks[i] = Some(other_block);
+                    }
+                    Some(self_block) => {
+                        self_block.merge_with(other_block.as_ref());
+                    }
+                },
+            }
+        }
+    }
+
+    fn merge_with_partial_clone(&mut self, other_tile: &Tile) {
+        for i in 0..other_tile.blocks.len() {
+            match &other_tile.blocks[i] {
+                None => (),
+                Some(other_block) => match &mut self.blocks[i] {
+                    None => {
+                        self.blocks[i] = Some(Box::new((**other_block).clone()));
+                    }
+                    Some(self_block) => {
+                        self_block.merge_with(other_block.as_ref());
+                    }
+                },
+            }
+        }
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -387,86 +508,96 @@ impl Tile {
         let mut x = x;
         let mut y = y;
 
-        if xaxis {
-            // Rasterize the line
-            loop {
-                if x >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH
-                    || y >> BITMAP_WIDTH_OFFSET < 0
-                    || y >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH
-                {
-                    break;
-                }
-                let block_x = x >> BITMAP_WIDTH_OFFSET;
-                let block_y = y >> BITMAP_WIDTH_OFFSET;
-
-                let block_key = BlockKey::from_x_y(block_x as u8, block_y as u8);
-
-                let block = &mut self.blocks[block_key.index()]
-                    .get_or_insert_with(|| Box::new(Block::new()));
-
-                (x, y, p) = block.add_line(
-                    x - (block_x << BITMAP_WIDTH_OFFSET),
-                    y - (block_y << BITMAP_WIDTH_OFFSET),
-                    e - (block_x << BITMAP_WIDTH_OFFSET),
-                    p,
-                    dx0,
-                    dy0,
-                    xaxis,
-                    quadrants13,
-                    width,
-                );
-
-                x += block_x << BITMAP_WIDTH_OFFSET;
-                y += block_y << BITMAP_WIDTH_OFFSET;
-
-                if x >= e {
-                    break;
-                }
+        loop {
+            let (primary, secondary) = if xaxis { (x, y) } else { (y, x) };
+            if primary >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH
+                || secondary >> BITMAP_WIDTH_OFFSET < 0
+                || secondary >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH
+            {
+                break;
             }
-        } else {
-            // Rasterize the line
-            loop {
-                if y >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH
-                    || x >> BITMAP_WIDTH_OFFSET < 0
-                    || x >> BITMAP_WIDTH_OFFSET >= TILE_WIDTH
-                {
-                    break;
-                }
-                let block_x = x >> BITMAP_WIDTH_OFFSET;
-                let block_y = y >> BITMAP_WIDTH_OFFSET;
+            let block_x = x >> BITMAP_WIDTH_OFFSET;
+            let block_y = y >> BITMAP_WIDTH_OFFSET;
 
-                let block_key = BlockKey::from_x_y(block_x as u8, block_y as u8);
+            let block_key = BlockKey::from_x_y(block_x as u8, block_y as u8);
 
-                let block = &mut self.blocks[block_key.index()]
-                    .get_or_insert_with(|| Box::new(Block::new()));
+            let block =
+                &mut self.blocks[block_key.index()].get_or_insert_with(|| Box::new(Block::new()));
 
-                (x, y, p) = block.add_line(
-                    x - (block_x << BITMAP_WIDTH_OFFSET),
-                    y - (block_y << BITMAP_WIDTH_OFFSET),
-                    e - (block_y << BITMAP_WIDTH_OFFSET),
-                    p,
-                    dx0,
-                    dy0,
-                    xaxis,
-                    quadrants13,
-                    width,
-                );
+            let (block_x_offset, block_y_offset) = (
+                block_x << BITMAP_WIDTH_OFFSET,
+                block_y << BITMAP_WIDTH_OFFSET,
+            );
+            (x, y, p) = block.add_line(
+                x - block_x_offset,
+                y - block_y_offset,
+                e - if xaxis {
+                    block_x_offset
+                } else {
+                    block_y_offset
+                },
+                p,
+                dx0,
+                dy0,
+                xaxis,
+                quadrants13,
+                width,
+            );
 
-                x += block_x << BITMAP_WIDTH_OFFSET;
-                y += block_y << BITMAP_WIDTH_OFFSET;
-                if y >= e {
-                    break;
-                }
+            x += block_x_offset;
+            y += block_y_offset;
+
+            if (if xaxis { x } else { y }) >= e {
+                break;
             }
         }
         (x, y, p)
     }
+
+    fn serialize_internal(&self) -> anyhow::Result<Vec<u8>> {
+        let mut buf = Vec::new();
+        let mut encoder = zstd::Encoder::new(&mut buf, TILE_ZSTD_COMPRESS_LEVEL)?.auto_finish();
+        let mut block_keys = BlockKeyBitset::new();
+        for (block_key, _) in self.iter() {
+            block_keys.set(block_key);
+        }
+        block_keys.write_to(&mut encoder)?;
+        for block_key in block_keys.iter() {
+            let block = self.get(&block_key).unwrap();
+            encoder.write_all(block.raw_data())?;
+        }
+        drop(encoder);
+        Ok(buf)
+    }
+
+    pub fn serialize(&self) -> Vec<u8> {
+        self.serialize_internal().expect("failed to serialize tile")
+    }
+
+    pub fn deserialize(data: &[u8]) -> anyhow::Result<Tile> {
+        let mut decoder = zstd::Decoder::new(data)?;
+        let mut tile = Tile::new();
+        let block_keys = BlockKeyBitset::read_from(&mut decoder)?;
+        for block_key in block_keys.iter() {
+            let mut block_data = [0_u8; BITMAP_SIZE];
+            decoder.read_exact(&mut block_data)?;
+            let block = Block::new_with_data(block_data);
+            tile.set(&block_key, block);
+        }
+        Ok(tile)
+    }
+
+    pub fn deserialize_exn(data: &[u8]) -> Tile {
+        Self::deserialize(data).expect("failed to deserialize tile")
+    }
 }
+
+type Mipmap = BitArr!(for MIPMAP_BIT_SIZE, in u8, Msb0);
 
 #[derive(Debug, Clone)]
 pub struct Block {
-    pub data: [u8; BITMAP_SIZE],
-    pub mipmap: Option<BitArr!(for MIPMAP_BIT_SIZE, in u8, Msb0)>,
+    data: [u8; BITMAP_SIZE],
+    mipmap: RefCell<Option<Mipmap>>,
 }
 
 impl PartialEq for Block {
@@ -489,7 +620,7 @@ impl Default for Block {
     fn default() -> Self {
         Self {
             data: [0; BITMAP_SIZE],
-            mipmap: None,
+            mipmap: RefCell::new(None),
         }
     }
 }
@@ -500,17 +631,34 @@ impl Block {
     }
 
     pub fn new_with_data(data: [u8; BITMAP_SIZE]) -> Self {
-        Self { data, mipmap: None }
+        Self {
+            data,
+            mipmap: RefCell::new(None),
+        }
     }
 
-    /// Merge `other` into `self` (bitwise OR). Clears mipmap cache.
+    pub fn raw_data(&self) -> &[u8; BITMAP_SIZE] {
+        &self.data
+    }
+
+    /// Merge `other` into `self` (bitwise OR). Incrementally updates mipmap if cached.
     pub fn merge_with(&mut self, other: &Block) {
         for i in 0..self.data.len() {
             self.data[i] |= other.data[i];
         }
-        // TODO: maybe we should consider merging mipmap directly or only reset
-        // it when there is a real change.
-        self.mipmap = None;
+
+        if let Some(self_mipmap) = self.mipmap.get_mut() {
+            match other.mipmap.borrow().as_ref() {
+                Some(other_mipmap) => {
+                    let self_raw = self_mipmap.as_raw_mut_slice();
+                    let other_raw = other_mipmap.as_raw_slice();
+                    for i in 0..self_raw.len() {
+                        self_raw[i] |= other_raw[i];
+                    }
+                }
+                None => *self.mipmap.get_mut() = None,
+            }
+        }
     }
 
     /// Subtract `other` from `self` (self = self & !other). Clears mipmap cache.
@@ -518,7 +666,7 @@ impl Block {
         for i in 0..self.data.len() {
             self.data[i] &= !other.data[i];
         }
-        self.mipmap = None;
+        *self.mipmap.borrow_mut() = None;
     }
 
     /// Intersect `self` with `other` (bitwise AND). Clears mipmap cache.
@@ -526,7 +674,7 @@ impl Block {
         for i in 0..self.data.len() {
             self.data[i] &= other.data[i];
         }
-        self.mipmap = None;
+        *self.mipmap.borrow_mut() = None;
     }
 
     fn is_empty(&self) -> bool {
@@ -550,7 +698,7 @@ impl Block {
     }
 
     /// Regenerates all mipmap levels from the original 64x64 bitmap
-    pub fn regenerate_mipmaps(&mut self) {
+    pub fn regenerate_mipmaps(&self) -> Mipmap {
         // Create a new bitarray for mipmaps (only mipmap levels, not including original data)
         let mut mipmap = bitarr![u8, Msb0; 0; MIPMAP_BIT_SIZE];
 
@@ -595,7 +743,7 @@ impl Block {
             mipmap_offset += dst_dim * dst_dim;
         }
 
-        self.mipmap = Some(mipmap);
+        mipmap
     }
 
     /// Get a bit from mipmap level z at position (x, y)
@@ -605,17 +753,20 @@ impl Block {
     /// ...
     /// z=5: 32x32 level (x, y ∈ [0, 31])
     /// z=6: 64x64 level (x, y ∈ [0, 63]) - the original bitmap in data field
-    pub fn get_at_level(&self, x: usize, y: usize, z: usize) -> Option<bool> {
+    pub fn get_at_level(&self, x: usize, y: usize, z: usize) -> bool {
         let size = 1 << z; // 2^z: z=0 -> 1, z=1 -> 2, z=2 -> 4, ..., z=6 -> 64
 
-        // Check bounds
-        if x >= size || y >= size {
-            return None;
-        }
+        debug_assert!(
+            x < size && y < size,
+            "Invalid coordinates for mipmap level: (x={}, y={}, z={})",
+            x,
+            y,
+            z
+        );
 
         // Special case: z=6 reads from original data
         if z == 6 {
-            return Some(self.is_visited(x as u8, y as u8));
+            return self.is_visited(x as u8, y as u8);
         }
 
         // TODO: This could be implemented with const expressions with `MIPMAP_LEVELS`,
@@ -630,15 +781,18 @@ impl Block {
             3 => 1024 + 256,               // 8x8 at bit 1280
             4 => 1024,                     // 16x16 at bit 1024
             5 => 0,                        // 32x32 at bit 0
-            _ => return None,
+            _ => panic!("Invalid mipmap level: z={}", z),
         };
 
-        let mipmap = self.mipmap.as_ref()?;
+        let mut mipmap_cell = self.mipmap.borrow_mut();
+        let mipmap = mipmap_cell.get_or_insert_with(|| self.regenerate_mipmaps());
         let index = offset + y * size + x;
-        Some(mipmap[index])
+        mipmap[index]
     }
 
-    fn draw_width_x(&mut self, x: u8, y: u8, w: u8, even_draw_flag: bool) {
+    /// Draw a line segment of width `w` perpendicular to the dominant axis.
+    /// `xaxis`: true if the line is x-axis dominant (spread along y), false for y-axis dominant (spread along x).
+    fn draw_width(&mut self, x: u8, y: u8, w: u8, even_draw_flag: bool, xaxis: bool) {
         let mut delta_st: u8 = w / 2;
         let mut delta_ed: u8 = w / 2;
         if w.is_multiple_of(2) {
@@ -648,28 +802,16 @@ impl Block {
                 delta_ed -= 1;
             }
         }
-        let y_st: u8 = y.saturating_sub(delta_st);
-        let y_ed: u8 = y + delta_ed;
-
-        for y_index in y_st..=y_ed {
-            self.set_point(x, y_index, true);
-        }
-    }
-
-    fn draw_width_y(&mut self, x: u8, y: u8, w: u8, even_draw_flag: bool) {
-        let mut delta_st: u8 = w / 2;
-        let mut delta_ed: u8 = w / 2;
-        if w.is_multiple_of(2) {
-            if even_draw_flag {
-                delta_st -= 1;
+        // Spread perpendicular to the dominant axis
+        let secondary = if xaxis { y } else { x };
+        let sec_st = secondary.saturating_sub(delta_st);
+        let sec_ed = secondary + delta_ed;
+        for s in sec_st..=sec_ed {
+            if xaxis {
+                self.set_point(x, s, true);
             } else {
-                delta_ed -= 1;
+                self.set_point(s, y, true);
             }
-        }
-        let x_st: u8 = x.saturating_sub(delta_st);
-        let x_ed: u8 = x + delta_ed;
-        for x_index in x_st..=x_ed {
-            self.set_point(x_index, y, true);
         }
     }
 
@@ -690,6 +832,36 @@ impl Block {
         }
     }
 
+    fn update_mipmap_for_point(&self, x: usize, y: usize, val: bool) {
+        if !val {
+            // setting a point to false is not a common operation.
+            // So we just invalid the cache to keep it simple.
+            *self.mipmap.borrow_mut() = None;
+            return;
+        }
+        let mut mipmap_cell = self.mipmap.borrow_mut();
+        let mipmap = match mipmap_cell.as_mut() {
+            Some(m) => m,
+            None => return,
+        };
+
+        let mut cur_x = x;
+        let mut cur_y = y;
+        let mut dst_offset: usize = 0;
+
+        for &dim in &MIPMAP_LEVELS {
+            let dst_x = cur_x / 2;
+            let dst_y = cur_y / 2;
+            let dst_idx = dst_offset + dst_y * dim + dst_x;
+
+            mipmap.set(dst_idx, true);
+
+            cur_x = dst_x;
+            cur_y = dst_y;
+            dst_offset += dim * dim;
+        }
+    }
+
     // x ∈ [0,63], y ∈ [0，63]
     fn set_point(&mut self, x: u8, y: u8, val: bool) {
         if x > 63 || y > 63 {
@@ -702,7 +874,7 @@ impl Block {
         let current = self.data[i + j * 8];
         self.data[i + j * 8] = (current & !(1 << bit_offset)) | (val_number << bit_offset);
         if self.data[i + j * 8] != current {
-            self.mipmap = None;
+            self.update_mipmap_for_point(x as usize, y as usize, val);
         }
     }
 
@@ -722,69 +894,42 @@ impl Block {
     ) -> (i64, i64, i64) {
         // Draw the first pixel
         let mut p = p;
-        let mut x = x;
-        let mut y = y;
-        self.draw_width_point(x as u8, y as u8, width);
-        if xaxis {
-            // Rasterize the line
-            while x < e {
-                x += 1;
-                // Deal with octants...
-                if p < 0 {
-                    p += 2 * dy0;
-                } else {
-                    if quadrants13 {
-                        y += 1;
-                    } else {
-                        y -= 1;
-                    }
-                    p += 2 * (dy0 - dx0);
-                }
+        let mut xy = [x, y];
+        self.draw_width_point(xy[0] as u8, xy[1] as u8, width);
 
-                if x >= BITMAP_WIDTH || !(0..BITMAP_WIDTH).contains(&y) {
-                    break;
-                }
+        // xaxis: primary is x (index 0), yaxis: primary is y (index 1)
+        let pri = if xaxis { 0usize } else { 1 };
+        let sec = 1 - pri;
+        let (pri_delta, sec_delta) = if xaxis { (dx0, dy0) } else { (dy0, dx0) };
 
-                let mut draw_flag: bool = p < (-dx0);
+        while xy[pri] < e {
+            xy[pri] += 1;
+            // Deal with octants...
+            // Note: xaxis uses strict `p < 0`, yaxis uses `p <= 0`
+            if if xaxis { p < 0 } else { p <= 0 } {
+                p += 2 * sec_delta;
+            } else {
                 if quadrants13 {
-                    draw_flag = !draw_flag;
-                }
-
-                // Draw pixel from line span at
-                // currently rasterized position
-                self.draw_width_x(x as u8, y as u8, width, draw_flag);
-            }
-        } else {
-            // The line is Y-axis dominant
-            // Rasterize the line
-            while y < e {
-                y += 1;
-                // Deal with octants...
-                if p <= 0 {
-                    p += 2 * dx0;
+                    xy[sec] += 1;
                 } else {
-                    if quadrants13 {
-                        x += 1;
-                    } else {
-                        x -= 1;
-                    }
-                    p += 2 * (dx0 - dy0);
+                    xy[sec] -= 1;
                 }
-
-                if y >= BITMAP_WIDTH || !(0..BITMAP_WIDTH).contains(&x) {
-                    break;
-                }
-
-                let mut draw_flag: bool = p < (-dy0);
-                if quadrants13 {
-                    draw_flag = !draw_flag;
-                }
-                // Draw pixel from line span at
-                // currently rasterized position
-                self.draw_width_y(x as u8, y as u8, width, draw_flag);
+                p += 2 * (sec_delta - pri_delta);
             }
+
+            if xy[pri] >= BITMAP_WIDTH || !(0..BITMAP_WIDTH).contains(&xy[sec]) {
+                break;
+            }
+
+            let mut draw_flag: bool = p < (-pri_delta);
+            if quadrants13 {
+                draw_flag = !draw_flag;
+            }
+
+            // Draw pixel from line span at currently rasterized position
+            self.draw_width(xy[0] as u8, xy[1] as u8, width, draw_flag, xaxis);
         }
-        (x, y, p)
+        (xy[0], xy[1], p)
     }
 }
 
@@ -805,24 +950,109 @@ mod tests {
 
     #[test]
     fn block_mipmap() {
-        let mut block_with_mipmap = Block::new();
-        block_with_mipmap.set_point(10, 10, true);
-        let block_without_mipmap = block_with_mipmap.clone();
-        block_with_mipmap.regenerate_mipmaps();
-        assert_eq!(block_with_mipmap, block_without_mipmap);
+        // Verify mipmap correctness at every level for point (10, 10).
+        // Each level downsamples by 2x from the original 64×64:
+        //   z=6 (64×64): direct data read
+        //   z=5 (32×32): (10,10) → (5,5)
+        //   z=4 (16×16): → (2,2), z=3 (8×8): → (1,1)
+        //   z=2 (4×4):   → (0,0), z=1 (2×2): → (0,0), z=0 (1×1): → (0,0)
+        let mut block = Block::new();
+        block.set_point(10, 10, true);
+        assert!(block.get_at_level(10, 10, 6));
+        assert!(!block.get_at_level(11, 10, 6));
+        assert!(block.get_at_level(5, 5, 5) && !block.get_at_level(4, 5, 5));
+        assert!(block.get_at_level(2, 2, 4) && !block.get_at_level(3, 2, 4));
+        assert!(block.get_at_level(1, 1, 3) && !block.get_at_level(0, 1, 3));
+        assert!(block.get_at_level(0, 0, 2) && !block.get_at_level(1, 0, 2));
+        assert!(block.get_at_level(0, 0, 1) && !block.get_at_level(1, 0, 1));
+        assert!(block.get_at_level(0, 0, 0));
 
-        // mipmap will be cleared when update
-        assert!(block_with_mipmap.mipmap.is_some());
-        block_with_mipmap.set_point(10, 10, true);
-        assert!(block_with_mipmap.mipmap.is_some());
-        block_with_mipmap.set_point(10, 15, true);
-        assert!(block_with_mipmap.mipmap.is_none());
+        // Results reflect updates (set_point, merge_with, difference_with, intersect_with)
+        block.set_point(10, 10, false);
+        assert!(!block.get_at_level(0, 0, 0));
 
-        block_with_mipmap.regenerate_mipmaps();
-        let mut other_block = Block::new();
-        other_block.set_point(20, 20, true);
-        assert!(block_with_mipmap.mipmap.is_some());
-        block_with_mipmap.merge_with(&other_block);
-        assert!(block_with_mipmap.mipmap.is_none());
+        let mut other = Block::new();
+        other.set_point(20, 20, true);
+        block.merge_with(&other);
+        assert!(block.get_at_level(0, 0, 0));
+
+        block.difference_with(&other);
+        assert!(!block.get_at_level(0, 0, 0));
+
+        block.merge_with(&other);
+        block.intersect_with(&Block::new());
+        assert!(!block.get_at_level(0, 0, 0));
+    }
+
+    fn assert_mipmap_matches_regenerated(block: &Block) {
+        let cached = block.mipmap.borrow();
+        let cached = cached.as_ref().expect("mipmap should be cached");
+        let fresh = block.regenerate_mipmaps();
+        assert_eq!(
+            *cached, fresh,
+            "incremental mipmap does not match regenerated mipmap"
+        );
+    }
+
+    fn has_mipmap(block: &Block) -> bool {
+        block.mipmap.borrow().is_some()
+    }
+
+    #[test]
+    fn incremental_mipmap_set_true() {
+        let mut block = Block::new();
+        // Trigger initial mipmap generation
+        block.get_at_level(0, 0, 0);
+        assert!(has_mipmap(&block));
+
+        for (x, y) in [(10, 10), (50, 30), (0, 0), (63, 63), (32, 32), (1, 62)] {
+            block.set_point(x, y, true);
+            assert!(has_mipmap(&block));
+            assert_mipmap_matches_regenerated(&block);
+        }
+    }
+
+    #[test]
+    fn incremental_mipmap_set_false() {
+        let mut block = Block::new();
+        let points: &[(u8, u8)] = &[(10, 10), (10, 11), (20, 20), (0, 0), (63, 63)];
+        for &(x, y) in points {
+            block.set_point(x, y, true);
+        }
+        // Generate mipmap
+        block.get_at_level(0, 0, 0);
+        assert!(has_mipmap(&block));
+
+        for &(x, y) in points {
+            block.set_point(x, y, false);
+            assert!(!has_mipmap(&block));
+        }
+    }
+
+    #[test]
+    fn incremental_mipmap_merge() {
+        let mut block_a = Block::new();
+        block_a.set_point(5, 5, true);
+        block_a.set_point(10, 10, true);
+        block_a.get_at_level(0, 0, 0);
+        assert!(has_mipmap(&block_a));
+
+        // Merge with block that has no mipmap
+        let mut block_b = Block::new();
+        block_b.set_point(30, 30, true);
+        block_b.set_point(50, 50, true);
+        block_a.merge_with(&block_b);
+        assert!(!has_mipmap(&block_a));
+
+        // Merge with block that has a mipmap
+        block_a.get_at_level(0, 0, 0);
+        assert!(has_mipmap(&block_a));
+        let mut block_c = Block::new();
+        block_c.set_point(0, 0, true);
+        block_c.set_point(63, 63, true);
+        block_c.get_at_level(0, 0, 0);
+        block_a.merge_with(&block_c);
+        assert!(has_mipmap(&block_a));
+        assert_mipmap_matches_regenerated(&block_a);
     }
 }

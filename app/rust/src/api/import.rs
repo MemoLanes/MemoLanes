@@ -6,6 +6,7 @@ use chrono::{DateTime, Local, NaiveDate, Utc};
 use flutter_rust_bridge::frb;
 
 use super::api;
+use crate::api::api::OpaqueJourneyData;
 use crate::gps_processor::SegmentGapRule;
 use crate::journey_vector::JourneyVector;
 use crate::{
@@ -32,7 +33,7 @@ pub struct RawVectorData {
 }
 
 #[auto_context]
-pub fn load_fow_data(file_path: String) -> Result<(JourneyInfo, JourneyData)> {
+pub fn load_fow_data(file_path: String) -> Result<(JourneyInfo, OpaqueJourneyData)> {
     let extension = Path::new(&file_path)
         .extension()
         .and_then(|s| s.to_str())
@@ -51,7 +52,10 @@ pub fn load_fow_data(file_path: String) -> Result<(JourneyInfo, JourneyData)> {
         note: None,
         journey_kind: JourneyKind::DefaultKind,
     };
-    Ok((journey_info, JourneyData::Bitmap(journey_bitmap)))
+    Ok((
+        journey_info,
+        OpaqueJourneyData::new(JourneyData::Bitmap(journey_bitmap)),
+    ))
 }
 
 #[auto_context]
@@ -79,7 +83,10 @@ pub fn load_gpx_or_kml(
 }
 
 #[auto_context]
-pub fn import_journey_data(journey_info: JourneyInfo, journey_data: JourneyData) -> Result<()> {
+pub fn import_journey_data(
+    journey_info: JourneyInfo,
+    journey_data: OpaqueJourneyData,
+) -> Result<()> {
     let _id = api::get().storage.with_db_txn(|txn| {
         txn.create_and_insert_journey(
             journey_info.journey_date,
@@ -88,7 +95,7 @@ pub fn import_journey_data(journey_info: JourneyInfo, journey_data: JourneyData)
             None,
             journey_info.journey_kind,
             journey_info.note,
-            journey_data,
+            journey_data.into_inner(),
         )
     })?;
     Ok(())
@@ -105,7 +112,7 @@ pub enum ImportPreprocessor {
 pub fn process_vector_data(
     vector_data: &RawVectorData,
     import_processor: ImportPreprocessor,
-) -> Result<JourneyData> {
+) -> Result<OpaqueJourneyData> {
     let journey_vector_opt = match import_processor {
         ImportPreprocessor::None => {
             import_data::journey_vector_from_raw_data_with_gps_preprocessor(&vector_data.data, None)
@@ -128,13 +135,14 @@ pub fn process_vector_data(
     let journey_vector = journey_vector_opt.unwrap_or_else(|| JourneyVector {
         track_segments: vec![],
     });
-    Ok(JourneyData::Vector(journey_vector))
+    Ok(OpaqueJourneyData::new(JourneyData::Vector(journey_vector)))
 }
 
 #[auto_context]
-pub fn is_journey_data_empty(journey_data: &JourneyData) -> bool {
-    match journey_data {
-        JourneyData::Vector(vector_data) => vector_data.track_segments.is_empty(),
-        JourneyData::Bitmap(bitmap_data) => bitmap_data.tiles.is_empty(),
+pub fn is_journey_data_empty(journey_data: &OpaqueJourneyData) -> bool {
+    let journey_data = journey_data.borrow_inner();
+    match *journey_data {
+        JourneyData::Vector(ref vector_data) => vector_data.track_segments.is_empty(),
+        JourneyData::Bitmap(ref bitmap_data) => bitmap_data.is_empty(),
     }
 }
