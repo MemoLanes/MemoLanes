@@ -31,9 +31,23 @@ export function transformStyleWithProjection(
   projection: ProjectionType,
 ): any {
   const convertedStyle = transformMapboxStyle(previousStyle, nextStyle);
+  // we use the mapbox's transition to prevent gpu precision issue in large zoom.
+  // TODO: remove this workaround once upstream issues are fixed.
+  // https://github.com/mapbox/mapbox-gl-js/issues/13395
+  // https://github.com/maplibre/maplibre-gl-js/issues/7419
+  const projectionValue = projection === "globe" ?
+    [
+      "interpolate",
+      ["linear"],
+      ["zoom"],
+      5,
+      "vertical-perspective",
+      6,
+      "mercator"
+    ] : projection;
   return {
     ...convertedStyle,
-    projection: { type: projection },
+    projection: { type: projectionValue },
   };
 }
 
