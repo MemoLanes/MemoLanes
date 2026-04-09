@@ -28,14 +28,19 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   OperationMode _mode = OperationMode.move;
   bool _canUndo = false;
+  bool _isLinkedDrawEnabled = false;
 
   bool _zoomOk = false;
 
   final GlobalKey<JourneyEditorMapViewState> _mapWebviewKey = GlobalKey();
 
-  void _showAddModeEnabled() {
+  void _showDrawModeEnabledToast() {
     _showFloatingSnackBar(
-      context.tr("journey.editor.draw_mode_enabled"),
+      context.tr(
+        _isLinkedDrawEnabled
+            ? "journey.editor.linked_draw_mode_enabled"
+            : "journey.editor.free_draw_mode_enabled",
+      ),
     );
   }
 
@@ -132,7 +137,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
         break;
 
       case OperationMode.edit:
-        _showAddModeEnabled();
+        _showDrawModeEnabledToast();
         map?.setDrawMode(true);
         map?.setDeleteMode(false);
         break;
@@ -155,6 +160,21 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     _applyMode(mode);
   }
 
+  void _handleDrawEntrySelected(DrawEntryMode mode) {
+    final wasMode = _mode;
+
+    setState(() {
+      _isLinkedDrawEnabled = mode == DrawEntryMode.linked;
+    });
+
+    if (wasMode == OperationMode.edit) {
+      _showDrawModeEnabledToast();
+      return;
+    }
+
+    _applyMode(OperationMode.edit);
+  }
+
   void _handleMapZoomUpdate(int? zoom) {
     if (zoom == null) return;
 
@@ -173,7 +193,10 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     if (points.length < 2) return;
     final recordPoints = points.map((p) => (p.lat, p.lng)).toList();
 
-    await _editSession.addLines(points: recordPoints);
+    await _editSession.addLines(
+      points: recordPoints,
+      snapEndpoints: _isLinkedDrawEnabled,
+    );
 
     if (!mounted) return;
     await _mapWebviewKey.currentState?.manualRefresh();
@@ -252,6 +275,8 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                 child: ModeSwitchBar(
                   currentMode: _mode,
                   onModeChanged: _handleModeChange,
+                  isLinkedDrawEnabled: _isLinkedDrawEnabled,
+                  onDrawEntrySelected: _handleDrawEntrySelected,
                   canUndo: _canUndo,
                   onUndo: () async {
                     await _editSession.undo();

@@ -11,10 +11,16 @@ enum OperationMode {
   delete,
 }
 
+enum DrawEntryMode {
+  freehand,
+  linked,
+}
+
 class ModeSwitchBar extends StatelessWidget {
   final OperationMode currentMode;
   final ValueChanged<OperationMode> onModeChanged;
-
+  final bool isLinkedDrawEnabled;
+  final ValueChanged<DrawEntryMode>? onDrawEntrySelected;
   final bool canUndo;
   final VoidCallback? onUndo;
   final bool canSave;
@@ -24,15 +30,17 @@ class ModeSwitchBar extends StatelessWidget {
     super.key,
     required this.currentMode,
     required this.onModeChanged,
+    this.isLinkedDrawEnabled = false,
+    this.onDrawEntrySelected,
     this.canUndo = false,
     this.onUndo,
     this.canSave = false,
     this.onSave,
   });
 
-  bool get isEditReadonly => currentMode == OperationMode.editReadonly;
-
-  bool get isEditActive => currentMode == OperationMode.edit;
+  bool get isEditingSection =>
+      currentMode == OperationMode.edit ||
+      currentMode == OperationMode.editReadonly;
 
   @override
   Widget build(BuildContext context) {
@@ -61,23 +69,7 @@ class ModeSwitchBar extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildModeItem(
-                    mode: OperationMode.move,
-                    icon: Icons.open_with_rounded,
-                    label: context.tr('journey.editor.move'),
-                  ),
-                  _buildModeItem(
-                    mode: OperationMode.edit,
-                    icon: Icons.gesture_rounded,
-                    label: context.tr('journey.editor.draw'),
-                    isSelected: currentMode == OperationMode.edit ||
-                        currentMode == OperationMode.editReadonly,
-                  ),
-                  _buildModeItem(
-                    mode: OperationMode.delete,
-                    icon: Icons.delete,
-                    label: context.tr('journey.editor.erase'),
-                  ),
+                  ..._buildModeItems(context),
                   Container(
                     width: 1,
                     height: 24,
@@ -102,6 +94,73 @@ class ModeSwitchBar extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  List<Widget> _buildModeItems(BuildContext context) {
+    if (isEditingSection) {
+      return [
+        _buildModeItem(
+          mode: OperationMode.move,
+          icon: Icons.arrow_back_rounded,
+          label: context.tr('journey.editor.back'),
+          isSelected: false,
+        ),
+        _buildDrawEntryButton(
+          icon: Icons.draw_rounded,
+          label: context.tr('journey.editor.free_draw'),
+          isSelected: !isLinkedDrawEnabled,
+          onTap: () => onDrawEntrySelected?.call(DrawEntryMode.freehand),
+        ),
+        _buildDrawEntryButton(
+          icon: Icons.link_rounded,
+          label: context.tr('journey.editor.linked_draw'),
+          isSelected: isLinkedDrawEnabled,
+          onTap: () => onDrawEntrySelected?.call(DrawEntryMode.linked),
+        ),
+      ];
+    }
+
+    return [
+      _buildModeItem(
+        mode: OperationMode.move,
+        icon: Icons.open_with_rounded,
+        label: context.tr('journey.editor.move'),
+      ),
+      _buildDrawModeItem(context),
+      _buildModeItem(
+        mode: OperationMode.delete,
+        icon: Icons.delete,
+        label: context.tr('journey.editor.erase'),
+      ),
+    ];
+  }
+
+  Widget _buildDrawModeItem(BuildContext context) {
+    return _BaseBarItem(
+      icon: Icons.gesture_rounded,
+      label: context.tr('journey.editor.draw'),
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onModeChanged(OperationMode.edit);
+      },
+    );
+  }
+
+  Widget _buildDrawEntryButton({
+    required IconData icon,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return _BaseBarItem(
+      icon: icon,
+      label: label,
+      isSelected: isSelected,
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onTap();
+      },
     );
   }
 
@@ -133,13 +192,11 @@ class ModeSwitchBar extends StatelessWidget {
     required String label,
     required bool isEnabled,
     VoidCallback? onTap,
-    Color? activeColor,
   }) {
     return _BaseBarItem(
       icon: icon,
       label: label,
       isEnabled: isEnabled,
-      activeColor: activeColor,
       onTap: isEnabled
           ? () {
               HapticFeedback.mediumImpact();
@@ -156,7 +213,6 @@ class _BaseBarItem extends StatelessWidget {
   final bool isSelected;
   final bool isEnabled;
   final VoidCallback? onTap;
-  final Color? activeColor;
 
   const _BaseBarItem({
     required this.icon,
@@ -164,12 +220,11 @@ class _BaseBarItem extends StatelessWidget {
     this.isSelected = false,
     this.isEnabled = true,
     this.onTap,
-    this.activeColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = activeColor ?? Colors.black;
+    const themeColor = Colors.black;
 
     final Color bgColor = isSelected
         ? (isEnabled
@@ -197,7 +252,19 @@ class _BaseBarItem extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: contentColor, size: 22),
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Align(
+                    alignment: Alignment.center,
+                    child: Icon(icon, color: contentColor, size: 22),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 2),
             Text(
               label,
