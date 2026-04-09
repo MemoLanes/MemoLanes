@@ -164,6 +164,12 @@ export class MapController {
         // Set up retry logic for failed style loads
         this.setupStyleRetryLogic();
 
+        // Workaround: WebView may report stale GL surface dimensions
+        // when the app starts, causing the canvas to
+        // initialize at the wrong size. This blocks until the canvas matches
+        // the container, keeping the Flutter overlay visible during the fix.
+        await this.ensureCorrectCanvasDimensions();
+
         resolve();
       });
     });
@@ -330,6 +336,59 @@ export class MapController {
         this.applyMapStyle();
       }
     }, 8 * 1000);
+  }
+
+  /**
+   * Workaround for WebView canvas size bug when app starts.
+   * The GL surface may report stale dimensions, resulting in
+   * a wrongly-sized canvas (e.g. 1100x825 instead of 1080x2400).
+   *
+   * Uses a rAF loop to compare actual canvas backing-store dimensions
+   * against expected (container size * devicePixelRatio). Calls resize()
+   * each frame until they match or a max retry count is reached.
+   * The returned promise blocks initialize() so the Flutter overlay stays
+   * visible during correction — no visual glitch.
+   */
+  private ensureCorrectCanvasDimensions(): Promise<void> {
+    return new Promise((resolve) => {
+      const MAX_ATTEMPTS = 60; // ~1s at 60fps
+      let attempts = 0;
+
+      const check = () => {
+        const container = this.map.getContainer();
+        const canvas = this.map.getCanvas();
+        const dpr = window.devicePixelRatio || 1;
+        const expectedW = Math.round(container.clientWidth * dpr);
+        const expectedH = Math.round(container.clientHeight * dpr);
+
+        // ±1px tolerance: MapLibre may floor/truncate the DPR scaling
+        const wOk = Math.abs(canvas.width - expectedW) <= 1;
+        const hOk = Math.abs(canvas.height - expectedH) <= 1;
+
+        if (!wOk || !hOk) {
+          attempts++;
+          this.map.resize();
+
+          if (attempts < MAX_ATTEMPTS) {
+            requestAnimationFrame(check);
+            return;
+          }
+          console.warn(
+            `[MapController] Canvas dimensions still incorrect after ${MAX_ATTEMPTS} attempts: ` +
+              `expected ${expectedW}x${expectedH}, got ${canvas.width}x${canvas.height}`,
+          );
+        } else if (attempts > 0) {
+          console.log(
+            `[MapController] Canvas dimensions corrected after ${attempts} resize(s)`,
+          );
+        } else {
+          console.log("[MapController] Canvas dimensions are correct");
+        }
+        resolve();
+      };
+
+      requestAnimationFrame(check);
+    });
   }
 
   /**
