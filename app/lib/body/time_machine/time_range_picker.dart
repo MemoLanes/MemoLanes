@@ -38,7 +38,7 @@ class TimeRangePicker extends StatefulWidget {
   State<TimeRangePicker> createState() => _TimeRangePickerState();
 }
 
-enum TimeMachineMode {
+enum TimeMachineViewMode {
   /// Show only the selected period (year/month/day).
   period,
 
@@ -50,7 +50,7 @@ enum TimeMachineMode {
 }
 
 class _TimeRangePickerState extends State<TimeRangePicker> {
-  TimeMachineMode _viewMode = TimeMachineMode.period;
+  TimeMachineViewMode _viewMode = TimeMachineViewMode.period;
   TimeRulerMode _rulerMode = TimeRulerMode.year;
   int _selectedYear = DateTime.now().year;
   int _selectedMonth = DateTime.now().month;
@@ -87,14 +87,14 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
 
   void _applyCurrentRange() {
     switch (_viewMode) {
-      case TimeMachineMode.custom:
+      case TimeMachineViewMode.custom:
         return;
-      case TimeMachineMode.period:
+      case TimeMachineViewMode.period:
         final period = _periodRangeForSelection();
         _fromDate = period.$1;
         _toDate = period.$2;
         return;
-      case TimeMachineMode.fromStart:
+      case TimeMachineViewMode.fromStart:
         final period = _periodRangeForSelection();
         _fromDate = _earliestFallback;
         _toDate = period.$2;
@@ -116,7 +116,7 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
     _notifyRange();
   }
 
-  void _onViewModeSelected(TimeMachineMode viewMode) {
+  void _onViewModeSelected(TimeMachineViewMode viewMode) {
     if (viewMode == _viewMode) return;
     HapticFeedback.selectionClick();
     setState(() {
@@ -153,7 +153,7 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
 
   @override
   Widget build(BuildContext context) {
-    final rulerChild = _viewMode != TimeMachineMode.custom
+    final rulerChild = _viewMode != TimeMachineViewMode.custom
         ? TimeRuler(
             rulerMode: _rulerMode,
             selectedYear: _selectedYear,
@@ -197,7 +197,7 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
           contentRadius: 12,
           barrierColor: Colors.transparent,
           content: PointerInterceptor(
-            child: _TimeMachineModeAndLayerMenu(
+            child: _TimeMachineViewModeAndLayerMenu(
               currentViewMode: _viewMode,
               onViewModeSelect: _onViewModeSelected,
               currentRulerMode: _rulerMode,
@@ -212,7 +212,9 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
               viewMode: _viewMode,
               rulerMode: _rulerMode,
               selectedDate:
-                  _viewMode == TimeMachineMode.custom ? _toDate : _displayDate,
+                  _viewMode == TimeMachineViewMode.custom
+                      ? _toDate
+                      : _displayDate,
               loading: widget.loading,
             ),
           ),
@@ -235,15 +237,15 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
 /// - left column = view modes (single-select)
 /// - middle column = granularity (year/month/day, disabled in custom)
 /// - right column = layers (multi-select)
-class _TimeMachineModeAndLayerMenu extends StatefulWidget {
-  final TimeMachineMode currentViewMode;
-  final void Function(TimeMachineMode) onViewModeSelect;
+class _TimeMachineViewModeAndLayerMenu extends StatefulWidget {
+  final TimeMachineViewMode currentViewMode;
+  final void Function(TimeMachineViewMode) onViewModeSelect;
   final TimeRulerMode currentRulerMode;
   final void Function(TimeRulerMode) onRulerModeSelect;
   final Set<JourneyKind> selectedJourneyKinds;
   final void Function(Set<JourneyKind>)? onJourneyKindsChanged;
 
-  const _TimeMachineModeAndLayerMenu({
+  const _TimeMachineViewModeAndLayerMenu({
     required this.currentViewMode,
     required this.onViewModeSelect,
     required this.currentRulerMode,
@@ -253,16 +255,16 @@ class _TimeMachineModeAndLayerMenu extends StatefulWidget {
   });
 
   @override
-  State<_TimeMachineModeAndLayerMenu> createState() =>
-      _TimeMachineModeAndLayerMenuState();
+  State<_TimeMachineViewModeAndLayerMenu> createState() =>
+      _TimeMachineViewModeAndLayerMenuState();
 }
 
-class _TimeMachineModeAndLayerMenuState
-    extends State<_TimeMachineModeAndLayerMenu> {
+class _TimeMachineViewModeAndLayerMenuState
+    extends State<_TimeMachineViewModeAndLayerMenu> {
   static const _viewModeKeys = [
-    (TimeMachineMode.period, 'time_machine.menu_view_period'),
-    (TimeMachineMode.fromStart, 'time_machine.menu_view_from_start'),
-    (TimeMachineMode.custom, 'time_machine.menu_view_custom'),
+    (TimeMachineViewMode.period, 'time_machine.menu_view_period'),
+    (TimeMachineViewMode.fromStart, 'time_machine.menu_view_from_start'),
+    (TimeMachineViewMode.custom, 'time_machine.menu_view_custom'),
   ];
 
   static const _granularityKeys = [
@@ -277,7 +279,7 @@ class _TimeMachineModeAndLayerMenuState
   ];
 
   late Set<JourneyKind> _localKinds;
-  late TimeMachineMode _localViewMode;
+  late TimeMachineViewMode _localViewMode;
   late TimeRulerMode _localRulerMode;
   Timer? _layerTimer;
 
@@ -290,7 +292,7 @@ class _TimeMachineModeAndLayerMenuState
   }
 
   @override
-  void didUpdateWidget(covariant _TimeMachineModeAndLayerMenu oldWidget) {
+  void didUpdateWidget(covariant _TimeMachineViewModeAndLayerMenu oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedJourneyKinds != widget.selectedJourneyKinds) {
       _localKinds = Set.from(widget.selectedJourneyKinds);
@@ -404,7 +406,7 @@ class _TimeMachineModeAndLayerMenuState
     );
   }
 
-  Widget _buildViewModeItem(TimeMachineMode mode, String labelKey) {
+  Widget _buildViewModeItem(TimeMachineViewMode mode, String labelKey) {
     return _buildMenuTile(
       context,
       labelKey,
@@ -418,7 +420,7 @@ class _TimeMachineModeAndLayerMenuState
   }
 
   Widget _buildGranularityItem(TimeRulerMode rulerMode, String labelKey) {
-    final disabled = _localViewMode == TimeMachineMode.custom;
+    final disabled = _localViewMode == TimeMachineViewMode.custom;
     return Opacity(
       opacity: disabled ? 0.28 : 1,
       child: IgnorePointer(
@@ -474,7 +476,7 @@ class _TimeMachineModeAndLayerMenuState
 /// The caption is derived from the current [viewMode] together with [rulerMode],
 /// showing the selected date in the format appropriate for the active timeline/ruler configuration.
 class TimeRangeControllerBall extends StatelessWidget {
-  final TimeMachineMode viewMode;
+  final TimeMachineViewMode viewMode;
   final TimeRulerMode rulerMode;
   final DateTime selectedDate;
   final bool loading;
@@ -501,13 +503,13 @@ class TimeRangeControllerBall extends StatelessWidget {
   Widget build(BuildContext context) {
     final y = selectedDate.year;
     final m = selectedDate.month.toString().padLeft(2, '0');
-    final bool isCustom = viewMode == TimeMachineMode.custom;
+    final bool isCustom = viewMode == TimeMachineViewMode.custom;
 
     final String caption = switch (viewMode) {
-      TimeMachineMode.period => context.tr('time_machine.menu_view_period'),
-      TimeMachineMode.fromStart =>
+      TimeMachineViewMode.period => context.tr('time_machine.menu_view_period'),
+      TimeMachineViewMode.fromStart =>
         context.tr('time_machine.menu_view_from_start'),
-      TimeMachineMode.custom => '',
+      TimeMachineViewMode.custom => '',
     };
 
     // Only show what the ruler doesn't: day mode -> year-month; month mode -> year; year mode -> year.
