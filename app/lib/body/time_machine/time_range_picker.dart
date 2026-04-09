@@ -224,10 +224,9 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
               key: ValueKey('ball-$_displayYear-$_displayMonth-$_displayDay'),
               viewMode: _viewMode,
               rulerMode: _rulerMode,
-              selectedDate:
-                  _viewMode == TimeMachineViewMode.custom
-                      ? _toDate
-                      : _displayDate,
+              selectedDate: _viewMode == TimeMachineViewMode.custom
+                  ? _toDate
+                  : _displayDate,
               loading: widget.loading,
             ),
           ),
