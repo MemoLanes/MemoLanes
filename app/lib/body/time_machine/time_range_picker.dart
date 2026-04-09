@@ -471,7 +471,8 @@ class _TimeMachineModeAndLayerMenuState
 }
 
 /// Mode button: square, semi-transparent (matches timeline style); tap opens [CustomPopup] menu.
-/// Day mode: only year-month (day is on ruler); month mode: only year (month is on ruler).
+/// The caption is derived from the current [viewMode] together with [rulerMode],
+/// showing the selected date in the format appropriate for the active timeline/ruler configuration.
 class TimeRangeControllerBall extends StatelessWidget {
   final TimeMachineMode viewMode;
   final TimeRulerMode rulerMode;
