@@ -93,7 +93,12 @@
   },
   "time_machine": {
     "menu_title_time": "时间选择",
+    "menu_title_view": "查看方式",
+    "menu_title_granularity": "粒度",
     "menu_title_layer": "图层选择",
+    "menu_view_period": "按时段",
+    "menu_view_from_start": "从开始",
+    "menu_view_custom": "自定义",
     "menu_year": "年",
     "menu_month": "月",
     "menu_day": "日",
