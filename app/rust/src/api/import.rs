@@ -96,6 +96,7 @@ pub fn import_journey_data(
             journey_info.journey_kind,
             journey_info.note,
             journey_data.into_inner(),
+            None,
         )
     })?;
     Ok(())
