@@ -55,14 +55,14 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             format!("{output_path}.jbm")
         };
 
-        let journey_bitmap = get_main_map_state()
+        let mut journey_bitmap = get_main_map_state()
             .lock()
             .unwrap()
             .map_renderer
             .peek_latest_bitmap()
             .clone();
         let file = File::create(&output_path)?;
-        serialize_journey_bitmap(&journey_bitmap, file)?;
+        serialize_journey_bitmap(&mut journey_bitmap, file)?;
         println!("Exported journey bitmap to: {output_path}");
         return Ok(());
     }
