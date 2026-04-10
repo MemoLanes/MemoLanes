@@ -244,13 +244,13 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   @override
   Widget build(BuildContext context) {
     final mapRendererProxy = _mapRendererProxy;
+    final bottomSafeInset = MediaQuery.paddingOf(context).bottom;
     final journeyKindName = switch (_journeyHeader.journeyKind) {
       JourneyKind.defaultKind => context.tr("journey_kind.default"),
       JourneyKind.flight => context.tr("journey_kind.flight"),
     };
-    final isSingleRowButtons = _hasRawData != true;
-    final panelMaxHeight = isSingleRowButtons ? 420.0 : 480.0;
-    final infoAreaHeight = isSingleRowButtons ? 334.0 : 340.0;
+    final panelMaxHeight = 420.0 + bottomSafeInset;
+    final infoAreaHeight = 334.0;
     return Scaffold(
       body: Stack(
         children: [
@@ -364,12 +364,6 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                           onPressed: () async =>
                               await _deleteJourneyInfo(context),
                         ),
-                        if (_hasRawData == true)
-                          _buildActionButton(
-                            label: context.tr("journey.export_raw_data"),
-                            backgroundColor: const Color(0xFFE8F4CC),
-                            onPressed: () => _showExportRawDataChoice(context),
-                          ),
                       ],
                     ),
                   ),
@@ -386,6 +380,10 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
           ),
           CapsuleStyleOverlayAppBar.overlayBar(
             title: context.tr("journey.journey_info_page_title"),
+            moreIcon:
+                _hasRawData == true ? const Icon(Icons.raw_on, size: 22) : null,
+            moreMenuContent:
+                _hasRawData == true ? _buildRawDataMoreMenu(context) : null,
           ),
         ],
       ),
@@ -423,6 +421,66 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
         type: ExportType.rawDataGpx,
       ),
     ]);
+  }
+
+  Future<void> _deleteRawData(BuildContext context) async {
+    final confirmed = await showCommonDialog(
+      context,
+      context.tr("journey.delete_raw_data_message"),
+      hasCancel: true,
+      title: context.tr("journey.delete_raw_data_title"),
+      confirmButtonText: context.tr("common.delete"),
+      confirmGroundColor: Colors.red,
+      confirmTextColor: Colors.white,
+    );
+    if (!confirmed || !context.mounted) return;
+
+    await showLoadingDialog(
+      asyncTask: api.deleteJourneyRawData(journeyId: _journeyHeader.id),
+    );
+    if (!context.mounted) return;
+
+    setState(() {
+      _hasRawData = false;
+    });
+  }
+
+  Widget _buildRawDataMoreMenu(BuildContext pageContext) {
+    return Builder(
+      builder: (menuContext) => ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 140),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(menuContext).pop();
+                _showExportRawDataChoice(pageContext);
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              ),
+              child: Text(pageContext.tr("journey.export_raw_data")),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(menuContext).pop();
+                _deleteRawData(pageContext);
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              ),
+              child: Text(pageContext.tr("journey.delete_raw_data")),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showEditMenu(BuildContext context) {

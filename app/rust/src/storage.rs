@@ -306,4 +306,9 @@ impl Storage {
         writer.flush()?;
         Ok(())
     }
+
+    #[auto_context]
+    pub fn delete_journey_raw_data(&self, journey_id: &str) -> Result<()> {
+        self.with_db_txn(|txn| txn.delete_journey_raw_data(journey_id))
+    }
 }

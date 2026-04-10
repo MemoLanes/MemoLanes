@@ -84,7 +84,8 @@ pub fn import_mldx(txn: &mut main_db::Txn, mldx_file: &str) -> Result<()> {
             file.read_exact(&mut buf)?;
 
             let journey_header = JourneyHeader::of_proto(header)?;
-            let journey_data = JourneyData::deserialize(buf.as_slice(), journey_header.journey_type, true)?;
+            let journey_data =
+                JourneyData::deserialize(buf.as_slice(), journey_header.journey_type, true)?;
             txn.insert_journey(journey_header, journey_data, None)?;
         }
     }

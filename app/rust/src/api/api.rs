@@ -680,6 +680,11 @@ pub fn export_journey_raw_data_gpx(journey_id: String, target_filepath: String) 
         .export_journey_raw_data_gpx(&journey_id, Path::new(&target_filepath))
 }
 
+#[auto_context]
+pub fn delete_journey_raw_data(journey_id: String) -> Result<()> {
+    get().storage.delete_journey_raw_data(&journey_id)
+}
+
 pub fn delete_all_journeys() -> Result<()> {
     info!("Delete all journeys");
     get().storage.with_db_txn(|txn| txn.delete_all_journeys())

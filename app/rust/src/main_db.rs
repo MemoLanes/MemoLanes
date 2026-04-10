@@ -310,7 +310,8 @@ impl Txn<'_> {
 
         let header_bytes = header.to_proto().write_to_bytes()?;
         let mut data_bytes = Vec::new();
-        data.serialize(&mut data_bytes)?;
+        let mut data_to_serialize = data;
+        data_to_serialize.serialize(&mut data_bytes)?;
 
         let raw_data_bytes = raw_data.map(JourneyRawData::as_bytes);
         let sql = "INSERT INTO journey (id, journey_date, timestamp_for_ordering, type, header, data, raw_data) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);";
@@ -333,7 +334,7 @@ impl Txn<'_> {
                     date: insert_date,
                     kind: insert_kind,
                 },
-                data,
+                data: data_to_serialize,
             });
         } else {
             self.set_invalidate_action(vec![CacheEntry {
@@ -624,6 +625,18 @@ impl Txn<'_> {
             .query_row([id], |row| row.get::<_, Option<Vec<u8>>>(0))
             .optional()?;
         Ok(opt.flatten().map(JourneyRawData::from_compressed))
+    }
+
+    #[auto_context]
+    pub fn delete_journey_raw_data(&mut self, id: &str) -> Result<()> {
+        info!("Deleting journey raw data: id={id}");
+        let changes = self
+            .db_txn
+            .execute("UPDATE journey SET raw_data = NULL WHERE id = ?1;", (id,))?;
+        if changes != 1 {
+            bail!("Failed to delete raw data for journey id = {id}");
+        }
+        Ok(())
     }
 
     #[auto_context]
