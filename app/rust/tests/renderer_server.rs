@@ -21,7 +21,6 @@ pub fn renderer_server() -> Result<(), Box<dyn std::error::Error>> {
 
     let _server = Arc::new(Mutex::new(
         MapServer::create_and_start(map_renderer_fow).expect("Failed to start server"),
-            .expect("Failed to start server"),
     ));
 
     std::thread::sleep(Duration::from_millis(200));
