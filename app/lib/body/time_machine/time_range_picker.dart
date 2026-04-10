@@ -14,9 +14,9 @@ import 'package:memolanes/src/rust/journey_header.dart';
 export 'time_ruler.dart' show TimeRulerMode, TimeRuler;
 
 /// Time range picker with mode-based range selection.
-/// Supports the [TimeMachineMode.period], [TimeMachineMode.fromStart], and
-/// [TimeMachineMode.custom] views, with [TimeRulerMode] controlling the time
-/// granularity shown by the ruler.
+/// Supports the [TimeMachineViewMode.period],
+/// [TimeMachineViewMode.fromStart], and [TimeMachineViewMode.custom] views,
+/// with [TimeRulerMode] controlling the time granularity shown by the ruler.
 /// Reports the selected [from]-[to] range to the parent via [onRangeChanged].
 class TimeRangePicker extends StatefulWidget {
   final DateTime? earliestDate;
