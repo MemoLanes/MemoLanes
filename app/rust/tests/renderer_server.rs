@@ -20,7 +20,7 @@ pub fn renderer_server() -> Result<(), Box<dyn std::error::Error>> {
     let map_renderer_clone = map_renderer_fow.clone();
 
     let _server = Arc::new(Mutex::new(
-        MapServer::create_and_start("localhost", None, map_renderer_fow)
+        MapServer::create_and_start(map_renderer_fow).expect("Failed to start server"),
             .expect("Failed to start server"),
     ));
 
