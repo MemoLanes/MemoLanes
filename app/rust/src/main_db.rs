@@ -454,7 +454,7 @@ impl Txn<'_> {
             .get_journey_header(id)?
             .ok_or_else(|| anyhow!("Updating non existent journey, journey id = {id}"))?;
 
-        let (journey_data, algo) = match journey_data {
+        let (mut journey_data, algo) = match journey_data {
             JourneyData::Bitmap(bitmap) => (JourneyData::Bitmap(bitmap), None),
             JourneyData::Vector(vector) => (
                 JourneyData::Vector(GpsPostprocessor::process(vector)),
@@ -609,7 +609,7 @@ impl Txn<'_> {
                 let f = || {
                     let journey_type = JourneyType::of_int(i8::try_from(type_)?)?;
                     let data = row.get_ref(1)?.as_blob()?;
-                    JourneyData::deserialize(data, journey_type)
+                    JourneyData::deserialize(data, journey_type, false)
                 };
                 Ok(f())
             })

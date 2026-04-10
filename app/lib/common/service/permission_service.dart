@@ -55,12 +55,9 @@ class PermissionService {
   }
 
   Future<void> _requestLocationPermission() async {
-    final context = navigatorKey.currentState?.context;
-    if (context == null || !context.mounted) return;
-
     if (!await Geolocator.isLocationServiceEnabled()) {
       await _showPermissionDeniedDialog(
-        context.tr("location_service.location_service_disabled"),
+        tr("location_service.location_service_disabled"),
       );
       if (!await Geolocator.openLocationSettings()) {
         throw Exception("Location services not enabled.");
@@ -70,7 +67,7 @@ class PermissionService {
     var locStatus = await Permission.location.status;
     if (locStatus.isPermanentlyDenied) {
       await _showPermissionDeniedDialog(
-        context.tr("location_service.location_permission_permanently_denied"),
+        tr("location_service.location_permission_permanently_denied"),
       );
       await openAppSettings();
       throw Exception("Location permission permanently denied.");
@@ -78,12 +75,12 @@ class PermissionService {
 
     if (!locStatus.isGranted) {
       await _showPermissionDeniedDialog(
-        context.tr("location_service.location_permission_reason"),
+        tr("location_service.location_permission_reason"),
       );
       locStatus = await Permission.location.request();
       if (!locStatus.isGranted) {
         await _showPermissionDeniedDialog(
-          context.tr("location_service.location_permission_permanently_denied"),
+          tr("location_service.location_permission_permanently_denied"),
         );
         throw Exception("Location permission not granted.");
       }
@@ -96,8 +93,7 @@ class PermissionService {
       // permission is not strictly required.
       if (Platform.isAndroid && !bgStatus.isGranted) {
         await _showPermissionDeniedDialog(
-          context.tr(
-              "location_service.background_location_permission_permanently_denied"),
+          tr("location_service.background_location_permission_permanently_denied"),
         );
       }
     }
@@ -111,18 +107,15 @@ class PermissionService {
         defaultValue: false);
     if (alreadyRequested) return;
 
-    final context = navigatorKey.currentState?.context;
-    if (context == null || !context.mounted) return;
-
     final isIgnoring = await Permission.ignoreBatteryOptimizations.isGranted;
     if (!isIgnoring) {
       await _showPermissionDeniedDialog(
-        context.tr("location_service.battery_optimization_reason"),
+        tr("location_service.battery_optimization_reason"),
       );
       final result = await Permission.ignoreBatteryOptimizations.request();
       if (!result.isGranted) {
         await _showPermissionDeniedDialog(
-          context.tr("location_service.battery_optimization_denied"),
+          tr("location_service.battery_optimization_denied"),
         );
       }
     }
@@ -144,10 +137,8 @@ class PermissionService {
       return;
     }
 
-    final context = navigatorKey.currentState?.context;
-    if (context == null || !context.mounted) return;
     await _showPermissionDeniedDialog(
-      context.tr("unexpected_exit_notification.notification_permission_reason"),
+      tr("unexpected_exit_notification.notification_permission_reason"),
     );
 
     final result = await Permission.notification.request();
@@ -159,8 +150,7 @@ class PermissionService {
 
     if (!result.isGranted) {
       await _showPermissionDeniedDialog(
-        context
-            .tr("unexpected_exit_notification.notification_permission_denied"),
+        tr("unexpected_exit_notification.notification_permission_denied"),
       );
     }
     MMKVUtil.putBool(MMKVKey.requestedNotification, true);

@@ -262,25 +262,49 @@ pub enum LogLevel {
 }
 
 #[frb(opaque)]
+pub struct OpaqueJourneyData {
+    data: Mutex<JourneyData>,
+}
+
+impl OpaqueJourneyData {
+    pub(super) fn new(journey_data: JourneyData) -> Self {
+        OpaqueJourneyData {
+            data: Mutex::new(journey_data),
+        }
+    }
+
+    pub(super) fn into_inner(self) -> JourneyData {
+        self.data.into_inner().unwrap()
+    }
+
+    pub(super) fn borrow_inner(&self) -> std::sync::MutexGuard<'_, JourneyData> {
+        self.data.lock().unwrap()
+    }
+}
+
+#[frb(opaque)]
 pub enum MapRendererProxy {
-    StaticRenderer(MapRenderer),
+    StaticRenderer(Mutex<MapRenderer>),
     DynamicRenderer(Arc<Mutex<MapRenderer>>),
     MainMapRenderer,
 }
 
 impl MapRendererProxy {
-    pub fn handle_webview_requests(&self, request: String) -> Result<String> {
+    pub fn handle_webview_requests(&mut self, request: String) -> Result<String> {
         let request = Request::parse(&request)?;
         let response = match self {
-            MapRendererProxy::StaticRenderer(map_renderer) => request.handle(map_renderer),
+            MapRendererProxy::StaticRenderer(map_renderer) => {
+                let map_renderer = map_renderer.get_mut().unwrap();
+                request.handle(map_renderer)
+            }
             MapRendererProxy::DynamicRenderer(map_renderer) => {
-                let map_renderer = map_renderer.lock().unwrap();
-                request.handle(&map_renderer)
+                let mut map_renderer = map_renderer.lock().unwrap();
+                request.handle(&mut map_renderer)
             }
             MapRendererProxy::MainMapRenderer => {
-                let main_map_state = get().main_map_state.lock().unwrap();
+                let mut main_map_state = get().main_map_state.lock().unwrap();
                 match main_map_state.dropped_for_power_saving {
-                    false => request.handle(&main_map_state.map_renderer),
+                    false => request.handle(&mut main_map_state.map_renderer),
                     true =>
                     // TODO: This is hacky. I think we should make the type better here for `main_map_state`.
                     // Also have a dedicate value for this case in the response. Right now we reuse the case that
@@ -316,7 +340,7 @@ pub fn get_map_renderer_proxy_for_main_map() -> MapRendererProxy {
 pub fn get_empty_map_renderer_proxy() -> MapRendererProxy {
     let journey_bitmap = JourneyBitmap::new();
     let map_renderer = MapRenderer::new(journey_bitmap);
-    MapRendererProxy::StaticRenderer(map_renderer)
+    MapRendererProxy::StaticRenderer(Mutex::new(map_renderer))
 }
 
 /// [journey_kinds]: empty = no layers; len 1 = that kind only; len 2 = both (pass None).
@@ -347,7 +371,7 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
     ))))
 }
 
-pub(super) fn get_map_renderer_proxy_for_journey_data_internal(
+fn get_map_renderer_proxy_for_journey_data_internal(
     journey_data: JourneyData,
 ) -> Result<(MapRendererProxy, Option<CameraOption>)> {
     let mut journey_bitmap = JourneyBitmap::new();
@@ -372,11 +396,12 @@ pub fn get_map_renderer_proxy_for_journey(
 }
 
 pub fn get_map_renderer_proxy_for_journey_data(
-    journey_data: &JourneyData,
+    journey_data: &OpaqueJourneyData,
 ) -> Result<(MapRendererProxy, Option<CameraOption>)> {
     // TODO: the clone here is not ideal, we should redesign the interface,
     // maybe consider Arc.
-    get_map_renderer_proxy_for_journey_data_internal(journey_data.clone())
+    let journey_data = journey_data.borrow_inner().clone();
+    get_map_renderer_proxy_for_journey_data_internal(journey_data)
 }
 
 // Return `true` if this update contains meaningful data.
@@ -462,6 +487,7 @@ pub struct LayerFilter {
     pub flight_kind: bool,
 }
 
+#[frb(ignore)]
 pub struct MainMapState {
     pub map_renderer: MapRenderer,
     pub dropped_for_power_saving: bool,
@@ -800,4 +826,14 @@ pub fn reload_resource_for_foreground() -> Result<()> {
         info!("main map loaded");
     }
     Ok(())
+}
+pub fn main_map_bitmap_check_invariant_and_debug_log() {
+    let state = get();
+    let mut main_map_state = state.main_map_state.lock().unwrap();
+    main_map_state
+        .map_renderer
+        .update(|journey_bitmap, _change_callback| {
+            // we are not changing anything here.
+            journey_bitmap.check_invariant_and_debug_log();
+        });
 }

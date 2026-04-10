@@ -85,7 +85,7 @@ pub fn verify_image(name: &str, image: &Vec<u8>) {
 }
 
 pub fn render_map_overlay(
-    map_renderer: &MapRenderer,
+    map_renderer: &mut MapRenderer,
     // map view area (coordinates are in lat or lng)
     zoom: i32,
     left: f64,
@@ -127,7 +127,7 @@ pub fn render_map_overlay(
 }
 
 fn render_map_overlay_internal(
-    map_renderer: &MapRenderer,
+    map_renderer: &mut MapRenderer,
     render_area: &RenderArea,
 ) -> RenderResult {
     /* for test, map_renderer initialized by MapRenderer::new, tilerenderer size is default size.  */
@@ -143,20 +143,21 @@ fn render_map_overlay_internal(
 
     for x in 0..width_by_tile {
         for y in 0..height_by_tile {
-            // TODO: cache?
-
-            TileShader::render_on_image(
-                &mut image,
-                x * tile_size,
-                y * tile_size,
-                map_renderer.peek_latest_bitmap(),
-                render_area.left_idx as i64 + x as i64,
-                render_area.top_idx as i64 + y as i64,
-                render_area.zoom as i16,
-                DEFAULT_TILE_SIZE.power(), // 9
-                DEFAULT_BG_COLOR,
-                DEFAULT_FG_COLOR,
-            );
+            map_renderer.update(|journey_bitmap, _change_callback| {
+                // No actual change here
+                TileShader::render_on_image(
+                    &mut image,
+                    x * tile_size,
+                    y * tile_size,
+                    journey_bitmap,
+                    render_area.left_idx as i64 + x as i64,
+                    render_area.top_idx as i64 + y as i64,
+                    render_area.zoom as i16,
+                    DEFAULT_TILE_SIZE.power(), // 9
+                    DEFAULT_BG_COLOR,
+                    DEFAULT_FG_COLOR,
+                );
+            });
         }
     }
 

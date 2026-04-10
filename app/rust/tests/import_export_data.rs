@@ -99,7 +99,7 @@ fn verify_fow_snapshot_data() {
     let result_1 = import_data::load_fow_snapshot_data("./tests/data/snapshot_no_bitmap.fwss");
 
     assert!(
-        !bitmap_2.tiles.is_empty(),
+        !bitmap_2.is_empty(),
         "snapshot_test.fwss bitmap should not be empty"
     );
     assert!(result_1.is_err(), "Empty snapshot should return error");
