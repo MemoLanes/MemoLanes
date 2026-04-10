@@ -240,6 +240,7 @@ fn delete_journey_invalidates_monthly_cache() {
                     JourneyKind::DefaultKind,
                     None,
                     JourneyData::Bitmap(bitmap_jan.clone()),
+                    None,
                 )
             })
             .unwrap();
@@ -254,6 +255,7 @@ fn delete_journey_invalidates_monthly_cache() {
                     JourneyKind::DefaultKind,
                     None,
                     JourneyData::Bitmap(bitmap_feb.clone()),
+                    None,
                 )
             })
             .unwrap();
@@ -298,6 +300,7 @@ fn update_metadata_cross_month_invalidates_both() {
                     JourneyKind::DefaultKind,
                     None,
                     JourneyData::Bitmap(bitmap.clone()),
+                    None,
                 )
             })
             .unwrap();
@@ -362,6 +365,7 @@ fn update_metadata_change_kind_invalidates_both() {
                     JourneyKind::DefaultKind,
                     None,
                     JourneyData::Bitmap(bitmap.clone()),
+                    None,
                 )
             })
             .unwrap();
@@ -428,6 +432,7 @@ fn get_range_bitmap_works() {
                     JourneyKind::DefaultKind,
                     None,
                     JourneyData::Bitmap(bitmap_jan.clone()),
+                    None,
                 )
             })
             .unwrap();
@@ -442,6 +447,7 @@ fn get_range_bitmap_works() {
                     JourneyKind::DefaultKind,
                     None,
                     JourneyData::Bitmap(bitmap_mar.clone()),
+                    None,
                 )
             })
             .unwrap();
@@ -456,6 +462,7 @@ fn get_range_bitmap_works() {
                     JourneyKind::Flight,
                     None,
                     JourneyData::Bitmap(bitmap_flight.clone()),
+                    None,
                 )
             })
             .unwrap();
@@ -519,6 +526,7 @@ fn insert_cache_delete_requery_range() {
                     JourneyKind::DefaultKind,
                     None,
                     JourneyData::Bitmap(bitmap_jan.clone()),
+                    None,
                 )
             })
             .unwrap();
@@ -533,6 +541,7 @@ fn insert_cache_delete_requery_range() {
                     JourneyKind::DefaultKind,
                     None,
                     JourneyData::Bitmap(bitmap_mar.clone()),
+                    None,
                 )
             })
             .unwrap();
@@ -589,6 +598,7 @@ fn update_journey_data_invalidates_and_requery_correct() {
                     JourneyKind::DefaultKind,
                     None,
                     JourneyData::Bitmap(bitmap_line1.clone()),
+                    None,
                 )
             })
             .unwrap();
@@ -646,6 +656,7 @@ fn multiple_inserts_in_sequence_final_state_correct() {
                     JourneyKind::DefaultKind,
                     None,
                     JourneyData::Bitmap(bitmap1.clone()),
+                    None,
                 )
             })
             .unwrap();
@@ -669,6 +680,7 @@ fn multiple_inserts_in_sequence_final_state_correct() {
                     JourneyKind::DefaultKind,
                     None,
                     JourneyData::Bitmap(bitmap2.clone()),
+                    None,
                 )
             })
             .unwrap();
@@ -694,6 +706,7 @@ fn multiple_inserts_in_sequence_final_state_correct() {
                     JourneyKind::DefaultKind,
                     None,
                     JourneyData::Bitmap(bitmap3.clone()),
+                    None,
                 )
             })
             .unwrap();
@@ -744,6 +757,7 @@ fn delete_all_clears_cache_and_requery_empty() {
                     JourneyKind::DefaultKind,
                     None,
                     JourneyData::Bitmap(bitmap_jan),
+                    None,
                 )
             })
             .unwrap();
@@ -758,6 +772,7 @@ fn delete_all_clears_cache_and_requery_empty() {
                     JourneyKind::Flight,
                     None,
                     JourneyData::Bitmap(bitmap_mar),
+                    None,
                 )
             })
             .unwrap();
@@ -802,6 +817,7 @@ fn update_metadata_same_month_cache_still_correct() {
                     JourneyKind::DefaultKind,
                     None,
                     JourneyData::Bitmap(bitmap.clone()),
+                    None,
                 )
             })
             .unwrap();

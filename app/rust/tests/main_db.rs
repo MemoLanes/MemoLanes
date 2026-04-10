@@ -1211,6 +1211,7 @@ fn complete_rebuilt_survives_subsequent_insert() {
                 JourneyKind::DefaultKind,
                 None,
                 JourneyData::Bitmap(bitmap2),
+                None,
             )?;
             Ok(txn.action.clone())
         })
@@ -1347,6 +1348,8 @@ fn finalize_ongoing_sets_merge_one() {
                 speed: None,
             },
             gps_processor::ProcessResult::Append,
+            1697349115000,
+            false,
         )
         .unwrap();
     main_db
@@ -1362,6 +1365,8 @@ fn finalize_ongoing_sets_merge_one() {
                 speed: None,
             },
             gps_processor::ProcessResult::Append,
+            1697349116000,
+            false,
         )
         .unwrap();
 
