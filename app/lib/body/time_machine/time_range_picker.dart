@@ -65,7 +65,7 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
 
   /// Single source of truth for lower bound used by ruler/range/pickers.
   DateTime get _effectiveEarliest {
-    final now = DateTime.now();
+    final now = DateUtils.dateOnly(DateTime.now());
     final fallback = DateTime(now.year - 1, 1, 1);
     final candidate = widget.earliestDate ?? fallback;
     // Guard: if upstream provides a future earliest, cap to "now".
