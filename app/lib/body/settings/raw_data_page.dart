@@ -39,7 +39,8 @@ class _RawDataSwitchState extends State<RawDataSwitch> {
             final ok = await api.toggleRawDataMode(enable: value);
             if (ok) {
               setState(() => enabled = value);
-            } else if (mounted) {
+            } else {
+              if (!context.mounted) return;
               await showCommonDialog(
                 context,
                 context.tr("journey.stop_ongoing_journey"),
