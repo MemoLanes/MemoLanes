@@ -9,6 +9,7 @@ import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 class JourneyTrackEditPage extends StatefulWidget {
   final EditSession editSession;
@@ -30,6 +31,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   OperationMode _mode = OperationMode.move;
   bool _canUndo = false;
   bool _isLinkedDrawEnabled = false;
+  bool _isLinkedDrawErrorLocked = false;
 
   bool _zoomOk = false;
 
@@ -58,10 +60,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   }
 
   String _linkedDrawTooFarMessage() {
-    return [
-      context.tr("journey.editor.linked_draw_mode_enabled"),
-      context.tr("journey.editor.linked_draw_too_far"),
-    ].join('\n');
+    return context.tr("journey.editor.linked_draw_too_far");
   }
 
   bool _isLinkedDrawTooFarError(Object error) {
@@ -70,7 +69,54 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   void _showFloatingSnackBar(String message) {
     if (!mounted) return;
+    if (_isLinkedDrawErrorLocked) return;
     TopPersistentToast().show(context, message);
+  }
+
+  void _lockLinkedDrawErrorToast() {
+    if (!mounted) return;
+    setState(() {
+      _isLinkedDrawErrorLocked = true;
+    });
+  }
+
+  void _unlockLinkedDrawErrorToast() {
+    if (!mounted || !_isLinkedDrawErrorLocked) return;
+    setState(() {
+      _isLinkedDrawErrorLocked = false;
+    });
+  }
+
+  void _restoreNormalEditingToast() {
+    if (_isLinkedDrawErrorLocked) {
+      _unlockLinkedDrawErrorToast();
+      _removeToast();
+    }
+    _showDrawModeEnabledToast();
+  }
+
+  void _restoreCurrentModeToast() {
+    if (_mode == OperationMode.edit) {
+      _restoreNormalEditingToast();
+      return;
+    }
+
+    if (_mode == OperationMode.editReadonly) {
+      if (_isLinkedDrawErrorLocked) {
+        _unlockLinkedDrawErrorToast();
+        _removeToast();
+      }
+      _showZoomTooLow();
+      return;
+    }
+
+    if (_mode == OperationMode.delete) {
+      if (_isLinkedDrawErrorLocked) {
+        _unlockLinkedDrawErrorToast();
+        _removeToast();
+      }
+      _showDeleteModeEnabled();
+    }
   }
 
   void _removeToast() {
@@ -169,15 +215,46 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   }
 
   void _handleModeChange(OperationMode mode) {
+    if (mode == OperationMode.edit) {
+      if (_isLinkedDrawErrorLocked) {
+        _restoreNormalEditingToast();
+      }
+
+      final switchedFromLinked = _isLinkedDrawEnabled;
+      if (switchedFromLinked) {
+        setState(() {
+          _isLinkedDrawEnabled = false;
+        });
+      }
+
+      if (_mode == OperationMode.edit) {
+        if (_isLinkedDrawErrorLocked || switchedFromLinked) {
+          _showDrawModeEnabledToast();
+        }
+        return;
+      }
+    }
+
+    if (_isLinkedDrawErrorLocked) {
+      _unlockLinkedDrawErrorToast();
+      _removeToast();
+    }
+
     _applyMode(mode);
   }
 
   void _handleDrawEntrySelected(DrawEntryMode mode) {
     final wasMode = _mode;
+    final wasErrorLocked = _isLinkedDrawErrorLocked;
 
     setState(() {
       _isLinkedDrawEnabled = mode == DrawEntryMode.linked;
     });
+
+    if (wasErrorLocked) {
+      _restoreNormalEditingToast();
+      if (wasMode == OperationMode.edit) return;
+    }
 
     if (wasMode == OperationMode.edit) {
       _showDrawModeEnabledToast();
@@ -203,6 +280,11 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   Future<void> _onDrawPath(List<JourneyEditorDrawPoint> points) async {
     if (_mode != OperationMode.edit) return;
     if (points.length < 2) return;
+
+    if (_isLinkedDrawErrorLocked) {
+      _restoreNormalEditingToast();
+    }
+
     final recordPoints = points.map((p) => (p.lat, p.lng)).toList();
 
     try {
@@ -212,7 +294,10 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
       );
     } catch (error, stackTrace) {
       if (_isLinkedDrawTooFarError(error)) {
-        _showFloatingSnackBar(_linkedDrawTooFarMessage());
+        if (mounted) {
+          TopPersistentToast().show(context, _linkedDrawTooFarMessage());
+        }
+        _lockLinkedDrawErrorToast();
         return;
       }
 
@@ -257,6 +342,10 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
@@ -288,6 +377,54 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
             CapsuleStyleOverlayAppBar.overlayBar(
               title: context.tr("journey.editor.page_title"),
             ),
+            if (_mode == OperationMode.edit ||
+                _mode == OperationMode.editReadonly)
+              Positioned.fill(
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        const Spacer(),
+                        Padding(
+                          padding: EdgeInsets.only(
+                            right: 8,
+                            bottom: isLandscape ? 16 : screenSize.height * 0.08,
+                          ),
+                          child: PointerInterceptor(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                _DrawEntryModeButton(
+                                  icon: Icons.draw_rounded,
+                                  tooltip:
+                                      context.tr('journey.editor.free_draw'),
+                                  isSelected: !_isLinkedDrawEnabled,
+                                  onPressed: () => _handleDrawEntrySelected(
+                                    DrawEntryMode.freehand,
+                                  ),
+                                ),
+                                _DrawEntryModeButton(
+                                  icon: Icons.link_rounded,
+                                  tooltip:
+                                      context.tr('journey.editor.linked_draw'),
+                                  isSelected: _isLinkedDrawEnabled,
+                                  onPressed: () => _handleDrawEntrySelected(
+                                    DrawEntryMode.linked,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 172),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             Positioned(
               left: 0,
               right: 0,
@@ -297,8 +434,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                 child: ModeSwitchBar(
                   currentMode: _mode,
                   onModeChanged: _handleModeChange,
-                  isLinkedDrawEnabled: _isLinkedDrawEnabled,
-                  onDrawEntrySelected: _handleDrawEntrySelected,
                   canUndo: _canUndo,
                   onUndo: () async {
                     await _editSession.undo();
@@ -320,7 +455,11 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                       title: context.tr("common.save"),
                       hasCancel: true,
                     );
-                    if (!context.mounted || !shouldSave) return;
+                    if (!context.mounted) return;
+                    if (!shouldSave) {
+                      _restoreCurrentModeToast();
+                      return;
+                    }
 
                     await showLoadingDialog(
                       asyncTask: _editSession.commit(),
@@ -337,6 +476,43 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DrawEntryModeButton extends StatelessWidget {
+  const _DrawEntryModeButton({
+    required this.icon,
+    required this.tooltip,
+    required this.isSelected,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final bool isSelected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    const accentColor = Color(0xFFB4EC51);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      width: 48,
+      height: 48,
+      decoration: const BoxDecoration(
+        color: Colors.black,
+        shape: BoxShape.circle,
+      ),
+      child: IconButton(
+        onPressed: onPressed,
+        tooltip: tooltip,
+        icon: Icon(
+          icon,
+          color: isSelected ? accentColor : accentColor.withValues(alpha: 0.5),
         ),
       ),
     );

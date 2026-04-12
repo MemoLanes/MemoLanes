@@ -15,7 +15,7 @@ use crate::renderer::MapRenderer;
 const EPS: f64 = 1e-12_f64;
 const DEDUP_EPS: f64 = 1e-9_f64;
 const LINK_DRAW_TOO_FAR_ERROR: &str = "linked_draw_too_far";
-const LINK_SNAP_DISTANCE_RATIO_THRESHOLD: f64 = 2.0_f64;
+const LINK_SNAP_DISTANCE_RATIO_THRESHOLD: f64 = 3.0_f64;
 
 // TODO: we want some test coverage here.
 

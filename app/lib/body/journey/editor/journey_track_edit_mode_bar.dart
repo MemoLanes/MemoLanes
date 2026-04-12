@@ -19,8 +19,6 @@ enum DrawEntryMode {
 class ModeSwitchBar extends StatelessWidget {
   final OperationMode currentMode;
   final ValueChanged<OperationMode> onModeChanged;
-  final bool isLinkedDrawEnabled;
-  final ValueChanged<DrawEntryMode>? onDrawEntrySelected;
   final bool canUndo;
   final VoidCallback? onUndo;
   final bool canSave;
@@ -30,17 +28,11 @@ class ModeSwitchBar extends StatelessWidget {
     super.key,
     required this.currentMode,
     required this.onModeChanged,
-    this.isLinkedDrawEnabled = false,
-    this.onDrawEntrySelected,
     this.canUndo = false,
     this.onUndo,
     this.canSave = false,
     this.onSave,
   });
-
-  bool get isEditingSection =>
-      currentMode == OperationMode.edit ||
-      currentMode == OperationMode.editReadonly;
 
   @override
   Widget build(BuildContext context) {
@@ -98,29 +90,6 @@ class ModeSwitchBar extends StatelessWidget {
   }
 
   List<Widget> _buildModeItems(BuildContext context) {
-    if (isEditingSection) {
-      return [
-        _buildModeItem(
-          mode: OperationMode.move,
-          icon: Icons.arrow_back_rounded,
-          label: context.tr('journey.editor.back'),
-          isSelected: false,
-        ),
-        _buildDrawEntryButton(
-          icon: Icons.draw_rounded,
-          label: context.tr('journey.editor.free_draw'),
-          isSelected: !isLinkedDrawEnabled,
-          onTap: () => onDrawEntrySelected?.call(DrawEntryMode.freehand),
-        ),
-        _buildDrawEntryButton(
-          icon: Icons.link_rounded,
-          label: context.tr('journey.editor.linked_draw'),
-          isSelected: isLinkedDrawEnabled,
-          onTap: () => onDrawEntrySelected?.call(DrawEntryMode.linked),
-        ),
-      ];
-    }
-
     return [
       _buildModeItem(
         mode: OperationMode.move,
@@ -140,26 +109,11 @@ class ModeSwitchBar extends StatelessWidget {
     return _BaseBarItem(
       icon: Icons.gesture_rounded,
       label: context.tr('journey.editor.draw'),
+      isSelected: currentMode == OperationMode.edit ||
+          currentMode == OperationMode.editReadonly,
       onTap: () {
         HapticFeedback.lightImpact();
         onModeChanged(OperationMode.edit);
-      },
-    );
-  }
-
-  Widget _buildDrawEntryButton({
-    required IconData icon,
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return _BaseBarItem(
-      icon: icon,
-      label: label,
-      isSelected: isSelected,
-      onTap: () {
-        HapticFeedback.selectionClick();
-        onTap();
       },
     );
   }
