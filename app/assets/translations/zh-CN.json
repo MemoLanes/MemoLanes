@@ -53,6 +53,7 @@
       "page_title": "编辑旅程轨迹",
       "free_draw_mode_enabled": "自由绘制已开启，请在地图上绘制以新增轨迹。",
       "linked_draw_mode_enabled": "链接绘制已开启，请在地图上绘制以新增轨迹。\n绘制轨迹的首尾会自动对齐到最近的已有轨迹。",
+      "linked_draw_too_far": "线段离已有轨迹太远，无法连接",
       "erase_mode_enabled": "删除模式已开启，框选区域以删除轨迹。",
       "bitmap_not_supported": "暂不支持编辑编辑当前记录（通常为从世界迷雾导入的数据）。",
       "discard_changes_confirm": "未保存的操作都会丢失，是否继续？",

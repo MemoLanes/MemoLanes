@@ -14,6 +14,8 @@ use crate::renderer::MapRenderer;
 // TODO: This is a bit sus, it is comparing the lng/lat and doesn't handle anti-meridian.
 const EPS: f64 = 1e-12_f64;
 const DEDUP_EPS: f64 = 1e-9_f64;
+const LINK_DRAW_TOO_FAR_ERROR: &str = "linked_draw_too_far";
+const LINK_SNAP_DISTANCE_RATIO_THRESHOLD: f64 = 2.0_f64;
 
 // TODO: we want some test coverage here.
 
@@ -28,6 +30,15 @@ pub struct EditSession {
 }
 
 impl EditSession {
+    fn point_distance(
+        a: &crate::journey_vector::TrackPoint,
+        b: &crate::journey_vector::TrackPoint,
+    ) -> f64 {
+        let lat_delta = a.latitude - b.latitude;
+        let lng_delta = a.longitude - b.longitude;
+        (lat_delta * lat_delta + lng_delta * lng_delta).sqrt()
+    }
+
     fn points_equal(
         a: &crate::journey_vector::TrackPoint,
         b: &crate::journey_vector::TrackPoint,
@@ -142,7 +153,7 @@ impl EditSession {
         &self,
         points: &[(f64, f64)],
         snap_endpoints: bool,
-    ) -> Vec<crate::journey_vector::TrackPoint> {
+    ) -> Result<Vec<crate::journey_vector::TrackPoint>> {
         let mut track_points: Vec<crate::journey_vector::TrackPoint> = points
             .iter()
             .map(|(lat, lng)| crate::journey_vector::TrackPoint {
@@ -152,20 +163,40 @@ impl EditSession {
             .collect();
 
         if snap_endpoints {
-            if let Some(first_point) = track_points.first_mut() {
-                if let Some(snapped) = self.find_nearest_existing_track_point(first_point) {
-                    *first_point = snapped;
+            let original_first = track_points.first().cloned();
+            let original_last = track_points.last().cloned();
+            let snapped_first = original_first
+                .as_ref()
+                .and_then(|point| self.find_nearest_existing_track_point(point));
+            let snapped_last = original_last
+                .as_ref()
+                .and_then(|point| self.find_nearest_existing_track_point(point));
+
+            if let (Some(original_first), Some(snapped_first), Some(original_last), Some(snapped_last)) = (
+                original_first.as_ref(),
+                snapped_first.as_ref(),
+                original_last.as_ref(),
+                snapped_last.as_ref(),
+            ) {
+                let stroke_span = Self::point_distance(original_first, original_last);
+                let snap_distance_sum = Self::point_distance(original_first, snapped_first)
+                    + Self::point_distance(original_last, snapped_last);
+
+                if snap_distance_sum > stroke_span * LINK_SNAP_DISTANCE_RATIO_THRESHOLD {
+                    bail!(LINK_DRAW_TOO_FAR_ERROR);
                 }
             }
 
-            if let Some(last_point) = track_points.last_mut() {
-                if let Some(snapped) = self.find_nearest_existing_track_point(last_point) {
-                    *last_point = snapped;
-                }
+            if let (Some(first_point), Some(snapped)) = (track_points.first_mut(), snapped_first) {
+                *first_point = snapped;
+            }
+
+            if let (Some(last_point), Some(snapped)) = (track_points.last_mut(), snapped_last) {
+                *last_point = snapped;
             }
         }
 
-        Self::dedup_adjacent_track_points(track_points)
+        Ok(Self::dedup_adjacent_track_points(track_points))
     }
 
     fn build_bitmap_from_vector(vector: &JourneyVector) -> JourneyBitmap {
@@ -453,7 +484,7 @@ impl EditSession {
             return Ok(());
         }
 
-        let track_points = self.prepare_track_points(points, snap_endpoints);
+        let track_points = self.prepare_track_points(points, snap_endpoints)?;
         if track_points.len() < 2 {
             return Ok(());
         }

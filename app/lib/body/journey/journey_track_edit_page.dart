@@ -21,6 +21,7 @@ class JourneyTrackEditPage extends StatefulWidget {
 
 class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   static const int _minEditZoom = 13;
+  static const String _linkedDrawTooFarError = 'linked_draw_too_far';
 
   late final EditSession _editSession;
   api.MapRendererProxy? _mapRendererProxy;
@@ -54,6 +55,17 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     _showFloatingSnackBar(
       context.tr("journey.editor.zoom_too_low"),
     );
+  }
+
+  String _linkedDrawTooFarMessage() {
+    return [
+      context.tr("journey.editor.linked_draw_mode_enabled"),
+      context.tr("journey.editor.linked_draw_too_far"),
+    ].join('\n');
+  }
+
+  bool _isLinkedDrawTooFarError(Object error) {
+    return error.toString().contains(_linkedDrawTooFarError);
   }
 
   void _showFloatingSnackBar(String message) {
@@ -193,10 +205,20 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     if (points.length < 2) return;
     final recordPoints = points.map((p) => (p.lat, p.lng)).toList();
 
-    await _editSession.addLines(
-      points: recordPoints,
-      snapEndpoints: _isLinkedDrawEnabled,
-    );
+    try {
+      await _editSession.addLines(
+        points: recordPoints,
+        snapEndpoints: _isLinkedDrawEnabled,
+      );
+    } catch (error, stackTrace) {
+      if (_isLinkedDrawTooFarError(error)) {
+        _showFloatingSnackBar(_linkedDrawTooFarMessage());
+        return;
+      }
+
+      log.error("[JourneyTrackEditPage] addLines failed: $error", stackTrace);
+      return;
+    }
 
     if (!mounted) return;
     await _mapWebviewKey.currentState?.manualRefresh();
