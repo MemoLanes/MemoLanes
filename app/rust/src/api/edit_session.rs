@@ -172,7 +172,12 @@ impl EditSession {
                 .as_ref()
                 .and_then(|point| self.find_nearest_existing_track_point(point));
 
-            if let (Some(original_first), Some(snapped_first), Some(original_last), Some(snapped_last)) = (
+            if let (
+                Some(original_first),
+                Some(snapped_first),
+                Some(original_last),
+                Some(snapped_last),
+            ) = (
                 original_first.as_ref(),
                 snapped_first.as_ref(),
                 original_last.as_ref(),
