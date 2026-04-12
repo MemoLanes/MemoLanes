@@ -7,7 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:memolanes/constants/style_constants.dart';
 
 /// Time dimension: year / month / day / any.
-enum TimeMachineMode {
+enum TimeRulerMode {
   year,
   month,
   day,
@@ -252,7 +252,7 @@ Widget _rulerContainer(Widget child) => ClipRRect(
 class TimeRuler extends StatelessWidget {
   const TimeRuler({
     super.key,
-    required this.mode,
+    required this.rulerMode,
     required this.selectedYear,
     required this.selectedMonth,
     required this.selectedDay,
@@ -261,7 +261,7 @@ class TimeRuler extends StatelessWidget {
     this.onDisplayChanged,
   });
 
-  final TimeMachineMode mode;
+  final TimeRulerMode rulerMode;
   final int selectedYear;
   final int selectedMonth;
   final int selectedDay;
@@ -271,10 +271,10 @@ class TimeRuler extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (mode == TimeMachineMode.any) return const SizedBox.shrink();
+    if (rulerMode == TimeRulerMode.any) return const SizedBox.shrink();
     return _InfiniteTimeRuler(
-      key: ValueKey('ruler-$mode'),
-      mode: mode,
+      key: ValueKey('ruler-$rulerMode'),
+      rulerMode: rulerMode,
       selectedYear: selectedYear,
       selectedMonth: selectedMonth,
       selectedDay: selectedDay,
@@ -288,7 +288,7 @@ class TimeRuler extends StatelessWidget {
 class _InfiniteTimeRuler extends StatefulWidget {
   const _InfiniteTimeRuler({
     super.key,
-    required this.mode,
+    required this.rulerMode,
     required this.selectedYear,
     required this.selectedMonth,
     required this.selectedDay,
@@ -297,7 +297,7 @@ class _InfiniteTimeRuler extends StatefulWidget {
     this.onDisplayChanged,
   });
 
-  final TimeMachineMode mode;
+  final TimeRulerMode rulerMode;
   final int selectedYear;
   final int selectedMonth;
   final int selectedDay;
@@ -319,23 +319,23 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
   _RulerData get _data => _buildData(widget);
 
   static _RulerData _buildData(_InfiniteTimeRuler w) {
-    return switch (w.mode) {
-      TimeMachineMode.year => _YearRulerData(w.earliest, w.selectedYear,
+    return switch (w.rulerMode) {
+      TimeRulerMode.year => _YearRulerData(w.earliest, w.selectedYear,
           (y) => w.onSelectionChanged((y, null, null)), w.onDisplayChanged),
-      TimeMachineMode.month => _MonthRulerData(
+      TimeRulerMode.month => _MonthRulerData(
           w.earliest,
           w.selectedYear,
           w.selectedMonth,
           (y, m) => w.onSelectionChanged((y, m, null)),
           w.onDisplayChanged),
-      TimeMachineMode.day => _DayRulerData(
+      TimeRulerMode.day => _DayRulerData(
           w.earliest,
           w.selectedYear,
           w.selectedMonth,
           w.selectedDay,
           (y, m, d) => w.onSelectionChanged((y, m, d)),
           w.onDisplayChanged),
-      TimeMachineMode.any => throw StateError('any mode has no ruler'),
+      TimeRulerMode.any => throw StateError('any mode has no ruler'),
     };
   }
 
@@ -390,8 +390,9 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
 
   int _indexAtOffset(double pixels) {
     final maxIdx = _data.itemCount > 0 ? _data.itemCount - 1 : 0;
-    if (_viewportWidth <= 0)
+    if (_viewportWidth <= 0) {
       return (pixels / kRulerUnitSpacing).round().clamp(0, maxIdx);
+    }
     final centerContent = pixels + _viewportWidth / 2;
     final centerPadding = _viewportWidth / 2 - kRulerUnitSpacing / 2;
     final index = ((centerContent - centerPadding - kRulerUnitSpacing / 2) /

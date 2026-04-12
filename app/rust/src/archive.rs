@@ -107,16 +107,22 @@ pub fn analyze_mldx_import(txn: &main_db::Txn, mldx_file: &str) -> Result<MldxIm
                         conflict_count += 1;
                         let mut buf = vec![0_u8; data_len as usize];
                         file.read_exact(&mut buf)?;
-                        let journey_data =
-                            JourneyData::deserialize(buf.as_slice(), journey_header.journey_type)?;
+                        let journey_data = JourneyData::deserialize(
+                            buf.as_slice(),
+                            journey_header.journey_type,
+                            true,
+                        )?;
                         journeys.push((journey_header, journey_data, true));
                     }
                 }
                 None => {
                     let mut buf = vec![0_u8; data_len as usize];
                     file.read_exact(&mut buf)?;
-                    let journey_data =
-                        JourneyData::deserialize(buf.as_slice(), journey_header.journey_type)?;
+                    let journey_data = JourneyData::deserialize(
+                        buf.as_slice(),
+                        journey_header.journey_type,
+                        true,
+                    )?;
                     journeys.push((journey_header, journey_data, false));
                 }
             }
@@ -266,7 +272,7 @@ pub fn export_as_mldx<T: Write + Seek>(
         for j in journeys {
             // TODO: maybe we want to just take the bytes from db without doing
             // a roundtrip.
-            let journey_data = txn.get_journey_data(&j.id)?;
+            let mut journey_data = txn.get_journey_data(&j.id)?;
             let mut buf = Vec::new();
             journey_data.serialize(&mut buf)?;
             write_bytes_with_size_header(&mut zip, &buf)?;

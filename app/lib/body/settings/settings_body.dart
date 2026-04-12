@@ -17,6 +17,7 @@ import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/utils/nav_helper.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -76,13 +77,9 @@ class _SettingsBodyState extends State<SettingsBody> {
     final result = await FilePicker.platform.pickFiles(type: FileType.any);
     final path = result?.files.single.path;
     if (path != null && context.mounted) {
-      Navigator.push(
+      navigatorPush(
         context,
-        MaterialPageRoute(
-          builder: (context) {
-            return ImportDataPage(path: path, importType: importType);
-          },
-        ),
+        page: ImportDataPage(path: path, importType: importType),
       );
     }
   }
@@ -168,23 +165,13 @@ class _SettingsBodyState extends State<SettingsBody> {
           label: context.tr("general.map_settings.title"),
           position: LabelTilePosition.middle,
           trailing: LabelTileContent(showArrow: true),
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const MapSettingsPage()),
-          ),
+          onTap: () => navigatorPush(context, page: const MapSettingsPage()),
         ),
         LabelTile(
           label: context.tr("general.advanced_settings.title"),
           position: LabelTilePosition.bottom,
           trailing: LabelTileContent(showArrow: true),
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) {
-                return AdvancedSettingsPage();
-              },
-            ),
-          ),
+          onTap: () => navigatorPush(context, page: AdvancedSettingsPage()),
         ),
         LabelTileTitle(
           label: context.tr("data.title"),
@@ -228,7 +215,6 @@ class _SettingsBodyState extends State<SettingsBody> {
             final filepath = "${tmpDir.path}/all-journeys-$timestamp.mldx";
             if (!context.mounted) return;
             await showLoadingDialog(
-              context: context,
               asyncTask: api.generateFullArchive(targetFilepath: filepath),
             );
             if (!context.mounted) return;
@@ -293,14 +279,7 @@ class _SettingsBodyState extends State<SettingsBody> {
           label: context.tr("contact_us.title"),
           position: LabelTilePosition.bottom,
           trailing: LabelTileContent(rightIcon: Icons.arrow_forward_ios),
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) {
-                return ContactUsPage();
-              },
-            ),
-          ),
+          onTap: () => navigatorPush(context, page: ContactUsPage()),
         ),
       ],
     );

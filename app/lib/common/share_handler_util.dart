@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/body/settings/import_data_page.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/utils/nav_helper.dart';
 import 'package:share_handler/share_handler.dart';
 
 class ShareHandlerUtil {
@@ -14,7 +15,7 @@ class ShareHandlerUtil {
 
   /// Subscribes to share intents immediately. [navigatorKey] is used to obtain
   /// context for dialogs/navigation when handling shares.
-  static init({
+  static void init({
     required GlobalKey<NavigatorState> navigatorKey,
   }) {
     _navigatorKey = navigatorKey;
@@ -64,6 +65,7 @@ class ShareHandlerUtil {
     if (paths.isEmpty) return;
 
     if (paths.length > 1) {
+      if (!context.mounted) return;
       await showCommonDialog(
         context,
         context.tr("import.shared_file.multi_message"),
@@ -76,6 +78,7 @@ class ShareHandlerUtil {
     final lowerPath = path.toLowerCase();
 
     final fileName = path.split('/').last;
+    if (!context.mounted) return;
     final confirm = await showCommonDialog(
       context,
       context.tr("import.shared_file.confirm_message", args: [fileName]),
@@ -86,12 +89,14 @@ class ShareHandlerUtil {
     if (confirm != true) return;
 
     if (lowerPath.endsWith('.mldx')) {
+      if (!context.mounted) return;
       await importMldx(context, path);
       return;
     }
 
     final importType = _resolveImportType(lowerPath);
     if (importType == null) {
+      if (!context.mounted) return;
       await showCommonDialog(
           context, context.tr("import.unsupported_file_failed"));
       return;
@@ -99,13 +104,11 @@ class ShareHandlerUtil {
 
     if (!context.mounted) return;
 
-    Navigator.push(
+    navigatorPush(
       context,
-      MaterialPageRoute(
-        builder: (_) => ImportDataPage(
-          path: path,
-          importType: importType,
-        ),
+      page: ImportDataPage(
+        path: path,
+        importType: importType,
       ),
     );
   }

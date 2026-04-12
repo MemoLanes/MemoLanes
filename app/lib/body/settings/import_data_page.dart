@@ -9,7 +9,6 @@ import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
-import 'package:memolanes/src/rust/journey_data.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 
@@ -28,7 +27,7 @@ enum ImportType { fow, gpxOrKml }
 
 class _ImportDataPage extends State<ImportDataPage> {
   import_api.JourneyInfo? journeyInfo;
-  late final f.Either<JourneyData, import_api.RawVectorData>
+  late final f.Either<api.OpaqueJourneyData, import_api.RawVectorData>
       journeyDataMaybeRaw;
   api.MapRendererProxy? _mapRendererProxy;
   MapView? _initialMapView;
@@ -45,20 +44,20 @@ class _ImportDataPage extends State<ImportDataPage> {
   Future<void> _initFlow() async {
     try {
       if (!await showLoadingDialog(
-        context: context,
         asyncTask: () async {
           await _loadFile(widget.path);
           return await _previewDataInternal();
         }(),
       )) {
+        if (!mounted) return;
         await showCommonDialog(
           context,
           context.tr("import.empty_data"),
         );
         return;
       }
-      if (context.mounted &&
-          _preprocessor == import_api.ImportPreprocessor.spare) {
+      if (!mounted) return;
+      if (_preprocessor == import_api.ImportPreprocessor.spare) {
         showCommonDialog(
           context,
           context.tr("preprocessor.spare_md"),
@@ -67,7 +66,9 @@ class _ImportDataPage extends State<ImportDataPage> {
       }
     } catch (error) {
       log.error("[import_data] Data parsing failed $error");
+      if (!mounted) return;
       await showCommonDialog(context, context.tr("import.parsing_failed"));
+      if (!mounted) return;
       if (Navigator.canPop(context)) {
         Navigator.pop(context);
       }
@@ -106,11 +107,11 @@ class _ImportDataPage extends State<ImportDataPage> {
     });
 
     if (!await showLoadingDialog(
-      context: context,
       asyncTask: () async {
         return await _previewDataInternal();
       }(),
     )) {
+      if (!mounted) return;
       await showCommonDialog(
         context,
         context.tr("import.empty_data"),
@@ -151,7 +152,6 @@ class _ImportDataPage extends State<ImportDataPage> {
   Future<void> _saveData(import_api.JourneyInfo journeyInfo,
       import_api.ImportPreprocessor processor) async {
     final success = await showLoadingDialog<bool>(
-      context: context,
       asyncTask: (() async {
         final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
         final journeyData = switch (journeyDataMaybeRaw) {
@@ -167,6 +167,7 @@ class _ImportDataPage extends State<ImportDataPage> {
         return true;
       })(),
     );
+    if (!mounted) return;
     if (success) {
       await showCommonDialog(
         context,
