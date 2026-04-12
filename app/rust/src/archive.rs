@@ -38,9 +38,6 @@ const SECTION_MAGIC_HEADER: [u8; 3] = [b'M', b'L', b'S'];
 
 // TODO: support archive/export a seleted set of journeys instead of everything.
 
-// TODO: consider return more detail about this import: e.g. how many journeys
-// are added, how many are skipped.
-
 /// Result of analyzing an MLDX file. Re-exported by api as the FFI return type.
 #[frb]
 pub struct MldxImportPreview {
