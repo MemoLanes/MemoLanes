@@ -37,8 +37,11 @@ class PermissionService {
       if (!await Geolocator.isLocationServiceEnabled()) {
         return false;
       }
-      if (!(await Permission.location.isGranted ||
-          await Permission.locationAlways.isGranted)) {
+      final hasForegroundPermission = await Permission.location.isGranted;
+      if (!hasForegroundPermission) {
+        return false;
+      }
+      if (Platform.isIOS && !await Permission.locationAlways.isGranted) {
         return false;
       }
       return true;
@@ -86,15 +89,17 @@ class PermissionService {
       }
     }
 
-    var bgStatus = await Permission.locationAlways.status;
-    if (!bgStatus.isGranted) {
-      bgStatus = await Permission.locationAlways.request();
-      // It seems this does not wait for the result on iOS, and always
-      // permission is not strictly required.
-      if (Platform.isAndroid && !bgStatus.isGranted) {
-        await _showPermissionDeniedDialog(
-          tr("location_service.background_location_permission_permanently_denied"),
-        );
+    if (Platform.isIOS) {
+      var bgStatus = await Permission.locationAlways.status;
+      if (!bgStatus.isGranted) {
+        bgStatus = await Permission.locationAlways.request();
+        // It seems this does not wait for the result on iOS, and always
+        // permission is not strictly required.
+        if (!bgStatus.isGranted) {
+          await _showPermissionDeniedDialog(
+            tr("location_service.background_location_permission_permanently_denied"),
+          );
+        }
       }
     }
   }
