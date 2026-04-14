@@ -8,7 +8,9 @@ use gpx::{Gpx, GpxVersion, Metadata, Track, TrackSegment, Waypoint};
 use kml::{Kml, KmlDocument, KmlWriter};
 use std::{
     collections::HashMap,
-    io::{Seek, Write},
+    fs::File,
+    io::{BufWriter, Seek, Write},
+    path::Path,
 };
 use time::Duration;
 use time::OffsetDateTime;
@@ -100,6 +102,45 @@ pub fn raw_data_csv_to_gpx_file<R: std::io::Read, W: Write + Seek>(
             wp.hdop = Some(acc as f64);
         }
 
+        segment.points.push(wp);
+    }
+    write_gpx_with_segments(vec![segment], Some(RAWDATA_TYPE_NAME), writer)
+}
+
+#[auto_context]
+pub fn raw_data_points_to_csv_file(path: &Path, points: &[RawCsvRow]) -> Result<()> {
+    let file = File::create(path)
+        .with_context(|| format!("Failed to create CSV file: {}", path.display()))?;
+    let mut wtr = csv::WriterBuilder::new()
+        .has_headers(true)
+        .from_writer(BufWriter::new(file));
+    for pt in points {
+        wtr.serialize(pt)?;
+    }
+    wtr.flush()?;
+    Ok(())
+}
+
+#[auto_context]
+pub fn raw_data_points_to_gpx_file<W: Write + Seek>(
+    points: &[RawCsvRow],
+    writer: &mut W,
+) -> Result<()> {
+    let mut segment = TrackSegment { points: Vec::new() };
+    for raw in points {
+        let mut wp = Waypoint::new(Point::new(raw.longitude, raw.latitude));
+        if let Some(ts) = raw.timestamp_ms {
+            if ts > 0 {
+                let dt = OffsetDateTime::UNIX_EPOCH + Duration::milliseconds(ts);
+                wp.time = Some(dt.into());
+            }
+        }
+        if let Some(alt) = raw.altitude {
+            wp.elevation = Some(alt as f64);
+        }
+        if let Some(acc) = raw.accuracy {
+            wp.hdop = Some(acc as f64);
+        }
         segment.points.push(wp);
     }
     write_gpx_with_segments(vec![segment], Some(RAWDATA_TYPE_NAME), writer)

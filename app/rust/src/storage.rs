@@ -1,5 +1,6 @@
 extern crate simplelog;
 use crate::cache_db::{self, CacheDb, LayerKind};
+use crate::export_data;
 use crate::gps_processor::{self, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_header::JourneyKind;
@@ -7,10 +8,11 @@ use crate::main_db::{self, Action, MainDb};
 use crate::merged_journey_builder;
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
-use chrono::{Local, NaiveDate};
-use serde::{Deserialize, Serialize};
-use std::fs::{remove_file, File};
-use std::path::{Path, PathBuf};
+use chrono::NaiveDate;
+use std::fs::remove_file;
+use std::fs::File;
+use std::io::{BufWriter, Write};
+use std::path::Path;
 use std::sync::Mutex;
 
 // TODO: error handling in this file is horrifying, we should think about what
@@ -21,111 +23,12 @@ pub struct RawDataFile {
     pub path: String,
 }
 
-struct CurrentRawDataFile {
-    writer: csv::Writer<File>,
-    filename: String,
-    date: chrono::NaiveDate,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RawCsvRow {
-    pub timestamp_ms: Option<i64>,
-    pub received_timestamp_ms: i64,
-    pub latitude: f64,
-    pub longitude: f64,
-    pub accuracy: Option<f32>,
-    pub altitude: Option<f32>,
-    pub speed: Option<f32>,
-}
-
-impl RawCsvRow {
-    pub fn create_from_raw_data(
-        raw_data: &gps_processor::RawData,
-        received_timestamp_ms: i64,
-    ) -> Self {
-        Self {
-            timestamp_ms: raw_data.timestamp_ms,
-            received_timestamp_ms,
-            latitude: raw_data.point.latitude,
-            longitude: raw_data.point.longitude,
-            accuracy: raw_data.accuracy,
-            altitude: raw_data.altitude,
-            speed: raw_data.speed,
-        }
-    }
-}
-
-/* This is an optional feature that should be off by default: storing raw GPS
-   data with detailed timestamp. It is designed for advanced user or debugging.
-   It stores data in a simple csv format and will be using a new file every time
-   the app starts.
-
-   TODO: we should zstd all old data to reduce disk usage.
-*/
-struct RawDataRecorder {
-    dir: PathBuf,
-    current_raw_data_file: Option<CurrentRawDataFile>,
-}
-
-impl RawDataRecorder {
-    fn init(support_dir: &str) -> RawDataRecorder {
-        // TODO: better error handling
-        let dir = Path::new(support_dir).join("raw_data/");
-        std::fs::create_dir_all(&dir).unwrap();
-        RawDataRecorder {
-            dir,
-            current_raw_data_file: None,
-        }
-    }
-
-    fn flush(&mut self) {
-        if let Some(ref mut current_raw_data_file) = self.current_raw_data_file {
-            current_raw_data_file.writer.flush().unwrap();
-        }
-    }
-
-    // TODO: better error handling
-    fn record(&mut self, raw_data: &gps_processor::RawData, received_timestamp_ms: i64) {
-        let current_date = Local::now().date_naive();
-        if let Some(current_raw_data_file) = &self.current_raw_data_file {
-            if current_raw_data_file.date != current_date {
-                // date changed, start a new file
-                self.current_raw_data_file = None;
-            }
-        }
-
-        let current_raw_data_file = self.current_raw_data_file.get_or_insert_with(|| {
-            let mut i = 0;
-            let (path, filename) = loop {
-                let filename = format!("gps-{current_date}-{i}.csv");
-                let path = Path::new(&self.dir).join(&filename);
-                if std::fs::metadata(&path).is_err() {
-                    break (path, filename);
-                }
-                i += 1;
-            };
-            let file = File::create(path).unwrap();
-            let writer = csv::WriterBuilder::new()
-                .has_headers(true)
-                .from_writer(file);
-
-            CurrentRawDataFile {
-                writer,
-                filename,
-                date: current_date,
-            }
-        });
-        let row = RawCsvRow::create_from_raw_data(raw_data, received_timestamp_ms);
-        current_raw_data_file.writer.serialize(row).unwrap();
-        current_raw_data_file.writer.flush().unwrap();
-    }
-}
+pub use gps_processor::JourneyRawDataPoint as RawCsvRow;
 
 type FinalizedJourneyChangedCallback = Box<dyn Fn(&Storage) + Send + Sync + 'static>;
 
 pub struct Storage {
     support_dir: String,
-    raw_data_recorder: Mutex<Option<RawDataRecorder>>, // `None` means disabled
     pub cache_dir: String,
     // TODO: I feel the abstraction between `dbs`, `merged_journey_builder`, and
     // `main_map_renderer_need_to_reload` is a bit bad. We should refactor it,
@@ -143,17 +46,10 @@ impl Storage {
         support_dir: String,
         cache_dir: String,
     ) -> Self {
-        let mut main_db = MainDb::open(&support_dir);
+        let main_db = MainDb::open(&support_dir);
         let cache_db: Box<dyn CacheDb + Send> = Box::new(cache_db::new(&cache_dir));
-        let raw_data_recorder =
-            if main_db.get_setting_with_default(crate::main_db::Setting::RawDataMode, false) {
-                Some(RawDataRecorder::init(&support_dir))
-            } else {
-                None
-            };
         Storage {
             support_dir,
-            raw_data_recorder: Mutex::new(raw_data_recorder),
             cache_dir,
             dbs: Mutex::new((main_db, cache_db)),
             finalized_journey_changed_callback: Box::new(|_| {}),
@@ -205,31 +101,35 @@ impl Storage {
         Ok(output)
     }
 
-    pub fn toggle_raw_data_mode(&self, enable: bool) {
-        let mut raw_data_recorder = self.raw_data_recorder.lock().unwrap();
-        if enable {
-            if raw_data_recorder.is_none() {
-                *raw_data_recorder = Some(RawDataRecorder::init(&self.support_dir));
-                info!("[storage] raw data mod enabled");
-                let main_db = &mut self.dbs.lock().unwrap().0;
-                main_db
-                    .set_setting(crate::main_db::Setting::RawDataMode, true)
-                    .unwrap();
-            }
-        } else if raw_data_recorder.is_some() {
-            info!("[storage] raw data mod disabled");
-            // `drop` should do the right thing and release all resources.
-            *raw_data_recorder = None;
-            let main_db = &mut self.dbs.lock().unwrap().0;
-            main_db
-                .set_setting(crate::main_db::Setting::RawDataMode, false)
-                .unwrap();
+    pub fn toggle_raw_data_mode(&self, enable: bool) -> bool {
+        let has_ongoing = self
+            .with_db_txn(|txn| txn.get_ongoing_journey_timestamp_range())
+            .map(|o| o.is_some())
+            .unwrap_or(false);
+        if has_ongoing {
+            return false;
         }
+        let mut dbs = self.dbs.lock().unwrap();
+        let main_db = &mut dbs.0;
+        let current = main_db.get_setting_with_default(crate::main_db::Setting::RawDataMode, false);
+        if current == enable {
+            return true;
+        }
+        main_db
+            .set_setting(crate::main_db::Setting::RawDataMode, enable)
+            .unwrap();
+        if enable {
+            info!("[storage] raw data mode enabled");
+        } else {
+            info!("[storage] raw data mode disabled");
+        }
+        true
     }
 
     pub fn get_raw_data_mode(&self) -> bool {
-        let raw_data_recorder = self.raw_data_recorder.lock().unwrap();
-        raw_data_recorder.is_some()
+        let mut dbs = self.dbs.lock().unwrap();
+        dbs.0
+            .get_setting_with_default(crate::main_db::Setting::RawDataMode, false)
     }
 
     #[auto_context]
@@ -239,16 +139,6 @@ impl Storage {
         } else {
             format!("{filename}.csv")
         };
-
-        let mut raw_data_recorder = self.raw_data_recorder.lock().unwrap();
-
-        if let Some(ref mut x) = *raw_data_recorder {
-            if let Some(current_raw_data_file) = &x.current_raw_data_file {
-                if current_raw_data_file.filename == filename {
-                    x.current_raw_data_file = None;
-                }
-            }
-        }
 
         let path = Path::new(&self.support_dir)
             .join("raw_data")
@@ -266,14 +156,18 @@ impl Storage {
         process_result: ProcessResult,
         received_timestamp_ms: i64,
     ) {
-        let mut raw_data_recorder = self.raw_data_recorder.lock().unwrap();
-        if let Some(ref mut x) = *raw_data_recorder {
-            x.record(raw_data, received_timestamp_ms);
-        }
-        drop(raw_data_recorder);
-
-        let main_db = &mut self.dbs.lock().unwrap().0;
-        main_db.record(raw_data, process_result).unwrap();
+        let mut dbs = self.dbs.lock().unwrap();
+        let main_db = &mut dbs.0;
+        let raw_data_mode =
+            main_db.get_setting_with_default(crate::main_db::Setting::RawDataMode, false);
+        main_db
+            .record(
+                raw_data,
+                process_result,
+                received_timestamp_ms,
+                raw_data_mode,
+            )
+            .unwrap();
     }
 
     pub fn list_all_raw_data(&self) -> Result<Vec<RawDataFile>> {
@@ -370,14 +264,51 @@ impl Storage {
         let dbs = self.dbs.lock().unwrap();
         dbs.0.flush()?;
         dbs.1.flush()?;
-        drop(dbs);
-
-        let mut raw_data_recorder = self.raw_data_recorder.lock().unwrap();
-        if let Some(ref mut x) = *raw_data_recorder {
-            x.flush();
-        }
-        drop(raw_data_recorder);
-
         Ok(())
+    }
+
+    #[auto_context]
+    pub fn export_journey_raw_data_csv(
+        &self,
+        journey_id: &str,
+        target_filepath: &Path,
+    ) -> Result<()> {
+        let points = self
+            .with_db_txn(|txn| {
+                txn.get_journey_raw_data(journey_id)?
+                    .map(|rd| rd.as_points())
+                    .transpose()
+            })?
+            .ok_or_else(|| anyhow::anyhow!("Journey has no raw data"))?;
+        export_data::raw_data_points_to_csv_file(target_filepath, &points)
+            .context("export_journey_raw_data_csv")?;
+        Ok(())
+    }
+
+    #[auto_context]
+    pub fn export_journey_raw_data_gpx(
+        &self,
+        journey_id: &str,
+        target_filepath: &Path,
+    ) -> Result<()> {
+        let points = self
+            .with_db_txn(|txn| {
+                txn.get_journey_raw_data(journey_id)?
+                    .map(|rd| rd.as_points())
+                    .transpose()
+            })?
+            .ok_or_else(|| anyhow::anyhow!("Journey has no raw data"))?;
+        let mut file = File::create(target_filepath)
+            .with_context(|| format!("Failed to create GPX file: {}", target_filepath.display()))?;
+        let mut writer = BufWriter::new(&mut file);
+        export_data::raw_data_points_to_gpx_file(&points, &mut writer)
+            .context("export_journey_raw_data_gpx")?;
+        writer.flush()?;
+        Ok(())
+    }
+
+    #[auto_context]
+    pub fn delete_journey_raw_data(&self, journey_id: &str) -> Result<()> {
+        self.with_db_txn(|txn| txn.delete_journey_raw_data(journey_id))
     }
 }
