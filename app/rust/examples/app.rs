@@ -3,7 +3,6 @@ use memolanes_core::api::api::{import_mldx, init, open_mldx_file};
 mod shared;
 use memolanes_core::renderer::MapRenderer;
 use shared::MapServer;
-use std::collections::HashSet;
 use std::env;
 use std::sync::{Arc, Mutex};
 
@@ -22,7 +21,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mldx_file_path = &args[1];
         println!("Importing MLDX file: {mldx_file_path}");
         let mldx_file = open_mldx_file(mldx_file_path.to_string())?;
-        match import_mldx(&mldx_file, HashSet::new(), true) {
+        match import_mldx(&mldx_file, None) {
             Ok(()) => {
                 println!("Successfully imported archive.");
             }
