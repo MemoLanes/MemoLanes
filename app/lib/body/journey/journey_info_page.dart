@@ -18,7 +18,6 @@ import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
 import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/src/rust/api/utils.dart';
-import 'package:memolanes/src/rust/journey_data.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -34,7 +33,7 @@ class JourneyInfoPage extends StatefulWidget {
   });
 
   final JourneyHeader journeyHeader;
-  final JourneyData? previewJourneyData;
+  final api.OpaqueJourneyData? previewJourneyData;
 
   @override
   State<JourneyInfoPage> createState() => _JourneyInfoPage();

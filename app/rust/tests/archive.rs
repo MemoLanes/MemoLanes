@@ -6,8 +6,10 @@ use memolanes_core::{
     archive, gps_processor, import_data, journey_data::JourneyData, journey_header::JourneyHeader,
     main_db::MainDb,
 };
+use std::collections::HashSet;
 use std::{fs::File, io::Write};
 use tempdir::TempDir;
+use zip::ZipArchive;
 
 fn add_vector_journeys(main_db: &mut MainDb) {
     let (raw_data, _preprocessor) =
@@ -77,17 +79,9 @@ fn archive_and_import() {
     drop(file);
     main_db.with_txn(|txn| txn.delete_all_journeys()).unwrap();
 
-    let preview = main_db
-        .with_txn(|txn| archive::analyze_mldx_import(txn, mldx_file_path.to_str().unwrap()))
-        .unwrap();
-    let new_journeys = preview.journeys;
+    let mut zip = ZipArchive::new(File::open(&mldx_file_path).unwrap()).unwrap();
     main_db
-        .with_txn(|txn| {
-            for (header, journey_data, _) in new_journeys {
-                txn.insert_journey(header, journey_data)?;
-            }
-            Ok(())
-        })
+        .with_txn(|txn| archive::import_mldx_from_open_mldx(txn, &mut zip, None))
         .unwrap();
     assert_eq!(all_journeys_before, all_journeys(&mut main_db));
 }
@@ -121,9 +115,7 @@ fn import_broken_archive_and_roll_back() {
     drop(file);
 
     // analyze fails on broken file, DB unchanged
-    assert!(main_db
-        .with_txn(|txn| archive::analyze_mldx_import(txn, mldx_file_path.to_str().unwrap()))
-        .is_err());
+    assert!(ZipArchive::new(File::open(&mldx_file_path).unwrap()).is_err());
     assert_eq!(all_journeys_before, all_journeys(&mut main_db));
 }
 
@@ -153,17 +145,46 @@ fn import_skips_existing_journeys() {
     );
 
     // analyze: existing journeys = skipped, deleted one = new; import only new
-    let preview = main_db
-        .with_txn(|txn| archive::analyze_mldx_import(txn, mldx_file_path.to_str().unwrap()))
-        .unwrap();
-    let new_journeys = preview.journeys;
+    let mut zip = ZipArchive::new(File::open(&mldx_file_path).unwrap()).unwrap();
     main_db
-        .with_txn(|txn| {
-            for (header, journey_data, _) in new_journeys {
-                txn.insert_journey(header, journey_data)?;
-            }
-            Ok(())
-        })
+        .with_txn(|txn| archive::import_mldx_from_open_mldx(txn, &mut zip, None))
         .unwrap();
     assert_eq!(all_journeys_before, all_journeys(&mut main_db));
+}
+
+#[test]
+fn import_selected_journeys_by_id() {
+    let temp_dir = TempDir::new("archive-import_selected_journeys_by_id").unwrap();
+    let mut source_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    add_vector_journeys(&mut source_db);
+    add_bitmap_journey(&mut source_db);
+    let all_from_archive = all_journeys(&mut source_db);
+
+    let mldx_file_path = temp_dir.path().join("selected-import.mldx");
+    let mut file = File::create(&mldx_file_path).unwrap();
+    source_db
+        .with_txn(|txn| archive::export_as_mldx(&archive::WhatToExport::All, txn, &mut file))
+        .unwrap();
+    drop(file);
+
+    let target_dir = TempDir::new("archive-selected-target").unwrap();
+    let mut target_db = MainDb::open(target_dir.path().to_str().unwrap());
+
+    let selected_id = all_from_archive[0].0.id.clone();
+    let mut selected_ids = HashSet::new();
+    selected_ids.insert(selected_id.clone());
+
+    let mut zip = ZipArchive::new(File::open(&mldx_file_path).unwrap()).unwrap();
+    let import_result = target_db
+        .with_txn(|txn| archive::import_mldx_from_open_mldx(txn, &mut zip, Some(&selected_ids)))
+        .unwrap();
+    assert_eq!(import_result.imported_count, 1);
+    assert_eq!(
+        import_result.ignored_by_filter_count as usize,
+        all_from_archive.len() - 1
+    );
+
+    let imported = all_journeys(&mut target_db);
+    assert_eq!(imported.len(), 1);
+    assert_eq!(imported[0].0.id, selected_id);
 }

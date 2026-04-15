@@ -28,6 +28,7 @@ use crate::renderer::CameraOptionInternal;
 
 pub(crate) type CameraOption = CameraOptionInternal;
 
+use crate::archive::MldxJourneyImportType;
 use crate::export_data::raw_data_csv_to_gpx_file;
 use log::{error, info, warn};
 
@@ -280,6 +281,21 @@ impl OpaqueJourneyData {
 
     pub(super) fn borrow_inner(&self) -> std::sync::MutexGuard<'_, JourneyData> {
         self.data.lock().unwrap()
+    }
+}
+
+#[frb(opaque)]
+pub struct MldxFile {
+    zip: Mutex<zip::ZipArchive<File>>,
+}
+
+impl MldxFile {
+    fn with_zip<F, O>(&self, f: F) -> Result<O>
+    where
+        F: FnOnce(&mut zip::ZipArchive<File>) -> Result<O>,
+    {
+        let mut zip = self.zip.lock().unwrap();
+        f(&mut zip)
     }
 }
 
@@ -671,25 +687,37 @@ pub fn delete_all_journeys() -> Result<()> {
     get().storage.with_db_txn(|txn| txn.delete_all_journeys())
 }
 
-pub use crate::archive::MldxImportPreview;
-
-pub fn analyze_mldx_import(mldx_file_path: String) -> Result<MldxImportPreview> {
-    get()
-        .storage
-        .with_db_txn(|txn| archive::analyze_mldx_import(txn, &mldx_file_path))
+pub fn open_mldx_file(mldx_file_path: String) -> Result<MldxFile> {
+    let file = File::open(mldx_file_path)?;
+    let zip = zip::ZipArchive::new(file)?;
+    Ok(MldxFile {
+        zip: Mutex::new(zip),
+    })
 }
 
-/// Import the given journeys into DB. When is_conflict is true, deletes existing then inserts (overwrite).
-pub fn import_journeys(journeys: Vec<(JourneyHeader, JourneyData, bool)>) -> Result<()> {
-    info!("Import journeys (from pre-parsed list)");
+pub fn analyze_mldx_import(
+    mldx_file: &MldxFile,
+) -> Result<Vec<(JourneyHeader, MldxJourneyImportType)>> {
     get().storage.with_db_txn(|txn| {
-        for (header, journey_data, is_conflict) in journeys {
-            if is_conflict {
-                txn.delete_journey(&header.id)?;
-            }
-            txn.insert_journey(header, journey_data)?;
-        }
-        Ok(())
+        mldx_file.with_zip(|zip| archive::analyze_mldx_import_from_open_mldx(txn, zip))
+    })
+}
+
+pub fn load_mldx_journey_data(
+    mldx_file: &MldxFile,
+    journey_id: String,
+) -> Result<Option<(JourneyHeader, OpaqueJourneyData)>> {
+    Ok(mldx_file
+        .with_zip(|zip| archive::load_mldx_journey_data_from_open_mldx(zip, &journey_id))?
+        .map(|(header, data)| (header, OpaqueJourneyData::new(data))))
+}
+
+/// `journey_ids = None` means import all journeys.
+/// `journey_ids = Some(set)` means import only journeys whose id is in `set`.
+pub fn import_mldx(mldx_file: &MldxFile, journey_ids: Option<HashSet<String>>) -> Result<()> {
+    get().storage.with_db_txn(|txn| {
+        mldx_file
+            .with_zip(|zip| archive::import_mldx_from_open_mldx(txn, zip, journey_ids.as_ref()))
     })?;
     Ok(())
 }

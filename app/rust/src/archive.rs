@@ -8,8 +8,7 @@ use protobuf::{EnumOrUnknown, Message};
 use sha1::{Digest, Sha1};
 use std::{
     cmp::Ordering,
-    collections::HashMap,
-    fs::File,
+    collections::{HashMap, HashSet},
     io::{Read, Seek, Write},
 };
 
@@ -19,6 +18,13 @@ use crate::{
     main_db,
     protos::archive::{metadata, Metadata, SectionHeader},
 };
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MldxJourneyImportType {
+    New = 0,
+    Conflict = 1,
+    Unchanged = 2,
+}
 
 /* The persistent exchange data format for finalized journeys.
    The high level design is: a metadata file + a set of files each contains a
@@ -38,19 +44,17 @@ const SECTION_MAGIC_HEADER: [u8; 3] = [b'M', b'L', b'S'];
 
 // TODO: support archive/export a seleted set of journeys instead of everything.
 
-/// Result of analyzing an MLDX file. Re-exported by api as the FFI return type.
+#[derive(Clone, Debug, PartialEq)]
 #[frb]
-pub struct MldxImportPreview {
+pub struct MldxImportResult {
+    pub imported_count: u32,
     pub skipped_count: u32,
-    /// (header, data, is_conflict). Conflict items unchecked by default; checking and importing overwrites local.
-    pub journeys: Vec<(JourneyHeader, JourneyData, bool)>,
-    pub conflict_count: u32,
+    pub overwritten_count: u32,
+    pub ignored_by_filter_count: u32,
 }
 
-/// Parses MLDX once; conflict items are included with is_conflict=true (default unchecked in UI; import overwrites).
 #[auto_context]
-pub fn analyze_mldx_import(txn: &main_db::Txn, mldx_file: &str) -> Result<MldxImportPreview> {
-    let mut zip = zip::ZipArchive::new(File::open(mldx_file)?)?;
+fn read_metadata_proto<R: Read + Seek>(zip: &mut zip::ZipArchive<R>) -> Result<Metadata> {
     let mut file = zip.by_name("metadata.xxm")?;
     let mut magic_header: [u8; 3] = [0; 3];
     file.read_exact(&mut magic_header)?;
@@ -67,68 +71,163 @@ pub fn analyze_mldx_import(txn: &main_db::Txn, mldx_file: &str) -> Result<MldxIm
     let len: u64 = file.read_varint()?;
     let mut decoder = zstd::Decoder::new(file.take(len))?;
     let metadata_proto: Metadata = Message::parse_from_reader(&mut decoder)?;
-    drop(decoder);
+    Ok(metadata_proto)
+}
 
-    let mut skipped_count: u32 = 0;
-    let mut journeys = Vec::new();
-    let mut conflict_count: u32 = 0;
+#[auto_context]
+fn read_section_header<R: Read + Seek>(
+    zip: &mut zip::ZipArchive<R>,
+    section_id: &str,
+) -> Result<(SectionHeader, u64)> {
+    let mut file = zip.by_name(section_id)?;
+    let mut magic_header: [u8; 3] = [0; 3];
+    file.read_exact(&mut magic_header)?;
+    if magic_header != SECTION_MAGIC_HEADER {
+        bail!(
+            "Invalid magic header, expect: {:?}, got: {:?}",
+            SECTION_MAGIC_HEADER,
+            &magic_header
+        );
+    };
+    let mut version_number: [u8; 1] = [0; 1];
+    file.read_exact(&mut version_number)?;
+    let len: u64 = file.read_varint()?;
+    let mut decoder = zstd::Decoder::new(file.by_ref().take(len))?;
+    let section_header: SectionHeader = Message::parse_from_reader(&mut decoder)?;
+    Ok((section_header, len))
+}
 
+#[auto_context]
+fn skip_section_header_block<R: Read>(file: &mut zip::read::ZipFile<R>) -> Result<()> {
+    let mut magic_header: [u8; 3] = [0; 3];
+    let mut version_number: [u8; 1] = [0; 1];
+    file.read_exact(&mut magic_header)?;
+    file.read_exact(&mut version_number)?;
+    let len: u64 = file.read_varint()?;
+    std::io::copy(&mut file.by_ref().take(len), &mut std::io::sink())?;
+    Ok(())
+}
+
+#[auto_context]
+fn for_each_mldx_journey_entry_from_open_mldx<R: Read + Seek, F>(
+    zip: &mut zip::ZipArchive<R>,
+    mut f: F,
+) -> Result<()>
+where
+    F: FnMut(JourneyHeader, &mut zip::read::ZipFile<R>, u64) -> Result<()>,
+{
+    let metadata_proto = read_metadata_proto(zip)?;
     for section_info in metadata_proto.section_infos {
+        let (section_header, _len) = read_section_header(zip, &section_info.section_id)?;
         let mut file = zip.by_name(&section_info.section_id)?;
-        let mut magic_header: [u8; 3] = [0; 3];
-        file.read_exact(&mut magic_header)?;
-        if magic_header != SECTION_MAGIC_HEADER {
-            bail!(
-                "Invalid magic header, expect: {:?}, got: {:?}",
-                SECTION_MAGIC_HEADER,
-                &magic_header
-            );
-        };
-        let mut version_number: [u8; 1] = [0; 1];
-        file.read_exact(&mut version_number)?;
-        let len: u64 = file.read_varint()?;
-        let mut decoder = zstd::Decoder::new(file.by_ref().take(len))?;
-        let section_header: SectionHeader = Message::parse_from_reader(&mut decoder)?;
-        drop(decoder);
-
+        skip_section_header_block(&mut file)?;
         for header in section_header.journey_headers {
             let journey_header = JourneyHeader::of_proto(header)?;
             let data_len: u64 = file.read_varint()?;
-
-            match txn.get_journey_header(&journey_header.id)? {
-                Some(existing) => {
-                    if existing.revision == journey_header.revision {
-                        skipped_count += 1;
-                        std::io::copy(&mut file.by_ref().take(data_len), &mut std::io::sink())?;
-                    } else {
-                        conflict_count += 1;
-                        let mut buf = vec![0_u8; data_len as usize];
-                        file.read_exact(&mut buf)?;
-                        let journey_data = JourneyData::deserialize(
-                            buf.as_slice(),
-                            journey_header.journey_type,
-                            true,
-                        )?;
-                        journeys.push((journey_header, journey_data, true));
-                    }
-                }
-                None => {
-                    let mut buf = vec![0_u8; data_len as usize];
-                    file.read_exact(&mut buf)?;
-                    let journey_data = JourneyData::deserialize(
-                        buf.as_slice(),
-                        journey_header.journey_type,
-                        true,
-                    )?;
-                    journeys.push((journey_header, journey_data, false));
-                }
-            }
+            f(journey_header, &mut file, data_len)?;
         }
     }
-    Ok(MldxImportPreview {
+    Ok(())
+}
+
+#[auto_context]
+pub(crate) fn analyze_mldx_import_from_open_mldx<R: Read + Seek>(
+    txn: &main_db::Txn,
+    zip: &mut zip::ZipArchive<R>,
+) -> Result<Vec<(JourneyHeader, MldxJourneyImportType)>> {
+    let mut journeys = Vec::new();
+    for_each_mldx_journey_entry_from_open_mldx(zip, |journey_header, file, data_len| {
+        let import_type = match txn.get_journey_header(&journey_header.id)? {
+            Some(existing) if existing.revision == journey_header.revision => {
+                MldxJourneyImportType::Unchanged
+            }
+            Some(_) => MldxJourneyImportType::Conflict,
+            None => MldxJourneyImportType::New,
+        };
+        std::io::copy(&mut file.by_ref().take(data_len), &mut std::io::sink())?;
+        journeys.push((journey_header, import_type));
+        Ok(())
+    })?;
+    Ok(journeys)
+}
+
+#[auto_context]
+pub fn load_mldx_journey_data_from_open_mldx<R: Read + Seek>(
+    zip: &mut zip::ZipArchive<R>,
+    journey_id: &str,
+) -> Result<Option<(JourneyHeader, JourneyData)>> {
+    let mut found = None;
+    for_each_mldx_journey_entry_from_open_mldx(zip, |journey_header, file, data_len| {
+        if found.is_some() {
+            std::io::copy(&mut file.by_ref().take(data_len), &mut std::io::sink())?;
+            return Ok(());
+        }
+        if journey_header.id == journey_id {
+            let mut buf = vec![0_u8; data_len as usize];
+            file.read_exact(&mut buf)?;
+            let journey_data =
+                JourneyData::deserialize(buf.as_slice(), journey_header.journey_type, true)?;
+            found = Some((journey_header, journey_data));
+        } else {
+            std::io::copy(&mut file.by_ref().take(data_len), &mut std::io::sink())?;
+        }
+        Ok(())
+    })?;
+    Ok(found)
+}
+
+#[auto_context]
+pub fn import_mldx_from_open_mldx<R: Read + Seek>(
+    txn: &mut main_db::Txn,
+    zip: &mut zip::ZipArchive<R>,
+    selected_journey_ids: Option<&HashSet<String>>,
+) -> Result<MldxImportResult> {
+    let mut imported_count = 0_u32;
+    let mut skipped_count = 0_u32;
+    let mut overwritten_count = 0_u32;
+    let mut ignored_by_filter_count = 0_u32;
+    for_each_mldx_journey_entry_from_open_mldx(zip, |journey_header, file, data_len| {
+        let selected = selected_journey_ids
+            .map(|set| set.contains(&journey_header.id))
+            .unwrap_or(true);
+        if !selected {
+            ignored_by_filter_count += 1;
+            std::io::copy(&mut file.by_ref().take(data_len), &mut std::io::sink())?;
+            return Ok(());
+        }
+
+        match txn.get_journey_header(&journey_header.id)? {
+            Some(existing) if existing.revision == journey_header.revision => {
+                skipped_count += 1;
+                std::io::copy(&mut file.by_ref().take(data_len), &mut std::io::sink())?;
+            }
+            Some(_) => {
+                let mut buf = vec![0_u8; data_len as usize];
+                file.read_exact(&mut buf)?;
+                let journey_data =
+                    JourneyData::deserialize(buf.as_slice(), journey_header.journey_type, true)?;
+                txn.delete_journey(&journey_header.id)?;
+                txn.insert_journey(journey_header, journey_data)?;
+                imported_count += 1;
+                overwritten_count += 1;
+            }
+            None => {
+                let mut buf = vec![0_u8; data_len as usize];
+                file.read_exact(&mut buf)?;
+                let journey_data =
+                    JourneyData::deserialize(buf.as_slice(), journey_header.journey_type, true)?;
+                txn.insert_journey(journey_header, journey_data)?;
+                imported_count += 1;
+            }
+        }
+        Ok(())
+    })?;
+
+    Ok(MldxImportResult {
+        imported_count,
         skipped_count,
-        journeys,
-        conflict_count,
+        overwritten_count,
+        ignored_by_filter_count,
     })
 }
 

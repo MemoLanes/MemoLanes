@@ -7,17 +7,19 @@ import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/utils.dart';
-import 'package:memolanes/src/rust/archive.dart';
-import 'package:memolanes/src/rust/journey_data.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
+
+import 'package:memolanes/src/rust/archive.dart';
 
 class MldxImportPage extends StatefulWidget {
   const MldxImportPage({
     super.key,
-    required this.preview,
+    required this.journeys,
+    required this.mldxFile,
   });
 
-  final MldxImportPreview preview;
+  final List<(JourneyHeader, MldxJourneyImportType)> journeys;
+  final api.MldxFile mldxFile;
 
   @override
   State<MldxImportPage> createState() => _MldxImportPageState();
@@ -25,27 +27,39 @@ class MldxImportPage extends StatefulWidget {
 
 class _MldxImportPageState extends State<MldxImportPage> {
   late Set<String> _selectedIds;
-  late final List<(JourneyHeader, JourneyData, bool)> _sortedJourney;
+  late final List<(JourneyHeader, MldxJourneyImportType)> _sortedJourney;
   final Map<String, JourneyHeader> _localHeadersById = {};
   static final _lastModifiedFormat = DateFormat('yyyy-MM-dd');
+  late final int _unchangedCount;
+  late final int _conflictCount;
 
   @override
   void initState() {
     super.initState();
     // Conflict items are unchecked by default
-    _selectedIds =
-        widget.preview.journeys.where((j) => !j.$3).map((j) => j.$1.id).toSet();
-    _sortedJourney = _sortJourneys(widget.preview.journeys);
+    _unchangedCount = widget.journeys
+        .where((j) => j.$2 == MldxJourneyImportType.unchanged)
+        .length;
+    _conflictCount = widget.journeys
+        .where((j) => j.$2 == MldxJourneyImportType.conflict)
+        .length;
+    _selectedIds = widget.journeys
+        .where((j) => j.$2 == MldxJourneyImportType.new_)
+        .map((j) => j.$1.id)
+        .toSet();
+    _sortedJourney = _sortJourneys(widget.journeys
+        .where((j) => j.$2 != MldxJourneyImportType.unchanged)
+        .toList());
     _loadLocalHeadersForConflicts();
   }
 
-  static List<(JourneyHeader, JourneyData, bool)> _sortJourneys(
-    List<(JourneyHeader, JourneyData, bool)> list,
+  static List<(JourneyHeader, MldxJourneyImportType)> _sortJourneys(
+    List<(JourneyHeader, MldxJourneyImportType)> list,
   ) {
-    final result = List<(JourneyHeader, JourneyData, bool)>.from(list);
+    final result = List<(JourneyHeader, MldxJourneyImportType)>.from(list);
     result.sort((a, b) {
-      final aConflict = a.$3;
-      final bConflict = b.$3;
+      final aConflict = a.$2 == MldxJourneyImportType.conflict;
+      final bConflict = b.$2 == MldxJourneyImportType.conflict;
       if (aConflict != bConflict) return aConflict ? -1 : 1;
       final aStr = naiveDateToString(date: a.$1.journeyDate);
       final bStr = naiveDateToString(date: b.$1.journeyDate);
@@ -55,8 +69,10 @@ class _MldxImportPageState extends State<MldxImportPage> {
   }
 
   Future<void> _loadLocalHeadersForConflicts() async {
-    final conflictIds =
-        widget.preview.journeys.where((j) => j.$3).map((j) => j.$1.id).toSet();
+    final conflictIds = _sortedJourney
+        .where((j) => j.$2 == MldxJourneyImportType.conflict)
+        .map((j) => j.$1.id)
+        .toSet();
     if (conflictIds.isEmpty) return;
 
     final futures = conflictIds.map((id) async {
@@ -90,7 +106,7 @@ class _MldxImportPageState extends State<MldxImportPage> {
   }
 
   bool get _allSelected {
-    final newIds = widget.preview.journeys.map((j) => j.$1.id).toSet();
+    final newIds = _sortedJourney.map((j) => j.$1.id).toSet();
     return newIds.length == _selectedIds.length &&
         newIds.every(_selectedIds.contains);
   }
@@ -100,7 +116,8 @@ class _MldxImportPageState extends State<MldxImportPage> {
       setState(() => _selectedIds.clear());
       return;
     }
-    final hasConflict = widget.preview.journeys.any((j) => j.$3);
+    final hasConflict =
+        _sortedJourney.any((j) => j.$2 == MldxJourneyImportType.conflict);
     if (hasConflict) {
       final ok = await showCommonDialog(
         context,
@@ -112,7 +129,7 @@ class _MldxImportPageState extends State<MldxImportPage> {
       if (!ok || !mounted) return;
     }
     setState(() {
-      _selectedIds = widget.preview.journeys.map((j) => j.$1.id).toSet();
+      _selectedIds = _sortedJourney.map((j) => j.$1.id).toSet();
     });
   }
 
@@ -127,8 +144,9 @@ class _MldxImportPageState extends State<MldxImportPage> {
 
     final localHeader = _localHeadersById[importHeader.id];
     return () {
-      if (localHeader == null)
+      if (localHeader == null) {
         return context.tr('import.mldx_preview.conflict_desc_unknown');
+      }
       final localT = _lastModifiedTime(localHeader);
       final importT = _lastModifiedTime(importHeader);
       if (importT.isAfter(localT)) {
@@ -141,27 +159,44 @@ class _MldxImportPageState extends State<MldxImportPage> {
     }();
   }
 
-  String _conflictHintText(BuildContext context, MldxImportPreview preview) {
+  String _conflictHintText(BuildContext context, int conflictCount) {
     return context.tr(
       'import.mldx_preview.conflict_hint',
-      args: ['${preview.conflictCount}'],
+      args: ['$conflictCount'],
     );
   }
 
-  void _openJourneyPreview((JourneyHeader, JourneyData, bool) j) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => JourneyInfoPage(
-          journeyHeader: j.$1,
-          previewJourneyData: j.$2,
+  Future<void> _openJourneyPreview(
+      (JourneyHeader, MldxJourneyImportType) j) async {
+    try {
+      final loaded = await showLoadingDialog(
+        asyncTask: api.loadMldxJourneyData(
+          mldxFile: widget.mldxFile,
+          journeyId: j.$1.id,
         ),
-      ),
-    );
+      );
+      if (!mounted) return;
+      if (loaded == null) {
+        await showCommonDialog(context, context.tr('import.parsing_failed'));
+        return;
+      }
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => JourneyInfoPage(
+            journeyHeader: loaded.$1,
+            previewJourneyData: loaded.$2,
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      await showCommonDialog(context, context.tr('import.parsing_failed'));
+    }
   }
 
   Future<void> _onToggleItem(
-      (JourneyHeader, JourneyData, bool) j, bool newValue) async {
-    final isConflict = j.$3;
+      (JourneyHeader, MldxJourneyImportType) j, bool newValue) async {
+    final isConflict = j.$2 == MldxJourneyImportType.conflict;
     if (newValue && isConflict) {
       final ok = await showCommonDialog(
         context,
@@ -189,14 +224,15 @@ class _MldxImportPageState extends State<MldxImportPage> {
       }
       return;
     }
-    final selected = widget.preview.journeys
-        .where((j) => _selectedIds.contains(j.$1.id))
-        .toList();
+    final selected =
+        _sortedJourney.where((j) => _selectedIds.contains(j.$1.id)).toList();
     final navigator = Navigator.of(context);
     try {
       await showLoadingDialog(
-        context: context,
-        asyncTask: api.importJourneys(journeys: selected),
+        asyncTask: api.importMldx(
+          mldxFile: widget.mldxFile,
+          journeyIds: selected.map((j) => j.$1.id).toSet(),
+        ),
       );
       if (mounted) {
         await showCommonDialog(context, context.tr('import.successful'));
@@ -211,7 +247,6 @@ class _MldxImportPageState extends State<MldxImportPage> {
 
   @override
   Widget build(BuildContext context) {
-    final preview = widget.preview;
     final journey = _sortedJourney;
 
     return Scaffold(
@@ -226,22 +261,22 @@ class _MldxImportPageState extends State<MldxImportPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (preview.skippedCount > 0)
+                if (_unchangedCount > 0)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Text(
                       context.tr(
                         'import.mldx_preview.skipped_identical',
-                        args: ['${preview.skippedCount}'],
+                        args: ['$_unchangedCount'],
                       ),
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ),
-                if (preview.conflictCount > 0) ...[
+                if (_conflictCount > 0) ...[
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Text(
-                      _conflictHintText(context, preview),
+                      _conflictHintText(context, _conflictCount),
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ),
@@ -291,7 +326,7 @@ class _MldxImportPageState extends State<MldxImportPage> {
               itemBuilder: (context, index) {
                 final j = journey[index];
                 final header = j.$1;
-                final isConflict = j.$3;
+                final isConflict = j.$2 == MldxJourneyImportType.conflict;
                 final selected = _selectedIds.contains(header.id);
                 return LabelTile(
                   label: _journeyDateLabel(header),

@@ -147,26 +147,35 @@ void showBasicCard(
 
 Future<void> importMldx(BuildContext context, String path) async {
   try {
+    final mldxFile = await showLoadingDialog(
+      asyncTask: api.openMldxFile(mldxFilePath: path),
+    );
     final preview = await showLoadingDialog(
-      asyncTask: api.analyzeMldxImport(mldxFilePath: path),
+      asyncTask: api.analyzeMldxImport(mldxFile: mldxFile),
     );
     if (!context.mounted) return;
+    final unchangedCount =
+        preview.where((j) => j.$2 == MldxJourneyImportType.unchanged).length;
+    final importableCount =
+        preview.where((j) => j.$2 != MldxJourneyImportType.unchanged).length;
 
     // If everything is skipped, end the flow here.
-    // Total = skippedCount + preview.journeys.length
-    if (preview.journeys.isEmpty && preview.skippedCount > 0) {
+    if (importableCount == 0 && unchangedCount > 0) {
       await showCommonDialog(
         context,
         context.tr(
           'import.mldx_preview.all_skipped',
-          args: ['${preview.skippedCount}'],
+          args: ['$unchangedCount'],
         ),
       );
       return;
     }
     await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (context) => MldxImportPage(preview: preview),
+        builder: (context) => MldxImportPage(
+          journeys: preview,
+          mldxFile: mldxFile,
+        ),
       ),
     );
   } catch (error) {
