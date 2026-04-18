@@ -82,9 +82,7 @@ fn archive_and_import() {
     main_db.with_txn(|txn| txn.delete_all_journeys()).unwrap();
 
     let mut reader = MldxReader::open(File::open(&mldx_file_path).unwrap()).unwrap();
-    main_db
-        .with_txn(|txn| reader.import(txn, None))
-        .unwrap();
+    main_db.with_txn(|txn| reader.import(txn, None)).unwrap();
     assert_eq!(all_journeys_before, all_journeys(&mut main_db));
 }
 
@@ -148,9 +146,7 @@ fn import_skips_existing_journeys() {
 
     // analyze: existing journeys = skipped, deleted one = new; import only new
     let mut reader = MldxReader::open(File::open(&mldx_file_path).unwrap()).unwrap();
-    main_db
-        .with_txn(|txn| reader.import(txn, None))
-        .unwrap();
+    main_db.with_txn(|txn| reader.import(txn, None)).unwrap();
     assert_eq!(all_journeys_before, all_journeys(&mut main_db));
 }
 
