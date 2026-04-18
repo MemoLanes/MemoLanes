@@ -3,13 +3,15 @@ pub mod test_utils;
 use anyhow::Ok;
 use chrono::Utc;
 use memolanes_core::{
-    archive, gps_processor, import_data, journey_data::JourneyData, journey_header::JourneyHeader,
+    archive::{self, MldxReader},
+    gps_processor, import_data,
+    journey_data::JourneyData,
+    journey_header::JourneyHeader,
     main_db::MainDb,
 };
 use std::collections::HashSet;
 use std::{fs::File, io::Write};
 use tempdir::TempDir;
-use zip::ZipArchive;
 
 fn add_vector_journeys(main_db: &mut MainDb) {
     let (raw_data, _preprocessor) =
@@ -79,9 +81,9 @@ fn archive_and_import() {
     drop(file);
     main_db.with_txn(|txn| txn.delete_all_journeys()).unwrap();
 
-    let mut zip = ZipArchive::new(File::open(&mldx_file_path).unwrap()).unwrap();
+    let mut reader = MldxReader::open(File::open(&mldx_file_path).unwrap()).unwrap();
     main_db
-        .with_txn(|txn| archive::import_mldx_from_open_mldx(txn, &mut zip, None))
+        .with_txn(|txn| reader.import(txn, None))
         .unwrap();
     assert_eq!(all_journeys_before, all_journeys(&mut main_db));
 }
@@ -115,7 +117,7 @@ fn import_broken_archive_and_roll_back() {
     drop(file);
 
     // analyze fails on broken file, DB unchanged
-    assert!(ZipArchive::new(File::open(&mldx_file_path).unwrap()).is_err());
+    assert!(MldxReader::open(File::open(&mldx_file_path).unwrap()).is_err());
     assert_eq!(all_journeys_before, all_journeys(&mut main_db));
 }
 
@@ -145,9 +147,9 @@ fn import_skips_existing_journeys() {
     );
 
     // analyze: existing journeys = skipped, deleted one = new; import only new
-    let mut zip = ZipArchive::new(File::open(&mldx_file_path).unwrap()).unwrap();
+    let mut reader = MldxReader::open(File::open(&mldx_file_path).unwrap()).unwrap();
     main_db
-        .with_txn(|txn| archive::import_mldx_from_open_mldx(txn, &mut zip, None))
+        .with_txn(|txn| reader.import(txn, None))
         .unwrap();
     assert_eq!(all_journeys_before, all_journeys(&mut main_db));
 }
@@ -174,9 +176,9 @@ fn import_selected_journeys_by_id() {
     let mut selected_ids = HashSet::new();
     selected_ids.insert(selected_id.clone());
 
-    let mut zip = ZipArchive::new(File::open(&mldx_file_path).unwrap()).unwrap();
+    let mut reader = MldxReader::open(File::open(&mldx_file_path).unwrap()).unwrap();
     let import_result = target_db
-        .with_txn(|txn| archive::import_mldx_from_open_mldx(txn, &mut zip, Some(&selected_ids)))
+        .with_txn(|txn| reader.import(txn, Some(&selected_ids)))
         .unwrap();
     assert_eq!(import_result.imported_count, 1);
     assert_eq!(

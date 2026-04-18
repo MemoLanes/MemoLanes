@@ -1,6 +1,7 @@
 use memolanes_core::api::api::for_testing::get_main_map_state;
-use memolanes_core::api::api::{import_mldx, init, open_mldx_file};
+use memolanes_core::api::api::init;
 mod shared;
+use memolanes_core::api::import::OpaqueMldxReader;
 use memolanes_core::renderer::MapRenderer;
 use shared::MapServer;
 use std::env;
@@ -20,8 +21,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     if args.len() > 1 {
         let mldx_file_path = &args[1];
         println!("Importing MLDX file: {mldx_file_path}");
-        let mldx_file = open_mldx_file(mldx_file_path.to_string())?;
-        match import_mldx(&mldx_file, None) {
+        let mut mldx_file = OpaqueMldxReader::open(mldx_file_path.to_string())?;
+        match mldx_file.import_journeys(None) {
             Ok(()) => {
                 println!("Successfully imported archive.");
             }
