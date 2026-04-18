@@ -632,7 +632,7 @@ fn multiple_inserts_in_sequence_final_state_correct() {
         draw_line3(&mut bitmap3);
 
         // Insert 3 journeys one-at-a-time (3 separate with_db_txn), same month+kind
-        let id1 = storage
+        let _id1 = storage
             .with_db_txn(|txn| {
                 txn.create_and_insert_journey(
                     date("2024-03-10"),

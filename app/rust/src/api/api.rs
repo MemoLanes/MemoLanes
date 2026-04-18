@@ -573,6 +573,12 @@ pub fn list_all_journeys() -> Result<Vec<JourneyHeader>> {
         .with_db_txn(|txn| txn.query_journeys(None, None))
 }
 
+pub fn get_journey_header(journey_id: String) -> Result<Option<JourneyHeader>> {
+    get()
+        .storage
+        .with_db_txn(|txn| txn.get_journey_header(&journey_id))
+}
+
 pub fn generate_full_archive(target_filepath: String) -> Result<()> {
     info!("generating full archive");
     let mut file = File::create(target_filepath)?;
@@ -663,14 +669,6 @@ pub fn export_raw_data_gpx_file(csv_filepath: String) -> Result<String> {
 pub fn delete_all_journeys() -> Result<()> {
     info!("Delete all journeys");
     get().storage.with_db_txn(|txn| txn.delete_all_journeys())
-}
-
-pub fn import_archive(mldx_file_path: String) -> Result<()> {
-    info!("Import Archived Data");
-    get()
-        .storage
-        .with_db_txn(|txn| archive::import_mldx(txn, &mldx_file_path))?;
-    Ok(())
 }
 
 pub fn update_journey_metadata(id: &str, journey_info: JourneyInfo) -> Result<()> {
