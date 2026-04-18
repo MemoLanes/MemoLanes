@@ -284,7 +284,7 @@ class _MldxImportPageState extends State<MldxImportPage> {
                 Text(
                   context.tr(
                     'import.mldx_preview.new_count',
-                    args: ['${journey.length}'],
+                    args: ['${journey.length - _conflictCount}'],
                   ),
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
