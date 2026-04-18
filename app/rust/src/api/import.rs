@@ -173,7 +173,7 @@ impl OpaqueMldxReader {
     }
 
     pub fn analyze(&self) -> Result<Vec<(JourneyHeader, MldxJourneyImportAnalyzeResult)>> {
-        let mut mldx_reader = self.reader.lock().unwrap();
+        let mldx_reader = self.reader.lock().unwrap();
 
         get().storage.with_db_txn(|txn| {
             let mut result = Vec::new();

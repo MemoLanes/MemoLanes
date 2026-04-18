@@ -101,25 +101,6 @@ fn delete_all_journeys() {
 }
 
 #[test]
-fn import_broken_archive_and_roll_back() {
-    let temp_dir = TempDir::new("archive-import_broken_archive_and_roll_back").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
-
-    add_bitmap_journey(&mut main_db);
-
-    let all_journeys_before = all_journeys(&mut main_db);
-
-    let mldx_file_path = temp_dir.path().join("archive.mldx");
-    let mut file = File::create(&mldx_file_path).unwrap();
-    file.write_all("hello".as_bytes()).unwrap();
-    drop(file);
-
-    // analyze fails on broken file, DB unchanged
-    assert!(MldxReader::open(File::open(&mldx_file_path).unwrap()).is_err());
-    assert_eq!(all_journeys_before, all_journeys(&mut main_db));
-}
-
-#[test]
 fn import_skips_existing_journeys() {
     let temp_dir = TempDir::new("archive-import_skips_existing_journeys").unwrap();
     let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());

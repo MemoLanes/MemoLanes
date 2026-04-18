@@ -124,7 +124,7 @@ impl<R: Read + Seek> MldxReader<R> {
     }
 
     #[auto_context]
-    pub fn iter_journey_headers(&mut self) -> &Vec<JourneyHeader> {
+    pub fn iter_journey_headers(&self) -> &[JourneyHeader] {
         &self.journey_headers
     }
 

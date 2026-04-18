@@ -130,7 +130,7 @@
       "deselect_all": "Deselect all",
       "confirm_import": "Confirm Import",
       "conflict_label": "Conflict",
-      "conflict_force_confirm": "Force overwrite? Selected journey(s) will overwrite local data for that date.",
+      "conflict_force_confirm": "Force overwrite? Selected journey(s) will overwrite the local version of this journey.",
       "conflict_hint": "{} journey(s) conflict with local, unchecked by default.",
       "select_at_least_one": "Please select at least one journey to import.",
       "all_skipped": "{} identical journey(s) skipped. Nothing to import.",

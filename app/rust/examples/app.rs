@@ -21,7 +21,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     if args.len() > 1 {
         let mldx_file_path = &args[1];
         println!("Importing MLDX file: {mldx_file_path}");
-        let mut mldx_file = OpaqueMldxReader::open(mldx_file_path.to_string())?;
+        let mldx_file = OpaqueMldxReader::open(mldx_file_path.to_string())?;
         match mldx_file.import_journeys(None) {
             Ok(()) => {
                 println!("Successfully imported archive.");
