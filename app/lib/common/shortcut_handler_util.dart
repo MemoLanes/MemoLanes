@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_app_intents/flutter_app_intents.dart';
 import 'package:memolanes/common/gps_manager.dart';
@@ -11,6 +12,9 @@ class ShortcutHandlerUtil {
 
   static void init({required GpsManager gpsManager}) {
     _gps = gpsManager;
+    if (!Platform.isIOS) {
+      return;
+    }
     unawaited(_registerIntents());
   }
 
