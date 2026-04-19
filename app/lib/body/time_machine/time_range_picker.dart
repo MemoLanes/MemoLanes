@@ -15,7 +15,7 @@ export 'time_ruler.dart' show TimeRulerMode, TimeRuler;
 
 /// Time range picker with mode-based range selection.
 /// Supports the [TimeMachineViewMode.period],
-/// [TimeMachineViewMode.fromStart], and [TimeMachineViewMode.custom] views,
+/// [TimeMachineViewMode.asOf], and [TimeMachineViewMode.custom] views,
 /// with [TimeRulerMode] controlling the time granularity shown by the ruler.
 /// Reports the selected [from]-[to] range to the parent via [onRangeChanged].
 class TimeRangePicker extends StatefulWidget {
@@ -43,7 +43,7 @@ enum TimeMachineViewMode {
   period,
 
   /// Show cumulative range from earliest to the selected period end.
-  fromStart,
+  asOf,
 
   /// User picks an arbitrary [from]-[to] range.
   custom,
@@ -100,7 +100,7 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
         _fromDate = period.$1;
         _toDate = period.$2;
         return;
-      case TimeMachineViewMode.fromStart:
+      case TimeMachineViewMode.asOf:
         final period = _periodRangeForSelection();
         _fromDate = _effectiveEarliest;
         _toDate = period.$2;
@@ -275,7 +275,7 @@ class _TimeMachineViewModeAndLayerMenuState
     extends State<_TimeMachineViewModeAndLayerMenu> {
   static const _viewModeKeys = [
     (TimeMachineViewMode.period, 'time_machine.menu_view_period'),
-    (TimeMachineViewMode.fromStart, 'time_machine.menu_view_from_start'),
+    (TimeMachineViewMode.asOf, 'time_machine.menu_view_as_of'),
     (TimeMachineViewMode.custom, 'time_machine.menu_view_custom'),
   ];
 
@@ -519,8 +519,8 @@ class TimeRangeControllerBall extends StatelessWidget {
 
     final String caption = switch (viewMode) {
       TimeMachineViewMode.period => context.tr('time_machine.menu_view_period'),
-      TimeMachineViewMode.fromStart =>
-        context.tr('time_machine.menu_view_from_start'),
+      TimeMachineViewMode.asOf =>
+        context.tr('time_machine.menu_view_as_of'),
       TimeMachineViewMode.custom => '',
     };
 
