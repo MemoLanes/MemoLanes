@@ -20,6 +20,13 @@ class JourneyTrackEditPage extends StatefulWidget {
   State<JourneyTrackEditPage> createState() => _JourneyTrackEditPageState();
 }
 
+enum _EditorToastRequest {
+  syncCurrentState,
+  linkedDrawTooFarError,
+  saveSuccess,
+  clear,
+}
+
 class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   static const int _minEditZoom = 13;
   static const String _linkedDrawTooFarError = 'linked_draw_too_far';
@@ -33,31 +40,9 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   bool _isLinkedDrawEnabled = false;
   bool _isLinkedDrawErrorLocked = false;
 
-  bool _zoomOk = false;
+  bool? _zoomOk;
 
   final GlobalKey<JourneyEditorMapViewState> _mapWebviewKey = GlobalKey();
-
-  void _showDrawModeEnabledToast() {
-    _showFloatingSnackBar(
-      context.tr(
-        _isLinkedDrawEnabled
-            ? "journey.editor.linked_draw_mode_enabled"
-            : "journey.editor.free_draw_mode_enabled",
-      ),
-    );
-  }
-
-  void _showDeleteModeEnabled() {
-    _showFloatingSnackBar(
-      context.tr("journey.editor.erase_mode_enabled"),
-    );
-  }
-
-  void _showZoomTooLow() {
-    _showFloatingSnackBar(
-      context.tr("journey.editor.zoom_too_low"),
-    );
-  }
 
   String _linkedDrawTooFarMessage() {
     return context.tr("journey.editor.linked_draw_too_far");
@@ -67,64 +52,69 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     return error.toString().contains(_linkedDrawTooFarError);
   }
 
-  void _showFloatingSnackBar(String message) {
-    if (!mounted) return;
-    if (_isLinkedDrawErrorLocked) return;
-    TopPersistentToast().show(context, message);
-  }
-
-  void _lockLinkedDrawErrorToast() {
-    if (!mounted) return;
-    setState(() {
-      _isLinkedDrawErrorLocked = true;
-    });
-  }
-
-  void _unlockLinkedDrawErrorToast() {
-    if (!mounted || !_isLinkedDrawErrorLocked) return;
-    setState(() {
-      _isLinkedDrawErrorLocked = false;
-    });
-  }
-
-  void _restoreNormalEditingToast() {
+  String? _currentPersistentToastMessage() {
     if (_isLinkedDrawErrorLocked) {
-      _unlockLinkedDrawErrorToast();
-      _removeToast();
-    }
-    _showDrawModeEnabledToast();
-  }
-
-  void _restoreCurrentModeToast() {
-    if (_mode == OperationMode.edit) {
-      _restoreNormalEditingToast();
-      return;
+      return _linkedDrawTooFarMessage();
     }
 
-    if (_mode == OperationMode.editReadonly) {
-      if (_isLinkedDrawErrorLocked) {
-        _unlockLinkedDrawErrorToast();
-        _removeToast();
-      }
-      _showZoomTooLow();
-      return;
-    }
-
-    if (_mode == OperationMode.delete) {
-      if (_isLinkedDrawErrorLocked) {
-        _unlockLinkedDrawErrorToast();
-        _removeToast();
-      }
-      _showDeleteModeEnabled();
+    switch (_mode) {
+      case OperationMode.move:
+        return null;
+      case OperationMode.edit:
+        return context.tr(
+          _isLinkedDrawEnabled
+              ? "journey.editor.linked_draw_mode_enabled"
+              : "journey.editor.free_draw_mode_enabled",
+        );
+      case OperationMode.editReadonly:
+        return context.tr("journey.editor.zoom_too_low");
+      case OperationMode.delete:
+        return context.tr("journey.editor.erase_mode_enabled");
     }
   }
 
-  void _removeToast() {
-    TopPersistentToast().hide();
+  void _setLinkedDrawErrorLocked(bool locked) {
+    if (!mounted || _isLinkedDrawErrorLocked == locked) return;
+    setState(() {
+      _isLinkedDrawErrorLocked = locked;
+    });
+  }
+
+  void _showToast(
+    _EditorToastRequest request, {
+    bool clearLinkedDrawError = false,
+  }) {
+    if (!mounted) return;
+
+    if (clearLinkedDrawError) {
+      _setLinkedDrawErrorLocked(false);
+    }
+
+    switch (request) {
+      case _EditorToastRequest.syncCurrentState:
+        final message = _currentPersistentToastMessage();
+        if (message == null) {
+          TopPersistentToast().hide();
+        } else {
+          TopPersistentToast().show(context, message);
+        }
+        break;
+      case _EditorToastRequest.linkedDrawTooFarError:
+        _setLinkedDrawErrorLocked(true);
+        TopPersistentToast().show(context, _linkedDrawTooFarMessage());
+        break;
+      case _EditorToastRequest.saveSuccess:
+        TopPersistentToast().hide();
+        Fluttertoast.showToast(msg: context.tr("common.save_success"));
+        break;
+      case _EditorToastRequest.clear:
+        TopPersistentToast().hide();
+        break;
+    }
   }
 
   Future<bool> _confirmDiscardUnsavedChanges() async {
-    _removeToast();
+    _showToast(_EditorToastRequest.clear);
     final shouldExit = await showCommonDialog(
       context,
       context.tr("journey.editor.discard_changes_confirm"),
@@ -152,6 +142,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
             lat: cameraOption.lat,
             zoom: cameraOption.zoom,
           );
+          _zoomOk = cameraOption.zoom >= _minEditZoom;
         }
         _canUndo = _editSession.canUndo();
       });
@@ -170,16 +161,28 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     });
   }
 
-  void _applyMode(OperationMode next) {
+  void _applyMode(
+    OperationMode next, {
+    bool clearLinkedDrawError = false,
+    bool syncToastWhenUnchanged = false,
+  }) {
     if (!mounted) return;
 
-    if (next == OperationMode.edit && !_zoomOk) {
+    if (next == OperationMode.edit && _zoomOk == false) {
       next = OperationMode.editReadonly;
-    } else if (next == OperationMode.editReadonly && _zoomOk) {
+    } else if (next == OperationMode.editReadonly && _zoomOk == true) {
       next = OperationMode.edit;
     }
 
-    if (next == _mode) return;
+    if (next == _mode) {
+      if (clearLinkedDrawError || syncToastWhenUnchanged) {
+        _showToast(
+          _EditorToastRequest.syncCurrentState,
+          clearLinkedDrawError: clearLinkedDrawError,
+        );
+      }
+      return;
+    }
 
     setState(() {
       _mode = next;
@@ -189,37 +192,36 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
     switch (next) {
       case OperationMode.move:
-        _removeToast();
         map?.setDrawMode(false);
         map?.setDeleteMode(false);
         break;
 
       case OperationMode.edit:
-        _showDrawModeEnabledToast();
         map?.setDrawMode(true);
         map?.setDeleteMode(false);
         break;
 
       case OperationMode.editReadonly:
-        _showZoomTooLow();
         map?.setDrawMode(false);
         map?.setDeleteMode(false);
         break;
 
       case OperationMode.delete:
-        _showDeleteModeEnabled();
         map?.setDrawMode(false);
         map?.setDeleteMode(true);
         break;
     }
+
+    _showToast(
+      _EditorToastRequest.syncCurrentState,
+      clearLinkedDrawError: clearLinkedDrawError,
+    );
   }
 
   void _handleModeChange(OperationMode mode) {
-    if (mode == OperationMode.edit) {
-      if (_isLinkedDrawErrorLocked) {
-        _restoreNormalEditingToast();
-      }
+    final shouldClearLinkedError = _isLinkedDrawErrorLocked;
 
+    if (mode == OperationMode.edit) {
       final switchedFromLinked = _isLinkedDrawEnabled;
       if (switchedFromLinked) {
         setState(() {
@@ -228,19 +230,17 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
       }
 
       if (_mode == OperationMode.edit) {
-        if (_isLinkedDrawErrorLocked || switchedFromLinked) {
-          _showDrawModeEnabledToast();
+        if (shouldClearLinkedError || switchedFromLinked) {
+          _showToast(
+            _EditorToastRequest.syncCurrentState,
+            clearLinkedDrawError: shouldClearLinkedError,
+          );
         }
         return;
       }
     }
 
-    if (_isLinkedDrawErrorLocked) {
-      _unlockLinkedDrawErrorToast();
-      _removeToast();
-    }
-
-    _applyMode(mode);
+    _applyMode(mode, clearLinkedDrawError: shouldClearLinkedError);
   }
 
   void _handleDrawEntrySelected(DrawEntryMode mode) {
@@ -251,17 +251,18 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
       _isLinkedDrawEnabled = mode == DrawEntryMode.linked;
     });
 
-    if (wasErrorLocked) {
-      _restoreNormalEditingToast();
-      if (wasMode == OperationMode.edit) return;
-    }
-
     if (wasMode == OperationMode.edit) {
-      _showDrawModeEnabledToast();
+      _showToast(
+        _EditorToastRequest.syncCurrentState,
+        clearLinkedDrawError: wasErrorLocked,
+      );
       return;
     }
 
-    _applyMode(OperationMode.edit);
+    _applyMode(
+      OperationMode.edit,
+      clearLinkedDrawError: wasErrorLocked,
+    );
   }
 
   void _handleMapZoomUpdate(int? zoom) {
@@ -274,7 +275,11 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
       _zoomOk = nextZoomOk;
     });
 
-    _applyMode(_mode);
+    _applyMode(
+      _mode,
+      clearLinkedDrawError: _isLinkedDrawErrorLocked,
+      syncToastWhenUnchanged: true,
+    );
   }
 
   Future<void> _onDrawPath(List<JourneyEditorDrawPoint> points) async {
@@ -282,7 +287,10 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     if (points.length < 2) return;
 
     if (_isLinkedDrawErrorLocked) {
-      _restoreNormalEditingToast();
+      _showToast(
+        _EditorToastRequest.syncCurrentState,
+        clearLinkedDrawError: true,
+      );
     }
 
     final recordPoints = points.map((p) => (p.lat, p.lng)).toList();
@@ -294,10 +302,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
       );
     } catch (error, stackTrace) {
       if (_isLinkedDrawTooFarError(error)) {
-        if (mounted) {
-          TopPersistentToast().show(context, _linkedDrawTooFarMessage());
-        }
-        _lockLinkedDrawErrorToast();
+        _showToast(_EditorToastRequest.linkedDrawTooFarError);
         return;
       }
 
@@ -336,7 +341,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   void dispose() {
     // If user manually pops this page while a SnackBar is visible, ensure the
     // SnackBar is dismissed and doesn't remain on the previous page.
-    _removeToast();
+    _showToast(_EditorToastRequest.clear);
     super.dispose();
   }
 
@@ -353,9 +358,16 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
         if (_canUndo) {
           final shouldExit = await _confirmDiscardUnsavedChanges();
-          if (!context.mounted || !shouldExit) return;
+          if (!context.mounted) return;
+          if (!shouldExit) {
+            _showToast(
+              _EditorToastRequest.syncCurrentState,
+              clearLinkedDrawError: true,
+            );
+            return;
+          }
         }
-        _removeToast();
+        _showToast(_EditorToastRequest.clear);
         if (!context.mounted) return;
 
         Navigator.of(context).pop(result);
@@ -447,7 +459,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                       Navigator.of(context).pop(false);
                       return;
                     }
-                    _removeToast();
+                    _showToast(_EditorToastRequest.clear);
 
                     final shouldSave = await showCommonDialog(
                       context,
@@ -457,7 +469,10 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                     );
                     if (!context.mounted) return;
                     if (!shouldSave) {
-                      _restoreCurrentModeToast();
+                      _showToast(
+                        _EditorToastRequest.syncCurrentState,
+                        clearLinkedDrawError: true,
+                      );
                       return;
                     }
 
@@ -465,10 +480,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                       asyncTask: _editSession.commit(),
                     );
                     if (!context.mounted) return;
-                    _removeToast();
-                    Fluttertoast.showToast(
-                      msg: context.tr("common.save_success"),
-                    );
+                    _showToast(_EditorToastRequest.saveSuccess);
 
                     Navigator.of(context).pop(true);
                   },
