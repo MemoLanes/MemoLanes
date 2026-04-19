@@ -206,7 +206,7 @@ impl<R: Read + Seek> MldxReader<R> {
                         journey_header.journey_type,
                         true,
                     )?;
-                    txn.insert_journey(journey_header, journey_data)?;
+                    txn.insert_journey(journey_header, journey_data, None)?;
                     result.imported_count += 1;
                 } else {
                     std::io::copy(&mut file.by_ref().take(data_len), &mut std::io::sink())?;

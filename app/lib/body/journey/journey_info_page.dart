@@ -274,8 +274,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       JourneyKind.defaultKind => context.tr("journey_kind.default"),
       JourneyKind.flight => context.tr("journey_kind.flight"),
     };
-    final panelMaxHeight = 420.0 + bottomSafeInset;
-    final infoAreaHeight = 334.0;
+    final panelMaxHeight = _isPreviewMode ? 400.0 : 420.0 + bottomSafeInset;
+    final infoAreaHeight = _isPreviewMode ? 340.0 : 334.0;
     return Scaffold(
       body: Stack(
         children: [
@@ -363,81 +363,36 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                       ],
                     ),
                   ),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: 10.0,
-                      runSpacing: 10.0,
-                      children: [
-                        _buildActionButton(
-                          label: context.tr("common.export"),
-                          backgroundColor: const Color(0xFFFFFFFF),
-                          onPressed: () => _showExportDataCard(
-                            context,
-                            _journeyHeader.journeyType,
-                          ),
-                        ),
-                        _buildActionButton(
-                          label: context.tr("common.edit"),
-                          backgroundColor: const Color(0xFFB6E13D),
-                          onPressed: () async => _showEditMenu(context),
-                        ),
-                        _buildActionButton(
-                          label: context.tr("common.delete"),
-                          backgroundColor: const Color(0xFFEC4162),
-                          onPressed: () async =>
-                              await _deleteJourneyInfo(context),
-                        ),
-                      ],
-                    ),
-                  ),
                   SizedBox(height: 16.0),
                   if (!_isPreviewMode)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        ElevatedButton(
-                          onPressed: () => _showExportDataCard(
-                            context,
-                            _journeyHeader.journeyType,
-                          ),
-                          style: ElevatedButton.styleFrom(
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: 10.0,
+                        runSpacing: 10.0,
+                        children: [
+                          _buildActionButton(
+                            label: context.tr("common.export"),
                             backgroundColor: const Color(0xFFFFFFFF),
-                            foregroundColor: Colors.black,
-                            fixedSize: Size(100, 42),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(25.0),
+                            onPressed: () => _showExportDataCard(
+                              context,
+                              _journeyHeader.journeyType,
                             ),
                           ),
-                          child: Text(context.tr("common.export")),
-                        ),
-                        ElevatedButton(
-                          onPressed: () async => _showEditMenu(context),
-                          style: ElevatedButton.styleFrom(
+                          _buildActionButton(
+                            label: context.tr("common.edit"),
                             backgroundColor: const Color(0xFFB6E13D),
-                            foregroundColor: Colors.black,
-                            fixedSize: Size(100, 42),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(25.0),
-                            ),
+                            onPressed: () async => _showEditMenu(context),
                           ),
-                          child: Text(context.tr("common.edit")),
-                        ),
-                        ElevatedButton(
-                          onPressed: () async =>
-                              await _deleteJourneyInfo(context),
-                          style: ElevatedButton.styleFrom(
+                          _buildActionButton(
+                            label: context.tr("common.delete"),
                             backgroundColor: const Color(0xFFEC4162),
-                            foregroundColor: Colors.black,
-                            fixedSize: Size(100, 42),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(25.0),
-                            ),
+                            onPressed: () async =>
+                                await _deleteJourneyInfo(context),
                           ),
-                          child: Text(context.tr("common.delete")),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                 ],
               ),
