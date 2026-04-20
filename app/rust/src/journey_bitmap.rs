@@ -126,8 +126,20 @@ impl JourneyBitmap {
     /// Validate that all serialized tiles can be deserialized successfully.
     /// This is necessary when importing data. Other parts of the code assume
     /// deserialization will always succeed.
-    pub fn validate(&self) -> anyhow::Result<()> {
+    /// We also try to remove empty tiles and blocks here. This is not strictly
+    /// necessary, but we are aware that some users have "invalid" data like this
+    /// which are created by old versions of this app.
+    pub fn validate(&mut self) -> anyhow::Result<()> {
         // Actually nothing needs to be done here.
+        self.tiles.retain(|_, tile| {
+            for block in &mut tile.blocks {
+                if block.as_ref().is_some_and(|b| b.is_empty()) {
+                    *block = None;
+                }
+            }
+            !tile.is_empty()
+        });
+
         Ok(())
     }
 
@@ -677,7 +689,7 @@ impl Block {
         *self.mipmap.borrow_mut() = None;
     }
 
-    fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         for i in self.data {
             if i != 0 {
                 return false;
@@ -863,7 +875,7 @@ impl Block {
     }
 
     // x ∈ [0,63], y ∈ [0，63]
-    fn set_point(&mut self, x: u8, y: u8, val: bool) {
+    pub fn set_point(&mut self, x: u8, y: u8, val: bool) {
         if x > 63 || y > 63 {
             return;
         }

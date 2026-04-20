@@ -137,7 +137,7 @@ pub fn deserialize_journey_bitmap<T: Read>(
         tiles_and_bytes.push((TileKey::new(tile_x, tile_y), tile_bytes));
     }
 
-    let journey_bitmap = JourneyBitmap::of_tile_bytes_without_validation(tiles_and_bytes)?;
+    let mut journey_bitmap = JourneyBitmap::of_tile_bytes_without_validation(tiles_and_bytes)?;
     if full_validation {
         journey_bitmap.validate()?;
     }
