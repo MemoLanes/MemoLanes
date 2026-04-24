@@ -55,7 +55,7 @@ class ShortcutHandlerUtil {
   static Future<AppIntentResult> _handleInvocation(_IntentSpec spec) async {
     final gps = _gps;
     if (gps == null) {
-      final err = 'GpsManager not bound';
+      final err = '${spec.id}: GpsManager not bound';
       return AppIntentResult.failed(error: err);
     }
     try {
