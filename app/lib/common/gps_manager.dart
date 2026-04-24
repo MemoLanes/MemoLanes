@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/common/log.dart';
@@ -107,6 +108,13 @@ class GpsManager extends ChangeNotifier {
           false => _InternalState.off,
         },
     };
+    final lifecycleStateAtSync = WidgetsBinding.instance.lifecycleState;
+    final allowTrackingOnlyGps = lifecycleStateAtSync == null ||
+        lifecycleStateAtSync == AppLifecycleState.resumed;
+    if (!allowTrackingOnlyGps && newState == _InternalState.justForTracking) {
+      // Map tracking should only use GPS when app is visible.
+      newState = _InternalState.off;
+    }
     var oldState = _internalState;
     if (oldState != newState) {
       // state changed
