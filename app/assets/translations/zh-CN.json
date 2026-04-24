@@ -155,7 +155,8 @@
   },
   "achievement": {
     "title": "成就",
-    "explored_area": "探索面积：{} 平方公里"
+    "explored_area": "探索面积：{} 平方公里",
+    "coming_soon": "统计与成就功能即将推出"
   },
   "general": {
     "title": "通用",

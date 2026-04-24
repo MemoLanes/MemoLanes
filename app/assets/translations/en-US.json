@@ -155,7 +155,8 @@
   },
   "achievement": {
     "title": "Achievements",
-    "explored_area": "Explored area: {} km²"
+    "explored_area": "Explored area: {} km²",
+    "coming_soon": "Stats and achievements are coming soon"
   },
   "general": {
     "title": "General",
