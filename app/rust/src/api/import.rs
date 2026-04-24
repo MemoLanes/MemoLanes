@@ -1,3 +1,6 @@
+use std::collections::HashSet;
+use std::fs::File;
+use std::sync::Mutex;
 use std::{ffi::OsStr, path::Path};
 
 use anyhow::{Context, Result};
@@ -6,8 +9,10 @@ use chrono::{DateTime, Local, NaiveDate, Utc};
 use flutter_rust_bridge::frb;
 
 use super::api;
-use crate::api::api::OpaqueJourneyData;
+use crate::api::api::{get, OpaqueJourneyData};
+use crate::archive::MldxReader;
 use crate::gps_processor::SegmentGapRule;
+use crate::journey_header::JourneyHeader;
 use crate::journey_vector::JourneyVector;
 use crate::{
     flight_track_processor,
@@ -144,5 +149,68 @@ pub fn is_journey_data_empty(journey_data: &OpaqueJourneyData) -> bool {
     match *journey_data {
         JourneyData::Vector(ref vector_data) => vector_data.track_segments.is_empty(),
         JourneyData::Bitmap(ref bitmap_data) => bitmap_data.is_empty(),
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MldxJourneyImportAnalyzeResult {
+    New = 0,
+    Conflict = 1,
+    Unchanged = 2,
+}
+
+#[frb(opaque)]
+pub struct OpaqueMldxReader {
+    reader: Mutex<MldxReader<File>>,
+}
+
+impl OpaqueMldxReader {
+    pub fn open(mldx_file_path: String) -> Result<Self> {
+        let file = File::open(mldx_file_path)?;
+        Ok(Self {
+            reader: Mutex::new(MldxReader::open(file)?),
+        })
+    }
+
+    pub fn analyze(&self) -> Result<Vec<(JourneyHeader, MldxJourneyImportAnalyzeResult)>> {
+        let mldx_reader = self.reader.lock().unwrap();
+
+        get().storage.with_db_txn(|txn| {
+            let mut result = Vec::new();
+            for journey_header in mldx_reader.iter_journey_headers() {
+                let import_type = match txn.get_journey_header(&journey_header.id)? {
+                    Some(existing) => {
+                        if existing.revision == journey_header.revision {
+                            MldxJourneyImportAnalyzeResult::Unchanged
+                        } else {
+                            MldxJourneyImportAnalyzeResult::Conflict
+                        }
+                    }
+                    None => MldxJourneyImportAnalyzeResult::New,
+                };
+                result.push((journey_header.clone(), import_type));
+            }
+            Ok(result)
+        })
+    }
+
+    pub fn load_single_journey(
+        &self,
+        journey_id: String,
+    ) -> Result<Option<(JourneyHeader, OpaqueJourneyData)>> {
+        let mut mldx_reader = self.reader.lock().unwrap();
+        Ok(mldx_reader
+            .load_single_journey(&journey_id)?
+            .map(|(header, data)| (header, OpaqueJourneyData::new(data))))
+    }
+
+    /// `journey_ids = None` means import all journeys.
+    /// `journey_ids = Some(set)` means import only journeys whose id is in `set`.
+    pub fn import_journeys(&self, journey_ids: Option<HashSet<String>>) -> Result<()> {
+        let mut mldx_reader = self.reader.lock().unwrap();
+        get()
+            .storage
+            .with_db_txn(|txn| mldx_reader.import(txn, journey_ids.as_ref()))?;
+        Ok(())
     }
 }

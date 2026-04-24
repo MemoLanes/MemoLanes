@@ -26,9 +26,14 @@ import 'package:sliding_up_panel/sliding_up_panel.dart';
 enum ExportType { mldx, kml, gpx }
 
 class JourneyInfoPage extends StatefulWidget {
-  const JourneyInfoPage({super.key, required this.journeyHeader});
+  const JourneyInfoPage({
+    super.key,
+    required this.journeyHeader,
+    this.previewJourneyData,
+  });
 
   final JourneyHeader journeyHeader;
+  final api.OpaqueJourneyData? previewJourneyData;
 
   @override
   State<JourneyInfoPage> createState() => _JourneyInfoPage();
@@ -47,9 +52,29 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     _refreshJourneyInfo();
   }
 
+  bool get _isPreviewMode => widget.previewJourneyData != null;
+
   Future<void> _refreshJourneyInfo() async {
-    final mapRendererProxyAndCameraOption =
-        await api.getMapRendererProxyForJourney(journeyId: _journeyHeader.id);
+    final mapRendererProxyAndCameraOption = widget.previewJourneyData != null
+        ? await api.getMapRendererProxyForJourneyData(
+            journeyData: widget.previewJourneyData!)
+        : await api.getMapRendererProxyForJourney(journeyId: _journeyHeader.id);
+
+    if (_isPreviewMode) {
+      if (!mounted) return;
+      setState(() {
+        _mapRendererProxy = mapRendererProxyAndCameraOption.$1;
+        final cameraOption = mapRendererProxyAndCameraOption.$2;
+        if (cameraOption != null) {
+          _initialMapView = (
+            lng: cameraOption.lng,
+            lat: cameraOption.lat,
+            zoom: cameraOption.zoom,
+          );
+        }
+      });
+      return;
+    }
 
     final allJourneys = await api.listAllJourneys();
     final latestHeader = allJourneys
@@ -184,7 +209,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
               topLeft: Radius.circular(16.0),
               topRight: Radius.circular(16.0),
             ),
-            maxHeight: 480,
+            maxHeight: _isPreviewMode ? 400 : 480,
             defaultPanelState: PanelState.OPEN,
             panel: PointerInterceptor(
               child: Column(
@@ -263,51 +288,52 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                     ),
                   ),
                   SizedBox(height: 16.0),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      ElevatedButton(
-                        onPressed: () => _showExportDataCard(
-                          context,
-                          _journeyHeader.journeyType,
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFFFFFF),
-                          foregroundColor: Colors.black,
-                          fixedSize: Size(100, 42),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25.0),
+                  if (!_isPreviewMode)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        ElevatedButton(
+                          onPressed: () => _showExportDataCard(
+                            context,
+                            _journeyHeader.journeyType,
                           ),
-                        ),
-                        child: Text(context.tr("common.export")),
-                      ),
-                      ElevatedButton(
-                        onPressed: () async => _showEditMenu(context),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFB6E13D),
-                          foregroundColor: Colors.black,
-                          fixedSize: Size(100, 42),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25.0),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFFFFFFF),
+                            foregroundColor: Colors.black,
+                            fixedSize: Size(100, 42),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(25.0),
+                            ),
                           ),
+                          child: Text(context.tr("common.export")),
                         ),
-                        child: Text(context.tr("common.edit")),
-                      ),
-                      ElevatedButton(
-                        onPressed: () async =>
-                            await _deleteJourneyInfo(context),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFEC4162),
-                          foregroundColor: Colors.black,
-                          fixedSize: Size(100, 42),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25.0),
+                        ElevatedButton(
+                          onPressed: () async => _showEditMenu(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFB6E13D),
+                            foregroundColor: Colors.black,
+                            fixedSize: Size(100, 42),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(25.0),
+                            ),
                           ),
+                          child: Text(context.tr("common.edit")),
                         ),
-                        child: Text(context.tr("common.delete")),
-                      ),
-                    ],
-                  ),
+                        ElevatedButton(
+                          onPressed: () async =>
+                              await _deleteJourneyInfo(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFEC4162),
+                            foregroundColor: Colors.black,
+                            fixedSize: Size(100, 42),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(25.0),
+                            ),
+                          ),
+                          child: Text(context.tr("common.delete")),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ),

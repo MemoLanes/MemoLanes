@@ -3,8 +3,12 @@ use crate::test_utils::{
     draw_line1, draw_line2, draw_line3, draw_line4, END_LAT, END_LNG, START_LAT, START_LNG,
 };
 use memolanes_core::{
-    gps_processor::SegmentGapRule, import_data, journey_area_utils, journey_bitmap::JourneyBitmap,
-    journey_data::JourneyData, journey_header::JourneyType, renderer::MapRenderer,
+    gps_processor::SegmentGapRule,
+    import_data, journey_area_utils,
+    journey_bitmap::{Block, BlockKey, JourneyBitmap, Tile, TileKey},
+    journey_data::JourneyData,
+    journey_header::JourneyType,
+    renderer::MapRenderer,
 };
 
 #[test]
@@ -298,4 +302,36 @@ fn draw_line_with_width3() {
     let render_result =
         test_utils::render_map_overlay(&mut map_renderer, 13, 120.0, 70.01, 120.01, 70.0);
     test_utils::verify_image("draw_line_with_width3", &render_result.data);
+}
+
+#[test]
+fn validate_prunes_empty_blocks_and_tiles() {
+    let keep_key = TileKey::new(1, 2);
+    let drop_key = TileKey::new(3, 4);
+    let empty_block_key = BlockKey::from_x_y(0, 0);
+    let non_empty_block_key = BlockKey::from_x_y(0, 1);
+
+    let mut keep_tile = Tile::new();
+    keep_tile.set(&empty_block_key, Block::new());
+    let mut non_empty_block = Block::new();
+    non_empty_block.set_point(10, 10, true);
+    keep_tile.set(&non_empty_block_key, non_empty_block);
+
+    let mut drop_tile = Tile::new();
+    drop_tile.set(&empty_block_key, Block::new());
+
+    let mut bitmap = JourneyBitmap::of_tile_bytes_without_validation(vec![
+        (keep_key, keep_tile.serialize()),
+        (drop_key, drop_tile.serialize()),
+    ])
+    .unwrap();
+
+    bitmap.validate().unwrap();
+
+    assert!(bitmap.contains_tile(&keep_key));
+    assert!(!bitmap.contains_tile(&drop_key));
+
+    let keep_tile = bitmap.get_tile(&keep_key).expect("tile should remain");
+    assert!(keep_tile.get(&empty_block_key).is_none());
+    assert!(keep_tile.get(&non_empty_block_key).is_some());
 }

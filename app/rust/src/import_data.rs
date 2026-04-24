@@ -88,10 +88,14 @@ fn parse_fow_bitmap_file<R: Read>(
                     let mut bitmap: [u8; BLOCK_BITMAP_SIZE] = [0; BLOCK_BITMAP_SIZE];
                     bitmap.copy_from_slice(&data[start_offset..end_offset]);
                     let block = Block::new_with_data(bitmap);
-                    tile.set(&block_key, block);
+                    if !block.is_empty() {
+                        tile.set(&block_key, block);
+                    }
                 }
             }
-            journey_bitmap.insert_tile(&TileKey::new(id.x, id.y), tile);
+            if !tile.is_empty() {
+                journey_bitmap.insert_tile(&TileKey::new(id.x, id.y), tile);
+            }
         }
     }
     Ok(())
