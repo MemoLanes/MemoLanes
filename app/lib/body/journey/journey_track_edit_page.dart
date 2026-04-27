@@ -5,6 +5,8 @@ import 'package:memolanes/body/journey/editor/journey_editor_map_view.dart';
 import 'package:memolanes/body/journey/editor/journey_track_edit_mode_bar.dart';
 import 'package:memolanes/body/journey/editor/top_persistent_toast.dart';
 import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
+import 'package:memolanes/common/component/frosted_bar_container.dart';
+import 'package:memolanes/common/component/frosted_bar_item.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -401,33 +403,38 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                         const Spacer(),
                         Padding(
                           padding: EdgeInsets.only(
-                            right: 8,
                             bottom: isLandscape ? 16 : screenSize.height * 0.08,
                           ),
                           child: PointerInterceptor(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                _DrawEntryModeButton(
-                                  icon: Icons.draw_rounded,
-                                  tooltip:
-                                      context.tr('journey.editor.free_draw'),
-                                  isSelected: !_isLinkedDrawEnabled,
-                                  onPressed: () => _handleDrawEntrySelected(
-                                    DrawEntryMode.freehand,
+                            child: FrostedBarContainer(
+                              axis: Axis.vertical,
+                              extent: 60,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _DrawEntryModeButton(
+                                    icon: Icons.draw_rounded,
+                                    label: '自由',
+                                    tooltip:
+                                        context.tr('journey.editor.free_draw'),
+                                    isSelected: !_isLinkedDrawEnabled,
+                                    onPressed: () => _handleDrawEntrySelected(
+                                      DrawEntryMode.freehand,
+                                    ),
                                   ),
-                                ),
-                                _DrawEntryModeButton(
-                                  icon: Icons.link_rounded,
-                                  tooltip:
-                                      context.tr('journey.editor.linked_draw'),
-                                  isSelected: _isLinkedDrawEnabled,
-                                  onPressed: () => _handleDrawEntrySelected(
-                                    DrawEntryMode.linked,
+                                  const SizedBox(height: 8),
+                                  _DrawEntryModeButton(
+                                    icon: Icons.link_rounded,
+                                    label: '连线',
+                                    tooltip:
+                                        context.tr('journey.editor.linked_draw'),
+                                    isSelected: _isLinkedDrawEnabled,
+                                    onPressed: () => _handleDrawEntrySelected(
+                                      DrawEntryMode.linked,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -497,35 +504,29 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 class _DrawEntryModeButton extends StatelessWidget {
   const _DrawEntryModeButton({
     required this.icon,
+    required this.label,
     required this.tooltip,
     required this.isSelected,
     required this.onPressed,
   });
 
   final IconData icon;
+  final String label;
   final String tooltip;
   final bool isSelected;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    const accentColor = Color(0xFFB4EC51);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      width: 48,
-      height: 48,
-      decoration: const BoxDecoration(
-        color: Colors.black,
-        shape: BoxShape.circle,
-      ),
-      child: IconButton(
-        onPressed: onPressed,
-        tooltip: tooltip,
-        icon: Icon(
-          icon,
-          color: isSelected ? accentColor : accentColor.withValues(alpha: 0.5),
-        ),
+    return Tooltip(
+      message: tooltip,
+      child: FrostedBarItem(
+        icon: icon,
+        label: label,
+        horizontalPadding: 10,
+        horizontalMargin: 0,
+        isSelected: isSelected,
+        onTap: onPressed,
       ),
     );
   }
