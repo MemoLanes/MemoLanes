@@ -42,7 +42,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   bool _isLinkedDrawEnabled = false;
   bool _isLinkedDrawErrorLocked = false;
 
-  bool? _zoomOk;
+  bool _zoomOk = false;
 
   final GlobalKey<JourneyEditorMapViewState> _mapWebviewKey = GlobalKey();
 
