@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use flutter_rust_bridge::frb;
 
 use crate::journey_bitmap::JourneyBitmap;
@@ -14,7 +14,6 @@ use crate::renderer::MapRenderer;
 // TODO: This is a bit sus, it is comparing the lng/lat and doesn't handle anti-meridian.
 const EPS: f64 = 1e-12_f64;
 const DEDUP_EPS: f64 = 1e-9_f64;
-const LINK_DRAW_TOO_FAR_ERROR: &str = "linked_draw_too_far";
 const LINK_SNAP_DISTANCE_RATIO_THRESHOLD: f64 = 3.0_f64;
 
 // TODO: we want some test coverage here.
@@ -27,6 +26,12 @@ pub struct EditSession {
     initial_camera_option: Option<CameraOption>,
     data: JourneyVector,
     undo_stack: Vec<JourneyVector>,
+}
+
+pub enum AddLinesOutcome {
+    Added,
+    Ignored,
+    LinkedDrawTooFar,
 }
 
 impl EditSession {
@@ -188,7 +193,7 @@ impl EditSession {
                     + Self::point_distance(original_last, snapped_last);
 
                 if snap_distance_sum > stroke_span * LINK_SNAP_DISTANCE_RATIO_THRESHOLD {
-                    bail!(LINK_DRAW_TOO_FAR_ERROR);
+                    return Err(anyhow!("linked_draw_too_far"));
                 }
             }
 
@@ -483,15 +488,22 @@ impl EditSession {
         Ok(())
     }
 
-    pub fn add_lines(&mut self, points: &[(f64, f64)], snap_endpoints: bool) -> Result<()> {
+    pub fn add_lines(
+        &mut self,
+        points: &[(f64, f64)],
+        snap_endpoints: bool,
+    ) -> Result<AddLinesOutcome> {
         // TODO: we could run the post processor here to simplify the added points first.
         if points.len() < 2 {
-            return Ok(());
+            return Ok(AddLinesOutcome::Ignored);
         }
 
-        let track_points = self.prepare_track_points(points, snap_endpoints)?;
+        let track_points = match self.prepare_track_points(points, snap_endpoints) {
+            Ok(track_points) => track_points,
+            Err(_) => return Ok(AddLinesOutcome::LinkedDrawTooFar),
+        };
         if track_points.len() < 2 {
-            return Ok(());
+            return Ok(AddLinesOutcome::Ignored);
         }
 
         let render_points: Vec<(f64, f64)> = track_points
@@ -523,7 +535,7 @@ impl EditSession {
         });
         drop(map_renderer);
 
-        Ok(())
+        Ok(AddLinesOutcome::Added)
     }
 
     pub fn commit(&self) -> Result<()> {

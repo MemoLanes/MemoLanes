@@ -10,7 +10,8 @@ import 'package:memolanes/common/component/frosted_bar_item.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
+import 'package:memolanes/src/rust/api/edit_session.dart'
+    show AddLinesOutcome, EditSession;
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 class JourneyTrackEditPage extends StatefulWidget {
@@ -31,7 +32,6 @@ enum _EditorToastRequest {
 
 class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   static const int _minEditZoom = 13;
-  static const String _linkedDrawTooFarError = 'linked_draw_too_far';
 
   late final EditSession _editSession;
   api.MapRendererProxy? _mapRendererProxy;
@@ -48,10 +48,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   String _linkedDrawTooFarMessage() {
     return context.tr("journey.editor.linked_draw_too_far");
-  }
-
-  bool _isLinkedDrawTooFarError(Object error) {
-    return error.toString().contains(_linkedDrawTooFarError);
   }
 
   String? _currentPersistentToastMessage() {
@@ -298,16 +294,15 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     final recordPoints = points.map((p) => (p.lat, p.lng)).toList();
 
     try {
-      await _editSession.addLines(
+      final outcome = await _editSession.addLines(
         points: recordPoints,
         snapEndpoints: _isLinkedDrawEnabled,
       );
-    } catch (error, stackTrace) {
-      if (_isLinkedDrawTooFarError(error)) {
+      if (outcome == AddLinesOutcome.linkedDrawTooFar) {
         _showToast(_EditorToastRequest.linkedDrawTooFarError);
         return;
       }
-
+    } catch (error, stackTrace) {
       log.error("[JourneyTrackEditPage] addLines failed: $error", stackTrace);
       return;
     }
