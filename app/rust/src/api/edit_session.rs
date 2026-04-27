@@ -78,7 +78,7 @@ impl EditSession {
         let dy = by - ay;
         let len_sq = dx * dx + dy * dy;
 
-        if len_sq < EPS {
+        if len_sq < EPS * EPS {
             let distance_sq = (px - ax) * (px - ax) + (py - ay) * (py - ay);
             return (
                 distance_sq,

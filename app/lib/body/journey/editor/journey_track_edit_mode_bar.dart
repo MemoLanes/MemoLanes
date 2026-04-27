@@ -130,8 +130,6 @@ class _ModeSwitchItem extends StatelessWidget {
   final ValueChanged<OperationMode> onModeChanged;
   final IconData icon;
   final String label;
-  final bool isEnabled;
-  final bool? isSelected;
 
   const _ModeSwitchItem({
     required this.mode,
@@ -139,25 +137,20 @@ class _ModeSwitchItem extends StatelessWidget {
     required this.onModeChanged,
     required this.icon,
     required this.label,
-    this.isEnabled = true,
-    this.isSelected,
   });
 
   @override
   Widget build(BuildContext context) {
-    final selected = isSelected ?? currentMode == mode;
+    final selected = currentMode == mode;
 
     return FrostedBarItem(
       icon: icon,
       label: label,
       isSelected: selected,
-      isEnabled: isEnabled,
-      onTap: isEnabled
-          ? () {
-              HapticFeedback.lightImpact();
-              onModeChanged(mode);
-            }
-          : null,
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onModeChanged(mode);
+      },
     );
   }
 }
