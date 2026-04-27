@@ -414,7 +414,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                                 children: [
                                   _DrawEntryModeButton(
                                     icon: Icons.draw_rounded,
-                                    label: '自由',
+                                    label: context.tr('journey.editor.free_draw'),
                                     tooltip:
                                         context.tr('journey.editor.free_draw'),
                                     isSelected: !_isLinkedDrawEnabled,
@@ -425,7 +425,9 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                                   const SizedBox(height: 8),
                                   _DrawEntryModeButton(
                                     icon: Icons.link_rounded,
-                                    label: '连线',
+                                    label: context.tr(
+                                      'journey.editor.linked_draw',
+                                    ),
                                     tooltip:
                                         context.tr('journey.editor.linked_draw'),
                                     isSelected: _isLinkedDrawEnabled,
