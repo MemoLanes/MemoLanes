@@ -105,7 +105,7 @@ impl EditSession {
         )
     }
 
-    fn find_nearest_existing_track_point(
+    fn find_nearest_point_on_existing_tracks(
         &self,
         target: &crate::journey_vector::TrackPoint,
     ) -> Option<crate::journey_vector::TrackPoint> {
@@ -167,10 +167,10 @@ impl EditSession {
             let original_last = track_points.last().cloned();
             let snapped_first = original_first
                 .as_ref()
-                .and_then(|point| self.find_nearest_existing_track_point(point));
+                .and_then(|point| self.find_nearest_point_on_existing_tracks(point));
             let snapped_last = original_last
                 .as_ref()
-                .and_then(|point| self.find_nearest_existing_track_point(point));
+                .and_then(|point| self.find_nearest_point_on_existing_tracks(point));
 
             if let (
                 Some(original_first),
