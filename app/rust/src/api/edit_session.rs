@@ -34,6 +34,21 @@ pub enum AddLinesOutcome {
     LinkedDrawTooFar,
 }
 
+#[derive(Debug)]
+enum PrepareTrackPointsError {
+    LinkedDrawTooFar,
+}
+
+impl std::fmt::Display for PrepareTrackPointsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::LinkedDrawTooFar => write!(f, "linked draw too far"),
+        }
+    }
+}
+
+impl std::error::Error for PrepareTrackPointsError {}
+
 impl EditSession {
     fn point_distance(
         a: &crate::journey_vector::TrackPoint,
@@ -193,7 +208,7 @@ impl EditSession {
                     + Self::point_distance(original_last, snapped_last);
 
                 if snap_distance_sum > stroke_span * LINK_SNAP_DISTANCE_RATIO_THRESHOLD {
-                    return Err(anyhow!("linked_draw_too_far"));
+                    return Err(anyhow!(PrepareTrackPointsError::LinkedDrawTooFar));
                 }
             }
 
@@ -500,7 +515,15 @@ impl EditSession {
 
         let track_points = match self.prepare_track_points(points, snap_endpoints) {
             Ok(track_points) => track_points,
-            Err(_) => return Ok(AddLinesOutcome::LinkedDrawTooFar),
+            Err(error) => {
+                if matches!(
+                    error.downcast_ref::<PrepareTrackPointsError>(),
+                    Some(PrepareTrackPointsError::LinkedDrawTooFar)
+                ) {
+                    return Ok(AddLinesOutcome::LinkedDrawTooFar);
+                }
+                return Err(error);
+            }
         };
         if track_points.len() < 2 {
             return Ok(AddLinesOutcome::Ignored);
