@@ -12,12 +12,12 @@
     "title": "授权以体验完整功能",
     "enable_all": "全部开启",
     "skip": "跳过",
-    "location_title": "位置 (始终允许)",
-    "location_desc": "记录足迹",
+    "location_title": "位置",
+    "location_desc": "用于地图展示与行程轨迹记录",
     "battery_title": "电池优化",
-    "battery_desc": "允许后台持续记录",
+    "battery_desc": "降低系统在后台对应用的限制，录制与定位更稳定",
     "notification_title": "通知",
-    "notification_desc": "记录中断时提醒"
+    "notification_desc": "录制意外中断时提醒你"
   },
   "location_service": {
     "location_service_disabled": "定位服务未开启，请在设置中启用。",

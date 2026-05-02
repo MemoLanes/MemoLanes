@@ -4,12 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
 import 'package:memolanes/common/mmkv_util.dart';
-import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-/// 展示统一的权限申请底部弹出层
-/// 返回 true 表示用户确认进入应用（无论权限是否全部授予）
+/// Shows the unified permission request bottom sheet.
+/// Returns true when the user continues (e.g. Skip or Enable all); some permissions may still be denied.
 Future<bool> showPermissionRequestSheet(BuildContext context) async {
   final result = await showModalBottomSheet<bool>(
     context: context,
@@ -84,7 +83,10 @@ class _PermissionRequestSheetContentState
     }
 
     if (status.isGranted) {
-      await Permission.locationAlways.request();
+      // iOS: second system prompt for background-capable location; Android skips.
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        await Permission.locationAlways.request();
+      }
       if (mounted) {
         setState(() => _locationGranted = true);
       }

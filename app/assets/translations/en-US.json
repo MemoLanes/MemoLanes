@@ -12,12 +12,12 @@
     "title": "Authorize for full experience",
     "enable_all": "Enable All",
     "skip": "Skip",
-    "location_title": "Location (Always)",
-    "location_desc": "Silently record your footprints",
+    "location_title": "Location",
+    "location_desc": "For map display and journey route recording",
     "battery_title": "Battery optimization",
-    "battery_desc": "Allow background recording",
+    "battery_desc": "Reduces background restrictions so tracking and recording stay reliable",
     "notification_title": "Notifications",
-    "notification_desc": "Alert when recording is interrupted"
+    "notification_desc": "Notifies you if recording stops unexpectedly"
   },
   "location_service": {
     "location_service_disabled": "Location services are disabled. Please enable them in the settings.",
