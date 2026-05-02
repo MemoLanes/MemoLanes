@@ -17,14 +17,12 @@ import 'package:memolanes/common/component/bottom_nav_bar.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
-import 'package:memolanes/common/service/permission_service.dart';
+import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/constants/index.dart';
 import 'package:provider/provider.dart';
-
-GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   runZonedGuarded(() async {
@@ -140,7 +138,7 @@ class _MyHomePageState extends State<MyHomePage> {
         );
       }
       if (!context.mounted) return;
-      await PermissionService().tryShowPermissionSheetIfFirstTime();
+      await tryShowPermissionSheetIfFirstTime();
     });
   }
 

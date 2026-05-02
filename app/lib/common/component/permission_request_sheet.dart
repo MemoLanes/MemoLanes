@@ -1,14 +1,15 @@
+import 'dart:io' show Platform;
+
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
-import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/service/permission_service.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-/// Shows the unified permission request bottom sheet.
+/// Shows the unified permission request bottom sheet (layout + copy only).
 ///
 /// Returns `true` when the user taps **Skip** or **Enable all** (enters the app; permissions may
 /// still be incomplete).
@@ -36,6 +37,8 @@ class _PermissionRequestSheetContent extends StatefulWidget {
 
 class _PermissionRequestSheetContentState
     extends State<_PermissionRequestSheetContent> {
+  final PermissionService _permissions = PermissionService();
+
   bool _locationGranted = false;
   bool _batteryGranted = false;
   bool _notificationGranted = false;
@@ -73,162 +76,52 @@ class _PermissionRequestSheetContentState
   }
 
   Future<void> _refreshStatus() async {
-    final locStatus = await Permission.location.status;
-    final locAlwaysStatus = await Permission.locationAlways.status;
-    final isAndroid = defaultTargetPlatform == TargetPlatform.android;
-    final batteryGranted =
-        !isAndroid || await Permission.ignoreBatteryOptimizations.isGranted;
-    final notificationStatus = await Permission.notification.status;
-    final notificationGranted = notificationStatus.isGranted;
-    final hasLocation = locStatus.isGranted || locAlwaysStatus.isGranted;
+    final s = await _permissions.readPermissionSnapshot();
+    if (!mounted) return;
+    setState(() {
+      _locationGranted = s.locationTileGranted;
+      _locationPermanentlyDenied = s.locationPermanentlyDenied;
+      _batteryGranted = s.batteryTileGranted;
+      _notificationGranted = s.notificationTileGranted;
+      _notificationPermanentlyDenied = s.notificationPermanentlyDenied;
+    });
+  }
 
-    if (mounted) {
-      setState(() {
-        _locationGranted = hasLocation;
-        _locationPermanentlyDenied = locStatus.isPermanentlyDenied;
-        _batteryGranted = batteryGranted;
-        _notificationGranted = notificationGranted;
-        _notificationPermanentlyDenied = notificationStatus.isPermanentlyDenied;
-      });
+  Future<void> _applyEffects(List<PermissionEffect> effects) async {
+    for (final e in effects) {
+      if (!mounted) return;
+      if (e.messageTrKey != null) {
+        await showCommonDialog(context, context.tr(e.messageTrKey!));
+      }
+      if (!mounted) return;
+      if (e.openAppSettings) await openAppSettings();
+      if (!mounted) return;
+      if (e.openLocationSettings) await Geolocator.openLocationSettings();
     }
   }
 
   Future<void> _requestLocation() async {
     if (!mounted) return;
-
-    if (!await Geolocator.isLocationServiceEnabled()) {
-      if (!mounted) return;
-      await Geolocator.openLocationSettings();
-      await _refreshStatus();
-      return;
-    }
-
-    var status = await Permission.location.status;
-    if (!mounted) return;
-
-    if (status.isPermanentlyDenied) {
-      await showCommonDialog(
-        context,
-        context.tr('location_service.location_permission_permanently_denied'),
-      );
-      if (!mounted) return;
-      await openAppSettings();
-      await _refreshStatus();
-      return;
-    }
-
-    if (!status.isGranted) {
-      status = await Permission.location.request();
-      if (!status.isGranted) {
-        if (mounted) {
-          await showCommonDialog(
-            context,
-            context
-                .tr('location_service.location_permission_permanently_denied'),
-          );
-        }
-        await _refreshStatus();
-        return;
-      }
-    }
-
-    if (status.isGranted) {
-      if (defaultTargetPlatform == TargetPlatform.iOS) {
-        await Permission.locationAlways.request();
-      }
-    }
-
+    final effects = await _permissions.runLocationRequest();
+    await _applyEffects(effects);
     await _refreshStatus();
   }
 
   Future<void> _requestBattery() async {
-    if (defaultTargetPlatform != TargetPlatform.android) return;
+    if (!Platform.isAndroid) return;
     if (_batteryGranted) return;
     if (!mounted) return;
-
-    final alreadyRequested = MMKVUtil.getBool(
-      MMKVKey.requestedBatteryOptimization,
-      defaultValue: false,
-    );
-    if (alreadyRequested) {
-      final ignoring = await Permission.ignoreBatteryOptimizations.isGranted;
-      if (!mounted) return;
-      if (!ignoring) {
-        await showCommonDialog(
-          context,
-          context.tr('location_service.battery_optimization_denied'),
-        );
-      }
-      if (mounted) await _refreshStatus();
-      return;
-    }
-
-    final result = await Permission.ignoreBatteryOptimizations.request();
-    MMKVUtil.putBool(MMKVKey.requestedBatteryOptimization, true);
-    if (!result.isGranted && mounted) {
-      await showCommonDialog(
-        context,
-        context.tr('location_service.battery_optimization_denied'),
-      );
-    }
-    if (mounted) await _refreshStatus();
+    final effects = await _permissions.runBatteryRequest();
+    await _applyEffects(effects);
+    await _refreshStatus();
   }
 
   Future<void> _requestNotification() async {
     if (_notificationGranted) return;
     if (!mounted) return;
-
-    final status = await Permission.notification.status;
-    if (!mounted) return;
-    final alreadyRequested = MMKVUtil.getBool(
-      MMKVKey.requestedNotification,
-      defaultValue: false,
-    );
-    if (status.isGranted) {
-      MMKVUtil.putBool(MMKVKey.isUnexpectedExitNotificationEnabled, true);
-      if (mounted) await _refreshStatus();
-      return;
-    }
-
-    if (status.isPermanentlyDenied) {
-      if (mounted) {
-        await showCommonDialog(
-          context,
-          context.tr(
-              'unexpected_exit_notification.notification_permission_denied'),
-        );
-        if (mounted) await openAppSettings();
-      }
-      if (mounted) await _refreshStatus();
-      return;
-    }
-
-    if (alreadyRequested) {
-      if (mounted) {
-        await showCommonDialog(
-          context,
-          context.tr(
-              'unexpected_exit_notification.notification_permission_denied'),
-        );
-      }
-      if (mounted) await _refreshStatus();
-      return;
-    }
-
-    final result = await Permission.notification.request();
-    MMKVUtil.putBool(
-      MMKVKey.isUnexpectedExitNotificationEnabled,
-      result.isGranted,
-    );
-    MMKVUtil.putBool(MMKVKey.requestedNotification, true);
-    if (!result.isGranted && mounted) {
-      await showCommonDialog(
-        context,
-        context
-            .tr('unexpected_exit_notification.notification_permission_denied'),
-      );
-    }
-    if (mounted) await _refreshStatus();
+    final effects = await _permissions.runNotificationRequest();
+    await _applyEffects(effects);
+    await _refreshStatus();
   }
 
   void _onSkip() {
@@ -240,9 +133,7 @@ class _PermissionRequestSheetContentState
     if (!mounted) return;
     if (!_locationGranted) await _requestLocation();
     if (!mounted) return;
-    if (defaultTargetPlatform == TargetPlatform.android && !_batteryGranted) {
-      await _requestBattery();
-    }
+    if (Platform.isAndroid && !_batteryGranted) await _requestBattery();
     if (!mounted) return;
     if (!_notificationGranted) await _requestNotification();
     if (!mounted) return;
@@ -318,7 +209,7 @@ class _PermissionRequestSheetContentState
                         context.tr("permission_sheet.location_help_tooltip"),
                     showOpenSettingsHintWhenDenied: _locationPermanentlyDenied,
                   ),
-                  if (defaultTargetPlatform == TargetPlatform.android)
+                  if (Platform.isAndroid)
                     _PermissionTile(
                       icon: Icons.battery_charging_full,
                       title: context.tr("permission_sheet.battery_title"),
@@ -390,8 +281,6 @@ class _PermissionTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onRationaleTap;
   final String? rationaleTooltip;
-
-  /// When the OS has permanently denied this permission, show an explicit entry to open settings.
   final bool showOpenSettingsHintWhenDenied;
 
   const _PermissionTile({
@@ -521,7 +410,6 @@ class _PermissionTile extends StatelessWidget {
   }
 }
 
-/// Matches [LabelTile] info icon (e.g. preprocessor row on GPX / import flows).
 class _PermissionInfoIcon extends StatelessWidget {
   const _PermissionInfoIcon({
     required this.onTap,

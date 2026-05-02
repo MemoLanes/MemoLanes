@@ -8,6 +8,7 @@ import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/service/location/geolocator_service.dart';
 import 'package:memolanes/common/service/location/location_service.dart';
 import 'package:memolanes/common/service/permission_service.dart';
+import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/gps_processor.dart';
 import 'package:mutex/mutex.dart';
@@ -210,7 +211,7 @@ class GpsManager extends ChangeNotifier {
 
   Future<void> changeRecordingState(GpsRecordingStatus to) async {
     if (to == GpsRecordingStatus.recording) {
-      if (!await PermissionService().checkAndRequestPermission()) {
+      if (!await checkAndRequestPermission()) {
         return;
       }
     }
