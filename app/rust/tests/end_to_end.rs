@@ -39,9 +39,9 @@ fn basic() {
 
     // we have both ongoing journey and finalized journey at this point
     {
-        let main_map_state = main_map_state.lock().unwrap();
+        let mut main_map_state = main_map_state.lock().unwrap();
         let render_result = test_utils::render_map_overlay(
-            &main_map_state.map_renderer,
+            &mut main_map_state.map_renderer,
             11,
             121.39,
             31.3146,
@@ -62,9 +62,9 @@ fn basic() {
     }
 
     {
-        let main_map_state = main_map_state.lock().unwrap();
+        let mut main_map_state = main_map_state.lock().unwrap();
         let render_result = test_utils::render_map_overlay(
-            &main_map_state.map_renderer,
+            &mut main_map_state.map_renderer,
             11,
             121.39,
             31.3146,

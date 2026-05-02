@@ -1,8 +1,14 @@
+use chrono::NaiveDate;
+use memolanes_core::cache_db::CacheDbV1;
 use memolanes_core::journey_bitmap::JourneyBitmap;
+use memolanes_core::journey_data::JourneyData;
+use memolanes_core::journey_header::JourneyKind;
+use memolanes_core::main_db::MainDb;
 use memolanes_core::renderer::map_renderer::*;
 use memolanes_core::utils;
 mod render_utils;
 use render_utils::*;
+use tempdir::TempDir;
 
 use image::RgbaImage;
 use serde_json;
@@ -79,7 +85,7 @@ pub fn verify_image(name: &str, image: &Vec<u8>) {
 }
 
 pub fn render_map_overlay(
-    map_renderer: &MapRenderer,
+    map_renderer: &mut MapRenderer,
     // map view area (coordinates are in lat or lng)
     zoom: i32,
     left: f64,
@@ -121,7 +127,7 @@ pub fn render_map_overlay(
 }
 
 fn render_map_overlay_internal(
-    map_renderer: &MapRenderer,
+    map_renderer: &mut MapRenderer,
     render_area: &RenderArea,
 ) -> RenderResult {
     /* for test, map_renderer initialized by MapRenderer::new, tilerenderer size is default size.  */
@@ -137,20 +143,21 @@ fn render_map_overlay_internal(
 
     for x in 0..width_by_tile {
         for y in 0..height_by_tile {
-            // TODO: cache?
-
-            TileShader::render_on_image(
-                &mut image,
-                x * tile_size,
-                y * tile_size,
-                map_renderer.peek_latest_bitmap(),
-                render_area.left_idx as i64 + x as i64,
-                render_area.top_idx as i64 + y as i64,
-                render_area.zoom as i16,
-                DEFAULT_TILE_SIZE.power(), // 9
-                DEFAULT_BG_COLOR,
-                DEFAULT_FG_COLOR,
-            );
+            map_renderer.update(|journey_bitmap, _change_callback| {
+                // No actual change here
+                TileShader::render_on_image(
+                    &mut image,
+                    x * tile_size,
+                    y * tile_size,
+                    journey_bitmap,
+                    render_area.left_idx as i64 + x as i64,
+                    render_area.top_idx as i64 + y as i64,
+                    render_area.zoom as i16,
+                    DEFAULT_TILE_SIZE.power(), // 9
+                    DEFAULT_BG_COLOR,
+                    DEFAULT_FG_COLOR,
+                );
+            });
         }
     }
 
@@ -195,4 +202,36 @@ pub fn draw_sample_bitmap() -> JourneyBitmap {
     draw_line3(&mut journey_bitmap);
     draw_line4(&mut journey_bitmap);
     journey_bitmap
+}
+
+pub fn setup_main_and_cache_db(prefix: &str) -> (MainDb, CacheDbV1, TempDir, TempDir) {
+    let main_dir = TempDir::new(&format!("{prefix}-main")).unwrap();
+    let cache_dir = TempDir::new(&format!("{prefix}-cache")).unwrap();
+    let main_db = MainDb::open(main_dir.path().to_str().unwrap());
+    let cache_db = CacheDbV1::open(cache_dir.path().to_str().unwrap());
+    (main_db, cache_db, main_dir, cache_dir)
+}
+
+pub fn insert_bitmap_journey(
+    txn: &mut memolanes_core::main_db::Txn,
+    date: NaiveDate,
+    kind: JourneyKind,
+    bitmap: JourneyBitmap,
+) -> String {
+    txn.create_and_insert_journey(
+        date,
+        None,
+        None,
+        None,
+        kind,
+        None,
+        JourneyData::Bitmap(bitmap),
+    )
+    .unwrap()
+}
+
+pub fn make_bitmap_with_line(line_fn: fn(&mut JourneyBitmap)) -> JourneyBitmap {
+    let mut bitmap = JourneyBitmap::new();
+    line_fn(&mut bitmap);
+    bitmap
 }

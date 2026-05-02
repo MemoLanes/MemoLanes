@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
@@ -107,6 +107,13 @@ class GpsManager extends ChangeNotifier {
           false => _InternalState.off,
         },
     };
+    final lifecycleStateAtSync = WidgetsBinding.instance.lifecycleState;
+    final allowTrackingOnlyGps = lifecycleStateAtSync == null ||
+        lifecycleStateAtSync == AppLifecycleState.resumed;
+    if (!allowTrackingOnlyGps && newState == _InternalState.justForTracking) {
+      // Map tracking should only use GPS when app is visible.
+      newState = _InternalState.off;
+    }
     var oldState = _internalState;
     if (oldState != newState) {
       // state changed
@@ -230,17 +237,16 @@ class GpsManager extends ChangeNotifier {
     });
   }
 
-  Future<void> toggleMapTracking(bool enable) async {
-    if (enable) {
-      if (!await PermissionService().checkAndRequestPermission()) {
-        return;
-      }
+  Future<bool> toggleMapTracking(bool enable) async {
+    if (enable && !await PermissionService().checkLocationPermission()) {
+      return false;
     }
 
     await _m.protect(() async {
       mapTracking = enable;
       await _syncInternalStateWithoutLock();
     });
+    return true;
   }
 
   void readyToStart() {

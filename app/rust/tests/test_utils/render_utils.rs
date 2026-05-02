@@ -4,7 +4,7 @@ use image::RgbaImage;
 use image::SubImage;
 use std::io::Cursor;
 
-use memolanes_core::journey_bitmap::{Block, BlockKey, JourneyBitmap, Tile};
+use memolanes_core::journey_bitmap::{Block, BlockKey, JourneyBitmap, Tile, TileKey};
 use memolanes_core::journey_bitmap::{BITMAP_WIDTH, BITMAP_WIDTH_OFFSET, TILE_WIDTH_OFFSET};
 
 pub const DEFAULT_BG_COLOR: Rgba<u8> = Rgba([0, 0, 0, 127]);
@@ -55,7 +55,7 @@ impl TileShader {
         image: &mut RgbaImage,
         start_x: u32,
         start_y: u32,
-        journey_bitmap: &JourneyBitmap,
+        journey_bitmap: &mut JourneyBitmap,
         view_x: i64,
         view_y: i64,
         zoom: i16,
@@ -95,9 +95,8 @@ impl TileShader {
             for j in 0..(1 << std::cmp::max(-zoom_diff_view_to_tile, 0)) {
                 // draw tile tile_x+i, tile_y+j
 
-                if let Some(tile) = journey_bitmap
-                    .tiles
-                    .get(&((tile_x + i) as u16, (tile_y + j) as u16))
+                if let Some(tile) =
+                    journey_bitmap.get_tile(&TileKey::new((tile_x + i) as u16, (tile_y + j) as u16))
                 {
                     // if zoom_diff_view_to_tile > 0, view zoom larger, view region smaller, draw a portion of a single tile.
                     // if zoom_diff_view_to_tile < 0, view zoom smaller, view region larger, draw the full tile at given location of view.
@@ -192,7 +191,7 @@ impl TileShader {
 
             for i in 0..(1 << std::cmp::max(block_num_power, 0)) {
                 for j in 0..(1 << std::cmp::max(block_num_power, 0)) {
-                    if let Some(block) = tile.get(BlockKey::from_x_y(
+                    if let Some(block) = tile.get(&BlockKey::from_x_y(
                         (block_start_x + i) as u8,
                         (block_start_y + j) as u8,
                     )) {

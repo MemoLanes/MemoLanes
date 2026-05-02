@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:json_annotation/json_annotation.dart';
@@ -73,19 +72,32 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     setState(() => _journeyMapRendererProxy = proxy);
   }
 
-  void _syncTrackingModeWithGpsManager() {
-    Provider.of<GpsManager>(context, listen: false)
-        .toggleMapTracking(_effectiveTrackingMode != TrackingMode.off);
+  Future<void> _syncTrackingModeWithGpsManager() async {
+    final enable = _effectiveTrackingMode != TrackingMode.off;
+    final applied = await Provider.of<GpsManager>(context, listen: false)
+        .toggleMapTracking(enable);
+
+    // When we requested tracking but GpsManager could not enable (e.g. no
+    // permission), set UI and MMKV to off so we do not persist invalid state.
+    if (enable && !applied && mounted) {
+      setState(() => _currentTrackingMode = TrackingMode.off);
+      _saveMapState();
+    }
   }
 
   void _trackingModeButton() async {
     final newMode = _currentTrackingMode == TrackingMode.off
         ? TrackingMode.displayAndTracking
         : TrackingMode.off;
+    if (newMode != TrackingMode.off) {
+      if (!await PermissionService().checkAndRequestPermission()) {
+        return;
+      }
+    }
     setState(() {
       _currentTrackingMode = newMode;
     });
-    _syncTrackingModeWithGpsManager();
+    await _syncTrackingModeWithGpsManager();
     _saveMapState();
   }
 
@@ -122,23 +134,8 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   }
 
   @override
-  Future<void> didChangeAppLifecycleState(AppLifecycleState state) async {
+  void didChangeAppLifecycleState(AppLifecycleState state) {
     final gpsManager = Provider.of<GpsManager>(context, listen: false);
-    // On certain Android ROMs,
-    // when the user disables location permission from the system settings,
-    // permission_handler returns denied instead of permanentlyDenied.
-    // Requesting the permission triggers an AppLifecycleState change,
-    // which in turn initiates another permission request.
-    // This recursive interaction results in a loop of repeated permission requests.
-    if (Platform.isAndroid && _currentTrackingMode != TrackingMode.off) {
-      final hasPermission = await PermissionService().checkLocationPermission();
-      if (!hasPermission) {
-        setState(() => _currentTrackingMode = TrackingMode.off);
-        gpsManager.toggleMapTracking(false);
-        return;
-      }
-    }
-
     switch (state) {
       case AppLifecycleState.resumed:
         _syncTrackingModeWithGpsManager();
@@ -238,13 +235,6 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final mode = widget.mode;
-
-    // TODO: Add profile button top right
-    if (_roughMapView == null) {
-      // TODO: This should be a loading spinner and it should be cover the whole
-      // screen until the map is fully loaded.
-      return const SizedBox.shrink();
-    }
 
     final children = <Widget>[
       _buildMapLayer(),

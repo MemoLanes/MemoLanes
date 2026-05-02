@@ -20,7 +20,7 @@ class LayerButton extends StatelessWidget {
       horizontalOffset: -16,
       contentRadius: 24,
       barrierColor: Colors.transparent,
-      content: PointerInterceptor(child: LayerPopupContent()),
+      content: PointerInterceptor(child: const LayerPopupContent()),
       child: PointerInterceptor(
           child: Container(
         width: 48,
@@ -42,7 +42,7 @@ class LayerButton extends StatelessWidget {
 }
 
 class LayerPopupContent extends StatefulWidget {
-  LayerPopupContent({
+  const LayerPopupContent({
     super.key,
   });
 
@@ -57,7 +57,7 @@ enum LayerOption {
 }
 
 class _LayerPopupContentState extends State<LayerPopupContent> {
-  api.LayerFilter _layerFilter = api.getCurrentMainMapLayerFilter();
+  final api.LayerFilter _layerFilter = api.getCurrentMainMapLayerFilter();
   Timer? _actionTimer;
 
   @override

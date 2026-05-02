@@ -77,8 +77,7 @@ class PermissionService {
       if (!await Geolocator.isLocationServiceEnabled()) {
         return false;
       }
-      if (!(await Permission.location.isGranted ||
-          await Permission.locationAlways.isGranted)) {
+      if (!await Permission.location.isGranted) {
         return false;
       }
       return true;

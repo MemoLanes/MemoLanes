@@ -52,7 +52,7 @@ flutter-fmt:
 [group: 'utils']
 flutter-check:
     @echo "🔍 Analyzing Flutter code"
-    @flutter analyze --no-fatal-infos
+    @flutter analyze
     @echo "✅ Flutter code analysis completed"
 
 [group: 'utils']

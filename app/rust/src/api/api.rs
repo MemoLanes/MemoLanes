@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
@@ -22,7 +22,7 @@ use crate::renderer::get_default_camera_option_from_journey_bitmap;
 use crate::renderer::internal_server::{Request, RequestResponse, TileRangeResponse};
 use crate::renderer::MapRenderer;
 use crate::storage::{RawDataFile, Storage};
-use crate::{archive, build_info, export_data, gps_processor, main_db, merged_journey_builder};
+use crate::{archive, build_info, export_data, gps_processor, main_db};
 
 use crate::renderer::CameraOptionInternal;
 
@@ -263,25 +263,49 @@ pub enum LogLevel {
 }
 
 #[frb(opaque)]
+pub struct OpaqueJourneyData {
+    data: Mutex<JourneyData>,
+}
+
+impl OpaqueJourneyData {
+    pub(super) fn new(journey_data: JourneyData) -> Self {
+        OpaqueJourneyData {
+            data: Mutex::new(journey_data),
+        }
+    }
+
+    pub(super) fn into_inner(self) -> JourneyData {
+        self.data.into_inner().unwrap()
+    }
+
+    pub(super) fn borrow_inner(&self) -> std::sync::MutexGuard<'_, JourneyData> {
+        self.data.lock().unwrap()
+    }
+}
+
+#[frb(opaque)]
 pub enum MapRendererProxy {
-    StaticRenderer(MapRenderer),
+    StaticRenderer(Mutex<MapRenderer>),
     DynamicRenderer(Arc<Mutex<MapRenderer>>),
     MainMapRenderer,
 }
 
 impl MapRendererProxy {
-    pub fn handle_webview_requests(&self, request: String) -> Result<String> {
+    pub fn handle_webview_requests(&mut self, request: String) -> Result<String> {
         let request = Request::parse(&request)?;
         let response = match self {
-            MapRendererProxy::StaticRenderer(map_renderer) => request.handle(map_renderer),
+            MapRendererProxy::StaticRenderer(map_renderer) => {
+                let map_renderer = map_renderer.get_mut().unwrap();
+                request.handle(map_renderer)
+            }
             MapRendererProxy::DynamicRenderer(map_renderer) => {
-                let map_renderer = map_renderer.lock().unwrap();
-                request.handle(&map_renderer)
+                let mut map_renderer = map_renderer.lock().unwrap();
+                request.handle(&mut map_renderer)
             }
             MapRendererProxy::MainMapRenderer => {
-                let main_map_state = get().main_map_state.lock().unwrap();
+                let mut main_map_state = get().main_map_state.lock().unwrap();
                 match main_map_state.dropped_for_power_saving {
-                    false => request.handle(&main_map_state.map_renderer),
+                    false => request.handle(&mut main_map_state.map_renderer),
                     true =>
                     // TODO: This is hacky. I think we should make the type better here for `main_map_state`.
                     // Also have a dedicate value for this case in the response. Right now we reuse the case that
@@ -317,37 +341,30 @@ pub fn get_map_renderer_proxy_for_main_map() -> MapRendererProxy {
 pub fn get_empty_map_renderer_proxy() -> MapRendererProxy {
     let journey_bitmap = JourneyBitmap::new();
     let map_renderer = MapRenderer::new(journey_bitmap);
-    MapRendererProxy::StaticRenderer(map_renderer)
+    MapRendererProxy::StaticRenderer(Mutex::new(map_renderer))
 }
 
+/// [journey_kinds]: empty = no layers; len 1 = that kind only; len 2 = both (pass None).
 pub fn get_map_renderer_proxy_for_journey_date_range(
     from_date_inclusive: NaiveDate,
     to_date_inclusive: NaiveDate,
+    journey_kinds: HashSet<JourneyKind>,
 ) -> Result<MapRendererProxy> {
     let state = get();
-    let layer_filter = state.main_map_state.lock().unwrap().layer_filter;
-    let (default_kind, flight_kind) = (layer_filter.default_kind, layer_filter.flight_kind);
-
-    let journey_bitmap = state
-        .storage
-        .with_db_txn(|txn| match (default_kind, flight_kind) {
-            (true, true) => {
-                merged_journey_builder::get_range(txn, from_date_inclusive, to_date_inclusive, None)
-            }
-            (true, false) => merged_journey_builder::get_range(
-                txn,
-                from_date_inclusive,
-                to_date_inclusive,
-                Some(&JourneyKind::DefaultKind),
-            ),
-            (false, true) => merged_journey_builder::get_range(
-                txn,
-                from_date_inclusive,
-                to_date_inclusive,
-                Some(&JourneyKind::Flight),
-            ),
-            (false, false) => Ok(JourneyBitmap::new()),
-        })?;
+    let get = |journey_kind| {
+        state
+            .storage
+            .get_range_bitmap(from_date_inclusive, to_date_inclusive, journey_kind)
+    };
+    let journey_bitmap = match (
+        journey_kinds.contains(&JourneyKind::DefaultKind),
+        journey_kinds.contains(&JourneyKind::Flight),
+    ) {
+        (false, false) => JourneyBitmap::new(),
+        (true, false) => get(Some(&JourneyKind::DefaultKind))?,
+        (false, true) => get(Some(&JourneyKind::Flight))?,
+        (true, true) => get(None)?,
+    };
 
     let map_renderer = MapRenderer::new(journey_bitmap);
     Ok(MapRendererProxy::DynamicRenderer(Arc::new(Mutex::new(
@@ -355,17 +372,11 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
     ))))
 }
 
-pub(super) fn get_map_renderer_proxy_for_journey_data_internal(
+fn get_map_renderer_proxy_for_journey_data_internal(
     journey_data: JourneyData,
 ) -> Result<(MapRendererProxy, Option<CameraOption>)> {
-    let journey_bitmap = match journey_data {
-        JourneyData::Bitmap(bitmap) => bitmap,
-        JourneyData::Vector(vector) => {
-            let mut bitmap = JourneyBitmap::new();
-            merged_journey_builder::add_journey_vector_to_journey_bitmap(&mut bitmap, &vector);
-            bitmap
-        }
-    };
+    let mut journey_bitmap = JourneyBitmap::new();
+    journey_data.merge_into(&mut journey_bitmap);
 
     let default_camera_option = get_default_camera_option_from_journey_bitmap(&journey_bitmap);
 
@@ -386,11 +397,12 @@ pub fn get_map_renderer_proxy_for_journey(
 }
 
 pub fn get_map_renderer_proxy_for_journey_data(
-    journey_data: &JourneyData,
+    journey_data: &OpaqueJourneyData,
 ) -> Result<(MapRendererProxy, Option<CameraOption>)> {
     // TODO: the clone here is not ideal, we should redesign the interface,
     // maybe consider Arc.
-    get_map_renderer_proxy_for_journey_data_internal(journey_data.clone())
+    let journey_data = journey_data.borrow_inner().clone();
+    get_map_renderer_proxy_for_journey_data_internal(journey_data)
 }
 
 // Return `true` if this update contains meaningful data.
@@ -476,6 +488,7 @@ pub struct LayerFilter {
     pub flight_kind: bool,
 }
 
+#[frb(ignore)]
 pub struct MainMapState {
     pub map_renderer: MapRenderer,
     pub dropped_for_power_saving: bool,
@@ -558,6 +571,12 @@ pub fn list_all_journeys() -> Result<Vec<JourneyHeader>> {
     get()
         .storage
         .with_db_txn(|txn| txn.query_journeys(None, None))
+}
+
+pub fn get_journey_header(journey_id: String) -> Result<Option<JourneyHeader>> {
+    get()
+        .storage
+        .with_db_txn(|txn| txn.get_journey_header(&journey_id))
 }
 
 pub fn generate_full_archive(target_filepath: String) -> Result<()> {
@@ -650,14 +669,6 @@ pub fn export_raw_data_gpx_file(csv_filepath: String) -> Result<String> {
 pub fn delete_all_journeys() -> Result<()> {
     info!("Delete all journeys");
     get().storage.with_db_txn(|txn| txn.delete_all_journeys())
-}
-
-pub fn import_archive(mldx_file_path: String) -> Result<()> {
-    info!("Import Archived Data");
-    get()
-        .storage
-        .with_db_txn(|txn| archive::import_mldx(txn, &mldx_file_path))?;
-    Ok(())
 }
 
 pub fn update_journey_metadata(id: &str, journey_info: JourneyInfo) -> Result<()> {
@@ -793,4 +804,14 @@ pub fn reload_resource_for_foreground() -> Result<()> {
         info!("main map loaded");
     }
     Ok(())
+}
+pub fn main_map_bitmap_check_invariant_and_debug_log() {
+    let state = get();
+    let mut main_map_state = state.main_map_state.lock().unwrap();
+    main_map_state
+        .map_renderer
+        .update(|journey_bitmap, _change_callback| {
+            // we are not changing anything here.
+            journey_bitmap.check_invariant_and_debug_log();
+        });
 }

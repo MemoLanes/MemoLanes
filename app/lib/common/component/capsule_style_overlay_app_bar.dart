@@ -74,7 +74,6 @@ class CapsuleStyleOverlayAppBar extends StatelessWidget
   }) {
     return _CapsuleOverlayConnection(
       key: key,
-      child: child,
       title: title,
       subtitle: subtitle,
       onBack: onBack,
@@ -83,6 +82,7 @@ class CapsuleStyleOverlayAppBar extends StatelessWidget
       backgroundColor: backgroundColor,
       foregroundColor: foregroundColor,
       showOnlyBackButton: showOnlyBackButton,
+      child: child,
     );
   }
 

@@ -24,8 +24,8 @@ async fn serve_journey_tile_range(
     query: web::Query<TileRangeQuery>,
     data: web::Data<Arc<Mutex<MapRenderer>>>,
 ) -> HttpResponse {
-    let map_renderer = data.get_ref().lock().unwrap();
-    match handle_tile_range_query(&query.into_inner(), &map_renderer) {
+    let mut map_renderer = data.get_ref().lock().unwrap();
+    match handle_tile_range_query(&query.into_inner(), &mut map_renderer) {
         Ok(tile_response) => {
             match tile_response.status {
                 200 => {
@@ -80,8 +80,8 @@ async fn serve_unified_json_request(
     };
 
     // Handle the request using the unified interface
-    let map_renderer = data.get_ref().lock().unwrap();
-    let response = request.handle(&map_renderer);
+    let mut map_renderer = data.get_ref().lock().unwrap();
+    let response = request.handle(&mut map_renderer);
 
     // Convert to JSON and return HTTP response
     match serde_json::to_string(&response) {

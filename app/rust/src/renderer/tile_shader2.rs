@@ -1,4 +1,4 @@
-use crate::journey_bitmap::{Block, BlockKey, JourneyBitmap, Tile};
+use crate::journey_bitmap::{Block, BlockKey, JourneyBitmap, TileKey};
 use crate::journey_bitmap::{BITMAP_WIDTH, BITMAP_WIDTH_OFFSET, TILE_WIDTH_OFFSET};
 
 const TILE_ZOOM: i16 = 9;
@@ -10,7 +10,7 @@ impl TileShader2 {
     pub fn get_pixels_coordinates(
         start_x: u32,
         start_y: u32,
-        journey_bitmap: &JourneyBitmap,
+        journey_bitmap: &mut JourneyBitmap,
         view_x: i64,
         view_y: i64,
         zoom: i16,
@@ -39,10 +39,9 @@ impl TileShader2 {
             for j in 0..(1 << std::cmp::max(-zoom_diff_view_to_tile, 0)) {
                 // draw tile tile_x+i, tile_y+j
 
-                if let Some(tile) = journey_bitmap
-                    .tiles
-                    .get(&((tile_x + i) as u16, (tile_y + j) as u16))
-                {
+                let tile_key = TileKey::new((tile_x + i) as u16, (tile_y + j) as u16);
+
+                if journey_bitmap.contains_tile(&tile_key) {
                     // if zoom_diff_view_to_tile > 0, view zoom larger, view region smaller, draw a portion of a single tile.
                     // if zoom_diff_view_to_tile < 0, view zoom smaller, view region larger, draw the full tile at given location of view.
 
@@ -65,7 +64,8 @@ impl TileShader2 {
                     };
                     Self::add_tile_pixels(
                         &mut pixels,
-                        tile,
+                        journey_bitmap,
+                        &tile_key,
                         start_x as i64 + x0,
                         start_y as i64 + y0,
                         sub_tile_x_idx,
@@ -82,9 +82,11 @@ impl TileShader2 {
     }
 
     #[allow(clippy::too_many_arguments)]
+    /// This requires `tile_key` to exist in `journey_bitmap`.
     fn add_tile_pixels(
         pixels: &mut Vec<(i64, i64)>,
-        tile: &Tile,
+        journey_bitmap: &mut JourneyBitmap,
+        tile_key: &TileKey,
         start_x: i64,
         start_y: i64,
         sub_tile_x_idx: i64,
@@ -105,10 +107,13 @@ impl TileShader2 {
             sub_tile_y_idx <= 1 << zoom_factor,
             "sub_tile_y_idx cannot exceed the tile"
         );
+        debug_assert!(
+            journey_bitmap.contains_tile(tile_key),
+            "tile must exist in bitmap"
+        );
 
         if size_power <= 0 {
-            // the tile only occupies at most one pixel, so we don't have to access the blocks.
-            // sub_image.put_pixel(start_x as u32, start_y as u32, fg_color);
+            // the tile only occupies at most one pixel, so we don't have to access the tile.
             pixels.push((start_x, start_y));
         } else {
             // the tile occupies more than one pixel, currently all the blocks will be used to render。
@@ -134,28 +139,48 @@ impl TileShader2 {
                 (0, 0)
             };
             let block_width_power = size_power - block_num_power;
+            let block_size_power = std::cmp::min(block_width_power, buffer_size_power);
+
+            // we already checked that tile exists
+            let tile_info = if block_size_power <= 0 {
+                // we only need `TileSummary`
+                either::Left(journey_bitmap.get_tile_summary(tile_key).unwrap())
+            } else {
+                // we need full `Tile`
+                either::Right(journey_bitmap.get_tile(tile_key).unwrap())
+            };
 
             for i in 0..(1 << std::cmp::max(block_num_power, 0)) {
                 for j in 0..(1 << std::cmp::max(block_num_power, 0)) {
-                    if let Some(block) = tile.get(BlockKey::from_x_y(
-                        (block_start_x + i) as u8,
-                        (block_start_y + j) as u8,
-                    )) {
-                        let (offset_x, offset_y) = if block_width_power >= 0 {
-                            (i << block_width_power, j << block_width_power)
-                        } else {
-                            (i >> -block_width_power, j >> -block_width_power)
-                        };
-                        Self::add_block_pixels(
-                            pixels,
-                            block,
-                            start_x + offset_x,
-                            start_y + offset_y,
-                            sub_block_x_idx,
-                            sub_block_y_idx,
-                            block_zoom_factor,
-                            std::cmp::min(block_width_power, buffer_size_power),
-                        );
+                    let block_key =
+                        BlockKey::from_x_y((block_start_x + i) as u8, (block_start_y + j) as u8);
+                    let (offset_x, offset_y) = if block_width_power >= 0 {
+                        (i << block_width_power, j << block_width_power)
+                    } else {
+                        (i >> -block_width_power, j >> -block_width_power)
+                    };
+                    let block_start_x = start_x + offset_x;
+                    let block_start_y = start_y + offset_y;
+                    match &tile_info {
+                        either::Left(tile_summary) => {
+                            if tile_summary.contains_block(&block_key) {
+                                pixels.push((block_start_x, block_start_y));
+                            }
+                        }
+                        either::Right(tile) => {
+                            if let Some(block) = tile.get(&block_key) {
+                                Self::add_block_pixels(
+                                    pixels,
+                                    block,
+                                    block_start_x,
+                                    block_start_y,
+                                    sub_block_x_idx,
+                                    sub_block_y_idx,
+                                    block_zoom_factor,
+                                    block_size_power,
+                                );
+                            }
+                        }
                     }
                 }
             }
@@ -173,45 +198,46 @@ impl TileShader2 {
         zoom_factor: i16,
         size_power: i16,
     ) {
-        if size_power <= 0 {
-            pixels.push((start_x, start_y));
+        debug_assert!(
+            size_power > 0,
+            "`size_power <= 0` should already be handled in the caller function"
+        );
+
+        let dot_num_power = BITMAP_WIDTH_OFFSET - zoom_factor; // number of block in a row of the view
+
+        let (dot_start_x, dot_start_y) = if dot_num_power >= 0 {
+            (
+                sub_block_x_idx << dot_num_power,
+                sub_block_y_idx << dot_num_power,
+            )
         } else {
-            let dot_num_power = BITMAP_WIDTH_OFFSET - zoom_factor; // number of block in a row of the view
+            (
+                sub_block_x_idx >> -dot_num_power,
+                sub_block_y_idx >> -dot_num_power,
+            )
+        };
 
-            let (dot_start_x, dot_start_y) = if dot_num_power >= 0 {
-                (
-                    sub_block_x_idx << dot_num_power,
-                    sub_block_y_idx << dot_num_power,
-                )
-            } else {
-                (
-                    sub_block_x_idx >> -dot_num_power,
-                    sub_block_y_idx >> -dot_num_power,
-                )
-            };
+        let block_dot_width_power = size_power - (BITMAP_WIDTH_OFFSET - zoom_factor);
+        let block_dot_width = 1 << std::cmp::max(0, block_dot_width_power);
 
-            let block_dot_width_power = size_power - (BITMAP_WIDTH_OFFSET - zoom_factor);
-            let block_dot_width = 1 << std::cmp::max(0, block_dot_width_power);
-
-            for i in 0..(1 << std::cmp::max(dot_num_power, 0)) {
-                for j in 0..(1 << std::cmp::max(dot_num_power, 0)) {
-                    let (dot_x, dot_y) = (dot_start_x + i, dot_start_y + j);
-                    if block.is_visited(dot_x as u8, dot_y as u8) {
-                        debug_assert!(dot_x < BITMAP_WIDTH);
-                        debug_assert!(dot_y < BITMAP_WIDTH);
-                        let (offset_x, offset_y) = if block_dot_width_power >= 0 {
-                            (i << block_dot_width_power, j << block_dot_width_power)
-                        } else {
-                            (i >> -block_dot_width_power, j >> -block_dot_width_power)
-                        };
-                        Self::add_rect_pixels(
-                            pixels,
-                            start_x + offset_x,
-                            start_y + offset_y,
-                            block_dot_width,
-                            block_dot_width,
-                        );
-                    }
+        for i in 0..(1 << std::cmp::max(dot_num_power, 0)) {
+            for j in 0..(1 << std::cmp::max(dot_num_power, 0)) {
+                let (dot_x, dot_y) = (dot_start_x + i, dot_start_y + j);
+                if block.is_visited(dot_x as u8, dot_y as u8) {
+                    debug_assert!(dot_x < BITMAP_WIDTH);
+                    debug_assert!(dot_y < BITMAP_WIDTH);
+                    let (offset_x, offset_y) = if block_dot_width_power >= 0 {
+                        (i << block_dot_width_power, j << block_dot_width_power)
+                    } else {
+                        (i >> -block_dot_width_power, j >> -block_dot_width_power)
+                    };
+                    Self::add_rect_pixels(
+                        pixels,
+                        start_x + offset_x,
+                        start_y + offset_y,
+                        block_dot_width,
+                        block_dot_width,
+                    );
                 }
             }
         }

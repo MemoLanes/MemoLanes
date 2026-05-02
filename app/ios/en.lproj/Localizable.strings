@@ -1,0 +1,10 @@
+/* App Intents / Shortcuts — keys match AppDelegate LocalizedStringResource */
+
+"memolanes_intent_start_recording_title" = "Start recording";
+"memolanes_intent_start_recording_desc" = "Start recording";
+
+"memolanes_intent_pause_recording_title" = "Pause recording";
+"memolanes_intent_pause_recording_desc" = "Pause the current recording";
+
+"memolanes_intent_end_journey_title" = "End journey";
+"memolanes_intent_end_journey_desc" = "Stop recording and end the current journey";
