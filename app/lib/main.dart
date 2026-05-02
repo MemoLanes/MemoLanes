@@ -18,7 +18,6 @@ import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/service/permission_service.dart';
-import 'package:memolanes/common/share_handler_util.dart';
 import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/common/loading_manager.dart';
@@ -130,7 +129,6 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // 先等待欢迎/隐私弹窗关闭，再执行加载与权限流程，避免权限层抢先弹出
       await showPrivacyAgreementIfNeeded(context);
       if (!context.mounted) return;
 
@@ -142,7 +140,6 @@ class _MyHomePageState extends State<MyHomePage> {
         );
       }
       if (!context.mounted) return;
-      // 仅首次打开 app 时若有权限未授予则主动弹出权限层，之后不再主动弹出
       await PermissionService().tryShowPermissionSheetIfFirstTime();
     });
   }

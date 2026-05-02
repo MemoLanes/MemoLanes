@@ -519,8 +519,7 @@ class TimeRangeControllerBall extends StatelessWidget {
 
     final String caption = switch (viewMode) {
       TimeMachineViewMode.period => context.tr('time_machine.menu_view_period'),
-      TimeMachineViewMode.asOf =>
-        context.tr('time_machine.menu_view_as_of'),
+      TimeMachineViewMode.asOf => context.tr('time_machine.menu_view_as_of'),
       TimeMachineViewMode.custom => '',
     };
 

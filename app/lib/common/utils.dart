@@ -144,7 +144,6 @@ void showBasicCard(
   );
 }
 
-/// 通用底部弹出层，支持标题栏、内容区和底部主按钮，可返回结果
 Future<T?> showBasicCardWithResult<T>(
   BuildContext context, {
   required String title,
@@ -190,11 +189,13 @@ Future<T?> showBasicCardWithResult<T>(
             ),
             if (showLeading)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+                      icon:
+                          const Icon(Icons.arrow_back_ios, color: Colors.white),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                     Expanded(

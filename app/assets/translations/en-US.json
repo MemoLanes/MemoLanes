@@ -9,15 +9,19 @@
     "map_data_source_copyright_title": "Data Source"
   },
   "permission_sheet": {
-    "title": "Authorize for full experience",
+    "title": "Authorize for the full experience",
+    "location_help_tooltip": "About location permission",
+    "battery_help_tooltip": "About battery optimization",
+    "notification_help_tooltip": "About notification permission",
     "enable_all": "Enable All",
     "skip": "Skip",
     "location_title": "Location",
-    "location_desc": "For map display and journey route recording",
+    "location_desc": "For map display and journey recording",
     "battery_title": "Battery optimization",
-    "battery_desc": "Reduces background restrictions so tracking and recording stay reliable",
+    "battery_desc": "Reduces system background limits on the app for more stable journey recording",
     "notification_title": "Notifications",
-    "notification_desc": "Notifies you if recording stops unexpectedly"
+    "notification_desc": "Sends notification reminders if journey recording stops unexpectedly",
+    "open_system_settings": "Open system settings"
   },
   "location_service": {
     "location_service_disabled": "Location services are disabled. Please enable them in the settings.",

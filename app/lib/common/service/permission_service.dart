@@ -15,8 +15,9 @@ class PermissionService {
 
   factory PermissionService() => _instance;
 
-  /// 仅在首次打开 app 时调用：若需要权限且未弹过层，则弹出一次并写入 MMKV。
-  /// 之后打开 app 不再主动弹出。
+  /// First launch only: if any permission is still needed and the sheet was
+  /// never shown, show it once and persist that in MMKV. Later launches do not
+  /// auto-open the sheet.
   Future<void> tryShowPermissionSheetIfFirstTime() async {
     try {
       final sheetShown =
@@ -53,7 +54,8 @@ class PermissionService {
     return false;
   }
 
-  /// 用户触发（点录制/定位）时调用：需要权限则始终弹出权限层。
+  /// User-driven (e.g. record / map): if any permission is still needed,
+  /// always show the permission sheet.
   Future<bool> checkAndRequestPermission() async {
     try {
       final needAny = await _needAnyPermission();

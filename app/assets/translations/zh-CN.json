@@ -10,14 +10,18 @@
   },
   "permission_sheet": {
     "title": "授权以体验完整功能",
+    "location_help_tooltip": "位置权限说明",
+    "battery_help_tooltip": "电池优化说明",
+    "notification_help_tooltip": "通知权限说明",
     "enable_all": "全部开启",
     "skip": "跳过",
     "location_title": "位置",
-    "location_desc": "用于地图展示与行程轨迹记录",
+    "location_desc": "用于地图展示与旅程记录",
     "battery_title": "电池优化",
-    "battery_desc": "降低系统在后台对应用的限制，录制与定位更稳定",
+    "battery_desc": "降低系统在后台对应用的限制，旅程记录更稳定",
     "notification_title": "通知",
-    "notification_desc": "录制意外中断时提醒你"
+    "notification_desc": "用于旅程记录时意外中断发送通知提醒",
+    "open_system_settings": "前往系统设置"
   },
   "location_service": {
     "location_service_disabled": "定位服务未开启，请在设置中启用。",

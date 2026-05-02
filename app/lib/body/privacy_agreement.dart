@@ -30,8 +30,9 @@ Future<void> _showPrivacyDialogMethod(BuildContext context) async {
   }
 }
 
-/// 若需要展示隐私/欢迎弹窗则展示并返回其 Future，否则返回已完成的 Future。
-/// 调用方应 await 本方法，确保欢迎弹窗关闭后再执行后续流程（如权限层）。
+/// If privacy / welcome UI must be shown, returns its [Future]; otherwise a
+/// completed future. Callers should await this so later steps (e.g. the
+/// permission sheet) run only after those dialogs are dismissed.
 Future<void> showPrivacyAgreementIfNeeded(BuildContext context) {
   var acceptedVersion =
       MMKVUtil.getInt(MMKVKey.privacyAgreementAccepted, defaultValue: 0);
