@@ -76,7 +76,9 @@
     "start_time": "开始时间",
     "end_time": "结束时间",
     "created_at": "创建时间",
-    "note": "备注"
+    "note": "备注",
+    "finalize_saved": "新增旅程",
+    "finalize_empty": "未检测到新旅程"
   },
   "db_optimization": {
     "notification": "你的数据库需要优化，请前往设置选项卡并点击[优化数据库]按钮。",

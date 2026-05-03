@@ -76,7 +76,9 @@
     "start_time": "Start Time",
     "end_time": "End Time",
     "created_at": "Created At",
-    "note": "Note"
+    "note": "Note",
+    "finalize_saved": "New journey added",
+    "finalize_empty": "No journey detected"
   },
   "db_optimization": {
     "notification": "Your database requires optimization, please go to Settings tab and click [Optimize database] button.",
