@@ -145,7 +145,7 @@ class GpsManager extends ChangeNotifier {
         log.info("[GpsManager] turning on gps stream. new state: $newState");
         bool enableBackground = newState == _InternalState.recording;
         await _locationService.startLocationUpdates(enableBackground);
-        _seedLastKnownPosition();
+        unawaited(_seedLastKnownPosition());
 
         _locationUpdateSub = _locationService.onLocationUpdate((data) async {
           if (_positionTooOld(data)) {
@@ -227,15 +227,13 @@ class GpsManager extends ChangeNotifier {
   // Non-blocking: fetches the OS-cached last known location and uses it as a
   // transient seed for the map marker while the live stream warms up. Has no
   // effect once a real fix has already arrived or the service has stopped.
-  void _seedLastKnownPosition() {
-    () async {
-      final seed = await getLastKnownLocation();
-      if (seed == null) return;
-      if (latestPosition != null) return;
-      if (_internalState == _InternalState.off) return;
-      lastKnownPosition = seed;
-      notifyListeners();
-    }();
+  Future<void> _seedLastKnownPosition() async {
+    final seed = await getLastKnownLocation();
+    if (seed == null) return;
+    if (latestPosition != null) return;
+    if (_internalState == _InternalState.off) return;
+    lastKnownPosition = seed;
+    notifyListeners();
   }
 
   Future<void> changeRecordingState(GpsRecordingStatus to) async {

@@ -27,12 +27,12 @@ Future<LocationData?> getLastKnownLocation() async {
       latitude: pos.latitude,
       longitude: pos.longitude,
       accuracy: pos.accuracy,
-      timestampMs: pos.timestamp.millisecondsSinceEpoch,
+      timestampMs: pos.timestamp?.millisecondsSinceEpoch ?? 0,
       altitude: pos.altitude,
       speed: pos.speed,
     );
-  } catch (e) {
-    log.error("[getLastKnownLocation] $e");
+  } catch (e, st) {
+    log.error("[getLastKnownLocation] $e", st);
     return null;
   }
 }
