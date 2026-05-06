@@ -5,7 +5,7 @@ import 'package:memolanes/common/mmkv_util.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 /// Single side-effect step the UI layer should perform (dialogs / system pages).
-/// No [BuildContext]: [PermissionRequestSheet] applies these with [showCommonDialog] etc.
+/// No [BuildContext]: [showPermissionRequestSheet] applies these with [showCommonDialog] etc.
 class PermissionEffect {
   final String? messageTrKey;
   final bool openAppSettings;
