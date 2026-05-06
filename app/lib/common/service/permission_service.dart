@@ -72,9 +72,10 @@ class PermissionService {
             defaultValue: false)) {
       return true;
     }
-    if (!(await Permission.notification.status.isGranted) &&
+    final notificationStatus = await Permission.notification.status;
+    if (!notificationStatus.isGranted &&
         !MMKVUtil.getBool(MMKVKey.requestedNotification, defaultValue: false) &&
-        !(await Permission.notification.status.isPermanentlyDenied)) {
+        !notificationStatus.isPermanentlyDenied) {
       return true;
     }
     return false;
@@ -97,8 +98,9 @@ class PermissionService {
   /// GPS off → open system location page. No pre-request dialogs.
   Future<List<PermissionEffect>> runLocationRequest() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
-      await Geolocator.openLocationSettings();
-      return const [];
+      return const [
+        PermissionEffect(openLocationSettings: true),
+      ];
     }
 
     var status = await Permission.location.status;
@@ -116,10 +118,13 @@ class PermissionService {
     if (!status.isGranted) {
       status = await Permission.location.request();
       if (!status.isGranted) {
+        final deniedMessageKey = status.isPermanentlyDenied
+            ? 'location_service.location_permission_permanently_denied'
+            : 'location_service.location_permission_denied';
         return [
-          const PermissionEffect(
-            messageTrKey:
-                'location_service.location_permission_permanently_denied',
+          PermissionEffect(
+            messageTrKey: deniedMessageKey,
+            openAppSettings: status.isPermanentlyDenied,
           ),
         ];
       }

@@ -46,8 +46,10 @@ Future<void> tryShowPermissionSheetIfFirstTime() async {
     final context = navigatorKey.currentState?.context;
     if (context == null || !context.mounted) return;
 
-    await showPermissionRequestSheet(context);
-    MMKVUtil.putBool(MMKVKey.permissionSheetShown, true);
+    final entered = await showPermissionRequestSheet(context);
+    if (entered) {
+      MMKVUtil.putBool(MMKVKey.permissionSheetShown, true);
+    }
   } catch (e) {
     log.error("[NavHelper] tryShowPermissionSheetIfFirstTime $e");
   }

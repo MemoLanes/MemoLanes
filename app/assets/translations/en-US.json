@@ -25,6 +25,7 @@
   },
   "location_service": {
     "location_service_disabled": "Location services are disabled. Please enable them in the settings.",
+    "location_permission_denied": "Location permission was not granted, so location-based features are temporarily unavailable. You can allow it later.",
     "location_permission_permanently_denied": "You have denied location permission, therefore location-based features are disabled. If you want to use these features, please enable it in the app settings.",
     "location_permission_reason": "MemoLanes needs location permission to collect your precise location data to record your travel routes and visualize your journey history. All location data is stored locally on your device and is not shared with any third parties.",
     "battery_optimization_reason": "To ensure continuous background location updates, please allow the app to ignore battery optimization.",

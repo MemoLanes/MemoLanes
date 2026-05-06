@@ -36,7 +36,7 @@ class _PermissionRequestSheetContent extends StatefulWidget {
 }
 
 class _PermissionRequestSheetContentState
-    extends State<_PermissionRequestSheetContent> {
+    extends State<_PermissionRequestSheetContent> with WidgetsBindingObserver {
   final PermissionService _permissions = PermissionService();
 
   bool _locationGranted = false;
@@ -72,7 +72,21 @@ class _PermissionRequestSheetContentState
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _refreshStatus();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshStatus();
+    }
   }
 
   Future<void> _refreshStatus() async {
