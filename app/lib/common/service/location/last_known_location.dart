@@ -27,7 +27,7 @@ Future<LocationData?> getLastKnownLocation() async {
       latitude: pos.latitude,
       longitude: pos.longitude,
       accuracy: pos.accuracy,
-      timestampMs: pos.timestamp?.millisecondsSinceEpoch ?? 0,
+      timestampMs: pos.timestamp.millisecondsSinceEpoch,
       altitude: pos.altitude,
       speed: pos.speed,
     );
