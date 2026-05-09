@@ -38,17 +38,17 @@ pub enum AddLinesOutcome {
 
 #[derive(Debug)]
 enum PrepareTrackPointsError {
-    LinkedDrawTooFar,
-    LinkedDrawNeedsMultipleTracks,
-    LinkedDrawInvalidLinkTargets,
+    TooFar,
+    NeedsMultipleTracks,
+    InvalidLinkTargets,
 }
 
 impl std::fmt::Display for PrepareTrackPointsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::LinkedDrawTooFar => write!(f, "linked draw too far"),
-            Self::LinkedDrawNeedsMultipleTracks => write!(f, "linked draw needs multiple tracks"),
-            Self::LinkedDrawInvalidLinkTargets => write!(f, "linked draw invalid link targets"),
+            Self::TooFar => write!(f, "linked draw too far"),
+            Self::NeedsMultipleTracks => write!(f, "linked draw needs multiple tracks"),
+            Self::InvalidLinkTargets => write!(f, "linked draw invalid link targets"),
         }
     }
 }
@@ -146,9 +146,7 @@ impl EditSession {
 
         if snap_endpoints {
             if self.data.track_segments.len() < 2 {
-                return Err(anyhow!(
-                    PrepareTrackPointsError::LinkedDrawNeedsMultipleTracks
-                ));
+                return Err(anyhow!(PrepareTrackPointsError::NeedsMultipleTracks));
             }
 
             let original_first = track_points.first().unwrap();
@@ -157,16 +155,12 @@ impl EditSession {
             let Some((snapped_first_pt, seg_first)) =
                 self.find_nearest_endpoint_on_existing_tracks(original_first)
             else {
-                return Err(anyhow!(
-                    PrepareTrackPointsError::LinkedDrawNeedsMultipleTracks
-                ));
+                return Err(anyhow!(PrepareTrackPointsError::NeedsMultipleTracks));
             };
             let Some((snapped_last_pt, seg_last)) =
                 self.find_nearest_endpoint_on_existing_tracks(original_last)
             else {
-                return Err(anyhow!(
-                    PrepareTrackPointsError::LinkedDrawNeedsMultipleTracks
-                ));
+                return Err(anyhow!(PrepareTrackPointsError::NeedsMultipleTracks));
             };
 
             let stroke_span = Self::point_distance(original_first, original_last);
@@ -174,18 +168,14 @@ impl EditSession {
                 + Self::point_distance(original_last, &snapped_last_pt);
 
             if snap_distance_sum > stroke_span * LINK_SNAP_DISTANCE_RATIO_THRESHOLD {
-                return Err(anyhow!(PrepareTrackPointsError::LinkedDrawTooFar));
+                return Err(anyhow!(PrepareTrackPointsError::TooFar));
             }
 
             if Self::points_equal(&snapped_first_pt, &snapped_last_pt) {
-                return Err(anyhow!(
-                    PrepareTrackPointsError::LinkedDrawInvalidLinkTargets
-                ));
+                return Err(anyhow!(PrepareTrackPointsError::InvalidLinkTargets));
             }
             if seg_first == seg_last {
-                return Err(anyhow!(
-                    PrepareTrackPointsError::LinkedDrawInvalidLinkTargets
-                ));
+                return Err(anyhow!(PrepareTrackPointsError::InvalidLinkTargets));
             }
 
             if let Some(first_point) = track_points.first_mut() {
@@ -492,13 +482,13 @@ impl EditSession {
             Ok(track_points) => track_points,
             Err(error) => {
                 match error.downcast_ref::<PrepareTrackPointsError>() {
-                    Some(PrepareTrackPointsError::LinkedDrawTooFar) => {
+                    Some(PrepareTrackPointsError::TooFar) => {
                         return Ok(AddLinesOutcome::LinkedDrawTooFar);
                     }
-                    Some(PrepareTrackPointsError::LinkedDrawNeedsMultipleTracks) => {
+                    Some(PrepareTrackPointsError::NeedsMultipleTracks) => {
                         return Ok(AddLinesOutcome::LinkedDrawNeedsMultipleTracks);
                     }
-                    Some(PrepareTrackPointsError::LinkedDrawInvalidLinkTargets) => {
+                    Some(PrepareTrackPointsError::InvalidLinkTargets) => {
                         return Ok(AddLinesOutcome::LinkedDrawInvalidLinkTargets);
                     }
                     None => {}
