@@ -357,6 +357,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   @override
   Widget build(BuildContext context) {
+    const double drawModeBarExtent = 60;
     final screenSize = MediaQuery.of(context).size;
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
@@ -416,32 +417,38 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                           child: PointerInterceptor(
                             child: FrostedBarContainer(
                               axis: Axis.vertical,
-                              extent: 60,
+                              extent: drawModeBarExtent,
+                              mainAxisPadding: 0,
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  _DrawEntryModeButton(
-                                    icon: Icons.draw_rounded,
-                                    label:
-                                        context.tr('journey.editor.free_draw'),
-                                    tooltip:
-                                        context.tr('journey.editor.free_draw'),
-                                    isSelected: !_isLinkedDrawEnabled,
-                                    onPressed: () => _handleDrawEntrySelected(
-                                      DrawEntryMode.freehand,
+                                  _DrawModeItemSlot(
+                                    barExtent: drawModeBarExtent,
+                                    child: _DrawEntryModeButton(
+                                      icon: Icons.draw_rounded,
+                                      label: context
+                                          .tr('journey.editor.free_draw'),
+                                      tooltip: context
+                                          .tr('journey.editor.free_draw'),
+                                      isSelected: !_isLinkedDrawEnabled,
+                                      onPressed: () => _handleDrawEntrySelected(
+                                        DrawEntryMode.freehand,
+                                      ),
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
-                                  _DrawEntryModeButton(
-                                    icon: Icons.link_rounded,
-                                    label: context.tr(
-                                      'journey.editor.linked_draw',
-                                    ),
-                                    tooltip: context
-                                        .tr('journey.editor.linked_draw'),
-                                    isSelected: _isLinkedDrawEnabled,
-                                    onPressed: () => _handleDrawEntrySelected(
-                                      DrawEntryMode.linked,
+                                  _DrawModeItemSlot(
+                                    barExtent: drawModeBarExtent,
+                                    child: _DrawEntryModeButton(
+                                      icon: Icons.link_rounded,
+                                      label: context.tr(
+                                        'journey.editor.linked_draw',
+                                      ),
+                                      tooltip: context
+                                          .tr('journey.editor.linked_draw'),
+                                      isSelected: _isLinkedDrawEnabled,
+                                      onPressed: () => _handleDrawEntrySelected(
+                                        DrawEntryMode.linked,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -512,6 +519,27 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   }
 }
 
+class _DrawModeItemSlot extends StatelessWidget {
+  const _DrawModeItemSlot({
+    required this.barExtent,
+    required this.child,
+  });
+
+  final double barExtent;
+  final Widget child;
+
+  static const double _widthInset = 6;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: barExtent - _widthInset,
+      height: barExtent,
+      child: child,
+    );
+  }
+}
+
 class _DrawEntryModeButton extends StatelessWidget {
   const _DrawEntryModeButton({
     required this.icon,
@@ -534,8 +562,6 @@ class _DrawEntryModeButton extends StatelessWidget {
       child: FrostedBarItem(
         icon: icon,
         label: label,
-        horizontalPadding: 10,
-        horizontalMargin: 0,
         isSelected: isSelected,
         onTap: onPressed,
       ),
