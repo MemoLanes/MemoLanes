@@ -54,7 +54,7 @@
       "linked_draw_mode_enabled": "连接绘制已开启。\n首尾会吸附到其他轨迹的端点。",
       "linked_draw_too_far": "离已有轨迹太远，无法连接。",
       "linked_draw_needs_multiple_tracks": "至少需要两条轨迹。\n请先用自由绘制添加。",
-      "linked_draw_invalid_link_targets": "须连两条不同轨迹的端点。\n不可同点或只接同一条轨迹。",
+      "linked_draw_invalid_link_targets": "无法找到合适的连接目标，请确保周围有至少两条轨迹的端点。",
       "erase_mode_enabled": "删除模式已开启。\n框选区域删除轨迹。",
       "bitmap_not_supported": "暂不支持编辑编辑当前记录（通常为从世界迷雾导入的数据）。",
       "discard_changes_confirm": "未保存的操作都会丢失，是否继续？",
