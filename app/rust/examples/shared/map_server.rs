@@ -102,31 +102,41 @@ async fn serve_unified_json_request(
     }
 }
 
-pub struct ServerInfo {
-    pub host: String,
-    pub port: u16,
+fn parse_host_from_url(url: &str) -> Option<&str> {
+    let after_scheme = url
+        .strip_prefix("http://")
+        .or_else(|| url.strip_prefix("https://"))?;
+    let host_port = after_scheme.split('/').next()?;
+    let host = host_port.split(':').next()?;
+    if host.is_empty() {
+        None
+    } else {
+        Some(host)
+    }
+}
+
+pub fn get_dev_server_host() -> String {
+    let dev_server = std::env::var("DEV_SERVER").unwrap_or_default();
+    parse_host_from_url(&dev_server)
+        .map(String::from)
+        .unwrap_or_else(|| "localhost".to_string())
 }
 
 pub struct MapServer {
     handles: Option<(JoinHandle<()>, ServerHandle)>,
     map_renderer: Arc<Mutex<MapRenderer>>,
-    server_info: Arc<Mutex<ServerInfo>>,
+    port: u16,
 }
 
 impl MapServer {
     fn start_server_blocking<F>(
-        host: &str,
-        port: Option<u16>,
         map_renderer: Arc<Mutex<MapRenderer>>,
         ready_with_port: F,
     ) -> Result<()>
     where
         F: FnOnce(u16, ServerHandle),
     {
-        let port = match port {
-            Some(0) => None,
-            x => x,
-        };
+        let host = get_dev_server_host();
         let runtime = Runtime::new()?;
         runtime.block_on(async move {
             eprintln!("[INFO] Setting up map server ...");
@@ -143,19 +153,14 @@ impl MapServer {
                     .route("/api", web::post().to(serve_unified_json_request))
                     .route("/api", web::method(Method::OPTIONS).to(handle_preflight))
             })
-            .bind((host, port.unwrap_or(0)))?
+            .bind((host.clone(), 0))?
             .workers(1)
             .shutdown_timeout(0);
 
-            let actual_port = match port {
-                Some(port) => port,
-                None => {
-                    if let Some(addr) = server.addrs().first() {
-                        addr.port()
-                    } else {
-                        return Err(anyhow::anyhow!("Failed to get server address"));
-                    }
-                }
+            let actual_port = if let Some(addr) = server.addrs().first() {
+                addr.port()
+            } else {
+                return Err(anyhow::anyhow!("Failed to get server address"));
             };
             eprintln!("[INFO] Server bound successfully to {host}:{actual_port}");
 
@@ -170,45 +175,31 @@ impl MapServer {
     }
 
     fn start_server(
-        host: &str,
-        port: Option<u16>,
         map_renderer: Arc<Mutex<MapRenderer>>,
-    ) -> Result<((JoinHandle<()>, ServerHandle), ServerInfo)> {
+    ) -> Result<((JoinHandle<()>, ServerHandle), u16)> {
         let (tx, rx) = std::sync::mpsc::channel();
-        let host_for_move = host.to_owned();
         let handle = thread::spawn(move || {
-            if let Err(e) = Self::start_server_blocking(
-                &host_for_move,
-                port,
-                map_renderer,
-                |actual_port, server_handle| {
+            if let Err(e) =
+                Self::start_server_blocking(map_renderer, |actual_port, server_handle| {
                     let _ = tx.send(Ok((actual_port, server_handle)));
-                },
-            ) {
+                })
+            {
                 let _ = tx.send(Err(e));
             }
             eprintln!("[INFO] Map server stopped");
         });
         let (actual_port, server_handle) = rx.recv()??;
-        let server_info = ServerInfo {
-            host: host.to_owned(),
-            port: actual_port,
-        };
-        Ok(((handle, server_handle), server_info))
+        Ok(((handle, server_handle), actual_port))
     }
 
-    pub fn create_and_start(
-        host: &str,
-        port: Option<u16>,
-        map_renderer: Arc<Mutex<MapRenderer>>,
-    ) -> Result<Self> {
+    pub fn create_and_start(map_renderer: Arc<Mutex<MapRenderer>>) -> Result<Self> {
         let map_renderer_clone = map_renderer.clone();
-        let (handles, server_info) = Self::start_server(host, port, map_renderer_clone)?;
+        let (handles, actual_port) = Self::start_server(map_renderer_clone)?;
 
         Ok(Self {
             handles: Some(handles),
             map_renderer,
-            server_info: Arc::new(Mutex::new(server_info)),
+            port: actual_port,
         })
     }
 
@@ -216,7 +207,7 @@ impl MapServer {
         let dev_server =
             std::env::var("DEV_SERVER").unwrap_or_else(|_| "http://localhost:8080".to_string());
 
-        let server_info = self.server_info.lock().unwrap();
+        let cgi_host = get_dev_server_host();
         let map_renderer = self.map_renderer.lock().unwrap();
         let camera_option =
             get_default_camera_option_from_journey_bitmap(map_renderer.peek_latest_bitmap());
@@ -225,8 +216,8 @@ impl MapServer {
             Some(camera) => format!(
                 "{}#cgi_endpoint=http%3A%2F%2F{}%3A{}&debug=true&lng={}&lat={}&zoom={}&access_key={}",
                 dev_server,
-                server_info.host,
-                server_info.port,
+                cgi_host,
+                self.port,
                 camera.lng,
                 camera.lat,
                 camera.zoom,
@@ -235,15 +226,15 @@ impl MapServer {
             None => format!(
                 "{}#cgi_endpoint=http%3A%2F%2F{}%3A{}&debug=true&access_key={}",
                 dev_server,
-                server_info.host,
-                server_info.port,
+                cgi_host,
+                self.port,
                 build_info::MAPBOX_ACCESS_TOKEN.unwrap_or("")
             ),
         }
     }
 
     pub fn get_file_url(&self) -> String {
-        let server_info = self.server_info.lock().unwrap();
+        let cgi_host = get_dev_server_host();
         let map_renderer = self.map_renderer.lock().unwrap();
         let camera_option =
             get_default_camera_option_from_journey_bitmap(map_renderer.peek_latest_bitmap());
@@ -252,8 +243,8 @@ impl MapServer {
             Some(camera) => format!(
                 "file://{}/journey_kernel/index.html#cgi_endpoint=http%3A%2F%2F{}%3A{}&debug=true&lng={}&lat={}&zoom={}&access_key={}", 
                 std::env::var("OUT_DIR").unwrap_or_else(|_| ".".to_string()), 
-                server_info.host,
-                server_info.port,
+                cgi_host,
+                self.port,
                 camera.lng,
                 camera.lat,
                 camera.zoom,
@@ -262,8 +253,8 @@ impl MapServer {
             None => format!(
                 "file://{}/journey_kernel/index.html#cgi_endpoint=http%3A%2F%2F{}%3A{}&debug=true&access_key={}", 
                 std::env::var("OUT_DIR").unwrap_or_else(|_| ".".to_string()), 
-                server_info.host,
-                server_info.port,
+                cgi_host,
+                self.port,
                 build_info::MAPBOX_ACCESS_TOKEN.unwrap_or(""),
             )
         }
