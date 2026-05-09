@@ -1,5 +1,3 @@
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use memolanes_core::import_data;
 use memolanes_core::journey_bitmap::JourneyBitmap;
 use memolanes_core::renderer::MapRenderer;
@@ -7,6 +5,7 @@ mod shared;
 use shared::MapServer;
 
 use rand::Rng;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -29,6 +28,11 @@ fn draw_line3(journey_bitmap: &mut JourneyBitmap) {
 }
 fn draw_line4(journey_bitmap: &mut JourneyBitmap) {
     journey_bitmap.add_line(START_LNG, MID_LAT, END_LNG, MID_LAT)
+}
+
+fn draw_line5(journey_bitmap: &mut JourneyBitmap) {
+    // Draw a line from Tokyo to Hawaii across the antimeridian
+    journey_bitmap.add_line(139.7690, 35.6804, -157.8583, 21.3069)
 }
 
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -56,9 +60,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     draw_line2(&mut journey_bitmap);
     draw_line3(&mut journey_bitmap);
     draw_line4(&mut journey_bitmap);
+    draw_line5(&mut journey_bitmap);
 
     let map_renderer_static = Arc::new(Mutex::new(MapRenderer::new(journey_bitmap)));
-    let server_simple = MapServer::create_and_start("localhost", None, map_renderer_static)
+    let server_simple = MapServer::create_and_start(map_renderer_static)
         .expect("Failed to start simple map server");
 
     println!("================================================");
@@ -66,11 +71,11 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("[Simple Map Local]:    {}", server_simple.get_file_url());
 
     // ========== Server 2: Medium Map (loaded from fow_3.zip) ==========
-    let (joruney_bitmap_fow, _) =
+    let (journey_bitmap_fow, _) =
         import_data::load_fow_sync_data("./tests/data/fow_3.zip").unwrap();
-    let map_renderer_fow = Arc::new(Mutex::new(MapRenderer::new(joruney_bitmap_fow)));
-    let server_medium = MapServer::create_and_start("localhost", None, map_renderer_fow)
-        .expect("Failed to start medium map server");
+    let map_renderer_fow = Arc::new(Mutex::new(MapRenderer::new(journey_bitmap_fow)));
+    let server_medium =
+        MapServer::create_and_start(map_renderer_fow).expect("Failed to start medium map server");
 
     println!("[Medium Map Server]:   {}", server_medium.get_http_url());
 
@@ -78,7 +83,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let journey_bitmap2 = JourneyBitmap::new();
     let map_renderer_dynamic = Arc::new(Mutex::new(MapRenderer::new(journey_bitmap2)));
     let map_renderer_arc_clone = map_renderer_dynamic.clone();
-    let server_dynamic = MapServer::create_and_start("localhost", None, map_renderer_dynamic)
+    let server_dynamic = MapServer::create_and_start(map_renderer_dynamic)
         .expect("Failed to start dynamic map server");
 
     println!("[Dynamic Map Server]:  {}", server_dynamic.get_http_url());
@@ -114,48 +119,31 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    // Set up keyboard input handling thread
-    let server_simple_clone = server_simple.clone();
-    let server_medium_clone = server_medium.clone();
-    let server_dynamic_clone = server_dynamic.clone();
-    std::thread::spawn(move || {
-        println!("Press Ctrl+C to exit");
-
-        // Enable raw mode to get immediate keystrokes
-        enable_raw_mode().expect("Failed to enable raw mode");
-
-        loop {
-            // Check for keyboard events
-            if let Ok(Event::Key(KeyEvent {
-                code, modifiers, ..
-            })) = event::read()
-            {
-                match code {
-                    KeyCode::Char('c') if modifiers.contains(KeyModifiers::CONTROL) => {
-                        // Handle Ctrl+C manually since we're in raw mode
-                        disable_raw_mode().expect("Failed to disable raw mode");
-
-                        println!("Ctrl+C pressed. Stopping all servers...");
-                        // Stop all three servers
-                        if let Ok(mut server) = server_simple_clone.lock() {
-                            let _ = server.stop();
-                        }
-                        if let Ok(mut server) = server_medium_clone.lock() {
-                            let _ = server.stop();
-                        }
-                        if let Ok(mut server) = server_dynamic_clone.lock() {
-                            let _ = server.stop();
-                        }
-                        std::process::exit(0);
-                    }
-                    _ => {}
-                }
-            }
-        }
-    });
+    // Graceful shutdown on Ctrl+C
+    println!("Press Ctrl+C to exit");
+    let shutdown_requested = Arc::new(AtomicBool::new(false));
+    let shutdown_requested_clone = shutdown_requested.clone();
+    ctrlc::set_handler(move || {
+        println!("Ctrl+C pressed. Beginning graceful shutdown...");
+        shutdown_requested_clone.store(true, Ordering::SeqCst);
+    })?;
 
     // Block the main thread to keep all servers running
-    loop {
+    while !shutdown_requested.load(Ordering::SeqCst) {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
+
+    println!("Stopping all servers...");
+    if let Ok(mut server) = server_simple.lock() {
+        let _ = server.stop();
+    }
+    if let Ok(mut server) = server_medium.lock() {
+        let _ = server.stop();
+    }
+    if let Ok(mut server) = server_dynamic.lock() {
+        let _ = server.stop();
+    }
+
+    println!("Shutdown complete.");
+    Ok(())
 }

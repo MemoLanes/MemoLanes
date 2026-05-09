@@ -147,7 +147,11 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         }
       ''');
     } else {
-      final position = _gpsManager.latestPosition;
+      // Prefer the live position; fall back to the OS-cached last known
+      // location so the marker shows up immediately on cold start while the
+      // GPS stream is still acquiring its first fix.
+      final position =
+          _gpsManager.latestPosition ?? _gpsManager.lastKnownPosition;
       if (position != null) {
         _webViewController.runJavaScript('''
         if (typeof updateLocationMarker === 'function') {
