@@ -132,6 +132,7 @@ class _JourneyBodyState extends State<JourneyBody> {
           const TextStyle(color: Colors.grey, fontWeight: FontWeight.w400),
       disabledYearTextStyle:
           const TextStyle(color: Colors.grey, fontWeight: FontWeight.w400),
+      // TODO: Package only vibrates on Android (iOS skips);
       disableVibration: true,
     );
     return CalendarDatePicker2(
