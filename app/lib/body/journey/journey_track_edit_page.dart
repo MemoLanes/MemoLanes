@@ -25,7 +25,6 @@ class JourneyTrackEditPage extends StatefulWidget {
 
 enum _EditorToastRequest {
   syncCurrentState,
-  linkedDrawTooFarError,
   saveSuccess,
   clear,
 }
@@ -40,19 +39,15 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   OperationMode _mode = OperationMode.move;
   bool _canUndo = false;
   bool _isLinkedDrawEnabled = false;
-  bool _isLinkedDrawErrorLocked = false;
+  String? _linkedDrawErrorTrKey;
 
   bool _zoomOk = false;
 
   final GlobalKey<JourneyEditorMapViewState> _mapWebviewKey = GlobalKey();
 
-  String _linkedDrawTooFarMessage() {
-    return context.tr("journey.editor.linked_draw_too_far");
-  }
-
   String? _currentPersistentToastMessage() {
-    if (_isLinkedDrawErrorLocked) {
-      return _linkedDrawTooFarMessage();
+    if (_linkedDrawErrorTrKey != null) {
+      return context.tr(_linkedDrawErrorTrKey!);
     }
 
     switch (_mode) {
@@ -71,11 +66,20 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     }
   }
 
-  void _setLinkedDrawErrorLocked(bool locked) {
-    if (!mounted || _isLinkedDrawErrorLocked == locked) return;
+  void _clearLinkedDrawConstraintError() {
+    if (!mounted || _linkedDrawErrorTrKey == null) return;
     setState(() {
-      _isLinkedDrawErrorLocked = locked;
+      _linkedDrawErrorTrKey = null;
     });
+  }
+
+  void _showLinkedDrawConstraintToast(String trKey) {
+    if (!mounted) return;
+    final message = context.tr(trKey);
+    setState(() {
+      _linkedDrawErrorTrKey = trKey;
+    });
+    TopPersistentToast().show(context, message);
   }
 
   void _showToast(
@@ -85,7 +89,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     if (!mounted) return;
 
     if (clearLinkedDrawError) {
-      _setLinkedDrawErrorLocked(false);
+      _clearLinkedDrawConstraintError();
     }
 
     switch (request) {
@@ -96,10 +100,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
         } else {
           TopPersistentToast().show(context, message);
         }
-        break;
-      case _EditorToastRequest.linkedDrawTooFarError:
-        _setLinkedDrawErrorLocked(true);
-        TopPersistentToast().show(context, _linkedDrawTooFarMessage());
         break;
       case _EditorToastRequest.saveSuccess:
         TopPersistentToast().hide();
@@ -217,7 +217,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   }
 
   void _handleModeChange(OperationMode mode) {
-    final shouldClearLinkedError = _isLinkedDrawErrorLocked;
+    final shouldClearLinkedError = _linkedDrawErrorTrKey != null;
 
     if (mode == OperationMode.edit) {
       final switchedFromLinked = _isLinkedDrawEnabled;
@@ -243,7 +243,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   void _handleDrawEntrySelected(DrawEntryMode mode) {
     final wasMode = _mode;
-    final wasErrorLocked = _isLinkedDrawErrorLocked;
+    final wasErrorLocked = _linkedDrawErrorTrKey != null;
 
     setState(() {
       _isLinkedDrawEnabled = mode == DrawEntryMode.linked;
@@ -275,7 +275,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
     _applyMode(
       _mode,
-      clearLinkedDrawError: _isLinkedDrawErrorLocked,
+      clearLinkedDrawError: _linkedDrawErrorTrKey != null,
       syncToastWhenUnchanged: true,
     );
   }
@@ -284,11 +284,8 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     if (_mode != OperationMode.edit) return;
     if (points.length < 2) return;
 
-    if (_isLinkedDrawErrorLocked) {
-      _showToast(
-        _EditorToastRequest.syncCurrentState,
-        clearLinkedDrawError: true,
-      );
+    if (_linkedDrawErrorTrKey != null) {
+      _clearLinkedDrawConstraintError();
     }
 
     final recordPoints = points.map((p) => (p.lat, p.lng)).toList();
@@ -299,15 +296,31 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
         snapEndpoints: _isLinkedDrawEnabled,
       );
       if (outcome == AddLinesOutcome.linkedDrawTooFar) {
-        _showToast(_EditorToastRequest.linkedDrawTooFarError);
+        _showLinkedDrawConstraintToast('journey.editor.linked_draw_too_far');
+        return;
+      }
+      if (outcome == AddLinesOutcome.linkedDrawNeedsMultipleTracks) {
+        _showLinkedDrawConstraintToast(
+          'journey.editor.linked_draw_needs_multiple_tracks',
+        );
+        return;
+      }
+      if (outcome == AddLinesOutcome.linkedDrawInvalidLinkTargets) {
+        _showLinkedDrawConstraintToast(
+          'journey.editor.linked_draw_invalid_link_targets',
+        );
         return;
       }
     } catch (error, stackTrace) {
       log.error("[JourneyTrackEditPage] addLines failed: $error", stackTrace);
+      if (mounted) {
+        _showToast(_EditorToastRequest.syncCurrentState);
+      }
       return;
     }
 
     if (!mounted) return;
+    _showToast(_EditorToastRequest.syncCurrentState);
     await _mapWebviewKey.currentState?.manualRefresh();
 
     _refreshCanUndo();
