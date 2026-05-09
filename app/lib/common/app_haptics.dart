@@ -1,12 +1,26 @@
 import 'dart:async';
 
 import 'package:haptic_feedback/haptic_feedback.dart';
+import 'package:memolanes/common/mmkv_util.dart';
 
 abstract final class AppHaptics {
   AppHaptics._();
 
   static const HapticsUsage _defaultUsage = HapticsUsage.touch;
   static const bool _defaultUseAndroidHapticConstants = true;
+
+  static bool? _userHapticsEnabled;
+
+  static bool get isUserHapticsEnabled {
+    _userHapticsEnabled ??=
+        MMKVUtil.getBool(MMKVKey.hapticsFeedbackEnabled, defaultValue: true);
+    return _userHapticsEnabled!;
+  }
+
+  static void setUserHapticsEnabled(bool enabled) {
+    MMKVUtil.putBool(MMKVKey.hapticsFeedbackEnabled, enabled);
+    _userHapticsEnabled = enabled;
+  }
 
   /// Single entry to [Haptics.vibrate]. Typed helpers forward here; pass [usage] /
   /// [useAndroidHapticConstants] to override app defaults.
@@ -15,6 +29,7 @@ abstract final class AppHaptics {
     HapticsUsage? usage,
     bool? useAndroidHapticConstants,
   }) {
+    if (!isUserHapticsEnabled) return;
     unawaited(
       Haptics.vibrate(
         type,

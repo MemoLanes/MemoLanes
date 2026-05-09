@@ -6,6 +6,7 @@ import 'package:memolanes/body/settings/raw_data_page.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
+import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/utils/nav_helper.dart';
@@ -21,6 +22,20 @@ class AdvancedSettingsPage extends StatefulWidget {
 }
 
 class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
+  bool _isHapticsEnabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHapticsEnabled();
+  }
+
+  Future<void> _loadHapticsEnabled() async {
+    setState(() {
+      _isHapticsEnabled = AppHaptics.isUserHapticsEnabled;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     var gpsManager = context.watch<GpsManager>();
@@ -127,6 +142,19 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
             position: LabelTilePosition.middle,
             trailing: LabelTileContent(
                 content: gpsManager.locationBackend.displayName(context)),
+          ),
+          LabelTile(
+            label: context.tr("haptics.setting_title"),
+            position: LabelTilePosition.middle,
+            trailing: Switch(
+              value: _isHapticsEnabled,
+              onChanged: (value) {
+                AppHaptics.setUserHapticsEnabled(value);
+                setState(() {
+                  _isHapticsEnabled = value;
+                });
+              },
+            ),
           ),
           LabelTile(
             label: context.tr("general.advanced_settings.render_diagnostics"),

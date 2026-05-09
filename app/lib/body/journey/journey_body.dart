@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/body/journey/journey_info_page.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
+import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/constants/index.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/utils.dart';
@@ -131,15 +132,18 @@ class _JourneyBodyState extends State<JourneyBody> {
           const TextStyle(color: Colors.grey, fontWeight: FontWeight.w400),
       disabledYearTextStyle:
           const TextStyle(color: Colors.grey, fontWeight: FontWeight.w400),
+      disableVibration: true,
     );
     return CalendarDatePicker2(
       config: config,
       value: [_selectedDate],
       onValueChanged: (dates) {
+        AppHaptics.selection();
         setState(() => _selectedDate = dates.first);
         _updateJourneyHeaderList();
       },
       onDisplayedMonthChanged: (value) async {
+        AppHaptics.selection();
         DateTime jumpToDate =
             DateTime(value.year, value.month, _selectedDate.day);
         DateTime jumpToDateMonthLastDay =

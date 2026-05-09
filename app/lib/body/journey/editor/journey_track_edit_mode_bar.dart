@@ -2,7 +2,7 @@ import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:memolanes/common/app_haptics.dart';
 
 enum OperationMode {
   move,
@@ -121,7 +121,7 @@ class ModeSwitchBar extends StatelessWidget {
       isEnabled: isEnabled,
       onTap: isEnabled
           ? () {
-              HapticFeedback.lightImpact();
+              AppHaptics.light();
               onModeChanged(mode);
             }
           : null,
@@ -142,7 +142,7 @@ class ModeSwitchBar extends StatelessWidget {
       activeColor: activeColor,
       onTap: isEnabled
           ? () {
-              HapticFeedback.mediumImpact();
+              AppHaptics.medium();
               onTap?.call();
             }
           : null,
