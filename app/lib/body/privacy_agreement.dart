@@ -30,10 +30,14 @@ Future<void> _showPrivacyDialogMethod(BuildContext context) async {
   }
 }
 
-void showPrivacyAgreementIfNeeded(BuildContext context) {
+/// If privacy / welcome UI must be shown, returns its [Future]; otherwise a
+/// completed future. Callers should await this so later steps (e.g. the
+/// permission sheet) run only after those dialogs are dismissed.
+Future<void> showPrivacyAgreementIfNeeded(BuildContext context) {
   var acceptedVersion =
       MMKVUtil.getInt(MMKVKey.privacyAgreementAccepted, defaultValue: 0);
   if (acceptedVersion < _latestVersion) {
-    _showPrivacyDialogMethod(context);
+    return _showPrivacyDialogMethod(context);
   }
+  return Future.value();
 }

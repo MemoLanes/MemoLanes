@@ -8,8 +8,24 @@
     "double_back_exit": "Press back again to exit the app",
     "map_data_source_copyright_title": "Data Source"
   },
+  "permission_sheet": {
+    "title": "Authorize for the full experience",
+    "location_help_tooltip": "About location permission",
+    "battery_help_tooltip": "About battery optimization",
+    "notification_help_tooltip": "About notification permission",
+    "enable_all": "Enable All",
+    "skip": "Skip",
+    "location_title": "Location",
+    "location_desc": "For map display and journey recording",
+    "battery_title": "Battery optimization",
+    "battery_desc": "Reduces system background limits on the app for more stable journey recording",
+    "notification_title": "Notifications",
+    "notification_desc": "Sends notification reminders if journey recording stops unexpectedly",
+    "open_system_settings": "Open system settings"
+  },
   "location_service": {
     "location_service_disabled": "Location services are disabled. Please enable them in the settings.",
+    "location_permission_denied": "Location permission was not granted, so location-based features are temporarily unavailable. You can allow it later.",
     "location_permission_permanently_denied": "You have denied location permission, therefore location-based features are disabled. If you want to use these features, please enable it in the app settings.",
     "location_permission_reason": "MemoLanes needs location permission to collect your precise location data to record your travel routes and visualize your journey history. All location data is stored locally on your device and is not shared with any third parties.",
     "battery_optimization_reason": "To ensure continuous background location updates, please allow the app to ignore battery optimization.",
@@ -41,18 +57,24 @@
   },
   "journey": {
     "editor": {
+      "back": "Back",
       "move": "Move",
       "draw": "Draw",
+      "free_draw": "Free",
+      "linked_draw": "Linked",
       "erase": "Erase",
       "undo": "Undo",
       "save": "Save",
       "page_title": "Edit Journey Track",
-      "draw_mode_enabled": "Drawing mode is enabled. Draw on the map to add new tracks.",
-      "draw_mode_disabled": "Drawing mode is disabled. Use two fingers to pinch and zoom the map, then adjust to an appropriate zoom level to continue drawing.",
-      "erase_mode_enabled": "Erase mode enabled. Draw a box to delete tracks.",
+      "free_draw_mode_enabled": "Free draw on.\nDraw on the map to add tracks.",
+      "linked_draw_mode_enabled": "Linked draw is on.\nStart and end snap to the endpoints of other tracks.",
+      "linked_draw_too_far": "Too far from existing tracks to connect.",
+      "linked_draw_needs_multiple_tracks": "Need at least two tracks.\nAdd one with free drawing mode first.",
+      "linked_draw_invalid_link_targets": "No suitable link targets found. Please make sure there are endpoints from at least two tracks nearby.",
+      "erase_mode_enabled": "Erase mode on.\nBox-select to delete tracks.",
       "bitmap_not_supported": "Editing a bitmap record (usually imported from Fog of World) is not supported.",
       "discard_changes_confirm": "Unsaved changes will be lost. Do you want to continue?",
-      "zoom_too_low": "Zoom in to add a new segment."
+      "zoom_too_low": "Zoom in to draw."
     },
     "no_data": "There's no data yet, go ahead and explore the world!",
     "journey_date_is_empty": "JourneyDate is empty",
@@ -82,7 +104,9 @@
     "start_time": "Start Time",
     "end_time": "End Time",
     "created_at": "Created At",
-    "note": "Note"
+    "note": "Note",
+    "finalize_saved": "New journey added",
+    "finalize_empty": "No journey detected"
   },
   "db_optimization": {
     "notification": "Your database requires optimization, please go to Settings tab and click [Optimize database] button.",

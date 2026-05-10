@@ -7,7 +7,7 @@ import 'package:memolanes/body/map/overlay/time_machine_overlay.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/mmkv_util.dart';
-import 'package:memolanes/common/service/permission_service.dart';
+import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:provider/provider.dart';
 
@@ -90,7 +90,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
         ? TrackingMode.displayAndTracking
         : TrackingMode.off;
     if (newMode != TrackingMode.off) {
-      if (!await PermissionService().checkAndRequestPermission()) {
+      if (!await checkAndRequestPermission()) {
         return;
       }
     }

@@ -144,6 +144,98 @@ void showBasicCard(
   );
 }
 
+Future<T?> showBasicCardWithResult<T>(
+  BuildContext context, {
+  required String title,
+  required Widget child,
+  String? primaryButtonText,
+  VoidCallback? onPrimaryPressed,
+  bool showHandle = true,
+  bool showLeading = true,
+}) {
+  return showModalBottomSheet<T>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    isDismissible: true,
+    builder: (context) {
+      return Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.75,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(16.0),
+            topRight: Radius.circular(16.0),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12.0),
+              child: Offstage(
+                offstage: !showHandle,
+                child: Center(
+                  child: CustomPaint(
+                    size: const Size(40.0, 4.0),
+                    painter: LinePainter(
+                      color: const Color(0xFFB5B5B5),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (showLeading)
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon:
+                          const Icon(Icons.arrow_back_ios, color: Colors.white),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(width: 48),
+                  ],
+                ),
+              ),
+            Flexible(child: SingleChildScrollView(child: child)),
+            if (primaryButtonText != null && onPrimaryPressed != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: onPrimaryPressed,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF007AFF),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: Text(primaryButtonText),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
 Future<void> importMldx(BuildContext context, String path) async {
   try {
     final (mldxFile, preview) = await showLoadingDialog(

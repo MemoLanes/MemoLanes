@@ -16,21 +16,29 @@ class TopPersistentToast {
       return;
     }
 
-    hide();
+    // Reuse the same OverlayEntry when only the text changes. The old
+    // implementation always called hide() then insert(): hide() deferred
+    // remove() to the next frame, so briefly two overlays existed → flicker.
+    if (_overlayEntry != null) {
+      _lastMessage = message;
+      _overlayEntry!.markNeedsBuild();
+      return;
+    }
+
     _lastMessage = message;
 
-    final mediaQuery = MediaQuery.of(context);
-    final screenHeight = mediaQuery.size.height;
-    final topOffset = screenHeight / 6;
-
-    final okText = context.tr("common.ok");
-
-    final theme = Theme.of(context);
-    final dialogBg =
-        theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface;
-
     _overlayEntry = OverlayEntry(
-      builder: (_) {
+      builder: (overlayContext) {
+        final mediaQuery = MediaQuery.of(overlayContext);
+        final screenHeight = mediaQuery.size.height;
+        final topOffset = screenHeight / 6;
+
+        final theme = Theme.of(overlayContext);
+        final dialogBg =
+            theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface;
+        final okText = overlayContext.tr("common.ok");
+        final bodyText = _lastMessage ?? '';
+
         return Positioned(
           top: topOffset,
           left: 16,
@@ -51,8 +59,8 @@ class TopPersistentToast {
                     children: [
                       Expanded(
                         child: _toastText(
-                          message,
-                          style: Theme.of(context).textTheme.bodyMedium,
+                          bodyText,
+                          style: theme.textTheme.bodyMedium,
                           allowExplicitNewlines: true,
                         ),
                       ),
@@ -79,10 +87,8 @@ class TopPersistentToast {
     _lastMessage = null;
 
     if (entry != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        entry.remove();
-        entry.dispose();
-      });
+      entry.remove();
+      entry.dispose();
     }
   }
 
@@ -91,26 +97,14 @@ class TopPersistentToast {
     TextStyle? style,
     bool allowExplicitNewlines = false,
   }) {
+    // Do not wrap each line in its own FittedBox: lines would scale independently
+    // and look like different font sizes when widths differ.
     if (allowExplicitNewlines && message.contains('\n')) {
-      final lines = message.split('\n');
-
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (final line in lines)
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                line,
-                style: style,
-                maxLines: 1,
-                softWrap: false,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-        ],
+      return Text(
+        message,
+        style: style,
+        textAlign: TextAlign.start,
+        softWrap: true,
       );
     }
 
