@@ -57,18 +57,24 @@
   },
   "journey": {
     "editor": {
+      "back": "Back",
       "move": "Move",
       "draw": "Draw",
+      "free_draw": "Free",
+      "linked_draw": "Linked",
       "erase": "Erase",
       "undo": "Undo",
       "save": "Save",
       "page_title": "Edit Journey Track",
-      "draw_mode_enabled": "Drawing mode is enabled. Draw on the map to add new tracks.",
-      "draw_mode_disabled": "Drawing mode is disabled. Use two fingers to pinch and zoom the map, then adjust to an appropriate zoom level to continue drawing.",
-      "erase_mode_enabled": "Erase mode enabled. Draw a box to delete tracks.",
+      "free_draw_mode_enabled": "Free draw on.\nDraw on the map to add tracks.",
+      "linked_draw_mode_enabled": "Linked draw is on.\nStart and end snap to the endpoints of other tracks.",
+      "linked_draw_too_far": "Too far from existing tracks to connect.",
+      "linked_draw_needs_multiple_tracks": "Need at least two tracks.\nAdd one with free drawing mode first.",
+      "linked_draw_invalid_link_targets": "No suitable link targets found. Please make sure there are endpoints from at least two tracks nearby.",
+      "erase_mode_enabled": "Erase mode on.\nBox-select to delete tracks.",
       "bitmap_not_supported": "Editing a bitmap record (usually imported from Fog of World) is not supported.",
       "discard_changes_confirm": "Unsaved changes will be lost. Do you want to continue?",
-      "zoom_too_low": "Zoom in to add a new segment."
+      "zoom_too_low": "Zoom in to draw."
     },
     "no_data": "There's no data yet, go ahead and explore the world!",
     "journey_date_is_empty": "JourneyDate is empty",
@@ -92,7 +98,9 @@
     "start_time": "Start Time",
     "end_time": "End Time",
     "created_at": "Created At",
-    "note": "Note"
+    "note": "Note",
+    "finalize_saved": "New journey added",
+    "finalize_empty": "No journey detected"
   },
   "db_optimization": {
     "notification": "Your database requires optimization, please go to Settings tab and click [Optimize database] button.",

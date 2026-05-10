@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use flutter_rust_bridge::frb;
 
 use crate::journey_bitmap::JourneyBitmap;
@@ -14,6 +14,7 @@ use crate::renderer::MapRenderer;
 // TODO: This is a bit sus, it is comparing the lng/lat and doesn't handle anti-meridian.
 const EPS: f64 = 1e-12_f64;
 const DEDUP_EPS: f64 = 1e-9_f64;
+const LINK_SNAP_DISTANCE_RATIO_THRESHOLD: f64 = 3.0_f64;
 
 // TODO: we want some test coverage here.
 
@@ -27,7 +28,167 @@ pub struct EditSession {
     undo_stack: Vec<JourneyVector>,
 }
 
+pub enum AddLinesOutcome {
+    Added,
+    Ignored,
+    LinkedDrawTooFar,
+    LinkedDrawNeedsMultipleTracks,
+    LinkedDrawInvalidLinkTargets,
+}
+
+#[derive(Debug)]
+enum PrepareTrackPointsError {
+    TooFar,
+    NeedsMultipleTracks,
+    InvalidLinkTargets,
+}
+
+impl std::fmt::Display for PrepareTrackPointsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::TooFar => write!(f, "linked draw too far"),
+            Self::NeedsMultipleTracks => write!(f, "linked draw needs multiple tracks"),
+            Self::InvalidLinkTargets => write!(f, "linked draw invalid link targets"),
+        }
+    }
+}
+
+impl std::error::Error for PrepareTrackPointsError {}
+
 impl EditSession {
+    fn point_distance(
+        a: &crate::journey_vector::TrackPoint,
+        b: &crate::journey_vector::TrackPoint,
+    ) -> f64 {
+        let lat_delta = a.latitude - b.latitude;
+        let lng_delta = a.longitude - b.longitude;
+        (lat_delta * lat_delta + lng_delta * lng_delta).sqrt()
+    }
+
+    fn point_distance_sq(
+        a: &crate::journey_vector::TrackPoint,
+        b: &crate::journey_vector::TrackPoint,
+    ) -> f64 {
+        let lat_delta = a.latitude - b.latitude;
+        let lng_delta = a.longitude - b.longitude;
+        lat_delta * lat_delta + lng_delta * lng_delta
+    }
+
+    fn points_equal(
+        a: &crate::journey_vector::TrackPoint,
+        b: &crate::journey_vector::TrackPoint,
+    ) -> bool {
+        (a.latitude - b.latitude).abs() < DEDUP_EPS && (a.longitude - b.longitude).abs() < DEDUP_EPS
+    }
+
+    fn dedup_adjacent_track_points(
+        points: Vec<crate::journey_vector::TrackPoint>,
+    ) -> Vec<crate::journey_vector::TrackPoint> {
+        let mut deduped: Vec<crate::journey_vector::TrackPoint> = Vec::with_capacity(points.len());
+        for point in points {
+            if deduped
+                .last()
+                .is_some_and(|last| Self::points_equal(last, &point))
+            {
+                continue;
+            }
+            deduped.push(point);
+        }
+        deduped
+    }
+
+    /// Nearest endpoint of any existing polyline (`TrackSegment`), paired with its segment index.
+    /// Only segment endpoints are considered — not interior edge points.
+    fn find_nearest_endpoint_on_existing_tracks(
+        &self,
+        target: &crate::journey_vector::TrackPoint,
+    ) -> Option<(crate::journey_vector::TrackPoint, usize)> {
+        let mut best_match: Option<(f64, crate::journey_vector::TrackPoint, usize)> = None;
+
+        for (segment_index, segment) in self.data.track_segments.iter().enumerate() {
+            let pts = &segment.track_points;
+            if pts.is_empty() {
+                continue;
+            }
+
+            let mut consider = |point: &crate::journey_vector::TrackPoint| {
+                let distance_sq = Self::point_distance_sq(target, point);
+                let should_replace = match &best_match {
+                    Some((best_distance_sq, _, _)) => distance_sq < *best_distance_sq,
+                    None => true,
+                };
+                if should_replace {
+                    best_match = Some((distance_sq, point.clone(), segment_index));
+                }
+            };
+
+            consider(&pts[0]);
+            if pts.len() >= 2 && !Self::points_equal(&pts[0], &pts[pts.len() - 1]) {
+                consider(&pts[pts.len() - 1]);
+            }
+        }
+
+        best_match.map(|(_, point, segment_index)| (point, segment_index))
+    }
+
+    fn prepare_track_points(
+        &self,
+        points: &[(f64, f64)],
+        snap_endpoints: bool,
+    ) -> Result<Vec<crate::journey_vector::TrackPoint>> {
+        let mut track_points: Vec<crate::journey_vector::TrackPoint> = points
+            .iter()
+            .map(|(lat, lng)| crate::journey_vector::TrackPoint {
+                latitude: *lat,
+                longitude: *lng,
+            })
+            .collect();
+
+        if snap_endpoints {
+            if self.data.track_segments.len() < 2 {
+                return Err(anyhow!(PrepareTrackPointsError::NeedsMultipleTracks));
+            }
+
+            let original_first = track_points.first().unwrap();
+            let original_last = track_points.last().unwrap();
+
+            let Some((snapped_first_pt, seg_first)) =
+                self.find_nearest_endpoint_on_existing_tracks(original_first)
+            else {
+                return Err(anyhow!(PrepareTrackPointsError::NeedsMultipleTracks));
+            };
+            let Some((snapped_last_pt, seg_last)) =
+                self.find_nearest_endpoint_on_existing_tracks(original_last)
+            else {
+                return Err(anyhow!(PrepareTrackPointsError::NeedsMultipleTracks));
+            };
+
+            let stroke_span = Self::point_distance(original_first, original_last);
+            let snap_distance_sum = Self::point_distance(original_first, &snapped_first_pt)
+                + Self::point_distance(original_last, &snapped_last_pt);
+
+            if snap_distance_sum > stroke_span * LINK_SNAP_DISTANCE_RATIO_THRESHOLD {
+                return Err(anyhow!(PrepareTrackPointsError::TooFar));
+            }
+
+            if Self::points_equal(&snapped_first_pt, &snapped_last_pt) {
+                return Err(anyhow!(PrepareTrackPointsError::InvalidLinkTargets));
+            }
+            if seg_first == seg_last {
+                return Err(anyhow!(PrepareTrackPointsError::InvalidLinkTargets));
+            }
+
+            if let Some(first_point) = track_points.first_mut() {
+                *first_point = snapped_first_pt;
+            }
+            if let Some(last_point) = track_points.last_mut() {
+                *last_point = snapped_last_pt;
+            }
+        }
+
+        Ok(Self::dedup_adjacent_track_points(track_points))
+    }
+
     fn build_bitmap_from_vector(vector: &JourneyVector) -> JourneyBitmap {
         let mut bitmap = JourneyBitmap::new();
         bitmap.merge_vector(vector);
@@ -307,26 +468,49 @@ impl EditSession {
         Ok(())
     }
 
-    pub fn add_lines(&mut self, points: &[(f64, f64)]) -> Result<()> {
+    pub fn add_lines(
+        &mut self,
+        points: &[(f64, f64)],
+        snap_endpoints: bool,
+    ) -> Result<AddLinesOutcome> {
         // TODO: we could run the post processor here to simplify the added points first.
         if points.len() < 2 {
-            return Ok(());
+            return Ok(AddLinesOutcome::Ignored);
         }
 
+        let track_points = match self.prepare_track_points(points, snap_endpoints) {
+            Ok(track_points) => track_points,
+            Err(error) => {
+                match error.downcast_ref::<PrepareTrackPointsError>() {
+                    Some(PrepareTrackPointsError::TooFar) => {
+                        return Ok(AddLinesOutcome::LinkedDrawTooFar);
+                    }
+                    Some(PrepareTrackPointsError::NeedsMultipleTracks) => {
+                        return Ok(AddLinesOutcome::LinkedDrawNeedsMultipleTracks);
+                    }
+                    Some(PrepareTrackPointsError::InvalidLinkTargets) => {
+                        return Ok(AddLinesOutcome::LinkedDrawInvalidLinkTargets);
+                    }
+                    None => {}
+                }
+                return Err(error);
+            }
+        };
+        if track_points.len() < 2 {
+            return Ok(AddLinesOutcome::Ignored);
+        }
+
+        let render_points: Vec<(f64, f64)> = track_points
+            .iter()
+            .map(|point| (point.latitude, point.longitude))
+            .collect();
+
         self.push_undo_checkpoint(self.data.clone());
-        self.data.track_segments.push(TrackSegment {
-            track_points: points
-                .iter()
-                .map(|(lat, lng)| crate::journey_vector::TrackPoint {
-                    latitude: *lat,
-                    longitude: *lng,
-                })
-                .collect(),
-        });
+        self.data.track_segments.push(TrackSegment { track_points });
 
         let mut map_renderer = self.map_renderer.lock().unwrap();
         map_renderer.update(|journey_bitmap, tile_changed| {
-            for window in points.windows(2) {
+            for window in render_points.windows(2) {
                 let (start_lat, start_lng) = window[0];
                 let (end_lat, end_lng) = window[1];
 
@@ -345,7 +529,7 @@ impl EditSession {
         });
         drop(map_renderer);
 
-        Ok(())
+        Ok(AddLinesOutcome::Added)
     }
 
     pub fn commit(&self) -> Result<()> {
