@@ -14,6 +14,7 @@ class MMKVKey {
       'Permission.requestedBatteryOptimization';
   static const String requestedNotification =
       'Permission.requestedNotification';
+  static const String permissionSheetShown = 'Permission.sheetShown';
 }
 
 class MMKVUtil {
