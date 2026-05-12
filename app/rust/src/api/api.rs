@@ -544,6 +544,14 @@ pub fn has_ongoing_journey() -> Result<bool> {
         .is_some())
 }
 
+/// Milliseconds since Unix epoch for the first point of the ongoing journey, if any.
+pub fn ongoing_journey_start_epoch_ms() -> Result<Option<i64>> {
+    Ok(get()
+        .storage
+        .with_db_txn(|txn| txn.get_ongoing_journey_timestamp_range())?
+        .map(|(start, _)| start.timestamp_millis()))
+}
+
 pub fn years_with_journey() -> Result<Vec<i32>> {
     get().storage.with_db_txn(|txn| txn.years_with_journey())
 }

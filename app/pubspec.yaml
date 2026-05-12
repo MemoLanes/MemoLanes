@@ -77,6 +77,7 @@ dependencies:
   flutter_fgbg: ^0.7.1
   flutter_appbar: ^1.9.0
   flutter_app_intents: ^0.7.0
+  live_activities: ^2.4.9
 
 dependency_overrides:
   geolocator_android:

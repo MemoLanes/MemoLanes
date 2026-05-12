@@ -1,0 +1,8 @@
+"live_activity.status_recording" = "记录中";
+"live_activity.status_paused" = "已暂停";
+"live_activity.pause" = "暂停";
+"live_activity.resume" = "继续";
+"live_activity.elapsed_format" = "%d:%02d";
+"live_activity.accuracy_format" = "精度：%.0f 米";
+"live_activity.no_gps_fix" = "正在等待 GPS…";
+"live_activity.end_a11y" = "结束旅程";

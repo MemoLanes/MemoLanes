@@ -8,6 +8,15 @@
     "double_back_exit": "再按一次退出应用",
     "map_data_source_copyright_title": "数据来源"
   },
+  "live_activity": {
+    "status_recording": "记录中",
+    "status_paused": "已暂停",
+    "pause": "暂停",
+    "resume": "恢复",
+    "elapsed_format": "%d:%02d",
+    "accuracy_format": "精度：%.0f 米",
+    "no_gps_fix": "正在等待 GPS…"
+  },
   "permission_sheet": {
     "title": "授权以体验完整功能",
     "location_help_tooltip": "位置权限说明",

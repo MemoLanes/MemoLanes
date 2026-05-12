@@ -16,6 +16,7 @@ import 'package:memolanes/body/settings/settings_body.dart'
 import 'package:memolanes/common/component/bottom_nav_bar.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/gps_manager.dart';
+import 'package:memolanes/common/home_tab_bridge.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/common/update_notifier.dart';
@@ -126,6 +127,9 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
+    HomeTabBridge.selectTab = (index) {
+      if (mounted) setState(() => _selectedIndex = index);
+    };
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await showPrivacyAgreementIfNeeded(context);
       if (!context.mounted) return;
@@ -140,6 +144,12 @@ class _MyHomePageState extends State<MyHomePage> {
       if (!context.mounted) return;
       await tryShowPermissionSheetIfFirstTime();
     });
+  }
+
+  @override
+  void dispose() {
+    HomeTabBridge.selectTab = null;
+    super.dispose();
   }
 
   Widget _buildDeferredBody(Future<void> loadFuture, Widget Function() body) {
