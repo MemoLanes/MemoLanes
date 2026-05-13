@@ -132,7 +132,10 @@ class _JourneyBodyState extends State<JourneyBody> {
           const TextStyle(color: Colors.grey, fontWeight: FontWeight.w400),
       disabledYearTextStyle:
           const TextStyle(color: Colors.grey, fontWeight: FontWeight.w400),
-      // TODO: Package only vibrates on Android (iOS skips);
+      // Turn off CalendarDatePicker2's own vibration; it varies by platform.
+      // We call AppHaptics on date/month changes instead.
+      // TODO: Fix CalendarDatePicker2's built-in vibration being inconsistent
+      //       across platforms (local patch or upstream), so we can rely on it.
       disableVibration: true,
     );
     return CalendarDatePicker2(

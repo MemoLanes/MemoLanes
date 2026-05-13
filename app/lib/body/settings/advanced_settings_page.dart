@@ -22,20 +22,6 @@ class AdvancedSettingsPage extends StatefulWidget {
 }
 
 class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
-  bool _isHapticsEnabled = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadHapticsEnabled();
-  }
-
-  Future<void> _loadHapticsEnabled() async {
-    setState(() {
-      _isHapticsEnabled = AppHaptics.isUserHapticsEnabled;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     var gpsManager = context.watch<GpsManager>();
@@ -147,12 +133,10 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
             label: context.tr("haptics.setting_title"),
             position: LabelTilePosition.middle,
             trailing: Switch(
-              value: _isHapticsEnabled,
+              value: AppHaptics.isUserHapticsEnabled,
               onChanged: (value) {
                 AppHaptics.setUserHapticsEnabled(value);
-                setState(() {
-                  _isHapticsEnabled = value;
-                });
+                setState(() {});
               },
             ),
           ),
