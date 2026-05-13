@@ -136,6 +136,8 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
               value: AppHaptics.isUserHapticsEnabled,
               onChanged: (value) {
                 AppHaptics.setUserHapticsEnabled(value);
+                // Confirm when turning on.
+                if (value) AppHaptics.selection();
                 setState(() {});
               },
             ),

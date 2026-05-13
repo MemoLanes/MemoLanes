@@ -384,8 +384,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
     final idx = _indexAtOffset(_scrollController.offset);
     final aligned = _isAlignedToTick(idx);
     if (!aligned) {
-      // During snap: skip _onScrollUpdate haptics (avoids inconsistent floor crossings) and
-      // ignore snap-triggered ScrollEnd so _onScrollEnd does not run another settle / haptic.
+      // Suppress haptics from scroll updates and the snap-end notification.
       _isSnapping = true;
       try {
         await _snapToIndex(idx);
@@ -394,9 +393,10 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
       }
       if (!mounted) return;
     }
-    // Always fire one settle haptic after snap (or if already aligned)—consistent UX.
+    // Skip if _onScrollUpdate already vibrated for this tick.
+    final shouldHaptic = !aligned || _lastHapticIndex != idx;
     _lastHapticIndex = idx;
-    AppHaptics.selection();
+    if (shouldHaptic) AppHaptics.selection();
     _data.notifyDisplay(idx);
     if (!_data.indexEqualsSelection(idx)) _data.reportSelection(idx);
   }
