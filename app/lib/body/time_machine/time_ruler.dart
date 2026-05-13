@@ -384,9 +384,8 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
     final idx = _indexAtOffset(_scrollController.offset);
     final aligned = _isAlignedToTick(idx);
     if (!aligned) {
-      // snap 动画期间屏蔽 _onScrollUpdate 的震动判定，避免因起点位置不同
-      // 偶尔跨过 floor 边界、偶尔不跨过；同时让 _onScrollEnd 忽略 snap 自己
-      // 触发的 ScrollEnd，避免它再调度一次 settle 导致重复震动。
+      // During snap: skip _onScrollUpdate haptics (avoids inconsistent floor crossings) and
+      // ignore snap-triggered ScrollEnd so _onScrollEnd does not run another settle / haptic.
       _isSnapping = true;
       try {
         await _snapToIndex(idx);
@@ -395,8 +394,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
       }
       if (!mounted) return;
     }
-    // 无论 fling 是否恰好停在刻度上、是否需要 snap，settle 到位时都统一
-    // 给一次"吸附到位"的反馈，保证体验一致。
+    // Always fire one settle haptic after snap (or if already aligned)—consistent UX.
     _lastHapticIndex = idx;
     AppHaptics.selection();
     _data.notifyDisplay(idx);
