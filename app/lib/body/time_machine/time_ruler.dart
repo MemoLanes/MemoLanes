@@ -313,6 +313,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
   late ScrollController _scrollController;
   Timer? _snapTimer;
   bool _isScrolling = false;
+  bool _isSnapping = false;
   int _lastHapticIndex = -1;
   double _viewportWidth = 0;
 
@@ -382,9 +383,23 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
     if (!mounted || !_scrollController.hasClients) return;
     final idx = _indexAtOffset(_scrollController.offset);
     final aligned = _isAlignedToTick(idx);
+    if (!aligned) {
+      // snap 动画期间屏蔽 _onScrollUpdate 的震动判定，避免因起点位置不同
+      // 偶尔跨过 floor 边界、偶尔不跨过；同时让 _onScrollEnd 忽略 snap 自己
+      // 触发的 ScrollEnd，避免它再调度一次 settle 导致重复震动。
+      _isSnapping = true;
+      try {
+        await _snapToIndex(idx);
+      } finally {
+        _isSnapping = false;
+      }
+      if (!mounted) return;
+    }
+    // 无论 fling 是否恰好停在刻度上、是否需要 snap，settle 到位时都统一
+    // 给一次"吸附到位"的反馈，保证体验一致。
     _lastHapticIndex = idx;
-    if (!aligned) await _snapToIndex(idx);
-    if (!mounted) return;
+    AppHaptics.selection();
+    _data.notifyDisplay(idx);
     if (!_data.indexEqualsSelection(idx)) _data.reportSelection(idx);
   }
 
@@ -419,16 +434,20 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
 
   void _onScrollUpdate(ScrollNotification n) {
     if (_viewportWidth <= 0) return;
-    final idx = _indexAtOffset(n.metrics.pixels);
-    if (idx != _lastHapticIndex) {
-      _lastHapticIndex = idx;
+    if (_isSnapping) return;
+    final maxIdx = _data.itemCount > 0 ? _data.itemCount - 1 : 0;
+    final bucket =
+        (n.metrics.pixels / kRulerUnitSpacing).floor().clamp(0, maxIdx);
+    if (bucket != _lastHapticIndex) {
+      _lastHapticIndex = bucket;
       AppHaptics.selection();
-      _data.notifyDisplay(idx);
+      _data.notifyDisplay(bucket);
     }
   }
 
   void _onScrollEnd(ScrollNotification n) {
     _isScrolling = false;
+    if (_isSnapping) return;
     _snapTimer?.cancel();
     if (!mounted || !_scrollController.hasClients) return;
     _snapTimer = Timer(kRulerSnapDelay, () async {
