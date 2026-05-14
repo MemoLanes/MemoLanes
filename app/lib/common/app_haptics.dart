@@ -7,7 +7,6 @@ abstract final class AppHaptics {
   AppHaptics._();
 
   static const HapticsUsage _defaultUsage = HapticsUsage.touch;
-  static const bool _defaultUseAndroidHapticConstants = true;
 
   static bool? _userHapticsEnabled;
 
@@ -22,84 +21,64 @@ abstract final class AppHaptics {
     _userHapticsEnabled = enabled;
   }
 
-  /// Single entry to [Haptics.vibrate]. Typed helpers forward here; pass [usage] /
-  /// [useAndroidHapticConstants] to override app defaults.
+  /// Single entry to [Haptics.vibrate]. Typed helpers forward here; pass [usage]
+  /// to override app defaults.
   static void vibrate(
     HapticsType type, {
     HapticsUsage? usage,
-    bool? useAndroidHapticConstants,
   }) {
     if (!isUserHapticsEnabled) return;
     unawaited(
-      Haptics.vibrate(
-        type,
-        usage: usage ?? _defaultUsage,
-        useAndroidHapticConstants:
-            useAndroidHapticConstants ?? _defaultUseAndroidHapticConstants,
-      ),
+      Haptics.vibrate(type,
+          usage: usage ?? _defaultUsage,
+          useAndroidHapticConstants:
+              /* The behavior simulated by [false] is poor. */
+              true),
     );
   }
 
   static void success({
     HapticsUsage? usage,
-    bool? useAndroidHapticConstants,
   }) =>
-      vibrate(HapticsType.success,
-          usage: usage, useAndroidHapticConstants: useAndroidHapticConstants);
+      vibrate(HapticsType.success, usage: usage);
 
   static void warning({
     HapticsUsage? usage,
-    bool? useAndroidHapticConstants,
   }) =>
-      vibrate(HapticsType.warning,
-          usage: usage, useAndroidHapticConstants: useAndroidHapticConstants);
+      vibrate(HapticsType.warning, usage: usage);
 
   static void error({
     HapticsUsage? usage,
-    bool? useAndroidHapticConstants,
   }) =>
-      vibrate(HapticsType.error,
-          usage: usage, useAndroidHapticConstants: useAndroidHapticConstants);
+      vibrate(HapticsType.error, usage: usage);
 
   static void light({
     HapticsUsage? usage,
-    bool? useAndroidHapticConstants,
   }) =>
-      vibrate(HapticsType.light,
-          usage: usage, useAndroidHapticConstants: useAndroidHapticConstants);
+      vibrate(HapticsType.light, usage: usage);
 
   static void medium({
     HapticsUsage? usage,
-    bool? useAndroidHapticConstants,
   }) =>
-      vibrate(HapticsType.medium,
-          usage: usage, useAndroidHapticConstants: useAndroidHapticConstants);
+      vibrate(HapticsType.medium, usage: usage);
 
   static void heavy({
     HapticsUsage? usage,
-    bool? useAndroidHapticConstants,
   }) =>
-      vibrate(HapticsType.heavy,
-          usage: usage, useAndroidHapticConstants: useAndroidHapticConstants);
+      vibrate(HapticsType.heavy, usage: usage);
 
   static void rigid({
     HapticsUsage? usage,
-    bool? useAndroidHapticConstants,
   }) =>
-      vibrate(HapticsType.rigid,
-          usage: usage, useAndroidHapticConstants: useAndroidHapticConstants);
+      vibrate(HapticsType.rigid, usage: usage);
 
   static void soft({
     HapticsUsage? usage,
-    bool? useAndroidHapticConstants,
   }) =>
-      vibrate(HapticsType.soft,
-          usage: usage, useAndroidHapticConstants: useAndroidHapticConstants);
+      vibrate(HapticsType.soft, usage: usage);
 
   static void selection({
     HapticsUsage? usage,
-    bool? useAndroidHapticConstants,
   }) =>
-      vibrate(HapticsType.selection,
-          usage: usage, useAndroidHapticConstants: useAndroidHapticConstants);
+      vibrate(HapticsType.selection, usage: usage);
 }
