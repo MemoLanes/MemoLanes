@@ -102,6 +102,7 @@
 		8A8F4D662A7B4A3B00112233 /* AppShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShortcuts.swift; sourceTree = "<group>"; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = Flutter/Debug.xcconfig; sourceTree = "<group>"; };
 		9740EEB31CF90195004384FC /* Generated.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Generated.xcconfig; path = Flutter/Generated.xcconfig; sourceTree = "<group>"; };
+		EC94DA302F0E1A7C00214BD0 /* RecordingLiveActivity.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = RecordingLiveActivity.xcconfig; path = Flutter/RecordingLiveActivity.xcconfig; sourceTree = "<group>"; };
 		97C146EE1CF9000F007C117D /* Runner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Runner.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		97C146FD1CF9000F007C117D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -214,6 +215,7 @@
 				9740EEB21CF90195004384FC /* Debug.xcconfig */,
 				7AFA3C8E1D35360C0083082E /* Release.xcconfig */,
 				9740EEB31CF90195004384FC /* Generated.xcconfig */,
+				EC94DA302F0E1A7C00214BD0 /* RecordingLiveActivity.xcconfig */,
 			);
 			name = Flutter;
 			sourceTree = "<group>";
@@ -1122,6 +1124,7 @@
 		};
 		EC94DA252F0E1A7C00214BD0 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = EC94DA302F0E1A7C00214BD0 /* RecordingLiveActivity.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
@@ -1165,6 +1168,7 @@
 		};
 		EC94DA262F0E1A7C00214BD0 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = EC94DA302F0E1A7C00214BD0 /* RecordingLiveActivity.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
@@ -1205,6 +1209,7 @@
 		};
 		EC94DA272F0E1A7C00214BD0 /* Profile */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = EC94DA302F0E1A7C00214BD0 /* RecordingLiveActivity.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
