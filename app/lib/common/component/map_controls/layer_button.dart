@@ -81,7 +81,7 @@ class _LayerPopupContentState extends State<LayerPopupContent> {
     );
   }
 
-  Widget _buildItem(LayerOption layerOption, String text, IconData icon) {
+  Widget _buildItem(LayerOption layerOption, String text, FaIconData icon) {
     final isActive = switch (layerOption) {
       LayerOption.current => _layerFilter.currentJourney,
       LayerOption.default_ => _layerFilter.defaultKind,
@@ -112,9 +112,11 @@ class _LayerPopupContentState extends State<LayerPopupContent> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon,
-                color: isActive ? StyleConstants.defaultColor : Colors.white70,
-                size: 16),
+            FaIcon(
+              icon,
+              color: isActive ? StyleConstants.defaultColor : Colors.white70,
+              size: 16,
+            ),
             const SizedBox(width: 8),
             Text(
               text,
