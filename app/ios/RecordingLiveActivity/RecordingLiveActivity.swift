@@ -80,6 +80,17 @@ private func statusTitle(recordingStatus: Int) -> String {
   }
 }
 
+/// Short labels for Dynamic Island compact trailing (matches in-app notion: 运行中 / 暂停).
+@available(iOS 16.1, *)
+private func islandCompactStatusTitle(recordingStatus: Int) -> String {
+  switch recordingStatus {
+  case 2:
+    return String(localized: "live_activity.island_status_paused", bundle: .main)
+  default:
+    return String(localized: "live_activity.island_status_recording", bundle: .main)
+  }
+}
+
 @available(iOS 16.1, *)
 private struct StatusBadge: View {
   let recordingStatus: Int
@@ -268,9 +279,8 @@ struct RecordingLiveActivityWidget: Widget {
       let defaults = UserDefaults(suiteName: kRecordingLiveActivityAppGroup)!
       let attrs = context.attributes
       let recordingStatus = readInt(defaults, attributes: attrs, key: "recordingStatus")
+      let hasGpsFix = readBool(defaults, attributes: attrs, key: "hasGpsFix")
       let mapUrl = URL(string: "memolaneslive://action?op=openMap")!
-      let pauseUrl = URL(string: "memolaneslive://action?op=pause")!
-      let resumeUrl = URL(string: "memolaneslive://action?op=resume")!
 
       return DynamicIsland {
         DynamicIslandExpandedRegion(.bottom) {
@@ -279,51 +289,35 @@ struct RecordingLiveActivityWidget: Widget {
             .padding(.bottom, 4)
         }
       } compactLeading: {
+        // Same visual language as in-app map `TrackingButton`: black circle + lime heading icon.
         Link(destination: mapUrl) {
           ZStack {
             Circle()
-              .fill(MemoLiveTheme.surfaceElevated)
+              .fill(Color.black)
               .frame(width: 26, height: 26)
-            Image(systemName: "map.fill")
+            Image(systemName: "location.north.line.fill")
               .font(.system(size: 13, weight: .semibold))
-              .foregroundStyle(MemoLiveTheme.textSecondary)
+              .foregroundStyle(MemoLiveTheme.lime.opacity(hasGpsFix ? 1.0 : 0.45))
           }
         }
       } compactTrailing: {
-        if recordingStatus == 1 {
-          Link(destination: pauseUrl) {
-            ZStack {
-              Circle()
-                .fill(MemoLiveTheme.recordingDot.opacity(0.22))
-                .frame(width: 26, height: 26)
-              Image(systemName: "pause.fill")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(MemoLiveTheme.recordingDot)
-            }
-          }
-        } else if recordingStatus == 2 {
-          Link(destination: resumeUrl) {
-            ZStack {
-              Circle()
-                .fill(MemoLiveTheme.lime.opacity(0.22))
-                .frame(width: 26, height: 26)
-              Image(systemName: "play.fill")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(MemoLiveTheme.lime)
-            }
-          }
-        } else {
-          Link(destination: mapUrl) {
-            Image(systemName: "ellipsis.circle.fill")
-              .font(.system(size: 22))
-              .foregroundStyle(MemoLiveTheme.textSecondary)
-          }
+        Link(destination: mapUrl) {
+          Text(islandCompactStatusTitle(recordingStatus: recordingStatus))
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(recordingStatus == 2 ? MemoLiveTheme.pausedDot : MemoLiveTheme.lime)
+            .lineLimit(1)
+            .minimumScaleFactor(0.75)
         }
       } minimal: {
         Link(destination: mapUrl) {
-          Circle()
-            .fill(recordingStatus == 2 ? MemoLiveTheme.pausedDot : MemoLiveTheme.recordingDot)
-            .frame(width: 10, height: 10)
+          ZStack {
+            Circle()
+              .fill(Color.black)
+              .frame(width: 22, height: 22)
+            Image(systemName: "location.north.line.fill")
+              .font(.system(size: 11, weight: .semibold))
+              .foregroundStyle(MemoLiveTheme.lime.opacity(hasGpsFix ? 1.0 : 0.45))
+          }
         }
       }
     }

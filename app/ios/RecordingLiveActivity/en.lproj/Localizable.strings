@@ -1,5 +1,7 @@
 "live_activity.status_recording" = "Recording";
 "live_activity.status_paused" = "Paused";
+"live_activity.island_status_recording" = "Recording";
+"live_activity.island_status_paused" = "Paused";
 "live_activity.pause" = "Pause";
 "live_activity.resume" = "Resume";
 "live_activity.elapsed_format" = "%d:%02d";

@@ -30,6 +30,8 @@ class RecordingLiveActivityService with WidgetsBindingObserver {
   bool _inited = false;
   bool _nativeReady = false;
 
+  Future<void> _syncChain = Future<void>.value();
+
   static const _slowThrottle = Duration(seconds: 5);
 
   void start({required GpsManager gpsManager}) {
@@ -170,46 +172,65 @@ class RecordingLiveActivityService with WidgetsBindingObserver {
     final gps = _gps;
     if (!_nativeReady || gps == null) return;
 
-    try {
-      if (!_shouldShow(gps)) {
-        _lastSentPayload = null;
-        _lastSlowFieldPush = DateTime.fromMillisecondsSinceEpoch(0);
-        await _live.endActivity(kRecordingLiveActivityId);
-        return;
+    _syncChain = _syncChain.then((_) async {
+      try {
+        await _syncBody();
+      } catch (e, s) {
+        log.error('[RecordingLiveActivity] sync ($reason): $e', s);
       }
+    });
+    await _syncChain;
+  }
 
-      final next = await _buildPayload(gps);
-      final prev = _lastSentPayload;
-      final now = DateTime.now();
+  Future<void> _syncBody() async {
+    final gps = _gps;
+    if (gps == null) return;
 
-      if (prev != null && _payloadCanonicallyEqual(next, prev)) {
-        return;
-      }
-
-      final statusChanged =
-          prev == null || next['recordingStatus'] != prev['recordingStatus'];
-      final slowOnly = prev != null &&
-          next['recordingStatus'] == prev['recordingStatus'] &&
-          (next['hasGpsFix'] != prev['hasGpsFix'] ||
-              next['accuracyM'] != prev['accuracyM'] ||
-              next['startedAtEpochMs'] != prev['startedAtEpochMs']);
-
-      if (!statusChanged &&
-          slowOnly &&
-          now.difference(_lastSlowFieldPush) < _slowThrottle) {
-        return;
-      }
-
-      await _live.createOrUpdateActivity(
-        kRecordingLiveActivityId,
-        next,
-        iOSEnableRemoteUpdates: false,
-      );
-      _lastSentPayload = Map<String, dynamic>.from(next);
-      _lastSlowFieldPush = now;
-    } catch (e, s) {
-      log.error('[RecordingLiveActivity] sync ($reason): $e', s);
+    if (!_shouldShow(gps)) {
+      _lastSentPayload = null;
+      _lastSlowFieldPush = DateTime.fromMillisecondsSinceEpoch(0);
+      // End every Live Activity of this attribute type so duplicates from races
+      // or older builds cannot linger on the lock screen / 灵动岛.
+      await _live.endAllActivities();
+      return;
     }
+
+    final next = await _buildPayload(gps);
+    final prev = _lastSentPayload;
+    final now = DateTime.now();
+
+    if (prev != null && _payloadCanonicallyEqual(next, prev)) {
+      return;
+    }
+
+    final statusChanged =
+        prev == null || next['recordingStatus'] != prev['recordingStatus'];
+    final slowOnly = prev != null &&
+        next['recordingStatus'] == prev['recordingStatus'] &&
+        (next['hasGpsFix'] != prev['hasGpsFix'] ||
+            next['accuracyM'] != prev['accuracyM'] ||
+            next['startedAtEpochMs'] != prev['startedAtEpochMs']);
+
+    if (!statusChanged &&
+        slowOnly &&
+        now.difference(_lastSlowFieldPush) < _slowThrottle) {
+      return;
+    }
+
+    final ids = await _live.getAllActivitiesIds();
+    if (ids.length > 1) {
+      await _live.endAllActivities();
+      _lastSentPayload = null;
+      _lastSlowFieldPush = DateTime.fromMillisecondsSinceEpoch(0);
+    }
+
+    await _live.createOrUpdateActivity(
+      kRecordingLiveActivityId,
+      next,
+      iOSEnableRemoteUpdates: false,
+    );
+    _lastSentPayload = Map<String, dynamic>.from(next);
+    _lastSlowFieldPush = now;
   }
 
   void dispose() {

@@ -1,5 +1,7 @@
 "live_activity.status_recording" = "记录中";
 "live_activity.status_paused" = "已暂停";
+"live_activity.island_status_recording" = "运行中";
+"live_activity.island_status_paused" = "暂停";
 "live_activity.pause" = "暂停";
 "live_activity.resume" = "继续";
 "live_activity.elapsed_format" = "%d:%02d";
