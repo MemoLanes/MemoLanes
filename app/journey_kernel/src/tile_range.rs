@@ -1,19 +1,19 @@
 //! TileRangeResponse binary wire format used by `/tile-range`.
 //!
-//! The message contains a fixed-width 16-byte header followed by an encoded tail.
+//! The message contains a fixed-width 20-byte header followed by an encoded tail.
 //! All multi-byte integer fields use little-endian byte order.
 //!
 //! Header layout:
 //! - byte 0: `tile_bitmap_exp` (`u8`)
 //! - byte 1: `z` (`u8`)
-//! - bytes 2..4: `x0` (`u16`)
-//! - bytes 4..6: `y0` (`u16`)
-//! - bytes 6..8: `range_w` (`u16`)
-//! - bytes 8..10: `range_h` (`u16`)
-//! - bytes 10..12: `tile_count` (`u16`, equals `range_w * range_h`)
-//! - bytes 12..14: `present_count` (`u16`)
-//! - byte 14: `compression` (`u8`, see `FTA_COMPRESSION_*`)
-//! - byte 15: reserved (`0`)
+//! - byte 2: `compression` (`u8`, see `FTA_COMPRESSION_*`)
+//! - byte 3: reserved (`0`)
+//! - bytes 4..8: `x0` (`i32`)
+//! - bytes 8..12: `y0` (`i32`)
+//! - bytes 12..14: `range_w` (`u16`)
+//! - bytes 14..16: `range_h` (`u16`)
+//! - bytes 16..18: `tile_count` (`u16`, equals `range_w * range_h`)
+//! - bytes 18..20: `present_count` (`u16`)
 //!
 //! Tail layout:
 //! 1. Presence bitmap (`ceil(tile_count / 8)` bytes), LSB-first bit order.
@@ -37,25 +37,25 @@ use crate::utils::xy_to_index;
 use bitvec::prelude::BitVec;
 use lz4_flex::{compress_prepend_size, decompress_size_prepended};
 
-const TILE_RANGE_HEADER_SIZE: usize = 16;
+pub const TILE_RANGE_HEADER_SIZE: usize = 20;
 
 #[derive(Clone, Copy, Debug)]
 pub struct TileRangeHeader {
     pub tile_bitmap_exp: u8,
     pub z: u8,
-    pub x0: u16,
-    pub y0: u16,
+    pub compression: u8,
+    pub x0: i32,
+    pub y0: i32,
     pub range_w: u16,
     pub range_h: u16,
     pub tile_count: u16,
     pub present_count: u16,
-    pub compression: u8,
 }
 
 /// Per-tile source data used by `encode_tile_range_response_from_tiles`.
 pub struct TilePixelData {
-    pub x: u16,
-    pub y: u16,
+    pub x: i32,
+    pub y: i32,
     /// Pixel coordinates within the tile.
     ///
     /// Each `(px, py)` must be in `[0, 2^tile_bitmap_exp)`.
@@ -68,8 +68,8 @@ pub struct TilePixelData {
 #[allow(clippy::too_many_arguments)]
 pub fn encode_tile_range_response_from_tiles(
     z: u8,
-    x0: u32,
-    y0: u32,
+    x0: i32,
+    y0: i32,
     w: u32,
     h: u32,
     tile_bitmap_exp: u8,
@@ -79,15 +79,12 @@ pub fn encode_tile_range_response_from_tiles(
     if w == 0 || h == 0 {
         return Err("Invalid tile range".to_string());
     }
-    if z > 16 {
-        return Err("z > 16 is not supported by TileRangeResponse (u16 coordinates)".to_string());
-    }
 
-    let x1 = x0
-        .checked_add(w - 1)
+    let x1 = (x0 as i64)
+        .checked_add(w as i64 - 1)
         .ok_or_else(|| "Range width overflow".to_string())?;
-    let y1 = y0
-        .checked_add(h - 1)
+    let y1 = (y0 as i64)
+        .checked_add(h as i64 - 1)
         .ok_or_else(|| "Range height overflow".to_string())?;
     let range_w = w;
     let range_h = h;
@@ -95,15 +92,8 @@ pub fn encode_tile_range_response_from_tiles(
         .checked_mul(range_h)
         .ok_or_else(|| "Range tile_count overflow".to_string())?;
 
-    if x0 > u16::MAX as u32
-        || y0 > u16::MAX as u32
-        || x1 > u16::MAX as u32
-        || y1 > u16::MAX as u32
-        || range_w > u16::MAX as u32
-        || range_h > u16::MAX as u32
-        || tile_count > u16::MAX as u32
-    {
-        return Err("TileRangeResponse only supports u16 tile coordinates and counts".to_string());
+    if range_w > u16::MAX as u32 || range_h > u16::MAX as u32 || tile_count > u16::MAX as u32 {
+        return Err("TileRangeResponse range_w/range_h/tile_count exceed u16".to_string());
     }
 
     let _ = bitmap_bytes_for_exp(tile_bitmap_exp)
@@ -117,16 +107,16 @@ pub fn encode_tile_range_response_from_tiles(
     let mut tile_blobs = vec![None; tile_count as usize];
 
     for tile in tiles {
-        let tx = tile.x as u32;
-        let ty = tile.y as u32;
-        if tx < x0 || tx > x1 || ty < y0 || ty > y1 {
+        let tx = tile.x as i64;
+        let ty = tile.y as i64;
+        if tx < x0 as i64 || tx > x1 || ty < y0 as i64 || ty > y1 {
             return Err(format!(
                 "Tile ({}, {}) is outside query bounds x=[{}..{}], y=[{}..{}]",
                 tx, ty, x0, x1, y0, y1
             ));
         }
 
-        let idx = ((ty - y0) * range_w + (tx - x0)) as usize;
+        let idx = ((ty - y0 as i64) as u32 * range_w + (tx - x0 as i64) as u32) as usize;
         if tile_blobs[idx].is_some() {
             return Err(format!(
                 "Duplicate tile coordinates in input: ({}, {})",
@@ -173,17 +163,17 @@ pub fn encode_tile_range_response_from_tiles(
     let encoded_tail = compress_tile_range_tail(&raw_tail, compression)
         .map_err(|e| format!("Failed to encode TileRangeResponse tail: {e}"))?;
 
-    let mut out = Vec::with_capacity(16 + encoded_tail.len());
+    let mut out = Vec::with_capacity(TILE_RANGE_HEADER_SIZE + encoded_tail.len());
     out.push(tile_bitmap_exp);
     out.push(z);
-    out.extend_from_slice(&(x0 as u16).to_le_bytes());
-    out.extend_from_slice(&(y0 as u16).to_le_bytes());
+    out.push(compression);
+    out.push(0);
+    out.extend_from_slice(&x0.to_le_bytes());
+    out.extend_from_slice(&y0.to_le_bytes());
     out.extend_from_slice(&(range_w as u16).to_le_bytes());
     out.extend_from_slice(&(range_h as u16).to_le_bytes());
     out.extend_from_slice(&(tile_count as u16).to_le_bytes());
     out.extend_from_slice(&present_count.to_le_bytes());
-    out.push(compression);
-    out.push(0);
     out.extend_from_slice(&encoded_tail);
     Ok(out)
 }
@@ -196,13 +186,13 @@ pub fn parse_tile_range_header(data: &[u8]) -> Result<TileRangeHeader, String> {
     let header = TileRangeHeader {
         tile_bitmap_exp: data[0],
         z: data[1],
-        x0: u16::from_le_bytes([data[2], data[3]]),
-        y0: u16::from_le_bytes([data[4], data[5]]),
-        range_w: u16::from_le_bytes([data[6], data[7]]),
-        range_h: u16::from_le_bytes([data[8], data[9]]),
-        tile_count: u16::from_le_bytes([data[10], data[11]]),
-        present_count: u16::from_le_bytes([data[12], data[13]]),
-        compression: data[14],
+        compression: data[2],
+        x0: i32::from_le_bytes([data[4], data[5], data[6], data[7]]),
+        y0: i32::from_le_bytes([data[8], data[9], data[10], data[11]]),
+        range_w: u16::from_le_bytes([data[12], data[13]]),
+        range_h: u16::from_le_bytes([data[14], data[15]]),
+        tile_count: u16::from_le_bytes([data[16], data[17]]),
+        present_count: u16::from_le_bytes([data[18], data[19]]),
     };
 
     if header.range_w as usize * header.range_h as usize != header.tile_count as usize {
@@ -228,7 +218,7 @@ pub fn decompress_tile_range_response(data: &[u8]) -> Result<Vec<u8>, String> {
     let raw_tail = decompress_tile_range_tail(encoded_tail, header.compression)?;
     let mut normalized = Vec::with_capacity(TILE_RANGE_HEADER_SIZE + raw_tail.len());
     normalized.extend_from_slice(&data[..TILE_RANGE_HEADER_SIZE]);
-    normalized[14] = FTA_COMPRESSION_NONE;
+    normalized[2] = FTA_COMPRESSION_NONE;
     normalized.extend_from_slice(&raw_tail);
     Ok(normalized)
 }
@@ -236,13 +226,13 @@ pub fn decompress_tile_range_response(data: &[u8]) -> Result<Vec<u8>, String> {
 /// Parses tiles from an already decompressed TileRangeResponse body.
 pub fn parse_tiles_from_body(
     tile_bitmap_exp: u8,
-    x_origin: u16,
-    y_origin: u16,
+    x_origin: i32,
+    y_origin: i32,
     range_w: usize,
     tile_count: usize,
     present_count: usize,
     body: &[u8],
-) -> Result<Vec<(u16, u16, BitMap2D)>, String> {
+) -> Result<Vec<(i32, i32, BitMap2D)>, String> {
     let presence_len = tile_count.div_ceil(8);
     if body.len() < presence_len {
         return Err("TileRangeResponse body too small for presence bitmap".to_string());
@@ -266,8 +256,8 @@ pub fn parse_tiles_from_body(
             let base = levels[0].clone();
             let lods = levels[1..].to_vec();
             let bitmap = BitMap2D::from_precomputed(tile_bitmap_exp, base, lods);
-            let x = x_origin + (idx % range_w) as u16;
-            let y = y_origin + (idx / range_w) as u16;
+            let x = x_origin + (idx % range_w) as i32;
+            let y = y_origin + (idx / range_w) as i32;
             out.push((x, y, bitmap));
             seen_present += 1;
         }
@@ -282,7 +272,7 @@ pub fn parse_tiles_from_body(
     Ok(out)
 }
 
-pub fn decode_tile_range_response(data: &[u8]) -> Result<Vec<(u16, u16, BitMap2D)>, String> {
+pub fn decode_tile_range_response(data: &[u8]) -> Result<Vec<(i32, i32, BitMap2D)>, String> {
     let decompressed = decompress_tile_range_response(data)?;
     let header = parse_tile_range_header(&decompressed)?;
     let body = decompressed

@@ -183,8 +183,8 @@ fn tile_range_response_from_journey_bitmap(
             );
 
             let tile_pixel_data = TilePixelData {
-                x: tile_x as u16,
-                y: tile_y as u16,
+                x: tile_x as i32,
+                y: tile_y as i32,
                 pixels,
             };
 
@@ -194,8 +194,8 @@ fn tile_range_response_from_journey_bitmap(
 
     encode_tile_range_response_from_tiles(
         z as u8,
-        x as u32,
-        y as u32,
+        x as i32,
+        y as i32,
         width as u32,
         height as u32,
         buffer_size_power as u8,

@@ -18,8 +18,8 @@ use wasm_bindgen::prelude::*;
 ///
 /// The wire format itself is defined in `crate::tile_range`.
 pub struct TileBuffer {
-    pub(crate) grid_origin_x: u16,
-    pub(crate) grid_origin_y: u16,
+    pub(crate) grid_origin_x: i32,
+    pub(crate) grid_origin_y: i32,
     pub(crate) grid_w: u16,
     pub(crate) grid_h: u16,
     /// Row-major grid: index = (y - grid_origin_y) * grid_w + (x - grid_origin_x).
@@ -31,18 +31,18 @@ pub struct TileBuffer {
     pub(crate) render_exp: u8,
     /// Cache of mercator pixel output keyed by (tile_x, tile_y, tile_z, render_exp, pixel_type).
     /// Uses RefCell for interior mutability since wasm_bindgen query methods take &self.
-    pub(crate) mercator_cache: RefCell<HashMap<(u32, u32, u8, u8, PixelType), Vec<f32>>>,
+    pub(crate) mercator_cache: RefCell<HashMap<(i32, i32, u8, u8, PixelType), Vec<f32>>>,
 }
 
 #[wasm_bindgen]
 impl TileBuffer {
-    pub(crate) fn find_tile(&self, grid_x: u16, grid_y: u16) -> Option<&BitMap2D> {
-        let dx = grid_x.checked_sub(self.grid_origin_x)? as usize;
-        let dy = grid_y.checked_sub(self.grid_origin_y)? as usize;
-        if dx >= self.grid_w as usize || dy >= self.grid_h as usize {
+    pub(crate) fn find_tile(&self, grid_x: i32, grid_y: i32) -> Option<&BitMap2D> {
+        let dx = grid_x - self.grid_origin_x;
+        let dy = grid_y - self.grid_origin_y;
+        if dx < 0 || dy < 0 || dx >= self.grid_w as i32 || dy >= self.grid_h as i32 {
             return None;
         }
-        self.tiles[dy * self.grid_w as usize + dx].as_ref()
+        self.tiles[dy as usize * self.grid_w as usize + dx as usize].as_ref()
     }
 
     pub(crate) fn clamped_query_render_exp(&self, tile_z: u8, requested_render_exp: u8) -> u8 {
@@ -55,15 +55,16 @@ impl TileBuffer {
     /// Query tile buffer for pixels within a single tile(subtile or tile).
     pub fn get_tile_pixels(
         &self,
-        tile_x: u32,
-        tile_y: u32,
+        tile_x: i32,
+        tile_y: i32,
         tile_z: u8,
         render_exp: u8,
     ) -> Vec<u16> {
-        let Some(tiles_per_axis) = 1u32.checked_shl(tile_z as u32) else {
+        let Some(tiles_per_axis) = 1i64.checked_shl(tile_z as u32) else {
             return Vec::new();
         };
-        if tile_x >= tiles_per_axis || tile_y >= tiles_per_axis {
+        // y is always non-negative in web mercator; x can be negative for world wrapping
+        if tile_y < 0 || tile_y as i64 >= tiles_per_axis {
             return Vec::new();
         }
 
@@ -75,15 +76,12 @@ impl TileBuffer {
             let dz = tile_z - self.tile_grid_exp;
             let parent_x = tile_x >> dz;
             let parent_y = tile_y >> dz;
-            if parent_x > u16::MAX as u32 || parent_y > u16::MAX as u32 {
-                return Vec::new();
-            }
 
-            let Some(tile) = self.find_tile(parent_x as u16, parent_y as u16) else {
+            let Some(tile) = self.find_tile(parent_x, parent_y) else {
                 return Vec::new();
             };
 
-            let child_mask = if dz == 0 { 0 } else { (1u32 << dz) - 1 };
+            let child_mask = if dz == 0 { 0 } else { (1i32 << dz) - 1 };
             let child_x = (tile_x & child_mask) as i64;
             let child_y = (tile_y & child_mask) as i64;
             let child_z = dz as i16;
@@ -98,8 +96,8 @@ impl TileBuffer {
 
         let span = self.tile_grid_exp - tile_z;
         let subtiles_per_axis = 1u32 << span;
-        let base_x = tile_x << span;
-        let base_y = tile_y << span;
+        let base_x = (tile_x as i64) << span;
+        let base_y = (tile_y as i64) << span;
 
         if render_exp >= span {
             // Case 2: The queried tiles are larger than the TileBuffer's internal tile grid.
@@ -108,12 +106,12 @@ impl TileBuffer {
             let sub_render_exp = render_exp - span;
             for dy in 0..subtiles_per_axis {
                 for dx in 0..subtiles_per_axis {
-                    let gx = base_x + dx;
-                    let gy = base_y + dy;
-                    if gx > u16::MAX as u32 || gy > u16::MAX as u32 {
+                    let gx = base_x + dx as i64;
+                    let gy = base_y + dy as i64;
+                    if gx < i32::MIN as i64 || gx > i32::MAX as i64 {
                         continue;
                     }
-                    let Some(tile) = self.find_tile(gx as u16, gy as u16) else {
+                    let Some(tile) = self.find_tile(gx as i32, gy as i32) else {
                         continue;
                     };
                     for (px, py) in tile.iter_pixels(0, 0, 0, 0, 0, sub_render_exp as i16) {
@@ -135,12 +133,12 @@ impl TileBuffer {
         let coarse_shift = span - render_exp;
         for dy in 0..subtiles_per_axis {
             for dx in 0..subtiles_per_axis {
-                let gx = base_x + dx;
-                let gy = base_y + dy;
-                if gx > u16::MAX as u32 || gy > u16::MAX as u32 {
+                let gx = base_x + dx as i64;
+                let gy = base_y + dy as i64;
+                if gx < i32::MIN as i64 || gx > i32::MAX as i64 {
                     continue;
                 }
-                let Some(tile) = self.find_tile(gx as u16, gy as u16) else {
+                let Some(tile) = self.find_tile(gx as i32, gy as i32) else {
                     continue;
                 };
                 if tile.is_empty() {
@@ -172,7 +170,7 @@ impl TileBuffer {
         })?;
         let header = parse_tile_range_header(&decompressed)
             .map_err(|e| JsValue::from_str(&format!("Failed to parse TileRange header: {}", e)))?;
-        let body = &decompressed[16..];
+        let body = &decompressed[crate::tile_range::TILE_RANGE_HEADER_SIZE..];
         let parsed = parse_tiles_from_body(
             header.tile_bitmap_exp,
             header.x0,
@@ -229,8 +227,8 @@ impl TileBuffer {
     #[wasm_bindgen]
     pub fn query_range_pixels(
         &self,
-        x: u32,
-        y: u32,
+        x: i32,
+        y: i32,
         z: u8,
         w: u32,
         h: u32,
@@ -243,14 +241,20 @@ impl TileBuffer {
         let mut out = Vec::new();
         for dy in 0..h {
             for dx in 0..w {
-                let Some(tile_x) = x.checked_add(dx) else {
+                let Some(tile_x) = (x as i64).checked_add(dx as i64) else {
                     continue;
                 };
-                let Some(tile_y) = y.checked_add(dy) else {
+                let Some(tile_y) = (y as i64).checked_add(dy as i64) else {
                     continue;
                 };
-                let tile_pixels =
-                    self.get_tile_pixels(tile_x.into(), tile_y.into(), z.into(), render_exp.into());
+                if tile_x < i32::MIN as i64
+                    || tile_x > i32::MAX as i64
+                    || tile_y < i32::MIN as i64
+                    || tile_y > i32::MAX as i64
+                {
+                    continue;
+                }
+                let tile_pixels = self.get_tile_pixels(tile_x as i32, tile_y as i32, z, render_exp);
                 out.extend_from_slice(&tile_pixels);
             }
         }
