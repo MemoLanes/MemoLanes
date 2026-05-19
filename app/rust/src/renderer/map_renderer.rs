@@ -1,5 +1,7 @@
 use flutter_rust_bridge::frb;
-use journey_kernel::TileBuffer;
+use journey_kernel::encode_tile_range_response_from_tiles;
+use journey_kernel::TilePixelData;
+use journey_kernel::FTA_COMPRESSION_ZSTD;
 
 use crate::journey_area_utils;
 use crate::journey_bitmap::{JourneyBitmap, TileKey};
@@ -95,7 +97,7 @@ impl MapRenderer {
         })
     }
 
-    pub fn get_tile_buffer(
+    pub fn get_tile_range_response(
         &mut self,
         x: i64,
         y: i64,
@@ -103,8 +105,8 @@ impl MapRenderer {
         width: i64,
         height: i64,
         buffer_size_power: i16,
-    ) -> Result<TileBuffer, String> {
-        tile_buffer_from_journey_bitmap(
+    ) -> Result<Vec<u8>, String> {
+        tile_range_response_from_journey_bitmap(
             &mut self.journey_bitmap,
             x,
             y,
@@ -116,8 +118,7 @@ impl MapRenderer {
     }
 }
 
-/// Create a new TileBuffer from a JourneyBitmap for a range of tiles
-fn tile_buffer_from_journey_bitmap(
+fn tile_range_response_from_journey_bitmap(
     journey_bitmap: &mut JourneyBitmap,
     x: i64,
     y: i64,
@@ -125,7 +126,7 @@ fn tile_buffer_from_journey_bitmap(
     width: i64,
     height: i64,
     buffer_size_power: i16,
-) -> Result<TileBuffer, String> {
+) -> Result<Vec<u8>, String> {
     // Validate parameters to prevent overflow and invalid operations
     if width <= 0 || height <= 0 {
         return Err(format!(
@@ -139,8 +140,8 @@ fn tile_buffer_from_journey_bitmap(
         ));
     }
 
-    if !(0..=25).contains(&z) {
-        return Err(format!("Invalid zoom level: {z} (must be 0-25)"));
+    if !(0..=16).contains(&z) {
+        return Err(format!("Invalid zoom level: {z} (must be 0-16)"));
     }
 
     if !(6..=11).contains(&buffer_size_power) {
@@ -161,16 +162,7 @@ fn tile_buffer_from_journey_bitmap(
         ));
     }
 
-    // Create buffer with validated parameters
-    let mut buffer = TileBuffer {
-        x,
-        y,
-        z,
-        width,
-        height,
-        buffer_size_power,
-        tile_data: vec![Vec::new(); (width * height) as usize],
-    };
+    let mut tiles = Vec::new();
 
     // For each tile in the range
     for tile_y in y..(y + height) {
@@ -179,10 +171,7 @@ fn tile_buffer_from_journey_bitmap(
             let tile_x_rounded =
                 ((tile_x % zoom_coefficient) + zoom_coefficient) % zoom_coefficient;
 
-            // Get the pixels using TileShader2
-            let pixels = TileShader2::get_pixels_coordinates(
-                0,
-                0,
+            let bitmap = TileShader2::render_tile_bitmap(
                 journey_bitmap,
                 tile_x_rounded,
                 tile_y,
@@ -190,34 +179,24 @@ fn tile_buffer_from_journey_bitmap(
                 buffer_size_power,
             );
 
-            // Convert to tile-relative coordinates and add to buffer
-            let idx = buffer.calculate_tile_index(tile_x, tile_y);
+            let tile_pixel_data = TilePixelData {
+                x: tile_x as i32,
+                y: tile_y as i32,
+                bitmap,
+            };
 
-            // Bounds check for safety (should never fail with our validation above)
-            if idx >= buffer.tile_data.len() {
-                return Err(format!(
-                    "Index out of bounds: {} >= {}",
-                    idx,
-                    buffer.tile_data.len()
-                ));
-            }
-
-            let tile_pixels = &mut buffer.tile_data[idx];
-
-            // Convert from i64 coordinates to u16 coordinates for the TileBuffer
-            for (px, py) in pixels {
-                if px >= 0
-                    && px < (1 << buffer_size_power)
-                    && py >= 0
-                    && py < (1 << buffer_size_power)
-                {
-                    // Only add if not already present
-                    let pixel = (px as u16, py as u16);
-                    tile_pixels.push(pixel);
-                }
-            }
+            tiles.push(tile_pixel_data);
         }
     }
 
-    Ok(buffer)
+    encode_tile_range_response_from_tiles(
+        z as u8,
+        x as i32,
+        y as i32,
+        width as u32,
+        height as u32,
+        buffer_size_power as u8,
+        FTA_COMPRESSION_ZSTD,
+        tiles,
+    )
 }
