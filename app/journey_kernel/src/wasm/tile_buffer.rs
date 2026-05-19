@@ -37,6 +37,14 @@ pub struct TileBuffer {
 #[wasm_bindgen]
 impl TileBuffer {
     pub(crate) fn find_tile(&self, grid_x: i32, grid_y: i32) -> Option<&BitMap2D> {
+        // X-wrap normalization: the query x may be offset by multiples of the world
+        // size (1 << tile_grid_exp) due to multi-world-copy rendering or antimeridian
+        // crossing during drag. Use Euclidean modulo to map any x that has a
+        // modular-equivalent copy inside the buffer range back into that range.
+        let world_size = 1i32 << self.tile_grid_exp;
+        let offset = ((grid_x - self.grid_origin_x) % world_size + world_size) % world_size;
+        let grid_x = self.grid_origin_x + offset;
+
         let dx = grid_x - self.grid_origin_x;
         let dy = grid_y - self.grid_origin_y;
         if dx < 0 || dy < 0 || dx >= self.grid_w as i32 || dy >= self.grid_h as i32 {
