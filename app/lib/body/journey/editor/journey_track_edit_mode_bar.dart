@@ -1,6 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/frosted_bar_container.dart';
 import 'package:memolanes/common/component/frosted_bar_item.dart';
 
@@ -98,7 +98,7 @@ class ModeSwitchBar extends StatelessWidget {
       isSelected: currentMode == OperationMode.edit ||
           currentMode == OperationMode.editReadonly,
       onTap: () {
-        HapticFeedback.lightImpact();
+        AppHaptics.light();
         onModeChanged(OperationMode.edit);
       },
     );
@@ -116,7 +116,7 @@ class ModeSwitchBar extends StatelessWidget {
       isEnabled: isEnabled,
       onTap: isEnabled
           ? () {
-              HapticFeedback.mediumImpact();
+              AppHaptics.medium();
               onTap?.call();
             }
           : null,
@@ -148,7 +148,7 @@ class _ModeSwitchItem extends StatelessWidget {
       label: label,
       isSelected: selected,
       onTap: () {
-        HapticFeedback.lightImpact();
+        AppHaptics.light();
         onModeChanged(mode);
       },
     );

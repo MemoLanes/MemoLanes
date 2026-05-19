@@ -3,6 +3,8 @@ import 'package:mmkv/mmkv.dart';
 class MMKVKey {
   static const String isUnexpectedExitNotificationEnabled =
       'isUnexpectedExitNotificationEnabled';
+  static const String hapticsFeedbackEnabled =
+      'Settings.hapticsFeedbackEnabled';
   static const String dbOptimizationCheck = "dbOptimizationCheck";
   static const String mainMapState = "MainMap.mapState";
   static const String isRecording = "GpsManager.isRecording";

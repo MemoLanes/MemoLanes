@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:badges/badges.dart' as badges;
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/constants/index.dart';
 
 class BottomNavBar extends StatelessWidget {
@@ -56,7 +57,10 @@ class BottomNavBar extends StatelessWidget {
 
     return Expanded(
       child: GestureDetector(
-        onTap: () => onIndexChanged(index),
+        onTap: () {
+          AppHaptics.selection();
+          onIndexChanged(index);
+        },
         child: Container(
           color: Colors.transparent,
           padding: const EdgeInsets.all(8),

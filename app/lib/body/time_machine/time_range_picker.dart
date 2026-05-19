@@ -3,7 +3,7 @@ import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/custom_popup.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -115,7 +115,7 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
 
   void _onRulerModeSelected(TimeRulerMode rulerMode) {
     if (rulerMode == _rulerMode) return;
-    HapticFeedback.selectionClick();
+    AppHaptics.selection();
     setState(() {
       _rulerMode = rulerMode;
       _applyCurrentRange();
@@ -125,7 +125,7 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
 
   void _onViewModeSelected(TimeMachineViewMode viewMode) {
     if (viewMode == _viewMode) return;
-    HapticFeedback.selectionClick();
+    AppHaptics.selection();
     setState(() {
       _viewMode = viewMode;
       _applyCurrentRange();
@@ -424,7 +424,7 @@ class _TimeMachineViewModeAndLayerMenuState
       labelKey,
       mode == _localViewMode,
       () {
-        HapticFeedback.selectionClick();
+        AppHaptics.selection();
         setState(() => _localViewMode = mode);
         widget.onViewModeSelect(mode);
       },
@@ -442,7 +442,7 @@ class _TimeMachineViewModeAndLayerMenuState
           labelKey,
           rulerMode == _localRulerMode,
           () {
-            HapticFeedback.selectionClick();
+            AppHaptics.selection();
             setState(() => _localRulerMode = rulerMode);
             widget.onRulerModeSelect(rulerMode);
           },
@@ -458,7 +458,7 @@ class _TimeMachineViewModeAndLayerMenuState
       labelKey,
       isSelected,
       () {
-        HapticFeedback.selectionClick();
+        AppHaptics.selection();
         setState(() {
           final next = Set<JourneyKind>.from(_localKinds);
           if (next.contains(kind)) {

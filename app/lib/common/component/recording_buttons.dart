@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -14,6 +15,7 @@ class RecordingButtons extends StatefulWidget {
 
 class _RecordingButtonsState extends State<RecordingButtons> {
   Future<void> _showEndJourneyDialog() async {
+    AppHaptics.warning();
     final gpsManager = context.read<GpsManager>();
     final shouldEndJourney = await showCommonDialog(
         context, context.tr("home.end_journey_message"),
@@ -38,6 +40,7 @@ class _RecordingButtonsState extends State<RecordingButtons> {
         child: PointerInterceptor(
             child: ElevatedButton(
           onPressed: () async {
+            AppHaptics.heavy();
             gpsManager.changeRecordingState(GpsRecordingStatus.recording);
           },
           style: ElevatedButton.styleFrom(
@@ -65,6 +68,7 @@ class _RecordingButtonsState extends State<RecordingButtons> {
             PointerInterceptor(
                 child: ElevatedButton(
               onPressed: () async {
+                AppHaptics.medium();
                 gpsManager.changeRecordingState(GpsRecordingStatus.paused);
               },
               style: ElevatedButton.styleFrom(
@@ -110,6 +114,7 @@ class _RecordingButtonsState extends State<RecordingButtons> {
             PointerInterceptor(
                 child: ElevatedButton(
               onPressed: () async {
+                AppHaptics.medium();
                 gpsManager.changeRecordingState(GpsRecordingStatus.recording);
               },
               style: ElevatedButton.styleFrom(
