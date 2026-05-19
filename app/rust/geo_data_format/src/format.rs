@@ -1,0 +1,287 @@
+//! Sectioned on-disk geo data format.
+//!
+//! Layout: `Header(68 B) | Meta | TileIndex | BorderOffsets | BorderBlobs`.
+//! All integers little-endian. Border tiles are stored already
+//! `PackedTile`-compressed so the runtime loads them by slice-copy with
+//! no dense intermediate. See the design spec.
+
+use std::collections::BTreeMap;
+
+use bincode::Options;
+use serde::{Deserialize, Serialize};
+
+use crate::{
+    GeoEntity, GeoEntityId, PackedTile, TileMembership, Worldview, MAGIC, PROVENANCE_HASH_END,
+    TILE_COUNT,
+};
+
+/// magic(4) + provenance_hash(32) + 4 sections × (u32 offset, u32 len).
+const HEADER_LEN: usize = PROVENANCE_HASH_END + 4 * 8; // PROVENANCE_HASH_END=36, sections table=32
+const META_ZSTD_LEVEL: i32 = 19;
+const TILE_INDEX_ZSTD_LEVEL: i32 = 19;
+
+#[derive(Serialize, Deserialize)]
+struct MetaSection {
+    entities: Vec<GeoEntity>,
+    worldviews: Vec<Worldview>,
+}
+
+/// Tile classification as read back: `Border` carries the index into
+/// `GeoData::border_blobs`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TileEntry {
+    Single(GeoEntityId),
+    Border(u32),
+    None,
+}
+
+/// Fully parsed geo data. `border_blobs[i]` is the still-compressed
+/// `PackedTile` for the tile whose `TileEntry::Border(i)` references it.
+#[derive(Debug)]
+pub struct GeoData {
+    pub entities: Vec<GeoEntity>,
+    pub worldviews: Vec<Worldview>,
+    pub tile_index: Vec<TileEntry>,
+    pub border_blobs: Vec<Box<[u8]>>,
+    pub provenance_hash: [u8; 32],
+}
+
+fn bincode_opts() -> impl Options {
+    bincode::DefaultOptions::new()
+        .with_fixint_encoding()
+        .with_little_endian()
+}
+
+fn read_u32(b: &[u8], at: usize) -> u32 {
+    u32::from_le_bytes(b[at..at + 4].try_into().unwrap())
+}
+
+/// Serialize geo data into the sectioned format. Border blob indices are
+/// assigned in tile-index order; the reader reconstructs the same order.
+pub fn write_geo_data(
+    entities: &[GeoEntity],
+    worldviews: &[Worldview],
+    tile_lookup: &[TileMembership],
+    block_lookup: &BTreeMap<(u16, u16), Vec<Option<GeoEntityId>>>,
+    provenance_hash: [u8; 32],
+) -> anyhow::Result<Vec<u8>> {
+    anyhow::ensure!(
+        tile_lookup.len() == TILE_COUNT,
+        "tile_lookup must have {TILE_COUNT} entries, got {}",
+        tile_lookup.len()
+    );
+
+    let mut tile_index_raw = Vec::with_capacity(TILE_COUNT * 5);
+    let mut blobs: Vec<Vec<u8>> = Vec::new();
+    for (idx, m) in tile_lookup.iter().enumerate() {
+        let (tag, payload): (u8, u32) = match m {
+            TileMembership::None => (0, 0),
+            TileMembership::Single(id) => (1, id.0),
+            TileMembership::Border => {
+                let tx = (idx % 512) as u16;
+                let ty = (idx / 512) as u16;
+                let cells = block_lookup.get(&(tx, ty)).ok_or_else(|| {
+                    anyhow::anyhow!("border tile ({tx},{ty}) missing block_lookup entry")
+                })?;
+                let blob = PackedTile::try_from_dense(cells)
+                    .map_err(|e| e.context(format!("border tile ({tx},{ty})")))?
+                    .to_compressed_bytes();
+                let blob_idx = blobs.len() as u32;
+                blobs.push(blob);
+                (3, blob_idx)
+            }
+        };
+        tile_index_raw.push(tag);
+        tile_index_raw.extend_from_slice(&payload.to_le_bytes());
+    }
+
+    let meta = MetaSection {
+        entities: entities.to_vec(),
+        worldviews: worldviews.to_vec(),
+    };
+    let meta_bytes =
+        zstd::encode_all(bincode_opts().serialize(&meta)?.as_slice(), META_ZSTD_LEVEL)?;
+    let tile_index_bytes = zstd::encode_all(tile_index_raw.as_slice(), TILE_INDEX_ZSTD_LEVEL)?;
+
+    let mut border_offsets = Vec::with_capacity(blobs.len() * 8);
+    let mut border_blobs = Vec::new();
+    for blob in &blobs {
+        let off = border_blobs.len() as u32;
+        let len = blob.len() as u32;
+        border_offsets.extend_from_slice(&off.to_le_bytes());
+        border_offsets.extend_from_slice(&len.to_le_bytes());
+        border_blobs.extend_from_slice(blob);
+    }
+
+    let meta_off = HEADER_LEN as u32;
+    let tile_off = meta_off + meta_bytes.len() as u32;
+    let boff_off = tile_off + tile_index_bytes.len() as u32;
+    let blob_off = boff_off + border_offsets.len() as u32;
+
+    let mut out = Vec::with_capacity(blob_off as usize + border_blobs.len());
+    out.extend_from_slice(MAGIC);
+    out.extend_from_slice(&provenance_hash);
+    for (off, len) in [
+        (meta_off, meta_bytes.len() as u32),
+        (tile_off, tile_index_bytes.len() as u32),
+        (boff_off, border_offsets.len() as u32),
+        (blob_off, border_blobs.len() as u32),
+    ] {
+        out.extend_from_slice(&off.to_le_bytes());
+        out.extend_from_slice(&len.to_le_bytes());
+    }
+    out.extend_from_slice(&meta_bytes);
+    out.extend_from_slice(&tile_index_bytes);
+    out.extend_from_slice(&border_offsets);
+    out.extend_from_slice(&border_blobs);
+    Ok(out)
+}
+
+/// Parse the sectioned format. No dense border tile is ever materialized:
+/// each blob is slice-copied out still-compressed.
+pub fn read_geo_data(bytes: &[u8]) -> anyhow::Result<GeoData> {
+    anyhow::ensure!(
+        bytes.len() >= HEADER_LEN,
+        "geo_data: too short ({} bytes)",
+        bytes.len()
+    );
+    anyhow::ensure!(
+        &bytes[0..crate::PROVENANCE_HASH_OFFSET] == MAGIC,
+        "geo_data: bad magic"
+    );
+    let mut provenance_hash = [0u8; 32];
+    provenance_hash
+        .copy_from_slice(&bytes[crate::PROVENANCE_HASH_OFFSET..crate::PROVENANCE_HASH_END]);
+
+    let sec = |i: usize| -> (usize, usize) {
+        let base = crate::PROVENANCE_HASH_END + i * 8;
+        (
+            read_u32(bytes, base) as usize,
+            read_u32(bytes, base + 4) as usize,
+        )
+    };
+    let (meta_off, meta_len) = sec(0);
+    let (tile_off, tile_len) = sec(1);
+    let (boff_off, boff_len) = sec(2);
+    let (blob_off, blob_len) = sec(3);
+
+    let slice = |off: usize, len: usize| -> anyhow::Result<&[u8]> {
+        bytes
+            .get(off..off + len)
+            .ok_or_else(|| anyhow::anyhow!("geo_data: section out of bounds"))
+    };
+
+    let meta_raw = zstd::decode_all(slice(meta_off, meta_len)?)?;
+    let meta: MetaSection = bincode_opts().deserialize(meta_raw.as_slice())?;
+
+    let tile_raw = zstd::decode_all(slice(tile_off, tile_len)?)?;
+    anyhow::ensure!(
+        tile_raw.len() == TILE_COUNT * 5,
+        "geo_data: tile index size {} != {}",
+        tile_raw.len(),
+        TILE_COUNT * 5
+    );
+    let mut tile_index = Vec::with_capacity(TILE_COUNT);
+    for i in 0..TILE_COUNT {
+        let tag = tile_raw[i * 5];
+        let payload = read_u32(&tile_raw, i * 5 + 1);
+        tile_index.push(match tag {
+            0 => TileEntry::None,
+            1 => TileEntry::Single(GeoEntityId(payload)),
+            3 => TileEntry::Border(payload),
+            t => anyhow::bail!("geo_data: bad tile tag {t}"),
+        });
+    }
+
+    let boff = slice(boff_off, boff_len)?;
+    anyhow::ensure!(
+        boff_len % 8 == 0,
+        "geo_data: border offset table misaligned"
+    );
+    let blob_region = slice(blob_off, blob_len)?;
+    let n = boff_len / 8;
+    let mut border_blobs = Vec::with_capacity(n);
+    for i in 0..n {
+        let off = read_u32(boff, i * 8) as usize;
+        let len = read_u32(boff, i * 8 + 4) as usize;
+        let b = blob_region
+            .get(off..off + len)
+            .ok_or_else(|| anyhow::anyhow!("geo_data: blob {i} out of bounds"))?;
+        border_blobs.push(b.to_vec().into_boxed_slice());
+    }
+
+    let blob_count = border_blobs.len();
+    for entry in &tile_index {
+        if let TileEntry::Border(i) = entry {
+            anyhow::ensure!(
+                (*i as usize) < blob_count,
+                "geo_data: Border index {i} out of range ({blob_count} blobs)"
+            );
+        }
+    }
+
+    Ok(GeoData {
+        entities: meta.entities,
+        worldviews: meta.worldviews,
+        tile_index,
+        border_blobs,
+        provenance_hash,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{GeoEntity, GeoEntityId, GeoEntityKind, CELLS_PER_TILE, TILE_COUNT};
+    use std::collections::BTreeMap;
+
+    fn entity(id: u32, iso: &str) -> GeoEntity {
+        GeoEntity {
+            id: GeoEntityId(id),
+            kind: GeoEntityKind::Country,
+            iso_code: iso.into(),
+            name_key: format!("c.{iso}"),
+            parent_id: None,
+            total_area_m2: 1,
+        }
+    }
+
+    #[test]
+    fn round_trip_single_border_none() {
+        let mut tl = vec![TileMembership::None; TILE_COUNT];
+        tl[0] = TileMembership::Single(GeoEntityId(7));
+        tl[1] = TileMembership::Border; // tile idx 1 → tx=1, ty=0
+        let mut cells = vec![None; CELLS_PER_TILE];
+        cells[5] = Some(GeoEntityId(7));
+        let mut bl: BTreeMap<(u16, u16), Vec<Option<GeoEntityId>>> = BTreeMap::new();
+        bl.insert((1, 0), cells);
+
+        let bytes = write_geo_data(&[entity(7, "AAA")], &[], &tl, &bl, [3u8; 32]).unwrap();
+        let gd = read_geo_data(&bytes).unwrap();
+
+        assert_eq!(gd.provenance_hash, [3u8; 32]);
+        assert_eq!(gd.entities.len(), 1);
+        assert_eq!(gd.entities[0].iso_code, "AAA");
+        assert_eq!(gd.tile_index[0], TileEntry::Single(GeoEntityId(7)));
+        assert_eq!(gd.tile_index[1], TileEntry::Border(0));
+        assert!(matches!(gd.tile_index[2], TileEntry::None));
+        assert_eq!(gd.border_blobs.len(), 1);
+        let pt = crate::PackedTile::from_compressed_bytes(&gd.border_blobs[0]);
+        assert_eq!(pt.lookup(5), Some(GeoEntityId(7)));
+        assert_eq!(pt.lookup(6), None);
+    }
+
+    #[test]
+    fn rejects_bad_magic() {
+        let tl = vec![TileMembership::None; TILE_COUNT];
+        let mut b = write_geo_data(&[], &[], &tl, &BTreeMap::new(), [0u8; 32]).unwrap();
+        b[0] = b'X';
+        assert!(read_geo_data(&b).is_err());
+    }
+
+    #[test]
+    fn rejects_wrong_tile_count() {
+        let tl = vec![TileMembership::None; 10];
+        assert!(write_geo_data(&[], &[], &tl, &BTreeMap::new(), [0u8; 32]).is_err());
+    }
+}
