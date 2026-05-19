@@ -52,7 +52,7 @@ pub fn renderer_server() -> Result<(), Box<dyn std::error::Error>> {
 
     let body = response.data.as_ref().unwrap()["body"].as_str().unwrap();
 
-    let body_for_compare = "BgAAAAAAAQABAAEAAQADAMsCAAAotS/9YMsBNQMAJAMBBwAAEAAGAAcADQAYAGAAIAEAADwAAjAEAAMOFAAAEAYCAQMAdwABQBDwwAIBAAAAARYAPCOiSwQAgeBiAHngEAAJIF8YlbjZibDMAABUBDUAxKAJWLTyAMAYDAwGBgMWUaAI";
+    let body_for_compare = "BgADAAAAAAAAAAAAAQABAAEAAQDLAgAAKLUv/WDLATUDACQDAQcAABAABgAHAA0AGABgACABAAA8AAIwBAADDhQAABAGAgEDAHcAAUAQ8MACAQAAAAEWADwjoksEAIHgYgB54BAACSBfGJW42YmwzAAAVAQ1AMSgCVi08gDAGAwMBgYDFlGgCA==";
 
     assert_eq!(body, body_for_compare);
 
