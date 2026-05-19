@@ -1,0 +1,11 @@
+/target
+tests/fixtures/*.bin.lock
+tests/fixtures/*.bin.tmp
+
+# stray default-output lock/tmp from running geo_rasterizer in this dir
+*.bin.lock
+*.bin.tmp
+
+# Natural Earth source GeoJSON downloaded on demand by `just rasterize-geo`,
+# reproducible from the pin in src/download.rs. README.md is kept.
+natural_earth/ne_10m_admin_0_countries_*.geojson

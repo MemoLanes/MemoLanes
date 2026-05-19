@@ -1,0 +1,19 @@
+# Worldviews shipped with the geo reference data.
+
+[[worldview]]
+id = "iso"
+name_key = "worldview.iso.name"
+description_key = "worldview.iso.desc"
+
+[[worldview]]
+id = "chn"
+name_key = "worldview.chn.name"
+description_key = "worldview.chn.desc"
+
+[[worldview]]
+id = "usa"
+name_key = "worldview.usa.name"
+description_key = "worldview.usa.desc"
+
+# disputed_territories is empty (B1: each per-POV bin is self-contained;
+# no runtime Disputed-territory resolution is used).

@@ -6,11 +6,13 @@ on:
       - main
     paths:
       - "app/**"
+      - "tools/geo_rasterizer/**"
   push:
     branches:
       - main
     paths:
       - "app/**"
+      - "tools/geo_rasterizer/**"
   workflow_dispatch:
 
 jobs:
@@ -45,6 +47,7 @@ jobs:
             app/rust/
             app/rust/geo_data_format/
             app/journey_kernel/
+            tools/geo_rasterizer/
 
       - uses: cargo-bins/cargo-binstall@main
 
@@ -61,6 +64,10 @@ jobs:
         working-directory: app/rust/geo_data_format
         run: cargo fetch
 
+      - name: Get Rust Dependencies (geo_rasterizer)
+        working-directory: tools/geo_rasterizer
+        run: cargo fetch
+
       - name: Rust Code Check
         working-directory: app
         run: just rust-check
@@ -68,6 +75,16 @@ jobs:
       - name: Geo Data Format Check
         working-directory: app
         run: just geo-data-format-check
+
+      - name: Geo Rasterizer Check
+        working-directory: app
+        run: just geo-rasterizer-check
+      - name: Geo Rasterizer Test
+        working-directory: app
+        run: just geo-rasterizer-test
+      - name: Geo Rasterize All POVs
+        working-directory: app
+        run: just rasterize-geo
 
       # ======== START WASM MODULE ========
       - name: Get Rust Dependencies (journey kernel)
