@@ -171,10 +171,7 @@ fn tile_range_response_from_journey_bitmap(
             let tile_x_rounded =
                 ((tile_x % zoom_coefficient) + zoom_coefficient) % zoom_coefficient;
 
-            // Get the pixels using TileShader2
-            let pixels = TileShader2::get_pixels_coordinates(
-                0,
-                0,
+            let bitmap = TileShader2::render_tile_bitmap(
                 journey_bitmap,
                 tile_x_rounded,
                 tile_y,
@@ -185,7 +182,7 @@ fn tile_range_response_from_journey_bitmap(
             let tile_pixel_data = TilePixelData {
                 x: tile_x as i32,
                 y: tile_y as i32,
-                pixels,
+                bitmap,
             };
 
             tiles.push(tile_pixel_data);
@@ -200,6 +197,6 @@ fn tile_range_response_from_journey_bitmap(
         height as u32,
         buffer_size_power as u8,
         FTA_COMPRESSION_ZSTD,
-        &tiles,
+        tiles,
     )
 }

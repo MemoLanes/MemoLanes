@@ -33,8 +33,6 @@ use crate::tile_archive::{
     split_len_prefixed_block, zstd_compress_block, FTA_COMPRESSION_LZ4, FTA_COMPRESSION_NONE,
     FTA_COMPRESSION_ZSTD,
 };
-use crate::utils::xy_to_index;
-use bitvec::prelude::BitVec;
 use lz4_flex::{compress_prepend_size, decompress_size_prepended};
 
 pub const TILE_RANGE_HEADER_SIZE: usize = 20;
@@ -56,13 +54,11 @@ pub struct TileRangeHeader {
 pub struct TilePixelData {
     pub x: i32,
     pub y: i32,
-    /// Pixel coordinates within the tile.
-    ///
-    /// Each `(px, py)` must be in `[0, 2^tile_bitmap_exp)`.
-    pub pixels: Vec<(i64, i64)>,
+    /// Level-0 bitmap for this tile. LODs are built by the encoder.
+    pub bitmap: BitMap2D,
 }
 
-/// Encodes a TileRangeResponse directly from externally provided per-tile pixel coordinates.
+/// Encodes a TileRangeResponse directly from externally provided per-tile bitmaps.
 ///
 /// This path lets callers build the response without constructing a `GenericTile` tree.
 #[allow(clippy::too_many_arguments)]
@@ -74,7 +70,7 @@ pub fn encode_tile_range_response_from_tiles(
     h: u32,
     tile_bitmap_exp: u8,
     compression: u8,
-    tiles: &[TilePixelData],
+    tiles: Vec<TilePixelData>,
 ) -> Result<Vec<u8>, String> {
     if w == 0 || h == 0 {
         return Err("Invalid tile range".to_string());
@@ -98,8 +94,6 @@ pub fn encode_tile_range_response_from_tiles(
 
     let _ = bitmap_bytes_for_exp(tile_bitmap_exp)
         .map_err(|e| format!("Invalid tile_bitmap_exp: {e}"))?;
-    let tile_side = 1u32 << tile_bitmap_exp;
-    let tile_bit_count = 1usize << (2 * tile_bitmap_exp as usize);
     let presence_len = (tile_count as usize).div_ceil(8);
     let mut presence = vec![0u8; presence_len];
     let mut payload = Vec::new();
@@ -124,24 +118,18 @@ pub fn encode_tile_range_response_from_tiles(
             ));
         }
 
-        let mut level0 = BitVec::repeat(false, tile_bit_count);
-        for (px, py) in &tile.pixels {
-            let px = *px as u32;
-            let py = *py as u32;
-            if px >= tile_side || py >= tile_side {
-                return Err(format!(
-                    "Pixel ({}, {}) is outside tile bounds [0, {}) for tile ({}, {})",
-                    px, py, tile_side, tx, ty
-                ));
-            }
-            let bit_idx = xy_to_index(px as i64, py as i64, tile_bitmap_exp as i16);
-            level0.set(bit_idx, true);
-        }
+        assert_eq!(
+            tile.bitmap.width_exp(),
+            tile_bitmap_exp,
+            "TilePixelData bitmap width_exp mismatch: expected {}, got {}",
+            tile_bitmap_exp,
+            tile.bitmap.width_exp()
+        );
 
-        if level0.not_any() {
+        if tile.bitmap.is_empty() {
             continue;
         }
-        let mut bm = BitMap2D::from_bitvec(tile_bitmap_exp, level0);
+        let mut bm = tile.bitmap;
         bm.build_lods();
         let levels = bm.into_all_levels();
         tile_blobs[idx] = Some(serialize_mipmap(&levels));
