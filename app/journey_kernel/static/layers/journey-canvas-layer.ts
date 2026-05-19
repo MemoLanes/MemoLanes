@@ -149,14 +149,13 @@ export class JourneyCanvasLayer implements JourneyLayer {
       for (let y = top; y < bottom; y++) {
         if (y < 0 || y >= n) continue;
 
-        const xNorm = ((x % n) + n) % n;
-
         const dx = (x - left) * tileSize;
         const dy = (y - top) * tileSize;
 
         // Get pixels coordinates from journeyTileProvider
+        // TODO: we need smooth transition when x range jump in the centor of the pacific ocean.
         const pixelCoords = tileBuffer.get_tile_pixels(
-          xNorm,
+          x,
           y,
           z,
           bufferSizePower,
