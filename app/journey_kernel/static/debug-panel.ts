@@ -290,8 +290,6 @@ export class DebugPanel {
 
     sectionHeaders.forEach((header) => {
       const headerElement = header as HTMLElement;
-      this._enableTouchSupport(headerElement);
-
       headerElement.addEventListener("click", () => {
         const sectionName = headerElement.dataset.section;
         if (!sectionName) return;
@@ -307,24 +305,6 @@ export class DebugPanel {
     });
   }
 
-  /**
-   * Enable touch support for interactive elements in mobile webview
-   * Some webviews don't properly handle touch events on native elements
-   */
-  private _enableTouchSupport(element: HTMLElement): void {
-    // Add touchend handler to trigger click
-    element.addEventListener(
-      "touchend",
-      (e: TouchEvent) => {
-        e.preventDefault();
-        // Trigger a synthetic click
-        element.focus();
-        element.click();
-      },
-      { passive: false },
-    );
-  }
-
   private _setupEventListeners(): void {
     // Setup collapsible sections
     this._setupCollapsibleSections();
@@ -332,9 +312,6 @@ export class DebugPanel {
     // Close button
     const closeButton = document.getElementById("close-debug");
     if (closeButton) {
-      // Enable touch support for mobile webview
-      this._enableTouchSupport(closeButton);
-
       closeButton.addEventListener("click", () => {
         this.hide();
         this._updateUrlHash({ debug: "false" });
@@ -345,9 +322,6 @@ export class DebugPanel {
     // Now simply sets params.renderMode - the hook system handles the rest
     const renderingModeSelect = document.getElementById("rendering-mode");
     if (renderingModeSelect) {
-      // Enable touch support for mobile webview
-      this._enableTouchSupport(renderingModeSelect);
-
       renderingModeSelect.addEventListener("change", (e: Event) => {
         const target = e.target as HTMLSelectElement;
         const renderingMode = target.value;
@@ -387,9 +361,6 @@ export class DebugPanel {
     // Projection mode dropdown change handler
     const projectionSelect = document.getElementById("projection-mode");
     if (projectionSelect) {
-      // Enable touch support for mobile webview
-      this._enableTouchSupport(projectionSelect);
-
       projectionSelect.addEventListener("change", (e: Event) => {
         const target = e.target as HTMLSelectElement;
         const projection = target.value as ProjectionType;
@@ -413,21 +384,9 @@ export class DebugPanel {
     });
 
     // Flutter Bridge test: Location marker checkboxes
-    const showCheckbox = document.getElementById("marker-show");
-    const flytoCheckbox = document.getElementById("marker-flyto");
-    if (showCheckbox) {
-      this._enableTouchSupport(showCheckbox);
-    }
-    if (flytoCheckbox) {
-      this._enableTouchSupport(flytoCheckbox);
-    }
-
     // Flutter Bridge test: Location marker button
     const testMarkerBtn = document.getElementById("test-marker-btn");
     if (testMarkerBtn) {
-      // Enable touch support for mobile webview
-      this._enableTouchSupport(testMarkerBtn);
-
       testMarkerBtn.addEventListener("click", () => {
         const showInput = document.getElementById(
           "marker-show",
