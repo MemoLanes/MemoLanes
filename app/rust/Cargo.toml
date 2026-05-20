@@ -65,6 +65,7 @@ actix-web-actors = "4.3"
 actix-web = "4.12"
 ctrlc = "3.5"
 pollster = "0.4.0"
+qr2term = "0.3"
 
 [build-dependencies]
 protobuf-codegen = "3.7"
