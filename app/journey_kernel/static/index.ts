@@ -22,6 +22,8 @@ import { MapController } from "./map-controller";
 
 import "./debug-panel.css";
 
+import VConsole from "vconsole";
+
 // ============================================================================
 // Window Interface Extensions
 // ============================================================================
@@ -102,8 +104,12 @@ async function trySetup(): Promise<void> {
   await mapController.initialize();
   console.log("MapController initialized");
 
-  // Initialize DebugPanel (only when debug mode is enabled)
+  // Initialize debug tooling (only when debug mode is enabled)
   if (params.debug) {
+    const vConsole = new VConsole();
+    vConsole.setOption("log.maxLogNumber", 5000);
+    vConsole.setSwitchPosition(20, 500);
+
     const debugPanel = new DebugPanel(mapController.getMap(), params);
     debugPanel.initialize();
   }
