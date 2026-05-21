@@ -47,20 +47,20 @@ dependencies:
   mutex: ^3.1.0
   share_plus: ^12.0.0
   permission_handler: ^12.0.1
-  file_picker: ^10.1.2
+  file_picker: ^12.0.0-beta.3
   freezed_annotation: ^3.0.0
   fluttertoast: ^9.0.0
   intl: ^0.20.2
-  package_info_plus: ^9.0.0
-  device_info_plus: ^12.1.0
+  package_info_plus: ^10.1.0
+  device_info_plus: ^13.1.0
   url_launcher: ^6.3.0
   badges: ^3.1.2
-  flutter_local_notifications: ^19.1.0
+  flutter_local_notifications: ^21.0.0
   notification_when_app_is_killed: ^0.0.4
   easy_localization: ^3.0.7
   json_annotation: ^4.9.0
   async: ^2.11.0
-  calendar_date_picker2: ^2.0.0
+  calendar_date_picker2: ^3.0.0
   webview_flutter: ^4.10.0
   # TODO: `pointer_interceptor` is a workaround for: https://github.com/flutter/flutter/issues/58659
   pointer_interceptor: ^0.10.1+2
@@ -74,7 +74,7 @@ dependencies:
   sliding_up_panel: ^2.0.0+1
   mmkv: ^2.2.2
   share_handler: ^0.0.25
-  flutter_fgbg: ^0.7.1
+  flutter_fgbg: ^0.8.0
   flutter_appbar: ^1.9.0
   flutter_app_intents: ^0.7.0
   haptic_feedback: ^0.6.4+3
