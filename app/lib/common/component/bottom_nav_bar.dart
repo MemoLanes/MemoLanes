@@ -5,17 +5,65 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/constants/index.dart';
 
-class BottomNavBar extends StatelessWidget {
+class BottomNavBar extends StatefulWidget {
   final int selectedIndex;
-  final Function(int) onIndexChanged;
-  final Function hasUpdateNotification;
+  final ValueChanged<int> onIndexChanged;
+  final bool Function() hasUpdateNotification;
+  static const int _itemCount = 5;
+  static const Duration _selectionSlideDuration = Duration(milliseconds: 260);
 
   const BottomNavBar({
     super.key,
     required this.selectedIndex,
     required this.onIndexChanged,
     required this.hasUpdateNotification,
-  });
+  }) : assert(
+          selectedIndex >= 0 && selectedIndex < _itemCount,
+          'selectedIndex must match a BottomNavBar item index.',
+        );
+
+  @override
+  State<BottomNavBar> createState() => _BottomNavBarState();
+}
+
+class _BottomNavBarState extends State<BottomNavBar>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _selectionController;
+  late Animation<double> _selectionAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectionController = AnimationController(
+      duration: BottomNavBar._selectionSlideDuration,
+      vsync: this,
+    );
+    _selectionAnimation =
+        AlwaysStoppedAnimation(widget.selectedIndex.toDouble());
+  }
+
+  @override
+  void didUpdateWidget(covariant BottomNavBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedIndex != widget.selectedIndex) {
+      _selectionAnimation = Tween<double>(
+        begin: _selectionAnimation.value,
+        end: widget.selectedIndex.toDouble(),
+      ).animate(
+        CurvedAnimation(
+          parent: _selectionController,
+          curve: Curves.easeOutCubic,
+        ),
+      );
+      _selectionController.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _selectionController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,81 +84,148 @@ class BottomNavBar extends StatelessWidget {
               ),
             ],
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildNavItem(Icons.map_outlined, Icons.map, 0),
-              _buildNavItem(Icons.update_outlined, Icons.update, 1),
-              _buildNavItem(Icons.route_outlined, Icons.route, 2),
-              _buildNavItem(
-                  Icons.workspace_premium_outlined, Icons.workspace_premium, 3),
-              _buildNavItem(Icons.settings_outlined, Icons.settings, 4),
-            ],
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final itemWidth = constraints.maxWidth / BottomNavBar._itemCount;
+              return AnimatedBuilder(
+                animation: _selectionController,
+                builder: (context, child) {
+                  final selectionPosition = _selectionAnimation.value;
+
+                  return Stack(
+                    children: [
+                      Positioned(
+                        left: itemWidth * selectionPosition + 8,
+                        top: 8,
+                        bottom: 8,
+                        width: itemWidth - 16,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          _buildNavItem(
+                            Icons.map_outlined,
+                            Icons.map,
+                            0,
+                            selectionPosition,
+                          ),
+                          _buildNavItem(
+                            Icons.update_outlined,
+                            Icons.update,
+                            1,
+                            selectionPosition,
+                          ),
+                          _buildNavItem(
+                            Icons.route_outlined,
+                            Icons.route,
+                            2,
+                            selectionPosition,
+                          ),
+                          _buildNavItem(
+                            Icons.workspace_premium_outlined,
+                            Icons.workspace_premium,
+                            3,
+                            selectionPosition,
+                          ),
+                          _buildNavItem(
+                            Icons.settings_outlined,
+                            Icons.settings,
+                            4,
+                            selectionPosition,
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
           ),
         ),
       ),
     );
   }
 
-  Widget _buildNavItem(IconData icon, IconData activeIcon, int index) {
-    final isSelected = selectedIndex == index;
+  Widget _buildNavItem(
+    IconData icon,
+    IconData activeIcon,
+    int index,
+    double selectionPosition,
+  ) {
+    final selectedAmount =
+        (1 - (selectionPosition - index).abs()).clamp(0.0, 1.0);
 
     return Expanded(
       child: GestureDetector(
         onTap: () {
           AppHaptics.selection();
-          onIndexChanged(index);
+          widget.onIndexChanged(index);
         },
         child: Container(
           color: Colors.transparent,
           padding: const EdgeInsets.all(8),
-          child: Container(
-            decoration: isSelected
-                ? BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(8),
-                  )
-                : null,
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: index == 4 && hasUpdateNotification()
-                  ? badges.Badge(
-                      badgeStyle: badges.BadgeStyle(
-                        shape: badges.BadgeShape.square,
-                        borderRadius: BorderRadius.circular(5),
-                        padding: const EdgeInsets.all(2),
-                        badgeGradient: const badges.BadgeGradient.linear(
-                          colors: [
-                            Color(0xFFB7CC1F),
-                            Color(0xFFB6E13D),
-                            Color(0xFFB7CC1F),
-                          ],
-                        ),
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: index == 4 && widget.hasUpdateNotification()
+                ? badges.Badge(
+                    badgeStyle: badges.BadgeStyle(
+                      shape: badges.BadgeShape.square,
+                      borderRadius: BorderRadius.circular(5),
+                      padding: const EdgeInsets.all(2),
+                      badgeGradient: const badges.BadgeGradient.linear(
+                        colors: [
+                          Color(0xFFB7CC1F),
+                          Color(0xFFB6E13D),
+                          Color(0xFFB7CC1F),
+                        ],
                       ),
-                      badgeContent: const Text(
-                        'NEW',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      child: Center(
-                        child: Icon(
-                          isSelected ? activeIcon : icon,
-                          color: isSelected ? Colors.black : Colors.grey,
-                          size: 28,
-                        ),
-                      ),
-                    )
-                  : Icon(
-                      isSelected ? activeIcon : icon,
-                      color: isSelected ? Colors.black : Colors.grey,
-                      size: 28,
                     ),
-            ),
+                    badgeContent: const Text(
+                      'NEW',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    child: Center(
+                      child: _buildNavIcon(icon, activeIcon, selectedAmount),
+                    ),
+                  )
+                : _buildNavIcon(icon, activeIcon, selectedAmount),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildNavIcon(
+    IconData icon,
+    IconData activeIcon,
+    double selectedAmount,
+  ) {
+    final color = Color.lerp(Colors.grey, Colors.black, selectedAmount)!;
+
+    return SizedBox(
+      width: 28,
+      height: 28,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Opacity(
+            opacity: 1 - selectedAmount,
+            child: Icon(icon, color: color, size: 28),
+          ),
+          Opacity(
+            opacity: selectedAmount,
+            child: Icon(activeIcon, color: color, size: 28),
+          ),
+        ],
       ),
     );
   }
