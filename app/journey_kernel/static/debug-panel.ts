@@ -149,6 +149,7 @@ export class DebugPanel {
           <div style="font-family: monospace; font-size: 12px; margin-bottom: 8px;">
             <div>FPS: <span id="fps-display" style="color: #4CAF50;">-</span></div>
             <div>Network: <span id="network-delay-display" style="color: #2196F3;">-</span> ms</div>
+            <div>Low Power Mode: <span id="lpm-status" style="color: #FF9800;">-</span></div>
           </div>
           <div style="font-size: 10px; margin-bottom: 4px; color: rgba(255, 255, 255, 0.7);">FPS</div>
           <canvas id="fps-graph" width="200" height="50"></canvas>
@@ -235,6 +236,11 @@ export class DebugPanel {
     // Sync projection dropdown when it changes externally
     this.params.on("projection", (newValue, _oldValue) => {
       this._syncProjectionDropdown(newValue as ProjectionType);
+    });
+
+    // Update LPM display when it changes (e.g., pushed from Flutter at runtime)
+    this.params.on("lowPowerMode", (_newValue, _oldValue) => {
+      this._updateLpmDisplay();
     });
   }
 
@@ -559,6 +565,17 @@ export class DebugPanel {
     }
   }
 
+  private _updateLpmDisplay(): void {
+    if (!this.visible) return;
+
+    const lpmElement = document.getElementById("lpm-status");
+    if (lpmElement) {
+      const isLPM = this.params.lowPowerMode;
+      lpmElement.textContent = isLPM ? "ON" : "OFF";
+      lpmElement.style.color = isLPM ? "#F44336" : "#4CAF50";
+    }
+  }
+
   private _renderFpsGraph(): void {
     if (!this.visible || !this.fpsCtx || !this.fpsCanvas) return;
 
@@ -717,6 +734,9 @@ export class DebugPanel {
 
       // Update viewpoint info
       this._updateViewpointInfo();
+
+      // Update LPM display
+      this._updateLpmDisplay();
     } else {
       this.hide();
     }
@@ -729,6 +749,7 @@ export class DebugPanel {
     this.visible = true;
     this._updateViewpointInfo();
     this._updateNetworkDisplay();
+    this._updateLpmDisplay();
     this._renderNetworkGraph();
 
     // Start FPS monitoring when panel is shown

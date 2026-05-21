@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:battery_plus/battery_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/gps_manager.dart';
@@ -78,6 +79,11 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   // For bug workaround
   bool _isiOS18 = false;
 
+  // Low Power Mode tracking
+  final Battery _battery = Battery();
+  bool _isLowPowerMode = false;
+  StreamSubscription<BatteryState>? _batteryStateSubscription;
+
   Future<void> runJavaScript(String javaScript) {
     return _webViewController.runJavaScript(javaScript);
   }
@@ -131,10 +137,42 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         }
       }
     }();
+
+    _initLowPowerMode();
+  }
+
+  Future<void> _initLowPowerMode() async {
+    try {
+      _isLowPowerMode = await _battery.isInBatterySaveMode;
+    } catch (e) {
+      log.error('[base_map_webview] Failed to query battery save mode: $e');
+    }
+
+    _batteryStateSubscription =
+        _battery.onBatteryStateChanged.listen((_) async {
+      try {
+        final newLPM = await _battery.isInBatterySaveMode;
+        if (newLPM != _isLowPowerMode) {
+          _isLowPowerMode = newLPM;
+          _pushLowPowerModeToWebView();
+        }
+      } catch (e) {
+        log.error('[base_map_webview] Failed to query battery save mode: $e');
+      }
+    });
+  }
+
+  void _pushLowPowerModeToWebView() {
+    _webViewController.runJavaScript('''
+      if (typeof window.setLowPowerMode === 'function') {
+        window.setLowPowerMode($_isLowPowerMode);
+      }
+    ''');
   }
 
   @override
   void dispose() {
+    _batteryStateSubscription?.cancel();
     _gpsManager.removeListener(_updateLocationMarker);
     super.dispose();
   }
@@ -293,6 +331,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         lat: $latParam,
         zoom: $zoomParam,
         editor: ${widget.isEditor ? "true" : "false"},
+        debug: "true",
+        low_power_mode: "$_isLowPowerMode",
       };
       
       // Check if JS is ready and trigger initialization if so

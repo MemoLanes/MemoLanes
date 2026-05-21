@@ -9,10 +9,12 @@
  */
 
 import { JourneyCanvasLayer } from "./layers/journey-canvas-layer";
+import { HybridLayer } from "./layers/journey-gl-layer/hybird-layer";
 import type { JourneyLayerConstructor } from "./layers/journey-layer-interface";
 
 // Default values for parameters
-const DEFAULT_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
+const DEFAULT_MAP_STYLE =
+  "https://api.protomaps.com/styles/v5/light/en.json?key=530da62b1f2a5633";
 const DEFAULT_RENDER_MODE = "canvas";
 
 /** Valid projection types for the map */
@@ -52,6 +54,12 @@ export const AVAILABLE_LAYERS: { [key: string]: LayerConfig } = {
     bufferSizePower: 8,
     description: "Uses Canvas API for rendering",
   },
+  gl: {
+    name: "WebGL",
+    layerClass: HybridLayer,
+    bufferSizePower: 10,
+    description: "Uses WebGL for rendering",
+  },
 };
 
 // ============================================================================
@@ -70,6 +78,7 @@ export interface ExternalParams {
   fog_density?: string;
   projection?: string;
   debug?: string;
+  low_power_mode?: string;
   [key: string]: string | undefined;
 }
 
@@ -81,7 +90,7 @@ export interface ExternalParams {
 export type PropertyChangeCallback<T> = (newValue: T, oldValue: T) => void;
 
 /** Mutable property names that support hooks */
-export type MutablePropertyName = "renderMode" | "fogDensity" | "projection";
+export type MutablePropertyName = "renderMode" | "fogDensity" | "projection" | "lowPowerMode";
 
 /** Internal data structure for ReactiveParams */
 interface ParamsData {
@@ -98,13 +107,14 @@ interface ParamsData {
   renderMode: string;
   fogDensity: number;
   projection: ProjectionType;
+  lowPowerMode: boolean;
 }
 
 /**
  * ReactiveParams - A Proxy-based reactive parameters object
  *
  * Properties can be accessed and set directly. Setting mutable properties
- * (renderMode, fogDensity, projection) triggers registered hooks.
+ * (renderMode, fogDensity, projection, lowPowerMode) triggers registered hooks.
  *
  * Usage:
  * ```typescript
@@ -136,7 +146,9 @@ export interface ReactiveParams extends ParamsData {
         ? number
         : K extends "projection"
           ? ProjectionType
-          : string
+          : K extends "lowPowerMode"
+            ? boolean
+            : string
     >,
   ): () => void;
 }
@@ -146,6 +158,7 @@ const MUTABLE_PROPERTIES = new Set<MutablePropertyName>([
   "renderMode",
   "fogDensity",
   "projection",
+  "lowPowerMode",
 ]);
 
 /**
@@ -317,5 +330,6 @@ export function createReactiveParams(
     ),
     projection: externalParams.projection === "mercator" ? "mercator" : "globe",
     debug: externalParams.debug === "true",
+    lowPowerMode: externalParams.low_power_mode === "true",
   });
 }
