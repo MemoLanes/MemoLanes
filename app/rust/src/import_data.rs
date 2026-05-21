@@ -460,7 +460,7 @@ fn flatten_kml(kml: Kml) -> Vec<Kml> {
     match kml {
         Kml::KmlDocument(d) => flatten_elements(d.elements),
         Kml::Document { attrs: _, elements } => flatten_elements(elements),
-        Kml::Folder { attrs: _, elements } => flatten_elements(elements),
+        Kml::Folder(folder) => flatten_elements(folder.elements),
         k => vec![k],
     }
 }

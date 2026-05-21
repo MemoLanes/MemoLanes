@@ -31,7 +31,7 @@ flate2 = "1.1"
 # https://github.com/georust/gpx/issues/105
 gpx = { git = "https://github.com/MemoLanes/gpx.git", branch = "relax-parsing" }
 # TODO: there is a breaking change in `kml = 0.9`. 
-kml = "0.8"
+kml = "0.13"
 lazy_static = "1.5"
 geo-types = "0.7"
 file-rotate = "0.8"

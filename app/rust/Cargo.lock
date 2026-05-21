@@ -2177,14 +2177,14 @@ dependencies = [
 
 [[package]]
 name = "kml"
-version = "0.8.7"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15ee323a0101f0a088261d45379c1127038a0df04991975e76c4ce427b4bfd6d"
+checksum = "9bc5b33f81c33cf4fde1581f3cd68244ce027023324266770d799345f9919611"
 dependencies = [
  "geo-types",
  "num-traits",
  "quick-xml 0.37.5",
- "thiserror 1.0.69",
+ "thiserror 2.0.17",
  "zip 2.4.2",
 ]
 
