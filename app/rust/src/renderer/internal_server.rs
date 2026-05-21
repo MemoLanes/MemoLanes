@@ -230,7 +230,7 @@ pub fn handle_tile_range_query(
         };
 
     // Generate tile buffer from journey bitmap
-    let tile_buffer = match map_renderer.get_tile_buffer(
+    let tile_range_response = match map_renderer.get_tile_range_response(
         query.x,
         query.y,
         query.z,
@@ -241,23 +241,16 @@ pub fn handle_tile_range_query(
         Ok(buffer) => buffer,
         Err(e) => return Err(format!("Failed to generate tile buffer: {e}")),
     };
-
-    // Convert tile buffer to bytes and create response
-    match tile_buffer.to_bytes() {
-        Ok(data) => {
-            let response_data = TileRangeResponse {
-                status: 200,
-                headers: {
-                    let mut h = HashMap::new();
-                    h.insert("version".to_string(), version);
-                    h
-                },
-                body: data,
-            };
-            Ok(response_data)
-        }
-        Err(e) => Err(format!("Failed to serialize tile buffer: {e}")),
-    }
+    let response_data = TileRangeResponse {
+        status: 200,
+        headers: {
+            let mut h = HashMap::new();
+            h.insert("version".to_string(), version);
+            h
+        },
+        body: tile_range_response,
+    };
+    Ok(response_data)
 }
 
 impl Request {

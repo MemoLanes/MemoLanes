@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/custom_popup.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -90,6 +91,7 @@ class _LayerPopupContentState extends State<LayerPopupContent> {
 
     return InkWell(
       onTap: () {
+        AppHaptics.selection();
         setState(() {
           switch (layerOption) {
             case LayerOption.current:

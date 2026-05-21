@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 
 class TrackingButton extends StatelessWidget {
@@ -22,7 +23,10 @@ class TrackingButton extends StatelessWidget {
         shape: BoxShape.circle,
       ),
       child: IconButton(
-        onPressed: onPressed,
+        onPressed: () {
+          AppHaptics.selection();
+          onPressed();
+        },
         icon: Icon(
           trackingMode == TrackingMode.off
               ? Icons.near_me_disabled

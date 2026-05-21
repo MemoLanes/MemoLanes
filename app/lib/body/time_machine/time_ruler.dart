@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/constants/style_constants.dart';
 
 /// Time dimension: year / month / day / any.
@@ -313,6 +313,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
   late ScrollController _scrollController;
   Timer? _snapTimer;
   bool _isScrolling = false;
+  bool _isSnapping = false;
   int _lastHapticIndex = -1;
   double _viewportWidth = 0;
 
@@ -382,9 +383,21 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
     if (!mounted || !_scrollController.hasClients) return;
     final idx = _indexAtOffset(_scrollController.offset);
     final aligned = _isAlignedToTick(idx);
+    if (!aligned) {
+      // Suppress haptics from scroll updates and the snap-end notification.
+      _isSnapping = true;
+      try {
+        await _snapToIndex(idx);
+      } finally {
+        _isSnapping = false;
+      }
+      if (!mounted) return;
+    }
+    // Skip if _onScrollUpdate already vibrated for this tick.
+    final shouldHaptic = !aligned || _lastHapticIndex != idx;
     _lastHapticIndex = idx;
-    if (!aligned) await _snapToIndex(idx);
-    if (!mounted) return;
+    if (shouldHaptic) AppHaptics.selection();
+    _data.notifyDisplay(idx);
     if (!_data.indexEqualsSelection(idx)) _data.reportSelection(idx);
   }
 
@@ -419,16 +432,20 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
 
   void _onScrollUpdate(ScrollNotification n) {
     if (_viewportWidth <= 0) return;
-    final idx = _indexAtOffset(n.metrics.pixels);
-    if (idx != _lastHapticIndex) {
-      _lastHapticIndex = idx;
-      HapticFeedback.selectionClick();
-      _data.notifyDisplay(idx);
+    if (_isSnapping) return;
+    final maxIdx = _data.itemCount > 0 ? _data.itemCount - 1 : 0;
+    final bucket =
+        (n.metrics.pixels / kRulerUnitSpacing).floor().clamp(0, maxIdx);
+    if (bucket != _lastHapticIndex) {
+      _lastHapticIndex = bucket;
+      AppHaptics.selection();
+      _data.notifyDisplay(bucket);
     }
   }
 
   void _onScrollEnd(ScrollNotification n) {
     _isScrolling = false;
+    if (_isSnapping) return;
     _snapTimer?.cancel();
     if (!mounted || !_scrollController.hasClients) return;
     _snapTimer = Timer(kRulerSnapDelay, () async {

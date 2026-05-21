@@ -360,7 +360,12 @@ export class JourneyTileProvider {
       // TODO: the tileBuffer wasm deserialization can take up to 2000ms in dev mode, and 30ms in prod mode.
       // consider move this into web worker so that it won't block the main thread.
       // Deserialize into a TileBuffer object using the WebAssembly module
-      this.tileBuffer = TileBuffer.from_bytes(bytes);
+      // TODO: remove this number
+      const LEVEL0_EXP = 9; // is it reasonable?
+      this.tileBuffer = TileBuffer.new_from_tile_range_response(
+        LEVEL0_EXP,
+        bytes,
+      );
 
       console.log(
         `Tile buffer fetched and deserialized successfully via ${this.multiRequest.getStatus().isFlutterMode ? "Flutter IPC" : "HTTP"}`,

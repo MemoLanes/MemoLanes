@@ -169,6 +169,9 @@
       "warning_for_import_multiple_data_md": "Note: The database already contains Fog of World data.\n\nWhen importing multiple data snapshots, please ensure that these snapshots do not overlap, or use the \"Export MemoLanes Archive\" feature in [Fog Machine - Time Machine](https://fogmachine.8bits.io/time-machine). This feature processes snapshots one by one by calculating differences, achieving the effect of matching historical tracks with their corresponding time."
     }
   },
+  "haptics": {
+    "setting_title": "Haptic feedback"
+  },
   "unexpected_exit_notification": {
     "setting_title": "Unexpected exit notification",
     "notification_permission_reason": "In order to remind you when the program exits, we will request notification permission.",

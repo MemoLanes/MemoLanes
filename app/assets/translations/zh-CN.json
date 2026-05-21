@@ -169,6 +169,9 @@
       "warning_for_import_multiple_data_md": "请注意，数据库中已经包含世界迷雾数据。\n\n导入多段数据时请确保数据不重叠，或者使用 [迷雾机器-时光机](https://fogmachine.8bits.io/time-machine) 中的“导出迹忆归档”功能。该功能通过计算数据差异的方式逐一处理快照，达到历史足迹与时间对应的效果。"
     }
   },
+  "haptics": {
+    "setting_title": "触感反馈"
+  },
   "unexpected_exit_notification": {
     "setting_title": "意外退出通知",
     "notification_permission_reason": "为了在程序退出时提醒您，我们将请求通知权限。",
