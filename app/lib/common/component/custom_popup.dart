@@ -6,11 +6,15 @@ import 'package:flutter/scheduler.dart';
 
 enum PopupPosition { auto, top, bottom, left, right }
 
+typedef CustomPopupBuilder = Widget Function(
+  BuildContext context,
+  VoidCallback show,
+);
+
 class CustomPopup extends StatefulWidget {
   final GlobalKey? anchorKey;
   final Widget content;
-  final Widget child;
-  final bool isLongPress;
+  final CustomPopupBuilder builder;
   final Color? backgroundColor;
   final Color? barrierColor;
   final EdgeInsets contentPadding;
@@ -29,9 +33,8 @@ class CustomPopup extends StatefulWidget {
   const CustomPopup({
     super.key,
     required this.content,
-    required this.child,
+    required this.builder,
     this.anchorKey,
-    this.isLongPress = false,
     this.backgroundColor,
     this.barrierColor,
     this.contentPadding = const EdgeInsets.all(16),
@@ -82,12 +85,7 @@ class CustomPopupState extends State<CustomPopup> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onLongPress: widget.isLongPress ? () => show() : null,
-      onTapUp: !widget.isLongPress ? (_) => show() : null,
-      child: widget.child,
-    );
+    return widget.builder(context, show);
   }
 }
 

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/constants/index.dart';
 
-class BottomNavBar extends StatefulWidget {
+class BottomNavBar extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onIndexChanged;
   final bool Function() hasUpdateNotification;
@@ -21,49 +21,6 @@ class BottomNavBar extends StatefulWidget {
           selectedIndex >= 0 && selectedIndex < _itemCount,
           'selectedIndex must match a BottomNavBar item index.',
         );
-
-  @override
-  State<BottomNavBar> createState() => _BottomNavBarState();
-}
-
-class _BottomNavBarState extends State<BottomNavBar>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _selectionController;
-  late Animation<double> _selectionAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectionController = AnimationController(
-      duration: BottomNavBar._selectionSlideDuration,
-      vsync: this,
-    );
-    _selectionAnimation =
-        AlwaysStoppedAnimation(widget.selectedIndex.toDouble());
-  }
-
-  @override
-  void didUpdateWidget(covariant BottomNavBar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.selectedIndex != widget.selectedIndex) {
-      _selectionAnimation = Tween<double>(
-        begin: _selectionAnimation.value,
-        end: widget.selectedIndex.toDouble(),
-      ).animate(
-        CurvedAnimation(
-          parent: _selectionController,
-          curve: Curves.easeOutCubic,
-        ),
-      );
-      _selectionController.forward(from: 0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _selectionController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -87,11 +44,11 @@ class _BottomNavBarState extends State<BottomNavBar>
           child: LayoutBuilder(
             builder: (context, constraints) {
               final itemWidth = constraints.maxWidth / BottomNavBar._itemCount;
-              return AnimatedBuilder(
-                animation: _selectionController,
-                builder: (context, child) {
-                  final selectionPosition = _selectionAnimation.value;
-
+              return TweenAnimationBuilder<double>(
+                tween: Tween<double>(end: selectedIndex.toDouble()),
+                duration: BottomNavBar._selectionSlideDuration,
+                curve: Curves.easeOutCubic,
+                builder: (context, selectionPosition, child) {
                   return Stack(
                     children: [
                       Positioned(
@@ -164,14 +121,14 @@ class _BottomNavBarState extends State<BottomNavBar>
       child: GestureDetector(
         onTap: () {
           AppHaptics.selection();
-          widget.onIndexChanged(index);
+          onIndexChanged(index);
         },
         child: Container(
           color: Colors.transparent,
           padding: const EdgeInsets.all(8),
           child: Padding(
             padding: const EdgeInsets.all(8),
-            child: index == 4 && widget.hasUpdateNotification()
+            child: index == 4 && hasUpdateNotification()
                 ? badges.Badge(
                     badgeStyle: badges.BadgeStyle(
                       shape: badges.BadgeShape.square,

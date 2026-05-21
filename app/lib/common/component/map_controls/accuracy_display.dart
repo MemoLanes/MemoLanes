@@ -3,7 +3,9 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/custom_popup.dart';
+import 'package:memolanes/common/component/pressable_button.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/service/location/location_service.dart';
 import 'package:provider/provider.dart';
@@ -87,7 +89,18 @@ class _AccuracyDisplayState extends State<AccuracyDisplay> {
             ),
             barrierColor: Colors.transparent,
             content: const _AccuracyPopupContent(),
-            child: button,
+            builder: (context, show) {
+              return _AccuracyButton(
+                hasData: hasData,
+                accuracy: accuracy,
+                accuracyLevel: accuracyLevel,
+                filledTicks: getFilledTicks(accuracyLevel),
+                onPressed: () {
+                  AppHaptics.selection();
+                  show();
+                },
+              );
+            },
           );
         },
       ),
@@ -109,52 +122,45 @@ class _AccuracyButton extends StatelessWidget {
   final double accuracy;
   final AccuracyLevel accuracyLevel;
   final int filledTicks;
+  final VoidCallback? onPressed;
 
   const _AccuracyButton({
     required this.hasData,
     required this.accuracy,
     required this.accuracyLevel,
     required this.filledTicks,
+    this.onPressed,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        color: hasData ? Colors.black : Colors.black38,
-        shape: BoxShape.circle,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(24),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Center(
-                child: Text(
-                  hasData ? '${accuracy.round()}m\nACC' : 'NO\nGPS',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: hasData ? Colors.white : Colors.white60,
-                    fontSize: 10,
-                    height: 1.0,
-                  ),
-                ),
+    return PressableButton.circle(
+      backgroundColor: hasData ? Colors.black : Colors.black38,
+      overlayColor: Colors.white.withValues(alpha: 0.18),
+      onPressed: onPressed,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Center(
+            child: Text(
+              hasData ? '${accuracy.round()}m\nACC' : 'NO\nGPS',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: hasData ? Colors.white : Colors.white60,
+                fontSize: 10,
+                height: 1.0,
               ),
-              if (hasData)
-                CustomPaint(
-                  size: const ui.Size(48, 48),
-                  painter: AccuracyTicksPainter(
-                    filledTicks: filledTicks,
-                    color: getStatusColor(accuracyLevel),
-                  ),
-                ),
-            ],
+            ),
           ),
-        ),
+          if (hasData)
+            CustomPaint(
+              size: const ui.Size(48, 48),
+              painter: AccuracyTicksPainter(
+                filledTicks: filledTicks,
+                color: getStatusColor(accuracyLevel),
+              ),
+            ),
+        ],
       ),
     );
   }
