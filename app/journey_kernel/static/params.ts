@@ -90,7 +90,11 @@ export interface ExternalParams {
 export type PropertyChangeCallback<T> = (newValue: T, oldValue: T) => void;
 
 /** Mutable property names that support hooks */
-export type MutablePropertyName = "renderMode" | "fogDensity" | "projection" | "lowPowerMode";
+export type MutablePropertyName =
+  | "renderMode"
+  | "fogDensity"
+  | "projection"
+  | "lowPowerMode";
 
 /** Internal data structure for ReactiveParams */
 interface ParamsData {
