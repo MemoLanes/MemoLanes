@@ -14,17 +14,17 @@ console_error_panic_hook = ["dep:console_error_panic_hook"]
 
 [dependencies]
 log = "0.4"
-wasm-bindgen = { version = "0.2.106", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires
 # all the `std::fmt` and `std::panicking` infrastructure, so isn't great for
 # code size when deploying.
 console_error_panic_hook = { version = "0.1", optional = true }
 
-wasm-bindgen-futures = { version = "0.4.68", optional = true }
-bitvec = "1.0.1"
-lz4_flex = "0.11.6"
-miniz_oxide = "0.7.4"
+wasm-bindgen-futures = { version = "0.4", optional = true }
+bitvec = "1.0"
+lz4_flex = "0.13"
+miniz_oxide = "0.9"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 zstd = "0.13"
@@ -32,4 +32,4 @@ zstd = "0.13"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_log = "1"
 web-sys = { version = "0.3", features = ["console", "Performance", "Window"] }
-ruzstd = "0.8.2"
+ruzstd = "0.8"
