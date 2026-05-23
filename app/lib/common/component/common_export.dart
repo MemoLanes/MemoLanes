@@ -65,7 +65,7 @@ class _CommonExportState extends State<CommonExport> {
   }
 
   Widget _buildIconButton({
-    required IconData icon,
+    required FaIconData icon,
     required String label,
     required VoidCallback onPressed,
   }) {
