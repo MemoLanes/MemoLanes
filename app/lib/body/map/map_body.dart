@@ -5,7 +5,7 @@ import 'package:json_annotation/json_annotation.dart';
 import 'package:memolanes/body/map/overlay/normal_map_overlay.dart';
 import 'package:memolanes/body/map/overlay/time_machine_overlay.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
-import 'package:memolanes/common/component/tab_content_transition.dart';
+import 'package:memolanes/common/component/animation/page_transition.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/utils/nav_helper.dart';
@@ -238,7 +238,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
 
     final children = <Widget>[
       _buildMapLayer(),
-      TabContentTransition(
+      PageTransition(
         transitionKey: ValueKey(mode),
         child: _buildOverlay(context, mode),
       ),

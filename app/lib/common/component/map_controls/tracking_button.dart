@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
-import 'package:memolanes/common/component/pressable_button.dart';
+import 'package:memolanes/common/component/animation/ink_button.dart';
 
 class TrackingButton extends StatelessWidget {
   final TrackingMode trackingMode;
@@ -21,7 +21,7 @@ class TrackingButton extends StatelessWidget {
         message: trackingMode == TrackingMode.off
             ? 'Enable location tracking'
             : 'Disable location tracking',
-        child: PressableButton.circle(
+        child: InkButton.circle(
           backgroundColor: Colors.black,
           overlayColor: Colors.white.withValues(alpha: 0.18),
           onPressed: () {

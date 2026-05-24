@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/custom_popup.dart';
-import 'package:memolanes/common/component/pressable_button.dart';
+import 'package:memolanes/common/component/animation/ink_button.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -25,7 +25,7 @@ class LayerButton extends StatelessWidget {
       content: PointerInterceptor(child: const LayerPopupContent()),
       builder: (context, show) {
         return PointerInterceptor(
-          child: PressableButton.circle(
+          child: InkButton.circle(
             backgroundColor: Colors.black,
             overlayColor: Colors.white.withValues(alpha: 0.18),
             onPressed: () {

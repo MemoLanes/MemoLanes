@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/app_haptics.dart';
-import 'package:memolanes/common/component/pressable_button.dart';
+import 'package:memolanes/common/component/animation/ink_button.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -69,7 +69,7 @@ class _RecordingButtonsState extends State<RecordingButtons> {
     if (recordingStatus == GpsRecordingStatus.none) {
       controls = Center(
         child: PointerInterceptor(
-          child: PressableButton.pill(
+          child: InkButton.pill(
             backgroundColor: const Color(0xFFB4EC51),
             overlayColor: Colors.black.withValues(alpha: 0.16),
             onPressed: () async {
@@ -96,7 +96,7 @@ class _RecordingButtonsState extends State<RecordingButtons> {
           mainAxisSize: MainAxisSize.min,
           children: [
             PointerInterceptor(
-              child: PressableButton.pill(
+              child: InkButton.pill(
                 backgroundColor: Colors.black,
                 overlayColor: Colors.white.withValues(alpha: 0.18),
                 onPressed: () async {
@@ -118,7 +118,7 @@ class _RecordingButtonsState extends State<RecordingButtons> {
             ),
             const SizedBox(width: 24),
             PointerInterceptor(
-              child: PressableButton.circle(
+              child: InkButton.circle(
                 backgroundColor: Colors.black,
                 overlayColor: Colors.white.withValues(alpha: 0.18),
                 size: 56,
@@ -139,7 +139,7 @@ class _RecordingButtonsState extends State<RecordingButtons> {
           mainAxisSize: MainAxisSize.min,
           children: [
             PointerInterceptor(
-              child: PressableButton.pill(
+              child: InkButton.pill(
                 backgroundColor: const Color(0xFFB4EC51),
                 overlayColor: Colors.black.withValues(alpha: 0.16),
                 onPressed: () async {
@@ -161,7 +161,7 @@ class _RecordingButtonsState extends State<RecordingButtons> {
             ),
             const SizedBox(width: 24),
             PointerInterceptor(
-              child: PressableButton.circle(
+              child: InkButton.circle(
                 backgroundColor: Colors.black,
                 overlayColor: Colors.white.withValues(alpha: 0.18),
                 size: 56,

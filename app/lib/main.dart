@@ -15,7 +15,7 @@ import 'package:memolanes/body/settings/settings_body.dart'
     deferred as settings;
 import 'package:memolanes/common/component/bottom_nav_bar.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
-import 'package:memolanes/common/component/tab_content_transition.dart';
+import 'package:memolanes/common/component/animation/page_transition.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/utils/nav_helper.dart';
@@ -224,7 +224,7 @@ class _MyHomePageState extends State<MyHomePage> {
           children: [
             SafeAreaWrapper(
               useSafeArea: _selectedIndex > 1,
-              child: TabContentTransition(
+              child: PageTransition(
                 transitionKey: _pageTransitionKey,
                 child: _buildPageContent(),
               ),

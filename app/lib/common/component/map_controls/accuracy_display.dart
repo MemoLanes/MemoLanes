@@ -5,7 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/custom_popup.dart';
-import 'package:memolanes/common/component/pressable_button.dart';
+import 'package:memolanes/common/component/animation/ink_button.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/service/location/location_service.dart';
 import 'package:provider/provider.dart';
@@ -134,7 +134,7 @@ class _AccuracyButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PressableButton.circle(
+    return InkButton.circle(
       backgroundColor: hasData ? Colors.black : Colors.black38,
       overlayColor: Colors.white.withValues(alpha: 0.18),
       onPressed: onPressed,

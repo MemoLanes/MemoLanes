@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class PressableButton extends StatelessWidget {
+class InkButton extends StatelessWidget {
   final Widget child;
   final VoidCallback? onPressed;
   final Color backgroundColor;
@@ -10,7 +10,7 @@ class PressableButton extends StatelessWidget {
   final double? width;
   final double? height;
 
-  const PressableButton.circle({
+  const InkButton.circle({
     super.key,
     required this.child,
     required this.onPressed,
@@ -22,7 +22,7 @@ class PressableButton extends StatelessWidget {
         width = size,
         height = size;
 
-  const PressableButton.pill({
+  const InkButton.pill({
     super.key,
     required this.child,
     required this.onPressed,

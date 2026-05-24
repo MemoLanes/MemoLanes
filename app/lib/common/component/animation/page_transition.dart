@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-class TabContentTransition extends StatelessWidget {
-  const TabContentTransition({
+class PageTransition extends StatelessWidget {
+  const PageTransition({
     super.key,
     required this.transitionKey,
     required this.child,
