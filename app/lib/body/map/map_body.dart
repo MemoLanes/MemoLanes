@@ -5,6 +5,7 @@ import 'package:json_annotation/json_annotation.dart';
 import 'package:memolanes/body/map/overlay/normal_map_overlay.dart';
 import 'package:memolanes/body/map/overlay/time_machine_overlay.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
+import 'package:memolanes/common/component/tab_content_transition.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/utils/nav_helper.dart';
@@ -49,8 +50,7 @@ class MapBody extends StatefulWidget {
 }
 
 class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
-  /// Main map proxy; initialized only here (main holds MapBody instance via
-  /// GlobalKey).
+  /// Main map proxy; initialized only here so tab 0↔1 can reuse the same map.
   final _mapRendererProxy = api.getMapRendererProxyForMainMap();
   MapView? _roughMapView;
   api.MapRendererProxy? _journeyMapRendererProxy;
@@ -238,7 +238,10 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
 
     final children = <Widget>[
       _buildMapLayer(),
-      _buildOverlay(context, mode),
+      TabContentTransition(
+        transitionKey: ValueKey(mode),
+        child: _buildOverlay(context, mode),
+      ),
     ];
 
     return Stack(children: children);

@@ -15,6 +15,7 @@ import 'package:memolanes/body/settings/settings_body.dart'
     deferred as settings;
 import 'package:memolanes/common/component/bottom_nav_bar.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
+import 'package:memolanes/common/component/tab_content_transition.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/utils/nav_helper.dart';
@@ -118,11 +119,6 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void>? _achievementLib;
   Future<void>? _settingsLib;
 
-  /// Keeps MapBody's State stable so that switching between tab 0 and 1 does
-  /// not trigger parent rebuild and thus avoids MapBody/WebView being
-  /// recreated and the web page reloading.
-  final GlobalKey<MapBodyState> _mapBodyKey = GlobalKey<MapBodyState>();
-
   @override
   void initState() {
     super.initState();
@@ -184,11 +180,17 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget _buildPageContent() {
     if (_selectedIndex <= 1) {
       return MapBody(
-        key: _mapBodyKey,
         mode: _selectedIndex == 0 ? MapMode.normal : MapMode.timeMachine,
       );
     }
     return _buildDeferredTabBody(_selectedIndex);
+  }
+
+  LocalKey get _pageTransitionKey {
+    // Normal map and time machine share the same MapBody/WebView; animate their
+    // overlay inside MapBody instead of replacing the page.
+    if (_selectedIndex <= 1) return const ValueKey('map');
+    return ValueKey(_selectedIndex);
   }
 
   Widget _buildDeferredTabBody(int index) {
@@ -222,7 +224,10 @@ class _MyHomePageState extends State<MyHomePage> {
           children: [
             SafeAreaWrapper(
               useSafeArea: _selectedIndex > 1,
-              child: _buildPageContent(),
+              child: TabContentTransition(
+                transitionKey: _pageTransitionKey,
+                child: _buildPageContent(),
+              ),
             ),
             Positioned(
               left: 0,
