@@ -39,7 +39,14 @@ rust-fmt:
 [working-directory: 'journey_kernel']
 journey-kernel-fmt:
     @echo "🛠️  Formatting code"
-    @yarn format 
+    @yarn format
+    @cargo fmt --all
+    @echo "✅ Code formatting completed"
+
+[group: 'utils']
+[working-directory: 'rust/geo_data_format']
+geo-data-format-fmt:
+    @echo "🛠️  Formatting code"
     @cargo fmt --all
     @echo "✅ Code formatting completed"
 
@@ -68,11 +75,20 @@ rust-check:
 [working-directory: 'journey_kernel']
 journey-kernel-check:
     @echo "🔍 Checking Journey Kernel code"
-    @yarn check-format 
+    @yarn check-format
     @cargo check
     @cargo fmt --all -- --check
     @cargo clippy -- -D warnings
     @echo "✅ Journey Kernal code check completed"
+
+[group: 'utils']
+[working-directory: 'rust/geo_data_format']
+geo-data-format-check:
+    @echo "🔍 Checking geo_data_format code"
+    @cargo check --all-targets
+    @cargo fmt --all -- --check
+    @cargo clippy --all-targets -- -D warnings
+    @echo "✅ geo_data_format code check completed"
 
 [group: 'utils']
 [working-directory: 'rust']
@@ -87,6 +103,13 @@ journey-kernel-test:
     @echo "🧪 Running Journey Kernel tests"
     @cargo test -- --nocapture
     @echo "✅ Journey Kernel tests completed"
+
+[group: 'utils']
+[working-directory: 'rust/geo_data_format']
+geo-data-format-test:
+    @echo "🧪 Running geo_data_format tests"
+    @cargo test -- --nocapture
+    @echo "✅ geo_data_format tests completed"
 
 [group: 'utils']
 [unix]
@@ -109,6 +132,7 @@ check:
     @echo "🛠️  Checking all code"
     just rust-check
     just journey-kernel-check
+    just geo-data-format-check
     just flutter-check
     @echo "✅ Checking completed"
 
@@ -117,6 +141,7 @@ check:
 test:
     @echo "🛠️  Running all tests"
     just journey-kernel-test
+    just geo-data-format-test
     just rust-test
     @echo "✅ Test completed"
 
@@ -126,6 +151,7 @@ format:
     @echo "🛠️  Running code format"
     just journey-kernel-fmt
     just rust-fmt
+    just geo-data-format-fmt
     just flutter-fmt
     @echo "✅ Format completed"
 
