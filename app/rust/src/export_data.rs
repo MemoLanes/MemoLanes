@@ -187,13 +187,12 @@ fn write_kml_document<T: Write + Seek>(
                 "http://www.w3.org/2005/Atom".to_owned(),
             ),
         ]),
-        elements: vec![Kml::Folder {
-            attrs: HashMap::from([
-                ("name".to_owned(), name),
-                ("description".to_owned(), description),
-            ]),
+        elements: vec![Kml::Folder(kml::types::Folder {
+            name: Some(name),
+            description: Some(description),
             elements,
-        }],
+            ..kml::types::Folder::default()
+        })],
     };
 
     let mut writer = KmlWriter::<_, f64>::from_writer(writer);

@@ -1,0 +1,43 @@
+use serde::{Deserialize, Serialize};
+
+/// Stable sequential ID assigned by sorting all iso_codes lexicographically.
+/// Deterministic: same input dataset always yields same IDs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct GeoEntityId(pub u32);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum GeoEntityKind {
+    Continent,
+    Country,
+    Province,
+    City,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GeoEntity {
+    pub id: GeoEntityId,
+    pub kind: GeoEntityKind,
+    pub iso_code: String,
+    pub name_key: String,
+    pub parent_id: Option<GeoEntityId>,
+    /// Pre-computed total area in m², from rasterizer.
+    pub total_area_m2: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Worldview {
+    pub id: String,
+    pub name_key: String,
+    pub description_key: String,
+}
+
+/// Tile-level classification for the geo lookup table.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TileMembership {
+    /// Entire tile belongs to one entity.
+    Single(GeoEntityId),
+    /// Tile straddles borders — drill to block level.
+    Border,
+    /// Ocean / uninhabited — no entity.
+    None,
+}

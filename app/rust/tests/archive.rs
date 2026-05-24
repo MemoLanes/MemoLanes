@@ -10,7 +10,7 @@ use memolanes_core::{
     main_db::MainDb,
 };
 use std::collections::HashSet;
-use std::{fs::File, io::Write};
+use std::fs::File;
 use tempdir::TempDir;
 
 fn add_vector_journeys(main_db: &mut MainDb) {

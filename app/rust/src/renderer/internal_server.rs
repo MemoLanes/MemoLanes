@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use super::MapRenderer;
 
-use rand::RngCore;
+use rand::Rng;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct TileRangeQuery {
