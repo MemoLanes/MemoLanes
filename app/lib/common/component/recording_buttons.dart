@@ -29,9 +29,7 @@ class _RecordingButtonsState extends State<RecordingButtons> {
     try {
       await action();
     } finally {
-      if (mounted) {
-        _pendingAction = false;
-      }
+      _pendingAction = false;
     }
   }
 

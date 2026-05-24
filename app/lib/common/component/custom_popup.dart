@@ -152,6 +152,7 @@ class _SizeChangeObserver extends SingleChildRenderObjectWidget {
     covariant _SizeChangeRenderObject renderObject,
   ) {
     renderObject.onSizeChanged = onSizeChanged;
+    renderObject._lastSize = null;
   }
 }
 
