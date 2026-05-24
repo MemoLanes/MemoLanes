@@ -14,8 +14,8 @@ import 'package:permission_handler/permission_handler.dart';
 /// Returns `true` when the user taps **Skip** or **Enable all** (enters the app; permissions may
 /// still be incomplete).
 ///
-/// Returns `false` when the user leaves via the leading back button or dismisses the sheet
-/// (e.g. swipe down) without choosing Skip / Enable all. Dismissal uses `result ?? false`.
+/// Returns `false` when the user leaves via the leading back button.
+/// Dismissing the sheet (e.g. tapping outside) is treated like Skip.
 Future<bool> showPermissionRequestSheet(BuildContext context) async {
   final result = await showModalBottomSheet<bool>(
     context: context,
@@ -26,7 +26,7 @@ Future<bool> showPermissionRequestSheet(BuildContext context) async {
       return _PermissionRequestSheetContent();
     },
   );
-  return result ?? false;
+  return result ?? true;
 }
 
 class _PermissionRequestSheetContent extends StatefulWidget {
@@ -39,11 +39,10 @@ class _PermissionRequestSheetContentState
     extends State<_PermissionRequestSheetContent> with WidgetsBindingObserver {
   final PermissionService _permissions = PermissionService();
 
-  bool _locationGranted = false;
-  bool _batteryGranted = false;
-  bool _notificationGranted = false;
-  bool _locationPermanentlyDenied = false;
-  bool _notificationPermanentlyDenied = false;
+  PermissionTileStatus _location = const PermissionTileStatus(granted: false);
+  PermissionTileStatus _battery = const PermissionTileStatus(granted: false);
+  PermissionTileStatus _notification =
+      const PermissionTileStatus(granted: false);
 
   Future<void> _showLocationRationaleDialog() async {
     if (!mounted) return;
@@ -85,7 +84,11 @@ class _PermissionRequestSheetContentState
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _refreshStatus();
+      // Some special permissions (e.g. ignoreBatteryOptimizations) report stale
+      // status immediately after resume. Delay to let the system sync.
+      Future.delayed(const Duration(milliseconds: 200), () {
+        _refreshStatus();
+      });
     }
   }
 
@@ -93,11 +96,9 @@ class _PermissionRequestSheetContentState
     final s = await _permissions.readPermissionSnapshot();
     if (!mounted) return;
     setState(() {
-      _locationGranted = s.locationTileGranted;
-      _locationPermanentlyDenied = s.locationPermanentlyDenied;
-      _batteryGranted = s.batteryTileGranted;
-      _notificationGranted = s.notificationTileGranted;
-      _notificationPermanentlyDenied = s.notificationPermanentlyDenied;
+      _location = s.location;
+      _battery = s.battery;
+      _notification = s.notification;
     });
   }
 
@@ -123,7 +124,7 @@ class _PermissionRequestSheetContentState
 
   Future<void> _requestBattery() async {
     if (!Platform.isAndroid) return;
-    if (_batteryGranted) return;
+    if (_battery.granted) return;
     if (!mounted) return;
     final effects = await _permissions.runBatteryRequest();
     await _applyEffects(effects);
@@ -131,7 +132,7 @@ class _PermissionRequestSheetContentState
   }
 
   Future<void> _requestNotification() async {
-    if (_notificationGranted) return;
+    if (_notification.granted) return;
     if (!mounted) return;
     final effects = await _permissions.runNotificationRequest();
     await _applyEffects(effects);
@@ -145,11 +146,11 @@ class _PermissionRequestSheetContentState
   Future<void> _onEnableAll() async {
     await _refreshStatus();
     if (!mounted) return;
-    if (!_locationGranted) await _requestLocation();
+    if (!_location.granted) await _requestLocation();
     if (!mounted) return;
-    if (Platform.isAndroid && !_batteryGranted) await _requestBattery();
+    if (Platform.isAndroid && !_battery.granted) await _requestBattery();
     if (!mounted) return;
-    if (!_notificationGranted) await _requestNotification();
+    if (!_notification.granted) await _requestNotification();
     if (!mounted) return;
     Navigator.of(context).pop(true);
   }
@@ -216,19 +217,18 @@ class _PermissionRequestSheetContentState
                     icon: Icons.location_on,
                     title: context.tr("permission_sheet.location_title"),
                     description: context.tr("permission_sheet.location_desc"),
-                    isGranted: _locationGranted,
+                    status: _location,
                     onTap: _requestLocation,
                     onRationaleTap: _showLocationRationaleDialog,
                     rationaleTooltip:
                         context.tr("permission_sheet.location_help_tooltip"),
-                    showOpenSettingsHintWhenDenied: _locationPermanentlyDenied,
                   ),
                   if (Platform.isAndroid)
                     _PermissionTile(
                       icon: Icons.battery_charging_full,
                       title: context.tr("permission_sheet.battery_title"),
                       description: context.tr("permission_sheet.battery_desc"),
-                      isGranted: _batteryGranted,
+                      status: _battery,
                       onTap: _requestBattery,
                       onRationaleTap: _showBatteryRationaleDialog,
                       rationaleTooltip:
@@ -239,13 +239,11 @@ class _PermissionRequestSheetContentState
                     title: context.tr("permission_sheet.notification_title"),
                     description:
                         context.tr("permission_sheet.notification_desc"),
-                    isGranted: _notificationGranted,
+                    status: _notification,
                     onTap: _requestNotification,
                     onRationaleTap: _showNotificationRationaleDialog,
                     rationaleTooltip: context
                         .tr("permission_sheet.notification_help_tooltip"),
-                    showOpenSettingsHintWhenDenied:
-                        _notificationPermanentlyDenied,
                   ),
                 ],
               ),
@@ -291,25 +289,25 @@ class _PermissionTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String description;
-  final bool isGranted;
+  final PermissionTileStatus status;
   final VoidCallback onTap;
   final VoidCallback? onRationaleTap;
   final String? rationaleTooltip;
-  final bool showOpenSettingsHintWhenDenied;
 
   const _PermissionTile({
     required this.icon,
     required this.title,
     required this.description,
-    required this.isGranted,
+    required this.status,
     required this.onTap,
     this.onRationaleTap,
     this.rationaleTooltip,
-    this.showOpenSettingsHintWhenDenied = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isDenied = status.denied || status.permanentlyDenied;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Container(
@@ -385,7 +383,7 @@ class _PermissionTile extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (showOpenSettingsHintWhenDenied && !isGranted) ...[
+                  if (status.permanentlyDenied) ...[
                     const SizedBox(height: 6),
                     Align(
                       alignment: AlignmentDirectional.centerStart,
@@ -412,12 +410,103 @@ class _PermissionTile extends StatelessWidget {
                 ],
               ),
             ),
-            Switch(
-              value: isGranted,
-              onChanged: isGranted ? null : (_) => onTap(),
-              activeTrackColor: StyleConstants.defaultColor,
+            _PermissionStatusIndicator(
+              isGranted: status.granted,
+              isDenied: isDenied,
+              onTap: status.granted ? null : onTap,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PermissionStatusIndicator extends StatelessWidget {
+  final bool isGranted;
+  final bool isDenied;
+  final VoidCallback? onTap;
+
+  const _PermissionStatusIndicator({
+    required this.isGranted,
+    required this.isDenied,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isGranted) {
+      return const SizedBox(
+        width: 52,
+        height: 40,
+        child: Center(
+          child: Icon(
+            Icons.check_circle,
+            color: StyleConstants.defaultColor,
+            size: 24,
+          ),
+        ),
+      );
+    }
+
+    if (isDenied) {
+      const color = Color(0xFFFF6B6B);
+      return SizedBox(
+        width: 52,
+        height: 40,
+        child: Center(
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(999),
+            child: Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+                border: Border.all(color: color.withValues(alpha: 0.75)),
+              ),
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.close,
+                color: color,
+                size: 18,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final label = context.tr('permission_sheet.enable');
+
+    return SizedBox(
+      width: 52,
+      height: 40,
+      child: Center(
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(999),
+          child: Container(
+            height: 30,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: StyleConstants.defaultColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: StyleConstants.defaultColor.withValues(alpha: 0.75),
+              ),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: StyleConstants.defaultColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
         ),
       ),
     );

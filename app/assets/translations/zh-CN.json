@@ -14,6 +14,7 @@
     "battery_help_tooltip": "电池优化说明",
     "notification_help_tooltip": "通知权限说明",
     "enable_all": "全部开启",
+    "enable": "开启",
     "skip": "跳过",
     "location_title": "位置",
     "location_desc": "用于地图展示与旅程记录",
