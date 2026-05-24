@@ -74,7 +74,7 @@ class _SettingsBodyState extends State<SettingsBody> {
     // } else {
     //   allowedExtensions = ['kml', 'gpx'];
     // }
-    final result = await FilePicker.platform.pickFiles(type: FileType.any);
+    final result = await FilePicker.pickFiles(type: FileType.any);
     final path = result?.files.single.path;
     if (path != null && context.mounted) {
       navigatorPush(
@@ -296,7 +296,7 @@ class _SettingsBodyState extends State<SettingsBody> {
             onTap: () async {
               // TODO: FilePicker is weird and `allowedExtensions` does not really work.
               // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
-              var result = await FilePicker.platform.pickFiles(
+              var result = await FilePicker.pickFiles(
                 type: FileType.any,
               );
               if (!context.mounted) return;

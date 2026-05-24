@@ -59,7 +59,7 @@ pub fn verify_image(name: &str, image: &Vec<u8>) {
     // Calculate hash of the current image
     let mut hasher = Sha256::new();
     hasher.update(image);
-    let current_hash = format!("{:x}", hasher.finalize());
+    let current_hash = hex::encode(hasher.finalize());
 
     if let Some(stored_hash) = hash_table.get(name) {
         // Entry exists, compare hashes
