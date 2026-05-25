@@ -279,6 +279,7 @@ class GpsManager extends ChangeNotifier {
 
   void readyToStart() {
     _fullyReady = true;
+    // sync internal state for the first time
     _m.protect(() async {
       await _tryFinalizeJourneyWithoutLock();
       await _syncInternalStateWithoutLock();
