@@ -70,7 +70,6 @@ class GpsManager extends ChangeNotifier {
 
   void _initState() async {
     await _m.protect(() async {
-      await _tryFinalizeJourneyWithoutLock();
       Timer.periodic(const Duration(minutes: 30), (timer) async {
         await _m.protect(() async {
           await _tryFinalizeJourneyWithoutLock();
@@ -280,8 +279,8 @@ class GpsManager extends ChangeNotifier {
 
   void readyToStart() {
     _fullyReady = true;
-    // sync internal state for the first time
     _m.protect(() async {
+      await _tryFinalizeJourneyWithoutLock();
       await _syncInternalStateWithoutLock();
     });
   }
