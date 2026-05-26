@@ -179,10 +179,9 @@ async function makeRequest(): Promise<void> {
     const duration = Math.round(endTime - startTime);
 
     if (response.ok) {
-      const json = await response.json();
-      const actualSize = json.data?.size || size;
+      const buffer = await response.arrayBuffer();
       log(
-        `Request #${requestId}: SUCCESS - ${duration}ms - ${actualSize} bytes`,
+        `Request #${requestId}: SUCCESS - ${duration}ms - ${buffer.byteLength} bytes`,
       );
     } else {
       log(

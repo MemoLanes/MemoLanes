@@ -366,101 +366,20 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     }
   }
 
-  /// Handle an intercepted tile_range request using the binary path (no base64).
-  /// Returns (statusCode, body, headers) for the WebView response.
-  Future<({int status, Uint8List body, Map<String, String> headers})>
-      _handleInterceptedTileRange(Map<String, String> queryParams) async {
-    try {
-      final result = await widget.mapRendererProxy.handleTileRangeBinary(
-        x: int.parse(queryParams['x'] ?? '0'),
-        y: int.parse(queryParams['y'] ?? '0'),
-        z: int.parse(queryParams['z'] ?? '0').toInt(),
-        width: int.parse(queryParams['width'] ?? '1'),
-        height: int.parse(queryParams['height'] ?? '1'),
-        bufferSizePower: int.parse(queryParams['buffer_size_power'] ?? '8').toInt(),
-        cachedVersion: queryParams['cached_version'],
-      );
-
-      if (result.status == 304) {
-        // Android's WebResourceResponse rejects 3xx status codes, so we
-        // signal "not modified" via a custom header instead.
-        return (
-          status: 200,
-          body: Uint8List(0),
-          headers: {'X-Not-Modified': 'true'},
-        );
-      }
-
-      return (
-        status: 200,
-        body: Uint8List.fromList(result.body),
-        headers: {
-          if (result.version != null) 'X-Tile-Version': result.version!,
-        },
-      );
-    } catch (e) {
-      debugPrint('Error in tile range binary handler: $e');
-      return (
-        status: 500,
-        body: Uint8List.fromList(utf8.encode('Error: $e')),
-        headers: <String, String>{},
-      );
-    }
-  }
-
-  /// Handle an intercepted request by parsing URL params and forwarding to Rust.
-  /// Falls back to the JSON path for non-tile_range queries.
+  /// Handle an intercepted request by forwarding path + query to the unified Rust dispatcher.
   Future<({int status, Uint8List body, String contentType, Map<String, String> headers})>
       _handleInterceptedRequest(WebUri url) async {
-    final queryParams = url.queryParameters;
     final path = url.path.replaceFirst(RegExp(r'^/?(api/)?'), '');
-
-    // Use binary path for tile_range requests
-    if (path == 'tile_range') {
-      final result = await _handleInterceptedTileRange(queryParams);
-      return (
-        status: result.status,
-        body: result.body,
-        contentType: 'application/octet-stream',
-        headers: result.headers,
-      );
-    }
-
-    // Fallback: JSON path for other request types (e.g. random_data)
-    final requestJson = jsonEncode({
-      'requestId': 'intercepted_${DateTime.now().millisecondsSinceEpoch}',
-      'query': path,
-      'payload': {
-        for (final entry in queryParams.entries)
-          entry.key: num.tryParse(entry.value) ?? entry.value,
-      },
-    });
-
-    try {
-      final responseJson =
-          await widget.mapRendererProxy.handleWebviewRequests(
-        request: requestJson,
-      );
-      return (
-        status: 200,
-        body: Uint8List.fromList(utf8.encode(responseJson)),
-        contentType: 'application/json',
-        headers: <String, String>{},
-      );
-    } catch (e) {
-      final errorResponse = jsonEncode({
-        'requestId': 'error',
-        'success': false,
-        'data': null,
-        'error': 'Interceptor error: $e',
-      });
-      return (
-        status: 500,
-        body: Uint8List.fromList(utf8.encode(errorResponse)),
-        contentType: 'application/json',
-        headers: <String, String>{},
-      );
-    }
+    final result = await widget.mapRendererProxy.handleRequest(
+      path: path,
+      queryParams: url.queryParameters,
+    );
+    return (
+      status: result.status,
+      body: result.body,
+      contentType: result.contentType,
+      headers: result.headers,
+    );
   }
 
   @override

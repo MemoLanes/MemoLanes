@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:easy_localization/easy_localization.dart';
@@ -32,83 +31,17 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
 
   Future<({int status, Uint8List body, String contentType, Map<String, String> headers})>
       _handleInterceptedRequest(WebUri url) async {
-    final queryParams = url.queryParameters;
     final path = url.path.replaceFirst(RegExp(r'^/?(api/)?'), '');
-
-    // Use binary path for tile_range requests
-    if (path == 'tile_range') {
-      try {
-        final result = await _mapRendererProxy.handleTileRangeBinary(
-          x: int.parse(queryParams['x'] ?? '0'),
-          y: int.parse(queryParams['y'] ?? '0'),
-          z: int.parse(queryParams['z'] ?? '0').toInt(),
-          width: int.parse(queryParams['width'] ?? '1'),
-          height: int.parse(queryParams['height'] ?? '1'),
-          bufferSizePower: int.parse(queryParams['buffer_size_power'] ?? '8').toInt(),
-          cachedVersion: queryParams['cached_version'],
-        );
-
-        if (result.status == 304) {
-          return (
-            status: 200,
-            body: Uint8List(0),
-            contentType: 'application/octet-stream',
-            headers: {'X-Not-Modified': 'true'},
-          );
-        }
-        return (
-          status: 200,
-          body: Uint8List.fromList(result.body),
-          contentType: 'application/octet-stream',
-          headers: {
-            if (result.version != null) 'X-Tile-Version': result.version!,
-          },
-        );
-      } catch (e) {
-        debugPrint('Error in tile range binary handler: $e');
-        return (
-          status: 500,
-          body: Uint8List.fromList(utf8.encode('Error: $e')),
-          contentType: 'text/plain',
-          headers: <String, String>{},
-        );
-      }
-    }
-
-    // Fallback: JSON path for other request types
-    final requestJson = jsonEncode({
-      'requestId': 'intercepted_${DateTime.now().millisecondsSinceEpoch}',
-      'query': path,
-      'payload': {
-        for (final entry in queryParams.entries)
-          entry.key: num.tryParse(entry.value) ?? entry.value,
-      },
-    });
-
-    try {
-      final responseJson = await _mapRendererProxy.handleWebviewRequests(
-        request: requestJson,
-      );
-      return (
-        status: 200,
-        body: Uint8List.fromList(utf8.encode(responseJson)),
-        contentType: 'application/json',
-        headers: <String, String>{},
-      );
-    } catch (e) {
-      final errorResponse = jsonEncode({
-        'requestId': 'error',
-        'success': false,
-        'data': null,
-        'error': 'Interceptor error: $e',
-      });
-      return (
-        status: 500,
-        body: Uint8List.fromList(utf8.encode(errorResponse)),
-        contentType: 'application/json',
-        headers: <String, String>{},
-      );
-    }
+    final result = await _mapRendererProxy.handleRequest(
+      path: path,
+      queryParams: url.queryParameters,
+    );
+    return (
+      status: result.status,
+      body: result.body,
+      contentType: result.contentType,
+      headers: result.headers,
+    );
   }
 
   Future<void> _injectApiEndpoint() async {

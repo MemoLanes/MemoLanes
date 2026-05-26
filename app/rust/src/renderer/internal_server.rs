@@ -1,225 +1,32 @@
-use anyhow::Result;
-use base64::{engine::general_purpose, Engine as _};
-use serde::{Deserialize, Serialize};
-use serde_with::{base64::Base64, serde_as};
 use std::collections::HashMap;
 
 use super::MapRenderer;
 
 use rand::RngCore;
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct TileRangeQuery {
-    pub x: i64,
-    pub y: i64,
-    pub z: i16,
-    pub width: i64,
-    pub height: i64,
-    pub buffer_size_power: i16,
-    pub cached_version: Option<String>,
+struct TileRangeQuery {
+    x: i64,
+    y: i64,
+    z: i16,
+    width: i64,
+    height: i64,
+    buffer_size_power: i16,
+    cached_version: Option<String>,
 }
 
-#[serde_as]
-#[derive(Deserialize, Serialize)]
-pub struct TileRangeResponse {
-    pub status: u16,
-    pub headers: HashMap<String, String>,
-    #[serde_as(as = "Base64")]
-    pub body: Vec<u8>,
+struct TileRangeResponse {
+    status: u16,
+    headers: HashMap<String, String>,
+    body: Vec<u8>,
 }
 
-// Random data generation query parameters
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct RandomDataQuery {
-    pub size: Option<u64>, // Size in bytes, default 1MB
-}
-
-// Unified request interface
-#[derive(Deserialize, Serialize, Debug)]
-#[serde(tag = "query", content = "payload")]
-#[serde(rename_all = "snake_case")]
-pub enum RequestPayload {
-    TileRange(TileRangeQuery),
-    RandomData(RandomDataQuery),
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct Request {
-    pub request_id: String,
-    #[serde(flatten)]
-    pub payload: RequestPayload,
-}
-
-#[derive(Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct RequestResponse<T> {
-    pub request_id: String,
-    pub success: bool,
-    pub data: Option<T>,
-    pub error: Option<String>,
-}
-
-// Note: We can serialize this struct directly using serde_json::to_string()
-// No need for Display trait implementation when we just want JSON
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_end_to_end_random_data_request() {
-        use crate::journey_bitmap::JourneyBitmap;
-
-        let request_json = r#"{
-            "requestId": "test-123",
-            "query": "random_data",
-            "payload": {
-                "size": 1024
-            }
-        }"#;
-
-        let request = Request::parse(request_json).expect("Failed to parse request");
-
-        // Create a dummy map renderer for testing
-        let journey_bitmap = JourneyBitmap::new();
-        let mut map_renderer = MapRenderer::new(journey_bitmap);
-
-        let response = request.handle(&mut map_renderer);
-
-        // Verify response structure
-        assert_eq!(response.request_id, "test-123");
-        assert!(response.success);
-        assert!(response.data.is_some());
-        assert!(response.error.is_none());
-
-        // Verify data structure
-        let data = response.data.as_ref().unwrap();
-        assert!(data["size"].as_u64().is_some());
-        assert_eq!(data["size"].as_u64().unwrap(), 1024);
-        assert!(data["data"].as_str().is_some()); // base64 encoded data
-
-        // Verify JSON serialization works
-        let json = serde_json::to_string(&response).expect("Failed to serialize response");
-        assert!(json.contains("\"requestId\":\"test-123\""));
-        assert!(json.contains("\"success\":true"));
-    }
-
-    #[test]
-    fn test_invalid_request_parsing() {
-        let invalid_json = r#"{
-            "requestId": "test-456",
-            "query": "unknown_type",
-            "payload": {}
-        }"#;
-
-        let result = Request::parse(invalid_json);
-        assert!(
-            result.is_err(),
-            "Expected parsing to fail for unknown query type"
-        );
-    }
-
-    #[test]
-    fn test_tile_range_request_includes_version() {
-        use crate::journey_bitmap::JourneyBitmap;
-
-        // Create a dummy journey bitmap
-        let journey_bitmap = JourneyBitmap::new();
-        let mut map_renderer = MapRenderer::new(journey_bitmap);
-
-        // Create tile range request
-        let request_json = r#"{
-            "requestId": "test-version-123",
-            "query": "tile_range",
-            "payload": {
-                "x": 0,
-                "y": 0,
-                "z": 0,
-                "width": 1,
-                "height": 1,
-                "buffer_size_power": 6,
-                "cached_version": null
-            }
-        }"#;
-
-        let request = Request::parse(request_json).expect("Failed to parse request");
-        let response = request.handle(&mut map_renderer);
-
-        // Verify response structure
-        assert_eq!(response.request_id, "test-version-123");
-        assert!(response.success);
-        assert!(response.data.is_some());
-        assert!(response.error.is_none());
-
-        // Verify headers contain version
-        let data = response.data.as_ref().unwrap();
-        let headers = data["headers"].as_object().unwrap();
-        assert!(
-            headers.contains_key("version"),
-            "Response headers should contain version"
-        );
-
-        // Verify version is a valid hex string
-        let version = headers["version"].as_str().unwrap();
-        assert!(!version.is_empty(), "Version should not be empty");
-        // Version should be a hex string (can be parsed as hex)
-        assert!(
-            u64::from_str_radix(version, 16).is_ok(),
-            "Version should be valid hex string"
-        );
-    }
-
-    #[test]
-    fn test_tile_range_request_returns_304_when_no_changes() {
-        use crate::journey_bitmap::JourneyBitmap;
-
-        // Create a dummy journey bitmap
-        let journey_bitmap = JourneyBitmap::new();
-        let mut map_renderer = MapRenderer::new(journey_bitmap);
-        let version = map_renderer.get_version_string();
-
-        // Create tile range query with current version (should trigger 304)
-        let query = TileRangeQuery {
-            x: 0,
-            y: 0,
-            z: 0,
-            width: 1,
-            height: 1,
-            buffer_size_power: 6,
-            cached_version: Some(version), // Use current version to trigger no-change scenario
-        };
-
-        let response = handle_tile_range_query(&query, &mut map_renderer);
-
-        // Verify 304 response
-        assert!(response.is_ok(), "Expected successful response");
-        let tile_response = response.unwrap();
-        assert_eq!(
-            tile_response.status, 304,
-            "Expected 304 status when no changes"
-        );
-        assert!(
-            tile_response.headers.is_empty(),
-            "Expected empty headers for 304 response"
-        );
-        assert!(
-            tile_response.body.is_empty(),
-            "Expected empty body for 304 response"
-        );
-    }
-}
-
-/// Handle TileRangeQuery with a MapRenderer reference
-pub fn handle_tile_range_query(
+fn handle_tile_range_query(
     query: &TileRangeQuery,
     map_renderer: &mut MapRenderer,
 ) -> Result<TileRangeResponse, String> {
-    // Get the latest bitmap if it has changed
     let (_, version) =
         match map_renderer.get_latest_bitmap_if_changed(query.cached_version.as_deref()) {
             None => {
-                // No changes since client's cached version - return 304 status
                 return Ok(TileRangeResponse {
                     status: 304,
                     headers: HashMap::new(),
@@ -229,7 +36,6 @@ pub fn handle_tile_range_query(
             Some((journey_bitmap, version)) => (journey_bitmap, version),
         };
 
-    // Generate tile buffer from journey bitmap
     let tile_range_response = match map_renderer.get_tile_range_response(
         query.x,
         query.y,
@@ -241,7 +47,7 @@ pub fn handle_tile_range_query(
         Ok(buffer) => buffer,
         Err(e) => return Err(format!("Failed to generate tile buffer: {e}")),
     };
-    let response_data = TileRangeResponse {
+    Ok(TileRangeResponse {
         status: 200,
         headers: {
             let mut h = HashMap::new();
@@ -249,72 +55,10 @@ pub fn handle_tile_range_query(
             h
         },
         body: tile_range_response,
-    };
-    Ok(response_data)
+    })
 }
 
-impl Request {
-    /// Parse a JSON string into a Request
-    pub fn parse(json_str: &str) -> Result<Self, serde_json::Error> {
-        serde_json::from_str(json_str)
-    }
-
-    /// Handle the request with a MapRenderer reference
-    pub fn handle(&self, map_renderer: &mut MapRenderer) -> RequestResponse<serde_json::Value> {
-        match &self.payload {
-            RequestPayload::TileRange(query) => {
-                match handle_tile_range_query(query, map_renderer) {
-                    Ok(response_data) => match serde_json::to_value(response_data) {
-                        Ok(value) => RequestResponse {
-                            request_id: self.request_id.clone(),
-                            success: true,
-                            data: Some(value),
-                            error: None,
-                        },
-                        Err(e) => RequestResponse {
-                            request_id: self.request_id.clone(),
-                            success: false,
-                            data: None,
-                            error: Some(format!("Failed to serialize response: {e}")),
-                        },
-                    },
-                    Err(e) => RequestResponse {
-                        request_id: self.request_id.clone(),
-                        success: false,
-                        data: None,
-                        error: Some(e),
-                    },
-                }
-            }
-            RequestPayload::RandomData(query) => {
-                let size = query.size.unwrap_or(1_048_576); // Default 1MB
-                match generate_random_data(size) {
-                    Ok(data) => {
-                        let response_data = serde_json::json!({
-                            "size": size,
-                            "data": general_purpose::STANDARD.encode(&data)
-                        });
-                        RequestResponse {
-                            request_id: self.request_id.clone(),
-                            success: true,
-                            data: Some(response_data),
-                            error: None,
-                        }
-                    }
-                    Err(e) => RequestResponse {
-                        request_id: self.request_id.clone(),
-                        success: false,
-                        data: None,
-                        error: Some(e),
-                    },
-                }
-            }
-        }
-    }
-}
-
-// Move the random data generation to a separate function
-pub fn generate_random_data(size: u64) -> Result<Vec<u8>, String> {
+fn generate_random_data(size: u64) -> Result<Vec<u8>, String> {
     let max_size = 10_485_760; // 10MB limit
 
     if size > max_size {
@@ -323,9 +67,191 @@ pub fn generate_random_data(size: u64) -> Result<Vec<u8>, String> {
         ));
     }
 
-    // Generate random data efficiently
     let mut data = vec![0u8; size as usize];
     rand::rng().fill_bytes(&mut data);
 
     Ok(data)
+}
+
+/// Unified response for all webview requests.
+pub struct WebviewResponse {
+    pub status: u16,
+    pub content_type: String,
+    pub body: Vec<u8>,
+    pub headers: HashMap<String, String>,
+}
+
+/// Unified request dispatcher. Routes path to the appropriate handler,
+/// parses query params, and returns a fully-formed response.
+/// Always returns status 200 or 500 -- "not modified" is signaled via
+/// X-Not-Modified header (Android WebResourceResponse rejects 3xx codes).
+pub fn dispatch_request(
+    path: &str,
+    query_params: &HashMap<String, String>,
+    map_renderer: &mut MapRenderer,
+) -> WebviewResponse {
+    match path {
+        "tile_range" => dispatch_tile_range(query_params, map_renderer),
+        "random_data" => dispatch_random_data(query_params),
+        _ => WebviewResponse {
+            status: 500,
+            content_type: "text/plain".to_string(),
+            body: format!("Unknown route: {path}").into_bytes(),
+            headers: HashMap::new(),
+        },
+    }
+}
+
+fn parse_or<T: std::str::FromStr>(params: &HashMap<String, String>, key: &str, default: T) -> T {
+    params
+        .get(key)
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(default)
+}
+
+fn dispatch_tile_range(
+    params: &HashMap<String, String>,
+    map_renderer: &mut MapRenderer,
+) -> WebviewResponse {
+    let query = TileRangeQuery {
+        x: parse_or(params, "x", 0),
+        y: parse_or(params, "y", 0),
+        z: parse_or(params, "z", 0),
+        width: parse_or(params, "width", 1),
+        height: parse_or(params, "height", 1),
+        buffer_size_power: parse_or(params, "buffer_size_power", 8),
+        cached_version: params.get("cached_version").cloned(),
+    };
+
+    match handle_tile_range_query(&query, map_renderer) {
+        Ok(resp) => match resp.status {
+            304 => WebviewResponse {
+                status: 200,
+                content_type: "application/octet-stream".to_string(),
+                body: Vec::new(),
+                headers: HashMap::from([("X-Not-Modified".to_string(), "true".to_string())]),
+            },
+            200 => {
+                let mut headers = HashMap::new();
+                if let Some(version) = resp.headers.get("version") {
+                    headers.insert("X-Tile-Version".to_string(), version.clone());
+                }
+                WebviewResponse {
+                    status: 200,
+                    content_type: "application/octet-stream".to_string(),
+                    body: resp.body,
+                    headers,
+                }
+            }
+            _ => WebviewResponse {
+                status: 500,
+                content_type: "text/plain".to_string(),
+                body: format!("Unexpected status: {}", resp.status).into_bytes(),
+                headers: HashMap::new(),
+            },
+        },
+        Err(e) => WebviewResponse {
+            status: 500,
+            content_type: "text/plain".to_string(),
+            body: e.into_bytes(),
+            headers: HashMap::new(),
+        },
+    }
+}
+
+fn dispatch_random_data(params: &HashMap<String, String>) -> WebviewResponse {
+    let size: u64 = parse_or(params, "size", 1_048_576);
+    match generate_random_data(size) {
+        Ok(data) => WebviewResponse {
+            status: 200,
+            content_type: "application/octet-stream".to_string(),
+            body: data,
+            headers: HashMap::new(),
+        },
+        Err(e) => WebviewResponse {
+            status: 500,
+            content_type: "text/plain".to_string(),
+            body: e.into_bytes(),
+            headers: HashMap::new(),
+        },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::journey_bitmap::JourneyBitmap;
+
+    #[test]
+    fn test_dispatch_tile_range() {
+        let jb = JourneyBitmap::new();
+        let mut mr = MapRenderer::new(jb);
+        let params: HashMap<String, String> = [
+            ("x", "0"),
+            ("y", "0"),
+            ("z", "0"),
+            ("width", "1"),
+            ("height", "1"),
+            ("buffer_size_power", "6"),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+
+        let resp = dispatch_request("tile_range", &params, &mut mr);
+        assert_eq!(resp.status, 200);
+        assert_eq!(resp.content_type, "application/octet-stream");
+        assert!(resp.headers.contains_key("X-Tile-Version"));
+    }
+
+    #[test]
+    fn test_dispatch_tile_range_not_modified() {
+        let jb = JourneyBitmap::new();
+        let mut mr = MapRenderer::new(jb);
+        let version = mr.get_version_string();
+
+        let params: HashMap<String, String> = [
+            ("x", "0"),
+            ("y", "0"),
+            ("z", "0"),
+            ("width", "1"),
+            ("height", "1"),
+            ("buffer_size_power", "6"),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .chain(std::iter::once(("cached_version".to_string(), version)))
+        .collect();
+
+        let resp = dispatch_request("tile_range", &params, &mut mr);
+        assert_eq!(resp.status, 200);
+        assert!(resp.body.is_empty());
+        assert_eq!(resp.headers.get("X-Not-Modified"), Some(&"true".to_string()));
+    }
+
+    #[test]
+    fn test_dispatch_random_data() {
+        let jb = JourneyBitmap::new();
+        let mut mr = MapRenderer::new(jb);
+        let params: HashMap<String, String> = [("size", "1024")]
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
+
+        let resp = dispatch_request("random_data", &params, &mut mr);
+        assert_eq!(resp.status, 200);
+        assert_eq!(resp.content_type, "application/octet-stream");
+        assert_eq!(resp.body.len(), 1024);
+    }
+
+    #[test]
+    fn test_dispatch_unknown_route() {
+        let jb = JourneyBitmap::new();
+        let mut mr = MapRenderer::new(jb);
+        let params = HashMap::new();
+
+        let resp = dispatch_request("nonexistent", &params, &mut mr);
+        assert_eq!(resp.status, 500);
+        assert!(String::from_utf8_lossy(&resp.body).contains("Unknown route"));
+    }
 }

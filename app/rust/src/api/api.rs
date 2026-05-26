@@ -19,9 +19,7 @@ use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::logs;
 use crate::renderer::get_default_camera_option_from_journey_bitmap;
-use crate::renderer::internal_server::{
-    handle_tile_range_query, Request, RequestResponse, TileRangeQuery, TileRangeResponse,
-};
+use crate::renderer::internal_server::{dispatch_request, WebviewResponse};
 use crate::renderer::MapRenderer;
 use crate::storage::{RawDataFile, Storage};
 use crate::{archive, build_info, export_data, gps_processor, main_db};
@@ -285,13 +283,6 @@ impl OpaqueJourneyData {
     }
 }
 
-/// Binary result for tile range requests, bypassing JSON/base64 serialization.
-pub struct TileRangeBinaryResult {
-    pub status: u16,
-    pub body: Vec<u8>,
-    pub version: Option<String>,
-}
-
 #[frb(opaque)]
 pub enum MapRendererProxy {
     StaticRenderer(Mutex<MapRenderer>),
@@ -300,96 +291,35 @@ pub enum MapRendererProxy {
 }
 
 impl MapRendererProxy {
-    pub fn handle_webview_requests(&mut self, request: String) -> Result<String> {
-        let request = Request::parse(&request)?;
-        let response = match self {
-            MapRendererProxy::StaticRenderer(map_renderer) => {
-                let map_renderer = map_renderer.get_mut().unwrap();
-                request.handle(map_renderer)
-            }
-            MapRendererProxy::DynamicRenderer(map_renderer) => {
-                let mut map_renderer = map_renderer.lock().unwrap();
-                request.handle(&mut map_renderer)
-            }
-            MapRendererProxy::MainMapRenderer => {
-                let mut main_map_state = get().main_map_state.lock().unwrap();
-                match main_map_state.dropped_for_power_saving {
-                    false => request.handle(&mut main_map_state.map_renderer),
-                    true =>
-                    // TODO: This is hacky. I think we should make the type better here for `main_map_state`.
-                    // Also have a dedicate value for this case in the response. Right now we reuse the case that
-                    // indicates nothing changed in the map.
-                    {
-                        let response_data = TileRangeResponse {
-                            status: 304,
-                            headers: HashMap::new(),
-                            body: Vec::new(),
-                        };
-                        RequestResponse {
-                            request_id: request.request_id.clone(),
-                            success: true,
-                            data: Some(serde_json::to_value(response_data)?),
-                            error: None,
-                        }
-                    }
-                }
-            }
-        };
-        serde_json::to_string(&response)
-            .map_err(|e| anyhow::anyhow!("Failed to serialize response: {e}"))
-    }
-
-    /// Direct binary tile range handler, bypassing JSON/base64 serialization.
-    /// Returns raw bytes + version + HTTP status, for use by WebView interceptors.
-    pub fn handle_tile_range_binary(
+    pub fn handle_request(
         &mut self,
-        x: i64,
-        y: i64,
-        z: i16,
-        width: i64,
-        height: i64,
-        buffer_size_power: i16,
-        cached_version: Option<String>,
-    ) -> Result<TileRangeBinaryResult> {
-        let query = TileRangeQuery {
-            x,
-            y,
-            z,
-            width,
-            height,
-            buffer_size_power,
-            cached_version,
-        };
-
-        fn to_result(resp: TileRangeResponse) -> TileRangeBinaryResult {
-            TileRangeBinaryResult {
-                status: resp.status,
-                version: resp.headers.get("version").cloned(),
-                body: resp.body,
-            }
-        }
-
+        path: String,
+        query_params: HashMap<String, String>,
+    ) -> Result<WebviewResponse> {
         let resp = match self {
             MapRendererProxy::StaticRenderer(mr) => {
-                handle_tile_range_query(&query, mr.get_mut().unwrap())
+                dispatch_request(&path, &query_params, mr.get_mut().unwrap())
             }
             MapRendererProxy::DynamicRenderer(mr) => {
-                handle_tile_range_query(&query, &mut mr.lock().unwrap())
+                dispatch_request(&path, &query_params, &mut mr.lock().unwrap())
             }
             MapRendererProxy::MainMapRenderer => {
                 let mut main_map_state = get().main_map_state.lock().unwrap();
                 if main_map_state.dropped_for_power_saving {
-                    return Ok(TileRangeBinaryResult {
-                        status: 304,
+                    return Ok(WebviewResponse {
+                        status: 200,
+                        content_type: "application/octet-stream".to_string(),
                         body: Vec::new(),
-                        version: None,
+                        headers: HashMap::from([(
+                            "X-Not-Modified".to_string(),
+                            "true".to_string(),
+                        )]),
                     });
                 }
-                handle_tile_range_query(&query, &mut main_map_state.map_renderer)
+                dispatch_request(&path, &query_params, &mut main_map_state.map_renderer)
             }
         };
-
-        resp.map(to_result).map_err(|e| anyhow::anyhow!(e))
+        Ok(resp)
     }
 }
 
