@@ -278,10 +278,7 @@ export class JourneyTileProvider {
       const url = buildUrl(this.cgiEndpoint, "tile_range", requestParams);
       const rawResponse = await fetch(url, { cache: "no-cache" });
 
-      if (
-        rawResponse.status === 304 ||
-        rawResponse.headers.get("X-Not-Modified") === "true"
-      ) {
+      if (rawResponse.headers.get("X-Not-Modified") === "true") {
         return false;
       }
       if (!rawResponse.ok) {

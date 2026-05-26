@@ -20,7 +20,7 @@ fn add_cors_headers(builder: &mut HttpResponseBuilder) -> &mut HttpResponseBuild
             "Access-Control-Allow-Headers",
             "Content-Type, If-None-Match",
         ))
-        .append_header(("Access-Control-Expose-Headers", "X-Tile-Version"))
+        .append_header(("Access-Control-Expose-Headers", "X-Tile-Version, X-Not-Modified"))
 }
 
 async fn serve_journey_tile_range(
@@ -38,7 +38,11 @@ async fn serve_journey_tile_range(
                 }
                 builder.body(tile_response.body)
             }
-            304 => add_cors_headers(&mut HttpResponse::NotModified()).finish(),
+            304 => {
+                add_cors_headers(&mut HttpResponse::Ok())
+                    .append_header(("X-Not-Modified", "true"))
+                    .body(Vec::new())
+            }
             _ => add_cors_headers(&mut HttpResponse::InternalServerError())
                 .content_type("text/plain")
                 .body(format!("Unexpected status: {}", tile_response.status)),
