@@ -19,7 +19,9 @@ use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::logs;
 use crate::renderer::get_default_camera_option_from_journey_bitmap;
-use crate::renderer::internal_server::{Request, RequestResponse, TileRangeResponse};
+use crate::renderer::internal_server::{
+    handle_tile_range_query, Request, RequestResponse, TileRangeQuery, TileRangeResponse,
+};
 use crate::renderer::MapRenderer;
 use crate::storage::{RawDataFile, Storage};
 use crate::{archive, build_info, export_data, gps_processor, main_db};
@@ -283,6 +285,13 @@ impl OpaqueJourneyData {
     }
 }
 
+/// Binary result for tile range requests, bypassing JSON/base64 serialization.
+pub struct TileRangeBinaryResult {
+    pub status: u16,
+    pub body: Vec<u8>,
+    pub version: Option<String>,
+}
+
 #[frb(opaque)]
 pub enum MapRendererProxy {
     StaticRenderer(Mutex<MapRenderer>),
@@ -328,6 +337,59 @@ impl MapRendererProxy {
         };
         serde_json::to_string(&response)
             .map_err(|e| anyhow::anyhow!("Failed to serialize response: {e}"))
+    }
+
+    /// Direct binary tile range handler, bypassing JSON/base64 serialization.
+    /// Returns raw bytes + version + HTTP status, for use by WebView interceptors.
+    pub fn handle_tile_range_binary(
+        &mut self,
+        x: i64,
+        y: i64,
+        z: i16,
+        width: i64,
+        height: i64,
+        buffer_size_power: i16,
+        cached_version: Option<String>,
+    ) -> Result<TileRangeBinaryResult> {
+        let query = TileRangeQuery {
+            x,
+            y,
+            z,
+            width,
+            height,
+            buffer_size_power,
+            cached_version,
+        };
+
+        fn to_result(resp: TileRangeResponse) -> TileRangeBinaryResult {
+            TileRangeBinaryResult {
+                status: resp.status,
+                version: resp.headers.get("version").cloned(),
+                body: resp.body,
+            }
+        }
+
+        let resp = match self {
+            MapRendererProxy::StaticRenderer(mr) => {
+                handle_tile_range_query(&query, mr.get_mut().unwrap())
+            }
+            MapRendererProxy::DynamicRenderer(mr) => {
+                handle_tile_range_query(&query, &mut mr.lock().unwrap())
+            }
+            MapRendererProxy::MainMapRenderer => {
+                let mut main_map_state = get().main_map_state.lock().unwrap();
+                if main_map_state.dropped_for_power_saving {
+                    return Ok(TileRangeBinaryResult {
+                        status: 304,
+                        body: Vec::new(),
+                        version: None,
+                    });
+                }
+                handle_tile_range_query(&query, &mut main_map_state.map_renderer)
+            }
+        };
+
+        resp.map(to_result).map_err(|e| anyhow::anyhow!(e))
     }
 }
 

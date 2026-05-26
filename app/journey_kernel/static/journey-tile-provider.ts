@@ -306,25 +306,74 @@ export class JourneyTileProvider {
     const startTime = performance.now();
 
     try {
-      // Make the request - response is now a direct JS object
-      const response = (await this.multiRequest.fetch(
-        "tile_range",
-        requestParams,
-      )) as TileBufferResponse;
+      let bytes: Uint8Array;
 
-      // Check success status directly
-      if (!response.success) {
-        throw new Error(response.error || "Request failed");
+      if (this.multiRequest.getStatus().isHttpMode) {
+        // HTTP dev server path: JSON response with base64-encoded body
+        const response = (await this.multiRequest.fetch(
+          "tile_range",
+          requestParams,
+        )) as TileBufferResponse;
+
+        if (!response.success) {
+          throw new Error(response.error || "Request failed");
+        }
+        if (response.data && response.data.status === 304) {
+          return false;
+        }
+
+        const newVersion = response.data?.headers?.version;
+        if (newVersion) {
+          this.currentVersion = newVersion;
+          console.log(`Updated tile buffer version to: ${newVersion}`);
+        }
+
+        if (!response.data?.body) {
+          throw new Error("No body in response data");
+        }
+        bytes = Uint8Array.from(atob(response.data.body), (c) =>
+          c.charCodeAt(0),
+        );
+      } else {
+        // Intercepted path: raw binary response
+        const rawResponse = await this.multiRequest.fetchRaw(
+          "tile_range",
+          requestParams,
+        );
+
+        if (
+          rawResponse.status === 304 ||
+          rawResponse.headers.get("X-Not-Modified") === "true"
+        ) {
+          return false;
+        }
+        if (!rawResponse.ok) {
+          throw new Error(
+            `Request failed: ${rawResponse.status} ${rawResponse.statusText}`,
+          );
+        }
+
+        const newVersion = rawResponse.headers.get("X-Tile-Version");
+        if (newVersion) {
+          this.currentVersion = newVersion;
+          console.log(`Updated tile buffer version to: ${newVersion}`);
+        }
+
+        const buffer = await rawResponse.arrayBuffer();
+        bytes = new Uint8Array(buffer);
+
+        // An empty body on a 200 response means "not modified" — Android
+        // WebView rejects real 304 status codes, so the Dart interceptor
+        // returns 200 with an empty body instead.
+        if (bytes.length === 0) {
+          return false;
+        }
       }
 
-      // Handle 304 status in response data
-      if (response.data && response.data.status === 304) {
-        // console.log("Tile buffer has not changed (304 Not Modified)");
-        return false;
+      if (bytes.length === 0) {
+        throw new Error("Empty response body");
       }
 
-      // Emit timing data for successful downloads (not 304)
-      // Build a representative URL for logging purposes
       const endTime = performance.now();
       const duration = Math.round(endTime - startTime);
       const logUrl = this.buildLogUrl(requestParams);
@@ -334,32 +383,14 @@ export class JourneyTileProvider {
             duration: duration,
             timestamp: endTime,
             url: logUrl,
-            status: response.data?.status || 200,
-            requestId: response.requestId || "unknown",
+            status: 200,
+            requestId: "intercepted",
           },
         }),
       );
 
-      // Update version from response data headers
-      const newVersion = response.data?.headers?.version;
-      if (newVersion) {
-        this.currentVersion = newVersion;
-        console.log(`Updated tile buffer version to: ${newVersion}`);
-      }
-
-      // Get the binary data
-      // response.data.body is base64 encoded, so decode it
-      if (!response.data?.body) {
-        throw new Error("No body in response data");
-      }
-
-      const bytes = Uint8Array.from(atob(response.data.body), (c) =>
-        c.charCodeAt(0),
-      );
-
       // TODO: the tileBuffer wasm deserialization can take up to 2000ms in dev mode, and 30ms in prod mode.
       // consider move this into web worker so that it won't block the main thread.
-      // Deserialize into a TileBuffer object using the WebAssembly module
       // TODO: remove this number
       const LEVEL0_EXP = 9; // is it reasonable?
       this.tileBuffer = TileBuffer.new_from_tile_range_response(
@@ -368,7 +399,7 @@ export class JourneyTileProvider {
       );
 
       console.log(
-        `Tile buffer fetched and deserialized successfully via ${this.multiRequest.getStatus().isFlutterMode ? "Flutter IPC" : "HTTP"}`,
+        `Tile buffer fetched and deserialized successfully via ${this.multiRequest.getStatus().isHttpMode ? "HTTP" : "intercepted"}`,
       );
 
       // Notify all registered callbacks that a new tile buffer is ready
@@ -402,13 +433,8 @@ export class JourneyTileProvider {
     return tileBufferUpdated;
   }
 
-  // Helper method to build URL for logging purposes
   private buildLogUrl(params: TileBufferRequestParams): string {
     const endpoint = (this.multiRequest as any).cgiEndpoint;
-    if (endpoint && endpoint.startsWith("flutter://")) {
-      return `${endpoint}/tile_range`;
-    }
-
     const urlParams = new URLSearchParams(params as any).toString();
     return `${endpoint}/tile_range?${urlParams}`;
   }

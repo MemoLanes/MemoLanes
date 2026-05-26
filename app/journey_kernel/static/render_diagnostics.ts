@@ -121,7 +121,7 @@ async function trySetup(): Promise<void> {
   const statusDiv = document.getElementById("status") as HTMLDivElement;
   statusDiv.className = "status ready";
 
-  const endpointType = status.isFlutterMode ? "Flutter IPC" : "HTTP";
+  const endpointType = status.isHttpMode ? "HTTP" : "intercepted";
   statusDiv.textContent = `Ready! Endpoint: ${cgiEndpoint} (${endpointType})`;
 
   // Enable start button
@@ -169,7 +169,7 @@ async function makeRequest(): Promise<void> {
   const requestId = ++requestCounter;
   const size = getRequestSize();
   const status = requester.getStatus();
-  const endpointType = status.isFlutterMode ? "Flutter IPC" : "HTTP";
+  const endpointType = status.isHttpMode ? "HTTP" : "intercepted";
 
   const startTime = performance.now();
   log(`Request #${requestId}: ${endpointType} - ${size} bytes - Starting...`);
@@ -209,7 +209,7 @@ function startTest(): void {
   (document.getElementById("stopBtn") as HTMLButtonElement).disabled = false;
 
   const status = requester.getStatus();
-  const endpointType = status.isFlutterMode ? "Flutter IPC" : "HTTP";
+  const endpointType = status.isHttpMode ? "HTTP" : "intercepted";
 
   log(`Test started - Endpoint: ${status.endpoint} (${endpointType})`);
   log(`Status: ${JSON.stringify(status)}`);
@@ -242,7 +242,7 @@ function clearLog(): void {
 
   if (requester) {
     const status = requester.getStatus();
-    const endpointType = status.isFlutterMode ? "Flutter IPC" : "HTTP";
+    const endpointType = status.isHttpMode ? "HTTP" : "intercepted";
 
     log(`Log cleared - Endpoint: ${status.endpoint} (${endpointType})`);
     log(`Status: ${JSON.stringify(status)}`);
