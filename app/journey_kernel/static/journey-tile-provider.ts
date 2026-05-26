@@ -1,6 +1,5 @@
 import { TileBuffer } from "../pkg";
 import { getViewportTileRange } from "./layers/utils";
-import { MultiRequest } from "./multi-requests";
 import type maplibregl from "maplibre-gl";
 import { AVAILABLE_LAYERS, type ReactiveParams } from "./params";
 
@@ -36,27 +35,6 @@ interface TileBufferRequestParams {
 }
 
 /**
- * Tile buffer response data structure
- */
-interface TileBufferResponseData {
-  status?: number;
-  headers?: {
-    version?: string;
-  };
-  body?: string; // base64 encoded
-}
-
-/**
- * Tile buffer response structure
- */
-interface TileBufferResponse {
-  success: boolean;
-  error?: string;
-  data?: TileBufferResponseData;
-  requestId?: string;
-}
-
-/**
  * Extended window interface for external parameters
  */
 declare global {
@@ -66,6 +44,22 @@ declare global {
       [key: string]: any;
     };
   }
+}
+
+function buildUrl(
+  endpoint: string,
+  resource: string,
+  params?: Record<string, any>,
+): string {
+  const url = new URL(`${endpoint}/${resource}`);
+  if (params) {
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== null) {
+        url.searchParams.set(key, String(value));
+      }
+    }
+  }
+  return url.toString();
 }
 
 export class JourneyTileProvider {
@@ -80,7 +74,7 @@ export class JourneyTileProvider {
   bufferSizePower: number;
   private isGlobeProjection: boolean; // Flag indicating if globe projection is used
   private tileBufferCallbacks: TileBufferCallback[]; // Array to store tile buffer update callbacks
-  private multiRequest: MultiRequest;
+  private cgiEndpoint: string;
 
   constructor(
     map: maplibregl.Map,
@@ -89,13 +83,12 @@ export class JourneyTileProvider {
   ) {
     this.map = map;
     this.params = params;
-    this.currentVersion = null; // Store the current version
-    this.viewRange = null; // Store the current viewport tile range [x, y, w, h, z]
-    this.tileBuffer = null; // Store the tile buffer data
-    this.viewRangeUpdated = false; // Flag indicating view range has been updated
-    this.downloadInProgress = false; // Flag indicating download is in progress
+    this.currentVersion = null;
+    this.viewRange = null;
+    this.tileBuffer = null;
+    this.viewRangeUpdated = false;
+    this.downloadInProgress = false;
 
-    // Get initial bufferSizePower from current render mode
     this.bufferSizePower = this.getBufferSizePowerFromRenderMode(
       params.renderMode,
     );
@@ -103,12 +96,13 @@ export class JourneyTileProvider {
     // TODO: better handling of globe projection
     this.isGlobeProjection = isGlobeProjection;
 
-    this.tileBufferCallbacks = []; // Array to store tile buffer update callbacks
+    this.tileBufferCallbacks = [];
 
-    // Initialize MultiRequest instance based on endpoint configuration
-    this.multiRequest = this.initializeMultiRequest();
+    this.cgiEndpoint = window.EXTERNAL_PARAMS.cgi_endpoint || ".";
+    console.log(
+      `JourneyTileProvider: endpoint: ${this.cgiEndpoint}`,
+    );
 
-    // Register hook to update bufferSizePower when renderMode changes
     this.params.on("renderMode", (newMode, _oldMode) => {
       const newBufferSizePower = this.getBufferSizePowerFromRenderMode(newMode);
       this.setBufferSizePower(newBufferSizePower);
@@ -117,31 +111,15 @@ export class JourneyTileProvider {
 
     this.map.on("move", () => this.tryUpdateViewRange());
     this.map.on("moveend", () => this.tryUpdateViewRange());
-    // Initial update
     this.tryUpdateViewRange();
   }
 
-  /**
-   * Get bufferSizePower from AVAILABLE_LAYERS based on render mode
-   */
   private getBufferSizePowerFromRenderMode(renderMode: string): number {
     const layerConfig = AVAILABLE_LAYERS[renderMode];
     if (layerConfig) {
       return layerConfig.bufferSizePower;
     }
-    // Fallback to canvas layer's buffer size power
     return AVAILABLE_LAYERS["canvas"]?.bufferSizePower ?? 8;
-  }
-
-  // Initialize MultiRequest instance based on endpoint configuration
-  private initializeMultiRequest(): MultiRequest {
-    // Use cgi_endpoint if provided, otherwise default to current directory
-    const endpointUrl = window.EXTERNAL_PARAMS.cgi_endpoint || ".";
-
-    console.log(
-      `JourneyTileProvider: Initializing MultiRequest with endpoint: ${endpointUrl}`,
-    );
-    return new MultiRequest(endpointUrl);
   }
 
   // typically two use cases: if the original page detect a data change, then no cache (forceUpdate = true)
@@ -270,19 +248,16 @@ export class JourneyTileProvider {
     }
   }
 
-  // Fetch tile buffer for current view range
   private async fetchTileBuffer(
     forceUpdate: boolean = false,
   ): Promise<boolean> {
     if (!this.viewRange) return false;
 
-    // Reset update flag and set download flag
     this.viewRangeUpdated = false;
     this.downloadInProgress = true;
 
     const [x, y, w, h, z] = this.viewRange;
 
-    // Create request parameters for MultiRequest
     const requestParams: TileBufferRequestParams = {
       x: x,
       y: y,
@@ -292,99 +267,54 @@ export class JourneyTileProvider {
       buffer_size_power: this.bufferSizePower,
     };
 
-    // Add cached version if available and not forcing update
     if (!forceUpdate && this.currentVersion) {
       requestParams.cached_version = this.currentVersion;
     }
-
-    // console.log(
-    //   `Fetching tile buffer via MultiRequest with params:`,
-    //   requestParams,
-    // );
 
     let tileBufferUpdated = false;
     const startTime = performance.now();
 
     try {
-      let bytes: Uint8Array;
+      const url = buildUrl(this.cgiEndpoint, "tile_range", requestParams);
+      const rawResponse = await fetch(url, { cache: "no-cache" });
 
-      if (this.multiRequest.getStatus().isHttpMode) {
-        // HTTP dev server path: JSON response with base64-encoded body
-        const response = (await this.multiRequest.fetch(
-          "tile_range",
-          requestParams,
-        )) as TileBufferResponse;
-
-        if (!response.success) {
-          throw new Error(response.error || "Request failed");
-        }
-        if (response.data && response.data.status === 304) {
-          return false;
-        }
-
-        const newVersion = response.data?.headers?.version;
-        if (newVersion) {
-          this.currentVersion = newVersion;
-          console.log(`Updated tile buffer version to: ${newVersion}`);
-        }
-
-        if (!response.data?.body) {
-          throw new Error("No body in response data");
-        }
-        bytes = Uint8Array.from(atob(response.data.body), (c) =>
-          c.charCodeAt(0),
+      if (
+        rawResponse.status === 304 ||
+        rawResponse.headers.get("X-Not-Modified") === "true"
+      ) {
+        return false;
+      }
+      if (!rawResponse.ok) {
+        throw new Error(
+          `Request failed: ${rawResponse.status} ${rawResponse.statusText}`,
         );
-      } else {
-        // Intercepted path: raw binary response
-        const rawResponse = await this.multiRequest.fetchRaw(
-          "tile_range",
-          requestParams,
-        );
-
-        if (
-          rawResponse.status === 304 ||
-          rawResponse.headers.get("X-Not-Modified") === "true"
-        ) {
-          return false;
-        }
-        if (!rawResponse.ok) {
-          throw new Error(
-            `Request failed: ${rawResponse.status} ${rawResponse.statusText}`,
-          );
-        }
-
-        const newVersion = rawResponse.headers.get("X-Tile-Version");
-        if (newVersion) {
-          this.currentVersion = newVersion;
-          console.log(`Updated tile buffer version to: ${newVersion}`);
-        }
-
-        const buffer = await rawResponse.arrayBuffer();
-        bytes = new Uint8Array(buffer);
-
-        // An empty body on a 200 response means "not modified" — Android
-        // WebView rejects real 304 status codes, so the Dart interceptor
-        // returns 200 with an empty body instead.
-        if (bytes.length === 0) {
-          return false;
-        }
       }
 
+      const newVersion = rawResponse.headers.get("X-Tile-Version");
+      if (newVersion) {
+        this.currentVersion = newVersion;
+        console.log(`Updated tile buffer version to: ${newVersion}`);
+      }
+
+      const buffer = await rawResponse.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+
+      // An empty body on a 200 response means "not modified" — Android
+      // WebView rejects real 304 status codes, so the Dart interceptor
+      // returns 200 with an empty body instead.
       if (bytes.length === 0) {
-        throw new Error("Empty response body");
+        return false;
       }
 
       const endTime = performance.now();
       const duration = Math.round(endTime - startTime);
-      const logUrl = this.buildLogUrl(requestParams);
       window.dispatchEvent(
         new CustomEvent("tileDownloadTiming", {
           detail: {
             duration: duration,
             timestamp: endTime,
-            url: logUrl,
+            url: url,
             status: 200,
-            requestId: "intercepted",
           },
         }),
       );
@@ -398,11 +328,8 @@ export class JourneyTileProvider {
         bytes,
       );
 
-      console.log(
-        `Tile buffer fetched and deserialized successfully via ${this.multiRequest.getStatus().isHttpMode ? "HTTP" : "intercepted"}`,
-      );
+      console.log(`Tile buffer fetched and deserialized successfully`);
 
-      // Notify all registered callbacks that a new tile buffer is ready
       this.notifyTileBufferReady(
         x,
         y,
@@ -417,11 +344,8 @@ export class JourneyTileProvider {
     } catch (error) {
       console.error("Error fetching or deserializing tile buffer:", error);
     } finally {
-      // Reset download flag
       this.downloadInProgress = false;
 
-      // Check if view range was updated during download
-      // If so, start another download
       if (this.viewRangeUpdated) {
         console.log(
           "View range was updated during download, fetching new tile buffer",
@@ -431,11 +355,5 @@ export class JourneyTileProvider {
     }
 
     return tileBufferUpdated;
-  }
-
-  private buildLogUrl(params: TileBufferRequestParams): string {
-    const endpoint = (this.multiRequest as any).cgiEndpoint;
-    const urlParams = new URLSearchParams(params as any).toString();
-    return `${endpoint}/tile_range?${urlParams}`;
   }
 }
