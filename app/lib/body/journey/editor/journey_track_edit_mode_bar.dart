@@ -114,7 +114,6 @@ class ModeSwitchBar extends StatelessWidget {
       icon: icon,
       label: label,
       isEnabled: isEnabled,
-      disabledColor: Colors.grey,
       onTap: isEnabled
           ? () {
               AppHaptics.medium();
