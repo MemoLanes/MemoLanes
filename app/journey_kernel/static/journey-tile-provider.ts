@@ -99,9 +99,7 @@ export class JourneyTileProvider {
     this.tileBufferCallbacks = [];
 
     this.cgiEndpoint = window.EXTERNAL_PARAMS.cgi_endpoint || ".";
-    console.log(
-      `JourneyTileProvider: endpoint: ${this.cgiEndpoint}`,
-    );
+    console.log(`JourneyTileProvider: endpoint: ${this.cgiEndpoint}`);
 
     this.params.on("renderMode", (newMode, _oldMode) => {
       const newBufferSizePower = this.getBufferSizePowerFromRenderMode(newMode);

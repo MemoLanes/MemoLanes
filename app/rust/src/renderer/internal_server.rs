@@ -226,7 +226,10 @@ mod tests {
         let resp = dispatch_request("tile_range", &params, &mut mr);
         assert_eq!(resp.status, 200);
         assert!(resp.body.is_empty());
-        assert_eq!(resp.headers.get("X-Not-Modified"), Some(&"true".to_string()));
+        assert_eq!(
+            resp.headers.get("X-Not-Modified"),
+            Some(&"true".to_string())
+        );
     }
 
     #[test]

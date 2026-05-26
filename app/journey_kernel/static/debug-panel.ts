@@ -703,10 +703,10 @@ export class DebugPanel {
   private _updateUrlHash(params: UrlHashParams): void {
     // Hash updates are only useful in a real browser; skip inside Flutter WebView
     // to avoid triggering Android onLoadStop / page reload side effects.
-    const endpoint = window.EXTERNAL_PARAMS?.cgi_endpoint ?? '';
+    const endpoint = window.EXTERNAL_PARAMS?.cgi_endpoint ?? "";
     if (
-      endpoint.startsWith('memolanes://') ||
-      endpoint.startsWith('https://memolanes.local/')
+      endpoint.startsWith("memolanes://") ||
+      endpoint.startsWith("https://memolanes.local/")
     ) {
       return;
     }
@@ -723,7 +723,7 @@ export class DebugPanel {
       }
     });
 
-    history.replaceState(null, '', '#' + urlParams.toString());
+    history.replaceState(null, "", "#" + urlParams.toString());
   }
 
   private _checkDebugStatus(): void {

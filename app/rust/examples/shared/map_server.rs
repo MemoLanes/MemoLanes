@@ -21,7 +21,10 @@ fn add_cors_headers(builder: &mut HttpResponseBuilder) -> &mut HttpResponseBuild
             "Access-Control-Allow-Headers",
             "Content-Type, If-None-Match",
         ))
-        .append_header(("Access-Control-Expose-Headers", "X-Tile-Version, X-Not-Modified"))
+        .append_header((
+            "Access-Control-Expose-Headers",
+            "X-Tile-Version, X-Not-Modified",
+        ))
 }
 
 async fn serve_request(
@@ -83,10 +86,7 @@ impl MapServer {
                 App::new()
                     .app_data(data.clone())
                     .route("/{path}", web::get().to(serve_request))
-                    .route(
-                        "/{path}",
-                        web::method(Method::OPTIONS).to(handle_preflight),
-                    )
+                    .route("/{path}", web::method(Method::OPTIONS).to(handle_preflight))
             })
             .bind((host.clone(), 0))?
             .workers(1)
