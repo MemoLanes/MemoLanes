@@ -1,17 +1,11 @@
 pub mod test_utils;
 
-// Include the shared examples module
-#[path = "../examples/shared/mod.rs"]
-mod examples_shared;
-use examples_shared::MapServer;
-
 use memolanes_core::import_data;
 use memolanes_core::renderer::internal_server::dispatch_request;
 use memolanes_core::renderer::MapRenderer;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::time::Duration;
 
 #[test]
 pub fn renderer_server() -> Result<(), Box<dyn std::error::Error>> {

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use super::MapRenderer;
 
-use rand::RngCore;
+use rand::Rng;
 
 struct TileRangeQuery {
     x: i64,
