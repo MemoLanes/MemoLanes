@@ -16,7 +16,7 @@ class RecordingButtons extends StatefulWidget {
 
 class _RecordingButtonsState extends State<RecordingButtons> {
   static const _pressFeedbackDuration = Duration(milliseconds: 120);
-  static const _switchDuration = Duration(milliseconds: 320);
+  static const _switchDuration = Duration(milliseconds: 220);
   bool _pendingAction = false;
 
   Future<void> _runAfterPressFeedback(Future<void> Function() action) async {
@@ -183,8 +183,8 @@ class _RecordingButtonsState extends State<RecordingButtons> {
       child: AnimatedSwitcher(
         duration: _switchDuration,
         reverseDuration: _switchDuration,
-        switchInCurve: Curves.easeInOut,
-        switchOutCurve: Curves.easeInOut,
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
         layoutBuilder: (currentChild, previousChildren) {
           return Stack(
             alignment: Alignment.center,
@@ -195,14 +195,8 @@ class _RecordingButtonsState extends State<RecordingButtons> {
           );
         },
         transitionBuilder: (child, animation) {
-          final curvedAnimation = CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeInOut,
-            reverseCurve: Curves.easeInOut,
-          );
-
           return FadeTransition(
-            opacity: curvedAnimation,
+            opacity: animation,
             child: child,
           );
         },
