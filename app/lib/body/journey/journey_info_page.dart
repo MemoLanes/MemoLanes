@@ -4,6 +4,7 @@ import 'package:memolanes/body/journey/journey_info_edit_page.dart';
 import 'package:memolanes/body/journey/journey_track_edit_page.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
+import 'package:memolanes/common/component/capsule_style_bar_content.dart';
 import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
@@ -53,6 +54,20 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   }
 
   bool get _isPreviewMode => widget.previewJourneyData != null;
+
+  double _panelMaxHeight(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final baseMaxHeight = _isPreviewMode ? 400.0 : 480.0;
+    final overlayBarHeight = mediaQuery.padding.top * 0.8 +
+        CapsuleBarConstants.barContentHeight +
+        CapsuleBarConstants.barBottomInset;
+    final availableHeight = mediaQuery.size.height - overlayBarHeight;
+
+    if (availableHeight < 120.0) {
+      return 120.0;
+    }
+    return availableHeight < baseMaxHeight ? availableHeight : baseMaxHeight;
+  }
 
   Future<void> _refreshJourneyInfo() async {
     final mapRendererProxyAndCameraOption = widget.previewJourneyData != null
@@ -209,7 +224,11 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
               topLeft: Radius.circular(16.0),
               topRight: Radius.circular(16.0),
             ),
-            maxHeight: _isPreviewMode ? 400 : 480,
+            maxHeight: _panelMaxHeight(context),
+            minHeight: MediaQuery.sizeOf(context).width >
+                    MediaQuery.sizeOf(context).height
+                ? 32
+                : 100,
             defaultPanelState: PanelState.OPEN,
             panel: PointerInterceptor(
               child: Column(
@@ -226,8 +245,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                     ),
                   ),
                   SizedBox(height: 16.0),
-                  SizedBox(
-                    height: 340,
+                  Expanded(
                     child: MlSingleChildScrollView(
                       children: [
                         LabelTile(
@@ -284,56 +302,56 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                             ),
                           ),
                         ),
+                        SizedBox(height: 16.0),
+                        if (!_isPreviewMode)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              ElevatedButton(
+                                onPressed: () => _showExportDataCard(
+                                  context,
+                                  _journeyHeader.journeyType,
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFFFFFFF),
+                                  foregroundColor: Colors.black,
+                                  fixedSize: Size(100, 42),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(25.0),
+                                  ),
+                                ),
+                                child: Text(context.tr("common.export")),
+                              ),
+                              ElevatedButton(
+                                onPressed: () async => _showEditMenu(context),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFB6E13D),
+                                  foregroundColor: Colors.black,
+                                  fixedSize: Size(100, 42),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(25.0),
+                                  ),
+                                ),
+                                child: Text(context.tr("common.edit")),
+                              ),
+                              ElevatedButton(
+                                onPressed: () async =>
+                                    await _deleteJourneyInfo(context),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFEC4162),
+                                  foregroundColor: Colors.black,
+                                  fixedSize: Size(100, 42),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(25.0),
+                                  ),
+                                ),
+                                child: Text(context.tr("common.delete")),
+                              ),
+                            ],
+                          ),
                       ],
                     ),
                   ),
-                  SizedBox(height: 16.0),
-                  if (!_isPreviewMode)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        ElevatedButton(
-                          onPressed: () => _showExportDataCard(
-                            context,
-                            _journeyHeader.journeyType,
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFFFFFFF),
-                            foregroundColor: Colors.black,
-                            fixedSize: Size(100, 42),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(25.0),
-                            ),
-                          ),
-                          child: Text(context.tr("common.export")),
-                        ),
-                        ElevatedButton(
-                          onPressed: () async => _showEditMenu(context),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFB6E13D),
-                            foregroundColor: Colors.black,
-                            fixedSize: Size(100, 42),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(25.0),
-                            ),
-                          ),
-                          child: Text(context.tr("common.edit")),
-                        ),
-                        ElevatedButton(
-                          onPressed: () async =>
-                              await _deleteJourneyInfo(context),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFEC4162),
-                            foregroundColor: Colors.black,
-                            fixedSize: Size(100, 42),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(25.0),
-                            ),
-                          ),
-                          child: Text(context.tr("common.delete")),
-                        ),
-                      ],
-                    ),
                 ],
               ),
             ),
