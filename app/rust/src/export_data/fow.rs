@@ -8,14 +8,37 @@ use md5::{Digest, Md5};
 use std::collections::BTreeMap;
 use std::io::{Seek, Write};
 
-const FOW_FILENAME_MASK1: &str = "olhwjsktri";
-const FOW_FILENAME_MASK2: &str = "eizxdwknmo";
+const FOW_FILENAME_ID_DIGIT_MASK: &str = "olhwjsktri";
+const FOW_FILENAME_CHECKSUM_DIGIT_MASK: &str = "eizxdwknmo";
+const FOW_FILENAME_HASH_TYPE_OFFSET: i32 = 74;
+// Widths used by the FWSS filename id algorithm. These are part of the
+// filename encoding, not a general Web Mercator grid description.
+const FOW_FILENAME_WIDTH_BY_Z: [u32; 14] = [
+    1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 4096,
+];
 const FOW_TILE_HEADER_SIZE: usize = (TILE_WIDTH * TILE_WIDTH * 2) as usize;
 const FOW_BLOCK_EXTRA_DATA_SIZE: usize = 3;
-const FOW_SNAPSHOT_TILE_Z: i32 = 9;
+const FOW_SNAPSHOT_BASE_TILE_Z: i32 = 9;
+const FOW_SNAPSHOT_MAX_LAYER_Z: i32 = FOW_SNAPSHOT_BASE_TILE_Z - 1;
+const FOW_SNAPSHOT_MIN_LAYER_Z: i32 = -6;
 const FOW_SNAPSHOT_TILE_BITSET_SIZE: usize = (MAP_WIDTH * MAP_WIDTH / 8) as usize;
 const FOW_SNAPSHOT_METADATA_SIZE: usize = 4012;
 const FOW_EARTH_RADIUS_METERS: f64 = 6378137.0;
+const FOW_PIXELS_PER_BITMAP_BLOCK: u64 = (BITMAP_SIZE * 8) as u64;
+const FOW_PIXELS_PER_BASE_TILE: u64 =
+    (TILE_WIDTH * TILE_WIDTH) as u64 * FOW_PIXELS_PER_BITMAP_BLOCK;
+const FOW_HASH_BLOCK_PREFIX: u8 = 35;
+const FOW_HASH_BLOCK_COUNT_HIGH_OFFSET: u8 = 192;
+const FOW_METADATA_AREA_SCALE: u128 = 10_000;
+const FOW_METADATA_AREA_NORMALIZE_BITS: u16 = 44;
+const FOW_METADATA_BASE_VALUE: u16 = 17056;
+const FOW_METADATA_VERSION: u8 = 2;
+const FOW_METADATA_AREA_RANGE: std::ops::Range<usize> = 5..13;
+const FOW_METADATA_ENCODED_RANGE: std::ops::Range<usize> = 10..12;
+// Reserved FWSS filenames: md5("#")[..10] for metadata and md5("*")[..10]
+// for the z9 tile index that describes Model/* entries.
+const FOW_SNAPSHOT_METADATA_FILENAME: &str = "01abfc750a";
+const FOW_SNAPSHOT_TILE_INDEX_FILENAME: &str = "3389dae361";
 
 #[derive(Clone, Copy)]
 enum FoWSnapshotFileType {
@@ -25,26 +48,22 @@ enum FoWSnapshotFileType {
 }
 
 fn fow_snapshot_filename(x: u16, y: u16, z: i32, file_type: FoWSnapshotFileType) -> String {
-    const WIDTH_BY_Z: [u32; 14] = [
-        1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 4096,
-    ];
-
     let filename_z = z.max(0) as usize;
     let type_offset = match file_type {
-        FoWSnapshotFileType::Hash => 74,
+        FoWSnapshotFileType::Hash => FOW_FILENAME_HASH_TYPE_OFFSET,
         FoWSnapshotFileType::Bitmap | FoWSnapshotFileType::Layer => 0,
     };
-    let id = WIDTH_BY_Z[filename_z] * y as u32 + x as u32;
-    let checksum_input = id as i32 + FOW_SNAPSHOT_TILE_Z - z + type_offset;
+    let id = FOW_FILENAME_WIDTH_BY_Z[filename_z] * y as u32 + x as u32;
+    let checksum_input = id as i32 + FOW_SNAPSHOT_BASE_TILE_Z - z + type_offset;
     let id_part = id
         .to_string()
         .bytes()
-        .map(|b| FOW_FILENAME_MASK1.as_bytes()[(b - b'0') as usize] as char)
+        .map(|b| FOW_FILENAME_ID_DIGIT_MASK.as_bytes()[(b - b'0') as usize] as char)
         .collect::<String>();
     let checksum = checksum_input.rem_euclid(100) as usize;
     let suffix = [
-        FOW_FILENAME_MASK2.as_bytes()[checksum / 10] as char,
-        FOW_FILENAME_MASK2.as_bytes()[checksum % 10] as char,
+        FOW_FILENAME_CHECKSUM_DIGIT_MASK.as_bytes()[checksum / 10] as char,
+        FOW_FILENAME_CHECKSUM_DIGIT_MASK.as_bytes()[checksum % 10] as char,
     ]
     .iter()
     .collect::<String>();
@@ -52,20 +71,20 @@ fn fow_snapshot_filename(x: u16, y: u16, z: i32, file_type: FoWSnapshotFileType)
     format!("{name_prefix}{id_part}{suffix}")
 }
 
-fn fow_block_extra_data(bitmap: &[u8; BITMAP_SIZE]) -> [u8; FOW_BLOCK_EXTRA_DATA_SIZE] {
+fn fow_bitmap_block_extra_data(bitmap: &[u8; BITMAP_SIZE]) -> [u8; FOW_BLOCK_EXTRA_DATA_SIZE] {
     let visited_count = bitmap.iter().map(|x| x.count_ones()).sum::<u32>();
-    debug_assert!(visited_count <= 4096);
+    debug_assert!(visited_count <= FOW_PIXELS_PER_BITMAP_BLOCK as u32);
     let score = (visited_count * 2 + 1) as u16;
     [0, (score >> 8) as u8, (score & 0xff) as u8]
 }
 
-fn fow_snapshot_hash_block_data(bitmap: &[u8; BITMAP_SIZE]) -> [u8; FOW_BLOCK_EXTRA_DATA_SIZE] {
+fn fow_hash_block_payload(bitmap: &[u8; BITMAP_SIZE]) -> [u8; FOW_BLOCK_EXTRA_DATA_SIZE] {
     let visited_count = bitmap.iter().map(|x| x.count_ones()).sum::<u32>();
-    debug_assert!(visited_count <= 4096);
+    debug_assert!(visited_count <= FOW_PIXELS_PER_BITMAP_BLOCK as u32);
     let visited_count = visited_count as u16;
     [
-        35,
-        192 + ((visited_count >> 8) as u8),
+        FOW_HASH_BLOCK_PREFIX,
+        FOW_HASH_BLOCK_COUNT_HIGH_OFFSET + ((visited_count >> 8) as u8),
         (visited_count & 0xff) as u8,
     ]
 }
@@ -89,7 +108,7 @@ impl FoWSnapshotTile {
             coord: FoWSnapshotCoord {
                 x: tile_key.x,
                 y: tile_key.y,
-                z: FOW_SNAPSHOT_TILE_Z,
+                z: FOW_SNAPSHOT_BASE_TILE_Z,
             },
             blocks: BTreeMap::new(),
         };
@@ -253,14 +272,14 @@ where
 fn serialize_fow_snapshot_bitmap_tile(tile: &FoWSnapshotTile) -> Result<Vec<u8>> {
     serialize_fow_snapshot_blocks(&tile.blocks, |block, encoder| {
         encoder.write_all(block)?;
-        encoder.write_all(&fow_block_extra_data(block))?;
+        encoder.write_all(&fow_bitmap_block_extra_data(block))?;
         Ok(())
     })
 }
 
 fn serialize_fow_snapshot_hash_tile(tile: &FoWSnapshotTile) -> Result<Vec<u8>> {
     serialize_fow_snapshot_blocks(&tile.blocks, |block, encoder| {
-        encoder.write_all(&fow_snapshot_hash_block_data(block))?;
+        encoder.write_all(&fow_hash_block_payload(block))?;
         Ok(())
     })
 }
@@ -291,19 +310,21 @@ fn fow_tile_row_area_square_meters(y: u16) -> f64 {
 fn fow_snapshot_metadata(total_area_square_meters: u64) -> Result<Vec<u8>> {
     let mut data = vec![0_u8; FOW_SNAPSHOT_METADATA_SIZE];
     let mut shift_count = 0_u16;
-    let mut area = (total_area_square_meters as u128) * 10_000;
-    while area < (1_u128 << 44) && shift_count < 44 {
+    let mut area = (total_area_square_meters as u128) * FOW_METADATA_AREA_SCALE;
+    while area < (1_u128 << FOW_METADATA_AREA_NORMALIZE_BITS)
+        && shift_count < FOW_METADATA_AREA_NORMALIZE_BITS
+    {
         area <<= 1;
         shift_count += 1;
     }
 
     let area = area as u64;
-    data[5..13].copy_from_slice(&area.to_le_bytes());
+    data[FOW_METADATA_AREA_RANGE].copy_from_slice(&area.to_le_bytes());
     let existing = u16::from_le_bytes([data[10], data[11]]);
-    let metadata = 17056_u16.saturating_sub(shift_count << 4);
+    let metadata = FOW_METADATA_BASE_VALUE.saturating_sub(shift_count << 4);
     let encoded = existing.wrapping_add(metadata);
-    data[10..12].copy_from_slice(&encoded.to_le_bytes());
-    data[0] = 2;
+    data[FOW_METADATA_ENCODED_RANGE].copy_from_slice(&encoded.to_le_bytes());
+    data[0] = FOW_METADATA_VERSION;
 
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
     encoder.write_all(&data)?;
@@ -366,8 +387,8 @@ pub fn journey_bitmap_to_fwss_file<T: Write + Seek>(
         tile_index[tile_index_offset] |= 1 << (tile_key.x % 8);
 
         let tile_area = fow_tile_row_area_square_meters(tile_key.y);
-        total_area_square_meters +=
-            ((tile_area * snapshot_tile.count_pixels() as f64) / 67_108_864.0) as u64;
+        total_area_square_meters += ((tile_area * snapshot_tile.count_pixels() as f64)
+            / FOW_PIXELS_PER_BASE_TILE as f64) as u64;
 
         zip.start_file(format!("Model/*/{bitmap_filename}"), options)?;
         zip.write_all(&serialize_fow_snapshot_bitmap_tile(&snapshot_tile)?)?;
@@ -389,7 +410,10 @@ pub fn journey_bitmap_to_fwss_file<T: Write + Seek>(
             break;
         };
 
-        if tile.coord.z <= 8 && tile.coord.z >= -6 && !tile.is_empty() {
+        if tile.coord.z <= FOW_SNAPSHOT_MAX_LAYER_Z
+            && tile.coord.z >= FOW_SNAPSHOT_MIN_LAYER_Z
+            && !tile.is_empty()
+        {
             let filename = fow_snapshot_filename(
                 tile.coord.x,
                 tile.coord.y,
@@ -400,7 +424,7 @@ pub fn journey_bitmap_to_fwss_file<T: Write + Seek>(
             zip.write_all(&serialize_fow_snapshot_layer_tile(&tile)?)?;
         }
 
-        if tile.coord.z <= -6 {
+        if tile.coord.z <= FOW_SNAPSHOT_MIN_LAYER_Z {
             break;
         }
 
@@ -412,9 +436,12 @@ pub fn journey_bitmap_to_fwss_file<T: Write + Seek>(
             .merge_subtile(&tile);
     }
 
-    zip.start_file("Model/#/01abfc750a", options)?;
+    zip.start_file(format!("Model/#/{FOW_SNAPSHOT_METADATA_FILENAME}"), options)?;
     zip.write_all(&fow_snapshot_metadata(total_area_square_meters)?)?;
-    zip.start_file("Model/#/3389dae361", options)?;
+    zip.start_file(
+        format!("Model/#/{FOW_SNAPSHOT_TILE_INDEX_FILENAME}"),
+        options,
+    )?;
     zip.write_all(&serialize_fow_snapshot_tile_index(&tile_index)?)?;
 
     zip.finish()?;
@@ -447,18 +474,30 @@ mod tests {
     }
 
     #[test]
-    fn fow_snapshot_hash_block_data_matches_eraser_format() {
+    fn fow_hash_block_payload_matches_eraser_format() {
         assert_eq!(
-            fow_snapshot_hash_block_data(&bitmap_with_visited_count(0)),
+            fow_hash_block_payload(&bitmap_with_visited_count(0)),
             [35, 192, 0]
         );
         assert_eq!(
-            fow_snapshot_hash_block_data(&bitmap_with_visited_count(100)),
+            fow_hash_block_payload(&bitmap_with_visited_count(100)),
             [35, 192, 100]
         );
         assert_eq!(
-            fow_snapshot_hash_block_data(&bitmap_with_visited_count(4096)),
+            fow_hash_block_payload(&bitmap_with_visited_count(4096)),
             [35, 208, 0]
+        );
+    }
+
+    #[test]
+    fn reserved_fow_snapshot_filenames_match_md5_prefixes() {
+        assert_eq!(
+            &format!("{:x}", Md5::digest("#"))[..10],
+            FOW_SNAPSHOT_METADATA_FILENAME
+        );
+        assert_eq!(
+            &format!("{:x}", Md5::digest("*"))[..10],
+            FOW_SNAPSHOT_TILE_INDEX_FILENAME
         );
     }
 }
