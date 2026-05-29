@@ -14,7 +14,7 @@ const FOW_TILE_HEADER_SIZE: usize = (TILE_WIDTH * TILE_WIDTH * 2) as usize;
 const FOW_BLOCK_EXTRA_DATA_SIZE: usize = 3;
 const FOW_BLOCK_SIZE: usize = BITMAP_SIZE + FOW_BLOCK_EXTRA_DATA_SIZE;
 const FOW_SNAPSHOT_TILE_Z: i32 = 9;
-const FOW_SNAPSHOT_TILE_BITSET_SIZE: usize = 2048;
+const FOW_SNAPSHOT_TILE_BITSET_SIZE: usize = (MAP_WIDTH * MAP_WIDTH / 8) as usize;
 const FOW_SNAPSHOT_METADATA_SIZE: usize = 4012;
 const FOW_EARTH_RADIUS_METERS: f64 = 6378137.0;
 
@@ -81,7 +81,7 @@ struct FoWSnapshotCoord {
 #[derive(Clone)]
 struct FoWSnapshotTile {
     coord: FoWSnapshotCoord,
-    blocks: Vec<Option<[u8; BITMAP_SIZE]>>,
+    blocks: BTreeMap<usize, [u8; BITMAP_SIZE]>,
 }
 
 struct FoWSnapshotExportTile {
@@ -103,24 +103,23 @@ impl FoWSnapshotTile {
                 y: tile_key.y,
                 z: FOW_SNAPSHOT_TILE_Z,
             },
-            blocks: vec![None; (TILE_WIDTH * TILE_WIDTH) as usize],
+            blocks: BTreeMap::new(),
         };
 
         for (block_key, block) in tile.iter() {
             let block_idx = fow_block_index(block_key.x(), block_key.y());
-            snapshot_tile.blocks[block_idx] = Some(*block.raw_data());
+            snapshot_tile.blocks.insert(block_idx, *block.raw_data());
         }
         snapshot_tile
     }
 
     fn is_empty(&self) -> bool {
-        self.blocks.iter().all(Option::is_none)
+        self.blocks.is_empty()
     }
 
     fn count_pixels(&self) -> u64 {
         self.blocks
-            .iter()
-            .filter_map(|block| block.as_ref())
+            .values()
             .map(|block| {
                 block
                     .iter()
@@ -150,7 +149,7 @@ impl FoWSnapshotTile {
     fn empty(coord: FoWSnapshotCoord) -> Self {
         Self {
             coord,
-            blocks: vec![None; (TILE_WIDTH * TILE_WIDTH) as usize],
+            blocks: BTreeMap::new(),
         }
     }
 
@@ -159,17 +158,14 @@ impl FoWSnapshotTile {
         let block_y_offset = if child_position.is_bottom() { 64 } else { 0 };
         let block_x_offset = if child_position.is_right() { 64 } else { 0 };
 
-        for (source_idx, source_block) in child.blocks.iter().enumerate() {
-            let Some(source_block) = source_block else {
-                continue;
-            };
+        for (&source_idx, source_block) in &child.blocks {
             let source_x = source_idx % TILE_WIDTH as usize;
             let source_y = source_idx / TILE_WIDTH as usize;
             let block_quadrant = FoWSnapshotQuadrant::from_xy(source_x, source_y);
             let dest_x = source_x / 2 + block_x_offset;
             let dest_y = source_y / 2 + block_y_offset;
             let dest_idx = fow_block_index(dest_x as u8, dest_y as u8);
-            let dest_block = self.blocks[dest_idx].get_or_insert([0; BITMAP_SIZE]);
+            let dest_block = self.blocks.entry(dest_idx).or_insert([0; BITMAP_SIZE]);
             fow_part_merge_block(dest_block, source_block, block_quadrant);
         }
     }
@@ -242,21 +238,18 @@ fn fow_part_merge_block(
 }
 
 fn serialize_fow_snapshot_blocks<F>(
-    blocks: &[Option<[u8; BITMAP_SIZE]>],
+    blocks: &BTreeMap<usize, [u8; BITMAP_SIZE]>,
     block_payload_size: usize,
     mut write_payload: F,
 ) -> Result<Vec<u8>>
 where
     F: FnMut(&[u8; BITMAP_SIZE], &mut Vec<u8>, usize),
 {
-    let block_count = blocks.iter().filter(|block| block.is_some()).count();
+    let block_count = blocks.len();
     let mut data = vec![0_u8; FOW_TILE_HEADER_SIZE + block_count * block_payload_size];
     let mut active_block_idx = 1;
 
-    for (block_idx, block) in blocks.iter().enumerate() {
-        let Some(block) = block else {
-            continue;
-        };
+    for (&block_idx, block) in blocks {
         let header_offset = block_idx * 2;
         data[header_offset] = (active_block_idx & 0xff) as u8;
         data[header_offset + 1] = (active_block_idx >> 8) as u8;
@@ -389,11 +382,11 @@ pub fn journey_bitmap_to_fwss_file<T: Write + Seek>(
             FoWSnapshotFileType::Hash,
         );
 
+        // The official snapshot index is a z9 512x512 tile bitset using
+        // low-bit-first ordering within each byte.
         let tile_index_offset =
             ((tile_key.y as usize * MAP_WIDTH as usize) + tile_key.x as usize) / 8;
-        if tile_index_offset < tile_index.len() {
-            tile_index[tile_index_offset] ^= 128 >> (tile_key.x % 8);
-        }
+        tile_index[tile_index_offset] |= 1 << (tile_key.x % 8);
 
         let tile_area = fow_tile_row_area_square_meters(tile_key.y);
         total_area_square_meters +=
