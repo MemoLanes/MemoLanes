@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/body/settings/advanced_settings_page.dart';
+import 'package:memolanes/body/settings/advanced_export_page.dart';
 import 'package:memolanes/body/settings/import_data_page.dart';
 import 'package:memolanes/body/settings/map_settings_page.dart';
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
@@ -200,7 +201,7 @@ class _SettingsBodyState extends State<SettingsBody> {
         ),
         LabelTile(
           label: context.tr("data.export_data.export_all"),
-          position: LabelTilePosition.bottom,
+          position: LabelTilePosition.middle,
           onTap: () async {
             if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
               await showCommonDialog(
@@ -220,6 +221,12 @@ class _SettingsBodyState extends State<SettingsBody> {
             if (!context.mounted) return;
             await showCommonExport(context, filepath, deleteFile: true);
           },
+        ),
+        LabelTile(
+          label: context.tr("data.export_data.advanced_export"),
+          position: LabelTilePosition.bottom,
+          trailing: LabelTileContent(showArrow: true),
+          onTap: () => navigatorPush(context, page: AdvancedExportPage()),
         ),
         LabelTileTitle(
           label: context.tr("settings.other"),

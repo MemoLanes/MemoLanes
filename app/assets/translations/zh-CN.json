@@ -223,7 +223,9 @@
       "unsupported_file": "不支持的文件"
     },
     "export_data": {
-      "export_all": "导出所有数据"
+      "export_all": "导出所有数据",
+      "advanced_export": "高级导出",
+      "export_all_fwss": "导出所有数据为 FWSS"
     }
   },
   "settings": {

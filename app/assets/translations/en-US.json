@@ -223,7 +223,9 @@
       "unsupported_file": "Unsupported file"
     },
     "export_data": {
-      "export_all": "Export All Data"
+      "export_all": "Export All Data",
+      "advanced_export": "Advanced Export",
+      "export_all_fwss": "Export All as FWSS"
     }
   },
   "settings": {
