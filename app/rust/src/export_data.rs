@@ -222,26 +222,6 @@ enum FoWSnapshotFileType {
     Layer,
 }
 
-fn fow_tile_filename(tile_key: &TileKey) -> String {
-    let id = tile_key.y as u32 * MAP_WIDTH as u32 + tile_key.x as u32;
-    let digits: Vec<usize> = id
-        .to_string()
-        .bytes()
-        .map(|b| (b - b'0') as usize)
-        .collect();
-    let id_part = digits
-        .iter()
-        .map(|&d| FOW_FILENAME_MASK1.as_bytes()[d] as char)
-        .collect::<String>();
-    let checksum_part = digits
-        .iter()
-        .map(|&d| FOW_FILENAME_MASK2.as_bytes()[d] as char)
-        .collect::<String>();
-    let suffix_start = checksum_part.len().saturating_sub(2);
-    let name_prefix = format!("{:x}", Md5::digest(id.to_string()))[..4].to_string();
-    format!("{name_prefix}{id_part}{}", &checksum_part[suffix_start..])
-}
-
 fn fow_snapshot_filename(x: u16, y: u16, z: i32, file_type: FoWSnapshotFileType) -> String {
     const WIDTH_BY_Z: [u32; 14] = [
         1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 4096,
@@ -275,38 +255,6 @@ fn fow_block_extra_data(bitmap: &[u8; BITMAP_SIZE]) -> [u8; FOW_BLOCK_EXTRA_DATA
     debug_assert!(visited_count <= 4096);
     let score = (visited_count * 2 + 1) as u16;
     [0, (score >> 8) as u8, (score & 0xff) as u8]
-}
-
-fn serialize_fow_tile(tile: &crate::journey_bitmap::Tile, include_bitmap: bool) -> Result<Vec<u8>> {
-    let block_payload_size = if include_bitmap {
-        FOW_BLOCK_SIZE
-    } else {
-        FOW_BLOCK_EXTRA_DATA_SIZE
-    };
-    let block_count = tile.iter().count();
-    let mut data = vec![0_u8; FOW_TILE_HEADER_SIZE + block_count * block_payload_size];
-
-    for (active_block_idx, (block_key, block)) in tile.iter().enumerate() {
-        let block_idx = active_block_idx + 1;
-        let header_idx = block_key.x() as usize + block_key.y() as usize * TILE_WIDTH as usize;
-        let header_offset = header_idx * 2;
-        data[header_offset] = (block_idx & 0xff) as u8;
-        data[header_offset + 1] = (block_idx >> 8) as u8;
-
-        let payload_offset = FOW_TILE_HEADER_SIZE + active_block_idx * block_payload_size;
-        if include_bitmap {
-            data[payload_offset..payload_offset + BITMAP_SIZE].copy_from_slice(block.raw_data());
-            data[payload_offset + BITMAP_SIZE..payload_offset + FOW_BLOCK_SIZE]
-                .copy_from_slice(&fow_block_extra_data(block.raw_data()));
-        } else {
-            data[payload_offset..payload_offset + FOW_BLOCK_EXTRA_DATA_SIZE]
-                .copy_from_slice(&fow_block_extra_data(block.raw_data()));
-        }
-    }
-
-    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-    encoder.write_all(&data)?;
-    Ok(encoder.finish()?)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -582,29 +530,6 @@ fn serialize_fow_snapshot_tile_index(
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
     encoder.write_all(tile_index)?;
     Ok(encoder.finish()?)
-}
-
-#[auto_context]
-pub fn fow_bitmap_to_sync_zip<T: Write + Seek>(
-    journey_bitmap: &JourneyBitmap,
-    writer: &mut T,
-) -> Result<()> {
-    let mut zip = zip::ZipWriter::new(writer);
-    let options = zip::write::SimpleFileOptions::DEFAULT
-        .compression_method(zip::CompressionMethod::Stored)
-        .unix_permissions(0o644);
-
-    let mut tiles = journey_bitmap.iter_tiles().collect::<Vec<_>>();
-    tiles.sort_by_key(|(tile_key, _)| (**tile_key).clone());
-    for (tile_key, tile) in tiles {
-        if tile.is_empty() {
-            continue;
-        }
-        zip.start_file(fow_tile_filename(tile_key), options)?;
-        zip.write_all(&serialize_fow_tile(tile, true)?)?;
-    }
-    zip.finish()?;
-    Ok(())
 }
 
 #[auto_context]
