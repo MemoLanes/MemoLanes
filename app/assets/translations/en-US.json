@@ -90,6 +90,7 @@
     "export_journey_as_kml": "Export as KML",
     "export_journey_as_gpx": "Export as GPX",
     "export_journey_as_mldx": "Export as MLDX",
+    "export_journey_as_fwss": "Export as FWSS",
     "delete_all": "Delete All Journeys",
     "delete_all_success": "All journeys are deleted!",
     "preprocessor": "Preprocessor",

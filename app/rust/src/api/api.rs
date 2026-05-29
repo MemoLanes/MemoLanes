@@ -589,6 +589,16 @@ pub fn generate_full_archive(target_filepath: String) -> Result<()> {
     Ok(())
 }
 
+#[auto_context]
+pub fn export_all_journeys_fwss(target_filepath: String) -> Result<()> {
+    info!("exporting all journeys as FWSS");
+    let journey_bitmap = get()
+        .storage
+        .get_latest_bitmap_for_main_map_renderer(&Some(LayerKind::All), false)?;
+    let mut file = File::create(target_filepath)?;
+    export_data::journey_bitmap_to_fwss_file(&journey_bitmap, &mut file)
+}
+
 pub fn generate_single_archive(journey_id: String, target_filepath: String) -> Result<()> {
     info!("generating single journey archive");
     let mut file = File::create(target_filepath)?;
@@ -599,23 +609,10 @@ pub fn generate_single_archive(journey_id: String, target_filepath: String) -> R
     Ok(())
 }
 
-#[auto_context]
-pub fn export_fog_of_world_snapshot(target_filepath: String) -> Result<()> {
-    info!("exporting Fog of World snapshot");
-    let journey_bitmap = get()
-        .storage
-        .get_latest_bitmap_for_main_map_renderer(&Some(LayerKind::All), true)?;
-    if journey_bitmap.is_empty() {
-        bail!("No Fog of World data to export");
-    }
-    let mut file = File::create(target_filepath)?;
-    export_data::fow_bitmap_to_snapshot_file(&journey_bitmap, &mut file)?;
-    Ok(())
-}
-
 pub enum ExportType {
     GPX = 0,
     KML = 1,
+    FWSS = 2,
 }
 
 #[auto_context]
@@ -627,19 +624,26 @@ pub fn export_journey(
     let journey_data = get()
         .storage
         .with_db_txn(|txn| txn.get_journey_data(&journey_id))?;
-    match journey_data {
-        JourneyData::Bitmap(_bitmap) => Err(anyhow!("Data type error")),
-        JourneyData::Vector(vector) => {
+
+    match (export_type, journey_data) {
+        (ExportType::GPX, JourneyData::Vector(vector)) => {
             let mut file = File::create(target_filepath)?;
-            match export_type {
-                ExportType::GPX => {
-                    export_data::journey_vector_to_gpx_file(&vector, &mut file)?;
-                }
-                ExportType::KML => {
-                    export_data::journey_vector_to_kml_file(&vector, &mut file)?;
-                }
-            }
-            Ok(())
+            export_data::journey_vector_to_gpx_file(&vector, &mut file)
+        }
+        (ExportType::KML, JourneyData::Vector(vector)) => {
+            let mut file = File::create(target_filepath)?;
+            export_data::journey_vector_to_kml_file(&vector, &mut file)
+        }
+        (ExportType::FWSS, JourneyData::Bitmap(bitmap)) => {
+            let mut file = File::create(target_filepath)?;
+            export_data::journey_bitmap_to_fwss_file(&bitmap, &mut file)
+        }
+        (ExportType::FWSS, JourneyData::Vector(vector)) => {
+            let mut file = File::create(target_filepath)?;
+            export_data::journey_vector_to_fwss_file(&vector, &mut file)
+        }
+        (ExportType::GPX | ExportType::KML, JourneyData::Bitmap(_)) => {
+            Err(anyhow!("Data type error"))
         }
     }
 }

@@ -115,7 +115,7 @@ fn export_fow_snapshot_data_roundtrip() {
     let (bitmap_1, _) =
         import_data::load_fow_snapshot_data("./tests/data/snapshot_test.fwss").unwrap();
     let export_path = "./tests/for_inspection/generated_fow_snapshot.fwss";
-    export_data::fow_bitmap_to_snapshot_file(&bitmap_1, &mut File::create(export_path).unwrap())
+    export_data::journey_bitmap_to_fwss_file(&bitmap_1, &mut File::create(export_path).unwrap())
         .unwrap();
 
     let (bitmap_2, warnings) = import_data::load_fow_snapshot_data(export_path).unwrap();

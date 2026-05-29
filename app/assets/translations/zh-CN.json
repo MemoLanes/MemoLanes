@@ -90,6 +90,7 @@
     "export_journey_as_kml": "导出为 KML",
     "export_journey_as_gpx": "导出为 GPX",
     "export_journey_as_mldx": "导出为 MLDX",
+    "export_journey_as_fwss": "导出为 FWSS",
     "delete_all": "删除所有旅程",
     "delete_all_success": "所有旅程已清除!",
     "preprocessor": "预处理器",

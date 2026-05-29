@@ -23,7 +23,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 
-enum ExportType { mldx, kml, gpx }
+enum ExportType { mldx, fwss, kml, gpx }
 
 class JourneyInfoPage extends StatefulWidget {
   const JourneyInfoPage({
@@ -170,6 +170,12 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       case ExportType.mldx:
         await api.generateSingleArchive(
             journeyId: journeyHeader.id, targetFilepath: filepath);
+        break;
+      case ExportType.fwss:
+        await api.exportJourney(
+            targetFilepath: filepath,
+            journeyId: journeyHeader.id,
+            exportType: api.ExportType.fwss);
         break;
       case ExportType.kml:
         await api.exportJourney(
@@ -354,21 +360,29 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   }
 
   void _showExportDataCard(BuildContext context, JourneyType journeyType) {
+    final supportsVectorExport = journeyType != JourneyType.bitmap;
     showBasicCard(
       context,
       child: OptionCard(
         children: [
           CardLabelTile(
-            position: journeyType != JourneyType.bitmap
-                ? CardLabelTilePosition.top
-                : CardLabelTilePosition.single,
+            position: CardLabelTilePosition.top,
             label: context.tr("journey.export_journey_as_mldx"),
             onTap: () {
               _export(ExportType.mldx);
             },
             top: false,
           ),
-          if (journeyType != JourneyType.bitmap) ...[
+          CardLabelTile(
+            position: supportsVectorExport
+                ? CardLabelTilePosition.middle
+                : CardLabelTilePosition.bottom,
+            label: context.tr("journey.export_journey_as_fwss"),
+            onTap: () {
+              _export(ExportType.fwss);
+            },
+          ),
+          if (supportsVectorExport)
             CardLabelTile(
               position: CardLabelTilePosition.middle,
               label: context.tr("journey.export_journey_as_kml"),
@@ -376,14 +390,14 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                 _export(ExportType.kml);
               },
             ),
+          if (supportsVectorExport)
             CardLabelTile(
               position: CardLabelTilePosition.bottom,
               label: context.tr("journey.export_journey_as_gpx"),
               onTap: () {
                 _export(ExportType.gpx);
               },
-            ),
-          ]
+            )
         ],
       ),
     );

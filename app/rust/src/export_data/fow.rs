@@ -1,4 +1,5 @@
 use crate::journey_bitmap::{JourneyBitmap, TileKey, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH};
+use crate::journey_vector::JourneyVector;
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
 use flate2::write::ZlibEncoder;
@@ -335,10 +336,14 @@ fn serialize_fow_snapshot_tile_index(
 }
 
 #[auto_context]
-pub fn fow_bitmap_to_snapshot_file<T: Write + Seek>(
+pub fn journey_bitmap_to_fwss_file<T: Write + Seek>(
     journey_bitmap: &JourneyBitmap,
     writer: &mut T,
 ) -> Result<()> {
+    if journey_bitmap.is_empty() {
+        bail!("No Fog of World data to export");
+    }
+
     let mut zip = zip::ZipWriter::new(writer);
     let options = zip::write::SimpleFileOptions::DEFAULT
         .compression_method(zip::CompressionMethod::Deflated)
@@ -447,4 +452,14 @@ pub fn fow_bitmap_to_snapshot_file<T: Write + Seek>(
 
     zip.finish()?;
     Ok(())
+}
+
+#[auto_context]
+pub fn journey_vector_to_fwss_file<T: Write + Seek>(
+    journey_vector: &JourneyVector,
+    writer: &mut T,
+) -> Result<()> {
+    let mut journey_bitmap = JourneyBitmap::new();
+    journey_bitmap.merge_vector(journey_vector);
+    journey_bitmap_to_fwss_file(&journey_bitmap, writer)
 }
