@@ -12,7 +12,6 @@ const FOW_FILENAME_MASK1: &str = "olhwjsktri";
 const FOW_FILENAME_MASK2: &str = "eizxdwknmo";
 const FOW_TILE_HEADER_SIZE: usize = (TILE_WIDTH * TILE_WIDTH * 2) as usize;
 const FOW_BLOCK_EXTRA_DATA_SIZE: usize = 3;
-const FOW_BLOCK_SIZE: usize = BITMAP_SIZE + FOW_BLOCK_EXTRA_DATA_SIZE;
 const FOW_SNAPSHOT_TILE_Z: i32 = 9;
 const FOW_SNAPSHOT_TILE_BITSET_SIZE: usize = (MAP_WIDTH * MAP_WIDTH / 8) as usize;
 const FOW_SNAPSHOT_METADATA_SIZE: usize = 4012;
@@ -82,17 +81,6 @@ struct FoWSnapshotCoord {
 struct FoWSnapshotTile {
     coord: FoWSnapshotCoord,
     blocks: BTreeMap<usize, [u8; BITMAP_SIZE]>,
-}
-
-struct FoWSnapshotExportTile {
-    bitmap_filename: String,
-    hash_filename: String,
-    tile: FoWSnapshotTile,
-}
-
-struct FoWSnapshotExportLayer {
-    filename: String,
-    tile: FoWSnapshotTile,
 }
 
 impl FoWSnapshotTile {
@@ -239,57 +227,48 @@ fn fow_part_merge_block(
 
 fn serialize_fow_snapshot_blocks<F>(
     blocks: &BTreeMap<usize, [u8; BITMAP_SIZE]>,
-    block_payload_size: usize,
     mut write_payload: F,
 ) -> Result<Vec<u8>>
 where
-    F: FnMut(&[u8; BITMAP_SIZE], &mut Vec<u8>, usize),
+    F: FnMut(&[u8; BITMAP_SIZE], &mut ZlibEncoder<Vec<u8>>) -> Result<()>,
 {
-    let block_count = blocks.len();
-    let mut data = vec![0_u8; FOW_TILE_HEADER_SIZE + block_count * block_payload_size];
+    let mut header = vec![0_u8; FOW_TILE_HEADER_SIZE];
     let mut active_block_idx = 1;
 
-    for (&block_idx, block) in blocks {
+    for &block_idx in blocks.keys() {
         let header_offset = block_idx * 2;
-        data[header_offset] = (active_block_idx & 0xff) as u8;
-        data[header_offset + 1] = (active_block_idx >> 8) as u8;
-
-        let payload_offset = FOW_TILE_HEADER_SIZE + (active_block_idx - 1) * block_payload_size;
-        write_payload(block, &mut data, payload_offset);
+        header[header_offset] = (active_block_idx & 0xff) as u8;
+        header[header_offset + 1] = (active_block_idx >> 8) as u8;
         active_block_idx += 1;
     }
 
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-    encoder.write_all(&data)?;
+    encoder.write_all(&header)?;
+    for block in blocks.values() {
+        write_payload(block, &mut encoder)?;
+    }
     Ok(encoder.finish()?)
 }
 
 fn serialize_fow_snapshot_bitmap_tile(tile: &FoWSnapshotTile) -> Result<Vec<u8>> {
-    serialize_fow_snapshot_blocks(
-        &tile.blocks,
-        FOW_BLOCK_SIZE,
-        |block, data, payload_offset| {
-            data[payload_offset..payload_offset + BITMAP_SIZE].copy_from_slice(block);
-            data[payload_offset + BITMAP_SIZE..payload_offset + FOW_BLOCK_SIZE]
-                .copy_from_slice(&fow_block_extra_data(block));
-        },
-    )
+    serialize_fow_snapshot_blocks(&tile.blocks, |block, encoder| {
+        encoder.write_all(block)?;
+        encoder.write_all(&fow_block_extra_data(block))?;
+        Ok(())
+    })
 }
 
 fn serialize_fow_snapshot_hash_tile(tile: &FoWSnapshotTile) -> Result<Vec<u8>> {
-    serialize_fow_snapshot_blocks(
-        &tile.blocks,
-        FOW_BLOCK_EXTRA_DATA_SIZE,
-        |block, data, payload_offset| {
-            data[payload_offset..payload_offset + FOW_BLOCK_EXTRA_DATA_SIZE]
-                .copy_from_slice(&fow_snapshot_hash_block_data(block));
-        },
-    )
+    serialize_fow_snapshot_blocks(&tile.blocks, |block, encoder| {
+        encoder.write_all(&fow_snapshot_hash_block_data(block))?;
+        Ok(())
+    })
 }
 
 fn serialize_fow_snapshot_layer_tile(tile: &FoWSnapshotTile) -> Result<Vec<u8>> {
-    serialize_fow_snapshot_blocks(&tile.blocks, BITMAP_SIZE, |block, data, payload_offset| {
-        data[payload_offset..payload_offset + BITMAP_SIZE].copy_from_slice(block);
+    serialize_fow_snapshot_blocks(&tile.blocks, |block, encoder| {
+        encoder.write_all(block)?;
+        Ok(())
     })
 }
 
@@ -359,8 +338,6 @@ pub fn journey_bitmap_to_fwss_file<T: Write + Seek>(
     let mut tiles = journey_bitmap.iter_tiles().collect::<Vec<_>>();
     tiles.sort_by_key(|(tile_key, _)| (**tile_key).clone());
     let mut pending_layers: BTreeMap<(i32, u16, u16), FoWSnapshotTile> = BTreeMap::new();
-    let mut export_tiles = Vec::new();
-    let mut export_layers = Vec::new();
     let mut tile_index = [0_u8; FOW_SNAPSHOT_TILE_BITSET_SIZE];
     let mut total_area_square_meters = 0_u64;
 
@@ -392,19 +369,19 @@ pub fn journey_bitmap_to_fwss_file<T: Write + Seek>(
         total_area_square_meters +=
             ((tile_area * snapshot_tile.count_pixels() as f64) / 67_108_864.0) as u64;
 
+        zip.start_file(format!("Model/*/{bitmap_filename}"), options)?;
+        zip.write_all(&serialize_fow_snapshot_bitmap_tile(&snapshot_tile)?)?;
+        zip.start_file(format!("Model/#/{hash_filename}"), options)?;
+        zip.write_all(&serialize_fow_snapshot_hash_tile(&snapshot_tile)?)?;
+
         pending_layers.insert(
             (
                 snapshot_tile.coord.z,
                 snapshot_tile.coord.y,
                 snapshot_tile.coord.x,
             ),
-            snapshot_tile.clone(),
+            snapshot_tile,
         );
-        export_tiles.push(FoWSnapshotExportTile {
-            bitmap_filename,
-            hash_filename,
-            tile: snapshot_tile,
-        });
     }
 
     while let Some((&key, _)) = pending_layers.iter().next_back() {
@@ -419,10 +396,8 @@ pub fn journey_bitmap_to_fwss_file<T: Write + Seek>(
                 tile.coord.z,
                 FoWSnapshotFileType::Layer,
             );
-            export_layers.push(FoWSnapshotExportLayer {
-                filename,
-                tile: tile.clone(),
-            });
+            zip.start_file(format!("Model/~/{filename}"), options)?;
+            zip.write_all(&serialize_fow_snapshot_layer_tile(&tile)?)?;
         }
 
         if tile.coord.z <= -6 {
@@ -437,25 +412,10 @@ pub fn journey_bitmap_to_fwss_file<T: Write + Seek>(
             .merge_subtile(&tile);
     }
 
-    for export_tile in &export_tiles {
-        zip.start_file(format!("Model/*/{}", export_tile.bitmap_filename), options)?;
-        zip.write_all(&serialize_fow_snapshot_bitmap_tile(&export_tile.tile)?)?;
-    }
-
-    for export_tile in &export_tiles {
-        zip.start_file(format!("Model/#/{}", export_tile.hash_filename), options)?;
-        zip.write_all(&serialize_fow_snapshot_hash_tile(&export_tile.tile)?)?;
-    }
-
     zip.start_file("Model/#/01abfc750a", options)?;
     zip.write_all(&fow_snapshot_metadata(total_area_square_meters)?)?;
     zip.start_file("Model/#/3389dae361", options)?;
     zip.write_all(&serialize_fow_snapshot_tile_index(&tile_index)?)?;
-
-    for export_layer in &export_layers {
-        zip.start_file(format!("Model/~/{}", export_layer.filename), options)?;
-        zip.write_all(&serialize_fow_snapshot_layer_tile(&export_layer.tile)?)?;
-    }
 
     zip.finish()?;
     Ok(())
