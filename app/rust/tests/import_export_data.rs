@@ -111,6 +111,32 @@ fn verify_fow_snapshot_data() {
 }
 
 #[test]
+fn export_fow_sync_data_roundtrip() {
+    let (bitmap_1, _) =
+        import_data::load_fow_sync_data("./tests/data/snapshot_fow_test.zip").unwrap();
+    let export_path = "./tests/for_inspection/generated_fow_sync.zip";
+    export_data::fow_bitmap_to_sync_zip(&bitmap_1, &mut File::create(export_path).unwrap())
+        .unwrap();
+
+    let (bitmap_2, warnings) = import_data::load_fow_sync_data(export_path).unwrap();
+    assert_eq!(bitmap_1, bitmap_2);
+    assert_eq!(format!("{warnings:?}"), "None");
+}
+
+#[test]
+fn export_fow_snapshot_data_roundtrip() {
+    let (bitmap_1, _) =
+        import_data::load_fow_snapshot_data("./tests/data/snapshot_test.fwss").unwrap();
+    let export_path = "./tests/for_inspection/generated_fow_snapshot.fwss";
+    export_data::fow_bitmap_to_snapshot_file(&bitmap_1, &mut File::create(export_path).unwrap())
+        .unwrap();
+
+    let (bitmap_2, warnings) = import_data::load_fow_snapshot_data(export_path).unwrap();
+    assert_eq!(bitmap_1, bitmap_2);
+    assert_eq!(format!("{warnings:?}"), "None");
+}
+
+#[test]
 pub fn gpx() {
     const IMPORT_PATH: &str = "./tests/data/raw_gps_laojunshan.gpx";
     const EXPORT_PATH: &str = "./tests/for_inspection/laojunshan.gpx";

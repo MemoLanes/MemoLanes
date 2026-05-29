@@ -119,6 +119,10 @@ impl JourneyBitmap {
         self.tiles.keys()
     }
 
+    pub fn iter_tiles(&self) -> impl Iterator<Item = (&TileKey, &Tile)> {
+        self.tiles.iter()
+    }
+
     pub fn insert_tile(&mut self, key: &TileKey, tile: Tile) {
         self.tiles.insert(*key, tile);
     }

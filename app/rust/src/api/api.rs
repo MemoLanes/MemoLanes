@@ -599,6 +599,20 @@ pub fn generate_single_archive(journey_id: String, target_filepath: String) -> R
     Ok(())
 }
 
+#[auto_context]
+pub fn export_fog_of_world_snapshot(target_filepath: String) -> Result<()> {
+    info!("exporting Fog of World snapshot");
+    let journey_bitmap = get()
+        .storage
+        .get_latest_bitmap_for_main_map_renderer(&Some(LayerKind::All), true)?;
+    if journey_bitmap.is_empty() {
+        bail!("No Fog of World data to export");
+    }
+    let mut file = File::create(target_filepath)?;
+    export_data::fow_bitmap_to_snapshot_file(&journey_bitmap, &mut file)?;
+    Ok(())
+}
+
 pub enum ExportType {
     GPX = 0,
     KML = 1,
