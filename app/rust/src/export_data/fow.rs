@@ -60,6 +60,17 @@ fn fow_block_extra_data(bitmap: &[u8; BITMAP_SIZE]) -> [u8; FOW_BLOCK_EXTRA_DATA
     [0, (score >> 8) as u8, (score & 0xff) as u8]
 }
 
+fn fow_snapshot_hash_block_data(bitmap: &[u8; BITMAP_SIZE]) -> [u8; FOW_BLOCK_EXTRA_DATA_SIZE] {
+    let visited_count = bitmap.iter().map(|x| x.count_ones()).sum::<u32>();
+    debug_assert!(visited_count <= 4096);
+    let visited_count = visited_count as u16;
+    [
+        35,
+        192 + ((visited_count >> 8) as u8),
+        (visited_count & 0xff) as u8,
+    ]
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 struct FoWSnapshotCoord {
     x: u16,
@@ -278,7 +289,7 @@ fn serialize_fow_snapshot_hash_tile(tile: &FoWSnapshotTile) -> Result<Vec<u8>> {
         FOW_BLOCK_EXTRA_DATA_SIZE,
         |block, data, payload_offset| {
             data[payload_offset..payload_offset + FOW_BLOCK_EXTRA_DATA_SIZE]
-                .copy_from_slice(&fow_block_extra_data(block));
+                .copy_from_slice(&fow_snapshot_hash_block_data(block));
         },
     )
 }
@@ -345,8 +356,11 @@ pub fn journey_bitmap_to_fwss_file<T: Write + Seek>(
     }
 
     let mut zip = zip::ZipWriter::new(writer);
+    // The official app writes Deflated zip entries, but every FWSS entry payload
+    // below is already zlib-compressed. Store the outer zip entries as-is to
+    // avoid spending CPU on a second compression pass that usually saves nothing.
     let options = zip::write::SimpleFileOptions::DEFAULT
-        .compression_method(zip::CompressionMethod::Deflated)
+        .compression_method(zip::CompressionMethod::Stored)
         .system(zip::System::Dos);
 
     let mut tiles = journey_bitmap.iter_tiles().collect::<Vec<_>>();
@@ -462,4 +476,36 @@ pub fn journey_vector_to_fwss_file<T: Write + Seek>(
     let mut journey_bitmap = JourneyBitmap::new();
     journey_bitmap.merge_vector(journey_vector);
     journey_bitmap_to_fwss_file(&journey_bitmap, writer)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn bitmap_with_visited_count(count: usize) -> [u8; BITMAP_SIZE] {
+        let mut bitmap = [0_u8; BITMAP_SIZE];
+        let full_bytes = count / 8;
+        bitmap[..full_bytes].fill(0xff);
+        let remaining_bits = count % 8;
+        if remaining_bits > 0 {
+            bitmap[full_bytes] = 0xff << (8 - remaining_bits);
+        }
+        bitmap
+    }
+
+    #[test]
+    fn fow_snapshot_hash_block_data_matches_eraser_format() {
+        assert_eq!(
+            fow_snapshot_hash_block_data(&bitmap_with_visited_count(0)),
+            [35, 192, 0]
+        );
+        assert_eq!(
+            fow_snapshot_hash_block_data(&bitmap_with_visited_count(100)),
+            [35, 192, 100]
+        );
+        assert_eq!(
+            fow_snapshot_hash_block_data(&bitmap_with_visited_count(4096)),
+            [35, 208, 0]
+        );
+    }
 }
