@@ -211,7 +211,7 @@ const FOW_TILE_HEADER_SIZE: usize = (TILE_WIDTH * TILE_WIDTH * 2) as usize;
 const FOW_BLOCK_EXTRA_DATA_SIZE: usize = 3;
 const FOW_BLOCK_SIZE: usize = BITMAP_SIZE + FOW_BLOCK_EXTRA_DATA_SIZE;
 const FOW_SNAPSHOT_TILE_Z: i32 = 9;
-const FOW_SNAPSHOT_INDEX_SIZE: usize = FOW_TILE_HEADER_SIZE;
+const FOW_SNAPSHOT_TILE_BITSET_SIZE: usize = 2048;
 const FOW_SNAPSHOT_METADATA_SIZE: usize = 4012;
 const FOW_EARTH_RADIUS_METERS: f64 = 6378137.0;
 
@@ -577,7 +577,7 @@ fn fow_snapshot_metadata(total_area_square_meters: u64) -> Result<Vec<u8>> {
 }
 
 fn serialize_fow_snapshot_tile_index(
-    tile_index: &[u8; FOW_SNAPSHOT_INDEX_SIZE],
+    tile_index: &[u8; FOW_SNAPSHOT_TILE_BITSET_SIZE],
 ) -> Result<Vec<u8>> {
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
     encoder.write_all(tile_index)?;
@@ -622,7 +622,7 @@ pub fn fow_bitmap_to_snapshot_file<T: Write + Seek>(
     let mut pending_layers: BTreeMap<(i32, u16, u16), FoWSnapshotTile> = BTreeMap::new();
     let mut export_tiles = Vec::new();
     let mut export_layers = Vec::new();
-    let mut tile_index = [0_u8; FOW_SNAPSHOT_INDEX_SIZE];
+    let mut tile_index = [0_u8; FOW_SNAPSHOT_TILE_BITSET_SIZE];
     let mut total_area_square_meters = 0_u64;
 
     for (tile_key, tile) in tiles {
@@ -643,15 +643,11 @@ pub fn fow_bitmap_to_snapshot_file<T: Write + Seek>(
             FoWSnapshotFileType::Hash,
         );
 
-        let tile_index_header_idx =
-            ((tile_key.y as usize / 2) * TILE_WIDTH as usize) + (tile_key.x as usize / 2);
-        let tile_index_offset = tile_index_header_idx * 2;
-        tile_index[tile_index_offset] ^= match (tile_key.x % 2 != 0, tile_key.y % 2 != 0) {
-            (false, false) => 128,
-            (true, false) => 64,
-            (false, true) => 32,
-            (true, true) => 16,
-        };
+        let tile_index_offset =
+            ((tile_key.y as usize * MAP_WIDTH as usize) + tile_key.x as usize) / 8;
+        if tile_index_offset < tile_index.len() {
+            tile_index[tile_index_offset] ^= 128 >> (tile_key.x % 8);
+        }
 
         let tile_area = fow_tile_row_area_square_meters(tile_key.y);
         total_area_square_meters +=
