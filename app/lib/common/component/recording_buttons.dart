@@ -46,7 +46,7 @@ class _RecordingButtonsState extends State<RecordingButtons> {
           confirmTextColor: Colors.white);
 
       if (shouldEndJourney) {
-        gpsManager.changeRecordingState(GpsRecordingStatus.none);
+        await gpsManager.changeRecordingState(GpsRecordingStatus.none);
       }
     });
   }
@@ -56,7 +56,7 @@ class _RecordingButtonsState extends State<RecordingButtons> {
     GpsRecordingStatus status,
   ) async {
     await _runAfterPressFeedback(() async {
-      gpsManager.changeRecordingState(status);
+      await gpsManager.changeRecordingState(status);
     });
   }
 
