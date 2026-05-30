@@ -17,6 +17,16 @@ pub fn populate_total_areas(
     tile_lookup: &[TileMembership],
     block_lookup: &BTreeMap<(u16, u16), Vec<Option<GeoEntityId>>>,
 ) {
+    // `block_area_m2(x, y)` is independent of `x`: in the projection `lng` is
+    // linear in `x` (so the per-block longitude span is constant) and `lat`
+    // depends only on `y`. Precompute one area per grid row once (65_536 evals)
+    // instead of re-evaluating sinh/atan/cos for every cell of every tile
+    // (~1.8 B evals per POV). The lookup feeds the same accumulation order, so
+    // the result is bit-identical to the per-cell computation.
+    let row_area: Vec<f64> = (0..MAP_WIDTH as i64 * TILE_WIDTH as i64)
+        .map(|by| block_area_m2(0, by))
+        .collect();
+
     let mut country_areas: BTreeMap<GeoEntityId, f64> = BTreeMap::new();
     for ty in 0..MAP_WIDTH {
         for tx in 0..MAP_WIDTH {
@@ -26,10 +36,9 @@ pub fn populate_total_areas(
                 TileMembership::Single(id) => {
                     let mut tile_area = 0.0;
                     for byo in 0..TILE_WIDTH {
-                        for bxo in 0..TILE_WIDTH {
-                            let bx = tx as i64 * TILE_WIDTH as i64 + bxo as i64;
-                            let by = ty as i64 * TILE_WIDTH as i64 + byo as i64;
-                            tile_area += block_area_m2(bx, by);
+                        let by = ty * TILE_WIDTH + byo;
+                        for _bxo in 0..TILE_WIDTH {
+                            tile_area += row_area[by];
                         }
                     }
                     *country_areas.entry(*id).or_default() += tile_area;
@@ -40,12 +49,11 @@ pub fn populate_total_areas(
                         None => continue,
                     };
                     for byo in 0..TILE_WIDTH {
+                        let by = ty * TILE_WIDTH + byo;
                         for bxo in 0..TILE_WIDTH {
                             let cell = &blocks[byo * TILE_WIDTH + bxo];
                             if let Some(id) = cell {
-                                let bx = tx as i64 * TILE_WIDTH as i64 + bxo as i64;
-                                let by = ty as i64 * TILE_WIDTH as i64 + byo as i64;
-                                *country_areas.entry(*id).or_default() += block_area_m2(bx, by);
+                                *country_areas.entry(*id).or_default() += row_area[by];
                             }
                         }
                     }
