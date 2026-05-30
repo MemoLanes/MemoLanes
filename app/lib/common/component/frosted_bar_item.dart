@@ -32,7 +32,7 @@ class FrostedBarItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final themeColor = selectedColor;
     final baseUnselectedColor = unselectedColor ?? Colors.grey.shade800;
-    final baseDisabledColor = disabledColor ?? Colors.grey.shade400;
+    final baseDisabledColor = disabledColor ?? Colors.grey.shade500;
 
     final Color bgColor = isSelected
         ? (isEnabled
@@ -55,7 +55,6 @@ class FrostedBarItem extends StatelessWidget {
           vertical: verticalMargin,
           horizontal: horizontalMargin,
         ),
-        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(12),
@@ -63,12 +62,15 @@ class FrostedBarItem extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SizedBox(
-              width: 24,
-              height: 24,
-              child: Align(
-                alignment: Alignment.center,
-                child: Icon(icon, color: contentColor, size: 22),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: Align(
+                  alignment: Alignment.center,
+                  child: Icon(icon, color: contentColor, size: 22),
+                ),
               ),
             ),
             const SizedBox(height: 2),
