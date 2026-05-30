@@ -191,15 +191,29 @@ check:
     just flutter-check
     @echo "✅ Checking completed"
 
+# Geo tooling tests; CI runs these only when geo-related files change
+[group: 'dev']
+test-geo:
+    @echo "🧪 Running geo tooling tests"
+    just geo-data-format-test
+    just geo-rasterizer-test
+    @echo "✅ Geo tooling tests completed"
+
+# App tests (journey kernel + rust core); regenerates geo bins first
+[group: 'dev']
+test-app:
+    @echo "🧪 Running app tests"
+    just rasterize-geo
+    just journey-kernel-test
+    just rust-test
+    @echo "✅ App tests completed"
+
 # Run all tests
 [group: 'dev']
 test:
     @echo "🛠️  Running all tests"
-    just rasterize-geo
-    just journey-kernel-test
-    just geo-data-format-test
-    just geo-rasterizer-test
-    just rust-test
+    just test-geo
+    just test-app
     @echo "✅ Test completed"
 
 # Formatting all code

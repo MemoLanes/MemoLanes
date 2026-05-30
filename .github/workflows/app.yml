@@ -115,10 +115,10 @@ jobs:
         if: steps.changes.outputs.geo == 'true'
         working-directory: app
         run: just geo-rasterizer-check
-      - name: Geo Rasterizer Test
+      - name: Geo Tests
         if: steps.changes.outputs.geo == 'true'
         working-directory: app
-        run: just geo-rasterizer-test
+        run: just test-geo
       - name: Geo Rasterize All POVs
         working-directory: app
         run: just rasterize-geo
@@ -165,4 +165,4 @@ jobs:
         
       - name: Flutter and Rust Code Test
         working-directory: app
-        run: just test
+        run: just test-app
