@@ -1,48 +1,55 @@
-//! Atomic write via `.tmp` + rename, plus an advisory exclusive lock
-//! to prevent two parallel rasterizer invocations from racing.
+//! Atomic publish: stream bytes into a deterministic `<path>.tmp`, fsync,
+//! then rename over `path`. The rename is the only thing readers and the
+//! smart-skip cache rely on — an observer ever sees the old complete file or
+//! the new complete file, never a half-written one.
+//!
+//! The temp name is intentionally `<path>.tmp` (a fixed sibling), not a
+//! random tempfile name:
+//!   * `.gitignore` matches `*.bin.tmp` / `natural_earth/*.tmp`, so a
+//!     leftover from a killed run never appears as an untracked file;
+//!   * the fixed name self-heals — the next run's `File::create` truncates
+//!     any leftover in place.
+//!
+//! The tradeoff: two *concurrent* writers of the same `path` would race on
+//! the shared `.tmp` inode. That can't happen in this tool — the three POV
+//! bins use distinct paths and `just rasterize-geo` runs them sequentially.
+//! If same-path parallelism is ever added, switch to random temp names (the
+//! `tempfile` crate, whose `persist` is also cross-device-safe) rather than
+//! reintroducing a lock.
+//!
+//! `tmp` must be a sibling of `path` (same directory): `std::fs::rename` is
+//! not cross-device.
 
-use std::fs::{File, OpenOptions};
+use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
-use fs2::FileExt;
 
-pub struct LockedOutput {
-    _lock: File,
-    pub lock_path: PathBuf,
+/// `path` with `suffix` appended, e.g. `geo_data.bin` -> `geo_data.bin.tmp`.
+/// Uses `OsString::push` (append), NOT `Path::with_extension`, which would
+/// *replace* the extension (`geo_data.tmp`) and break both the `*.bin.tmp`
+/// gitignore glob and the sibling-tmp convention.
+fn sibling(path: &Path, suffix: &str) -> PathBuf {
+    let mut s = path.as_os_str().to_owned();
+    s.push(suffix);
+    PathBuf::from(s)
 }
 
-/// Acquire an advisory exclusive lock on `<path>.lock`. Drops automatically
-/// when the returned guard goes out of scope. Blocks if another process holds it.
-pub fn acquire_lock(path: &Path) -> Result<LockedOutput> {
-    let mut lock_path = path.as_os_str().to_owned();
-    lock_path.push(".lock");
-    let lock_path = PathBuf::from(lock_path);
-    let lock = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .truncate(false)
-        .open(&lock_path)
-        .with_context(|| format!("opening lock {}", lock_path.display()))?;
-    lock.lock_exclusive()
-        .with_context(|| format!("locking {}", lock_path.display()))?;
-    Ok(LockedOutput {
-        _lock: lock,
-        lock_path,
-    })
-}
-
-/// Write `bytes` to `path` atomically: write to `<path>.tmp`, fsync, rename.
-pub fn write_atomically(path: &Path, bytes: &[u8]) -> Result<()> {
-    let mut tmp_os = path.as_os_str().to_owned();
-    tmp_os.push(".tmp");
-    let tmp = PathBuf::from(tmp_os);
+/// Atomically replace `path` with whatever `write` streams into the temp
+/// file. On error the partial `<path>.tmp` is left behind and reclaimed by
+/// the next run's `File::create`. The `fsync` is belt-and-suspenders for a
+/// regenerable artifact; the parent-dir fsync is deliberately skipped.
+pub fn write_atomically_with(
+    path: &Path,
+    write: impl FnOnce(&mut File) -> Result<()>,
+) -> Result<()> {
+    let tmp = sibling(path, ".tmp");
     {
         let mut f = File::create(&tmp).with_context(|| format!("creating {}", tmp.display()))?;
-        f.write_all(bytes)?;
-        f.sync_all()?;
+        write(&mut f).with_context(|| format!("writing {}", tmp.display()))?;
+        f.sync_all()
+            .with_context(|| format!("fsync {}", tmp.display()))?;
     }
     // Windows: rename over an existing file fails. Remove first.
     #[cfg(windows)]
@@ -50,6 +57,13 @@ pub fn write_atomically(path: &Path, bytes: &[u8]) -> Result<()> {
         std::fs::remove_file(path).with_context(|| format!("removing {}", path.display()))?;
     }
     std::fs::rename(&tmp, path)
-        .with_context(|| format!("renaming {} → {}", tmp.display(), path.display()))?;
-    Ok(())
+        .with_context(|| format!("renaming {} → {}", tmp.display(), path.display()))
+}
+
+/// Convenience wrapper: atomically write an in-memory buffer to `path`.
+pub fn write_atomically(path: &Path, bytes: &[u8]) -> Result<()> {
+    write_atomically_with(path, |f| {
+        f.write_all(bytes)?;
+        Ok(())
+    })
 }

@@ -1,6 +1,6 @@
 use std::fs;
 
-use geo_rasterizer::atomic_write::{acquire_lock, write_atomically};
+use geo_rasterizer::atomic_write::{write_atomically, write_atomically_with};
 
 #[test]
 fn write_atomically_persists_content() {
@@ -33,13 +33,15 @@ fn write_atomically_creates_no_tmp_residue() {
 }
 
 #[test]
-fn acquire_lock_creates_lock_file() {
+fn write_atomically_with_streams_in_chunks() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("out.bin");
-    let guard = acquire_lock(&path).unwrap();
-    assert!(
-        guard.lock_path.exists(),
-        "lock file should exist while held"
-    );
-    drop(guard); // explicit drop to confirm the API permits it
+    write_atomically_with(&path, |f| {
+        use std::io::Write;
+        f.write_all(b"chunk-a")?;
+        f.write_all(b"chunk-b")?;
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(fs::read(&path).unwrap(), b"chunk-achunk-b");
 }

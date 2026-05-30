@@ -7,7 +7,7 @@ use clap::Parser;
 use geo_data_format::{write_geo_data, Worldview};
 use geo_rasterizer::{
     area::populate_total_areas,
-    atomic_write::{acquire_lock, write_atomically},
+    atomic_write::write_atomically,
     cache::{compute_provenance_hash, read_existing_hash},
     download::{ensure_geojson, Pov},
     entities::assemble_entities,
@@ -62,9 +62,6 @@ fn main() -> Result<()> {
     let pov = Pov::from_str(&args.pov)?;
     let started = Instant::now();
     eprintln!("[geo_rasterizer] started");
-
-    let _lock = acquire_lock(&args.output)
-        .with_context(|| format!("acquiring lock for {}", args.output.display()))?;
 
     if args.download_only && !args.ensure_source {
         anyhow::bail!("--download-only requires --ensure-source (nothing to do otherwise)");

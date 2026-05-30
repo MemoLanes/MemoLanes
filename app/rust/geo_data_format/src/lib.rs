@@ -37,6 +37,8 @@ mod format;
 mod packed_tile;
 mod types;
 
-pub use format::{read_geo_data, write_geo_data, GeoData, TileEntry};
+pub use format::{
+    expected_total_len, read_geo_data, write_geo_data, GeoData, TileEntry, HEADER_LEN,
+};
 pub use packed_tile::PackedTile;
 pub use types::*;

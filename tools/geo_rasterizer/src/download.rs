@@ -13,6 +13,8 @@ use anyhow::{anyhow, bail, Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use sha2::{Digest, Sha256};
 
+use crate::atomic_write::write_atomically_with;
+
 /// Commit pinned on `nvkelso/natural-earth-vector` (master @ 2026-04-26).
 /// Bumping this shifts entity IDs, areas, and border tiles for every POV.
 pub const NATURAL_EARTH_COMMIT: &str = "ca96624a56bd078437bca8184e78163e5039ad19";
@@ -171,20 +173,14 @@ fn download_to(path: &Path, url: &str) -> Result<()> {
         ProgressBar::new_spinner()
     };
 
-    let parent = path.parent().filter(|p| !p.as_os_str().is_empty());
-    let mut tmp = match parent {
-        Some(p) => tempfile::NamedTempFile::new_in(p),
-        None => tempfile::NamedTempFile::new_in("."),
-    }
-    .context("creating download tempfile")?;
     {
         let mut reader = pb.wrap_read(resp.into_reader());
-        std::io::copy(&mut reader, tmp.as_file_mut())?;
-        tmp.as_file_mut().sync_all()?;
+        write_atomically_with(path, |f| {
+            std::io::copy(&mut reader, f)?;
+            Ok(())
+        })?;
     }
     pb.finish_and_clear();
-    tmp.persist(path)
-        .map_err(|e| anyhow!("renaming download into place: {e}"))?;
     Ok(())
 }
 

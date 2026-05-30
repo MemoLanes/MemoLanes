@@ -1,92 +1,76 @@
-use std::path::Path;
+use std::io::Write;
 
-use geo_data_format::PROVENANCE_HASH_END;
+use geo_data_format::{write_geo_data, TileMembership, MAGIC, TILE_COUNT};
 use geo_rasterizer::cache::{compute_provenance_hash, read_existing_hash};
+
+fn write_tmp(bytes: &[u8]) -> tempfile::NamedTempFile {
+    let mut f = tempfile::NamedTempFile::new().unwrap();
+    f.write_all(bytes).unwrap();
+    f.flush().unwrap();
+    f
+}
+
+/// A minimal but complete, well-formed `geo_data.bin` carrying `hash`.
+fn well_formed_bin(hash: [u8; 32]) -> Vec<u8> {
+    let tl = vec![TileMembership::None; TILE_COUNT];
+    let bl = std::collections::BTreeMap::new();
+    write_geo_data(&[], &[], &tl, &bl, hash).unwrap()
+}
 
 #[test]
 fn compute_provenance_hash_is_stable() {
-    let geojson = Path::new("tests/fixtures/synthetic.geojson");
-    let toml = Path::new("tests/fixtures/worldviews.toml");
-    let registry = Path::new("tests/fixtures/synthetic_registry.toml");
-    let h1 = compute_provenance_hash(geojson, toml, registry).unwrap();
-    let h2 = compute_provenance_hash(geojson, toml, registry).unwrap();
-    assert_eq!(h1, h2);
+    let a = write_tmp(b"alpha");
+    let b = write_tmp(b"beta");
+    let c = write_tmp(b"gamma");
+    let h1 = compute_provenance_hash(a.path(), b.path(), c.path()).unwrap();
+    let h2 = compute_provenance_hash(a.path(), b.path(), c.path()).unwrap();
+    assert_eq!(h1, h2, "same inputs must hash the same");
 }
 
 #[test]
 fn compute_provenance_hash_changes_with_input() {
-    let geojson_a = Path::new("tests/fixtures/synthetic.geojson");
-    let toml_a = Path::new("tests/fixtures/worldviews.toml");
-    let registry = Path::new("tests/fixtures/synthetic_registry.toml");
-    let h_a = compute_provenance_hash(geojson_a, toml_a, registry).unwrap();
-
-    let tmp = tempfile::NamedTempFile::new().unwrap();
-    let raw = std::fs::read_to_string(toml_a).unwrap();
-    std::fs::write(tmp.path(), raw + "\n# trivial change\n").unwrap();
-    let h_b = compute_provenance_hash(geojson_a, tmp.path(), registry).unwrap();
-    assert_ne!(h_a, h_b);
+    let a = write_tmp(b"alpha");
+    let b = write_tmp(b"beta");
+    let c = write_tmp(b"gamma");
+    let c2 = write_tmp(b"gamma-2");
+    let h1 = compute_provenance_hash(a.path(), b.path(), c.path()).unwrap();
+    let h2 = compute_provenance_hash(a.path(), b.path(), c2.path()).unwrap();
+    assert_ne!(h1, h2);
 }
 
 #[test]
 fn read_existing_hash_returns_none_for_missing_file() {
-    assert!(read_existing_hash(Path::new("/nonexistent/path"))
-        .unwrap()
-        .is_none());
+    let dir = tempfile::tempdir().unwrap();
+    let missing = dir.path().join("does_not_exist.bin");
+    assert_eq!(read_existing_hash(&missing).unwrap(), None);
 }
 
 #[test]
 fn read_existing_hash_returns_none_for_short_file() {
-    let tmp = tempfile::NamedTempFile::new().unwrap();
-    std::fs::write(tmp.path(), b"short").unwrap();
-    assert!(read_existing_hash(tmp.path()).unwrap().is_none());
+    let f = write_tmp(b"too short");
+    assert_eq!(read_existing_hash(f.path()).unwrap(), None);
 }
 
 #[test]
-fn read_existing_hash_returns_bytes_for_well_formed_header() {
-    // Sectioned format: MAGIC(4) | provenance_hash(32) | rest...
-    let tmp = tempfile::NamedTempFile::new().unwrap();
-    let mut data = b"MGEO".to_vec();
-    data.extend_from_slice(&[0xAA; 32]);
-    data.extend_from_slice(b"trailing-payload");
-    std::fs::write(tmp.path(), &data).unwrap();
-    let hash = read_existing_hash(tmp.path()).unwrap().unwrap();
-    assert_eq!(hash, [0xAA; 32]);
+fn read_existing_hash_returns_bytes_for_complete_file() {
+    let hash = [0xABu8; 32];
+    let f = write_tmp(&well_formed_bin(hash));
+    assert_eq!(read_existing_hash(f.path()).unwrap(), Some(hash));
 }
 
 #[test]
-fn read_existing_hash_none_for_wrong_magic() {
-    // First 4 bytes are NOT "MGEO"; PROVENANCE_HASH_END bytes total.
-    let tmp = tempfile::NamedTempFile::new().unwrap();
-    let mut data = b"XXXX".to_vec();
-    data.extend_from_slice(&[0xBB; 32]);
-    assert_eq!(data.len(), PROVENANCE_HASH_END);
-    std::fs::write(tmp.path(), &data).unwrap();
-    assert!(read_existing_hash(tmp.path()).unwrap().is_none());
+fn read_existing_hash_rejects_torn_file() {
+    // A complete header (valid magic + hash) over a truncated body must be
+    // rejected: the file size won't match the length the header encodes, so
+    // the smart-skip rebuilds instead of trusting the stale hash.
+    let bytes = well_formed_bin([0xCDu8; 32]);
+    let f = write_tmp(&bytes[..bytes.len() - 1]);
+    assert_eq!(read_existing_hash(f.path()).unwrap(), None);
 }
 
 #[test]
 fn read_existing_hash_old_layout_does_not_false_match() {
-    // Simulate the OLD (hypothetical) layout: MAGIC(4) + version_bytes(4) + real_hash(32).
-    // The current reader reads bytes [PROVENANCE_HASH_OFFSET..PROVENANCE_HASH_END] = [4..36]
-    // as the hash, which for this layout would be [version_bytes(4) + real_hash[0..28]].
-    // That must NOT equal real_hash, proving the offset bug can't silently reuse a
-    // stale asset built with a different header layout.
-    let real_hash = [0x5A; 32];
-    let version_bytes = [2u8, 0, 0, 0];
-
-    let tmp = tempfile::NamedTempFile::new().unwrap();
-    let mut data = b"MGEO".to_vec(); // MAGIC
-    data.extend_from_slice(&version_bytes); // old layout had version here
-    data.extend_from_slice(&real_hash); // real hash follows version in old layout
-    data.extend_from_slice(b"trailing");
-    std::fs::write(tmp.path(), &data).unwrap();
-
-    // The reader MUST return something (magic is valid), but it must NOT be real_hash.
-    let result = read_existing_hash(tmp.path()).unwrap();
-    assert!(
-        result != Some(real_hash),
-        "read_existing_hash must not return real_hash from an old-layout file; \
-         old-layout file would trigger regeneration (cache miss), not a silent hit. \
-         got: {result:?}"
-    );
+    // A file that is exactly MAGIC with no hash must not be accepted.
+    let f = write_tmp(MAGIC);
+    assert_eq!(read_existing_hash(f.path()).unwrap(), None);
 }

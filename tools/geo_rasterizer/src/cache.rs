@@ -44,30 +44,45 @@ pub fn compute_provenance_hash(
 }
 
 /// Read the embedded provenance hash from an existing `geo_data.bin`.
-/// Returns `Ok(None)` if the file is missing or shorter than the
-/// header (i.e., not a valid bin we want to compare against).
+/// Returns `Ok(None)` if the file is missing, shorter than the header, has
+/// the wrong magic, or is torn (its size doesn't match the length its own
+/// header implies) — in every case the caller treats it as "no usable
+/// cache" and rebuilds.
 ///
-/// Sectioned format layout: `MAGIC(4) | provenance_hash(32) | ...`
-/// The hash is therefore at byte offsets
-/// `geo_data_format::PROVENANCE_HASH_OFFSET..geo_data_format::PROVENANCE_HASH_END`.
+/// The torn-size check is the self-heal: the provenance hash lives at the
+/// front of the header (`PROVENANCE_HASH_OFFSET..PROVENANCE_HASH_END`), so a
+/// write interrupted after the header but before the body would otherwise
+/// present a matching hash on top of a truncated file and poison the
+/// smart-skip into never rebuilding. The header fully determines the
+/// correct file size (see [`geo_data_format::expected_total_len`]), so we
+/// reject any mismatch.
+///
+/// Sectioned format layout: `MAGIC(4) | provenance_hash(32) | sections | ...`
 pub fn read_existing_hash(bin_path: &Path) -> Result<Option<[u8; 32]>> {
     let f = match File::open(bin_path) {
         Ok(f) => f,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(e).context(format!("opening {}", bin_path.display())),
     };
-    let mut buf = [0u8; geo_data_format::PROVENANCE_HASH_END];
+    let file_len = f
+        .metadata()
+        .with_context(|| format!("stat {}", bin_path.display()))?
+        .len();
+    let mut buf = [0u8; geo_data_format::HEADER_LEN];
     let mut reader = BufReader::new(f);
     let mut total = 0;
-    while total < geo_data_format::PROVENANCE_HASH_END {
+    while total < geo_data_format::HEADER_LEN {
         let n = reader.read(&mut buf[total..])?;
         if n == 0 {
             return Ok(None);
         }
         total += n;
     }
-    if &buf[0..geo_data_format::PROVENANCE_HASH_OFFSET] != geo_data_format::MAGIC {
-        return Ok(None);
+    // Reject torn writes: a valid header must match the file size it encodes.
+    // `expected_total_len` also rejects a bad magic.
+    match geo_data_format::expected_total_len(&buf) {
+        Some(expected) if expected as u64 == file_len => {}
+        _ => return Ok(None),
     }
     let mut hash = [0u8; 32];
     hash.copy_from_slice(
