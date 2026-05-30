@@ -11,10 +11,10 @@ fn golden_output_is_byte_identical() {
     let status = Command::new(env!("CARGO_BIN_EXE_geo_rasterizer"))
         .current_dir(env!("CARGO_MANIFEST_DIR"))
         .args([
+            "--pov",
+            "iso",
             "--countries",
             "tests/fixtures/synthetic.geojson",
-            "--worldviews",
-            "tests/fixtures/worldviews.toml",
             "--registry",
             "tests/fixtures/synthetic_registry.toml",
             "--output",

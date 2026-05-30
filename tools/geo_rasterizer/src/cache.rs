@@ -5,27 +5,30 @@ use std::io::{BufReader, Read};
 use std::path::Path;
 
 use anyhow::{Context, Result};
+use geo_data_format::Worldview;
 use sha2::{Digest, Sha256};
 
 /// SHA-256 identifying the data instance this run would produce:
-/// `GEO_DATA_VERSION` (4 LE bytes, a domain-separation salt) followed by
-/// the raw bytes of `geojson_path`, `worldviews_path`, then
-/// `registry_path`, in that order with no separator.
+/// `GEO_DATA_VERSION` (4 LE bytes, a domain-separation salt), the raw bytes
+/// of `geojson_path` then `registry_path`, then the `worldviews` list encoded
+/// as length-prefixed fields, in that order.
 ///
 /// The version salt is what closes the "same inputs, changed
 /// rasterizer/format" hole: bumping `geo_data_format::GEO_DATA_VERSION`
-/// changes this hash even when the source files are byte-identical, so
-/// the smart-skip rebuilds and any runtime consumer cache
-/// invalidates. Inputs-only equivalent: `(printf version; cat geojson
-/// worldviews registry) | sha256sum`.
+/// changes this hash even when the inputs are byte-identical, so the
+/// smart-skip rebuilds and any runtime consumer cache invalidates.
+///
+/// Worldviews are derived from `Pov::ALL` rather than a file, so their content
+/// is folded in via a fixed length-prefixed encoding (not a serializer's
+/// defaults) — deterministic by construction and decoupled from bincode.
 pub fn compute_provenance_hash(
     geojson_path: &Path,
-    worldviews_path: &Path,
     registry_path: &Path,
+    worldviews: &[Worldview],
 ) -> Result<[u8; 32]> {
     let mut hasher = Sha256::new();
     hasher.update(geo_data_format::GEO_DATA_VERSION.to_le_bytes());
-    for path in [geojson_path, worldviews_path, registry_path] {
+    for path in [geojson_path, registry_path] {
         let f = File::open(path).with_context(|| format!("opening {}", path.display()))?;
         let mut reader = BufReader::new(f);
         let mut buf = [0u8; 64 * 1024];
@@ -35,6 +38,14 @@ pub fn compute_provenance_hash(
                 break;
             }
             hasher.update(&buf[..n]);
+        }
+    }
+    // Length-prefixed so distinct field boundaries can't collide.
+    hasher.update((worldviews.len() as u32).to_le_bytes());
+    for wv in worldviews {
+        for field in [&wv.id, &wv.name_key, &wv.description_key] {
+            hasher.update((field.len() as u32).to_le_bytes());
+            hasher.update(field.as_bytes());
         }
     }
     let out = hasher.finalize();
@@ -102,14 +113,31 @@ mod tests {
         f
     }
 
+    fn wv(id: &str) -> Worldview {
+        Worldview {
+            id: id.into(),
+            name_key: format!("worldview.{id}.name"),
+            description_key: format!("worldview.{id}.desc"),
+        }
+    }
+
     #[test]
     fn registry_change_changes_provenance_hash() {
         let geo = tmp(b"GEO");
-        let wv = tmp(b"WV");
+        let wvs = vec![wv("iso")];
         let r1 = tmp(b"REG-A");
         let r2 = tmp(b"REG-B");
-        let h1 = compute_provenance_hash(geo.path(), wv.path(), r1.path()).unwrap();
-        let h2 = compute_provenance_hash(geo.path(), wv.path(), r2.path()).unwrap();
+        let h1 = compute_provenance_hash(geo.path(), r1.path(), &wvs).unwrap();
+        let h2 = compute_provenance_hash(geo.path(), r2.path(), &wvs).unwrap();
         assert_ne!(h1, h2, "registry must participate in the cache key");
+    }
+
+    #[test]
+    fn worldview_change_changes_provenance_hash() {
+        let geo = tmp(b"GEO");
+        let reg = tmp(b"REG");
+        let h1 = compute_provenance_hash(geo.path(), reg.path(), &[wv("iso")]).unwrap();
+        let h2 = compute_provenance_hash(geo.path(), reg.path(), &[wv("chn")]).unwrap();
+        assert_ne!(h1, h2, "worldviews must participate in the cache key");
     }
 }

@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use geo_rasterizer::parse::{parse_geojson, parse_worldviews, validate_no_antimeridian_span};
+use geo_rasterizer::parse::{parse_geojson, validate_no_antimeridian_span};
 
 #[test]
 fn parse_geojson_drops_no_features_in_synthetic() {
@@ -36,13 +36,6 @@ fn parse_geojson_skips_seven_seas() {
     std::fs::write(tmp.path(), augmented).unwrap();
     let features = parse_geojson(tmp.path()).unwrap();
     assert_eq!(features.len(), 3); // OCN dropped
-}
-
-#[test]
-fn parse_worldviews_reads_one_worldview() {
-    let wvs = parse_worldviews(Path::new("tests/fixtures/worldviews.toml")).unwrap();
-    assert_eq!(wvs.len(), 1);
-    assert_eq!(wvs[0].id, "iso");
 }
 
 #[test]

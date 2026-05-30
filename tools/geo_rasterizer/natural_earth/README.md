@@ -19,30 +19,34 @@ Natural Earth.
 
 ## Where the pin lives
 
-The exact upstream commit, raw URL, and SHA-256 are pinned as constants in
-`tools/geo_rasterizer/src/download.rs`:
+The exact upstream commit, raw URL base, and per-POV SHA-256s are pinned in
+`app/rust/geo_data_format/src/pov.rs`:
 
 - `NATURAL_EARTH_COMMIT` — git SHA on `nvkelso/natural-earth-vector`
-- `NATURAL_EARTH_URL` — raw.githubusercontent.com URL at that commit
-- `NATURAL_EARTH_SHA256` — SHA-256 of the file's raw bytes
+- `NATURAL_EARTH_BASE` — raw.githubusercontent.com base URL at that commit
+- `Pov::spec().source_sha256` — SHA-256 of each POV file's raw bytes
 
-The file itself is **not checked into the repo** — `just rasterize-geo` (run
-as part of `just pre-build`) downloads it on demand to this directory and
-verifies the hash. The rasterized output `app/assets/geo_data.bin` is also
-generated, not committed.
+The download/verify logic lives in `tools/geo_rasterizer/src/download.rs`.
+
+The files themselves are **not checked into the repo** — `just rasterize-geo`
+(run as part of `just pre-build`) downloads them on demand to this directory
+and verifies the hashes. The rasterized `app/assets/geo_data_*.bin` outputs are
+also generated, not committed.
 
 Two caches make repeat runs fast:
 
 1. **GeoJSON hash check** — skips download if the local file already matches
-   `NATURAL_EARTH_SHA256`.
+   the POV's `source_sha256`.
 2. **Bin hash check** — skips re-rasterization if the existing
-   `geo_data.bin` embeds an input hash matching the current GeoJSON +
-   `worldviews.toml`.
+   `geo_data_<pov>.bin` embeds a provenance hash matching the current GeoJSON +
+   registry + derived worldview list.
 
 ## Updating the pin
 
 1. Pick a new commit on `nvkelso/natural-earth-vector`.
-2. Fetch the file from the new commit's raw URL and recompute its SHA-256.
-3. Update all three constants in `tools/geo_rasterizer/src/download.rs`.
-4. Run `just rasterize-geo` and review the diff in `app/assets/geo_data.bin`
+2. Fetch each POV file from the new commit's raw URL and recompute its SHA-256
+   (`curl -sL "$NATURAL_EARTH_BASE/<file>" | sha256sum`).
+3. Update `NATURAL_EARTH_COMMIT`, `NATURAL_EARTH_BASE`, and each
+   `source_sha256` in `app/rust/geo_data_format/src/pov.rs`.
+4. Run `just rasterize-geo` and review the diff in `app/assets/geo_data_*.bin`
    (entity IDs, areas, and border tiles can shift).

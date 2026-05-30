@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use geo_data_format::{write_geo_data, TileMembership, MAGIC, TILE_COUNT};
+use geo_data_format::{write_geo_data, TileMembership, Worldview, MAGIC, TILE_COUNT};
 use geo_rasterizer::cache::{compute_provenance_hash, read_existing_hash};
 
 fn write_tmp(bytes: &[u8]) -> tempfile::NamedTempFile {
@@ -17,24 +17,32 @@ fn well_formed_bin(hash: [u8; 32]) -> Vec<u8> {
     write_geo_data(&[], &[], &tl, &bl, hash).unwrap()
 }
 
+fn worldviews() -> Vec<Worldview> {
+    vec![Worldview {
+        id: "iso".into(),
+        name_key: "worldview.iso.name".into(),
+        description_key: "worldview.iso.desc".into(),
+    }]
+}
+
 #[test]
 fn compute_provenance_hash_is_stable() {
-    let a = write_tmp(b"alpha");
-    let b = write_tmp(b"beta");
-    let c = write_tmp(b"gamma");
-    let h1 = compute_provenance_hash(a.path(), b.path(), c.path()).unwrap();
-    let h2 = compute_provenance_hash(a.path(), b.path(), c.path()).unwrap();
+    let geo = write_tmp(b"alpha");
+    let reg = write_tmp(b"gamma");
+    let wvs = worldviews();
+    let h1 = compute_provenance_hash(geo.path(), reg.path(), &wvs).unwrap();
+    let h2 = compute_provenance_hash(geo.path(), reg.path(), &wvs).unwrap();
     assert_eq!(h1, h2, "same inputs must hash the same");
 }
 
 #[test]
 fn compute_provenance_hash_changes_with_input() {
-    let a = write_tmp(b"alpha");
-    let b = write_tmp(b"beta");
-    let c = write_tmp(b"gamma");
-    let c2 = write_tmp(b"gamma-2");
-    let h1 = compute_provenance_hash(a.path(), b.path(), c.path()).unwrap();
-    let h2 = compute_provenance_hash(a.path(), b.path(), c2.path()).unwrap();
+    let geo = write_tmp(b"alpha");
+    let reg = write_tmp(b"gamma");
+    let reg2 = write_tmp(b"gamma-2");
+    let wvs = worldviews();
+    let h1 = compute_provenance_hash(geo.path(), reg.path(), &wvs).unwrap();
+    let h2 = compute_provenance_hash(geo.path(), reg2.path(), &wvs).unwrap();
     assert_ne!(h1, h2);
 }
 

@@ -142,31 +142,13 @@ get-frb-version:
 [group: 'dev']
 rasterize-geo:
     cargo run --manifest-path ../tools/geo_rasterizer/Cargo.toml --release --bin geo_rasterizer -- \
-      --countries ../tools/geo_rasterizer/natural_earth/ne_10m_admin_0_countries_iso.geojson --pov iso \
-      --worldviews ../tools/geo_rasterizer/worldviews.toml --registry ../tools/geo_rasterizer/geo_entity_registry.toml \
-      --output assets/geo_data_iso.bin --ensure-source
-    cargo run --manifest-path ../tools/geo_rasterizer/Cargo.toml --release --bin geo_rasterizer -- \
-      --countries ../tools/geo_rasterizer/natural_earth/ne_10m_admin_0_countries_chn.geojson --pov chn \
-      --worldviews ../tools/geo_rasterizer/worldviews.toml --registry ../tools/geo_rasterizer/geo_entity_registry.toml \
-      --output assets/geo_data_chn.bin --ensure-source
-    cargo run --manifest-path ../tools/geo_rasterizer/Cargo.toml --release --bin geo_rasterizer -- \
-      --countries ../tools/geo_rasterizer/natural_earth/ne_10m_admin_0_countries_usa.geojson --pov usa \
-      --worldviews ../tools/geo_rasterizer/worldviews.toml --registry ../tools/geo_rasterizer/geo_entity_registry.toml \
-      --output assets/geo_data_usa.bin --ensure-source
+      --ensure-source
     @echo "✅ geo_data_{iso,chn,usa}.bin generated"
 
 [group: 'dev']
 fetch-natural-earth:
     cargo run --manifest-path ../tools/geo_rasterizer/Cargo.toml --release --bin geo_rasterizer -- \
-      --countries ../tools/geo_rasterizer/natural_earth/ne_10m_admin_0_countries_iso.geojson --pov iso \
-      --worldviews ../tools/geo_rasterizer/worldviews.toml --output /tmp/_ne_iso.bin --ensure-source --download-only
-    cargo run --manifest-path ../tools/geo_rasterizer/Cargo.toml --release --bin geo_rasterizer -- \
-      --countries ../tools/geo_rasterizer/natural_earth/ne_10m_admin_0_countries_chn.geojson --pov chn \
-      --worldviews ../tools/geo_rasterizer/worldviews.toml --output /tmp/_ne_chn.bin --ensure-source --download-only
-    cargo run --manifest-path ../tools/geo_rasterizer/Cargo.toml --release --bin geo_rasterizer -- \
-      --countries ../tools/geo_rasterizer/natural_earth/ne_10m_admin_0_countries_usa.geojson --pov usa \
-      --worldviews ../tools/geo_rasterizer/worldviews.toml --output /tmp/_ne_usa.bin --ensure-source --download-only
-    @rm -f /tmp/_ne_iso.bin* /tmp/_ne_chn.bin* /tmp/_ne_usa.bin*
+      --ensure-source --download-only
     @echo "✅ natural earth iso/chn/usa present in ../tools/geo_rasterizer/natural_earth/"
 
 # Generate all required files for flutter build. Need to be reran every time rust api or journey kernel is updated
@@ -232,8 +214,8 @@ format:
 regenerate-golden:
     @echo "🛠️  Regenerating geo_rasterizer golden fixture"
     cargo run --manifest-path ../tools/geo_rasterizer/Cargo.toml --bin geo_rasterizer -- \
+      --pov iso \
       --countries ../tools/geo_rasterizer/tests/fixtures/synthetic.geojson \
-      --worldviews ../tools/geo_rasterizer/tests/fixtures/worldviews.toml \
       --registry ../tools/geo_rasterizer/tests/fixtures/synthetic_registry.toml \
       --output ../tools/geo_rasterizer/tests/fixtures/synthetic.bin
     @echo "✅ Golden fixture regenerated"
@@ -242,7 +224,25 @@ regenerate-golden:
 [group: 'dev']
 release-build:
     @echo "🛠️  Building release version"
+
+    # Check if git workspace is clean
+    @(git diff --quiet && git diff --cached --quiet) || (echo "Error: Uncommitted changes exist!"; exit 1)
+
+    @rm -rf ./output
+    @mkdir -p ./output
+
     just pre-build
-    @flutter build apk --release
-    @flutter build ipa --release
+
+    # iOS: testflight
+    @ML_RELEASE_CHANNEL=test-flight flutter build xcarchive --release
+    @cp -R ./build/ios/archive/Runner.xcarchive ./output/test-flight.xcarchive
+
+    # Android: plain-apk
+    @ML_RELEASE_CHANNEL=plain-apk flutter build apk --release
+    @cp ./build/app/outputs/flutter-apk/app-release.apk ./output/plain-apk.apk
+
+    # Android: google-play
+    @ML_RELEASE_CHANNEL=google-play flutter build appbundle --release
+    @cp ./build/app/outputs/bundle/release/app-release.aab ./output/google-play.aab
+
     @echo "✅ Build completed"

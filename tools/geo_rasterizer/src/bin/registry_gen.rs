@@ -9,11 +9,9 @@
 
 use std::path::PathBuf;
 
-use std::str::FromStr;
-
 use anyhow::{bail, Result};
 use clap::Parser;
-use geo_rasterizer::download::Pov;
+use geo_data_format::Pov;
 use geo_rasterizer::entities::continent_code_pub;
 use geo_rasterizer::parse::parse_geojson;
 use geo_rasterizer::registry::{
@@ -51,7 +49,7 @@ fn main() -> Result<()> {
             Some(pair) => pair,
             None => bail!("--source must be in POV:PATH form, got: {source}"),
         };
-        let pov = Pov::from_str(pov_str)?;
+        let pov = Pov::from_id(pov_str)?;
         let path = PathBuf::from(path_str);
         let features = parse_geojson(&path)?;
         let mut items: Vec<(String, bool, geo_types::MultiPolygon<f64>)> = Vec::new();
@@ -64,7 +62,7 @@ fn main() -> Result<()> {
             items.push((f.adm0_a3.clone(), false, f.geometry.clone()));
         }
         let points = merged_representative_points(items);
-        register_pov(&mut reg, pov.id(), &points);
+        register_pov(&mut reg, pov.spec().id, &points);
     }
 
     reg.validate_unique_ids()?;

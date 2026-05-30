@@ -1,10 +1,9 @@
-//! Parse Natural Earth admin-0 GeoJSON and worldviews.toml.
+//! Parse Natural Earth admin-0 GeoJSON.
 
 use std::path::Path;
 
 use anyhow::{anyhow, bail, Context, Result};
 use geo_types::{Geometry, MultiPolygon};
-use serde::Deserialize;
 
 /// One Natural Earth feature, post-filter, with the fields the rasterizer needs.
 pub struct ParsedFeature {
@@ -77,42 +76,6 @@ pub fn parse_geojson(path: &Path) -> Result<Vec<ParsedFeature>> {
         });
     }
     Ok(out)
-}
-
-#[derive(Debug, Deserialize)]
-struct WorldviewsFile {
-    #[serde(default)]
-    worldview: Vec<RawWorldview>,
-}
-
-#[derive(Debug, Deserialize)]
-struct RawWorldview {
-    id: String,
-    name_key: String,
-    description_key: String,
-}
-
-/// One worldview as parsed from `worldviews.toml`.
-pub struct ParsedWorldview {
-    pub id: String,
-    pub name_key: String,
-    pub description_key: String,
-}
-
-pub fn parse_worldviews(path: &Path) -> Result<Vec<ParsedWorldview>> {
-    let raw = std::fs::read_to_string(path)
-        .with_context(|| format!("reading worldviews at {}", path.display()))?;
-    let parsed: WorldviewsFile = toml::from_str(&raw)
-        .with_context(|| format!("parsing worldviews at {}", path.display()))?;
-    Ok(parsed
-        .worldview
-        .into_iter()
-        .map(|w| ParsedWorldview {
-            id: w.id,
-            name_key: w.name_key,
-            description_key: w.description_key,
-        })
-        .collect())
 }
 
 /// Verify that no ring crosses the antimeridian via a single edge between
