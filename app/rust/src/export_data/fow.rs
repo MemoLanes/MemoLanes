@@ -188,7 +188,7 @@ enum FoWSnapshotQuadrant {
 
 impl FoWSnapshotQuadrant {
     fn from_xy(x: usize, y: usize) -> Self {
-        match (x % 2 != 0, y % 2 != 0) {
+        match (!x.is_multiple_of(2), !y.is_multiple_of(2)) {
             (false, false) => Self::TopLeft,
             (true, false) => Self::TopRight,
             (false, true) => Self::BottomLeft,
@@ -357,7 +357,7 @@ pub fn journey_bitmap_to_fwss_file<T: Write + Seek>(
         .system(zip::System::Dos);
 
     let mut tiles = journey_bitmap.iter_tiles().collect::<Vec<_>>();
-    tiles.sort_by_key(|(tile_key, _)| (**tile_key).clone());
+    tiles.sort_by_key(|(tile_key, _)| **tile_key);
     let mut pending_layers: BTreeMap<(i32, u16, u16), FoWSnapshotTile> = BTreeMap::new();
     let mut tile_index = [0_u8; FOW_SNAPSHOT_TILE_BITSET_SIZE];
     let mut total_area_square_meters = 0_u64;
