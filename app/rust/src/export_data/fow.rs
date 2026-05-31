@@ -252,13 +252,11 @@ where
     F: FnMut(&[u8; BITMAP_SIZE], &mut ZlibEncoder<Vec<u8>>) -> Result<()>,
 {
     let mut header = vec![0_u8; FOW_TILE_HEADER_SIZE];
-    let mut active_block_idx = 1;
 
-    for &block_idx in blocks.keys() {
+    for (active_block_idx, &block_idx) in (1..).zip(blocks.keys()) {
         let header_offset = block_idx * 2;
         header[header_offset] = (active_block_idx & 0xff) as u8;
         header[header_offset + 1] = (active_block_idx >> 8) as u8;
-        active_block_idx += 1;
     }
 
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
