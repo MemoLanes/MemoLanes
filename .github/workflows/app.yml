@@ -128,7 +128,7 @@ jobs:
       # over Pov::ALL). CI can't commit, so a non-empty diff means someone bumped
       # a POV/source but forgot to regenerate + commit geo_entity_registry.toml.
       - name: Geo Registry Up To Date
-        run: git diff --exit-code tools/geo_rasterizer/geo_entity_registry.toml
+        run: git -C "$GITHUB_WORKSPACE" diff --exit-code -- tools/geo_rasterizer/geo_entity_registry.toml
 
       # ======== START WASM MODULE ========
       - name: Get Rust Dependencies (journey kernel)
