@@ -51,6 +51,13 @@ geo-data-format-fmt:
     @echo "✅ Code formatting completed"
 
 [group: 'utils']
+[working-directory: '../tools/geo_rasterizer']
+geo-rasterizer-fmt:
+    @echo "🛠️  Formatting code"
+    @cargo fmt --all
+    @echo "✅ Code formatting completed"
+
+[group: 'utils']
 flutter-fmt:
     @echo "🛠️  Formatting code"
     @dart format .
@@ -91,6 +98,15 @@ geo-data-format-check:
     @echo "✅ geo_data_format code check completed"
 
 [group: 'utils']
+[working-directory: '../tools/geo_rasterizer']
+geo-rasterizer-check:
+    @echo "🔍 Checking geo_rasterizer code"
+    @cargo check --all-targets
+    @cargo fmt --all -- --check
+    @cargo clippy --all-targets -- -D warnings
+    @echo "✅ geo_rasterizer code check completed"
+
+[group: 'utils']
 [working-directory: 'rust']
 rust-test:
     @echo "🧪 Running Rust tests"
@@ -112,14 +128,34 @@ geo-data-format-test:
     @echo "✅ geo_data_format tests completed"
 
 [group: 'utils']
+[working-directory: '../tools/geo_rasterizer']
+geo-rasterizer-test:
+    @echo "🧪 Running geo_rasterizer tests"
+    @cargo test -- --nocapture
+    @echo "✅ geo_rasterizer tests completed"
+
+[group: 'utils']
 [unix]
 get-frb-version:
     @awk '/flutter_rust_bridge:/ { print $2 }' pubspec.yaml
+
+[group: 'dev']
+rasterize-geo:
+    cargo run --manifest-path ../tools/geo_rasterizer/Cargo.toml --release --bin geo_rasterizer -- \
+      --ensure-source
+    @echo "✅ geo_data_{iso,chn,usa}.bin generated"
+
+[group: 'dev']
+fetch-natural-earth:
+    cargo run --manifest-path ../tools/geo_rasterizer/Cargo.toml --release --bin geo_rasterizer -- \
+      --ensure-source --download-only
+    @echo "✅ natural earth iso/chn/usa present in ../tools/geo_rasterizer/natural_earth/"
 
 # Generate all required files for flutter build. Need to be reran every time rust api or journey kernel is updated
 [group: 'dev']
 pre-build:
     @echo "🛠️  Running pre-build"
+    just rasterize-geo
     just journey-kernel-build
     just copy-webview-assets
     just frb-generate
@@ -133,16 +169,33 @@ check:
     just rust-check
     just journey-kernel-check
     just geo-data-format-check
+    just geo-rasterizer-check
     just flutter-check
     @echo "✅ Checking completed"
+
+# Geo tooling tests; CI runs these only when geo-related files change
+[group: 'dev']
+test-geo:
+    @echo "🧪 Running geo tooling tests"
+    just geo-data-format-test
+    just geo-rasterizer-test
+    @echo "✅ Geo tooling tests completed"
+
+# App tests (journey kernel + rust core); regenerates geo bins first
+[group: 'dev']
+test-app:
+    @echo "🧪 Running app tests"
+    just rasterize-geo
+    just journey-kernel-test
+    just rust-test
+    @echo "✅ App tests completed"
 
 # Run all tests
 [group: 'dev']
 test:
     @echo "🛠️  Running all tests"
-    just journey-kernel-test
-    just geo-data-format-test
-    just rust-test
+    just test-geo
+    just test-app
     @echo "✅ Test completed"
 
 # Formatting all code
@@ -152,14 +205,44 @@ format:
     just journey-kernel-fmt
     just rust-fmt
     just geo-data-format-fmt
+    just geo-rasterizer-fmt
     just flutter-fmt
     @echo "✅ Format completed"
+
+# Regenerate the rasterizer's checked-in golden fixture (only after a deliberate algorithm change)
+[group: 'dev']
+regenerate-golden:
+    @echo "🛠️  Regenerating geo_rasterizer golden fixture"
+    cargo run --manifest-path ../tools/geo_rasterizer/Cargo.toml --bin geo_rasterizer -- \
+      --pov iso \
+      --countries ../tools/geo_rasterizer/tests/fixtures/synthetic.geojson \
+      --registry ../tools/geo_rasterizer/tests/fixtures/synthetic_registry.toml \
+      --output ../tools/geo_rasterizer/tests/fixtures/synthetic.bin
+    @echo "✅ Golden fixture regenerated"
 
 # Release build
 [group: 'dev']
 release-build:
     @echo "🛠️  Building release version"
+
+    # Check if git workspace is clean
+    @(git diff --quiet && git diff --cached --quiet) || (echo "Error: Uncommitted changes exist!"; exit 1)
+
+    @rm -rf ./output
+    @mkdir -p ./output
+
     just pre-build
-    @flutter build apk --release
-    @flutter build ipa --release
+
+    # iOS: testflight
+    @ML_RELEASE_CHANNEL=test-flight flutter build xcarchive --release
+    @cp -R ./build/ios/archive/Runner.xcarchive ./output/test-flight.xcarchive
+
+    # Android: plain-apk
+    @ML_RELEASE_CHANNEL=plain-apk flutter build apk --release
+    @cp ./build/app/outputs/flutter-apk/app-release.apk ./output/plain-apk.apk
+
+    # Android: google-play
+    @ML_RELEASE_CHANNEL=google-play flutter build appbundle --release
+    @cp ./build/app/outputs/bundle/release/app-release.aab ./output/google-play.aab
+
     @echo "✅ Build completed"
