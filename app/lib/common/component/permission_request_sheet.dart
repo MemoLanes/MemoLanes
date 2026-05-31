@@ -478,7 +478,7 @@ class _PermissionStatusIndicator extends StatelessWidget {
       );
     }
 
-    final label = context.tr('permission_sheet.enable');
+    final label = context.tr('permission_sheet.allow');
 
     return ConstrainedBox(
       constraints: const BoxConstraints(
