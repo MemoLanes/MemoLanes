@@ -480,9 +480,11 @@ class _PermissionStatusIndicator extends StatelessWidget {
 
     final label = context.tr('permission_sheet.enable');
 
-    return SizedBox(
-      width: 52,
-      height: 40,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        minWidth: 52,
+        minHeight: 40,
+      ),
       child: Center(
         child: InkWell(
           onTap: onTap,
