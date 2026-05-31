@@ -131,7 +131,11 @@ mod tests {
                 "url not under pinned base: {url}"
             );
             assert!(url.ends_with(".geojson"));
-            assert_eq!(pov.spec().source_sha256.len(), 64, "sha must be 64 hex chars");
+            assert_eq!(
+                pov.spec().source_sha256.len(),
+                64,
+                "sha must be 64 hex chars"
+            );
             assert!(pov
                 .spec()
                 .source_sha256
