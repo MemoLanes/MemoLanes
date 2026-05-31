@@ -125,3 +125,13 @@ git diff --exit-code tools/geo_rasterizer/geo_entity_registry.toml
 A non-empty diff fails the build — meaning a source/POV bump was made without
 regenerating and committing the registry. So forgetting this step is caught
 automatically rather than silently shipping stale ids.
+
+## Future work
+
+- **i18n.** Each entity's display name is carried as a Flutter l10n *key*, not a
+  string — the rasterizer derives `country.<ADM0_A3>.name` and
+  `continent.<code>.name` (worldviews use `worldview.<id>.name` from `pov.rs`).
+  The remaining work is ensuring every generated key has a localized string in
+  `app/assets/translations/*.json` for each locale, so a newly registered code
+  can't ship without its translated name. See the `TODO(i18n)` in
+  [`src/registry.rs`](src/registry.rs).
