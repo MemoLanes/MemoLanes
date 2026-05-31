@@ -139,8 +139,14 @@ geo-rasterizer-test:
 get-frb-version:
     @awk '/flutter_rust_bridge:/ { print $2 }' pubspec.yaml
 
+# Regenerate the frozen id registry (append-only union over Pov::ALL); a prerequisite of rasterize-geo so the CI guardrail diff is meaningful
 [group: 'dev']
-rasterize-geo:
+registry-gen:
+    cargo run --manifest-path ../tools/geo_rasterizer/Cargo.toml --release --bin registry_gen
+    @echo "✅ geo_entity_registry.toml regenerated (union over Pov::ALL)"
+
+[group: 'dev']
+rasterize-geo: registry-gen
     cargo run --manifest-path ../tools/geo_rasterizer/Cargo.toml --release --bin geo_rasterizer -- \
       --ensure-source
     @echo "✅ geo_data_{iso,chn,usa}.bin generated"
@@ -228,21 +234,7 @@ release-build:
     # Check if git workspace is clean
     @(git diff --quiet && git diff --cached --quiet) || (echo "Error: Uncommitted changes exist!"; exit 1)
 
-    @rm -rf ./output
-    @mkdir -p ./output
-
     just pre-build
-
-    # iOS: testflight
-    @ML_RELEASE_CHANNEL=test-flight flutter build xcarchive --release
-    @cp -R ./build/ios/archive/Runner.xcarchive ./output/test-flight.xcarchive
-
-    # Android: plain-apk
-    @ML_RELEASE_CHANNEL=plain-apk flutter build apk --release
-    @cp ./build/app/outputs/flutter-apk/app-release.apk ./output/plain-apk.apk
-
-    # Android: google-play
-    @ML_RELEASE_CHANNEL=google-play flutter build appbundle --release
-    @cp ./build/app/outputs/bundle/release/app-release.aab ./output/google-play.aab
-
+    @flutter build apk --release
+    @flutter build ipa --release
     @echo "✅ Build completed"
