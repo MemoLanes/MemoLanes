@@ -211,6 +211,9 @@ mod tests {
 }
 
 /// Handle TileRangeQuery with a MapRenderer reference
+// Items defined after the test module; moving them would change the public
+// API surface order, so silence the lint instead.
+#[allow(clippy::items_after_test_module)]
 pub fn handle_tile_range_query(
     query: &TileRangeQuery,
     map_renderer: &mut MapRenderer,
@@ -253,6 +256,9 @@ pub fn handle_tile_range_query(
     Ok(response_data)
 }
 
+// Items defined after the test module; moving them would change the public
+// API surface order, so silence the lint instead.
+#[allow(clippy::items_after_test_module)]
 impl Request {
     /// Parse a JSON string into a Request
     pub fn parse(json_str: &str) -> Result<Self, serde_json::Error> {
@@ -314,6 +320,9 @@ impl Request {
 }
 
 // Move the random data generation to a separate function
+// Items defined after the test module; moving them would change the public
+// API surface order, so silence the lint instead.
+#[allow(clippy::items_after_test_module)]
 pub fn generate_random_data(size: u64) -> Result<Vec<u8>, String> {
     let max_size = 10_485_760; // 10MB limit
 

@@ -8,11 +8,11 @@ fn journey_area_calculation(c: &mut Criterion) {
     group.sample_size(10);
 
     group.bench_function("compute_journey_bitmap_area: simple", |b| {
-        let (mut bitmap_import, _warnings) =
+        let (bitmap_import, _warnings) =
             import_data::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
         b.iter(|| {
             std::hint::black_box(journey_area_utils::compute_journey_bitmap_area(
-                &mut bitmap_import,
+                &bitmap_import,
                 None,
             ))
         })
@@ -31,7 +31,7 @@ fn journey_area_calculation(c: &mut Criterion) {
             journey_bitmap.merge_vector(&journey_vector);
             b.iter(|| {
                 std::hint::black_box(journey_area_utils::compute_journey_bitmap_area(
-                    &mut journey_bitmap,
+                    &journey_bitmap,
                     None,
                 ))
             })
@@ -61,8 +61,10 @@ fn journey_bitmap(c: &mut Criterion) {
 
         b.iter(|| {
             let mut journey_bitmap = JourneyBitmap::new();
-            std::hint::black_box(journey_bitmap.merge_vector(&nelson_to_wharariki_beach));
-            std::hint::black_box(journey_bitmap.merge_vector(&heihe));
+            journey_bitmap.merge_vector(&nelson_to_wharariki_beach);
+            std::hint::black_box(());
+            journey_bitmap.merge_vector(&heihe);
+            std::hint::black_box(());
             journey_bitmap
         })
     });

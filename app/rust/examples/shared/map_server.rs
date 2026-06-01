@@ -122,6 +122,8 @@ pub fn get_dev_server_host() -> String {
         .unwrap_or_else(|| "localhost".to_string())
 }
 
+// Example scaffolding struct; not all fields are read in every example binary.
+#[allow(dead_code)]
 pub struct MapServer {
     handles: Option<(JoinHandle<()>, ServerHandle)>,
     map_renderer: Arc<Mutex<MapRenderer>>,
@@ -203,6 +205,8 @@ impl MapServer {
         })
     }
 
+    // Example scaffolding URL helpers; not called in every example binary.
+    #[allow(dead_code)]
     pub fn get_http_url(&self) -> String {
         let dev_server =
             std::env::var("DEV_SERVER").unwrap_or_else(|_| "http://localhost:8080".to_string());
@@ -233,6 +237,8 @@ impl MapServer {
         }
     }
 
+    // Example scaffolding URL helper; not called in every example binary.
+    #[allow(dead_code)]
     pub fn get_file_url(&self) -> String {
         let cgi_host = get_dev_server_host();
         let map_renderer = self.map_renderer.lock().unwrap();

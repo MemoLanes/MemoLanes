@@ -362,7 +362,7 @@ fn delete_two_journeys_same_month_deduplicates() {
         Some(Action::Invalidate { entries }) => {
             // Both entries refer to 2024-03-15/DefaultKind; duplicates are
             // tolerated here because downstream invalidate() deduplicates via HashSet.
-            assert!(entries.len() >= 1);
+            assert!(!entries.is_empty());
             assert!(entries
                 .iter()
                 .all(|e| e.date == date("2024-03-15") && e.kind == JourneyKind::DefaultKind));
@@ -919,7 +919,7 @@ fn two_inserts_same_date_kind_deduplicates() {
         Some(Action::Invalidate { entries }) => {
             // Both inserts share the exact same date and kind; duplicates are
             // tolerated because downstream invalidate() deduplicates via HashSet.
-            assert!(entries.len() >= 1);
+            assert!(!entries.is_empty());
             assert!(entries
                 .iter()
                 .all(|e| e.date == date("2024-03-15") && e.kind == JourneyKind::DefaultKind));
@@ -1021,7 +1021,7 @@ fn insert_then_delete_same_date_kind_deduplicates() {
         Some(Action::Invalidate { entries }) => {
             // Duplicates are tolerated because downstream invalidate()
             // deduplicates via HashSet.
-            assert!(entries.len() >= 1);
+            assert!(!entries.is_empty());
             assert!(entries
                 .iter()
                 .all(|e| e.date == date("2024-03-15") && e.kind == JourneyKind::DefaultKind));
