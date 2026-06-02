@@ -13,7 +13,7 @@ class MapPanelPage extends StatelessWidget {
     required this.mapRendererProxy,
     required this.panel,
     this.initialMapView,
-    this.maxHeight = 510,
+    this.maxHeight,
     this.expandPanel = false,
     this.loadingBody = const SizedBox.shrink(),
     this.onBack,
@@ -23,7 +23,7 @@ class MapPanelPage extends StatelessWidget {
   final api.MapRendererProxy? mapRendererProxy;
   final MapView? initialMapView;
   final Widget panel;
-  final double maxHeight;
+  final double? maxHeight;
   final bool expandPanel;
   final Widget loadingBody;
   final VoidCallback? onBack;
@@ -41,7 +41,7 @@ class MapPanelPage extends StatelessWidget {
               topLeft: Radius.circular(16.0),
               topRight: Radius.circular(16.0),
             ),
-            maxHeight: maxHeight,
+            maxHeight: maxHeight ?? 400,
             defaultPanelState: PanelState.OPEN,
             panel: PointerInterceptor(
               child: Center(

@@ -191,6 +191,7 @@ class _ImportDataPage extends State<ImportDataPage> {
             mapRendererProxy: _mapRendererProxy,
             initialMapView: _initialMapView,
             maxHeight: widget.importType == ImportType.gpxOrKml ? 530 : 510,
+            expandPanel: true,
             panel: JourneyInfoEditPage(
               startTime: journeyInfo.startTime,
               endTime: journeyInfo.endTime,

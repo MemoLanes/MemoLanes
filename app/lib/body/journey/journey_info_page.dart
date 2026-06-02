@@ -209,8 +209,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
             : context.tr("journey.journey_info_page_title"),
         mapRendererProxy: mapRendererProxy,
         initialMapView: _initialMapView,
-        maxHeight: isEditing ? 510 : (_isPreviewMode ? 400 : 480),
-        expandPanel: !isEditing,
+        maxHeight: isEditing ? 440 : (_isPreviewMode ? null : 480),
+        expandPanel: true,
         loadingBody: const Center(child: CircularProgressIndicator()),
         onBack: _handleBack,
         panel: isEditing
@@ -404,6 +404,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
         title: context.tr("journey.copy_journey"),
         mapRendererProxy: _mapRendererProxy,
         initialMapView: _initialMapView,
+        maxHeight: 440,
+        expandPanel: true,
         panel: JourneyInfoEditPage(
           startTime: _journeyHeader.start,
           endTime: _journeyHeader.end,

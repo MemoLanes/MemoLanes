@@ -147,107 +147,102 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
   @override
   Widget build(BuildContext context) {
     final width = MediaQueryData.fromView(View.of(context)).size.width;
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: 440,
-        minHeight: 420,
-      ),
-      child: MlSingleChildScrollView(
-        padding: const EdgeInsets.symmetric(vertical: 16.0),
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
+    return MlSingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      children: [
+        LabelTile(
+          label: context.tr("journey.journey_date"),
+          position: LabelTilePosition.top,
+          trailing: LabelTileContent(
+              content:
+                  _journeyDate != null ? dateFormat.format(_journeyDate!) : ''),
+          onTap: () async {
+            DateTime? time = await showDatePicker(
+              context: context,
+              initialDate: _journeyDate,
+              firstDate: firstDate,
+              lastDate: DateTime.now(),
+            );
+            if (time != null) {
+              setState(() {
+                _journeyDate = time;
+              });
+            }
+          },
+        ),
+        LabelTile(
+          label: context.tr("journey.journey_kind"),
+          position: LabelTilePosition.middle,
+          trailing: LabelTileContent(
+              content: _journeyKind == JourneyKind.defaultKind
+                  ? context.tr("journey_kind.default")
+                  : context.tr("journey_kind.flight"),
+              showArrow: true),
+          onTap: () => _showJourneyKindCard(context),
+        ),
+        LabelTile(
+          label: context.tr("journey.start_time"),
+          position: LabelTilePosition.middle,
+          trailing: LabelTileContent(
+              content: _startTime != null
+                  ? dateTimeFormat.format(_startTime!.toLocal())
+                  : ""),
+          onTap: () async {
+            DateTime? time = await selectDateAndTime(context, _startTime);
+            if (time != null) {
+              setState(() {
+                _startTime = time;
+              });
+            }
+          },
+        ),
+        LabelTile(
+          label: context.tr("journey.end_time"),
+          position: LabelTilePosition.middle,
+          trailing: LabelTileContent(
+              content: _endTime != null
+                  ? dateTimeFormat.format(_endTime!.toLocal())
+                  : ""),
+          onTap: () async {
+            DateTime? time = await selectDateAndTime(context, _endTime);
+            if (time != null) {
+              setState(() {
+                _endTime = time;
+              });
+            }
+          },
+        ),
+        if (widget.previewData != null)
           LabelTile(
-            label: context.tr("journey.start_time"),
-            position: LabelTilePosition.single,
-            trailing: LabelTileContent(
-                content: _startTime != null
-                    ? dateTimeFormat.format(_startTime!.toLocal())
-                    : ""),
-            onTap: () async {
-              DateTime? time = await selectDateAndTime(context, _startTime);
-              if (time != null) {
-                setState(() {
-                  _startTime = time;
-                });
-              }
-            },
-          ),
-          LabelTile(
-            label: context.tr("journey.end_time"),
-            position: LabelTilePosition.single,
-            trailing: LabelTileContent(
-                content: _endTime != null
-                    ? dateTimeFormat.format(_endTime!.toLocal())
-                    : ""),
-            onTap: () async {
-              DateTime? time = await selectDateAndTime(context, _endTime);
-              if (time != null) {
-                setState(() {
-                  _endTime = time;
-                });
-              }
-            },
-          ),
-          LabelTile(
-            label: context.tr("journey.journey_date"),
-            position: LabelTilePosition.single,
-            trailing: LabelTileContent(
-                content: _journeyDate != null
-                    ? dateFormat.format(_journeyDate!)
-                    : ''),
-            onTap: () async {
-              DateTime? time = await showDatePicker(
-                context: context,
-                initialDate: _journeyDate,
-                firstDate: firstDate,
-                lastDate: DateTime.now(),
-              );
-              if (time != null) {
-                setState(() {
-                  _journeyDate = time;
-                });
-              }
-            },
-          ),
-          if (widget.previewData != null)
-            LabelTile(
-              label: context.tr("journey.preprocessor"),
-              infoLabelOnTap: () => showCommonDialog(
-                context,
-                context.tr("preprocessor.description_md"),
-                markdown: true,
-              ),
-              position: LabelTilePosition.single,
-              trailing: LabelTileContent(
-                content: switch (_preprocessor) {
-                  import_api.ImportPreprocessor.none =>
-                    context.tr("preprocessor.none"),
-                  import_api.ImportPreprocessor.generic =>
-                    context.tr("preprocessor.generic"),
-                  import_api.ImportPreprocessor.flightTrack =>
-                    context.tr("preprocessor.flightTrack"),
-                  import_api.ImportPreprocessor.spare =>
-                    context.tr("preprocessor.spare"),
-                },
-                showArrow: true,
-              ),
-              onTap: () => _showJourneyPreprocessorCard(context),
+            label: context.tr("journey.preprocessor"),
+            infoLabelOnTap: () => showCommonDialog(
+              context,
+              context.tr("preprocessor.description_md"),
+              markdown: true,
             ),
-          LabelTile(
-            label: context.tr("journey.journey_kind"),
-            position: LabelTilePosition.single,
+            position: LabelTilePosition.middle,
             trailing: LabelTileContent(
-                content: _journeyKind == JourneyKind.defaultKind
-                    ? context.tr("journey_kind.default")
-                    : context.tr("journey_kind.flight"),
-                showArrow: true),
-            onTap: () => _showJourneyKindCard(context),
+              content: switch (_preprocessor) {
+                import_api.ImportPreprocessor.none =>
+                  context.tr("preprocessor.none"),
+                import_api.ImportPreprocessor.generic =>
+                  context.tr("preprocessor.generic"),
+                import_api.ImportPreprocessor.flightTrack =>
+                  context.tr("preprocessor.flightTrack"),
+                import_api.ImportPreprocessor.spare =>
+                  context.tr("preprocessor.spare"),
+              },
+              showArrow: true,
+            ),
+            onTap: () => _showJourneyPreprocessorCard(context),
           ),
-          LabelTile(
-            label: context.tr("journey.note"),
-            position: LabelTilePosition.single,
-            maxHeight: 150,
-            trailing: SizedBox(
+        LabelTile(
+          label: context.tr("journey.note"),
+          position: LabelTilePosition.bottom,
+          maxHeight: 150,
+          trailing: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: SizedBox(
               width: width * 0.6,
               child: TextField(
                 controller: _noteController,
@@ -267,20 +262,21 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
               ),
             ),
           ),
-          ElevatedButton(
-            onPressed: () => _saveData(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFB6E13D),
-              foregroundColor: Colors.black,
-              fixedSize: Size(280, 42),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(25.0),
-              ),
+        ),
+        const SizedBox(height: 8.0),
+        ElevatedButton(
+          onPressed: () => _saveData(context),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFB6E13D),
+            foregroundColor: Colors.black,
+            fixedSize: Size(280, 42),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(25.0),
             ),
-            child: Text(context.tr("common.save")),
           ),
-        ],
-      ),
+          child: Text(context.tr("common.save")),
+        ),
+      ],
     );
   }
 
