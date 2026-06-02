@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:memolanes/body/settings/import_data_page.dart' show ImportType;
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
@@ -14,6 +13,15 @@ import 'package:memolanes/src/rust/api/import.dart' as import_api;
 import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 
+typedef JourneyInfoSaveCallback = Future<bool> Function(
+  import_api.JourneyInfo journeyInfo,
+  import_api.ImportPreprocessor? preprocessor,
+);
+
+typedef JourneyInfoPreviewCallback = Future<void> Function(
+  import_api.ImportPreprocessor preprocessor,
+);
+
 class JourneyInfoEditPage extends StatefulWidget {
   const JourneyInfoEditPage({
     super.key,
@@ -21,11 +29,12 @@ class JourneyInfoEditPage extends StatefulWidget {
     required this.endTime,
     required this.journeyDate,
     required this.note,
-    required this.saveData,
+    required this.onSave,
     this.previewData,
     this.journeyKind,
-    this.importType,
     this.preprocessor,
+    this.popOnSave = true,
+    this.onSaved,
   });
 
   final DateTime? startTime;
@@ -33,10 +42,11 @@ class JourneyInfoEditPage extends StatefulWidget {
   final NaiveDate journeyDate;
   final String? note;
   final JourneyKind? journeyKind;
-  final Function saveData;
-  final Function? previewData;
-  final ImportType? importType;
+  final JourneyInfoSaveCallback onSave;
+  final JourneyInfoPreviewCallback? previewData;
   final import_api.ImportPreprocessor? preprocessor;
+  final bool popOnSave;
+  final VoidCallback? onSaved;
 
   @override
   State<JourneyInfoEditPage> createState() => _JourneyInfoEditPageState();
@@ -123,13 +133,14 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
         endTime: _endTime,
         note: _note,
         journeyKind: _journeyKind);
-    if (widget.importType != null) {
-      await widget.saveData(journeyInfo, _preprocessor);
-    } else {
-      await widget.saveData(journeyInfo);
-    }
-    if (context.mounted) {
+    final success = await widget.onSave(
+        journeyInfo, widget.preprocessor == null ? null : _preprocessor);
+    if (!success) return;
+    if (!context.mounted) return;
+    if (widget.popOnSave) {
       Navigator.pop(context, true);
+    } else {
+      widget.onSaved?.call();
     }
   }
 
@@ -198,32 +209,30 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
               }
             },
           ),
-          if (widget.importType != null)
-            widget.importType == ImportType.fow
-                ? SizedBox.shrink()
-                : LabelTile(
-                    label: context.tr("journey.preprocessor"),
-                    infoLabelOnTap: () => showCommonDialog(
-                      context,
-                      context.tr("preprocessor.description_md"),
-                      markdown: true,
-                    ),
-                    position: LabelTilePosition.single,
-                    trailing: LabelTileContent(
-                      content: switch (_preprocessor) {
-                        import_api.ImportPreprocessor.none =>
-                          context.tr("preprocessor.none"),
-                        import_api.ImportPreprocessor.generic =>
-                          context.tr("preprocessor.generic"),
-                        import_api.ImportPreprocessor.flightTrack =>
-                          context.tr("preprocessor.flightTrack"),
-                        import_api.ImportPreprocessor.spare =>
-                          context.tr("preprocessor.spare"),
-                      },
-                      showArrow: true,
-                    ),
-                    onTap: () => _showJourneyPreprocessorCard(context),
-                  ),
+          if (widget.previewData != null)
+            LabelTile(
+              label: context.tr("journey.preprocessor"),
+              infoLabelOnTap: () => showCommonDialog(
+                context,
+                context.tr("preprocessor.description_md"),
+                markdown: true,
+              ),
+              position: LabelTilePosition.single,
+              trailing: LabelTileContent(
+                content: switch (_preprocessor) {
+                  import_api.ImportPreprocessor.none =>
+                    context.tr("preprocessor.none"),
+                  import_api.ImportPreprocessor.generic =>
+                    context.tr("preprocessor.generic"),
+                  import_api.ImportPreprocessor.flightTrack =>
+                    context.tr("preprocessor.flightTrack"),
+                  import_api.ImportPreprocessor.spare =>
+                    context.tr("preprocessor.spare"),
+                },
+                showArrow: true,
+              ),
+              onTap: () => _showJourneyPreprocessorCard(context),
+            ),
           LabelTile(
             label: context.tr("journey.journey_kind"),
             position: LabelTilePosition.single,

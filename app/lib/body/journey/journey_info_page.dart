@@ -2,13 +2,10 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/journey/journey_info_edit_page.dart';
 import 'package:memolanes/body/journey/journey_track_edit_page.dart';
-import 'package:memolanes/common/component/base_map_webview.dart';
-import 'package:memolanes/common/component/capsule_style_app_bar.dart';
-import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
+import 'package:memolanes/common/component/base_map_webview.dart' show MapView;
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
-import 'package:memolanes/common/component/cards/line_painter.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
-import 'package:memolanes/common/component/safe_area_wrapper.dart';
+import 'package:memolanes/common/component/map_panel_page.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
@@ -20,10 +17,10 @@ import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:pointer_interceptor/pointer_interceptor.dart';
-import 'package:sliding_up_panel/sliding_up_panel.dart';
 
 enum ExportType { mldx, kml, gpx }
+
+enum _JourneyInfoPanelMode { info, edit }
 
 class JourneyInfoPage extends StatefulWidget {
   const JourneyInfoPage({
@@ -44,6 +41,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   late JourneyHeader _journeyHeader;
   api.MapRendererProxy? _mapRendererProxy;
   MapView? _initialMapView;
+  _JourneyInfoPanelMode _panelMode = _JourneyInfoPanelMode.info;
+  bool _journeyInfoChanged = false;
 
   @override
   void initState() {
@@ -113,34 +112,30 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     }
   }
 
-  Future<void> _editJourneyInfo(BuildContext context) async {
-    var trackEdited = false;
-    final result = await navigatorPush(
-      context,
-      page: Scaffold(
-        appBar: CapsuleStyleAppBar(
-          title: context.tr("journey.journey_info_edit_page_title"),
-        ),
-        body: SafeAreaWrapper(
-          child: JourneyInfoEditPage(
-            startTime: _journeyHeader.start,
-            endTime: _journeyHeader.end,
-            journeyDate: _journeyHeader.journeyDate,
-            note: _journeyHeader.note,
-            journeyKind: _journeyHeader.journeyKind,
-            saveData: (JourneyInfo journeyInfo) async {
-              await api.updateJourneyMetadata(
-                  id: _journeyHeader.id, journeyInfo: journeyInfo);
-            },
-          ),
-        ),
-      ),
-    );
+  void _editJourneyInfo() {
+    setState(() {
+      _panelMode = _JourneyInfoPanelMode.edit;
+    });
+  }
 
-    // `JourneyInfoEditPage` pops with `true` when metadata is saved.
-    if (result == true || trackEdited) {
-      await _refreshJourneyInfo();
+  Future<bool> _saveJourneyInfo(JourneyInfo journeyInfo) async {
+    await api.updateJourneyMetadata(
+      id: _journeyHeader.id,
+      journeyInfo: journeyInfo,
+    );
+    _journeyInfoChanged = true;
+    await _refreshJourneyInfo();
+    return true;
+  }
+
+  void _handleBack() {
+    if (_panelMode == _JourneyInfoPanelMode.edit) {
+      setState(() {
+        _panelMode = _JourneyInfoPanelMode.info;
+      });
+      return;
     }
+    Navigator.pop(context, _journeyInfoChanged ? true : null);
   }
 
   Future<void> _trackEdit(BuildContext context) async {
@@ -200,113 +195,111 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       JourneyKind.defaultKind => context.tr("journey_kind.default"),
       JourneyKind.flight => context.tr("journey_kind.flight"),
     };
-    return Scaffold(
-      body: Stack(
-        children: [
-          SlidingUpPanel(
-            color: Colors.black,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(16.0),
-              topRight: Radius.circular(16.0),
-            ),
-            maxHeight: _isPreviewMode ? 400 : 480,
-            defaultPanelState: PanelState.OPEN,
-            panel: PointerInterceptor(
-              child: Column(
-                children: [
-                  Padding(
-                    padding: EdgeInsets.only(top: 12.0),
-                    child: Center(
-                      child: CustomPaint(
-                        size: Size(40.0, 4.0),
-                        painter: LinePainter(
-                          color: const Color(0xFFB5B5B5),
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 16.0),
-                  Expanded(
-                    child: MlSingleChildScrollView(
-                      padding: const EdgeInsets.only(bottom: 16.0),
-                      children: [
-                        LabelTile(
-                          label: context.tr("journey.journey_date"),
-                          position: LabelTilePosition.top,
-                          trailing: LabelTileContent(
-                            content: naiveDateToString(
-                              date: _journeyHeader.journeyDate,
-                            ),
-                          ),
-                        ),
-                        LabelTile(
-                          label: context.tr("journey.journey_kind"),
-                          position: LabelTilePosition.middle,
-                          trailing: LabelTileContent(
-                            content: journeyKindName,
-                          ),
-                        ),
-                        LabelTile(
-                          label: context.tr("journey.start_time"),
-                          position: LabelTilePosition.middle,
-                          trailing: LabelTileContent(
-                            content: _journeyHeader.start != null
-                                ? fmt.format(_journeyHeader.start!.toLocal())
-                                : "",
-                          ),
-                        ),
-                        LabelTile(
-                          label: context.tr("journey.end_time"),
-                          position: LabelTilePosition.middle,
-                          trailing: LabelTileContent(
-                            content: _journeyHeader.end != null
-                                ? fmt.format(_journeyHeader.end!.toLocal())
-                                : "",
-                          ),
-                        ),
-                        LabelTile(
-                          label: context.tr("journey.created_at"),
-                          position: LabelTilePosition.middle,
-                          trailing: LabelTileContent(
-                            content:
-                                fmt.format(_journeyHeader.createdAt.toLocal()),
-                          ),
-                        ),
-                        LabelTile(
-                          label: context.tr("journey.note"),
-                          position: LabelTilePosition.bottom,
-                          maxHeight: 150,
-                          trailing: Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8.0),
-                            child: LabelTileContent(
-                              content: _journeyHeader.note ?? "",
-                              contentMaxLines: 5,
-                            ),
-                          ),
-                        ),
-                        if (!_isPreviewMode) ...[
-                          const SizedBox(height: 8.0),
-                          _buildActionSection(context),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            body: mapRendererProxy == null
-                ? const CircularProgressIndicator()
-                : BaseMapWebview(
-                    key: const ValueKey("mapWidget"),
-                    mapRendererProxy: mapRendererProxy,
-                    initialMapView: _initialMapView,
-                  ),
-          ),
-          CapsuleStyleOverlayAppBar.overlayBar(
-            title: context.tr("journey.journey_info_page_title"),
-          ),
-        ],
+    final isEditing = _panelMode == _JourneyInfoPanelMode.edit;
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleBack();
+      },
+      child: MapPanelPage(
+        title: isEditing
+            ? context.tr("journey.journey_info_edit_page_title")
+            : context.tr("journey.journey_info_page_title"),
+        mapRendererProxy: mapRendererProxy,
+        initialMapView: _initialMapView,
+        maxHeight: isEditing ? 510 : (_isPreviewMode ? 400 : 480),
+        expandPanel: !isEditing,
+        loadingBody: const Center(child: CircularProgressIndicator()),
+        onBack: _handleBack,
+        panel: isEditing
+            ? _buildEditPanel(context)
+            : _buildInfoPanel(context, journeyKindName),
       ),
+    );
+  }
+
+  Widget _buildEditPanel(BuildContext context) {
+    return JourneyInfoEditPage(
+      startTime: _journeyHeader.start,
+      endTime: _journeyHeader.end,
+      journeyDate: _journeyHeader.journeyDate,
+      note: _journeyHeader.note,
+      journeyKind: _journeyHeader.journeyKind,
+      onSave: (journeyInfo, _) => _saveJourneyInfo(journeyInfo),
+      popOnSave: false,
+      onSaved: () {
+        if (!mounted) return;
+        setState(() {
+          _panelMode = _JourneyInfoPanelMode.info;
+        });
+      },
+    );
+  }
+
+  Widget _buildInfoPanel(BuildContext context, String journeyKindName) {
+    return MlSingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      children: [
+        LabelTile(
+          label: context.tr("journey.journey_date"),
+          position: LabelTilePosition.top,
+          trailing: LabelTileContent(
+            content: naiveDateToString(
+              date: _journeyHeader.journeyDate,
+            ),
+          ),
+        ),
+        LabelTile(
+          label: context.tr("journey.journey_kind"),
+          position: LabelTilePosition.middle,
+          trailing: LabelTileContent(
+            content: journeyKindName,
+          ),
+        ),
+        LabelTile(
+          label: context.tr("journey.start_time"),
+          position: LabelTilePosition.middle,
+          trailing: LabelTileContent(
+            content: _journeyHeader.start != null
+                ? fmt.format(_journeyHeader.start!.toLocal())
+                : "",
+          ),
+        ),
+        LabelTile(
+          label: context.tr("journey.end_time"),
+          position: LabelTilePosition.middle,
+          trailing: LabelTileContent(
+            content: _journeyHeader.end != null
+                ? fmt.format(_journeyHeader.end!.toLocal())
+                : "",
+          ),
+        ),
+        LabelTile(
+          label: context.tr("journey.created_at"),
+          position: LabelTilePosition.middle,
+          trailing: LabelTileContent(
+            content: fmt.format(_journeyHeader.createdAt.toLocal()),
+          ),
+        ),
+        LabelTile(
+          label: context.tr("journey.note"),
+          position: LabelTilePosition.bottom,
+          maxHeight: 150,
+          trailing: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: LabelTileContent(
+              content: _journeyHeader.note ?? "",
+              contentMaxLines: 5,
+            ),
+          ),
+        ),
+        if (!_isPreviewMode) ...[
+          const SizedBox(height: 8.0),
+          _buildActionSection(context),
+        ],
+      ],
     );
   }
 
@@ -333,7 +326,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
               context,
               icon: Icons.edit,
               label: context.tr("journey.journey_info_edit_page_title"),
-              onTap: () => _editJourneyInfo(context),
+              onTap: _editJourneyInfo,
             ),
           ),
           SizedBox(width: gap),
@@ -405,34 +398,32 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   }
 
   Future<void> _copyJourneyInfo(BuildContext context) async {
-    String? copiedJourneyId;
     final result = await navigatorPush(
       context,
-      page: Scaffold(
-        appBar: CapsuleStyleAppBar(
-          title: context.tr("journey.copy_journey"),
-        ),
-        body: SafeAreaWrapper(
-          child: JourneyInfoEditPage(
-            startTime: _journeyHeader.start,
-            endTime: _journeyHeader.end,
-            journeyDate: _journeyHeader.journeyDate,
-            note: _journeyHeader.note,
-            journeyKind: _journeyHeader.journeyKind,
-            saveData: (JourneyInfo journeyInfo) async {
-              copiedJourneyId = await showLoadingDialog<String>(
-                asyncTask: api.copyJourney(
-                  journeyId: _journeyHeader.id,
-                  journeyInfo: journeyInfo,
-                ),
-              );
-            },
-          ),
+      page: MapPanelPage(
+        title: context.tr("journey.copy_journey"),
+        mapRendererProxy: _mapRendererProxy,
+        initialMapView: _initialMapView,
+        panel: JourneyInfoEditPage(
+          startTime: _journeyHeader.start,
+          endTime: _journeyHeader.end,
+          journeyDate: _journeyHeader.journeyDate,
+          note: _journeyHeader.note,
+          journeyKind: _journeyHeader.journeyKind,
+          onSave: (JourneyInfo journeyInfo, _) async {
+            await showLoadingDialog<String>(
+              asyncTask: api.copyJourney(
+                journeyId: _journeyHeader.id,
+                journeyInfo: journeyInfo,
+              ),
+            );
+            return true;
+          },
         ),
       ),
     );
 
-    if (result != true || copiedJourneyId == null || !context.mounted) return;
+    if (result != true || !context.mounted) return;
     Navigator.pop(context, true);
   }
 
