@@ -405,10 +405,35 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   }
 
   Future<void> _copyJourneyInfo(BuildContext context) async {
-    await showCommonDialog(
+    String? copiedJourneyId;
+    final result = await navigatorPush(
       context,
-      context.tr("common.still_under_development"),
+      page: Scaffold(
+        appBar: CapsuleStyleAppBar(
+          title: context.tr("journey.copy_journey"),
+        ),
+        body: SafeAreaWrapper(
+          child: JourneyInfoEditPage(
+            startTime: _journeyHeader.start,
+            endTime: _journeyHeader.end,
+            journeyDate: _journeyHeader.journeyDate,
+            note: _journeyHeader.note,
+            journeyKind: _journeyHeader.journeyKind,
+            saveData: (JourneyInfo journeyInfo) async {
+              copiedJourneyId = await showLoadingDialog<String>(
+                asyncTask: api.copyJourney(
+                  journeyId: _journeyHeader.id,
+                  journeyInfo: journeyInfo,
+                ),
+              );
+            },
+          ),
+        ),
+      ),
     );
+
+    if (result != true || copiedJourneyId == null || !context.mounted) return;
+    Navigator.pop(context, true);
   }
 
   void _showExportDataCard(BuildContext context, JourneyType journeyType) {
