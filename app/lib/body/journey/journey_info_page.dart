@@ -226,9 +226,9 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                     ),
                   ),
                   SizedBox(height: 16.0),
-                  SizedBox(
-                    height: 340,
+                  Expanded(
                     child: MlSingleChildScrollView(
+                      padding: const EdgeInsets.only(bottom: 16.0),
                       children: [
                         LabelTile(
                           label: context.tr("journey.journey_date"),
@@ -284,56 +284,13 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                             ),
                           ),
                         ),
+                        if (!_isPreviewMode) ...[
+                          const SizedBox(height: 8.0),
+                          _buildActionSection(context),
+                        ],
                       ],
                     ),
                   ),
-                  SizedBox(height: 16.0),
-                  if (!_isPreviewMode)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        ElevatedButton(
-                          onPressed: () => _showExportDataCard(
-                            context,
-                            _journeyHeader.journeyType,
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFFFFFFF),
-                            foregroundColor: Colors.black,
-                            fixedSize: Size(100, 42),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(25.0),
-                            ),
-                          ),
-                          child: Text(context.tr("common.export")),
-                        ),
-                        ElevatedButton(
-                          onPressed: () async => _showEditMenu(context),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFB6E13D),
-                            foregroundColor: Colors.black,
-                            fixedSize: Size(100, 42),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(25.0),
-                            ),
-                          ),
-                          child: Text(context.tr("common.edit")),
-                        ),
-                        ElevatedButton(
-                          onPressed: () async =>
-                              await _deleteJourneyInfo(context),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFEC4162),
-                            foregroundColor: Colors.black,
-                            fixedSize: Size(100, 42),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(25.0),
-                            ),
-                          ),
-                          child: Text(context.tr("common.delete")),
-                        ),
-                      ],
-                    ),
                 ],
               ),
             ),
@@ -350,6 +307,107 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildActionSection(BuildContext context) {
+    const gap = 6.0;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildActionTile(
+              context,
+              icon: Icons.share,
+              label: context.tr("common.export"),
+              onTap: () => _showExportDataCard(
+                context,
+                _journeyHeader.journeyType,
+              ),
+            ),
+          ),
+          SizedBox(width: gap),
+          Expanded(
+            child: _buildActionTile(
+              context,
+              icon: Icons.edit,
+              label: context.tr("journey.journey_info_edit_page_title"),
+              onTap: () => _editJourneyInfo(context),
+            ),
+          ),
+          SizedBox(width: gap),
+          Expanded(
+            child: _buildActionTile(
+              context,
+              icon: Icons.timeline,
+              label: context.tr("journey.editor.page_title"),
+              onTap: () => _trackEdit(context),
+            ),
+          ),
+          SizedBox(width: gap),
+          Expanded(
+            child: _buildActionTile(
+              context,
+              icon: Icons.more_horiz,
+              label: context.tr("common.more"),
+              onTap: () => _showMoreActionCard(context),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionTile(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return SizedBox(
+      height: 64,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16.0),
+          child: Ink(
+            decoration: BoxDecoration(
+              color: const Color(0x1AFFFFFF),
+              borderRadius: BorderRadius.circular(16.0),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 7.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 22.0, color: Colors.white),
+                const SizedBox(height: 4.0),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12.0,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _copyJourneyInfo(BuildContext context) async {
+    await showCommonDialog(
+      context,
+      context.tr("common.still_under_development"),
     );
   }
 
@@ -389,24 +447,27 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     );
   }
 
-  void _showEditMenu(BuildContext context) {
+  void _showMoreActionCard(BuildContext context) {
     showBasicCard(
       context,
       child: OptionCard(
         children: [
           CardLabelTile(
             position: CardLabelTilePosition.top,
-            label: context.tr("journey.journey_info_edit_page_title"),
+            label: context.tr("journey.copy_journey"),
+            icon: Icons.copy,
             onTap: () {
-              _editJourneyInfo(context);
+              _copyJourneyInfo(context);
             },
             top: false,
           ),
           CardLabelTile(
             position: CardLabelTilePosition.bottom,
-            label: context.tr("journey.editor.page_title"),
+            label: context.tr("journey.delete_journey_title"),
+            color: const Color(0xFFEC4162),
+            icon: Icons.delete,
             onTap: () async {
-              _trackEdit(context);
+              await _deleteJourneyInfo(context);
             },
           ),
         ],
