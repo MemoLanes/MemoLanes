@@ -37,6 +37,16 @@ pub struct RawVectorData {
     data: Vec<Vec<RawData>>,
 }
 
+fn parse_fwss_snapshot_date_from_filename(file_path: &str) -> Option<NaiveDate> {
+    let stem = Path::new(file_path).file_stem()?.to_str()?;
+    let timestamp = stem
+        .strip_prefix("Snapshot-")
+        .or_else(|| stem.strip_prefix("snapshot-"))?;
+    DateTime::parse_from_str(timestamp, "%Y%m%dT%H%M%S%z")
+        .ok()
+        .map(|time| time.date_naive())
+}
+
 #[auto_context]
 pub fn load_fow_data(file_path: String) -> Result<(JourneyInfo, OpaqueJourneyData)> {
     let extension = Path::new(&file_path)
@@ -50,13 +60,20 @@ pub fn load_fow_data(file_path: String) -> Result<(JourneyInfo, OpaqueJourneyDat
         _ => bail!("Unknown extension {extension:?}"),
     };
 
+    let journey_date = match extension.as_deref() {
+        Some("fwss") => parse_fwss_snapshot_date_from_filename(&file_path)
+            .unwrap_or_else(|| Local::now().date_naive()),
+        _ => Local::now().date_naive(),
+    };
+
     let journey_info = JourneyInfo {
-        journey_date: Local::now().date_naive(),
+        journey_date,
         start_time: None,
         end_time: None,
         note: None,
         journey_kind: JourneyKind::DefaultKind,
     };
+
     Ok((
         journey_info,
         OpaqueJourneyData::new(JourneyData::Bitmap(journey_bitmap)),
