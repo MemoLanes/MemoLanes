@@ -194,7 +194,9 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   }
 
   void _export(ExportType exportType) async {
-    String filePath = await _generateExportFile(_journeyHeader, exportType);
+    String filePath = await showLoadingDialog(
+      asyncTask: _generateExportFile(_journeyHeader, exportType),
+    );
     if (!mounted) return;
     await showCommonExport(context, filePath, deleteFile: true);
   }
