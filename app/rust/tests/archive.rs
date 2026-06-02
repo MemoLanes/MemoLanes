@@ -24,7 +24,7 @@ fn add_vector_journeys(main_db: &mut MainDb) {
                 .unwrap();
         }
         main_db
-            .record(raw_data, gps_processor::ProcessResult::Append)
+            .record(raw_data, gps_processor::ProcessResult::Append, 0, false)
             .unwrap();
     }
     main_db
@@ -44,6 +44,7 @@ fn add_bitmap_journey(main_db: &mut MainDb) {
                 memolanes_core::journey_header::JourneyKind::DefaultKind,
                 None,
                 JourneyData::Bitmap(bitmap),
+                None,
             )?;
             Ok(())
         })

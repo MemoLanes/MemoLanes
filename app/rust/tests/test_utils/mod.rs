@@ -226,6 +226,7 @@ pub fn insert_bitmap_journey(
         kind,
         None,
         JourneyData::Bitmap(bitmap),
+        None,
     )
     .unwrap()
 }

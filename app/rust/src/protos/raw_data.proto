@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package raw_data;
+
+message RawPoint {
+  optional int64 timestamp_ms = 1;
+  int64 received_timestamp_ms = 2;
+  double latitude = 3;
+  double longitude = 4;
+  optional float accuracy = 5;
+  optional float altitude = 6;
+  optional float speed = 7;
+}
+
+message RawDataBlob {
+  repeated RawPoint points = 1;
+}

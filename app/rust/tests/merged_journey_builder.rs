@@ -35,6 +35,7 @@ fn basic() {
                 journey_kind,
                 None,
                 JourneyData::Bitmap(journey_bitmap.clone()),
+                None,
             )
         })
         .unwrap();
@@ -52,6 +53,7 @@ fn basic() {
                 journey_kind_flight,
                 None,
                 JourneyData::Bitmap(journey_bitmap_flight.clone()),
+                None,
             )
         })
         .unwrap();

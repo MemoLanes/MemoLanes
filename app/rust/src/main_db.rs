@@ -11,7 +11,9 @@ use std::str::FromStr;
 use uuid::Uuid;
 
 pub use crate::cache_db::CacheEntry;
-use crate::gps_processor::{self, GpsPostprocessor, PreprocessedData, ProcessResult};
+use crate::gps_processor::{
+    self, GpsPostprocessor, JourneyRawData, JourneyRawDataPoint, PreprocessedData, ProcessResult,
+};
 use crate::journey_data::JourneyData;
 use crate::journey_date_picker::JourneyDatePicker;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
@@ -170,6 +172,75 @@ impl Txn<'_> {
         }
     }
 
+    pub fn append_ongoing_journey(
+        &mut self,
+        raw_data: &gps_processor::RawData,
+        process_result: ProcessResult,
+    ) -> Result<()> {
+        let process_result = process_result.to_int();
+        assert!(process_result >= 0);
+        let sql = "INSERT INTO ongoing_journey (timestamp_sec, lat, lng, process_result) VALUES (?1, ?2, ?3, ?4);";
+        self.db_txn.execute(
+            sql,
+            (
+                raw_data.timestamp_ms.map(|x| x / 1000),
+                raw_data.point.latitude,
+                raw_data.point.longitude,
+                process_result,
+            ),
+        )?;
+        Ok(())
+    }
+
+    pub fn append_ongoing_raw_data(&mut self, point: &JourneyRawDataPoint) -> Result<()> {
+        let sql = "INSERT INTO ongoing_raw_data (timestamp_ms, received_timestamp_ms, lat, lng, accuracy, altitude, speed) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);";
+        self.db_txn.execute(
+            sql,
+            (
+                point.timestamp_ms,
+                point.received_timestamp_ms,
+                point.latitude,
+                point.longitude,
+                point.accuracy,
+                point.altitude,
+                point.speed,
+            ),
+        )?;
+        Ok(())
+    }
+
+    pub fn get_ongoing_raw_data(&self) -> Result<Vec<JourneyRawDataPoint>> {
+        let mut query = self.db_txn.prepare(
+            "SELECT timestamp_ms, received_timestamp_ms, lat, lng, accuracy, altitude, speed FROM ongoing_raw_data ORDER BY id;",
+        )?;
+        let rows = query.query_map((), |row| {
+            Ok(JourneyRawDataPoint {
+                timestamp_ms: row.get(0)?,
+                received_timestamp_ms: row.get(1)?,
+                latitude: row.get(2)?,
+                longitude: row.get(3)?,
+                accuracy: row.get(4)?,
+                altitude: row.get(5)?,
+                speed: row.get(6)?,
+            })
+        })?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    }
+
+    pub fn record(
+        &mut self,
+        raw_data: &gps_processor::RawData,
+        process_result: ProcessResult,
+    ) -> Result<()> {
+        match process_result {
+            ProcessResult::Ignore => (),
+            ProcessResult::Append | ProcessResult::NewSegment => {
+                self.append_ongoing_journey(raw_data, process_result)?;
+            }
+        }
+        Ok(())
+    }
+
     #[auto_context]
     pub fn delete_all_journeys(&mut self) -> Result<()> {
         info!("Deleting all journeys");
@@ -199,7 +270,12 @@ impl Txn<'_> {
 
     // TODO: consider return structured result so the caller know if it is skipped or other cases
     #[auto_context]
-    pub fn insert_journey(&mut self, header: JourneyHeader, mut data: JourneyData) -> Result<()> {
+    pub fn insert_journey(
+        &mut self,
+        header: JourneyHeader,
+        data: JourneyData,
+        raw_data: Option<&JourneyRawData>,
+    ) -> Result<()> {
         let journey_type = header.journey_type;
         if journey_type != data.type_() {
             bail!("[insert_journey] Mismatch journey type")
@@ -234,9 +310,11 @@ impl Txn<'_> {
 
         let header_bytes = header.to_proto().write_to_bytes()?;
         let mut data_bytes = Vec::new();
-        data.serialize(&mut data_bytes)?;
+        let mut data_to_serialize = data;
+        data_to_serialize.serialize(&mut data_bytes)?;
 
-        let sql = "INSERT INTO journey (id, journey_date, timestamp_for_ordering, type, header, data) VALUES (?1, ?2, ?3, ?4, ?5, ?6);";
+        let raw_data_bytes = raw_data.map(JourneyRawData::as_bytes);
+        let sql = "INSERT INTO journey (id, journey_date, timestamp_for_ordering, type, header, data, raw_data) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);";
         self.db_txn.execute(
             sql,
             (
@@ -246,6 +324,7 @@ impl Txn<'_> {
                 journey_type.to_int(),
                 header_bytes,
                 data_bytes,
+                raw_data_bytes,
             ),
         )?;
 
@@ -255,7 +334,7 @@ impl Txn<'_> {
                     date: insert_date,
                     kind: insert_kind,
                 },
-                data,
+                data: data_to_serialize,
             });
         } else {
             self.set_invalidate_action(vec![CacheEntry {
@@ -278,6 +357,7 @@ impl Txn<'_> {
         journey_kind: JourneyKind,
         note: Option<String>,
         journey_data: JourneyData,
+        raw_data: Option<JourneyRawData>,
     ) -> Result<String> {
         let (journey_data, postprocessor_algo) = match journey_data {
             JourneyData::Vector(journey_vector) => (
@@ -305,7 +385,7 @@ impl Txn<'_> {
             note,
             postprocessor_algo,
         };
-        self.insert_journey(header, journey_data)?;
+        self.insert_journey(header, journey_data, raw_data.as_ref())?;
         Ok(id)
     }
 
@@ -410,6 +490,13 @@ impl Txn<'_> {
 
     #[auto_context]
     pub fn finalize_ongoing_journey(&mut self) -> Result<bool> {
+        let rows = self.get_ongoing_raw_data()?;
+        let raw_data_blob = if rows.is_empty() {
+            None
+        } else {
+            Some(JourneyRawData::from_points(&rows)?)
+        };
+
         let mut journey_date_picker = JourneyDatePicker::new();
         let new_journey_added = match self.get_ongoing_journey(Some(&mut journey_date_picker))? {
             None => false,
@@ -429,11 +516,17 @@ impl Txn<'_> {
                     journey_kind,
                     None,
                     JourneyData::Vector(journey_vector),
+                    raw_data_blob,
                 )?;
                 true
             }
         };
 
+        self.db_txn.execute("DELETE FROM ongoing_raw_data;", ())?;
+        self.db_txn.execute(
+            "DELETE FROM sqlite_sequence WHERE name='ongoing_raw_data';",
+            (),
+        )?;
         self.db_txn.execute("DELETE FROM ongoing_journey;", ())?;
         self.db_txn.execute(
             "DELETE FROM sqlite_sequence WHERE name='ongoing_journey';",
@@ -522,6 +615,28 @@ impl Txn<'_> {
                 Ok(f())
             })
             .context("get_journey_data")?
+    }
+
+    pub fn get_journey_raw_data(&self, id: &str) -> Result<Option<JourneyRawData>> {
+        let mut query = self
+            .db_txn
+            .prepare("SELECT raw_data FROM journey WHERE id = ?1;")?;
+        let opt = query
+            .query_row([id], |row| row.get::<_, Option<Vec<u8>>>(0))
+            .optional()?;
+        Ok(opt.flatten().map(JourneyRawData::from_compressed))
+    }
+
+    #[auto_context]
+    pub fn delete_journey_raw_data(&mut self, id: &str) -> Result<()> {
+        info!("Deleting journey raw data: id={id}");
+        let changes = self
+            .db_txn
+            .execute("UPDATE journey SET raw_data = NULL WHERE id = ?1;", (id,))?;
+        if changes != 1 {
+            bail!("Failed to delete raw data for journey id = {id}");
+        }
+        Ok(())
     }
 
     #[auto_context]
@@ -673,8 +788,9 @@ impl MainDb {
         let conn = open_db_and_run_migration(
             support_dir,
             "main.db",
-            &[&|tx| {
-                let sql = "
+            &[
+                &|tx| {
+                    let sql = "
                 CREATE TABLE ongoing_journey (
                     id             INTEGER PRIMARY KEY AUTOINCREMENT
                                         UNIQUE
@@ -705,11 +821,29 @@ impl MainDb {
                     value             TEXT
                 );
                 ";
-                for s in sql_split::split(sql) {
-                    tx.execute(&s, ())?;
-                }
-                Ok(())
-            }],
+                    for s in sql_split::split(sql) {
+                        tx.execute(&s, ())?;
+                    }
+                    Ok(())
+                },
+                &|tx| {
+                    tx.execute(
+                        "CREATE TABLE ongoing_raw_data (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp_ms INTEGER,
+                    received_timestamp_ms INTEGER NOT NULL,
+                    lat REAL NOT NULL,
+                    lng REAL NOT NULL,
+                    accuracy REAL,
+                    altitude REAL,
+                    speed REAL
+                );",
+                        (),
+                    )?;
+                    tx.execute("ALTER TABLE journey ADD COLUMN raw_data BLOB;", ())?;
+                    Ok(())
+                },
+            ],
         )
         .expect("failed to open main db");
         MainDb { conn }
@@ -741,38 +875,26 @@ impl MainDb {
     */
 
     #[auto_context]
-    fn append_ongoing_journey(
-        &mut self,
-        raw_data: &gps_processor::RawData,
-        process_result: ProcessResult,
-    ) -> Result<()> {
-        let process_result = process_result.to_int();
-        assert!(process_result >= 0);
-        let tx = self.conn.transaction()?;
-        let sql = "INSERT INTO ongoing_journey (timestamp_sec, lat, lng, process_result) VALUES (?1, ?2, ?3, ?4);";
-        tx.prepare_cached(sql)?.execute((
-            raw_data.timestamp_ms.map(|x| x / 1000),
-            raw_data.point.latitude,
-            raw_data.point.longitude,
-            process_result,
-        ))?;
-        tx.commit()?;
-        Ok(())
-    }
-
-    #[auto_context]
     pub fn record(
         &mut self,
         raw_data: &gps_processor::RawData,
         process_result: ProcessResult,
+        received_timestamp_ms: i64,
+        write_raw_data: bool,
     ) -> Result<()> {
-        match process_result {
-            ProcessResult::Ignore => (),
-            ProcessResult::Append | ProcessResult::NewSegment => {
-                self.append_ongoing_journey(raw_data, process_result)?;
+        self.with_txn(|txn| {
+            txn.record(raw_data, process_result)?;
+            if write_raw_data
+                && matches!(
+                    process_result,
+                    ProcessResult::Append | ProcessResult::NewSegment
+                )
+            {
+                let point = JourneyRawDataPoint::from_raw_data(raw_data, received_timestamp_ms);
+                txn.append_ongoing_raw_data(&point)?;
             }
-        }
-        Ok(())
+            Ok(())
+        })
     }
 
     #[auto_context]

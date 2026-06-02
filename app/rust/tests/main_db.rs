@@ -30,7 +30,7 @@ fn basic() {
             main_db = MainDb::open(temp_dir.path().to_str().unwrap());
         }
         main_db
-            .record(raw_data, gps_processor::ProcessResult::Append)
+            .record(raw_data, gps_processor::ProcessResult::Append, 0, false)
             .unwrap();
     }
     main_db
@@ -132,6 +132,8 @@ fn get_ongoing_journey_timestamp_range() {
                 speed: None,
             },
             gps_processor::ProcessResult::Append,
+            0,
+            false,
         )
         .unwrap();
     main_db
@@ -147,6 +149,8 @@ fn get_ongoing_journey_timestamp_range() {
                 speed: None,
             },
             gps_processor::ProcessResult::Append,
+            0,
+            false,
         )
         .unwrap();
     main_db
@@ -162,6 +166,8 @@ fn get_ongoing_journey_timestamp_range() {
                 speed: None,
             },
             gps_processor::ProcessResult::Append,
+            0,
+            false,
         )
         .unwrap();
     let result = main_db
@@ -196,6 +202,7 @@ fn journey_query() {
             JourneyData::Vector(JourneyVector {
                 track_segments: vec![],
             }),
+            None,
         )
         .unwrap()
     };
@@ -280,6 +287,87 @@ fn journey_query() {
         .with_txn(|txn| txn.days_with_journey(2018, 2))
         .unwrap()
         .is_empty(),);
+}
+
+#[test]
+fn finalize_with_raw_data_mode_on() {
+    let temp_dir = TempDir::new("main_db-raw_data_on").unwrap();
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+
+    let points = vec![
+        RawData {
+            point: Point {
+                latitude: 31.2,
+                longitude: 121.5,
+            },
+            timestamp_ms: Some(1000),
+            accuracy: Some(10.0),
+            altitude: Some(50.0),
+            speed: Some(5.0),
+        },
+        RawData {
+            point: Point {
+                latitude: 31.21,
+                longitude: 121.51,
+            },
+            timestamp_ms: Some(2000),
+            accuracy: None,
+            altitude: None,
+            speed: None,
+        },
+        RawData {
+            point: Point {
+                latitude: 31.22,
+                longitude: 121.52,
+            },
+            timestamp_ms: Some(3000),
+            accuracy: Some(8.0),
+            altitude: Some(52.0),
+            speed: Some(6.0),
+        },
+    ];
+
+    for (i, raw) in points.iter().enumerate() {
+        main_db
+            .record(
+                raw,
+                gps_processor::ProcessResult::Append,
+                (i as i64 + 1) * 1000,
+                true,
+            )
+            .unwrap();
+    }
+    let new_journey = main_db
+        .with_txn(|txn| txn.finalize_ongoing_journey())
+        .unwrap();
+    assert!(new_journey);
+
+    let journeys = main_db
+        .with_txn(|txn| txn.query_journeys(None, None))
+        .unwrap();
+    assert_eq!(journeys.len(), 1);
+    let journey_id = &journeys[0].id;
+
+    let stored = main_db
+        .with_txn(|txn| txn.get_journey_raw_data(journey_id))
+        .unwrap();
+    let stored = stored.expect("journey.raw_data should be Some");
+    let decoded = stored.as_points().unwrap();
+    assert_eq!(decoded.len(), 3, "points count should match");
+
+    for (i, (raw, pt)) in points.iter().zip(decoded.iter()).enumerate() {
+        assert_eq!(
+            pt.timestamp_ms, raw.timestamp_ms,
+            "point[{}] timestamp_ms",
+            i
+        );
+        assert_eq!(pt.received_timestamp_ms, (i as i64 + 1) * 1000);
+        assert_eq!(pt.latitude, raw.point.latitude);
+        assert_eq!(pt.longitude, raw.point.longitude);
+        assert_eq!(pt.accuracy, raw.accuracy);
+        assert_eq!(pt.altitude, raw.altitude);
+        assert_eq!(pt.speed, raw.speed);
+    }
 }
 
 // === Action generation and set_invalidate_action tests ===
@@ -1123,6 +1211,7 @@ fn complete_rebuilt_survives_subsequent_insert() {
                 JourneyKind::DefaultKind,
                 None,
                 JourneyData::Bitmap(bitmap2),
+                None,
             )?;
             Ok(txn.action.clone())
         })
@@ -1259,6 +1348,8 @@ fn finalize_ongoing_sets_merge_one() {
                 speed: None,
             },
             gps_processor::ProcessResult::Append,
+            1697349115000,
+            false,
         )
         .unwrap();
     main_db
@@ -1274,6 +1365,8 @@ fn finalize_ongoing_sets_merge_one() {
                 speed: None,
             },
             gps_processor::ProcessResult::Append,
+            1697349116000,
+            false,
         )
         .unwrap();
 

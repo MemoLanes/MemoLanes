@@ -1,11 +1,14 @@
 use crate::{
+    journey_data,
     journey_date_picker::JourneyDatePicker,
     journey_header::{JourneyHeader, JourneyType},
     journey_vector::{JourneyVector, TrackPoint, TrackSegment},
+    protos,
 };
 use anyhow::{Context, Result};
 use auto_context::auto_context;
 use chrono::DateTime;
+use protobuf::Message;
 
 // TODO: This is the same as `TrackPoint`, we should unify them.
 #[derive(Clone, Debug, PartialEq)]
@@ -69,6 +72,7 @@ impl Point {
     }
 }
 
+/// GPS raw data (single point) from the device, used for preprocessing etc.; not related to persistence format.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RawData {
     pub point: Point,
@@ -76,6 +80,90 @@ pub struct RawData {
     pub accuracy: Option<f32>,
     pub altitude: Option<f32>,
     pub speed: Option<f32>,
+}
+
+/// In raw data mode, a storage record bound to a journey (includes receive time); used only for persistence (ongoing_raw_data table, CSV, RawDataBlob).
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct JourneyRawDataPoint {
+    pub timestamp_ms: Option<i64>,
+    pub received_timestamp_ms: i64,
+    pub latitude: f64,
+    pub longitude: f64,
+    pub accuracy: Option<f32>,
+    pub altitude: Option<f32>,
+    pub speed: Option<f32>,
+}
+
+impl JourneyRawDataPoint {
+    pub fn from_raw_data(raw_data: &RawData, received_timestamp_ms: i64) -> Self {
+        Self {
+            timestamp_ms: raw_data.timestamp_ms,
+            received_timestamp_ms,
+            latitude: raw_data.point.latitude,
+            longitude: raw_data.point.longitude,
+            accuracy: raw_data.accuracy,
+            altitude: raw_data.altitude,
+            speed: raw_data.speed,
+        }
+    }
+}
+
+/// Storage form of a journey's raw GPS in the DB: multiple JourneyRawDataPoints serialized then zstd-compressed.
+#[derive(Clone, Debug)]
+pub struct JourneyRawData(Vec<u8>);
+
+impl JourneyRawData {
+    /// Deserialize from compressed bytes (e.g. when reading from DB).
+    pub fn from_compressed(bytes: Vec<u8>) -> Self {
+        Self(bytes)
+    }
+
+    /// Build from multiple points and compress; used when finalizing to write journey.raw_data.
+    pub fn from_points(points: &[JourneyRawDataPoint]) -> Result<Self> {
+        let mut blob = protos::raw_data::RawDataBlob::new();
+        for r in points {
+            let mut pt = protos::raw_data::RawPoint::new();
+            pt.timestamp_ms = r.timestamp_ms;
+            pt.received_timestamp_ms = r.received_timestamp_ms;
+            pt.latitude = r.latitude;
+            pt.longitude = r.longitude;
+            pt.accuracy = r.accuracy;
+            pt.altitude = r.altitude;
+            pt.speed = r.speed;
+            blob.points.push(pt);
+        }
+        let plain = blob.write_to_bytes()?;
+        let compressed = zstd::encode_all(plain.as_slice(), journey_data::ZSTD_COMPRESS_LEVEL)?;
+        Ok(Self(compressed))
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+
+    /// Decompress to proto for callers that need RawDataBlob.
+    pub fn to_blob(&self) -> Result<protos::raw_data::RawDataBlob> {
+        let plain = zstd::decode_all(self.0.as_slice())?;
+        protos::raw_data::RawDataBlob::parse_from_bytes(&plain).map_err(Into::into)
+    }
+
+    /// Decompress and convert to multiple JourneyRawDataPoints, representing the containment relationship.
+    pub fn as_points(&self) -> Result<Vec<JourneyRawDataPoint>> {
+        let blob = self.to_blob()?;
+        Ok(blob
+            .points
+            .iter()
+            .map(|pt| JourneyRawDataPoint {
+                timestamp_ms: pt.timestamp_ms,
+                received_timestamp_ms: pt.received_timestamp_ms,
+                latitude: pt.latitude,
+                longitude: pt.longitude,
+                accuracy: pt.accuracy,
+                altitude: pt.altitude,
+                speed: pt.speed,
+            })
+            .collect())
+    }
 }
 
 #[cfg(test)]
