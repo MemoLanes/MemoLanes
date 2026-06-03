@@ -53,6 +53,7 @@
     "still_under_development": "开发中",
     "copy_success": "复制成功",
     "save_success": "保存成功",
+    "continue": "继续",
     "save_confirm": "是否保存？"
   },
   "journey": {
@@ -235,10 +236,16 @@
   },
   "privacy": {
     "url": "https://app.memolanes.com/zh/privacy/",
-    "privacy_tip_title": "隐私协议提示",
-    "privacy_tip_message_md": "你需要同意隐私协议才能使用迹忆。\n\n你可以阅读完整版[《迹忆隐私协议》](@:privacy.url)来了解详细信息。",
+    "setup_title": "首次使用设置",
+    "setup_desc": "开始使用前，请先选择地区偏好并确认隐私协议。",
+    "region_title": "地区偏好",
+    "select_region": "选择地区偏好",
+    "region_mainland_china": "中国大陆",
+    "region_international": "国际",
+    "region_united_states": "美国",
+    "agreement_title": "阅读并同意隐私协议",
+    "view_policy": "查看隐私协议",
     "name": "隐私协议",
-    "agree": "同意",
     "disagree_and_exit": "不同意并退出"
   },
   "contact_us": {

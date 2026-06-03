@@ -53,6 +53,7 @@
     "still_under_development": "Still under development",
     "copy_success": "Copied",
     "save_success": "Saved successfully",
+    "continue": "Continue",
     "save_confirm": "Do you want to save the changes?"
   },
   "journey": {
@@ -235,10 +236,16 @@
   },
   "privacy": {
     "url": "https://app.memolanes.com/en/privacy/",
-    "privacy_tip_title": "Privacy Policy Notice",
-    "privacy_tip_message_md": "You need to agree to the privacy policy before using MemoLanes.\n\nYou can read the full version of the [MemoLanes Privacy Policy](@:privacy.url) for more details.",
+    "setup_title": "First-time setup",
+    "setup_desc": "Before using MemoLanes, choose your region preference and confirm the privacy policy.",
+    "region_title": "Region preference",
+    "select_region": "Select region preference",
+    "region_mainland_china": "Mainland China",
+    "region_international": "International",
+    "region_united_states": "United States",
+    "agreement_title": "Read and agree to the Privacy Policy",
+    "view_policy": "View Privacy Policy",
     "name": "Privacy Policy",
-    "agree": "Agree",
     "disagree_and_exit": "Disagree And Exit"
   },
   "contact_us": {
