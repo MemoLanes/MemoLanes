@@ -3,7 +3,7 @@ import 'dart:io' show Platform;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:memolanes/common/component/cards/line_painter.dart';
+import 'package:memolanes/common/component/setup_bottom_sheet.dart';
 import 'package:memolanes/common/service/permission_service.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/style_constants.dart';
@@ -156,130 +156,71 @@ class _PermissionRequestSheetContentState
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.6,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.black,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(16.0),
-          topRight: Radius.circular(16.0),
+    return SetupBottomSheet(
+      title: context.tr("permission_sheet.title"),
+      maxHeightFactor: 0.6,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
+        onPressed: () => Navigator.of(context).pop(false),
+        style: IconButton.styleFrom(
+          padding: const EdgeInsets.all(8),
+          minimumSize: const Size(40, 40),
         ),
       ),
+      actions: [
+        OutlinedButton(
+          onPressed: _onSkip,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.white,
+            side: const BorderSide(color: Color(0xFFB5B5B5)),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+          ),
+          child: Text(context.tr("permission_sheet.skip")),
+        ),
+        FilledButton(
+          onPressed: _onEnableAll,
+          style: FilledButton.styleFrom(
+            backgroundColor: StyleConstants.defaultColor,
+            foregroundColor: Colors.black,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+          ),
+          child: Text(context.tr("permission_sheet.enable_all")),
+        ),
+      ],
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: Center(
-              child: CustomPaint(
-                size: const Size(40.0, 4.0),
-                painter: LinePainter(color: const Color(0xFFB5B5B5)),
-              ),
-            ),
+          _PermissionTile(
+            icon: Icons.location_on,
+            title: context.tr("permission_sheet.location_title"),
+            description: context.tr("permission_sheet.location_desc"),
+            isGranted: _locationGranted,
+            onTap: _requestLocation,
+            onRationaleTap: _showLocationRationaleDialog,
+            rationaleTooltip:
+                context.tr("permission_sheet.location_help_tooltip"),
+            showOpenSettingsHintWhenDenied: _locationPermanentlyDenied,
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 0),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back_ios,
-                      color: Colors.white, size: 20),
-                  onPressed: () => Navigator.of(context).pop(false),
-                  style: IconButton.styleFrom(
-                    padding: const EdgeInsets.all(8),
-                    minimumSize: const Size(40, 40),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    context.tr("permission_sheet.title"),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                const SizedBox(width: 48),
-              ],
+          if (Platform.isAndroid)
+            _PermissionTile(
+              icon: Icons.battery_charging_full,
+              title: context.tr("permission_sheet.battery_title"),
+              description: context.tr("permission_sheet.battery_desc"),
+              isGranted: _batteryGranted,
+              onTap: _requestBattery,
+              onRationaleTap: _showBatteryRationaleDialog,
+              rationaleTooltip:
+                  context.tr("permission_sheet.battery_help_tooltip"),
             ),
-          ),
-          Flexible(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-              child: Column(
-                children: [
-                  _PermissionTile(
-                    icon: Icons.location_on,
-                    title: context.tr("permission_sheet.location_title"),
-                    description: context.tr("permission_sheet.location_desc"),
-                    isGranted: _locationGranted,
-                    onTap: _requestLocation,
-                    onRationaleTap: _showLocationRationaleDialog,
-                    rationaleTooltip:
-                        context.tr("permission_sheet.location_help_tooltip"),
-                    showOpenSettingsHintWhenDenied: _locationPermanentlyDenied,
-                  ),
-                  if (Platform.isAndroid)
-                    _PermissionTile(
-                      icon: Icons.battery_charging_full,
-                      title: context.tr("permission_sheet.battery_title"),
-                      description: context.tr("permission_sheet.battery_desc"),
-                      isGranted: _batteryGranted,
-                      onTap: _requestBattery,
-                      onRationaleTap: _showBatteryRationaleDialog,
-                      rationaleTooltip:
-                          context.tr("permission_sheet.battery_help_tooltip"),
-                    ),
-                  _PermissionTile(
-                    icon: Icons.notifications_outlined,
-                    title: context.tr("permission_sheet.notification_title"),
-                    description:
-                        context.tr("permission_sheet.notification_desc"),
-                    isGranted: _notificationGranted,
-                    onTap: _requestNotification,
-                    onRationaleTap: _showNotificationRationaleDialog,
-                    rationaleTooltip: context
-                        .tr("permission_sheet.notification_help_tooltip"),
-                    showOpenSettingsHintWhenDenied:
-                        _notificationPermanentlyDenied,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _onSkip,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: Color(0xFFB5B5B5)),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: Text(context.tr("permission_sheet.skip")),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: _onEnableAll,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: StyleConstants.defaultColor,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: Text(context.tr("permission_sheet.enable_all")),
-                  ),
-                ),
-              ],
-            ),
+          _PermissionTile(
+            icon: Icons.notifications_outlined,
+            title: context.tr("permission_sheet.notification_title"),
+            description: context.tr("permission_sheet.notification_desc"),
+            isGranted: _notificationGranted,
+            onTap: _requestNotification,
+            onRationaleTap: _showNotificationRationaleDialog,
+            rationaleTooltip:
+                context.tr("permission_sheet.notification_help_tooltip"),
+            showOpenSettingsHintWhenDenied: _notificationPermanentlyDenied,
           ),
         ],
       ),
@@ -310,115 +251,47 @@ class _PermissionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: const Color(0x1AFFFFFF),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Icon(
-                  icon,
-                  color: StyleConstants.defaultColor,
-                  size: 22,
+    return SetupTile(
+      icon: icon,
+      title: title,
+      subtitle: description,
+      onTap: onTap,
+      titleTrailing: onRationaleTap == null
+          ? null
+          : _PermissionInfoIcon(
+              onTap: onRationaleTap!,
+              tooltip: rationaleTooltip,
+            ),
+      extraContent: showOpenSettingsHintWhenDenied && !isGranted
+          ? Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton(
+                  onPressed: onTap,
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    foregroundColor: StyleConstants.defaultColor,
+                  ),
+                  child: Text(
+                    context.tr('permission_sheet.open_system_settings'),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.underline,
+                      decorationColor: StyleConstants.defaultColor,
+                    ),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Flexible(
-                        fit: FlexFit.loose,
-                        child: InkWell(
-                          onTap: onTap,
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 2),
-                            child: Text(
-                              title,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                      ),
-                      if (onRationaleTap != null) ...[
-                        const SizedBox(width: 6),
-                        _PermissionInfoIcon(
-                          onTap: onRationaleTap!,
-                          tooltip: rationaleTooltip,
-                        ),
-                      ],
-                    ],
-                  ),
-                  InkWell(
-                    onTap: onTap,
-                    borderRadius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        description,
-                        style: const TextStyle(
-                          color: Color(0xFFB0B0B0),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (showOpenSettingsHintWhenDenied && !isGranted) ...[
-                    const SizedBox(height: 6),
-                    Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: TextButton(
-                        onPressed: onTap,
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          foregroundColor: StyleConstants.defaultColor,
-                        ),
-                        child: Text(
-                          context.tr('permission_sheet.open_system_settings'),
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.underline,
-                            decorationColor: StyleConstants.defaultColor,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            Switch(
-              value: isGranted,
-              onChanged: isGranted ? null : (_) => onTap(),
-              activeTrackColor: StyleConstants.defaultColor,
-            ),
-          ],
-        ),
+            )
+          : null,
+      trailing: Switch(
+        value: isGranted,
+        onChanged: isGranted ? null : (_) => onTap(),
+        activeTrackColor: StyleConstants.defaultColor,
       ),
     );
   }

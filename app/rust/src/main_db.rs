@@ -1,5 +1,5 @@
 extern crate simplelog;
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use auto_context::auto_context;
 use chrono::{DateTime, Local, NaiveDate, Timelike, Utc};
 use protobuf::Message;
@@ -34,6 +34,27 @@ deserialize the header.
 
 // 3 is the zstd default
 pub const ZSTD_COMPRESS_LEVEL: i32 = 3;
+
+#[repr(i64)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RegionPreference {
+    MainlandChina = 0,
+    International = 1,
+    UnitedStates = 2,
+}
+
+impl TryFrom<i64> for RegionPreference {
+    type Error = anyhow::Error;
+
+    fn try_from(value: i64) -> Result<Self> {
+        match value {
+            0 => Ok(Self::MainlandChina),
+            1 => Ok(Self::International),
+            2 => Ok(Self::UnitedStates),
+            _ => bail!("Invalid region preference: {value}"),
+        }
+    }
+}
 
 #[auto_context]
 #[allow(clippy::type_complexity)]
@@ -816,6 +837,16 @@ impl MainDb {
         tx.commit()?;
         Ok(())
     }
+
+    pub fn get_region_preference(&mut self) -> Result<Option<RegionPreference>> {
+        self.get_setting::<i64>(Setting::RegionPreference)?
+            .map(RegionPreference::try_from)
+            .transpose()
+    }
+
+    pub fn set_region_preference(&mut self, region: RegionPreference) -> Result<()> {
+        self.set_setting(Setting::RegionPreference, region as i64)
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -823,12 +854,14 @@ pub enum Setting {
     // TODO: We should consider making the flutter part handle this, similar to
     // `GpsManager.isRecording`.
     RawDataMode,
+    RegionPreference,
 }
 
 impl Setting {
     fn to_db_key(self) -> &'static str {
         match self {
             Self::RawDataMode => "RAW_DATA_MODE",
+            Self::RegionPreference => "REGION_PREFERENCE",
         }
     }
 }

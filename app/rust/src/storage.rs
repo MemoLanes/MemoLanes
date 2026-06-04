@@ -3,7 +3,7 @@ use crate::cache_db::{self, CacheDb, LayerKind};
 use crate::gps_processor::{self, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_header::JourneyKind;
-use crate::main_db::{self, Action, MainDb};
+use crate::main_db::{self, Action, MainDb, RegionPreference};
 use crate::merged_journey_builder;
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
@@ -230,6 +230,16 @@ impl Storage {
     pub fn get_raw_data_mode(&self) -> bool {
         let raw_data_recorder = self.raw_data_recorder.lock().unwrap();
         raw_data_recorder.is_some()
+    }
+
+    pub fn get_region_preference(&self) -> Result<Option<RegionPreference>> {
+        let main_db = &mut self.dbs.lock().unwrap().0;
+        main_db.get_region_preference()
+    }
+
+    pub fn set_region_preference(&self, region: RegionPreference) -> Result<()> {
+        let main_db = &mut self.dbs.lock().unwrap().0;
+        main_db.set_region_preference(region)
     }
 
     #[auto_context]
