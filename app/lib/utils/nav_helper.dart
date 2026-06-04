@@ -55,12 +55,12 @@ Future<void> tryShowPermissionSheetIfFirstTime() async {
   }
 }
 
-/// User-driven (e.g. record / map): if any permission is still needed, show the sheet.
+/// User-driven (e.g. record / map): location is required, while notification
+/// and battery permissions are optional follow-ups handled by the sheet.
 Future<bool> checkAndRequestPermission() async {
   try {
     final svc = PermissionService();
-    final needAny = await svc.needAnyPermission();
-    if (!needAny) return await svc.checkLocationPermission();
+    if (await svc.checkLocationPermission()) return true;
 
     final context = navigatorKey.currentState?.context;
     if (context == null || !context.mounted) {
