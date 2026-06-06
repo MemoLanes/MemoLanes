@@ -6,6 +6,7 @@ use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use md5::{Digest, Md5};
 use std::collections::BTreeMap;
+use std::future::pending;
 use std::io::{Seek, Write};
 
 const FOW_FILENAME_ID_DIGIT_MASK: &str = "olhwjsktri";
@@ -403,35 +404,36 @@ pub fn journey_bitmap_to_fwss_file<T: Write + Seek>(
         );
     }
 
-    while let Some((&key, _)) = pending_layers.iter().next_back() {
-        let Some(tile) = pending_layers.remove(&key) else {
-            break;
-        };
+    while !pending_layers.is_empty() {
+        let mut next_layers = BTreeMap::new();
+        for (_, tile) in pending_layers {
+            if tile.coord.z <= FOW_SNAPSHOT_MAX_LAYER_Z
+                && tile.coord.z >= FOW_SNAPSHOT_MIN_LAYER_Z
+                && !tile.is_empty()
+            {
+                let filename = fow_snapshot_filename(
+                    tile.coord.x,
+                    tile.coord.y,
+                    tile.coord.z,
+                    FoWSnapshotFileType::Layer,
+                );
+                zip.start_file(format!("Model/~/{filename}"), options)?;
+                zip.write_all(&serialize_fow_snapshot_layer_tile(&tile)?)?;
+            }
 
-        if tile.coord.z <= FOW_SNAPSHOT_MAX_LAYER_Z
-            && tile.coord.z >= FOW_SNAPSHOT_MIN_LAYER_Z
-            && !tile.is_empty()
-        {
-            let filename = fow_snapshot_filename(
-                tile.coord.x,
-                tile.coord.y,
-                tile.coord.z,
-                FoWSnapshotFileType::Layer,
-            );
-            zip.start_file(format!("Model/~/{filename}"), options)?;
-            zip.write_all(&serialize_fow_snapshot_layer_tile(&tile)?)?;
+            if tile.coord.z <= FOW_SNAPSHOT_MIN_LAYER_Z {
+                break;
+            }
+
+            let parent_coord = tile.parent_coord();
+            let parent_key = (parent_coord.z, parent_coord.y, parent_coord.x);
+            next_layers
+                .entry(parent_key)
+                .or_insert_with(|| FoWSnapshotTile::empty(parent_coord))
+                .merge_subtile(&tile);
         }
 
-        if tile.coord.z <= FOW_SNAPSHOT_MIN_LAYER_Z {
-            break;
-        }
-
-        let parent_coord = tile.parent_coord();
-        let parent_key = (parent_coord.z, parent_coord.y, parent_coord.x);
-        pending_layers
-            .entry(parent_key)
-            .or_insert_with(|| FoWSnapshotTile::empty(parent_coord))
-            .merge_subtile(&tile);
+        pending_layers = next_layers;
     }
 
     zip.start_file(format!("Model/#/{FOW_SNAPSHOT_METADATA_FILENAME}"), options)?;
