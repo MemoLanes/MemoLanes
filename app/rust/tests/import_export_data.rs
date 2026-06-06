@@ -113,7 +113,10 @@ fn verify_fow_snapshot_data() {
     assert_eq!(result_1.unwrap_err().to_string(), "empty data. warnings: ");
     assert_eq!(journey_info.journey_date.to_string(), "2026-06-01");
     assert_eq!(journey_info.start_time, None);
-    assert_eq!(journey_info.end_time, None);
+    assert_eq!(
+        journey_info.end_time.map(|time| time.to_rfc3339()),
+        Some("2026-06-01T15:20:45+00:00".to_owned())
+    );
 }
 
 #[test]
