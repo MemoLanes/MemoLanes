@@ -6,7 +6,6 @@ use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use md5::{Digest, Md5};
 use std::collections::BTreeMap;
-use std::future::pending;
 use std::io::{Seek, Write};
 
 const FOW_FILENAME_ID_DIGIT_MASK: &str = "olhwjsktri";
@@ -389,6 +388,8 @@ pub fn journey_bitmap_to_fwss_file<T: Write + Seek>(
         total_area_square_meters += ((tile_area * snapshot_tile.count_pixels() as f64)
             / FOW_PIXELS_PER_BASE_TILE as f64) as u64;
 
+        // FOW snapshots group all Model/* entries before Model/# entries;
+        // we write each bitmap followed by its hash.
         zip.start_file(format!("Model/*/{bitmap_filename}"), options)?;
         zip.write_all(&serialize_fow_snapshot_bitmap_tile(&snapshot_tile)?)?;
         zip.start_file(format!("Model/#/{hash_filename}"), options)?;
