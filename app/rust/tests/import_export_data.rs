@@ -2,7 +2,7 @@
 extern crate assert_float_eq;
 
 use itertools::Itertools;
-use memolanes_core::api::import::{ImportPreprocessor, JourneyInfo};
+use memolanes_core::api::import::{self as import_api, ImportPreprocessor, JourneyInfo};
 use memolanes_core::export_data::raw_data_csv_to_gpx_file;
 use memolanes_core::gpx_file_utils::{normalize_generic_time, normalize_step_of_my_world_time};
 use memolanes_core::journey_vector::TrackPoint;
@@ -92,15 +92,18 @@ fn load_fow_sync_data() {
 
 #[test]
 fn verify_fow_snapshot_data() {
+    const SNAPSHOT_TEST_PATH: &str = "./tests/data/Snapshot-20260601T232045+0800.fwss";
+
     let (bitmap_1, warnings_1) =
         import_data::load_fow_sync_data("./tests/data/snapshot_fow_test.zip").unwrap();
-    let (bitmap_2, warnings_2) =
-        import_data::load_fow_snapshot_data("./tests/data/snapshot_test.fwss").unwrap();
+    let (bitmap_2, warnings_2) = import_data::load_fow_snapshot_data(SNAPSHOT_TEST_PATH).unwrap();
     let result_1 = import_data::load_fow_snapshot_data("./tests/data/snapshot_no_bitmap.fwss");
+    let (journey_info, _journey_data) =
+        import_api::load_fow_data(SNAPSHOT_TEST_PATH.to_owned()).unwrap();
 
     assert!(
         !bitmap_2.is_empty(),
-        "snapshot_test.fwss bitmap should not be empty"
+        "Snapshot-20260601T232045+0800.fwss bitmap should not be empty"
     );
     assert!(result_1.is_err(), "Empty snapshot should return error");
 
@@ -108,6 +111,12 @@ fn verify_fow_snapshot_data() {
     assert_eq!(format!("{warnings_1:?}"), "None");
     assert_eq!(format!("{warnings_2:?}"), "None");
     assert_eq!(result_1.unwrap_err().to_string(), "empty data. warnings: ");
+    assert_eq!(journey_info.journey_date.to_string(), "2026-06-01");
+    assert_eq!(journey_info.start_time, None);
+    assert_eq!(
+        journey_info.end_time.map(|time| time.to_rfc3339()),
+        Some("2026-06-01T15:20:45+00:00".to_owned())
+    );
 }
 
 #[test]
