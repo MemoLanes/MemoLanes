@@ -236,7 +236,32 @@ class GpsManager extends ChangeNotifier {
   Future<void> _processRecordingLocationUpdatePipe() async {
     await for (final update in _recordingLocationUpdatePipe.stream) {
       try {
-        await _recordLocationUpdate(update);
+        var last = _tryFinalizeJourneyCountDown;
+        if (last != null &&
+            update.receivedAt.difference(last).inSeconds >= 60) {
+          await _m.protect(() async {
+            await _tryFinalizeJourneyWithoutLock();
+          });
+          _tryFinalizeJourneyCountDown = update.receivedAt;
+        }
+
+        var meaningful = await api.onLocationUpdate(
+          rawData: RawData(
+            point: Point(
+              latitude: update.data.latitude,
+              longitude: update.data.longitude,
+            ),
+            timestampMs: update.data.timestampMs,
+            accuracy: update.data.accuracy,
+            altitude: update.data.altitude,
+            speed: update.data.speed,
+          ),
+          receivedTimestampMs: update.receivedAt.millisecondsSinceEpoch,
+        );
+
+        if (meaningful) {
+          _tryFinalizeJourneyCountDown = update.receivedAt;
+        }
       } catch (error, stackTrace) {
         log.error(
             "[GpsManager] record location update failed: $error", stackTrace);
@@ -252,34 +277,6 @@ class GpsManager extends ChangeNotifier {
 
   Future<void> _drainRecordingLocationUpdates() {
     return _recordingLocationUpdatesDrained?.future ?? Future<void>.value();
-  }
-
-  Future<void> _recordLocationUpdate(_RecordingLocationUpdate update) async {
-    var last = _tryFinalizeJourneyCountDown;
-    if (last != null && update.receivedAt.difference(last).inSeconds >= 60) {
-      await _m.protect(() async {
-        await _tryFinalizeJourneyWithoutLock();
-      });
-      _tryFinalizeJourneyCountDown = update.receivedAt;
-    }
-
-    var meaningful = await api.onLocationUpdate(
-      rawData: RawData(
-        point: Point(
-          latitude: update.data.latitude,
-          longitude: update.data.longitude,
-        ),
-        timestampMs: update.data.timestampMs,
-        accuracy: update.data.accuracy,
-        altitude: update.data.altitude,
-        speed: update.data.speed,
-      ),
-      receivedTimestampMs: update.receivedAt.millisecondsSinceEpoch,
-    );
-
-    if (meaningful) {
-      _tryFinalizeJourneyCountDown = update.receivedAt;
-    }
   }
 
   Future<void> changeRecordingState(GpsRecordingStatus to) async {
