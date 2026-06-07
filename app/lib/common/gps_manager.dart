@@ -288,7 +288,6 @@ class GpsManager extends ChangeNotifier {
 
     var needToFinalize = false;
     await _m.protect(() async {
-      await _drainRecordingLocationUpdates();
       needToFinalize = recordingStatus != to && to == GpsRecordingStatus.none;
       recordingStatus = to;
       notifyListeners();
@@ -298,17 +297,16 @@ class GpsManager extends ChangeNotifier {
         MMKVKey.isRecording,
         recordingStatus == GpsRecordingStatus.recording,
       );
-    });
 
-    if (needToFinalize) {
-      await _m.protect(() async {
+      await _drainRecordingLocationUpdates();
+      if (needToFinalize) {
         if (await api.finalizeOngoingJourney()) {
           Fluttertoast.showToast(msg: tr("journey.finalize_saved"));
         } else {
           Fluttertoast.showToast(msg: tr("journey.finalize_empty"));
         }
-      });
-    }
+      }
+    });
   }
 
   Future<bool> toggleMapTracking(bool enable) async {
