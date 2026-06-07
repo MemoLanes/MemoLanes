@@ -236,6 +236,9 @@ class GpsManager extends ChangeNotifier {
   Future<void> _processRecordingLocationUpdatePipe() async {
     await for (final update in _recordingLocationUpdatePipe.stream) {
       try {
+        if (_internalState != _InternalState.recording) {
+          return;
+        }
         var last = _tryFinalizeJourneyCountDown;
         if (last != null &&
             update.receivedAt.difference(last).inSeconds >= 60) {
@@ -287,9 +290,12 @@ class GpsManager extends ChangeNotifier {
     }
 
     var needToFinalize = false;
+    await _drainRecordingLocationUpdates();
+
     await _m.protect(() async {
       needToFinalize = recordingStatus != to && to == GpsRecordingStatus.none;
       recordingStatus = to;
+
       notifyListeners();
 
       await _syncInternalStateWithoutLock();
@@ -298,7 +304,6 @@ class GpsManager extends ChangeNotifier {
         recordingStatus == GpsRecordingStatus.recording,
       );
 
-      await _drainRecordingLocationUpdates();
       if (needToFinalize) {
         if (await api.finalizeOngoingJourney()) {
           Fluttertoast.showToast(msg: tr("journey.finalize_saved"));
