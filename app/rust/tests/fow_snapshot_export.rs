@@ -10,7 +10,7 @@ use std::io::{Cursor, Read};
 
 pub mod test_utils;
 
-const SOURCE_SNAPSHOT_PATH: &str = "./tests/data/snapshot_test.fwss";
+const SOURCE_SNAPSHOT_PATH: &str = "./tests/data/Snapshot-20260601T232045+0800.fwss";
 const ROUNDTRIP_SNAPSHOT_PATH: &str =
     "./tests/for_inspection/generated_fow_snapshot_roundtrip.fwss";
 const RENDER_SNAPSHOT_PATH: &str =
