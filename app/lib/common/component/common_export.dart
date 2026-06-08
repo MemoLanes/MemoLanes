@@ -70,7 +70,7 @@ typedef CommonExportFileBuilder = Future<String> Function(
   CommonExportFormat format,
 );
 
-Future<bool> showCommonExportFlow({
+Future<bool> showCommonExportWithFormatPicker({
   required BuildContext context,
   required String title,
   required List<CommonExportFormat> formats,

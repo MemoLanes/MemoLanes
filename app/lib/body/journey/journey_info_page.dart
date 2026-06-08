@@ -196,7 +196,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   void _export() async {
     final supportsVectorExport =
         _journeyHeader.journeyType != JourneyType.bitmap;
-    await showCommonExportFlow(
+    await showCommonExportWithFormatPicker(
       context: context,
       title: context.tr("data.export_data.export_journey_title"),
       formats: [

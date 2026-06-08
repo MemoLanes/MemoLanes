@@ -211,7 +211,7 @@ class _SettingsBodyState extends State<SettingsBody> {
               );
               return;
             }
-            await showCommonExportFlow(
+            await showCommonExportWithFormatPicker(
               context: context,
               title: context.tr("data.export_data.export_all_title"),
               formats: const [
