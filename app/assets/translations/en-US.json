@@ -25,12 +25,10 @@
     "open_system_settings": "Open system settings"
   },
   "location_service": {
-    "location_service_disabled": "Location services are disabled. Please enable them in the settings.",
     "location_permission_denied": "Location permission was not granted, so location-based features are temporarily unavailable. You can allow it later.",
     "location_permission_permanently_denied": "You have denied location permission, therefore location-based features are disabled. If you want to use these features, please enable it in the app settings.",
     "location_permission_reason": "MemoLanes needs location permission to collect your precise location data to record your travel routes and visualize your journey history. All location data is stored locally on your device and is not shared with any third parties.",
     "battery_optimization_reason": "To ensure continuous background location updates, please allow the app to ignore battery optimization.",
-    "battery_optimization_denied": "You have declined to ignore battery optimization, which may cause the app to run unstable in the background. Please allow it in the app settings.",
     "android_foreground_notification_channel_name": "Tracking Service",
     "android_foreground_notification_title": "Recording in Background",
     "android_foreground_notification_text": "MemoLanes will continue to record in the background",
@@ -51,14 +49,12 @@
     "edit": "Edit",
     "delete": "Delete",
     "please_enter": "Please enter",
-    "still_under_development": "Still under development",
     "copy_success": "Copied",
     "save_success": "Saved successfully",
     "save_confirm": "Do you want to save the changes?"
   },
   "journey": {
     "editor": {
-      "back": "Back",
       "move": "Move",
       "draw": "Draw",
       "free_draw": "Free",
@@ -116,7 +112,6 @@
     "current": "Current"
   },
   "time_machine": {
-    "menu_title_time": "Time",
     "menu_title_view": "View",
     "menu_title_granularity": "Granularity",
     "menu_title_layer": "Layer",
@@ -125,8 +120,7 @@
     "menu_view_custom": "Custom",
     "menu_year": "Year",
     "menu_month": "Month",
-    "menu_day": "Day",
-    "menu_any": "Any"
+    "menu_day": "Day"
   },
   "preprocessor": {
     "generic": "Generic Mode",
@@ -219,8 +213,7 @@
       "delete_backup_data": "Delete backup data"
     },
     "import_data": {
-      "title": "Import data",
-      "unsupported_file": "Unsupported file"
+      "title": "Import data"
     },
     "export_data": {
       "export_all": "Export All Data"
