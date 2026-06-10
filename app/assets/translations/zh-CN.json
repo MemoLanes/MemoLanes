@@ -227,7 +227,7 @@
       "export_all_title": "导出全部旅途",
       "export_journey_title": "导出旅途",
       "format_section_title": "导出格式",
-      "format_mldx": "迹忆专用格式（*.mldx）",
+      "format_mldx": "迹忆标准格式（*.mldx）",
       "format_mldx_desc": "推荐用于备份、迁移和再次导入迹忆。",
       "format_fwss": "世界迷雾快照 (*.fwss)",
       "format_fwss_desc": "用于导入世界迷雾等兼容场景。",
@@ -235,7 +235,7 @@
       "format_kml_desc": "用于地图软件和轨迹工具。",
       "format_gpx": "GPX 轨迹 (*.gpx)",
       "format_gpx_desc": "用于运动、导航和轨迹工具。",
-      "lossy_format_warning": "此格式会丢失部分旅途数据。完整备份请使用迹忆专用格式（*.mldx）"
+      "lossy_format_warning": "此格式会丢失部分旅途数据。完整备份请使用迹忆标准格式（*.mldx）"
     }
   },
   "settings": {

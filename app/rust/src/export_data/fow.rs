@@ -354,17 +354,23 @@ pub fn journey_bitmap_to_fwss_file<T: Write + Seek>(
         .compression_method(zip::CompressionMethod::Stored)
         .system(zip::System::Dos);
 
-    let mut tiles = journey_bitmap.iter_tiles().collect::<Vec<_>>();
-    tiles.sort_by_key(|(tile_key, _)| **tile_key);
+    let mut tile_keys = journey_bitmap.all_tile_keys().copied().collect::<Vec<_>>();
+    tile_keys.sort();
     let mut pending_layers: BTreeMap<(i32, u16, u16), FoWSnapshotTile> = BTreeMap::new();
     let mut tile_index = [0_u8; FOW_SNAPSHOT_TILE_BITSET_SIZE];
     let mut total_area_square_meters = 0_u64;
 
-    for (tile_key, tile) in tiles {
-        if tile.is_empty() {
+    for tile_key in tile_keys {
+        let Some(snapshot_tile) =
+            journey_bitmap.peek_tile_without_updating_cache(&tile_key, |tile| match tile {
+                Some(tile) if !tile.is_empty() => {
+                    Some(FoWSnapshotTile::from_journey_tile(&tile_key, tile))
+                }
+                _ => None,
+            })
+        else {
             continue;
-        }
-        let snapshot_tile = FoWSnapshotTile::from_journey_tile(tile_key, tile);
+        };
         let bitmap_filename = fow_snapshot_filename(
             snapshot_tile.coord.x,
             snapshot_tile.coord.y,

@@ -227,7 +227,7 @@
       "export_all_title": "Export All Journeys",
       "export_journey_title": "Export Journey",
       "format_section_title": "Export format",
-      "format_mldx": "MemoLanes format (*.mldx)",
+      "format_mldx": "MemoLanes standard format (*.mldx)",
       "format_mldx_desc": "Recommended for backup, migration, and importing back into MemoLanes.",
       "format_fwss": "Fog of World snapshot (*.fwss)",
       "format_fwss_desc": "For Fog of World and compatible tools.",
@@ -235,7 +235,7 @@
       "format_kml_desc": "For map apps and track tools.",
       "format_gpx": "GPX track (*.gpx)",
       "format_gpx_desc": "For fitness, navigation, and track tools.",
-      "lossy_format_warning": "This format may lose some journey data. Use MemoLanes format (*.mldx) for a complete backup."
+      "lossy_format_warning": "This format may lose some journey data. Use MemoLanes standard format (*.mldx) for a complete backup."
     }
   },
   "settings": {
