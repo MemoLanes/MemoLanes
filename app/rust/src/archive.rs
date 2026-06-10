@@ -247,7 +247,7 @@ fn write_proto_as_compressed_block<W: Write, M: protobuf::Message>(
 }
 
 #[auto_context]
-pub(crate) fn export_all_journeys_as_mldx<T: Write + Seek>(
+pub fn export_all_journeys_as_mldx<T: Write + Seek>(
     txn: &main_db::Txn,
     writer: &mut T,
 ) -> Result<()> {
@@ -260,7 +260,7 @@ pub(crate) fn export_all_journeys_as_mldx<T: Write + Seek>(
 }
 
 #[auto_context]
-pub(crate) fn export_single_journey_as_mldx<T: Write + Seek>(
+pub fn export_single_journey_as_mldx<T: Write + Seek>(
     journey_header: JourneyHeader,
     journey_data: JourneyData,
     writer: &mut T,
