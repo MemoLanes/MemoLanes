@@ -72,7 +72,7 @@ class _PermissionRequestSheetContentState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _refreshStatus();
+    _refreshStatus(closeIfComplete: true);
   }
 
   @override
@@ -87,12 +87,12 @@ class _PermissionRequestSheetContentState
       // Some special permissions (e.g. ignoreBatteryOptimizations) report stale
       // status immediately after resume. Delay to let the system sync.
       Future.delayed(const Duration(milliseconds: 200), () {
-        _refreshStatus();
+        _refreshStatus(closeIfComplete: true);
       });
     }
   }
 
-  Future<void> _refreshStatus() async {
+  Future<void> _refreshStatus({bool closeIfComplete = false}) async {
     final s = await _permissions.readPermissionSnapshot();
     if (!mounted) return;
     setState(() {
@@ -100,6 +100,15 @@ class _PermissionRequestSheetContentState
       _battery = s.battery;
       _notification = s.notification;
     });
+    if (closeIfComplete && _hasNoRemainingPermissions(s)) {
+      Navigator.of(context).pop(true);
+    }
+  }
+
+  bool _hasNoRemainingPermissions(PermissionSnapshot s) {
+    return s.location.granted &&
+        (!Platform.isAndroid || s.battery.granted) &&
+        s.notification.granted;
   }
 
   Future<void> _applyEffects(List<PermissionEffect> effects) async {
@@ -115,28 +124,28 @@ class _PermissionRequestSheetContentState
     }
   }
 
-  Future<void> _requestLocation() async {
+  Future<void> _requestLocation({bool closeIfComplete = true}) async {
     if (!mounted) return;
     final effects = await _permissions.runLocationRequest();
     await _applyEffects(effects);
-    await _refreshStatus();
+    await _refreshStatus(closeIfComplete: closeIfComplete);
   }
 
-  Future<void> _requestBattery() async {
+  Future<void> _requestBattery({bool closeIfComplete = true}) async {
     if (!Platform.isAndroid) return;
     if (_battery.granted) return;
     if (!mounted) return;
     final effects = await _permissions.runBatteryRequest();
     await _applyEffects(effects);
-    await _refreshStatus();
+    await _refreshStatus(closeIfComplete: closeIfComplete);
   }
 
-  Future<void> _requestNotification() async {
+  Future<void> _requestNotification({bool closeIfComplete = true}) async {
     if (_notification.granted) return;
     if (!mounted) return;
     final effects = await _permissions.runNotificationRequest();
     await _applyEffects(effects);
-    await _refreshStatus();
+    await _refreshStatus(closeIfComplete: closeIfComplete);
   }
 
   void _onSkip() {
@@ -146,11 +155,15 @@ class _PermissionRequestSheetContentState
   Future<void> _onEnableAll() async {
     await _refreshStatus();
     if (!mounted) return;
-    if (!_location.granted) await _requestLocation();
+    if (!_location.granted) await _requestLocation(closeIfComplete: false);
     if (!mounted) return;
-    if (Platform.isAndroid && !_battery.granted) await _requestBattery();
+    if (Platform.isAndroid && !_battery.granted) {
+      await _requestBattery(closeIfComplete: false);
+    }
     if (!mounted) return;
-    if (!_notification.granted) await _requestNotification();
+    if (!_notification.granted) {
+      await _requestNotification(closeIfComplete: false);
+    }
     if (!mounted) return;
     Navigator.of(context).pop(true);
   }

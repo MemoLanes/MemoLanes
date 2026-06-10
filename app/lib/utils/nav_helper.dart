@@ -41,7 +41,10 @@ Future<void> tryShowPermissionSheetIfFirstTime() async {
     if (sheetShown) return;
 
     final needAny = await PermissionService().needAnyPermission();
-    if (!needAny) return;
+    if (!needAny) {
+      MMKVUtil.putBool(MMKVKey.permissionSheetShown, true);
+      return;
+    }
 
     final context = navigatorKey.currentState?.context;
     if (context == null || !context.mounted) return;
