@@ -226,6 +226,13 @@
       "export_all": "导出所有数据",
       "export_all_title": "导出全部旅途",
       "export_journey_title": "导出旅途",
+      "error": {
+        "no_journeys": "暂无可导出的旅途",
+        "journey_not_found": "旅途已不存在，无法导出",
+        "empty_journey_data": "没有可导出的轨迹数据",
+        "data_type_mismatch": "当前旅途不支持导出为所选格式",
+        "unexpected": "导出失败，请稍后重试"
+      },
       "format_section_title": "导出格式",
       "format_mldx": "迹忆标准格式（*.mldx）",
       "format_mldx_desc": "推荐用于备份、迁移和再次导入迹忆。",

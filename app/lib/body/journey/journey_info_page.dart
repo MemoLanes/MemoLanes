@@ -20,6 +20,7 @@ import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
 import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/src/rust/api/utils.dart';
+import 'package:memolanes/src/rust/export_data.dart' as export_data;
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -160,37 +161,43 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     await _refreshJourneyInfo();
   }
 
-  Future<String> _generateExportFile(
+  Future<CommonExportResult> _generateExportFile(
       JourneyHeader journeyHeader, CommonExportFormat exportFormat) async {
     final tmpDir = await getTemporaryDirectory();
     final dateStr = naiveDateToString(date: journeyHeader.journeyDate);
     final filepath =
         "${tmpDir.path}/$dateStr-${journeyHeader.revision}.${exportFormat.extension}";
+    final export_data.ExportError? exportError;
     switch (exportFormat) {
       case CommonExportFormat.mldx:
-        await api.generateSingleArchive(
-            journeyId: journeyHeader.id, targetFilepath: filepath);
+        exportError = await api.exportJourney(
+            targetFilepath: filepath,
+            journeyId: journeyHeader.id,
+            exportType: api.ExportType.mldx);
         break;
       case CommonExportFormat.fwss:
-        await api.exportJourney(
+        exportError = await api.exportJourney(
             targetFilepath: filepath,
             journeyId: journeyHeader.id,
             exportType: api.ExportType.fwss);
         break;
       case CommonExportFormat.kml:
-        await api.exportJourney(
+        exportError = await api.exportJourney(
             targetFilepath: filepath,
             journeyId: journeyHeader.id,
             exportType: api.ExportType.kml);
         break;
       case CommonExportFormat.gpx:
-        await api.exportJourney(
+        exportError = await api.exportJourney(
             targetFilepath: filepath,
             journeyId: journeyHeader.id,
             exportType: api.ExportType.gpx);
         break;
     }
-    return filepath;
+    if (exportError != null) {
+      return CommonExportResult.error(exportError);
+    }
+    return CommonExportResult.file(filepath);
   }
 
   void _export() async {

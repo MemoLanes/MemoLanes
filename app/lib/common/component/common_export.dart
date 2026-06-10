@@ -5,7 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_file_saver/flutter_file_saver.dart';
 import 'package:memolanes/common/component/basic_bottom_sheet.dart';
 import 'package:memolanes/common/loading_manager.dart';
+import 'package:memolanes/common/log.dart';
+import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/style_constants.dart';
+import 'package:flutter_rust_bridge/flutter_rust_bridge.dart'
+    show AnyhowException;
+import 'package:memolanes/src/rust/export_data.dart' as export_data;
 import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
 
@@ -66,7 +71,15 @@ enum CommonExportFormat {
   String get extension => option.extension;
 }
 
-typedef CommonExportFileBuilder = Future<String> Function(
+class CommonExportResult {
+  const CommonExportResult.file(this.filePath) : error = null;
+  const CommonExportResult.error(this.error) : filePath = null;
+
+  final String? filePath;
+  final export_data.ExportError? error;
+}
+
+typedef CommonExportFileBuilder = Future<CommonExportResult> Function(
   CommonExportFormat format,
 );
 
@@ -98,9 +111,42 @@ Future<bool> showCommonExportWithFormatPicker({
 
   if (selectedFormat == null || !context.mounted) return false;
 
-  final filePath = await GlobalLoadingManager.instance.runWithLoading(
-    () => exportFile(selectedFormat),
-  );
+  final CommonExportResult exportResult;
+  try {
+    exportResult = await GlobalLoadingManager.instance.runWithLoading(
+      () => exportFile(selectedFormat),
+    );
+  } on AnyhowException catch (error) {
+    log.error('[export] Export failed: $error');
+    if (context.mounted) {
+      await showCommonDialog(
+        context,
+        context.tr('data.export_data.error.unexpected'),
+      );
+    }
+    return false;
+  } catch (error, stack) {
+    log.error('[export] Export failed: $error', stack);
+    if (context.mounted) {
+      await showCommonDialog(
+        context,
+        context.tr('data.export_data.error.unexpected'),
+      );
+    }
+    return false;
+  }
+
+  final exportError = exportResult.error;
+  if (exportError != null) {
+    if (context.mounted) {
+      await showCommonDialog(
+        context,
+        context.tr(_exportErrorTrKey(exportError)),
+      );
+    }
+    return false;
+  }
+  final filePath = exportResult.filePath!;
 
   if (!context.mounted) {
     if (deleteFile) await _deleteExportFile(filePath);
@@ -112,6 +158,18 @@ Future<bool> showCommonExportWithFormatPicker({
     filePath,
     deleteFile: deleteFile,
   );
+}
+
+String _exportErrorTrKey(export_data.ExportError error) {
+  return switch (error) {
+    export_data.ExportError.noJourneys => 'data.export_data.error.no_journeys',
+    export_data.ExportError.journeyNotFound =>
+      'data.export_data.error.journey_not_found',
+    export_data.ExportError.emptyJourneyData =>
+      'data.export_data.error.empty_journey_data',
+    export_data.ExportError.dataTypeMismatch =>
+      'data.export_data.error.data_type_mismatch',
+  };
 }
 
 Future<bool> showCommonExport(

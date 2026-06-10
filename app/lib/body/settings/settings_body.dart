@@ -19,6 +19,7 @@ import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/src/rust/export_data.dart' as export_data;
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
@@ -211,6 +212,15 @@ class _SettingsBodyState extends State<SettingsBody> {
               );
               return;
             }
+            final hasJourneys = await api.hasJourneys();
+            if (!context.mounted) return;
+            if (!hasJourneys) {
+              await showCommonDialog(
+                context,
+                context.tr("data.export_data.error.no_journeys"),
+              );
+              return;
+            }
             await showCommonExportWithFormatPicker(
               context: context,
               title: context.tr("data.export_data.export_all_title"),
@@ -224,19 +234,25 @@ class _SettingsBodyState extends State<SettingsBody> {
                 final timestamp = DateFormat('yyyy-MM-dd-HH-mm-ss').format(now);
                 final filepath =
                     "${tmpDir.path}/all-journeys-$timestamp.${format.extension}";
+                export_data.ExportError? exportError;
                 switch (format) {
                   case CommonExportFormat.mldx:
-                    await api.generateFullArchive(targetFilepath: filepath);
+                    exportError =
+                        await api.generateFullArchive(targetFilepath: filepath);
                     break;
                   case CommonExportFormat.fwss:
-                    await api.exportAllJourneysFwss(targetFilepath: filepath);
+                    exportError = await api.exportAllJourneysAsFwss(
+                        targetFilepath: filepath);
                     break;
                   case CommonExportFormat.kml:
                   case CommonExportFormat.gpx:
                     throw UnsupportedError(
                         'Unsupported export format: $format');
                 }
-                return filepath;
+                if (exportError != null) {
+                  return CommonExportResult.error(exportError);
+                }
+                return CommonExportResult.file(filepath);
               },
             );
           },
