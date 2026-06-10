@@ -585,31 +585,48 @@ pub fn get_journey_header(journey_id: String) -> Result<Option<JourneyHeader>> {
 
 pub fn generate_full_archive(target_filepath: String) -> Result<Option<ExportError>> {
     info!("generating full archive");
-    if !has_journeys()? {
-        return Ok(Some(ExportError::NoJourneys));
+    let result: Result<()> = if !has_journeys()? {
+        Err(anyhow!(ExportError::NoJourneys))
+    } else {
+        let mut file = File::create(target_filepath)?;
+        get()
+            .storage
+            .with_db_txn(|txn| archive::export_all_journeys_as_mldx(txn, &mut file))?;
+        drop(file);
+        Ok(())
+    };
+    match result {
+        Ok(()) => Ok(None),
+        Err(error) => match error.downcast_ref::<ExportError>() {
+            Some(export_error) => Ok(Some(*export_error)),
+            None => Err(error),
+        },
     }
-    let mut file = File::create(target_filepath)?;
-    get()
-        .storage
-        .with_db_txn(|txn| archive::export_all_journeys_as_mldx(txn, &mut file))?;
-    drop(file);
-    Ok(None)
 }
 
 pub fn export_all_journeys_as_fwss(target_filepath: String) -> Result<Option<ExportError>> {
     info!("exporting all journeys as FWSS");
-    if !has_journeys()? {
-        return Ok(Some(ExportError::NoJourneys));
+    let result: Result<()> = if !has_journeys()? {
+        Err(anyhow!(ExportError::NoJourneys))
+    } else {
+        let journey_bitmap = get()
+            .storage
+            .get_latest_bitmap_for_main_map_renderer(&Some(LayerKind::All), false)?;
+        if journey_bitmap.is_empty() {
+            Err(anyhow!(ExportError::EmptyJourneyData))
+        } else {
+            let mut file = File::create(target_filepath)?;
+            export_data::journey_bitmap_to_fwss_file(&journey_bitmap, &mut file)?;
+            Ok(())
+        }
+    };
+    match result {
+        Ok(()) => Ok(None),
+        Err(error) => match error.downcast_ref::<ExportError>() {
+            Some(export_error) => Ok(Some(*export_error)),
+            None => Err(error),
+        },
     }
-    let journey_bitmap = get()
-        .storage
-        .get_latest_bitmap_for_main_map_renderer(&Some(LayerKind::All), false)?;
-    if journey_bitmap.is_empty() {
-        return Ok(Some(ExportError::EmptyJourneyData));
-    }
-    let mut file = File::create(target_filepath)?;
-    export_data::journey_bitmap_to_fwss_file(&journey_bitmap, &mut file)?;
-    Ok(None)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -627,43 +644,54 @@ pub fn export_journey(
 ) -> Result<Option<ExportError>> {
     let (journey_header, journey_data) = match get()
         .storage
-        .with_db_txn(|txn| export_data::load_journey_for_export(&journey_id, txn))?
+        .with_db_txn(|txn| export_data::load_journey_for_export(&journey_id, txn))
     {
-        export_data::JourneyForExport::Loaded { header, data } => (header, data),
-        export_data::JourneyForExport::Error(error) => return Ok(Some(error)),
+        Ok(journey) => journey,
+        Err(error) => {
+            return match error.downcast_ref::<ExportError>() {
+                Some(export_error) => Ok(Some(*export_error)),
+                None => Err(error),
+            };
+        }
     };
 
-    let create_file = || File::create(&target_filepath);
-    match (export_type, journey_data) {
+    let result: Result<()> = match (export_type, journey_data) {
         (ExportType::MLDX, journey_data) => {
-            let mut file = create_file()?;
+            let mut file = File::create(&target_filepath)?;
             archive::export_single_journey_as_mldx(journey_header, journey_data, &mut file)?;
             drop(file);
-            Ok(None)
+            Ok(())
         }
         (ExportType::GPX, JourneyData::Vector(vector)) => {
-            let mut file = create_file()?;
+            let mut file = File::create(&target_filepath)?;
             export_data::journey_vector_to_gpx_file(&vector, &mut file)?;
-            Ok(None)
+            Ok(())
         }
         (ExportType::KML, JourneyData::Vector(vector)) => {
-            let mut file = create_file()?;
+            let mut file = File::create(&target_filepath)?;
             export_data::journey_vector_to_kml_file(&vector, &mut file)?;
-            Ok(None)
+            Ok(())
         }
         (ExportType::FWSS, JourneyData::Bitmap(bitmap)) => {
-            let mut file = create_file()?;
+            let mut file = File::create(&target_filepath)?;
             export_data::journey_bitmap_to_fwss_file(&bitmap, &mut file)?;
-            Ok(None)
+            Ok(())
         }
         (ExportType::FWSS, JourneyData::Vector(vector)) => {
-            let mut file = create_file()?;
+            let mut file = File::create(&target_filepath)?;
             export_data::journey_vector_to_fwss_file(&vector, &mut file)?;
-            Ok(None)
+            Ok(())
         }
         (ExportType::GPX | ExportType::KML, JourneyData::Bitmap(_)) => {
-            Ok(Some(ExportError::DataTypeMismatch))
+            Err(anyhow!(ExportError::DataTypeMismatch))
         }
+    };
+    match result {
+        Ok(()) => Ok(None),
+        Err(error) => match error.downcast_ref::<ExportError>() {
+            Some(export_error) => Ok(Some(*export_error)),
+            None => Err(error),
+        },
     }
 }
 

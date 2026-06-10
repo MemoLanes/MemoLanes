@@ -28,29 +28,18 @@ impl std::fmt::Display for ExportError {
 
 impl std::error::Error for ExportError {}
 
-pub(crate) enum JourneyForExport {
-    Loaded {
-        header: JourneyHeader,
-        data: JourneyData,
-    },
-    Error(ExportError),
-}
-
 pub(crate) fn load_journey_for_export(
     journey_id: &str,
     txn: &main_db::Txn,
-) -> Result<JourneyForExport> {
+) -> Result<(JourneyHeader, JourneyData)> {
     let Some(header) = txn.get_journey_header(journey_id)? else {
-        return Ok(JourneyForExport::Error(ExportError::JourneyNotFound));
+        return Err(anyhow!(ExportError::JourneyNotFound));
     };
     let journey_data = txn.get_journey_data(journey_id)?;
     if journey_data.is_empty() {
-        return Ok(JourneyForExport::Error(ExportError::EmptyJourneyData));
+        return Err(anyhow!(ExportError::EmptyJourneyData));
     }
-    Ok(JourneyForExport::Loaded {
-        header,
-        data: journey_data,
-    })
+    Ok((header, journey_data))
 }
 
 pub use fow::{journey_bitmap_to_fwss_file, journey_vector_to_fwss_file};
