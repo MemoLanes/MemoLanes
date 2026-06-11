@@ -628,10 +628,10 @@ pub enum ExportResult {
 }
 
 enum InternalDataForExport {
-    MLDX(JourneyHeader, JourneyData),
-    FWSS(JourneyData),
-    GPX(JourneyVector),
-    KML(JourneyVector),
+    Mldx(JourneyHeader, JourneyData),
+    Fwss(JourneyData),
+    Gpx(JourneyVector),
+    Kml(JourneyVector),
 }
 
 pub fn export_journey(
@@ -656,19 +656,19 @@ pub fn export_journey(
                 let journey_header = txn
                     .get_journey_header(&journey_id)?
                     .expect("header must exists because we already got the data.");
-                Ok(Some(InternalDataForExport::MLDX(
+                Ok(Some(InternalDataForExport::Mldx(
                     journey_header,
                     journey_data,
                 )))
             }
-            ExportType::FWSS => Ok(Some(InternalDataForExport::FWSS(journey_data))),
+            ExportType::FWSS => Ok(Some(InternalDataForExport::Fwss(journey_data))),
             ExportType::GPX => match journey_data {
                 JourneyData::Bitmap(_) => Err(anyhow!("cannot export bitmap data as gpx")),
-                JourneyData::Vector(vector) => Ok(Some(InternalDataForExport::GPX(vector))),
+                JourneyData::Vector(vector) => Ok(Some(InternalDataForExport::Gpx(vector))),
             },
             ExportType::KML => match journey_data {
                 JourneyData::Bitmap(_) => Err(anyhow!("cannot export bitmap data as kml")),
-                JourneyData::Vector(vector) => Ok(Some(InternalDataForExport::KML(vector))),
+                JourneyData::Vector(vector) => Ok(Some(InternalDataForExport::Kml(vector))),
             },
         }
     })?;
@@ -681,10 +681,10 @@ pub fn export_journey(
         Some(data_for_export) => {
             let mut file = File::create(&target_filepath)?;
             match data_for_export {
-                InternalDataForExport::MLDX(header, data) => {
+                InternalDataForExport::Mldx(header, data) => {
                     archive::export_single_journey_as_mldx(header, data, &mut file)?
                 }
-                InternalDataForExport::FWSS(data) => {
+                InternalDataForExport::Fwss(data) => {
                     let bitmap = match data {
                         JourneyData::Bitmap(bitmap) => bitmap,
                         JourneyData::Vector(vector) => {
@@ -695,10 +695,10 @@ pub fn export_journey(
                     };
                     export_data::fow::journey_bitmap_to_fwss_file(&bitmap, &mut file)?
                 }
-                InternalDataForExport::GPX(vector) => {
+                InternalDataForExport::Gpx(vector) => {
                     export_data::gpx::journey_vector_to_gpx_file(&vector, &mut file)?
                 }
-                InternalDataForExport::KML(vector) => {
+                InternalDataForExport::Kml(vector) => {
                     export_data::kml::journey_vector_to_kml_file(&vector, &mut file)?
                 }
             };

@@ -26,7 +26,7 @@ fn load_source_bitmap() -> JourneyBitmap {
 fn export_source_snapshot() -> Vec<u8> {
     let bitmap = load_source_bitmap();
     let mut fwss = Cursor::new(Vec::new());
-    export_data::journey_bitmap_to_fwss_file(&bitmap, &mut fwss).unwrap();
+    export_data::fow::journey_bitmap_to_fwss_file(&bitmap, &mut fwss).unwrap();
     fwss.into_inner()
 }
 
