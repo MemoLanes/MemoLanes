@@ -17,12 +17,13 @@ use crate::gps_processor::{GpsPreprocessor, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
+use crate::logs;
+use crate::raw_data::ExtendedRawGPSPoint;
 use crate::renderer::get_default_camera_option_from_journey_bitmap;
 use crate::renderer::internal_server::{Request, RequestResponse, TileRangeResponse};
 use crate::renderer::MapRenderer;
 use crate::storage::{RawDataFile, Storage};
 use crate::{archive, build_info, export_data, main_db};
-use crate::{logs, raw_data};
 
 use crate::renderer::CameraOptionInternal;
 
@@ -407,7 +408,7 @@ pub fn get_map_renderer_proxy_for_journey_data(
 
 // Return `true` if this update contains meaningful data.
 // Meaningful data means it is not ignored by the gps preprocessor.
-pub fn on_location_update(data: raw_data::RawDataPoint, received_timestamp_ms: i64) -> bool {
+pub fn on_location_update(data: ExtendedRawGPSPoint) -> bool {
     let state = get();
     // NOTE: On Android, we might received a batch of location updates that are out of order.
     // Not very sure why yet.
@@ -416,15 +417,16 @@ pub fn on_location_update(data: raw_data::RawDataPoint, received_timestamp_ms: i
     let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
     let mut main_map_state = state.main_map_state.lock().unwrap();
 
+    let raw_gps_point = &data.raw_gps_point;
     let last_point = gps_preprocessor.last_kept_point();
-    let process_result = gps_preprocessor.preprocess(&data);
+    let process_result = gps_preprocessor.preprocess(&raw_gps_point);
     if !main_map_state.dropped_for_power_saving && main_map_state.layer_filter.current_journey {
         let line_to_add = match process_result {
             ProcessResult::Ignore => None,
-            ProcessResult::NewSegment => Some((&data.point, &data.point)),
+            ProcessResult::NewSegment => Some((&raw_gps_point.point, &raw_gps_point.point)),
             ProcessResult::Append => {
-                let start = last_point.as_ref().unwrap_or(&data.point);
-                Some((start, &data.point))
+                let start = last_point.as_ref().unwrap_or(&raw_gps_point.point);
+                Some((start, &raw_gps_point.point))
             }
         };
         match line_to_add {
@@ -445,9 +447,7 @@ pub fn on_location_update(data: raw_data::RawDataPoint, received_timestamp_ms: i
         };
     };
 
-    state
-        .storage
-        .record_gps_data(&data, process_result, received_timestamp_ms);
+    state.storage.record_gps_data(&data, process_result);
 
     match process_result {
         ProcessResult::Ignore => false,

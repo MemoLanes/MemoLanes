@@ -8,7 +8,7 @@ use memolanes_core::{
     journey_header::JourneyKind,
     journey_vector::JourneyVector,
     main_db::{self, Action, CacheEntry, MainDb},
-    raw_data::{self, RawDataPoint},
+    raw_data::{self, RawGPSPoint},
 };
 use tempdir::TempDir;
 
@@ -17,7 +17,7 @@ fn basic() {
     let (raw_data, _preprocessor) =
         import_data::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
 
-    let test_data: Vec<RawDataPoint> = raw_data.into_iter().flatten().collect();
+    let test_data: Vec<RawGPSPoint> = raw_data.into_iter().flatten().collect();
     let num_of_gpx_data_in_input = test_data.len();
     println!("total test data: {num_of_gpx_data_in_input}");
 
@@ -122,7 +122,7 @@ fn get_ongoing_journey_timestamp_range() {
     assert_eq!(result, None);
     main_db
         .record(
-            &RawDataPoint {
+            &RawGPSPoint {
                 point: Point {
                     latitude: 120.163856,
                     longitude: 30.2719716,
@@ -137,7 +137,7 @@ fn get_ongoing_journey_timestamp_range() {
         .unwrap();
     main_db
         .record(
-            &RawDataPoint {
+            &RawGPSPoint {
                 point: Point {
                     latitude: 120.163856,
                     longitude: 30.2719716,
@@ -152,7 +152,7 @@ fn get_ongoing_journey_timestamp_range() {
         .unwrap();
     main_db
         .record(
-            &RawDataPoint {
+            &RawGPSPoint {
                 point: Point {
                     latitude: 120.163856,
                     longitude: 30.2719716,
@@ -1249,7 +1249,7 @@ fn finalize_ongoing_sets_merge_one() {
     // Record GPS data to create an ongoing journey
     main_db
         .record(
-            &raw_data::RawDataPoint {
+            &raw_data::RawGPSPoint {
                 point: Point {
                     latitude: 30.27,
                     longitude: 120.16,
@@ -1264,7 +1264,7 @@ fn finalize_ongoing_sets_merge_one() {
         .unwrap();
     main_db
         .record(
-            &raw_data::RawDataPoint {
+            &raw_data::RawGPSPoint {
                 point: Point {
                     latitude: 30.28,
                     longitude: 120.17,

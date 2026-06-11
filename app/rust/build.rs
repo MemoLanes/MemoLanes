@@ -127,12 +127,14 @@ pub const MAPBOX_ACCESS_TOKEN: Option<&str> = {mapbox_access_token};
     // Generate protobuf files
     println!("cargo:rerun-if-changed=src/protos/journey.proto");
     println!("cargo:rerun-if-changed=src/protos/archive.proto");
+    println!("cargo:rerun-if-changed=src/protos/raw_data.proto");
     protobuf_codegen::Codegen::new()
         .pure()
         .out_dir("src/protos")
         .include("src/protos")
         .input("src/protos/journey.proto")
         .input("src/protos/archive.proto")
+        .input("src/protos/raw_data.proto")
         .run_from_script();
 
     // Check and create necessary dependency files

@@ -1,11 +1,11 @@
 use crate::{
     gps_processor::Point,
     journey_vector::{JourneyVector, TrackPoint, TrackSegment},
-    raw_data::RawDataPoint,
+    raw_data::RawGPSPoint,
 };
 
 // main func to interpolate rawdata to a smooth `JourneyVector`
-pub fn process(raw_data: &[Vec<RawDataPoint>]) -> Option<JourneyVector> {
+pub fn process(raw_data: &[Vec<RawGPSPoint>]) -> Option<JourneyVector> {
     // interpolate step_length
     const STEP_LENGTH: f64 = 1000.;
 

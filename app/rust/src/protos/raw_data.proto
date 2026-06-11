@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package raw_data;
+
+message ExtendedRawGPSPoint {
+  optional int64 timestamp_ms = 1;
+  double latitude = 2;
+  double longitude = 3;
+  optional float accuracy = 4;
+  optional float altitude = 5;
+  optional float speed = 6;
+  int64 received_timestamp_ms = 7;
+}
+
+message JourneyRawData {
+  repeated ExtendedRawGPSPoint points = 1;
+}
