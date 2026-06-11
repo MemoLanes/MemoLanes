@@ -16,10 +16,10 @@ use crate::journey_header::JourneyHeader;
 use crate::journey_vector::JourneyVector;
 use crate::{
     flight_track_processor,
-    gps_processor::RawData,
     import_data::{self, journey_info_from_raw_vector_data},
     journey_data::JourneyData,
     journey_header::JourneyKind,
+    raw_data::RawDataPoint,
 };
 
 #[derive(Debug)]
@@ -34,7 +34,7 @@ pub struct JourneyInfo {
 
 #[frb(opaque)]
 pub struct RawVectorData {
-    data: Vec<Vec<RawData>>,
+    data: Vec<Vec<RawDataPoint>>,
 }
 
 fn parse_fwss_snapshot_time_from_filename(file_path: &str) -> Option<DateTime<FixedOffset>> {

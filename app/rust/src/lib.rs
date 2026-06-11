@@ -30,6 +30,7 @@ mod logs;
 pub mod main_db;
 pub mod merged_journey_builder;
 mod protos;
+pub mod raw_data;
 pub mod renderer;
 pub mod storage;
 pub mod utils;

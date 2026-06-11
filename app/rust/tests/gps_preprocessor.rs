@@ -1,8 +1,7 @@
 pub mod test_utils;
 
-use memolanes_core::gps_processor::{
-    GpsPreprocessor, Point, ProcessResult, RawData, SegmentGapRule,
-};
+use memolanes_core::gps_processor::{GpsPreprocessor, Point, ProcessResult, SegmentGapRule};
+use memolanes_core::raw_data::RawDataPoint;
 use memolanes_core::{export_data, import_data};
 use std::collections::HashMap;
 use std::fs::File;
@@ -11,7 +10,7 @@ use std::fs::File;
 fn first_data() {
     let mut gps_preprocessor = GpsPreprocessor::new();
     assert!(gps_preprocessor.last_kept_point().is_none());
-    let data = RawData {
+    let data = RawDataPoint {
         point: Point {
             latitude: 120.163856,
             longitude: 30.2719716,
@@ -30,7 +29,7 @@ fn first_data() {
 #[test]
 fn ignore() {
     let mut gps_preprocessor = GpsPreprocessor::new();
-    let data = RawData {
+    let data = RawDataPoint {
         point: Point {
             latitude: 120.163856,
             longitude: 30.2719716,
@@ -47,7 +46,7 @@ fn ignore() {
 fn time_difference() {
     let mut gps_preprocessor = GpsPreprocessor::new();
 
-    gps_preprocessor.preprocess(&RawData {
+    gps_preprocessor.preprocess(&RawDataPoint {
         point: Point {
             latitude: 120.163856,
             longitude: 30.2719716,
@@ -62,7 +61,7 @@ fn time_difference() {
         gps_preprocessor.last_kept_point().unwrap().latitude,
         120.163856
     );
-    let result = gps_preprocessor.preprocess(&RawData {
+    let result = gps_preprocessor.preprocess(&RawDataPoint {
         point: Point {
             latitude: 120.1639266,
             longitude: 30.271981,
@@ -78,7 +77,7 @@ fn time_difference() {
         gps_preprocessor.last_kept_point().unwrap().latitude,
         120.1639266
     );
-    let result = gps_preprocessor.preprocess(&RawData {
+    let result = gps_preprocessor.preprocess(&RawDataPoint {
         point: Point {
             latitude: 120.163857,
             longitude: 30.2719716,
@@ -94,7 +93,7 @@ fn time_difference() {
         gps_preprocessor.last_kept_point().unwrap().latitude,
         120.163857
     );
-    let result = gps_preprocessor.preprocess(&RawData {
+    let result = gps_preprocessor.preprocess(&RawDataPoint {
         point: Point {
             latitude: 120.163856,
             longitude: 30.2719716,
@@ -110,7 +109,7 @@ fn time_difference() {
 #[test]
 fn speed() {
     let mut gps_preprocessor = GpsPreprocessor::new();
-    let data = RawData {
+    let data = RawDataPoint {
         point: Point {
             latitude: 120.163856,
             longitude: 30.2719716,
@@ -125,7 +124,7 @@ fn speed() {
         ProcessResult::NewSegment
     );
 
-    let data = RawData {
+    let data = RawDataPoint {
         point: Point {
             latitude: 125.0,
             longitude: 30.2719716,

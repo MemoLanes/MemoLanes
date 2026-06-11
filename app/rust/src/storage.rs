@@ -1,10 +1,10 @@
 extern crate simplelog;
 use crate::cache_db::{self, CacheDb, LayerKind};
-use crate::gps_processor::{self, ProcessResult};
+use crate::gps_processor::ProcessResult;
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_header::JourneyKind;
 use crate::main_db::{self, Action, MainDb};
-use crate::merged_journey_builder;
+use crate::{merged_journey_builder, raw_data};
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
 use chrono::{Local, NaiveDate};
@@ -40,17 +40,17 @@ pub struct RawCsvRow {
 
 impl RawCsvRow {
     pub fn create_from_raw_data(
-        raw_data: &gps_processor::RawData,
+        raw_data_point: &raw_data::RawDataPoint,
         received_timestamp_ms: i64,
     ) -> Self {
         Self {
-            timestamp_ms: raw_data.timestamp_ms,
+            timestamp_ms: raw_data_point.timestamp_ms,
             received_timestamp_ms,
-            latitude: raw_data.point.latitude,
-            longitude: raw_data.point.longitude,
-            accuracy: raw_data.accuracy,
-            altitude: raw_data.altitude,
-            speed: raw_data.speed,
+            latitude: raw_data_point.point.latitude,
+            longitude: raw_data_point.point.longitude,
+            accuracy: raw_data_point.accuracy,
+            altitude: raw_data_point.altitude,
+            speed: raw_data_point.speed,
         }
     }
 }
@@ -85,7 +85,7 @@ impl RawDataRecorder {
     }
 
     // TODO: better error handling
-    fn record(&mut self, raw_data: &gps_processor::RawData, received_timestamp_ms: i64) {
+    fn record(&mut self, raw_data_point: &raw_data::RawDataPoint, received_timestamp_ms: i64) {
         let current_date = Local::now().date_naive();
         if let Some(current_raw_data_file) = &self.current_raw_data_file {
             if current_raw_data_file.date != current_date {
@@ -115,7 +115,7 @@ impl RawDataRecorder {
                 date: current_date,
             }
         });
-        let row = RawCsvRow::create_from_raw_data(raw_data, received_timestamp_ms);
+        let row = RawCsvRow::create_from_raw_data(raw_data_point, received_timestamp_ms);
         current_raw_data_file.writer.serialize(row).unwrap();
         current_raw_data_file.writer.flush().unwrap();
     }
@@ -262,18 +262,18 @@ impl Storage {
 
     pub fn record_gps_data(
         &self,
-        raw_data: &gps_processor::RawData,
+        raw_data_point: &raw_data::RawDataPoint,
         process_result: ProcessResult,
         received_timestamp_ms: i64,
     ) {
         let mut raw_data_recorder = self.raw_data_recorder.lock().unwrap();
         if let Some(ref mut x) = *raw_data_recorder {
-            x.record(raw_data, received_timestamp_ms);
+            x.record(raw_data_point, received_timestamp_ms);
         }
         drop(raw_data_recorder);
 
         let main_db = &mut self.dbs.lock().unwrap().0;
-        main_db.record(raw_data, process_result).unwrap();
+        main_db.record(raw_data_point, process_result).unwrap();
     }
 
     pub fn list_all_raw_data(&self) -> Result<Vec<RawDataFile>> {

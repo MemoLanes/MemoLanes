@@ -2,12 +2,13 @@ pub mod test_utils;
 
 use chrono::{DateTime, Datelike, NaiveDate};
 use memolanes_core::{
-    gps_processor::{self, Point, RawData},
+    gps_processor::{self, Point},
     import_data,
     journey_data::JourneyData,
     journey_header::JourneyKind,
     journey_vector::JourneyVector,
     main_db::{self, Action, CacheEntry, MainDb},
+    raw_data::{self, RawDataPoint},
 };
 use tempdir::TempDir;
 
@@ -16,7 +17,7 @@ fn basic() {
     let (raw_data, _preprocessor) =
         import_data::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
 
-    let test_data: Vec<RawData> = raw_data.into_iter().flatten().collect();
+    let test_data: Vec<RawDataPoint> = raw_data.into_iter().flatten().collect();
     let num_of_gpx_data_in_input = test_data.len();
     println!("total test data: {num_of_gpx_data_in_input}");
 
@@ -121,7 +122,7 @@ fn get_ongoing_journey_timestamp_range() {
     assert_eq!(result, None);
     main_db
         .record(
-            &RawData {
+            &RawDataPoint {
                 point: Point {
                     latitude: 120.163856,
                     longitude: 30.2719716,
@@ -136,7 +137,7 @@ fn get_ongoing_journey_timestamp_range() {
         .unwrap();
     main_db
         .record(
-            &RawData {
+            &RawDataPoint {
                 point: Point {
                     latitude: 120.163856,
                     longitude: 30.2719716,
@@ -151,7 +152,7 @@ fn get_ongoing_journey_timestamp_range() {
         .unwrap();
     main_db
         .record(
-            &RawData {
+            &RawDataPoint {
                 point: Point {
                     latitude: 120.163856,
                     longitude: 30.2719716,
@@ -1248,7 +1249,7 @@ fn finalize_ongoing_sets_merge_one() {
     // Record GPS data to create an ongoing journey
     main_db
         .record(
-            &gps_processor::RawData {
+            &raw_data::RawDataPoint {
                 point: Point {
                     latitude: 30.27,
                     longitude: 120.16,
@@ -1263,7 +1264,7 @@ fn finalize_ongoing_sets_merge_one() {
         .unwrap();
     main_db
         .record(
-            &gps_processor::RawData {
+            &raw_data::RawDataPoint {
                 point: Point {
                     latitude: 30.28,
                     longitude: 120.17,

@@ -1,5 +1,5 @@
 pub mod test_utils;
-use memolanes_core::{api::api, gps_processor::RawData, import_data};
+use memolanes_core::{api::api, import_data, raw_data::RawDataPoint};
 use std::fs;
 use tempdir::TempDir;
 
@@ -24,7 +24,7 @@ fn basic() {
     let (raw_data, _preprocessor) =
         import_data::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
 
-    let mut raw_data_list: Vec<RawData> = raw_data.into_iter().flatten().collect();
+    let mut raw_data_list: Vec<RawDataPoint> = raw_data.into_iter().flatten().collect();
     let (first_elements, remaining_elements) = raw_data_list.split_at_mut(2000);
     let main_map_state = api::for_testing::get_main_map_state();
 

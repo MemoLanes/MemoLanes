@@ -1,12 +1,13 @@
 use crate::api::import::{ImportPreprocessor, JourneyInfo};
-use crate::flight_track_processor;
-use crate::gps_processor::{Point, PreprocessedData, ProcessResult, RawData, SegmentGapRule};
+use crate::gps_processor::{Point, PreprocessedData, ProcessResult, SegmentGapRule};
 use crate::gpx_file_utils::analyze_and_prepare_gpx;
 use crate::journey_bitmap::{
     self, Block, BlockKey, JourneyBitmap, TileKey, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH,
 };
 use crate::journey_date_picker::JourneyDatePicker;
 use crate::journey_header::JourneyKind;
+use crate::raw_data::RawDataPoint;
+use crate::{flight_track_processor, raw_data};
 use crate::{
     gps_processor::{self, GpsPreprocessor},
     journey_vector::{JourneyVector, TrackPoint},
@@ -184,7 +185,7 @@ pub fn load_fow_snapshot_data(fwss_file_path: &str) -> Result<(JourneyBitmap, Op
 }
 
 #[auto_context]
-pub fn load_gpx(file_path: &str) -> Result<(Vec<Vec<RawData>>, ImportPreprocessor)> {
+pub fn load_gpx(file_path: &str) -> Result<(Vec<Vec<RawDataPoint>>, ImportPreprocessor)> {
     // TODO: it is pretty inefficient to read the whole file into memory first.
     // Some of the GPX files can be very large. Probably we want streaming.
     let xml = fs::read_to_string(file_path)?;
@@ -194,7 +195,7 @@ pub fn load_gpx(file_path: &str) -> Result<(Vec<Vec<RawData>>, ImportPreprocesso
     Ok((raw_data, preprocessor))
 }
 
-pub fn load_gpx_raw_data(gpx_data: &gpx::Gpx) -> Result<Vec<Vec<RawData>>> {
+pub fn load_gpx_raw_data(gpx_data: &gpx::Gpx) -> Result<Vec<Vec<RawDataPoint>>> {
     let convert_to_timestamp = |time: &Option<gpx::Time>| -> Result<Option<i64>> {
         match time {
             Some(t) => {
@@ -206,8 +207,8 @@ pub fn load_gpx_raw_data(gpx_data: &gpx::Gpx) -> Result<Vec<Vec<RawData>>> {
         }
     };
 
-    let waypoint_to_rawdata = |point: &Waypoint| -> Result<RawData> {
-        Ok(RawData {
+    let waypoint_to_rawdata = |point: &Waypoint| -> Result<RawDataPoint> {
+        Ok(RawDataPoint {
             point: Point {
                 latitude: point.point().y(),
                 longitude: point.point().x(),
@@ -249,7 +250,7 @@ pub fn load_gpx_raw_data(gpx_data: &gpx::Gpx) -> Result<Vec<Vec<RawData>>> {
 
 /// Load and parse KML safely, skipping invalid <description> blocks.
 #[auto_context]
-pub fn load_kml(file_path: &str) -> Result<(Vec<Vec<RawData>>, ImportPreprocessor)> {
+pub fn load_kml(file_path: &str) -> Result<(Vec<Vec<RawDataPoint>>, ImportPreprocessor)> {
     let xml = fs::read_to_string(file_path)?;
     let (cleaned_xml, _descriptions) = read_kml_description_and_remove(&xml)?;
     // TODO: pass _descriptions to journey_info if needed later
@@ -298,33 +299,34 @@ fn read_kml_description_and_remove(xml: &str) -> Result<(String, Vec<String>)> {
 }
 
 #[auto_context]
-fn read_track(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
-    let parse_line = |coord: &Option<String>, when: &Option<String>| -> Result<Option<RawData>> {
-        let coord: Vec<&str> = match coord {
-            Some(coord) => coord.split_whitespace().collect(),
-            None => return Ok(None),
-        };
+fn read_track(flatten_data: &[Kml]) -> Result<Vec<Vec<RawDataPoint>>> {
+    let parse_line =
+        |coord: &Option<String>, when: &Option<String>| -> Result<Option<RawDataPoint>> {
+            let coord: Vec<&str> = match coord {
+                Some(coord) => coord.split_whitespace().collect(),
+                None => return Ok(None),
+            };
 
-        let timestamp = match when {
-            None => None,
-            Some(when) => Some(DateTime::<Utc>::from(DateTime::parse_from_rfc3339(when)?)),
-        };
+            let timestamp = match when {
+                None => None,
+                Some(when) => Some(DateTime::<Utc>::from(DateTime::parse_from_rfc3339(when)?)),
+            };
 
-        Ok(Some(gps_processor::RawData {
-            point: Point {
-                latitude: coord[1].parse::<f64>()?,
-                longitude: coord[0].parse::<f64>()?,
-            },
-            timestamp_ms: timestamp.map(|x| x.timestamp_millis()),
-            accuracy: None,
-            altitude: if coord.len() >= 3 {
-                Some(coord[2].parse::<f32>()?)
-            } else {
-                None
-            },
-            speed: None,
-        }))
-    };
+            Ok(Some(raw_data::RawDataPoint {
+                point: Point {
+                    latitude: coord[1].parse::<f64>()?,
+                    longitude: coord[0].parse::<f64>()?,
+                },
+                timestamp_ms: timestamp.map(|x| x.timestamp_millis()),
+                accuracy: None,
+                altitude: if coord.len() >= 3 {
+                    Some(coord[2].parse::<f32>()?)
+                } else {
+                    None
+                },
+                speed: None,
+            }))
+        };
 
     let segments = flatten_data
         .iter()
@@ -334,7 +336,7 @@ fn read_track(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
         })
         .flat_map(|arr| arr.iter().filter(|e| e.name == "Track"));
 
-    let mut raw_vector_data: Vec<Vec<RawData>> = Vec::new();
+    let mut raw_vector_data: Vec<Vec<RawDataPoint>> = Vec::new();
 
     for segment in segments {
         let mut when_list = Vec::new();
@@ -356,7 +358,7 @@ fn read_track(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
             ));
         }
 
-        let mut raw_vector_data_segment: Vec<RawData> = Vec::new();
+        let mut raw_vector_data_segment: Vec<RawDataPoint> = Vec::new();
         for i in 0..coord_list.len() {
             let parse_result = parse_line(
                 coord_list[i],
@@ -379,8 +381,8 @@ fn read_track(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
     Ok(raw_vector_data)
 }
 
-fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
-    let mut raw_vector_data: Vec<Vec<RawData>> = Vec::new();
+fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawDataPoint>>> {
+    let mut raw_vector_data: Vec<Vec<RawDataPoint>> = Vec::new();
 
     let convert_to_timestamp = |when: Option<String>| -> Option<i64> {
         match when {
@@ -400,7 +402,7 @@ fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
             .and_then(|when_element| when_element.content.clone())
     };
 
-    let raw_vector_data_segment: RefCell<Vec<RawData>> = RefCell::new(Vec::new());
+    let raw_vector_data_segment: RefCell<Vec<RawDataPoint>> = RefCell::new(Vec::new());
 
     flatten_data.iter().for_each(|k| {
         if let Placemark(p) = k {
@@ -413,7 +415,7 @@ fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
                                 .find(|e| e.name == "TimeStamp")
                                 .and_then(extract_time_from_children),
                         );
-                        raw_vector_data_segment.borrow_mut().push(RawData {
+                        raw_vector_data_segment.borrow_mut().push(RawDataPoint {
                             point: Point {
                                 latitude: point.coord.y,
                                 longitude: point.coord.x,
@@ -426,7 +428,7 @@ fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
                     }
                     Geometry::LineString(line_string) => {
                         line_string.coords.iter().for_each(|coord| {
-                            raw_vector_data_segment.borrow_mut().push(RawData {
+                            raw_vector_data_segment.borrow_mut().push(RawDataPoint {
                                 point: Point {
                                     latitude: coord.y,
                                     longitude: coord.x,
@@ -466,7 +468,7 @@ fn flatten_kml(kml: Kml) -> Vec<Kml> {
 }
 /// `segment_gap_rule_for_preprocessor = None` meaning disable preprocessor
 pub fn journey_vector_from_raw_data_with_gps_preprocessor(
-    raw_data: &[Vec<RawData>],
+    raw_data: &[Vec<RawDataPoint>],
     segment_gap_rule_for_preprocessor: Option<SegmentGapRule>,
 ) -> Option<JourneyVector> {
     let processed_data = raw_data.iter().flat_map(move |x| {
@@ -504,13 +506,13 @@ pub fn journey_vector_from_raw_data_with_gps_preprocessor(
 }
 
 pub fn journey_vector_from_raw_data_with_flight_track_processor(
-    raw_data: &[Vec<RawData>],
+    raw_data: &[Vec<RawDataPoint>],
 ) -> Option<JourneyVector> {
     flight_track_processor::process(raw_data)
 }
 
-pub fn journey_info_from_raw_vector_data(raw_vector_data: &[Vec<RawData>]) -> JourneyInfo {
-    let time_from_raw_data = |raw_data: &RawData| {
+pub fn journey_info_from_raw_vector_data(raw_vector_data: &[Vec<RawDataPoint>]) -> JourneyInfo {
+    let time_from_raw_data = |raw_data: &RawDataPoint| {
         raw_data
             .timestamp_ms
             .and_then(|timestamp_ms| Utc.timestamp_millis_opt(timestamp_ms).single())

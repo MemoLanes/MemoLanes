@@ -16,7 +16,7 @@ use crate::journey_data::JourneyData;
 use crate::journey_date_picker::JourneyDatePicker;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::journey_vector::{JourneyVector, TrackPoint};
-use crate::{protos, utils};
+use crate::{protos, raw_data, utils};
 
 /* The main database, we are likely to store a lot of protobuf bytes in it,
 less relational stuff. Basically we will use it as a file system with better
@@ -743,7 +743,7 @@ impl MainDb {
     #[auto_context]
     fn append_ongoing_journey(
         &mut self,
-        raw_data: &gps_processor::RawData,
+        raw_data_point: &raw_data::RawDataPoint,
         process_result: ProcessResult,
     ) -> Result<()> {
         let process_result = process_result.to_int();
@@ -751,9 +751,9 @@ impl MainDb {
         let tx = self.conn.transaction()?;
         let sql = "INSERT INTO ongoing_journey (timestamp_sec, lat, lng, process_result) VALUES (?1, ?2, ?3, ?4);";
         tx.prepare_cached(sql)?.execute((
-            raw_data.timestamp_ms.map(|x| x / 1000),
-            raw_data.point.latitude,
-            raw_data.point.longitude,
+            raw_data_point.timestamp_ms.map(|x| x / 1000),
+            raw_data_point.point.latitude,
+            raw_data_point.point.longitude,
             process_result,
         ))?;
         tx.commit()?;
@@ -763,7 +763,7 @@ impl MainDb {
     #[auto_context]
     pub fn record(
         &mut self,
-        raw_data: &gps_processor::RawData,
+        raw_data: &raw_data::RawDataPoint,
         process_result: ProcessResult,
     ) -> Result<()> {
         match process_result {
