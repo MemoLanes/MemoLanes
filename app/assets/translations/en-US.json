@@ -221,11 +221,8 @@
       "export_all_title": "Export All Journeys",
       "export_journey_title": "Export Journey",
       "error": {
-        "no_journeys": "No journeys to export.",
-        "journey_not_found": "This journey no longer exists and cannot be exported.",
-        "empty_journey_data": "No track data available to export.",
-        "data_type_mismatch": "This journey cannot be exported in the selected format.",
-        "unexpected": "Export failed. Please try again later."
+        "data_is_empty": "The data you are trying to export is empty",
+        "unexpected": "Unexpected error occurred during exporting"
       },
       "format_section_title": "Export format",
       "format_mldx": "MemoLanes standard format (*.mldx)",

@@ -8,9 +8,7 @@ import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/style_constants.dart';
-import 'package:flutter_rust_bridge/flutter_rust_bridge.dart'
-    show AnyhowException;
-import 'package:memolanes/src/rust/export_data.dart' as export_data;
+import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
 
@@ -72,18 +70,17 @@ enum CommonExportFormat {
 }
 
 class CommonExportResult {
-  const CommonExportResult.file(this.filePath) : error = null;
-  const CommonExportResult.error(this.error) : filePath = null;
+  const CommonExportResult.create(this.exportResult, this.filePath);
 
-  final String? filePath;
-  final export_data.ExportError? error;
+  final api.ExportResult exportResult;
+  final String filePath;
 }
 
 typedef CommonExportFileBuilder = Future<CommonExportResult> Function(
   CommonExportFormat format,
 );
 
-Future<bool> showCommonExportWithFormatPicker({
+Future<void> showCommonExportWithFormatPicker({
   required BuildContext context,
   required String title,
   required List<CommonExportFormat> formats,
@@ -109,22 +106,13 @@ Future<bool> showCommonExportWithFormatPicker({
     ),
   );
 
-  if (selectedFormat == null || !context.mounted) return false;
+  if (selectedFormat == null || !context.mounted) return;
 
   final CommonExportResult exportResult;
   try {
     exportResult = await GlobalLoadingManager.instance.runWithLoading(
       () => exportFile(selectedFormat),
     );
-  } on AnyhowException catch (error) {
-    log.error('[export] Export failed: $error');
-    if (context.mounted) {
-      await showCommonDialog(
-        context,
-        context.tr('data.export_data.error.unexpected'),
-      );
-    }
-    return false;
   } catch (error, stack) {
     log.error('[export] Export failed: $error', stack);
     if (context.mounted) {
@@ -133,43 +121,37 @@ Future<bool> showCommonExportWithFormatPicker({
         context.tr('data.export_data.error.unexpected'),
       );
     }
-    return false;
+    return;
   }
 
-  final exportError = exportResult.error;
-  if (exportError != null) {
-    if (context.mounted) {
-      await showCommonDialog(
-        context,
-        context.tr(_exportErrorTrKey(exportError)),
-      );
-    }
-    return false;
+  switch (exportResult.exportResult) {
+    case api.ExportResult.succeed:
+      {
+        final filePath = exportResult.filePath;
+
+        if (!context.mounted) {
+          if (deleteFile) await _deleteExportFile(filePath);
+          return;
+        }
+
+        await showCommonExport(
+          context,
+          filePath,
+          deleteFile: deleteFile,
+        );
+      }
+    case api.ExportResult.dataIsEmpty:
+      {
+        if (context.mounted) {
+          await showCommonDialog(
+            context,
+            context.tr(
+              'data.export_data.error.data_is_empty',
+            ),
+          );
+        }
+      }
   }
-  final filePath = exportResult.filePath!;
-
-  if (!context.mounted) {
-    if (deleteFile) await _deleteExportFile(filePath);
-    return false;
-  }
-
-  return showCommonExport(
-    context,
-    filePath,
-    deleteFile: deleteFile,
-  );
-}
-
-String _exportErrorTrKey(export_data.ExportError error) {
-  return switch (error) {
-    export_data.ExportError.noJourneys => 'data.export_data.error.no_journeys',
-    export_data.ExportError.journeyNotFound =>
-      'data.export_data.error.journey_not_found',
-    export_data.ExportError.emptyJourneyData =>
-      'data.export_data.error.empty_journey_data',
-    export_data.ExportError.dataTypeMismatch =>
-      'data.export_data.error.data_type_mismatch',
-  };
 }
 
 Future<bool> showCommonExport(

@@ -19,7 +19,6 @@ import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:memolanes/src/rust/export_data.dart' as export_data;
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
@@ -234,25 +233,17 @@ class _SettingsBodyState extends State<SettingsBody> {
                 final timestamp = DateFormat('yyyy-MM-dd-HH-mm-ss').format(now);
                 final filepath =
                     "${tmpDir.path}/all-journeys-$timestamp.${format.extension}";
-                export_data.ExportError? exportError;
-                switch (format) {
-                  case CommonExportFormat.mldx:
-                    exportError =
-                        await api.generateFullArchive(targetFilepath: filepath);
-                    break;
-                  case CommonExportFormat.fwss:
-                    exportError = await api.exportAllJourneysAsFwss(
-                        targetFilepath: filepath);
-                    break;
-                  case CommonExportFormat.kml:
-                  case CommonExportFormat.gpx:
+                final exportResult = switch (format) {
+                  CommonExportFormat.mldx =>
+                    await api.generateFullArchive(targetFilepath: filepath),
+                  CommonExportFormat.fwss =>
+                    await api.exportAllJourneysAsFwss(targetFilepath: filepath),
+                  CommonExportFormat.kml ||
+                  CommonExportFormat.gpx =>
                     throw UnsupportedError(
-                        'Unsupported export format: $format');
-                }
-                if (exportError != null) {
-                  return CommonExportResult.error(exportError);
-                }
-                return CommonExportResult.file(filepath);
+                        'Unsupported export format: $format'),
+                };
+                return CommonExportResult.create(exportResult, filepath);
               },
             );
           },

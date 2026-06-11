@@ -20,7 +20,6 @@ import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
 import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/src/rust/api/utils.dart';
-import 'package:memolanes/src/rust/export_data.dart' as export_data;
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -165,39 +164,20 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       JourneyHeader journeyHeader, CommonExportFormat exportFormat) async {
     final tmpDir = await getTemporaryDirectory();
     final dateStr = naiveDateToString(date: journeyHeader.journeyDate);
-    final filepath =
+    final filePath =
         "${tmpDir.path}/$dateStr-${journeyHeader.revision}.${exportFormat.extension}";
-    final export_data.ExportError? exportError;
-    switch (exportFormat) {
-      case CommonExportFormat.mldx:
-        exportError = await api.exportJourney(
-            targetFilepath: filepath,
-            journeyId: journeyHeader.id,
-            exportType: api.ExportType.mldx);
-        break;
-      case CommonExportFormat.fwss:
-        exportError = await api.exportJourney(
-            targetFilepath: filepath,
-            journeyId: journeyHeader.id,
-            exportType: api.ExportType.fwss);
-        break;
-      case CommonExportFormat.kml:
-        exportError = await api.exportJourney(
-            targetFilepath: filepath,
-            journeyId: journeyHeader.id,
-            exportType: api.ExportType.kml);
-        break;
-      case CommonExportFormat.gpx:
-        exportError = await api.exportJourney(
-            targetFilepath: filepath,
-            journeyId: journeyHeader.id,
-            exportType: api.ExportType.gpx);
-        break;
-    }
-    if (exportError != null) {
-      return CommonExportResult.error(exportError);
-    }
-    return CommonExportResult.file(filepath);
+    final exportType = switch (exportFormat) {
+      CommonExportFormat.mldx => api.ExportType.mldx,
+      CommonExportFormat.fwss => api.ExportType.fwss,
+      CommonExportFormat.gpx => api.ExportType.gpx,
+      CommonExportFormat.kml => api.ExportType.kml,
+    };
+
+    final exportResult = await api.exportJourney(
+        targetFilepath: filePath,
+        journeyId: journeyHeader.id,
+        exportType: exportType);
+    return CommonExportResult.create(exportResult, filePath);
   }
 
   void _export() async {
