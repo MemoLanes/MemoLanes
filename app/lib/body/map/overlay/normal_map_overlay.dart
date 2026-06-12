@@ -10,6 +10,8 @@ import 'package:memolanes/constants/style_constants.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 
+const _portraitRecordingBottomInset = 116.0;
+
 class NormalMapOverlay extends StatelessWidget {
   const NormalMapOverlay({
     super.key,
@@ -51,7 +53,7 @@ class NormalMapOverlay extends StatelessWidget {
     final isLandscape = mediaQuery.orientation == Orientation.landscape;
     final recordingBottom = isLandscape
         ? padding.bottom + StyleConstants.navBarSafeArea + 16.0
-        : padding.bottom + 116.0;
+        : padding.bottom + _portraitRecordingBottomInset;
 
     return Stack(
       children: isLandscape
