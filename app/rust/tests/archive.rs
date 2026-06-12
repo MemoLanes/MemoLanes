@@ -76,7 +76,7 @@ fn archive_and_import() {
     let mldx_file_path = temp_dir.path().join("archive.mldx");
     let mut file = File::create(&mldx_file_path).unwrap();
     main_db
-        .with_txn(|txn| archive::export_as_mldx(&archive::WhatToExport::All, txn, &mut file))
+        .with_txn(|txn| archive::export_all_journeys_as_mldx(txn, &mut file))
         .unwrap();
     drop(file);
     main_db.with_txn(|txn| txn.delete_all_journeys()).unwrap();
@@ -112,7 +112,7 @@ fn import_skips_existing_journeys() {
     let mldx_file_path = temp_dir.path().join("archive.mldx");
     let mut file = File::create(&mldx_file_path).unwrap();
     main_db
-        .with_txn(|txn| archive::export_as_mldx(&archive::WhatToExport::All, txn, &mut file))
+        .with_txn(|txn| archive::export_all_journeys_as_mldx(txn, &mut file))
         .unwrap();
     drop(file);
 
@@ -142,7 +142,7 @@ fn import_selected_journeys_by_id() {
     let mldx_file_path = temp_dir.path().join("selected-import.mldx");
     let mut file = File::create(&mldx_file_path).unwrap();
     source_db
-        .with_txn(|txn| archive::export_as_mldx(&archive::WhatToExport::All, txn, &mut file))
+        .with_txn(|txn| archive::export_all_journeys_as_mldx(txn, &mut file))
         .unwrap();
     drop(file);
 
