@@ -216,7 +216,7 @@ class _SettingsBodyState extends State<SettingsBody> {
             if (!hasJourneys) {
               await showCommonDialog(
                 context,
-                context.tr("data.export_data.error.data_is_empty"),
+                context.tr("data.export_data.error.all_data_is_empty"),
               );
               return;
             }

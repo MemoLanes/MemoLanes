@@ -221,7 +221,8 @@
       "export_all_title": "导出全部旅途",
       "export_journey_title": "导出旅途",
       "error": {
-        "data_is_empty": "数据为空",
+        "all_data_is_empty": "暂无可导出的旅途",
+        "journey_data_is_empty": "旅途轨迹数据为空，无法导出为此格式",
         "unexpected": "导出时遇到意外错误"
       },
       "format_section_title": "导出格式",
