@@ -145,7 +145,8 @@ Future<void> showCommonExportWithFormatPicker({
         if (context.mounted) {
           await showCommonDialog(
             context,
-            context.tr('data.export_data.error.journey_data_is_empty'),
+            context
+                .tr('data.export_data.error.no_track_data_for_selected_format'),
           );
         }
       }

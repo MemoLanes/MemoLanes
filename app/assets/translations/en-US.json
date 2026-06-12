@@ -221,8 +221,8 @@
       "export_all_title": "Export All Journeys",
       "export_journey_title": "Export Journey",
       "error": {
-        "all_data_is_empty": "No journeys available to export",
-        "journey_data_is_empty": "This journey has no track data for this format",
+        "no_journeys_to_export": "There are no journeys to export yet.",
+        "no_track_data_for_selected_format": "There is no track data to export in the selected format.",
         "unexpected": "Unexpected error occurred during exporting"
       },
       "format_section_title": "Export format",
