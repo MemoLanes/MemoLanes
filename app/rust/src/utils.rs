@@ -1,4 +1,4 @@
-use std::f64::consts::PI;
+use std::{f64::consts::PI, io::Read};
 
 use chrono::{Datelike, NaiveDate};
 
@@ -35,6 +35,22 @@ pub fn date_to_days_since_epoch(date: NaiveDate) -> i32 {
 pub fn date_of_days_since_epoch(days: i32) -> NaiveDate {
     NaiveDate::from_num_days_from_ce_opt(days + *EPOCH_NUM_OF_DAYS_FROM_CE)
         .expect("Invalid num of days")
+}
+
+pub fn validate_magic_header<T: Read>(
+    reader: &mut T,
+    expected_header: &[u8; 2],
+) -> anyhow::Result<()> {
+    let mut magic_header: [u8; 2] = [0; 2];
+    reader.read_exact(&mut magic_header)?;
+    if &magic_header != expected_header {
+        bail!(
+            "Invalid magic header, expect: {:?}, got: {:?}",
+            expected_header,
+            &magic_header
+        );
+    };
+    Ok(())
 }
 
 #[cfg(test)]

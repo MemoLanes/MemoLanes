@@ -4,6 +4,7 @@ use crate::{
     journey_bitmap::{JourneyBitmap, TileKey},
     journey_header::JourneyType,
     journey_vector::{JourneyVector, TrackPoint, TrackSegment},
+    utils,
 };
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
@@ -23,20 +24,6 @@ pub const ZSTD_COMPRESS_LEVEL: i32 = 3;
 
 const JOURNEY_VECTOR_MAGIC_HEADER: [u8; 2] = [b'V', b'0'];
 const JOURNEY_BITMAP_MAGIC_HEADER: [u8; 2] = [b'B', b'0'];
-
-pub fn validate_magic_header<T: Read>(reader: &mut T, expected_header: &[u8; 2]) -> Result<()> {
-    // magic header
-    let mut magic_header: [u8; 2] = [0; 2];
-    reader.read_exact(&mut magic_header)?;
-    if &magic_header != expected_header {
-        bail!(
-            "Invalid magic header, expect: {:?}, got: {:?}",
-            expected_header,
-            &magic_header
-        );
-    };
-    Ok(())
-}
 
 // TODO: I don't have a strong reason on putting all serializations here
 #[auto_context]
@@ -62,7 +49,7 @@ pub fn serialize_journey_vector<T: Write>(
 
 #[auto_context]
 pub fn deserialize_journey_vector<T: Read>(mut reader: T) -> Result<JourneyVector> {
-    validate_magic_header(&mut reader, &JOURNEY_VECTOR_MAGIC_HEADER)?;
+    utils::validate_magic_header(&mut reader, &JOURNEY_VECTOR_MAGIC_HEADER)?;
 
     // data is compressed as a whole
     let mut decoder = zstd::Decoder::new(reader)?;
@@ -119,7 +106,7 @@ pub fn deserialize_journey_bitmap<T: Read>(
     mut reader: T,
     full_validation: bool,
 ) -> Result<JourneyBitmap> {
-    validate_magic_header(&mut reader, &JOURNEY_BITMAP_MAGIC_HEADER)?;
+    utils::validate_magic_header(&mut reader, &JOURNEY_BITMAP_MAGIC_HEADER)?;
 
     let tiles_count: usize = reader.read_varint()?;
     let mut tiles_and_bytes = Vec::with_capacity(tiles_count);
