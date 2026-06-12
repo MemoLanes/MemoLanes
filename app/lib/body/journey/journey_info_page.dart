@@ -2,12 +2,14 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/journey/journey_info_edit_page.dart';
 import 'package:memolanes/body/journey/journey_track_edit_page.dart';
+import 'package:memolanes/common/component/basic_bottom_sheet.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
+import 'package:memolanes/common/component/common_export.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
@@ -22,8 +24,6 @@ import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
-
-enum ExportType { mldx, kml, gpx }
 
 class JourneyInfoPage extends StatefulWidget {
   const JourneyInfoPage({
@@ -160,37 +160,40 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     await _refreshJourneyInfo();
   }
 
-  Future<String> _generateExportFile(
-      JourneyHeader journeyHeader, ExportType exportType) async {
+  Future<CommonExportResult> _generateExportFile(
+      JourneyHeader journeyHeader, CommonExportFormat exportFormat) async {
     final tmpDir = await getTemporaryDirectory();
     final dateStr = naiveDateToString(date: journeyHeader.journeyDate);
-    final filepath =
-        "${tmpDir.path}/$dateStr-${journeyHeader.revision}.${exportType.name}";
-    switch (exportType) {
-      case ExportType.mldx:
-        await api.generateSingleArchive(
-            journeyId: journeyHeader.id, targetFilepath: filepath);
-        break;
-      case ExportType.kml:
-        await api.exportJourney(
-            targetFilepath: filepath,
-            journeyId: journeyHeader.id,
-            exportType: api.ExportType.kml);
-        break;
-      case ExportType.gpx:
-        await api.exportJourney(
-            targetFilepath: filepath,
-            journeyId: journeyHeader.id,
-            exportType: api.ExportType.gpx);
-        break;
-    }
-    return filepath;
+    final filePath =
+        "${tmpDir.path}/$dateStr-${journeyHeader.revision}.${exportFormat.extension}";
+    final exportType = switch (exportFormat) {
+      CommonExportFormat.mldx => api.ExportType.mldx,
+      CommonExportFormat.fwss => api.ExportType.fwss,
+      CommonExportFormat.gpx => api.ExportType.gpx,
+      CommonExportFormat.kml => api.ExportType.kml,
+    };
+
+    final exportResult = await api.exportJourney(
+        targetFilepath: filePath,
+        journeyId: journeyHeader.id,
+        exportType: exportType);
+    return CommonExportResult.create(exportResult, filePath);
   }
 
-  void _export(ExportType exportType) async {
-    String filePath = await _generateExportFile(_journeyHeader, exportType);
-    if (!mounted) return;
-    await showCommonExport(context, filePath, deleteFile: true);
+  void _export() async {
+    final supportsVectorExport =
+        _journeyHeader.journeyType != JourneyType.bitmap;
+    await showCommonExportWithFormatPicker(
+      context: context,
+      title: context.tr("data.export_data.export_journey_title"),
+      formats: [
+        CommonExportFormat.mldx,
+        CommonExportFormat.fwss,
+        if (supportsVectorExport) CommonExportFormat.kml,
+        if (supportsVectorExport) CommonExportFormat.gpx,
+      ],
+      exportFile: (format) => _generateExportFile(_journeyHeader, format),
+    );
   }
 
   @override
@@ -293,10 +296,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         ElevatedButton(
-                          onPressed: () => _showExportDataCard(
-                            context,
-                            _journeyHeader.journeyType,
-                          ),
+                          onPressed: _export,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFFFFFFF),
                             foregroundColor: Colors.black,
@@ -348,42 +348,6 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
           CapsuleStyleOverlayAppBar.overlayBar(
             title: context.tr("journey.journey_info_page_title"),
           ),
-        ],
-      ),
-    );
-  }
-
-  void _showExportDataCard(BuildContext context, JourneyType journeyType) {
-    showBasicCard(
-      context,
-      child: OptionCard(
-        children: [
-          CardLabelTile(
-            position: journeyType != JourneyType.bitmap
-                ? CardLabelTilePosition.top
-                : CardLabelTilePosition.single,
-            label: context.tr("journey.export_journey_as_mldx"),
-            onTap: () {
-              _export(ExportType.mldx);
-            },
-            top: false,
-          ),
-          if (journeyType != JourneyType.bitmap) ...[
-            CardLabelTile(
-              position: CardLabelTilePosition.middle,
-              label: context.tr("journey.export_journey_as_kml"),
-              onTap: () {
-                _export(ExportType.kml);
-              },
-            ),
-            CardLabelTile(
-              position: CardLabelTilePosition.bottom,
-              label: context.tr("journey.export_journey_as_gpx"),
-              onTap: () {
-                _export(ExportType.gpx);
-              },
-            ),
-          ]
         ],
       ),
     );

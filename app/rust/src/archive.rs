@@ -246,31 +246,58 @@ fn write_proto_as_compressed_block<W: Write, M: protobuf::Message>(
     write_bytes_with_size_header(writer, &buf)
 }
 
-pub enum WhatToExport {
-    All,
-    Just(String),
-}
-
 #[auto_context]
-pub fn export_as_mldx<T: Write + Seek>(
-    what_to_export: &WhatToExport,
+pub fn export_all_journeys_as_mldx<T: Write + Seek>(
     txn: &main_db::Txn,
     writer: &mut T,
 ) -> Result<()> {
-    let journey_to_export = match what_to_export {
-        WhatToExport::All => txn.query_journeys(None, None)?,
-        WhatToExport::Just(journey_id) => {
-            let journey_header = txn
-                .get_journey_header(journey_id)?
-                .ok_or_else(|| anyhow!("Failed to find journy, journey_id = {journey_id}"))?;
-            vec![journey_header]
-        }
-    };
+    let journey_headers = txn.query_journeys(None, None)?;
+    write_mldx(
+        journey_headers,
+        |journey_id| txn.get_journey_data(journey_id),
+        writer,
+    )
+}
 
+#[auto_context]
+pub fn export_single_journey_as_mldx<T: Write + Seek>(
+    journey_header: JourneyHeader,
+    journey_data: JourneyData,
+    writer: &mut T,
+) -> Result<()> {
+    let expected_journey_id = journey_header.id.clone();
+    let mut journey_data = Some(journey_data);
+    write_mldx(
+        vec![journey_header],
+        |journey_id| {
+            if journey_id != expected_journey_id {
+                bail!(
+                    "Unexpected journey id, expected: {}, got: {}",
+                    expected_journey_id,
+                    journey_id
+                );
+            }
+            journey_data
+                .take()
+                .ok_or_else(|| anyhow!("Journey data has already been written"))
+        },
+        writer,
+    )
+}
+
+fn write_mldx<T, F>(
+    journey_headers: Vec<JourneyHeader>,
+    mut load_journey_data: F,
+    writer: &mut T,
+) -> Result<()>
+where
+    T: Write + Seek,
+    F: FnMut(&str) -> Result<JourneyData>,
+{
     // group journeys into sections and sort them(by end time and tie
     // break by id, the deterministic ordering is important).
     let mut group_by_year_month = HashMap::new();
-    for journey in journey_to_export {
+    for journey in journey_headers {
         let year_month = YearMonth {
             year: journey.journey_date.year() as i16,
             month: journey.journey_date.month() as u8,
@@ -352,7 +379,7 @@ pub fn export_as_mldx<T: Write + Seek>(
         for j in journeys {
             // TODO: maybe we want to just take the bytes from db without doing
             // a roundtrip.
-            let mut journey_data = txn.get_journey_data(&j.id)?;
+            let mut journey_data = load_journey_data(&j.id)?;
             let mut buf = Vec::new();
             journey_data.serialize(&mut buf)?;
             write_bytes_with_size_header(&mut zip, &buf)?;
