@@ -1,3 +1,32 @@
+// MemoLanes archive files (`.mldx`) are ZIP containers with one metadata entry
+// and one entry per journey section.
+//
+//      archive.mldx
+//      |
+//      +-- metadata.xxm
+//      |     "MLM"
+//      |     version: u8
+//      |     length of next block: varint
+//      |     Metadata protobuf, zstd-compressed
+//      |
+//      +-- <section_id>
+//      |     "MLS"
+//      |     version: u8
+//      |     length of next block: varint
+//      |     SectionHeader protobuf, zstd-compressed
+//      |     journey data length: varint
+//      |     JourneyData bytes
+//      |     journey data length: varint
+//      |     JourneyData bytes
+//      |     ...
+//      |
+//      +-- <section_id>
+//            ...
+//
+// Metadata lists all section ids. Each SectionHeader lists that section's
+// journey headers; the following JourneyData entries appear in the same order.
+// Sections currently group journeys by `journey_date` year/month.
+
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
 use chrono::{Datelike, Utc};
@@ -18,16 +47,6 @@ use crate::{
     main_db,
     protos::archive::{metadata, Metadata, SectionHeader},
 };
-
-/* The persistent exchange data format for finalized journeys.
-   The high level design is: a metadata file + a set of files each contains a
-   data section. Each data section contains a set of journeys for a specific
-   year + month of the journey end time in UTC. The idea is that we have
-   multiple files so the archive could be incrementally updated/synced. Instead
-   of having a journey per file, we do a bit grouping so we don't end up with
-   a lot of small files and by using end time as the key, most changes only need
-   to update the latest file.
-*/
 
 const METADATA_MAGIC_HEADER: [u8; 3] = [b'M', b'L', b'M'];
 const SECTION_MAGIC_HEADER: [u8; 3] = [b'M', b'L', b'S'];
