@@ -3,7 +3,7 @@ extern crate assert_float_eq;
 
 use itertools::Itertools;
 use memolanes_core::api::import::{self as import_api, ImportPreprocessor, JourneyInfo};
-use memolanes_core::export_data::raw_data_csv_to_gpx_file;
+use memolanes_core::export_data::gpx::raw_data_csv_to_gpx_file;
 use memolanes_core::gpx_file_utils::{normalize_generic_time, normalize_step_of_my_world_time};
 use memolanes_core::journey_vector::TrackPoint;
 use memolanes_core::{export_data, import_data};
@@ -19,7 +19,7 @@ fn run_gpx_integrity_check(
     let vector1 =
         import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data1, None).unwrap();
 
-    export_data::journey_vector_to_gpx_file(&vector1, &mut File::create(export_path).unwrap())
+    export_data::gpx::journey_vector_to_gpx_file(&vector1, &mut File::create(export_path).unwrap())
         .unwrap();
 
     let (raw_data2, _) = import_data::load_gpx(export_path).unwrap();
@@ -53,7 +53,7 @@ fn run_kml_integrity_check(
     let vector1 =
         import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data1, None).unwrap();
 
-    export_data::journey_vector_to_kml_file(&vector1, &mut File::create(export_path).unwrap())
+    export_data::kml::journey_vector_to_kml_file(&vector1, &mut File::create(export_path).unwrap())
         .unwrap();
 
     let (raw_data2, _) = import_data::load_kml(export_path).unwrap();
