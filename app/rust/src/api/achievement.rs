@@ -19,21 +19,16 @@ pub struct LayerArea {
 /// bitmaps alone).
 pub fn get_explored_area_by_layer() -> Result<Vec<LayerArea>> {
     let storage = &crate::api::api::get().storage;
-    let layer_kinds: Vec<_> = AchievementLayer::ALL_LAYERS
-        .iter()
-        .map(|l| l.to_layer_kind())
-        .collect();
-    let bitmaps = storage.get_achievement_full_bitmaps(&layer_kinds)?;
-    AchievementLayer::ALL_LAYERS
-        .into_iter()
-        .map(|layer| {
-            let bitmap = bitmaps
-                .get(&layer.to_layer_kind())
-                .ok_or_else(|| anyhow::anyhow!("missing bitmap for layer {layer:?}"))?;
-            Ok(LayerArea {
-                layer,
-                area_m2: crate::journey_area_utils::compute_journey_bitmap_area(bitmap, None),
+    storage.with_journey_snapshot(|snapshot| {
+        AchievementLayer::ALL_LAYERS
+            .into_iter()
+            .map(|layer| {
+                let bitmap = snapshot.finalized_bitmap(&layer.to_layer_kind(), None)?;
+                Ok(LayerArea {
+                    layer,
+                    area_m2: crate::journey_area_utils::compute_journey_bitmap_area(&bitmap, None),
+                })
             })
-        })
-        .collect()
+            .collect()
+    })
 }
