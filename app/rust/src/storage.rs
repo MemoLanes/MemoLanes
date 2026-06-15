@@ -9,6 +9,7 @@ use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
 use chrono::{Local, NaiveDate};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs::{remove_file, File};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -331,6 +332,30 @@ impl Storage {
         drop(dbs);
 
         Ok(journey_bitmap)
+    }
+
+    /// Cached full-coverage bitmaps for the given layers, fetched AS ONE
+    /// SNAPSHOT: one `dbs` lock and one `MainDb` transaction, so a
+    /// journey merge cannot land between the fetches and make the layers
+    /// mutually inconsistent (e.g. an `All` area smaller than
+    /// `Default`'s). Keyed by `LayerKind`, so the caller never relies on
+    /// positional correspondence with `layer_kinds`.
+    ///
+    /// Does NOT route through `with_db_txn` — `std::sync::Mutex` is not
+    /// reentrant, so taking the `dbs` lock again would deadlock.
+    #[auto_context]
+    pub fn get_achievement_full_bitmaps(
+        &self,
+        layer_kinds: &[LayerKind],
+    ) -> Result<HashMap<LayerKind, JourneyBitmap>> {
+        let mut dbs = self.dbs.lock().unwrap();
+        let (ref mut main_db, ref cache_db) = *dbs;
+        main_db.with_txn(|txn| {
+            layer_kinds
+                .iter()
+                .map(|&lk| Ok((lk, cache_db.get_or_compute(txn, &lk, None, None)?)))
+                .collect()
+        })
     }
 
     #[auto_context]

@@ -835,3 +835,23 @@ fn update_metadata_same_month_cache_still_correct() {
         assert_eq!(result, bitmap);
     });
 }
+
+#[test]
+fn achievement_full_bitmaps_empty_and_keyed_by_layer() {
+    setup_storage_for_test(|storage| {
+        let layer_kinds = [
+            LayerKind::JourneyKind(JourneyKind::DefaultKind),
+            LayerKind::JourneyKind(JourneyKind::Flight),
+            LayerKind::All,
+        ];
+        let bitmaps = storage.get_achievement_full_bitmaps(&layer_kinds).unwrap();
+
+        // One entry per requested layer, addressable by its LayerKind
+        // (not by position in the request).
+        assert_eq!(bitmaps.len(), layer_kinds.len());
+        for layer_kind in &layer_kinds {
+            // No journeys yet, so every layer is an empty bitmap.
+            assert_eq!(bitmaps.get(layer_kind).unwrap().all_tile_keys().count(), 0);
+        }
+    });
+}
