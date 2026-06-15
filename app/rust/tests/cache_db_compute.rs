@@ -67,7 +67,7 @@ fn basic() {
     journey_bitmap.merge(journey_bitmap_flight);
     assert_eq!(
         main_db
-            .with_txn(|txn| cache_db.get_or_compute(txn, &LayerKind::All, None, None))
+            .with_txn(|txn| cache_db.get_or_compute(txn, &LayerKind::All, None))
             .unwrap(),
         journey_bitmap
     );
@@ -75,7 +75,7 @@ fn basic() {
     // Call again — result should be the same (served from cache).
     assert_eq!(
         main_db
-            .with_txn(|txn| cache_db.get_or_compute(txn, &LayerKind::All, None, None))
+            .with_txn(|txn| cache_db.get_or_compute(txn, &LayerKind::All, None))
             .unwrap(),
         journey_bitmap
     );
@@ -106,8 +106,7 @@ fn range_full_month() {
             cache_db.get_or_compute(
                 txn,
                 &LayerKind::JourneyKind(JourneyKind::DefaultKind),
-                Some(date("2024-03-01")),
-                Some(date("2024-03-31")),
+                Some((date("2024-03-01"), date("2024-03-31"))),
             )
         })
         .unwrap();
@@ -138,8 +137,7 @@ fn range_partial_month() {
             cache_db.get_or_compute(
                 txn,
                 &LayerKind::JourneyKind(JourneyKind::DefaultKind),
-                Some(date("2024-03-10")),
-                Some(date("2024-03-20")),
+                Some((date("2024-03-10"), date("2024-03-20"))),
             )
         })
         .unwrap();
@@ -178,8 +176,7 @@ fn range_cross_month() {
             cache_db.get_or_compute(
                 txn,
                 &LayerKind::JourneyKind(JourneyKind::DefaultKind),
-                Some(date("2024-03-01")),
-                Some(date("2024-04-30")),
+                Some((date("2024-03-01"), date("2024-04-30"))),
             )
         })
         .unwrap();
@@ -228,8 +225,7 @@ fn range_partial_start_full_middle_partial_end() {
             cache_db.get_or_compute(
                 txn,
                 &LayerKind::JourneyKind(JourneyKind::DefaultKind),
-                Some(date("2024-01-15")),
-                Some(date("2024-03-15")),
+                Some((date("2024-01-15"), date("2024-03-15"))),
             )
         })
         .unwrap();
@@ -250,8 +246,7 @@ fn range_empty_db() {
             cache_db.get_or_compute(
                 txn,
                 &LayerKind::All,
-                Some(date("2024-01-01")),
-                Some(date("2024-12-31")),
+                Some((date("2024-01-01"), date("2024-12-31"))),
             )
         })
         .unwrap();
@@ -291,8 +286,7 @@ fn range_with_kind_filter() {
             cache_db.get_or_compute(
                 txn,
                 &LayerKind::JourneyKind(JourneyKind::DefaultKind),
-                Some(date("2024-03-01")),
-                Some(date("2024-03-31")),
+                Some((date("2024-03-01"), date("2024-03-31"))),
             )
         })
         .unwrap();
@@ -332,8 +326,7 @@ fn range_cross_year() {
             cache_db.get_or_compute(
                 txn,
                 &LayerKind::JourneyKind(JourneyKind::DefaultKind),
-                Some(date("2023-12-01")),
-                Some(date("2024-01-31")),
+                Some((date("2023-12-01"), date("2024-01-31"))),
             )
         })
         .unwrap();
@@ -368,8 +361,7 @@ fn range_leap_year_february() {
             cache_db.get_or_compute(
                 txn,
                 &LayerKind::JourneyKind(JourneyKind::DefaultKind),
-                Some(date("2024-02-01")),
-                Some(date("2024-02-29")),
+                Some((date("2024-02-01"), date("2024-02-29"))),
             )
         })
         .unwrap();
@@ -409,8 +401,7 @@ fn range_all_kinds() {
             cache_db.get_or_compute(
                 txn,
                 &LayerKind::All,
-                Some(date("2024-03-01")),
-                Some(date("2024-03-31")),
+                Some((date("2024-03-01"), date("2024-03-31"))),
             )
         })
         .unwrap();
@@ -428,7 +419,7 @@ fn full_empty_db() {
         test_utils::setup_main_and_cache_db("full_empty_db");
 
     let result = main_db
-        .with_txn(|txn| cache_db.get_or_compute(txn, &LayerKind::All, None, None))
+        .with_txn(|txn| cache_db.get_or_compute(txn, &LayerKind::All, None))
         .unwrap();
 
     assert_eq!(result, JourneyBitmap::new());
@@ -462,24 +453,14 @@ fn full_with_kind_filter() {
 
     let result_default = main_db
         .with_txn(|txn| {
-            cache_db.get_or_compute(
-                txn,
-                &LayerKind::JourneyKind(JourneyKind::DefaultKind),
-                None,
-                None,
-            )
+            cache_db.get_or_compute(txn, &LayerKind::JourneyKind(JourneyKind::DefaultKind), None)
         })
         .unwrap();
     assert_eq!(result_default, bitmap_default);
 
     let result_flight = main_db
         .with_txn(|txn| {
-            cache_db.get_or_compute(
-                txn,
-                &LayerKind::JourneyKind(JourneyKind::Flight),
-                None,
-                None,
-            )
+            cache_db.get_or_compute(txn, &LayerKind::JourneyKind(JourneyKind::Flight), None)
         })
         .unwrap();
     assert_eq!(result_flight, bitmap_flight);
@@ -513,10 +494,10 @@ fn full_repeated_uses_full_table_cache() {
 
     // First call computes; second is a cache hit — both equal.
     let result1 = main_db
-        .with_txn(|txn| cache_db.get_or_compute(txn, &LayerKind::All, None, None))
+        .with_txn(|txn| cache_db.get_or_compute(txn, &LayerKind::All, None))
         .unwrap();
     let result2 = main_db
-        .with_txn(|txn| cache_db.get_or_compute(txn, &LayerKind::All, None, None))
+        .with_txn(|txn| cache_db.get_or_compute(txn, &LayerKind::All, None))
         .unwrap();
 
     assert_eq!(result1, result2);
@@ -551,8 +532,7 @@ fn range_after_insert_and_invalidation() {
             cache_db.get_or_compute(
                 txn,
                 &LayerKind::JourneyKind(JourneyKind::DefaultKind),
-                Some(date("2024-03-01")),
-                Some(date("2024-03-31")),
+                Some((date("2024-03-01"), date("2024-03-31"))),
             )
         })
         .unwrap();
@@ -584,8 +564,7 @@ fn range_after_insert_and_invalidation() {
             cache_db.get_or_compute(
                 txn,
                 &LayerKind::JourneyKind(JourneyKind::DefaultKind),
-                Some(date("2024-03-01")),
-                Some(date("2024-03-31")),
+                Some((date("2024-03-01"), date("2024-03-31"))),
             )
         })
         .unwrap();

@@ -33,11 +33,7 @@ impl<'a, 'txn> JourneySnapshot<'a, 'txn> {
         layer: &LayerKind,
         range: Option<(NaiveDate, NaiveDate)>,
     ) -> Result<JourneyBitmap> {
-        let (from, to) = match range {
-            Some((from, to)) => (Some(from), Some(to)),
-            None => (None, None),
-        };
-        self.cache_db.get_or_compute(self.txn, layer, from, to)
+        self.cache_db.get_or_compute(self.txn, layer, range)
     }
 
     /// The not-yet-finalized ongoing journey, if any. Read through the
