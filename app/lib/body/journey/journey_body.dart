@@ -20,6 +20,12 @@ class JourneyBody extends StatefulWidget {
 }
 
 class _JourneyBodyState extends State<JourneyBody> {
+  static const _landscapeContentPadding = 16.0;
+  static const _landscapeColumnGap = 16.0;
+  static const _landscapeCalendarMinWidth = 320.0;
+  static const _landscapeCalendarMaxWidth = 360.0;
+  static const _landscapeListMinWidth = 280.0;
+
   List<JourneyHeader> _journeyHeaderList = [];
 
   DateTime _selectedDate = DateTime.now();
@@ -177,42 +183,83 @@ class _JourneyBodyState extends State<JourneyBody> {
   }
 
   Widget _buildJourneyHeaderList() {
-    return Expanded(
-      child: ListView.builder(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).padding.bottom +
-              StyleConstants.navBarSafeArea +
-              5,
-        ),
-        itemCount: _journeyHeaderList.length,
-        itemBuilder: (context, index) {
-          return LabelTile(
-            label: _journeyHeaderList[index].start != null
-                ? DateFormat("yyyy-MM-dd HH:mm:ss")
-                    .format(_journeyHeaderList[index].start!.toLocal())
-                : naiveDateToString(
-                    date: _journeyHeaderList[index].journeyDate),
-            trailing: LabelTileContent(showArrow: true),
-            onTap: () {
-              navigatorPush(
-                context,
-                page: JourneyInfoPage(
-                  journeyHeader: _journeyHeaderList[index],
-                ),
-              ).then((refresh) async {
-                if (refresh != null && refresh) {
-                  _yearsWithJourneyList = await api.yearsWithJourney();
-                  _monthsWithJourneyList =
-                      await api.monthsWithJourney(year: _selectedDate.year);
-                  _daysWithJourneyList = await api.daysWithJourney(
-                      year: _selectedDate.year, month: _selectedDate.month);
-                  _updateJourneyHeaderList();
-                }
-              });
-            },
-          );
-        },
+    return ListView.builder(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).padding.bottom +
+            StyleConstants.navBarSafeArea +
+            5,
       ),
+      itemCount: _journeyHeaderList.length,
+      itemBuilder: (context, index) {
+        return LabelTile(
+          label: _journeyHeaderList[index].start != null
+              ? DateFormat("yyyy-MM-dd HH:mm:ss")
+                  .format(_journeyHeaderList[index].start!.toLocal())
+              : naiveDateToString(date: _journeyHeaderList[index].journeyDate),
+          trailing: LabelTileContent(showArrow: true),
+          onTap: () {
+            navigatorPush(
+              context,
+              page: JourneyInfoPage(
+                journeyHeader: _journeyHeaderList[index],
+              ),
+            ).then((refresh) async {
+              if (refresh != null && refresh) {
+                _yearsWithJourneyList = await api.yearsWithJourney();
+                _monthsWithJourneyList =
+                    await api.monthsWithJourney(year: _selectedDate.year);
+                _daysWithJourneyList = await api.daysWithJourney(
+                    year: _selectedDate.year, month: _selectedDate.month);
+                _updateJourneyHeaderList();
+              }
+            });
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildLandscapeBody(DateTime firstDate) {
+    final bottomPadding = MediaQuery.paddingOf(context).bottom +
+        StyleConstants.navBarSafeArea +
+        5;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth -
+            _landscapeContentPadding * 2 -
+            _landscapeColumnGap;
+        final preferredCalendarWidth = availableWidth * 0.42;
+        final maxCalendarWidth = (availableWidth - _landscapeListMinWidth)
+            .clamp(0.0, _landscapeCalendarMaxWidth)
+            .toDouble();
+        final minCalendarWidth = maxCalendarWidth < _landscapeCalendarMinWidth
+            ? maxCalendarWidth
+            : _landscapeCalendarMinWidth;
+        final calendarWidth = preferredCalendarWidth
+            .clamp(minCalendarWidth, maxCalendarWidth)
+            .toDouble();
+
+        return Padding(
+          padding: const EdgeInsets.all(_landscapeContentPadding),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                width: calendarWidth,
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.only(bottom: bottomPadding),
+                  child: _buildDatePickerWithValue(firstDate),
+                ),
+              ),
+              const SizedBox(width: _landscapeColumnGap),
+              Expanded(
+                child: _buildJourneyHeaderList(),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -225,12 +272,17 @@ class _JourneyBodyState extends State<JourneyBody> {
     if (firstDate == null) {
       return Center(child: Text(context.tr("journey.no_data")));
     } else {
+      final isLandscape =
+          MediaQuery.of(context).orientation == Orientation.landscape;
+      if (isLandscape) {
+        return _buildLandscapeBody(firstDate);
+      }
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildDatePickerWithValue(firstDate),
           const SizedBox(height: 16.0),
-          _buildJourneyHeaderList(),
+          Expanded(child: _buildJourneyHeaderList()),
         ],
       );
     }
