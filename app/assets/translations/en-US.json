@@ -179,7 +179,32 @@
   "achievement": {
     "title": "Achievements",
     "explored_area": "Explored area: {} km²",
-    "coming_soon": "Stats and achievements are coming soon"
+    "coming_soon": "Stats and achievements are coming soon",
+    "area_units": {
+      "square_meters": "m²",
+      "square_kilometers": "km²",
+      "ten_thousand_square_kilometers": "×10k km²"
+    },
+    "overview": {
+      "title": "Total explored area",
+      "as_of": "As of {}"
+    },
+    "source": {
+      "title": "Exploration sources",
+      "description": "Your total area combines ground exploration and flight tracks",
+      "overlap_note": "Note: ground exploration and flight tracks may overlap.",
+      "ground": "Ground",
+      "flight": "Flight",
+      "share_prefix": "Share of total "
+    },
+    "coming_soon_card": {
+      "title": "More stats and achievements are coming",
+      "description": "New exploration dimensions and milestones will arrive in future releases."
+    },
+    "ongoing": {
+      "title": "Journey in progress",
+      "description": "Current achievements and stats do not include the ongoing journey. They will update after you finish and save it."
+    }
   },
   "general": {
     "title": "General",

@@ -1,10 +1,16 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/achievement/shared/achievement_common.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/constants/index.dart';
 
 class AchievementOverviewCard extends StatelessWidget {
-  const AchievementOverviewCard({super.key});
+  const AchievementOverviewCard({
+    super.key,
+    required this.stats,
+  });
+
+  final AchievementAreaStats stats;
 
   @override
   Widget build(BuildContext context) {
@@ -19,9 +25,9 @@ class AchievementOverviewCard extends StatelessWidget {
             children: [
               const _OverviewHeader(),
               SizedBox(height: compact ? 18 : 22),
-              const _AreaNumber(),
-              SizedBox(height: compact ? 14 : 16),
-              _UnlockProgressSummary(progress: 0.01, compact: compact),
+              _AreaNumber(value: stats.totalKm2),
+              // TODO: Restore world unlock progress after Rust exposes a real
+              // denominator/progress value.
             ],
           ),
         ),
@@ -35,11 +41,14 @@ class _OverviewHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final today = DateTime.now();
+    final date = DateFormat.yMMMd(context.locale.toString()).format(today);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          '探索总面积',
+        Text(
+          context.tr('achievement.overview.title'),
           style: TextStyle(
             color: Colors.white,
             fontSize: 22,
@@ -49,7 +58,7 @@ class _OverviewHeader extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          '截至 2024/05/26',
+          context.tr('achievement.overview.as_of', args: [date]),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
@@ -64,19 +73,23 @@ class _OverviewHeader extends StatelessWidget {
 }
 
 class _AreaNumber extends StatelessWidget {
-  const _AreaNumber();
+  const _AreaNumber({required this.value});
+
+  final double value;
 
   @override
   Widget build(BuildContext context) {
+    final area = formatArea(context, value);
+
     return FittedBox(
       fit: BoxFit.scaleDown,
       alignment: Alignment.centerLeft,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
-        children: const [
+        children: [
           Text(
-            '128.56',
-            style: TextStyle(
+            area.value,
+            style: const TextStyle(
               color: StyleConstants.defaultColor,
               fontSize: 52,
               fontWeight: FontWeight.w900,
@@ -84,12 +97,12 @@ class _AreaNumber extends StatelessWidget {
               height: 0.95,
             ),
           ),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Padding(
-            padding: EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.only(bottom: 6),
             child: Text(
-              'km²',
-              style: TextStyle(
+              area.unit,
+              style: const TextStyle(
                 color: StyleConstants.defaultColor,
                 fontSize: 21,
                 fontWeight: FontWeight.w800,
@@ -98,70 +111,6 @@ class _AreaNumber extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _UnlockProgressSummary extends StatelessWidget {
-  const _UnlockProgressSummary({
-    required this.progress,
-    required this.compact,
-  });
-
-  final double progress;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final labelSize = 13.0;
-
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: IntrinsicWidth(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: compact ? 14 : 16,
-                vertical: compact ? 7 : 8,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(9),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '解锁世界面积',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.64),
-                      fontSize: labelSize,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  SizedBox(width: compact ? 24 : 30),
-                  Text(
-                    '1.3%',
-                    style: TextStyle(
-                      color: StyleConstants.defaultColor,
-                      fontSize: labelSize,
-                      fontWeight: FontWeight.w900,
-                      height: 1,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            AchievementProgressLine(
-              progress: progress,
-              accent: StyleConstants.defaultColor,
-            ),
-          ],
-        ),
       ),
     );
   }

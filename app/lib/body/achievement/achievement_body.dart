@@ -3,13 +3,31 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/body/achievement/cards/achievement_coming_soon_card.dart';
 import 'package:memolanes/body/achievement/cards/achievement_overview_card.dart';
 import 'package:memolanes/body/achievement/cards/achievement_source_card.dart';
+import 'package:memolanes/body/achievement/shared/achievement_common.dart';
+import 'package:memolanes/common/achievement_stats_store.dart';
+import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:provider/provider.dart';
 
-class AchievementBody extends StatelessWidget {
+class AchievementBody extends StatefulWidget {
   const AchievementBody({super.key});
+
+  @override
+  State<AchievementBody> createState() => _AchievementBodyState();
+}
+
+class _AchievementBodyState extends State<AchievementBody> {
+  bool _didRequestRefresh = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didRequestRefresh) return;
+    _didRequestRefresh = true;
+    context.read<AchievementStatsStore>().refresh();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,12 +43,187 @@ class AchievementBody extends StatelessWidget {
           const _OngoingJourneyBanner(),
           const SizedBox(height: 14),
         ],
-        const AchievementOverviewCard(),
-        const SizedBox(height: 14),
-        const AchievementSourceCard(),
+        const _AchievementStatsCards(),
         const SizedBox(height: 14),
         const AchievementComingSoonCard(),
       ],
+    );
+  }
+}
+
+class _AchievementStatsCards extends StatelessWidget {
+  const _AchievementStatsCards();
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.watch<AchievementStatsStore>();
+    final stats = store.stats;
+
+    if (stats == null) {
+      return store.isLoading
+          ? const _AchievementStatsSkeleton()
+          : const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AchievementOverviewCard(stats: stats),
+        const SizedBox(height: 14),
+        AchievementSourceCard(stats: stats),
+      ],
+    );
+  }
+}
+
+class _AchievementStatsSkeleton extends StatelessWidget {
+  const _AchievementStatsSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _OverviewSkeletonCard(),
+        SizedBox(height: 14),
+        _SourceSkeletonCard(),
+      ],
+    );
+  }
+}
+
+class _OverviewSkeletonCard extends StatelessWidget {
+  const _OverviewSkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return OptionCard(
+      children: [
+        Padding(
+          padding: achievementCardPadding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              _SkeletonBlock(width: 112, height: 22),
+              SizedBox(height: 10),
+              _SkeletonBlock(width: 132, height: 14),
+              SizedBox(height: 22),
+              _SkeletonBlock(width: 186, height: 52),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SourceSkeletonCard extends StatelessWidget {
+  const _SourceSkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = useCompactAchievementCardLayout(context);
+
+    return OptionCard(
+      children: [
+        Padding(
+          padding: achievementCardPadding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _SkeletonBlock(width: 96, height: 22),
+              const SizedBox(height: 12),
+              const _SkeletonBlock(width: 220, height: 14),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(child: _SourceMetricSkeleton(compact: compact)),
+                  SizedBox(width: compact ? 8 : 18),
+                  _SkeletonBlock(width: compact ? 24 : 38, height: 30),
+                  SizedBox(width: compact ? 8 : 18),
+                  Expanded(child: _SourceMetricSkeleton(compact: compact)),
+                ],
+              ),
+              const SizedBox(height: 14),
+              const Center(
+                child: _SkeletonBlock(width: 188, height: 13),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SourceMetricSkeleton extends StatelessWidget {
+  const _SourceMetricSkeleton({required this.compact});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: compact
+          ? const EdgeInsets.fromLTRB(10, 12, 10, 12)
+          : const EdgeInsets.fromLTRB(16, 16, 16, 14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.035),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _SkeletonBlock(
+                width: compact ? 44 : 76,
+                height: compact ? 44 : 76,
+                radius: 999,
+              ),
+              SizedBox(width: compact ? 8 : 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SkeletonBlock(width: compact ? 58 : 72, height: 14),
+                    const SizedBox(height: 8),
+                    _SkeletonBlock(width: compact ? 74 : 96, height: 28),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: compact ? 10 : 12),
+          const _SkeletonBlock(width: 88, height: 13),
+          SizedBox(height: compact ? 10 : 12),
+          _SkeletonBlock(width: double.infinity, height: compact ? 6 : 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _SkeletonBlock extends StatelessWidget {
+  const _SkeletonBlock({
+    required this.width,
+    required this.height,
+    this.radius = 6,
+  });
+
+  final double width;
+  final double height;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.075),
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      child: SizedBox(width: width, height: height),
     );
   }
 }
@@ -88,8 +281,8 @@ class _OngoingJourneyBanner extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '旅途进行中',
+                  Text(
+                    context.tr('achievement.ongoing.title'),
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 14,
@@ -99,7 +292,7 @@ class _OngoingJourneyBanner extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '当前成就与统计暂不包含进行中的旅途，结束并保存后会更新。',
+                    context.tr('achievement.ongoing.description'),
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.58),
                       fontSize: 12,

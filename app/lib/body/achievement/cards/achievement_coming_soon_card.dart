@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/achievement/shared/achievement_common.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
@@ -34,8 +35,8 @@ class AchievementComingSoonCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      '更多统计与成就敬请期待',
+                    Text(
+                      context.tr('achievement.coming_soon_card.title'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -47,7 +48,7 @@ class AchievementComingSoonCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      '新的探索维度和里程碑会在后续版本加入。',
+                      context.tr('achievement.coming_soon_card.description'),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(

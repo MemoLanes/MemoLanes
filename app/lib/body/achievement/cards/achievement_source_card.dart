@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/achievement/shared/achievement_common.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
@@ -6,7 +7,12 @@ const _groundExploreColor = Color(0xFFFFB86B);
 const _flightExploreColor = Color(0xFF4E8BFF);
 
 class AchievementSourceCard extends StatelessWidget {
-  const AchievementSourceCard({super.key});
+  const AchievementSourceCard({
+    super.key,
+    required this.stats,
+  });
+
+  final AchievementAreaStats stats;
 
   @override
   Widget build(BuildContext context) {
@@ -19,24 +25,18 @@ class AchievementSourceCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: const [
-                  Text(
-                    '探索来源',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      height: 1,
-                    ),
-                  ),
-                  SizedBox(width: 10),
-                  _InfoDot(),
-                ],
+              Text(
+                context.tr('achievement.source.title'),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                ),
               ),
               const SizedBox(height: 12),
               Text(
-                '总面积由地面探索和航迹探索共同贡献',
+                context.tr('achievement.source.description'),
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.58),
                   fontSize: 14,
@@ -44,10 +44,10 @@ class AchievementSourceCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 18),
-              _SourceCardsRow(compact: compact),
+              _SourceCardsRow(compact: compact, stats: stats),
               const SizedBox(height: 14),
               Text(
-                '注：地面与航迹探索可能存在重叠区域。',
+                context.tr('achievement.source.overlap_note'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.5),
@@ -64,13 +64,19 @@ class AchievementSourceCard extends StatelessWidget {
 }
 
 class _SourceCardsRow extends StatelessWidget {
-  const _SourceCardsRow({required this.compact});
+  const _SourceCardsRow({
+    required this.compact,
+    required this.stats,
+  });
 
   final bool compact;
+  final AchievementAreaStats stats;
 
   @override
   Widget build(BuildContext context) {
     final gap = compact ? 8.0 : 18.0;
+    final groundArea = formatArea(context, stats.groundKm2);
+    final flightArea = formatArea(context, stats.flightKm2);
 
     return IntrinsicHeight(
       child: Row(
@@ -80,11 +86,11 @@ class _SourceCardsRow extends StatelessWidget {
             child: _SourceMetricCard(
               compact: compact,
               icon: Icons.directions_walk_rounded,
-              title: '地面探索',
-              value: '78.36',
-              unit: 'km²',
-              percentText: '61.0%',
-              progress: 0.61,
+              title: context.tr('achievement.source.ground'),
+              value: groundArea.value,
+              unit: groundArea.unit,
+              percentText: formatPercent(stats.groundShare),
+              progress: stats.groundShare,
               accent: _groundExploreColor,
             ),
           ),
@@ -95,11 +101,11 @@ class _SourceCardsRow extends StatelessWidget {
             child: _SourceMetricCard(
               compact: compact,
               icon: Icons.route_rounded,
-              title: '航迹探索',
-              value: '65.28',
-              unit: 'km²',
-              percentText: '51.0%',
-              progress: 0.51,
+              title: context.tr('achievement.source.flight'),
+              value: flightArea.value,
+              unit: flightArea.unit,
+              percentText: formatPercent(stats.flightShare),
+              progress: stats.flightShare,
               accent: _flightExploreColor,
             ),
           ),
@@ -308,7 +314,7 @@ class _PercentText extends StatelessWidget {
           fontWeight: FontWeight.w600,
         ),
         children: [
-          const TextSpan(text: '占总面积 '),
+          TextSpan(text: context.tr('achievement.source.share_prefix')),
           TextSpan(
             text: percentText,
             style: TextStyle(
@@ -415,19 +421,6 @@ class _PlusBubble extends StatelessWidget {
         color: Colors.white.withValues(alpha: 0.72),
         size: compact ? 16 : 21,
       ),
-    );
-  }
-}
-
-class _InfoDot extends StatelessWidget {
-  const _InfoDot();
-
-  @override
-  Widget build(BuildContext context) {
-    return Icon(
-      Icons.info_outline_rounded,
-      color: Colors.white.withValues(alpha: 0.46),
-      size: 20,
     );
   }
 }
