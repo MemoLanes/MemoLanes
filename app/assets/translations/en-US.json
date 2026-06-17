@@ -178,8 +178,6 @@
   },
   "achievement": {
     "title": "Achievements",
-    "explored_area": "Explored area: {} km²",
-    "coming_soon": "Stats and achievements are coming soon",
     "area_units": {
       "square_meters": "m²",
       "square_kilometers": "km²",
