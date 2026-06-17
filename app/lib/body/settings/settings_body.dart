@@ -18,6 +18,7 @@ import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/utils.dart';
+import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -100,7 +101,10 @@ class _SettingsBodyState extends State<SettingsBody> {
     var gpsManager = context.watch<GpsManager>();
 
     return MlSingleChildScrollView(
-      padding: EdgeInsets.symmetric(vertical: 16.0),
+      padding: EdgeInsets.only(
+        top: 16.0,
+        bottom: StyleConstants.navBarSafeArea + 16.0,
+      ),
       children: [
         // TODO: Enable this when we have user system.
         // CircleAvatar(
