@@ -6,8 +6,10 @@ import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/body/settings/advanced_settings_page.dart';
 import 'package:memolanes/body/settings/import_data_page.dart';
 import 'package:memolanes/body/settings/map_settings_page.dart';
+import 'package:memolanes/common/component/basic_bottom_sheet.dart';
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
+import 'package:memolanes/common/component/common_export.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
@@ -16,6 +18,7 @@ import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/utils.dart';
+import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -98,7 +101,10 @@ class _SettingsBodyState extends State<SettingsBody> {
     var gpsManager = context.watch<GpsManager>();
 
     return MlSingleChildScrollView(
-      padding: EdgeInsets.symmetric(vertical: 16.0),
+      padding: EdgeInsets.only(
+        top: 16.0,
+        bottom: StyleConstants.navBarSafeArea + 16.0,
+      ),
       children: [
         // TODO: Enable this when we have user system.
         // CircleAvatar(
@@ -209,16 +215,41 @@ class _SettingsBodyState extends State<SettingsBody> {
               );
               return;
             }
-            var tmpDir = await getTemporaryDirectory();
-            final now = DateTime.now();
-            final timestamp = DateFormat('yyyy-MM-dd-HH-mm-ss').format(now);
-            final filepath = "${tmpDir.path}/all-journeys-$timestamp.mldx";
+            final hasJourneys = await api.hasJourneys();
             if (!context.mounted) return;
-            await showLoadingDialog(
-              asyncTask: api.generateFullArchive(targetFilepath: filepath),
+            if (!hasJourneys) {
+              await showCommonDialog(
+                context,
+                context.tr("data.export_data.error.no_journeys_to_export"),
+              );
+              return;
+            }
+            await showCommonExportWithFormatPicker(
+              context: context,
+              title: context.tr("data.export_data.export_all_title"),
+              formats: const [
+                CommonExportFormat.mldx,
+                CommonExportFormat.fwss,
+              ],
+              exportFile: (format) async {
+                var tmpDir = await getTemporaryDirectory();
+                final now = DateTime.now();
+                final timestamp = DateFormat('yyyy-MM-dd-HH-mm-ss').format(now);
+                final filepath =
+                    "${tmpDir.path}/all-journeys-$timestamp.${format.extension}";
+                final exportResult = switch (format) {
+                  CommonExportFormat.mldx =>
+                    await api.generateFullArchive(targetFilepath: filepath),
+                  CommonExportFormat.fwss =>
+                    await api.exportAllJourneysAsFwss(targetFilepath: filepath),
+                  CommonExportFormat.kml ||
+                  CommonExportFormat.gpx =>
+                    throw UnsupportedError(
+                        'Unsupported export format: $format'),
+                };
+                return CommonExportResult.create(exportResult, filepath);
+              },
             );
-            if (!context.mounted) return;
-            await showCommonExport(context, filepath, deleteFile: true);
           },
         ),
         LabelTileTitle(

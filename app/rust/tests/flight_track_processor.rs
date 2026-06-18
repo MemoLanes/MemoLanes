@@ -22,7 +22,7 @@ fn run_tests() {
             import_data::load_kml(&format!("./tests/data/flight_{name}.kml")).unwrap();
         let result = flight_track_processor::process(&loaded_data).unwrap();
         let mut gpx = Vec::new();
-        export_data::journey_vector_to_gpx_file(&result, &mut Cursor::new(&mut gpx)).unwrap();
+        export_data::gpx::journey_vector_to_gpx_file(&result, &mut Cursor::new(&mut gpx)).unwrap();
         verify_gpx(name, &gpx);
         if GENERATE_RESULT_GPX_FOR_INSPECTION {
             let mut file = File::create(format!(

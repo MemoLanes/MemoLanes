@@ -835,3 +835,108 @@ fn update_metadata_same_month_cache_still_correct() {
         assert_eq!(result, bitmap);
     });
 }
+
+#[test]
+fn journey_snapshot_empty_across_layers() {
+    setup_storage_for_test(|storage| {
+        // Several reads compose into one snapshot; with no journeys yet,
+        // every layer is an empty bitmap.
+        storage
+            .with_journey_snapshot(|snapshot| {
+                for layer_kind in [
+                    LayerKind::JourneyKind(JourneyKind::DefaultKind),
+                    LayerKind::JourneyKind(JourneyKind::Flight),
+                    LayerKind::All,
+                ] {
+                    let bitmap = snapshot.finalized_bitmap(&layer_kind, None)?;
+                    assert_eq!(bitmap.all_tile_keys().count(), 0);
+                }
+                Ok(())
+            })
+            .unwrap();
+    });
+}
+
+#[test]
+fn renderer_bitmap_none_layer_is_empty() {
+    setup_storage_for_test(|storage| {
+        // A finalized journey exists...
+        let mut journey_bitmap = JourneyBitmap::new();
+        draw_line1(&mut journey_bitmap);
+        storage
+            .with_db_txn(|txn| {
+                test_utils::insert_bitmap_journey(
+                    txn,
+                    NaiveDate::from_ymd_opt(2024, 3, 15).unwrap(),
+                    JourneyKind::DefaultKind,
+                    journey_bitmap,
+                );
+                Ok(())
+            })
+            .unwrap();
+
+        // ...but a `None` layer selects no finalized base, and with no
+        // ongoing journey the rendered bitmap is empty.
+        let bitmap = storage
+            .get_latest_bitmap_for_main_map_renderer(&None, false)
+            .unwrap();
+        assert_eq!(bitmap.all_tile_keys().count(), 0);
+    });
+}
+
+#[test]
+fn explored_area_per_layer_is_consistent() {
+    setup_storage_for_test(|storage| {
+        let mut default_bitmap = JourneyBitmap::new();
+        draw_line1(&mut default_bitmap);
+        storage
+            .with_db_txn(|txn| {
+                test_utils::insert_bitmap_journey(
+                    txn,
+                    NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+                    JourneyKind::DefaultKind,
+                    default_bitmap,
+                );
+                Ok(())
+            })
+            .unwrap();
+        let mut flight_bitmap = JourneyBitmap::new();
+        draw_line2(&mut flight_bitmap);
+        storage
+            .with_db_txn(|txn| {
+                test_utils::insert_bitmap_journey(
+                    txn,
+                    NaiveDate::from_ymd_opt(2024, 1, 2).unwrap(),
+                    JourneyKind::Flight,
+                    flight_bitmap,
+                );
+                Ok(())
+            })
+            .unwrap();
+
+        // Mirrors the per-layer area the achievement API exposes.
+        let area = |layer_kind| {
+            storage
+                .with_journey_snapshot(|snapshot| {
+                    let bitmap = snapshot.finalized_bitmap(&layer_kind, None)?;
+                    Ok(
+                        memolanes_core::journey_area_utils::compute_journey_bitmap_area(
+                            &bitmap, None,
+                        ),
+                    )
+                })
+                .unwrap()
+        };
+        let default_area = area(LayerKind::JourneyKind(JourneyKind::DefaultKind));
+        let flight_area = area(LayerKind::JourneyKind(JourneyKind::Flight));
+        let all_area = area(LayerKind::All);
+
+        assert!(default_area > 0);
+        assert!(flight_area > 0);
+        // `All` is the union of the per-kind bitmaps, so it covers at
+        // least as much as either — the consistency the comparison row
+        // relies on.
+        assert!(all_area >= default_area);
+        assert!(all_area >= flight_area);
+    });
+}

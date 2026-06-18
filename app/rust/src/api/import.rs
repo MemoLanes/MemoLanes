@@ -170,11 +170,7 @@ pub fn process_vector_data(
 
 #[auto_context]
 pub fn is_journey_data_empty(journey_data: &OpaqueJourneyData) -> bool {
-    let journey_data = journey_data.borrow_inner();
-    match *journey_data {
-        JourneyData::Vector(ref vector_data) => vector_data.track_segments.is_empty(),
-        JourneyData::Bitmap(ref bitmap_data) => bitmap_data.is_empty(),
-    }
+    journey_data.borrow_inner().is_empty()
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
