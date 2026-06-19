@@ -19,14 +19,13 @@ class AchievementBody extends StatefulWidget {
 }
 
 class _AchievementBodyState extends State<AchievementBody> {
-  bool _didRequestRefresh = false;
-
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_didRequestRefresh) return;
-    _didRequestRefresh = true;
-    context.read<AchievementStatsStore>().refresh();
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<AchievementStatsStore>().refresh();
+    });
   }
 
   @override

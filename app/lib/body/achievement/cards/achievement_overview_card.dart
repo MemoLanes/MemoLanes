@@ -41,9 +41,6 @@ class _OverviewHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final today = DateTime.now();
-    final date = DateFormat.yMMMd(context.locale.toString()).format(today);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -54,17 +51,6 @@ class _OverviewHeader extends StatelessWidget {
             fontSize: 22,
             fontWeight: FontWeight.w800,
             height: 1,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          context.tr('achievement.overview.as_of', args: [date]),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.48),
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
           ),
         ),
       ],
@@ -81,36 +67,39 @@ class _AreaNumber extends StatelessWidget {
   Widget build(BuildContext context) {
     final area = formatArea(context, value);
 
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      alignment: Alignment.centerLeft,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            area.value,
-            style: const TextStyle(
-              color: StyleConstants.defaultColor,
-              fontSize: 52,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0,
-              height: 0.95,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Text(
-              area.unit,
+    return SizedBox(
+      width: double.infinity,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              area.value,
               style: const TextStyle(
                 color: StyleConstants.defaultColor,
-                fontSize: 21,
-                fontWeight: FontWeight.w800,
-                height: 1,
+                fontSize: 52,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0,
+                height: 0.95,
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(
+                area.unit,
+                style: const TextStyle(
+                  color: StyleConstants.defaultColor,
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

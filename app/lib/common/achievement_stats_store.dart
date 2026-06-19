@@ -56,8 +56,10 @@ class AchievementStatsStore extends ChangeNotifier {
     final inFlight = _inFlight;
     if (inFlight != null) return inFlight;
 
+    _stats = null;
     final future = _loadAndUpdate();
     _inFlight = future;
+    notifyListeners();
     return future;
   }
 

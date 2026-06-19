@@ -184,19 +184,16 @@
       "ten_thousand_square_kilometers": "×10k km²"
     },
     "overview": {
-      "title": "Total explored area",
-      "as_of": "As of {}"
+      "title": "Total explored area"
     },
     "source": {
       "title": "Exploration sources",
-      "description": "Your total area combines ground exploration and flight tracks",
-      "overlap_note": "Note: ground exploration and flight tracks may overlap.",
-      "ground": "Ground",
-      "flight": "Flight",
-      "share_prefix": "Share of total "
+      "description": "Total area combines Ground and Flight",
+      "overlap_note": "Note: Ground and Flight may overlap.",
+      "share_prefix": "Of total "
     },
     "coming_soon_card": {
-      "title": "More stats and achievements are coming",
+      "title": "More coming soon",
       "description": "New exploration dimensions and milestones will arrive in future releases."
     },
     "ongoing": {

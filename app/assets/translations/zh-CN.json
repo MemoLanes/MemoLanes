@@ -184,15 +184,12 @@
       "ten_thousand_square_kilometers": "万 km²"
     },
     "overview": {
-      "title": "探索总面积",
-      "as_of": "截至 {}"
+      "title": "探索总面积"
     },
     "source": {
       "title": "探索来源",
       "description": "总面积由地面探索和航迹探索共同贡献",
       "overlap_note": "注：地面与航迹探索可能存在重叠区域。",
-      "ground": "地面探索",
-      "flight": "航迹探索",
       "share_prefix": "占总面积 "
     },
     "coming_soon_card": {

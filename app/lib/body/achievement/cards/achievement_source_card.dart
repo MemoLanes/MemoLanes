@@ -86,7 +86,7 @@ class _SourceCardsRow extends StatelessWidget {
             child: _SourceMetricCard(
               compact: compact,
               icon: Icons.directions_walk_rounded,
-              title: context.tr('achievement.source.ground'),
+              title: context.tr('journey_kind.default'),
               value: groundArea.value,
               unit: groundArea.unit,
               percentText: formatPercent(stats.groundShare),
@@ -101,7 +101,7 @@ class _SourceCardsRow extends StatelessWidget {
             child: _SourceMetricCard(
               compact: compact,
               icon: Icons.route_rounded,
-              title: context.tr('achievement.source.flight'),
+              title: context.tr('journey_kind.flight'),
               value: flightArea.value,
               unit: flightArea.unit,
               percentText: formatPercent(stats.flightShare),
@@ -259,35 +259,38 @@ class _MetricValue extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      alignment: Alignment.centerLeft,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              color: accent,
-              fontSize: valueSize,
-              fontWeight: FontWeight.w900,
-              height: 0.9,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 2),
-            child: Text(
-              unit,
+    return SizedBox(
+      width: double.infinity,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              value,
               style: TextStyle(
                 color: accent,
-                fontSize: unitSize,
-                fontWeight: FontWeight.w700,
-                height: 1,
+                fontSize: valueSize,
+                fontWeight: FontWeight.w900,
+                height: 0.9,
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 6),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Text(
+                unit,
+                style: TextStyle(
+                  color: accent,
+                  fontSize: unitSize,
+                  fontWeight: FontWeight.w700,
+                  height: 1,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -304,25 +307,28 @@ class _PercentText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RichText(
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      text: TextSpan(
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.64),
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-        ),
-        children: [
-          TextSpan(text: context.tr('achievement.source.share_prefix')),
-          TextSpan(
-            text: percentText,
-            style: TextStyle(
-              color: accent,
-              fontWeight: FontWeight.w900,
-            ),
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: RichText(
+        maxLines: 1,
+        text: TextSpan(
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.64),
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
           ),
-        ],
+          children: [
+            TextSpan(text: context.tr('achievement.source.share_prefix')),
+            TextSpan(
+              text: percentText,
+              style: TextStyle(
+                color: accent,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
