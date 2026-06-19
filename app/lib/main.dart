@@ -75,6 +75,7 @@ class MyApp extends StatelessWidget {
       localizationsDelegates: context.localizationDelegates,
       locale: context.locale,
       navigatorKey: navigatorKey,
+      navigatorObservers: [routeObserver],
       builder: (context, child) {
         return GlobalLoadingOverlay(
           child: child ?? const SizedBox.shrink(),

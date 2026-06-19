@@ -8,6 +8,11 @@ import 'package:memolanes/common/service/permission_service.dart';
 /// Root [Navigator] key shared across the app (dialogs, permission flow, share handler).
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+/// Root navigator route observer for pages that need to react when a pushed
+/// page above them is popped.
+final RouteObserver<PageRoute<dynamic>> routeObserver =
+    RouteObserver<PageRoute<dynamic>>();
+
 /// Unified navigation helpers.
 ///
 /// All helpers here wrap the destination page with [GlobalPopScope] so that
