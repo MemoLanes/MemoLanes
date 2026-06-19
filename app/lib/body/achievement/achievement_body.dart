@@ -96,18 +96,18 @@ class _OverviewSkeletonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = useCompactAchievementCardLayout(context);
+
     return OptionCard(
       children: [
         Padding(
           padding: achievementCardPadding,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              _SkeletonBlock(width: 112, height: 22),
-              SizedBox(height: 10),
-              _SkeletonBlock(width: 132, height: 14),
-              SizedBox(height: 22),
-              _SkeletonBlock(width: 186, height: 52),
+            children: [
+              const _SkeletonBlock(width: 112, height: 22),
+              SizedBox(height: compact ? 18 : 22),
+              const _SkeletonBlock(width: 186, height: 52),
             ],
           ),
         ),

@@ -190,7 +190,7 @@
       "title": "Exploration sources",
       "description": "Total area combines Ground and Flight",
       "overlap_note": "Note: Ground and Flight may overlap.",
-      "share_prefix": "Of total "
+      "share_of_total": "{} of total"
     },
     "coming_soon_card": {
       "title": "More coming soon",

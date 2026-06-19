@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:memolanes/body/achievement/shared/achievement_common.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
 
@@ -85,7 +86,7 @@ class _SourceCardsRow extends StatelessWidget {
           Expanded(
             child: _SourceMetricCard(
               compact: compact,
-              icon: Icons.directions_walk_rounded,
+              icon: FontAwesomeIcons.shoePrints,
               title: context.tr('journey_kind.default'),
               value: groundArea.value,
               unit: groundArea.unit,
@@ -100,7 +101,7 @@ class _SourceCardsRow extends StatelessWidget {
           Expanded(
             child: _SourceMetricCard(
               compact: compact,
-              icon: Icons.route_rounded,
+              icon: FontAwesomeIcons.planeUp,
               title: context.tr('journey_kind.flight'),
               value: flightArea.value,
               unit: flightArea.unit,
@@ -127,7 +128,7 @@ class _SourceMetricCard extends StatelessWidget {
     required this.compact,
   });
 
-  final IconData icon;
+  final FaIconData icon;
   final String title;
   final String value;
   final String unit;
@@ -194,7 +195,7 @@ class _MetricHeader extends StatelessWidget {
     required this.compact,
   });
 
-  final IconData icon;
+  final FaIconData icon;
   final String title;
   final Color accent;
   final double titleSize;
@@ -307,6 +308,16 @@ class _PercentText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shareTemplate = context.tr('achievement.source.share_of_total');
+    final percentPlaceholderIndex = shareTemplate.indexOf('{}');
+    final hasPercentPlaceholder = percentPlaceholderIndex >= 0;
+    final sharePrefix = hasPercentPlaceholder
+        ? shareTemplate.substring(0, percentPlaceholderIndex)
+        : shareTemplate;
+    final shareSuffix = hasPercentPlaceholder
+        ? shareTemplate.substring(percentPlaceholderIndex + 2)
+        : '';
+
     return FittedBox(
       fit: BoxFit.scaleDown,
       alignment: Alignment.centerLeft,
@@ -319,14 +330,15 @@ class _PercentText extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
           children: [
-            TextSpan(text: context.tr('achievement.source.share_prefix')),
+            TextSpan(text: sharePrefix),
             TextSpan(
-              text: percentText,
+              text: hasPercentPlaceholder ? percentText : '',
               style: TextStyle(
                 color: accent,
                 fontWeight: FontWeight.w900,
               ),
             ),
+            TextSpan(text: shareSuffix),
           ],
         ),
       ),
@@ -341,7 +353,7 @@ class _MetricIcon extends StatelessWidget {
     this.compact = false,
   });
 
-  final IconData icon;
+  final FaIconData icon;
   final Color accent;
   final bool compact;
 
@@ -367,10 +379,12 @@ class _MetricIcon extends StatelessWidget {
           ),
         ],
       ),
-      child: Icon(
-        icon,
-        color: accent,
-        size: compact ? 24 : 38,
+      child: Center(
+        child: FaIcon(
+          icon,
+          color: accent,
+          size: compact ? 20 : 34,
+        ),
       ),
     );
   }
