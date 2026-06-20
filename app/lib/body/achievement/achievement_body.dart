@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/achievement/cards/achievement_coming_soon_card.dart';
@@ -22,6 +24,8 @@ class AchievementBody extends StatefulWidget {
 
 class _AchievementBodyState extends State<AchievementBody> with RouteAware {
   PageRoute<dynamic>? _subscribedRoute;
+  GpsManager? _gpsManager;
+  StreamSubscription<void>? _journeyFinalizedSub;
 
   @override
   void initState() {
@@ -43,10 +47,21 @@ class _AchievementBodyState extends State<AchievementBody> with RouteAware {
       routeObserver.subscribe(this, route);
       _subscribedRoute = route;
     }
+
+    final gpsManager = context.read<GpsManager>();
+    if (_gpsManager != gpsManager) {
+      _journeyFinalizedSub?.cancel();
+      _gpsManager = gpsManager;
+      _journeyFinalizedSub = gpsManager.journeyFinalized.listen((_) {
+        if (!mounted) return;
+        _refreshStats();
+      });
+    }
   }
 
   @override
   void dispose() {
+    _journeyFinalizedSub?.cancel();
     routeObserver.unsubscribe(this);
     super.dispose();
   }

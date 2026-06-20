@@ -41,6 +41,10 @@ class GpsManager extends ChangeNotifier {
   var mapTracking = false;
   LocationData? latestPosition;
 
+  final _journeyFinalizedController = StreamController<void>.broadcast();
+
+  Stream<void> get journeyFinalized => _journeyFinalizedController.stream;
+
   // OS-cached last known location, used purely as a transient UI fallback
   // while the live stream is still acquiring its first fix. May be arbitrarily
   // stale; never feed this into journey recording. Cleared as soon as a real
@@ -109,7 +113,12 @@ class GpsManager extends ChangeNotifier {
         notifyListeners();
         await _syncInternalStateWithoutLock();
       }
+      _notifyJourneyFinalized();
     }
+  }
+
+  void _notifyJourneyFinalized() {
+    _journeyFinalizedController.add(null);
   }
 
   Future<void> _syncInternalStateWithoutLock() async {
@@ -310,6 +319,7 @@ class GpsManager extends ChangeNotifier {
         } else {
           Fluttertoast.showToast(msg: tr("journey.finalize_empty"));
         }
+        _notifyJourneyFinalized();
       }
     });
   }
@@ -340,6 +350,7 @@ class GpsManager extends ChangeNotifier {
     _lastPositionTooOldTimer?.cancel();
     unawaited(_locationService.stopLocationUpdates());
     unawaited(_recordingLocationUpdatePipe.close());
+    unawaited(_journeyFinalizedController.close());
     super.dispose();
   }
 }
