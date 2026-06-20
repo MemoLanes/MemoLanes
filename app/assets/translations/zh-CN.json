@@ -188,8 +188,8 @@
     },
     "source": {
       "title": "探索来源",
-      "description": "总面积由地面探索和航迹探索共同贡献",
-      "overlap_note": "注：地面与航迹探索可能存在重叠区域。",
+      "description": "总面积由地表和飞行共同贡献",
+      "overlap_note": "注：地表与飞行可能存在重叠区域。",
       "share_of_total": "占总面积 {}"
     },
     "coming_soon_card": {
