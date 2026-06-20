@@ -138,11 +138,17 @@ class _OverviewSkeletonCard extends StatelessWidget {
         Padding(
           padding: achievementCardPadding,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const _SkeletonBlock(width: 112, height: 22),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: _SkeletonBlock(width: 112, height: 22),
+              ),
               SizedBox(height: compact ? 18 : 22),
-              const _SkeletonBlock(width: 186, height: 52),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: _SkeletonBlock(width: 186, height: 52),
+              ),
             ],
           ),
         ),
