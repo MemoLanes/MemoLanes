@@ -589,9 +589,9 @@ pub fn generate_full_archive(target_filepath: String) -> Result<ExportResult> {
         Ok(ExportResult::DataIsEmpty)
     } else {
         let mut file = File::create(target_filepath)?;
-        get()
-            .storage
-            .with_db_txn(|txn| archive::export_all_journeys_as_mldx(txn, &mut file))?;
+        get().storage.with_db_txn(|txn| {
+            archive::export_all_journeys_as_mldx(txn, &mut file, archive::SectionVersion::V1)
+        })?;
         Ok(ExportResult::Succeed)
     }
 }
@@ -682,7 +682,12 @@ pub fn export_journey(
             let mut file = File::create(&target_filepath)?;
             match data_for_export {
                 InternalDataForExport::Mldx(header, data) => {
-                    archive::export_single_journey_as_mldx(header, data, &mut file)?
+                    archive::export_single_journey_as_mldx(
+                        header,
+                        data,
+                        &mut file,
+                        archive::SectionVersion::V1,
+                    )?
                 }
                 InternalDataForExport::Fwss(data) => {
                     let bitmap = match data {
