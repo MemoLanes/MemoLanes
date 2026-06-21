@@ -33,6 +33,7 @@ void main() async {
     final gpsManager = GpsManager();
     final updateNotifier = UpdateNotifier();
     final achievementStatsStore = AchievementStatsStore();
+    await initScreenCornerRadius();
 
     runApp(
       EasyLocalization(
@@ -218,8 +219,18 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
     final horizontalSafeArea = math.max(
-      mediaQuery.viewPadding.left,
-      mediaQuery.viewPadding.right,
+      mediaQuery.viewPadding.left +
+          horizontalInsetFromBottomCorner(
+            screenCornerRadius?.bottomLeft,
+            bottomInset: StyleConstants.navBarBottomGap,
+            fallbackInset: 6,
+          ),
+      mediaQuery.viewPadding.right +
+          horizontalInsetFromBottomCorner(
+            screenCornerRadius?.bottomRight,
+            bottomInset: StyleConstants.navBarBottomGap,
+            fallbackInset: 6,
+          ),
     );
 
     return PopScope(

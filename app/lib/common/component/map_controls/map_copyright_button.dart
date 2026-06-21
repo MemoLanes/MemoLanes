@@ -7,8 +7,9 @@ class MapCopyrightButton extends StatelessWidget {
 
   static const double iconSize = 14;
   static const double contentPadding = 4;
-  static const double bottomGap = 10;
-  static const double navBarSpacing = 2;
+  static const double bottomGap = 5;
+  static const double trailingGap = 5;
+  static const double navBarSpacing = 5;
   static const double buttonSize = iconSize + contentPadding * 2;
 
   const MapCopyrightButton({
@@ -18,13 +19,20 @@ class MapCopyrightButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final padding = MediaQuery.viewPaddingOf(context);
+    final mediaQuery = MediaQuery.of(context);
+
+    final padding = mediaQuery.viewPadding;
+    final cornerInset = horizontalInsetFromBottomCorner(
+      screenCornerRadius?.bottomRight,
+      bottomInset: bottomGap,
+      fallbackInset: 8,
+    );
 
     return Align(
       alignment: Alignment.bottomRight,
       child: Padding(
         padding: EdgeInsets.only(
-          right: padding.right + 10,
+          right: padding.right + trailingGap + cornerInset,
           bottom: bottomGap,
         ),
         child: GestureDetector(
