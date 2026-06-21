@@ -3,9 +3,13 @@ pub mod test_utils;
 use memolanes_core::import_data;
 use memolanes_core::renderer::internal_server::dispatch_request;
 use memolanes_core::renderer::MapRenderer;
+#[path = "../examples/shared/mod.rs"]
+mod shared;
+use shared::MapServer;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::time::Duration;
 
 #[test]
 pub fn renderer_server() -> Result<(), Box<dyn std::error::Error>> {
