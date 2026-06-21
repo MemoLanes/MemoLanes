@@ -97,7 +97,7 @@ function buildUrl(
   resource: string,
   params?: Record<string, any>,
 ): string {
-  const url = new URL(`${endpoint}/${resource}`);
+  const url = new URL(`${endpoint}/${resource}`, window.location.href);
   if (params) {
     for (const [key, value] of Object.entries(params)) {
       if (value !== undefined && value !== null) {
