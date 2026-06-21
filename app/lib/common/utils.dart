@@ -7,8 +7,30 @@ import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:screen_corner_radius/screen_corner_radius.dart';
 
 final _naiveDateFormat = DateFormat('yyyy-MM-dd');
+ScreenRadius? screenCornerRadius;
+
+double horizontalInsetFromBottomCorner(
+  double? radius, {
+  required double bottomInset,
+  required double fallbackInset,
+}) {
+  final cornerRadius = radius ?? 0.0;
+  if (cornerRadius <= 0.0) return fallbackInset;
+
+  final distanceIntoCorner =
+      (cornerRadius - bottomInset).clamp(0.0, cornerRadius).toDouble();
+  if (distanceIntoCorner <= 0.0) return 0.0;
+
+  final inset = distanceIntoCorner * 0.45;
+  return inset < fallbackInset ? fallbackInset : inset;
+}
+
+Future<void> initScreenCornerRadius() async {
+  screenCornerRadius = await ScreenCornerRadius.get();
+}
 
 NaiveDate dateTimeToNaiveDate(DateTime dateTime) =>
     naiveDateOfString(str: _naiveDateFormat.format(dateTime));
