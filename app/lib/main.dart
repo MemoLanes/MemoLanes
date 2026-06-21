@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -33,7 +32,6 @@ void main() async {
     final gpsManager = GpsManager();
     final updateNotifier = UpdateNotifier();
     final achievementStatsStore = AchievementStatsStore();
-    await initScreenCornerRadius();
 
     runApp(
       EasyLocalization(
@@ -217,22 +215,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final mediaQuery = MediaQuery.of(context);
-    final horizontalSafeArea = math.max(
-      mediaQuery.viewPadding.left +
-          horizontalInsetFromBottomCorner(
-            screenCornerRadius?.bottomLeft,
-            bottomInset: StyleConstants.navBarBottomGap,
-            fallbackInset: 6,
-          ),
-      mediaQuery.viewPadding.right +
-          horizontalInsetFromBottomCorner(
-            screenCornerRadius?.bottomRight,
-            bottomInset: StyleConstants.navBarBottomGap,
-            fallbackInset: 6,
-          ),
-    );
-
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (bool didPop, dynamic result) async {
@@ -250,25 +232,19 @@ class _MyHomePageState extends State<MyHomePage> {
               left: 0,
               right: 0,
               bottom: 0,
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: horizontalSafeArea,
-                  right: horizontalSafeArea,
-                  bottom: StyleConstants.navBarBottomGap,
-                ),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: SizedBox(
-                    width: mediaQuery.size.width -
-                        BottomNavBar.designHorizontalMargin * 2,
-                    height: BottomNavBar.height,
-                    child: BottomNavBar(
-                      selectedIndex: _selectedIndex,
-                      onIndexChanged: (index) =>
-                          setState(() => _selectedIndex = index),
-                      hasUpdateNotification:
-                          context.watch<UpdateNotifier>().hasUpdateNotification,
-                    ),
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.only(
+                    left: StyleConstants.navBarHorizontalPadding,
+                    right: StyleConstants.navBarHorizontalPadding,
+                    bottom: StyleConstants.navBarBottomPadding,
+                  ),
+                  child: BottomNavBar(
+                    selectedIndex: _selectedIndex,
+                    onIndexChanged: (index) =>
+                        setState(() => _selectedIndex = index),
+                    hasUpdateNotification:
+                        context.watch<UpdateNotifier>().hasUpdateNotification,
                   ),
                 ),
               ),

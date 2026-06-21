@@ -185,7 +185,9 @@ class _JourneyBodyState extends State<JourneyBody> {
   Widget _buildJourneyHeaderList() {
     return ListView.builder(
       padding: EdgeInsets.only(
-        bottom: StyleConstants.navBarSafeArea + 5,
+        bottom: MediaQuery.of(context).padding.bottom +
+            StyleConstants.navBarSafeArea +
+            5,
       ),
       itemCount: _journeyHeaderList.length,
       itemBuilder: (context, index) {
@@ -218,7 +220,9 @@ class _JourneyBodyState extends State<JourneyBody> {
   }
 
   Widget _buildLandscapeBody(DateTime firstDate) {
-    const bottomPadding = StyleConstants.navBarSafeArea + 5;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom +
+        StyleConstants.navBarSafeArea +
+        5;
 
     return LayoutBuilder(
       builder: (context, constraints) {
