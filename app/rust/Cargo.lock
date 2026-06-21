@@ -2370,6 +2370,7 @@ dependencies = [
  "kml",
  "lazy_static",
  "log",
+ "md-5",
  "pollster",
  "protobuf",
  "protobuf-codegen",

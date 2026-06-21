@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -266,6 +267,29 @@ class _PopupRoute extends PopupRoute<void> {
     }
   }
 
+  BoxConstraints _screenPopupConstraints(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final maxAvailableWidth = math.max(
+      0.0,
+      media.size.width -
+          media.padding.left -
+          media.padding.right -
+          _kEdgeMargin * 2,
+    );
+    final maxAvailableHeight = math.max(
+      0.0,
+      media.size.height -
+          media.padding.top -
+          media.padding.bottom -
+          _kEdgeMargin * 2,
+    );
+
+    return BoxConstraints(
+      maxWidth: maxAvailableWidth,
+      maxHeight: maxAvailableHeight,
+    );
+  }
+
   @override
   Widget buildPage(BuildContext context, Animation<double> animation,
       Animation<double> secondaryAnimation) {
@@ -295,7 +319,7 @@ class _PopupRoute extends PopupRoute<void> {
           top: _top,
           bottom: _bottom,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 300, maxHeight: 300),
+            constraints: _screenPopupConstraints(context),
             child: FadeTransition(
               opacity: curvedAnimation,
               child: ScaleTransition(

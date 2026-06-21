@@ -52,13 +52,13 @@ fn get_or_compute_full_range() {
 
     // First call: cache miss
     let result = main_db
-        .with_txn(|txn| cache_db.get_or_compute(txn, &layer_kind, None, None))
+        .with_txn(|txn| cache_db.get_or_compute(txn, &layer_kind, None))
         .unwrap();
     assert_eq!(result, bitmap);
 
     // Second call: cache hit
     let result2 = main_db
-        .with_txn(|txn| cache_db.get_or_compute(txn, &layer_kind, None, None))
+        .with_txn(|txn| cache_db.get_or_compute(txn, &layer_kind, None))
         .unwrap();
     assert_eq!(result2, bitmap);
 }
@@ -96,8 +96,7 @@ fn get_or_compute_explicit_range() {
             cache_db.get_or_compute(
                 txn,
                 &layer_kind,
-                Some(date("2024-03-01")),
-                Some(date("2024-03-31")),
+                Some((date("2024-03-01"), date("2024-03-31"))),
             )
         })
         .unwrap();
@@ -109,8 +108,7 @@ fn get_or_compute_explicit_range() {
             cache_db.get_or_compute(
                 txn,
                 &layer_kind,
-                Some(date("2024-03-01")),
-                Some(date("2024-04-30")),
+                Some((date("2024-03-01"), date("2024-04-30"))),
             )
         })
         .unwrap();
@@ -146,7 +144,7 @@ fn all_layer_merges_per_kind() {
         .unwrap();
 
     let result = main_db
-        .with_txn(|txn| cache_db.get_or_compute(txn, &LayerKind::All, None, None))
+        .with_txn(|txn| cache_db.get_or_compute(txn, &LayerKind::All, None))
         .unwrap();
 
     let mut expected = bitmap_default;
@@ -184,7 +182,7 @@ fn invalidate_then_requery_returns_correct_data() {
 
     // Populate cache
     main_db
-        .with_txn(|txn| cache_db.get_or_compute(txn, &layer_kind, None, None))
+        .with_txn(|txn| cache_db.get_or_compute(txn, &layer_kind, None))
         .unwrap();
 
     // Delete Mar journey and invalidate
@@ -203,7 +201,7 @@ fn invalidate_then_requery_returns_correct_data() {
 
     // Re-query: should return only Apr bitmap
     let result = main_db
-        .with_txn(|txn| cache_db.get_or_compute(txn, &layer_kind, None, None))
+        .with_txn(|txn| cache_db.get_or_compute(txn, &layer_kind, None))
         .unwrap();
     assert_eq!(result, bitmap_apr);
 }
@@ -236,7 +234,7 @@ fn invalidate_one_kind_all_layer_requery_correct() {
 
     // Query All to populate caches
     main_db
-        .with_txn(|txn| cache_db.get_or_compute(txn, &LayerKind::All, None, None))
+        .with_txn(|txn| cache_db.get_or_compute(txn, &LayerKind::All, None))
         .unwrap();
 
     // Delete DefaultKind journey and invalidate
@@ -255,7 +253,7 @@ fn invalidate_one_kind_all_layer_requery_correct() {
 
     // Re-query All: should return only Flight bitmap
     let result = main_db
-        .with_txn(|txn| cache_db.get_or_compute(txn, &LayerKind::All, None, None))
+        .with_txn(|txn| cache_db.get_or_compute(txn, &LayerKind::All, None))
         .unwrap();
     assert_eq!(result, bitmap_flight);
 }
@@ -283,7 +281,7 @@ fn merge_journey_updates_existing_cache() {
 
     // Populate cache
     main_db
-        .with_txn(|txn| cache_db.get_or_compute(txn, &layer_kind, None, None))
+        .with_txn(|txn| cache_db.get_or_compute(txn, &layer_kind, None))
         .unwrap();
 
     // Merge a new bitmap
@@ -299,7 +297,7 @@ fn merge_journey_updates_existing_cache() {
 
     // Cache should now contain merged result
     let result = main_db
-        .with_txn(|txn| cache_db.get_or_compute(txn, &layer_kind, None, None))
+        .with_txn(|txn| cache_db.get_or_compute(txn, &layer_kind, None))
         .unwrap();
     let mut expected = bitmap1;
     expected.merge(bitmap2);
@@ -328,7 +326,7 @@ fn clear_all_removes_cache() {
 
     // Populate cache
     main_db
-        .with_txn(|txn| cache_db.get_or_compute(txn, &layer_kind, None, None))
+        .with_txn(|txn| cache_db.get_or_compute(txn, &layer_kind, None))
         .unwrap();
 
     // Clear
@@ -336,7 +334,7 @@ fn clear_all_removes_cache() {
 
     // Re-query: should recompute
     let result = main_db
-        .with_txn(|txn| cache_db.get_or_compute(txn, &layer_kind, None, None))
+        .with_txn(|txn| cache_db.get_or_compute(txn, &layer_kind, None))
         .unwrap();
     assert_eq!(result, bitmap);
 }

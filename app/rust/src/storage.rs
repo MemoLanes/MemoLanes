@@ -3,8 +3,8 @@ use crate::cache_db::{self, CacheDb, LayerKind};
 use crate::gps_processor::{self, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_header::JourneyKind;
+use crate::journey_snapshot::JourneySnapshot;
 use crate::main_db::{self, Action, MainDb, RegionPreference};
-use crate::merged_journey_builder;
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
 use chrono::{Local, NaiveDate};
@@ -127,11 +127,9 @@ pub struct Storage {
     support_dir: String,
     raw_data_recorder: Mutex<Option<RawDataRecorder>>, // `None` means disabled
     pub cache_dir: String,
-    // TODO: I feel the abstraction between `dbs`, `merged_journey_builder`, and
-    // `main_map_renderer_need_to_reload` is a bit bad. We should refactor it,
-    // but maybe do that when we know more.
     // NOTE: both db are deliberately hidden so all operations need to go
-    // through `Storage` to make sure they are in sync.
+    // through `Storage` to make sure they are in sync. Read-only access
+    // to merged journey bitmaps is via `with_journey_snapshot`.
     dbs: Mutex<(MainDb, Box<dyn CacheDb + Send>)>,
     finalized_journey_changed_callback: FinalizedJourneyChangedCallback,
 }
@@ -327,22 +325,57 @@ impl Storage {
         self.finalized_journey_changed_callback = callback;
     }
 
+    /// Run `f` with a read-only [`JourneySnapshot`] under one `dbs` lock
+    /// and one `MainDb` transaction. Every read `f` performs sees the
+    /// SAME snapshot, so a journey merge cannot land between two reads
+    /// and make them mutually inconsistent (e.g. an `All` bitmap smaller
+    /// than `Default`'s). Callers compose whatever reads they need; the
+    /// cache's mutating ops stay private to `Storage`, which owns the
+    /// main_db↔cache_db sync invariant.
+    ///
+    /// Does NOT route through `with_db_txn` — `std::sync::Mutex` is not
+    /// reentrant, so taking the `dbs` lock again would deadlock.
+    #[auto_context]
+    pub fn with_journey_snapshot<F, O>(&self, f: F) -> Result<O>
+    where
+        F: FnOnce(&JourneySnapshot) -> Result<O>,
+    {
+        let mut dbs = self.dbs.lock().unwrap();
+        let (ref mut main_db, ref cache_db) = *dbs;
+        main_db.with_txn(|txn| {
+            let output = f(&JourneySnapshot::new(txn, cache_db.as_ref()))?;
+            // The snapshot only exposes reads, so a journey action must
+            // never have been recorded on this txn.
+            debug_assert_eq!(txn.action, None);
+            Ok(output)
+        })
+    }
+
+    /// The bitmap the main map renders: finalized coverage for
+    /// `layer_kind` (`None` → no finalized base) plus, when
+    /// `include_ongoing`, the not-yet-finalized journey merged on top.
     #[auto_context]
     pub fn get_latest_bitmap_for_main_map_renderer(
         &self,
         layer_kind: &Option<LayerKind>,
         include_ongoing: bool,
     ) -> Result<JourneyBitmap> {
-        let mut dbs = self.dbs.lock().unwrap();
-        let (ref mut main_db, ref cache_db) = *dbs;
-        let journey_bitmap = main_db.with_txn(|txn| {
-            merged_journey_builder::get_full(txn, cache_db.as_ref(), layer_kind, include_ongoing)
-        })?;
-        drop(dbs);
-
-        Ok(journey_bitmap)
+        self.with_journey_snapshot(|snapshot| {
+            let mut bitmap = match layer_kind {
+                Some(layer_kind) => snapshot.finalized_bitmap(layer_kind, None)?,
+                None => JourneyBitmap::new(),
+            };
+            if include_ongoing {
+                if let Some(journey_vector) = snapshot.ongoing_journey()? {
+                    bitmap.merge_vector(&journey_vector);
+                }
+            }
+            Ok(bitmap)
+        })
     }
 
+    /// Finalized coverage within `[from, to]`, optionally filtered to one
+    /// journey kind (`None` → all kinds). Used by the time machine.
     #[auto_context]
     pub fn get_range_bitmap(
         &self,
@@ -350,18 +383,12 @@ impl Storage {
         to_date_inclusive: NaiveDate,
         kind: Option<&JourneyKind>,
     ) -> Result<JourneyBitmap> {
-        let mut dbs = self.dbs.lock().unwrap();
-        let (ref mut main_db, ref cache_db) = *dbs;
-        main_db.with_txn(|txn| {
-            let bitmap = merged_journey_builder::get_range(
-                txn,
-                cache_db.as_ref(),
-                from_date_inclusive,
-                to_date_inclusive,
-                kind,
-            )?;
-            assert_eq!(txn.action, None);
-            Ok(bitmap)
+        let layer_kind = match kind {
+            Some(kind) => LayerKind::JourneyKind(*kind),
+            None => LayerKind::All,
+        };
+        self.with_journey_snapshot(|snapshot| {
+            snapshot.finalized_bitmap(&layer_kind, Some((from_date_inclusive, to_date_inclusive)))
         })
     }
 

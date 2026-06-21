@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/component/common_export.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/body/settings/raw_data_page.dart';
@@ -154,7 +155,11 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
               final filepath = "${tmpDir.path}/logs-$timestamp.zip";
               await api.exportLogs(targetFilePath: filepath);
               if (!context.mounted) return;
-              await showCommonExport(context, filepath, deleteFile: true);
+              await showCommonExport(
+                context,
+                filepath,
+                deleteFile: true,
+              );
             },
           ),
           LabelTile(
