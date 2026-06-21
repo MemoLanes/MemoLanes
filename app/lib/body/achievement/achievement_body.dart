@@ -12,7 +12,6 @@ import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/constants/style_constants.dart';
-import 'package:memolanes/utils/nav_helper.dart';
 import 'package:provider/provider.dart';
 
 class AchievementBody extends StatefulWidget {
@@ -22,8 +21,7 @@ class AchievementBody extends StatefulWidget {
   State<AchievementBody> createState() => _AchievementBodyState();
 }
 
-class _AchievementBodyState extends State<AchievementBody> with RouteAware {
-  PageRoute<dynamic>? _subscribedRoute;
+class _AchievementBodyState extends State<AchievementBody> {
   GpsManager? _gpsManager;
   StreamSubscription<void>? _journeyFinalizedSub;
 
@@ -39,15 +37,6 @@ class _AchievementBodyState extends State<AchievementBody> with RouteAware {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final route = ModalRoute.of(context);
-    if (route is PageRoute && route != _subscribedRoute) {
-      if (_subscribedRoute != null) {
-        routeObserver.unsubscribe(this);
-      }
-      routeObserver.subscribe(this, route);
-      _subscribedRoute = route;
-    }
-
     final gpsManager = context.read<GpsManager>();
     if (_gpsManager != gpsManager) {
       _journeyFinalizedSub?.cancel();
@@ -62,13 +51,7 @@ class _AchievementBodyState extends State<AchievementBody> with RouteAware {
   @override
   void dispose() {
     _journeyFinalizedSub?.cancel();
-    routeObserver.unsubscribe(this);
     super.dispose();
-  }
-
-  @override
-  void didPopNext() {
-    _refreshStats();
   }
 
   void _refreshStats() {
