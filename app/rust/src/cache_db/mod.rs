@@ -36,19 +36,17 @@ impl LayerKind {
 
 /// Cache for merged journey bitmaps.
 pub trait CacheDb {
-    /// Get or compute a bitmap for the given date range.
+    /// Get or compute the merged bitmap for `layer_kind`.
     ///
-    /// - `from: None, to: None` → full range
-    /// - `from: Some, to: Some` → explicit range
-    ///
-    /// Returns cached data when available; otherwise computes from the main DB
-    /// via `txn` and caches the results.
+    /// - `range: None` → full (all-time) range, served from and written
+    ///   to the cache.
+    /// - `range: Some((from, to))` → that inclusive window, computed
+    ///   directly from the main DB (not cached).
     fn get_or_compute(
         &self,
         txn: &main_db::Txn,
         layer_kind: &LayerKind,
-        from: Option<NaiveDate>,
-        to: Option<NaiveDate>,
+        range: Option<(NaiveDate, NaiveDate)>,
     ) -> Result<JourneyBitmap>;
 
     /// Incrementally merge new journey data into the cache.

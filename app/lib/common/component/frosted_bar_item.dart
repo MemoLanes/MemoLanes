@@ -32,7 +32,7 @@ class FrostedBarItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final themeColor = selectedColor;
     final baseUnselectedColor = unselectedColor ?? Colors.grey.shade800;
-    final baseDisabledColor = disabledColor ?? Colors.grey.shade400;
+    final baseDisabledColor = disabledColor ?? Colors.grey.shade500;
 
     final Color bgColor = isSelected
         ? (isEnabled

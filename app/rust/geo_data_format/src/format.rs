@@ -16,7 +16,7 @@ use crate::{
 };
 
 /// magic(4) + provenance_hash(32) + 4 sections × (u32 offset, u32 len).
-const HEADER_LEN: usize = PROVENANCE_HASH_END + 4 * 8; // PROVENANCE_HASH_END=36, sections table=32
+pub const HEADER_LEN: usize = PROVENANCE_HASH_END + 4 * 8; // PROVENANCE_HASH_END=36, sections table=32
 const META_ZSTD_LEVEL: i32 = 19;
 const TILE_INDEX_ZSTD_LEVEL: i32 = 19;
 
@@ -135,6 +135,28 @@ pub fn write_geo_data(
     out.extend_from_slice(&border_offsets);
     out.extend_from_slice(&border_blobs);
     Ok(out)
+}
+
+/// Total byte length a complete file must have, derived from its header
+/// alone: the maximum of every section's `offset + len`. Returns `None` if
+/// `header` is shorter than [`HEADER_LEN`] or the magic doesn't match.
+///
+/// The smart-skip cache uses this to detect a torn/truncated `geo_data.bin`
+/// (actual file size != expected) and rebuild instead of trusting the
+/// provenance hash, which sits at the front of the header and would survive
+/// a write that left the body truncated.
+pub fn expected_total_len(header: &[u8]) -> Option<usize> {
+    if header.len() < HEADER_LEN || &header[0..crate::PROVENANCE_HASH_OFFSET] != MAGIC {
+        return None;
+    }
+    let mut total = HEADER_LEN;
+    for i in 0..4 {
+        let base = crate::PROVENANCE_HASH_END + i * 8;
+        let off = read_u32(header, base) as usize;
+        let len = read_u32(header, base + 4) as usize;
+        total = total.max(off + len);
+    }
+    Some(total)
 }
 
 /// Parse the sectioned format. No dense border tile is ever materialized:

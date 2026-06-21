@@ -1,0 +1,25 @@
+schema = 1
+
+[[continent]]
+code = "AF"
+id = 0
+
+[[continent]]
+code = "AS"
+id = 1
+
+[[continent]]
+code = "EU"
+id = 2
+
+[[country]]
+code = "AAA"
+id = 3
+
+[[country]]
+code = "BBB"
+id = 4
+
+[[country]]
+code = "CCC"
+id = 5
