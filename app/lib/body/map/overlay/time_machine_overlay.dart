@@ -96,7 +96,8 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
         Positioned(
           left: horizontalSafeArea + 24,
           right: horizontalSafeArea + 24,
-          bottom: StyleConstants.mapPrimaryControlBottomInset,
+          bottom:
+              StyleConstants.mapPrimaryControlBottomInsetForContext(context),
           child: TimeRangePicker(
             earliestDate: earliest,
             loading: _loading,

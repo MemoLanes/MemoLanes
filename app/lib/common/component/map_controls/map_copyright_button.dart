@@ -7,6 +7,7 @@ class MapCopyrightButton extends StatelessWidget {
 
   static const double iconSize = 14;
   static const double contentPadding = 4;
+  static const double buttonOpacity = 0.70;
   static const double buttonSize = iconSize + contentPadding * 2;
 
   const MapCopyrightButton({
@@ -23,16 +24,19 @@ class MapCopyrightButton extends StatelessWidget {
             title: context.tr("home.map_data_source_copyright_title"),
             markdown: true);
       },
-      child: Container(
-        padding: const EdgeInsets.all(contentPadding),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.45),
-          shape: BoxShape.circle,
-        ),
-        child: const Icon(
-          Icons.info_outline,
-          size: iconSize,
-          color: Colors.white,
+      child: Opacity(
+        opacity: buttonOpacity,
+        child: Container(
+          padding: const EdgeInsets.all(contentPadding),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.45),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.info_outline,
+            size: iconSize,
+            color: Colors.white,
+          ),
         ),
       ),
     );

@@ -52,7 +52,8 @@ class NormalMapOverlay extends StatelessWidget {
     final padding = mediaQuery.viewPadding;
     final horizontalSafeArea = math.max(padding.left, padding.right);
     final isLandscape = mediaQuery.orientation == Orientation.landscape;
-    const recordingBottom = StyleConstants.mapPrimaryControlBottomInset;
+    final recordingBottom =
+        StyleConstants.mapPrimaryControlBottomInsetForContext(context);
 
     return Stack(
       children: isLandscape

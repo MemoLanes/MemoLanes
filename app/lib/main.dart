@@ -219,10 +219,13 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
+    final navBarBottomInset = StyleConstants.navBarBottomInset(context);
     final horizontalSafeArea =
         math.max(mediaQuery.viewPadding.left, mediaQuery.viewPadding.right);
     final mapCopyrightTextMarkdown =
         MapStyle.findById(MMKVUtil.getString(MMKVKey.mapStyle)).copyright;
+    const mapCopyrightNavBarGap = 6.0;
+    const mapCopyrightTrailingGap = 8.0;
 
     return PopScope(
       canPop: false,
@@ -245,46 +248,35 @@ class _MyHomePageState extends State<MyHomePage> {
                 padding: EdgeInsets.only(
                   left: horizontalSafeArea,
                   right: horizontalSafeArea,
-                  bottom: StyleConstants.navBarBottomGap,
+                  bottom: navBarBottomInset,
                 ),
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   child: SizedBox(
                     width: mediaQuery.size.width -
                         BottomNavBar.designHorizontalMargin * 2,
-                    height:
-                        BottomNavBar.height + MapCopyrightButton.buttonSize / 2,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          height: BottomNavBar.height,
-                          child: BottomNavBar(
-                            selectedIndex: _selectedIndex,
-                            onIndexChanged: (index) =>
-                                setState(() => _selectedIndex = index),
-                            hasUpdateNotification: context
-                                .watch<UpdateNotifier>()
-                                .hasUpdateNotification,
-                          ),
-                        ),
-                        if (_selectedIndex <= 1)
-                          Positioned(
-                            top: 0,
-                            right: 0,
-                            child: MapCopyrightButton(
-                              textMarkdown: mapCopyrightTextMarkdown,
-                            ),
-                          ),
-                      ],
+                    height: BottomNavBar.height,
+                    child: BottomNavBar(
+                      selectedIndex: _selectedIndex,
+                      onIndexChanged: (index) =>
+                          setState(() => _selectedIndex = index),
+                      hasUpdateNotification:
+                          context.watch<UpdateNotifier>().hasUpdateNotification,
                     ),
                   ),
                 ),
               ),
             ),
+            if (_selectedIndex <= 1)
+              Positioned(
+                right: mediaQuery.viewPadding.right + mapCopyrightTrailingGap,
+                bottom: navBarBottomInset +
+                    BottomNavBar.height +
+                    mapCopyrightNavBarGap,
+                child: MapCopyrightButton(
+                  textMarkdown: mapCopyrightTextMarkdown,
+                ),
+              ),
           ],
         ),
       ),
