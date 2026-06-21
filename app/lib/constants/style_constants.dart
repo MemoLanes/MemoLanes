@@ -1,17 +1,13 @@
 import 'dart:ui';
 
 import 'package:memolanes/common/component/bottom_nav_bar.dart';
-import 'package:memolanes/common/component/map_controls/map_copyright_button.dart';
 
 class StyleConstants {
   StyleConstants._();
 
   // navBar
-  // Fixed bottom inset for the nav bar. It includes the map copyright button
-  // below the nav bar plus the small gap between them.
-  static const double navBarBottomGap = MapCopyrightButton.bottomGap +
-      MapCopyrightButton.buttonSize +
-      MapCopyrightButton.navBarSpacing;
+  // Fixed bottom inset for the floating nav bar.
+  static const double navBarBottomGap = 5;
 
   // Vertical space occupied by the nav bar and its fixed bottom inset.
   // Scrollable pages use this to keep content clear of the floating nav bar.

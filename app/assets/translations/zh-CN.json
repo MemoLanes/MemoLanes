@@ -178,8 +178,28 @@
   },
   "achievement": {
     "title": "成就",
-    "explored_area": "探索面积：{} 平方公里",
-    "coming_soon": "统计与成就功能即将推出"
+    "area_units": {
+      "square_meters": "m²",
+      "square_kilometers": "km²",
+      "ten_thousand_square_kilometers": "万 km²"
+    },
+    "overview": {
+      "title": "探索总面积"
+    },
+    "source": {
+      "title": "探索来源",
+      "description": "总面积由地表和飞行共同贡献",
+      "overlap_note": "注：地表与飞行可能存在重叠区域。",
+      "share_of_total": "占总面积 {}"
+    },
+    "coming_soon_card": {
+      "title": "更多统计与成就敬请期待",
+      "description": "新的探索维度和里程碑会在后续版本加入。"
+    },
+    "ongoing": {
+      "title": "旅途进行中",
+      "description": "当前成就与统计暂不包含进行中的旅途，结束并保存后会更新。"
+    }
   },
   "general": {
     "title": "通用",
