@@ -13,6 +13,7 @@ import 'package:memolanes/body/map/map_body.dart';
 import 'package:memolanes/body/privacy_agreement.dart';
 import 'package:memolanes/body/settings/settings_body.dart'
     deferred as settings;
+import 'package:memolanes/common/achievement_stats_store.dart';
 import 'package:memolanes/common/component/bottom_nav_bar.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/gps_manager.dart';
@@ -30,6 +31,7 @@ void main() async {
 
     final gpsManager = GpsManager();
     final updateNotifier = UpdateNotifier();
+    final achievementStatsStore = AchievementStatsStore();
 
     runApp(
       EasyLocalization(
@@ -45,6 +47,7 @@ void main() async {
             // Do NOT use `create: (_) => gpsManager` here
             ChangeNotifierProvider.value(value: gpsManager),
             ChangeNotifierProvider.value(value: updateNotifier),
+            ChangeNotifierProvider.value(value: achievementStatsStore),
           ],
           child: const MyApp(),
         ),
