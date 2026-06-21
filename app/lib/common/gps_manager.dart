@@ -43,6 +43,9 @@ class GpsManager extends ChangeNotifier {
 
   final _journeyFinalizedController = StreamController<void>.broadcast();
 
+  // TODO: In a later version of the achievement system, we should get this
+  // notification from the rust side, or pull the backend for updates(the
+  // backend query will be every cheap).
   Stream<void> get journeyFinalized => _journeyFinalizedController.stream;
 
   // OS-cached last known location, used purely as a transient UI fallback
