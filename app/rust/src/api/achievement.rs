@@ -19,7 +19,9 @@ fn cached_explored_areas(layers: &[AchievementLayer]) -> Result<HashMap<Achievem
             Some(AchievementValue::U64(area)) => {
                 out.insert(layer, area);
             }
-            _ => {
+            // When we added some types, we should panic when there is a type
+            // mismatch because that means there is a BUG.
+            None => {
                 let computed = compute_explored_areas(&state.storage, layers)?;
                 for (&layer, &area) in &computed {
                     cache.put(
