@@ -195,6 +195,7 @@
     "countries": {
       "title": "Explored countries",
       "description": "{} countries and regions unlocked",
+      "note": "Currently this only counts countries, regions, and cities from ground exploration data. A fuller exploration coverage model will be added later.",
       "names": {
         "cn": "China",
         "jp": "Japan",
@@ -213,6 +214,11 @@
         "au": "Australia",
         "ca": "Canada"
       }
+    },
+    "region_list": {
+      "province_count": "{} regions unlocked",
+      "city_count": "{} cities unlocked",
+      "city_unlocked": "Unlocked"
     },
     "coming_soon_card": {
       "title": "More coming soon",

@@ -26,14 +26,9 @@ class AchievementSourceCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                context.tr('achievement.source.title'),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  height: 1,
-                ),
+              AchievementCardTitleRow(
+                title: context.tr('achievement.source.title'),
+                info: context.tr('achievement.source.overlap_note'),
               ),
               const SizedBox(height: 12),
               Text(
@@ -46,16 +41,6 @@ class AchievementSourceCard extends StatelessWidget {
               ),
               const SizedBox(height: 18),
               _SourceCardsRow(compact: compact, stats: stats),
-              const SizedBox(height: 14),
-              Text(
-                context.tr('achievement.source.overlap_note'),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.5),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
             ],
           ),
         ),

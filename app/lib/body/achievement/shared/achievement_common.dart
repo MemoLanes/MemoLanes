@@ -1,5 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/component/custom_popup.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 export 'package:memolanes/common/achievement_stats_store.dart'
     show AchievementAreaStats;
@@ -68,6 +70,75 @@ String formatPercent(double value) {
 
 bool useCompactAchievementCardLayout(BuildContext context) {
   return MediaQuery.sizeOf(context).width < 470;
+}
+
+class AchievementCardTitleRow extends StatelessWidget {
+  const AchievementCardTitleRow({
+    super.key,
+    required this.title,
+    required this.info,
+  });
+
+  final String title;
+  final String info;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              height: 1,
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        CustomPopup(
+          position: PopupPosition.top,
+          verticalOffset: 8,
+          contentRadius: 16,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 10,
+          ),
+          barrierColor: Colors.transparent,
+          content: PointerInterceptor(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 260),
+              child: Text(
+                info,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.78),
+                  fontSize: 13,
+                  height: 1.45,
+                ),
+              ),
+            ),
+          ),
+          child: Tooltip(
+            message: context.tr('common.info'),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 1),
+              child: Icon(
+                Icons.info_outline_rounded,
+                color: Colors.white.withValues(alpha: 0.58),
+                size: 18,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class AchievementProgressLine extends StatelessWidget {
