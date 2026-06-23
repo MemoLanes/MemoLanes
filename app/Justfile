@@ -70,6 +70,12 @@ flutter-check:
     @echo "✅ Flutter code analysis completed"
 
 [group: 'utils']
+flutter-test:
+    @echo "🧪 Running Flutter tests"
+    @flutter test
+    @echo "✅ Flutter tests completed"
+
+[group: 'utils']
 [working-directory: 'rust']
 rust-check:
     @echo "🔍 Checking Rust code"
@@ -187,11 +193,12 @@ test-geo:
     just geo-rasterizer-test
     @echo "✅ Geo tooling tests completed"
 
-# App tests (journey kernel + rust core); regenerates geo bins first
+# App tests (flutter + journey kernel + rust core); regenerates geo bins first
 [group: 'dev']
 test-app:
     @echo "🧪 Running app tests"
     just rasterize-geo
+    just flutter-test
     just journey-kernel-test
     just rust-test
     @echo "✅ App tests completed"

@@ -170,6 +170,6 @@ jobs:
         working-directory: app
         run: just flutter-check
         
-      - name: Flutter and Rust Code Test
+      - name: Flutter, Journey Kernel, and Rust Tests
         working-directory: app
         run: just test-app
