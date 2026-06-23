@@ -192,6 +192,28 @@
       "overlap_note": "Note: Ground and Flight may overlap.",
       "share_of_total": "{} of total"
     },
+    "countries": {
+      "title": "Explored countries",
+      "description": "{} countries and regions unlocked",
+      "names": {
+        "cn": "China",
+        "jp": "Japan",
+        "us": "United States",
+        "gb": "United Kingdom",
+        "fr": "France",
+        "de": "Germany",
+        "it": "Italy",
+        "es": "Spain",
+        "pt": "Portugal",
+        "nl": "Netherlands",
+        "ch": "Switzerland",
+        "at": "Austria",
+        "th": "Thailand",
+        "sg": "Singapore",
+        "au": "Australia",
+        "ca": "Canada"
+      }
+    },
     "coming_soon_card": {
       "title": "More coming soon",
       "description": "New exploration dimensions and milestones will arrive in future releases."
