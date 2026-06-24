@@ -12,7 +12,7 @@
  */
 
 import { DebugPanel } from "./debug-panel";
-import init from "../pkg/index.js";
+import init from "../pkg/journey_kernel.js";
 import { parseUrlHash, createReactiveParams, ReactiveParams } from "./params";
 import { FlutterBridge, notifyFlutterReady } from "./flutter-bridge";
 import { FlutterBridgeEditor } from "./flutter-bridge-editor";

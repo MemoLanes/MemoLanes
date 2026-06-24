@@ -151,7 +151,7 @@ jobs:
       - name: Build the wasm package
         working-directory: app/journey_kernel
         run: | 
-          wasm-pack build --target web --features wasm --no-default-features
+          wasm-pack build --target web --out-name journey_kernel --features wasm --no-default-features
         
       - name: Journey Kernel Check
         working-directory: app/journey_kernel
@@ -170,6 +170,6 @@ jobs:
         working-directory: app
         run: just flutter-check
         
-      - name: Flutter and Rust Code Test
+      - name: Flutter, Journey Kernel, and Rust Tests
         working-directory: app
         run: just test-app
