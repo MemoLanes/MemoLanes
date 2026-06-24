@@ -187,9 +187,9 @@
       "title": "Total explored area"
     },
     "source": {
-      "title": "Exploration sources",
+      "title": "Explored area",
       "description": "Total area combines Ground and Flight",
-      "overlap_note": "Note: Ground and Flight may overlap.",
+      "overlap_note": "Ground and Flight may overlap.",
       "share_of_total": "{} of total"
     },
     "countries": {
