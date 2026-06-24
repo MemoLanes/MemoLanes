@@ -89,6 +89,7 @@ rust-check:
 journey-kernel-check:
     @echo "🔍 Checking Journey Kernel code"
     @yarn check-format
+    @yarn check-types
     @cargo check
     @cargo fmt --all -- --check
     @cargo clippy -- -D warnings
