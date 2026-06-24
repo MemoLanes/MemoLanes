@@ -151,7 +151,7 @@ jobs:
       - name: Build the wasm package
         working-directory: app/journey_kernel
         run: | 
-          wasm-pack build --target web --features wasm --no-default-features
+          wasm-pack build --target web --out-name journey_kernel --features wasm --no-default-features
         
       - name: Journey Kernel Check
         working-directory: app/journey_kernel

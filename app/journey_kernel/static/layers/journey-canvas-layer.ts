@@ -1,7 +1,7 @@
 import { tileXYToLngLat } from "./utils";
 import type maplibregl from "maplibre-gl";
 import type { CanvasSource, CanvasSourceSpecification } from "maplibre-gl";
-import type { TileBuffer } from "../../pkg";
+import type { TileBuffer } from "../../pkg/journey_kernel.js";
 import type { JourneyTileProvider } from "../journey-tile-provider";
 import { JOURNEY_LAYER_ID } from "./journey-layer-interface";
 import type { JourneyLayer, RGBAColor } from "./journey-layer-interface";
