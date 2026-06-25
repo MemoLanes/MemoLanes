@@ -474,8 +474,9 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
             position: CardLabelTilePosition.top,
             label: context.tr("journey.copy_journey"),
             icon: Icons.copy,
-            onTap: () {
-              _copyJourneyInfo(context);
+            onTap: () async {
+              Navigator.pop(context);
+              await _copyJourneyInfo(context);
             },
             top: false,
           ),
@@ -485,6 +486,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
             color: const Color(0xFFEC4162),
             icon: Icons.delete,
             onTap: () async {
+              Navigator.pop(context);
               await _deleteJourneyInfo(context);
             },
           ),
