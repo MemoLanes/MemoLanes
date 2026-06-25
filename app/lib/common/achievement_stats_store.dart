@@ -85,15 +85,15 @@ class AchievementStatsStore extends ChangeNotifier {
   }
 
   Future<AchievementAreaStats> _fetchAreaStats() async {
-    final areas = await achievement_api.getExploredAreaByLayer();
-    final byLayer = {
-      for (final area in areas) area.layer: area.areaM2.toDouble() / 1000000,
-    };
+    final areasByLayer = await achievement_api.getExploredAreaByLayer();
+    double km2For(AchievementLayer layer) {
+      return (areasByLayer[layer]?.toDouble() ?? 0) / 1000000;
+    }
 
     return AchievementAreaStats(
-      totalKm2: byLayer[AchievementLayer.all] ?? 0,
-      groundKm2: byLayer[AchievementLayer.default_] ?? 0,
-      flightKm2: byLayer[AchievementLayer.flight] ?? 0,
+      totalKm2: km2For(AchievementLayer.all),
+      groundKm2: km2For(AchievementLayer.default_),
+      flightKm2: km2For(AchievementLayer.flight),
     );
   }
 }

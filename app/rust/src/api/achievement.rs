@@ -1,50 +1,50 @@
+use std::collections::HashMap;
+
 use anyhow::Result;
-use flutter_rust_bridge::frb;
 
+use crate::achievement::explored_area::compute_explored_areas;
+use crate::achievement::query::{AchievementQuery, AchievementValue};
 pub use crate::achievement::scope::AchievementLayer;
-use crate::journey_snapshot::JourneySnapshot;
 
-/// Total explored area for one layer in a single struct, for the
-/// "Default vs Flight vs All" comparison row.
-#[frb(non_opaque)]
-#[derive(Debug, Clone)]
-pub struct LayerArea {
-    pub layer: AchievementLayer,
-    pub area_m2: u64,
+/// Explored area (m²) per layer, via the stat cache. On any miss the WHOLE set
+/// is recomputed under one snapshot (not just the misses), so cached and fresh
+/// layers can't mix journey states (which would break `All >= Default`).
+fn cached_explored_areas(layers: &[AchievementLayer]) -> Result<HashMap<AchievementLayer, u64>> {
+    let state = crate::api::api::get();
+    let cache = &state.stat_cache;
+
+    let mut out = HashMap::with_capacity(layers.len());
+    for &layer in layers {
+        match cache.get(&AchievementQuery::ExploredAreaM2 { layer }) {
+            Some(AchievementValue::U64(area)) => {
+                out.insert(layer, area);
+            }
+            // When we added some types, we should panic when there is a type
+            // mismatch because that means there is a BUG.
+            None => {
+                let computed = compute_explored_areas(&state.storage, layers)?;
+                for (&layer, &area) in &computed {
+                    cache.put(
+                        AchievementQuery::ExploredAreaM2 { layer },
+                        AchievementValue::U64(area),
+                    );
+                }
+                return Ok(computed);
+            }
+        }
+    }
+    Ok(out)
 }
 
-/// Total explored area (m²) for one layer, from its merged finalized
-/// bitmap. Shared by the single-layer and per-layer queries so they
-/// always agree.
-fn layer_area_m2(snapshot: &JourneySnapshot, layer: AchievementLayer) -> Result<u64> {
-    let bitmap = snapshot.finalized_bitmap(&layer.to_layer_kind(), None)?;
-    Ok(crate::journey_area_utils::compute_journey_bitmap_area(
-        &bitmap, None,
-    ))
-}
-
-/// Total explored area for a single layer. Cheap: one cached-bitmap
-/// fetch and an area sum — no first_visited or worldview involvement.
+/// Explored area for a single layer.
 pub fn get_explored_area(layer: AchievementLayer) -> Result<u64> {
-    let storage = &crate::api::api::get().storage;
-    storage.with_journey_snapshot(|snapshot| layer_area_m2(snapshot, layer))
+    Ok(cached_explored_areas(&[layer])?
+        .get(&layer)
+        .copied()
+        .unwrap_or(0))
 }
 
-/// Total explored area per layer, read as ONE consistent snapshot so the
-/// rows can never contradict each other (e.g. `All` < `Default`). For the
-/// Default-vs-Flight-vs-All comparison; for a single layer use
-/// [`get_explored_area`].
-pub fn get_explored_area_by_layer() -> Result<Vec<LayerArea>> {
-    let storage = &crate::api::api::get().storage;
-    storage.with_journey_snapshot(|snapshot| {
-        AchievementLayer::ALL_LAYERS
-            .into_iter()
-            .map(|layer| {
-                Ok(LayerArea {
-                    layer,
-                    area_m2: layer_area_m2(snapshot, layer)?,
-                })
-            })
-            .collect()
-    })
+/// Explored area for every layer.
+pub fn get_explored_area_by_layer() -> Result<HashMap<AchievementLayer, u64>> {
+    cached_explored_areas(&AchievementLayer::ALL_LAYERS)
 }

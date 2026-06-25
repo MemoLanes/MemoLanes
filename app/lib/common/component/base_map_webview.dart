@@ -14,8 +14,6 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import 'map_controls/map_copyright_button.dart';
-
 typedef MapView = ({double lng, double lat, double zoom});
 
 typedef BaseMapJavaScriptMessageHandler = void Function(String message);
@@ -405,8 +403,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     // https://github.com/flutter/flutter/issues/165305
     // But unfortunately, it only works for iOS 18, so we still have this weird
     // double tap behavior on older iOS versions.
-    final mapCopyrightTextMarkdown = _selectedMapStyle.copyright;
-
     return Stack(
       children: [
         IgnorePointer(
@@ -414,10 +410,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             child: WebViewWidget(
                 key: const ValueKey('map_webview'),
                 controller: _webViewController)),
-        GestureDetector(
-            child: MapCopyrightButton(
-          textMarkdown: mapCopyrightTextMarkdown,
-        )),
         IgnorePointer(
           ignoring: true,
           child: AnimatedOpacity(
