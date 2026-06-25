@@ -20,6 +20,7 @@ use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::journey_vector::JourneyVector;
 use crate::logs;
+pub use crate::main_db::RegionPreference;
 use crate::renderer::get_default_camera_option_from_journey_bitmap;
 use crate::renderer::internal_server::{Request, RequestResponse, TileRangeResponse};
 use crate::renderer::MapRenderer;
@@ -466,6 +467,14 @@ pub fn list_all_raw_data() -> Result<Vec<RawDataFile>> {
 
 pub fn get_raw_data_mode() -> bool {
     get().storage.get_raw_data_mode()
+}
+
+pub fn get_region_preference() -> Result<Option<RegionPreference>> {
+    get().storage.get_region_preference()
+}
+
+pub fn set_region_preference(region: RegionPreference) -> Result<()> {
+    get().storage.set_region_preference(region)
 }
 
 pub fn delete_raw_data_file(filename: String) -> Result<()> {

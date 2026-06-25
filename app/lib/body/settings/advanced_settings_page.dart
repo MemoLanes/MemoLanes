@@ -8,6 +8,8 @@ import 'package:memolanes/common/component/scroll_views/single_child_scroll_view
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/app_haptics.dart';
+import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/region_preference.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/utils/nav_helper.dart';
@@ -23,6 +25,50 @@ class AdvancedSettingsPage extends StatefulWidget {
 }
 
 class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
+  RegionPreference? _regionPreference;
+  bool _regionPreferenceLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRegionPreference();
+  }
+
+  Future<void> _loadRegionPreference() async {
+    RegionPreference region;
+    try {
+      region = await loadRegionPreferenceOrDefault();
+    } catch (_) {
+      region = defaultRegionPreferenceFromDeviceLocale();
+    }
+    if (!mounted) return;
+    setState(() {
+      _regionPreference = region;
+      _regionPreferenceLoading = false;
+    });
+  }
+
+  Future<void> _selectRegionPreference() async {
+    if (_regionPreferenceLoading) return;
+    final selectedRegion =
+        _regionPreference ?? defaultRegionPreferenceFromDeviceLocale();
+    final result = await showRegionPreferencePicker(
+      context,
+      selectedRegion: selectedRegion,
+    );
+    if (result == null || !mounted) return;
+
+    try {
+      await saveRegionPreference(result);
+      MMKVUtil.putBool(MMKVKey.regionPreferenceSelected, true);
+      if (!mounted) return;
+      setState(() => _regionPreference = result);
+    } catch (_) {
+      if (!mounted) return;
+      await showCommonDialog(context, context.tr("privacy.region_save_failed"));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     var gpsManager = context.watch<GpsManager>();
@@ -127,6 +173,26 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
             onTap: () async => await showLoadingDialog(
               asyncTask: api.rebuildCache(),
             ),
+          ),
+          LabelTile(
+            label: context.tr("privacy.region_title"),
+            position: LabelTilePosition.middle,
+            trailing: _regionPreferenceLoading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Color(0x99FFFFFF),
+                    ),
+                  )
+                : LabelTileContent(
+                    content: _regionPreference == null
+                        ? ''
+                        : regionPreferenceTitle(context, _regionPreference!),
+                    showArrow: true,
+                  ),
+            onTap: _regionPreferenceLoading ? null : _selectRegionPreference,
           ),
           LabelTile(
             label: context.tr("location_service.location_backend.title"),

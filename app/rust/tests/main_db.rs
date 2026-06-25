@@ -90,7 +90,7 @@ fn basic() {
 
 #[test]
 fn setting() {
-    use main_db::Setting;
+    use main_db::{RegionPreference, Setting};
 
     let temp_dir = TempDir::new("main_db-setting").unwrap();
     println!("temp dir: {:?}", temp_dir.path());
@@ -103,10 +103,21 @@ fn setting() {
     // setting value
     main_db.set_setting(Setting::RawDataMode, true).unwrap();
     assert!(main_db.get_setting_with_default(Setting::RawDataMode, false));
+    main_db
+        .set_region_preference(RegionPreference::International)
+        .unwrap();
+    assert_eq!(
+        main_db.get_region_preference().unwrap(),
+        Some(RegionPreference::International)
+    );
 
     // restart
     main_db = MainDb::open(temp_dir.path().to_str().unwrap());
     assert!(main_db.get_setting_with_default(main_db::Setting::RawDataMode, false));
+    assert_eq!(
+        main_db.get_region_preference().unwrap(),
+        Some(RegionPreference::International)
+    );
 }
 
 #[test]
