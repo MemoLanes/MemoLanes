@@ -1,15 +1,23 @@
+// Computation behaviour of `CacheDb::get_or_compute`: merging stored
+// journeys into a bitmap for a layer, over the full range (cached) or an
+// explicit date window (uncached). The kind->LayerKind mapping and the
+// renderer's ongoing-journey overlay live in `Storage` and are covered
+// by `tests/storage.rs`.
 pub mod test_utils;
 
 use chrono::{NaiveDate, Utc};
 use memolanes_core::{
-    cache_db::{CacheDbV1, LayerKind},
+    cache_db::{CacheDb, CacheDbV1, LayerKind},
     journey_bitmap::JourneyBitmap,
     journey_data::JourneyData,
     journey_header::JourneyKind,
     main_db::MainDb,
-    merged_journey_builder,
 };
 use tempdir::TempDir;
+
+fn date(s: &str) -> NaiveDate {
+    NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap()
+}
 
 #[test]
 fn basic() {
@@ -59,34 +67,26 @@ fn basic() {
     journey_bitmap.merge(journey_bitmap_flight);
     assert_eq!(
         main_db
-            .with_txn(|txn| {
-                merged_journey_builder::get_full(txn, &cache_db, &Some(LayerKind::All), true)
-            })
+            .with_txn(|txn| cache_db.get_or_compute(txn, &LayerKind::All, None))
             .unwrap(),
         journey_bitmap
     );
 
-    // Call get_full again — result should be the same
+    // Call again — result should be the same (served from cache).
     assert_eq!(
         main_db
-            .with_txn(|txn| {
-                merged_journey_builder::get_full(txn, &cache_db, &Some(LayerKind::All), true)
-            })
+            .with_txn(|txn| cache_db.get_or_compute(txn, &LayerKind::All, None))
             .unwrap(),
         journey_bitmap
     );
 }
 
-// === get_range tests ===
-
-fn date(s: &str) -> NaiveDate {
-    NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap()
-}
+// === explicit-range queries ===
 
 #[test]
-fn get_range_full_month() {
+fn range_full_month() {
     let (mut main_db, cache_db, _main_dir, _cache_dir) =
-        test_utils::setup_main_and_cache_db("get_range_full_month");
+        test_utils::setup_main_and_cache_db("range_full_month");
 
     let bitmap = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     main_db
@@ -103,12 +103,10 @@ fn get_range_full_month() {
 
     let result = main_db
         .with_txn(|txn| {
-            merged_journey_builder::get_range(
+            cache_db.get_or_compute(
                 txn,
-                &cache_db,
-                date("2024-03-01"),
-                date("2024-03-31"),
-                Some(&JourneyKind::DefaultKind),
+                &LayerKind::JourneyKind(JourneyKind::DefaultKind),
+                Some((date("2024-03-01"), date("2024-03-31"))),
             )
         })
         .unwrap();
@@ -117,9 +115,9 @@ fn get_range_full_month() {
 }
 
 #[test]
-fn get_range_partial_month() {
+fn range_partial_month() {
     let (mut main_db, cache_db, _main_dir, _cache_dir) =
-        test_utils::setup_main_and_cache_db("get_range_partial_month");
+        test_utils::setup_main_and_cache_db("range_partial_month");
 
     let bitmap = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     main_db
@@ -134,15 +132,12 @@ fn get_range_partial_month() {
         })
         .unwrap();
 
-    // Partial month query
     let result = main_db
         .with_txn(|txn| {
-            merged_journey_builder::get_range(
+            cache_db.get_or_compute(
                 txn,
-                &cache_db,
-                date("2024-03-10"),
-                date("2024-03-20"),
-                Some(&JourneyKind::DefaultKind),
+                &LayerKind::JourneyKind(JourneyKind::DefaultKind),
+                Some((date("2024-03-10"), date("2024-03-20"))),
             )
         })
         .unwrap();
@@ -151,9 +146,9 @@ fn get_range_partial_month() {
 }
 
 #[test]
-fn get_range_cross_month() {
+fn range_cross_month() {
     let (mut main_db, cache_db, _main_dir, _cache_dir) =
-        test_utils::setup_main_and_cache_db("get_range_cross_month");
+        test_utils::setup_main_and_cache_db("range_cross_month");
 
     let bitmap_mar = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let bitmap_apr = test_utils::make_bitmap_with_line(test_utils::draw_line2);
@@ -178,12 +173,10 @@ fn get_range_cross_month() {
 
     let result = main_db
         .with_txn(|txn| {
-            merged_journey_builder::get_range(
+            cache_db.get_or_compute(
                 txn,
-                &cache_db,
-                date("2024-03-01"),
-                date("2024-04-30"),
-                Some(&JourneyKind::DefaultKind),
+                &LayerKind::JourneyKind(JourneyKind::DefaultKind),
+                Some((date("2024-03-01"), date("2024-04-30"))),
             )
         })
         .unwrap();
@@ -194,9 +187,9 @@ fn get_range_cross_month() {
 }
 
 #[test]
-fn get_range_partial_start_full_middle_partial_end() {
+fn range_partial_start_full_middle_partial_end() {
     let (mut main_db, cache_db, _main_dir, _cache_dir) =
-        test_utils::setup_main_and_cache_db("get_range_partial_full_partial");
+        test_utils::setup_main_and_cache_db("range_partial_full_partial");
 
     let bitmap_jan = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let bitmap_feb = test_utils::make_bitmap_with_line(test_utils::draw_line2);
@@ -229,12 +222,10 @@ fn get_range_partial_start_full_middle_partial_end() {
     // Jan 15..Mar 15: partial Jan, full Feb, partial Mar
     let result = main_db
         .with_txn(|txn| {
-            merged_journey_builder::get_range(
+            cache_db.get_or_compute(
                 txn,
-                &cache_db,
-                date("2024-01-15"),
-                date("2024-03-15"),
-                Some(&JourneyKind::DefaultKind),
+                &LayerKind::JourneyKind(JourneyKind::DefaultKind),
+                Some((date("2024-01-15"), date("2024-03-15"))),
             )
         })
         .unwrap();
@@ -246,18 +237,16 @@ fn get_range_partial_start_full_middle_partial_end() {
 }
 
 #[test]
-fn get_range_empty_db() {
+fn range_empty_db() {
     let (mut main_db, cache_db, _main_dir, _cache_dir) =
-        test_utils::setup_main_and_cache_db("get_range_empty_db");
+        test_utils::setup_main_and_cache_db("range_empty_db");
 
     let result = main_db
         .with_txn(|txn| {
-            merged_journey_builder::get_range(
+            cache_db.get_or_compute(
                 txn,
-                &cache_db,
-                date("2024-01-01"),
-                date("2024-12-31"),
-                None,
+                &LayerKind::All,
+                Some((date("2024-01-01"), date("2024-12-31"))),
             )
         })
         .unwrap();
@@ -266,9 +255,9 @@ fn get_range_empty_db() {
 }
 
 #[test]
-fn get_range_with_kind_filter() {
+fn range_with_kind_filter() {
     let (mut main_db, cache_db, _main_dir, _cache_dir) =
-        test_utils::setup_main_and_cache_db("get_range_kind_filter");
+        test_utils::setup_main_and_cache_db("range_kind_filter");
 
     let bitmap_default = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let bitmap_flight = test_utils::make_bitmap_with_line(test_utils::draw_line2);
@@ -294,12 +283,10 @@ fn get_range_with_kind_filter() {
     // Filter by DefaultKind only
     let result = main_db
         .with_txn(|txn| {
-            merged_journey_builder::get_range(
+            cache_db.get_or_compute(
                 txn,
-                &cache_db,
-                date("2024-03-01"),
-                date("2024-03-31"),
-                Some(&JourneyKind::DefaultKind),
+                &LayerKind::JourneyKind(JourneyKind::DefaultKind),
+                Some((date("2024-03-01"), date("2024-03-31"))),
             )
         })
         .unwrap();
@@ -309,9 +296,9 @@ fn get_range_with_kind_filter() {
 }
 
 #[test]
-fn get_range_cross_year() {
+fn range_cross_year() {
     let (mut main_db, cache_db, _main_dir, _cache_dir) =
-        test_utils::setup_main_and_cache_db("get_range_cross_year");
+        test_utils::setup_main_and_cache_db("range_cross_year");
 
     let bitmap_dec = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let bitmap_jan = test_utils::make_bitmap_with_line(test_utils::draw_line2);
@@ -336,12 +323,10 @@ fn get_range_cross_year() {
 
     let result = main_db
         .with_txn(|txn| {
-            merged_journey_builder::get_range(
+            cache_db.get_or_compute(
                 txn,
-                &cache_db,
-                date("2023-12-01"),
-                date("2024-01-31"),
-                Some(&JourneyKind::DefaultKind),
+                &LayerKind::JourneyKind(JourneyKind::DefaultKind),
+                Some((date("2023-12-01"), date("2024-01-31"))),
             )
         })
         .unwrap();
@@ -352,9 +337,9 @@ fn get_range_cross_year() {
 }
 
 #[test]
-fn get_range_leap_year_february() {
+fn range_leap_year_february() {
     let (mut main_db, cache_db, _main_dir, _cache_dir) =
-        test_utils::setup_main_and_cache_db("get_range_leap_feb");
+        test_utils::setup_main_and_cache_db("range_leap_feb");
 
     let bitmap = test_utils::make_bitmap_with_line(test_utils::draw_line1);
 
@@ -373,12 +358,10 @@ fn get_range_leap_year_february() {
     // Query full Feb 2024 (leap year: Feb 1 - Feb 29)
     let result = main_db
         .with_txn(|txn| {
-            merged_journey_builder::get_range(
+            cache_db.get_or_compute(
                 txn,
-                &cache_db,
-                date("2024-02-01"),
-                date("2024-02-29"),
-                Some(&JourneyKind::DefaultKind),
+                &LayerKind::JourneyKind(JourneyKind::DefaultKind),
+                Some((date("2024-02-01"), date("2024-02-29"))),
             )
         })
         .unwrap();
@@ -387,23 +370,9 @@ fn get_range_leap_year_february() {
 }
 
 #[test]
-fn get_full_empty_db() {
+fn range_all_kinds() {
     let (mut main_db, cache_db, _main_dir, _cache_dir) =
-        test_utils::setup_main_and_cache_db("get_full_empty_db");
-
-    let result = main_db
-        .with_txn(|txn| {
-            merged_journey_builder::get_full(txn, &cache_db, &Some(LayerKind::All), false)
-        })
-        .unwrap();
-
-    assert_eq!(result, JourneyBitmap::new());
-}
-
-#[test]
-fn get_full_with_kind_filter() {
-    let (mut main_db, cache_db, _main_dir, _cache_dir) =
-        test_utils::setup_main_and_cache_db("get_full_kind_filter");
+        test_utils::setup_main_and_cache_db("range_all_kinds");
 
     let bitmap_default = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let bitmap_flight = test_utils::make_bitmap_with_line(test_utils::draw_line2);
@@ -426,68 +395,13 @@ fn get_full_with_kind_filter() {
         })
         .unwrap();
 
-    // Filter by DefaultKind
-    let result_default = main_db
-        .with_txn(|txn| {
-            merged_journey_builder::get_full(
-                txn,
-                &cache_db,
-                &Some(LayerKind::JourneyKind(JourneyKind::DefaultKind)),
-                false,
-            )
-        })
-        .unwrap();
-    assert_eq!(result_default, bitmap_default);
-
-    // Filter by Flight
-    let result_flight = main_db
-        .with_txn(|txn| {
-            merged_journey_builder::get_full(
-                txn,
-                &cache_db,
-                &Some(LayerKind::JourneyKind(JourneyKind::Flight)),
-                false,
-            )
-        })
-        .unwrap();
-    assert_eq!(result_flight, bitmap_flight);
-}
-
-#[test]
-fn get_range_all_kinds() {
-    let (mut main_db, cache_db, _main_dir, _cache_dir) =
-        test_utils::setup_main_and_cache_db("get_range_all_kinds");
-
-    let bitmap_default = test_utils::make_bitmap_with_line(test_utils::draw_line1);
-    let bitmap_flight = test_utils::make_bitmap_with_line(test_utils::draw_line2);
-
-    main_db
-        .with_txn(|txn| {
-            test_utils::insert_bitmap_journey(
-                txn,
-                date("2024-03-15"),
-                JourneyKind::DefaultKind,
-                bitmap_default.clone(),
-            );
-            test_utils::insert_bitmap_journey(
-                txn,
-                date("2024-03-20"),
-                JourneyKind::Flight,
-                bitmap_flight.clone(),
-            );
-            Ok(())
-        })
-        .unwrap();
-
-    // Query with kind: None → should return union of both kinds
+    // LayerKind::All over the range → union of both kinds
     let result = main_db
         .with_txn(|txn| {
-            merged_journey_builder::get_range(
+            cache_db.get_or_compute(
                 txn,
-                &cache_db,
-                date("2024-03-01"),
-                date("2024-03-31"),
-                None,
+                &LayerKind::All,
+                Some((date("2024-03-01"), date("2024-03-31"))),
             )
         })
         .unwrap();
@@ -497,10 +411,65 @@ fn get_range_all_kinds() {
     assert_eq!(result, expected);
 }
 
+// === full-range queries (cached) ===
+
 #[test]
-fn get_full_repeated_uses_full_table_cache() {
+fn full_empty_db() {
     let (mut main_db, cache_db, _main_dir, _cache_dir) =
-        test_utils::setup_main_and_cache_db("get_full_repeated_cache");
+        test_utils::setup_main_and_cache_db("full_empty_db");
+
+    let result = main_db
+        .with_txn(|txn| cache_db.get_or_compute(txn, &LayerKind::All, None))
+        .unwrap();
+
+    assert_eq!(result, JourneyBitmap::new());
+}
+
+#[test]
+fn full_with_kind_filter() {
+    let (mut main_db, cache_db, _main_dir, _cache_dir) =
+        test_utils::setup_main_and_cache_db("full_kind_filter");
+
+    let bitmap_default = test_utils::make_bitmap_with_line(test_utils::draw_line1);
+    let bitmap_flight = test_utils::make_bitmap_with_line(test_utils::draw_line2);
+
+    main_db
+        .with_txn(|txn| {
+            test_utils::insert_bitmap_journey(
+                txn,
+                date("2024-03-15"),
+                JourneyKind::DefaultKind,
+                bitmap_default.clone(),
+            );
+            test_utils::insert_bitmap_journey(
+                txn,
+                date("2024-03-20"),
+                JourneyKind::Flight,
+                bitmap_flight.clone(),
+            );
+            Ok(())
+        })
+        .unwrap();
+
+    let result_default = main_db
+        .with_txn(|txn| {
+            cache_db.get_or_compute(txn, &LayerKind::JourneyKind(JourneyKind::DefaultKind), None)
+        })
+        .unwrap();
+    assert_eq!(result_default, bitmap_default);
+
+    let result_flight = main_db
+        .with_txn(|txn| {
+            cache_db.get_or_compute(txn, &LayerKind::JourneyKind(JourneyKind::Flight), None)
+        })
+        .unwrap();
+    assert_eq!(result_flight, bitmap_flight);
+}
+
+#[test]
+fn full_repeated_uses_full_table_cache() {
+    let (mut main_db, cache_db, _main_dir, _cache_dir) =
+        test_utils::setup_main_and_cache_db("full_repeated_cache");
 
     let bitmap_jan = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let bitmap_mar = test_utils::make_bitmap_with_line(test_utils::draw_line2);
@@ -523,18 +492,12 @@ fn get_full_repeated_uses_full_table_cache() {
         })
         .unwrap();
 
-    // First call
+    // First call computes; second is a cache hit — both equal.
     let result1 = main_db
-        .with_txn(|txn| {
-            merged_journey_builder::get_full(txn, &cache_db, &Some(LayerKind::All), false)
-        })
+        .with_txn(|txn| cache_db.get_or_compute(txn, &LayerKind::All, None))
         .unwrap();
-
-    // Second call (cache hit)
     let result2 = main_db
-        .with_txn(|txn| {
-            merged_journey_builder::get_full(txn, &cache_db, &Some(LayerKind::All), false)
-        })
+        .with_txn(|txn| cache_db.get_or_compute(txn, &LayerKind::All, None))
         .unwrap();
 
     assert_eq!(result1, result2);
@@ -545,36 +508,9 @@ fn get_full_repeated_uses_full_table_cache() {
 }
 
 #[test]
-fn get_full_with_none_layer_kind_returns_empty() {
+fn range_after_insert_and_invalidation() {
     let (mut main_db, cache_db, _main_dir, _cache_dir) =
-        test_utils::setup_main_and_cache_db("get_full_none_layer");
-
-    let bitmap = test_utils::make_bitmap_with_line(test_utils::draw_line1);
-
-    main_db
-        .with_txn(|txn| {
-            test_utils::insert_bitmap_journey(
-                txn,
-                date("2024-03-15"),
-                JourneyKind::DefaultKind,
-                bitmap.clone(),
-            );
-            Ok(())
-        })
-        .unwrap();
-
-    // layer_kind = None → disabled layer, returns empty bitmap
-    let result = main_db
-        .with_txn(|txn| merged_journey_builder::get_full(txn, &cache_db, &None, false))
-        .unwrap();
-
-    assert_eq!(result, JourneyBitmap::new());
-}
-
-#[test]
-fn get_range_after_insert_and_invalidation() {
-    let (mut main_db, cache_db, _main_dir, _cache_dir) =
-        test_utils::setup_main_and_cache_db("get_range_insert_invalidate");
+        test_utils::setup_main_and_cache_db("range_insert_invalidate");
 
     let bitmap_a = test_utils::make_bitmap_with_line(test_utils::draw_line1);
 
@@ -593,12 +529,10 @@ fn get_range_after_insert_and_invalidation() {
     // Populate cache
     main_db
         .with_txn(|txn| {
-            merged_journey_builder::get_range(
+            cache_db.get_or_compute(
                 txn,
-                &cache_db,
-                date("2024-03-01"),
-                date("2024-03-31"),
-                Some(&JourneyKind::DefaultKind),
+                &LayerKind::JourneyKind(JourneyKind::DefaultKind),
+                Some((date("2024-03-01"), date("2024-03-31"))),
             )
         })
         .unwrap();
@@ -617,9 +551,8 @@ fn get_range_after_insert_and_invalidation() {
         })
         .unwrap();
 
-    use memolanes_core::cache_db::{CacheDb, CacheEntry};
     cache_db
-        .invalidate(&[CacheEntry {
+        .invalidate(&[memolanes_core::cache_db::CacheEntry {
             date: date("2024-03-20"),
             kind: JourneyKind::DefaultKind,
         }])
@@ -628,12 +561,10 @@ fn get_range_after_insert_and_invalidation() {
     // Re-query: should return A + B merged (recomputed from MainDb)
     let result = main_db
         .with_txn(|txn| {
-            merged_journey_builder::get_range(
+            cache_db.get_or_compute(
                 txn,
-                &cache_db,
-                date("2024-03-01"),
-                date("2024-03-31"),
-                Some(&JourneyKind::DefaultKind),
+                &LayerKind::JourneyKind(JourneyKind::DefaultKind),
+                Some((date("2024-03-01"), date("2024-03-31"))),
             )
         })
         .unwrap();

@@ -14,6 +14,7 @@
     "battery_help_tooltip": "电池优化说明",
     "notification_help_tooltip": "通知权限说明",
     "enable_all": "全部开启",
+    "allow": "允许",
     "skip": "跳过",
     "location_title": "位置",
     "location_desc": "用于地图展示与旅程记录",
@@ -24,12 +25,10 @@
     "open_system_settings": "前往系统设置"
   },
   "location_service": {
-    "location_service_disabled": "定位服务未开启，请在设置中启用。",
     "location_permission_denied": "未获得位置权限，位置相关功能暂不可用。你可以稍后再次授权。",
     "location_permission_permanently_denied": "你已拒绝位置权限，因此位置相关功能已被禁用。如果你想使用这些功能，请在应用设置中启用。",
     "location_permission_reason": "迹忆需要位置权限来收集你的精确位置数据，以记录你的旅行路线并可视化你的旅程历史。所有位置数据都存储在你的设备本地，不会与任何第三方共享。",
     "battery_optimization_reason": "为确保后台持续获取位置信息，请允许应用忽略电池优化。",
-    "battery_optimization_denied": "您拒绝了忽略电池优化，可能导致应用无法在后台稳定运行，请在应用设置中允许。",
     "android_foreground_notification_channel_name": "轨迹记录服务",
     "android_foreground_notification_title": "后台记录中",
     "android_foreground_notification_text": "迹忆将在后台持续记录",
@@ -50,14 +49,12 @@
     "edit": "编辑",
     "delete": "删除",
     "please_enter": "请输入",
-    "still_under_development": "开发中",
     "copy_success": "复制成功",
     "save_success": "保存成功",
     "save_confirm": "是否保存？"
   },
   "journey": {
     "editor": {
-      "back": "返回",
       "move": "移动",
       "draw": "绘制",
       "free_draw": "自由",
@@ -90,6 +87,7 @@
     "export_journey_as_kml": "导出为 KML",
     "export_journey_as_gpx": "导出为 GPX",
     "export_journey_as_mldx": "导出为 MLDX",
+    "export_journey_as_fwss": "导出为 FWSS",
     "delete_all": "删除所有旅程",
     "delete_all_success": "所有旅程已清除!",
     "preprocessor": "预处理器",
@@ -115,7 +113,6 @@
     "current": "当前"
   },
   "time_machine": {
-    "menu_title_time": "时间选择",
     "menu_title_view": "查看方式",
     "menu_title_granularity": "粒度",
     "menu_title_layer": "图层选择",
@@ -124,8 +121,7 @@
     "menu_view_custom": "自定义",
     "menu_year": "年",
     "menu_month": "月",
-    "menu_day": "日",
-    "menu_any": "任意"
+    "menu_day": "日"
   },
   "preprocessor": {
     "generic": "通用模式",
@@ -182,8 +178,28 @@
   },
   "achievement": {
     "title": "成就",
-    "explored_area": "探索面积：{} 平方公里",
-    "coming_soon": "统计与成就功能即将推出"
+    "area_units": {
+      "square_meters": "m²",
+      "square_kilometers": "km²",
+      "ten_thousand_square_kilometers": "万 km²"
+    },
+    "overview": {
+      "title": "探索总面积"
+    },
+    "source": {
+      "title": "探索来源",
+      "description": "总面积由地表和飞行共同贡献",
+      "overlap_note": "注：地表与飞行可能存在重叠区域。",
+      "share_of_total": "占总面积 {}"
+    },
+    "coming_soon_card": {
+      "title": "更多统计与成就敬请期待",
+      "description": "新的探索维度和里程碑会在后续版本加入。"
+    },
+    "ongoing": {
+      "title": "旅途进行中",
+      "description": "当前成就与统计暂不包含进行中的旅途，结束并保存后会更新。"
+    }
   },
   "general": {
     "title": "通用",
@@ -218,11 +234,27 @@
       "delete_backup_data": "删除备份数据"
     },
     "import_data": {
-      "title": "导入数据",
-      "unsupported_file": "不支持的文件"
+      "title": "导入数据"
     },
     "export_data": {
-      "export_all": "导出所有数据"
+      "export_all": "导出所有数据",
+      "export_all_title": "导出全部旅途",
+      "export_journey_title": "导出旅途",
+      "error": {
+        "no_journeys_to_export": "暂无可导出的旅途",
+        "no_track_data_for_selected_format": "暂无可导出为所选格式的轨迹数据",
+        "unexpected": "导出时遇到意外错误"
+      },
+      "format_section_title": "导出格式",
+      "format_mldx": "迹忆标准格式（*.mldx）",
+      "format_mldx_desc": "推荐用于备份、迁移和再次导入迹忆。",
+      "format_fwss": "世界迷雾快照 (*.fwss)",
+      "format_fwss_desc": "用于导入世界迷雾等兼容场景。",
+      "format_kml": "KML 轨迹 (*.kml)",
+      "format_kml_desc": "用于地图软件和轨迹工具。",
+      "format_gpx": "GPX 轨迹 (*.gpx)",
+      "format_gpx_desc": "用于运动、导航和轨迹工具。",
+      "lossy_format_warning": "此格式会丢失部分旅途数据。完整备份请使用迹忆标准格式（*.mldx）"
     }
   },
   "settings": {

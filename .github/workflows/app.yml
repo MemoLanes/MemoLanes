@@ -6,11 +6,13 @@ on:
       - main
     paths:
       - "app/**"
+      - "tools/geo_rasterizer/**"
   push:
     branches:
       - main
     paths:
       - "app/**"
+      - "tools/geo_rasterizer/**"
   workflow_dispatch:
 
 jobs:
@@ -24,6 +26,18 @@ jobs:
     steps:
       # ======== START SETUP ========
       - uses: actions/checkout@v3
+
+      # Detect whether geo_rasterizer / geo_data_format sources changed, so the
+      # geo-only check/test steps run only when related files change. (The
+      # rasterize step itself still runs every time — the app's rust tests
+      # require the bins — but it's a near-instant no-op on a cache hit.)
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            geo:
+              - 'tools/geo_rasterizer/**'
+              - 'app/rust/geo_data_format/**'
 
       - uses: extractions/setup-just@v2
 
@@ -45,6 +59,7 @@ jobs:
             app/rust/
             app/rust/geo_data_format/
             app/journey_kernel/
+            tools/geo_rasterizer/
 
       - uses: cargo-bins/cargo-binstall@main
 
@@ -61,13 +76,59 @@ jobs:
         working-directory: app/rust/geo_data_format
         run: cargo fetch
 
+      - name: Get Rust Dependencies (geo_rasterizer)
+        working-directory: tools/geo_rasterizer
+        run: cargo fetch
+
       - name: Rust Code Check
         working-directory: app
         run: just rust-check
 
+      # Cache the pinned Natural Earth source (the pin/sha256 live in
+      # geo_data_format/src/pov.rs; download.rs holds the fetch logic) so
+      # rasterize-geo doesn't re-download it on every run.
+      - name: Cache Natural Earth source
+        uses: actions/cache@v4
+        with:
+          path: tools/geo_rasterizer/natural_earth/*.geojson
+          key: geo-natural-earth-${{ hashFiles('tools/geo_rasterizer/src/download.rs', 'app/rust/geo_data_format/src/pov.rs') }}
+
+      # Cache the generated geo_data_*.bin. The key hashes the rasterizer and
+      # geo_data_format *sources* (not just the inputs) on purpose: the in-bin
+      # provenance hash keys on inputs + GEO_DATA_VERSION, NOT on algorithm
+      # code, so an algorithm change must bust this cache or stale output would
+      # be served. On a hit, rasterize-geo finds matching provenance and skips.
+      - name: Cache geo_data bins
+        uses: actions/cache@v4
+        with:
+          path: |
+            app/assets/geo_data_iso.bin
+            app/assets/geo_data_chn.bin
+            app/assets/geo_data_usa.bin
+          key: geo-bins-${{ hashFiles('tools/geo_rasterizer/src/**', 'tools/geo_rasterizer/Cargo.lock', 'tools/geo_rasterizer/geo_entity_registry.toml', 'app/rust/geo_data_format/src/**', 'app/rust/geo_data_format/Cargo.lock') }}
+
       - name: Geo Data Format Check
+        if: steps.changes.outputs.geo == 'true'
         working-directory: app
         run: just geo-data-format-check
+
+      - name: Geo Rasterizer Check
+        if: steps.changes.outputs.geo == 'true'
+        working-directory: app
+        run: just geo-rasterizer-check
+      - name: Geo Tests
+        if: steps.changes.outputs.geo == 'true'
+        working-directory: app
+        run: just test-geo
+      - name: Geo Rasterize All POVs
+        working-directory: app
+        run: just rasterize-geo
+
+      # Guardrail: rasterize-geo regenerates the committed id registry (union
+      # over Pov::ALL). CI can't commit, so a non-empty diff means someone bumped
+      # a POV/source but forgot to regenerate + commit geo_entity_registry.toml.
+      - name: Geo Registry Up To Date
+        run: git -C "$GITHUB_WORKSPACE" diff --exit-code -- tools/geo_rasterizer/geo_entity_registry.toml
 
       # ======== START WASM MODULE ========
       - name: Get Rust Dependencies (journey kernel)
@@ -90,7 +151,7 @@ jobs:
       - name: Build the wasm package
         working-directory: app/journey_kernel
         run: | 
-          wasm-pack build --target web --features wasm --no-default-features
+          wasm-pack build --target web --out-name journey_kernel --features wasm --no-default-features
         
       - name: Journey Kernel Check
         working-directory: app/journey_kernel
@@ -109,6 +170,6 @@ jobs:
         working-directory: app
         run: just flutter-check
         
-      - name: Flutter and Rust Code Test
+      - name: Flutter, Journey Kernel, and Rust Tests
         working-directory: app
-        run: just test
+        run: just test-app

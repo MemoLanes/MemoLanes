@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -13,11 +14,15 @@ import 'package:memolanes/body/map/map_body.dart';
 import 'package:memolanes/body/privacy_agreement.dart';
 import 'package:memolanes/body/settings/settings_body.dart'
     deferred as settings;
+import 'package:memolanes/common/achievement_stats_store.dart';
 import 'package:memolanes/common/component/bottom_nav_bar.dart';
+import 'package:memolanes/common/component/map_controls/map_copyright_button.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/component/animation/page_transition.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/common/map_style.dart';
+import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/utils.dart';
@@ -31,6 +36,7 @@ void main() async {
 
     final gpsManager = GpsManager();
     final updateNotifier = UpdateNotifier();
+    final achievementStatsStore = AchievementStatsStore();
 
     runApp(
       EasyLocalization(
@@ -46,6 +52,7 @@ void main() async {
             // Do NOT use `create: (_) => gpsManager` here
             ChangeNotifierProvider.value(value: gpsManager),
             ChangeNotifierProvider.value(value: updateNotifier),
+            ChangeNotifierProvider.value(value: achievementStatsStore),
           ],
           child: const MyApp(),
         ),
@@ -213,6 +220,15 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final navBarBottomInset = StyleConstants.navBarBottomInset(context);
+    final horizontalSafeArea =
+        math.max(mediaQuery.viewPadding.left, mediaQuery.viewPadding.right);
+    final mapCopyrightTextMarkdown =
+        MapStyle.findById(MMKVUtil.getString(MMKVKey.mapStyle)).copyright;
+    const mapCopyrightNavBarGap = 6.0;
+    const mapCopyrightTrailingGap = 8.0;
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (bool didPop, dynamic result) async {
@@ -233,23 +249,39 @@ class _MyHomePageState extends State<MyHomePage> {
               left: 0,
               right: 0,
               bottom: 0,
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.only(
-                    left: StyleConstants.navBarHorizontalPadding,
-                    right: StyleConstants.navBarHorizontalPadding,
-                    bottom: StyleConstants.navBarBottomPadding,
-                  ),
-                  child: BottomNavBar(
-                    selectedIndex: _selectedIndex,
-                    onIndexChanged: (index) =>
-                        setState(() => _selectedIndex = index),
-                    hasUpdateNotification:
-                        context.watch<UpdateNotifier>().hasUpdateNotification,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: horizontalSafeArea,
+                  right: horizontalSafeArea,
+                  bottom: navBarBottomInset,
+                ),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: SizedBox(
+                    width: mediaQuery.size.width -
+                        BottomNavBar.designHorizontalMargin * 2,
+                    height: BottomNavBar.height,
+                    child: BottomNavBar(
+                      selectedIndex: _selectedIndex,
+                      onIndexChanged: (index) =>
+                          setState(() => _selectedIndex = index),
+                      hasUpdateNotification:
+                          context.watch<UpdateNotifier>().hasUpdateNotification,
+                    ),
                   ),
                 ),
               ),
             ),
+            if (_selectedIndex <= 1)
+              Positioned(
+                right: mediaQuery.viewPadding.right + mapCopyrightTrailingGap,
+                bottom: navBarBottomInset +
+                    BottomNavBar.height +
+                    mapCopyrightNavBarGap,
+                child: MapCopyrightButton(
+                  textMarkdown: mapCopyrightTextMarkdown,
+                ),
+              ),
           ],
         ),
       ),

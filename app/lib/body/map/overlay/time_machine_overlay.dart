@@ -1,5 +1,8 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/time_machine/time_range_picker.dart';
+import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:memolanes/common/utils.dart';
@@ -85,32 +88,25 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
       return const SizedBox.shrink();
     }
 
-    final isLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
+    final padding = MediaQuery.viewPaddingOf(context);
+    final horizontalSafeArea = math.max(padding.left, padding.right);
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Spacer(),
-            Padding(
-              padding: EdgeInsets.only(
-                bottom: isLandscape ? 16 : 8,
-              ),
-              child: TimeRangePicker(
-                earliestDate: earliest,
-                loading: _loading,
-                onRangeChanged: _loadJourneyForRange,
-                selectedJourneyKinds: _selectedJourneyKinds,
-                onJourneyKindsChanged: _onJourneyKindsChanged,
-              ),
-            ),
-            const SizedBox(height: 116),
-          ],
+    return Stack(
+      children: [
+        Positioned(
+          left: horizontalSafeArea + 24,
+          right: horizontalSafeArea + 24,
+          bottom:
+              StyleConstants.mapPrimaryControlBottomInsetForContext(context),
+          child: TimeRangePicker(
+            earliestDate: earliest,
+            loading: _loading,
+            onRangeChanged: _loadJourneyForRange,
+            selectedJourneyKinds: _selectedJourneyKinds,
+            onJourneyKindsChanged: _onJourneyKindsChanged,
+          ),
         ),
-      ),
+      ],
     );
   }
 }

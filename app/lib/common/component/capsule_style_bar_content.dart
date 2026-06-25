@@ -23,7 +23,7 @@ class CapsuleBarConstants {
 }
 
 /// Capsule-style bar content: back button, optional title pill, optional more button.
-/// Does not include safe area or outer container; used inside [CapsuleStyleAppBar] or [CapsuleStyleOverlayAppBar].
+/// Handles horizontal safe area; vertical safe area belongs to the outer bar.
 class CapsuleBarContent extends StatelessWidget {
   const CapsuleBarContent({
     super.key,
@@ -81,10 +81,14 @@ class CapsuleBarContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final onBackCallback = onBack ?? () => Navigator.maybePop(context);
+    final safeAreaPadding = MediaQuery.paddingOf(context);
     return SizedBox(
       height: CapsuleBarConstants.barContentHeight,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+        padding: EdgeInsets.only(
+          left: safeAreaPadding.left + 8.0,
+          right: safeAreaPadding.right + 8.0,
+        ),
         child: Row(
           children: [
             _pillButton(
