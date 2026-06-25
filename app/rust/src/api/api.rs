@@ -772,6 +772,19 @@ pub fn update_journey_metadata(id: &str, journey_info: JourneyInfo) -> Result<()
     Ok(())
 }
 
+pub fn copy_journey(journey_id: String, journey_info: JourneyInfo) -> Result<String> {
+    get().storage.with_db_txn(|txn| {
+        txn.copy_journey(
+            &journey_id,
+            journey_info.journey_date,
+            journey_info.start_time,
+            journey_info.end_time,
+            journey_info.journey_kind,
+            journey_info.note,
+        )
+    })
+}
+
 #[derive(Debug)]
 pub struct DeviceInfo {
     pub is_physical_device: bool,

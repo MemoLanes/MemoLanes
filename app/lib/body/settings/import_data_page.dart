@@ -2,15 +2,12 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fpdart/fpdart.dart' as f;
 import 'package:memolanes/body/journey/journey_info_edit_page.dart';
-import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
-import 'package:memolanes/common/component/cards/line_painter.dart';
+import 'package:memolanes/common/component/map_panel_page.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
-import 'package:pointer_interceptor/pointer_interceptor.dart';
-import 'package:sliding_up_panel/sliding_up_panel.dart';
 
 class ImportDataPage extends StatefulWidget {
   const ImportDataPage(
@@ -149,7 +146,7 @@ class _ImportDataPage extends State<ImportDataPage> {
     );
   }
 
-  Future<void> _saveData(import_api.JourneyInfo journeyInfo,
+  Future<bool> _saveData(import_api.JourneyInfo journeyInfo,
       import_api.ImportPreprocessor processor) async {
     final success = await showLoadingDialog<bool>(
       asyncTask: (() async {
@@ -167,19 +164,19 @@ class _ImportDataPage extends State<ImportDataPage> {
         return true;
       })(),
     );
-    if (!mounted) return;
+    if (!mounted) return false;
     if (success) {
       await showCommonDialog(
         context,
         context.tr("import.successful"),
       );
+      return true;
     } else {
       await showCommonDialog(
         context,
         context.tr("import.empty_data"),
       );
-      // Blocking the return after the save process completes
-      throw Exception("[import_data] Save data is empty");
+      return false;
     }
   }
 
@@ -187,60 +184,39 @@ class _ImportDataPage extends State<ImportDataPage> {
   Widget build(BuildContext context) {
     final journeyInfo = this.journeyInfo;
 
-    return Scaffold(
-      body: journeyInfo == null
-          ? const SizedBox.shrink()
-          : Stack(
-              children: [
-                SlidingUpPanel(
-                  color: Colors.black,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16.0),
-                    topRight: Radius.circular(16.0),
-                  ),
-                  maxHeight:
-                      widget.importType == ImportType.gpxOrKml ? 530 : 510,
-                  defaultPanelState: PanelState.OPEN,
-                  panel: PointerInterceptor(
-                    child: Center(
-                      child: Column(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(top: 12.0),
-                            child: CustomPaint(
-                              size: const Size(40.0, 4.0),
-                              painter:
-                                  LinePainter(color: const Color(0xFFB5B5B5)),
-                            ),
-                          ),
-                          const SizedBox(height: 16.0),
-                          JourneyInfoEditPage(
-                            startTime: journeyInfo.startTime,
-                            endTime: journeyInfo.endTime,
-                            journeyDate: journeyInfo.journeyDate,
-                            note: journeyInfo.note,
-                            saveData: _saveData,
-                            previewData: _previewData,
-                            importType: widget.importType,
-                            preprocessor: _preprocessor,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  body: _mapRendererProxy == null
-                      ? const SizedBox.shrink()
-                      : BaseMapWebview(
-                          key: const ValueKey("mapWidget"),
-                          mapRendererProxy: _mapRendererProxy!,
-                          initialMapView: _initialMapView,
-                        ),
-                ),
-                CapsuleStyleOverlayAppBar.overlayBar(
-                  title: context.tr("data.import_data.title"),
-                ),
-              ],
+    return journeyInfo == null
+        ? const Scaffold(body: SizedBox.shrink())
+        : MapPanelPage(
+            title: context.tr("data.import_data.title"),
+            mapRendererProxy: _mapRendererProxy,
+            initialMapView: _initialMapView,
+            maxHeight: widget.importType == ImportType.gpxOrKml ? 530 : 510,
+            expandPanel: true,
+            panel: JourneyInfoEditPage(
+              startTime: journeyInfo.startTime,
+              endTime: journeyInfo.endTime,
+              journeyDate: journeyInfo.journeyDate,
+              note: journeyInfo.note,
+              onSave: (journeyInfo, preprocessor) async {
+                if (preprocessor == null) {
+                  log.error("[import_data] Missing import preprocessor");
+                  await showCommonDialog(
+                    context,
+                    context.tr("import.parsing_failed"),
+                  );
+                  if (context.mounted && Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  }
+                  return false;
+                }
+                return await _saveData(journeyInfo, preprocessor);
+              },
+              previewData: widget.importType == ImportType.gpxOrKml
+                  ? _previewData
+                  : null,
+              importType: widget.importType,
+              preprocessor: _preprocessor,
             ),
-    );
+          );
   }
 }

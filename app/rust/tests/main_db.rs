@@ -6,7 +6,7 @@ use memolanes_core::{
     import_data,
     journey_data::JourneyData,
     journey_header::JourneyKind,
-    journey_vector::JourneyVector,
+    journey_vector::{JourneyVector, TrackPoint, TrackSegment},
     main_db::{self, Action, CacheEntry, MainDb},
 };
 use tempdir::TempDir;
@@ -280,6 +280,82 @@ fn journey_query() {
         .with_txn(|txn| txn.days_with_journey(2018, 2))
         .unwrap()
         .is_empty(),);
+}
+
+#[test]
+fn copy_journey_with_metadata() {
+    let temp_dir = TempDir::new("main_db-copy_journey_with_metadata").unwrap();
+    println!("temp dir: {:?}", temp_dir.path());
+
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let source_start = DateTime::from_timestamp(1_704_067_200, 0).unwrap();
+    let copied_end = DateTime::from_timestamp(1_707_868_800, 0).unwrap();
+
+    let source_id = main_db
+        .with_txn(|txn| {
+            txn.create_and_insert_journey(
+                date("2024-01-01"),
+                Some(source_start),
+                None,
+                None,
+                JourneyKind::DefaultKind,
+                Some("source note".to_string()),
+                JourneyData::Vector(JourneyVector {
+                    track_segments: vec![TrackSegment {
+                        track_points: vec![
+                            TrackPoint {
+                                latitude: 31.2304,
+                                longitude: 121.4737,
+                            },
+                            TrackPoint {
+                                latitude: 31.2310,
+                                longitude: 121.4743,
+                            },
+                        ],
+                    }],
+                }),
+            )
+        })
+        .unwrap();
+
+    let copied_id = main_db
+        .with_txn(|txn| {
+            txn.copy_journey(
+                &source_id,
+                date("2024-02-14"),
+                None,
+                Some(copied_end),
+                JourneyKind::Flight,
+                Some("copied note".to_string()),
+            )
+        })
+        .unwrap();
+
+    assert_ne!(source_id, copied_id);
+
+    let (source_header, copied_header, source_data, copied_data) = main_db
+        .with_txn(|txn| {
+            Ok((
+                txn.get_journey_header(&source_id)?.unwrap(),
+                txn.get_journey_header(&copied_id)?.unwrap(),
+                txn.get_journey_data(&source_id)?,
+                txn.get_journey_data(&copied_id)?,
+            ))
+        })
+        .unwrap();
+
+    assert_eq!(source_header.journey_date, date("2024-01-01"));
+    assert_eq!(source_header.start, Some(source_start));
+    assert_eq!(source_header.end, None);
+    assert_eq!(source_header.journey_kind, JourneyKind::DefaultKind);
+    assert_eq!(source_header.note.as_deref(), Some("source note"));
+
+    assert_eq!(copied_header.journey_date, date("2024-02-14"));
+    assert_eq!(copied_header.start, None);
+    assert_eq!(copied_header.end, Some(copied_end));
+    assert_eq!(copied_header.journey_kind, JourneyKind::Flight);
+    assert_eq!(copied_header.note.as_deref(), Some("copied note"));
+    assert_eq!(source_data, copied_data);
 }
 
 // === Action generation and set_invalidate_action tests ===

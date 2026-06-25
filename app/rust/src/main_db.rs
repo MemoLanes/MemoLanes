@@ -310,6 +310,38 @@ impl Txn<'_> {
     }
 
     #[auto_context]
+    pub fn copy_journey(
+        &mut self,
+        id: &str,
+        journey_date: NaiveDate,
+        start: Option<DateTime<Utc>>,
+        end: Option<DateTime<Utc>>,
+        journey_kind: JourneyKind,
+        note: Option<String>,
+    ) -> Result<String> {
+        let source_header = self
+            .get_journey_header(id)?
+            .ok_or_else(|| anyhow!("Copying non existent journey, journey id = {id}"))?;
+        let journey_data = self.get_journey_data(id)?;
+        let new_id = Uuid::new_v4().as_hyphenated().to_string();
+        let header = JourneyHeader {
+            id: new_id.clone(),
+            revision: generate_random_revision(),
+            journey_date,
+            created_at: Utc::now(),
+            updated_at: None,
+            start,
+            end,
+            journey_type: journey_data.type_(),
+            journey_kind,
+            note,
+            postprocessor_algo: source_header.postprocessor_algo,
+        };
+        self.insert_journey(header, journey_data)?;
+        Ok(new_id)
+    }
+
+    #[auto_context]
     pub fn update_journey_metadata(
         &mut self,
         id: &str,
