@@ -3,22 +3,23 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/body/journey/journey_info_edit_page.dart';
 import 'package:memolanes/body/journey/journey_track_edit_page.dart';
 import 'package:memolanes/common/component/base_map_webview.dart' show MapView;
+import 'package:memolanes/common/component/basic_bottom_sheet.dart';
+import 'package:memolanes/common/component/capsule_style_bar_content.dart';
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
+import 'package:memolanes/common/component/common_export.dart';
 import 'package:memolanes/common/component/map_panel_page.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
 import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
+import 'package:memolanes/utils/nav_helper.dart';
 import 'package:path_provider/path_provider.dart';
-
-enum ExportType { mldx, kml, gpx }
 
 enum _JourneyInfoPanelMode { info, edit }
 
@@ -52,6 +53,20 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   }
 
   bool get _isPreviewMode => widget.previewJourneyData != null;
+
+  double _panelMaxHeight(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final baseMaxHeight = _isPreviewMode ? 400.0 : 480.0;
+    final overlayBarHeight = mediaQuery.padding.top * 0.8 +
+        CapsuleBarConstants.barContentHeight +
+        CapsuleBarConstants.barBottomInset;
+    final availableHeight = mediaQuery.size.height - overlayBarHeight;
+
+    if (availableHeight < 120.0) {
+      return 120.0;
+    }
+    return availableHeight < baseMaxHeight ? availableHeight : baseMaxHeight;
+  }
 
   Future<void> _refreshJourneyInfo() async {
     final mapRendererProxyAndCameraOption = widget.previewJourneyData != null
@@ -155,37 +170,41 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     await _refreshJourneyInfo();
   }
 
-  Future<String> _generateExportFile(
-      JourneyHeader journeyHeader, ExportType exportType) async {
+  Future<CommonExportResult> _generateExportFile(
+      JourneyHeader journeyHeader, CommonExportFormat exportFormat) async {
     final tmpDir = await getTemporaryDirectory();
     final dateStr = naiveDateToString(date: journeyHeader.journeyDate);
-    final filepath =
-        "${tmpDir.path}/$dateStr-${journeyHeader.revision}.${exportType.name}";
-    switch (exportType) {
-      case ExportType.mldx:
-        await api.generateSingleArchive(
-            journeyId: journeyHeader.id, targetFilepath: filepath);
-        break;
-      case ExportType.kml:
-        await api.exportJourney(
-            targetFilepath: filepath,
-            journeyId: journeyHeader.id,
-            exportType: api.ExportType.kml);
-        break;
-      case ExportType.gpx:
-        await api.exportJourney(
-            targetFilepath: filepath,
-            journeyId: journeyHeader.id,
-            exportType: api.ExportType.gpx);
-        break;
-    }
-    return filepath;
+    final filePath =
+        "${tmpDir.path}/$dateStr-${journeyHeader.revision}.${exportFormat.extension}";
+    final exportType = switch (exportFormat) {
+      CommonExportFormat.mldx => api.ExportType.mldx,
+      CommonExportFormat.fwss => api.ExportType.fwss,
+      CommonExportFormat.gpx => api.ExportType.gpx,
+      CommonExportFormat.kml => api.ExportType.kml,
+    };
+
+    final exportResult = await api.exportJourney(
+      targetFilepath: filePath,
+      journeyId: journeyHeader.id,
+      exportType: exportType,
+    );
+    return CommonExportResult.create(exportResult, filePath);
   }
 
-  void _export(ExportType exportType) async {
-    String filePath = await _generateExportFile(_journeyHeader, exportType);
-    if (!mounted) return;
-    await showCommonExport(context, filePath, deleteFile: true);
+  void _export() async {
+    final supportsVectorExport =
+        _journeyHeader.journeyType != JourneyType.bitmap;
+    await showCommonExportWithFormatPicker(
+      context: context,
+      title: context.tr("data.export_data.export_journey_title"),
+      formats: [
+        CommonExportFormat.mldx,
+        CommonExportFormat.fwss,
+        if (supportsVectorExport) CommonExportFormat.kml,
+        if (supportsVectorExport) CommonExportFormat.gpx,
+      ],
+      exportFile: (format) => _generateExportFile(_journeyHeader, format),
+    );
   }
 
   @override
@@ -209,7 +228,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
             : context.tr("journey.journey_info_page_title"),
         mapRendererProxy: mapRendererProxy,
         initialMapView: _initialMapView,
-        maxHeight: isEditing ? 440 : (_isPreviewMode ? null : 480),
+        maxHeight: isEditing ? 440 : _panelMaxHeight(context),
         expandPanel: true,
         loadingBody: const Center(child: CircularProgressIndicator()),
         onBack: _handleBack,
@@ -314,13 +333,10 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
               context,
               icon: Icons.share,
               label: context.tr("common.export"),
-              onTap: () => _showExportDataCard(
-                context,
-                _journeyHeader.journeyType,
-              ),
+              onTap: _export,
             ),
           ),
-          SizedBox(width: gap),
+          const SizedBox(width: gap),
           Expanded(
             child: _buildActionTile(
               context,
@@ -329,7 +345,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
               onTap: _editJourneyInfo,
             ),
           ),
-          SizedBox(width: gap),
+          const SizedBox(width: gap),
           Expanded(
             child: _buildActionTile(
               context,
@@ -338,7 +354,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
               onTap: () => _trackEdit(context),
             ),
           ),
-          SizedBox(width: gap),
+          const SizedBox(width: gap),
           Expanded(
             child: _buildActionTile(
               context,
@@ -382,7 +398,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 12.0,
                       fontWeight: FontWeight.w600,
@@ -427,42 +443,6 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
 
     if (result != true || !context.mounted) return;
     Navigator.pop(context, true);
-  }
-
-  void _showExportDataCard(BuildContext context, JourneyType journeyType) {
-    showBasicCard(
-      context,
-      child: OptionCard(
-        children: [
-          CardLabelTile(
-            position: journeyType != JourneyType.bitmap
-                ? CardLabelTilePosition.top
-                : CardLabelTilePosition.single,
-            label: context.tr("journey.export_journey_as_mldx"),
-            onTap: () {
-              _export(ExportType.mldx);
-            },
-            top: false,
-          ),
-          if (journeyType != JourneyType.bitmap) ...[
-            CardLabelTile(
-              position: CardLabelTilePosition.middle,
-              label: context.tr("journey.export_journey_as_kml"),
-              onTap: () {
-                _export(ExportType.kml);
-              },
-            ),
-            CardLabelTile(
-              position: CardLabelTilePosition.bottom,
-              label: context.tr("journey.export_journey_as_gpx"),
-              onTap: () {
-                _export(ExportType.gpx);
-              },
-            ),
-          ]
-        ],
-      ),
-    );
   }
 
   void _showMoreActionCard(BuildContext context) {

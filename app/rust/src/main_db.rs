@@ -557,6 +557,16 @@ impl Txn<'_> {
     }
 
     #[auto_context]
+    pub fn has_journeys(&self) -> Result<bool> {
+        let mut query = self.db_txn.prepare("SELECT 1 FROM journey LIMIT 1;")?;
+        Ok(query
+            .query_row((), |_| Ok(()))
+            .optional()
+            .context("has_journeys")?
+            .is_some())
+    }
+
+    #[auto_context]
     pub fn years_with_journey(&self) -> Result<Vec<i32>> {
         let mut query = self
             .db_txn

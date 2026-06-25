@@ -214,6 +214,7 @@ class _ImportDataPage extends State<ImportDataPage> {
               previewData: widget.importType == ImportType.gpxOrKml
                   ? _previewData
                   : null,
+              importType: widget.importType,
               preprocessor: _preprocessor,
             ),
           );

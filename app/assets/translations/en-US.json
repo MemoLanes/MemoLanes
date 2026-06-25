@@ -14,6 +14,7 @@
     "battery_help_tooltip": "About battery optimization",
     "notification_help_tooltip": "About notification permission",
     "enable_all": "Enable All",
+    "allow": "Allow",
     "skip": "Skip",
     "location_title": "Location",
     "location_desc": "For map display and journey recording",
@@ -24,12 +25,10 @@
     "open_system_settings": "Open system settings"
   },
   "location_service": {
-    "location_service_disabled": "Location services are disabled. Please enable them in the settings.",
     "location_permission_denied": "Location permission was not granted, so location-based features are temporarily unavailable. You can allow it later.",
     "location_permission_permanently_denied": "You have denied location permission, therefore location-based features are disabled. If you want to use these features, please enable it in the app settings.",
     "location_permission_reason": "MemoLanes needs location permission to collect your precise location data to record your travel routes and visualize your journey history. All location data is stored locally on your device and is not shared with any third parties.",
     "battery_optimization_reason": "To ensure continuous background location updates, please allow the app to ignore battery optimization.",
-    "battery_optimization_denied": "You have declined to ignore battery optimization, which may cause the app to run unstable in the background. Please allow it in the app settings.",
     "android_foreground_notification_channel_name": "Tracking Service",
     "android_foreground_notification_title": "Recording in Background",
     "android_foreground_notification_text": "MemoLanes will continue to record in the background",
@@ -51,14 +50,12 @@
     "delete": "Delete",
     "more": "More",
     "please_enter": "Please enter",
-    "still_under_development": "Still under development",
     "copy_success": "Copied",
     "save_success": "Saved successfully",
     "save_confirm": "Do you want to save the changes?"
   },
   "journey": {
     "editor": {
-      "back": "Back",
       "move": "Move",
       "draw": "Draw",
       "free_draw": "Free",
@@ -92,6 +89,7 @@
     "export_journey_as_kml": "Export as KML",
     "export_journey_as_gpx": "Export as GPX",
     "export_journey_as_mldx": "Export as MLDX",
+    "export_journey_as_fwss": "Export as FWSS",
     "delete_all": "Delete All Journeys",
     "delete_all_success": "All journeys are deleted!",
     "preprocessor": "Preprocessor",
@@ -117,7 +115,6 @@
     "current": "Current"
   },
   "time_machine": {
-    "menu_title_time": "Time",
     "menu_title_view": "View",
     "menu_title_granularity": "Granularity",
     "menu_title_layer": "Layer",
@@ -126,8 +123,7 @@
     "menu_view_custom": "Custom",
     "menu_year": "Year",
     "menu_month": "Month",
-    "menu_day": "Day",
-    "menu_any": "Any"
+    "menu_day": "Day"
   },
   "preprocessor": {
     "generic": "Generic Mode",
@@ -184,8 +180,28 @@
   },
   "achievement": {
     "title": "Achievements",
-    "explored_area": "Explored area: {} km²",
-    "coming_soon": "Stats and achievements are coming soon"
+    "area_units": {
+      "square_meters": "m²",
+      "square_kilometers": "km²",
+      "ten_thousand_square_kilometers": "×10k km²"
+    },
+    "overview": {
+      "title": "Total explored area"
+    },
+    "source": {
+      "title": "Exploration sources",
+      "description": "Total area combines Ground and Flight",
+      "overlap_note": "Note: Ground and Flight may overlap.",
+      "share_of_total": "{} of total"
+    },
+    "coming_soon_card": {
+      "title": "More coming soon",
+      "description": "New exploration dimensions and milestones will arrive in future releases."
+    },
+    "ongoing": {
+      "title": "Journey in progress",
+      "description": "Current achievements and stats do not include the ongoing journey. They will update after you finish and save it."
+    }
   },
   "general": {
     "title": "General",
@@ -220,11 +236,27 @@
       "delete_backup_data": "Delete backup data"
     },
     "import_data": {
-      "title": "Import data",
-      "unsupported_file": "Unsupported file"
+      "title": "Import data"
     },
     "export_data": {
-      "export_all": "Export All Data"
+      "export_all": "Export All Data",
+      "export_all_title": "Export All Journeys",
+      "export_journey_title": "Export Journey",
+      "error": {
+        "no_journeys_to_export": "There are no journeys to export yet.",
+        "no_track_data_for_selected_format": "There is no track data to export in the selected format.",
+        "unexpected": "Unexpected error occurred during exporting"
+      },
+      "format_section_title": "Export format",
+      "format_mldx": "MemoLanes standard format (*.mldx)",
+      "format_mldx_desc": "Recommended for backup, migration, and importing back into MemoLanes.",
+      "format_fwss": "Fog of World snapshot (*.fwss)",
+      "format_fwss_desc": "For Fog of World and compatible tools.",
+      "format_kml": "KML track (*.kml)",
+      "format_kml_desc": "For map apps and track tools.",
+      "format_gpx": "GPX track (*.gpx)",
+      "format_gpx_desc": "For fitness, navigation, and track tools.",
+      "lossy_format_warning": "This format may lose some journey data. Use MemoLanes standard format (*.mldx) for a complete backup."
     }
   },
   "settings": {
