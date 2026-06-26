@@ -7,13 +7,19 @@ on:
     paths:
       - "app/**"
       - "tools/geo_rasterizer/**"
+      - ".github/workflows/app.yml"
   push:
     branches:
       - main
     paths:
       - "app/**"
       - "tools/geo_rasterizer/**"
+      - ".github/workflows/app.yml"
   workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
 
 jobs:
   build_and_test:
