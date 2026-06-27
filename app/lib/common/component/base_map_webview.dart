@@ -15,8 +15,6 @@ import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'map_controls/map_copyright_button.dart';
-
 typedef MapView = ({double lng, double lat, double zoom});
 
 typedef BaseMapJavaScriptMessageHandler = void Function(String message);
@@ -480,10 +478,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
                 await controller.reload();
               },
             )),
-        GestureDetector(
-            child: MapCopyrightButton(
-          textMarkdown: mapCopyrightTextMarkdown,
-        )),
         IgnorePointer(
           ignoring: true,
           child: AnimatedOpacity(
