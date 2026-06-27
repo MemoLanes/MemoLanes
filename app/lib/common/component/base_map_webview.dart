@@ -388,8 +388,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     // https://github.com/flutter/flutter/issues/165305
     // But unfortunately, it only works for iOS 18, so we still have this weird
     // double tap behavior on older iOS versions.
-    final mapCopyrightTextMarkdown = _selectedMapStyle.copyright;
-
     return Stack(
       children: [
         IgnorePointer(

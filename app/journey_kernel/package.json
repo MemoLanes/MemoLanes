@@ -7,7 +7,8 @@
     "preview": "rimraf dist pkg && webpack serve --mode production",
     "dev": "rimraf dist pkg && webpack serve --mode development",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,html}\"",
-    "check-format": "prettier --check \"**/*.{js,jsx,ts,tsx,html}\""
+    "check-format": "prettier --check \"**/*.{js,jsx,ts,tsx,html}\"",
+    "check-types": "tsc --noEmit"
   },
   "dependencies": {
     "@types/ua-parser-js": "^0.7.39",
