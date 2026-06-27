@@ -70,6 +70,7 @@ export interface ExternalParams {
   fog_density?: string;
   projection?: string;
   debug?: string;
+  low_power_mode?: string;
   [key: string]: string | undefined;
 }
 
@@ -81,7 +82,11 @@ export interface ExternalParams {
 export type PropertyChangeCallback<T> = (newValue: T, oldValue: T) => void;
 
 /** Mutable property names that support hooks */
-export type MutablePropertyName = "renderMode" | "fogDensity" | "projection";
+export type MutablePropertyName =
+  | "renderMode"
+  | "fogDensity"
+  | "projection"
+  | "lowPowerMode";
 
 /** Internal data structure for ReactiveParams */
 interface ParamsData {
@@ -98,13 +103,14 @@ interface ParamsData {
   renderMode: string;
   fogDensity: number;
   projection: ProjectionType;
+  lowPowerMode: boolean;
 }
 
 /**
  * ReactiveParams - A Proxy-based reactive parameters object
  *
  * Properties can be accessed and set directly. Setting mutable properties
- * (renderMode, fogDensity, projection) triggers registered hooks.
+ * (renderMode, fogDensity, projection, lowPowerMode) triggers registered hooks.
  *
  * Usage:
  * ```typescript
@@ -136,7 +142,9 @@ export interface ReactiveParams extends ParamsData {
         ? number
         : K extends "projection"
           ? ProjectionType
-          : string
+          : K extends "lowPowerMode"
+            ? boolean
+            : string
     >,
   ): () => void;
 }
@@ -146,6 +154,7 @@ const MUTABLE_PROPERTIES = new Set<MutablePropertyName>([
   "renderMode",
   "fogDensity",
   "projection",
+  "lowPowerMode",
 ]);
 
 /**
@@ -317,5 +326,6 @@ export function createReactiveParams(
     ),
     projection: externalParams.projection === "mercator" ? "mercator" : "globe",
     debug: externalParams.debug === "true",
+    lowPowerMode: externalParams.low_power_mode === "true",
   });
 }

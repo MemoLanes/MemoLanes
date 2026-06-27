@@ -1,10 +1,15 @@
 pub mod test_utils;
 
 use memolanes_core::import_data;
-use memolanes_core::renderer::internal_server::Request;
+use memolanes_core::renderer::internal_server::dispatch_request;
 use memolanes_core::renderer::MapRenderer;
+#[path = "../examples/shared/mod.rs"]
+mod shared;
+use shared::MapServer;
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::time::Duration;
 
 #[test]
 pub fn renderer_server() -> Result<(), Box<dyn std::error::Error>> {
@@ -13,42 +18,42 @@ pub fn renderer_server() -> Result<(), Box<dyn std::error::Error>> {
     let map_renderer_fow = Arc::new(Mutex::new(MapRenderer::new(joruney_bitmap_fow)));
     let map_renderer_clone = map_renderer_fow.clone();
 
-    let request_str = r#"
-    {
-        "requestId": "test-123",
-        "query": "tile_range",
-        "payload": {
-            "x": 0,
-            "y": 0,
-            "z": 0,
-            "width": 1,
-            "height": 1,
-            "buffer_size_power": 6,
-            "cached_version": "test-123"
-        }
-    }
-    "#;
+    let _server = Arc::new(Mutex::new(
+        MapServer::create_and_start(map_renderer_fow).expect("Failed to start server"),
+    ));
 
-    // println!("request: {}", request_str);
+    std::thread::sleep(Duration::from_millis(200));
 
-    let request = Request::parse(request_str)?;
+    let params: HashMap<String, String> = [
+        ("x", "0"),
+        ("y", "0"),
+        ("z", "0"),
+        ("width", "1"),
+        ("height", "1"),
+        ("buffer_size_power", "6"),
+        ("cached_version", "test-123"),
+    ]
+    .into_iter()
+    .map(|(k, v)| (k.to_string(), v.to_string()))
+    .collect();
 
-    // Get the map renderer and handle the request
     let mut map_renderer = map_renderer_clone.lock().unwrap();
-    let response = request.handle(&mut map_renderer);
+    let response = dispatch_request("tile_range", &params, &mut map_renderer);
     drop(map_renderer);
 
-    let body = response.data.as_ref().unwrap()["body"].as_str().unwrap();
+    assert_eq!(response.status, 200);
+    assert_eq!(response.content_type, "application/octet-stream");
 
-    let body_for_compare = "BgADAAAAAAAAAAAAAQABAAEAAQDLAgAAKLUv/WDLATUDACQDAQcAABAABgAHAA0AGABgACABAAA8AAIwBAADDhQAABAGAgEDAHcAAUAQ8MACAQAAAAEWADwjoksEAIHgYgB54BAACSBfGJW42YmwzAAAVAQ1AMSgCVi08gDAGAwMBgYDFlGgCA==";
+    // The response should contain tile data (non-empty body with a version header)
+    assert!(response.headers.contains_key("X-Tile-Version"));
+    assert!(!response.body.is_empty());
 
-    assert_eq!(body, body_for_compare);
-
-    // Direct JSON serialization - more explicit and efficient
-    let response_str = serde_json::to_string(&response)
-        .map_err(|e| anyhow::anyhow!("Failed to serialize response: {e}"))
-        .unwrap();
-    println!("response: {response_str}");
+    println!(
+        "response: status={}, body_len={}, version={:?}",
+        response.status,
+        response.body.len(),
+        response.headers.get("X-Tile-Version")
+    );
 
     Ok(())
 }

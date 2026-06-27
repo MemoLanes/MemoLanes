@@ -32,6 +32,7 @@ declare global {
     ) => void;
     getCurrentMapView?: () => string;
     refreshMapData?: () => Promise<boolean | null>;
+    setLowPowerMode?: (enabled: boolean) => void;
   }
 }
 
@@ -187,6 +188,11 @@ export class FlutterBridge {
 
     // Refresh map data - allows Flutter to trigger a data refresh
     window.refreshMapData = () => this.mapController.refreshMapData();
+
+    // Update low power mode status from Flutter
+    window.setLowPowerMode = (enabled: boolean) => {
+      this.mapController.getParams().lowPowerMode = enabled;
+    };
   }
 
   /**
