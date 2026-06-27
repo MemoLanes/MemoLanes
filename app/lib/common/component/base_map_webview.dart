@@ -302,7 +302,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         lat: $latParam,
         zoom: $zoomParam,
         editor: ${widget.isEditor ? "true" : "false"},
-        debug: "true",
         low_power_mode: "$_isLowPowerMode",
       };
       
