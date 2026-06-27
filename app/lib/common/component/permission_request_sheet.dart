@@ -116,13 +116,10 @@ class _PermissionRequestSheetContentState
   void _closeSheet(bool result) {
     if (!mounted || _isClosing) return;
 
-    final route = ModalRoute.of(context);
-    if (route?.isCurrent != true) {
-      return;
-    }
-
     _isClosing = true;
-    Navigator.of(context).pop(result);
+    if (!popCurrentRoute(context, result)) {
+      _isClosing = false;
+    }
   }
 
   Future<void> _applyEffects(List<PermissionEffect> effects) async {

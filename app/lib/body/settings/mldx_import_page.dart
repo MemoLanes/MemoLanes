@@ -227,7 +227,6 @@ class _MldxImportPageState extends State<MldxImportPage> {
     final selected = _sortedJourneyWithoutIgnored
         .where((j) => _selectedIds.contains(j.$1.id))
         .toList();
-    final navigator = Navigator.of(context);
     try {
       await showLoadingDialog(
         asyncTask: widget.mldxReader.importJourneys(
@@ -236,7 +235,8 @@ class _MldxImportPageState extends State<MldxImportPage> {
       );
       if (mounted) {
         await showCommonDialog(context, context.tr('import.successful'));
-        navigator.pop(true);
+        if (!mounted) return;
+        popCurrentRoute(context, true);
       }
     } catch (_) {
       if (mounted) {
