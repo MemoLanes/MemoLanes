@@ -9,7 +9,6 @@
  */
 
 import { JourneyCanvasLayer } from "./layers/journey-canvas-layer";
-import { HybridLayer } from "./layers/journey-gl-layer/hybird-layer";
 import type { JourneyLayerConstructor } from "./layers/journey-layer-interface";
 
 // Default values for parameters
@@ -53,12 +52,6 @@ export const AVAILABLE_LAYERS: { [key: string]: LayerConfig } = {
     layerClass: JourneyCanvasLayer,
     bufferSizePower: 8,
     description: "Uses Canvas API for rendering",
-  },
-  gl: {
-    name: "WebGL",
-    layerClass: HybridLayer,
-    bufferSizePower: 10,
-    description: "Uses WebGL for rendering",
   },
 };
 
