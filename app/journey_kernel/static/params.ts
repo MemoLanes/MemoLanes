@@ -12,8 +12,7 @@ import { JourneyCanvasLayer } from "./layers/journey-canvas-layer";
 import type { JourneyLayerConstructor } from "./layers/journey-layer-interface";
 
 // Default values for parameters
-const DEFAULT_MAP_STYLE =
-  "https://api.protomaps.com/styles/v5/light/en.json?key=530da62b1f2a5633";
+const DEFAULT_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 const DEFAULT_RENDER_MODE = "canvas";
 
 /** Valid projection types for the map */
