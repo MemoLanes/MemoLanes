@@ -86,6 +86,11 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     await _webViewController?.evaluateJavascript(source: javaScript);
   }
 
+  void _setStateIfMounted(VoidCallback fn) {
+    if (!mounted) return;
+    setState(fn);
+  }
+
   @override
   void didUpdateWidget(BaseMapWebview oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -99,6 +104,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   /// Request the WebView to refresh map data from the backend
   Future<void> _refreshMapData() async {
+    if (!mounted) return;
     log.info('[base_map_webview] Refreshing map data');
     await _webViewController?.evaluateJavascript(source: '''
       if (typeof refreshMapData === 'function') {
@@ -127,7 +133,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
         var iosInfo = await deviceInfo.iosInfo;
         if (iosInfo.systemVersion.startsWith('18.')) {
-          setState(() {
+          _setStateIfMounted(() {
             _isiOS18 = true;
           });
         }
@@ -144,10 +150,12 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       log.error('[base_map_webview] Failed to query battery save mode: $e');
     }
 
+    if (!mounted) return;
     _batteryStateSubscription =
         _battery.onBatteryStateChanged.listen((_) async {
       try {
         final newLPM = await _battery.isInBatterySaveMode;
+        if (!mounted) return;
         if (newLPM != _isLowPowerMode) {
           _isLowPowerMode = newLPM;
           _pushLowPowerModeToWebView();
@@ -159,6 +167,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   }
 
   void _pushLowPowerModeToWebView() {
+    if (!mounted) return;
     _webViewController?.evaluateJavascript(source: '''
       if (typeof window.setLowPowerMode === 'function') {
         window.setLowPowerMode($_isLowPowerMode);
@@ -170,10 +179,12 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   void dispose() {
     _batteryStateSubscription?.cancel();
     _gpsManager.removeListener(_updateLocationMarker);
+    _webViewController = null;
     super.dispose();
   }
 
   void _updateLocationMarker() {
+    if (!mounted) return;
     if (widget.trackingMode == TrackingMode.off) {
       _webViewController?.evaluateJavascript(source: '''
         if (typeof updateLocationMarker === 'function') {
@@ -202,6 +213,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   }
 
   Future<void> _onWebViewCreated(InAppWebViewController controller) async {
+    if (!mounted) return;
     _webViewController = controller;
 
     // Add web message listeners (JS channels) before loading the page.
@@ -212,6 +224,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         jsObjectName: 'onMapMoved',
         allowedOriginRules: {'*'},
         onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
+          if (!mounted) return;
           widget.onMapMoved?.call();
         },
       )),
@@ -219,7 +232,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         jsObjectName: 'readyForDisplay',
         allowedOriginRules: {'*'},
         onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
-          setState(() {
+          _setStateIfMounted(() {
             _readyForDisplay = true;
           });
         },
@@ -228,6 +241,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         jsObjectName: 'onMapViewChanged',
         allowedOriginRules: {'*'},
         onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
+          if (!mounted) return;
           final data = message?.data;
           if (data is String) {
             _handleMapViewPush(data);
@@ -238,6 +252,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         jsObjectName: 'onMapZoomChanged',
         allowedOriginRules: {'*'},
         onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
+          if (!mounted) return;
           final data = message?.data;
           if (data is String) {
             _handleMapZoomPush(data);
@@ -249,11 +264,14 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
           jsObjectName: channel.name,
           allowedOriginRules: {'*'},
           onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
+            if (!mounted) return;
             final data = message?.data;
             channel.onMessageReceived(data is String ? data : data.toString());
           },
         )),
     ]);
+
+    if (!mounted) return;
 
     // Load the page after listeners are registered
     if (_devServer.isNotEmpty) {
@@ -261,8 +279,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
           ? '${_devServer}index.html'
           : '$_devServer/index.html';
       log.info('[base_map_webview] Loading from dev server: $devUrl');
-      await controller.loadUrl(
-          urlRequest: URLRequest(url: WebUri(devUrl)));
+      await controller.loadUrl(urlRequest: URLRequest(url: WebUri(devUrl)));
     } else {
       final assetPath = 'assets/map_webview/index.html';
       log.info('[base_map_webview] Loading asset: $assetPath');
@@ -271,6 +288,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   }
 
   Future<void> _injectApiEndpoint() async {
+    if (!mounted) return;
     final controller = _webViewController;
     if (controller == null) return;
 
@@ -285,9 +303,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     debugPrint('Injecting lat: $latParam');
     debugPrint('Injecting zoom: $zoomParam');
 
-    final cgiEndpoint = Platform.isIOS
-        ? 'memolanes://api'
-        : 'https://memolanes.local/api';
+    final cgiEndpoint =
+        Platform.isIOS ? 'memolanes://api' : 'https://memolanes.local/api';
 
     final style = _selectedMapStyle;
     await controller.evaluateJavascript(source: '''
@@ -364,8 +381,13 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   }
 
   /// Handle an intercepted request by forwarding path + query to the unified Rust dispatcher.
-  Future<({int status, Uint8List body, String contentType, Map<String, String> headers})>
-      _handleInterceptedRequest(WebUri url) async {
+  Future<
+      ({
+        int status,
+        Uint8List body,
+        String contentType,
+        Map<String, String> headers
+      })> _handleInterceptedRequest(WebUri url) async {
     final path = url.path.replaceFirst(RegExp(r'^/?(api/)?'), '');
     final result = await widget.mapRendererProxy.handleRequest(
       path: path,
@@ -402,10 +424,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
                 _onWebViewCreated(controller);
               },
               // iOS: intercept custom scheme requests (memolanes://)
-              onLoadResourceWithCustomScheme:
-                  (controller, request) async {
-                final result =
-                    await _handleInterceptedRequest(request.url);
+              onLoadResourceWithCustomScheme: (controller, request) async {
+                if (!mounted) return null;
+                final result = await _handleInterceptedRequest(request.url);
                 return CustomSchemeResponse(
                   data: result.body,
                   contentType: result.contentType,
@@ -418,14 +439,13 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
                 );
               },
               // Android: intercept URL pattern requests (https://memolanes.local/api/)
-              shouldInterceptRequest:
-                  (controller, request) async {
+              shouldInterceptRequest: (controller, request) async {
+                if (!mounted) return null;
                 final url = request.url.toString();
                 if (!url.startsWith('https://memolanes.local/api/')) {
                   return null;
                 }
-                final result =
-                    await _handleInterceptedRequest(request.url);
+                final result = await _handleInterceptedRequest(request.url);
                 return WebResourceResponse(
                   contentType: result.contentType,
                   contentEncoding: 'utf-8',
@@ -434,14 +454,17 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
                   reasonPhrase: result.status == 200 ? 'OK' : 'Not Modified',
                   headers: {
                     'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Expose-Headers': 'X-Tile-Version, X-Not-Modified',
+                    'Access-Control-Expose-Headers':
+                        'X-Tile-Version, X-Not-Modified',
                     'Content-Type': result.contentType,
                     ...result.headers,
                   },
                 );
               },
-              shouldOverrideUrlLoading:
-                  (controller, navigationAction) async {
+              shouldOverrideUrlLoading: (controller, navigationAction) async {
+                if (!mounted) {
+                  return NavigationActionPolicy.CANCEL;
+                }
                 final url = navigationAction.request.url;
                 if (url == null) {
                   return NavigationActionPolicy.CANCEL;
@@ -461,10 +484,12 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
                 return NavigationActionPolicy.CANCEL;
               },
               onLoadStop: (controller, url) {
+                if (!mounted) return;
                 debugPrint('Page finished loading: $url');
                 _injectApiEndpoint();
               },
               onReceivedError: (controller, request, error) async {
+                if (!mounted) return;
                 final failedUrl = request.url.toString();
                 if (!failedUrl.contains('events.mapbox.com')) {
                   log.error('''Map WebView Error: 
@@ -474,6 +499,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
                 }
               },
               onWebContentProcessDidTerminate: (controller) async {
+                if (!mounted) return;
                 await controller.reload();
               },
             )),
