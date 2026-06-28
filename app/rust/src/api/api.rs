@@ -11,7 +11,6 @@ use csv::Reader;
 use flutter_rust_bridge::frb;
 
 use super::import::JourneyInfo;
-use crate::achievement::stat_cache::StatCache;
 use crate::cache_db::LayerKind;
 use crate::frb_generated::StreamSink;
 use crate::gps_processor::{GpsPreprocessor, ProcessResult};
@@ -38,7 +37,6 @@ use log::{error, info, warn};
 pub(super) struct MainState {
     pub storage: Storage,
     pub gps_preprocessor: Mutex<GpsPreprocessor>,
-    pub stat_cache: StatCache,
     main_map_state: Arc<Mutex<MainMapState>>,
 }
 
@@ -120,15 +118,12 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, system_cache
                     error!("Failed to get latest bitmap for main map renderer: {e:?}");
                 }
             }
-            // Journey set changed — evict cached stats.
-            get().stat_cache.invalidate();
         }));
         info!("main map renderer initialized");
 
         MainState {
             storage,
             gps_preprocessor: Mutex::new(GpsPreprocessor::new()),
-            stat_cache: StatCache::default(),
             main_map_state,
         }
     });

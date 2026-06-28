@@ -1,12 +1,10 @@
 use crate::cache_db::LayerKind;
 use crate::journey_header::JourneyKind;
 
-/// The journey layer an achievement query is computed over. Flat,
-/// closed wire enum (FRB-exposed via `api/achievement.rs`) — kept
-/// deliberately separate from the structurally-open
-/// `cache_db::LayerKind`, so a future `JourneyKind` variant widens the
-/// achievement surface only through a compile error in the exhaustive
-/// matches below, never silently.
+/// The journey layer an achievement query is computed over. Flat, closed wire
+/// enum (exposed via FRB in `api/achievement.rs`), kept separate from the
+/// structurally-open `cache_db::LayerKind` so a new `JourneyKind` variant widens
+/// the achievement surface only through a compile error in the matches below.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AchievementLayer {
     /// Ground journeys only (`JourneyKind::DefaultKind`) — the headline
@@ -25,9 +23,9 @@ impl AchievementLayer {
         AchievementLayer::All,
     ];
 
-    /// Whether a journey of `kind` contributes to this layer's coverage
-    /// and first_visited. Exhaustive over BOTH enums on purpose — this
-    /// is the match that makes the type-level promise above real.
+    /// Whether a journey of `kind` contributes to this layer's coverage.
+    /// Exhaustive over BOTH enums on purpose — this is the match that
+    /// makes the type-level promise above real.
     pub fn includes_kind(self, kind: JourneyKind) -> bool {
         match (self, kind) {
             (AchievementLayer::All, _) => true,

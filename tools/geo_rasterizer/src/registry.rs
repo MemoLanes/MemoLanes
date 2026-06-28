@@ -2,7 +2,7 @@
 //! renumbered or reused, so they are point-of-view-invariant and stable
 //! across Natural Earth bumps.
 //!
-//! TODO(geo-C): Phase 2 (base+delta) reuses this registry unchanged — the
+//! TODO: Phase 2 (base+delta) reuses this registry unchanged — the
 //! entities table is the union across all POV files, so per-POV delta
 //! sections reference the same ids.
 

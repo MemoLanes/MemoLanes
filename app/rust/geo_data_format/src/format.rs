@@ -11,8 +11,8 @@ use bincode::Options;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    GeoEntity, GeoEntityId, PackedTile, TileMembership, Worldview, MAGIC, PROVENANCE_HASH_END,
-    TILE_COUNT,
+    tile_xy, GeoEntity, GeoEntityId, PackedTile, TileMembership, Worldview, MAGIC,
+    PROVENANCE_HASH_END, TILE_COUNT,
 };
 
 /// magic(4) + provenance_hash(32) + 4 sections × (u32 offset, u32 len).
@@ -78,8 +78,7 @@ pub fn write_geo_data(
             TileMembership::None => (0, 0),
             TileMembership::Single(id) => (1, id.0),
             TileMembership::Border => {
-                let tx = (idx % 512) as u16;
-                let ty = (idx / 512) as u16;
+                let (tx, ty) = tile_xy(idx);
                 let cells = block_lookup.get(&(tx, ty)).ok_or_else(|| {
                     anyhow::anyhow!("border tile ({tx},{ty}) missing block_lookup entry")
                 })?;
@@ -272,11 +271,11 @@ mod tests {
     fn round_trip_single_border_none() {
         let mut tl = vec![TileMembership::None; TILE_COUNT];
         tl[0] = TileMembership::Single(GeoEntityId(7));
-        tl[1] = TileMembership::Border; // tile idx 1 → tx=1, ty=0
+        tl[1] = TileMembership::Border; // x-major: tile idx 1 → tx=0, ty=1
         let mut cells = vec![None; CELLS_PER_TILE];
         cells[5] = Some(GeoEntityId(7));
         let mut bl: BTreeMap<(u16, u16), Vec<Option<GeoEntityId>>> = BTreeMap::new();
-        bl.insert((1, 0), cells);
+        bl.insert((0, 1), cells);
 
         let bytes = write_geo_data(&[entity(7, "AAA")], &[], &tl, &bl, [3u8; 32]).unwrap();
         let gd = read_geo_data(&bytes).unwrap();

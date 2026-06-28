@@ -1,65 +1,51 @@
 use crate::journey_bitmap::{
-    JourneyBitmap, TileKey, BITMAP_WIDTH, BITMAP_WIDTH_OFFSET, MAP_WIDTH_OFFSET, TILE_WIDTH,
-    TILE_WIDTH_OFFSET,
+    BlockKey, JourneyBitmap, TileKey, BITMAP_WIDTH, BITMAP_WIDTH_OFFSET, MAP_WIDTH_OFFSET,
+    TILE_WIDTH, TILE_WIDTH_OFFSET,
 };
 use crate::utils;
 use std::collections::HashMap;
 const EARTH_RADIUS: f64 = 6371000.0; // unit: meter
 
+/// Latitude-corrected area (m²) of one block with `bit_count` set bits. Shared
+/// by `compute_journey_bitmap_area` and the region index, so the two reconcile.
+pub(crate) fn block_area_m2(tile_key: &TileKey, block_key: &BlockKey, bit_count: u32) -> f64 {
+    if bit_count == 0 {
+        return 0.0;
+    }
+    // Center bit of the block, in bitmap-zoomed tile coordinates.
+    let bitzoomed_x1: i32 = TILE_WIDTH as i32 * BITMAP_WIDTH as i32 * tile_key.x as i32
+        + BITMAP_WIDTH as i32 * block_key.x() as i32
+        + (BITMAP_WIDTH / 2) as i32;
+    let bitzoomed_y1: i32 = TILE_WIDTH as i32 * BITMAP_WIDTH as i32 * tile_key.y as i32
+        + BITMAP_WIDTH as i32 * block_key.y() as i32
+        + (BITMAP_WIDTH / 2) as i32;
+
+    // Bottom-right coordinates (add one bit length to each side).
+    let bitzoomed_x2 = bitzoomed_x1 + 1;
+    let bitzoomed_y2 = bitzoomed_y1 + 1;
+
+    let offset = (BITMAP_WIDTH_OFFSET + TILE_WIDTH_OFFSET + MAP_WIDTH_OFFSET) as i32;
+    let (lng1, lat1) = utils::tile_x_y_to_lng_lat(bitzoomed_x1, bitzoomed_y1, offset);
+    let (lng2, lat2) = utils::tile_x_y_to_lng_lat(bitzoomed_x2, bitzoomed_y2, offset);
+
+    /* formula derived from spherical geometry of Earth */
+    /* width=R⋅Δλ⋅cos(ϕ), where Δλ = λ2-λ1 is the difference of longitudes in radians, ϕ is the latitude in radians*/
+    let width_top = EARTH_RADIUS * (lng2 - lng1).abs().to_radians() * lat1.to_radians().cos();
+    let width_bottom = EARTH_RADIUS * (lng2 - lng1).abs().to_radians() * lat2.to_radians().cos();
+    let avg_width = (width_top + width_bottom) / 2.0;
+    /* height=R⋅Δφ, where Δφ = φ2-φ1 is the difference of latitudes in radians. */
+    let height = EARTH_RADIUS * (lat2 - lat1).abs().to_radians();
+
+    avg_width * height * bit_count as f64
+}
+
 fn compute_one_tile(journey_bitmap: &JourneyBitmap, tile_key: &TileKey) -> f64 {
-    journey_bitmap.peek_tile_without_updating_cache(tile_key, |tile| {
-        match tile {
-            None => 0.,
-            Some(tile) => tile
-                .iter()
-                .filter_map(|(block_key, block)| {
-                    let bit_count = block.count();
-                    if bit_count > 0 {
-                        // calculate center bit in each block for bit_unit_area
-                        // Calculate the top-left coordinates of this bitmap point
-                        let bitzoomed_x1: i32 =
-                            TILE_WIDTH as i32 * BITMAP_WIDTH as i32 * tile_key.x as i32
-                                + BITMAP_WIDTH as i32 * block_key.x() as i32
-                                + (BITMAP_WIDTH / 2) as i32;
-                        let bitzoomed_y1: i32 =
-                            TILE_WIDTH as i32 * BITMAP_WIDTH as i32 * tile_key.y as i32
-                                + BITMAP_WIDTH as i32 * block_key.y() as i32
-                                + (BITMAP_WIDTH / 2) as i32;
-
-                        // Bottom-right coordinates (add one bit length to each side)
-                        let bitzoomed_x2 = bitzoomed_x1 + 1;
-                        let bitzoomed_y2 = bitzoomed_y1 + 1;
-
-                        // Convert these to latitude/longitude
-                        let (lng1, lat1) = utils::tile_x_y_to_lng_lat(
-                            bitzoomed_x1,
-                            bitzoomed_y1,
-                            (BITMAP_WIDTH_OFFSET + TILE_WIDTH_OFFSET + MAP_WIDTH_OFFSET) as i32,
-                        );
-                        let (lng2, lat2) = utils::tile_x_y_to_lng_lat(
-                            bitzoomed_x2,
-                            bitzoomed_y2,
-                            (BITMAP_WIDTH_OFFSET + TILE_WIDTH_OFFSET + MAP_WIDTH_OFFSET) as i32,
-                        );
-
-                        /* formula derived from spherical geometry of Earth */
-                        /* width=R⋅Δλ⋅cos(ϕ), where Δλ = λ2-λ1 is the difference of longitudes in radians, ϕ is the latitude in radians*/
-                        let width_top =
-                            EARTH_RADIUS * (lng2 - lng1).abs().to_radians() * lat1.to_radians().cos();
-                        let width_bottom =
-                            EARTH_RADIUS * (lng2 - lng1).abs().to_radians() * lat2.to_radians().cos();
-                        let avg_width = (width_top + width_bottom) / 2.0;
-                        /* height=R⋅Δφ, where Δφ = φ2-φ1 is the difference of latitudes in radians. */
-                        let height = EARTH_RADIUS * (lat2 - lat1).abs().to_radians();
-
-                        let bit_unit_area = avg_width * height;
-                        Some(bit_unit_area * bit_count as f64)
-                    } else {
-                        None
-                    }
-                })
-                .sum(),
-        }
+    journey_bitmap.peek_tile_without_updating_cache(tile_key, |tile| match tile {
+        None => 0.,
+        Some(tile) => tile
+            .iter()
+            .map(|(block_key, block)| block_area_m2(tile_key, &block_key, block.count()))
+            .sum(),
     })
 }
 

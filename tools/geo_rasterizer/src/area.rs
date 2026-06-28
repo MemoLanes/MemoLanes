@@ -4,12 +4,13 @@
 
 use std::collections::BTreeMap;
 
-use geo_data_format::{GeoEntityId, GeoEntityKind, TileMembership};
+use geo_data_format::{
+    cell_index, tile_index, GeoEntityId, GeoEntityKind, TileMembership, TILE_GRID_WIDTH,
+};
 
 use crate::entities::EntityModel;
 use crate::projection::block_area_m2;
 
-const MAP_WIDTH: usize = 512;
 const TILE_WIDTH: usize = 128;
 
 pub fn populate_total_areas(
@@ -23,14 +24,14 @@ pub fn populate_total_areas(
     // instead of re-evaluating sinh/atan/cos for every cell of every tile
     // (~1.8 B evals per POV). The lookup feeds the same accumulation order, so
     // the result is bit-identical to the per-cell computation.
-    let row_area: Vec<f64> = (0..MAP_WIDTH as i64 * TILE_WIDTH as i64)
+    let row_area: Vec<f64> = (0..TILE_GRID_WIDTH as i64 * TILE_WIDTH as i64)
         .map(|by| block_area_m2(0, by))
         .collect();
 
     let mut country_areas: BTreeMap<GeoEntityId, f64> = BTreeMap::new();
-    for ty in 0..MAP_WIDTH {
-        for tx in 0..MAP_WIDTH {
-            let tile_idx = ty * MAP_WIDTH + tx;
+    for tx in 0..TILE_GRID_WIDTH {
+        for ty in 0..TILE_GRID_WIDTH {
+            let tile_idx = tile_index(tx as u16, ty as u16);
             match &tile_lookup[tile_idx] {
                 TileMembership::None => {}
                 TileMembership::Single(id) => {
@@ -51,7 +52,8 @@ pub fn populate_total_areas(
                     for byo in 0..TILE_WIDTH {
                         let by = ty * TILE_WIDTH + byo;
                         for bxo in 0..TILE_WIDTH {
-                            let cell = &blocks[byo * TILE_WIDTH + bxo];
+                            // Weight by row `byo`, so index the cell at (x=bxo, y=byo).
+                            let cell = &blocks[cell_index(bxo as u8, byo as u8)];
                             if let Some(id) = cell {
                                 *country_areas.entry(*id).or_default() += row_area[by];
                             }

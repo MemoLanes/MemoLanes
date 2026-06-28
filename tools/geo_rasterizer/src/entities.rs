@@ -1,7 +1,7 @@
 //! Build the deterministic entity list (continents + countries collapsed
 //! by ADM0_A3) from parsed Natural Earth features.
 //!
-//! TODO(geo-C): ids come from the frozen registry (the union across all
+//! TODO: ids come from the frozen registry (the union across all
 //! POV files), so this stays unchanged for Phase 2 base+delta.
 
 use std::collections::BTreeMap;

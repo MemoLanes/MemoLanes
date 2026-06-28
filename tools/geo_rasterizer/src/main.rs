@@ -198,7 +198,7 @@ fn rasterize_one(
     // 5. Areas.
     populate_total_areas(&mut model, &tile_lookup, &block_lookup);
 
-    // TODO(geo-C): Phase 2 — instead of one bin per run, iterate the
+    // TODO: Phase 2 — instead of one bin per run, iterate the
     // shipped POV files and emit a shared base + per-POV delta sections.
     // The registry already gives cross-POV-stable ids.
 

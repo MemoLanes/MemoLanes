@@ -102,8 +102,8 @@ impl Pov {
 /// The worldview list shipped in every `geo_data.bin`, derived from [`Pov::ALL`].
 ///
 /// Authoring/rasterizer-side only. The RUNTIME must read the embedded list via
-/// `GeoLookupTable::worldviews()`, never this — under geo-C the embedded list
-/// may diverge from the build-time POV set.
+/// `GeoLookupTable::worldviews()`, never this — the embedded list may diverge
+/// from the build-time POV set.
 pub fn shipped_worldviews() -> Vec<Worldview> {
     Pov::ALL
         .iter()
