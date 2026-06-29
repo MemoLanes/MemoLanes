@@ -114,10 +114,16 @@ class _LayerPopupContentState extends State<LayerPopupContent> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            FaIcon(
-              icon,
-              color: isActive ? StyleConstants.defaultColor : Colors.white70,
-              size: 16,
+            SizedBox(
+              width: 20,
+              child: Center(
+                child: FaIcon(
+                  icon,
+                  color:
+                      isActive ? StyleConstants.defaultColor : Colors.white70,
+                  size: 16,
+                ),
+              ),
             ),
             const SizedBox(width: 8),
             Text(

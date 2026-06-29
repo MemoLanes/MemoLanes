@@ -1,5 +1,5 @@
 use crate::api::import::ImportPreprocessor;
-use crate::export_data::JOURNEY_TYPE_NAME;
+use crate::export_data::gpx::JOURNEY_TYPE_NAME;
 use anyhow::Result;
 use chrono::Datelike;
 use quick_xml::events::{BytesText, Event};
@@ -56,12 +56,13 @@ fn normalize_gpx_time_with(xml: &str, normalizer: TimeNormalizer) -> Result<Stri
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(e)) if e.name().as_ref() == b"time" => {
                 let raw = reader.read_text(e.name())?;
+                let raw = raw.decode()?;
                 let normalized = match normalizer(&raw) {
                     Some(v) => {
                         modified = true;
                         v
                     }
-                    None => raw.parse()?,
+                    None => raw.into_owned(),
                 };
 
                 writer.write_event(Event::Start(e.to_owned()))?;

@@ -5,7 +5,7 @@ use std::{ffi::OsStr, path::Path};
 
 use anyhow::{Context, Result};
 use auto_context::auto_context;
-use chrono::{DateTime, Local, NaiveDate, Utc};
+use chrono::{DateTime, FixedOffset, Local, NaiveDate, Utc};
 use flutter_rust_bridge::frb;
 
 use super::api;
@@ -37,6 +37,20 @@ pub struct RawVectorData {
     data: Vec<Vec<RawData>>,
 }
 
+fn parse_fwss_snapshot_time_from_filename(file_path: &str) -> Option<DateTime<FixedOffset>> {
+    let stem = Path::new(file_path).file_stem()?.to_str()?;
+    let timestamp = match stem.split_once('-') {
+        None => stem,
+        Some((prefix, timestamp)) => {
+            if !prefix.eq_ignore_ascii_case("snapshot") {
+                return None;
+            };
+            timestamp
+        }
+    };
+    DateTime::parse_from_str(timestamp, "%Y%m%dT%H%M%S%z").ok()
+}
+
 #[auto_context]
 pub fn load_fow_data(file_path: String) -> Result<(JourneyInfo, OpaqueJourneyData)> {
     let extension = Path::new(&file_path)
@@ -50,13 +64,24 @@ pub fn load_fow_data(file_path: String) -> Result<(JourneyInfo, OpaqueJourneyDat
         _ => bail!("Unknown extension {extension:?}"),
     };
 
+    let snapshot_time = match extension.as_deref() {
+        Some("fwss") => parse_fwss_snapshot_time_from_filename(&file_path),
+        _ => None,
+    };
+    let journey_date = snapshot_time
+        .as_ref()
+        .map(|time| time.date_naive())
+        .unwrap_or_else(|| Local::now().date_naive());
+    let end_time = snapshot_time.map(|time| time.with_timezone(&Utc));
+
     let journey_info = JourneyInfo {
-        journey_date: Local::now().date_naive(),
+        journey_date,
         start_time: None,
-        end_time: None,
+        end_time,
         note: None,
         journey_kind: JourneyKind::DefaultKind,
     };
+
     Ok((
         journey_info,
         OpaqueJourneyData::new(JourneyData::Bitmap(journey_bitmap)),
@@ -145,11 +170,7 @@ pub fn process_vector_data(
 
 #[auto_context]
 pub fn is_journey_data_empty(journey_data: &OpaqueJourneyData) -> bool {
-    let journey_data = journey_data.borrow_inner();
-    match *journey_data {
-        JourneyData::Vector(ref vector_data) => vector_data.track_segments.is_empty(),
-        JourneyData::Bitmap(ref bitmap_data) => bitmap_data.is_empty(),
-    }
+    journey_data.borrow_inner().is_empty()
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -212,5 +233,23 @@ impl OpaqueMldxReader {
             .storage
             .with_db_txn(|txn| mldx_reader.import(txn, journey_ids.as_ref()))?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_fwss_snapshot_time_from_filename_is_case_insensitive() {
+        let snapshot_time =
+            parse_fwss_snapshot_time_from_filename("/tmp/sNaPsHoT-20260601T232045+0800.fwss")
+                .unwrap();
+
+        assert_eq!(snapshot_time.date_naive().to_string(), "2026-06-01");
+        assert_eq!(
+            snapshot_time.with_timezone(&Utc).to_rfc3339(),
+            "2026-06-01T15:20:45+00:00"
+        );
     }
 }

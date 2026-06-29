@@ -12,6 +12,7 @@ mod frb_generated; /* AUTO INJECTED BY flutter_rust_bridge. This line may not be
 #[rustfmt::skip]
 pub mod build_info;
 
+pub mod achievement;
 pub mod api;
 pub mod archive;
 pub mod cache_db;
@@ -25,10 +26,10 @@ pub mod journey_bitmap;
 pub mod journey_data;
 pub mod journey_date_picker;
 pub mod journey_header;
+pub mod journey_snapshot;
 pub mod journey_vector;
 mod logs;
 pub mod main_db;
-pub mod merged_journey_builder;
 mod protos;
 pub mod renderer;
 pub mod storage;

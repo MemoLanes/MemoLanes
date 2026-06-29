@@ -12,6 +12,7 @@ class MMKVKey {
   static const String mapStyle = "mapStyle";
   static const String requestedBatteryOptimization =
       'Permission.requestedBatteryOptimization';
+  static const String requestedLocation = 'Permission.requestedLocation';
   static const String requestedNotification =
       'Permission.requestedNotification';
   static const String permissionSheetShown = 'Permission.sheetShown';

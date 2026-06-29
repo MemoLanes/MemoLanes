@@ -43,9 +43,9 @@ fn tile_buffer_creation_benchmarks(c: &mut Criterion) {
                     b.iter(|| {
                         std::hint::black_box(
                             map_renderer
-                                .get_tile_buffer(
-                                    *tile_x, // use calculated x coordinate
-                                    *tile_y, // use calculated y coordinate
+                                .get_tile_range_response(
+                                    *tile_x,
+                                    *tile_y,
                                     **zoom,
                                     *width,
                                     *height,

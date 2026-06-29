@@ -95,8 +95,8 @@ fn compute_range_from_txn(
 /// - **Full** (`journey_cache__full`): one bitmap per `LayerKind`, covering all
 ///   journeys in the database.
 ///
-/// Only full-range queries (`from: None, to: None`) are cached. Explicit date
-/// range queries are always computed directly from the main DB without caching.
+/// Only full-range queries (`range: None`) are cached. Explicit date range
+/// queries are always computed directly from the main DB without caching.
 pub struct CacheDbV1 {
     conn: Connection,
 }
@@ -143,16 +143,15 @@ impl CacheDb for CacheDbV1 {
         &self,
         txn: &main_db::Txn,
         layer_kind: &LayerKind,
-        from: Option<NaiveDate>,
-        to: Option<NaiveDate>,
+        range: Option<(NaiveDate, NaiveDate)>,
     ) -> Result<JourneyBitmap> {
-        match (from, to) {
-            (Some(f), Some(t)) => {
-                debug_assert!(f <= t);
+        match range {
+            Some((from, to)) => {
+                debug_assert!(from <= to);
                 // Explicit range: compute directly, no caching.
-                compute_range_from_txn(txn, f, t, layer_kind)
+                compute_range_from_txn(txn, from, to, layer_kind)
             }
-            (None, None) => {
+            None => {
                 // Full range: use cache.
                 if let Some(bm) = Self::get_full(&self.conn, layer_kind)? {
                     return Ok(bm);
@@ -165,7 +164,6 @@ impl CacheDb for CacheDbV1 {
                             bm.merge(self.get_or_compute(
                                 txn,
                                 &LayerKind::JourneyKind(jk),
-                                None,
                                 None,
                             )?);
                         }
@@ -183,7 +181,6 @@ impl CacheDb for CacheDbV1 {
                 Self::set_full(&self.conn, layer_kind, &mut result)?;
                 Ok(result)
             }
-            _ => bail!("from and to must both be Some or both be None"),
         }
     }
 

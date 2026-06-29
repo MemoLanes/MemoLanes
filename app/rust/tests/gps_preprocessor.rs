@@ -163,7 +163,7 @@ fn run_though_test_data(name: &str) -> HashMap<ProcessResult, i32> {
             "./tests/for_inspection/gps_preprocessor_run_though_test_data_{name}.gpx"
         ))
         .unwrap();
-        export_data::journey_vector_to_gpx_file(&journey_vector, &mut file).unwrap();
+        export_data::gpx::journey_vector_to_gpx_file(&journey_vector, &mut file).unwrap();
     };
 
     counter

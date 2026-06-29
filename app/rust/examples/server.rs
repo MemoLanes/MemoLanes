@@ -4,7 +4,7 @@ use memolanes_core::renderer::MapRenderer;
 mod shared;
 use shared::MapServer;
 
-use rand::Rng;
+use rand::RngExt;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;

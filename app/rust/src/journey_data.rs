@@ -166,6 +166,16 @@ impl JourneyData {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        match self {
+            JourneyData::Vector(vector) => vector
+                .track_segments
+                .iter()
+                .all(|segment| segment.track_points.is_empty()),
+            JourneyData::Bitmap(bitmap) => bitmap.is_empty(),
+        }
+    }
+
     pub fn serialize<T: Write>(&mut self, writer: T) -> Result<()> {
         match self {
             JourneyData::Vector(vector) => serialize_journey_vector(vector, writer)?,

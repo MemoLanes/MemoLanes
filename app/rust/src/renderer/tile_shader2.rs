@@ -1,3 +1,5 @@
+use journey_kernel::bitmap2d::BitMap2D;
+
 use crate::journey_bitmap::{Block, BlockKey, JourneyBitmap, TileKey};
 use crate::journey_bitmap::{BITMAP_WIDTH, BITMAP_WIDTH_OFFSET, TILE_WIDTH_OFFSET};
 
@@ -7,16 +9,15 @@ const TILE_ZOOM: i16 = 9;
 pub struct TileShader2;
 
 impl TileShader2 {
-    pub fn get_pixels_coordinates(
-        start_x: u32,
-        start_y: u32,
+    pub fn render_tile_bitmap(
         journey_bitmap: &mut JourneyBitmap,
         view_x: i64,
         view_y: i64,
         zoom: i16,
         buffer_size_power: i16,
-    ) -> Vec<(i64, i64)> {
-        let mut pixels = Vec::new();
+    ) -> BitMap2D {
+        let mut bitmap = BitMap2D::new(buffer_size_power as u8);
+        let side = bitmap.side() as i64;
 
         // https://developers.google.com/maps/documentation/javascript/coordinates
         let zoom_diff_view_to_tile = zoom - TILE_ZOOM;
@@ -37,15 +38,9 @@ impl TileShader2 {
         // when zoom_diff_view_to_tile < 0, a view contains multiple tiles.
         for i in 0..(1 << std::cmp::max(-zoom_diff_view_to_tile, 0)) {
             for j in 0..(1 << std::cmp::max(-zoom_diff_view_to_tile, 0)) {
-                // draw tile tile_x+i, tile_y+j
-
                 let tile_key = TileKey::new((tile_x + i) as u16, (tile_y + j) as u16);
 
                 if journey_bitmap.contains_tile(&tile_key) {
-                    // if zoom_diff_view_to_tile > 0, view zoom larger, view region smaller, draw a portion of a single tile.
-                    // if zoom_diff_view_to_tile < 0, view zoom smaller, view region larger, draw the full tile at given location of view.
-
-                    // tile_width in pixels
                     let zoom_factor = std::cmp::max(0, zoom_diff_view_to_tile);
                     let (sub_tile_x_idx, sub_tile_y_idx) = if zoom_factor > 0 {
                         let mask = (1 << zoom_factor) - 1;
@@ -62,12 +57,13 @@ impl TileShader2 {
                     } else {
                         (i >> -tile_width_power, j >> -tile_width_power)
                     };
-                    Self::add_tile_pixels(
-                        &mut pixels,
+                    Self::add_tile_bits(
+                        &mut bitmap,
+                        side,
                         journey_bitmap,
                         &tile_key,
-                        start_x as i64 + x0,
-                        start_y as i64 + y0,
+                        x0,
+                        y0,
                         sub_tile_x_idx,
                         sub_tile_y_idx,
                         zoom_factor,
@@ -78,13 +74,13 @@ impl TileShader2 {
             }
         }
 
-        pixels
+        bitmap
     }
 
     #[allow(clippy::too_many_arguments)]
-    /// This requires `tile_key` to exist in `journey_bitmap`.
-    fn add_tile_pixels(
-        pixels: &mut Vec<(i64, i64)>,
+    fn add_tile_bits(
+        bitmap: &mut BitMap2D,
+        side: i64,
         journey_bitmap: &mut JourneyBitmap,
         tile_key: &TileKey,
         start_x: i64,
@@ -113,12 +109,11 @@ impl TileShader2 {
         );
 
         if size_power <= 0 {
-            // the tile only occupies at most one pixel, so we don't have to access the tile.
-            pixels.push((start_x, start_y));
+            if start_x >= 0 && start_x < side && start_y >= 0 && start_y < side {
+                bitmap.set(start_x as usize, start_y as usize, true);
+            }
         } else {
-            // the tile occupies more than one pixel, currently all the blocks will be used to render。
-
-            let block_num_power = TILE_WIDTH_OFFSET - zoom_factor; // number of block in a row of the view
+            let block_num_power = TILE_WIDTH_OFFSET - zoom_factor;
             let (block_start_x, block_start_y) = if block_num_power >= 0 {
                 (
                     sub_tile_x_idx << block_num_power,
@@ -141,12 +136,9 @@ impl TileShader2 {
             let block_width_power = size_power - block_num_power;
             let block_size_power = std::cmp::min(block_width_power, buffer_size_power);
 
-            // we already checked that tile exists
             let tile_info = if block_size_power <= 0 {
-                // we only need `TileSummary`
                 either::Left(journey_bitmap.get_tile_summary(tile_key).unwrap())
             } else {
-                // we need full `Tile`
                 either::Right(journey_bitmap.get_tile(tile_key).unwrap())
             };
 
@@ -163,14 +155,20 @@ impl TileShader2 {
                     let block_start_y = start_y + offset_y;
                     match &tile_info {
                         either::Left(tile_summary) => {
-                            if tile_summary.contains_block(&block_key) {
-                                pixels.push((block_start_x, block_start_y));
+                            if tile_summary.contains_block(&block_key)
+                                && block_start_x >= 0
+                                && block_start_x < side
+                                && block_start_y >= 0
+                                && block_start_y < side
+                            {
+                                bitmap.set(block_start_x as usize, block_start_y as usize, true);
                             }
                         }
                         either::Right(tile) => {
                             if let Some(block) = tile.get(&block_key) {
-                                Self::add_block_pixels(
-                                    pixels,
+                                Self::add_block_bits(
+                                    bitmap,
+                                    side,
                                     block,
                                     block_start_x,
                                     block_start_y,
@@ -188,8 +186,9 @@ impl TileShader2 {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn add_block_pixels(
-        pixels: &mut Vec<(i64, i64)>,
+    fn add_block_bits(
+        bitmap: &mut BitMap2D,
+        side: i64,
         block: &Block,
         start_x: i64,
         start_y: i64,
@@ -203,7 +202,7 @@ impl TileShader2 {
             "`size_power <= 0` should already be handled in the caller function"
         );
 
-        let dot_num_power = BITMAP_WIDTH_OFFSET - zoom_factor; // number of block in a row of the view
+        let dot_num_power = BITMAP_WIDTH_OFFSET - zoom_factor;
 
         let (dot_start_x, dot_start_y) = if dot_num_power >= 0 {
             (
@@ -231,8 +230,9 @@ impl TileShader2 {
                     } else {
                         (i >> -block_dot_width_power, j >> -block_dot_width_power)
                     };
-                    Self::add_rect_pixels(
-                        pixels,
+                    Self::set_rect_bits(
+                        bitmap,
+                        side,
                         start_x + offset_x,
                         start_y + offset_y,
                         block_dot_width,
@@ -243,10 +243,14 @@ impl TileShader2 {
         }
     }
 
-    fn add_rect_pixels(pixels: &mut Vec<(i64, i64)>, x: i64, y: i64, w: i64, h: i64) {
-        for i in x..(x + w) {
-            for j in y..(y + h) {
-                pixels.push((i, j));
+    fn set_rect_bits(bitmap: &mut BitMap2D, side: i64, x: i64, y: i64, w: i64, h: i64) {
+        let x_end = std::cmp::min(x + w, side);
+        let y_end = std::cmp::min(y + h, side);
+        let x_start = std::cmp::max(x, 0);
+        let y_start = std::cmp::max(y, 0);
+        for py in y_start..y_end {
+            for px in x_start..x_end {
+                bitmap.set(px as usize, py as usize, true);
             }
         }
     }

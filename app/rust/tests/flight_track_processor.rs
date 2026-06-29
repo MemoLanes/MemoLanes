@@ -22,7 +22,7 @@ fn run_tests() {
             import_data::load_kml(&format!("./tests/data/flight_{name}.kml")).unwrap();
         let result = flight_track_processor::process(&loaded_data).unwrap();
         let mut gpx = Vec::new();
-        export_data::journey_vector_to_gpx_file(&result, &mut Cursor::new(&mut gpx)).unwrap();
+        export_data::gpx::journey_vector_to_gpx_file(&result, &mut Cursor::new(&mut gpx)).unwrap();
         verify_gpx(name, &gpx);
         if GENERATE_RESULT_GPX_FOR_INSPECTION {
             let mut file = File::create(format!(
@@ -47,7 +47,7 @@ fn verify_gpx(name: &str, gpx_data: &[u8]) {
     // Calculate hash of the gpx file
     let mut hasher = Sha256::new();
     hasher.update(gpx_data);
-    let current_hash = format!("{:x}", hasher.finalize());
+    let current_hash = hex::encode(hasher.finalize());
 
     if let Some(stored_hash) = hash_table.get(name) {
         // Entry exists, compare hashes

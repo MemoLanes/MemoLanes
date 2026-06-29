@@ -1,9 +1,10 @@
-import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:webview_flutter/webview_flutter.dart';
 
 class RenderDiagnosticsPage extends StatefulWidget {
   const RenderDiagnosticsPage({super.key});
@@ -13,122 +14,46 @@ class RenderDiagnosticsPage extends StatefulWidget {
 }
 
 class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
-  late final WebViewController _controller;
+  InAppWebViewController? _controller;
   late final api.MapRendererProxy _mapRendererProxy;
 
   @override
   void initState() {
     super.initState();
-
-    // Create an empty map renderer proxy for handling webview requests
     _mapRendererProxy = api.getEmptyMapRendererProxy();
-
-    // Initialize the WebView controller
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setOnConsoleMessage((JavaScriptConsoleMessage message) {
-        // Process the console message here
-        debugPrint('[${message.level.name}] ${message.message}');
-
-        // You can perform various actions based on the message,
-        // such as displaying it in your Flutter UI, logging it to a file, etc.
-      })
-      // Add JavaScript channel for IPC communication
-      ..addJavaScriptChannel(
-        'RenderDiagnosticsChannel',
-        onMessageReceived: (JavaScriptMessage message) {
-          _handleIpcRequest(message.message);
-        },
-      )
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageStarted: (String url) {
-            debugPrint('Page started loading: $url');
-          },
-          onPageFinished: (String url) {
-            debugPrint('Page finished loading: $url');
-            // Inject the API endpoint after page loads
-            _injectApiEndpoint();
-          },
-          onWebResourceError: (WebResourceError error) {
-            debugPrint('WebView error: ${error.description}');
-          },
-        ),
-      )
-      ..loadFlutterAsset('assets/map_webview/render_diagnostics.html');
   }
 
-  void _handleIpcRequest(String message) async {
-    final startTime = DateTime.now().microsecondsSinceEpoch;
+  Future<void> _onWebViewCreated(InAppWebViewController controller) async {
+    _controller = controller;
+    await controller.loadFile(
+        assetFilePath: 'assets/map_webview/render_diagnostics.html');
+  }
 
-    try {
-      debugPrint('Render Diagnostics Request: $message');
-
-      // Forward the JSON request transparently to Rust via the map renderer proxy
-      final responseJson = await _mapRendererProxy.handleWebviewRequests(
-        request: message,
-      );
-
-      final endTime = DateTime.now().microsecondsSinceEpoch;
-      final processingTimeMs = (endTime - startTime) / 1000;
-      final truncatedResponse = responseJson.length > 100
-          ? '${responseJson.substring(0, 100)}...'
-          : responseJson;
-      debugPrint(
-          'Render Diagnostics Response (${processingTimeMs.toStringAsFixed(1)}ms): $truncatedResponse');
-
-      // Send the JSON response as a JavaScript object (no escaping needed)
-      final jsStartTime = DateTime.now().microsecondsSinceEpoch;
-      await _controller.runJavaScript('''
-        if (typeof window.handle_RenderDiagnosticsChannel_JsonResponse === 'function') {
-          const responseData = $responseJson;
-          window.handle_RenderDiagnosticsChannel_JsonResponse(responseData);
-        } else {
-          console.error('No RenderDiagnostics JSON response handler found');
-          console.log('Raw response:', $responseJson);
-        }
-      ''');
-      final jsEndTime = DateTime.now().microsecondsSinceEpoch;
-      final jsTimeMs = (jsEndTime - jsStartTime) / 1000;
-
-      debugPrint(
-          'Render Diagnostics Timing - JS execution: ${jsTimeMs.toStringAsFixed(1)}ms');
-    } catch (e) {
-      debugPrint('Error processing Render Diagnostics IPC request: $e');
-
-      // Create error response in same format as Rust would
-      final errorResponse = jsonEncode({
-        'requestId': 'unknown',
-        'success': false,
-        'data': null,
-        'error': 'IPC processing error: $e'
-      });
-
-      final errorJsStartTime = DateTime.now().microsecondsSinceEpoch;
-      await _controller.runJavaScript('''
-        if (typeof window.handle_RenderDiagnosticsChannel_JsonResponse === 'function') {
-          const errorData = $errorResponse;
-          window.handle_RenderDiagnosticsChannel_JsonResponse(errorData);
-        } else {
-          console.error('Error handling failed - no handler found');
-        }
-      ''');
-      final errorJsEndTime = DateTime.now().microsecondsSinceEpoch;
-      final errorJsTimeMs = (errorJsEndTime - errorJsStartTime) / 1000;
-
-      debugPrint(
-          'Render Diagnostics Error Timing - JS execution: ${errorJsTimeMs.toStringAsFixed(1)}ms');
-    }
+  Future<({int status, Uint8List body, String contentType, Map<String, String> headers})>
+      _handleInterceptedRequest(WebUri url) async {
+    final path = url.path.replaceFirst(RegExp(r'^/?(api/)?'), '');
+    final result = await _mapRendererProxy.handleRequest(
+      path: path,
+      queryParams: url.queryParameters,
+    );
+    return (
+      status: result.status,
+      body: result.body,
+      contentType: result.contentType,
+      headers: result.headers,
+    );
   }
 
   Future<void> _injectApiEndpoint() async {
-    await _controller.runJavaScript('''
-      // Set the params using the new unified API structure
+    final cgiEndpoint = Platform.isIOS
+        ? 'memolanes://api'
+        : 'https://memolanes.local/api';
+
+    await _controller?.evaluateJavascript(source: '''
       window.EXTERNAL_PARAMS = {
-        cgi_endpoint: "flutter://RenderDiagnosticsChannel"
+        cgi_endpoint: "$cgiEndpoint"
       };
       
-      // Check if JS is ready and trigger initialization if so
       if (typeof window.SETUP_PENDING !== 'undefined' && window.SETUP_PENDING) {
         console.log("JS already ready, triggering initialization");
         if (typeof trySetup === 'function') {
@@ -151,7 +76,63 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
       appBar: CapsuleStyleAppBar(
         title: context.tr("general.advanced_settings.render_diagnostics"),
       ),
-      body: WebViewWidget(controller: _controller),
+      body: InAppWebView(
+        initialSettings: InAppWebViewSettings(
+          javaScriptEnabled: true,
+          allowFileAccessFromFileURLs: true,
+          allowUniversalAccessFromFileURLs: true,
+          resourceCustomSchemes: ['memolanes'],
+        ),
+        onWebViewCreated: (controller) {
+          _onWebViewCreated(controller);
+        },
+        onLoadResourceWithCustomScheme: (controller, request) async {
+          final result =
+              await _handleInterceptedRequest(request.url);
+          return CustomSchemeResponse(
+            data: result.body,
+            contentType: result.contentType,
+            contentEncoding: 'utf-8',
+            statusCode: result.status,
+            headers: {
+              'Content-Type': result.contentType,
+              ...result.headers,
+            },
+          );
+        },
+        shouldInterceptRequest: (controller, request) async {
+          final url = request.url.toString();
+          if (!url.startsWith('https://memolanes.local/api/')) {
+            return null;
+          }
+          final result =
+              await _handleInterceptedRequest(request.url);
+          return WebResourceResponse(
+            contentType: result.contentType,
+            contentEncoding: 'utf-8',
+            data: result.body,
+            statusCode: result.status,
+            reasonPhrase: result.status == 200 ? 'OK' : 'Not Modified',
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Expose-Headers': 'X-Tile-Version, X-Not-Modified',
+              'Content-Type': result.contentType,
+              ...result.headers,
+            },
+          );
+        },
+        onLoadStop: (controller, url) {
+          debugPrint('Page finished loading: $url');
+          _injectApiEndpoint();
+        },
+        onConsoleMessage: (controller, consoleMessage) {
+          debugPrint(
+              '[${consoleMessage.messageLevel.name}] ${consoleMessage.message}');
+        },
+        onReceivedError: (controller, request, error) {
+          debugPrint('WebView error: ${error.description}');
+        },
+      ),
     );
   }
 }

@@ -1,3 +1,40 @@
+// MemoLanes archive files (`.mldx`) are ZIP containers with one metadata entry
+// and one entry per journey section.
+//
+//      archive.mldx
+//      |
+//      +-- metadata.xxm or metadata.mldm
+//      |     "MLM"
+//      |     version: u8
+//      |     length of next block: varint
+//      |     Metadata protobuf, zstd-compressed
+//      |
+//      +-- <section_id>
+//      |     "MLS"
+//      |     version: u8
+//      |     length of next block: varint
+//      |     SectionHeader protobuf, zstd-compressed
+//      |     ...
+//
+// Section v1 stores one length-prefixed JourneyData blob per journey:
+//
+//      |     journey data length: varint
+//      |     JourneyData bytes
+//      |     ...
+//
+// Section v2 stores one field-count record per journey:
+//
+//      |     field count: varint
+//      |     field 1 length: varint
+//      |     JourneyData bytes
+//      |     field 2 length: varint
+//      |     future field bytes
+//      |     ...
+//
+// Metadata lists all section ids. Each SectionHeader lists that section's
+// journey headers; the following JourneyData entries appear in the same order.
+// Sections currently group journeys by `journey_date` year/month.
+
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
 use chrono::{Datelike, Utc};
@@ -19,18 +56,40 @@ use crate::{
     protos::archive::{metadata, Metadata, SectionHeader},
 };
 
-/* The persistent exchange data format for finalized journeys.
-   The high level design is: a metadata file + a set of files each contains a
-   data section. Each data section contains a set of journeys for a specific
-   year + month of the journey end time in UTC. The idea is that we have
-   multiple files so the archive could be incrementally updated/synced. Instead
-   of having a journey per file, we do a bit grouping so we don't end up with
-   a lot of small files and by using end time as the key, most changes only need
-   to update the latest file.
-*/
-
 const METADATA_MAGIC_HEADER: [u8; 3] = [b'M', b'L', b'M'];
 const SECTION_MAGIC_HEADER: [u8; 3] = [b'M', b'L', b'S'];
+const METADATA_VERSION: u8 = 1;
+const METADATA_FILE_NAME_OLD: &str = "metadata.xxm";
+const METADATA_FILE_NAME_NEW: &str = "metadata.mldm";
+const SECTION_V2_JOURNEY_DATA_FIELD_COUNT: u64 = 1;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum SectionVersion {
+    V1 = 1,
+    V2 = 2,
+}
+
+impl SectionVersion {
+    fn of_u8(version: u8) -> Result<Self> {
+        match version {
+            1 => Ok(SectionVersion::V1),
+            2 => Ok(SectionVersion::V2),
+            _ => bail!("Unsupported section version: {version}"),
+        }
+    }
+
+    fn to_u8(self) -> u8 {
+        self as u8
+    }
+
+    fn metadata_file_name(self) -> &'static str {
+        match self {
+            SectionVersion::V1 => METADATA_FILE_NAME_OLD,
+            SectionVersion::V2 => METADATA_FILE_NAME_NEW,
+        }
+    }
+}
 
 // TODO: support incremetnal archiving by loading the previous metadata, we need
 // this for syncing.
@@ -54,10 +113,75 @@ pub struct MldxReader<R: Read + Seek> {
     journey_id_to_section_id: HashMap<String, String>,
 }
 
+fn read_bytes_with_size_header<T: Read>(reader: &mut T) -> Result<Vec<u8>> {
+    let len: u64 = reader.read_varint()?;
+    let len = usize::try_from(len)?;
+    let mut buf = vec![0_u8; len];
+    reader.read_exact(&mut buf)?;
+    Ok(buf)
+}
+
+fn skip_bytes_with_size_header<T: Read>(reader: &mut T) -> Result<()> {
+    let len: u64 = reader.read_varint()?;
+    let copied = std::io::copy(&mut reader.by_ref().take(len), &mut std::io::sink())?;
+    if copied != len {
+        bail!("Unexpected EOF while skipping {len} bytes, skipped {copied}");
+    }
+    Ok(())
+}
+
+fn read_v2_journey_data_bytes<T: Read>(reader: &mut T) -> Result<Vec<u8>> {
+    let field_count: u64 = reader.read_varint()?;
+    if field_count == 0 {
+        bail!("Missing JourneyData field in section v2 journey record");
+    }
+
+    let journey_data = read_bytes_with_size_header(reader)?;
+    for _ in 1..field_count {
+        skip_bytes_with_size_header(reader)?;
+    }
+    Ok(journey_data)
+}
+
+fn skip_v2_journey_record<T: Read>(reader: &mut T) -> Result<()> {
+    let field_count: u64 = reader.read_varint()?;
+    for _ in 0..field_count {
+        skip_bytes_with_size_header(reader)?;
+    }
+    Ok(())
+}
+
+fn read_journey_data_bytes<T: Read>(
+    reader: &mut T,
+    section_version: SectionVersion,
+) -> Result<Vec<u8>> {
+    match section_version {
+        SectionVersion::V1 => read_bytes_with_size_header(reader),
+        SectionVersion::V2 => read_v2_journey_data_bytes(reader),
+    }
+}
+
+fn skip_journey_record<T: Read>(reader: &mut T, section_version: SectionVersion) -> Result<()> {
+    match section_version {
+        SectionVersion::V1 => skip_bytes_with_size_header(reader),
+        SectionVersion::V2 => skip_v2_journey_record(reader),
+    }
+}
+
 impl<R: Read + Seek> MldxReader<R> {
     #[auto_context]
     fn read_metadata(zip: &mut zip::ZipArchive<R>) -> Result<Metadata> {
-        let mut file = zip.by_name("metadata.xxm")?;
+        let metadata_file_index = zip
+            .index_for_name(METADATA_FILE_NAME_NEW)
+            .or_else(|| zip.index_for_name(METADATA_FILE_NAME_OLD))
+            .ok_or_else(|| {
+                anyhow!(
+                    "Missing metadata file ({} or {})",
+                    METADATA_FILE_NAME_NEW,
+                    METADATA_FILE_NAME_OLD
+                )
+            })?;
+        let mut file = zip.by_index(metadata_file_index)?;
         let mut magic_header: [u8; 3] = [0; 3];
         file.read_exact(&mut magic_header)?;
         if magic_header != METADATA_MAGIC_HEADER {
@@ -69,6 +193,13 @@ impl<R: Read + Seek> MldxReader<R> {
         };
         let mut version_number: [u8; 1] = [0; 1];
         file.read_exact(&mut version_number)?;
+        if version_number[0] != METADATA_VERSION {
+            bail!(
+                "Unsupported metadata version: {}, expected: {}",
+                version_number[0],
+                METADATA_VERSION
+            );
+        }
 
         let len: u64 = file.read_varint()?;
         let mut decoder = zstd::Decoder::new(file.take(len))?;
@@ -77,7 +208,7 @@ impl<R: Read + Seek> MldxReader<R> {
     }
 
     #[auto_context]
-    fn read_section_header(file: &mut impl Read) -> Result<SectionHeader> {
+    fn read_section_header(file: &mut impl Read) -> Result<(SectionVersion, SectionHeader)> {
         let mut magic_header: [u8; 3] = [0; 3];
         file.read_exact(&mut magic_header)?;
         if magic_header != SECTION_MAGIC_HEADER {
@@ -89,10 +220,12 @@ impl<R: Read + Seek> MldxReader<R> {
         };
         let mut version_number: [u8; 1] = [0; 1];
         file.read_exact(&mut version_number)?;
+        let section_version = SectionVersion::of_u8(version_number[0])?;
+
         let len: u64 = file.read_varint()?;
         let mut decoder = zstd::Decoder::new(file.by_ref().take(len))?;
         let section_header: SectionHeader = Message::parse_from_reader(&mut decoder)?;
-        Ok(section_header)
+        Ok((section_version, section_header))
     }
 
     #[auto_context]
@@ -105,7 +238,7 @@ impl<R: Read + Seek> MldxReader<R> {
         let mut journey_id_to_section_id = HashMap::new();
         for section_info in &metadata.section_infos {
             let mut file = zip.by_name(&section_info.section_id)?;
-            let section_header = Self::read_section_header(&mut file)?;
+            let (_, section_header) = Self::read_section_header(&mut file)?;
             drop(file);
             for header in section_header.journey_headers {
                 let journey_header = JourneyHeader::of_proto(header)?;
@@ -138,18 +271,16 @@ impl<R: Read + Seek> MldxReader<R> {
             None => return Ok(None),
         };
         let mut file = self.zip.by_name(&section_id)?;
-        let section_header = Self::read_section_header(&mut file)?;
+        let (section_version, section_header) = Self::read_section_header(&mut file)?;
         for header in section_header.journey_headers {
-            let data_len: u64 = file.read_varint()?;
             if header.id == journey_id {
                 let journey_header = JourneyHeader::of_proto(header)?;
-                let mut buf = vec![0_u8; data_len as usize];
-                file.read_exact(&mut buf)?;
+                let buf = read_journey_data_bytes(&mut file, section_version)?;
                 let journey_data =
                     JourneyData::deserialize(buf.as_slice(), journey_header.journey_type, true)?;
                 return Ok(Some((journey_header, journey_data)));
             } else {
-                std::io::copy(&mut file.by_ref().take(data_len), &mut std::io::sink())?;
+                skip_journey_record(&mut file, section_version)?;
             }
         }
         Ok(None)
@@ -169,9 +300,8 @@ impl<R: Read + Seek> MldxReader<R> {
         };
         for section_id in self.metadata.section_infos.iter().map(|s| &s.section_id) {
             let mut file = self.zip.by_name(section_id)?;
-            let section_header = Self::read_section_header(&mut file)?;
+            let (section_version, section_header) = Self::read_section_header(&mut file)?;
             for header in section_header.journey_headers {
-                let data_len: u64 = file.read_varint()?;
                 let journey_header = JourneyHeader::of_proto(header)?;
 
                 let ignore = match selected_journey_ids {
@@ -199,8 +329,7 @@ impl<R: Read + Seek> MldxReader<R> {
                 };
 
                 if need_to_import {
-                    let mut buf = vec![0_u8; data_len as usize];
-                    file.read_exact(&mut buf)?;
+                    let buf = read_journey_data_bytes(&mut file, section_version)?;
                     let journey_data = JourneyData::deserialize(
                         buf.as_slice(),
                         journey_header.journey_type,
@@ -209,7 +338,7 @@ impl<R: Read + Seek> MldxReader<R> {
                     txn.insert_journey(journey_header, journey_data)?;
                     result.imported_count += 1;
                 } else {
-                    std::io::copy(&mut file.by_ref().take(data_len), &mut std::io::sink())?;
+                    skip_journey_record(&mut file, section_version)?;
                 }
             }
         }
@@ -236,6 +365,11 @@ fn write_bytes_with_size_header<T: Write>(writer: &mut T, buf: &[u8]) -> Result<
     Ok(())
 }
 
+fn write_v2_journey_record<T: Write>(writer: &mut T, journey_data: &[u8]) -> Result<()> {
+    writer.write_all(&SECTION_V2_JOURNEY_DATA_FIELD_COUNT.encode_var_vec())?;
+    write_bytes_with_size_header(writer, journey_data)
+}
+
 fn write_proto_as_compressed_block<W: Write, M: protobuf::Message>(
     writer: &mut W,
     message: M,
@@ -246,31 +380,63 @@ fn write_proto_as_compressed_block<W: Write, M: protobuf::Message>(
     write_bytes_with_size_header(writer, &buf)
 }
 
-pub enum WhatToExport {
-    All,
-    Just(String),
+#[auto_context]
+pub fn export_all_journeys_as_mldx<T: Write + Seek>(
+    txn: &main_db::Txn,
+    writer: &mut T,
+    section_version: SectionVersion,
+) -> Result<()> {
+    let journey_headers = txn.query_journeys(None, None)?;
+    write_mldx(
+        journey_headers,
+        |journey_id| txn.get_journey_data(journey_id),
+        writer,
+        section_version,
+    )
 }
 
 #[auto_context]
-pub fn export_as_mldx<T: Write + Seek>(
-    what_to_export: &WhatToExport,
-    txn: &main_db::Txn,
+pub fn export_single_journey_as_mldx<T: Write + Seek>(
+    journey_header: JourneyHeader,
+    journey_data: JourneyData,
     writer: &mut T,
+    section_version: SectionVersion,
 ) -> Result<()> {
-    let journey_to_export = match what_to_export {
-        WhatToExport::All => txn.query_journeys(None, None)?,
-        WhatToExport::Just(journey_id) => {
-            let journey_header = txn
-                .get_journey_header(journey_id)?
-                .ok_or_else(|| anyhow!("Failed to find journy, journey_id = {journey_id}"))?;
-            vec![journey_header]
-        }
-    };
+    let expected_journey_id = journey_header.id.clone();
+    let mut journey_data = Some(journey_data);
+    write_mldx(
+        vec![journey_header],
+        |journey_id| {
+            if journey_id != expected_journey_id {
+                bail!(
+                    "Unexpected journey id, expected: {}, got: {}",
+                    expected_journey_id,
+                    journey_id
+                );
+            }
+            journey_data
+                .take()
+                .ok_or_else(|| anyhow!("Journey data has already been written"))
+        },
+        writer,
+        section_version,
+    )
+}
 
+fn write_mldx<T, F>(
+    journey_headers: Vec<JourneyHeader>,
+    mut load_journey_data: F,
+    writer: &mut T,
+    section_version: SectionVersion,
+) -> Result<()>
+where
+    T: Write + Seek,
+    F: FnMut(&str) -> Result<JourneyData>,
+{
     // group journeys into sections and sort them(by end time and tie
     // break by id, the deterministic ordering is important).
     let mut group_by_year_month = HashMap::new();
-    for journey in journey_to_export {
+    for journey in journey_headers {
         let year_month = YearMonth {
             year: journey.journey_date.year() as i16,
             month: journey.journey_date.month() as u8,
@@ -325,10 +491,10 @@ pub fn export_as_mldx<T: Write + Seek>(
         metadata_proto.section_infos.push(section_info)
     }
 
-    zip.start_file("metadata.xxm", default_options)?;
+    zip.start_file(section_version.metadata_file_name(), default_options)?;
     zip.write_all(&METADATA_MAGIC_HEADER)?;
     // version num
-    zip.write_all(&[1])?;
+    zip.write_all(&[METADATA_VERSION])?;
 
     // metadata
     write_proto_as_compressed_block(&mut zip, metadata_proto)?;
@@ -344,7 +510,7 @@ pub fn export_as_mldx<T: Write + Seek>(
         zip.start_file(section_id.clone(), default_options)?;
         zip.write_all(&SECTION_MAGIC_HEADER)?;
         // version num
-        zip.write_all(&[1])?;
+        zip.write_all(&[section_version.to_u8()])?;
         // write header
         write_proto_as_compressed_block(&mut zip, section_header)?;
 
@@ -352,15 +518,37 @@ pub fn export_as_mldx<T: Write + Seek>(
         for j in journeys {
             // TODO: maybe we want to just take the bytes from db without doing
             // a roundtrip.
-            let mut journey_data = txn.get_journey_data(&j.id)?;
+            let mut journey_data = load_journey_data(&j.id)?;
             let mut buf = Vec::new();
             journey_data.serialize(&mut buf)?;
-            write_bytes_with_size_header(&mut zip, &buf)?;
+            match section_version {
+                SectionVersion::V1 => write_bytes_with_size_header(&mut zip, &buf)?,
+                SectionVersion::V2 => write_v2_journey_record(&mut zip, &buf)?,
+            }
         }
     }
 
     zip.finish()?;
     Ok(())
+}
+
+#[doc(hidden)]
+pub mod for_testing {
+    use super::*;
+
+    #[auto_context]
+    pub fn section_version_for_journey<R: Read + Seek>(
+        reader: &mut MldxReader<R>,
+        journey_id: &str,
+    ) -> Result<Option<SectionVersion>> {
+        let section_id = match reader.journey_id_to_section_id.get(journey_id) {
+            Some(id) => id.clone(),
+            None => return Ok(None),
+        };
+        let mut file = reader.zip.by_name(&section_id)?;
+        let (section_version, _) = MldxReader::<R>::read_section_header(&mut file)?;
+        Ok(Some(section_version))
+    }
 }
 
 #[cfg(test)]

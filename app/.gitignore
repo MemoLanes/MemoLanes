@@ -1,6 +1,12 @@
 # Flutter webview assets
 assets/map_webview/
 
+# Rasterized output of `just rasterize-geo`, reproducible from the pin in
+# tools/geo_rasterizer/src/download.rs. (The downloaded GeoJSON source lives
+# under tools/geo_rasterizer/natural_earth/ and is ignored there.)
+assets/geo_data*.bin
+assets/geo_data*.bin.tmp
+
 # flutter rust bridge generated files
 lib/src/rust/**/*.dart
 rust/src/frb_generated.*
@@ -48,6 +54,7 @@ app.*.symbols
 app.*.map.json
 
 # Android Studio will place build artifacts here
+/android/build/
 /android/app/debug
 /android/app/profile
 /android/app/release
@@ -56,3 +63,6 @@ app.*.map.json
 /.netrc
 /.env
 /lib/token.dart
+
+# FVM Version Cache
+.fvm/

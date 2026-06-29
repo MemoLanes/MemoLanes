@@ -18,20 +18,28 @@ class PermissionEffect {
   });
 }
 
+class PermissionTileStatus {
+  final bool granted;
+  final bool denied;
+  final bool permanentlyDenied;
+
+  const PermissionTileStatus({
+    required this.granted,
+    this.denied = false,
+    this.permanentlyDenied = false,
+  });
+}
+
 /// Read-only view of OS + MMKV state for the permission sheet tiles.
 class PermissionSnapshot {
-  final bool locationTileGranted;
-  final bool locationPermanentlyDenied;
-  final bool batteryTileGranted;
-  final bool notificationTileGranted;
-  final bool notificationPermanentlyDenied;
+  final PermissionTileStatus location;
+  final PermissionTileStatus battery;
+  final PermissionTileStatus notification;
 
   const PermissionSnapshot({
-    required this.locationTileGranted,
-    required this.locationPermanentlyDenied,
-    required this.batteryTileGranted,
-    required this.notificationTileGranted,
-    required this.notificationPermanentlyDenied,
+    required this.location,
+    required this.battery,
+    required this.notification,
   });
 }
 
@@ -53,13 +61,35 @@ class PermissionService {
     final notificationStatus = await Permission.notification.status;
     final notificationGranted = notificationStatus.isGranted;
     final hasLocation = locStatus.isGranted || locAlwaysStatus.isGranted;
+    final locationRequested =
+        MMKVUtil.getBool(MMKVKey.requestedLocation, defaultValue: false);
+    final batteryRequested = MMKVUtil.getBool(
+      MMKVKey.requestedBatteryOptimization,
+      defaultValue: false,
+    );
+    final notificationRequested = MMKVUtil.getBool(
+      MMKVKey.requestedNotification,
+      defaultValue: false,
+    );
 
     return PermissionSnapshot(
-      locationTileGranted: hasLocation,
-      locationPermanentlyDenied: locStatus.isPermanentlyDenied,
-      batteryTileGranted: batteryGranted,
-      notificationTileGranted: notificationGranted,
-      notificationPermanentlyDenied: notificationStatus.isPermanentlyDenied,
+      location: PermissionTileStatus(
+        granted: hasLocation,
+        denied:
+            !hasLocation && locationRequested && !locStatus.isPermanentlyDenied,
+        permanentlyDenied: locStatus.isPermanentlyDenied,
+      ),
+      battery: PermissionTileStatus(
+        granted: batteryGranted,
+        denied: isAndroid && !batteryGranted && batteryRequested,
+      ),
+      notification: PermissionTileStatus(
+        granted: notificationGranted,
+        denied: !notificationGranted &&
+            notificationRequested &&
+            !notificationStatus.isPermanentlyDenied,
+        permanentlyDenied: notificationStatus.isPermanentlyDenied,
+      ),
     );
   }
 
@@ -106,7 +136,8 @@ class PermissionService {
     var status = await Permission.location.status;
 
     if (status.isPermanentlyDenied) {
-      return [
+      MMKVUtil.putBool(MMKVKey.requestedLocation, true);
+      return const [
         PermissionEffect(
           messageTrKey:
               'location_service.location_permission_permanently_denied',
@@ -116,15 +147,21 @@ class PermissionService {
     }
 
     if (!status.isGranted) {
+      MMKVUtil.putBool(MMKVKey.requestedLocation, true);
       status = await Permission.location.request();
       if (!status.isGranted) {
-        final deniedMessageKey = status.isPermanentlyDenied
-            ? 'location_service.location_permission_permanently_denied'
-            : 'location_service.location_permission_denied';
-        return [
+        if (status.isPermanentlyDenied) {
+          return const [
+            PermissionEffect(
+              messageTrKey:
+                  'location_service.location_permission_permanently_denied',
+              openAppSettings: true,
+            ),
+          ];
+        }
+        return const [
           PermissionEffect(
-            messageTrKey: deniedMessageKey,
-            openAppSettings: status.isPermanentlyDenied,
+            messageTrKey: 'location_service.location_permission_denied',
           ),
         ];
       }
@@ -138,7 +175,9 @@ class PermissionService {
   }
 
   Future<List<PermissionEffect>> runBatteryRequest() async {
-    if (!Platform.isAndroid) return const [];
+    if (!Platform.isAndroid) {
+      return const [];
+    }
 
     final alreadyRequested = MMKVUtil.getBool(
       MMKVKey.requestedBatteryOptimization,
@@ -146,34 +185,20 @@ class PermissionService {
     );
     if (alreadyRequested) {
       final ignoring = await Permission.ignoreBatteryOptimizations.isGranted;
-      if (!ignoring) {
-        return [
-          const PermissionEffect(
-            messageTrKey: 'location_service.battery_optimization_denied',
-          ),
-        ];
-      }
-      return const [];
+      if (ignoring) return const [];
     }
 
-    final result = await Permission.ignoreBatteryOptimizations.request();
+    // ignoreBatteryOptimizations is a "special permission" on Android — request()
+    // launches system settings and returns the current status immediately without
+    // waiting for the user to return. The actual result will be picked up when the
+    // app resumes (didChangeAppLifecycleState → _refreshStatus).
+    await Permission.ignoreBatteryOptimizations.request();
     MMKVUtil.putBool(MMKVKey.requestedBatteryOptimization, true);
-    if (!result.isGranted) {
-      return [
-        const PermissionEffect(
-          messageTrKey: 'location_service.battery_optimization_denied',
-        ),
-      ];
-    }
     return const [];
   }
 
   Future<List<PermissionEffect>> runNotificationRequest() async {
     final status = await Permission.notification.status;
-    final alreadyRequested = MMKVUtil.getBool(
-      MMKVKey.requestedNotification,
-      defaultValue: false,
-    );
 
     if (status.isGranted) {
       MMKVUtil.putBool(MMKVKey.isUnexpectedExitNotificationEnabled, true);
@@ -181,20 +206,12 @@ class PermissionService {
     }
 
     if (status.isPermanentlyDenied) {
-      return [
-        const PermissionEffect(
+      MMKVUtil.putBool(MMKVKey.requestedNotification, true);
+      return const [
+        PermissionEffect(
           messageTrKey:
               'unexpected_exit_notification.notification_permission_denied',
           openAppSettings: true,
-        ),
-      ];
-    }
-
-    if (alreadyRequested) {
-      return [
-        const PermissionEffect(
-          messageTrKey:
-              'unexpected_exit_notification.notification_permission_denied',
         ),
       ];
     }
@@ -206,8 +223,17 @@ class PermissionService {
     );
     MMKVUtil.putBool(MMKVKey.requestedNotification, true);
     if (!result.isGranted) {
-      return [
-        const PermissionEffect(
+      if (result.isPermanentlyDenied) {
+        return const [
+          PermissionEffect(
+            messageTrKey:
+                'unexpected_exit_notification.notification_permission_denied',
+            openAppSettings: true,
+          ),
+        ];
+      }
+      return const [
+        PermissionEffect(
           messageTrKey:
               'unexpected_exit_notification.notification_permission_denied',
         ),
