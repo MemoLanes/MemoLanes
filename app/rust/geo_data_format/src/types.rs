@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-/// Stable sequential ID assigned by sorting all iso_codes lexicographically.
-/// Deterministic: same input dataset always yields same IDs.
+/// Stable ID from the rasterizer's frozen, append-only entity registry.
+/// IDs are explicit and never reused, so a dataset change never renumbers
+/// existing entities.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct GeoEntityId(pub u32);
 

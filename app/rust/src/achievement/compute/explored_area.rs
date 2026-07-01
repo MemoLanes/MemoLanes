@@ -11,7 +11,7 @@ use crate::journey_snapshot::JourneySnapshot;
 use crate::storage::Storage;
 
 /// Explored area (m²) for each requested layer, computed from an already-open
-/// consistent snapshot. The pure core under `compute_explored_areas`.
+/// consistent snapshot so the layers cannot skew against each other.
 pub fn explored_areas_from_snapshot(
     snapshot: &JourneySnapshot,
     layers: &[AchievementLayer],
@@ -24,8 +24,7 @@ pub fn explored_areas_from_snapshot(
     Ok(out)
 }
 
-/// Explored area (m²) for each requested layer, read under one consistent
-/// journey snapshot so the layers cannot skew against each other.
+/// Opens a consistent snapshot and delegates to [`explored_areas_from_snapshot`].
 pub fn compute_explored_areas(
     storage: &Storage,
     layers: &[AchievementLayer],

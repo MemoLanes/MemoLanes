@@ -6,16 +6,22 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:memolanes/src/rust/api/achievement.dart' as api;
 
-/// Activating a worldview: the UI's only geo call.
+/// Activating a worldview: the UI's only geo mutation.
 ///
 /// Native Rust can't read Flutter's bundled assets, so the chosen worldview's
-/// `geo_data_<id>.bin` is materialized (copied) into `<support>/geo` — the
-/// backend's configured geo dir — before activation. Only the selected
-/// worldview is copied, not all of them. The copy is re-done when the app's
-/// build number changes, so an app update that ships new bins refreshes them.
+/// `geo_data_<id>.bin` is materialized (copied) into the geo dir before
+/// activation. Only the selected worldview is copied, not all of them. The copy
+/// is re-done when the app's build number changes, so an app update that ships
+/// new bins refreshes them.
 class GeoService {
+  /// The one geo dir the backend reads and this service writes. `bootstrap`
+  /// passes it to `api.init`; `setGeo` writes into it — sourced here so the
+  /// read and write locations can never drift.
+  static Future<String> geoDir() async =>
+      p.join((await getApplicationSupportDirectory()).path, 'geo');
+
   static Future<void> setGeo(String worldviewId) async {
-    final geoDir = p.join((await getApplicationSupportDirectory()).path, 'geo');
+    final geoDir = await GeoService.geoDir();
     await Directory(geoDir).create(recursive: true);
 
     final dst = File(p.join(geoDir, 'geo_data_$worldviewId.bin'));

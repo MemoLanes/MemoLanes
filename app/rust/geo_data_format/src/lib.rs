@@ -65,5 +65,5 @@ pub use format::{
     expected_total_len, read_geo_data, write_geo_data, GeoData, TileEntry, HEADER_LEN,
 };
 pub use packed_tile::PackedTile;
-pub use worldview_variant::*;
 pub use types::*;
+pub use worldview_variant::*;

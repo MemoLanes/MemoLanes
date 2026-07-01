@@ -1,6 +1,6 @@
 //! Natural Earth source download helper.
 //!
-//! The pinned commit/URL/hash live in `geo_data_format::worldview` (deliberate change,
+//! The pinned commit/URL/hash live in `geo_data_format::worldview_variant` (deliberate change,
 //! single PR) rather than as CLI arguments; this module just fetches + verifies.
 
 use std::fs;

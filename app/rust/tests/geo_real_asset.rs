@@ -28,7 +28,7 @@ fn block_of(lng: f64, lat: f64) -> (TileKey, BlockKey) {
 
 #[test]
 fn iso_asset_resolves_known_country_locations() {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/geo_data_iso.bin");
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/geo/geo_data_iso.bin");
     if !path.exists() {
         eprintln!(
             "skipping: {} absent — run `just rasterize-geo` to generate it",

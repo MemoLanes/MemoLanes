@@ -19,7 +19,6 @@ import 'package:memolanes/src/rust/api/achievement.dart' as achievement;
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 void delayedInit(UpdateNotifier updateNotifier) {
@@ -134,9 +133,10 @@ class AppBootstrap {
         docDir: (await docDirFuture).path,
         supportDir: (await supportDirFuture).path,
         systemCacheDir: (await cacheDirFuture).path,
-        // Worldview geo assets are materialized lazily into <support>/geo by
+        // Worldview geo assets are materialized lazily into this dir by
         // GeoService.setGeo; the backend reads geo_data_<id>.bin from here.
-        geoDir: p.join((await supportDirFuture).path, 'geo'));
+        // Sourced from GeoService so the read/write dir is defined once.
+        geoDir: await GeoService.geoDir());
 
     // Activate the persisted worldview (default "iso") so region features work
     // out of the box; the user only changes it if they want a different one.

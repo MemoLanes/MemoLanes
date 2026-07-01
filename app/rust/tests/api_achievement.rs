@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use memolanes_core::{
     api::achievement::{
         get_explored_area, get_explored_area_by_layer, get_geo, region_detail, region_level_view,
-        region_levels, set_geo, AchievementLayer, RegionKind,
+        region_levels, set_geo, AchievementLayer, GeoEntityId, RegionKind,
     },
     api::api,
     api::import::JourneyInfo,
@@ -128,7 +128,8 @@ fn api_achievement_explored_area_and_region_contract() {
         "disjoint union ≈ sum: all={all} d={default} f={flight_area}"
     );
 
-    // --- Geo-absent contract: before `set_geo`, no worldview and no regions. ---
+    // --- Geo-absent contract: before `set_geo`, no geo data is installed, so no
+    // regions — but a default worldview is already selected. ---
     // (`api::init` is a process-global singleton, so this binary keeps a single
     // test; the geo install below continues in the same state.)
     let before = get_geo().unwrap();
@@ -147,7 +148,7 @@ fn api_achievement_explored_area_and_region_contract() {
     assert!(view.entries.is_empty());
     assert_eq!(view.level, RegionKind::Country);
     assert!(
-        region_detail(1, Default).unwrap().is_none(),
+        region_detail(GeoEntityId(1), Default).unwrap().is_none(),
         "no geo → no detail"
     );
 

@@ -114,13 +114,13 @@ fn region_read_api_lists_progress_and_completion() {
             assert_eq!(levels[&RegionKind::Continent].region_count, 1);
             assert_eq!(levels[&RegionKind::Country].region_count, 2);
 
-            let eu = Some(1u32);
+            let eu = Some(GeoEntityId(1));
             // Entries always list every country (FR, DE); only visited ones carry
             // area. Default sees only FR visited; All sees both.
             let def = region_level_view(&states, geo, Default, RegionKind::Country, eu);
             let mut def_ids: Vec<_> = def.entries.keys().copied().collect();
             def_ids.sort();
-            assert_eq!(def_ids, vec![2, 3]);
+            assert_eq!(def_ids, vec![GeoEntityId(2), GeoEntityId(3)]);
             let mut def_visited: Vec<_> = def
                 .entries
                 .iter()
@@ -128,7 +128,7 @@ fn region_read_api_lists_progress_and_completion() {
                 .map(|(&id, _)| id)
                 .collect();
             def_visited.sort();
-            assert_eq!(def_visited, vec![2]);
+            assert_eq!(def_visited, vec![GeoEntityId(2)]);
 
             // Counts: a level is complete when visited_count == region_count > 0.
             assert_eq!((def.visited_count, def.region_count), (1, 2));
@@ -136,12 +136,12 @@ fn region_read_api_lists_progress_and_completion() {
             assert_eq!((all.visited_count, all.region_count), (2, 2));
 
             // Detail of EU (All layer): single-layer node + FR/DE children.
-            let detail = region_detail(&states, geo, 1, All).unwrap();
-            assert_eq!(detail.entity_id, 1);
+            let detail = region_detail(&states, geo, GeoEntityId(1), All).unwrap();
+            assert_eq!(detail.entity_id, GeoEntityId(1));
             assert!(detail.node.visited_area_m2 > 0);
             let mut kids: Vec<_> = detail.children.keys().copied().collect();
             kids.sort();
-            assert_eq!(kids, vec![2, 3]);
+            assert_eq!(kids, vec![GeoEntityId(2), GeoEntityId(3)]);
 
             Ok(())
         })

@@ -215,7 +215,7 @@ impl Storage {
             Ok(output)
         })?;
 
-        // Make using we are not holding the lock when calling the callback
+        // Make sure we are not holding the lock when calling the callback
         // TODO: This is still error-prone, and easy to cause deadlock. Consider
         // using a separate thread to call the callback.
         drop(dbs);

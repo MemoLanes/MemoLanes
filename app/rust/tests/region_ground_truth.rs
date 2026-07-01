@@ -1,5 +1,5 @@
 //! End-to-end ground-truth for the region achievement API over the *real*
-//! Natural Earth ADM0 rasterized worldview asset (`assets/geo_data_iso.bin`).
+//! Natural Earth ADM0 rasterized worldview asset (`assets/geo/geo_data_iso.bin`).
 //!
 //! The other region tests use hand-built synthetic geo, so they prove the read
 //! logic is self-consistent but cannot prove it is *correct* against the world.
@@ -193,7 +193,7 @@ fn visited_country_isos(
 
 #[test]
 fn region_api_reports_correct_countries_and_areas() {
-    let asset = Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/geo_data_iso.bin");
+    let asset = Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/geo/geo_data_iso.bin");
     if !asset.exists() {
         eprintln!(
             "skipping: {} absent — run `just rasterize-geo` to generate it",
@@ -332,14 +332,14 @@ fn region_api_reports_correct_countries_and_areas() {
             assert!(levels.contains_key(&RegionKind::Continent));
 
             // France is listed and visited among its continent's countries.
-            let view = region_level_view(&states, geo, All, RegionKind::Country, Some(continent.0));
-            let fr_entry = view.entries.get(&fr.0).expect("FR listed");
+            let view = region_level_view(&states, geo, All, RegionKind::Country, Some(continent));
+            let fr_entry = view.entries.get(&fr).expect("FR listed");
             assert!(fr_entry.visited_area_m2 > 0, "FR should be visited");
             assert!(view.visited_count >= 1 && view.visited_count <= view.region_count);
 
             // Detail of France (Default layer): area matches its source states.
-            let detail = region_detail(&states, geo, fr.0, Default).unwrap();
-            assert_eq!(detail.entity_id, fr.0);
+            let detail = region_detail(&states, geo, fr, Default).unwrap();
+            assert_eq!(detail.entity_id, fr);
             assert_eq!(
                 detail.node.visited_area_m2,
                 states[&(Default, fr)].visited_area_m2

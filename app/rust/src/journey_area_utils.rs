@@ -60,16 +60,11 @@ pub fn compute_journey_bitmap_area(
     let tile_keys = journey_bitmap.all_tile_keys().cloned().collect::<Vec<_>>();
     let total_area: f64 = tile_keys
         .iter()
-        .map(|tile_key| {
-            match tile_area_cache.as_mut() {
-                None => compute_one_tile(journey_bitmap, tile_key),
-                Some(tile_area_cache) => {
-                    // if tile_area_cache is provided, use it to cache the area of each tile
-                    *tile_area_cache
-                        .entry(*tile_key)
-                        .or_insert_with(|| compute_one_tile(journey_bitmap, tile_key))
-                }
-            }
+        .map(|tile_key| match tile_area_cache.as_mut() {
+            None => compute_one_tile(journey_bitmap, tile_key),
+            Some(tile_area_cache) => *tile_area_cache
+                .entry(*tile_key)
+                .or_insert_with(|| compute_one_tile(journey_bitmap, tile_key)),
         })
         .sum();
     // we don't have that much precision in the journey bitmap anyway

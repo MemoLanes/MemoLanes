@@ -30,7 +30,7 @@ The download/verify logic lives in `tools/geo_rasterizer/src/download.rs`.
 
 The files themselves are **not checked into the repo** — `just rasterize-geo`
 (run as part of `just pre-build`) downloads them on demand to this directory
-and verifies the hashes. The rasterized `app/assets/geo_data_*.bin` outputs are
+and verifies the hashes. The rasterized `app/assets/geo/geo_data_*.bin` outputs are
 also generated, not committed.
 
 Two caches make repeat runs fast:
@@ -39,7 +39,7 @@ Two caches make repeat runs fast:
    the worldview's `source_sha256`.
 2. **Bin hash check** — skips re-rasterization if the existing
    `geo_data_<id>.bin` embeds a provenance hash matching the current GeoJSON +
-   registry + derived worldview list.
+   registry + worldview id.
 
 ## Updating the pin
 
@@ -48,5 +48,5 @@ Two caches make repeat runs fast:
    (`curl -sL "$NATURAL_EARTH_BASE/<file>" | sha256sum`).
 3. Update `NATURAL_EARTH_COMMIT`, `NATURAL_EARTH_BASE`, and each
    `source_sha256` in `app/rust/geo_data_format/src/worldview_variant.rs`.
-4. Run `just rasterize-geo` and review the diff in `app/assets/geo_data_*.bin`
+4. Run `just rasterize-geo` and review the diff in `app/assets/geo/geo_data_*.bin`
    (entity IDs, areas, and border tiles can shift).

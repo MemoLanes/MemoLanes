@@ -1,4 +1,4 @@
-//! Worldview (worldview) variants — the single source of truth.
+//! Worldview variants — the single source of truth.
 //!
 //! `WorldviewVariant` carries every per-worldview fact: the externally-meaningful worldview `id`,
 //! its l10n keys, and the pinned Natural Earth source (filename + content hash).
@@ -52,7 +52,11 @@ impl WorldviewVariant {
     // (or: add the variant with a placeholder sha, run `--worldview <new>
     //  --ensure-source --download-only`, and copy the real hash from the
     //  verify-mismatch error.)
-    pub const ALL: &'static [WorldviewVariant] = &[WorldviewVariant::Iso, WorldviewVariant::Chn, WorldviewVariant::Usa];
+    pub const ALL: &'static [WorldviewVariant] = &[
+        WorldviewVariant::Iso,
+        WorldviewVariant::Chn,
+        WorldviewVariant::Usa,
+    ];
 
     pub const fn spec(self) -> WorldviewVariantSpec {
         match self {
@@ -161,7 +165,10 @@ mod tests {
             WorldviewVariant::Iso.spec().source_sha256,
             "60eb10aa951f5872507c9436937508b09be4b43dc9fa7aad7644f23ef12e1cad"
         );
-        assert_eq!(WorldviewVariant::from_id("chn").unwrap(), WorldviewVariant::Chn);
+        assert_eq!(
+            WorldviewVariant::from_id("chn").unwrap(),
+            WorldviewVariant::Chn
+        );
         assert!(WorldviewVariant::from_id("bogus").is_err());
     }
 

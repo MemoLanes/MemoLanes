@@ -66,14 +66,14 @@ pub struct RegionLevelView {
     pub level: RegionKind,
     pub visited_count: u32,
     pub region_count: u32,
-    pub entries: HashMap<u32, RegionEntity>,
+    pub entries: HashMap<GeoEntityId, RegionEntity>,
 }
 
 /// One entity (in the queried layer) plus its direct children, keyed by id.
 pub struct RegionDetail {
-    pub entity_id: u32,
+    pub entity_id: GeoEntityId,
     pub node: RegionEntity,
-    pub children: HashMap<u32, RegionEntity>,
+    pub children: HashMap<GeoEntityId, RegionEntity>,
 }
 
 fn entities_in_scope(
@@ -121,20 +121,18 @@ pub fn region_levels(geo: &dyn GeoLookup) -> HashMap<RegionKind, LevelSummary> {
     .collect()
 }
 
-/// Joined view for `level` within `parent` in one layer: counts and the full
-/// entity map (visited + unvisited). A level is complete when `visited_count ==
-/// region_count > 0`.
+/// Joined view for `level` within `parent`, in one layer. See [`RegionLevelView`].
 pub fn region_level_view(
     states: &RegionStateMap,
     geo: &dyn GeoLookup,
     layer: AchievementLayer,
     level: RegionKind,
-    parent: Option<u32>,
+    parent: Option<GeoEntityId>,
 ) -> RegionLevelView {
     let mut entries = HashMap::new();
     let mut visited_count = 0u32;
 
-    for id in entities_in_scope(geo, level.to_geo(), parent.map(GeoEntityId)) {
+    for id in entities_in_scope(geo, level.to_geo(), parent) {
         let Some(entity) = geo.entity(id) else {
             continue;
         };
@@ -146,7 +144,7 @@ pub fn region_level_view(
             None => 0,
         };
         entries.insert(
-            id.0,
+            id,
             RegionEntity {
                 kind: entity.kind.into(),
                 name_key: entity.name_key.clone(),
@@ -169,15 +167,14 @@ pub fn region_level_view(
 pub fn region_detail(
     states: &RegionStateMap,
     geo: &dyn GeoLookup,
-    entity_id: u32,
+    entity_id: GeoEntityId,
     layer: AchievementLayer,
 ) -> Option<RegionDetail> {
-    let id = GeoEntityId(entity_id);
-    let node = region_entity(states, geo, id, layer)?;
+    let node = region_entity(states, geo, entity_id, layer)?;
     let children = geo
-        .children(id)
+        .children(entity_id)
         .iter()
-        .filter_map(|&child| region_entity(states, geo, child, layer).map(|e| (child.0, e)))
+        .filter_map(|&child| region_entity(states, geo, child, layer).map(|e| (child, e)))
         .collect();
     Some(RegionDetail {
         entity_id,

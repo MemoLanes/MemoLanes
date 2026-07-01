@@ -10,7 +10,13 @@ use crate::achievement::read_model::region;
 pub use crate::achievement::read_model::region::{
     LevelSummary, RegionDetail, RegionEntity, RegionKind, RegionLevelView,
 };
-pub use geo_data_format::Worldview;
+pub use geo_data_format::{GeoEntityId, Worldview};
+
+// `GeoEntityId` (external `geo_data_format`) keys `RegionLevelView.entries` /
+// `RegionDetail.children`. Mirror its field so Dart gets a value class with
+// `==`/`hashCode` (usable as a `Map` key, buildable from an int), not an opaque box.
+#[frb(mirror(GeoEntityId))]
+pub struct _GeoEntityId(pub u32);
 
 // `Worldview` lives in `geo_data_format` (external crate), so FRB can't see its
 // fields to translate it by value. Mirror the field list here so the Dart side
@@ -84,7 +90,7 @@ pub fn region_levels() -> Result<HashMap<RegionKind, LevelSummary>> {
 pub fn region_level_view(
     layer: AchievementLayer,
     level: RegionKind,
-    parent: Option<u32>,
+    parent: Option<GeoEntityId>,
 ) -> Result<RegionLevelView> {
     crate::api::api::get()
         .storage
@@ -107,7 +113,10 @@ pub fn region_level_view(
         })
 }
 
-pub fn region_detail(entity_id: u32, layer: AchievementLayer) -> Result<Option<RegionDetail>> {
+pub fn region_detail(
+    entity_id: GeoEntityId,
+    layer: AchievementLayer,
+) -> Result<Option<RegionDetail>> {
     crate::api::api::get()
         .storage
         .with_achievement_read(|store| {

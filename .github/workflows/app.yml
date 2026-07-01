@@ -108,9 +108,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            app/assets/geo_data_iso.bin
-            app/assets/geo_data_chn.bin
-            app/assets/geo_data_usa.bin
+            app/assets/geo/geo_data_iso.bin
+            app/assets/geo/geo_data_chn.bin
+            app/assets/geo/geo_data_usa.bin
           key: geo-bins-${{ hashFiles('tools/geo_rasterizer/src/**', 'tools/geo_rasterizer/Cargo.lock', 'tools/geo_rasterizer/geo_entity_registry.toml', 'app/rust/geo_data_format/src/**', 'app/rust/geo_data_format/Cargo.lock') }}
 
       - name: Geo Data Format Check

@@ -45,6 +45,10 @@ pub fn write_atomically_with(
     write: impl FnOnce(&mut File) -> Result<()>,
 ) -> Result<()> {
     let tmp = sibling(path, ".tmp");
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("creating {}", parent.display()))?;
+    }
     {
         let mut f = File::create(&tmp).with_context(|| format!("creating {}", tmp.display()))?;
         write(&mut f).with_context(|| format!("writing {}", tmp.display()))?;
