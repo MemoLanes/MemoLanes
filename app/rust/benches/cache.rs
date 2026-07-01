@@ -108,6 +108,7 @@ fn setup_storage_with(src: &DataSource) -> (Storage, TempDir, TempDir, TempDir, 
         doc_dir.path().to_str().unwrap().to_string(),
         support_dir.path().to_str().unwrap().to_string(),
         cache_dir.path().to_str().unwrap().to_string(),
+        cache_dir.path().to_str().unwrap().to_string(), // geo dir (unused in bench)
     );
 
     populate_storage(&storage, src);

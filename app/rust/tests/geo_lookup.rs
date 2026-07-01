@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use geo_data_format::{
-    write_geo_data, GeoEntity, GeoEntityId, GeoEntityKind, TileMembership, CELLS_PER_TILE,
-    TILE_COUNT,
+    write_geo_data, GeoEntity, GeoEntityId, GeoEntityKind, TileMembership, WorldviewVariant,
+    CELLS_PER_TILE, TILE_COUNT,
 };
 use memolanes_core::{
     geo::{GeoIndex, GeoLookup},
@@ -20,7 +20,7 @@ fn entity(id: u32, kind: GeoEntityKind, iso: &str, parent: Option<u32>) -> GeoEn
     }
 }
 
-/// Build a tiny POV asset: continent EU(1) ⊃ {FR(2), DE(3)}, a `Single(FR)`
+/// Build a tiny worldview asset: continent EU(1) ⊃ {FR(2), DE(3)}, a `Single(FR)`
 /// tile at (0,0), and a `Border` tile at (1,0) whose blocks are filled x-major
 /// (`bx*128 + by`, the BlockKey convention) so block coords pass straight
 /// through `GeoLookup` with no transpose.
@@ -41,7 +41,14 @@ fn synthetic_geo() -> GeoIndex {
     let mut blocks: BTreeMap<(u16, u16), Vec<Option<GeoEntityId>>> = BTreeMap::new();
     blocks.insert((1, 0), cells);
 
-    let bytes = write_geo_data(&entities, &[], &tiles, &blocks, [0u8; 32]).unwrap();
+    let bytes = write_geo_data(
+        &entities,
+        WorldviewVariant::Iso.spec().id,
+        &tiles,
+        &blocks,
+        [0u8; 32],
+    )
+    .unwrap();
     GeoIndex::from_bytes(&bytes).unwrap()
 }
 
@@ -115,4 +122,20 @@ fn entity_metadata_kinds_and_ancestors() {
     // FR → EU; continent has no parent.
     assert_eq!(geo.ancestors(GeoEntityId(2)), vec![GeoEntityId(1)]);
     assert!(geo.ancestors(GeoEntityId(1)).is_empty());
+}
+
+#[test]
+fn asset_declares_its_worldview_id() {
+    let entities = [entity(1, GeoEntityKind::Continent, "EU", None)];
+    let tiles = vec![TileMembership::None; TILE_COUNT];
+    let bytes = write_geo_data(
+        &entities,
+        WorldviewVariant::Chn.spec().id,
+        &tiles,
+        &BTreeMap::new(),
+        [0u8; 32],
+    )
+    .unwrap();
+    let geo = GeoIndex::from_bytes(&bytes).unwrap();
+    assert_eq!(geo.worldview_id(), "chn");
 }

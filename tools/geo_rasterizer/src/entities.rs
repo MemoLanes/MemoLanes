@@ -2,7 +2,7 @@
 //! by ADM0_A3) from parsed Natural Earth features.
 //!
 //! TODO: ids come from the frozen registry (the union across all
-//! POV files), so this stays unchanged for Phase 2 base+delta.
+//! worldview files), so this stays unchanged for Phase 2 base+delta.
 
 use std::collections::BTreeMap;
 

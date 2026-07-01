@@ -9,14 +9,17 @@ import 'package:memolanes/common/app_lifecycle_service.dart';
 import 'package:memolanes/common/share_handler_util.dart';
 import 'package:memolanes/common/shortcut_handler_util.dart';
 import 'package:memolanes/common/update_notifier.dart';
+import 'package:memolanes/common/geo_service.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/utils/nav_helper.dart';
+import 'package:memolanes/src/rust/api/achievement.dart' as achievement;
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 void delayedInit(UpdateNotifier updateNotifier) {
@@ -130,7 +133,15 @@ class AppBootstrap {
         tempDir: (await tempDirFuture).path,
         docDir: (await docDirFuture).path,
         supportDir: (await supportDirFuture).path,
-        systemCacheDir: (await cacheDirFuture).path);
+        systemCacheDir: (await cacheDirFuture).path,
+        // Worldview geo assets are materialized lazily into <support>/geo by
+        // GeoService.setGeo; the backend reads geo_data_<id>.bin from here.
+        geoDir: p.join((await supportDirFuture).path, 'geo'));
+
+    // Activate the persisted worldview (default "iso") so region features work
+    // out of the box; the user only changes it if they want a different one.
+    final geo = await achievement.getGeo();
+    await GeoService.setGeo(geo.selectedWorldview);
   }
 
   static void startAppServices({

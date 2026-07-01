@@ -7,7 +7,8 @@ use std::fs;
 
 use chrono::NaiveDate;
 use geo_data_format::{
-    write_geo_data, GeoEntity, GeoEntityId, GeoEntityKind, Pov, TileMembership, TILE_COUNT,
+    write_geo_data, GeoEntity, GeoEntityId, GeoEntityKind, TileMembership, WorldviewVariant,
+    TILE_COUNT,
 };
 use memolanes_core::{
     achievement::{
@@ -24,7 +25,7 @@ use tempdir::TempDir;
 const EU: GeoEntityId = GeoEntityId(1);
 const FR: GeoEntityId = GeoEntityId(2);
 
-/// Synthetic POV asset: tile (0,0) is entirely France, a child of continent EU.
+/// Synthetic worldview asset: tile (0,0) is entirely France, a child of continent EU.
 fn synthetic_geo_bytes() -> Vec<u8> {
     let entity = |id, kind, iso: &str, parent: Option<u32>| GeoEntity {
         id: GeoEntityId(id),
@@ -40,7 +41,14 @@ fn synthetic_geo_bytes() -> Vec<u8> {
     ];
     let mut tiles = vec![TileMembership::None; TILE_COUNT];
     tiles[0] = TileMembership::Single(FR);
-    write_geo_data(&entities, &[], &tiles, &BTreeMap::new(), [0u8; 32]).unwrap()
+    write_geo_data(
+        &entities,
+        WorldviewVariant::Iso.spec().id,
+        &tiles,
+        &BTreeMap::new(),
+        [0u8; 32],
+    )
+    .unwrap()
 }
 
 fn one_block(tile: TileKey, block: BlockKey, bits: u32) -> JourneyBitmap {
@@ -106,8 +114,11 @@ fn on_demand_areas_and_region_states() {
         sub(&temp_dir, "doc/"),
         sub(&temp_dir, "support/"),
         sub(&temp_dir, "cache/"),
+        sub(&temp_dir, "geo/"),
     );
-    storage.set_geo_data(Pov::Iso, &geo_bytes).unwrap();
+    storage
+        .set_geo_data(WorldviewVariant::Iso, &geo_bytes)
+        .unwrap();
 
     // A Default journey and a Flight journey, in different blocks of France, so
     // `All` is a true union and each per-layer area is distinct.
@@ -124,10 +135,10 @@ fn on_demand_areas_and_region_states() {
         one_block(TileKey::new(0, 0), BlockKey::from_x_y(5, 6), 40),
     );
 
-    // On-demand store with the same POV geo.
+    // On-demand store with the same worldview geo.
     let mut oss = OnDemandStore::new();
     oss.set_geo(
-        Pov::Iso,
+        WorldviewVariant::Iso,
         Box::new(GeoIndex::from_bytes(&geo_bytes).unwrap()),
     )
     .unwrap();
@@ -161,6 +172,7 @@ fn on_demand_without_geo_has_no_regions() {
         sub(&temp_dir, "doc/"),
         sub(&temp_dir, "support/"),
         sub(&temp_dir, "cache/"),
+        sub(&temp_dir, "geo/"),
     );
     insert(
         &storage,

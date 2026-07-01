@@ -45,6 +45,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         ".".to_string(),
         ".".to_string(),
         ".".to_string(),
+        ".".to_string(),
     );
 
     init_main_map()?;

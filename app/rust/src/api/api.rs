@@ -74,7 +74,13 @@ fn reload_main_map_bitmap(storage: &Storage, main_map_state: &mut MainMapState) 
     Ok(())
 }
 
-pub fn init(temp_dir: String, doc_dir: String, support_dir: String, system_cache_dir: String) {
+pub fn init(
+    temp_dir: String,
+    doc_dir: String,
+    support_dir: String,
+    system_cache_dir: String,
+    geo_dir: String,
+) {
     let mut already_initialized = true;
     MAIN_STATE.get_or_init(|| {
         already_initialized = false;
@@ -91,7 +97,7 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, system_cache
             }
         }
 
-        let mut storage = Storage::init(temp_dir, doc_dir, support_dir, real_cache_dir);
+        let mut storage = Storage::init(temp_dir, doc_dir, support_dir, real_cache_dir, geo_dir);
         info!("initialized");
 
         let default_layer_filter = LayerFilter {

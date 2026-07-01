@@ -11,7 +11,7 @@
 //!     any leftover in place.
 //!
 //! The tradeoff: two *concurrent* writers of the same `path` would race on
-//! the shared `.tmp` inode. That can't happen in this tool — the three POV
+//! the shared `.tmp` inode. That can't happen in this tool — the three worldview
 //! bins use distinct paths and `just rasterize-geo` runs them sequentially.
 //! If same-path parallelism is ever added, switch to random temp names (the
 //! `tempfile` crate, whose `persist` is also cross-device-safe) rather than

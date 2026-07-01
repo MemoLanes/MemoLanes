@@ -1,9 +1,9 @@
 //! Compute-on-demand achievement store: no cache, no persistence. Holds only
-//! the active POV geo and computes every read from the journey snapshot via the
+//! the active worldview geo and computes every read from the journey snapshot via the
 //! pure functions in this module.
 
 use anyhow::Result;
-use geo_data_format::Pov;
+use geo_data_format::WorldviewVariant;
 
 use crate::achievement::compute::explored_area::explored_areas_from_snapshot;
 use crate::achievement::compute::region_state::{compute_region_states, RegionStateMap};
@@ -15,7 +15,6 @@ use crate::journey_snapshot::JourneySnapshot;
 #[derive(Default)]
 pub struct OnDemandStore {
     geo: Option<Box<dyn GeoLookup + Send>>,
-    pov: Option<Pov>,
 }
 
 impl OnDemandStore {
@@ -30,8 +29,13 @@ impl AchievementStore for OnDemandStore {
         Ok(())
     }
 
-    fn set_geo(&mut self, pov: Pov, geo: Box<dyn GeoLookup + Send>) -> Result<()> {
-        self.pov = Some(pov);
+    /// No persistence/cache, so the worldview id isn't needed — only the geo
+    /// lookup drives reads.
+    fn set_geo(
+        &mut self,
+        _worldview: WorldviewVariant,
+        geo: Box<dyn GeoLookup + Send>,
+    ) -> Result<()> {
         self.geo = Some(geo);
         Ok(())
     }
@@ -43,7 +47,6 @@ impl AchievementStore for OnDemandStore {
         Ok(Box::new(OnDemandReader {
             snapshot,
             geo: self.geo.as_deref().map(|g| g as &dyn GeoLookup),
-            pov: self.pov,
         }))
     }
 }
@@ -52,7 +55,6 @@ impl AchievementStore for OnDemandStore {
 struct OnDemandReader<'a, 'snap, 'txn> {
     snapshot: &'a JourneySnapshot<'snap, 'txn>,
     geo: Option<&'a dyn GeoLookup>,
-    pov: Option<Pov>,
 }
 
 impl AchievementReader for OnDemandReader<'_, '_, '_> {
@@ -84,9 +86,5 @@ impl AchievementReader for OnDemandReader<'_, '_, '_> {
 
     fn geo(&self) -> Option<&dyn GeoLookup> {
         self.geo
-    }
-
-    fn active_pov(&self) -> Option<Pov> {
-        self.pov
     }
 }

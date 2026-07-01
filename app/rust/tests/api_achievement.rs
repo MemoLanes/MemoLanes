@@ -7,7 +7,7 @@
 //! Journeys are seeded through the real public ingest path (GPS points →
 //! finalize), then read back via `get_explored_area*`. The geo setter/getter
 //! (`set_geo`/`get_geo`) and the region entry points are exercised against the
-//! real `assets/geo_data_iso.bin` POV asset (skipped when it is absent).
+//! real `assets/geo/geo_data_iso.bin` worldview asset (skipped when it is absent).
 
 use std::collections::HashMap;
 
@@ -53,7 +53,20 @@ fn api_achievement_explored_area_and_region_contract() {
         fs::create_dir(&p).unwrap();
         p.into_os_string().into_string().unwrap()
     };
-    api::init(sub("temp"), sub("doc"), sub("support"), sub("cache"));
+    // Point geo_dir at the repo's real asset dir so `set_geo("iso")` reads the
+    // bundled `geo_data_iso.bin` exactly as the app does after materialization.
+    let geo_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../assets/geo")
+        .to_str()
+        .unwrap()
+        .to_string();
+    api::init(
+        sub("temp"),
+        sub("doc"),
+        sub("support"),
+        sub("cache"),
+        geo_dir,
+    );
 
     use AchievementLayer::*;
 
@@ -115,15 +128,18 @@ fn api_achievement_explored_area_and_region_contract() {
         "disjoint union ≈ sum: all={all} d={default} f={flight_area}"
     );
 
-    // --- Geo-absent contract: before `set_geo`, no POV and no regions. ---
+    // --- Geo-absent contract: before `set_geo`, no worldview and no regions. ---
     // (`api::init` is a process-global singleton, so this binary keeps a single
     // test; the geo install below continues in the same state.)
     let before = get_geo().unwrap();
-    assert!(before.active_pov.is_none(), "no geo → no active pov");
-    assert!(before.worldviews.is_empty(), "no geo → no worldviews");
+    assert_eq!(before.selected_worldview, "iso", "default worldview is iso");
     assert!(
-        set_geo("bogus".into(), Vec::new()).is_err(),
-        "unknown pov rejected"
+        !before.worldviews.is_empty(),
+        "offered worldviews always available"
+    );
+    assert!(
+        set_geo("bogus".into()).is_err(),
+        "unknown worldview rejected"
     );
     assert!(region_levels().unwrap().is_empty(), "no geo → no levels");
     let view = region_level_view(Default, RegionKind::Country, None).unwrap();
@@ -136,7 +152,7 @@ fn api_achievement_explored_area_and_region_contract() {
     );
 
     // --- Geo setter/getter roundtrip against the real ISO asset. ---
-    let asset = Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/geo_data_iso.bin");
+    let asset = Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/geo/geo_data_iso.bin");
     if !asset.exists() {
         eprintln!(
             "skipping geo install: {} absent — run `just rasterize-geo` to generate it",
@@ -144,15 +160,15 @@ fn api_achievement_explored_area_and_region_contract() {
         );
         return;
     }
-    // Install the ISO POV, then read it back: active pov is "iso" and the
-    // embedded worldview list is non-empty and contains the active id.
-    set_geo("iso".into(), fs::read(&asset).unwrap()).unwrap();
+    // Install the ISO worldview (backend reads it from geo_dir by id), then read
+    // it back: selected worldview is "iso" and the offered list contains it.
+    set_geo("iso".into()).unwrap();
     let after = get_geo().unwrap();
-    assert_eq!(after.active_pov.as_deref(), Some("iso"));
-    assert!(!after.worldviews.is_empty(), "embedded worldviews present");
+    assert_eq!(after.selected_worldview, "iso");
+    assert!(!after.worldviews.is_empty(), "offered worldviews present");
     assert!(
         after.worldviews.iter().any(|w| w.id == "iso"),
-        "worldview list includes the active pov"
+        "offered worldview list includes the selected worldview"
     );
     // Geo is now installed, so the seeded journeys light up region reads.
     assert!(!region_levels().unwrap().is_empty(), "geo → region levels");

@@ -22,7 +22,7 @@ pub fn populate_total_areas(
     // linear in `x` (so the per-block longitude span is constant) and `lat`
     // depends only on `y`. Precompute one area per grid row once (65_536 evals)
     // instead of re-evaluating sinh/atan/cos for every cell of every tile
-    // (~1.8 B evals per POV). The lookup feeds the same accumulation order, so
+    // (~1.8 B evals per worldview). The lookup feeds the same accumulation order, so
     // the result is bit-identical to the per-cell computation.
     let row_area: Vec<f64> = (0..TILE_GRID_WIDTH as i64 * TILE_WIDTH as i64)
         .map(|by| block_area_m2(0, by))

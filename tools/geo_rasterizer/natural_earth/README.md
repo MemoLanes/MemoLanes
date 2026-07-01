@@ -19,12 +19,12 @@ Natural Earth.
 
 ## Where the pin lives
 
-The exact upstream commit, raw URL base, and per-POV SHA-256s are pinned in
-`app/rust/geo_data_format/src/pov.rs`:
+The exact upstream commit, raw URL base, and per-worldview SHA-256s are pinned in
+`app/rust/geo_data_format/src/worldview_variant.rs`:
 
 - `NATURAL_EARTH_COMMIT` — git SHA on `nvkelso/natural-earth-vector`
 - `NATURAL_EARTH_BASE` — raw.githubusercontent.com base URL at that commit
-- `Pov::spec().source_sha256` — SHA-256 of each POV file's raw bytes
+- `WorldviewVariant::spec().source_sha256` — SHA-256 of each worldview file's raw bytes
 
 The download/verify logic lives in `tools/geo_rasterizer/src/download.rs`.
 
@@ -36,17 +36,17 @@ also generated, not committed.
 Two caches make repeat runs fast:
 
 1. **GeoJSON hash check** — skips download if the local file already matches
-   the POV's `source_sha256`.
+   the worldview's `source_sha256`.
 2. **Bin hash check** — skips re-rasterization if the existing
-   `geo_data_<pov>.bin` embeds a provenance hash matching the current GeoJSON +
+   `geo_data_<id>.bin` embeds a provenance hash matching the current GeoJSON +
    registry + derived worldview list.
 
 ## Updating the pin
 
 1. Pick a new commit on `nvkelso/natural-earth-vector`.
-2. Fetch each POV file from the new commit's raw URL and recompute its SHA-256
+2. Fetch each worldview file from the new commit's raw URL and recompute its SHA-256
    (`curl -sL "$NATURAL_EARTH_BASE/<file>" | sha256sum`).
 3. Update `NATURAL_EARTH_COMMIT`, `NATURAL_EARTH_BASE`, and each
-   `source_sha256` in `app/rust/geo_data_format/src/pov.rs`.
+   `source_sha256` in `app/rust/geo_data_format/src/worldview_variant.rs`.
 4. Run `just rasterize-geo` and review the diff in `app/assets/geo_data_*.bin`
    (entity IDs, areas, and border tiles can shift).

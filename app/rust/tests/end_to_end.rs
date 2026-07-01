@@ -19,6 +19,7 @@ fn basic() {
         sub_folder("doc/"),
         sub_folder("support/"),
         sub_folder("cache/"),
+        sub_folder("geo/"),
     );
 
     let (raw_data, _preprocessor) =

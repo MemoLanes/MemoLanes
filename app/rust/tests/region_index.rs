@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use geo_data_format::{
     tile_index, write_geo_data, GeoEntity, GeoEntityId, GeoEntityKind, TileMembership,
-    CELLS_PER_TILE, TILE_COUNT,
+    WorldviewVariant, CELLS_PER_TILE, TILE_COUNT,
 };
 use memolanes_core::{
     achievement::compute::region_state::compute_region_states,
@@ -43,7 +43,14 @@ fn synthetic_geo() -> GeoIndex {
     cells[BlockKey::from_x_y(7, 7).index()] = Some(DE);
     let mut blocks: BTreeMap<(u16, u16), Vec<Option<GeoEntityId>>> = BTreeMap::new();
     blocks.insert((1, 0), cells);
-    let bytes = write_geo_data(&entities, &[], &tiles, &blocks, [0u8; 32]).unwrap();
+    let bytes = write_geo_data(
+        &entities,
+        WorldviewVariant::Iso.spec().id,
+        &tiles,
+        &blocks,
+        [0u8; 32],
+    )
+    .unwrap();
     GeoIndex::from_bytes(&bytes).unwrap()
 }
 

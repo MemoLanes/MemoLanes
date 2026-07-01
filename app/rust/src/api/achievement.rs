@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::Result;
 
 use flutter_rust_bridge::frb;
-use geo_data_format::Pov;
+use geo_data_format::{all_worldviews, WorldviewVariant};
 
 pub use crate::achievement::layer::AchievementLayer;
 use crate::achievement::read_model::region;
@@ -22,36 +22,34 @@ pub struct _Worldview {
     pub description_key: String,
 }
 
-// Geo (POV asset): the prerequisite for every region read.
+// Geo (worldview asset): the prerequisite for every region read.
 
-/// What `get_geo` reports: the active POV and the worldviews it offers.
+/// What `get_geo` reports: the user's selected worldview and the offered list.
 pub struct GeoStatus {
-    /// Worldview id of the active POV (a [`Worldview::id`]), or `None` until `set_geo`.
-    pub active_pov: Option<String>,
-    /// Worldviews embedded in the active geo asset (empty until `set_geo`).
+    /// The user's chosen worldview id (a [`Worldview::id`]), persisted; defaults
+    /// to the first [`WorldviewVariant`] ("iso") until the user picks another.
+    pub selected_worldview: String,
+    /// The full offered worldview list (the compiled set).
     pub worldviews: Vec<Worldview>,
 }
 
-/// Install (or switch to) a POV's geo asset. `pov` is a [`Worldview::id`] (e.g.
-/// `"iso"`); `bytes` is the bundled `geo_data_<pov>.bin`. A POV change re-derives
-/// the region index. Errors on an unknown `pov` id.
-pub fn set_geo(pov: String, bytes: Vec<u8>) -> Result<()> {
-    let pov = Pov::from_id(&pov)?;
-    crate::api::api::get().storage.set_geo_data(pov, &bytes)
+/// Install (or switch to) a worldview. `worldview` is a [`Worldview::id`] (e.g.
+/// `"iso"`); the backend reads the corresponding bundled `geo_data_<id>.bin`
+/// from its configured geo dir. A worldview change re-derives the region index.
+/// Errors on an unknown `worldview` id or a missing asset file.
+pub fn set_geo(worldview: String) -> Result<()> {
+    let worldview = WorldviewVariant::from_id(&worldview)?;
+    crate::api::api::get().storage.set_geo(worldview)
 }
 
-/// The active POV and its worldviews, read under one snapshot.
+/// The user's selected worldview id (persisted, default "iso") and the full
+/// offered worldview list ([`all_worldviews`], the compiled set).
 pub fn get_geo() -> Result<GeoStatus> {
-    crate::api::api::get()
-        .storage
-        .with_achievement_read(|store| {
-            Ok(GeoStatus {
-                active_pov: store.active_pov().map(|p| p.spec().id.to_string()),
-                worldviews: store
-                    .geo()
-                    .map_or_else(Vec::new, |geo| geo.worldviews().to_vec()),
-            })
-        })
+    let storage = &crate::api::api::get().storage;
+    Ok(GeoStatus {
+        selected_worldview: storage.selected_worldview().spec().id.to_string(),
+        worldviews: all_worldviews(),
+    })
 }
 
 /// Explored area for a single layer.

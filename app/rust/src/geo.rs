@@ -1,12 +1,12 @@
 //! Runtime geo lookup: map a `JourneyBitmap` block to its owning geo entity
-//! over the packed `geo_data_format` asset, decode-on-demand. One asset per POV.
+//! over the packed `geo_data_format` asset, decode-on-demand. One asset per worldview.
 
 use std::collections::HashMap;
 
 use anyhow::Result;
 use geo_data_format::{
     read_geo_data, tile_index, GeoData, GeoEntity, GeoEntityId, GeoEntityKind, PackedTile,
-    TileEntry, TileMembership, Worldview,
+    TileEntry, TileMembership,
 };
 
 use crate::journey_bitmap::{BlockKey, TileKey};
@@ -21,10 +21,6 @@ pub trait GeoLookup {
     fn ancestors(&self, id: GeoEntityId) -> Vec<GeoEntityId>;
     /// Direct children of `id` (one level down).
     fn children(&self, id: GeoEntityId) -> &[GeoEntityId];
-    /// Worldviews embedded in this asset (the full shipped POV list). The runtime
-    /// reads this, never `Pov::shipped_worldviews()`; the embedded list is the
-    /// source of truth, since it may diverge from the build-time POV set.
-    fn worldviews(&self) -> &[Worldview];
 }
 
 /// `GeoData`-backed lookup: tile index in memory, border tiles decoded on demand.
@@ -61,6 +57,11 @@ impl GeoIndex {
 
     fn tile_entry(&self, tile: TileKey) -> &TileEntry {
         &self.data.tile_index[tile_index(tile.x, tile.y)]
+    }
+
+    /// The worldview id this asset declares (see `GeoData::worldview_id`).
+    pub fn worldview_id(&self) -> &str {
+        &self.data.worldview_id
     }
 }
 
@@ -107,9 +108,5 @@ impl GeoLookup for GeoIndex {
 
     fn children(&self, id: GeoEntityId) -> &[GeoEntityId] {
         self.children.get(&id).map_or(&[], Vec::as_slice)
-    }
-
-    fn worldviews(&self) -> &[Worldview] {
-        &self.data.worldviews
     }
 }

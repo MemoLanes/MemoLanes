@@ -1,4 +1,4 @@
-//! Layered region read-model: region coverage state joined with the POV geo
+//! Layered region read-model: region coverage state joined with the worldview geo
 //! tree into list / detail shapes. Pure functions over `(states, geo)`; the
 //! `api/achievement` Flutter Rust Bridge functions load the state and wrap.
 //! Every per-region read is scoped to one `AchievementLayer` (the hot path).

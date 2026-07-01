@@ -1,5 +1,5 @@
 //! End-to-end ground-truth for the region achievement API over the *real*
-//! Natural Earth ADM0 rasterized POV asset (`assets/geo_data_iso.bin`).
+//! Natural Earth ADM0 rasterized worldview asset (`assets/geo_data_iso.bin`).
 //!
 //! The other region tests use hand-built synthetic geo, so they prove the read
 //! logic is self-consistent but cannot prove it is *correct* against the world.
@@ -20,7 +20,7 @@ use std::fs;
 use std::path::Path;
 
 use chrono::NaiveDate;
-use geo_data_format::{GeoEntityKind, Pov};
+use geo_data_format::{GeoEntityKind, WorldviewVariant};
 use memolanes_core::{
     achievement::compute::region_state::RegionStateMap,
     achievement::layer::AchievementLayer,
@@ -216,15 +216,18 @@ fn region_api_reports_correct_countries_and_areas() {
         placements.push((i, tile, block, expected_patch_area(tile, block)));
     }
 
-    // Real storage with the real POV asset; one journey per city.
+    // Real storage with the real worldview asset; one journey per city.
     let dir = TempDir::new("region_ground_truth").unwrap();
     let storage = Storage::init(
         sub(&dir, "t"),
         sub(&dir, "d"),
         sub(&dir, "s"),
         sub(&dir, "c"),
+        sub(&dir, "geo"),
     );
-    storage.set_geo_data(Pov::Iso, &geo_bytes).unwrap();
+    storage
+        .set_geo_data(WorldviewVariant::Iso, &geo_bytes)
+        .unwrap();
     for (i, tile, block, _) in &placements {
         insert(
             &storage,

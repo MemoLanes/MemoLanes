@@ -3,8 +3,8 @@ use std::fs;
 
 use chrono::NaiveDate;
 use geo_data_format::{
-    tile_index, write_geo_data, GeoEntity, GeoEntityId, GeoEntityKind, Pov, TileMembership,
-    CELLS_PER_TILE, TILE_COUNT,
+    tile_index, write_geo_data, GeoEntity, GeoEntityId, GeoEntityKind, TileMembership,
+    WorldviewVariant, CELLS_PER_TILE, TILE_COUNT,
 };
 use memolanes_core::{
     achievement::layer::AchievementLayer,
@@ -40,7 +40,14 @@ fn geo_bytes() -> Vec<u8> {
     cells[BlockKey::from_x_y(7, 7).index()] = Some(GeoEntityId(3));
     let mut blocks = BTreeMap::new();
     blocks.insert((1, 0), cells);
-    write_geo_data(&entities, &[], &tiles, &blocks, [0u8; 32]).unwrap()
+    write_geo_data(
+        &entities,
+        WorldviewVariant::Iso.spec().id,
+        &tiles,
+        &blocks,
+        [0u8; 32],
+    )
+    .unwrap()
 }
 
 fn one_block(tile: TileKey, block: BlockKey) -> JourneyBitmap {
@@ -77,8 +84,10 @@ fn region_read_api_lists_progress_and_completion() {
         fs::create_dir_all(&p).unwrap();
         p.into_os_string().into_string().unwrap()
     };
-    let storage = Storage::init(sub("t"), sub("d"), sub("s"), sub("c"));
-    storage.set_geo_data(Pov::Iso, &geo_bytes()).unwrap();
+    let storage = Storage::init(sub("t"), sub("d"), sub("s"), sub("c"), sub("g"));
+    storage
+        .set_geo_data(WorldviewVariant::Iso, &geo_bytes())
+        .unwrap();
 
     // Default journey in France, Flight journey over Germany.
     insert(
@@ -137,4 +146,56 @@ fn region_read_api_lists_progress_and_completion() {
             Ok(())
         })
         .unwrap();
+}
+
+#[test]
+fn set_geo_data_rejects_mismatched_worldview_id() {
+    let dir = TempDir::new("test_geo_mismatch").unwrap();
+    let sub = |s: &str| {
+        let p = dir.path().join(s);
+        fs::create_dir_all(&p).unwrap();
+        p.into_os_string().into_string().unwrap()
+    };
+    let storage = Storage::init(sub("t"), sub("d"), sub("s"), sub("c"), sub("g"));
+
+    // A bin that declares "chn", loaded as Iso, must be rejected.
+    let tiles = vec![TileMembership::None; TILE_COUNT];
+    let bytes = write_geo_data(
+        &[],
+        WorldviewVariant::Chn.spec().id,
+        &tiles,
+        &BTreeMap::new(),
+        [0u8; 32],
+    )
+    .unwrap();
+    let err = storage
+        .set_geo_data(WorldviewVariant::Iso, &bytes)
+        .expect_err("mismatched worldview id must be rejected");
+    assert!(
+        err.to_string().contains("declares worldview"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn set_geo_reads_bin_from_geo_dir() {
+    let dir = TempDir::new("test_geo_dir").unwrap();
+    let sub = |s: &str| {
+        let p = dir.path().join(s);
+        fs::create_dir_all(&p).unwrap();
+        p.into_os_string().into_string().unwrap()
+    };
+    let geo_dir = sub("g");
+    let storage = Storage::init(sub("t"), sub("d"), sub("s"), sub("c"), geo_dir.clone());
+
+    // Missing asset file → error.
+    assert!(storage.set_geo(WorldviewVariant::Iso).is_err());
+
+    // Materialize the iso bin into geo_dir, then set_geo reads it by id.
+    fs::write(
+        std::path::Path::new(&geo_dir).join("geo_data_iso.bin"),
+        geo_bytes(),
+    )
+    .unwrap();
+    storage.set_geo(WorldviewVariant::Iso).unwrap();
 }
