@@ -31,23 +31,25 @@ use std::collections::BTreeMap;
 use std::time::Instant;
 
 use geo::algorithm::BoundingRect;
-use geo_data_format::{GeoEntityId, TileMembership};
+use geo_data_format::{cell_index, tile_index, GeoEntityId, TileMembership, TILE_COUNT};
 use geo_types::MultiPolygon;
 
 use crate::entities::EntityModel;
 use crate::parse::ParsedFeature;
 use crate::projection::{lng_lat_to_block_xy, BLOCK_GRID_SIZE};
 
-const MAP_WIDTH: usize = 512;
 const TILE_WIDTH: usize = 128;
-const TILES_TOTAL: usize = MAP_WIDTH * MAP_WIDTH;
+const TILES_TOTAL: usize = TILE_COUNT;
 const BLOCKS_PER_TILE: usize = TILE_WIDTH * TILE_WIDTH;
 const TILE_BITMAP_WORDS: usize = BLOCKS_PER_TILE / 64; // 256 u64s
 
-/// Per-tile membership classifications, indexed `ty * MAP_WIDTH + tx`.
+/// Per-tile membership classifications, indexed by `geo_data_format::tile_index`
+/// (x-major), matching the runtime's `BlockKey::index()` convention.
 pub type TileLookup = Vec<TileMembership>;
-/// Per-(border-)tile block array. Each entry is a 128×128 = 16,384-element
-/// vector indexed `byo * TILE_WIDTH + bxo`.
+/// Per-(border-)tile block array, 16,384 entries indexed by
+/// `geo_data_format::cell_index` (x-major), = the runtime's `BlockKey::index()`.
+/// The internal `TileBitmap` is y-major; the transpose happens once, where this
+/// vector is emitted (phase 2 border branch).
 pub type BlockLookup = BTreeMap<(u16, u16), Vec<Option<GeoEntityId>>>;
 
 /// 128×128 packed bitmap, indexed `byo * TILE_WIDTH + bxo`.
@@ -149,7 +151,7 @@ pub fn rasterize(_features: &[ParsedFeature], model: &EntityModel) -> (TileLooku
     let mut tile_done = 0usize;
 
     for ((tx, ty), cand_indices) in &tile_candidates {
-        let tile_idx = *ty as usize * MAP_WIDTH + *tx as usize;
+        let tile_idx = tile_index(*tx, *ty);
 
         // Determine if any candidate has an edge in this tile.
         let any_edge = cand_indices
@@ -195,9 +197,11 @@ pub fn rasterize(_features: &[ParsedFeature], model: &EntityModel) -> (TileLooku
                     let base = word_idx * 64;
                     while w != 0 {
                         let b = w.trailing_zeros() as usize;
-                        let i = base + b;
-                        if blocks[i].is_none() {
-                            blocks[i] = Some(value);
+                        let i = base + b; // y-major bit index in the TileBitmap
+                                          // Transpose to x-major on output: bit i is (x=i%128, y=i/128).
+                        let out = cell_index((i % TILE_WIDTH) as u8, (i / TILE_WIDTH) as u8);
+                        if blocks[out].is_none() {
+                            blocks[out] = Some(value);
                         }
                         w &= w - 1;
                     }

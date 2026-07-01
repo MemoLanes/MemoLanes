@@ -24,6 +24,7 @@ fn storage_for_main_map_renderer() {
         sub_folder("doc/"),
         sub_folder("support/"),
         sub_folder("cache/"),
+        sub_folder("geo/"),
     );
 
     let (raw_data_groups, _preprocessor) =
@@ -71,6 +72,7 @@ where
         sub_folder("doc/"),
         sub_folder("support/"),
         sub_folder("cache/"),
+        sub_folder("geo/"),
     );
     f(storage);
 }

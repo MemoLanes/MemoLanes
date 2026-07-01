@@ -11,7 +11,6 @@ use csv::Reader;
 use flutter_rust_bridge::frb;
 
 use super::import::JourneyInfo;
-use crate::achievement::stat_cache::StatCache;
 use crate::cache_db::LayerKind;
 use crate::frb_generated::StreamSink;
 use crate::gps_processor::{GpsPreprocessor, ProcessResult};
@@ -38,7 +37,6 @@ use log::{error, info, warn};
 pub(super) struct MainState {
     pub storage: Storage,
     pub gps_preprocessor: Mutex<GpsPreprocessor>,
-    pub stat_cache: StatCache,
     main_map_state: Arc<Mutex<MainMapState>>,
 }
 
@@ -76,7 +74,13 @@ fn reload_main_map_bitmap(storage: &Storage, main_map_state: &mut MainMapState) 
     Ok(())
 }
 
-pub fn init(temp_dir: String, doc_dir: String, support_dir: String, system_cache_dir: String) {
+pub fn init(
+    temp_dir: String,
+    doc_dir: String,
+    support_dir: String,
+    system_cache_dir: String,
+    geo_dir: String,
+) {
     let mut already_initialized = true;
     MAIN_STATE.get_or_init(|| {
         already_initialized = false;
@@ -93,7 +97,7 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, system_cache
             }
         }
 
-        let mut storage = Storage::init(temp_dir, doc_dir, support_dir, real_cache_dir);
+        let mut storage = Storage::init(temp_dir, doc_dir, support_dir, real_cache_dir, geo_dir);
         info!("initialized");
 
         let default_layer_filter = LayerFilter {
@@ -120,15 +124,12 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, system_cache
                     error!("Failed to get latest bitmap for main map renderer: {e:?}");
                 }
             }
-            // Journey set changed — evict cached stats.
-            get().stat_cache.invalidate();
         }));
         info!("main map renderer initialized");
 
         MainState {
             storage,
             gps_preprocessor: Mutex::new(GpsPreprocessor::new()),
-            stat_cache: StatCache::default(),
             main_map_state,
         }
     });

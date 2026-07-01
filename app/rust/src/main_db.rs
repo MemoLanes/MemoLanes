@@ -833,12 +833,16 @@ pub enum Setting {
     // TODO: We should consider making the flutter part handle this, similar to
     // `GpsManager.isRecording`.
     RawDataMode,
+    /// The user's chosen worldview id (a `WorldviewVariant` id, e.g. "iso").
+    /// Persisted here so the choice survives restarts uniformly across backends.
+    Worldview,
 }
 
 impl Setting {
     fn to_db_key(self) -> &'static str {
         match self {
             Self::RawDataMode => "RAW_DATA_MODE",
+            Self::Worldview => "WORLDVIEW",
         }
     }
 }

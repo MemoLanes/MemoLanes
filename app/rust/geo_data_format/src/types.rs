@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-/// Stable sequential ID assigned by sorting all iso_codes lexicographically.
-/// Deterministic: same input dataset always yields same IDs.
+/// Stable ID from the rasterizer's frozen, append-only entity registry.
+/// IDs are explicit and never reused, so a dataset change never renumbers
+/// existing entities.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct GeoEntityId(pub u32);
 
@@ -24,7 +25,10 @@ pub struct GeoEntity {
     pub total_area_m2: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Runtime/FRB display DTO for a worldview: id + l10n keys. Not persisted —
+/// the `.bin` stores only a worldview id; the full list is derived from
+/// [`crate::WorldviewVariant::ALL`] via [`crate::all_worldviews`].
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Worldview {
     pub id: String,
     pub name_key: String,

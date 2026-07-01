@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:memolanes/common/log.dart';
-import 'package:memolanes/src/rust/achievement/scope.dart';
+import 'package:memolanes/src/rust/achievement/layer.dart';
 import 'package:memolanes/src/rust/api/achievement.dart' as achievement_api;
 
 @immutable
