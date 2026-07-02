@@ -68,6 +68,17 @@ private func readBool(_ defaults: UserDefaults, attributes: LiveActivitiesAppAtt
 }
 
 @available(iOS 16.1, *)
+private func appDisplayName() -> String {
+  if let name = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String, !name.isEmpty {
+    return name
+  }
+  if let name = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String, !name.isEmpty {
+    return name
+  }
+  return "MemoLanes"
+}
+
+@available(iOS 16.1, *)
 private func statusTitle(recordingStatus: Int) -> String {
   switch recordingStatus {
   case 2:
@@ -121,6 +132,19 @@ private func gpsSignalTimeText(epochMs: Int) -> String {
   let date = Date(timeIntervalSince1970: Double(epochMs) / 1000.0)
   let time = DateFormatter.localizedString(from: date, dateStyle: .none, timeStyle: .medium)
   return String(format: String(localized: "live_activity.gps_signal_time_format", bundle: .main), time)
+}
+
+@available(iOS 16.1, *)
+private struct BrandLabel: View {
+  let appName: String
+  var compact: Bool = false
+
+  var body: some View {
+    Text(appName)
+      .font(compact ? .caption.weight(.semibold) : .subheadline.weight(.semibold))
+      .foregroundStyle(MemoLiveTheme.textPrimary)
+      .lineLimit(1)
+  }
 }
 
 @available(iOS 16.1, *)
@@ -278,6 +302,7 @@ private struct LocationMetadataRow: View {
 /// Shared UI for Live Activity + Xcode SwiftUI previews (no `ActivityViewContext` required).
 @available(iOS 16.1, *)
 struct RecordingLiveActivityPanel: View {
+  let appName: String
   let recordingStatus: Int
   let latitude: Double?
   let longitude: Double?
@@ -292,6 +317,7 @@ struct RecordingLiveActivityPanel: View {
 
     VStack(alignment: .leading, spacing: compact ? 9 : 13) {
       HStack(alignment: .center, spacing: 10) {
+        BrandLabel(appName: appName, compact: compact)
         StatusBadge(recordingStatus: recordingStatus)
         Spacer(minLength: 8)
         Image(systemName: locationStateIcon(recordingStatus: recordingStatus, hasFix: hasFix))
@@ -361,6 +387,7 @@ private struct RecordingLiveActivityView: View {
     let defaults = UserDefaults(suiteName: context.state.appGroupId)!
     let attrs = context.attributes
     return RecordingLiveActivityPanel(
+      appName: appDisplayName(),
       recordingStatus: readInt(defaults, attributes: attrs, key: "recordingStatus"),
       latitude: readOptionalDouble(defaults, attributes: attrs, key: "latitude"),
       longitude: readOptionalDouble(defaults, attributes: attrs, key: "longitude"),
