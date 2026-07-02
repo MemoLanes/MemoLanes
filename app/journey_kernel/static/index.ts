@@ -22,6 +22,8 @@ import { MapController } from "./map-controller";
 
 import "./debug-panel.css";
 
+import VConsole from "vconsole";
+
 // ============================================================================
 // Window Interface Extensions
 // ============================================================================
@@ -53,7 +55,14 @@ window.EXTERNAL_PARAMS = {};
  * 3. DebugPanel (optional, when debug mode enabled)
  * 4. FlutterBridge (handles Flutter-WebView communication)
  */
+let _setupDone = false;
+
 async function trySetup(): Promise<void> {
+  if (_setupDone) {
+    console.log("Already initialized, skipping trySetup");
+    return;
+  }
+
   // Parse URL hash if EXTERNAL_PARAMS is empty
   if (Object.keys(window.EXTERNAL_PARAMS).length === 0) {
     window.EXTERNAL_PARAMS = parseUrlHash();
@@ -102,8 +111,12 @@ async function trySetup(): Promise<void> {
   await mapController.initialize();
   console.log("MapController initialized");
 
-  // Initialize DebugPanel (only when debug mode is enabled)
+  // Initialize debug tooling (only when debug mode is enabled)
   if (params.debug) {
+    const vConsole = new VConsole();
+    vConsole.setOption("log.maxLogNumber", 5000);
+    vConsole.setSwitchPosition(20, 500);
+
     const debugPanel = new DebugPanel(mapController.getMap(), params);
     debugPanel.initialize();
   }
@@ -119,6 +132,8 @@ async function trySetup(): Promise<void> {
     });
     flutterBridgeEditor.initialize();
   }
+
+  _setupDone = true;
 
   // Notify Flutter that the map is ready (with small delay for rendering)
   setTimeout(() => {

@@ -149,6 +149,7 @@ export class DebugPanel {
           <div style="font-family: monospace; font-size: 12px; margin-bottom: 8px;">
             <div>FPS: <span id="fps-display" style="color: #4CAF50;">-</span></div>
             <div>Network: <span id="network-delay-display" style="color: #2196F3;">-</span> ms</div>
+            <div>Low Power Mode: <span id="lpm-status" style="color: #FF9800;">-</span></div>
           </div>
           <div style="font-size: 10px; margin-bottom: 4px; color: rgba(255, 255, 255, 0.7);">FPS</div>
           <canvas id="fps-graph" width="200" height="50"></canvas>
@@ -236,6 +237,11 @@ export class DebugPanel {
     this.params.on("projection", (newValue, _oldValue) => {
       this._syncProjectionDropdown(newValue as ProjectionType);
     });
+
+    // Update LPM display when it changes (e.g., pushed from Flutter at runtime)
+    this.params.on("lowPowerMode", (_newValue, _oldValue) => {
+      this._updateLpmDisplay();
+    });
   }
 
   /**
@@ -290,8 +296,6 @@ export class DebugPanel {
 
     sectionHeaders.forEach((header) => {
       const headerElement = header as HTMLElement;
-      this._enableTouchSupport(headerElement);
-
       headerElement.addEventListener("click", () => {
         const sectionName = headerElement.dataset.section;
         if (!sectionName) return;
@@ -307,24 +311,6 @@ export class DebugPanel {
     });
   }
 
-  /**
-   * Enable touch support for interactive elements in mobile webview
-   * Some webviews don't properly handle touch events on native elements
-   */
-  private _enableTouchSupport(element: HTMLElement): void {
-    // Add touchend handler to trigger click
-    element.addEventListener(
-      "touchend",
-      (e: TouchEvent) => {
-        e.preventDefault();
-        // Trigger a synthetic click
-        element.focus();
-        element.click();
-      },
-      { passive: false },
-    );
-  }
-
   private _setupEventListeners(): void {
     // Setup collapsible sections
     this._setupCollapsibleSections();
@@ -332,9 +318,6 @@ export class DebugPanel {
     // Close button
     const closeButton = document.getElementById("close-debug");
     if (closeButton) {
-      // Enable touch support for mobile webview
-      this._enableTouchSupport(closeButton);
-
       closeButton.addEventListener("click", () => {
         this.hide();
         this._updateUrlHash({ debug: "false" });
@@ -345,9 +328,6 @@ export class DebugPanel {
     // Now simply sets params.renderMode - the hook system handles the rest
     const renderingModeSelect = document.getElementById("rendering-mode");
     if (renderingModeSelect) {
-      // Enable touch support for mobile webview
-      this._enableTouchSupport(renderingModeSelect);
-
       renderingModeSelect.addEventListener("change", (e: Event) => {
         const target = e.target as HTMLSelectElement;
         const renderingMode = target.value;
@@ -387,9 +367,6 @@ export class DebugPanel {
     // Projection mode dropdown change handler
     const projectionSelect = document.getElementById("projection-mode");
     if (projectionSelect) {
-      // Enable touch support for mobile webview
-      this._enableTouchSupport(projectionSelect);
-
       projectionSelect.addEventListener("change", (e: Event) => {
         const target = e.target as HTMLSelectElement;
         const projection = target.value as ProjectionType;
@@ -413,21 +390,9 @@ export class DebugPanel {
     });
 
     // Flutter Bridge test: Location marker checkboxes
-    const showCheckbox = document.getElementById("marker-show");
-    const flytoCheckbox = document.getElementById("marker-flyto");
-    if (showCheckbox) {
-      this._enableTouchSupport(showCheckbox);
-    }
-    if (flytoCheckbox) {
-      this._enableTouchSupport(flytoCheckbox);
-    }
-
     // Flutter Bridge test: Location marker button
     const testMarkerBtn = document.getElementById("test-marker-btn");
     if (testMarkerBtn) {
-      // Enable touch support for mobile webview
-      this._enableTouchSupport(testMarkerBtn);
-
       testMarkerBtn.addEventListener("click", () => {
         const showInput = document.getElementById(
           "marker-show",
@@ -600,6 +565,17 @@ export class DebugPanel {
     }
   }
 
+  private _updateLpmDisplay(): void {
+    if (!this.visible) return;
+
+    const lpmElement = document.getElementById("lpm-status");
+    if (lpmElement) {
+      const isLPM = this.params.lowPowerMode;
+      lpmElement.textContent = isLPM ? "ON" : "OFF";
+      lpmElement.style.color = isLPM ? "#F44336" : "#4CAF50";
+    }
+  }
+
   private _renderFpsGraph(): void {
     if (!this.visible || !this.fpsCtx || !this.fpsCanvas) return;
 
@@ -725,6 +701,16 @@ export class DebugPanel {
   }
 
   private _updateUrlHash(params: UrlHashParams): void {
+    // Hash updates are only useful in a real browser; skip inside Flutter WebView
+    // to avoid triggering Android onLoadStop / page reload side effects.
+    const endpoint = window.EXTERNAL_PARAMS?.cgi_endpoint ?? "";
+    if (
+      endpoint.startsWith("memolanes://") ||
+      endpoint.startsWith("https://memolanes.local/")
+    ) {
+      return;
+    }
+
     const hash: string = window.location.hash.slice(1);
     const urlParams = new URLSearchParams(hash);
 
@@ -737,8 +723,7 @@ export class DebugPanel {
       }
     });
 
-    // Update URL without reloading page
-    window.location.hash = urlParams.toString();
+    history.replaceState(null, "", "#" + urlParams.toString());
   }
 
   private _checkDebugStatus(): void {
@@ -758,6 +743,9 @@ export class DebugPanel {
 
       // Update viewpoint info
       this._updateViewpointInfo();
+
+      // Update LPM display
+      this._updateLpmDisplay();
     } else {
       this.hide();
     }
@@ -770,6 +758,7 @@ export class DebugPanel {
     this.visible = true;
     this._updateViewpointInfo();
     this._updateNetworkDisplay();
+    this._updateLpmDisplay();
     this._renderNetworkGraph();
 
     // Start FPS monitoring when panel is shown

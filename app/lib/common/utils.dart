@@ -16,6 +16,19 @@ NaiveDate dateTimeToNaiveDate(DateTime dateTime) =>
 DateTime naiveDateToDateTime(NaiveDate naiveDate) =>
     _naiveDateFormat.parse(naiveDateToString(date: naiveDate));
 
+bool popCurrentRoute<T>(BuildContext context, [T? result]) {
+  if (!context.mounted) return false;
+
+  final route = ModalRoute.of(context);
+  if (route?.isCurrent != true) return false;
+
+  final navigator = Navigator.of(context);
+  if (!navigator.canPop()) return false;
+
+  navigator.pop<T>(result);
+  return true;
+}
+
 Future<bool> showCommonDialog(BuildContext context, String message,
     {hasCancel = false,
     title,

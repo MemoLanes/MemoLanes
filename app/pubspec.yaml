@@ -61,7 +61,11 @@ dependencies:
   json_annotation: ^4.9.0
   async: ^2.11.0
   calendar_date_picker2: ^3.0.0
-  webview_flutter: ^4.10.0
+  flutter_inappwebview:
+    git:
+      url: https://github.com/MemoLanes/flutter_inappwebview
+      ref: master
+      path: flutter_inappwebview
   # TODO: `pointer_interceptor` is a workaround for: https://github.com/flutter/flutter/issues/58659
   pointer_interceptor: ^0.10.1+2
   font_awesome_flutter: ^11.0.0
@@ -78,8 +82,24 @@ dependencies:
   flutter_appbar: ^1.9.0
   flutter_app_intents: ^0.7.0
   haptic_feedback: ^0.6.4+3
+  battery_plus: ^6.2.1
 
 dependency_overrides:
+  flutter_inappwebview_platform_interface:
+    git: 
+      url: https://github.com/MemoLanes/flutter_inappwebview
+      ref: master
+      path: flutter_inappwebview_platform_interface
+  flutter_inappwebview_ios:
+    git:
+      url: https://github.com/MemoLanes/flutter_inappwebview
+      ref: master
+      path: flutter_inappwebview_ios
+  flutter_inappwebview_android:
+    git:
+      url: https://github.com/MemoLanes/flutter_inappwebview
+      ref: master
+      path: flutter_inappwebview_android
   geolocator_android:
     git:
       url: https://github.com/MemoLanes/flutter-geolocator
