@@ -10,8 +10,10 @@ extension LiveActivitiesAppAttributes {
   /// matching what Flutter + `live_activities` write at runtime.
   static func previewSeeded(
     recordingStatus: Int = 1,
-    startedMs: Int? = Int((Date().addingTimeInterval(-90 * 60).timeIntervalSince1970 * 1000.0).rounded()),
+    latitude: Double? = 31.230416,
+    longitude: Double? = 121.473701,
     accuracy: Double? = 4.5,
+    gpsTimestampMs: Int? = Int((Date().addingTimeInterval(-4).timeIntervalSince1970 * 1000.0).rounded()),
     hasGpsFix: Bool = true
   ) -> LiveActivitiesAppAttributes {
     let attrs = LiveActivitiesAppAttributes()
@@ -19,15 +21,25 @@ extension LiveActivitiesAppAttributes {
       return attrs
     }
     defaults.set(recordingStatus, forKey: attrs.prefixedKey("recordingStatus"))
-    if let ms = startedMs {
-      defaults.set(ms, forKey: attrs.prefixedKey("startedAtEpochMs"))
+    if let lat = latitude {
+      defaults.set(lat, forKey: attrs.prefixedKey("latitude"))
     } else {
-      defaults.removeObject(forKey: attrs.prefixedKey("startedAtEpochMs"))
+      defaults.removeObject(forKey: attrs.prefixedKey("latitude"))
+    }
+    if let lng = longitude {
+      defaults.set(lng, forKey: attrs.prefixedKey("longitude"))
+    } else {
+      defaults.removeObject(forKey: attrs.prefixedKey("longitude"))
     }
     if let acc = accuracy {
       defaults.set(acc, forKey: attrs.prefixedKey("accuracyM"))
     } else {
       defaults.removeObject(forKey: attrs.prefixedKey("accuracyM"))
+    }
+    if let ts = gpsTimestampMs {
+      defaults.set(ts, forKey: attrs.prefixedKey("gpsTimestampMs"))
+    } else {
+      defaults.removeObject(forKey: attrs.prefixedKey("gpsTimestampMs"))
     }
     defaults.set(hasGpsFix, forKey: attrs.prefixedKey("hasGpsFix"))
     defaults.synchronize()
@@ -49,9 +61,11 @@ extension LiveActivitiesAppAttributes {
 @available(iOSApplicationExtension 17.0, *)
 #Preview("Live Activity — paused", as: .content, using: LiveActivitiesAppAttributes.previewSeeded(
   recordingStatus: 2,
-  startedMs: Int((Date().addingTimeInterval(-45 * 60).timeIntervalSince1970 * 1000.0).rounded()),
-  accuracy: 12,
-  hasGpsFix: true
+  latitude: nil,
+  longitude: nil,
+  accuracy: nil,
+  gpsTimestampMs: nil,
+  hasGpsFix: false
 )) {
   RecordingLiveActivityWidget()
 } contentStates: {

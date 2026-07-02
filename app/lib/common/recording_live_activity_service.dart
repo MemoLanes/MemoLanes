@@ -2,20 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:live_activities/live_activities.dart';
-import 'package:live_activities/models/url_scheme_data.dart';
 import 'package:memolanes/common/gps_manager.dart';
-import 'package:memolanes/common/home_tab_bridge.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/recording_live_activity_constants.dart';
 import 'package:memolanes/common/service/location/location_service.dart';
-import 'package:memolanes/common/utils.dart';
-import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:memolanes/utils/nav_helper.dart';
 
-/// iOS Live Activity + Dynamic Island for journey recording (§1 in agent_live_activity_requirements).
+/// iOS Live Activity + Dynamic Island for journey recording.
 class RecordingLiveActivityService with WidgetsBindingObserver {
   RecordingLiveActivityService._();
   static final RecordingLiveActivityService instance =
@@ -23,10 +17,11 @@ class RecordingLiveActivityService with WidgetsBindingObserver {
 
   final LiveActivities _live = LiveActivities();
   GpsManager? _gps;
-  StreamSubscription<UrlSchemeData>? _urlSub;
   Timer? _coalesce;
+  GpsRecordingStatus? _lastObservedStatus;
   DateTime _lastSlowFieldPush = DateTime.fromMillisecondsSinceEpoch(0);
   Map<String, dynamic>? _lastSentPayload;
+  bool _hasCreatedTrackedActivity = false;
   bool _inited = false;
   bool _nativeReady = false;
 
@@ -37,6 +32,7 @@ class RecordingLiveActivityService with WidgetsBindingObserver {
   void start({required GpsManager gpsManager}) {
     if (!Platform.isIOS) return;
     _gps = gpsManager;
+    _lastObservedStatus = gpsManager.recordingStatus;
     WidgetsBinding.instance.addObserver(this);
     gpsManager.addListener(_onGpsManagerChanged);
     unawaited(_initNativeThenSync());
@@ -45,111 +41,68 @@ class RecordingLiveActivityService with WidgetsBindingObserver {
   Future<void> _initNativeThenSync() async {
     if (_inited) return;
     _inited = true;
-    try {
-      final supported = await _live.areActivitiesSupported();
-      final enabled = await _live.areActivitiesEnabled();
-      if (!supported || !enabled) {
-        log.info(
-            '[RecordingLiveActivity] skipped (supported=$supported enabled=$enabled)',
-        );
-        return;
-      }
-      await _live.init(
-        appGroupId: kRecordingLiveActivityAppGroupId,
-        urlScheme: kRecordingLiveActivityUrlScheme,
-        requestAndroidNotificationPermission: false,
+    final supported = await _live.areActivitiesSupported();
+    final enabled = await _live.areActivitiesEnabled();
+    if (!supported || !enabled) {
+      log.info(
+        '[RecordingLiveActivity] skipped (supported=$supported enabled=$enabled)',
       );
-      _urlSub = _live.urlSchemeStream().listen(
-        _onUrlScheme,
-        onError: (Object e, StackTrace s) =>
-            log.error('[RecordingLiveActivity] url scheme stream $e', s),
-      );
-      _nativeReady = true;
-    } catch (e, s) {
-      log.error('[RecordingLiveActivity] init failed: $e', s);
       return;
     }
-    await syncNow(reason: 'init');
+    await _live.init(
+      appGroupId: kRecordingLiveActivityAppGroupId,
+      requestAndroidNotificationPermission: false,
+    );
+    _nativeReady = true;
+    await syncNow();
   }
 
   void _onGpsManagerChanged() {
+    final gps = _gps;
+    if (gps == null) return;
+
+    final statusChanged = gps.recordingStatus != _lastObservedStatus;
+    _lastObservedStatus = gps.recordingStatus;
+
+    if (statusChanged) {
+      _coalesce?.cancel();
+      unawaited(syncNow());
+      return;
+    }
+
     _coalesce?.cancel();
     _coalesce = Timer(const Duration(milliseconds: 80), () {
-      unawaited(syncNow(reason: 'gps_notify'));
+      unawaited(syncNow());
     });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      unawaited(syncNow(reason: 'resumed'));
+    switch (state) {
+      case AppLifecycleState.resumed:
+        unawaited(syncNow());
+      case AppLifecycleState.detached:
+        unawaited(_endAllActivities());
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.paused:
+        break;
     }
   }
 
-  String? _queryFirst(UrlSchemeData data, String name) {
-    for (final item in data.queryParameters) {
-      if (item['name'] == name) return item['value'];
-    }
-    return null;
-  }
-
-  Future<void> _onUrlScheme(UrlSchemeData data) async {
-    final gps = _gps;
-    if (gps == null) return;
-
-    final op = _queryFirst(data, 'op');
-    if (op == null || op.isEmpty) {
-      HomeTabBridge.openMapTab();
-      return;
-    }
-
-    switch (op) {
-      case 'openMap':
-        HomeTabBridge.openMapTab();
-        return;
-      case 'pause':
-        if (gps.recordingStatus == GpsRecordingStatus.recording) {
-          await gps.changeRecordingState(GpsRecordingStatus.paused);
-        }
-        return;
-      case 'resume':
-        if (gps.recordingStatus == GpsRecordingStatus.paused) {
-          await gps.changeRecordingState(GpsRecordingStatus.recording);
-        }
-        return;
-      case 'end':
-        final ctx = navigatorKey.currentState?.context;
-        if (ctx == null || !ctx.mounted) return;
-        final shouldEnd = await showCommonDialog(
-          ctx,
-          ctx.tr('home.end_journey_message'),
-          hasCancel: true,
-          title: ctx.tr('home.end_journey_title'),
-          confirmButtonText: ctx.tr('common.end'),
-          confirmGroundColor: Colors.red,
-          confirmTextColor: Colors.white,
-        );
-        if (shouldEnd == true) {
-          await gps.changeRecordingState(GpsRecordingStatus.none);
-        }
-        return;
-      default:
-        HomeTabBridge.openMapTab();
-    }
-  }
-
-  /// §1.3 payload keys: recordingStatus, startedAtEpochMs, accuracyM, hasGpsFix.
   Future<Map<String, dynamic>> _buildPayload(GpsManager gps) async {
-    final startedMs = await api.ongoingJourneyStartEpochMs();
-    final int? started = startedMs?.toInt();
     final pos = gps.latestPosition;
-    final hasFix = pos != null && !_positionTooOldForLiveActivity(pos);
+    final hasFix = gps.recordingStatus == GpsRecordingStatus.recording &&
+        pos != null &&
+        !_positionTooOldForLiveActivity(pos);
 
     return <String, dynamic>{
       'recordingStatus': gps.recordingStatus.index,
-      if (started != null) 'startedAtEpochMs': started,
-      if (pos != null && hasFix) 'accuracyM': pos.accuracy,
       'hasGpsFix': hasFix,
+      if (pos != null && hasFix) 'latitude': pos.latitude,
+      if (pos != null && hasFix) 'longitude': pos.longitude,
+      if (pos != null && hasFix) 'accuracyM': pos.accuracy,
+      if (pos != null && hasFix) 'gpsTimestampMs': pos.timestampMs,
     };
   }
 
@@ -168,18 +121,19 @@ class RecordingLiveActivityService with WidgetsBindingObserver {
   ) =>
       jsonEncode(a) == jsonEncode(b);
 
-  Future<void> syncNow({required String reason}) async {
+  Future<void> syncNow() async {
     final gps = _gps;
     if (!_nativeReady || gps == null) return;
 
-    _syncChain = _syncChain.then((_) async {
-      try {
-        await _syncBody();
-      } catch (e, s) {
-        log.error('[RecordingLiveActivity] sync ($reason): $e', s);
-      }
-    });
-    await _syncChain;
+    final previous = _syncChain;
+    final current = Completer<void>();
+    _syncChain = current.future;
+    try {
+      await previous;
+      await _syncBody();
+    } finally {
+      current.complete();
+    }
   }
 
   Future<void> _syncBody() async {
@@ -187,11 +141,9 @@ class RecordingLiveActivityService with WidgetsBindingObserver {
     if (gps == null) return;
 
     if (!_shouldShow(gps)) {
-      _lastSentPayload = null;
-      _lastSlowFieldPush = DateTime.fromMillisecondsSinceEpoch(0);
       // End every Live Activity of this attribute type so duplicates from races
       // or older builds cannot linger on the lock screen / 灵动岛.
-      await _live.endAllActivities();
+      await _endAllActivities();
       return;
     }
 
@@ -208,8 +160,10 @@ class RecordingLiveActivityService with WidgetsBindingObserver {
     final slowOnly = prev != null &&
         next['recordingStatus'] == prev['recordingStatus'] &&
         (next['hasGpsFix'] != prev['hasGpsFix'] ||
+            next['latitude'] != prev['latitude'] ||
+            next['longitude'] != prev['longitude'] ||
             next['accuracyM'] != prev['accuracyM'] ||
-            next['startedAtEpochMs'] != prev['startedAtEpochMs']);
+            next['gpsTimestampMs'] != prev['gpsTimestampMs']);
 
     if (!statusChanged &&
         slowOnly &&
@@ -218,24 +172,31 @@ class RecordingLiveActivityService with WidgetsBindingObserver {
     }
 
     final ids = await _live.getAllActivitiesIds();
-    if (ids.length > 1) {
-      await _live.endAllActivities();
-      _lastSentPayload = null;
-      _lastSlowFieldPush = DateTime.fromMillisecondsSinceEpoch(0);
+    if (ids.length > 1 || (ids.isNotEmpty && !_hasCreatedTrackedActivity)) {
+      await _endAllActivities();
     }
 
     await _live.createOrUpdateActivity(
       kRecordingLiveActivityId,
       next,
+      removeWhenAppIsKilled: true,
       iOSEnableRemoteUpdates: false,
     );
+    _hasCreatedTrackedActivity = true;
     _lastSentPayload = Map<String, dynamic>.from(next);
     _lastSlowFieldPush = now;
   }
 
+  Future<void> _endAllActivities() async {
+    if (!_nativeReady) return;
+    await _live.endAllActivities();
+    _hasCreatedTrackedActivity = false;
+    _lastSentPayload = null;
+    _lastSlowFieldPush = DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
   void dispose() {
     _coalesce?.cancel();
-    _urlSub?.cancel();
     _gps?.removeListener(_onGpsManagerChanged);
     WidgetsBinding.instance.removeObserver(this);
   }

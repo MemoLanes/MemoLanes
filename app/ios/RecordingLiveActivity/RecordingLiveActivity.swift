@@ -19,12 +19,13 @@ extension LiveActivitiesAppAttributes {
   }
 }
 
-let kRecordingLiveActivityAppGroup = "group.com.xingxifeng.oss.dev"
+let kRecordingLiveActivityAppGroup = "group.com.memolanes.oss.dev"
 
 // Align with Flutter app theme (dark + lime accent). Internal so preview-only files can reuse colors.
 enum MemoLiveTheme {
   static let lime = Color(red: 0.71, green: 0.93, blue: 0.32)
   static let limeDark = Color(red: 0.55, green: 0.76, blue: 0.18)
+  static let blue = Color(red: 0.38, green: 0.72, blue: 1.0)
   static let surface = Color(red: 0.08, green: 0.08, blue: 0.09)
   static let surfaceElevated = Color(red: 0.12, green: 0.12, blue: 0.13)
   static let border = Color.white.opacity(0.08)
@@ -50,8 +51,8 @@ private func readInt(
 private func readOptionalInt(_ defaults: UserDefaults, attributes: LiveActivitiesAppAttributes, key: String) -> Int? {
   let fullKey = attributes.prefixedKey(key)
   guard defaults.object(forKey: fullKey) != nil else { return nil }
-  let i = readInt(defaults, attributes: attributes, key: key, defaultValue: -1)
-  return i >= 0 ? i : nil
+  let value = readInt(defaults, attributes: attributes, key: key, defaultValue: -1)
+  return value >= 0 ? value : nil
 }
 
 @available(iOS 16.1, *)
@@ -80,15 +81,48 @@ private func statusTitle(recordingStatus: Int) -> String {
   }
 }
 
-/// Short labels for Dynamic Island compact trailing (matches in-app notion: 运行中 / 暂停).
 @available(iOS 16.1, *)
 private func islandCompactStatusTitle(recordingStatus: Int) -> String {
-  switch recordingStatus {
-  case 2:
-    return String(localized: "live_activity.island_status_paused", bundle: .main)
-  default:
-    return String(localized: "live_activity.island_status_recording", bundle: .main)
+  statusTitle(recordingStatus: recordingStatus)
+}
+
+@available(iOS 16.1, *)
+private func statusAccent(recordingStatus: Int) -> Color {
+  recordingStatus == 2 ? MemoLiveTheme.pausedDot : MemoLiveTheme.lime
+}
+
+@available(iOS 16.1, *)
+private func locationStateText(recordingStatus: Int, hasFix: Bool) -> String {
+  if recordingStatus == 2 {
+    return String(localized: "live_activity.location_paused", bundle: .main)
   }
+  if hasFix {
+    return String(localized: "live_activity.location_title", bundle: .main)
+  }
+  return String(localized: "live_activity.no_gps_fix", bundle: .main)
+}
+
+@available(iOS 16.1, *)
+private func locationStateIcon(recordingStatus: Int, hasFix: Bool) -> String {
+  if recordingStatus == 2 {
+    return "pause.circle"
+  }
+  return hasFix ? "location.viewfinder" : "location.slash"
+}
+
+@available(iOS 16.1, *)
+private func locationStateColor(recordingStatus: Int, hasFix: Bool) -> Color {
+  if recordingStatus == 2 {
+    return MemoLiveTheme.pausedDot
+  }
+  return hasFix ? MemoLiveTheme.blue : MemoLiveTheme.textMuted
+}
+
+@available(iOS 16.1, *)
+private func gpsSignalTimeText(epochMs: Int) -> String {
+  let date = Date(timeIntervalSince1970: Double(epochMs) / 1000.0)
+  let time = DateFormatter.localizedString(from: date, dateStyle: .none, timeStyle: .medium)
+  return String(format: String(localized: "live_activity.gps_signal_time_format", bundle: .main), time)
 }
 
 @available(iOS 16.1, *)
@@ -98,7 +132,7 @@ private struct StatusBadge: View {
   var body: some View {
     HStack(spacing: 6) {
       Circle()
-        .fill(recordingStatus == 2 ? MemoLiveTheme.pausedDot : MemoLiveTheme.recordingDot)
+        .fill(statusAccent(recordingStatus: recordingStatus))
         .frame(width: 8, height: 8)
       Text(statusTitle(recordingStatus: recordingStatus))
         .font(.subheadline.weight(.semibold))
@@ -115,107 +149,189 @@ private struct StatusBadge: View {
   }
 }
 
+@available(iOS 16.1, *)
+private struct IslandStatusGlyph: View {
+  let recordingStatus: Int
+
+  var body: some View {
+    let accent = statusAccent(recordingStatus: recordingStatus)
+    ZStack {
+      if recordingStatus == 2 {
+        Image(systemName: locationStateIcon(recordingStatus: recordingStatus, hasFix: false))
+          .font(.system(size: 17, weight: .semibold))
+          .symbolRenderingMode(.hierarchical)
+          .foregroundStyle(accent)
+      } else {
+        Circle()
+          .stroke(accent.opacity(0.95), lineWidth: 1.5)
+          .frame(width: 18, height: 18)
+        Circle()
+          .fill(accent)
+          .frame(width: 6, height: 6)
+        Circle()
+          .stroke(accent.opacity(0.24), lineWidth: 3)
+          .frame(width: 11, height: 11)
+      }
+    }
+    .frame(width: 20, height: 20)
+    .accessibilityHidden(true)
+  }
+}
+
+@available(iOS 16.1, *)
+private struct IslandStatusCapsule: View {
+  let recordingStatus: Int
+
+  var body: some View {
+    let accent = statusAccent(recordingStatus: recordingStatus)
+    HStack(spacing: 4) {
+      Circle()
+        .fill(accent)
+        .frame(width: 5, height: 5)
+      Text(islandCompactStatusTitle(recordingStatus: recordingStatus))
+        .font(.system(size: 11, weight: .semibold))
+        .foregroundStyle(accent)
+        .lineLimit(1)
+        .minimumScaleFactor(0.72)
+    }
+    .padding(.horizontal, 7)
+    .padding(.vertical, 4)
+    .background(accent.opacity(0.14))
+    .clipShape(Capsule())
+  }
+}
+
+@available(iOS 16.1, *)
+private struct CoordinateRow: View {
+  let label: String
+  let value: Double
+  var compact: Bool = false
+
+  var body: some View {
+    HStack(alignment: .firstTextBaseline, spacing: 10) {
+      Text(label)
+        .font(compact ? .caption2.weight(.medium) : .caption.weight(.medium))
+        .foregroundStyle(MemoLiveTheme.textSecondary)
+        .frame(width: compact ? 28 : 36, alignment: .leading)
+      Text(String(format: "%.6f", value))
+        .font((compact ? Font.callout : Font.title3).weight(.semibold).monospacedDigit())
+        .foregroundStyle(MemoLiveTheme.textPrimary)
+        .lineLimit(1)
+        .minimumScaleFactor(0.82)
+    }
+  }
+}
+
+@available(iOS 16.1, *)
+private struct MetadataItem: View {
+  let systemImage: String
+  let text: String
+  var compact: Bool = false
+
+  var body: some View {
+    HStack(spacing: 6) {
+      Image(systemName: systemImage)
+        .font(.system(size: compact ? 11 : 12, weight: .semibold))
+      Text(text)
+        .font(compact ? .caption2.weight(.medium) : .caption.weight(.medium))
+        .lineLimit(1)
+        .minimumScaleFactor(0.82)
+    }
+    .foregroundStyle(MemoLiveTheme.textSecondary)
+  }
+}
+
+@available(iOS 16.1, *)
+private struct LocationMetadataRow: View {
+  let accuracy: Double?
+  let gpsTimestampMs: Int?
+  var compact: Bool = false
+
+  var body: some View {
+    ViewThatFits(in: .horizontal) {
+      HStack(spacing: compact ? 10 : 14) {
+        metadataItems
+      }
+      VStack(alignment: .leading, spacing: 4) {
+        metadataItems
+      }
+    }
+  }
+
+  @ViewBuilder
+  private var metadataItems: some View {
+    if let acc = accuracy {
+      MetadataItem(
+        systemImage: "scope",
+        text: String(format: String(localized: "live_activity.accuracy_format", bundle: .main), acc),
+        compact: compact
+      )
+    }
+    if let epochMs = gpsTimestampMs {
+      MetadataItem(
+        systemImage: "clock",
+        text: gpsSignalTimeText(epochMs: epochMs),
+        compact: compact
+      )
+    }
+  }
+}
+
 /// Shared UI for Live Activity + Xcode SwiftUI previews (no `ActivityViewContext` required).
 @available(iOS 16.1, *)
 struct RecordingLiveActivityPanel: View {
   let recordingStatus: Int
-  let startedMs: Int?
+  let latitude: Double?
+  let longitude: Double?
   let accuracy: Double?
+  let gpsTimestampMs: Int?
   let hasFix: Bool
   var compact: Bool = false
-  /// When `true`, skip `TimelineView` (static elapsed). Use `true` in Xcode Previews to avoid Canvas infinite refresh.
-  var freezeElapsedForPreview: Bool = false
-
-  private let mapUrl = URL(string: "memolaneslive://action?op=openMap")!
-  private let pauseUrl = URL(string: "memolaneslive://action?op=pause")!
-  private let resumeUrl = URL(string: "memolaneslive://action?op=resume")!
-  private let endUrl = URL(string: "memolaneslive://action?op=end")!
 
   var body: some View {
-    let hPad: CGFloat = compact ? 10 : 14
-    let vPad: CGFloat = compact ? 10 : 14
+    let hPad: CGFloat = compact ? 12 : 16
+    let vPad: CGFloat = compact ? 11 : 15
 
-    VStack(alignment: .leading, spacing: compact ? 8 : 12) {
-      Link(destination: mapUrl) {
-        VStack(alignment: .leading, spacing: 6) {
-          HStack(alignment: .center, spacing: 10) {
-            StatusBadge(recordingStatus: recordingStatus)
-            Spacer(minLength: 8)
-            if let ms = startedMs {
-              // TimelineView + Previews often causes Xcode Canvas to load forever; freeze for explicit preview or Xcode env.
-              if freezeElapsedForPreview
-                || ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
-              {
-                elapsedView(epochMs: ms)
-              } else {
-                TimelineView(.periodic(from: .now, by: 1)) { _ in
-                  elapsedView(epochMs: ms)
-                }
-              }
-            }
-          }
-
-          if hasFix, let acc = accuracy {
-            Text(String(format: String(localized: "live_activity.accuracy_format", bundle: .main), acc))
-              .font(compact ? .caption2 : .caption)
-              .foregroundStyle(MemoLiveTheme.textSecondary)
-          } else {
-            Text(String(localized: "live_activity.no_gps_fix", bundle: .main))
-              .font(compact ? .caption2 : .caption)
-              .foregroundStyle(MemoLiveTheme.textMuted)
-          }
-        }
+    VStack(alignment: .leading, spacing: compact ? 9 : 13) {
+      HStack(alignment: .center, spacing: 10) {
+        StatusBadge(recordingStatus: recordingStatus)
+        Spacer(minLength: 8)
+        Image(systemName: locationStateIcon(recordingStatus: recordingStatus, hasFix: hasFix))
+          .font(.system(size: compact ? 16 : 18, weight: .semibold))
+          .symbolRenderingMode(.hierarchical)
+          .foregroundStyle(locationStateColor(recordingStatus: recordingStatus, hasFix: hasFix))
       }
 
-      HStack(spacing: 10) {
-        if recordingStatus == 1 {
-          Link(destination: pauseUrl) {
-            Label(String(localized: "live_activity.pause", bundle: .main), systemImage: "pause.fill")
-              .font(.subheadline.weight(.semibold))
-              .labelStyle(.titleAndIcon)
-              .foregroundStyle(MemoLiveTheme.lime)
-              .frame(maxWidth: .infinity)
-              .padding(.vertical, 11)
-              .background(MemoLiveTheme.surfaceElevated)
-              .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-              .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                  .stroke(MemoLiveTheme.border, lineWidth: 1)
-              )
-          }
-        } else if recordingStatus == 2 {
-          Link(destination: resumeUrl) {
-            Label(String(localized: "live_activity.resume", bundle: .main), systemImage: "play.fill")
-              .font(.subheadline.weight(.semibold))
-              .labelStyle(.titleAndIcon)
-              .foregroundStyle(Color.black.opacity(0.88))
-              .frame(maxWidth: .infinity)
-              .padding(.vertical, 11)
-              .background(
-                LinearGradient(
-                  colors: [MemoLiveTheme.lime, MemoLiveTheme.limeDark],
-                  startPoint: .topLeading,
-                  endPoint: .bottomTrailing
-                )
-              )
-              .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-          }
-        }
+      VStack(alignment: .leading, spacing: compact ? 5 : 7) {
+        Text(locationStateText(recordingStatus: recordingStatus, hasFix: hasFix))
+          .font(compact ? .caption.weight(.semibold) : .subheadline.weight(.semibold))
+          .foregroundStyle(MemoLiveTheme.textSecondary)
 
-        Link(destination: endUrl) {
-          Image(systemName: "stop.circle.fill")
-            .font(.system(size: compact ? 34 : 38))
-            .symbolRenderingMode(.palette)
-            .foregroundStyle(MemoLiveTheme.textPrimary, MemoLiveTheme.recordingDot.opacity(0.92))
-            .frame(width: compact ? 48 : 52, height: compact ? 44 : 48)
-            .background(MemoLiveTheme.surfaceElevated)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(
-              RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(MemoLiveTheme.border, lineWidth: 1)
-            )
+        if hasFix, let lat = latitude, let lng = longitude {
+          CoordinateRow(
+            label: String(localized: "live_activity.latitude_label", bundle: .main),
+            value: lat,
+            compact: compact
+          )
+          CoordinateRow(
+            label: String(localized: "live_activity.longitude_label", bundle: .main),
+            value: lng,
+            compact: compact
+          )
+
+          LocationMetadataRow(
+            accuracy: accuracy,
+            gpsTimestampMs: gpsTimestampMs,
+            compact: compact
+          )
+        } else if recordingStatus != 2 {
+          Text(
+            String(localized: "live_activity.no_gps_fix_detail", bundle: .main)
+          )
+            .font(compact ? .callout.weight(.medium) : .body.weight(.medium))
+            .foregroundStyle(MemoLiveTheme.textMuted)
+            .padding(.top, 1)
         }
-        .accessibilityLabel(Text(String(localized: "live_activity.end_a11y", bundle: .main)))
       }
     }
     .padding(.horizontal, hPad)
@@ -235,18 +351,6 @@ struct RecordingLiveActivityPanel: View {
         )
     )
   }
-
-  @ViewBuilder
-  private func elapsedView(epochMs: Int) -> some View {
-    let start = Date(timeIntervalSince1970: Double(epochMs) / 1000.0)
-    let sec = max(0, Int(Date().timeIntervalSince(start)))
-    Text(
-      String(
-        format: String(localized: "live_activity.elapsed_format", bundle: .main),
-        sec / 60, sec % 60))
-      .font(.title3.weight(.medium).monospacedDigit())
-      .foregroundStyle(MemoLiveTheme.lime)
-  }
 }
 
 @available(iOS 16.1, *)
@@ -260,11 +364,12 @@ private struct RecordingLiveActivityView: View {
     let attrs = context.attributes
     return RecordingLiveActivityPanel(
       recordingStatus: readInt(defaults, attributes: attrs, key: "recordingStatus"),
-      startedMs: readOptionalInt(defaults, attributes: attrs, key: "startedAtEpochMs"),
+      latitude: readOptionalDouble(defaults, attributes: attrs, key: "latitude"),
+      longitude: readOptionalDouble(defaults, attributes: attrs, key: "longitude"),
       accuracy: readOptionalDouble(defaults, attributes: attrs, key: "accuracyM"),
+      gpsTimestampMs: readOptionalInt(defaults, attributes: attrs, key: "gpsTimestampMs"),
       hasFix: readBool(defaults, attributes: attrs, key: "hasGpsFix"),
-      compact: compact,
-      freezeElapsedForPreview: false
+      compact: compact
     )
   }
 }
@@ -279,8 +384,6 @@ struct RecordingLiveActivityWidget: Widget {
       let defaults = UserDefaults(suiteName: kRecordingLiveActivityAppGroup)!
       let attrs = context.attributes
       let recordingStatus = readInt(defaults, attributes: attrs, key: "recordingStatus")
-      let hasGpsFix = readBool(defaults, attributes: attrs, key: "hasGpsFix")
-      let mapUrl = URL(string: "memolaneslive://action?op=openMap")!
 
       return DynamicIsland {
         DynamicIslandExpandedRegion(.bottom) {
@@ -289,36 +392,11 @@ struct RecordingLiveActivityWidget: Widget {
             .padding(.bottom, 4)
         }
       } compactLeading: {
-        // Same visual language as in-app map `TrackingButton`: black circle + lime heading icon.
-        Link(destination: mapUrl) {
-          ZStack {
-            Circle()
-              .fill(Color.black)
-              .frame(width: 26, height: 26)
-            Image(systemName: "location.north.line.fill")
-              .font(.system(size: 13, weight: .semibold))
-              .foregroundStyle(MemoLiveTheme.lime.opacity(hasGpsFix ? 1.0 : 0.45))
-          }
-        }
+        IslandStatusGlyph(recordingStatus: recordingStatus)
       } compactTrailing: {
-        Link(destination: mapUrl) {
-          Text(islandCompactStatusTitle(recordingStatus: recordingStatus))
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(recordingStatus == 2 ? MemoLiveTheme.pausedDot : MemoLiveTheme.lime)
-            .lineLimit(1)
-            .minimumScaleFactor(0.75)
-        }
+        IslandStatusCapsule(recordingStatus: recordingStatus)
       } minimal: {
-        Link(destination: mapUrl) {
-          ZStack {
-            Circle()
-              .fill(Color.black)
-              .frame(width: 22, height: 22)
-            Image(systemName: "location.north.line.fill")
-              .font(.system(size: 11, weight: .semibold))
-              .foregroundStyle(MemoLiveTheme.lime.opacity(hasGpsFix ? 1.0 : 0.45))
-          }
-        }
+        IslandStatusGlyph(recordingStatus: recordingStatus)
       }
     }
   }
@@ -331,4 +409,3 @@ struct RecordingLiveActivityBundle: WidgetBundle {
     RecordingLiveActivityWidget()
   }
 }
-

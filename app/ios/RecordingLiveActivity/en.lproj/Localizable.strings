@@ -1,10 +1,10 @@
 "live_activity.status_recording" = "Recording";
 "live_activity.status_paused" = "Paused";
-"live_activity.island_status_recording" = "Recording";
-"live_activity.island_status_paused" = "Paused";
-"live_activity.pause" = "Pause";
-"live_activity.resume" = "Resume";
-"live_activity.elapsed_format" = "%d:%02d";
-"live_activity.accuracy_format" = "Accuracy: %.0f m";
+"live_activity.location_title" = "Current location";
+"live_activity.location_paused" = "Ready to resume";
+"live_activity.no_gps_fix_detail" = "Acquiring GPS signal";
+"live_activity.latitude_label" = "Lat";
+"live_activity.longitude_label" = "Lng";
+"live_activity.accuracy_format" = "Accuracy ±%.0f m";
+"live_activity.gps_signal_time_format" = "Signal %@";
 "live_activity.no_gps_fix" = "Waiting for GPS…";
-"live_activity.end_a11y" = "End journey";

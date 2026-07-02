@@ -8,15 +8,6 @@
     "double_back_exit": "Press back again to exit the app",
     "map_data_source_copyright_title": "Data Source"
   },
-  "live_activity": {
-    "status_recording": "Recording",
-    "status_paused": "Paused",
-    "pause": "Pause",
-    "resume": "Resume",
-    "elapsed_format": "%d:%02d",
-    "accuracy_format": "Accuracy: %.0f m",
-    "no_gps_fix": "Waiting for GPS…"
-  },
   "permission_sheet": {
     "title": "Authorize for the full experience",
     "location_help_tooltip": "About location permission",
