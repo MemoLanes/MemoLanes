@@ -492,9 +492,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
                 if (!mounted) return;
                 final failedUrl = request.url.toString();
                 if (!failedUrl.contains('events.mapbox.com')) {
-                  log.error('''Map WebView Error:
+                  log.error('''Map WebView Error: 
                       Description: ${error.description}
-                      Error Type: ${error.type}
+                      Error Type: ${error.type} 
                       Failed URL: $failedUrl''');
                 }
               },

@@ -87,7 +87,7 @@ dependencies:
 
 dependency_overrides:
   flutter_inappwebview_platform_interface:
-    git:
+    git: 
       url: https://github.com/MemoLanes/flutter_inappwebview
       ref: master
       path: flutter_inappwebview_platform_interface

@@ -24,7 +24,6 @@
 		EC946C1B2F0E1A7C00214BC0 /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EC946C112F0E1A7C00214BC0 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */ = {isa = PBXBuildFile; productRef = 78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */; };
 		EC94DA012F0E1A7C00214BD0 /* RecordingLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC94DA122F0E1A7C00214BD0 /* RecordingLiveActivity.swift */; };
-		EC94DA022F0E1A7C00214BD0 /* RecordingLiveActivity+ActivityPreviews.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC94DA132F0E1A7C00214BD0 /* RecordingLiveActivity+ActivityPreviews.swift */; };
 		EC94DA032F0E1A7C00214BD0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EC94DA142F0E1A7C00214BD0 /* Assets.xcassets */; };
 		EC94DA042F0E1A7C00214BD0 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = EC94DA172F0E1A7C00214BD0 /* Localizable.strings */; };
 		EC94DA052F0E1A7C00214BD0 /* RecordingLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EC94DA112F0E1A7C00214BD0 /* RecordingLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -115,7 +114,6 @@
 		EC946C112F0E1A7C00214BC0 /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		EC94DA112F0E1A7C00214BD0 /* RecordingLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RecordingLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		EC94DA122F0E1A7C00214BD0 /* RecordingLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingLiveActivity.swift; sourceTree = "<group>"; };
-		EC94DA132F0E1A7C00214BD0 /* RecordingLiveActivity+ActivityPreviews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RecordingLiveActivity+ActivityPreviews.swift"; sourceTree = "<group>"; };
 		EC94DA142F0E1A7C00214BD0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		EC94DA152F0E1A7C00214BD0 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		EC94DA162F0E1A7C00214BD0 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
@@ -283,7 +281,6 @@
 			isa = PBXGroup;
 			children = (
 				EC94DA122F0E1A7C00214BD0 /* RecordingLiveActivity.swift */,
-				EC94DA132F0E1A7C00214BD0 /* RecordingLiveActivity+ActivityPreviews.swift */,
 				EC94DA142F0E1A7C00214BD0 /* Assets.xcassets */,
 				EC94DA172F0E1A7C00214BD0 /* Localizable.strings */,
 				EC94DA232F0E1A7C00214BD0 /* Info.plist */,
@@ -642,7 +639,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				EC94DA012F0E1A7C00214BD0 /* RecordingLiveActivity.swift in Sources */,
-				EC94DA022F0E1A7C00214BD0 /* RecordingLiveActivity+ActivityPreviews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
