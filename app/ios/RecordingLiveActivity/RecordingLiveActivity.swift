@@ -19,9 +19,7 @@ extension LiveActivitiesAppAttributes {
   }
 }
 
-let kRecordingLiveActivityAppGroup = "group.com.memolanes.oss.dev"
-
-// Align with Flutter app theme (dark + lime accent). Internal so preview-only files can reuse colors.
+// Align with Flutter app theme (dark + lime accent).
 enum MemoLiveTheme {
   static let lime = Color(red: 0.71, green: 0.93, blue: 0.32)
   static let limeDark = Color(red: 0.55, green: 0.76, blue: 0.18)
@@ -360,7 +358,7 @@ private struct RecordingLiveActivityView: View {
   var compact: Bool = false
 
   var body: some View {
-    let defaults = UserDefaults(suiteName: kRecordingLiveActivityAppGroup)!
+    let defaults = UserDefaults(suiteName: context.state.appGroupId)!
     let attrs = context.attributes
     return RecordingLiveActivityPanel(
       recordingStatus: readInt(defaults, attributes: attrs, key: "recordingStatus"),
@@ -381,7 +379,7 @@ struct RecordingLiveActivityWidget: Widget {
       RecordingLiveActivityView(context: context, compact: false)
         .activityBackgroundTint(MemoLiveTheme.surface.opacity(0.35))
     } dynamicIsland: { context in
-      let defaults = UserDefaults(suiteName: kRecordingLiveActivityAppGroup)!
+      let defaults = UserDefaults(suiteName: context.state.appGroupId)!
       let attrs = context.attributes
       let recordingStatus = readInt(defaults, attributes: attrs, key: "recordingStatus")
 

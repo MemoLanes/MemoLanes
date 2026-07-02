@@ -7,12 +7,10 @@ import 'package:live_activities/live_activities.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/service/location/location_service.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 /// iOS Live Activity (ActivityKit) stable id for createOrUpdateActivity.
 const String kRecordingLiveActivityId = 'memolanes_journey';
-
-/// Must match Runner & widget extension App Group in Xcode.
-const String kRecordingLiveActivityAppGroupId = 'group.com.memolanes.oss.dev';
 
 /// iOS Live Activity + Dynamic Island for journey recording.
 class RecordingLiveActivityService with WidgetsBindingObserver {
@@ -54,8 +52,9 @@ class RecordingLiveActivityService with WidgetsBindingObserver {
       );
       return;
     }
+    final packageInfo = await PackageInfo.fromPlatform();
     await _live.init(
-      appGroupId: kRecordingLiveActivityAppGroupId,
+      appGroupId: 'group.${packageInfo.packageName}',
       requestAndroidNotificationPermission: false,
     );
     _nativeReady = true;
