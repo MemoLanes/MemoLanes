@@ -7,6 +7,12 @@ import 'package:memolanes/src/rust/main_db.dart';
 
 export 'package:memolanes/src/rust/main_db.dart' show RegionPreference;
 
+const _regionPreferenceDisplayOrder = [
+  RegionPreference.international,
+  RegionPreference.mainlandChina,
+  RegionPreference.unitedStates,
+];
+
 RegionPreference defaultRegionPreferenceFromDeviceLocale() {
   final locales = WidgetsBinding.instance.platformDispatcher.locales;
   final countryCode =
@@ -74,7 +80,7 @@ class _RegionPickerSheet extends StatelessWidget {
       contentPadding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
       child: Column(
         children: [
-          for (final region in RegionPreference.values)
+          for (final region in _regionPreferenceDisplayOrder)
             SetupTile(
               icon: regionPreferenceIcon(region),
               title: regionPreferenceTitle(context, region),

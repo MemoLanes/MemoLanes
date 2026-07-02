@@ -9,7 +9,8 @@ import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
-const int _latestVersion = 1;
+const int _latestPrivacyAgreementVersion = 1;
+const int _latestFirstLaunchSetupVersion = 1;
 const double _setupTileMinHeight = 68.0;
 
 Future<void> _showPrivacyAndRegionSheet(
@@ -40,7 +41,14 @@ Future<void> _showPrivacyAndRegionSheet(
   );
 
   if (result == true) {
-    MMKVUtil.putInt(MMKVKey.privacyAgreementAccepted, _latestVersion);
+    MMKVUtil.putInt(
+      MMKVKey.privacyAgreementAccepted,
+      _latestPrivacyAgreementVersion,
+    );
+    MMKVUtil.putInt(
+      MMKVKey.firstLaunchSetupCompletedVersion,
+      _latestFirstLaunchSetupVersion,
+    );
   } else {
     exit(1);
   }
@@ -52,12 +60,15 @@ Future<void> _showPrivacyAndRegionSheet(
 Future<void> showFirstLaunchSetupIfNeeded(BuildContext context) {
   var acceptedVersion =
       MMKVUtil.getInt(MMKVKey.privacyAgreementAccepted, defaultValue: 0);
-  final privacyAlreadyAccepted = acceptedVersion >= _latestVersion;
-  final regionPreferenceSelected = MMKVUtil.getBool(
-    MMKVKey.regionPreferenceSelected,
-    defaultValue: false,
+  final privacyAlreadyAccepted =
+      acceptedVersion >= _latestPrivacyAgreementVersion;
+  final setupCompletedVersion = MMKVUtil.getInt(
+    MMKVKey.firstLaunchSetupCompletedVersion,
+    defaultValue: 0,
   );
-  if (!privacyAlreadyAccepted || !regionPreferenceSelected) {
+  final firstLaunchSetupAlreadyCompleted =
+      setupCompletedVersion >= _latestFirstLaunchSetupVersion;
+  if (!privacyAlreadyAccepted || !firstLaunchSetupAlreadyCompleted) {
     return _showPrivacyAndRegionSheet(
       context,
       privacyAlreadyAccepted: privacyAlreadyAccepted,
@@ -115,11 +126,6 @@ class _FirstLaunchSetupSheetState extends State<FirstLaunchSetupSheet> {
     setState(() => _saving = true);
     try {
       await saveRegionPreference(_selectedRegion);
-      MMKVUtil.putBool(MMKVKey.regionPreferenceSelected, true);
-    } catch (_) {
-      if (!mounted) return;
-      await showCommonDialog(context, context.tr("privacy.region_save_failed"));
-      return;
     } finally {
       if (mounted) {
         setState(() => _saving = false);

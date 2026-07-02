@@ -8,7 +8,6 @@ import 'package:memolanes/common/component/scroll_views/single_child_scroll_view
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/app_haptics.dart';
-import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/region_preference.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -58,15 +57,9 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
     );
     if (result == null || !mounted) return;
 
-    try {
-      await saveRegionPreference(result);
-      MMKVUtil.putBool(MMKVKey.regionPreferenceSelected, true);
-      if (!mounted) return;
-      setState(() => _regionPreference = result);
-    } catch (_) {
-      if (!mounted) return;
-      await showCommonDialog(context, context.tr("privacy.region_save_failed"));
-    }
+    await saveRegionPreference(result);
+    if (!mounted) return;
+    setState(() => _regionPreference = result);
   }
 
   @override
