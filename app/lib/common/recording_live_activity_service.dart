@@ -6,8 +6,13 @@ import 'package:flutter/widgets.dart';
 import 'package:live_activities/live_activities.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
-import 'package:memolanes/common/recording_live_activity_constants.dart';
 import 'package:memolanes/common/service/location/location_service.dart';
+
+/// iOS Live Activity (ActivityKit) stable id for createOrUpdateActivity.
+const String kRecordingLiveActivityId = 'memolanes_journey';
+
+/// Must match Runner & widget extension App Group in Xcode.
+const String kRecordingLiveActivityAppGroupId = 'group.com.memolanes.oss.dev';
 
 /// iOS Live Activity + Dynamic Island for journey recording.
 class RecordingLiveActivityService with WidgetsBindingObserver {
