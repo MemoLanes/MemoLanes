@@ -13,6 +13,7 @@
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
 		6DFA5DAC2DE1DB8800948F41 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 6DFA5DAA2DE1DB8800948F41 /* InfoPlist.strings */; };
+		6DFA5DAE2DE1DB8800948F41 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 6DFA5DAA2DE1DB8800948F41 /* InfoPlist.strings */; };
 		EC2080012F2A1000003C4334 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = EC2080022F2A1000003C4334 /* Localizable.strings */; };
 		6FA661F8216768DE36799CA5 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC7A8186529620A3A5B187E6 /* Pods_RunnerTests.framework */; };
 		6FBFE1D0F2FD28F7538AB0C8 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C6C84A1652EE5A6811CE5399 /* Pods_Runner.framework */; };
@@ -468,6 +469,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				EC94DA032F0E1A7C00214BD0 /* Assets.xcassets in Resources */,
+				6DFA5DAE2DE1DB8800948F41 /* InfoPlist.strings in Resources */,
 				EC94DA042F0E1A7C00214BD0 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

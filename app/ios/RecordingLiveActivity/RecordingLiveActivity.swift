@@ -75,7 +75,7 @@ private func appDisplayName() -> String {
   if let name = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String, !name.isEmpty {
     return name
   }
-  return "MemoLanes"
+  return Bundle.main.bundleIdentifier ?? ""
 }
 
 @available(iOS 16.1, *)
