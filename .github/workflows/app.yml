@@ -7,13 +7,19 @@ on:
     paths:
       - "app/**"
       - "tools/geo_rasterizer/**"
+      - ".github/workflows/app.yml"
   push:
     branches:
       - main
     paths:
       - "app/**"
       - "tools/geo_rasterizer/**"
+      - ".github/workflows/app.yml"
   workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
 
 jobs:
   build_and_test:
@@ -151,7 +157,7 @@ jobs:
       - name: Build the wasm package
         working-directory: app/journey_kernel
         run: | 
-          wasm-pack build --target web --features wasm --no-default-features
+          wasm-pack build --target web --out-name journey_kernel --features wasm --no-default-features
         
       - name: Journey Kernel Check
         working-directory: app/journey_kernel
@@ -170,6 +176,6 @@ jobs:
         working-directory: app
         run: just flutter-check
         
-      - name: Flutter and Rust Code Test
+      - name: Flutter, Journey Kernel, and Rust Tests
         working-directory: app
         run: just test-app

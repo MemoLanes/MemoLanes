@@ -183,6 +183,13 @@ export class MapController {
   }
 
   /**
+   * Get the ReactiveParams instance
+   */
+  getParams(): ReactiveParams {
+    return this.params;
+  }
+
+  /**
    * Get the JourneyTileProvider instance
    */
   getTileProvider(): JourneyTileProvider | null {

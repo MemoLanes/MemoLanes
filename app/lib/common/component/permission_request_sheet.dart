@@ -43,6 +43,7 @@ class _PermissionRequestSheetContentState
   PermissionTileStatus _battery = const PermissionTileStatus(granted: false);
   PermissionTileStatus _notification =
       const PermissionTileStatus(granted: false);
+  bool _isClosing = false;
 
   Future<void> _showLocationRationaleDialog() async {
     if (!mounted) return;
@@ -93,15 +94,16 @@ class _PermissionRequestSheetContentState
   }
 
   Future<void> _refreshStatus({bool closeIfComplete = false}) async {
+    if (_isClosing) return;
     final s = await _permissions.readPermissionSnapshot();
-    if (!mounted) return;
+    if (!mounted || _isClosing) return;
     setState(() {
       _location = s.location;
       _battery = s.battery;
       _notification = s.notification;
     });
     if (closeIfComplete && _hasNoRemainingPermissions(s)) {
-      Navigator.of(context).pop(true);
+      _closeSheet(true);
     }
   }
 
@@ -109,6 +111,15 @@ class _PermissionRequestSheetContentState
     return s.location.granted &&
         (!Platform.isAndroid || s.battery.granted) &&
         s.notification.granted;
+  }
+
+  void _closeSheet(bool result) {
+    if (!mounted || _isClosing) return;
+
+    _isClosing = true;
+    if (!popCurrentRoute(context, result)) {
+      _isClosing = false;
+    }
   }
 
   Future<void> _applyEffects(List<PermissionEffect> effects) async {
@@ -149,7 +160,7 @@ class _PermissionRequestSheetContentState
   }
 
   void _onSkip() {
-    Navigator.of(context).pop(true);
+    _closeSheet(true);
   }
 
   Future<void> _onEnableAll() async {
@@ -165,7 +176,7 @@ class _PermissionRequestSheetContentState
       await _requestNotification(closeIfComplete: false);
     }
     if (!mounted) return;
-    Navigator.of(context).pop(true);
+    _closeSheet(true);
   }
 
   @override
@@ -200,7 +211,7 @@ class _PermissionRequestSheetContentState
                 IconButton(
                   icon: const Icon(Icons.arrow_back_ios,
                       color: Colors.white, size: 20),
-                  onPressed: () => Navigator.of(context).pop(false),
+                  onPressed: () => _closeSheet(false),
                   style: IconButton.styleFrom(
                     padding: const EdgeInsets.all(8),
                     minimumSize: const Size(40, 40),
