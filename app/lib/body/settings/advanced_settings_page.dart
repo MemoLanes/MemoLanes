@@ -24,42 +24,37 @@ class AdvancedSettingsPage extends StatefulWidget {
 }
 
 class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
-  RegionPreference? _regionPreference;
-  bool _regionPreferenceLoading = true;
+  Worldview? _worldviewPreference;
+  bool _worldviewLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadRegionPreference();
+    _loadWorldview();
   }
 
-  Future<void> _loadRegionPreference() async {
-    RegionPreference region;
-    try {
-      region = await loadRegionPreferenceOrDefault();
-    } catch (_) {
-      region = defaultRegionPreferenceFromDeviceLocale();
-    }
+  Future<void> _loadWorldview() async {
+    final worldview = await loadWorldviewOrDefault();
     if (!mounted) return;
     setState(() {
-      _regionPreference = region;
-      _regionPreferenceLoading = false;
+      _worldviewPreference = worldview;
+      _worldviewLoading = false;
     });
   }
 
-  Future<void> _selectRegionPreference() async {
-    if (_regionPreferenceLoading) return;
-    final selectedRegion =
-        _regionPreference ?? defaultRegionPreferenceFromDeviceLocale();
-    final result = await showRegionPreferencePicker(
+  Future<void> _selectWorldview() async {
+    if (_worldviewLoading) return;
+    final selectedWorldview =
+        _worldviewPreference ?? defaultWorldviewFromDeviceLocale();
+    final result = await showWorldviewPicker(
       context,
-      selectedRegion: selectedRegion,
+      selectedWorldview: selectedWorldview,
     );
-    if (result == null || !mounted) return;
+    if (result == null || result == selectedWorldview || !mounted) return;
 
-    await saveRegionPreference(result);
+    await applyAndSaveWorldview(result);
     if (!mounted) return;
-    setState(() => _regionPreference = result);
+    setState(() => _worldviewPreference = result);
   }
 
   @override
@@ -170,7 +165,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
           LabelTile(
             label: context.tr("privacy.region_title"),
             position: LabelTilePosition.middle,
-            trailing: _regionPreferenceLoading
+            trailing: _worldviewLoading
                 ? const SizedBox(
                     width: 16,
                     height: 16,
@@ -180,12 +175,12 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
                     ),
                   )
                 : LabelTileContent(
-                    content: _regionPreference == null
+                    content: _worldviewPreference == null
                         ? ''
-                        : regionPreferenceTitle(context, _regionPreference!),
+                        : regionPreferenceTitle(context, _worldviewPreference!),
                     showArrow: true,
                   ),
-            onTap: _regionPreferenceLoading ? null : _selectRegionPreference,
+            onTap: _worldviewLoading ? null : _selectWorldview,
           ),
           LabelTile(
             label: context.tr("location_service.location_backend.title"),

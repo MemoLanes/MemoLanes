@@ -80,6 +80,19 @@ pub fn init_or_change_geo_data(worldview: Worldview, geo_data: &[u8]) -> Result<
         .init_or_change_geo_data(worldview.into(), geo_data)
 }
 
+pub fn get_worldview_preference() -> Result<Option<Worldview>> {
+    crate::api::api::get()
+        .storage
+        .get_worldview_preference()
+        .map(|worldview| worldview.map(Worldview::from))
+}
+
+pub fn set_worldview_preference(worldview: Worldview) -> Result<()> {
+    crate::api::api::get()
+        .storage
+        .set_worldview_preference(worldview.into())
+}
+
 /// Explored area for a single layer.
 pub fn get_explored_area(layer: AchievementLayer) -> Result<u64> {
     crate::api::api::get()

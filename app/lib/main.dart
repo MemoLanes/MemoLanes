@@ -22,6 +22,7 @@ import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/map_style.dart';
 import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/region_preference.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/utils.dart';
@@ -134,11 +135,14 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await showFirstLaunchSetupIfNeeded(context);
+      final handledWorldview = await showFirstLaunchSetupIfNeeded(context);
       if (!context.mounted) return;
 
-      var mainMapReady = AppBootstrap.mainMapReady;
+      if (!handledWorldview) {
+        unawaited(ensureWorldviewReady());
+      }
 
+      final mainMapReady = AppBootstrap.mainMapReady;
       if (!mainMapReady.isCompleted) {
         await showLoadingDialog(
           asyncTask: mainMapReady.future,

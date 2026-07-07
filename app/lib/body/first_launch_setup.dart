@@ -54,10 +54,9 @@ Future<void> _showPrivacyAndRegionSheet(
   }
 }
 
-/// If privacy / welcome UI must be shown, returns its [Future]; otherwise a
-/// completed future. Callers should await this so later steps (e.g. the
-/// permission sheet) run only after those dialogs are dismissed.
-Future<void> showFirstLaunchSetupIfNeeded(BuildContext context) {
+/// Shows the privacy / welcome UI when needed. Returns whether the setup UI was
+/// shown, so callers can keep dialog sequencing separate from background work.
+Future<bool> showFirstLaunchSetupIfNeeded(BuildContext context) async {
   var acceptedVersion =
       MMKVUtil.getInt(MMKVKey.privacyAgreementAccepted, defaultValue: 0);
   final privacyAlreadyAccepted =
@@ -69,12 +68,13 @@ Future<void> showFirstLaunchSetupIfNeeded(BuildContext context) {
   final firstLaunchSetupAlreadyCompleted =
       setupCompletedVersion >= _latestFirstLaunchSetupVersion;
   if (!privacyAlreadyAccepted || !firstLaunchSetupAlreadyCompleted) {
-    return _showPrivacyAndRegionSheet(
+    await _showPrivacyAndRegionSheet(
       context,
       privacyAlreadyAccepted: privacyAlreadyAccepted,
     );
+    return true;
   }
-  return Future.value();
+  return false;
 }
 
 class FirstLaunchSetupSheet extends StatefulWidget {
@@ -90,7 +90,7 @@ class FirstLaunchSetupSheet extends StatefulWidget {
 }
 
 class _FirstLaunchSetupSheetState extends State<FirstLaunchSetupSheet> {
-  late RegionPreference _selectedRegion;
+  late Worldview _selectedWorldview;
   late bool _privacyAccepted;
   bool _saving = false;
 
@@ -100,7 +100,7 @@ class _FirstLaunchSetupSheetState extends State<FirstLaunchSetupSheet> {
   void initState() {
     super.initState();
     _privacyAccepted = widget.initialPrivacyAccepted;
-    _selectedRegion = defaultRegionPreferenceFromDeviceLocale();
+    _selectedWorldview = defaultWorldviewFromDeviceLocale();
   }
 
   Future<void> _openPrivacyPolicy() async {
@@ -111,13 +111,13 @@ class _FirstLaunchSetupSheetState extends State<FirstLaunchSetupSheet> {
   }
 
   Future<void> _showRegionPicker() async {
-    final result = await showRegionPreferencePicker(
+    final result = await showWorldviewPicker(
       context,
-      selectedRegion: _selectedRegion,
+      selectedWorldview: _selectedWorldview,
     );
 
     if (result == null || !mounted) return;
-    setState(() => _selectedRegion = result);
+    setState(() => _selectedWorldview = result);
   }
 
   Future<void> _onContinue() async {
@@ -125,7 +125,7 @@ class _FirstLaunchSetupSheetState extends State<FirstLaunchSetupSheet> {
 
     setState(() => _saving = true);
     try {
-      await saveRegionPreference(_selectedRegion);
+      await applyAndSaveWorldview(_selectedWorldview);
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -181,7 +181,7 @@ class _FirstLaunchSetupSheetState extends State<FirstLaunchSetupSheet> {
           _SectionTitle(text: context.tr("privacy.region_title")),
           SetupTile(
             icon: Icons.public,
-            title: regionPreferenceTitle(context, _selectedRegion),
+            title: regionPreferenceTitle(context, _selectedWorldview),
             onTap: _showRegionPicker,
             minHeight: _setupTileMinHeight,
             trailing: const Icon(

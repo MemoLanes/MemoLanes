@@ -17,6 +17,7 @@ use crate::journey_date_picker::JourneyDatePicker;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::journey_vector::{JourneyVector, TrackPoint};
 use crate::{protos, utils};
+use geo_data_format::Worldview;
 
 /* The main database, we are likely to store a lot of protobuf bytes in it,
 less relational stuff. Basically we will use it as a file system with better
@@ -34,27 +35,6 @@ deserialize the header.
 
 // 3 is the zstd default
 pub const ZSTD_COMPRESS_LEVEL: i32 = 3;
-
-#[repr(i64)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum RegionPreference {
-    MainlandChina = 0,
-    International = 1,
-    UnitedStates = 2,
-}
-
-impl TryFrom<i64> for RegionPreference {
-    type Error = anyhow::Error;
-
-    fn try_from(value: i64) -> Result<Self> {
-        match value {
-            0 => Ok(Self::MainlandChina),
-            1 => Ok(Self::International),
-            2 => Ok(Self::UnitedStates),
-            _ => bail!("Invalid region preference: {value}"),
-        }
-    }
-}
 
 #[auto_context]
 #[allow(clippy::type_complexity)]
@@ -848,14 +828,23 @@ impl MainDb {
         Ok(())
     }
 
-    pub fn get_region_preference(&mut self) -> Result<Option<RegionPreference>> {
-        self.get_setting::<i64>(Setting::RegionPreference)?
-            .map(RegionPreference::try_from)
+    pub fn get_worldview_preference(&mut self) -> Result<Option<Worldview>> {
+        if let Some(id) = self.get_setting::<String>(Setting::WorldviewPreference)? {
+            return Worldview::from_id(&id).map(Some);
+        }
+
+        self.get_setting::<i64>(Setting::LegacyWorldviewPreference)?
+            .map(|value| match value {
+                0 => Ok(Worldview::Chn),
+                1 => Ok(Worldview::Iso),
+                2 => Ok(Worldview::Usa),
+                _ => bail!("Invalid legacy region preference: {value}"),
+            })
             .transpose()
     }
 
-    pub fn set_region_preference(&mut self, region: RegionPreference) -> Result<()> {
-        self.set_setting(Setting::RegionPreference, region as i64)
+    pub fn set_worldview_preference(&mut self, worldview: Worldview) -> Result<()> {
+        self.set_setting(Setting::WorldviewPreference, worldview.spec().id)
     }
 }
 
@@ -864,14 +853,16 @@ pub enum Setting {
     // TODO: We should consider making the flutter part handle this, similar to
     // `GpsManager.isRecording`.
     RawDataMode,
-    RegionPreference,
+    WorldviewPreference,
+    LegacyWorldviewPreference,
 }
 
 impl Setting {
     fn to_db_key(self) -> &'static str {
         match self {
             Self::RawDataMode => "RAW_DATA_MODE",
-            Self::RegionPreference => "REGION_PREFERENCE",
+            Self::WorldviewPreference => "WORLDVIEW_PREFERENCE",
+            Self::LegacyWorldviewPreference => "REGION_PREFERENCE",
         }
     }
 }
