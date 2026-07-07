@@ -4,8 +4,8 @@ assets/map_webview/
 # Rasterized output of `just rasterize-geo`, reproducible from the pin in
 # tools/geo_rasterizer/src/download.rs. (The downloaded GeoJSON source lives
 # under tools/geo_rasterizer/natural_earth/ and is ignored there.)
-assets/geo_data*.bin
-assets/geo_data*.bin.tmp
+assets/geo/geo_data*.bin
+assets/geo/geo_data*.bin.tmp
 
 # flutter rust bridge generated files
 lib/src/rust/**/*.dart

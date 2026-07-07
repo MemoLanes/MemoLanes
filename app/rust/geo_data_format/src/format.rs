@@ -11,7 +11,7 @@ use bincode::Options;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    GeoEntity, GeoEntityId, PackedTile, TileMembership, Worldview, MAGIC, PROVENANCE_HASH_END,
+    tile_xy, GeoEntity, GeoEntityId, PackedTile, TileMembership, MAGIC, PROVENANCE_HASH_END,
     TILE_COUNT,
 };
 
@@ -23,7 +23,10 @@ const TILE_INDEX_ZSTD_LEVEL: i32 = 19;
 #[derive(Serialize, Deserialize)]
 struct MetaSection {
     entities: Vec<GeoEntity>,
-    worldviews: Vec<Worldview>,
+    /// The single worldview this asset represents (its [`crate::Worldview`]
+    /// id). Makes the `.bin` self-describing so a load can reject a bin served
+    /// under the wrong worldview.
+    worldview_id: String,
 }
 
 /// Tile classification as read back: `Border` carries the index into
@@ -40,7 +43,8 @@ pub enum TileEntry {
 #[derive(Debug)]
 pub struct GeoData {
     pub entities: Vec<GeoEntity>,
-    pub worldviews: Vec<Worldview>,
+    /// The worldview id this asset represents (see [`MetaSection::worldview_id`]).
+    pub worldview_id: String,
     pub tile_index: Vec<TileEntry>,
     pub border_blobs: Vec<Box<[u8]>>,
     pub provenance_hash: [u8; 32],
@@ -60,7 +64,7 @@ fn read_u32(b: &[u8], at: usize) -> u32 {
 /// assigned in tile-index order; the reader reconstructs the same order.
 pub fn write_geo_data(
     entities: &[GeoEntity],
-    worldviews: &[Worldview],
+    worldview_id: &str,
     tile_lookup: &[TileMembership],
     block_lookup: &BTreeMap<(u16, u16), Vec<Option<GeoEntityId>>>,
     provenance_hash: [u8; 32],
@@ -78,8 +82,7 @@ pub fn write_geo_data(
             TileMembership::None => (0, 0),
             TileMembership::Single(id) => (1, id.0),
             TileMembership::Border => {
-                let tx = (idx % 512) as u16;
-                let ty = (idx / 512) as u16;
+                let (tx, ty) = tile_xy(idx);
                 let cells = block_lookup.get(&(tx, ty)).ok_or_else(|| {
                     anyhow::anyhow!("border tile ({tx},{ty}) missing block_lookup entry")
                 })?;
@@ -97,7 +100,7 @@ pub fn write_geo_data(
 
     let meta = MetaSection {
         entities: entities.to_vec(),
-        worldviews: worldviews.to_vec(),
+        worldview_id: worldview_id.to_owned(),
     };
     let meta_bytes =
         zstd::encode_all(bincode_opts().serialize(&meta)?.as_slice(), META_ZSTD_LEVEL)?;
@@ -244,7 +247,7 @@ pub fn read_geo_data(bytes: &[u8]) -> anyhow::Result<GeoData> {
 
     Ok(GeoData {
         entities: meta.entities,
-        worldviews: meta.worldviews,
+        worldview_id: meta.worldview_id,
         tile_index,
         border_blobs,
         provenance_hash,
@@ -272,16 +275,17 @@ mod tests {
     fn round_trip_single_border_none() {
         let mut tl = vec![TileMembership::None; TILE_COUNT];
         tl[0] = TileMembership::Single(GeoEntityId(7));
-        tl[1] = TileMembership::Border; // tile idx 1 → tx=1, ty=0
+        tl[1] = TileMembership::Border; // x-major: tile idx 1 → tx=0, ty=1
         let mut cells = vec![None; CELLS_PER_TILE];
         cells[5] = Some(GeoEntityId(7));
         let mut bl: BTreeMap<(u16, u16), Vec<Option<GeoEntityId>>> = BTreeMap::new();
-        bl.insert((1, 0), cells);
+        bl.insert((0, 1), cells);
 
-        let bytes = write_geo_data(&[entity(7, "AAA")], &[], &tl, &bl, [3u8; 32]).unwrap();
+        let bytes = write_geo_data(&[entity(7, "AAA")], "iso", &tl, &bl, [3u8; 32]).unwrap();
         let gd = read_geo_data(&bytes).unwrap();
 
         assert_eq!(gd.provenance_hash, [3u8; 32]);
+        assert_eq!(gd.worldview_id, "iso");
         assert_eq!(gd.entities.len(), 1);
         assert_eq!(gd.entities[0].iso_code, "AAA");
         assert_eq!(gd.tile_index[0], TileEntry::Single(GeoEntityId(7)));
@@ -296,7 +300,7 @@ mod tests {
     #[test]
     fn rejects_bad_magic() {
         let tl = vec![TileMembership::None; TILE_COUNT];
-        let mut b = write_geo_data(&[], &[], &tl, &BTreeMap::new(), [0u8; 32]).unwrap();
+        let mut b = write_geo_data(&[], "iso", &tl, &BTreeMap::new(), [0u8; 32]).unwrap();
         b[0] = b'X';
         assert!(read_geo_data(&b).is_err());
     }
@@ -304,6 +308,6 @@ mod tests {
     #[test]
     fn rejects_wrong_tile_count() {
         let tl = vec![TileMembership::None; 10];
-        assert!(write_geo_data(&[], &[], &tl, &BTreeMap::new(), [0u8; 32]).is_err());
+        assert!(write_geo_data(&[], "iso", &tl, &BTreeMap::new(), [0u8; 32]).is_err());
     }
 }

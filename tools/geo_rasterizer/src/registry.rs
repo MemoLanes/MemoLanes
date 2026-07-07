@@ -1,9 +1,9 @@
 //! Frozen `ADM0_A3 → GeoEntityId` registry. APPEND ONLY: ids are never
-//! renumbered or reused, so they are point-of-view-invariant and stable
+//! renumbered or reused, so they are worldview-invariant and stable
 //! across Natural Earth bumps.
 //!
-//! TODO(geo-C): Phase 2 (base+delta) reuses this registry unchanged — the
-//! entities table is the union across all POV files, so per-POV delta
+//! TODO: Phase 2 (base+delta) reuses this registry unchanged — the
+//! entities table is the union across all worldview files, so per-worldview delta
 //! sections reference the same ids.
 
 use std::collections::BTreeMap;
@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 // TODO(i18n): an entity's display name is carried as a Flutter l10n KEY, not a
 // string — `entities.rs` derives `country.<ADM0_A3>.name` and
 // `continent.<code>.name` from these codes (worldviews use `worldview.<id>.name`
-// in geo_data_format's `pov.rs`). The missing piece is the translations: every
+// in geo_data_format's `worldview.rs`). The missing piece is the translations: every
 // generated key needs an entry in `app/assets/translations/*.json` for each
 // locale, ideally checked so a newly registered code can't ship without its
 // localized name.
@@ -27,8 +27,8 @@ pub struct Entry {
     /// Continent 2-letter code or country `ADM0_A3`.
     pub code: String,
     pub id: u32,
-    /// Per-POV representative point: pov-id -> [lon, lat]. A code is
-    /// present only for POVs whose source file contains it. BTreeMap for
+    /// Per-worldview representative point: worldview-id -> [lon, lat]. A code is
+    /// present only for worldviews whose source file contains it. BTreeMap for
     /// deterministic on-disk ordering.
     #[serde(default)]
     pub refs: std::collections::BTreeMap<String, [f64; 2]>,
@@ -52,12 +52,12 @@ impl Registry {
     }
 
     /// Parse the on-disk (compact) form back into the in-memory model:
-    /// a single `ref` (expanded to `pov`, or to the `povs` universe when
-    /// `pov` is absent), or an explicit per-POV `refs` table. Entries with
+    /// a single `ref` (expanded to `worldview`, or to the `worldviews` universe when
+    /// `worldview` is absent), or an explicit per-worldview `refs` table. Entries with
     /// no point at all load with empty refs.
     pub fn from_toml_str(raw: &str) -> Result<Self> {
         let disk: DiskRegistry = toml::from_str(raw).context("parsing registry TOML")?;
-        let universe = &disk.povs;
+        let universe = &disk.worldviews;
         let reg = Registry {
             schema: disk.schema,
             continents: disk
@@ -130,7 +130,7 @@ pub fn centroid_of(mp: &MultiPolygon<f64>) -> Option<(f64, f64)> {
 /// `(code, is_continent, (lon, lat))` per code in first-seen order, the
 /// point being the centroid of the MERGED geometry. Order-independent:
 /// insensitive to feature order within/across input files, so multi-part
-/// entities (FRA+overseas, USA+territories, …) get a POV-stable point.
+/// entities (FRA+overseas, USA+territories, …) get a worldview-stable point.
 /// Precondition: all items sharing a `code` must have the same
 /// `is_continent`; only the first occurrence's flag is retained.
 pub fn merged_representative_points(
@@ -159,15 +159,19 @@ pub fn merged_representative_points(
         .collect()
 }
 
-/// Append-only id allocation + per-POV ref recording. `points` is one
+/// Append-only id allocation + per-worldview ref recording. `points` is one
 /// entry per code in first-seen order (from `merged_representative_points`
-/// for ONE pov's features). For each `(code, is_continent, (lon,lat))`:
+/// for ONE worldview's features). For each `(code, is_continent, (lon,lat))`:
 /// on first sight of `code` anywhere, allocate `next_id()` and push a new
 /// Entry into `continents` or `countries` per `is_continent` (this
 /// preserves first-seen order ⇒ stable ids); then set
-/// `entry.refs.insert(pov.to_string(), [lon, lat])` (insert-or-overwrite
-/// for that pov).
-pub fn register_pov(reg: &mut Registry, pov: &str, points: &[(String, bool, (f64, f64))]) {
+/// `entry.refs.insert(worldview.to_string(), [lon, lat])` (insert-or-overwrite
+/// for that worldview).
+pub fn register_worldview(
+    reg: &mut Registry,
+    worldview: &str,
+    points: &[(String, bool, (f64, f64))],
+) {
     for (code, is_continent, (lon, lat)) in points {
         // Find the entry across both vecs; if absent, create with next_id().
         let found = reg
@@ -192,7 +196,7 @@ pub fn register_pov(reg: &mut Registry, pov: &str, points: &[(String, bool, (f64
                 reg.countries.last_mut().expect("just pushed")
             }
         };
-        entry.refs.insert(pov.to_string(), [*lon, *lat]);
+        entry.refs.insert(worldview.to_string(), [*lon, *lat]);
     }
 }
 
@@ -209,11 +213,11 @@ fn round_pt(p: [f64; 2]) -> [f64; 2] {
     ]
 }
 
-/// Compact on-disk entry. An entity whose every present POV shares the
-/// same (rounded) point stores a single `ref`; `pov` lists the covered
-/// POVs only when they're a strict subset of the registry-wide `povs`
+/// Compact on-disk entry. An entity whose every present worldview shares the
+/// same (rounded) point stores a single `ref`; `worldview` lists the covered
+/// worldviews only when they're a strict subset of the registry-wide `worldviews`
 /// universe (so audit coverage is preserved without fabricating refs).
-/// Entities that genuinely differ per POV use the explicit `refs` table.
+/// Entities that genuinely differ per worldview use the explicit `refs` table.
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct DiskEntry {
     code: String,
@@ -221,7 +225,7 @@ struct DiskEntry {
     #[serde(default, rename = "ref", skip_serializing_if = "Option::is_none")]
     ref_pt: Option<[f64; 2]>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pov: Vec<String>,
+    worldview: Vec<String>,
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     refs: std::collections::BTreeMap<String, [f64; 2]>,
 }
@@ -250,7 +254,7 @@ impl DiskEntry {
                 base.ref_pt = Some(distinct[0]);
                 let keys: Vec<String> = rounded.keys().cloned().collect();
                 if keys != universe {
-                    base.pov = keys;
+                    base.worldview = keys;
                 }
             }
             _ => base.refs = rounded,
@@ -262,10 +266,10 @@ impl DiskEntry {
         let refs = if !self.refs.is_empty() {
             self.refs
         } else if let Some(pt) = self.ref_pt {
-            let keys = if self.pov.is_empty() {
+            let keys = if self.worldview.is_empty() {
                 universe
             } else {
-                &self.pov
+                &self.worldview
             };
             keys.iter().map(|k| (k.clone(), pt)).collect()
         } else {
@@ -282,10 +286,10 @@ impl DiskEntry {
 #[derive(Debug, Serialize, Deserialize)]
 struct DiskRegistry {
     schema: u32,
-    /// Registry-wide POV universe (sorted union of all entry refs). A bare
-    /// `ref` with no per-entry `pov` expands to exactly these on load.
+    /// Registry-wide worldview universe (sorted union of all entry refs). A bare
+    /// `ref` with no per-entry `worldview` expands to exactly these on load.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    povs: Vec<String>,
+    worldviews: Vec<String>,
     #[serde(default, rename = "continent")]
     continents: Vec<DiskEntry>,
     #[serde(default, rename = "country")]
@@ -293,7 +297,7 @@ struct DiskRegistry {
 }
 
 /// Stable on-disk form: entries sorted by `code` for human review, points
-/// rounded ([`REF_DECIMALS_FACTOR`]) and POV-identical entries collapsed.
+/// rounded ([`REF_DECIMALS_FACTOR`]) and worldview-identical entries collapsed.
 /// IDs are explicit fields, so sorting/collapsing never changes any id.
 pub fn to_toml_sorted(reg: &Registry) -> Result<String> {
     let mut universe: Vec<String> = reg
@@ -317,31 +321,31 @@ pub fn to_toml_sorted(reg: &Registry) -> Result<String> {
         schema: reg.schema,
         continents: to_disk(&reg.continents),
         countries: to_disk(&reg.countries),
-        povs: universe,
+        worldviews: universe,
     };
     toml::to_string(&disk).context("serializing registry")
 }
 
 /// CI gate 2 — identity audit. For every `(code, centroid)` in `present`:
 /// find the Entry by code (continents or countries). If found AND
-/// `entry.refs.get(pov)` is `Some([rlon, rlat])`: compute Euclidean degree
-/// distance; if `> tol_deg` → bail (message includes code, pov, distance,
+/// `entry.refs.get(worldview)` is `Some([rlon, rlat])`: compute Euclidean degree
+/// distance; if `> tol_deg` → bail (message includes code, worldview, distance,
 /// and both points). If the code is not in the registry OR has no ref for
-/// `pov` → skip (Ok). A registry-absent code is ignored here (Task 3 /
+/// `worldview` → skip (Ok). A registry-absent code is ignored here (Task 3 /
 /// unknown-code gate owns that). Tolerance is intentionally generous: it
-/// must NOT trip on normal per-POV boundary moves, only on a code denoting
+/// must NOT trip on normal per-worldview boundary moves, only on a code denoting
 /// a different place entirely.
 pub fn audit_identity(
     present: &[(String, (f64, f64))],
     registry: &Registry,
-    pov: &str,
+    worldview: &str,
     tol_deg: f64,
 ) -> Result<()> {
     for (code, (lon, lat)) in present {
         let entry = Registry::lookup(&registry.continents, code)
             .or_else(|| Registry::lookup(&registry.countries, code));
         let Some(e) = entry else { continue };
-        let Some([rlon, rlat]) = e.refs.get(pov) else {
+        let Some([rlon, rlat]) = e.refs.get(worldview) else {
             continue;
         };
         let dlon = lon - rlon;
@@ -349,7 +353,7 @@ pub fn audit_identity(
         let dist = (dlon * dlon + dlat * dlat).sqrt();
         if dist > tol_deg {
             bail!(
-                "identity audit: `{code}` (pov={pov}) centroid ({lon:.2},{lat:.2}) is \
+                "identity audit: `{code}` (worldview={worldview}) centroid ({lon:.2},{lat:.2}) is \
                  {dist:.2}° from registry reference ({rlon:.2},{rlat:.2}); a code must \
                  denote the same place across worldviews/bumps — investigate before bumping"
             );
@@ -412,18 +416,21 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(err.contains("USA"), "got: {err}");
-        assert!(err.contains("iso"), "msg must include pov; got: {err}");
-        // (iii) Code present in registry but no ref for the queried pov → skip (Ok).
+        assert!(
+            err.contains("iso"),
+            "msg must include worldview; got: {err}"
+        );
+        // (iii) Code present in registry but no ref for the queried worldview → skip (Ok).
         audit_identity(&[("USA".into(), (100.0, 30.0))], &r, "chn", 5.0).unwrap();
         // (iv) Code absent from registry → skip (Ok).
         audit_identity(&[("ZZZ".into(), (0.0, 0.0))], &r, "iso", 5.0).unwrap();
     }
 
     #[test]
-    fn register_pov_appends_and_sets_per_pov_refs() {
+    fn register_worldview_appends_and_sets_per_worldview_refs() {
         let mut r = sample(); // AS=0(iso), USA=7(iso)  next_id=8
                               // iso pass: USA already exists (id frozen), CAN is new.
-        register_pov(
+        register_worldview(
             &mut r,
             "iso",
             &[
@@ -444,11 +451,11 @@ mod tests {
         assert_eq!(can.refs.get("iso"), Some(&[-106.0_f64, 56.0_f64]));
         r.validate_unique_ids().unwrap();
 
-        // Second pov: "chn" adds its own ref for CAN without changing ids.
+        // Second worldview: "chn" adds its own ref for CAN without changing ids.
         let can_id_before = can.id;
-        register_pov(&mut r, "chn", &[("CAN".to_string(), false, (-105.0, 55.0))]);
+        register_worldview(&mut r, "chn", &[("CAN".to_string(), false, (-105.0, 55.0))]);
         let can = r.countries.iter().find(|e| e.code == "CAN").unwrap();
-        assert_eq!(can.id, can_id_before, "id unchanged by second pov");
+        assert_eq!(can.id, can_id_before, "id unchanged by second worldview");
         assert_eq!(can.refs.get("chn"), Some(&[-105.0_f64, 55.0_f64]));
         assert_eq!(
             can.refs.get("iso"),
@@ -459,7 +466,7 @@ mod tests {
 
         // A brand-new continent is appended to `continents` with next_id.
         let prev = r.next_id();
-        register_pov(&mut r, "iso", &[("EU".to_string(), true, (10.0, 50.0))]);
+        register_worldview(&mut r, "iso", &[("EU".to_string(), true, (10.0, 50.0))]);
         let eu = r.continents.iter().find(|e| e.code == "EU").unwrap();
         assert_eq!(eu.id, prev, "new continent gets next_id");
         assert_eq!(eu.refs.get("iso"), Some(&[10.0_f64, 50.0_f64]));
@@ -529,10 +536,10 @@ mod tests {
         pairs.iter().map(|(k, v)| (k.to_string(), *v)).collect()
     }
 
-    /// #2+#3: an entity whose every present POV shares the same point
+    /// #2+#3: an entity whose every present worldview shares the same point
     /// collapses to a single inline `ref` (no `ref_*`, no `[*.refs]`
     /// sub-table, no exploded multi-line arrays) and round-trips back to
-    /// the full per-POV map.
+    /// the full per-worldview map.
     #[test]
     fn compact_collapses_identical_full_universe() {
         let reg = Registry {
@@ -561,10 +568,13 @@ mod tests {
             !txt.contains("[\n"),
             "arrays must be inline (#3); got:\n{txt}"
         );
-        assert!(!txt.contains("ref_"), "identical POVs must collapse (#2)");
+        assert!(
+            !txt.contains("ref_"),
+            "identical worldviews must collapse (#2)"
+        );
         assert!(
             !txt.contains(".refs]"),
-            "no per-POV sub-table when identical"
+            "no per-worldview sub-table when identical"
         );
         assert!(
             txt.contains("ref = ["),
@@ -584,11 +594,11 @@ mod tests {
         );
     }
 
-    /// #2: an entity present in only a subset of POVs records that subset
+    /// #2: an entity present in only a subset of worldviews records that subset
     /// and round-trips to exactly those keys — no fabricated refs (audit
     /// coverage must be preserved exactly).
     #[test]
-    fn compact_preserves_pov_subset_without_fabrication() {
+    fn compact_preserves_worldview_subset_without_fabrication() {
         let reg = Registry {
             schema: 1,
             continents: vec![],
@@ -618,9 +628,9 @@ mod tests {
         );
     }
 
-    /// #2: differing per-POV points are kept distinct across the round-trip.
+    /// #2: differing per-worldview points are kept distinct across the round-trip.
     #[test]
-    fn compact_keeps_differing_per_pov_points() {
+    fn compact_keeps_differing_per_worldview_points() {
         let reg = Registry {
             schema: 1,
             continents: vec![],

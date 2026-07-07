@@ -1,5 +1,5 @@
 schema = 1
-povs = ["chn", "iso", "usa"]
+worldviews = ["chn", "iso", "usa"]
 
 [[continent]]
 code = "AF"
@@ -132,7 +132,7 @@ ref = [19.9084, -80.5082]
 code = "ATC"
 id = 243
 ref = [123.5864, -12.4326]
-pov = ["chn", "usa"]
+worldview = ["chn", "usa"]
 
 [[country]]
 code = "ATG"
@@ -158,13 +158,13 @@ ref = [47.5421, 40.2891]
 code = "B35"
 id = 245
 ref = [41.1724, 43.0952]
-pov = ["usa"]
+worldview = ["usa"]
 
 [[country]]
 code = "B37"
 id = 246
 ref = [44.0771, 42.3268]
-pov = ["usa"]
+worldview = ["usa"]
 
 [[country]]
 code = "BDI"
@@ -254,7 +254,7 @@ ref = [-59.5612, 13.1811]
 code = "BRI"
 id = 239
 ref = [-57.623, -30.188]
-pov = ["chn", "usa"]
+worldview = ["chn", "usa"]
 
 [[country]]
 code = "BRN"
@@ -265,7 +265,7 @@ ref = [114.7272, 4.5165]
 code = "BRT"
 id = 241
 ref = [33.682, 21.8799]
-pov = ["chn", "usa"]
+worldview = ["chn", "usa"]
 
 [[country]]
 code = "BTN"
@@ -359,7 +359,7 @@ ref = [-84.1935, 9.9734]
 code = "CSI"
 id = 242
 ref = [154.3904, -21.0293]
-pov = ["chn", "usa"]
+worldview = ["chn", "usa"]
 
 [[country]]
 code = "CUB"
@@ -443,7 +443,7 @@ ref = [38.8529, 15.3575]
 code = "ESB"
 id = 238
 ref = [33.793, 35.0178]
-pov = ["chn", "usa"]
+worldview = ["chn", "usa"]
 
 [[country]]
 code = "ESP"
@@ -744,7 +744,7 @@ usa = [127.8191, 36.3734]
 code = "KOS"
 id = 247
 ref = [20.8737, 42.5729]
-pov = ["usa"]
+worldview = ["usa"]
 
 [[country]]
 code = "KWT"
@@ -1015,7 +1015,7 @@ ref = [-74.3781, -9.1544]
 code = "PGA"
 id = 249
 ref = [114.927, 10.545]
-pov = ["usa"]
+worldview = ["usa"]
 
 [[country]]
 code = "PHL"
@@ -1113,7 +1113,7 @@ ref = [44.5369, 24.1223]
 code = "SCR"
 id = 244
 ref = [117.7538, 15.1521]
-pov = ["chn", "usa"]
+worldview = ["chn", "usa"]
 
 [[country]]
 code = "SDN"
@@ -1290,7 +1290,7 @@ ref = [178.5204, -7.7591]
 code = "TWN"
 id = 183
 ref = [120.9499, 23.753]
-pov = ["iso", "usa"]
+worldview = ["iso", "usa"]
 
 [[country]]
 code = "TZA"
@@ -1334,7 +1334,7 @@ ref = [-112.4962, 45.6881]
 code = "USG"
 id = 248
 ref = [-75.1547, 19.9293]
-pov = ["usa"]
+worldview = ["usa"]
 
 [[country]]
 code = "UZB"
@@ -1385,7 +1385,7 @@ ref = [-177.059, -13.7381]
 code = "WSB"
 id = 240
 ref = [32.934, 34.6318]
-pov = ["chn", "usa"]
+worldview = ["chn", "usa"]
 
 [[country]]
 code = "WSM"

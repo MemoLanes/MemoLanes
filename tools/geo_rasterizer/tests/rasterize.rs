@@ -19,7 +19,7 @@ fn synthetic_polygons_classify_correctly() {
     let (bx, by) = lng_lat_to_block_xy(0.5, 0.5);
     let tx = (bx / 128) as u16;
     let ty = (by / 128) as u16;
-    let tile_idx = ty as usize * 512 + tx as usize;
+    let tile_idx = tx as usize * 512 + ty as usize;
     let blkx = (bx % 128) as u8;
     let blky = (by % 128) as u8;
 
@@ -30,7 +30,8 @@ fn synthetic_polygons_classify_correctly() {
             let blocks = block_lookup
                 .get(&(tx, ty))
                 .expect("border tile must have a block array");
-            let block_idx = blky as usize * 128 + blkx as usize;
+            // Block lookup is x-major (`bxo * 128 + byo`), matching BlockKey::index().
+            let block_idx = blkx as usize * 128 + blky as usize;
             let entity_id = model
                 .entities
                 .iter()
@@ -52,6 +53,6 @@ fn deep_ocean_block_resolves_to_none() {
     let (bx, by) = lng_lat_to_block_xy(-150.0, 0.0);
     let tx = (bx / 128) as u16;
     let ty = (by / 128) as u16;
-    let tile_idx = ty as usize * 512 + tx as usize;
+    let tile_idx = tx as usize * 512 + ty as usize;
     assert!(matches!(tile_lookup[tile_idx], TileMembership::None));
 }

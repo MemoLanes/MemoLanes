@@ -90,14 +90,14 @@ jobs:
         working-directory: app
         run: just rust-check
 
-      # Cache the pinned Natural Earth source (the pin/sha256 live in
-      # geo_data_format/src/pov.rs; download.rs holds the fetch logic) so
-      # rasterize-geo doesn't re-download it on every run.
+      # Cache the pinned Natural Earth source. Hash the geo_data_format Rust
+      # source as a whole so source pin moves, worldview additions, and nearby
+      # format changes all bust this cache without another file-list update.
       - name: Cache Natural Earth source
         uses: actions/cache@v4
         with:
           path: tools/geo_rasterizer/natural_earth/*.geojson
-          key: geo-natural-earth-${{ hashFiles('tools/geo_rasterizer/src/download.rs', 'app/rust/geo_data_format/src/pov.rs') }}
+          key: geo-natural-earth-${{ hashFiles('tools/geo_rasterizer/src/download.rs', 'app/rust/geo_data_format/src/**', 'app/rust/geo_data_format/Cargo.toml', 'app/rust/geo_data_format/Cargo.lock') }}
 
       # Cache the generated geo_data_*.bin. The key hashes the rasterizer and
       # geo_data_format *sources* (not just the inputs) on purpose: the in-bin
@@ -107,10 +107,7 @@ jobs:
       - name: Cache geo_data bins
         uses: actions/cache@v4
         with:
-          path: |
-            app/assets/geo_data_iso.bin
-            app/assets/geo_data_chn.bin
-            app/assets/geo_data_usa.bin
+          path: app/assets/geo/geo_data_*.bin
           key: geo-bins-${{ hashFiles('tools/geo_rasterizer/src/**', 'tools/geo_rasterizer/Cargo.lock', 'tools/geo_rasterizer/geo_entity_registry.toml', 'app/rust/geo_data_format/src/**', 'app/rust/geo_data_format/Cargo.lock') }}
 
       - name: Geo Data Format Check
@@ -126,13 +123,13 @@ jobs:
         if: steps.changes.outputs.geo == 'true'
         working-directory: app
         run: just test-geo
-      - name: Geo Rasterize All POVs
+      - name: Geo Rasterize All Worldviews
         working-directory: app
         run: just rasterize-geo
 
       # Guardrail: rasterize-geo regenerates the committed id registry (union
-      # over Pov::ALL). CI can't commit, so a non-empty diff means someone bumped
-      # a POV/source but forgot to regenerate + commit geo_entity_registry.toml.
+      # over Worldview::ALL). CI can't commit, so a non-empty diff means someone bumped
+      # a worldview/source but forgot to regenerate + commit geo_entity_registry.toml.
       - name: Geo Registry Up To Date
         run: git -C "$GITHUB_WORKSPACE" diff --exit-code -- tools/geo_rasterizer/geo_entity_registry.toml
 

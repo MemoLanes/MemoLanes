@@ -2,9 +2,10 @@ pub mod test_utils;
 use crate::test_utils::{draw_line1, draw_line2};
 use chrono::NaiveDate;
 use memolanes_core::{
-    achievement::explored_area::compute_explored_areas, achievement::scope::AchievementLayer,
-    journey_area_utils::compute_journey_bitmap_area, journey_bitmap::JourneyBitmap,
-    journey_data::JourneyData, journey_header::JourneyKind, storage::Storage,
+    achievement::compute::explored_area::compute_explored_areas,
+    achievement::layer::AchievementLayer, journey_area_utils::compute_journey_bitmap_area,
+    journey_bitmap::JourneyBitmap, journey_data::JourneyData, journey_header::JourneyKind,
+    storage::Storage,
 };
 use std::fs;
 use tempdir::TempDir;
