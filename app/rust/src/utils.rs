@@ -3,7 +3,7 @@ use std::f64::consts::PI;
 use chrono::{Datelike, NaiveDate};
 
 // https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
-// TODO: remove this two duplicated function once we have the new rendering system.
+// TODO: remove these two duplicated functions once we have the new rendering system.
 pub fn lng_lat_to_tile_x_y(lng: f64, lat: f64, zoom: i32) -> (i32, i32) {
     let n = f64::powi(2.0, zoom);
     let lat_rad = (lat / 180.0) * PI;
@@ -34,7 +34,7 @@ pub fn date_to_days_since_epoch(date: NaiveDate) -> i32 {
 
 pub fn date_of_days_since_epoch(days: i32) -> NaiveDate {
     NaiveDate::from_num_days_from_ce_opt(days + *EPOCH_NUM_OF_DAYS_FROM_CE)
-        .expect("Invalid num of days")
+        .expect("invalid number of days")
 }
 
 #[cfg(test)]
