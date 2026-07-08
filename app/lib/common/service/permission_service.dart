@@ -56,14 +56,13 @@ class PermissionService {
   final PermissionPrefs _prefs = PermissionPrefs();
 
   Future<PermissionSnapshot> readPermissionSnapshot() async {
+    final hasLocation = await checkLocationPermission();
     final locStatus = await Permission.location.status;
-    final locAlwaysStatus = await Permission.locationAlways.status;
     final isAndroid = Platform.isAndroid;
     final batteryGranted =
         !isAndroid || await Permission.ignoreBatteryOptimizations.isGranted;
     final notificationStatus = await Permission.notification.status;
     final notificationGranted = notificationStatus.isGranted;
-    final hasLocation = locStatus.isGranted || locAlwaysStatus.isGranted;
     final locationRequested = _prefs.getRequestedLocation(
       reason: 'read_permission_snapshot',
     );
