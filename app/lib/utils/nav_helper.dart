@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/permission_request_sheet.dart';
 import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/log.dart';
-import 'package:memolanes/common/service/permission_prefs.dart';
+import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/service/permission_service.dart';
 
 /// Root [Navigator] key shared across the app (dialogs, permission flow, share handler).
@@ -37,10 +37,9 @@ Future<T?> navigatorPush<T>(
 Future<void> tryShowPermissionSheetIfFirstTime() async {
   try {
     log.info('[PermissionFlow] first-launch permission sheet check started');
-    final prefs = PermissionPrefs();
-    final sheetShown = prefs.getPermissionSheetShown(
-      logRead: true,
-      reason: 'first_launch_check',
+    final sheetShown = MMKVUtil.getBool(
+      MMKVKey.permissionSheetShown,
+      defaultValue: false,
     );
     if (sheetShown) {
       log.info(
@@ -51,10 +50,7 @@ Future<void> tryShowPermissionSheetIfFirstTime() async {
 
     final needAny = await PermissionService().needAnyPermission();
     if (!needAny) {
-      prefs.setPermissionSheetShown(
-        true,
-        reason: 'first_launch_no_permission_needed',
-      );
+      MMKVUtil.putBool(MMKVKey.permissionSheetShown, true);
       log.info(
         '[PermissionFlow] skip first-launch permission sheet: no permission needed',
       );
@@ -70,17 +66,8 @@ Future<void> tryShowPermissionSheetIfFirstTime() async {
     }
 
     log.info('[PermissionFlow] showing first-launch permission sheet');
-    final result = await showPermissionRequestSheet(context);
-    log.info(
-      '[PermissionFlow] first-launch permission sheet result='
-      '${result.action.name} entered=${result.entered}',
-    );
-    if (result.entered) {
-      prefs.setPermissionSheetShown(
-        true,
-        reason: 'first_launch_sheet_entered',
-      );
-    }
+    await showPermissionRequestSheet(context);
+    MMKVUtil.putBool(MMKVKey.permissionSheetShown, true);
   } catch (e, s) {
     log.error("[NavHelper] tryShowPermissionSheetIfFirstTime $e", s);
   }
@@ -106,11 +93,10 @@ Future<bool> checkAndRequestPermission() async {
     }
 
     log.info('[PermissionFlow] showing user-driven permission sheet');
-    final result = await showPermissionRequestSheet(context);
+    await showPermissionRequestSheet(context);
     final hasLocation = await svc.checkLocationPermission();
     log.info(
-      '[PermissionFlow] user-driven permission sheet result='
-      '${result.action.name} entered=${result.entered} '
+      '[PermissionFlow] user-driven permission sheet closed '
       'hasLocation=$hasLocation',
     );
     return hasLocation;

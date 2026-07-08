@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:easy_localization/easy_localization.dart';
@@ -10,31 +11,15 @@ import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-enum PermissionSheetAction {
-  skip,
-  enableAll,
-  autoComplete,
-  back,
-  dismiss,
-}
-
-class PermissionSheetResult {
-  final PermissionSheetAction action;
-
-  const PermissionSheetResult(this.action);
-
-  bool get entered => action != PermissionSheetAction.back;
-}
-
 /// Shows the unified permission request bottom sheet (layout + copy only).
 ///
-/// Returns an action that indicates how the user left the sheet.
-///
-/// Dismissing the sheet (e.g. tapping outside) is treated like Skip.
-Future<PermissionSheetResult> showPermissionRequestSheet(
+/// Completes after the sheet is closed.
+Future<void> showPermissionRequestSheet(
   BuildContext context,
 ) async {
-  final action = await showModalBottomSheet<PermissionSheetAction>(
+  final permissions = PermissionService();
+  unawaited(permissions.logPermissionState('sheet_open'));
+  await showModalBottomSheet<void>(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
@@ -43,7 +28,7 @@ Future<PermissionSheetResult> showPermissionRequestSheet(
       return _PermissionRequestSheetContent();
     },
   );
-  return PermissionSheetResult(action ?? PermissionSheetAction.dismiss);
+  await permissions.logPermissionState('sheet_close');
 }
 
 class _PermissionRequestSheetContent extends StatefulWidget {
@@ -120,7 +105,7 @@ class _PermissionRequestSheetContentState
       _notification = s.notification;
     });
     if (closeIfComplete && _hasNoRemainingPermissions(s)) {
-      _closeSheet(PermissionSheetAction.autoComplete);
+      _closeSheet();
     }
   }
 
@@ -130,11 +115,11 @@ class _PermissionRequestSheetContentState
         s.notification.granted;
   }
 
-  void _closeSheet(PermissionSheetAction action) {
+  void _closeSheet() {
     if (!mounted || _isClosing) return;
 
     _isClosing = true;
-    if (!popCurrentRoute(context, action)) {
+    if (!popCurrentRoute(context)) {
       log.warning(
           '[PermissionSheet] close failed: popCurrentRoute returned false');
       _isClosing = false;
@@ -183,7 +168,7 @@ class _PermissionRequestSheetContentState
   }
 
   void _onSkip() {
-    _closeSheet(PermissionSheetAction.skip);
+    _closeSheet();
   }
 
   Future<void> _onEnableAll() async {
@@ -199,7 +184,7 @@ class _PermissionRequestSheetContentState
       await _requestNotification(closeIfComplete: false);
     }
     if (!mounted) return;
-    _closeSheet(PermissionSheetAction.enableAll);
+    _closeSheet();
   }
 
   @override
@@ -234,7 +219,7 @@ class _PermissionRequestSheetContentState
                 IconButton(
                   icon: const Icon(Icons.arrow_back_ios,
                       color: Colors.white, size: 20),
-                  onPressed: () => _closeSheet(PermissionSheetAction.back),
+                  onPressed: _closeSheet,
                   style: IconButton.styleFrom(
                     padding: const EdgeInsets.all(8),
                     minimumSize: const Size(40, 40),

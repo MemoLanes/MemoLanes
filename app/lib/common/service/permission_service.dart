@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/common/log.dart';
-import 'package:memolanes/common/service/permission_prefs.dart';
+import 'package:memolanes/common/mmkv_util.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 /// Single side-effect step the UI layer should perform (dialogs / system pages).
@@ -53,7 +53,55 @@ class PermissionService {
 
   factory PermissionService() => _instance;
 
-  final PermissionPrefs _prefs = PermissionPrefs();
+  Future<void> logPermissionState(String event) async {
+    try {
+      final locationServiceEnabled =
+          await Geolocator.isLocationServiceEnabled();
+      final locationStatus = await Permission.location.status;
+      final locationAlwaysStatus =
+          Platform.isIOS ? '${await Permission.locationAlways.status}' : 'n/a';
+      final batteryOptimizationStatus = Platform.isAndroid
+          ? '${await Permission.ignoreBatteryOptimizations.status}'
+          : 'n/a';
+      final notificationStatus = await Permission.notification.status;
+      final permissionSheetShown = MMKVUtil.getBool(
+        MMKVKey.permissionSheetShown,
+        defaultValue: false,
+      );
+      final requestedLocation = MMKVUtil.getBool(
+        MMKVKey.requestedLocation,
+        defaultValue: false,
+      );
+      final requestedBatteryOptimization = MMKVUtil.getBool(
+        MMKVKey.requestedBatteryOptimization,
+        defaultValue: false,
+      );
+      final requestedNotification = MMKVUtil.getBool(
+        MMKVKey.requestedNotification,
+        defaultValue: false,
+      );
+      final unexpectedExitNotificationEnabled = MMKVUtil.getBool(
+        MMKVKey.isUnexpectedExitNotificationEnabled,
+        defaultValue: true,
+      );
+
+      log.info(
+        '[PermissionState] event=$event '
+        'os={locationServiceEnabled=$locationServiceEnabled '
+        'location=$locationStatus locationAlways=$locationAlwaysStatus '
+        'batteryOptimization=$batteryOptimizationStatus '
+        'notification=$notificationStatus} '
+        'mmkv={permissionSheetShown=$permissionSheetShown '
+        'requestedLocation=$requestedLocation '
+        'requestedBatteryOptimization=$requestedBatteryOptimization '
+        'requestedNotification=$requestedNotification '
+        'unexpectedExitNotificationEnabled='
+        '$unexpectedExitNotificationEnabled}',
+      );
+    } catch (e, s) {
+      log.error('[PermissionState] log failed event=$event $e', s);
+    }
+  }
 
   Future<PermissionSnapshot> readPermissionSnapshot() async {
     final hasLocation = await checkLocationPermission();
@@ -63,14 +111,17 @@ class PermissionService {
         !isAndroid || await Permission.ignoreBatteryOptimizations.isGranted;
     final notificationStatus = await Permission.notification.status;
     final notificationGranted = notificationStatus.isGranted;
-    final locationRequested = _prefs.getRequestedLocation(
-      reason: 'read_permission_snapshot',
+    final locationRequested = MMKVUtil.getBool(
+      MMKVKey.requestedLocation,
+      defaultValue: false,
     );
-    final batteryRequested = _prefs.getRequestedBatteryOptimization(
-      reason: 'read_permission_snapshot',
+    final batteryRequested = MMKVUtil.getBool(
+      MMKVKey.requestedBatteryOptimization,
+      defaultValue: false,
     );
-    final notificationRequested = _prefs.getRequestedNotification(
-      reason: 'read_permission_snapshot',
+    final notificationRequested = MMKVUtil.getBool(
+      MMKVKey.requestedNotification,
+      defaultValue: false,
     );
 
     final snapshot = PermissionSnapshot(
@@ -98,36 +149,25 @@ class PermissionService {
   Future<bool> needAnyPermission() async {
     final hasLocation = await checkLocationPermission();
     if (!hasLocation) {
-      log.info(
-        '[PermissionService] needAnyPermission=true reason=location_missing',
-      );
       return true;
     }
     if (Platform.isAndroid &&
         !(await Permission.ignoreBatteryOptimizations.isGranted) &&
-        !_prefs.getRequestedBatteryOptimization(
-          reason: 'need_any_permission',
+        !MMKVUtil.getBool(
+          MMKVKey.requestedBatteryOptimization,
+          defaultValue: false,
         )) {
-      log.info(
-        '[PermissionService] needAnyPermission=true '
-        'reason=battery_optimization_not_requested',
-      );
       return true;
     }
     final notificationStatus = await Permission.notification.status;
     if (!notificationStatus.isGranted &&
-        !_prefs.getRequestedNotification(reason: 'need_any_permission') &&
+        !MMKVUtil.getBool(
+          MMKVKey.requestedNotification,
+          defaultValue: false,
+        ) &&
         !notificationStatus.isPermanentlyDenied) {
-      log.info(
-        '[PermissionService] needAnyPermission=true '
-        'reason=notification_not_requested status=$notificationStatus',
-      );
       return true;
     }
-    log.info(
-      '[PermissionService] needAnyPermission=false '
-      'notificationStatus=$notificationStatus',
-    );
     return false;
   }
 
@@ -163,10 +203,7 @@ class PermissionService {
     var status = await Permission.location.status;
 
     if (status.isPermanentlyDenied) {
-      _prefs.setRequestedLocation(
-        true,
-        reason: 'location_permanently_denied_before_request',
-      );
+      MMKVUtil.putBool(MMKVKey.requestedLocation, true);
       log.info(
         '[PermissionService] runLocationRequest open app settings: '
         'status=$status',
@@ -181,19 +218,13 @@ class PermissionService {
     }
 
     if (!status.isGranted) {
-      _prefs.setRequestedLocation(
-        true,
-        reason: 'before_location_request',
-      );
+      MMKVUtil.putBool(MMKVKey.requestedLocation, true);
       status = await Permission.location.request();
       log.info(
         '[PermissionService] runLocationRequest requested result=$status',
       );
       if (!status.isGranted) {
         if (status.isPermanentlyDenied) {
-          log.info(
-            '[PermissionService] runLocationRequest result=permanentlyDenied',
-          );
           return const [
             PermissionEffect(
               messageTrKey:
@@ -202,7 +233,6 @@ class PermissionService {
             ),
           ];
         }
-        log.info('[PermissionService] runLocationRequest result=denied');
         return const [
           PermissionEffect(
             messageTrKey: 'location_service.location_permission_denied',
@@ -226,8 +256,9 @@ class PermissionService {
       return const [];
     }
 
-    final alreadyRequested = _prefs.getRequestedBatteryOptimization(
-      reason: 'run_battery_request',
+    final alreadyRequested = MMKVUtil.getBool(
+      MMKVKey.requestedBatteryOptimization,
+      defaultValue: false,
     );
     if (alreadyRequested) {
       final ignoring = await Permission.ignoreBatteryOptimizations.isGranted;
@@ -241,10 +272,7 @@ class PermissionService {
     // waiting for the user to return. The actual result will be picked up when the
     // app resumes (didChangeAppLifecycleState → _refreshStatus).
     await Permission.ignoreBatteryOptimizations.request();
-    _prefs.setRequestedBatteryOptimization(
-      true,
-      reason: 'after_battery_optimization_request',
-    );
+    MMKVUtil.putBool(MMKVKey.requestedBatteryOptimization, true);
     log.info('[PermissionService] runBatteryRequest launched system request');
     return const [];
   }
@@ -253,18 +281,12 @@ class PermissionService {
     final status = await Permission.notification.status;
 
     if (status.isGranted) {
-      _prefs.setUnexpectedExitNotificationEnabled(
-        true,
-        reason: 'notification_already_granted',
-      );
+      MMKVUtil.putBool(MMKVKey.isUnexpectedExitNotificationEnabled, true);
       return const [];
     }
 
     if (status.isPermanentlyDenied) {
-      _prefs.setRequestedNotification(
-        true,
-        reason: 'notification_permanently_denied_before_request',
-      );
+      MMKVUtil.putBool(MMKVKey.requestedNotification, true);
       log.info(
         '[PermissionService] runNotificationRequest open app settings: '
         'status=$status',
@@ -282,19 +304,13 @@ class PermissionService {
     log.info(
       '[PermissionService] runNotificationRequest requested result=$result',
     );
-    _prefs.setUnexpectedExitNotificationEnabled(
+    MMKVUtil.putBool(
+      MMKVKey.isUnexpectedExitNotificationEnabled,
       result.isGranted,
-      reason: 'after_notification_request',
     );
-    _prefs.setRequestedNotification(
-      true,
-      reason: 'after_notification_request',
-    );
+    MMKVUtil.putBool(MMKVKey.requestedNotification, true);
     if (!result.isGranted) {
       if (result.isPermanentlyDenied) {
-        log.info(
-          '[PermissionService] runNotificationRequest result=permanentlyDenied',
-        );
         return const [
           PermissionEffect(
             messageTrKey:
@@ -303,9 +319,6 @@ class PermissionService {
           ),
         ];
       }
-      log.info(
-        '[PermissionService] runNotificationRequest result=denied',
-      );
       return const [
         PermissionEffect(
           messageTrKey:
