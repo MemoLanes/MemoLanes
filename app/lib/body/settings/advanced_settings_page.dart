@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:memolanes/common/component/common_export.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/gps_manager.dart';
@@ -161,6 +162,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
                 context,
                 context.tr("general.advanced_settings.reset_local_prefs_done"),
               );
+              SystemNavigator.pop();
             },
           ),
           LabelTile(
