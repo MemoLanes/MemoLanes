@@ -8,6 +8,7 @@ import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/service/location/geolocator_service.dart';
 import 'package:memolanes/common/service/location/last_known_location.dart';
 import 'package:memolanes/common/service/location/location_service.dart';
+import 'package:memolanes/common/service/permission_prefs.dart';
 import 'package:memolanes/common/service/permission_service.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -202,8 +203,10 @@ class GpsManager extends ChangeNotifier {
 
         final unexpectedExitNotificationStatus =
             await Permission.notification.isGranted &&
-                MMKVUtil.getBool(MMKVKey.isUnexpectedExitNotificationEnabled,
-                    defaultValue: true);
+                PermissionPrefs().getUnexpectedExitNotificationEnabled(
+                  defaultValue: true,
+                  reason: 'gps_recording_state_change',
+                );
         if (newState == _InternalState.recording &&
             unexpectedExitNotificationStatus) {
           await _notificationWhenAppIsKilledPlugin.setNotificationOnKillService(

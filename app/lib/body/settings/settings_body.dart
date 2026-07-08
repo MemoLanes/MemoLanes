@@ -15,7 +15,7 @@ import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/component/tiles/label_tile_title.dart';
 import 'package:memolanes/common/gps_manager.dart';
-import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/service/permission_prefs.dart';
 import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/style_constants.dart';
@@ -89,9 +89,11 @@ class _SettingsBodyState extends State<SettingsBody> {
 
   Future<void> _loadNotificationStatus() async {
     setState(() {
-      _isUnexpectedExitNotificationEnabled = MMKVUtil.getBool(
-          MMKVKey.isUnexpectedExitNotificationEnabled,
-          defaultValue: true);
+      _isUnexpectedExitNotificationEnabled =
+          PermissionPrefs().getUnexpectedExitNotificationEnabled(
+        defaultValue: true,
+        reason: 'settings_load_notification_status',
+      );
     });
   }
 
@@ -278,8 +280,10 @@ class _SettingsBodyState extends State<SettingsBody> {
                   return;
                 }
               }
-              MMKVUtil.putBool(
-                  MMKVKey.isUnexpectedExitNotificationEnabled, value);
+              PermissionPrefs().setUnexpectedExitNotificationEnabled(
+                value,
+                reason: 'settings_toggle_notification',
+              );
               setState(() {
                 _isUnexpectedExitNotificationEnabled = value;
               });

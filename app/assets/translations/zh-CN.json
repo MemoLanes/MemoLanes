@@ -48,6 +48,7 @@
     "export": "导出",
     "edit": "编辑",
     "delete": "删除",
+    "reset": "重置",
     "please_enter": "请输入",
     "copy_success": "复制成功",
     "save_success": "保存成功",
@@ -222,6 +223,9 @@
       "raw_data_export_csv": "导出为 CSV",
       "raw_data_export_gpx": "导出为 GPX",
       "rebuild_cache": "重建缓存",
+      "reset_local_prefs": "重置偏好设置",
+      "reset_local_prefs_message": "该操作会清空偏好设置。不会删除旅程数据。",
+      "reset_local_prefs_done": "偏好设置已重置。部分设置将在重新打开应用后生效。",
       "render_diagnostics": "渲染诊断"
     }
   },

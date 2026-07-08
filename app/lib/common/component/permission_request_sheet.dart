@@ -4,20 +4,37 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/service/permission_service.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+enum PermissionSheetAction {
+  skip,
+  enableAll,
+  autoComplete,
+  back,
+  dismiss,
+}
+
+class PermissionSheetResult {
+  final PermissionSheetAction action;
+
+  const PermissionSheetResult(this.action);
+
+  bool get entered => action != PermissionSheetAction.back;
+}
+
 /// Shows the unified permission request bottom sheet (layout + copy only).
 ///
-/// Returns `true` when the user taps **Skip** or **Enable all** (enters the app; permissions may
-/// still be incomplete).
+/// Returns an action that indicates how the user left the sheet.
 ///
-/// Returns `false` when the user leaves via the leading back button.
 /// Dismissing the sheet (e.g. tapping outside) is treated like Skip.
-Future<bool> showPermissionRequestSheet(BuildContext context) async {
-  final result = await showModalBottomSheet<bool>(
+Future<PermissionSheetResult> showPermissionRequestSheet(
+  BuildContext context,
+) async {
+  final action = await showModalBottomSheet<PermissionSheetAction>(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
@@ -26,7 +43,7 @@ Future<bool> showPermissionRequestSheet(BuildContext context) async {
       return _PermissionRequestSheetContent();
     },
   );
-  return result ?? true;
+  return PermissionSheetResult(action ?? PermissionSheetAction.dismiss);
 }
 
 class _PermissionRequestSheetContent extends StatefulWidget {
@@ -103,7 +120,7 @@ class _PermissionRequestSheetContentState
       _notification = s.notification;
     });
     if (closeIfComplete && _hasNoRemainingPermissions(s)) {
-      _closeSheet(true);
+      _closeSheet(PermissionSheetAction.autoComplete);
     }
   }
 
@@ -113,11 +130,13 @@ class _PermissionRequestSheetContentState
         s.notification.granted;
   }
 
-  void _closeSheet(bool result) {
+  void _closeSheet(PermissionSheetAction action) {
     if (!mounted || _isClosing) return;
 
     _isClosing = true;
-    if (!popCurrentRoute(context, result)) {
+    if (!popCurrentRoute(context, action)) {
+      log.warning(
+          '[PermissionSheet] close failed: popCurrentRoute returned false');
       _isClosing = false;
     }
   }
@@ -129,9 +148,13 @@ class _PermissionRequestSheetContentState
         await showCommonDialog(context, context.tr(e.messageTrKey!));
       }
       if (!mounted) return;
-      if (e.openAppSettings) await openAppSettings();
+      if (e.openAppSettings) {
+        await openAppSettings();
+      }
       if (!mounted) return;
-      if (e.openLocationSettings) await Geolocator.openLocationSettings();
+      if (e.openLocationSettings) {
+        await Geolocator.openLocationSettings();
+      }
     }
   }
 
@@ -160,7 +183,7 @@ class _PermissionRequestSheetContentState
   }
 
   void _onSkip() {
-    _closeSheet(true);
+    _closeSheet(PermissionSheetAction.skip);
   }
 
   Future<void> _onEnableAll() async {
@@ -176,7 +199,7 @@ class _PermissionRequestSheetContentState
       await _requestNotification(closeIfComplete: false);
     }
     if (!mounted) return;
-    _closeSheet(true);
+    _closeSheet(PermissionSheetAction.enableAll);
   }
 
   @override
@@ -211,7 +234,7 @@ class _PermissionRequestSheetContentState
                 IconButton(
                   icon: const Icon(Icons.arrow_back_ios,
                       color: Colors.white, size: 20),
-                  onPressed: () => _closeSheet(false),
+                  onPressed: () => _closeSheet(PermissionSheetAction.back),
                   style: IconButton.styleFrom(
                     padding: const EdgeInsets.all(8),
                     minimumSize: const Size(40, 40),

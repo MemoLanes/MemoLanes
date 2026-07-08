@@ -61,8 +61,19 @@ class MMKVUtil {
     return _mmkv.decodeString(key);
   }
 
+  /// contains key
+  static bool containsKey(String key) {
+    return _mmkv.containsKey(key);
+  }
+
   /// remove key
   static void removeAppKey(String key) {
     return _mmkv.removeValue(key);
+  }
+
+  /// clear all app keys
+  static void clearAll() {
+    _mmkv.clearAll();
+    _mmkv.sync(true);
   }
 }
