@@ -4,6 +4,7 @@ import 'package:memolanes/body/journey/journey_info_page.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart';
@@ -188,7 +189,9 @@ class _MldxImportPageState extends State<MldxImportPage> {
           ),
         ),
       );
-    } catch (_) {
+    } catch (error, stackTrace) {
+      log.error(
+          '[MldxImportPage] open journey preview failed: $error', stackTrace);
       if (!mounted) return;
       await showCommonDialog(context, context.tr('import.parsing_failed'));
     }
@@ -238,7 +241,8 @@ class _MldxImportPageState extends State<MldxImportPage> {
         if (!mounted) return;
         popCurrentRoute(context, true);
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      log.error('[MldxImportPage] import journeys failed: $error', stackTrace);
       if (mounted) {
         await showCommonDialog(context, context.tr('import.parsing_failed'));
       }
