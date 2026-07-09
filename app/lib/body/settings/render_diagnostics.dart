@@ -29,8 +29,13 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
         assetFilePath: 'assets/map_webview/render_diagnostics.html');
   }
 
-  Future<({int status, Uint8List body, String contentType, Map<String, String> headers})>
-      _handleInterceptedRequest(WebUri url) async {
+  Future<
+      ({
+        int status,
+        Uint8List body,
+        String contentType,
+        Map<String, String> headers
+      })> _handleInterceptedRequest(WebUri url) async {
     final path = url.path.replaceFirst(RegExp(r'^/?(api/)?'), '');
     final result = await _mapRendererProxy.handleRequest(
       path: path,
@@ -45,9 +50,8 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
   }
 
   Future<void> _injectApiEndpoint() async {
-    final cgiEndpoint = Platform.isIOS
-        ? 'memolanes://api'
-        : 'https://memolanes.local/api';
+    final cgiEndpoint =
+        Platform.isIOS ? 'memolanes://api' : 'https://memolanes.local/api';
 
     await _controller?.evaluateJavascript(source: '''
       window.EXTERNAL_PARAMS = {
@@ -87,8 +91,7 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
           _onWebViewCreated(controller);
         },
         onLoadResourceWithCustomScheme: (controller, request) async {
-          final result =
-              await _handleInterceptedRequest(request.url);
+          final result = await _handleInterceptedRequest(request.url);
           return CustomSchemeResponse(
             data: result.body,
             contentType: result.contentType,
@@ -105,8 +108,7 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
           if (!url.startsWith('https://memolanes.local/api/')) {
             return null;
           }
-          final result =
-              await _handleInterceptedRequest(request.url);
+          final result = await _handleInterceptedRequest(request.url);
           return WebResourceResponse(
             contentType: result.contentType,
             contentEncoding: 'utf-8',

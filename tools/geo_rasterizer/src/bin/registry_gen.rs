@@ -1,9 +1,9 @@
 //! Bootstrap / extend the frozen geo-entity id registry.
 //!
 //! APPEND ONLY: never renumbers or removes ids. With no `--source`, it unions
-//! every shipped POV (`Pov::ALL`) from repo-relative defaults, downloading the
+//! every shipped worldview (`Worldview::ALL`) from repo-relative defaults, downloading the
 //! pinned Natural Earth source if missing — so the registry is the union across
-//! all worldviews. Pass `--source <pov-id>:<path>` to register specific files
+//! all worldviews. Pass `--source <worldview-id>:<path>` to register specific files
 //! instead. Commit the resulting geo_entity_registry.toml in the same PR as the
 //! source bump.
 
@@ -11,22 +11,22 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Result};
 use clap::Parser;
-use geo_data_format::Pov;
+use geo_data_format::Worldview;
 use geo_rasterizer::download::ensure_geojson;
 use geo_rasterizer::entities::continent_code_pub;
 use geo_rasterizer::parse::parse_geojson;
 use geo_rasterizer::registry::{
-    merged_representative_points, register_pov, to_toml_sorted, Registry,
+    merged_representative_points, register_worldview, to_toml_sorted, Registry,
 };
 
 #[derive(Parser, Debug)]
 #[command(version, about = "Append-only geo-entity id registry generator")]
 struct Args {
-    /// Explicit labeled POV sources: `<pov-id>:<path>`. When omitted, every
-    /// shipped POV (`Pov::ALL`) is unioned from repo-relative defaults.
+    /// Explicit labeled worldview sources: `<worldview-id>:<path>`. When omitted, every
+    /// shipped worldview (`Worldview::ALL`) is unioned from repo-relative defaults.
     /// Processed in given order; first source's codes get the lowest ids
     /// (stable).
-    #[arg(long = "source", value_name = "POV:PATH", num_args = 1..)]
+    #[arg(long = "source", value_name = "worldview:PATH", num_args = 1..)]
     sources: Vec<String>,
     /// Registry TOML to create or extend. Defaults to the crate's frozen
     /// geo_entity_registry.toml regardless of the caller's cwd.
@@ -44,14 +44,14 @@ fn default_registry() -> PathBuf {
     manifest().join("geo_entity_registry.toml")
 }
 
-fn default_countries(pov: Pov) -> PathBuf {
+fn default_countries(worldview: Worldview) -> PathBuf {
     manifest()
         .join("natural_earth")
-        .join(pov.spec().source_filename)
+        .join(worldview.spec().source_filename)
 }
 
-/// Register every ADM0_A3 (and its continent) found in `path` under `pov`.
-fn register_source(reg: &mut Registry, pov: Pov, path: &Path) -> Result<()> {
+/// Register every ADM0_A3 (and its continent) found in `path` under `worldview`.
+fn register_source(reg: &mut Registry, worldview: Worldview, path: &Path) -> Result<()> {
     let features = parse_geojson(path)?;
     let mut items: Vec<(String, bool, geo_types::MultiPolygon<f64>)> = Vec::new();
     for f in &features {
@@ -63,7 +63,7 @@ fn register_source(reg: &mut Registry, pov: Pov, path: &Path) -> Result<()> {
         items.push((f.adm0_a3.clone(), false, f.geometry.clone()));
     }
     let points = merged_representative_points(items);
-    register_pov(reg, pov.spec().id, &points);
+    register_worldview(reg, worldview.spec().id, &points);
     Ok(())
 }
 
@@ -83,22 +83,22 @@ fn main() -> Result<()> {
 
     let before = reg.next_id();
     if args.sources.is_empty() {
-        // Default: union every shipped POV from repo-relative defaults,
+        // Default: union every shipped worldview from repo-relative defaults,
         // downloading the pinned Natural Earth source if missing.
-        for &pov in Pov::ALL {
-            let path = default_countries(pov);
-            ensure_geojson(&path, pov)?;
-            register_source(&mut reg, pov, &path)?;
+        for &worldview in Worldview::ALL {
+            let path = default_countries(worldview);
+            ensure_geojson(&path, worldview)?;
+            register_source(&mut reg, worldview, &path)?;
         }
     } else {
         for source in &args.sources {
             // Relies on POSIX repo-relative paths (no Windows drive-letter colons).
-            let (pov_str, path_str) = match source.split_once(':') {
+            let (worldview_str, path_str) = match source.split_once(':') {
                 Some(pair) => pair,
-                None => bail!("--source must be in POV:PATH form, got: {source}"),
+                None => bail!("--source must be in worldview:PATH form, got: {source}"),
             };
-            let pov = Pov::from_id(pov_str)?;
-            register_source(&mut reg, pov, &PathBuf::from(path_str))?;
+            let worldview = Worldview::from_id(worldview_str)?;
+            register_source(&mut reg, worldview, &PathBuf::from(path_str))?;
         }
     }
 
