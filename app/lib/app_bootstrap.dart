@@ -12,6 +12,7 @@ import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/region_preference.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -106,6 +107,14 @@ class AppBootstrap {
     }
   }
 
+  static void _startGeoDataInit() {
+    unawaited(
+      ensureWorldviewReady().catchError((Object error, StackTrace stackTrace) {
+        log.error("[AppBootstrap] init geo data failed: $error", stackTrace);
+      }),
+    );
+  }
+
   static Future<void> initAppRuntime() async {
     // This is required since we are doing things before calling `runApp`.
     WidgetsFlutterBinding.ensureInitialized();
@@ -143,6 +152,7 @@ class AppBootstrap {
 
     ShareHandlerUtil.init(navigatorKey: navigatorKey);
     ShortcutHandlerUtil.init(gpsManager: gpsManager);
+    _startGeoDataInit();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _onFirstFrame();

@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:memolanes/common/component/setup_bottom_sheet.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/achievement.dart' as achievement;
 
@@ -12,6 +13,20 @@ const _worldviewDisplayOrder = [
   achievement.Worldview.chn,
   achievement.Worldview.usa,
 ];
+
+Future<void> _worldviewChangeQueue = Future.value();
+
+Future<void> _enqueueWorldviewChange(Future<void> Function() change) {
+  final next = _worldviewChangeQueue.then((_) => change());
+  _worldviewChangeQueue = next.catchError(
+    (Object error, StackTrace stackTrace) {
+      log.error(
+          "[RegionPreference] worldview queue recovered after failure: $error",
+          stackTrace);
+    },
+  );
+  return next;
+}
 
 achievement.Worldview defaultWorldviewFromDeviceLocale() {
   final locales = WidgetsBinding.instance.platformDispatcher.locales;
@@ -47,19 +62,23 @@ Future<void> saveWorldview(achievement.Worldview worldview) {
 }
 
 Future<void> applyAndSaveWorldview(achievement.Worldview worldview) async {
-  await applyWorldview(worldview);
-  await saveWorldview(worldview);
+  await _enqueueWorldviewChange(() async {
+    await applyWorldview(worldview);
+    await saveWorldview(worldview);
+  });
 }
 
 Future<void> ensureWorldviewReady() async {
-  final saved = await loadSavedWorldview();
-  final worldview = saved ?? defaultWorldviewFromDeviceLocale();
+  await _enqueueWorldviewChange(() async {
+    final saved = await loadSavedWorldview();
+    final worldview = saved ?? defaultWorldviewFromDeviceLocale();
 
-  await applyWorldview(worldview);
+    await applyWorldview(worldview);
 
-  if (saved == null) {
-    await saveWorldview(worldview);
-  }
+    if (saved == null) {
+      await saveWorldview(worldview);
+    }
+  });
 }
 
 String regionPreferenceTitle(
