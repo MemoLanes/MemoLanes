@@ -49,6 +49,7 @@ impl RegionKind {
 /// fraction is `visited_area_m2 / total_area_m2`, left to the frontend.
 pub struct RegionEntity {
     pub kind: RegionKind,
+    pub iso_code: String,
     pub name_key: String,
     pub visited_area_m2: u64,
     pub total_area_m2: u64,
@@ -99,6 +100,7 @@ fn region_entity(
     let visited_area_m2 = states.get(&(layer, id)).map_or(0, |s| s.visited_area_m2);
     Some(RegionEntity {
         kind: entity.kind.into(),
+        iso_code: entity.iso_code.clone(),
         name_key: entity.name_key.clone(),
         visited_area_m2,
         total_area_m2: entity.total_area_m2,
@@ -147,6 +149,7 @@ pub fn region_level_view(
             id,
             RegionEntity {
                 kind: entity.kind.into(),
+                iso_code: entity.iso_code.clone(),
                 name_key: entity.name_key.clone(),
                 visited_area_m2,
                 total_area_m2: entity.total_area_m2,

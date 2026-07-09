@@ -118,6 +118,7 @@ fn region_read_api_lists_progress_and_completion() {
             // Entries always list every country (FR, DE); only visited ones carry
             // area. Default sees only FR visited; All sees both.
             let def = region_level_view(&states, geo, Default, RegionKind::Country, eu);
+            assert_eq!(def.entries[&GeoEntityId(2)].iso_code, "FR");
             let mut def_ids: Vec<_> = def.entries.keys().copied().collect();
             def_ids.sort();
             assert_eq!(def_ids, vec![GeoEntityId(2), GeoEntityId(3)]);
@@ -139,6 +140,7 @@ fn region_read_api_lists_progress_and_completion() {
             let detail = region_detail(&states, geo, GeoEntityId(1), All).unwrap();
             assert_eq!(detail.entity_id, GeoEntityId(1));
             assert!(detail.node.visited_area_m2 > 0);
+            assert_eq!(detail.children[&GeoEntityId(3)].iso_code, "DE");
             let mut kids: Vec<_> = detail.children.keys().copied().collect();
             kids.sort();
             assert_eq!(kids, vec![GeoEntityId(2), GeoEntityId(3)]);

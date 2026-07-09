@@ -1,6 +1,6 @@
-import 'package:country_flags/country_flags.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/body/achievement/shared/achievement_common.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
@@ -197,13 +197,9 @@ class _RegionFlagIcon extends StatelessWidget {
       ),
       child: SizedBox.square(
         dimension: 28,
-        child: CountryFlag.fromCountryCode(
-          countryCode,
-          theme: const ImageTheme(
-            width: 28,
-            height: 28,
-            shape: Circle(),
-          ),
+        child: AchievementCountryFlag(
+          countryCode: countryCode,
+          size: 28,
         ),
       ),
     );

@@ -1,3 +1,4 @@
+import 'package:country_flags/country_flags.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/custom_popup.dart';
@@ -70,6 +71,68 @@ String formatPercent(double value) {
 
 bool useCompactAchievementCardLayout(BuildContext context) {
   return MediaQuery.sizeOf(context).width < 470;
+}
+
+class AchievementCountryFlag extends StatelessWidget {
+  const AchievementCountryFlag({
+    super.key,
+    required this.countryCode,
+    required this.size,
+  });
+
+  final String countryCode;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final flagCode = FlagCode.fromCountryCode(countryCode);
+    if (flagCode == null) {
+      return _FallbackCountryFlag(countryCode: countryCode, size: size);
+    }
+
+    return CountryFlag.fromCountryCode(
+      countryCode,
+      theme: ImageTheme(
+        width: size,
+        height: size,
+        shape: const Circle(),
+      ),
+    );
+  }
+}
+
+class _FallbackCountryFlag extends StatelessWidget {
+  const _FallbackCountryFlag({
+    required this.countryCode,
+    required this.size,
+  });
+
+  final String countryCode;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: countryCode,
+      child: Container(
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white.withValues(alpha: 0.08),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.14),
+          ),
+        ),
+        child: Icon(
+          Icons.public_rounded,
+          color: Colors.white.withValues(alpha: 0.68),
+          size: size * 0.54,
+        ),
+      ),
+    );
+  }
 }
 
 class AchievementCardTitleRow extends StatelessWidget {

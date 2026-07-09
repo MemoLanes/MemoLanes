@@ -94,15 +94,52 @@ class _AchievementStatsCards extends StatelessWidget {
     final stats = store.stats;
 
     if (stats == null) {
-      return store.isLoading
-          ? const _AchievementStatsSkeleton()
-          : const SizedBox.shrink();
+      if (store.isAreaStatsLoading) {
+        return const _AchievementStatsSkeleton();
+      }
+      if (store.areaStatsError != null) {
+        return const _AchievementStatsErrorCard();
+      }
+      return const SizedBox.shrink();
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AchievementSourceCard(stats: stats),
+      ],
+    );
+  }
+}
+
+class _AchievementStatsErrorCard extends StatelessWidget {
+  const _AchievementStatsErrorCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return OptionCard(
+      children: [
+        Padding(
+          padding: achievementCardPadding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AchievementCardTitleRow(
+                title: context.tr('achievement.source.title'),
+                info: context.tr('achievement.source.overlap_note'),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                context.tr('achievement.source.error'),
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.58),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -151,10 +188,6 @@ class _SourceSkeletonCard extends StatelessWidget {
                   Expanded(child: _SourceMetricSkeleton(compact: compact)),
                 ],
               ),
-              const SizedBox(height: 14),
-              const Center(
-                child: _SkeletonBlock(width: 188, height: 13),
-              ),
             ],
           ),
         ),
@@ -183,7 +216,14 @@ class _TotalAreaSkeleton extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SkeletonBlock(width: 86, height: 13),
+          const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _SkeletonBlock(width: 16, height: 16, radius: 999),
+              SizedBox(width: 6),
+              _SkeletonBlock(width: 86, height: 13),
+            ],
+          ),
           SizedBox(height: compact ? 10 : 12),
           const _SkeletonBlock(width: 186, height: 52),
         ],
@@ -209,7 +249,7 @@ class _SourceMetricSkeleton extends StatelessWidget {
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
