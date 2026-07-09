@@ -195,35 +195,12 @@ class AchievementStatsStore extends ChangeNotifier {
   }
 
   Future<List<AchievementCountryStats>> _fetchCountryStats() async {
-    // TODO: Move this aggregation into the Rust read-model when it exposes a
-    // visited-country summary API.
-    final rootCountriesView = await achievement_api.regionLevelView(
+    final countriesView = await achievement_api.regionLevelView(
       layer: AchievementLayer.default_,
       level: RegionKind.country,
     );
 
-    final continentsView = await achievement_api.regionLevelView(
-      layer: AchievementLayer.default_,
-      level: RegionKind.continent,
-    );
-
-    final countryViews = await Future.wait(
-      continentsView.entries.keys.map(
-        (continentId) => achievement_api.regionLevelView(
-          layer: AchievementLayer.default_,
-          level: RegionKind.country,
-          parent: continentId,
-        ),
-      ),
-    );
-
-    final countryEntriesById = <achievement_api.GeoEntityId, RegionEntity>{};
-    countryEntriesById.addAll(rootCountriesView.entries);
-    for (final view in countryViews) {
-      countryEntriesById.addAll(view.entries);
-    }
-
-    final countries = countryEntriesById.entries
+    final countries = countriesView.entries.entries
         .where((entry) => entry.value.visitedAreaM2 > BigInt.zero)
         .map(
           (entry) => AchievementCountryStats(
