@@ -154,7 +154,7 @@ fn prepare_real_cache_dir(
                 LogLevel::Info,
                 format!("Setting up real cache dir for Android at {final_path:?}"),
             ));
-            // TODO this can be delete when most people have rolled pass this.
+            // TODO: this can be deleted when most people have rolled past this.
             let old_dir = Path::new(system_cache_dir);
             if old_dir.exists() {
                 logs.push((
@@ -328,7 +328,7 @@ pub fn get_map_renderer_proxy_for_main_map() -> MapRendererProxy {
     MapRendererProxy::MainMapRenderer
 }
 
-// TODO: does this interface necessary?
+// TODO: is this interface necessary?
 #[frb(sync)]
 pub fn get_empty_map_renderer_proxy() -> MapRendererProxy {
     let journey_bitmap = JourneyBitmap::new();
@@ -647,7 +647,7 @@ pub fn export_journey(
             ExportType::MLDX => {
                 let journey_header = txn
                     .get_journey_header(&journey_id)?
-                    .expect("header must exists because we already got the data.");
+                    .expect("header must exist because we already got the data.");
                 Ok(Some(InternalDataForExport::Mldx(
                     journey_header,
                     journey_data,
@@ -825,7 +825,7 @@ pub fn rebuild_cache() -> Result<()> {
 // multiple FoW data. Bitmap does not necessarily mean FoW data, but this is
 // good enough.
 pub fn contains_bitmap_journey() -> Result<bool> {
-    // TODO: we should just have a real SQL query for this, instead of a liner
+    // TODO: we should just have a real SQL query for this, instead of a linear
     // scan that involves deserializing all journey heads.
     let journey_headers = get()
         .storage

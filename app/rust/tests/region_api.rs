@@ -135,6 +135,12 @@ fn region_read_api_lists_progress_and_completion() {
             let all = region_level_view(&states, geo, All, RegionKind::Country, eu);
             assert_eq!((all.visited_count, all.region_count), (2, 2));
 
+            let world = region_level_view(&states, geo, All, RegionKind::Country, None);
+            let mut world_ids: Vec<_> = world.entries.keys().copied().collect();
+            world_ids.sort();
+            assert_eq!(world_ids, vec![GeoEntityId(2), GeoEntityId(3)]);
+            assert_eq!((world.visited_count, world.region_count), (2, 2));
+
             // Detail of EU (All layer): single-layer node + FR/DE children.
             let detail = region_detail(&states, geo, GeoEntityId(1), All).unwrap();
             assert_eq!(detail.entity_id, GeoEntityId(1));

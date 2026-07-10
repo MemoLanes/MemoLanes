@@ -208,10 +208,10 @@ impl PathInterpolator {
         }
     }
 
-    // generate a vec have numbers between 0 to end with a step_length
+    // Generate a vector of numbers between 0 and end with a step_length.
     fn generate_range(end: f64, step_length: f64) -> Vec<f64> {
         if step_length <= 0.0 {
-            panic!("step_length must bigger than zero!");
+            panic!("step_length must be bigger than zero!");
         }
 
         let mut result = Vec::new();

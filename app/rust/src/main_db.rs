@@ -212,13 +212,13 @@ impl Txn<'_> {
                 if existing_header.revision == header.revision {
                     info!(
                         "Journey with ID {} already exists with the same revision, skip insert",
-                        &header.id
+                        header.id
                     );
                     return Ok(());
                 } else {
                     bail!(
                         "Journey with ID {} already exists but with a different revision",
-                        &header.id
+                        header.id
                     );
                 }
             }
@@ -320,7 +320,7 @@ impl Txn<'_> {
         note: Option<String>,
         new_journey_kind: JourneyKind,
     ) -> Result<()> {
-        info!("Updating journey with ID {}", &id);
+        info!("Updating journey with ID {}", id);
 
         let mut header = self
             .get_journey_header(id)?
@@ -370,7 +370,7 @@ impl Txn<'_> {
         id: &str,
         journey_data: JourneyData,
     ) -> Result<()> {
-        info!("Updating journey data with ID {}", &id);
+        info!("Updating journey data with ID {}", id);
 
         let mut header = self
             .get_journey_header(id)?

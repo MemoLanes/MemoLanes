@@ -93,7 +93,7 @@ journey-kernel-check:
     @cargo check
     @cargo fmt --all -- --check
     @cargo clippy -- -D warnings
-    @echo "✅ Journey Kernal code check completed"
+    @echo "✅ Journey Kernel code check completed"
 
 [group: 'utils']
 [working-directory: 'rust/geo_data_format']
@@ -164,7 +164,7 @@ fetch-natural-earth:
       --ensure-source --download-only
     @echo "✅ natural earth iso/chn/usa present in ../tools/geo_rasterizer/natural_earth/"
 
-# Generate all required files for flutter build. Need to be reran every time rust api or journey kernel is updated
+# Generate all required files for Flutter build. Needs to be rerun every time the Rust API or journey kernel is updated.
 [group: 'dev']
 pre-build:
     @echo "🛠️  Running pre-build"
