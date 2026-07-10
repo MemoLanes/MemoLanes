@@ -315,7 +315,7 @@ export class JourneyTileProvider {
       );
 
       // TODO: the tileBuffer wasm deserialization can take up to 2000ms in dev mode, and 30ms in prod mode.
-      // consider move this into web worker so that it won't block the main thread.
+      // Consider moving this into a web worker so that it won't block the main thread.
       // TODO: remove this number
       const LEVEL0_EXP = 9; // is it reasonable?
       this.tileBuffer = TileBuffer.new_from_tile_range_response(
