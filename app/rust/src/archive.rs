@@ -56,8 +56,8 @@ use crate::{
     protos::archive::{metadata, Metadata, SectionHeader},
 };
 
-const METADATA_MAGIC_HEADER: [u8; 3] = [b'M', b'L', b'M'];
-const SECTION_MAGIC_HEADER: [u8; 3] = [b'M', b'L', b'S'];
+const METADATA_MAGIC_HEADER: [u8; 3] = *b"MLM";
+const SECTION_MAGIC_HEADER: [u8; 3] = *b"MLS";
 const METADATA_VERSION: u8 = 1;
 const METADATA_FILE_NAME_OLD: &str = "metadata.xxm";
 const METADATA_FILE_NAME_NEW: &str = "metadata.mldm";
@@ -188,7 +188,7 @@ impl<R: Read + Seek> MldxReader<R> {
             bail!(
                 "Invalid magic header, expect: {:?}, got: {:?}",
                 METADATA_MAGIC_HEADER,
-                &magic_header
+                magic_header
             );
         };
         let mut version_number: [u8; 1] = [0; 1];
@@ -215,7 +215,7 @@ impl<R: Read + Seek> MldxReader<R> {
             bail!(
                 "Invalid magic header, expect: {:?}, got: {:?}",
                 SECTION_MAGIC_HEADER,
-                &magic_header
+                magic_header
             );
         };
         let mut version_number: [u8; 1] = [0; 1];
@@ -446,7 +446,7 @@ where
             .or_insert_with(Vec::new)
             .push(journey);
     }
-    for (_, journeys) in group_by_year_month.iter_mut() {
+    for journeys in group_by_year_month.values_mut() {
         journeys.sort_by(|a, b| {
             let result = a.end.cmp(&b.end);
             if result != Ordering::Equal {
