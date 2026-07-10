@@ -21,8 +21,8 @@ pub enum JourneyData {
 // 3 is the zstd default
 pub const ZSTD_COMPRESS_LEVEL: i32 = 3;
 
-const JOURNEY_VECTOR_MAGIC_HEADER: [u8; 2] = [b'V', b'0'];
-const JOURNEY_BITMAP_MAGIC_HEADER: [u8; 2] = [b'B', b'0'];
+const JOURNEY_VECTOR_MAGIC_HEADER: [u8; 2] = *b"V0";
+const JOURNEY_BITMAP_MAGIC_HEADER: [u8; 2] = *b"B0";
 
 pub fn validate_magic_header<T: Read>(reader: &mut T, expected_header: &[u8; 2]) -> Result<()> {
     // magic header
@@ -32,7 +32,7 @@ pub fn validate_magic_header<T: Read>(reader: &mut T, expected_header: &[u8; 2])
         bail!(
             "Invalid magic header, expect: {:?}, got: {:?}",
             expected_header,
-            &magic_header
+            magic_header
         );
     };
     Ok(())

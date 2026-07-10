@@ -81,11 +81,15 @@ fn entities_in_scope(
     level: GeoEntityKind,
     parent: Option<GeoEntityId>,
 ) -> Vec<GeoEntityId> {
-    geo.entities_of_kind(level)
-        .iter()
-        .copied()
-        .filter(|&id| geo.entity(id).map(|e| e.parent_id) == Some(parent))
-        .collect()
+    let ids = geo.entities_of_kind(level);
+    match parent {
+        None => ids.to_vec(),
+        Some(parent) => ids
+            .iter()
+            .copied()
+            .filter(|&id| geo.entity(id).map(|e| e.parent_id) == Some(Some(parent)))
+            .collect(),
+    }
 }
 
 /// One entity's coverage in `layer`, or `None` if the id is unknown.
