@@ -65,8 +65,8 @@ String _formatNumberWithinDigits(double value) {
   return fixed.replaceFirst(RegExp(r'\.?0+$'), '');
 }
 
-String formatPercent(double value) {
-  return '${(value * 100).toStringAsFixed(1)}%';
+String formatPercent(double value, {int fractionDigits = 1}) {
+  return '${(value * 100).toStringAsFixed(fractionDigits)}%';
 }
 
 bool useCompactAchievementCardLayout(BuildContext context) {

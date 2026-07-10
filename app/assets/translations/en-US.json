@@ -198,25 +198,15 @@
       "description": "{} countries and regions unlocked",
       "note": "Currently this only counts countries, regions, and cities from ground exploration data. A fuller exploration coverage model will be added later.",
       "empty": "No countries unlocked yet.",
-      "error": "Could not load explored countries.",
-      "names": {
-        "cn": "China",
-        "jp": "Japan",
-        "us": "United States",
-        "gb": "United Kingdom",
-        "fr": "France",
-        "de": "Germany",
-        "it": "Italy",
-        "es": "Spain",
-        "pt": "Portugal",
-        "nl": "Netherlands",
-        "ch": "Switzerland",
-        "at": "Austria",
-        "th": "Thailand",
-        "sg": "Singapore",
-        "au": "Australia",
-        "ca": "Canada"
-      }
+      "error": "Could not load explored countries."
+    },
+    "country_list": {
+      "title": "Explored countries",
+      "view_all": "View all"
+    },
+    "region_area_list": {
+      "sort_area": "Area",
+      "sort_coverage": "Unlock rate"
     },
     "region_list": {
       "province_count": "{} regions unlocked",

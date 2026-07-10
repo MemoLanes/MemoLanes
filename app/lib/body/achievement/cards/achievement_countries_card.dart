@@ -2,9 +2,11 @@ import 'dart:ui' as ui;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/body/achievement/achievement_country_list_page.dart';
 import 'package:memolanes/body/achievement/shared/achievement_common.dart';
 import 'package:memolanes/common/achievement_stats_store.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
+import 'package:memolanes/utils/nav_helper.dart';
 import 'package:provider/provider.dart';
 
 const _countryGold = Color(0xFFD4AF37);
@@ -41,7 +43,10 @@ class AchievementCountriesCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _CountriesHeader(count: countries.length),
+              _CountriesHeader(
+                count: countries.length,
+                hasCountries: countries.isNotEmpty,
+              ),
               const SizedBox(height: 18),
               if (countries.isEmpty)
                 const _CountriesEmptyState()
@@ -89,18 +94,57 @@ class _CountriesErrorCard extends StatelessWidget {
 }
 
 class _CountriesHeader extends StatelessWidget {
-  const _CountriesHeader({required this.count});
+  const _CountriesHeader({
+    required this.count,
+    required this.hasCountries,
+  });
 
   final int count;
+  final bool hasCountries;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AchievementCardTitleRow(
-          title: context.tr('achievement.countries.title'),
-          info: context.tr('achievement.countries.note'),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: AchievementCardTitleRow(
+                title: context.tr('achievement.countries.title'),
+                info: context.tr('achievement.countries.note'),
+              ),
+            ),
+            if (hasCountries) ...[
+              const SizedBox(width: 8),
+              TextButton.icon(
+                onPressed: () {
+                  navigatorPush(
+                    context,
+                    page: const AchievementCountryListPage(),
+                  );
+                },
+                icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                label: Text(
+                  context.tr('achievement.country_list.view_all'),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: _countryGold,
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 6,
+                  ),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ],
+          ],
         ),
         const SizedBox(height: 12),
         Text(
