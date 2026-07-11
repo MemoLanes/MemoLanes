@@ -10,7 +10,6 @@ use crate::main_db::{self, Action, MainDb};
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
 use chrono::{Local, NaiveDate};
-use geo_data_format::Worldview;
 use serde::{Deserialize, Serialize};
 use std::fs::{remove_file, File};
 use std::path::{Path, PathBuf};
@@ -255,16 +254,6 @@ impl Storage {
     pub fn get_raw_data_mode(&self) -> bool {
         let raw_data_recorder = self.raw_data_recorder.lock().unwrap();
         raw_data_recorder.is_some()
-    }
-
-    pub fn get_worldview_preference(&self) -> Result<Option<Worldview>> {
-        let main_db = &mut self.dbs.lock().unwrap().main_db;
-        main_db.get_worldview_preference()
-    }
-
-    pub fn set_worldview_preference(&self, worldview: Worldview) -> Result<()> {
-        let main_db = &mut self.dbs.lock().unwrap().main_db;
-        main_db.set_worldview_preference(worldview)
     }
 
     #[auto_context]

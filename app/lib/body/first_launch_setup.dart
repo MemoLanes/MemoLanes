@@ -27,6 +27,8 @@ Future<void> _showPrivacyAndRegionSheet(
   // A little weird, but shouldn't happen.
   if (!context.mounted) return;
 
+  final initialWorldview = loadWorldviewOrDefault();
+
   final result = await showModalBottomSheet<bool>(
     context: context,
     backgroundColor: Colors.transparent,
@@ -36,6 +38,7 @@ Future<void> _showPrivacyAndRegionSheet(
     builder: (context) {
       return FirstLaunchSetupSheet(
         initialPrivacyAccepted: privacyAlreadyAccepted,
+        initialWorldview: initialWorldview,
       );
     },
   );
@@ -81,9 +84,11 @@ class FirstLaunchSetupSheet extends StatefulWidget {
   const FirstLaunchSetupSheet({
     super.key,
     required this.initialPrivacyAccepted,
+    required this.initialWorldview,
   });
 
   final bool initialPrivacyAccepted;
+  final Worldview initialWorldview;
 
   @override
   State<FirstLaunchSetupSheet> createState() => _FirstLaunchSetupSheetState();
@@ -100,7 +105,7 @@ class _FirstLaunchSetupSheetState extends State<FirstLaunchSetupSheet> {
   void initState() {
     super.initState();
     _privacyAccepted = widget.initialPrivacyAccepted;
-    _selectedWorldview = defaultWorldviewFromDeviceLocale();
+    _selectedWorldview = widget.initialWorldview;
   }
 
   Future<void> _openPrivacyPolicy() async {

@@ -90,7 +90,6 @@ fn basic() {
 
 #[test]
 fn setting() {
-    use geo_data_format::Worldview;
     use main_db::Setting;
 
     let temp_dir = TempDir::new("main_db-setting").unwrap();
@@ -104,19 +103,10 @@ fn setting() {
     // setting value
     main_db.set_setting(Setting::RawDataMode, true).unwrap();
     assert!(main_db.get_setting_with_default(Setting::RawDataMode, false));
-    main_db.set_worldview_preference(Worldview::Iso).unwrap();
-    assert_eq!(
-        main_db.get_worldview_preference().unwrap(),
-        Some(Worldview::Iso)
-    );
 
     // restart
     main_db = MainDb::open(temp_dir.path().to_str().unwrap());
     assert!(main_db.get_setting_with_default(main_db::Setting::RawDataMode, false));
-    assert_eq!(
-        main_db.get_worldview_preference().unwrap(),
-        Some(Worldview::Iso)
-    );
 }
 
 #[test]

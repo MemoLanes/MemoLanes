@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:memolanes/common/component/setup_bottom_sheet.dart';
+import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/achievement.dart' as achievement;
 
@@ -25,13 +26,13 @@ achievement.Worldview defaultWorldviewFromDeviceLocale() {
   };
 }
 
-Future<achievement.Worldview> loadWorldviewOrDefault() async {
-  return await achievement.getWorldviewPreference() ??
-      defaultWorldviewFromDeviceLocale();
+achievement.Worldview loadWorldviewOrDefault() {
+  return loadSavedWorldview() ?? defaultWorldviewFromDeviceLocale();
 }
 
-Future<achievement.Worldview?> loadSavedWorldview() {
-  return achievement.getWorldviewPreference();
+achievement.Worldview? loadSavedWorldview() {
+  final id = MMKVUtil.getStringOpt(MMKVKey.worldviewPreference);
+  return id == null ? null : achievement.Worldview.fromId(id: id);
 }
 
 Future<void> applyWorldview(achievement.Worldview worldview) async {
@@ -42,23 +43,23 @@ Future<void> applyWorldview(achievement.Worldview worldview) async {
   );
 }
 
-Future<void> saveWorldview(achievement.Worldview worldview) {
-  return achievement.setWorldviewPreference(worldview: worldview);
+void saveWorldview(achievement.Worldview worldview) {
+  MMKVUtil.putString(MMKVKey.worldviewPreference, worldview.id);
 }
 
 Future<void> applyAndSaveWorldview(achievement.Worldview worldview) async {
   await applyWorldview(worldview);
-  await saveWorldview(worldview);
+  saveWorldview(worldview);
 }
 
 Future<void> ensureWorldviewReady() async {
-  final saved = await loadSavedWorldview();
+  final saved = loadSavedWorldview();
   final worldview = saved ?? defaultWorldviewFromDeviceLocale();
 
   await applyWorldview(worldview);
 
   if (saved == null) {
-    await saveWorldview(worldview);
+    saveWorldview(worldview);
   }
 }
 

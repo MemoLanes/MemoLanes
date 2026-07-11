@@ -27,33 +27,20 @@ class AdvancedSettingsPage extends StatefulWidget {
 }
 
 class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
-  Worldview? _worldviewPreference;
-  bool _worldviewLoading = true;
+  late Worldview _worldviewPreference;
 
   @override
   void initState() {
     super.initState();
-    _loadWorldview();
-  }
-
-  Future<void> _loadWorldview() async {
-    final worldview = await loadWorldviewOrDefault();
-    if (!mounted) return;
-    setState(() {
-      _worldviewPreference = worldview;
-      _worldviewLoading = false;
-    });
+    _worldviewPreference = loadWorldviewOrDefault();
   }
 
   Future<void> _selectWorldview() async {
-    if (_worldviewLoading) return;
-    final selectedWorldview =
-        _worldviewPreference ?? defaultWorldviewFromDeviceLocale();
     final result = await showWorldviewPicker(
       context,
-      selectedWorldview: selectedWorldview,
+      selectedWorldview: _worldviewPreference,
     );
-    if (result == null || result == selectedWorldview || !mounted) return;
+    if (result == null || result == _worldviewPreference || !mounted) return;
 
     await applyAndSaveWorldview(result);
     if (!mounted) return;
@@ -168,22 +155,11 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
           LabelTile(
             label: context.tr("privacy.region_title"),
             position: LabelTilePosition.middle,
-            trailing: _worldviewLoading
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Color(0x99FFFFFF),
-                    ),
-                  )
-                : LabelTileContent(
-                    content: _worldviewPreference == null
-                        ? ''
-                        : regionPreferenceTitle(context, _worldviewPreference!),
-                    showArrow: true,
-                  ),
-            onTap: _worldviewLoading ? null : _selectWorldview,
+            trailing: LabelTileContent(
+              content: regionPreferenceTitle(context, _worldviewPreference),
+              showArrow: true,
+            ),
+            onTap: _selectWorldview,
           ),
           LabelTile(
             label: context.tr("general.advanced_settings.reset_local_prefs"),
