@@ -13,6 +13,12 @@ const int _latestPrivacyAgreementVersion = 1;
 const int _latestFirstLaunchSetupVersion = 1;
 const double _setupTileMinHeight = 68.0;
 
+final class _FirstLaunchAccepted {
+  const _FirstLaunchAccepted(this.worldview);
+
+  final Worldview worldview;
+}
+
 Future<void> _showPrivacyAndRegionSheet(
   BuildContext context, {
   required bool privacyAlreadyAccepted,
@@ -27,7 +33,7 @@ Future<void> _showPrivacyAndRegionSheet(
   // A little weird, but shouldn't happen.
   if (!context.mounted) return;
 
-  final result = await showModalBottomSheet<bool>(
+  final accepted = await showModalBottomSheet<_FirstLaunchAccepted>(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
@@ -40,18 +46,20 @@ Future<void> _showPrivacyAndRegionSheet(
     },
   );
 
-  if (result == true) {
-    MMKVUtil.putInt(
-      MMKVKey.privacyAgreementAccepted,
-      _latestPrivacyAgreementVersion,
-    );
-    MMKVUtil.putInt(
-      MMKVKey.firstLaunchSetupCompletedVersion,
-      _latestFirstLaunchSetupVersion,
-    );
-  } else {
-    exit(1);
+  if (accepted == null) {
+    exit(0);
   }
+  MMKVUtil.putInt(
+    MMKVKey.privacyAgreementAccepted,
+    _latestPrivacyAgreementVersion,
+  );
+  await showLoadingDialog(
+    asyncTask: WorldviewManager.instance.update(accepted.worldview),
+  );
+  MMKVUtil.putInt(
+    MMKVKey.firstLaunchSetupCompletedVersion,
+    _latestFirstLaunchSetupVersion,
+  );
 }
 
 /// Shows the privacy / welcome UI when needed.
@@ -89,9 +97,6 @@ class FirstLaunchSetupSheet extends StatefulWidget {
 class _FirstLaunchSetupSheetState extends State<FirstLaunchSetupSheet> {
   late Worldview _selectedWorldview;
   late bool _privacyAccepted;
-  bool _saving = false;
-
-  bool get _canContinue => _privacyAccepted && !_saving;
 
   @override
   void initState() {
@@ -117,23 +122,13 @@ class _FirstLaunchSetupSheetState extends State<FirstLaunchSetupSheet> {
     setState(() => _selectedWorldview = result);
   }
 
-  Future<void> _onContinue() async {
+  void _onContinue() {
     if (!_privacyAccepted) return;
-
-    setState(() => _saving = true);
-    try {
-      await WorldviewManager.instance.update(_selectedWorldview);
-    } finally {
-      if (mounted) {
-        setState(() => _saving = false);
-      }
-    }
-    if (!mounted) return;
-    Navigator.of(context).pop(true);
+    Navigator.of(context).pop(_FirstLaunchAccepted(_selectedWorldview));
   }
 
   void _onDisagree() {
-    Navigator.of(context).pop(false);
+    Navigator.of(context).pop();
   }
 
   @override
@@ -152,7 +147,7 @@ class _FirstLaunchSetupSheetState extends State<FirstLaunchSetupSheet> {
           child: Text(context.tr("privacy.disagree_and_exit")),
         ),
         FilledButton(
-          onPressed: _canContinue ? _onContinue : null,
+          onPressed: _privacyAccepted ? _onContinue : null,
           style: FilledButton.styleFrom(
             backgroundColor: StyleConstants.defaultColor,
             foregroundColor: Colors.black,
