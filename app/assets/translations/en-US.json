@@ -224,8 +224,7 @@
       "raw_data_export_gpx": "Export as GPX",
       "rebuild_cache": "Rebuild Cache",
       "reset_local_prefs": "Reset Preferences",
-      "reset_local_prefs_message": "This action will clear preference settings. Journey data will not be deleted.",
-      "reset_local_prefs_done": "Preferences have been reset. Some settings will take effect after reopening the app.",
+      "reset_local_prefs_message": "This will reset all preferences and immediately shut down the app. Journey data will not be deleted.",
       "render_diagnostics": "Render Diagnostics"
     }
   },

@@ -21,10 +21,6 @@ abstract final class AppHaptics {
     _userHapticsEnabled = enabled;
   }
 
-  static void resetUserPreferenceCache() {
-    _userHapticsEnabled = null;
-  }
-
   /// Single entry to [Haptics.vibrate]. Typed helpers forward here; pass [usage]
   /// to override app defaults.
   static void vibrate(

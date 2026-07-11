@@ -224,8 +224,7 @@
       "raw_data_export_gpx": "导出为 GPX",
       "rebuild_cache": "重建缓存",
       "reset_local_prefs": "重置偏好设置",
-      "reset_local_prefs_message": "该操作会清空偏好设置。不会删除旅程数据。",
-      "reset_local_prefs_done": "偏好设置已重置。部分设置将在重新打开应用后生效。",
+      "reset_local_prefs_message": "该操作会重置所有偏好设置并立即关闭应用。不会删除旅程数据。",
       "render_diagnostics": "渲染诊断"
     }
   },
