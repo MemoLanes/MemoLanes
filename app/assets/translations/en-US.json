@@ -48,6 +48,7 @@
     "export": "Export",
     "edit": "Edit",
     "delete": "Delete",
+    "reset": "Reset",
     "please_enter": "Please enter",
     "copy_success": "Copied",
     "save_success": "Saved successfully",
@@ -223,6 +224,8 @@
       "raw_data_export_csv": "Export as CSV",
       "raw_data_export_gpx": "Export as GPX",
       "rebuild_cache": "Rebuild Cache",
+      "reset_local_prefs": "Reset Preferences",
+      "reset_local_prefs_message": "This will reset all preferences and immediately shut down the app. Journey data will not be deleted.",
       "render_diagnostics": "Render Diagnostics"
     }
   },

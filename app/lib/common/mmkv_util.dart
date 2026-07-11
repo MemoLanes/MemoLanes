@@ -67,4 +67,10 @@ class MMKVUtil {
   static void removeAppKey(String key) {
     return _mmkv.removeValue(key);
   }
+
+  /// clear all app keys
+  static void clearAll() {
+    _mmkv.clearAll();
+    _mmkv.sync(true);
+  }
 }

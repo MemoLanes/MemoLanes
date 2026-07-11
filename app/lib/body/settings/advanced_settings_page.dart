@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/common_export.dart';
@@ -8,6 +10,7 @@ import 'package:memolanes/common/component/scroll_views/single_child_scroll_view
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/app_haptics.dart';
+import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/region_preference.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -181,6 +184,34 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
                     showArrow: true,
                   ),
             onTap: _worldviewLoading ? null : _selectWorldview,
+          ),
+          LabelTile(
+            label: context.tr("general.advanced_settings.reset_local_prefs"),
+            position: LabelTilePosition.middle,
+            onTap: () async {
+              if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
+                await showCommonDialog(
+                  context,
+                  context.tr("journey.stop_ongoing_journey"),
+                );
+                return;
+              }
+              if (!await showCommonDialog(
+                context,
+                context
+                    .tr("general.advanced_settings.reset_local_prefs_message"),
+                hasCancel: true,
+                title:
+                    context.tr("general.advanced_settings.reset_local_prefs"),
+                confirmButtonText: context.tr("common.reset"),
+                confirmGroundColor: Colors.red,
+                confirmTextColor: Colors.white,
+              )) {
+                return;
+              }
+              MMKVUtil.clearAll();
+              exit(0);
+            },
           ),
           LabelTile(
             label: context.tr("location_service.location_backend.title"),

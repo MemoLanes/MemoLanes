@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/common/component/setup_bottom_sheet.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/service/permission_service.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/style_constants.dart';
@@ -11,13 +13,13 @@ import 'package:permission_handler/permission_handler.dart';
 
 /// Shows the unified permission request bottom sheet (layout + copy only).
 ///
-/// Returns `true` when the user taps **Skip** or **Enable all** (enters the app; permissions may
-/// still be incomplete).
-///
-/// Returns `false` when the user leaves via the leading back button.
-/// Dismissing the sheet (e.g. tapping outside) is treated like Skip.
-Future<bool> showPermissionRequestSheet(BuildContext context) async {
-  final result = await showModalBottomSheet<bool>(
+/// Completes after the sheet is closed.
+Future<void> showPermissionRequestSheet(
+  BuildContext context,
+) async {
+  final permissions = PermissionService();
+  unawaited(permissions.logPermissionState('sheet_open'));
+  await showModalBottomSheet<void>(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
@@ -26,7 +28,7 @@ Future<bool> showPermissionRequestSheet(BuildContext context) async {
       return _PermissionRequestSheetContent();
     },
   );
-  return result ?? true;
+  await permissions.logPermissionState('sheet_close');
 }
 
 class _PermissionRequestSheetContent extends StatefulWidget {
@@ -103,7 +105,7 @@ class _PermissionRequestSheetContentState
       _notification = s.notification;
     });
     if (closeIfComplete && _hasNoRemainingPermissions(s)) {
-      _closeSheet(true);
+      _closeSheet();
     }
   }
 
@@ -113,11 +115,13 @@ class _PermissionRequestSheetContentState
         s.notification.granted;
   }
 
-  void _closeSheet(bool result) {
+  void _closeSheet() {
     if (!mounted || _isClosing) return;
 
     _isClosing = true;
-    if (!popCurrentRoute(context, result)) {
+    if (!popCurrentRoute(context)) {
+      log.warning(
+          '[PermissionSheet] close failed: popCurrentRoute returned false');
       _isClosing = false;
     }
   }
@@ -129,9 +133,13 @@ class _PermissionRequestSheetContentState
         await showCommonDialog(context, context.tr(e.messageTrKey!));
       }
       if (!mounted) return;
-      if (e.openAppSettings) await openAppSettings();
+      if (e.openAppSettings) {
+        await openAppSettings();
+      }
       if (!mounted) return;
-      if (e.openLocationSettings) await Geolocator.openLocationSettings();
+      if (e.openLocationSettings) {
+        await Geolocator.openLocationSettings();
+      }
     }
   }
 
@@ -160,7 +168,7 @@ class _PermissionRequestSheetContentState
   }
 
   void _onSkip() {
-    _closeSheet(true);
+    _closeSheet();
   }
 
   Future<void> _onEnableAll() async {
@@ -176,7 +184,7 @@ class _PermissionRequestSheetContentState
       await _requestNotification(closeIfComplete: false);
     }
     if (!mounted) return;
-    _closeSheet(true);
+    _closeSheet();
   }
 
   @override
@@ -186,7 +194,7 @@ class _PermissionRequestSheetContentState
       maxHeightFactor: 0.6,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
-        onPressed: () => _closeSheet(false),
+        onPressed: _closeSheet,
         style: IconButton.styleFrom(
           padding: const EdgeInsets.all(8),
           minimumSize: const Size(40, 40),
