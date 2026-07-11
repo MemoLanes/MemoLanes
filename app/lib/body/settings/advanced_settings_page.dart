@@ -42,7 +42,9 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
     );
     if (result == null || result == _worldview || !mounted) return;
 
-    await WorldviewManager.instance.update(result);
+    await showLoadingDialog(
+      asyncTask: WorldviewManager.instance.update(result),
+    );
     if (!mounted) return;
     setState(() => _worldview = result);
   }
