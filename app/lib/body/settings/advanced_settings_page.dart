@@ -27,24 +27,24 @@ class AdvancedSettingsPage extends StatefulWidget {
 }
 
 class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
-  late Worldview _worldviewPreference;
+  late Worldview _worldview;
 
   @override
   void initState() {
     super.initState();
-    _worldviewPreference = loadWorldviewOrDefault();
+    _worldview = WorldviewManager.instance.currentWorldview;
   }
 
   Future<void> _selectWorldview() async {
     final result = await showWorldviewPicker(
       context,
-      selectedWorldview: _worldviewPreference,
+      selectedWorldview: _worldview,
     );
-    if (result == null || result == _worldviewPreference || !mounted) return;
+    if (result == null || result == _worldview || !mounted) return;
 
-    await applyAndSaveWorldview(result);
+    await WorldviewManager.instance.update(result);
     if (!mounted) return;
-    setState(() => _worldviewPreference = result);
+    setState(() => _worldview = result);
   }
 
   @override
@@ -156,7 +156,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
             label: context.tr("privacy.region_title"),
             position: LabelTilePosition.middle,
             trailing: LabelTileContent(
-              content: regionPreferenceTitle(context, _worldviewPreference),
+              content: regionPreferenceTitle(context, _worldview),
               showArrow: true,
             ),
             onTap: _selectWorldview,

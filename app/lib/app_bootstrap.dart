@@ -12,6 +12,7 @@ import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/region_preference.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -132,6 +133,8 @@ class AppBootstrap {
       supportDir: (await supportDirFuture).path,
       systemCacheDir: (await cacheDirFuture).path,
     );
+
+    await WorldviewManager.instance.initialize();
   }
 
   static void startAppServices({

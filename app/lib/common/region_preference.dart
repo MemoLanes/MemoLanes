@@ -5,6 +5,7 @@ import 'package:memolanes/common/component/setup_bottom_sheet.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/achievement.dart' as achievement;
+import 'package:mutex/mutex.dart';
 
 export 'package:memolanes/src/rust/api/achievement.dart' show Worldview;
 
@@ -14,52 +15,68 @@ const _worldviewDisplayOrder = [
   achievement.Worldview.usa,
 ];
 
-achievement.Worldview defaultWorldviewFromDeviceLocale() {
-  final locales = WidgetsBinding.instance.platformDispatcher.locales;
-  final countryCode =
-      locales.isNotEmpty ? locales.first.countryCode?.toUpperCase() : null;
+class WorldviewManager {
+  WorldviewManager._();
 
-  return switch (countryCode) {
-    'CN' => achievement.Worldview.chn,
-    'US' => achievement.Worldview.usa,
-    _ => achievement.Worldview.iso,
-  };
-}
+  static final WorldviewManager instance = WorldviewManager._();
 
-achievement.Worldview loadWorldviewOrDefault() {
-  return loadSavedWorldview() ?? defaultWorldviewFromDeviceLocale();
-}
+  final Mutex _mutex = Mutex();
+  achievement.Worldview? _currentWorldview;
 
-achievement.Worldview? loadSavedWorldview() {
-  final id = MMKVUtil.getStringOpt(MMKVKey.worldviewPreference);
-  return id == null ? null : achievement.Worldview.fromId(id: id);
-}
+  achievement.Worldview get currentWorldview =>
+      _currentWorldview ??
+      (throw StateError('WorldviewManager has not been initialized'));
 
-Future<void> applyWorldview(achievement.Worldview worldview) async {
-  final data = await rootBundle.load(worldview.assetPath);
-  await achievement.initOrChangeGeoData(
-    worldview: worldview,
-    geoData: data.buffer.asUint8List(),
-  );
-}
+  Future<void> initialize() {
+    return _mutex.protect(() async {
+      if (_currentWorldview != null) return;
+      final saved = _loadSavedWorldview();
+      final worldview = saved ?? _defaultWorldviewFromDeviceLocale();
+      await _applyAndStore(worldview, persist: saved == null);
+    });
+  }
 
-void saveWorldview(achievement.Worldview worldview) {
-  MMKVUtil.putString(MMKVKey.worldviewPreference, worldview.id);
-}
+  Future<void> update(achievement.Worldview worldview) {
+    return _mutex.protect(() async {
+      if (_currentWorldview == null) {
+        throw StateError('WorldviewManager has not been initialized');
+      }
+      if (_currentWorldview == worldview) return;
 
-Future<void> applyAndSaveWorldview(achievement.Worldview worldview) async {
-  await applyWorldview(worldview);
-  saveWorldview(worldview);
-}
+      await _applyAndStore(worldview, persist: true);
+    });
+  }
 
-Future<void> ensureWorldviewReady() async {
-  final saved = loadSavedWorldview();
-  final worldview = saved ?? defaultWorldviewFromDeviceLocale();
+  Future<void> _applyAndStore(
+    achievement.Worldview worldview, {
+    required bool persist,
+  }) async {
+    final data = await rootBundle.load(worldview.assetPath);
+    await achievement.initOrChangeGeoData(
+      worldview: worldview,
+      geoData: data.buffer.asUint8List(),
+    );
+    if (persist) {
+      MMKVUtil.putString(MMKVKey.worldviewPreference, worldview.id);
+    }
+    _currentWorldview = worldview;
+  }
 
-  await applyWorldview(worldview);
+  achievement.Worldview? _loadSavedWorldview() {
+    final id = MMKVUtil.getStringOpt(MMKVKey.worldviewPreference);
+    return id == null ? null : achievement.Worldview.fromId(id: id);
+  }
 
-  if (saved == null) {
-    saveWorldview(worldview);
+  achievement.Worldview _defaultWorldviewFromDeviceLocale() {
+    final locales = WidgetsBinding.instance.platformDispatcher.locales;
+    final countryCode =
+        locales.isNotEmpty ? locales.first.countryCode?.toUpperCase() : null;
+
+    return switch (countryCode) {
+      'CN' => achievement.Worldview.chn,
+      'US' => achievement.Worldview.usa,
+      _ => achievement.Worldview.iso,
+    };
   }
 }
 

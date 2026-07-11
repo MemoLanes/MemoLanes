@@ -27,8 +27,6 @@ Future<void> _showPrivacyAndRegionSheet(
   // A little weird, but shouldn't happen.
   if (!context.mounted) return;
 
-  final initialWorldview = loadWorldviewOrDefault();
-
   final result = await showModalBottomSheet<bool>(
     context: context,
     backgroundColor: Colors.transparent,
@@ -38,7 +36,6 @@ Future<void> _showPrivacyAndRegionSheet(
     builder: (context) {
       return FirstLaunchSetupSheet(
         initialPrivacyAccepted: privacyAlreadyAccepted,
-        initialWorldview: initialWorldview,
       );
     },
   );
@@ -57,9 +54,8 @@ Future<void> _showPrivacyAndRegionSheet(
   }
 }
 
-/// Shows the privacy / welcome UI when needed. Returns whether the setup UI was
-/// shown, so callers can keep dialog sequencing separate from background work.
-Future<bool> showFirstLaunchSetupIfNeeded(BuildContext context) async {
+/// Shows the privacy / welcome UI when needed.
+Future<void> showFirstLaunchSetupIfNeeded(BuildContext context) async {
   var acceptedVersion =
       MMKVUtil.getInt(MMKVKey.privacyAgreementAccepted, defaultValue: 0);
   final privacyAlreadyAccepted =
@@ -75,20 +71,16 @@ Future<bool> showFirstLaunchSetupIfNeeded(BuildContext context) async {
       context,
       privacyAlreadyAccepted: privacyAlreadyAccepted,
     );
-    return true;
   }
-  return false;
 }
 
 class FirstLaunchSetupSheet extends StatefulWidget {
   const FirstLaunchSetupSheet({
     super.key,
     required this.initialPrivacyAccepted,
-    required this.initialWorldview,
   });
 
   final bool initialPrivacyAccepted;
-  final Worldview initialWorldview;
 
   @override
   State<FirstLaunchSetupSheet> createState() => _FirstLaunchSetupSheetState();
@@ -105,7 +97,7 @@ class _FirstLaunchSetupSheetState extends State<FirstLaunchSetupSheet> {
   void initState() {
     super.initState();
     _privacyAccepted = widget.initialPrivacyAccepted;
-    _selectedWorldview = widget.initialWorldview;
+    _selectedWorldview = WorldviewManager.instance.currentWorldview;
   }
 
   Future<void> _openPrivacyPolicy() async {
@@ -130,7 +122,7 @@ class _FirstLaunchSetupSheetState extends State<FirstLaunchSetupSheet> {
 
     setState(() => _saving = true);
     try {
-      await applyAndSaveWorldview(_selectedWorldview);
+      await WorldviewManager.instance.update(_selectedWorldview);
     } finally {
       if (mounted) {
         setState(() => _saving = false);
