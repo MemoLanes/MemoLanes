@@ -32,6 +32,9 @@ class WorldviewManager {
       if (_currentWorldview != null) return;
       final saved = _loadSavedWorldview();
       final worldview = saved ?? _defaultWorldviewFromDeviceLocale();
+      // TODO: right now we make sure the geo data is fully loaded during
+      // app initialization, which can be a bit expensive. We should consider
+      // delaying this.
       await _applyAndStore(worldview, persist: saved == null);
     });
   }
