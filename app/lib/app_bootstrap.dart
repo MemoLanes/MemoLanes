@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/cupertino.dart';
@@ -13,9 +12,9 @@ import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/region_preference.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/utils/nav_helper.dart';
-import 'package:memolanes/src/rust/api/achievement.dart' as achievement;
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -108,13 +107,6 @@ class AppBootstrap {
     }
   }
 
-  static Future<void> _initOrChangeGeoData(
-      achievement.Worldview worldview) async {
-    final data = await rootBundle.load(worldview.assetPath);
-    await achievement.initOrChangeGeoData(
-        worldview: worldview, geoData: data.buffer.asUint8List());
-  }
-
   static Future<void> initAppRuntime() async {
     // This is required since we are doing things before calling `runApp`.
     WidgetsFlutterBinding.ensureInitialized();
@@ -142,10 +134,7 @@ class AppBootstrap {
       systemCacheDir: (await cacheDirFuture).path,
     );
 
-    // TODO: right now we make sure the geo data is fully loaded during
-    // app initialization, which can be a bit expensive. We should consider
-    // delaying this.
-    await _initOrChangeGeoData(achievement.Worldview.defaultValue());
+    await WorldviewManager.instance.initialize();
   }
 
   static void startAppServices({
