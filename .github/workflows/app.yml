@@ -53,11 +53,10 @@ jobs:
           flutter-version: 3.44
           cache: true
 
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@1.97.0
         with:
-          toolchain: stable
-          override: true
           components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -140,7 +139,7 @@ jobs:
         
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'yarn'
           cache-dependency-path: 'app/journey_kernel/yarn.lock'
           
@@ -149,7 +148,7 @@ jobs:
         run: yarn install --frozen-lockfile
 
       - name: Install wasm-pack
-        run: cargo binstall -y --force --no-track wasm-pack
+        run: cargo binstall -y --force --no-track wasm-pack@0.15.0
 
       - name: Build the wasm package
         working-directory: app/journey_kernel

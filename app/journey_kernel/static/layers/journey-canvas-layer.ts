@@ -196,8 +196,7 @@ export class JourneyCanvasLayer implements JourneyLayer {
     const sw = tileXYToLngLat(almost(left), bottom, z);
 
     const mainCanvasSource = this.map.getSource(this.sourceId) as
-      | CanvasSource
-      | undefined;
+      CanvasSource | undefined;
     mainCanvasSource?.setCoordinates([
       [nw.lng, nw.lat],
       [ne.lng, ne.lat],
