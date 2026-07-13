@@ -87,8 +87,7 @@ fn hex_lower(bytes: &[u8]) -> String {
 
 fn download_to(path: &Path, url: &str) -> Result<()> {
     let agent = ureq::Agent::config_builder()
-        .timeout_connect(Some(Duration::from_secs(30)))
-        .timeout_recv_response(Some(Duration::from_secs(120)))
+        .timeout_global(Some(Duration::from_secs(120)))
         .build()
         .new_agent();
     let resp = agent

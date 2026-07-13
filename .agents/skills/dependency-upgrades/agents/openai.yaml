@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dependency Upgrades"
+  short_description: "Upgrade all repository dependency ecosystems"
+  default_prompt: "Use $dependency-upgrades to upgrade all repository dependencies and verify the result."
