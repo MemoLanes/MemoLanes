@@ -9,7 +9,6 @@ plugins {
 android {
     namespace = "com.memolanes.oss.dev"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "28.2.13676358"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
