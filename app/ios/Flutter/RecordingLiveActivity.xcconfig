@@ -1,0 +1,3 @@
+// Base config for Widget / Live Activity extension targets only.
+// Pulls FLUTTER_BUILD_NUMBER / FLUTTER_BUILD_NAME without linking Pods-Runner.
+#include "Generated.xcconfig"
