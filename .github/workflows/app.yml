@@ -117,13 +117,15 @@ jobs:
         if: steps.changes.outputs.geo == 'true'
         working-directory: app
         run: just geo-rasterizer-check
+      # Must precede Geo Tests: the names coverage gate checks the shipped
+      # region_names.<locale>.json, which this step generates.
+      - name: Geo Rasterize All Worldviews
+        working-directory: app
+        run: just rasterize-geo
       - name: Geo Tests
         if: steps.changes.outputs.geo == 'true'
         working-directory: app
         run: just test-geo
-      - name: Geo Rasterize All Worldviews
-        working-directory: app
-        run: just rasterize-geo
 
       # Guardrail: rasterize-geo regenerates the committed id registry (union
       # over Worldview::ALL). CI can't commit, so a non-empty diff means someone bumped
