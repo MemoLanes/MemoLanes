@@ -3,7 +3,8 @@ use crate::test_utils::{draw_line1, draw_line2, draw_line3};
 use chrono::NaiveDate;
 use memolanes_core::{
     cache_db::LayerKind, gps_processor::ProcessResult, import_data, journey_bitmap::JourneyBitmap,
-    journey_data::JourneyData, journey_header::JourneyKind, storage::Storage,
+    journey_data::JourneyData, journey_header::JourneyKind, raw_data::ExtendedRawGPSPoint,
+    storage::Storage,
 };
 use std::fs;
 use tempdir::TempDir;
@@ -30,9 +31,11 @@ fn storage_for_main_map_renderer() {
         import_data::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
     for (i, raw_data) in raw_data_groups.iter().flatten().enumerate() {
         storage.record_gps_data(
-            raw_data,
+            &ExtendedRawGPSPoint {
+                raw_gps_point: raw_data.clone(),
+                received_timestamp_ms: raw_data.timestamp_ms.unwrap(),
+            },
             ProcessResult::Append,
-            raw_data.timestamp_ms.unwrap(),
         );
         if i == 1000 {
             let _: JourneyBitmap = storage

@@ -1,6 +1,8 @@
 use crate::journey_vector::JourneyVector;
+use crate::raw_data::JourneyRawData;
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
+use chrono::{DateTime, SecondsFormat, Utc};
 use kml::{Kml, KmlDocument, KmlWriter};
 use std::collections::HashMap;
 use std::io::{Seek, Write};
@@ -58,6 +60,67 @@ pub fn journey_vector_to_kml_file<T: Write + Seek>(
         writer,
     )?;
     Ok(())
+}
+
+#[auto_context]
+pub fn journey_raw_data_to_kml_file<T: Write + Seek>(
+    raw_data: &JourneyRawData,
+    writer: &mut T,
+) -> Result<()> {
+    let coords = raw_data
+        .points
+        .iter()
+        .map(|point| kml::types::Coord {
+            x: point.raw_gps_point.point.longitude,
+            y: point.raw_gps_point.point.latitude,
+            z: point.raw_gps_point.altitude.map(f64::from),
+        })
+        .collect();
+    let mut track_elements = Vec::with_capacity(raw_data.points.len() * 2);
+    for point in &raw_data.points {
+        let timestamp_ms = point
+            .raw_gps_point
+            .timestamp_ms
+            .unwrap_or(point.received_timestamp_ms);
+        if let Some(timestamp) = DateTime::<Utc>::from_timestamp_millis(timestamp_ms) {
+            track_elements.push(kml::types::Element {
+                name: "when".to_owned(),
+                content: Some(timestamp.to_rfc3339_opts(SecondsFormat::Millis, true)),
+                ..Default::default()
+            });
+        }
+        track_elements.push(kml::types::Element {
+            name: "gx:coord".to_owned(),
+            content: Some(format!(
+                "{} {} {}",
+                point.raw_gps_point.point.longitude,
+                point.raw_gps_point.point.latitude,
+                point.raw_gps_point.altitude.unwrap_or_default()
+            )),
+            ..Default::default()
+        });
+    }
+
+    let placemark = kml::types::Placemark {
+        name: Some("MemoLanes Raw Data".to_owned()),
+        children: vec![kml::types::Element {
+            name: "gx:Track".to_owned(),
+            children: track_elements,
+            ..Default::default()
+        }],
+        geometry: Some(kml::types::Geometry::LineString(kml::types::LineString {
+            coords,
+            tessellate: true,
+            ..Default::default()
+        })),
+        ..Default::default()
+    };
+    write_kml_document(
+        "MemoLanes Raw Data".to_owned(),
+        "Raw GPS data exported by MemoLanes".to_owned(),
+        vec![Kml::Placemark(placemark)],
+        writer,
+    )
 }
 
 #[auto_context]

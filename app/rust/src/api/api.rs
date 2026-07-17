@@ -19,7 +19,7 @@ use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::journey_vector::JourneyVector;
 use crate::logs;
-use crate::raw_data::ExtendedRawGPSPoint;
+pub use crate::raw_data::ExtendedRawGPSPoint;
 use crate::renderer::get_default_camera_option_from_journey_bitmap;
 use crate::renderer::internal_server::{dispatch_request, WebviewResponse};
 use crate::renderer::MapRenderer;
@@ -411,7 +411,7 @@ pub fn on_location_update(data: ExtendedRawGPSPoint) -> bool {
 
     let raw_gps_point = &data.raw_gps_point;
     let last_point = gps_preprocessor.last_kept_point();
-    let process_result = gps_preprocessor.preprocess(&raw_gps_point);
+    let process_result = gps_preprocessor.preprocess(raw_gps_point);
     if !main_map_state.dropped_for_power_saving && main_map_state.layer_filter.current_journey {
         let line_to_add = match process_result {
             ProcessResult::Ignore => None,
@@ -576,13 +576,35 @@ pub fn get_journey_header(journey_id: String) -> Result<Option<JourneyHeader>> {
 }
 
 pub fn generate_full_archive(target_filepath: String) -> Result<ExportResult> {
+    generate_full_archive_impl(
+        target_filepath,
+        archive::MldxExportOptions::new(archive::SectionVersion::V1, false),
+    )
+}
+
+/// Generates a section-v2 archive and optionally includes each journey's raw
+/// GPS attachment.
+pub fn generate_full_archive_with_raw_data(
+    target_filepath: String,
+    include_raw_data: bool,
+) -> Result<ExportResult> {
+    generate_full_archive_impl(
+        target_filepath,
+        archive::MldxExportOptions::new(archive::SectionVersion::V2, include_raw_data),
+    )
+}
+
+fn generate_full_archive_impl(
+    target_filepath: String,
+    options: archive::MldxExportOptions,
+) -> Result<ExportResult> {
     info!("generating full archive");
     if !has_journeys()? {
         Ok(ExportResult::DataIsEmpty)
     } else {
         let mut file = File::create(target_filepath)?;
         get().storage.with_db_txn(|txn| {
-            archive::export_all_journeys_as_mldx(txn, &mut file, archive::SectionVersion::V1)
+            archive::export_all_journeys_as_mldx_with_options(txn, &mut file, options)
         })?;
         Ok(ExportResult::Succeed)
     }
@@ -620,7 +642,12 @@ pub enum ExportResult {
 }
 
 enum InternalDataForExport {
-    Mldx(JourneyHeader, JourneyData),
+    Mldx(
+        JourneyHeader,
+        JourneyData,
+        Option<crate::raw_data::SerializedJourneyRawData>,
+        archive::MldxExportOptions,
+    ),
     Fwss(JourneyData),
     Gpx(JourneyVector),
     Kml(JourneyVector),
@@ -630,6 +657,36 @@ pub fn export_journey(
     target_filepath: String,
     journey_id: String,
     export_type: ExportType,
+) -> Result<ExportResult> {
+    export_journey_impl(
+        target_filepath,
+        journey_id,
+        export_type,
+        archive::MldxExportOptions::new(archive::SectionVersion::V1, false),
+    )
+}
+
+/// Uses MLDX section v2 and controls whether the journey's raw GPS attachment
+/// is included. For non-MLDX formats, `include_raw_data` has no effect.
+pub fn export_journey_with_raw_data(
+    target_filepath: String,
+    journey_id: String,
+    export_type: ExportType,
+    include_raw_data: bool,
+) -> Result<ExportResult> {
+    export_journey_impl(
+        target_filepath,
+        journey_id,
+        export_type,
+        archive::MldxExportOptions::new(archive::SectionVersion::V2, include_raw_data),
+    )
+}
+
+fn export_journey_impl(
+    target_filepath: String,
+    journey_id: String,
+    export_type: ExportType,
+    mldx_options: archive::MldxExportOptions,
 ) -> Result<ExportResult> {
     let data_for_export = get().storage.with_db_txn(|txn| {
         let journey_data = txn.get_journey_data(&journey_id)?;
@@ -651,6 +708,12 @@ pub fn export_journey(
                 Ok(Some(InternalDataForExport::Mldx(
                     journey_header,
                     journey_data,
+                    if mldx_options.include_raw_data {
+                        txn.get_journey_raw_data(&journey_id)?
+                    } else {
+                        None
+                    },
+                    mldx_options,
                 )))
             }
             ExportType::FWSS => Ok(Some(InternalDataForExport::Fwss(journey_data))),
@@ -673,12 +736,9 @@ pub fn export_journey(
         Some(data_for_export) => {
             let mut file = File::create(&target_filepath)?;
             match data_for_export {
-                InternalDataForExport::Mldx(header, data) => {
-                    archive::export_single_journey_as_mldx(
-                        header,
-                        data,
-                        &mut file,
-                        archive::SectionVersion::V1,
+                InternalDataForExport::Mldx(header, data, raw_data, options) => {
+                    archive::export_single_journey_as_mldx_with_options(
+                        header, data, raw_data, &mut file, options,
                     )?
                 }
                 InternalDataForExport::Fwss(data) => {
@@ -702,6 +762,54 @@ pub fn export_journey(
             Ok(ExportResult::Succeed)
         }
     }
+}
+
+pub fn journey_has_raw_data(journey_id: String) -> Result<bool> {
+    get()
+        .storage
+        .with_db_txn(|txn| Ok(txn.get_journey_raw_data(&journey_id)?.is_some()))
+}
+
+pub fn delete_journey_raw_data(journey_id: String) -> Result<bool> {
+    get()
+        .storage
+        .with_db_txn(|txn| txn.delete_journey_raw_data(&journey_id))
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RawDataExportType {
+    CSV = 0,
+    GPX = 1,
+    KML = 2,
+}
+
+pub fn export_journey_raw_data(
+    target_filepath: String,
+    journey_id: String,
+    export_type: RawDataExportType,
+) -> Result<ExportResult> {
+    let raw_data = get().storage.with_db_txn(|txn| {
+        txn.get_journey_raw_data(&journey_id)?
+            .map(|raw_data| crate::raw_data::deserialize(&raw_data))
+            .transpose()
+    })?;
+    let Some(raw_data) = raw_data.filter(|raw_data| !raw_data.is_empty()) else {
+        return Ok(ExportResult::DataIsEmpty);
+    };
+
+    let mut file = File::create(target_filepath)?;
+    match export_type {
+        RawDataExportType::CSV => {
+            export_data::raw_csv::journey_raw_data_to_csv_file(&raw_data, &mut file)?
+        }
+        RawDataExportType::GPX => {
+            export_data::gpx::journey_raw_data_to_gpx_file(&raw_data, &mut file)?
+        }
+        RawDataExportType::KML => {
+            export_data::kml::journey_raw_data_to_kml_file(&raw_data, &mut file)?
+        }
+    }
+    Ok(ExportResult::Succeed)
 }
 
 #[auto_context]

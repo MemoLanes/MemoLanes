@@ -8,7 +8,7 @@ use memolanes_core::{
     journey_header::JourneyKind,
     journey_vector::JourneyVector,
     main_db::{self, Action, CacheEntry, MainDb},
-    raw_data::{self, RawGPSPoint},
+    raw_data::{self, ExtendedRawGPSPoint, RawGPSPoint},
 };
 use tempdir::TempDir;
 
@@ -90,6 +90,134 @@ fn basic() {
 }
 
 #[test]
+fn journey_raw_data_lifecycle() {
+    let temp_dir = TempDir::new("main_db-journey_raw_data_lifecycle").unwrap();
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let data = |timestamp_ms, latitude, received_timestamp_ms| ExtendedRawGPSPoint {
+        raw_gps_point: RawGPSPoint {
+            point: Point {
+                latitude,
+                longitude: 121.4737,
+            },
+            timestamp_ms: Some(timestamp_ms),
+            accuracy: Some(4.0),
+            altitude: Some(12.0),
+            speed: Some(1.0),
+        },
+        received_timestamp_ms,
+    };
+    let ignored = data(1_700_000_000_000, 31.2304, 1_700_000_000_010);
+    let appended = data(1_700_000_001_000, 31.2305, 1_700_000_001_010);
+
+    main_db
+        .record_with_raw_data(&ignored, gps_processor::ProcessResult::Ignore, true)
+        .unwrap();
+    main_db
+        .record_with_raw_data(&appended, gps_processor::ProcessResult::Append, true)
+        .unwrap();
+
+    let ongoing = main_db.with_txn(|txn| txn.get_ongoing_raw_data()).unwrap();
+    assert_eq!(ongoing.points, vec![ignored.clone(), appended.clone()]);
+
+    assert!(main_db
+        .with_txn(|txn| txn.finalize_ongoing_journey())
+        .unwrap());
+    let header = main_db
+        .with_txn(|txn| Ok(txn.query_journeys(None, None)?.remove(0)))
+        .unwrap();
+    let serialized = main_db
+        .with_txn(|txn| txn.get_journey_raw_data(&header.id))
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        raw_data::deserialize(&serialized).unwrap().points,
+        vec![ignored, appended]
+    );
+    assert!(main_db
+        .with_txn(|txn| txn.get_ongoing_raw_data())
+        .unwrap()
+        .is_empty());
+
+    main_db
+        .with_txn(|txn| {
+            txn.update_journey_metadata(
+                &header.id,
+                header.journey_date,
+                header.start,
+                header.end,
+                Some("edited".to_owned()),
+                header.journey_kind,
+            )
+        })
+        .unwrap();
+    let edited_data = main_db
+        .with_txn(|txn| txn.get_journey_data(&header.id))
+        .unwrap();
+    main_db
+        .with_txn(|txn| txn.update_journey_data_with_latest_postprocessor(&header.id, edited_data))
+        .unwrap();
+    assert_eq!(
+        main_db
+            .with_txn(|txn| txn.get_journey_raw_data(&header.id))
+            .unwrap(),
+        Some(serialized)
+    );
+
+    let revision_before_delete = main_db
+        .with_txn(|txn| Ok(txn.get_journey_header(&header.id)?.unwrap().revision))
+        .unwrap();
+    assert!(main_db
+        .with_txn(|txn| txn.delete_journey_raw_data(&header.id))
+        .unwrap());
+    assert!(main_db
+        .with_txn(|txn| txn.get_journey_raw_data(&header.id))
+        .unwrap()
+        .is_none());
+    assert_ne!(
+        main_db
+            .with_txn(|txn| Ok(txn.get_journey_header(&header.id)?.unwrap().revision))
+            .unwrap(),
+        revision_before_delete
+    );
+    assert!(!main_db
+        .with_txn(|txn| txn.delete_journey_raw_data(&header.id))
+        .unwrap());
+}
+
+#[test]
+fn disabled_raw_data_capture_does_not_create_an_attachment() {
+    let temp_dir = TempDir::new("main_db-disabled_raw_data_capture").unwrap();
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let data = ExtendedRawGPSPoint {
+        raw_gps_point: RawGPSPoint {
+            point: Point {
+                latitude: 31.2304,
+                longitude: 121.4737,
+            },
+            timestamp_ms: Some(1_700_000_000_000),
+            accuracy: None,
+            altitude: None,
+            speed: None,
+        },
+        received_timestamp_ms: 1_700_000_000_010,
+    };
+
+    main_db
+        .record_with_raw_data(&data, gps_processor::ProcessResult::Append, false)
+        .unwrap();
+    main_db
+        .with_txn(|txn| txn.finalize_ongoing_journey())
+        .unwrap();
+    let header = main_db
+        .with_txn(|txn| Ok(txn.query_journeys(None, None)?.remove(0)))
+        .unwrap();
+    assert!(main_db
+        .with_txn(|txn| txn.get_journey_raw_data(&header.id))
+        .unwrap()
+        .is_none());
+}
+
+#[test]
 fn setting() {
     use main_db::Setting;
 
@@ -108,6 +236,70 @@ fn setting() {
     // restart
     main_db = MainDb::open(temp_dir.path().to_str().unwrap());
     assert!(main_db.get_setting_with_default(main_db::Setting::RawDataMode, false));
+}
+
+#[test]
+fn migrates_v1_database_for_journey_raw_data() {
+    let temp_dir = TempDir::new("main_db-migrate-v1-raw-data").unwrap();
+    let db_path = temp_dir.path().join("main.db");
+    let connection = rusqlite::Connection::open(&db_path).unwrap();
+    connection
+        .execute_batch(
+            "
+            CREATE TABLE ongoing_journey (
+                id INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE NOT NULL,
+                timestamp_sec INTEGER,
+                lat REAL NOT NULL,
+                lng REAL NOT NULL,
+                process_result INTEGER NOT NULL
+            );
+            CREATE TABLE journey (
+                id TEXT PRIMARY KEY NOT NULL UNIQUE,
+                journey_date INTEGER NOT NULL,
+                timestamp_for_ordering INTEGER,
+                type INTEGER NOT NULL,
+                header BLOB NOT NULL,
+                data BLOB NOT NULL
+            );
+            CREATE INDEX journey_date_index ON journey (journey_date DESC);
+            CREATE TABLE setting (
+                key TEXT PRIMARY KEY NOT NULL UNIQUE,
+                value TEXT
+            );
+            CREATE TABLE db_metadata (
+                key TEXT NOT NULL PRIMARY KEY,
+                value TEXT
+            );
+            INSERT INTO db_metadata (key, value) VALUES ('version', '1');
+            ",
+        )
+        .unwrap();
+    drop(connection);
+
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let point = ExtendedRawGPSPoint {
+        raw_gps_point: RawGPSPoint {
+            point: Point {
+                latitude: 31.2304,
+                longitude: 121.4737,
+            },
+            timestamp_ms: Some(1_700_000_000_000),
+            accuracy: None,
+            altitude: None,
+            speed: None,
+        },
+        received_timestamp_ms: 1_700_000_000_010,
+    };
+    main_db
+        .record_with_raw_data(&point, gps_processor::ProcessResult::Ignore, true)
+        .unwrap();
+    assert_eq!(
+        main_db
+            .with_txn(|txn| txn.get_ongoing_raw_data())
+            .unwrap()
+            .points,
+        vec![point]
+    );
 }
 
 #[test]
@@ -363,7 +555,7 @@ fn delete_two_journeys_same_month_deduplicates() {
         Some(Action::Invalidate { entries }) => {
             // Both entries refer to 2024-03-15/DefaultKind; duplicates are
             // tolerated here because downstream invalidate() deduplicates via HashSet.
-            assert!(entries.len() >= 1);
+            assert!(!entries.is_empty());
             assert!(entries
                 .iter()
                 .all(|e| e.date == date("2024-03-15") && e.kind == JourneyKind::DefaultKind));
@@ -920,7 +1112,7 @@ fn two_inserts_same_date_kind_deduplicates() {
         Some(Action::Invalidate { entries }) => {
             // Both inserts share the exact same date and kind; duplicates are
             // tolerated because downstream invalidate() deduplicates via HashSet.
-            assert!(entries.len() >= 1);
+            assert!(!entries.is_empty());
             assert!(entries
                 .iter()
                 .all(|e| e.date == date("2024-03-15") && e.kind == JourneyKind::DefaultKind));
@@ -1022,7 +1214,7 @@ fn insert_then_delete_same_date_kind_deduplicates() {
         Some(Action::Invalidate { entries }) => {
             // Duplicates are tolerated because downstream invalidate()
             // deduplicates via HashSet.
-            assert!(entries.len() >= 1);
+            assert!(!entries.is_empty());
             assert!(entries
                 .iter()
                 .all(|e| e.date == date("2024-03-15") && e.kind == JourneyKind::DefaultKind));

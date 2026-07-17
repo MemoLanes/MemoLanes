@@ -3,12 +3,13 @@ pub mod test_utils;
 use anyhow::Ok;
 use chrono::{DateTime, NaiveDate, Utc};
 use memolanes_core::{
-    archive::{self, MldxReader, SectionVersion},
+    archive::{self, MldxExportOptions, MldxReader, SectionVersion},
     gps_processor, import_data,
     journey_data::JourneyData,
     journey_header::{JourneyHeader, JourneyKind, JourneyType},
     journey_vector::{JourneyVector, TrackPoint, TrackSegment},
     main_db::MainDb,
+    raw_data::{self, ExtendedRawGPSPoint, JourneyRawData, RawGPSPoint},
 };
 use std::collections::HashSet;
 use std::fs::File;
@@ -98,6 +99,25 @@ fn sample_journey() -> (JourneyHeader, JourneyData) {
     (header, data)
 }
 
+fn sample_raw_data() -> raw_data::SerializedJourneyRawData {
+    raw_data::serialize(&JourneyRawData {
+        points: vec![ExtendedRawGPSPoint {
+            raw_gps_point: RawGPSPoint {
+                point: gps_processor::Point {
+                    latitude: 31.2304,
+                    longitude: 121.4737,
+                },
+                timestamp_ms: Some(1_700_000_000_000),
+                accuracy: Some(4.0),
+                altitude: Some(12.0),
+                speed: Some(1.0),
+            },
+            received_timestamp_ms: 1_700_000_000_010,
+        }],
+    })
+    .unwrap()
+}
+
 fn write_single_journey_archive(
     section_version: SectionVersion,
 ) -> (Vec<u8>, JourneyHeader, JourneyData) {
@@ -180,6 +200,74 @@ fn write_v1_and_read_back() {
 #[test]
 fn write_v2_and_read_back() {
     assert_single_journey_roundtrip(SectionVersion::V2);
+}
+
+#[test]
+fn v2_round_trips_optional_raw_data() {
+    let (header, data) = sample_journey();
+    let raw_data = sample_raw_data();
+    let mut writer = Cursor::new(Vec::new());
+    archive::export_single_journey_as_mldx_with_options(
+        header.clone(),
+        data.clone(),
+        Some(raw_data.clone()),
+        &mut writer,
+        MldxExportOptions::new(SectionVersion::V2, true),
+    )
+    .unwrap();
+
+    let mut reader = MldxReader::open(Cursor::new(writer.into_inner())).unwrap();
+    let loaded = reader
+        .load_single_journey_with_raw_data(&header.id)
+        .unwrap()
+        .unwrap();
+    assert_eq!(loaded, (header, data, Some(raw_data)));
+}
+
+#[test]
+fn raw_data_requires_section_v2() {
+    let (header, data) = sample_journey();
+    let mut writer = Cursor::new(Vec::new());
+    let error = archive::export_single_journey_as_mldx_with_options(
+        header,
+        data,
+        Some(sample_raw_data()),
+        &mut writer,
+        MldxExportOptions::new(SectionVersion::V1, true),
+    )
+    .unwrap_err();
+    assert!(format!("{error:#}").contains("section v2"));
+}
+
+#[test]
+fn import_adds_raw_data_to_same_revision_when_missing_locally() {
+    let (header, data) = sample_journey();
+    let raw_data = sample_raw_data();
+    let mut archive = Cursor::new(Vec::new());
+    archive::export_single_journey_as_mldx_with_options(
+        header.clone(),
+        data.clone(),
+        Some(raw_data.clone()),
+        &mut archive,
+        MldxExportOptions::new(SectionVersion::V2, true),
+    )
+    .unwrap();
+
+    let temp_dir = TempDir::new("archive-import_raw_data").unwrap();
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    main_db
+        .with_txn(|txn| txn.insert_journey(header.clone(), data))
+        .unwrap();
+    let mut reader = MldxReader::open(Cursor::new(archive.into_inner())).unwrap();
+    let result = main_db.with_txn(|txn| reader.import(txn, None)).unwrap();
+
+    assert_eq!(result.skipped_count, 1);
+    assert_eq!(
+        main_db
+            .with_txn(|txn| txn.get_journey_raw_data(&header.id))
+            .unwrap(),
+        Some(raw_data)
+    );
 }
 
 #[test]

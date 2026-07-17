@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package raw_data;
 
-message ExtendedRawGPSPoint {
+message ExtendedRawGPSPointProto {
   optional int64 timestamp_ms = 1;
   double latitude = 2;
   double longitude = 3;
@@ -12,6 +12,6 @@ message ExtendedRawGPSPoint {
   int64 received_timestamp_ms = 7;
 }
 
-message JourneyRawData {
-  repeated ExtendedRawGPSPoint points = 1;
+message JourneyRawDataProto {
+  repeated ExtendedRawGPSPointProto points = 1;
 }

@@ -1,4 +1,5 @@
 use crate::journey_vector::JourneyVector;
+use crate::raw_data::JourneyRawData;
 use crate::storage::RawCsvRow;
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
@@ -78,25 +79,56 @@ pub fn raw_data_csv_to_gpx_file<R: std::io::Read, W: Write + Seek>(
 
     for result in csv_reader.deserialize::<RawCsvRow>() {
         let raw: RawCsvRow = result?;
-
-        let mut wp = Waypoint::new(Point::new(raw.longitude, raw.latitude));
-
-        if let Some(ts) = raw.timestamp_ms {
-            if ts > 0 {
-                let dt = OffsetDateTime::UNIX_EPOCH + Duration::milliseconds(ts);
-                wp.time = Some(dt.into());
-            }
-        }
-
-        if let Some(alt) = raw.altitude {
-            wp.elevation = Some(alt as f64);
-        }
-
-        if let Some(acc) = raw.accuracy {
-            wp.hdop = Some(acc as f64);
-        }
-
-        segment.points.push(wp);
+        segment.points.push(raw_waypoint(
+            raw.latitude,
+            raw.longitude,
+            raw.timestamp_ms,
+            raw.altitude,
+            raw.accuracy,
+        ));
     }
     write_gpx_with_segments(vec![segment], Some(RAWDATA_TYPE_NAME), writer)
+}
+
+#[auto_context]
+pub fn journey_raw_data_to_gpx_file<W: Write + Seek>(
+    raw_data: &JourneyRawData,
+    writer: &mut W,
+) -> Result<()> {
+    let points = raw_data
+        .points
+        .iter()
+        .map(|point| {
+            let raw = &point.raw_gps_point;
+            raw_waypoint(
+                raw.point.latitude,
+                raw.point.longitude,
+                raw.timestamp_ms,
+                raw.altitude,
+                raw.accuracy,
+            )
+        })
+        .collect();
+    write_gpx_with_segments(
+        vec![TrackSegment { points }],
+        Some(RAWDATA_TYPE_NAME),
+        writer,
+    )
+}
+
+fn raw_waypoint(
+    latitude: f64,
+    longitude: f64,
+    timestamp_ms: Option<i64>,
+    altitude: Option<f32>,
+    accuracy: Option<f32>,
+) -> Waypoint {
+    let mut waypoint = Waypoint::new(Point::new(longitude, latitude));
+    if let Some(timestamp_ms) = timestamp_ms.filter(|timestamp_ms| *timestamp_ms > 0) {
+        let time = OffsetDateTime::UNIX_EPOCH + Duration::milliseconds(timestamp_ms);
+        waypoint.time = Some(time.into());
+    }
+    waypoint.elevation = altitude.map(f64::from);
+    waypoint.hdop = accuracy.map(f64::from);
+    waypoint
 }

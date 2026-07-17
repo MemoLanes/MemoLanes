@@ -28,6 +28,8 @@
 //      |     field 1 length: varint
 //      |     JourneyData bytes
 //      |     field 2 length: varint
+//      |     optional compressed JourneyRawData bytes
+//      |     field 3 length: varint
 //      |     future field bytes
 //      |     ...
 //
@@ -54,6 +56,7 @@ use crate::{
     journey_header::JourneyHeader,
     main_db,
     protos::archive::{metadata, Metadata, SectionHeader},
+    raw_data::{self, SerializedJourneyRawData},
 };
 
 const METADATA_MAGIC_HEADER: [u8; 3] = *b"MLM";
@@ -61,13 +64,27 @@ const SECTION_MAGIC_HEADER: [u8; 3] = *b"MLS";
 const METADATA_VERSION: u8 = 1;
 const METADATA_FILE_NAME_OLD: &str = "metadata.xxm";
 const METADATA_FILE_NAME_NEW: &str = "metadata.mldm";
-const SECTION_V2_JOURNEY_DATA_FIELD_COUNT: u64 = 1;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum SectionVersion {
     V1 = 1,
     V2 = 2,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct MldxExportOptions {
+    pub section_version: SectionVersion,
+    pub include_raw_data: bool,
+}
+
+impl MldxExportOptions {
+    pub fn new(section_version: SectionVersion, include_raw_data: bool) -> Self {
+        Self {
+            section_version,
+            include_raw_data,
+        }
+    }
 }
 
 impl SectionVersion {
@@ -130,17 +147,33 @@ fn skip_bytes_with_size_header<T: Read>(reader: &mut T) -> Result<()> {
     Ok(())
 }
 
-fn read_v2_journey_data_bytes<T: Read>(reader: &mut T) -> Result<Vec<u8>> {
+struct SerializedJourneyRecord {
+    journey_data: Vec<u8>,
+    raw_data: Option<SerializedJourneyRawData>,
+}
+
+fn read_v2_journey_record<T: Read>(reader: &mut T) -> Result<SerializedJourneyRecord> {
     let field_count: u64 = reader.read_varint()?;
     if field_count == 0 {
         bail!("Missing JourneyData field in section v2 journey record");
     }
 
     let journey_data = read_bytes_with_size_header(reader)?;
-    for _ in 1..field_count {
+    let raw_data = if field_count >= 2 {
+        let raw_data = SerializedJourneyRawData::from_bytes(read_bytes_with_size_header(reader)?);
+        // Archive input is untrusted. Validate before it can reach the database.
+        raw_data::deserialize(&raw_data)?;
+        Some(raw_data)
+    } else {
+        None
+    };
+    for _ in 2..field_count {
         skip_bytes_with_size_header(reader)?;
     }
-    Ok(journey_data)
+    Ok(SerializedJourneyRecord {
+        journey_data,
+        raw_data,
+    })
 }
 
 fn skip_v2_journey_record<T: Read>(reader: &mut T) -> Result<()> {
@@ -151,13 +184,16 @@ fn skip_v2_journey_record<T: Read>(reader: &mut T) -> Result<()> {
     Ok(())
 }
 
-fn read_journey_data_bytes<T: Read>(
+fn read_journey_record<T: Read>(
     reader: &mut T,
     section_version: SectionVersion,
-) -> Result<Vec<u8>> {
+) -> Result<SerializedJourneyRecord> {
     match section_version {
-        SectionVersion::V1 => read_bytes_with_size_header(reader),
-        SectionVersion::V2 => read_v2_journey_data_bytes(reader),
+        SectionVersion::V1 => Ok(SerializedJourneyRecord {
+            journey_data: read_bytes_with_size_header(reader)?,
+            raw_data: None,
+        }),
+        SectionVersion::V2 => read_v2_journey_record(reader),
     }
 }
 
@@ -266,6 +302,16 @@ impl<R: Read + Seek> MldxReader<R> {
         &mut self,
         journey_id: &str,
     ) -> Result<Option<(JourneyHeader, JourneyData)>> {
+        Ok(self
+            .load_single_journey_with_raw_data(journey_id)?
+            .map(|(header, data, _)| (header, data)))
+    }
+
+    #[auto_context]
+    pub fn load_single_journey_with_raw_data(
+        &mut self,
+        journey_id: &str,
+    ) -> Result<Option<(JourneyHeader, JourneyData, Option<SerializedJourneyRawData>)>> {
         let section_id = match self.journey_id_to_section_id.get(journey_id) {
             Some(id) => id.clone(),
             None => return Ok(None),
@@ -275,10 +321,13 @@ impl<R: Read + Seek> MldxReader<R> {
         for header in section_header.journey_headers {
             if header.id == journey_id {
                 let journey_header = JourneyHeader::of_proto(header)?;
-                let buf = read_journey_data_bytes(&mut file, section_version)?;
-                let journey_data =
-                    JourneyData::deserialize(buf.as_slice(), journey_header.journey_type, true)?;
-                return Ok(Some((journey_header, journey_data)));
+                let record = read_journey_record(&mut file, section_version)?;
+                let journey_data = JourneyData::deserialize(
+                    record.journey_data.as_slice(),
+                    journey_header.journey_type,
+                    true,
+                )?;
+                return Ok(Some((journey_header, journey_data, record.raw_data)));
             } else {
                 skip_journey_record(&mut file, section_version)?;
             }
@@ -308,37 +357,38 @@ impl<R: Read + Seek> MldxReader<R> {
                     None => false,
                     Some(set) => !set.contains(&journey_header.id),
                 };
-
-                let need_to_import = if ignore {
+                if ignore {
                     result.ignored_by_filter_count += 1;
-                    false
-                } else {
-                    match txn.get_journey_header(&journey_header.id)? {
-                        Some(existing) => {
-                            if existing.revision == journey_header.revision {
-                                result.skipped_count += 1;
-                                false
-                            } else {
-                                txn.delete_journey(&journey_header.id)?;
-                                result.overwritten_count += 1;
-                                true
-                            }
-                        }
-                        None => true,
-                    }
-                };
-
-                if need_to_import {
-                    let buf = read_journey_data_bytes(&mut file, section_version)?;
-                    let journey_data = JourneyData::deserialize(
-                        buf.as_slice(),
-                        journey_header.journey_type,
-                        true,
-                    )?;
-                    txn.insert_journey(journey_header, journey_data)?;
-                    result.imported_count += 1;
-                } else {
                     skip_journey_record(&mut file, section_version)?;
+                    continue;
+                }
+
+                match txn.get_journey_header(&journey_header.id)? {
+                    Some(existing) if existing.revision == journey_header.revision => {
+                        let record = read_journey_record(&mut file, section_version)?;
+                        if let Some(raw_data) = record.raw_data {
+                            txn.set_journey_raw_data_if_missing(&journey_header.id, &raw_data)?;
+                        }
+                        result.skipped_count += 1;
+                    }
+                    existing => {
+                        if existing.is_some() {
+                            txn.delete_journey(&journey_header.id)?;
+                            result.overwritten_count += 1;
+                        }
+                        let record = read_journey_record(&mut file, section_version)?;
+                        let journey_data = JourneyData::deserialize(
+                            record.journey_data.as_slice(),
+                            journey_header.journey_type,
+                            true,
+                        )?;
+                        txn.insert_journey_with_raw_data(
+                            journey_header,
+                            journey_data,
+                            record.raw_data,
+                        )?;
+                        result.imported_count += 1;
+                    }
                 }
             }
         }
@@ -365,9 +415,18 @@ fn write_bytes_with_size_header<T: Write>(writer: &mut T, buf: &[u8]) -> Result<
     Ok(())
 }
 
-fn write_v2_journey_record<T: Write>(writer: &mut T, journey_data: &[u8]) -> Result<()> {
-    writer.write_all(&SECTION_V2_JOURNEY_DATA_FIELD_COUNT.encode_var_vec())?;
-    write_bytes_with_size_header(writer, journey_data)
+fn write_v2_journey_record<T: Write>(
+    writer: &mut T,
+    journey_data: &[u8],
+    raw_data: Option<&SerializedJourneyRawData>,
+) -> Result<()> {
+    let field_count = if raw_data.is_some() { 2_u64 } else { 1_u64 };
+    writer.write_all(&field_count.encode_var_vec())?;
+    write_bytes_with_size_header(writer, journey_data)?;
+    if let Some(raw_data) = raw_data {
+        write_bytes_with_size_header(writer, raw_data.as_bytes())?;
+    }
+    Ok(())
 }
 
 fn write_proto_as_compressed_block<W: Write, M: protobuf::Message>(
@@ -386,12 +445,35 @@ pub fn export_all_journeys_as_mldx<T: Write + Seek>(
     writer: &mut T,
     section_version: SectionVersion,
 ) -> Result<()> {
+    export_all_journeys_as_mldx_with_options(
+        txn,
+        writer,
+        MldxExportOptions::new(section_version, false),
+    )
+}
+
+#[auto_context]
+pub fn export_all_journeys_as_mldx_with_options<T: Write + Seek>(
+    txn: &main_db::Txn,
+    writer: &mut T,
+    options: MldxExportOptions,
+) -> Result<()> {
+    validate_export_options(options)?;
     let journey_headers = txn.query_journeys(None, None)?;
     write_mldx(
         journey_headers,
-        |journey_id| txn.get_journey_data(journey_id),
+        |journey_id| {
+            Ok(JourneyArchiveData {
+                journey_data: txn.get_journey_data(journey_id)?,
+                raw_data: if options.include_raw_data {
+                    txn.get_journey_raw_data(journey_id)?
+                } else {
+                    None
+                },
+            })
+        },
         writer,
-        section_version,
+        options,
     )
 }
 
@@ -402,8 +484,33 @@ pub fn export_single_journey_as_mldx<T: Write + Seek>(
     writer: &mut T,
     section_version: SectionVersion,
 ) -> Result<()> {
+    export_single_journey_as_mldx_with_options(
+        journey_header,
+        journey_data,
+        None,
+        writer,
+        MldxExportOptions::new(section_version, false),
+    )
+}
+
+#[auto_context]
+pub fn export_single_journey_as_mldx_with_options<T: Write + Seek>(
+    journey_header: JourneyHeader,
+    journey_data: JourneyData,
+    raw_data: Option<SerializedJourneyRawData>,
+    writer: &mut T,
+    options: MldxExportOptions,
+) -> Result<()> {
+    validate_export_options(options)?;
     let expected_journey_id = journey_header.id.clone();
-    let mut journey_data = Some(journey_data);
+    let mut data = Some(JourneyArchiveData {
+        journey_data,
+        raw_data: if options.include_raw_data {
+            raw_data
+        } else {
+            None
+        },
+    });
     write_mldx(
         vec![journey_header],
         |journey_id| {
@@ -414,24 +521,35 @@ pub fn export_single_journey_as_mldx<T: Write + Seek>(
                     journey_id
                 );
             }
-            journey_data
-                .take()
+            data.take()
                 .ok_or_else(|| anyhow!("Journey data has already been written"))
         },
         writer,
-        section_version,
+        options,
     )
+}
+
+fn validate_export_options(options: MldxExportOptions) -> Result<()> {
+    if options.include_raw_data && options.section_version != SectionVersion::V2 {
+        bail!("Raw data can only be stored in MLDX section v2");
+    }
+    Ok(())
+}
+
+struct JourneyArchiveData {
+    journey_data: JourneyData,
+    raw_data: Option<SerializedJourneyRawData>,
 }
 
 fn write_mldx<T, F>(
     journey_headers: Vec<JourneyHeader>,
     mut load_journey_data: F,
     writer: &mut T,
-    section_version: SectionVersion,
+    options: MldxExportOptions,
 ) -> Result<()>
 where
     T: Write + Seek,
-    F: FnMut(&str) -> Result<JourneyData>,
+    F: FnMut(&str) -> Result<JourneyArchiveData>,
 {
     // group journeys into sections and sort them(by end time and tie
     // break by id, the deterministic ordering is important).
@@ -463,6 +581,9 @@ where
     for (year_month, journeys) in group_by_year_month {
         let section_id: String = {
             let mut hasher = Sha1::new();
+            if options.include_raw_data {
+                hasher.update(b"[raw-data]");
+            }
             for j in &journeys {
                 hasher.update(format!("[{}|{}]", j.id, j.revision));
             }
@@ -491,7 +612,10 @@ where
         metadata_proto.section_infos.push(section_info)
     }
 
-    zip.start_file(section_version.metadata_file_name(), default_options)?;
+    zip.start_file(
+        options.section_version.metadata_file_name(),
+        default_options,
+    )?;
     zip.write_all(&METADATA_MAGIC_HEADER)?;
     // version num
     zip.write_all(&[METADATA_VERSION])?;
@@ -510,7 +634,7 @@ where
         zip.start_file(section_id.clone(), default_options)?;
         zip.write_all(&SECTION_MAGIC_HEADER)?;
         // version num
-        zip.write_all(&[section_version.to_u8()])?;
+        zip.write_all(&[options.section_version.to_u8()])?;
         // write header
         write_proto_as_compressed_block(&mut zip, section_header)?;
 
@@ -518,12 +642,14 @@ where
         for j in journeys {
             // TODO: maybe we want to just take the bytes from db without doing
             // a roundtrip.
-            let mut journey_data = load_journey_data(&j.id)?;
+            let mut data = load_journey_data(&j.id)?;
             let mut buf = Vec::new();
-            journey_data.serialize(&mut buf)?;
-            match section_version {
+            data.journey_data.serialize(&mut buf)?;
+            match options.section_version {
                 SectionVersion::V1 => write_bytes_with_size_header(&mut zip, &buf)?,
-                SectionVersion::V2 => write_v2_journey_record(&mut zip, &buf)?,
+                SectionVersion::V2 => {
+                    write_v2_journey_record(&mut zip, &buf, data.raw_data.as_ref())?
+                }
             }
         }
     }

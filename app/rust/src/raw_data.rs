@@ -33,7 +33,7 @@ pub struct SerializedJourneyRawData {
 }
 
 impl ExtendedRawGPSPoint {
-    fn to_proto(&self) -> protos::raw_data::ExtendedRawGPSPoint {
+    fn to_proto(&self) -> protos::raw_data::ExtendedRawGPSPointProto {
         let ExtendedRawGPSPoint {
             raw_gps_point,
             received_timestamp_ms,
@@ -50,7 +50,7 @@ impl ExtendedRawGPSPoint {
             longitude,
         } = point;
 
-        let mut proto = protos::raw_data::ExtendedRawGPSPoint::new();
+        let mut proto = protos::raw_data::ExtendedRawGPSPointProto::new();
         proto.timestamp_ms = *timestamp_ms;
         proto.latitude = *latitude;
         proto.longitude = *longitude;
@@ -61,7 +61,7 @@ impl ExtendedRawGPSPoint {
         proto
     }
 
-    fn of_proto(proto: protos::raw_data::ExtendedRawGPSPoint) -> Self {
+    fn of_proto(proto: protos::raw_data::ExtendedRawGPSPointProto) -> Self {
         ExtendedRawGPSPoint {
             raw_gps_point: RawGPSPoint {
                 point: Point {
@@ -79,15 +79,15 @@ impl ExtendedRawGPSPoint {
 }
 
 impl JourneyRawData {
-    fn to_proto(&self) -> protos::raw_data::JourneyRawData {
+    fn to_proto(&self) -> protos::raw_data::JourneyRawDataProto {
         let JourneyRawData { points } = self;
 
-        let mut proto = protos::raw_data::JourneyRawData::new();
+        let mut proto = protos::raw_data::JourneyRawDataProto::new();
         proto.points = points.iter().map(ExtendedRawGPSPoint::to_proto).collect();
         proto
     }
 
-    fn of_proto(proto: protos::raw_data::JourneyRawData) -> Self {
+    fn of_proto(proto: protos::raw_data::JourneyRawDataProto) -> Self {
         JourneyRawData {
             points: proto
                 .points
@@ -95,6 +95,10 @@ impl JourneyRawData {
                 .map(ExtendedRawGPSPoint::of_proto)
                 .collect(),
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.points.is_empty()
     }
 }
 
@@ -118,6 +122,16 @@ impl AsRef<[u8]> for SerializedJourneyRawData {
     }
 }
 
+pub(crate) fn serialize_point(point: &ExtendedRawGPSPoint) -> Result<Vec<u8>> {
+    Ok(point.to_proto().write_to_bytes()?)
+}
+
+pub(crate) fn deserialize_point(bytes: &[u8]) -> Result<ExtendedRawGPSPoint> {
+    Ok(ExtendedRawGPSPoint::of_proto(
+        protos::raw_data::ExtendedRawGPSPointProto::parse_from_bytes(bytes)?,
+    ))
+}
+
 pub fn serialize(raw_data: &JourneyRawData) -> Result<SerializedJourneyRawData> {
     let mut bytes = Vec::new();
     bytes.extend_from_slice(&JOURNEY_RAW_DATA_MAGIC_HEADER);
@@ -134,6 +148,6 @@ pub fn deserialize(serialized: &SerializedJourneyRawData) -> Result<JourneyRawDa
     utils::validate_magic_header(&mut reader, &JOURNEY_RAW_DATA_MAGIC_HEADER)?;
 
     let mut decoder = zstd::Decoder::new(reader)?;
-    let proto = protos::raw_data::JourneyRawData::parse_from_reader(&mut decoder)?;
+    let proto = protos::raw_data::JourneyRawDataProto::parse_from_reader(&mut decoder)?;
     Ok(JourneyRawData::of_proto(proto))
 }
