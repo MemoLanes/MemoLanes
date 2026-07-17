@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/map_controls/accuracy_display.dart';
@@ -9,8 +11,6 @@ import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
-
-const _portraitRecordingBottomInset = 116.0;
 
 class NormalMapOverlay extends StatelessWidget {
   const NormalMapOverlay({
@@ -49,18 +49,18 @@ class NormalMapOverlay extends StatelessWidget {
 
   Widget _buildControlsLayout(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
-    final padding = mediaQuery.padding;
+    final padding = mediaQuery.viewPadding;
+    final horizontalSafeArea = math.max(padding.left, padding.right);
     final isLandscape = mediaQuery.orientation == Orientation.landscape;
-    final recordingBottom = isLandscape
-        ? padding.bottom + StyleConstants.navBarSafeArea + 16.0
-        : padding.bottom + _portraitRecordingBottomInset;
+    final recordingBottom =
+        StyleConstants.mapPrimaryControlBottomInsetForContext(context);
 
     return Stack(
       children: isLandscape
           ? [
               Positioned(
-                left: padding.left + 24.0,
-                right: padding.right + 24.0,
+                left: horizontalSafeArea + 24.0,
+                right: horizontalSafeArea + 24.0,
                 bottom: recordingBottom,
                 child: _buildRecordingButtons(),
               ),
@@ -72,8 +72,8 @@ class NormalMapOverlay extends StatelessWidget {
             ]
           : [
               Positioned(
-                left: padding.left + 24.0,
-                right: padding.right + 24.0,
+                left: horizontalSafeArea + 24.0,
+                right: horizontalSafeArea + 24.0,
                 bottom: recordingBottom,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,

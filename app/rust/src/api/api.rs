@@ -21,7 +21,7 @@ use crate::journey_vector::JourneyVector;
 use crate::logs;
 use crate::raw_data::ExtendedRawGPSPoint;
 use crate::renderer::get_default_camera_option_from_journey_bitmap;
-use crate::renderer::internal_server::{Request, RequestResponse, TileRangeResponse};
+use crate::renderer::internal_server::{dispatch_request, WebviewResponse};
 use crate::renderer::MapRenderer;
 use crate::storage::{RawDataFile, Storage};
 use crate::{archive, build_info, export_data, main_db};
@@ -155,7 +155,7 @@ fn prepare_real_cache_dir(
                 LogLevel::Info,
                 format!("Setting up real cache dir for Android at {final_path:?}"),
             ));
-            // TODO this can be delete when most people have rolled pass this.
+            // TODO: this can be deleted when most people have rolled past this.
             let old_dir = Path::new(system_cache_dir);
             if old_dir.exists() {
                 logs.push((
@@ -292,43 +292,35 @@ pub enum MapRendererProxy {
 }
 
 impl MapRendererProxy {
-    pub fn handle_webview_requests(&mut self, request: String) -> Result<String> {
-        let request = Request::parse(&request)?;
-        let response = match self {
-            MapRendererProxy::StaticRenderer(map_renderer) => {
-                let map_renderer = map_renderer.get_mut().unwrap();
-                request.handle(map_renderer)
+    pub fn handle_request(
+        &mut self,
+        path: String,
+        query_params: HashMap<String, String>,
+    ) -> Result<WebviewResponse> {
+        let resp = match self {
+            MapRendererProxy::StaticRenderer(mr) => {
+                dispatch_request(&path, &query_params, mr.get_mut().unwrap())
             }
-            MapRendererProxy::DynamicRenderer(map_renderer) => {
-                let mut map_renderer = map_renderer.lock().unwrap();
-                request.handle(&mut map_renderer)
+            MapRendererProxy::DynamicRenderer(mr) => {
+                dispatch_request(&path, &query_params, &mut mr.lock().unwrap())
             }
             MapRendererProxy::MainMapRenderer => {
                 let mut main_map_state = get().main_map_state.lock().unwrap();
-                match main_map_state.dropped_for_power_saving {
-                    false => request.handle(&mut main_map_state.map_renderer),
-                    true =>
-                    // TODO: This is hacky. I think we should make the type better here for `main_map_state`.
-                    // Also have a dedicate value for this case in the response. Right now we reuse the case that
-                    // indicates nothing changed in the map.
-                    {
-                        let response_data = TileRangeResponse {
-                            status: 304,
-                            headers: HashMap::new(),
-                            body: Vec::new(),
-                        };
-                        RequestResponse {
-                            request_id: request.request_id.clone(),
-                            success: true,
-                            data: Some(serde_json::to_value(response_data)?),
-                            error: None,
-                        }
-                    }
+                if main_map_state.dropped_for_power_saving {
+                    return Ok(WebviewResponse {
+                        status: 200,
+                        content_type: "application/octet-stream".to_string(),
+                        body: Vec::new(),
+                        headers: HashMap::from([(
+                            "X-Not-Modified".to_string(),
+                            "true".to_string(),
+                        )]),
+                    });
                 }
+                dispatch_request(&path, &query_params, &mut main_map_state.map_renderer)
             }
         };
-        serde_json::to_string(&response)
-            .map_err(|e| anyhow::anyhow!("Failed to serialize response: {e}"))
+        Ok(resp)
     }
 }
 
@@ -337,7 +329,7 @@ pub fn get_map_renderer_proxy_for_main_map() -> MapRendererProxy {
     MapRendererProxy::MainMapRenderer
 }
 
-// TODO: does this interface necessary?
+// TODO: is this interface necessary?
 #[frb(sync)]
 pub fn get_empty_map_renderer_proxy() -> MapRendererProxy {
     let journey_bitmap = JourneyBitmap::new();
@@ -655,7 +647,7 @@ pub fn export_journey(
             ExportType::MLDX => {
                 let journey_header = txn
                     .get_journey_header(&journey_id)?
-                    .expect("header must exists because we already got the data.");
+                    .expect("header must exist because we already got the data.");
                 Ok(Some(InternalDataForExport::Mldx(
                     journey_header,
                     journey_data,
@@ -833,7 +825,7 @@ pub fn rebuild_cache() -> Result<()> {
 // multiple FoW data. Bitmap does not necessarily mean FoW data, but this is
 // good enough.
 pub fn contains_bitmap_journey() -> Result<bool> {
-    // TODO: we should just have a real SQL query for this, instead of a liner
+    // TODO: we should just have a real SQL query for this, instead of a linear
     // scan that involves deserializing all journey heads.
     let journey_headers = get()
         .storage

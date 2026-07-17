@@ -507,7 +507,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                     if (!context.mounted) return;
                     _showToast(_EditorToastRequest.saveSuccess);
 
-                    Navigator.of(context).pop(true);
+                    popCurrentRoute(context, true);
                   },
                 ),
               ),

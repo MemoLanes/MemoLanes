@@ -30,17 +30,40 @@ pub const PROVENANCE_HASH_END: usize = PROVENANCE_HASH_OFFSET + PROVENANCE_HASH_
 pub const TILE_WIDTH: usize = 128;
 /// Cells per tile = 128 × 128.
 pub const CELLS_PER_TILE: usize = TILE_WIDTH * TILE_WIDTH;
-/// Total tiles in the 512×512 tile grid.
-pub const TILE_COUNT: usize = 512 * 512;
+/// Tile-grid side length (512×512 tiles).
+pub const TILE_GRID_WIDTH: usize = 512;
+/// Total tiles in the tile grid.
+pub const TILE_COUNT: usize = TILE_GRID_WIDTH * TILE_GRID_WIDTH;
+
+/// x-major tile index in the tile grid: `tx * TILE_GRID_WIDTH + ty`. The one
+/// definition of tile ordering, shared by the rasterizer, writer, and runtime
+/// reader — matching `BlockKey::index()`'s x-major convention at every grain.
+pub fn tile_index(tx: u16, ty: u16) -> usize {
+    tx as usize * TILE_GRID_WIDTH + ty as usize
+}
+
+/// Inverse of [`tile_index`]: `(tx, ty)` from a tile-grid index.
+pub fn tile_xy(idx: usize) -> (u16, u16) {
+    (
+        (idx / TILE_GRID_WIDTH) as u16,
+        (idx % TILE_GRID_WIDTH) as u16,
+    )
+}
+
+/// x-major cell index within a tile: `x * TILE_WIDTH + y`. The index a
+/// [`PackedTile`] lookup expects, equal to `BlockKey::index()`.
+pub fn cell_index(x: u8, y: u8) -> usize {
+    x as usize * TILE_WIDTH + y as usize
+}
 
 mod format;
 mod packed_tile;
-mod pov;
 mod types;
+mod worldview;
 
 pub use format::{
     expected_total_len, read_geo_data, write_geo_data, GeoData, TileEntry, HEADER_LEN,
 };
 pub use packed_tile::PackedTile;
-pub use pov::*;
 pub use types::*;
+pub use worldview::*;

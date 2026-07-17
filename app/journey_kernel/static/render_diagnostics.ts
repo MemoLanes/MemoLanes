@@ -1,4 +1,4 @@
-import { MultiRequest } from "./multi-requests";
+export {};
 
 // Type definitions
 interface BrowserInfo {
@@ -90,49 +90,49 @@ let isRunning: boolean = false;
 let intervalId: number | null = null;
 let requestCounter: number = 0;
 
-// === GLOBAL INSTANCE ===
-let requester: MultiRequest | null = null;
+let cgiEndpoint: string | null = null;
+
+function buildUrl(
+  endpoint: string,
+  resource: string,
+  params?: Record<string, any>,
+): string {
+  const url = new URL(`${endpoint}/${resource}`, window.location.href);
+  if (params) {
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== null) {
+        url.searchParams.set(key, String(value));
+      }
+    }
+  }
+  return url.toString();
+}
 
 async function trySetup(): Promise<void> {
-  // Check if we have any endpoint configuration
   const hasCgiEndpoint = window.EXTERNAL_PARAMS.cgi_endpoint;
   const hasFlutterSetup = window.SETUP_PENDING;
 
   if (!hasCgiEndpoint && !hasFlutterSetup) {
-    // No configuration available, wait for either hash params or Flutter injection
     return;
   }
 
   console.log("Initializing test with:", window.EXTERNAL_PARAMS);
 
-  // Use cgi_endpoint directly (can be http:// or flutter://)
-  const cgiEndpoint = window.EXTERNAL_PARAMS.cgi_endpoint;
+  cgiEndpoint = window.EXTERNAL_PARAMS.cgi_endpoint || null;
 
   if (!cgiEndpoint) {
     log("No cgi_endpoint configured");
     return;
   }
 
-  // Create MultiRequest instance
-  requester = new MultiRequest(cgiEndpoint);
-  const status = requester.getStatus();
-
-  // Update UI
   const statusDiv = document.getElementById("status") as HTMLDivElement;
   statusDiv.className = "status ready";
+  statusDiv.textContent = `Ready! Endpoint: ${cgiEndpoint}`;
 
-  const endpointType = status.isFlutterMode ? "Flutter IPC" : "HTTP";
-  statusDiv.textContent = `Ready! Endpoint: ${cgiEndpoint} (${endpointType})`;
-
-  // Enable start button
   (document.getElementById("startBtn") as HTMLButtonElement).disabled = false;
 
-  // Log configuration
   log(`Endpoint ready: ${cgiEndpoint}`);
-  log(`Type: ${endpointType}`);
-  log(`Status: ${JSON.stringify(status)}`);
 
-  // Log hash parameters that were used
   if (Object.keys(window.EXTERNAL_PARAMS).length > 0) {
     log(`Configuration: ${JSON.stringify(window.EXTERNAL_PARAMS)}`);
   }
@@ -159,60 +159,52 @@ function getRequestSize(): number {
   return parseInt(size);
 }
 
-// Make a request to the configured endpoint
 async function makeRequest(): Promise<void> {
-  if (!requester) {
-    log("ERROR: No requester available!");
+  if (!cgiEndpoint) {
+    log("ERROR: No endpoint configured!");
     return;
   }
 
   const requestId = ++requestCounter;
   const size = getRequestSize();
-  const status = requester.getStatus();
-  const endpointType = status.isFlutterMode ? "Flutter IPC" : "HTTP";
 
   const startTime = performance.now();
-  log(`Request #${requestId}: ${endpointType} - ${size} bytes - Starting...`);
+  log(`Request #${requestId}: ${size} bytes - Starting...`);
 
   try {
-    // Use the unified fetch method (works for both HTTP and Flutter IPC)
-    const response = await requester.fetch("random_data", { size: size });
+    const url = buildUrl(cgiEndpoint, "random_data", { size });
+    const response = await fetch(url, { cache: "no-cache" });
 
     const endTime = performance.now();
     const duration = Math.round(endTime - startTime);
 
-    if (response.success) {
-      // Response is already a JS object, access data directly
-      const actualSize = response.data?.size || size;
+    if (response.ok) {
+      const buffer = await response.arrayBuffer();
       log(
-        `Request #${requestId}: ${endpointType} - SUCCESS - ${duration}ms - ${actualSize} bytes`,
+        `Request #${requestId}: SUCCESS - ${duration}ms - ${buffer.byteLength} bytes`,
       );
     } else {
       log(
-        `Request #${requestId}: ${endpointType} - ERROR - ${response.error || "Unknown error"} - ${duration}ms`,
+        `Request #${requestId}: ERROR - HTTP ${response.status} ${response.statusText} - ${duration}ms`,
       );
     }
   } catch (error) {
     const endTime = performance.now();
     const duration = Math.round(endTime - startTime);
     log(
-      `Request #${requestId}: ${endpointType} - ERROR - ${(error as Error).message} - ${duration}ms`,
+      `Request #${requestId}: ERROR - ${(error as Error).message} - ${duration}ms`,
     );
   }
 }
 
 function startTest(): void {
-  if (isRunning || !requester) return;
+  if (isRunning || !cgiEndpoint) return;
 
   isRunning = true;
   (document.getElementById("startBtn") as HTMLButtonElement).disabled = true;
   (document.getElementById("stopBtn") as HTMLButtonElement).disabled = false;
 
-  const status = requester.getStatus();
-  const endpointType = status.isFlutterMode ? "Flutter IPC" : "HTTP";
-
-  log(`Test started - Endpoint: ${status.endpoint} (${endpointType})`);
-  log(`Status: ${JSON.stringify(status)}`);
+  log(`Test started - Endpoint: ${cgiEndpoint}`);
 
   makeRequest();
   intervalId = setInterval(makeRequest, 1000) as any;
@@ -230,22 +222,15 @@ function stopTest(): void {
     intervalId = null;
   }
 
-  // Clear any pending requests
-  if (requester) requester.clearPending();
-
-  log("Test stopped - all pending requests cleared");
+  log("Test stopped");
 }
 
 function clearLog(): void {
   (document.getElementById("log") as HTMLDivElement).innerHTML = "";
   requestCounter = 0;
 
-  if (requester) {
-    const status = requester.getStatus();
-    const endpointType = status.isFlutterMode ? "Flutter IPC" : "HTTP";
-
-    log(`Log cleared - Endpoint: ${status.endpoint} (${endpointType})`);
-    log(`Status: ${JSON.stringify(status)}`);
+  if (cgiEndpoint) {
+    log(`Log cleared - Endpoint: ${cgiEndpoint}`);
   } else {
     log("Log cleared - No endpoint configured");
   }

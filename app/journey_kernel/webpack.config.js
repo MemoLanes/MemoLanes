@@ -19,6 +19,7 @@ module.exports = (env, argv) => {
     }),
     new WasmPackPlugin({
       crateDirectory: path.resolve(__dirname, "."),
+      outName: "journey_kernel",
       extraArgs: "--target web --features wasm --no-default-features",
     }),
   ];

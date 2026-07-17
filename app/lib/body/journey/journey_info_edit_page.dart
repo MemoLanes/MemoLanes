@@ -129,9 +129,8 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
     } else {
       await widget.saveData(journeyInfo);
     }
-    if (context.mounted) {
-      Navigator.pop(context, true);
-    }
+    if (!context.mounted) return;
+    popCurrentRoute(context, true);
   }
 
   @override

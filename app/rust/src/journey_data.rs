@@ -22,8 +22,8 @@ pub enum JourneyData {
 // 3 is the zstd default
 pub const ZSTD_COMPRESS_LEVEL: i32 = 3;
 
-const JOURNEY_VECTOR_MAGIC_HEADER: [u8; 2] = [b'V', b'0'];
-const JOURNEY_BITMAP_MAGIC_HEADER: [u8; 2] = [b'B', b'0'];
+const JOURNEY_VECTOR_MAGIC_HEADER: [u8; 2] = *b"V0";
+const JOURNEY_BITMAP_MAGIC_HEADER: [u8; 2] = *b"B0";
 
 // TODO: I don't have a strong reason on putting all serializations here
 #[auto_context]
@@ -91,7 +91,7 @@ pub fn serialize_journey_bitmap<T: Write>(
         writer.write_all(&key.y.to_be_bytes())?;
         // Also write down the size of the tile so we could load the bitmap
         // without eagerly deserialize all tiles.
-        let tile_bytes = journey_bitmap.get_tile_bytes(key).unwrap(); // must exists
+        let tile_bytes = journey_bitmap.get_tile_bytes(key).unwrap(); // must exist
         writer.write_all(&(tile_bytes.len() as u64).encode_var_vec())?;
         writer.write_all(&tile_bytes)?;
     }

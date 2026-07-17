@@ -7,10 +7,10 @@ import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/service/location/location_service.dart';
 
-/// `PokeGeolocatorTask` is a hacky workround.
-/// The behvior we observe is that the position stream from geolocator will
-/// randomly pauses so updates are delayed and come in as a batch later.
-/// However, if there something request the location, even if it is in
+/// `PokeGeolocatorTask` is a hacky workaround.
+/// The behavior we observe is that the position stream from geolocator will
+/// randomly pause so updates are delayed and come in as a batch later.
+/// However, if something requests the location, even if it is in
 /// another app, the stream will resume. So the hack is to poke the geolocator
 /// frequently.
 class _PokeGeolocatorTask {

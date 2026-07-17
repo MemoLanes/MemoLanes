@@ -7,13 +7,19 @@ on:
     paths:
       - "app/**"
       - "tools/geo_rasterizer/**"
+      - ".github/workflows/app.yml"
   push:
     branches:
       - main
     paths:
       - "app/**"
       - "tools/geo_rasterizer/**"
+      - ".github/workflows/app.yml"
   workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
 
 jobs:
   build_and_test:
@@ -47,10 +53,8 @@ jobs:
           flutter-version: 3.44
           cache: true
 
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@1.97.0
         with:
-          toolchain: stable
-          override: true
           components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v2
@@ -84,14 +88,14 @@ jobs:
         working-directory: app
         run: just rust-check
 
-      # Cache the pinned Natural Earth source (the pin/sha256 live in
-      # geo_data_format/src/pov.rs; download.rs holds the fetch logic) so
-      # rasterize-geo doesn't re-download it on every run.
+      # Cache the pinned Natural Earth source. Hash the geo_data_format Rust
+      # source as a whole so source pin moves, worldview additions, and nearby
+      # format changes all bust this cache without another file-list update.
       - name: Cache Natural Earth source
         uses: actions/cache@v4
         with:
           path: tools/geo_rasterizer/natural_earth/*.geojson
-          key: geo-natural-earth-${{ hashFiles('tools/geo_rasterizer/src/download.rs', 'app/rust/geo_data_format/src/pov.rs') }}
+          key: geo-natural-earth-${{ hashFiles('tools/geo_rasterizer/src/download.rs', 'app/rust/geo_data_format/src/**', 'app/rust/geo_data_format/Cargo.toml', 'app/rust/geo_data_format/Cargo.lock') }}
 
       # Cache the generated geo_data_*.bin. The key hashes the rasterizer and
       # geo_data_format *sources* (not just the inputs) on purpose: the in-bin
@@ -101,10 +105,7 @@ jobs:
       - name: Cache geo_data bins
         uses: actions/cache@v4
         with:
-          path: |
-            app/assets/geo_data_iso.bin
-            app/assets/geo_data_chn.bin
-            app/assets/geo_data_usa.bin
+          path: app/assets/geo/geo_data_*.bin
           key: geo-bins-${{ hashFiles('tools/geo_rasterizer/src/**', 'tools/geo_rasterizer/Cargo.lock', 'tools/geo_rasterizer/geo_entity_registry.toml', 'app/rust/geo_data_format/src/**', 'app/rust/geo_data_format/Cargo.lock') }}
 
       - name: Geo Data Format Check
@@ -120,13 +121,13 @@ jobs:
         if: steps.changes.outputs.geo == 'true'
         working-directory: app
         run: just test-geo
-      - name: Geo Rasterize All POVs
+      - name: Geo Rasterize All Worldviews
         working-directory: app
         run: just rasterize-geo
 
       # Guardrail: rasterize-geo regenerates the committed id registry (union
-      # over Pov::ALL). CI can't commit, so a non-empty diff means someone bumped
-      # a POV/source but forgot to regenerate + commit geo_entity_registry.toml.
+      # over Worldview::ALL). CI can't commit, so a non-empty diff means someone bumped
+      # a worldview/source but forgot to regenerate + commit geo_entity_registry.toml.
       - name: Geo Registry Up To Date
         run: git -C "$GITHUB_WORKSPACE" diff --exit-code -- tools/geo_rasterizer/geo_entity_registry.toml
 
@@ -137,7 +138,7 @@ jobs:
         
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'yarn'
           cache-dependency-path: 'app/journey_kernel/yarn.lock'
           
@@ -146,12 +147,12 @@ jobs:
         run: yarn install --frozen-lockfile
 
       - name: Install wasm-pack
-        run: cargo binstall -y --force --no-track wasm-pack
+        run: cargo binstall -y --force --no-track wasm-pack@0.15.0
 
       - name: Build the wasm package
         working-directory: app/journey_kernel
         run: | 
-          wasm-pack build --target web --features wasm --no-default-features
+          wasm-pack build --target web --out-name journey_kernel --features wasm --no-default-features
         
       - name: Journey Kernel Check
         working-directory: app/journey_kernel
@@ -170,6 +171,6 @@ jobs:
         working-directory: app
         run: just flutter-check
         
-      - name: Flutter and Rust Code Test
+      - name: Flutter, Journey Kernel, and Rust Tests
         working-directory: app
         run: just test-app

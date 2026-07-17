@@ -24,7 +24,9 @@
   padding: 4px;
   border-radius: 2px;
   font-family: inherit;
-  font-size: inherit;
+  font-size: 16px;
+  touch-action: manipulation;
+  -webkit-appearance: menulist;
 }
 
 .debug-panel .hint {

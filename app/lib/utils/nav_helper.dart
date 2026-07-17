@@ -36,25 +36,40 @@ Future<T?> navigatorPush<T>(
 /// show it once and persist in MMKV.
 Future<void> tryShowPermissionSheetIfFirstTime() async {
   try {
-    final sheetShown =
-        MMKVUtil.getBool(MMKVKey.permissionSheetShown, defaultValue: false);
-    if (sheetShown) return;
+    log.info('[PermissionFlow] first-launch permission sheet check started');
+    final sheetShown = MMKVUtil.getBool(
+      MMKVKey.permissionSheetShown,
+      defaultValue: false,
+    );
+    if (sheetShown) {
+      log.info(
+        '[PermissionFlow] skip first-launch permission sheet: already shown',
+      );
+      return;
+    }
 
     final needAny = await PermissionService().needAnyPermission();
     if (!needAny) {
       MMKVUtil.putBool(MMKVKey.permissionSheetShown, true);
+      log.info(
+        '[PermissionFlow] skip first-launch permission sheet: no permission needed',
+      );
       return;
     }
 
     final context = navigatorKey.currentState?.context;
-    if (context == null || !context.mounted) return;
-
-    final entered = await showPermissionRequestSheet(context);
-    if (entered) {
-      MMKVUtil.putBool(MMKVKey.permissionSheetShown, true);
+    if (context == null || !context.mounted) {
+      log.warning(
+        '[PermissionFlow] cannot show first-launch permission sheet: context unavailable',
+      );
+      return;
     }
-  } catch (e) {
-    log.error("[NavHelper] tryShowPermissionSheetIfFirstTime $e");
+
+    log.info('[PermissionFlow] showing first-launch permission sheet');
+    await showPermissionRequestSheet(context);
+    MMKVUtil.putBool(MMKVKey.permissionSheetShown, true);
+  } catch (e, s) {
+    log.error("[NavHelper] tryShowPermissionSheetIfFirstTime $e", s);
   }
 }
 
@@ -63,17 +78,30 @@ Future<void> tryShowPermissionSheetIfFirstTime() async {
 Future<bool> checkAndRequestPermission() async {
   try {
     final svc = PermissionService();
-    if (await svc.checkLocationPermission()) return true;
+    if (await svc.checkLocationPermission()) {
+      return true;
+    }
 
     final context = navigatorKey.currentState?.context;
     if (context == null || !context.mounted) {
-      return await svc.checkLocationPermission();
+      final hasLocation = await svc.checkLocationPermission();
+      log.warning(
+        '[PermissionFlow] cannot show user-driven permission sheet: '
+        'context unavailable hasLocation=$hasLocation',
+      );
+      return hasLocation;
     }
 
+    log.info('[PermissionFlow] showing user-driven permission sheet');
     await showPermissionRequestSheet(context);
-    return await svc.checkLocationPermission();
-  } catch (e) {
-    log.error("[NavHelper] checkAndRequestPermission $e");
+    final hasLocation = await svc.checkLocationPermission();
+    log.info(
+      '[PermissionFlow] user-driven permission sheet closed '
+      'hasLocation=$hasLocation',
+    );
+    return hasLocation;
+  } catch (e, s) {
+    log.error("[NavHelper] checkAndRequestPermission $e", s);
     return false;
   }
 }

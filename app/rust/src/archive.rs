@@ -56,8 +56,8 @@ use crate::{
     protos::archive::{metadata, Metadata, SectionHeader},
 };
 
-const METADATA_MAGIC_HEADER: [u8; 3] = [b'M', b'L', b'M'];
-const SECTION_MAGIC_HEADER: [u8; 3] = [b'M', b'L', b'S'];
+const METADATA_MAGIC_HEADER: [u8; 3] = *b"MLM";
+const SECTION_MAGIC_HEADER: [u8; 3] = *b"MLS";
 const METADATA_VERSION: u8 = 1;
 const METADATA_FILE_NAME_OLD: &str = "metadata.xxm";
 const METADATA_FILE_NAME_NEW: &str = "metadata.mldm";
@@ -91,10 +91,10 @@ impl SectionVersion {
     }
 }
 
-// TODO: support incremetnal archiving by loading the previous metadata, we need
+// TODO: support incremental archiving by loading the previous metadata, we need
 // this for syncing.
 
-// TODO: support archive/export a seleted set of journeys instead of everything.
+// TODO: support archive/export for a selected set of journeys instead of everything.
 
 #[derive(Clone, Debug, PartialEq)]
 #[frb]
@@ -108,7 +108,7 @@ pub struct MldxImportResult {
 pub struct MldxReader<R: Read + Seek> {
     zip: zip::ZipArchive<R>,
     metadata: Metadata,
-    // we could load the following two lazily, doesn't matter for now tho (because we always need them).
+    // we could load the following two lazily, doesn't matter for now though (because we always need them).
     journey_headers: Vec<JourneyHeader>,
     journey_id_to_section_id: HashMap<String, String>,
 }
@@ -188,7 +188,7 @@ impl<R: Read + Seek> MldxReader<R> {
             bail!(
                 "Invalid magic header, expect: {:?}, got: {:?}",
                 METADATA_MAGIC_HEADER,
-                &magic_header
+                magic_header
             );
         };
         let mut version_number: [u8; 1] = [0; 1];
@@ -215,7 +215,7 @@ impl<R: Read + Seek> MldxReader<R> {
             bail!(
                 "Invalid magic header, expect: {:?}, got: {:?}",
                 SECTION_MAGIC_HEADER,
-                &magic_header
+                magic_header
             );
         };
         let mut version_number: [u8; 1] = [0; 1];
@@ -446,7 +446,7 @@ where
             .or_insert_with(Vec::new)
             .push(journey);
     }
-    for (_, journeys) in group_by_year_month.iter_mut() {
+    for journeys in group_by_year_month.values_mut() {
         journeys.sort_by(|a, b| {
             let result = a.end.cmp(&b.end);
             if result != Ordering::Equal {

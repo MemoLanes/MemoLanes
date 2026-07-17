@@ -119,9 +119,11 @@ function preventIOSMagnifier(): void {
     e.preventDefault();
   }, 500);
 
-  // TODO: further check if applying to body is too aggressive, maybe apply to map container instead.
-  document.body.addEventListener("touchstart", ignore, { passive: false });
-  document.body.addEventListener(
+  const mapContainer = document.getElementById("map");
+  if (!mapContainer) return;
+
+  mapContainer.addEventListener("touchstart", ignore, { passive: false });
+  mapContainer.addEventListener(
     "touchend",
     (e: Event): void => {
       e.preventDefault();

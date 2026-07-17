@@ -1,3 +1,4 @@
+mod absorb;
 pub mod area;
 pub mod atomic_write;
 pub mod cache;

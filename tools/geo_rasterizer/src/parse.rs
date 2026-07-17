@@ -5,23 +5,37 @@ use std::path::Path;
 use anyhow::{anyhow, bail, Context, Result};
 use geo_types::{Geometry, MultiPolygon};
 
-/// One Natural Earth feature, post-filter, with the fields the rasterizer needs.
+/// One Natural Earth feature, with the fields the rasterizer needs.
 pub struct ParsedFeature {
     /// `ADM0_A3` (NE's canonical key). Always present after parsing.
     pub adm0_a3: String,
     /// `ISO_A3`. May be `'-99'` (NE's missing-value sentinel).
     pub iso_a3: String,
+    /// `ISO_A3_EH` (de-facto-filled ISO alpha-3). Present for every feature;
+    /// no `-99` in the shipped data.
+    pub iso_a3_eh: String,
     /// `NAME` (English). For logging/diagnostics.
     pub name: String,
-    /// `CONTINENT`.
+    /// `TYPE` (NE feature class: "Country", "Sovereign country", "Geo unit",
+    /// "Dependency", ...). Used to pick the sovereign member when several
+    /// features collapse under one `ADM0_A3`.
+    pub feature_type: String,
+    /// `CONTINENT`. May be `"Seven seas (open ocean)"`, in which case the
+    /// continent parent is resolved from [`Self::region_un`].
     pub continent: String,
+    /// `REGION_UN` (UN M49 top-level region). Geographic fallback used to
+    /// parent features whose `CONTINENT` is the "Seven seas" bucket.
+    pub region_un: String,
     /// Geometry as `MultiPolygon` (Polygons are wrapped to a 1-element MP for uniformity).
     pub geometry: MultiPolygon<f64>,
 }
 
-/// Parse a Natural Earth admin-0 countries GeoJSON. Filters out features
-/// whose `CONTINENT == "Seven seas (open ocean)"`. Returns the rest.
-pub fn parse_geojson(path: &Path) -> Result<Vec<ParsedFeature>> {
+/// Parse a Natural Earth admin-0 countries GeoJSON for a given `worldview`, then
+/// apply that worldview's absorptions (`absorb::apply_absorptions`) so the caller
+/// can never hold un-absorbed features — the fold is not a separate step anyone
+/// can forget. "Seven seas (open ocean)" features are kept and parented via
+/// `REGION_UN` (see `entities::continent_code`).
+pub fn parse_geojson(path: &Path, worldview: &str) -> Result<Vec<ParsedFeature>> {
     let raw = std::fs::read_to_string(path)
         .with_context(|| format!("reading geojson at {}", path.display()))?;
     let collection: geojson::FeatureCollection = serde_json::from_str(&raw)
@@ -43,19 +57,31 @@ pub fn parse_geojson(path: &Path) -> Result<Vec<ParsedFeature>> {
             .and_then(|v| v.as_str())
             .unwrap_or("-99")
             .to_string();
+        let iso_a3_eh = props
+            .get("ISO_A3_EH")
+            .and_then(|v| v.as_str())
+            .unwrap_or("-99")
+            .to_string();
         let name = props
             .get("NAME")
             .and_then(|v| v.as_str())
             .unwrap_or("(unknown)")
+            .to_string();
+        let feature_type = props
+            .get("TYPE")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow!("feature {idx} ({adm0_a3}): missing TYPE"))?
             .to_string();
         let continent = props
             .get("CONTINENT")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow!("feature {idx} ({adm0_a3}): missing CONTINENT"))?
             .to_string();
-        if continent == "Seven seas (open ocean)" {
-            continue;
-        }
+        let region_un = props
+            .get("REGION_UN")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow!("feature {idx} ({adm0_a3}): missing REGION_UN"))?
+            .to_string();
         let geom_value = feature
             .geometry
             .ok_or_else(|| anyhow!("feature {idx} ({adm0_a3}): missing geometry"))?;
@@ -70,11 +96,15 @@ pub fn parse_geojson(path: &Path) -> Result<Vec<ParsedFeature>> {
         out.push(ParsedFeature {
             adm0_a3,
             iso_a3,
+            iso_a3_eh,
             name,
+            feature_type,
             continent,
+            region_un,
             geometry: mp,
         });
     }
+    crate::absorb::apply_absorptions(&mut out, worldview)?;
     Ok(out)
 }
 

@@ -67,7 +67,7 @@ fn fow_snapshot_filename(x: u16, y: u16, z: i32, file_type: FoWSnapshotFileType)
     ]
     .iter()
     .collect::<String>();
-    let name_prefix = format!("{:x}", Md5::digest(checksum_input.to_string()))[..4].to_string();
+    let name_prefix = hex::encode(Md5::digest(checksum_input.to_string()))[..4].to_string();
     format!("{name_prefix}{id_part}{suffix}")
 }
 

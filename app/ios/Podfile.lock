@@ -2,8 +2,6 @@ PODS:
   - Flutter (1.0.0)
   - flutter_app_intents (0.1.0):
     - Flutter
-  - flutter_file_manager_ios (0.0.1):
-    - Flutter
   - MMKV (2.4.0):
     - MMKVCore (~> 2.4.0)
   - mmkv_ios (2.4.0):
@@ -12,8 +10,6 @@ PODS:
     - MMKV (< 2.5, >= 2.4.0)
   - MMKVCore (2.4.0)
   - notification_when_app_is_killed (0.0.1):
-    - Flutter
-  - permission_handler_apple (9.3.0):
     - Flutter
   - rust_builder (0.0.1):
     - Flutter
@@ -29,10 +25,8 @@ PODS:
 DEPENDENCIES:
   - Flutter (from `Flutter`)
   - flutter_app_intents (from `.symlinks/plugins/flutter_app_intents/ios`)
-  - flutter_file_manager_ios (from `.symlinks/plugins/flutter_file_manager_ios/ios`)
   - mmkv_ios (from `.symlinks/plugins/mmkv_ios/darwin`)
   - notification_when_app_is_killed (from `.symlinks/plugins/notification_when_app_is_killed/ios`)
-  - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
   - rust_builder (from `.symlinks/plugins/rust_builder/ios`)
   - share_handler_ios (from `.symlinks/plugins/share_handler_ios/ios`)
   - share_handler_ios_models (from `.symlinks/plugins/share_handler_ios/ios/Models`)
@@ -47,14 +41,10 @@ EXTERNAL SOURCES:
     :path: Flutter
   flutter_app_intents:
     :path: ".symlinks/plugins/flutter_app_intents/ios"
-  flutter_file_manager_ios:
-    :path: ".symlinks/plugins/flutter_file_manager_ios/ios"
   mmkv_ios:
     :path: ".symlinks/plugins/mmkv_ios/darwin"
   notification_when_app_is_killed:
     :path: ".symlinks/plugins/notification_when_app_is_killed/ios"
-  permission_handler_apple:
-    :path: ".symlinks/plugins/permission_handler_apple/ios"
   rust_builder:
     :path: ".symlinks/plugins/rust_builder/ios"
   share_handler_ios:
@@ -65,12 +55,10 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_app_intents: e77f999f398c841ab584a1925dbce33ee0168fb5
-  flutter_file_manager_ios: 799b040e45c8d2ed1226440f630ca69b65547e66
   MMKV: 86859fdfa2b0b21db1fd6e48788474a6416a2c77
   mmkv_ios: 92c9ad54c630cdd783f8711d082710b3dd1ec5ea
   MMKVCore: 3d16ce9f7d411e135020915fde98a056859a1efa
   notification_when_app_is_killed: d11c6b91df3fc39bb18eeb878ad435cf8fc0e4c7
-  permission_handler_apple: 4ed2196e43d0651e8ff7ca3483a069d469701f2d
   rust_builder: 194a3570397816870f03d56d7916e8948f241859
   share_handler_ios: e2244e990f826b2c8eaa291ac3831569438ba0fb
   share_handler_ios_models: fc638c9b4330dc7f082586c92aee9dfa0b87b871

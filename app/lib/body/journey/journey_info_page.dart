@@ -124,7 +124,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
         confirmTextColor: Colors.white)) {
       await api.deleteJourney(journeyId: _journeyHeader.id);
       if (!context.mounted) return;
-      Navigator.pop(context, true);
+      popCurrentRoute(context, true);
     }
   }
 

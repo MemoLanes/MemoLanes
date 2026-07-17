@@ -55,6 +55,7 @@ class _JourneyBodyState extends State<JourneyBody> {
         await api.monthsWithJourney(year: _selectedDate.year);
     _daysWithJourneyList = await api.daysWithJourney(
         year: _selectedDate.year, month: _selectedDate.month);
+    if (!mounted) return;
     setState(() {
       _isLoadingFirstDate = false;
     });
@@ -65,6 +66,7 @@ class _JourneyBodyState extends State<JourneyBody> {
         year: _selectedDate.year,
         month: _selectedDate.month,
         day: _selectedDate.day);
+    if (!mounted) return;
     setState(() {
       _journeyHeaderList = journeyHeaderList.reversed.toList();
     });
@@ -174,6 +176,7 @@ class _JourneyBodyState extends State<JourneyBody> {
 
         _daysWithJourneyList = await api.daysWithJourney(
             month: jumpToDate.month, year: jumpToDate.year);
+        if (!mounted) return;
         setState(() {
           _selectedDate = jumpToDate;
         });
@@ -185,9 +188,7 @@ class _JourneyBodyState extends State<JourneyBody> {
   Widget _buildJourneyHeaderList() {
     return ListView.builder(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).padding.bottom +
-            StyleConstants.navBarSafeArea +
-            5,
+        bottom: StyleConstants.navBarSafeArea + 5,
       ),
       itemCount: _journeyHeaderList.length,
       itemBuilder: (context, index) {
@@ -210,6 +211,7 @@ class _JourneyBodyState extends State<JourneyBody> {
                     await api.monthsWithJourney(year: _selectedDate.year);
                 _daysWithJourneyList = await api.daysWithJourney(
                     year: _selectedDate.year, month: _selectedDate.month);
+                if (!mounted) return;
                 _updateJourneyHeaderList();
               }
             });
@@ -220,9 +222,7 @@ class _JourneyBodyState extends State<JourneyBody> {
   }
 
   Widget _buildLandscapeBody(DateTime firstDate) {
-    final bottomPadding = MediaQuery.paddingOf(context).bottom +
-        StyleConstants.navBarSafeArea +
-        5;
+    const bottomPadding = StyleConstants.navBarSafeArea + 5;
 
     return LayoutBuilder(
       builder: (context, constraints) {
