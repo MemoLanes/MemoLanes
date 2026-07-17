@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/recording_health_service.dart';
 import 'package:memolanes/common/service/location/geolocator_service.dart';
 import 'package:memolanes/common/service/location/last_known_location.dart';
 import 'package:memolanes/common/service/location/location_service.dart';
@@ -75,6 +76,8 @@ class GpsManager extends ChangeNotifier {
 
   // basically, we try to finalize every 30 mins + when there isn't a meaningful update in a while.
   DateTime? _tryFinalizeJourneyCountDown;
+
+  bool _recordingSignalActive = false;
 
   // We only start listening to the location service after this.
   // Otherwise we may start it before the app is fully ready (e.g. i18n not ready).
@@ -218,9 +221,18 @@ class GpsManager extends ChangeNotifier {
           );
         }
       }
+      _syncRecordingSignalStatus();
       _internalState = newState;
       notifyListeners();
     }
+  }
+
+  void _syncRecordingSignalStatus() {
+    final shouldBeActive = recordingStatus == GpsRecordingStatus.recording;
+    if (_recordingSignalActive == shouldBeActive) return;
+
+    _recordingSignalActive = shouldBeActive;
+    RecordingHealthService.instance.handleRecordingStatus(recordingStatus);
   }
 
   // Non-blocking: fetches the OS-cached last known location and uses it as a
@@ -354,6 +366,7 @@ class GpsManager extends ChangeNotifier {
     unawaited(_locationService.stopLocationUpdates());
     unawaited(_recordingLocationUpdatePipe.close());
     unawaited(_journeyFinalizedController.close());
+    RecordingHealthService.instance.stop();
     super.dispose();
   }
 }

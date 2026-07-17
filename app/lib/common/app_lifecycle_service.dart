@@ -4,15 +4,21 @@ import 'package:flutter_fgbg/flutter_fgbg.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 
+enum AppVisibility { foreground, background }
+
 class AppLifecycleService {
   static final AppLifecycleService instance = AppLifecycleService._internal();
   AppLifecycleService._internal();
 
   StreamSubscription? _sub;
+  final _visibilityController = StreamController<AppVisibility>.broadcast();
   Timer? _freeResourceCountdown;
   bool _countdownCanceled = false;
+  bool _isForeground = true;
 
   bool get isRunning => _sub != null;
+  bool get isForeground => _isForeground;
+  Stream<AppVisibility> get visibilityChanges => _visibilityController.stream;
 
   void start() {
     if (_sub != null) return;
@@ -21,11 +27,15 @@ class AppLifecycleService {
       final triggerTime = DateTime.now();
 
       if (event == FGBGType.background) {
+        _isForeground = false;
+        _visibilityController.add(AppVisibility.background);
         log.info(
             '[AppLifecycleService][$triggerTime] Background event received.');
         _countdownCanceled = false;
         _startFreeResourceCountdown();
       } else if (event == FGBGType.foreground) {
+        _isForeground = true;
+        _visibilityController.add(AppVisibility.foreground);
         log.info(
             '[AppLifecycleService][$triggerTime] Foreground event received.');
         _reset();
@@ -76,5 +86,6 @@ class AppLifecycleService {
     _sub?.cancel();
     _sub = null;
     _reset();
+    _isForeground = true;
   }
 }

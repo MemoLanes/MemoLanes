@@ -6,6 +6,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:memolanes/common/app_lifecycle_service.dart';
+import 'package:memolanes/common/recording_health_alert_coordinator.dart';
 import 'package:memolanes/common/share_handler_util.dart';
 import 'package:memolanes/common/shortcut_handler_util.dart';
 import 'package:memolanes/common/update_notifier.dart';
@@ -162,6 +163,7 @@ class AppBootstrap {
       },
     );
     AppLifecycleService.instance.start();
+    RecordingHealthAlertCoordinator.instance.start();
 
     delayedInit(updateNotifier);
   }

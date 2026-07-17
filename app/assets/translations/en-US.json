@@ -109,6 +109,9 @@
     "confirm": "Your database requires optimization. It is recommended to backup your data before proceeding.",
     "finish": "Finished optimizing database."
   },
+  "recording_health": {
+    "freeze_warning": "The system may have frozen the app while recording. Some locations may be missing. Please check your background activity and battery settings."
+  },
   "journey_kind": {
     "default": "Ground",
     "flight": "Flight",
