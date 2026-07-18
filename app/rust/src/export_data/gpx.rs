@@ -7,7 +7,7 @@ use csv::Reader;
 use geo_types::Point;
 use gpx::{Gpx, GpxVersion, Metadata, Track, TrackSegment, Waypoint};
 use std::io::{Seek, Write};
-use time::{Duration, OffsetDateTime};
+use time::OffsetDateTime;
 
 // TODO: Pull in more metadata to the exported files, e.g. timestamp, note, etc
 // For most things, we could put them as custom attributes. The timestamp is a
@@ -82,10 +82,10 @@ pub fn raw_data_csv_to_gpx_file<R: std::io::Read, W: Write + Seek>(
         segment.points.push(raw_waypoint(
             raw.latitude,
             raw.longitude,
-            raw.timestamp_ms,
+            raw.timestamp_ms.or(Some(raw.received_timestamp_ms)),
             raw.altitude,
             raw.accuracy,
-        ));
+        )?);
     }
     write_gpx_with_segments(vec![segment], Some(RAWDATA_TYPE_NAME), writer)
 }
@@ -103,12 +103,12 @@ pub fn journey_raw_data_to_gpx_file<W: Write + Seek>(
             raw_waypoint(
                 raw.point.latitude,
                 raw.point.longitude,
-                raw.timestamp_ms,
+                raw.timestamp_ms.or(Some(point.received_timestamp_ms)),
                 raw.altitude,
                 raw.accuracy,
             )
         })
-        .collect();
+        .collect::<Result<Vec<_>>>()?;
     write_gpx_with_segments(
         vec![TrackSegment { points }],
         Some(RAWDATA_TYPE_NAME),
@@ -122,13 +122,13 @@ fn raw_waypoint(
     timestamp_ms: Option<i64>,
     altitude: Option<f32>,
     accuracy: Option<f32>,
-) -> Waypoint {
+) -> Result<Waypoint> {
     let mut waypoint = Waypoint::new(Point::new(longitude, latitude));
     if let Some(timestamp_ms) = timestamp_ms.filter(|timestamp_ms| *timestamp_ms > 0) {
-        let time = OffsetDateTime::UNIX_EPOCH + Duration::milliseconds(timestamp_ms);
+        let time = OffsetDateTime::from_unix_timestamp_nanos(i128::from(timestamp_ms) * 1_000_000)?;
         waypoint.time = Some(time.into());
     }
     waypoint.elevation = altitude.map(f64::from);
     waypoint.hdop = accuracy.map(f64::from);
-    waypoint
+    Ok(waypoint)
 }

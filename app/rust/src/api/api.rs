@@ -767,7 +767,7 @@ fn export_journey_impl(
 pub fn journey_has_raw_data(journey_id: String) -> Result<bool> {
     get()
         .storage
-        .with_db_txn(|txn| Ok(txn.get_journey_raw_data(&journey_id)?.is_some()))
+        .with_db_txn(|txn| txn.has_journey_raw_data(&journey_id))
 }
 
 pub fn delete_journey_raw_data(journey_id: String) -> Result<bool> {

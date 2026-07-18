@@ -76,20 +76,23 @@ pub fn journey_raw_data_to_kml_file<T: Write + Seek>(
             z: point.raw_gps_point.altitude.map(f64::from),
         })
         .collect();
-    let mut track_elements = Vec::with_capacity(raw_data.points.len() * 2);
+    // gx:Track requires all `when` elements before all `gx:coord` elements,
+    // with the two lists containing the same number of entries.
+    let mut when_elements = Vec::with_capacity(raw_data.points.len());
+    let mut coord_elements = Vec::with_capacity(raw_data.points.len());
     for point in &raw_data.points {
         let timestamp_ms = point
             .raw_gps_point
             .timestamp_ms
             .unwrap_or(point.received_timestamp_ms);
-        if let Some(timestamp) = DateTime::<Utc>::from_timestamp_millis(timestamp_ms) {
-            track_elements.push(kml::types::Element {
-                name: "when".to_owned(),
-                content: Some(timestamp.to_rfc3339_opts(SecondsFormat::Millis, true)),
-                ..Default::default()
-            });
-        }
-        track_elements.push(kml::types::Element {
+        let timestamp = DateTime::<Utc>::from_timestamp_millis(timestamp_ms)
+            .ok_or_else(|| anyhow!("Raw GPS timestamp is out of range: {timestamp_ms}"))?;
+        when_elements.push(kml::types::Element {
+            name: "when".to_owned(),
+            content: Some(timestamp.to_rfc3339_opts(SecondsFormat::Millis, true)),
+            ..Default::default()
+        });
+        coord_elements.push(kml::types::Element {
             name: "gx:coord".to_owned(),
             content: Some(format!(
                 "{} {} {}",
@@ -100,12 +103,13 @@ pub fn journey_raw_data_to_kml_file<T: Write + Seek>(
             ..Default::default()
         });
     }
+    when_elements.extend(coord_elements);
 
     let placemark = kml::types::Placemark {
         name: Some("MemoLanes Raw Data".to_owned()),
         children: vec![kml::types::Element {
             name: "gx:Track".to_owned(),
-            children: track_elements,
+            children: when_elements,
             ..Default::default()
         }],
         geometry: Some(kml::types::Geometry::LineString(kml::types::LineString {

@@ -216,21 +216,18 @@ impl Txn<'_> {
         let mut header = self
             .get_journey_header(id)?
             .ok_or_else(|| anyhow!("Failed to find journey with id = {id}"))?;
-        if self.get_journey_raw_data(id)?.is_none() {
-            return Ok(false);
-        }
-
         header.updated_at = Some(Utc::now());
         header.revision = generate_random_revision();
         let header_bytes = header.to_proto().write_to_bytes()?;
         let changes = self.db_txn.execute(
-            "UPDATE journey SET header = ?2, raw_data = NULL WHERE id = ?1;",
+            "UPDATE journey SET header = ?2, raw_data = NULL WHERE id = ?1 AND raw_data IS NOT NULL;",
             (id, header_bytes),
         )?;
-        if changes != 1 {
-            bail!("Failed to delete raw data for journey with id = {id}");
+        match changes {
+            0 => Ok(false),
+            1 => Ok(true),
+            _ => bail!("Deleted raw data from multiple journeys with id = {id}"),
         }
-        Ok(true)
     }
 
     // TODO: consider return structured result so the caller know if it is skipped or other cases
@@ -625,20 +622,33 @@ impl Txn<'_> {
             .map(raw_data::SerializedJourneyRawData::from_bytes))
     }
 
-    /// Restores an omitted raw-data attachment without changing the journey's
-    /// revision. This is used when an MLDX has the same journey revision but
-    /// carries raw data that the local copy does not have.
+    pub fn has_journey_raw_data(&self, id: &str) -> Result<bool> {
+        let mut query = self
+            .db_txn
+            .prepare("SELECT raw_data IS NOT NULL FROM journey WHERE id = ?1;")?;
+        Ok(query
+            .query_row([id], |row| row.get(0))
+            .optional()
+            .context("has_journey_raw_data")?
+            .unwrap_or(false))
+    }
+
+    /// Applies authoritative raw-data state from an archive without changing
+    /// the already-matching journey revision.
     #[auto_context]
-    pub fn set_journey_raw_data_if_missing(
+    pub(crate) fn set_journey_raw_data(
         &mut self,
         id: &str,
-        raw_data: &raw_data::SerializedJourneyRawData,
-    ) -> Result<bool> {
+        raw_data: Option<&raw_data::SerializedJourneyRawData>,
+    ) -> Result<()> {
         let changes = self.db_txn.execute(
-            "UPDATE journey SET raw_data = ?2 WHERE id = ?1 AND raw_data IS NULL;",
-            (id, raw_data.as_bytes()),
+            "UPDATE journey SET raw_data = ?2 WHERE id = ?1;",
+            (id, raw_data.map(|raw_data| raw_data.as_bytes())),
         )?;
-        Ok(changes == 1)
+        if changes != 1 {
+            bail!("Failed to set raw data for journey with id = {id}");
+        }
+        Ok(())
     }
 
     #[auto_context]

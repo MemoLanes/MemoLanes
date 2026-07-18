@@ -129,6 +129,9 @@ fn journey_raw_data_lifecycle() {
         .with_txn(|txn| txn.get_journey_raw_data(&header.id))
         .unwrap()
         .unwrap();
+    assert!(main_db
+        .with_txn(|txn| txn.has_journey_raw_data(&header.id))
+        .unwrap());
     assert_eq!(
         raw_data::deserialize(&serialized).unwrap().points,
         vec![ignored, appended]
@@ -173,6 +176,9 @@ fn journey_raw_data_lifecycle() {
         .with_txn(|txn| txn.get_journey_raw_data(&header.id))
         .unwrap()
         .is_none());
+    assert!(!main_db
+        .with_txn(|txn| txn.has_journey_raw_data(&header.id))
+        .unwrap());
     assert_ne!(
         main_db
             .with_txn(|txn| Ok(txn.get_journey_header(&header.id)?.unwrap().revision))
@@ -181,6 +187,9 @@ fn journey_raw_data_lifecycle() {
     );
     assert!(!main_db
         .with_txn(|txn| txn.delete_journey_raw_data(&header.id))
+        .unwrap());
+    assert!(!main_db
+        .with_txn(|txn| txn.has_journey_raw_data("missing-journey"))
         .unwrap());
 }
 

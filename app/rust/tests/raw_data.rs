@@ -94,3 +94,121 @@ fn journey_raw_data_exports_to_csv_gpx_and_kml() {
     assert!(kml.contains("2023-11-14T22:13:20.000Z"));
     assert!(kml.contains("121.473701 31.230416 12"));
 }
+
+#[test]
+fn journey_raw_data_gpx_uses_received_timestamp_as_fallback() {
+    let raw_data = JourneyRawData {
+        points: vec![point(
+            31.230416,
+            121.473701,
+            None,
+            None,
+            None,
+            None,
+            1_700_000_001_234,
+        )],
+    };
+
+    let mut gpx = Cursor::new(Vec::new());
+    export_data::gpx::journey_raw_data_to_gpx_file(&raw_data, &mut gpx).unwrap();
+    gpx.set_position(0);
+    let gpx = gpx::read(gpx).unwrap();
+    let exported_time: time::OffsetDateTime =
+        gpx.tracks[0].segments[0].points[0].time.unwrap().into();
+
+    assert_eq!(
+        exported_time.unix_timestamp_nanos(),
+        1_700_000_001_234_000_000
+    );
+}
+
+#[test]
+fn legacy_raw_data_csv_gpx_uses_received_timestamp_as_fallback() {
+    let csv = concat!(
+        "timestamp_ms,received_timestamp_ms,latitude,longitude,accuracy,altitude,speed\n",
+        ",1700000001234,31.230416,121.473701,,,\n"
+    );
+    let mut reader = csv::Reader::from_reader(csv.as_bytes());
+    let mut output = Cursor::new(Vec::new());
+
+    export_data::gpx::raw_data_csv_to_gpx_file(&mut reader, &mut output).unwrap();
+    output.set_position(0);
+    let gpx = gpx::read(output).unwrap();
+    let exported_time: time::OffsetDateTime =
+        gpx.tracks[0].segments[0].points[0].time.unwrap().into();
+
+    assert_eq!(
+        exported_time.unix_timestamp_nanos(),
+        1_700_000_001_234_000_000
+    );
+}
+
+#[test]
+fn journey_raw_data_gpx_rejects_out_of_range_timestamp() {
+    let raw_data = JourneyRawData {
+        points: vec![point(
+            31.230416,
+            121.473701,
+            Some(i64::MAX),
+            None,
+            None,
+            None,
+            1_700_000_001_234,
+        )],
+    };
+
+    let error =
+        export_data::gpx::journey_raw_data_to_gpx_file(&raw_data, &mut Cursor::new(Vec::new()))
+            .unwrap_err();
+
+    assert!(format!("{error:#}").contains("timestamp"));
+}
+
+#[test]
+fn journey_raw_data_kml_orders_track_fields_and_rejects_invalid_timestamps() {
+    let raw_data = JourneyRawData {
+        points: vec![
+            point(
+                31.230416,
+                121.473701,
+                None,
+                None,
+                None,
+                None,
+                1_700_000_001_234,
+            ),
+            point(
+                31.230417,
+                121.473702,
+                None,
+                None,
+                None,
+                None,
+                1_700_000_002_234,
+            ),
+        ],
+    };
+    let mut output = Cursor::new(Vec::new());
+
+    export_data::kml::journey_raw_data_to_kml_file(&raw_data, &mut output).unwrap();
+    let kml = String::from_utf8(output.into_inner()).unwrap();
+    let second_when = kml.rfind("<when>").unwrap();
+    let first_coord = kml.find("<gx:coord>").unwrap();
+    assert!(second_when < first_coord);
+
+    let invalid = JourneyRawData {
+        points: vec![point(
+            31.230416,
+            121.473701,
+            Some(i64::MAX),
+            None,
+            None,
+            None,
+            1_700_000_001_234,
+        )],
+    };
+    let error =
+        export_data::kml::journey_raw_data_to_kml_file(&invalid, &mut Cursor::new(Vec::new()))
+            .unwrap_err();
+    assert!(format!("{error:#}").contains("timestamp"));
+}

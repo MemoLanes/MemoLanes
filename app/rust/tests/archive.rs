@@ -99,12 +99,12 @@ fn sample_journey() -> (JourneyHeader, JourneyData) {
     (header, data)
 }
 
-fn sample_raw_data() -> raw_data::SerializedJourneyRawData {
+fn sample_raw_data_with_latitude(latitude: f64) -> raw_data::SerializedJourneyRawData {
     raw_data::serialize(&JourneyRawData {
         points: vec![ExtendedRawGPSPoint {
             raw_gps_point: RawGPSPoint {
                 point: gps_processor::Point {
-                    latitude: 31.2304,
+                    latitude,
                     longitude: 121.4737,
                 },
                 timestamp_ms: Some(1_700_000_000_000),
@@ -116,6 +116,10 @@ fn sample_raw_data() -> raw_data::SerializedJourneyRawData {
         }],
     })
     .unwrap()
+}
+
+fn sample_raw_data() -> raw_data::SerializedJourneyRawData {
+    sample_raw_data_with_latitude(31.2304)
 }
 
 fn write_single_journey_archive(
@@ -149,6 +153,35 @@ fn metadata_entry_name(bytes: &[u8]) -> String {
         }
     }
     panic!("missing metadata entry")
+}
+
+fn section_entry_name(bytes: &[u8]) -> String {
+    let mut zip = zip::ZipArchive::new(Cursor::new(bytes.to_vec())).unwrap();
+    for index in 0..zip.len() {
+        let name = zip.by_index(index).unwrap().name().to_owned();
+        if !name.starts_with("metadata.") {
+            return name;
+        }
+    }
+    panic!("missing section entry")
+}
+
+fn write_single_journey_archive_with_raw_data(
+    header: JourneyHeader,
+    data: JourneyData,
+    raw_data: Option<raw_data::SerializedJourneyRawData>,
+    include_raw_data: bool,
+) -> Vec<u8> {
+    let mut writer = Cursor::new(Vec::new());
+    archive::export_single_journey_as_mldx_with_options(
+        header,
+        data,
+        raw_data,
+        &mut writer,
+        MldxExportOptions::new(SectionVersion::V2, include_raw_data),
+    )
+    .unwrap();
+    writer.into_inner()
 }
 
 fn rewrite_metadata_entry_name(bytes: Vec<u8>, metadata_name: &str) -> Vec<u8> {
@@ -268,6 +301,87 @@ fn import_adds_raw_data_to_same_revision_when_missing_locally() {
             .unwrap(),
         Some(raw_data)
     );
+}
+
+#[test]
+fn import_preserves_omitted_raw_data_but_applies_explicit_absence() {
+    let (local_header, data) = sample_journey();
+    let raw_data = sample_raw_data();
+    let temp_dir = TempDir::new("archive-import_raw_data_state").unwrap();
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    main_db
+        .with_txn(|txn| {
+            txn.insert_journey_with_raw_data(
+                local_header.clone(),
+                data.clone(),
+                Some(raw_data.clone()),
+            )
+        })
+        .unwrap();
+
+    let mut edited_header = local_header.clone();
+    edited_header.revision = "edited-revision".to_owned();
+    let omitted_archive = write_single_journey_archive_with_raw_data(
+        edited_header.clone(),
+        data.clone(),
+        Some(raw_data.clone()),
+        false,
+    );
+    let mut reader = MldxReader::open(Cursor::new(omitted_archive)).unwrap();
+    main_db.with_txn(|txn| reader.import(txn, None)).unwrap();
+    assert_eq!(
+        main_db
+            .with_txn(|txn| txn.get_journey_raw_data(&local_header.id))
+            .unwrap(),
+        Some(raw_data)
+    );
+
+    // The authoritative archive has the same processed-data revision, but its
+    // raw attachment still replaces the locally preserved one.
+    let replacement_raw_data = sample_raw_data_with_latitude(31.2305);
+    let replacement_archive = write_single_journey_archive_with_raw_data(
+        edited_header.clone(),
+        data.clone(),
+        Some(replacement_raw_data.clone()),
+        true,
+    );
+    let mut reader = MldxReader::open(Cursor::new(replacement_archive)).unwrap();
+    main_db.with_txn(|txn| reader.import(txn, None)).unwrap();
+    assert_eq!(
+        main_db
+            .with_txn(|txn| txn.get_journey_raw_data(&local_header.id))
+            .unwrap(),
+        Some(replacement_raw_data)
+    );
+
+    // Explicit absence is also authoritative when the revision matches.
+    let deleted_archive =
+        write_single_journey_archive_with_raw_data(edited_header, data, None, true);
+    let mut reader = MldxReader::open(Cursor::new(deleted_archive)).unwrap();
+    main_db.with_txn(|txn| reader.import(txn, None)).unwrap();
+    assert!(main_db
+        .with_txn(|txn| txn.get_journey_raw_data(&local_header.id))
+        .unwrap()
+        .is_none());
+}
+
+#[test]
+fn raw_data_payload_changes_section_id() {
+    let (header, data) = sample_journey();
+    let first = write_single_journey_archive_with_raw_data(
+        header.clone(),
+        data.clone(),
+        Some(sample_raw_data_with_latitude(31.2304)),
+        true,
+    );
+    let second = write_single_journey_archive_with_raw_data(
+        header,
+        data,
+        Some(sample_raw_data_with_latitude(31.2305)),
+        true,
+    );
+
+    assert_ne!(section_entry_name(&first), section_entry_name(&second));
 }
 
 #[test]

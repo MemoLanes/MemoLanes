@@ -149,10 +149,30 @@ fn skip_bytes_with_size_header<T: Read>(reader: &mut T) -> Result<()> {
 
 struct SerializedJourneyRecord {
     journey_data: Vec<u8>,
-    raw_data: Option<SerializedJourneyRawData>,
+    raw_data: ArchivedRawData,
 }
 
-fn read_v2_journey_record<T: Read>(reader: &mut T) -> Result<SerializedJourneyRecord> {
+/// Raw data can be omitted from an export without meaning that the attachment
+/// was deleted. Keeping that state distinct prevents a metadata-only archive
+/// from erasing a local attachment during import.
+enum ArchivedRawData {
+    Omitted,
+    Included(Option<SerializedJourneyRawData>),
+}
+
+impl ArchivedRawData {
+    fn into_attachment(self) -> Option<SerializedJourneyRawData> {
+        match self {
+            Self::Omitted | Self::Included(None) => None,
+            Self::Included(Some(raw_data)) => Some(raw_data),
+        }
+    }
+}
+
+fn read_v2_journey_record<T: Read>(
+    reader: &mut T,
+    includes_raw_data: bool,
+) -> Result<SerializedJourneyRecord> {
     let field_count: u64 = reader.read_varint()?;
     if field_count == 0 {
         bail!("Missing JourneyData field in section v2 journey record");
@@ -163,9 +183,13 @@ fn read_v2_journey_record<T: Read>(reader: &mut T) -> Result<SerializedJourneyRe
         let raw_data = SerializedJourneyRawData::from_bytes(read_bytes_with_size_header(reader)?);
         // Archive input is untrusted. Validate before it can reach the database.
         raw_data::deserialize(&raw_data)?;
-        Some(raw_data)
+        // Accept early section-v2 archives that carried the raw-data field
+        // before the section-level inclusion flag was introduced.
+        ArchivedRawData::Included(Some(raw_data))
+    } else if includes_raw_data {
+        ArchivedRawData::Included(None)
     } else {
-        None
+        ArchivedRawData::Omitted
     };
     for _ in 2..field_count {
         skip_bytes_with_size_header(reader)?;
@@ -187,13 +211,14 @@ fn skip_v2_journey_record<T: Read>(reader: &mut T) -> Result<()> {
 fn read_journey_record<T: Read>(
     reader: &mut T,
     section_version: SectionVersion,
+    includes_raw_data: bool,
 ) -> Result<SerializedJourneyRecord> {
     match section_version {
         SectionVersion::V1 => Ok(SerializedJourneyRecord {
             journey_data: read_bytes_with_size_header(reader)?,
-            raw_data: None,
+            raw_data: ArchivedRawData::Omitted,
         }),
-        SectionVersion::V2 => read_v2_journey_record(reader),
+        SectionVersion::V2 => read_v2_journey_record(reader, includes_raw_data),
     }
 }
 
@@ -318,16 +343,21 @@ impl<R: Read + Seek> MldxReader<R> {
         };
         let mut file = self.zip.by_name(&section_id)?;
         let (section_version, section_header) = Self::read_section_header(&mut file)?;
+        let includes_raw_data = section_header.includes_raw_data;
         for header in section_header.journey_headers {
             if header.id == journey_id {
                 let journey_header = JourneyHeader::of_proto(header)?;
-                let record = read_journey_record(&mut file, section_version)?;
+                let record = read_journey_record(&mut file, section_version, includes_raw_data)?;
                 let journey_data = JourneyData::deserialize(
                     record.journey_data.as_slice(),
                     journey_header.journey_type,
                     true,
                 )?;
-                return Ok(Some((journey_header, journey_data, record.raw_data)));
+                return Ok(Some((
+                    journey_header,
+                    journey_data,
+                    record.raw_data.into_attachment(),
+                )));
             } else {
                 skip_journey_record(&mut file, section_version)?;
             }
@@ -350,6 +380,7 @@ impl<R: Read + Seek> MldxReader<R> {
         for section_id in self.metadata.section_infos.iter().map(|s| &s.section_id) {
             let mut file = self.zip.by_name(section_id)?;
             let (section_version, section_header) = Self::read_section_header(&mut file)?;
+            let includes_raw_data = section_header.includes_raw_data;
             for header in section_header.journey_headers {
                 let journey_header = JourneyHeader::of_proto(header)?;
 
@@ -363,33 +394,37 @@ impl<R: Read + Seek> MldxReader<R> {
                     continue;
                 }
 
-                match txn.get_journey_header(&journey_header.id)? {
-                    Some(existing) if existing.revision == journey_header.revision => {
-                        let record = read_journey_record(&mut file, section_version)?;
-                        if let Some(raw_data) = record.raw_data {
-                            txn.set_journey_raw_data_if_missing(&journey_header.id, &raw_data)?;
-                        }
-                        result.skipped_count += 1;
+                let existing = txn.get_journey_header(&journey_header.id)?;
+                let record = read_journey_record(&mut file, section_version, includes_raw_data)?;
+                if existing
+                    .as_ref()
+                    .is_some_and(|existing| existing.revision == journey_header.revision)
+                {
+                    if let ArchivedRawData::Included(raw_data) = record.raw_data {
+                        txn.set_journey_raw_data(&journey_header.id, raw_data.as_ref())?;
                     }
-                    existing => {
-                        if existing.is_some() {
-                            txn.delete_journey(&journey_header.id)?;
-                            result.overwritten_count += 1;
-                        }
-                        let record = read_journey_record(&mut file, section_version)?;
-                        let journey_data = JourneyData::deserialize(
-                            record.journey_data.as_slice(),
-                            journey_header.journey_type,
-                            true,
-                        )?;
-                        txn.insert_journey_with_raw_data(
-                            journey_header,
-                            journey_data,
-                            record.raw_data,
-                        )?;
-                        result.imported_count += 1;
-                    }
+                    result.skipped_count += 1;
+                    continue;
                 }
+
+                let raw_data = match record.raw_data {
+                    ArchivedRawData::Omitted if existing.is_some() => {
+                        txn.get_journey_raw_data(&journey_header.id)?
+                    }
+                    ArchivedRawData::Omitted | ArchivedRawData::Included(None) => None,
+                    ArchivedRawData::Included(Some(raw_data)) => Some(raw_data),
+                };
+                if existing.is_some() {
+                    txn.delete_journey(&journey_header.id)?;
+                    result.overwritten_count += 1;
+                }
+                let journey_data = JourneyData::deserialize(
+                    record.journey_data.as_slice(),
+                    journey_header.journey_type,
+                    true,
+                )?;
+                txn.insert_journey_with_raw_data(journey_header, journey_data, raw_data)?;
+                result.imported_count += 1;
             }
         }
 
@@ -462,16 +497,8 @@ pub fn export_all_journeys_as_mldx_with_options<T: Write + Seek>(
     let journey_headers = txn.query_journeys(None, None)?;
     write_mldx(
         journey_headers,
-        |journey_id| {
-            Ok(JourneyArchiveData {
-                journey_data: txn.get_journey_data(journey_id)?,
-                raw_data: if options.include_raw_data {
-                    txn.get_journey_raw_data(journey_id)?
-                } else {
-                    None
-                },
-            })
-        },
+        |journey_id| txn.get_journey_data(journey_id),
+        |journey_id| txn.get_journey_raw_data(journey_id),
         writer,
         options,
     )
@@ -503,14 +530,8 @@ pub fn export_single_journey_as_mldx_with_options<T: Write + Seek>(
 ) -> Result<()> {
     validate_export_options(options)?;
     let expected_journey_id = journey_header.id.clone();
-    let mut data = Some(JourneyArchiveData {
-        journey_data,
-        raw_data: if options.include_raw_data {
-            raw_data
-        } else {
-            None
-        },
-    });
+    let expected_raw_data_journey_id = expected_journey_id.clone();
+    let mut journey_data = Some(journey_data);
     write_mldx(
         vec![journey_header],
         |journey_id| {
@@ -521,8 +542,19 @@ pub fn export_single_journey_as_mldx_with_options<T: Write + Seek>(
                     journey_id
                 );
             }
-            data.take()
+            journey_data
+                .take()
                 .ok_or_else(|| anyhow!("Journey data has already been written"))
+        },
+        |journey_id| {
+            if journey_id != expected_raw_data_journey_id {
+                bail!(
+                    "Unexpected journey id, expected: {}, got: {}",
+                    expected_raw_data_journey_id,
+                    journey_id
+                );
+            }
+            Ok(raw_data.clone())
         },
         writer,
         options,
@@ -536,20 +568,17 @@ fn validate_export_options(options: MldxExportOptions) -> Result<()> {
     Ok(())
 }
 
-struct JourneyArchiveData {
-    journey_data: JourneyData,
-    raw_data: Option<SerializedJourneyRawData>,
-}
-
-fn write_mldx<T, F>(
+fn write_mldx<T, F, G>(
     journey_headers: Vec<JourneyHeader>,
     mut load_journey_data: F,
+    mut load_raw_data: G,
     writer: &mut T,
     options: MldxExportOptions,
 ) -> Result<()>
 where
     T: Write + Seek,
-    F: FnMut(&str) -> Result<JourneyArchiveData>,
+    F: FnMut(&str) -> Result<JourneyData>,
+    G: FnMut(&str) -> Result<Option<SerializedJourneyRawData>>,
 {
     // group journeys into sections and sort them(by end time and tie
     // break by id, the deterministic ordering is important).
@@ -586,6 +615,17 @@ where
             }
             for j in &journeys {
                 hasher.update(format!("[{}|{}]", j.id, j.revision));
+                if options.include_raw_data {
+                    let raw_data = load_raw_data(&j.id)?;
+                    match raw_data {
+                        None => hasher.update([0]),
+                        Some(raw_data) => {
+                            hasher.update([1]);
+                            hasher.update((raw_data.as_bytes().len() as u64).to_le_bytes());
+                            hasher.update(raw_data.as_bytes());
+                        }
+                    }
+                }
             }
             let result = hasher.finalize();
             result.encode_hex::<String>()
@@ -627,6 +667,7 @@ where
     for (_, section_id, journeys) in &to_process {
         let mut section_header = SectionHeader::new();
         section_header.section_id.clone_from(section_id);
+        section_header.includes_raw_data = options.include_raw_data;
         for j in journeys {
             section_header.journey_headers.push(j.clone().to_proto());
         }
@@ -642,13 +683,18 @@ where
         for j in journeys {
             // TODO: maybe we want to just take the bytes from db without doing
             // a roundtrip.
-            let mut data = load_journey_data(&j.id)?;
+            let mut journey_data = load_journey_data(&j.id)?;
             let mut buf = Vec::new();
-            data.journey_data.serialize(&mut buf)?;
+            journey_data.serialize(&mut buf)?;
             match options.section_version {
                 SectionVersion::V1 => write_bytes_with_size_header(&mut zip, &buf)?,
                 SectionVersion::V2 => {
-                    write_v2_journey_record(&mut zip, &buf, data.raw_data.as_ref())?
+                    let raw_data = if options.include_raw_data {
+                        load_raw_data(&j.id)?
+                    } else {
+                        None
+                    };
+                    write_v2_journey_record(&mut zip, &buf, raw_data.as_ref())?
                 }
             }
         }
