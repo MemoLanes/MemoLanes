@@ -4,7 +4,6 @@ use auto_context::auto_context;
 use chrono::{DateTime, Local, NaiveDate, Timelike, Utc};
 use protobuf::Message;
 use rusqlite::{Connection, OptionalExtension, Transaction};
-use std::cmp::Ordering;
 use std::error::Error;
 use std::path::Path;
 use std::str::FromStr;
@@ -36,35 +35,15 @@ deserialize the header.
 pub const ZSTD_COMPRESS_LEVEL: i32 = 3;
 
 #[auto_context]
-#[allow(clippy::type_complexity)]
 fn open_db_and_run_migration(
     support_dir: &str,
     file_name: &str,
-    migrations: &[&dyn Fn(&Transaction) -> Result<()>],
+    migrations: &[utils::db::Migration<'_>],
 ) -> Result<Connection> {
     debug!("open and run migration for {file_name}");
     let mut conn = rusqlite::Connection::open(Path::new(support_dir).join(file_name))?;
     let tx = conn.transaction()?;
-
-    let version = utils::db::init_metadata_and_get_version(&tx)? as usize;
-    let target_version = migrations.len();
-    debug!("current version = {version}, target_version = {target_version}");
-    match version.cmp(&target_version) {
-        Ordering::Equal => (),
-        Ordering::Less => {
-            for i in (version)..target_version {
-                info!("running migration for version: {}", i + 1);
-                let f = migrations.get(i).unwrap();
-                f(&tx)?;
-            }
-            utils::db::set_version_in_metadata(&tx, target_version as i32)?;
-        }
-        Ordering::Greater => {
-            bail!(
-                "version too high: current version = {version}, target_version = {target_version}"
-            );
-        }
-    }
+    utils::db::run_migrations(&tx, file_name, migrations)?;
     tx.commit()?;
     Ok(conn)
 }
@@ -144,10 +123,10 @@ impl Txn<'_> {
     }
 
     #[auto_context]
-    pub fn get_ongoing_raw_data(&self) -> Result<raw_data::JourneyRawData> {
+    pub fn get_ongoing_journey_raw_data(&self) -> Result<raw_data::JourneyRawData> {
         let mut query = self
             .db_txn
-            .prepare("SELECT data FROM ongoing_raw_data ORDER BY id;")?;
+            .prepare("SELECT data FROM ongoing_journey_raw_data ORDER BY id;")?;
         let rows = query.query_map((), |row| row.get::<_, Vec<u8>>(0))?;
         let points = rows
             .map(|row| raw_data::deserialize_point(&row?))
@@ -486,11 +465,11 @@ impl Txn<'_> {
             Some(journey_vector) => {
                 // TODO: allow user to set this when recording?
                 let journey_kind = JourneyKind::DefaultKind;
-                let ongoing_raw_data = self.get_ongoing_raw_data()?;
-                let serialized_raw_data = if ongoing_raw_data.is_empty() {
+                let ongoing_journey_raw_data = self.get_ongoing_journey_raw_data()?;
+                let serialized_raw_data = if ongoing_journey_raw_data.is_empty() {
                     None
                 } else {
-                    Some(raw_data::serialize(&ongoing_raw_data)?)
+                    Some(raw_data::serialize(&ongoing_journey_raw_data)?)
                 };
 
                 self.create_and_insert_journey_with_raw_data(
@@ -516,9 +495,10 @@ impl Txn<'_> {
             "DELETE FROM sqlite_sequence WHERE name='ongoing_journey';",
             (),
         )?;
-        self.db_txn.execute("DELETE FROM ongoing_raw_data;", ())?;
+        self.db_txn
+            .execute("DELETE FROM ongoing_journey_raw_data;", ())?;
         self.db_txn.execute(
-            "DELETE FROM sqlite_sequence WHERE name='ongoing_raw_data';",
+            "DELETE FROM sqlite_sequence WHERE name='ongoing_journey_raw_data';",
             (),
         )?;
 
@@ -804,67 +784,81 @@ pub struct MainDb {
     conn: Connection,
 }
 
+fn migrations() -> [utils::db::Migration<'static>; 2] {
+    fn migrate_to_1_0(tx: &Transaction) -> Result<()> {
+        let sql = "
+        CREATE TABLE ongoing_journey (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT
+                                UNIQUE
+                                NOT NULL,
+            timestamp_sec  INTEGER,
+            lat            REAL    NOT NULL,
+            lng            REAL    NOT NULL,
+            process_result INTEGER NOT NULL
+        );
+        CREATE TABLE journey (
+            id                TEXT    PRIMARY KEY
+                                      NOT NULL
+                                      UNIQUE,
+            journey_date      INTEGER NOT NULL, -- days since epoch
+            timestamp_for_ordering
+                              INTEGER,          -- start time (fallback to end time)
+            type              INTEGER NOT NULL,
+            header            BLOB    NOT NULL,
+            data              BLOB    NOT NULL
+        );
+        CREATE INDEX journey_date_index ON journey (
+            journey_date DESC
+        );
+        CREATE TABLE setting (
+            key               TEXT    PRIMARY KEY
+                                      NOT NULL
+                                      UNIQUE,
+            value             TEXT
+        );
+        ";
+        for statement in sql_split::split(sql) {
+            tx.execute(&statement, ())?;
+        }
+        Ok(())
+    }
+
+    fn migrate_to_1_1(tx: &Transaction) -> Result<()> {
+        tx.execute_batch(
+            "
+            CREATE TABLE ongoing_journey_raw_data (
+                id   INTEGER PRIMARY KEY AUTOINCREMENT
+                             UNIQUE
+                             NOT NULL,
+                data BLOB    NOT NULL
+            );
+            ALTER TABLE journey ADD COLUMN raw_data BLOB;
+            ",
+        )?;
+        Ok(())
+    }
+
+    [
+        utils::db::Migration::new(1, 0, &migrate_to_1_0),
+        utils::db::Migration::new(1, 1, &migrate_to_1_1),
+    ]
+}
+
+#[cfg(test)]
+mod migration_tests {
+    #[test]
+    fn migrations_are_in_order() {
+        assert!(crate::utils::db::migrations_are_strictly_increasing(
+            &super::migrations()
+        ));
+    }
+}
+
 impl MainDb {
     pub fn open(support_dir: &str) -> MainDb {
         // TODO: better error handling
-        let conn = open_db_and_run_migration(
-            support_dir,
-            "main.db",
-            &[
-                &|tx| {
-                    let sql = "
-                CREATE TABLE ongoing_journey (
-                    id             INTEGER PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-                    timestamp_sec  INTEGER,
-                    lat            REAL    NOT NULL,
-                    lng            REAL    NOT NULL,
-                    process_result INTEGER NOT NULL
-                );
-                CREATE TABLE journey (
-                    id                TEXT    PRIMARY KEY
-                                              NOT NULL
-                                              UNIQUE,
-                    journey_date      INTEGER NOT NULL, -- days since epoch
-                    timestamp_for_ordering
-                                      INTEGER,          -- start time (fallback to end time)
-                    type              INTEGER NOT NULL,
-                    header            BLOB    NOT NULL,
-                    data              BLOB    NOT NULL
-                );
-                CREATE INDEX journey_date_index ON journey (
-                    journey_date DESC
-                );
-                CREATE TABLE setting (
-                    key               TEXT    PRIMARY KEY
-                                              NOT NULL
-                                              UNIQUE,
-                    value             TEXT
-                );
-                ";
-                    for s in sql_split::split(sql) {
-                        tx.execute(&s, ())?;
-                    }
-                    Ok(())
-                },
-                &|tx| {
-                    tx.execute_batch(
-                        "
-                        CREATE TABLE ongoing_raw_data (
-                            id   INTEGER PRIMARY KEY AUTOINCREMENT
-                                         UNIQUE
-                                         NOT NULL,
-                            data BLOB    NOT NULL
-                        );
-                        ALTER TABLE journey ADD COLUMN raw_data BLOB;
-                        ",
-                    )?;
-                    Ok(())
-                },
-            ],
-        )
-        .expect("failed to open main db");
+        let conn = open_db_and_run_migration(support_dir, "main.db", &migrations())
+            .expect("failed to open main db");
         MainDb { conn }
     }
 
@@ -940,7 +934,7 @@ impl MainDb {
         }
         if let Some(raw_data) = raw_data {
             let bytes = raw_data::serialize_point(raw_data)?;
-            tx.prepare_cached("INSERT INTO ongoing_raw_data (data) VALUES (?1);")?
+            tx.prepare_cached("INSERT INTO ongoing_journey_raw_data (data) VALUES (?1);")?
                 .execute([bytes])?;
         }
         tx.commit()?;

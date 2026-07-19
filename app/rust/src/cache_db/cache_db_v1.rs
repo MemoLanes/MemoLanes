@@ -1,8 +1,7 @@
 use anyhow::{Context, Result};
 use auto_context::auto_context;
 use chrono::NaiveDate;
-use rusqlite::{Connection, OptionalExtension};
-use std::cmp::Ordering;
+use rusqlite::{Connection, OptionalExtension, Transaction};
 use std::path::Path;
 
 use super::{CacheDb, CacheEntry, LayerKind};
@@ -15,36 +14,40 @@ use crate::{
 
 const TABLE_FULL: &str = "journey_cache__full";
 
+fn migrations() -> [utils::db::Migration<'static>; 1] {
+    fn migrate_to_1_0(tx: &Transaction) -> Result<()> {
+        tx.execute("DROP TABLE IF EXISTS journey_cache;", ())?;
+        tx.execute(
+            &format!(
+                "CREATE TABLE IF NOT EXISTS `{TABLE_FULL}` (
+                kind TEXT PRIMARY KEY NOT NULL UNIQUE,
+                data BLOB NOT NULL
+            )"
+            ),
+            (),
+        )?;
+        Ok(())
+    }
+
+    [utils::db::Migration::new(1, 0, &migrate_to_1_0)]
+}
+
+#[cfg(test)]
+mod migration_tests {
+    #[test]
+    fn migrations_are_in_order() {
+        assert!(crate::utils::db::migrations_are_strictly_increasing(
+            &super::migrations()
+        ));
+    }
+}
+
 fn open_db(cache_dir: &str, file_name: &str) -> Result<Connection> {
     debug!("opening cache db for {file_name}");
     let mut conn = Connection::open(Path::new(cache_dir).join(file_name))?;
 
     let tx = conn.transaction()?;
-    let version = utils::db::init_metadata_and_get_version(&tx)?;
-
-    let target_version = 1;
-    debug!("current version = {version}, target_version = {target_version}");
-    match version.cmp(&target_version) {
-        Ordering::Equal => (),
-        Ordering::Greater => {
-            bail!(
-                "version too high: current version = {version}, target_version = {target_version}"
-            );
-        }
-        Ordering::Less => {
-            tx.execute("DROP TABLE IF EXISTS journey_cache;", ())?;
-            tx.execute(
-                &format!(
-                    "CREATE TABLE IF NOT EXISTS `{TABLE_FULL}` (
-                    kind TEXT PRIMARY KEY NOT NULL UNIQUE,
-                    data BLOB NOT NULL
-                )"
-                ),
-                (),
-            )?;
-            utils::db::set_version_in_metadata(&tx, target_version)?;
-        }
-    }
+    utils::db::run_migrations(&tx, file_name, &migrations())?;
     tx.commit()?;
     Ok(conn)
 }

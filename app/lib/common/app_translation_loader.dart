@@ -18,5 +18,6 @@ class AppTranslationLoader extends AssetLoader {
   }
 
   Future<Map<String, dynamic>> _loadJson(String assetPath) async =>
-      jsonDecode(await rootBundle.loadString(assetPath)) as Map<String, dynamic>;
+      jsonDecode(await rootBundle.loadString(assetPath))
+          as Map<String, dynamic>;
 }

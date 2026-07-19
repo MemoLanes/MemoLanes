@@ -116,7 +116,9 @@ fn journey_raw_data_lifecycle() {
         .record_with_raw_data(&appended, gps_processor::ProcessResult::Append, true)
         .unwrap();
 
-    let ongoing = main_db.with_txn(|txn| txn.get_ongoing_raw_data()).unwrap();
+    let ongoing = main_db
+        .with_txn(|txn| txn.get_ongoing_journey_raw_data())
+        .unwrap();
     assert_eq!(ongoing.points, vec![ignored.clone(), appended.clone()]);
 
     assert!(main_db
@@ -137,7 +139,7 @@ fn journey_raw_data_lifecycle() {
         vec![ignored, appended]
     );
     assert!(main_db
-        .with_txn(|txn| txn.get_ongoing_raw_data())
+        .with_txn(|txn| txn.get_ongoing_journey_raw_data())
         .unwrap()
         .is_empty());
 
@@ -304,11 +306,40 @@ fn migrates_v1_database_for_journey_raw_data() {
         .unwrap();
     assert_eq!(
         main_db
-            .with_txn(|txn| txn.get_ongoing_raw_data())
+            .with_txn(|txn| txn.get_ongoing_journey_raw_data())
             .unwrap()
             .points,
         vec![point]
     );
+
+    drop(main_db);
+    let connection = rusqlite::Connection::open(&db_path).unwrap();
+    let table_exists = |name: &str| {
+        connection
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)",
+                [name],
+                |row| row.get::<_, bool>(0),
+            )
+            .unwrap()
+    };
+    assert!(table_exists("ongoing_journey_raw_data"));
+    assert!(!table_exists("ongoing_raw_data"));
+    assert!(connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM pragma_table_info('journey') WHERE name = 'raw_data')",
+            (),
+            |row| row.get::<_, bool>(0),
+        )
+        .unwrap());
+    let minor_version: String = connection
+        .query_row(
+            "SELECT value FROM db_metadata WHERE key = 'minor_version'",
+            (),
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(minor_version, "1");
 }
 
 #[test]
