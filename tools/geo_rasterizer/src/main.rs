@@ -10,6 +10,8 @@ use geo_rasterizer::{
     cache::{compute_provenance_hash, read_existing_hash},
     download::ensure_geojson,
     entities::assemble_entities,
+    names::{build_region_names, write_region_names},
+    overrides::Overrides,
     parse::{parse_geojson, validate_no_antimeridian_span},
     rasterize::rasterize,
     registry::{audit_identity, merged_representative_points, Registry},
@@ -65,10 +67,38 @@ fn default_registry() -> PathBuf {
     manifest().join("geo_entity_registry.toml")
 }
 
+fn geo_assets_dir() -> PathBuf {
+    manifest().join("../../app/assets/geo")
+}
+
 fn default_output(worldview: Worldview) -> PathBuf {
-    manifest()
-        .join("../../app/assets/geo")
-        .join(format!("geo_data_{}.bin", worldview.spec().id))
+    geo_assets_dir().join(format!("geo_data_{}.bin", worldview.spec().id))
+}
+
+fn default_overrides() -> PathBuf {
+    manifest().join("geo_names_overrides.toml")
+}
+
+fn generate_region_names(ensure_source: bool) -> Result<()> {
+    let overrides = Overrides::load(&default_overrides())?;
+    let mut by_worldview = Vec::new();
+    for &worldview in Worldview::ALL {
+        let path = default_countries(worldview);
+        if ensure_source {
+            ensure_geojson(&path, worldview)?;
+        }
+        by_worldview.push((worldview, parse_geojson(&path, worldview.spec().id)?));
+    }
+    let names = build_region_names(&by_worldview, &overrides)?;
+    for (locale, map) in &names {
+        let path = write_region_names(&geo_assets_dir(), *locale, map)?;
+        eprintln!(
+            "[geo_rasterizer] wrote {} ({} names)",
+            path.display(),
+            map.len()
+        );
+    }
+    Ok(())
 }
 
 fn main() -> Result<()> {
@@ -102,6 +132,9 @@ fn main() -> Result<()> {
                     args.ensure_source,
                     args.download_only,
                 )?;
+            }
+            if !args.download_only {
+                generate_region_names(args.ensure_source)?;
             }
         }
     }

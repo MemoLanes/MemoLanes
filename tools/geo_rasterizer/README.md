@@ -1,11 +1,17 @@
 # geo_rasterizer
 
-Offline build tool. Converts Natural Earth GeoJSON into the `geo_data_*.bin`
-geo-reference data shipped in `app/assets/`. Run via the `app/` Justfile
-(`just rasterize-geo`); it is not part of the app at runtime.
+Offline build tool. Converts Natural Earth GeoJSON into the geo-reference data
+shipped in `app/assets/geo/`:
 
-This README focuses on **`geo_entity_registry.toml`**, the one file in this
-crate that is hand-curated state rather than a pure build artifact.
+- `geo_data_<worldview>.bin` — the packed entity/tile data (one per worldview).
+- `region_names.<locale>.json` — the localized region-name maps (one per locale).
+
+Run via the `app/` Justfile (`just rasterize-geo`); it is not part of the app at
+runtime. Both outputs are git-ignored and reproducible from the pinned source.
+
+Two files in this crate are **hand-curated state**, committed as source of truth:
+`geo_entity_registry.toml` (frozen ids) and `geo_names_overrides.toml` (name
+overrides). This README covers the registry first, then names.
 
 ## What `geo_entity_registry.toml` is
 
@@ -126,12 +132,70 @@ A non-empty diff fails the build — meaning a source/worldview bump was made wi
 regenerating and committing the registry. So forgetting this step is caught
 automatically rather than silently shipping stale ids.
 
+## Region names (`geo_names_overrides.toml`)
+
+Each entity carries its display name as an l10n *key*, not a string — `entities.rs`
+mints `country.<ADM0_A3>` / `continent.<code>` into the `.bin`. The
+rasterizer resolves those keys to display strings and writes one
+`region_names.<locale>.json` per locale (`app/assets/geo/`), nested like the UI
+translation files (`{"country": {"CHN": …}}`), which the app merges
+into easy_localization via a custom `AssetLoader` — so a region name resolves
+through the same `.tr()` path as every other string (see
+`app/lib/common/app_translation_loader.dart`, `RegionEntity.displayName`).
+
+The app never sees a name key as a bare `String`: `RegionEntity.nameKey` is a
+`RegionNameKey` wrapper, so `entity.nameKey.tr()` doesn't compile. That forces
+resolution through `RegionEntity.displayName(worldviewId)`, the one place that
+unwraps `.value` and prefers a worldview-scoped override — a raw `.tr()` would
+silently skip it.
+
+Resolution per name, in order:
+
+1. worldview-scoped override → a `<worldview>.<name_key>` key (see below),
+2. worldview-agnostic override,
+3. the locale's Natural Earth `NAME_*` field on the group's sovereign member,
+4. hard error — never a silent English fallback.
+
+**One map per locale, not per worldview.** Natural Earth's POV files normally
+agree on names (they differ on *borders*, not names), so the map is keyed by
+`name_key` alone, unioned across worldviews; the `.bin`'s per-worldview entity
+set decides which keys a worldview actually uses. If a future Natural Earth bump
+makes a code's names diverge across worldviews, generation fails loudly — unless
+the divergence is covered by overrides: a worldview-agnostic override replaces
+the Natural Earth names outright, or scoped overrides peel the divergent
+worldviews off onto `<worldview>.<name_key>` keys, in which case every worldview
+still reading the shared key must agree on its value.
+
+`geo_names_overrides.toml` is the only hand-authored part. Two reasons an override
+exists: Natural Earth has no name (continents have no feature of their own, so
+**every** continent name is authored here; a collapsed group with no sovereign
+member has none), or its name is not one we ship. A key is a locale string; a
+per-worldview override is a sub-table:
+
+```toml
+["country.TWN"]        # default: every worldview
+zh-CN = "台湾"
+
+["country.TWN".chn]    # chn worldview only; emitted as `chn.country.TWN`
+zh-CN = "…"
+```
+
+### Regenerating after an overrides edit
+
+`just rasterize-geo` — the names pass always reruns and picks up the edit (the
+`.bin`s hash `geojson + registry`, not the overrides, so they skip). Then
+`just test-geo` runs the coverage gate (`tests/names_coverage.rs`): every entity
+in every worldview must resolve to a non-empty name in every locale. Commit only
+the `.toml` — the JSON are git-ignored build artifacts.
+
 ## Future work
 
-- **i18n.** Each entity's display name is carried as a Flutter l10n *key*, not a
-  string — the rasterizer derives `country.<ADM0_A3>.name` and
-  `continent.<code>.name` (worldviews use `worldview.<id>.name` from `worldview.rs`).
-  The remaining work is ensuring every generated key has a localized string in
-  `app/assets/translations/*.json` for each locale, so a newly registered code
-  can't ship without its translated name. See the `TODO(i18n)` in
-  [`src/registry.rs`](src/registry.rs).
+- **Per-worldview names (admin-1).** The worldview-scoped override path
+  (`["…".<worldview>]` → a `<worldview>.<name_key>` key the app prefers) is
+  implemented but **unused** — no admin-0 name differs by worldview. It exists for
+  future admin-1 states/provinces, where a disputed region legitimately has a
+  different name per political view (e.g. Arunachal Pradesh vs 藏南 in the chn
+  worldview). Natural Earth has no POV variant of admin-1, so such names would be
+  hand-authored here as worldview overrides. Admin-1 also needs per-worldview
+  parenting reconciliation (which province belongs to which country per worldview),
+  which the country-level `absorb` mechanism only hints at.

@@ -30,6 +30,7 @@ fn feat(adm0: &str, continent: &str) -> ParsedFeature {
         continent: continent.into(),
         region_un: "Africa".into(),
         geometry: MultiPolygon(vec![sq]),
+        localized_names: Default::default(),
     }
 }
 

@@ -72,8 +72,49 @@ pub mod db {
     use auto_context::auto_context;
     use rusqlite::{OptionalExtension, Transaction};
 
+    #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+    pub struct SchemaVersion {
+        pub major: i32,
+        pub minor: i32,
+    }
+
+    impl SchemaVersion {
+        pub const fn new(major: i32, minor: i32) -> Self {
+            Self { major, minor }
+        }
+    }
+
+    pub struct Migration<'a> {
+        pub version: SchemaVersion,
+        run: &'a dyn Fn(&Transaction) -> Result<()>,
+    }
+
+    impl<'a> Migration<'a> {
+        pub const fn new(
+            major: i32,
+            minor: i32,
+            run: &'a dyn Fn(&Transaction) -> Result<()>,
+        ) -> Self {
+            Self {
+                version: SchemaVersion::new(major, minor),
+                run,
+            }
+        }
+    }
+
+    fn get_version_component(tx: &Transaction, key: &str) -> Result<i32> {
+        let value: Option<String> = tx
+            .query_row(
+                "SELECT value FROM db_metadata WHERE key = ?1",
+                [key],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(value.map(|value| value.parse()).transpose()?.unwrap_or(0))
+    }
+
     #[auto_context]
-    pub fn init_metadata_and_get_version(tx: &Transaction) -> Result<i32> {
+    pub fn init_metadata_and_get_version(tx: &Transaction) -> Result<SchemaVersion> {
         let create_db_metadata_sql = "
         CREATE TABLE IF NOT EXISTS `db_metadata` (
 	    `key`	TEXT NOT NULL,
@@ -81,27 +122,97 @@ pub mod db {
 	    PRIMARY KEY(`key`)
         )";
         tx.execute(create_db_metadata_sql, ())?;
-        let version_str: Option<String> = tx
-            .query_row(
-                "SELECT `value` FROM `db_metadata` WHERE key='version'",
-                [],
-                |row| row.get(0),
-            )
-            .optional()?;
 
-        let version = match version_str {
-            None => 0,
-            Some(s) => s.parse()?,
-        };
+        // `minor_version` was introduced after the original version-1 schema.
+        // Its absence therefore means 0, preserving compatibility with every
+        // database created by an older release.
+        let version = SchemaVersion::new(
+            get_version_component(tx, "version")?,
+            get_version_component(tx, "minor_version")?,
+        );
+        if version.major < 0 || version.minor < 0 || (version.major == 0 && version.minor != 0) {
+            bail!("invalid database version: {version:?}");
+        }
         Ok(version)
     }
 
     #[auto_context]
-    pub fn set_version_in_metadata(tx: &Transaction, version: i32) -> Result<()> {
+    pub fn set_version_in_metadata(tx: &Transaction, version: SchemaVersion) -> Result<()> {
         tx.execute(
-            "INSERT OR REPLACE INTO `db_metadata` (key, value) VALUES (?1, ?2)",
-            ("version", version.to_string()),
+            "INSERT OR REPLACE INTO `db_metadata` (key, value) VALUES
+                ('version', ?1),
+                ('minor_version', ?2)",
+            (version.major.to_string(), version.minor.to_string()),
         )?;
         Ok(())
+    }
+
+    #[doc(hidden)]
+    pub fn migrations_are_strictly_increasing(migrations: &[Migration<'_>]) -> bool {
+        let mut previous = SchemaVersion::new(0, 0);
+        for migration in migrations {
+            let next = migration.version;
+            if next.major <= 0 || next <= previous {
+                return false;
+            }
+            previous = next;
+        }
+        true
+    }
+
+    /// Apply one ordered chain of major and backward-compatible minor migrations.
+    ///
+    /// The legacy `version` metadata remains the major compatibility version,
+    /// so already-released applications continue to accept databases that only
+    /// gained nullable columns, optional tables, or indexes. Every migration
+    /// declares its resulting version, allowing dependencies such as
+    /// `1.0 -> 1.3 -> 3.0 -> 3.5` to execute in their exact historical order.
+    /// Versions only need to be strictly increasing; gaps are allowed.
+    ///
+    /// A database with a higher minor version is deliberately accepted: minor
+    /// migrations must be additive and safe for older readers and writers. Its
+    /// metadata is left untouched so a downgrade never lowers the schema level.
+    #[auto_context]
+    pub fn run_migrations(
+        tx: &Transaction,
+        db_name: &str,
+        migrations: &[Migration<'_>],
+    ) -> Result<SchemaVersion> {
+        let current = init_metadata_and_get_version(tx)?;
+        let target = migrations
+            .last()
+            .map(|migration| migration.version)
+            .unwrap_or(SchemaVersion::new(0, 0));
+        debug!("{db_name}: current version = {current:?}, target version = {target:?}");
+
+        if current.major > target.major {
+            bail!(
+                "major version too high: current version = {current:?}, target version = {target:?}"
+            );
+        }
+
+        if current.major == target.major && current.minor > target.minor {
+            warn!(
+                "{db_name}: database minor version {} is newer than supported {}; opening because minor versions are backward compatible",
+                current.minor, target.minor
+            );
+            return Ok(current);
+        }
+
+        for migration in migrations
+            .iter()
+            .filter(|migration| migration.version > current)
+        {
+            info!(
+                "{db_name}: running migration {}.{}",
+                migration.version.major, migration.version.minor
+            );
+            (migration.run)(tx)?;
+        }
+
+        // Also writes an explicit minor version for legacy databases where the
+        // missing key was interpreted as 0.
+        set_version_in_metadata(tx, target)?;
+        Ok(target)
     }
 }

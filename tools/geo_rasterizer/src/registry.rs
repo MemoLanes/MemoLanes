@@ -15,13 +15,6 @@ use geo_data_format::GeoEntityId;
 use geo_types::MultiPolygon;
 use serde::{Deserialize, Serialize};
 
-// TODO(i18n): an entity's display name is carried as a Flutter l10n KEY, not a
-// string — `entities.rs` derives `country.<ADM0_A3>.name` and
-// `continent.<code>.name` from these codes (worldviews use `worldview.<id>.name`
-// in geo_data_format's `worldview.rs`). The missing piece is the translations: every
-// generated key needs an entry in `app/assets/translations/*.json` for each
-// locale, ideally checked so a newly registered code can't ship without its
-// localized name.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct Entry {
     /// Continent 2-letter code or country `ADM0_A3`.
