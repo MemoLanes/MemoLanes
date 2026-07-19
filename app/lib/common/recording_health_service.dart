@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/common/recording_health_alert.dart';
 
 class RecordingHealthService {
   static final RecordingHealthService instance = RecordingHealthService._();
@@ -14,7 +15,6 @@ class RecordingHealthService {
 
   Timer? _heartbeatTimer;
   DateTime? _lastHeartbeatAt;
-  bool _hasPendingFreezeWarning = false;
 
   bool get isRunning => _heartbeatTimer != null;
 
@@ -30,18 +30,6 @@ class RecordingHealthService {
 
   void stop() {
     _stopHeartbeat();
-    _hasPendingFreezeWarning = false;
-  }
-
-  bool takePendingFreezeWarning() {
-    if (!_hasPendingFreezeWarning) return false;
-
-    _hasPendingFreezeWarning = false;
-    return true;
-  }
-
-  void restorePendingFreezeWarning() {
-    _hasPendingFreezeWarning = true;
   }
 
   void _startHeartbeat() {
@@ -67,7 +55,7 @@ class RecordingHealthService {
         log.warning(
           '[RecordingHealthService] heartbeat gap detected while recording: ${gap.inSeconds}s',
         );
-        _hasPendingFreezeWarning = true;
+        unawaited(RecordingHealthAlert.instance.showFreezeWarning());
       }
     }
     _lastHeartbeatAt = now;
