@@ -91,7 +91,7 @@ pub fn rasterize(_features: &[ParsedFeature], model: &EntityModel) -> (TileLooku
     // Phase 1: per-entity scanline rasterization.
     let mut entity_rasters: Vec<EntityRaster> = Vec::with_capacity(model.entities.len());
     for (i, e) in model.entities.iter().enumerate() {
-        let adm0 = e.iso_code.as_str();
+        let adm0 = e.canonical_code.as_str();
         let geom = match model.geometry_for_country.get(adm0) {
             Some(g) => g,
             None => continue,

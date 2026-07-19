@@ -6,6 +6,7 @@ import 'package:memolanes/body/achievement/achievement_country_list_page.dart';
 import 'package:memolanes/body/achievement/shared/achievement_common.dart';
 import 'package:memolanes/common/achievement_stats_store.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
+import 'package:memolanes/common/region_preference.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:provider/provider.dart';
 
@@ -215,7 +216,9 @@ class _CountryFlagItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final countryName = context.tr(country.nameKey);
+    final countryName = country.entity.displayName(
+      WorldviewManager.instance.currentWorldview.id,
+    );
 
     // TODO: Re-enable country detail navigation after province/city data is wired.
     return Tooltip(
@@ -248,7 +251,7 @@ class _CountryFlagItem extends StatelessWidget {
                 child: SizedBox.square(
                   dimension: 36,
                   child: AchievementCountryFlag(
-                    countryCode: country.isoCode,
+                    countryCode: country.isoA3Eh ?? '',
                     size: 36,
                   ),
                 ),

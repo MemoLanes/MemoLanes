@@ -10,7 +10,7 @@ const SYNTHETIC_REGISTRY: &str = "tests/fixtures/synthetic_registry.toml";
 
 #[test]
 fn synthetic_polygons_classify_correctly() {
-    let features = parse_geojson(Path::new("tests/fixtures/synthetic.geojson")).unwrap();
+    let features = parse_geojson(Path::new("tests/fixtures/synthetic.geojson"), "iso").unwrap();
     let registry = Registry::load(Path::new(SYNTHETIC_REGISTRY)).unwrap();
     let model = assemble_entities(&features, &registry).unwrap();
     let (tile_lookup, block_lookup) = rasterize(&features, &model);
@@ -35,7 +35,7 @@ fn synthetic_polygons_classify_correctly() {
             let entity_id = model
                 .entities
                 .iter()
-                .find(|e| e.iso_code == "AAA")
+                .find(|e| e.canonical_code == "AAA")
                 .unwrap()
                 .id;
             assert_eq!(blocks[block_idx], Some(entity_id));
@@ -46,7 +46,7 @@ fn synthetic_polygons_classify_correctly() {
 
 #[test]
 fn deep_ocean_block_resolves_to_none() {
-    let features = parse_geojson(Path::new("tests/fixtures/synthetic.geojson")).unwrap();
+    let features = parse_geojson(Path::new("tests/fixtures/synthetic.geojson"), "iso").unwrap();
     let registry = Registry::load(Path::new(SYNTHETIC_REGISTRY)).unwrap();
     let model = assemble_entities(&features, &registry).unwrap();
     let (tile_lookup, _) = rasterize(&features, &model);

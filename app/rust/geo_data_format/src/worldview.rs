@@ -19,7 +19,7 @@ pub const NATURAL_EARTH_BASE: &str =
      ca96624a56bd078437bca8184e78163e5039ad19/geojson";
 
 /// Worldview of Natural Earth Admin-0 Countries.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Worldview {
     Iso,
     Chn,

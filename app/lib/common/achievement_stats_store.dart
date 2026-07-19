@@ -49,17 +49,17 @@ class AchievementAreaStats {
 class AchievementCountryStats {
   const AchievementCountryStats({
     required this.entityId,
-    required this.isoCode,
-    required this.nameKey,
+    required this.entity,
     required this.visitedKm2,
     required this.totalKm2,
   });
 
   final achievement_api.GeoEntityId entityId;
-  final String isoCode;
-  final String nameKey;
+  final RegionEntity entity;
   final double visitedKm2;
   final double totalKm2;
+
+  String? get isoA3Eh => entity.isoA3Eh;
 
   double get progress => AchievementAreaStats._safeShare(visitedKm2, totalKm2);
 
@@ -68,8 +68,7 @@ class AchievementCountryStats {
     double epsilonKm2 = 0.000001,
   }) {
     return entityId == other.entityId &&
-        isoCode == other.isoCode &&
-        nameKey == other.nameKey &&
+        entity == other.entity &&
         (visitedKm2 - other.visitedKm2).abs() < epsilonKm2 &&
         (totalKm2 - other.totalKm2).abs() < epsilonKm2;
   }
@@ -78,15 +77,14 @@ class AchievementCountryStats {
   bool operator ==(Object other) {
     return other is AchievementCountryStats &&
         entityId == other.entityId &&
-        isoCode == other.isoCode &&
-        nameKey == other.nameKey &&
+        entity == other.entity &&
         visitedKm2 == other.visitedKm2 &&
         totalKm2 == other.totalKm2;
   }
 
   @override
   int get hashCode =>
-      Object.hash(entityId, isoCode, nameKey, visitedKm2, totalKm2);
+      Object.hash(entityId, entity, visitedKm2, totalKm2);
 }
 
 class AchievementStatsStore extends ChangeNotifier {
@@ -205,8 +203,7 @@ class AchievementStatsStore extends ChangeNotifier {
         .map(
           (entry) => AchievementCountryStats(
             entityId: entry.key,
-            isoCode: entry.value.isoCode,
-            nameKey: entry.value.nameKey,
+            entity: entry.value,
             visitedKm2: entry.value.visitedAreaM2.toDouble() / 1000000,
             totalKm2: entry.value.totalAreaM2.toDouble() / 1000000,
           ),
@@ -215,7 +212,7 @@ class AchievementStatsStore extends ChangeNotifier {
       ..sort((a, b) {
         final areaOrder = b.visitedKm2.compareTo(a.visitedKm2);
         if (areaOrder != 0) return areaOrder;
-        return a.isoCode.compareTo(b.isoCode);
+        return (a.isoA3Eh ?? '').compareTo(b.isoA3Eh ?? '');
       });
 
     return countries;

@@ -20,7 +20,8 @@ fn entity(id: u32, kind: GeoEntityKind, iso: &str, parent: Option<u32>, area: u6
     GeoEntity {
         id: GeoEntityId(id),
         kind,
-        iso_code: iso.into(),
+        canonical_code: iso.into(),
+        iso_a3_eh: None,
         name_key: format!("k.{iso}"),
         parent_id: parent.map(GeoEntityId),
         total_area_m2: area,

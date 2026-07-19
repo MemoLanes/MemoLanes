@@ -12,6 +12,8 @@ use memolanes_core::{
     journey_bitmap::{BlockKey, TileKey},
 };
 
+use geo_data_format::GeoEntityKind;
+
 /// Web-mercator (lng, lat) → (tile, block) on the 65 536-block grid — the same
 /// projection the rasterizer used, so the lookup is self-consistent with the asset.
 fn block_of(lng: f64, lat: f64) -> (TileKey, BlockKey) {
@@ -50,9 +52,133 @@ fn iso_asset_resolves_known_country_locations() {
             .entity_of_block(tile, block)
             .unwrap_or_else(|| panic!("{iso}: resolved to ocean at ({lng}, {lat})"));
         assert_eq!(
-            geo.entity(id).unwrap().iso_code,
+            geo.entity(id).unwrap().canonical_code,
             iso,
             "lookup at ({lng}, {lat})"
         );
     }
+}
+
+/// chn worldview groups Hong Kong, Macau, and Taiwan into China: a lookup at
+/// each resolves to `CHN`, and none survives as its own country entity.
+#[test]
+fn chn_asset_groups_hong_kong_macau_taiwan_into_china() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/geo/geo_data_chn.bin");
+    if !path.exists() {
+        eprintln!(
+            "skipping: {} absent — run `just rasterize-geo` to generate it",
+            path.display()
+        );
+        return;
+    }
+    let geo = GeoIndex::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
+
+    // Land points well inside each territory — all must resolve to China.
+    for (lng, lat, place) in [
+        (114.1694, 22.3193, "Hong Kong"),
+        (113.5439, 22.1987, "Macau"),
+        (121.0, 23.75, "Taiwan"),
+    ] {
+        let (tile, block) = block_of(lng, lat);
+        let id = geo
+            .entity_of_block(tile, block)
+            .unwrap_or_else(|| panic!("{place}: resolved to ocean at ({lng}, {lat})"));
+        assert_eq!(
+            geo.entity(id).unwrap().canonical_code,
+            "CHN",
+            "{place} at ({lng}, {lat}) must belong to China in chn worldview"
+        );
+    }
+
+    // The absorbed dependencies must not exist as separate country entities.
+    let codes: std::collections::HashSet<&str> = geo
+        .entities_of_kind(GeoEntityKind::Country)
+        .iter()
+        .filter_map(|id| geo.entity(*id).map(|e| e.canonical_code.as_str()))
+        .collect();
+    assert!(codes.contains("CHN"), "China missing from chn asset");
+    for absorbed in ["HKG", "MAC", "TWN"] {
+        assert!(
+            !codes.contains(absorbed),
+            "{absorbed} must be absorbed into China in chn worldview"
+        );
+    }
+}
+
+/// Former "Seven seas (open ocean)" features are now first-class country
+/// entities, parented via `REGION_UN`, and carry a real `iso_a3_eh`. Checks the
+/// entity set directly (not a geographic lookup) so it is robust to how tiny
+/// islands rasterize.
+#[test]
+fn iso_asset_includes_seven_seas_islands() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/geo/geo_data_iso.bin");
+    if !path.exists() {
+        eprintln!(
+            "skipping: {} absent — run `just rasterize-geo` to generate it",
+            path.display()
+        );
+        return;
+    }
+    let geo = GeoIndex::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
+
+    let by_code: std::collections::HashMap<&str, _> = geo
+        .entities_of_kind(GeoEntityKind::Country)
+        .iter()
+        .filter_map(|id| geo.entity(*id).map(|e| (e.canonical_code.as_str(), e)))
+        .collect();
+
+    // (ADM0_A3, expected parent continent code) — REGION_UN parents these:
+    // Africa → AF, Asia → AS, Americas → SA.
+    for (code, parent_code) in [
+        ("MUS", "AF"), // Mauritius
+        ("SYC", "AF"), // Seychelles
+        ("SHN", "AF"), // Saint Helena
+        ("MDV", "AS"), // Maldives
+        ("SGS", "SA"), // South Georgia (REGION_UN "Americas" → SA)
+    ] {
+        let e = by_code
+            .get(code)
+            .unwrap_or_else(|| panic!("{code}: missing from iso asset"));
+        assert_eq!(e.kind, GeoEntityKind::Country, "{code}");
+        assert_eq!(e.iso_a3_eh.as_deref(), Some(code), "{code}: iso_a3_eh");
+        let parent = geo.entity(e.parent_id.unwrap()).unwrap();
+        assert_eq!(parent.canonical_code, parent_code, "{code}: parent");
+    }
+}
+
+/// Sovereigns whose NE `ADM0_A3` is a non-ISO code still expose their real ISO
+/// alpha-3 via `iso_a3_eh` (single-feature groups use their own `ISO_A3_EH`).
+#[test]
+fn iso_asset_maps_non_iso_adm0_to_real_iso() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/geo/geo_data_iso.bin");
+    if !path.exists() {
+        eprintln!(
+            "skipping: {} absent — run `just rasterize-geo` to generate it",
+            path.display()
+        );
+        return;
+    }
+    let geo = GeoIndex::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
+    let by_code: std::collections::HashMap<&str, _> = geo
+        .entities_of_kind(GeoEntityKind::Country)
+        .iter()
+        .filter_map(|id| geo.entity(*id).map(|e| (e.canonical_code.as_str(), e)))
+        .collect();
+
+    // (ADM0_A3 identity key, real ISO_A3_EH). ADM0_A3 differs from the ISO code.
+    for (adm0, iso) in [
+        ("PSX", "PSE"), // Palestine
+        ("SDS", "SSD"), // South Sudan
+        ("SAH", "ESH"), // Western Sahara
+    ] {
+        let e = by_code
+            .get(adm0)
+            .unwrap_or_else(|| panic!("{adm0}: missing from iso asset"));
+        assert_eq!(e.iso_a3_eh.as_deref(), Some(iso), "{adm0} -> {iso}");
+    }
+    // France collapses overseas dependencies; the entity keeps the sovereign code.
+    assert_eq!(
+        by_code.get("FRA").unwrap().iso_a3_eh.as_deref(),
+        Some("FRA")
+    );
 }

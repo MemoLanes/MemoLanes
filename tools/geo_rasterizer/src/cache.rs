@@ -94,34 +94,3 @@ pub fn read_existing_hash(bin_path: &Path) -> Result<Option<[u8; 32]>> {
     );
     Ok(Some(hash))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::io::Write;
-
-    fn tmp(content: &[u8]) -> tempfile::NamedTempFile {
-        let mut f = tempfile::NamedTempFile::new().unwrap();
-        f.write_all(content).unwrap();
-        f
-    }
-
-    #[test]
-    fn registry_change_changes_provenance_hash() {
-        let geo = tmp(b"GEO");
-        let r1 = tmp(b"REG-A");
-        let r2 = tmp(b"REG-B");
-        let h1 = compute_provenance_hash(geo.path(), r1.path(), "iso").unwrap();
-        let h2 = compute_provenance_hash(geo.path(), r2.path(), "iso").unwrap();
-        assert_ne!(h1, h2, "registry must participate in the cache key");
-    }
-
-    #[test]
-    fn worldview_id_change_changes_provenance_hash() {
-        let geo = tmp(b"GEO");
-        let reg = tmp(b"REG");
-        let h1 = compute_provenance_hash(geo.path(), reg.path(), "iso").unwrap();
-        let h2 = compute_provenance_hash(geo.path(), reg.path(), "chn").unwrap();
-        assert_ne!(h1, h2, "worldview id must participate in the cache key");
-    }
-}

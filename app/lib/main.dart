@@ -15,6 +15,7 @@ import 'package:memolanes/body/first_launch_setup.dart';
 import 'package:memolanes/body/settings/settings_body.dart'
     deferred as settings;
 import 'package:memolanes/common/achievement_stats_store.dart';
+import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/component/bottom_nav_bar.dart';
 import 'package:memolanes/common/component/map_controls/map_copyright_button.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
@@ -44,6 +45,7 @@ void main() async {
           Locale('zh', 'CN'),
         ],
         path: 'assets/translations',
+        assetLoader: const AppTranslationLoader(),
         fallbackLocale: const Locale('en', 'US'),
         saveLocale: false,
         child: MultiProvider(

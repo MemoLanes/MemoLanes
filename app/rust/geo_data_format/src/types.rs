@@ -18,7 +18,10 @@ pub enum GeoEntityKind {
 pub struct GeoEntity {
     pub id: GeoEntityId,
     pub kind: GeoEntityKind,
-    pub iso_code: String,
+    /// Per-kind Natural Earth identity code: continent code ("AF") for
+    /// continents, `ADM0_A3` for countries. Guaranteed unique within kind.
+    pub canonical_code: String,
+    pub iso_a3_eh: Option<String>,
     pub name_key: String,
     pub parent_id: Option<GeoEntityId>,
     /// Pre-computed total area in m², from rasterizer.

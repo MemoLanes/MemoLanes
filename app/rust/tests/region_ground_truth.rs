@@ -187,7 +187,7 @@ fn visited_country_isos(
         .filter(|(l, _)| *l == layer)
         .filter_map(|(_, id)| geo.entity(*id))
         .filter(|e| e.kind == GeoEntityKind::Country)
-        .map(|e| e.iso_code.clone())
+        .map(|e| e.canonical_code.clone())
         .collect()
 }
 
@@ -212,7 +212,12 @@ fn region_api_reports_correct_countries_and_areas() {
         let id = geo_index
             .entity_of_block(tile, block)
             .unwrap_or_else(|| panic!("{}: resolved to ocean", c.name));
-        assert_eq!(geo_index.entity(id).unwrap().iso_code, c.iso, "{}", c.name);
+        assert_eq!(
+            geo_index.entity(id).unwrap().canonical_code,
+            c.iso,
+            "{}",
+            c.name
+        );
         placements.push((i, tile, block, expected_patch_area(tile, block)));
     }
 
@@ -275,7 +280,7 @@ fn region_api_reports_correct_countries_and_areas() {
     let mut iso_to_id: HashMap<String, _> = HashMap::new();
     for id in geo_index.entities_of_kind(GeoEntityKind::Country) {
         if let Some(e) = geo_index.entity(*id) {
-            iso_to_id.insert(e.iso_code.clone(), *id);
+            iso_to_id.insert(e.canonical_code.clone(), *id);
         }
     }
     for (i, _t, _b, expected) in &placements {

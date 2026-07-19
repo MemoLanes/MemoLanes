@@ -264,7 +264,8 @@ mod tests {
         GeoEntity {
             id: GeoEntityId(id),
             kind: GeoEntityKind::Country,
-            iso_code: iso.into(),
+            canonical_code: iso.into(),
+            iso_a3_eh: Some(iso.into()),
             name_key: format!("c.{iso}"),
             parent_id: None,
             total_area_m2: 1,
@@ -287,7 +288,7 @@ mod tests {
         assert_eq!(gd.provenance_hash, [3u8; 32]);
         assert_eq!(gd.worldview_id, "iso");
         assert_eq!(gd.entities.len(), 1);
-        assert_eq!(gd.entities[0].iso_code, "AAA");
+        assert_eq!(gd.entities[0].canonical_code, "AAA");
         assert_eq!(gd.tile_index[0], TileEntry::Single(GeoEntityId(7)));
         assert_eq!(gd.tile_index[1], TileEntry::Border(0));
         assert!(matches!(gd.tile_index[2], TileEntry::None));

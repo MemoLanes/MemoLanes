@@ -163,6 +163,14 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       } catch (e) {
         log.error('[base_map_webview] Failed to query battery save mode: $e');
       }
+    }, onError: (Object error) {
+      // Charging status is only used as a signal to refresh low-power mode.
+      // Some devices cannot provide it temporarily, so keep the stream alive
+      // and retain the last known low-power-mode value.
+      log.warning(
+        '[base_map_webview] Battery state unavailable; '
+        'keeping the last known low-power mode: $error',
+      );
     });
   }
 

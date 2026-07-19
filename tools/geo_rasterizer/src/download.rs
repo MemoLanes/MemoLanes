@@ -86,16 +86,18 @@ fn hex_lower(bytes: &[u8]) -> String {
 }
 
 fn download_to(path: &Path, url: &str) -> Result<()> {
-    let agent = ureq::AgentBuilder::new()
-        .timeout_connect(Duration::from_secs(30))
-        .timeout_read(Duration::from_secs(120))
-        .build();
+    let agent = ureq::Agent::config_builder()
+        .timeout_global(Some(Duration::from_secs(120)))
+        .build()
+        .new_agent();
     let resp = agent
         .get(url)
         .call()
         .with_context(|| format!("GET {url}"))?;
     let total: u64 = resp
-        .header("content-length")
+        .headers()
+        .get("content-length")
+        .and_then(|h| h.to_str().ok())
         .and_then(|h| h.parse().ok())
         .unwrap_or(0);
     let pb = if total > 0 {
@@ -111,7 +113,7 @@ fn download_to(path: &Path, url: &str) -> Result<()> {
     };
 
     {
-        let mut reader = pb.wrap_read(resp.into_reader());
+        let mut reader = pb.wrap_read(resp.into_body().into_reader());
         write_atomically_with(path, |f| {
             std::io::copy(&mut reader, f)?;
             Ok(())

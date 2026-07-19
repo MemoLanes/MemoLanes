@@ -22,7 +22,7 @@ wasm-bindgen = { version = "0.2", optional = true }
 console_error_panic_hook = { version = "0.1", optional = true }
 
 wasm-bindgen-futures = { version = "0.4", optional = true }
-bitvec = "1.0"
+bitvec = "1.1"
 lz4_flex = "0.13"
 miniz_oxide = "0.9"
 

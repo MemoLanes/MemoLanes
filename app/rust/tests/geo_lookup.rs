@@ -13,7 +13,8 @@ fn entity(id: u32, kind: GeoEntityKind, iso: &str, parent: Option<u32>) -> GeoEn
     GeoEntity {
         id: GeoEntityId(id),
         kind,
-        iso_code: iso.into(),
+        canonical_code: iso.into(),
+        iso_a3_eh: None,
         name_key: format!("k.{iso}"),
         parent_id: parent.map(GeoEntityId),
         total_area_m2: 1,
@@ -107,7 +108,7 @@ fn tile_membership_does_not_decode() {
 fn entity_metadata_kinds_and_ancestors() {
     let geo = synthetic_geo();
 
-    assert_eq!(geo.entity(GeoEntityId(2)).unwrap().iso_code, "FR");
+    assert_eq!(geo.entity(GeoEntityId(2)).unwrap().canonical_code, "FR");
     assert!(geo.entity(GeoEntityId(404)).is_none());
 
     let mut countries = geo.entities_of_kind(GeoEntityKind::Country).to_vec();

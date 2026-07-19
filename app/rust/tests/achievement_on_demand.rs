@@ -29,7 +29,8 @@ fn synthetic_geo_bytes() -> Vec<u8> {
     let entity = |id, kind, iso: &str, parent: Option<u32>| GeoEntity {
         id: GeoEntityId(id),
         kind,
-        iso_code: iso.into(),
+        canonical_code: iso.into(),
+        iso_a3_eh: None,
         name_key: format!("k.{iso}"),
         parent_id: parent.map(GeoEntityId),
         total_area_m2: 1_000_000,

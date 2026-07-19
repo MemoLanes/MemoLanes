@@ -6,7 +6,7 @@
       "lib": ["ES2020", "DOM", "DOM.Iterable"],
       
       // Module resolution
-      "moduleResolution": "node",
+      "moduleResolution": "bundler",
       "resolveJsonModule": true,
       "allowSyntheticDefaultImports": true,
       "esModuleInterop": true,
@@ -25,7 +25,6 @@
       "outDir": "./dist",
       
       // Path mapping for cleaner imports
-      "baseUrl": ".",
       "paths": {
         "@/*": ["./static/*"]
       }
@@ -39,5 +38,3 @@
       "target"
     ]
   }
-  
-  

@@ -37,6 +37,15 @@ fn compute_provenance_hash_changes_with_input() {
 }
 
 #[test]
+fn compute_provenance_hash_changes_with_worldview() {
+    let geo = write_tmp(b"alpha");
+    let reg = write_tmp(b"gamma");
+    let h1 = compute_provenance_hash(geo.path(), reg.path(), "iso").unwrap();
+    let h2 = compute_provenance_hash(geo.path(), reg.path(), "chn").unwrap();
+    assert_ne!(h1, h2, "worldview id must participate in the cache key");
+}
+
+#[test]
 fn read_existing_hash_returns_none_for_missing_file() {
     let dir = tempfile::tempdir().unwrap();
     let missing = dir.path().join("does_not_exist.bin");

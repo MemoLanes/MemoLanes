@@ -43,14 +43,24 @@ impl RegionKind {
     }
 }
 
+/// A region's display name as an l10n key (`country.<ADM0_A3>`,
+/// `continent.<code>`), wrapped so it does not reach the Dart side as a bare
+/// `String`. This makes `entity.nameKey.tr()` a compile error: a raw `.tr()`
+/// resolves the worldview-agnostic name and would silently skip a
+/// worldview-specific override. Resolve via `RegionEntity.displayName(worldviewId)`,
+/// which unwraps `.value` in the one sanctioned place.
+pub struct RegionNameKey {
+    pub value: String,
+}
+
 /// One entity's coverage within the queried layer. Unvisited → zeros. Used by
 /// both the level list and the detail view; the `entity_id` lives in the map
 /// key (`RegionLevelView.entries` / `RegionDetail.children`). The coverage
 /// fraction is `visited_area_m2 / total_area_m2`, left to the frontend.
 pub struct RegionEntity {
     pub kind: RegionKind,
-    pub iso_code: String,
-    pub name_key: String,
+    pub name_key: RegionNameKey,
+    pub iso_a3_eh: Option<String>,
     pub visited_area_m2: u64,
     pub total_area_m2: u64,
 }
@@ -104,8 +114,10 @@ fn region_entity(
     let visited_area_m2 = states.get(&(layer, id)).map_or(0, |s| s.visited_area_m2);
     Some(RegionEntity {
         kind: entity.kind.into(),
-        iso_code: entity.iso_code.clone(),
-        name_key: entity.name_key.clone(),
+        name_key: RegionNameKey {
+            value: entity.name_key.clone(),
+        },
+        iso_a3_eh: entity.iso_a3_eh.clone(),
         visited_area_m2,
         total_area_m2: entity.total_area_m2,
     })
@@ -153,8 +165,10 @@ pub fn region_level_view(
             id,
             RegionEntity {
                 kind: entity.kind.into(),
-                iso_code: entity.iso_code.clone(),
-                name_key: entity.name_key.clone(),
+                name_key: RegionNameKey {
+                    value: entity.name_key.clone(),
+                },
+                iso_a3_eh: entity.iso_a3_eh.clone(),
                 visited_area_m2,
                 total_area_m2: entity.total_area_m2,
             },

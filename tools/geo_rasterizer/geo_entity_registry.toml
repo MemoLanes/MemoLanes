@@ -6,9 +6,9 @@ code = "AF"
 id = 12
 
 [continent.refs]
-chn = [18.2798, 6.428]
-iso = [18.2629, 6.4157]
-usa = [18.2744, 6.427]
+chn = [18.3016, 6.4049]
+iso = [18.288, 6.3902]
+usa = [18.2962, 6.4039]
 
 [[continent]]
 code = "AN"
@@ -21,8 +21,8 @@ id = 0
 
 [continent.refs]
 chn = [84.6128, 32.2219]
-iso = [84.6097, 32.2406]
-usa = [84.6063, 32.2185]
+iso = [84.6096, 32.2405]
+usa = [84.6063, 32.2184]
 
 [[continent]]
 code = "EU"
@@ -56,9 +56,9 @@ code = "SA"
 id = 3
 
 [continent.refs]
-chn = [-60.8232, -15.2409]
-iso = [-60.8036, -15.3274]
-usa = [-60.8232, -15.2409]
+chn = [-60.8144, -15.2549]
+iso = [-60.7947, -15.3415]
+usa = [-60.8144, -15.2549]
 
 [[country]]
 code = "ABW"
@@ -133,6 +133,11 @@ code = "ATC"
 id = 243
 ref = [123.5864, -12.4326]
 worldview = ["chn", "usa"]
+
+[[country]]
+code = "ATF"
+id = 250
+ref = [68.9921, -49.0652]
 
 [[country]]
 code = "ATG"
@@ -306,7 +311,7 @@ code = "CHN"
 id = 18
 
 [country.refs]
-chn = [103.8162, 36.4588]
+chn = [103.8172, 36.4574]
 iso = [103.9277, 36.5645]
 usa = [103.827, 36.5584]
 
@@ -314,6 +319,12 @@ usa = [103.827, 36.5584]
 code = "CIV"
 id = 94
 ref = [-5.569, 7.628]
+
+[[country]]
+code = "CLP"
+id = 258
+ref = [-109.2213, 10.2974]
+worldview = ["chn", "usa"]
 
 [[country]]
 code = "CMR"
@@ -485,7 +496,7 @@ id = 21
 
 [country.refs]
 chn = [-2.7552, 42.1801]
-iso = [-2.7342, 42.5382]
+iso = [-2.5507, 42.3377]
 usa = [-2.7552, 42.1801]
 
 [[country]]
@@ -594,6 +605,12 @@ usa = [-58.9801, 4.7935]
 code = "HKG"
 id = 166
 ref = [114.1314, 22.3846]
+worldview = ["iso", "usa"]
+
+[[country]]
+code = "HMD"
+id = 252
+ref = [73.5052, -53.0888]
 
 [[country]]
 code = "HND"
@@ -642,6 +659,11 @@ usa = [79.6073, 22.8801]
 code = "IOA"
 id = 218
 ref = [104.6194, -10.6922]
+
+[[country]]
+code = "IOT"
+id = 255
+ref = [72.2988, -7.1443]
 
 [[country]]
 code = "IRL"
@@ -814,6 +836,7 @@ ref = [24.9086, 56.8518]
 code = "MAC"
 id = 237
 ref = [113.5502, 22.1578]
+worldview = ["iso", "usa"]
 
 [[country]]
 code = "MAF"
@@ -847,6 +870,11 @@ usa = [28.4614, 47.1951]
 code = "MDG"
 id = 176
 ref = [46.706, -19.3732]
+
+[[country]]
+code = "MDV"
+id = 256
+ref = [73.3023, 3.8278]
 
 [[country]]
 code = "MEX"
@@ -907,6 +935,11 @@ ref = [-10.3434, 20.2562]
 code = "MSR"
 id = 198
 ref = [-62.1874, 16.7375]
+
+[[country]]
+code = "MUS"
+id = 254
+ref = [57.8497, -20.1855]
 
 [[country]]
 code = "MWI"
@@ -1144,6 +1177,16 @@ id = 219
 ref = [103.8135, 1.3589]
 
 [[country]]
+code = "SGS"
+id = 257
+ref = [-35.8823, -54.6792]
+
+[[country]]
+code = "SHN"
+id = 253
+ref = [-10.1384, -24.9114]
+
+[[country]]
 code = "SLB"
 id = 225
 ref = [159.6381, -8.9096]
@@ -1216,6 +1259,11 @@ ref = [31.48, -26.5619]
 code = "SXM"
 id = 37
 ref = [-63.0701, 18.0406]
+
+[[country]]
+code = "SYC"
+id = 251
+ref = [52.0623, -6.49]
 
 [[country]]
 code = "SYR"

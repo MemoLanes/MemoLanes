@@ -35,8 +35,8 @@ jobs:
 
       # Detect whether geo_rasterizer / geo_data_format sources changed, so the
       # geo-only check/test steps run only when related files change. (The
-      # rasterize step itself still runs every time — the app's rust tests
-      # require the bins — but it's a near-instant no-op on a cache hit.)
+      # rasterize step itself still runs every time so the registry guardrail
+      # is never vacuous — but it's a near-instant no-op on a cache hit.)
       - uses: dorny/paths-filter@v3
         id: changes
         with:
@@ -53,10 +53,8 @@ jobs:
           flutter-version: 3.44
           cache: true
 
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@1.97.0
         with:
-          toolchain: stable
-          override: true
           components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v2
@@ -119,13 +117,13 @@ jobs:
         if: steps.changes.outputs.geo == 'true'
         working-directory: app
         run: just geo-rasterizer-check
+      - name: Geo Rasterize All Worldviews
+        working-directory: app
+        run: just rasterize-geo
       - name: Geo Tests
         if: steps.changes.outputs.geo == 'true'
         working-directory: app
         run: just test-geo
-      - name: Geo Rasterize All Worldviews
-        working-directory: app
-        run: just rasterize-geo
 
       # Guardrail: rasterize-geo regenerates the committed id registry (union
       # over Worldview::ALL). CI can't commit, so a non-empty diff means someone bumped
@@ -140,7 +138,7 @@ jobs:
         
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'yarn'
           cache-dependency-path: 'app/journey_kernel/yarn.lock'
           
@@ -149,7 +147,7 @@ jobs:
         run: yarn install --frozen-lockfile
 
       - name: Install wasm-pack
-        run: cargo binstall -y --force --no-track wasm-pack
+        run: cargo binstall -y --force --no-track wasm-pack@0.15.0
 
       - name: Build the wasm package
         working-directory: app/journey_kernel
