@@ -186,10 +186,12 @@ check:
     just flutter-check
     @echo "✅ Checking completed"
 
-# Geo tooling tests; CI runs these only when geo-related files change
+# Geo tooling tests (regenerates geo assets first — the names coverage gate reads
+# the shipped bins/JSON); CI runs these only when geo-related files change
 [group: 'dev']
 test-geo:
     @echo "🧪 Running geo tooling tests"
+    just rasterize-geo
     just geo-data-format-test
     just geo-rasterizer-test
     @echo "✅ Geo tooling tests completed"

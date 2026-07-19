@@ -4,6 +4,8 @@ pub mod atomic_write;
 pub mod cache;
 pub mod download;
 pub mod entities;
+pub mod names;
+pub mod overrides;
 pub mod parse;
 pub mod projection;
 pub mod rasterize;

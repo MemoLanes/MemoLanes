@@ -1,8 +1,10 @@
 //! Parse Natural Earth admin-0 GeoJSON.
 
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use anyhow::{anyhow, bail, Context, Result};
+use geo_data_format::Locale;
 use geo_types::{Geometry, MultiPolygon};
 
 /// One Natural Earth feature, with the fields the rasterizer needs.
@@ -28,6 +30,10 @@ pub struct ParsedFeature {
     pub region_un: String,
     /// Geometry as `MultiPolygon` (Polygons are wrapped to a 1-element MP for uniformity).
     pub geometry: MultiPolygon<f64>,
+    /// Localized names keyed by the Natural Earth property they came from
+    /// (`Locale::spec().ne_field`, e.g. `NAME_ZH`). Missing/empty values are
+    /// OMITTED, so a lookup miss means "NE has no name in that language here".
+    pub localized_names: BTreeMap<String, String>,
 }
 
 /// Parse a Natural Earth admin-0 countries GeoJSON for a given `worldview`, then
@@ -93,6 +99,15 @@ pub fn parse_geojson(path: &Path, worldview: &str) -> Result<Vec<ParsedFeature>>
             Geometry::MultiPolygon(mp) => mp,
             _ => bail!("feature {idx} ({adm0_a3}): expected Polygon/MultiPolygon"),
         };
+        let mut localized_names = BTreeMap::new();
+        for &locale in Locale::ALL {
+            let field = locale.spec().ne_field;
+            if let Some(value) = props.get(field).and_then(|v| v.as_str()) {
+                if !value.is_empty() {
+                    localized_names.insert(field.to_string(), value.to_string());
+                }
+            }
+        }
         out.push(ParsedFeature {
             adm0_a3,
             iso_a3,
@@ -102,6 +117,7 @@ pub fn parse_geojson(path: &Path, worldview: &str) -> Result<Vec<ParsedFeature>>
             continent,
             region_un,
             geometry: mp,
+            localized_names,
         });
     }
     crate::absorb::apply_absorptions(&mut out, worldview)?;

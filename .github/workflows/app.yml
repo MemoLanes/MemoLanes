@@ -35,8 +35,8 @@ jobs:
 
       # Detect whether geo_rasterizer / geo_data_format sources changed, so the
       # geo-only check/test steps run only when related files change. (The
-      # rasterize step itself still runs every time — the app's rust tests
-      # require the bins — but it's a near-instant no-op on a cache hit.)
+      # rasterize step itself still runs every time so the registry guardrail
+      # is never vacuous — but it's a near-instant no-op on a cache hit.)
       - uses: dorny/paths-filter@v3
         id: changes
         with:
@@ -117,13 +117,13 @@ jobs:
         if: steps.changes.outputs.geo == 'true'
         working-directory: app
         run: just geo-rasterizer-check
+      - name: Geo Rasterize All Worldviews
+        working-directory: app
+        run: just rasterize-geo
       - name: Geo Tests
         if: steps.changes.outputs.geo == 'true'
         working-directory: app
         run: just test-geo
-      - name: Geo Rasterize All Worldviews
-        working-directory: app
-        run: just rasterize-geo
 
       # Guardrail: rasterize-geo regenerates the committed id registry (union
       # over Worldview::ALL). CI can't commit, so a non-empty diff means someone bumped

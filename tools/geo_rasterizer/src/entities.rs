@@ -81,7 +81,7 @@ pub fn assemble_entities(features: &[ParsedFeature], registry: &Registry) -> Res
             kind: GeoEntityKind::Continent,
             canonical_code: code.to_string(),
             iso_a3_eh: None,
-            name_key: format!("continent.{code}.name"),
+            name_key: format!("continent.{code}"),
             parent_id: None,
             total_area_m2: 0,
         });
@@ -118,7 +118,7 @@ pub fn assemble_entities(features: &[ParsedFeature], registry: &Registry) -> Res
             kind: GeoEntityKind::Country,
             canonical_code: adm0.clone(),
             iso_a3_eh,
-            name_key: format!("country.{adm0}.name"),
+            name_key: format!("country.{adm0}"),
             parent_id: Some(parent_id),
             total_area_m2: 0,
         });

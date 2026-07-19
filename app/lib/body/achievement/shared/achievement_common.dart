@@ -1,10 +1,31 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/src/rust/achievement/read_model/region.dart';
 
 export 'package:memolanes/common/achievement_stats_store.dart'
     show AchievementAreaStats;
 
 const achievementCardPadding = EdgeInsets.all(16);
+
+extension RegionEntityDisplay on RegionEntity {
+  /// This region's localized display name for [worldviewId].
+  ///
+  /// This is the one sanctioned place that unwraps `nameKey.value`: [RegionNameKey]
+  /// is not a `String`, so `entity.nameKey.tr()` won't compile — a raw `.tr()`
+  /// resolves the worldview-agnostic name and would silently skip a
+  /// worldview-specific override (`<worldview>.<name_key>`, e.g. a disputed
+  /// admin-1 name).
+  String displayName(String worldviewId) {
+    // Unwrap to the raw `.tr()` key here and nowhere else — the `RegionNameKey`
+    // wrapper exists to make `entity.nameKey.tr()` uncompilable so callers can't
+    // skip the worldview override; this method is the sanctioned exception.
+    final key = nameKey.value;
+    String? at(String k) => trExists(k) ? k.tr() : null;
+    // Worldview-scoped override first, then the worldview-agnostic name, then the
+    // ISO code, then the raw key — never blank.
+    return at('$worldviewId.$key') ?? at(key) ?? isoA3Eh ?? key;
+  }
+}
 
 class FormattedArea {
   const FormattedArea({
