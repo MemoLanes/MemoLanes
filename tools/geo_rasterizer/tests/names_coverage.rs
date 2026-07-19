@@ -2,7 +2,7 @@
 //! assets: every entity in every worldview's `.bin` must have a non-empty name
 //! in every locale's `region_names.<locale>.json` (nested JSON, flattened back
 //! to dotted keys here). Without this a region would render as a raw
-//! `country.XYZ.name` key on screen.
+//! `country.XYZ` key on screen.
 //!
 //! Assets are gitignored and produced by `just rasterize-geo`, which
 //! `just test-geo` runs first. A missing asset is a HARD FAILURE (a gate that

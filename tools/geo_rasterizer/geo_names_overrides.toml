@@ -2,10 +2,10 @@
 #
 # A locale entry is a string value; a worldview entry is a sub-table:
 #
-#   ["country.TWN.name"]        # default: applies to every worldview
+#   ["country.TWN"]        # default: applies to every worldview
 #   zh-CN = "台湾"
 #
-#   ["country.TWN.name".usa]    # usa worldview only; beats the default
+#   ["country.TWN".usa]    # usa worldview only; beats the default
 #   en-US = "Taiwan"
 #
 # Every key is validated against Worldview::ALL / Locale::ALL, and every entity
@@ -16,31 +16,31 @@
 # Continents are synthesized from Natural Earth's CONTINENT / REGION_UN columns
 # and have no feature of their own, so every continent name is authored here.
 
-["continent.AF.name"]
+["continent.AF"]
 en-US = "Africa"
 zh-CN = "非洲"
 
-["continent.AN.name"]
+["continent.AN"]
 en-US = "Antarctica"
 zh-CN = "南极洲"
 
-["continent.AS.name"]
+["continent.AS"]
 en-US = "Asia"
 zh-CN = "亚洲"
 
-["continent.EU.name"]
+["continent.EU"]
 en-US = "Europe"
 zh-CN = "欧洲"
 
-["continent.NA.name"]
+["continent.NA"]
 en-US = "North America"
 zh-CN = "北美洲"
 
-["continent.OC.name"]
+["continent.OC"]
 en-US = "Oceania"
 zh-CN = "大洋洲"
 
-["continent.SA.name"]
+["continent.SA"]
 en-US = "South America"
 zh-CN = "南美洲"
 
@@ -51,12 +51,12 @@ zh-CN = "南美洲"
 # from — Natural Earth carries no name for it in ANY language. The chn/usa
 # worldviews do have a single IOA feature, but its NAME_ZH is Traditional
 # Chinese (澳屬印度洋領地), so zh-CN is authored here for every worldview.
-["country.IOA.name"]
+["country.IOA"]
 en-US = "Australian Indian Ocean Territories"
 zh-CN = "澳属印度洋领地"
 
 # Natural Earth's NAME_ZH for TWN is 中华民国.
-["country.TWN.name"]
+["country.TWN"]
 zh-CN = "台湾"
 
 # Natural Earth's localized columns for PGA name the WRONG PLACE: NAME_EN is
@@ -71,6 +71,6 @@ zh-CN = "台湾"
 # NAME_EN against NAME/SOVEREIGNT across all three worldviews found PGA to be the
 # only genuine mislabel (the other divergences are spelling variants: Czechia /
 # Czech Republic, Faeroe / Faroe, Macao / Macau, S. Geo. and the Is.).
-["country.PGA.name"]
+["country.PGA"]
 en-US = "Spratly Islands"
 zh-CN = "南沙群岛"

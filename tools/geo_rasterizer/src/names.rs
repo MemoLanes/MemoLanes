@@ -1,8 +1,8 @@
 //! Build the localized region-name maps consumed by the app via
 //! easy_localization: one logical `name_key -> name` map per locale, unioned
-//! across worldviews and written as nested JSON (`{"country": {"CHN": {"name":
-//! …}}}`) — the same shape as the UI translation files, and the shape
-//! easy_localization resolves natively.
+//! across worldviews and written as nested JSON (`{"country": {"CHN": …}}`) —
+//! the same shape as the UI translation files, and the shape easy_localization
+//! resolves natively.
 //!
 //! The un-prefixed key is worldview-agnostic. Worldviews normally agree on
 //! names (Natural Earth's POV files differ in *borders*, not names); when a
@@ -78,12 +78,8 @@ pub fn build_region_names(
     //    otherwise ship silently as an unused key.
     let minted: BTreeSet<String> = continent_codes
         .iter()
-        .map(|code| format!("continent.{code}.name"))
-        .chain(
-            country_codes
-                .iter()
-                .map(|adm0| format!("country.{adm0}.name")),
-        )
+        .map(|code| format!("continent.{code}"))
+        .chain(country_codes.iter().map(|adm0| format!("country.{adm0}")))
         .collect();
     let dead: Vec<&str> = overrides.keys().filter(|k| !minted.contains(*k)).collect();
     if !dead.is_empty() {
@@ -100,7 +96,7 @@ pub fn build_region_names(
         let mut names: BTreeMap<String, String> = BTreeMap::new();
 
         for code in &continent_codes {
-            let key = format!("continent.{code}.name");
+            let key = format!("continent.{code}");
             // Continents have no NE feature — the override is the ONLY source.
             let name = overrides.get_default(&key, locale).ok_or_else(|| {
                 anyhow!(
@@ -114,7 +110,7 @@ pub fn build_region_names(
         }
 
         for adm0 in &country_codes {
-            let key = format!("country.{adm0}.name");
+            let key = format!("country.{adm0}");
             let name = resolve_country_name(&key, adm0, locale, &country_localized, overrides)?;
             names.insert(key, name);
         }

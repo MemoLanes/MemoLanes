@@ -135,10 +135,10 @@ automatically rather than silently shipping stale ids.
 ## Region names (`geo_names_overrides.toml`)
 
 Each entity carries its display name as an l10n *key*, not a string — `entities.rs`
-mints `country.<ADM0_A3>.name` / `continent.<code>.name` into the `.bin`. The
+mints `country.<ADM0_A3>` / `continent.<code>` into the `.bin`. The
 rasterizer resolves those keys to display strings and writes one
 `region_names.<locale>.json` per locale (`app/assets/geo/`), nested like the UI
-translation files (`{"country": {"CHN": {"name": …}}}`), which the app merges
+translation files (`{"country": {"CHN": …}}`), which the app merges
 into easy_localization via a custom `AssetLoader` — so a region name resolves
 through the same `.tr()` path as every other string (see
 `app/lib/common/app_translation_loader.dart`, `RegionEntity.displayName`).
@@ -173,10 +173,10 @@ member has none), or its name is not one we ship. A key is a locale string; a
 per-worldview override is a sub-table:
 
 ```toml
-["country.TWN.name"]        # default: every worldview
+["country.TWN"]        # default: every worldview
 zh-CN = "台湾"
 
-["country.TWN.name".chn]    # chn worldview only; emitted as `chn.country.TWN.name`
+["country.TWN".chn]    # chn worldview only; emitted as `chn.country.TWN`
 zh-CN = "…"
 ```
 

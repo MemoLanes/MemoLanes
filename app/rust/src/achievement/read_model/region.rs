@@ -43,8 +43,8 @@ impl RegionKind {
     }
 }
 
-/// A region's display name as an l10n key (`country.<ADM0_A3>.name`,
-/// `continent.<code>.name`), wrapped so it does not reach the Dart side as a bare
+/// A region's display name as an l10n key (`country.<ADM0_A3>`,
+/// `continent.<code>`), wrapped so it does not reach the Dart side as a bare
 /// `String`. This makes `entity.nameKey.tr()` a compile error: a raw `.tr()`
 /// resolves the worldview-agnostic name and would silently skip a
 /// worldview-specific override. Resolve via `RegionEntity.displayName(worldviewId)`,

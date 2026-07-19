@@ -9,10 +9,10 @@
 //!
 //! Shape: a locale entry is a string value, a worldview entry is a sub-table.
 //! ```toml
-//! ["country.TWN.name"]        # default: every worldview
+//! ["country.TWN"]        # default: every worldview
 //! zh-CN = "台湾"
 //!
-//! ["country.TWN.name".usa]    # usa worldview only; beats the default
+//! ["country.TWN".usa]    # usa worldview only; beats the default
 //! en-US = "Taiwan"
 //! ```
 
