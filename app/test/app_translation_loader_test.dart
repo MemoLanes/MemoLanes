@@ -6,7 +6,8 @@ import 'package:memolanes/body/achievement/shared/achievement_common.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/src/rust/achievement/read_model/region.dart';
 
-RegionEntity _entity({required String nameKey, String? isoA3Eh}) => RegionEntity(
+RegionEntity _entity({required String nameKey, String? isoA3Eh}) =>
+    RegionEntity(
       kind: RegionKind.country,
       nameKey: RegionNameKey(value: nameKey),
       isoA3Eh: isoA3Eh,
@@ -30,14 +31,19 @@ void main() {
     await EasyLocalization.ensureInitialized();
   });
 
-  test('the loader merges region names as flat keys', () async {
+  test('the loader merges region names nested like the UI translations',
+      () async {
     // `flutter test` serves the real declared assets, so this exercises the
     // actual generated region_names.en-US.json merged with the UI translations.
     final map = await loader.load('assets/translations', enUs);
 
-    // Flat name_keys — easy_localization looks these up flat before nesting.
-    expect(map['country.CHN.name'], "People's Republic of China");
-    expect(map['continent.AS.name'], 'Asia');
+    // Nested levels, same shape as the UI files — easy_localization resolves
+    // a dotted `name_key` by walking them.
+    final country = map['country'] as Map<String, dynamic>;
+    expect((country['CHN'] as Map<String, dynamic>)['name'],
+        "People's Republic of China");
+    final continent = map['continent'] as Map<String, dynamic>;
+    expect((continent['AS'] as Map<String, dynamic>)['name'], 'Asia');
     // UI translations survive the merge (disjoint top-level namespace).
     expect(map.containsKey('home'), isTrue);
   });

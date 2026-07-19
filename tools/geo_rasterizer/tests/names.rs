@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use geo_data_format::{Locale, Worldview};
-use geo_rasterizer::names::build_region_names;
+use geo_rasterizer::names::{build_region_names, write_region_names};
 use geo_rasterizer::overrides::Overrides;
 use geo_rasterizer::parse::ParsedFeature;
 use geo_types::{Coord, LineString, MultiPolygon, Polygon};
@@ -54,8 +54,8 @@ fn names_resolve_from_ne_fields_and_overrides() {
 
 #[test]
 fn diverging_ne_names_across_worldviews_is_an_error() {
-    // The flat map holds one name per key; a real cross-worldview divergence must
-    // fail loudly, not silently ship the first worldview's name to all.
+    // The shared key holds one name; an uncovered cross-worldview divergence
+    // must fail loudly, not silently ship the first worldview's name to all.
     let ov = Overrides::from_toml_str(OVERRIDES).unwrap();
     let by = vec![
         (Worldview::Iso, vec![feat("AAA", "甲国-iso")]),
@@ -64,4 +64,83 @@ fn diverging_ne_names_across_worldviews_is_an_error() {
     let err = build_region_names(&by, &ov).unwrap_err().to_string();
     assert!(err.contains("AAA"), "got: {err}");
     assert!(err.contains("diverge"), "got: {err}");
+}
+
+#[test]
+fn scoped_overrides_resolve_a_ne_divergence() {
+    // The escape hatch the divergence error advertises: scope the divergent
+    // worldview, and the remaining unscoped worldviews agree on the shared key.
+    let toml = format!("{OVERRIDES}\n[\"country.AAA.name\".chn]\nzh-CN = \"甲国-chn\"\n");
+    let ov = Overrides::from_toml_str(&toml).unwrap();
+    let by = vec![
+        (Worldview::Iso, vec![feat("AAA", "甲国-iso")]),
+        (Worldview::Chn, vec![feat("AAA", "甲国-chn")]),
+    ];
+    let out = build_region_names(&by, &ov).unwrap();
+    assert_eq!(out[&Locale::ZhCn]["country.AAA.name"], "甲国-iso");
+    assert_eq!(out[&Locale::ZhCn]["chn.country.AAA.name"], "甲国-chn");
+    // en-US names agree, and the zh-only scope must not leak into en-US.
+    assert_eq!(out[&Locale::EnUs]["country.AAA.name"], "AAA");
+    assert!(!out[&Locale::EnUs].contains_key("chn.country.AAA.name"));
+}
+
+#[test]
+fn a_worldview_agnostic_override_resolves_a_ne_divergence() {
+    let toml = format!("{OVERRIDES}\n[\"country.AAA.name\"]\nzh-CN = \"甲国\"\n");
+    let ov = Overrides::from_toml_str(&toml).unwrap();
+    let by = vec![
+        (Worldview::Iso, vec![feat("AAA", "甲国-iso")]),
+        (Worldview::Chn, vec![feat("AAA", "甲国-chn")]),
+    ];
+    let out = build_region_names(&by, &ov).unwrap();
+    assert_eq!(out[&Locale::ZhCn]["country.AAA.name"], "甲国");
+}
+
+#[test]
+fn a_dead_override_key_is_an_error() {
+    // A typo'd (or removed-entity) override must fail generation, not ship
+    // silently as an unused key.
+    let toml = format!("{OVERRIDES}\n[\"country.TWM.name\"]\nzh-CN = \"台湾\"\n");
+    let ov = Overrides::from_toml_str(&toml).unwrap();
+    let by = vec![(Worldview::Iso, vec![feat("AAA", "甲国")])];
+    let err = build_region_names(&by, &ov).unwrap_err().to_string();
+    assert!(err.contains("country.TWM.name"), "got: {err}");
+    assert!(err.contains("dead override"), "got: {err}");
+}
+
+#[test]
+fn no_sovereign_and_no_override_is_an_error() {
+    // A collapsed multi-member group with no `TYPE == "Country"` member has no
+    // NE name to take; without an override the shared key cannot be filled.
+    let ov = Overrides::from_toml_str(OVERRIDES).unwrap();
+    let dependency = |name: &str| ParsedFeature {
+        feature_type: "Dependency".into(),
+        name: name.into(),
+        ..feat("BBB", "乙国")
+    };
+    let by = vec![(Worldview::Iso, vec![dependency("b1"), dependency("b2")])];
+    let err = build_region_names(&by, &ov).unwrap_err().to_string();
+    assert!(err.contains("country.BBB.name"), "got: {err}");
+    assert!(err.contains("override"), "got: {err}");
+}
+
+#[test]
+fn region_names_are_written_as_nested_json() {
+    let toml = format!("{OVERRIDES}\n[\"country.AAA.name\".chn]\nzh-CN = \"甲国-chn\"\n");
+    let ov = Overrides::from_toml_str(&toml).unwrap();
+    let by = vec![
+        (Worldview::Iso, vec![feat("AAA", "甲国")]),
+        (Worldview::Chn, vec![feat("AAA", "甲国")]),
+    ];
+    let out = build_region_names(&by, &ov).unwrap();
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = write_region_names(dir.path(), Locale::ZhCn, &out[&Locale::ZhCn]).unwrap();
+    let json: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+
+    // Same shape as the UI translation files: levels, not dotted keys.
+    assert_eq!(json["country"]["AAA"]["name"], "甲国");
+    assert_eq!(json["continent"]["AS"]["name"], "亚洲");
+    assert_eq!(json["chn"]["country"]["AAA"]["name"], "甲国-chn");
 }

@@ -1,7 +1,8 @@
 //! Coverage gate for the generated region-name maps against the REAL shipped
-//! assets: every entity in every worldview's `.bin` must have a non-empty flat
-//! name in every locale's `region_names.<locale>.json`. Without this a region
-//! would render as a raw `country.XYZ.name` key on screen.
+//! assets: every entity in every worldview's `.bin` must have a non-empty name
+//! in every locale's `region_names.<locale>.json` (nested JSON, flattened back
+//! to dotted keys here). Without this a region would render as a raw
+//! `country.XYZ.name` key on screen.
 //!
 //! Assets are gitignored and produced by `just rasterize-geo`, which
 //! `just test-geo` runs first. A missing asset is a HARD FAILURE (a gate that
@@ -41,7 +42,34 @@ fn entity_keys(worldview: Worldview) -> BTreeSet<String> {
 fn names(locale: Locale) -> std::collections::BTreeMap<String, String> {
     let path = region_names_path(&assets_dir(), locale);
     require(&path);
-    serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap()
+    let root: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    let mut out = std::collections::BTreeMap::new();
+    flatten("", &root, &mut out);
+    out
+}
+
+fn flatten(
+    prefix: &str,
+    value: &serde_json::Value,
+    out: &mut std::collections::BTreeMap<String, String>,
+) {
+    match value {
+        serde_json::Value::Object(map) => {
+            for (k, v) in map {
+                let key = if prefix.is_empty() {
+                    k.clone()
+                } else {
+                    format!("{prefix}.{k}")
+                };
+                flatten(&key, v, out);
+            }
+        }
+        serde_json::Value::String(s) => {
+            out.insert(prefix.to_string(), s.clone());
+        }
+        other => panic!("{prefix}: unexpected JSON node {other}"),
+    }
 }
 
 #[test]

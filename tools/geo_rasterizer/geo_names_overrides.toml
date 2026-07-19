@@ -9,8 +9,8 @@
 #   en-US = "Taiwan"
 #
 # Every key is validated against Worldview::ALL / Locale::ALL, and every entity
-# and worldview named here must actually exist (see tests/names_coverage.rs), so
-# a typo or a dead override fails the build.
+# named here must exist in some worldview (`build_region_names` rejects dead
+# overrides), so a typo or a leftover for a removed entity fails generation.
 
 # --- Continents -------------------------------------------------------------
 # Continents are synthesized from Natural Earth's CONTINENT / REGION_UN columns

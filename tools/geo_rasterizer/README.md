@@ -136,8 +136,9 @@ automatically rather than silently shipping stale ids.
 
 Each entity carries its display name as an l10n *key*, not a string — `entities.rs`
 mints `country.<ADM0_A3>.name` / `continent.<code>.name` into the `.bin`. The
-rasterizer resolves those keys to display strings and writes one flat
-`region_names.<locale>.json` per locale (`app/assets/geo/`), which the app merges
+rasterizer resolves those keys to display strings and writes one
+`region_names.<locale>.json` per locale (`app/assets/geo/`), nested like the UI
+translation files (`{"country": {"CHN": {"name": …}}}`), which the app merges
 into easy_localization via a custom `AssetLoader` — so a region name resolves
 through the same `.tr()` path as every other string (see
 `app/lib/common/app_translation_loader.dart`, `RegionEntity.displayName`).
@@ -155,13 +156,15 @@ Resolution per name, in order:
 3. the locale's Natural Earth `NAME_*` field on the group's sovereign member,
 4. hard error — never a silent English fallback.
 
-**One flat map per locale, not per worldview.** Region names are worldview-INVARIANT:
-Natural Earth's POV files agree on names (they differ on *borders*, not names). So
-the map is keyed by `name_key` alone, unioned across worldviews; the `.bin`'s
-per-worldview entity set decides which keys a worldview actually uses. Generation
-**enforces** the invariance — if a future Natural Earth bump makes a code's names
-diverge across worldviews, the build fails loudly rather than silently shipping
-one worldview's name to all.
+**One map per locale, not per worldview.** Natural Earth's POV files normally
+agree on names (they differ on *borders*, not names), so the map is keyed by
+`name_key` alone, unioned across worldviews; the `.bin`'s per-worldview entity
+set decides which keys a worldview actually uses. If a future Natural Earth bump
+makes a code's names diverge across worldviews, generation fails loudly — unless
+the divergence is covered by overrides: a worldview-agnostic override replaces
+the Natural Earth names outright, or scoped overrides peel the divergent
+worldviews off onto `<worldview>.<name_key>` keys, in which case every worldview
+still reading the shared key must agree on its value.
 
 `geo_names_overrides.toml` is the only hand-authored part. Two reasons an override
 exists: Natural Earth has no name (continents have no feature of their own, so
