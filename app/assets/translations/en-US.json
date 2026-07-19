@@ -210,11 +210,6 @@
       "sort_area": "Area",
       "sort_coverage": "Unlock rate"
     },
-    "region_list": {
-      "province_count": "{} regions unlocked",
-      "city_count": "{} cities unlocked",
-      "city_unlocked": "Unlocked"
-    },
     "coming_soon_card": {
       "title": "More coming soon",
       "description": "New exploration dimensions and milestones will arrive in future releases."

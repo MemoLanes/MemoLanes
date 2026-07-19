@@ -210,11 +210,6 @@
       "sort_area": "面积",
       "sort_coverage": "解锁率"
     },
-    "region_list": {
-      "province_count": "已解锁 {} 个省级地区",
-      "city_count": "已解锁 {} 个城市",
-      "city_unlocked": "已解锁"
-    },
     "coming_soon_card": {
       "title": "更多统计与成就敬请期待",
       "description": "新的探索维度和里程碑会在后续版本加入。"
