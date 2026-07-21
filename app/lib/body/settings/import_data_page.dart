@@ -4,7 +4,6 @@ import 'package:fpdart/fpdart.dart' as f;
 import 'package:memolanes/body/journey/journey_info_edit_page.dart';
 import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
-import 'package:memolanes/common/component/capsule_style_bar_content.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
@@ -126,22 +125,13 @@ class _ImportDataPage extends State<ImportDataPage> {
           importProcessor: _preprocessor,
         ),
     };
-    final mapRendererProxyAndCameraOption =
-        await api.getMapRendererProxyForJourneyData(
+    final rendererAndBounds = await api.getMapRendererProxyForJourneyData(
       journeyData: journeyData,
     );
 
     setState(() {
-      _mapRendererProxy = mapRendererProxyAndCameraOption.$1;
-      final bounds = mapRendererProxyAndCameraOption.$2;
-      if (bounds != null) {
-        _initialMapBounds = (
-          west: bounds.west,
-          south: bounds.south,
-          east: bounds.east,
-          north: bounds.north,
-        );
-      }
+      _mapRendererProxy = rendererAndBounds.$1;
+      _initialMapBounds = rendererAndBounds.$2;
     });
 
     return !await import_api.isJourneyDataEmpty(
@@ -186,20 +176,12 @@ class _ImportDataPage extends State<ImportDataPage> {
   @override
   Widget build(BuildContext context) {
     final journeyInfo = this.journeyInfo;
-    final mediaQuery = MediaQuery.of(context);
     final panelHeight =
         widget.importType == ImportType.gpxOrKml ? 530.0 : 510.0;
-    final mapTopPadding = mediaQuery.padding.top * 0.8 +
-        CapsuleBarConstants.barContentHeight +
-        CapsuleBarConstants.barBottomInset +
-        24.0;
-    final maxBottomPadding = (mediaQuery.size.height - mapTopPadding - 120.0)
-        .clamp(24.0, double.infinity);
-    final mapBoundsPadding = (
-      top: mapTopPadding,
-      right: 24.0,
-      bottom: (panelHeight + 24.0).clamp(24.0, maxBottomPadding).toDouble(),
-      left: 24.0,
+    final mapBoundsPadding =
+        CapsuleStyleOverlayAppBar.mapFitPaddingForBottomOverlay(
+      context,
+      bottomOverlayHeight: panelHeight,
     );
 
     return Scaffold(

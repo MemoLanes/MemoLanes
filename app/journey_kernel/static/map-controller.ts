@@ -22,6 +22,8 @@ import {
 } from "maplibregl-mapbox-request-transformer";
 import {
   AVAILABLE_LAYERS,
+  type JourneyBounds,
+  type JourneyBoundsPadding,
   type ReactiveParams,
   type ProjectionType,
 } from "./params";
@@ -29,6 +31,8 @@ import { JourneyTileProvider } from "./journey-tile-provider";
 import { transformStyleWithProjection } from "./utils";
 import { JOURNEY_LAYER_ID } from "./layers/journey-layer-interface";
 import type { JourneyLayer } from "./layers/journey-layer-interface";
+
+const MAX_MAP_ZOOM = 14;
 
 /**
  * Configuration options for MapController
@@ -78,11 +82,11 @@ export class MapController {
       fitBoundsOptions: this.params.initialBounds
         ? {
             padding: this.params.initialBoundsPadding,
-            maxZoom: 14,
+            maxZoom: MAX_MAP_ZOOM,
             duration: 0,
           }
         : undefined,
-      maxZoom: 14,
+      maxZoom: MAX_MAP_ZOOM,
       style: {
         version: 8,
         sources: {},
@@ -193,6 +197,16 @@ export class MapController {
    */
   getMap(): MaplibreMap {
     return this.map;
+  }
+
+  fitJourneyBounds(bounds: JourneyBounds, padding: JourneyBoundsPadding): void {
+    this.map.fitBounds(
+      [
+        [bounds.west, bounds.south],
+        [bounds.east, bounds.north],
+      ],
+      { padding, maxZoom: MAX_MAP_ZOOM, duration: 0 },
+    );
   }
 
   /**

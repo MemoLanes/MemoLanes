@@ -133,14 +133,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
       final (rendererProxy, bounds) = await _editSession.getMapRendererProxy();
       setState(() {
         _mapRendererProxy = rendererProxy;
-        if (bounds != null) {
-          _initialMapBounds = (
-            west: bounds.west,
-            south: bounds.south,
-            east: bounds.east,
-            north: bounds.north,
-          );
-        }
+        _initialMapBounds = bounds;
         _canUndo = _editSession.canUndo();
       });
     } catch (e) {

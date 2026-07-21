@@ -6,12 +6,7 @@ import 'package:memolanes/common/log.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 
 typedef JourneyEditorDrawPoint = ({double lat, double lng});
-typedef JourneyEditorMapBounds = ({
-  double west,
-  double south,
-  double east,
-  double north
-});
+typedef JourneyEditorMapBounds = MapBounds;
 
 class JourneyEditorMapView extends StatefulWidget {
   final api.MapRendererProxy mapRendererProxy;
@@ -128,12 +123,7 @@ class _JourneyEditorMapWebviewState extends State<_JourneyEditorMapWebview> {
       key: _baseKey,
       mapRendererProxy: widget.mapRendererProxy,
       initialMapBounds: widget.initialMapBounds,
-      initialMapBoundsPadding: (
-        top: 88.0,
-        right: 32.0,
-        bottom: 96.0,
-        left: 32.0
-      ),
+      initialMapBoundsPadding: const EdgeInsets.fromLTRB(32, 88, 32, 96),
       trackingMode: TrackingMode.off,
       isEditor: true,
       onMapMoved: widget.onMapMoved,

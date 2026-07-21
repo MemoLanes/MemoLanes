@@ -11,18 +11,13 @@ import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/map_style.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/src/rust/renderer.dart' show MapBoundsInternal;
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 typedef MapView = ({double lng, double lat, double zoom});
-typedef MapBounds = ({double west, double south, double east, double north});
-typedef MapFitPadding = ({
-  double top,
-  double right,
-  double bottom,
-  double left
-});
+typedef MapBounds = MapBoundsInternal;
 
 typedef BaseMapJavaScriptMessageHandler = void Function(String message);
 
@@ -46,7 +41,7 @@ class BaseMapWebview extends StatefulWidget {
   final api.MapRendererProxy mapRendererProxy;
   final MapView? initialMapView;
   final MapBounds? initialMapBounds;
-  final MapFitPadding? initialMapBoundsPadding;
+  final EdgeInsets? initialMapBoundsPadding;
   final TrackingMode trackingMode;
   final bool isEditor;
   final void Function()? onMapMoved;
@@ -126,13 +121,14 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     final bounds = widget.initialMapBounds;
     final controller = _webViewController;
     if (bounds == null || controller == null) return;
-    final padding = widget.initialMapBoundsPadding ??
-        (top: 24.0, right: 24.0, bottom: 24.0, left: 24.0);
+    final padding = widget.initialMapBoundsPadding ?? const EdgeInsets.all(24);
     await controller.evaluateJavascript(source: '''
       if (typeof fitJourneyBounds === 'function') {
         fitJourneyBounds(
-          ${bounds.west}, ${bounds.south}, ${bounds.east}, ${bounds.north},
-          ${padding.top}, ${padding.right}, ${padding.bottom}, ${padding.left}
+          { west: ${bounds.west}, south: ${bounds.south},
+            east: ${bounds.east}, north: ${bounds.north} },
+          { top: ${padding.top}, right: ${padding.right},
+            bottom: ${padding.bottom}, left: ${padding.left} }
         );
       }
     ''');
@@ -344,8 +340,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     final latParam = mapView?.lat.toString() ?? 'null';
     final zoomParam = mapView?.zoom.toString() ?? 'null';
     final bounds = widget.initialMapBounds;
-    final boundsPadding = widget.initialMapBoundsPadding ??
-        (top: 24.0, right: 24.0, bottom: 24.0, left: 24.0);
+    final boundsPadding =
+        widget.initialMapBoundsPadding ?? const EdgeInsets.all(24);
 
     debugPrint('Injecting lng: $lngParam');
     debugPrint('Injecting lat: $latParam');

@@ -70,7 +70,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   }
 
   Future<void> _refreshJourneyInfo() async {
-    final mapRendererProxyAndCameraOption = widget.previewJourneyData != null
+    final rendererAndBounds = widget.previewJourneyData != null
         ? await api.getMapRendererProxyForJourneyData(
             journeyData: widget.previewJourneyData!)
         : await api.getMapRendererProxyForJourney(journeyId: _journeyHeader.id);
@@ -78,16 +78,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     if (_isPreviewMode) {
       if (!mounted) return;
       setState(() {
-        _mapRendererProxy = mapRendererProxyAndCameraOption.$1;
-        final bounds = mapRendererProxyAndCameraOption.$2;
-        if (bounds != null) {
-          _initialMapBounds = (
-            west: bounds.west,
-            south: bounds.south,
-            east: bounds.east,
-            north: bounds.north,
-          );
-        }
+        _mapRendererProxy = rendererAndBounds.$1;
+        _initialMapBounds = rendererAndBounds.$2;
       });
       return;
     }
@@ -100,16 +92,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
 
     if (!mounted) return;
     setState(() {
-      _mapRendererProxy = mapRendererProxyAndCameraOption.$1;
-      final bounds = mapRendererProxyAndCameraOption.$2;
-      if (bounds != null) {
-        _initialMapBounds = (
-          west: bounds.west,
-          south: bounds.south,
-          east: bounds.east,
-          north: bounds.north,
-        );
-      }
+      _mapRendererProxy = rendererAndBounds.$1;
+      _initialMapBounds = rendererAndBounds.$2;
       if (latestHeader != null) {
         _journeyHeader = latestHeader;
       }
@@ -216,19 +200,10 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   @override
   Widget build(BuildContext context) {
     final mapRendererProxy = _mapRendererProxy;
-    final mediaQuery = MediaQuery.of(context);
-    final mapTopPadding = mediaQuery.padding.top * 0.8 +
-        CapsuleBarConstants.barContentHeight +
-        CapsuleBarConstants.barBottomInset +
-        24.0;
-    final requestedBottomPadding = _panelMaxHeight(context) + 24.0;
-    final maxBottomPadding = (mediaQuery.size.height - mapTopPadding - 120.0)
-        .clamp(24.0, double.infinity);
-    final mapBoundsPadding = (
-      top: mapTopPadding,
-      right: 24.0,
-      bottom: requestedBottomPadding.clamp(24.0, maxBottomPadding).toDouble(),
-      left: 24.0,
+    final mapBoundsPadding =
+        CapsuleStyleOverlayAppBar.mapFitPaddingForBottomOverlay(
+      context,
+      bottomOverlayHeight: _panelMaxHeight(context),
     );
     final journeyKindName = switch (_journeyHeader.journeyKind) {
       JourneyKind.defaultKind => context.tr("journey_kind.default"),
