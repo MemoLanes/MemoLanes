@@ -20,8 +20,8 @@ class RecordingHealthAlert {
   final Future<void> Function(String message) _presentWarning;
   bool _isShowing = false;
 
-  // TODO: Replace with the production help page once it is available.
-  static final _helpPageUrl = Uri.parse('https://your-site.example/help');
+  static final _helpPageUrl =
+      Uri.parse('https://app.memolanes.com/android-background-recording');
 
   bool get isShowing => _isShowing;
 
