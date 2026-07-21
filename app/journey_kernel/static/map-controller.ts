@@ -69,6 +69,19 @@ export class MapController {
       container: config.containerId,
       center: [this.params.lng, this.params.lat],
       zoom: this.params.zoom,
+      bounds: this.params.initialBounds
+        ? [
+            [this.params.initialBounds.west, this.params.initialBounds.south],
+            [this.params.initialBounds.east, this.params.initialBounds.north],
+          ]
+        : undefined,
+      fitBoundsOptions: this.params.initialBounds
+        ? {
+            padding: this.params.initialBoundsPadding,
+            maxZoom: 14,
+            duration: 0,
+          }
+        : undefined,
       maxZoom: 14,
       style: {
         version: 8,

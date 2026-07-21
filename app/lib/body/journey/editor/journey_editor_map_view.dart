@@ -5,12 +5,17 @@ import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 
-typedef JourneyEditorMapViewCamera = ({double lng, double lat, double zoom});
 typedef JourneyEditorDrawPoint = ({double lat, double lng});
+typedef JourneyEditorMapBounds = ({
+  double west,
+  double south,
+  double east,
+  double north
+});
 
 class JourneyEditorMapView extends StatefulWidget {
   final api.MapRendererProxy mapRendererProxy;
-  final JourneyEditorMapViewCamera? initialMapView;
+  final JourneyEditorMapBounds? initialMapBounds;
   final void Function(
           double startLat, double startLng, double endLat, double endLng)?
       onSelectionBox;
@@ -21,7 +26,7 @@ class JourneyEditorMapView extends StatefulWidget {
   const JourneyEditorMapView({
     super.key,
     required this.mapRendererProxy,
-    this.initialMapView,
+    this.initialMapBounds,
     this.onSelectionBox,
     this.onDrawPath,
     this.onMapMoved,
@@ -58,7 +63,7 @@ class JourneyEditorMapViewState extends State<JourneyEditorMapView> {
         onSelectionBox: widget.onSelectionBox,
         onDrawPath: widget.onDrawPath,
         onMapMoved: widget.onMapMoved,
-        initialMapView: widget.initialMapView,
+        initialMapBounds: widget.initialMapBounds,
         onMapZoomChanged: widget.onMapZoomChanged,
       ),
     );
@@ -67,7 +72,7 @@ class JourneyEditorMapViewState extends State<JourneyEditorMapView> {
 
 class _JourneyEditorMapWebview extends StatefulWidget {
   final api.MapRendererProxy mapRendererProxy;
-  final JourneyEditorMapViewCamera? initialMapView;
+  final JourneyEditorMapBounds? initialMapBounds;
   final void Function(
           double startLat, double startLng, double endLat, double endLng)?
       onSelectionBox;
@@ -78,7 +83,7 @@ class _JourneyEditorMapWebview extends StatefulWidget {
   const _JourneyEditorMapWebview({
     super.key,
     required this.mapRendererProxy,
-    this.initialMapView,
+    this.initialMapBounds,
     this.onSelectionBox,
     this.onDrawPath,
     this.onMapMoved,
@@ -119,18 +124,16 @@ class _JourneyEditorMapWebviewState extends State<_JourneyEditorMapWebview> {
 
   @override
   Widget build(BuildContext context) {
-    final baseInitialMapView = widget.initialMapView == null
-        ? null
-        : (
-            lng: widget.initialMapView!.lng,
-            lat: widget.initialMapView!.lat,
-            zoom: widget.initialMapView!.zoom,
-          );
-
     return BaseMapWebview(
       key: _baseKey,
       mapRendererProxy: widget.mapRendererProxy,
-      initialMapView: baseInitialMapView,
+      initialMapBounds: widget.initialMapBounds,
+      initialMapBoundsPadding: (
+        top: 88.0,
+        right: 32.0,
+        bottom: 96.0,
+        left: 32.0
+      ),
       trackingMode: TrackingMode.off,
       isEditor: true,
       onMapMoved: widget.onMapMoved,

@@ -16,6 +16,13 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 typedef MapView = ({double lng, double lat, double zoom});
+typedef MapBounds = ({double west, double south, double east, double north});
+typedef MapFitPadding = ({
+  double top,
+  double right,
+  double bottom,
+  double left
+});
 
 typedef BaseMapJavaScriptMessageHandler = void Function(String message);
 
@@ -38,6 +45,8 @@ enum TrackingMode {
 class BaseMapWebview extends StatefulWidget {
   final api.MapRendererProxy mapRendererProxy;
   final MapView? initialMapView;
+  final MapBounds? initialMapBounds;
+  final MapFitPadding? initialMapBoundsPadding;
   final TrackingMode trackingMode;
   final bool isEditor;
   final void Function()? onMapMoved;
@@ -49,6 +58,8 @@ class BaseMapWebview extends StatefulWidget {
       {super.key,
       required this.mapRendererProxy,
       this.initialMapView,
+      this.initialMapBounds,
+      this.initialMapBoundsPadding,
       this.trackingMode = TrackingMode.off,
       this.isEditor = false,
       this.onMapMoved,
@@ -73,6 +84,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   // It is rough because we don't update it frequently.
   MapView? _currentRoughMapView;
+  // Automatic data/bounds updates must not overwrite a camera the user chose.
+  bool _hasUserMovedCamera = false;
 
   // For bug workaround
   bool _isiOS18 = false;
@@ -100,6 +113,29 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     if (oldWidget.mapRendererProxy != widget.mapRendererProxy) {
       _refreshMapData();
     }
+
+    if (!_hasUserMovedCamera &&
+        (oldWidget.initialMapBounds != widget.initialMapBounds ||
+            oldWidget.initialMapBoundsPadding !=
+                widget.initialMapBoundsPadding)) {
+      _fitInitialMapBounds();
+    }
+  }
+
+  Future<void> _fitInitialMapBounds() async {
+    final bounds = widget.initialMapBounds;
+    final controller = _webViewController;
+    if (bounds == null || controller == null) return;
+    final padding = widget.initialMapBoundsPadding ??
+        (top: 24.0, right: 24.0, bottom: 24.0, left: 24.0);
+    await controller.evaluateJavascript(source: '''
+      if (typeof fitJourneyBounds === 'function') {
+        fitJourneyBounds(
+          ${bounds.west}, ${bounds.south}, ${bounds.east}, ${bounds.north},
+          ${padding.top}, ${padding.right}, ${padding.bottom}, ${padding.left}
+        );
+      }
+    ''');
   }
 
   /// Request the WebView to refresh map data from the backend
@@ -233,6 +269,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         allowedOriginRules: {'*'},
         onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
           if (!mounted) return;
+          _hasUserMovedCamera = true;
           widget.onMapMoved?.call();
         },
       )),
@@ -306,6 +343,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     final lngParam = mapView?.lng.toString() ?? 'null';
     final latParam = mapView?.lat.toString() ?? 'null';
     final zoomParam = mapView?.zoom.toString() ?? 'null';
+    final bounds = widget.initialMapBounds;
+    final boundsPadding = widget.initialMapBoundsPadding ??
+        (top: 24.0, right: 24.0, bottom: 24.0, left: 24.0);
 
     debugPrint('Injecting lng: $lngParam');
     debugPrint('Injecting lat: $latParam');
@@ -326,6 +366,14 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         lng: $lngParam,
         lat: $latParam,
         zoom: $zoomParam,
+        west: ${bounds?.west ?? 'null'},
+        south: ${bounds?.south ?? 'null'},
+        east: ${bounds?.east ?? 'null'},
+        north: ${bounds?.north ?? 'null'},
+        fit_padding_top: ${boundsPadding.top},
+        fit_padding_right: ${boundsPadding.right},
+        fit_padding_bottom: ${boundsPadding.bottom},
+        fit_padding_left: ${boundsPadding.left},
         editor: ${widget.isEditor ? "true" : "false"},
         low_power_mode: "$_isLowPowerMode",
       };

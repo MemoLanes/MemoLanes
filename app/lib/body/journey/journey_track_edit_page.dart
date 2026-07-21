@@ -34,7 +34,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   late final EditSession _editSession;
   api.MapRendererProxy? _mapRendererProxy;
-  JourneyEditorMapViewCamera? _initialMapView;
+  JourneyEditorMapBounds? _initialMapBounds;
 
   OperationMode _mode = OperationMode.move;
   bool _canUndo = false;
@@ -130,17 +130,16 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   Future<void> _loadMap() async {
     try {
-      final (rendererProxy, cameraOption) =
-          await _editSession.getMapRendererProxy();
+      final (rendererProxy, bounds) = await _editSession.getMapRendererProxy();
       setState(() {
         _mapRendererProxy = rendererProxy;
-        if (cameraOption != null) {
-          _initialMapView = (
-            lng: cameraOption.lng,
-            lat: cameraOption.lat,
-            zoom: cameraOption.zoom,
+        if (bounds != null) {
+          _initialMapBounds = (
+            west: bounds.west,
+            south: bounds.south,
+            east: bounds.east,
+            north: bounds.north,
           );
-          _zoomOk = cameraOption.zoom >= _minEditZoom;
         }
         _canUndo = _editSession.canUndo();
       });
@@ -390,7 +389,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
               JourneyEditorMapView(
                 key: _mapWebviewKey,
                 mapRendererProxy: _mapRendererProxy!,
-                initialMapView: _initialMapView,
+                initialMapBounds: _initialMapBounds,
                 onSelectionBox: _onSelectionBox,
                 onDrawPath: _onDrawPath,
                 onMapZoomChanged: _handleMapZoomUpdate,

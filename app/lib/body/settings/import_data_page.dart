@@ -4,6 +4,7 @@ import 'package:fpdart/fpdart.dart' as f;
 import 'package:memolanes/body/journey/journey_info_edit_page.dart';
 import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
+import 'package:memolanes/common/component/capsule_style_bar_content.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
@@ -30,7 +31,7 @@ class _ImportDataPage extends State<ImportDataPage> {
   late final f.Either<api.OpaqueJourneyData, import_api.RawVectorData>
       journeyDataMaybeRaw;
   api.MapRendererProxy? _mapRendererProxy;
-  MapView? _initialMapView;
+  MapBounds? _initialMapBounds;
   late import_api.ImportPreprocessor _preprocessor;
 
   @override
@@ -132,12 +133,13 @@ class _ImportDataPage extends State<ImportDataPage> {
 
     setState(() {
       _mapRendererProxy = mapRendererProxyAndCameraOption.$1;
-      final cameraOption = mapRendererProxyAndCameraOption.$2;
-      if (cameraOption != null) {
-        _initialMapView = (
-          lng: cameraOption.lng,
-          lat: cameraOption.lat,
-          zoom: cameraOption.zoom,
+      final bounds = mapRendererProxyAndCameraOption.$2;
+      if (bounds != null) {
+        _initialMapBounds = (
+          west: bounds.west,
+          south: bounds.south,
+          east: bounds.east,
+          north: bounds.north,
         );
       }
     });
@@ -184,6 +186,21 @@ class _ImportDataPage extends State<ImportDataPage> {
   @override
   Widget build(BuildContext context) {
     final journeyInfo = this.journeyInfo;
+    final mediaQuery = MediaQuery.of(context);
+    final panelHeight =
+        widget.importType == ImportType.gpxOrKml ? 530.0 : 510.0;
+    final mapTopPadding = mediaQuery.padding.top * 0.8 +
+        CapsuleBarConstants.barContentHeight +
+        CapsuleBarConstants.barBottomInset +
+        24.0;
+    final maxBottomPadding = (mediaQuery.size.height - mapTopPadding - 120.0)
+        .clamp(24.0, double.infinity);
+    final mapBoundsPadding = (
+      top: mapTopPadding,
+      right: 24.0,
+      bottom: (panelHeight + 24.0).clamp(24.0, maxBottomPadding).toDouble(),
+      left: 24.0,
+    );
 
     return Scaffold(
       body: journeyInfo == null
@@ -196,8 +213,7 @@ class _ImportDataPage extends State<ImportDataPage> {
                     topLeft: Radius.circular(16.0),
                     topRight: Radius.circular(16.0),
                   ),
-                  maxHeight:
-                      widget.importType == ImportType.gpxOrKml ? 530 : 510,
+                  maxHeight: panelHeight,
                   defaultPanelState: PanelState.OPEN,
                   panel: PointerInterceptor(
                     child: Center(
@@ -231,7 +247,8 @@ class _ImportDataPage extends State<ImportDataPage> {
                       : BaseMapWebview(
                           key: const ValueKey("mapWidget"),
                           mapRendererProxy: _mapRendererProxy!,
-                          initialMapView: _initialMapView,
+                          initialMapBounds: _initialMapBounds,
+                          initialMapBoundsPadding: mapBoundsPadding,
                         ),
                 ),
                 CapsuleStyleOverlayAppBar.overlayBar(

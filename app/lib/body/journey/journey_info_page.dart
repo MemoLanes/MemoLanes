@@ -44,7 +44,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   final fmt = DateFormat('yyyy-MM-dd HH:mm:ss');
   late JourneyHeader _journeyHeader;
   api.MapRendererProxy? _mapRendererProxy;
-  MapView? _initialMapView;
+  MapBounds? _initialMapBounds;
 
   @override
   void initState() {
@@ -79,12 +79,13 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       if (!mounted) return;
       setState(() {
         _mapRendererProxy = mapRendererProxyAndCameraOption.$1;
-        final cameraOption = mapRendererProxyAndCameraOption.$2;
-        if (cameraOption != null) {
-          _initialMapView = (
-            lng: cameraOption.lng,
-            lat: cameraOption.lat,
-            zoom: cameraOption.zoom,
+        final bounds = mapRendererProxyAndCameraOption.$2;
+        if (bounds != null) {
+          _initialMapBounds = (
+            west: bounds.west,
+            south: bounds.south,
+            east: bounds.east,
+            north: bounds.north,
           );
         }
       });
@@ -100,12 +101,13 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     if (!mounted) return;
     setState(() {
       _mapRendererProxy = mapRendererProxyAndCameraOption.$1;
-      final cameraOption = mapRendererProxyAndCameraOption.$2;
-      if (cameraOption != null) {
-        _initialMapView = (
-          lng: cameraOption.lng,
-          lat: cameraOption.lat,
-          zoom: cameraOption.zoom,
+      final bounds = mapRendererProxyAndCameraOption.$2;
+      if (bounds != null) {
+        _initialMapBounds = (
+          west: bounds.west,
+          south: bounds.south,
+          east: bounds.east,
+          north: bounds.north,
         );
       }
       if (latestHeader != null) {
@@ -214,6 +216,20 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   @override
   Widget build(BuildContext context) {
     final mapRendererProxy = _mapRendererProxy;
+    final mediaQuery = MediaQuery.of(context);
+    final mapTopPadding = mediaQuery.padding.top * 0.8 +
+        CapsuleBarConstants.barContentHeight +
+        CapsuleBarConstants.barBottomInset +
+        24.0;
+    final requestedBottomPadding = _panelMaxHeight(context) + 24.0;
+    final maxBottomPadding = (mediaQuery.size.height - mapTopPadding - 120.0)
+        .clamp(24.0, double.infinity);
+    final mapBoundsPadding = (
+      top: mapTopPadding,
+      right: 24.0,
+      bottom: requestedBottomPadding.clamp(24.0, maxBottomPadding).toDouble(),
+      left: 24.0,
+    );
     final journeyKindName = switch (_journeyHeader.journeyKind) {
       JourneyKind.defaultKind => context.tr("journey_kind.default"),
       JourneyKind.flight => context.tr("journey_kind.flight"),
@@ -360,7 +376,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                 : BaseMapWebview(
                     key: const ValueKey("mapWidget"),
                     mapRendererProxy: mapRendererProxy,
-                    initialMapView: _initialMapView,
+                    initialMapBounds: _initialMapBounds,
+                    initialMapBoundsPadding: mapBoundsPadding,
                   ),
           ),
           CapsuleStyleOverlayAppBar.overlayBar(
