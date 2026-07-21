@@ -3,8 +3,7 @@ use memolanes_core::{
         Block, BlockKey, JourneyBitmap, TileKey, BITMAP_SIZE, MAP_WIDTH_OFFSET, TILE_WIDTH,
         TILE_WIDTH_OFFSET,
     },
-    renderer::{get_bounds_from_journey_bitmap, MapBounds},
-    utils,
+    utils::{self, get_bounds_from_journey_bitmap, MapBounds},
 };
 
 fn bitmap_with_blocks(blocks: &[(TileKey, BlockKey)]) -> JourneyBitmap {

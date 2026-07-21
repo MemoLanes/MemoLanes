@@ -6,7 +6,8 @@ use actix_web::{
 use anyhow::Result;
 use memolanes_core::build_info;
 use memolanes_core::renderer::internal_server::dispatch_request;
-use memolanes_core::renderer::{get_bounds_from_journey_bitmap, MapRenderer};
+use memolanes_core::renderer::MapRenderer;
+use memolanes_core::utils::get_bounds_from_journey_bitmap;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};

@@ -8,8 +8,8 @@ use crate::journey_data::JourneyData;
 use crate::journey_vector::{JourneyVector, TrackSegment};
 
 use super::api::{get, MapRendererProxy};
-use crate::renderer::{MapBounds, get_bounds_from_journey_bitmap};
 use crate::renderer::MapRenderer;
+use crate::utils::{get_bounds_from_journey_bitmap, MapBounds};
 
 // TODO: This is a bit sus, it is comparing the lng/lat and doesn't handle anti-meridian.
 const EPS: f64 = 1e-12_f64;

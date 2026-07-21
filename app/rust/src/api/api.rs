@@ -19,13 +19,12 @@ use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::journey_vector::JourneyVector;
 use crate::logs;
-use crate::renderer::get_bounds_from_journey_bitmap;
 use crate::renderer::internal_server::{dispatch_request, WebviewResponse};
 use crate::renderer::MapRenderer;
 use crate::storage::{RawDataFile, Storage};
 use crate::{archive, build_info, export_data, gps_processor, main_db};
 
-use crate::renderer::MapBounds;
+use crate::utils::{get_bounds_from_journey_bitmap, MapBounds};
 
 use log::{error, info, warn};
 

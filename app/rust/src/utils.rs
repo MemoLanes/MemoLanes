@@ -2,6 +2,10 @@ use std::f64::consts::PI;
 
 use chrono::{Datelike, NaiveDate};
 
+use crate::journey_bitmap::{
+    JourneyBitmap, MAP_WIDTH, MAP_WIDTH_OFFSET, TILE_WIDTH, TILE_WIDTH_OFFSET,
+};
+
 // https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
 // TODO: remove these two duplicated functions once we have the new rendering system.
 pub fn lng_lat_to_tile_x_y(lng: f64, lat: f64, zoom: i32) -> (i32, i32) {
@@ -17,6 +21,81 @@ pub fn tile_x_y_to_lng_lat(x: i32, y: i32, zoom: i32) -> (f64, f64) {
     let lng = (x as f64 / n) * 360.0 - 180.0;
     let lat = (f64::atan(f64::sinh(PI * (1.0 - (2.0 * y as f64) / n))) * 180.0) / PI;
     (lng, lat)
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct MapBounds {
+    pub west: f64,
+    pub south: f64,
+    pub east: f64,
+    pub north: f64,
+}
+
+/// Returns the smallest Web Mercator-aligned bounds containing every occupied
+/// block. Longitude is circular: `east` may be greater than 180 degrees when
+/// that is the narrow representation of a journey crossing the antimeridian.
+pub fn get_bounds_from_journey_bitmap(journey_bitmap: &JourneyBitmap) -> Option<MapBounds> {
+    let block_zoom = (TILE_WIDTH_OFFSET + MAP_WIDTH_OFFSET) as i32;
+    let world_width = (MAP_WIDTH * TILE_WIDTH) as usize;
+    let mut occupied_x = vec![false; world_width];
+    let mut y_bounds: Option<(i32, i32)> = None;
+
+    for tile_key in journey_bitmap.all_tile_keys() {
+        journey_bitmap.peek_tile_without_updating_cache(tile_key, |tile| {
+            let Some(tile) = tile else { return };
+            for (block_key, _) in tile.iter() {
+                let x = TILE_WIDTH as usize * tile_key.x as usize + block_key.x() as usize;
+                let y = TILE_WIDTH as i32 * tile_key.y as i32 + block_key.y() as i32;
+                if x >= world_width || y < 0 || y >= world_width as i32 {
+                    continue;
+                }
+                occupied_x[x] = true;
+                y_bounds = Some(match y_bounds {
+                    Some((min_y, max_y)) => (min_y.min(y), max_y.max(y)),
+                    None => (y, y),
+                });
+            }
+        });
+    }
+
+    let (min_y, max_y) = y_bounds?;
+    let occupied_columns: Vec<usize> = occupied_x
+        .iter()
+        .enumerate()
+        .filter_map(|(x, occupied)| occupied.then_some(x))
+        .collect();
+
+    // Remove the largest empty gap on the circular x axis. The remaining arc
+    // is the narrowest interval containing every occupied block column.
+    let mut largest_gap = 0;
+    let mut west_x = occupied_columns[0];
+    let mut east_x = occupied_columns[0] + 1;
+    for (index, &current) in occupied_columns.iter().enumerate() {
+        let next = if index + 1 < occupied_columns.len() {
+            occupied_columns[index + 1]
+        } else {
+            occupied_columns[0] + world_width
+        };
+        let gap = next - current - 1;
+        if index == 0 || gap > largest_gap {
+            largest_gap = gap;
+            west_x = next % world_width;
+            east_x = current + 1;
+            if east_x <= west_x {
+                east_x += world_width;
+            }
+        }
+    }
+
+    let (west, north) = tile_x_y_to_lng_lat(west_x as i32, min_y, block_zoom);
+    let (east, south) = tile_x_y_to_lng_lat(east_x as i32, max_y + 1, block_zoom);
+
+    Some(MapBounds {
+        west,
+        south,
+        east,
+        north,
+    })
 }
 
 // We could just use num days from ce instead of epoch, but ce is quite far

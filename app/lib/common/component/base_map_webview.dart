@@ -11,13 +11,13 @@ import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/map_style.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:memolanes/src/rust/renderer.dart' show MapBoundsInternal;
+import 'package:memolanes/src/rust/utils.dart' as rust_utils show MapBounds;
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 typedef MapView = ({double lng, double lat, double zoom});
-typedef MapBounds = MapBoundsInternal;
+typedef MapBounds = rust_utils.MapBounds;
 
 typedef BaseMapJavaScriptMessageHandler = void Function(String message);
 
