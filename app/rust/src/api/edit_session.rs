@@ -7,8 +7,8 @@ use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_data::JourneyData;
 use crate::journey_vector::{JourneyVector, TrackSegment};
 
-use super::api::{get, MapBounds, MapRendererProxy};
-use crate::renderer::get_bounds_from_journey_bitmap;
+use super::api::{get, MapRendererProxy};
+use crate::renderer::{MapBounds, get_bounds_from_journey_bitmap};
 use crate::renderer::MapRenderer;
 
 // TODO: This is a bit sus, it is comparing the lng/lat and doesn't handle anti-meridian.

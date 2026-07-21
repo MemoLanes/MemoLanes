@@ -1,7 +1,10 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:memolanes/body/journey/editor/journey_track_edit_mode_bar.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
+import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 
@@ -119,11 +122,23 @@ class _JourneyEditorMapWebviewState extends State<_JourneyEditorMapWebview> {
 
   @override
   Widget build(BuildContext context) {
+    final safeBottom = math.max(
+      MediaQuery.paddingOf(context).bottom,
+      ModeSwitchBar.safeAreaMinimum,
+    );
+    final bottomOverlayHeight =
+        ModeSwitchBar.extent + ModeSwitchBar.safeAreaMinimum + safeBottom;
+    final mapBoundsPadding =
+        CapsuleStyleOverlayAppBar.mapFitPaddingForBottomOverlay(
+      context,
+      bottomOverlayHeight: bottomOverlayHeight,
+    );
+
     return BaseMapWebview(
       key: _baseKey,
       mapRendererProxy: widget.mapRendererProxy,
       initialMapBounds: widget.initialMapBounds,
-      initialMapBoundsPadding: const EdgeInsets.fromLTRB(32, 88, 32, 96),
+      initialMapBoundsPadding: mapBoundsPadding,
       trackingMode: TrackingMode.off,
       isEditor: true,
       onMapMoved: widget.onMapMoved,

@@ -3,7 +3,7 @@ use memolanes_core::{
         Block, BlockKey, JourneyBitmap, TileKey, BITMAP_SIZE, MAP_WIDTH_OFFSET, TILE_WIDTH,
         TILE_WIDTH_OFFSET,
     },
-    renderer::{get_bounds_from_journey_bitmap, MapBoundsInternal},
+    renderer::{get_bounds_from_journey_bitmap, MapBounds},
     utils,
 };
 
@@ -46,7 +46,7 @@ fn bounds_include_complete_edge_blocks() {
 
     assert_eq!(
         bounds,
-        MapBoundsInternal {
+        MapBounds {
             west: expected_west,
             south: expected_south,
             east: expected_east,

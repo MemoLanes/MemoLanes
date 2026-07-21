@@ -9,7 +9,7 @@ pub use map_renderer::MapRenderer;
 pub mod internal_server;
 
 #[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct MapBoundsInternal {
+pub struct MapBounds {
     pub west: f64,
     pub south: f64,
     pub east: f64,
@@ -19,7 +19,7 @@ pub struct MapBoundsInternal {
 /// Returns the smallest Web Mercator-aligned bounds containing every occupied
 /// block. Longitude is circular: `east` may be greater than 180 degrees when
 /// that is the narrow representation of a journey crossing the antimeridian.
-pub fn get_bounds_from_journey_bitmap(journey_bitmap: &JourneyBitmap) -> Option<MapBoundsInternal> {
+pub fn get_bounds_from_journey_bitmap(journey_bitmap: &JourneyBitmap) -> Option<MapBounds> {
     let block_zoom = (TILE_WIDTH_OFFSET + MAP_WIDTH_OFFSET) as i32;
     let world_width = (MAP_WIDTH * TILE_WIDTH) as usize;
     let mut occupied_x = vec![false; world_width];
@@ -75,7 +75,7 @@ pub fn get_bounds_from_journey_bitmap(journey_bitmap: &JourneyBitmap) -> Option<
     let (west, north) = utils::tile_x_y_to_lng_lat(west_x as i32, min_y, block_zoom);
     let (east, south) = utils::tile_x_y_to_lng_lat(east_x as i32, max_y + 1, block_zoom);
 
-    Some(MapBoundsInternal {
+    Some(MapBounds {
         west,
         south,
         east,

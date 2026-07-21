@@ -25,9 +25,7 @@ use crate::renderer::MapRenderer;
 use crate::storage::{RawDataFile, Storage};
 use crate::{archive, build_info, export_data, gps_processor, main_db};
 
-use crate::renderer::MapBoundsInternal;
-
-pub(crate) type MapBounds = MapBoundsInternal;
+use crate::renderer::MapBounds;
 
 use log::{error, info, warn};
 

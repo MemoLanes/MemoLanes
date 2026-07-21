@@ -459,7 +459,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
               right: 0,
               bottom: 0,
               child: SafeArea(
-                minimum: const EdgeInsets.all(16),
+                minimum: const EdgeInsets.all(ModeSwitchBar.safeAreaMinimum),
                 child: ModeSwitchBar(
                   currentMode: _mode,
                   onModeChanged: _handleModeChange,
