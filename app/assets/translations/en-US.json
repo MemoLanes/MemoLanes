@@ -189,10 +189,26 @@
       "title": "Total explored area"
     },
     "source": {
-      "title": "Exploration sources",
+      "title": "Explored area",
       "description": "Total area combines Ground and Flight",
-      "overlap_note": "Note: Ground and Flight may overlap.",
+      "overlap_note": "Ground and Flight may overlap.",
+      "error": "Could not load explored area.",
       "share_of_total": "{} of total"
+    },
+    "countries": {
+      "title": "Explored countries",
+      "description": "{} countries and regions unlocked",
+      "note": "Currently this only counts countries, regions, and cities from ground exploration data. A fuller exploration coverage model will be added later.",
+      "empty": "No countries unlocked yet.",
+      "error": "Could not load explored countries."
+    },
+    "country_list": {
+      "title": "Explored countries",
+      "view_all": "View all"
+    },
+    "region_area_list": {
+      "sort_area": "Area",
+      "sort_coverage": "Unlock rate"
     },
     "coming_soon_card": {
       "title": "More coming soon",
