@@ -7,7 +7,6 @@ use anyhow::Result;
 use memolanes_core::build_info;
 use memolanes_core::renderer::internal_server::dispatch_request;
 use memolanes_core::renderer::MapRenderer;
-use memolanes_core::utils::get_bounds_from_journey_bitmap;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
@@ -144,8 +143,8 @@ impl MapServer {
             std::env::var("DEV_SERVER").unwrap_or_else(|_| "http://localhost:8080".to_string());
 
         let cgi_host = get_dev_server_host();
-        let map_renderer = self.map_renderer.lock().unwrap();
-        let bounds = get_bounds_from_journey_bitmap(map_renderer.peek_latest_bitmap());
+        let mut map_renderer = self.map_renderer.lock().unwrap();
+        let bounds = map_renderer.get_map_bounds();
 
         match bounds {
             Some(bounds) => format!(
@@ -171,8 +170,8 @@ impl MapServer {
 
     pub fn get_file_url(&self) -> String {
         let cgi_host = get_dev_server_host();
-        let map_renderer = self.map_renderer.lock().unwrap();
-        let bounds = get_bounds_from_journey_bitmap(map_renderer.peek_latest_bitmap());
+        let mut map_renderer = self.map_renderer.lock().unwrap();
+        let bounds = map_renderer.get_map_bounds();
 
         match bounds {
             Some(bounds) => format!(

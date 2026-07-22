@@ -6,6 +6,8 @@ use journey_kernel::FTA_COMPRESSION_ZSTD;
 use crate::journey_area_utils;
 use crate::journey_bitmap::{JourneyBitmap, TileKey};
 use crate::renderer::tile_shader2::TileShader2;
+use crate::utils;
+use crate::utils::MapBounds;
 use std::collections::HashMap;
 
 #[frb(ignore)]
@@ -86,6 +88,10 @@ impl MapRenderer {
 
     pub fn peek_latest_bitmap(&self) -> &JourneyBitmap {
         &self.journey_bitmap
+    }
+
+    pub fn get_map_bounds(&mut self) -> Option<MapBounds> {
+        utils::get_bounds_from_journey_bitmap(&mut self.journey_bitmap)
     }
 
     pub fn get_current_area(&mut self) -> u64 {

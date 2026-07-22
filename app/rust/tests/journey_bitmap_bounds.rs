@@ -19,24 +19,30 @@ fn bitmap_with_blocks(blocks: &[(TileKey, BlockKey)]) -> JourneyBitmap {
 
 #[test]
 fn empty_bitmap_has_no_bounds() {
-    assert_eq!(get_bounds_from_journey_bitmap(&JourneyBitmap::new()), None);
+    assert_eq!(
+        get_bounds_from_journey_bitmap(&mut JourneyBitmap::new()),
+        None
+    );
 }
 
 #[test]
-fn empty_tiles_do_not_hide_occupied_tiles() {
-    let mut bitmap = bitmap_with_blocks(&[(TileKey::new(10, 20), BlockKey::from_x_y(5, 6))]);
-    bitmap.get_tile_mut_or_insert_empty(&TileKey::new(30, 40));
+fn empty_interior_tiles_do_not_affect_bounds() {
+    let mut bitmap = bitmap_with_blocks(&[
+        (TileKey::new(10, 20), BlockKey::from_x_y(5, 6)),
+        (TileKey::new(30, 40), BlockKey::from_x_y(7, 8)),
+    ]);
+    bitmap.get_tile_mut_or_insert_empty(&TileKey::new(20, 30));
 
-    assert!(get_bounds_from_journey_bitmap(&bitmap).is_some());
+    assert!(get_bounds_from_journey_bitmap(&mut bitmap).is_some());
 }
 
 #[test]
 fn bounds_include_complete_edge_blocks() {
-    let bitmap = bitmap_with_blocks(&[
+    let mut bitmap = bitmap_with_blocks(&[
         (TileKey::new(10, 20), BlockKey::from_x_y(5, 6)),
         (TileKey::new(12, 23), BlockKey::from_x_y(7, 8)),
     ]);
-    let bounds = get_bounds_from_journey_bitmap(&bitmap).unwrap();
+    let bounds = get_bounds_from_journey_bitmap(&mut bitmap).unwrap();
     let zoom = (TILE_WIDTH_OFFSET + MAP_WIDTH_OFFSET) as i32;
     let (expected_west, expected_north) =
         utils::tile_x_y_to_lng_lat(10 * TILE_WIDTH as i32 + 5, 20 * TILE_WIDTH as i32 + 6, zoom);
@@ -56,11 +62,11 @@ fn bounds_include_complete_edge_blocks() {
 
 #[test]
 fn antimeridian_crossing_uses_narrow_wrapped_bounds() {
-    let bitmap = bitmap_with_blocks(&[
+    let mut bitmap = bitmap_with_blocks(&[
         (TileKey::new(511, 255), BlockKey::from_x_y(127, 10)),
         (TileKey::new(0, 255), BlockKey::from_x_y(0, 11)),
     ]);
-    let bounds = get_bounds_from_journey_bitmap(&bitmap).unwrap();
+    let bounds = get_bounds_from_journey_bitmap(&mut bitmap).unwrap();
 
     assert!(bounds.west > 179.0);
     assert!(bounds.east > 180.0);
@@ -75,8 +81,10 @@ fn bounds_do_not_depend_on_tile_insertion_order() {
     ];
     let second = [first[1], first[0]];
 
+    let mut first = bitmap_with_blocks(&first);
+    let mut second = bitmap_with_blocks(&second);
     assert_eq!(
-        get_bounds_from_journey_bitmap(&bitmap_with_blocks(&first)),
-        get_bounds_from_journey_bitmap(&bitmap_with_blocks(&second))
+        get_bounds_from_journey_bitmap(&mut first),
+        get_bounds_from_journey_bitmap(&mut second)
     );
 }

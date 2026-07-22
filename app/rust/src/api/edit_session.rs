@@ -401,8 +401,8 @@ impl EditSession {
             }
         };
 
-        let bitmap = Self::build_bitmap_from_vector(&journey_vector);
-        let initial_bounds = get_bounds_from_journey_bitmap(&bitmap);
+        let mut bitmap = Self::build_bitmap_from_vector(&journey_vector);
+        let initial_bounds = get_bounds_from_journey_bitmap(&mut bitmap);
         let map_renderer = Arc::new(Mutex::new(MapRenderer::new(bitmap)));
 
         Ok(Some(Self {

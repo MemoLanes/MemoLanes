@@ -367,7 +367,7 @@ fn get_map_renderer_proxy_for_journey_data_internal(
     let mut journey_bitmap = JourneyBitmap::new();
     journey_data.merge_into(&mut journey_bitmap);
 
-    let bounds = get_bounds_from_journey_bitmap(&journey_bitmap);
+    let bounds = get_bounds_from_journey_bitmap(&mut journey_bitmap);
 
     let map_renderer = MapRenderer::new(journey_bitmap);
     Ok((

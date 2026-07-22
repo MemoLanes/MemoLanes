@@ -31,64 +31,100 @@ pub struct MapBounds {
     pub north: f64,
 }
 
-/// Returns the smallest Web Mercator-aligned bounds containing every occupied
-/// block. Longitude is circular: `east` may be greater than 180 degrees when
-/// that is the narrow representation of a journey crossing the antimeridian.
-pub fn get_bounds_from_journey_bitmap(journey_bitmap: &JourneyBitmap) -> Option<MapBounds> {
+/// Returns Web Mercator-aligned bounds containing every occupied block.
+/// Longitude is circular: `east` may be greater than 180 degrees when that is
+/// the narrow tile-level representation of a journey crossing the antimeridian.
+pub fn get_bounds_from_journey_bitmap(journey_bitmap: &mut JourneyBitmap) -> Option<MapBounds> {
     let block_zoom = (TILE_WIDTH_OFFSET + MAP_WIDTH_OFFSET) as i32;
-    let world_width = (MAP_WIDTH * TILE_WIDTH) as usize;
-    let mut occupied_x = vec![false; world_width];
-    let mut y_bounds: Option<(i32, i32)> = None;
-
-    for tile_key in journey_bitmap.all_tile_keys() {
-        journey_bitmap.peek_tile_without_updating_cache(tile_key, |tile| {
-            let Some(tile) = tile else { return };
-            for (block_key, _) in tile.iter() {
-                let x = TILE_WIDTH as usize * tile_key.x as usize + block_key.x() as usize;
-                let y = TILE_WIDTH as i32 * tile_key.y as i32 + block_key.y() as i32;
-                if x >= world_width || y < 0 || y >= world_width as i32 {
-                    continue;
-                }
-                occupied_x[x] = true;
-                y_bounds = Some(match y_bounds {
-                    Some((min_y, max_y)) => (min_y.min(y), max_y.max(y)),
-                    None => (y, y),
-                });
-            }
+    let mut occupied_tile_columns = vec![false; MAP_WIDTH as usize];
+    let mut tile_y_bounds: Option<(u16, u16)> = None;
+    let tile_keys: Vec<_> = journey_bitmap
+        .all_tile_keys()
+        .copied()
+        .filter(|key| key.x < MAP_WIDTH as u16 && key.y < MAP_WIDTH as u16)
+        .collect();
+    for key in &tile_keys {
+        occupied_tile_columns[key.x as usize] = true;
+        tile_y_bounds = Some(match tile_y_bounds {
+            Some((min_y, max_y)) => (min_y.min(key.y), max_y.max(key.y)),
+            None => (key.y, key.y),
         });
     }
-
-    let (min_y, max_y) = y_bounds?;
-    let occupied_columns: Vec<usize> = occupied_x
+    let (north_tile_y, south_tile_y) = tile_y_bounds?;
+    let occupied_columns: Vec<usize> = occupied_tile_columns
         .iter()
         .enumerate()
         .filter_map(|(x, occupied)| occupied.then_some(x))
         .collect();
 
-    // Remove the largest empty gap on the circular x axis. The remaining arc
-    // is the narrowest interval containing every occupied block column.
+    // Remove the largest empty gap on the circular x axis. The remaining arc is
+    // the narrowest interval containing every occupied tile column.
     let mut largest_gap = 0;
-    let mut west_x = occupied_columns[0];
-    let mut east_x = occupied_columns[0] + 1;
+    let mut west_tile_x = occupied_columns[0];
+    let mut east_tile_x = occupied_columns[0];
     for (index, &current) in occupied_columns.iter().enumerate() {
         let next = if index + 1 < occupied_columns.len() {
             occupied_columns[index + 1]
         } else {
-            occupied_columns[0] + world_width
+            occupied_columns[0] + MAP_WIDTH as usize
         };
         let gap = next - current - 1;
         if index == 0 || gap > largest_gap {
             largest_gap = gap;
-            west_x = next % world_width;
-            east_x = current + 1;
-            if east_x <= west_x {
-                east_x += world_width;
+            west_tile_x = next % MAP_WIDTH as usize;
+            east_tile_x = current;
+        }
+    }
+
+    let edge_tile_keys: Vec<_> = tile_keys
+        .into_iter()
+        .filter(|key| {
+            key.x as usize == west_tile_x
+                || key.x as usize == east_tile_x
+                || key.y == north_tile_y
+                || key.y == south_tile_y
+        })
+        .collect();
+
+    let mut west_block_x: Option<u8> = None;
+    let mut east_block_x: Option<u8> = None;
+    let mut north_block_y: Option<u8> = None;
+    let mut south_block_y: Option<u8> = None;
+
+    // Loading a tile may deserialize it, so inspect only tiles on the four
+    // coarse edges instead of every tile in the journey.
+    for tile_key in edge_tile_keys {
+        let tile = journey_bitmap.get_tile(&tile_key)?;
+        for (block_key, _) in tile.iter() {
+            if tile_key.x as usize == west_tile_x {
+                west_block_x =
+                    Some(west_block_x.map_or(block_key.x(), |current| current.min(block_key.x())));
+            }
+            if tile_key.x as usize == east_tile_x {
+                east_block_x =
+                    Some(east_block_x.map_or(block_key.x(), |current| current.max(block_key.x())));
+            }
+            if tile_key.y == north_tile_y {
+                north_block_y =
+                    Some(north_block_y.map_or(block_key.y(), |current| current.min(block_key.y())));
+            }
+            if tile_key.y == south_tile_y {
+                south_block_y =
+                    Some(south_block_y.map_or(block_key.y(), |current| current.max(block_key.y())));
             }
         }
     }
 
-    let (west, north) = tile_x_y_to_lng_lat(west_x as i32, min_y, block_zoom);
-    let (east, south) = tile_x_y_to_lng_lat(east_x as i32, max_y + 1, block_zoom);
+    let west_x = west_tile_x * TILE_WIDTH as usize + west_block_x? as usize;
+    let mut east_x = east_tile_x * TILE_WIDTH as usize + east_block_x? as usize + 1;
+    if east_x <= west_x {
+        east_x += (MAP_WIDTH * TILE_WIDTH) as usize;
+    }
+    let north_y = north_tile_y as i32 * TILE_WIDTH as i32 + north_block_y? as i32;
+    let south_y = south_tile_y as i32 * TILE_WIDTH as i32 + south_block_y? as i32 + 1;
+
+    let (west, north) = tile_x_y_to_lng_lat(west_x as i32, north_y, block_zoom);
+    let (east, south) = tile_x_y_to_lng_lat(east_x as i32, south_y, block_zoom);
 
     Some(MapBounds {
         west,
