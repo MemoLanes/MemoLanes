@@ -31,13 +31,13 @@ jobs:
 
     steps:
       # ======== START SETUP ========
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
 
       # Detect whether geo_rasterizer / geo_data_format sources changed, so the
       # geo-only check/test steps run only when related files change. (The
       # rasterize step itself still runs every time so the registry guardrail
       # is never vacuous — but it's a near-instant no-op on a cache hit.)
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@v4
         id: changes
         with:
           filters: |
@@ -45,7 +45,7 @@ jobs:
               - 'tools/geo_rasterizer/**'
               - 'app/rust/geo_data_format/**'
 
-      - uses: extractions/setup-just@v2
+      - uses: extractions/setup-just@v4
 
       - uses: subosito/flutter-action@v2
         with:
@@ -92,7 +92,7 @@ jobs:
       # source as a whole so source pin moves, worldview additions, and nearby
       # format changes all bust this cache without another file-list update.
       - name: Cache Natural Earth source
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: tools/geo_rasterizer/natural_earth/*.geojson
           key: geo-natural-earth-${{ hashFiles('tools/geo_rasterizer/src/download.rs', 'app/rust/geo_data_format/src/**', 'app/rust/geo_data_format/Cargo.toml', 'app/rust/geo_data_format/Cargo.lock') }}
@@ -103,7 +103,7 @@ jobs:
       # code, so an algorithm change must bust this cache or stale output would
       # be served. On a hit, rasterize-geo finds matching provenance and skips.
       - name: Cache geo_data bins
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: app/assets/geo/geo_data_*.bin
           key: geo-bins-${{ hashFiles('tools/geo_rasterizer/src/**', 'tools/geo_rasterizer/Cargo.lock', 'tools/geo_rasterizer/geo_entity_registry.toml', 'app/rust/geo_data_format/src/**', 'app/rust/geo_data_format/Cargo.lock') }}
@@ -136,7 +136,7 @@ jobs:
         working-directory: app/journey_kernel
         run: cargo fetch
         
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '24'
           cache: 'yarn'
