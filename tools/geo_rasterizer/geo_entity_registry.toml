@@ -1146,7 +1146,7 @@ ref = [44.5369, 24.1223]
 code = "SCR"
 id = 244
 ref = [117.7538, 15.1521]
-worldview = ["chn", "usa"]
+worldview = ["usa"]
 
 [[country]]
 code = "SDN"

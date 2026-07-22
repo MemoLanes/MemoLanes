@@ -9,3 +9,8 @@ tests/fixtures/*.bin.tmp
 # `*.tmp` covers the in-flight download before it's renamed into place.
 natural_earth/ne_10m_admin_0_countries_*.geojson
 natural_earth/*.tmp
+
+# CLDR territory-name source downloaded on demand by `just rasterize-geo`,
+# reproducible from the pin in geo_data_format::cldr.
+cldr/territories.*.json
+cldr/*.tmp

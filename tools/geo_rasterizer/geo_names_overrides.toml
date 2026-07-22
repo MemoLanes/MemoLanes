@@ -45,32 +45,96 @@ en-US = "South America"
 zh-CN = "南美洲"
 
 # --- Countries --------------------------------------------------------------
+# CLDR names territories keyed by ISO 3166-1 alpha-2. The entities below have no
+# alpha-2 (their `ISO_A2_EH` is the `-99` sentinel) or no CLDR territory of their
+# own, so CLDR cannot name them and the name is authored here. Values are carried
+# over from Natural Earth's `NAME_EN` / `NAME_ZH`. Sorted by code.
 
-# In the iso worldview, IOA is a collapsed group (Christmas I. + Cocos Is.) with
-# no `TYPE == "Country"` member, so there is no sovereign feature to take a name
-# from — Natural Earth carries no name for it in ANY language. The chn/usa
-# worldviews do have a single IOA feature, but its NAME_ZH is Traditional
-# Chinese (澳屬印度洋領地), so zh-CN is authored here for every worldview.
+# --- Sub-features sharing a sovereign's ISO_A2_EH -----------------------------
+# Natural Earth stamps these with their *sovereign's* alpha-2, so CLDR would name
+# each after the sovereign (Georgia, Australia, …). Distinct names are authored
+# here; the build's collision gate fails if a new such entity appears unhandled.
+
+# Georgian breakaway regions; NE ISO_A2_EH = GE (Georgia).
+["country.B35"]
+en-US = "Abkhazia"
+zh-CN = "阿布哈兹"
+
+["country.B37"]
+en-US = "South Ossetia"
+zh-CN = "南奥塞梯"
+
+# Australian external features; NE ISO_A2_EH = AU (Australia).
+["country.ATC"]
+en-US = "Ashmore and Cartier Islands"
+zh-CN = "阿什莫尔和卡捷群岛"
+
+["country.CSI"]
+en-US = "Coral Sea Islands"
+zh-CN = "珊瑚海群岛"
+
+# NE ISO_A2_EH = BR (Brazil).
+["country.BRI"]
+en-US = "Brazilian Island"
+zh-CN = "巴西岛"
+
+# NE ISO_A2_EH = FR (France).
+["country.CLP"]
+en-US = "Clipperton Island"
+zh-CN = "克利珀顿岛"
+
+# --- Shortened from CLDR's verbose primary form -------------------------------
+# CLDR's primary territory name is the long SAR form ("Hong Kong SAR China" /
+# 中国香港特别行政区); the short form (CLDR's own `-alt-short`) reads better as a
+# map label.
+["country.HKG"]
+en-US = "Hong Kong"
+zh-CN = "香港"
+
+["country.MAC"]
+en-US = "Macao"
+zh-CN = "澳门"
+
+# CLDR primary is "Palestinian Territories" / 巴勒斯坦领土; short form preferred.
+["country.PSX"]
+en-US = "Palestine"
+zh-CN = "巴勒斯坦"
+
+# --- No ISO alpha-2 / no CLDR territory ---------------------------------------
+
+# Terra nullius between Egypt and Sudan; no ISO alpha-2, no CLDR territory.
+["country.BRT"]
+en-US = "Bir Tawil"
+zh-CN = "比尔泰维勒"
+
+# UK Sovereign Base Area (Dhekelia, Eastern) on Cyprus; no ISO alpha-2.
+["country.ESB"]
+en-US = "Dhekelia Cantonment"
+zh-CN = "泽凯利亚军营"
+
+# Aggregate of Christmas I. + Cocos Is.; no ISO alpha-2, no CLDR territory. (In
+# the iso worldview it is also a collapsed group with no sovereign member.)
 ["country.IOA"]
 en-US = "Australian Indian Ocean Territories"
 zh-CN = "澳属印度洋领地"
 
-# Natural Earth's NAME_ZH for TWN is 中华民国.
-["country.TWN"]
-zh-CN = "台湾"
-
-# Natural Earth's localized columns for PGA name the WRONG PLACE: NAME_EN is
-# "Wake Island" and NAME_ZH is 威克岛, but the feature's geometry is the Spratly
-# archipelago (lon 114.03..115.85, lat 9.68..11.12) — ~5,700 km from Wake, which
-# NE carries separately and correctly under UMI. NE's own NAME ("Spratly Is.")
-# and SOVEREIGNT ("Spratly Islands") columns agree with the geometry, so it is
-# the localized columns that are wrong, not our reading of them.
-#
-# The coverage gate cannot catch this class of defect: it proves every entity HAS
-# a non-empty name, not that the name is the right one. A token-overlap audit of
-# NAME_EN against NAME/SOVEREIGNT across all three worldviews found PGA to be the
-# only genuine mislabel (the other divergences are spelling variants: Czechia /
-# Czech Republic, Faeroe / Faroe, Macao / Macau, S. Geo. and the Is.).
+# NE-only aggregate: the feature geometry is the Spratly archipelago, which CLDR
+# has no territory for.
 ["country.PGA"]
 en-US = "Spratly Islands"
 zh-CN = "南沙群岛"
+
+# Disputed shoal; no ISO alpha-2, no CLDR territory.
+["country.SCR"]
+en-US = "Scarborough Shoal"
+zh-CN = "黄岩岛"
+
+# US naval base leased from Cuba; no ISO alpha-2, no CLDR territory.
+["country.USG"]
+en-US = "Guantanamo Bay Naval Base"
+zh-CN = "关塔那摩湾海军基地"
+
+# UK Sovereign Base Area (Akrotiri, Western) on Cyprus; no ISO alpha-2.
+["country.WSB"]
+en-US = "Akrotiri Sovereign Base Area"
+zh-CN = "阿克罗蒂里主权基地区"
