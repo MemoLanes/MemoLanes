@@ -10,7 +10,6 @@
 
 import maplibregl from "maplibre-gl";
 import { MapController } from "./map-controller";
-import type { JourneyBounds, JourneyBoundsPadding } from "./params";
 
 // Type definitions for Flutter message channels
 interface FlutterMessageChannel {
@@ -33,10 +32,6 @@ declare global {
     ) => void;
     getCurrentMapView?: () => string;
     refreshMapData?: () => Promise<boolean | null>;
-    fitJourneyBounds?: (
-      bounds: JourneyBounds,
-      padding: JourneyBoundsPadding,
-    ) => void;
     setLowPowerMode?: (enabled: boolean) => void;
   }
 }
@@ -193,9 +188,6 @@ export class FlutterBridge {
 
     // Refresh map data - allows Flutter to trigger a data refresh
     window.refreshMapData = () => this.mapController.refreshMapData();
-
-    window.fitJourneyBounds = (bounds, padding) =>
-      this.mapController.fitJourneyBounds(bounds, padding);
 
     // Update low power mode status from Flutter
     window.setLowPowerMode = (enabled: boolean) => {

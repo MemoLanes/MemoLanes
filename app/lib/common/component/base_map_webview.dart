@@ -79,8 +79,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   // It is rough because we don't update it frequently.
   MapView? _currentRoughMapView;
-  // Automatic data/bounds updates must not overwrite a camera the user chose.
-  bool _hasUserMovedCamera = false;
 
   // For bug workaround
   bool _isiOS18 = false;
@@ -108,30 +106,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     if (oldWidget.mapRendererProxy != widget.mapRendererProxy) {
       _refreshMapData();
     }
-
-    if (!_hasUserMovedCamera &&
-        (oldWidget.initialMapBounds != widget.initialMapBounds ||
-            oldWidget.initialMapBoundsPadding !=
-                widget.initialMapBoundsPadding)) {
-      _fitInitialMapBounds();
-    }
-  }
-
-  Future<void> _fitInitialMapBounds() async {
-    final bounds = widget.initialMapBounds;
-    final controller = _webViewController;
-    if (bounds == null || controller == null) return;
-    final padding = widget.initialMapBoundsPadding ?? const EdgeInsets.all(24);
-    await controller.evaluateJavascript(source: '''
-      if (typeof fitJourneyBounds === 'function') {
-        fitJourneyBounds(
-          { west: ${bounds.west}, south: ${bounds.south},
-            east: ${bounds.east}, north: ${bounds.north} },
-          { top: ${padding.top}, right: ${padding.right},
-            bottom: ${padding.bottom}, left: ${padding.left} }
-        );
-      }
-    ''');
   }
 
   /// Request the WebView to refresh map data from the backend
@@ -265,7 +239,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         allowedOriginRules: {'*'},
         onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
           if (!mounted) return;
-          _hasUserMovedCamera = true;
           widget.onMapMoved?.call();
         },
       )),

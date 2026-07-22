@@ -22,8 +22,6 @@ import {
 } from "maplibregl-mapbox-request-transformer";
 import {
   AVAILABLE_LAYERS,
-  type JourneyBounds,
-  type JourneyBoundsPadding,
   type ReactiveParams,
   type ProjectionType,
 } from "./params";
@@ -197,16 +195,6 @@ export class MapController {
    */
   getMap(): MaplibreMap {
     return this.map;
-  }
-
-  fitJourneyBounds(bounds: JourneyBounds, padding: JourneyBoundsPadding): void {
-    this.map.fitBounds(
-      [
-        [bounds.west, bounds.south],
-        [bounds.east, bounds.north],
-      ],
-      { padding, maxZoom: MAX_MAP_ZOOM, duration: 0 },
-    );
   }
 
   /**
