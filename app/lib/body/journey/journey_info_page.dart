@@ -44,7 +44,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   final fmt = DateFormat('yyyy-MM-dd HH:mm:ss');
   late JourneyHeader _journeyHeader;
   api.MapRendererProxy? _mapRendererProxy;
-  MapView? _initialMapView;
+  MapBounds? _initialMapBounds;
 
   @override
   void initState() {
@@ -70,7 +70,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   }
 
   Future<void> _refreshJourneyInfo() async {
-    final mapRendererProxyAndCameraOption = widget.previewJourneyData != null
+    final rendererAndBounds = widget.previewJourneyData != null
         ? await api.getMapRendererProxyForJourneyData(
             journeyData: widget.previewJourneyData!)
         : await api.getMapRendererProxyForJourney(journeyId: _journeyHeader.id);
@@ -78,15 +78,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     if (_isPreviewMode) {
       if (!mounted) return;
       setState(() {
-        _mapRendererProxy = mapRendererProxyAndCameraOption.$1;
-        final cameraOption = mapRendererProxyAndCameraOption.$2;
-        if (cameraOption != null) {
-          _initialMapView = (
-            lng: cameraOption.lng,
-            lat: cameraOption.lat,
-            zoom: cameraOption.zoom,
-          );
-        }
+        _mapRendererProxy = rendererAndBounds.$1;
+        _initialMapBounds = rendererAndBounds.$2;
       });
       return;
     }
@@ -99,15 +92,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
 
     if (!mounted) return;
     setState(() {
-      _mapRendererProxy = mapRendererProxyAndCameraOption.$1;
-      final cameraOption = mapRendererProxyAndCameraOption.$2;
-      if (cameraOption != null) {
-        _initialMapView = (
-          lng: cameraOption.lng,
-          lat: cameraOption.lat,
-          zoom: cameraOption.zoom,
-        );
-      }
+      _mapRendererProxy = rendererAndBounds.$1;
+      _initialMapBounds = rendererAndBounds.$2;
       if (latestHeader != null) {
         _journeyHeader = latestHeader;
       }
@@ -214,6 +200,11 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   @override
   Widget build(BuildContext context) {
     final mapRendererProxy = _mapRendererProxy;
+    final mapBoundsPadding =
+        CapsuleStyleOverlayAppBar.mapFitPaddingForBottomOverlay(
+      context,
+      bottomOverlayHeight: _panelMaxHeight(context),
+    );
     final journeyKindName = switch (_journeyHeader.journeyKind) {
       JourneyKind.defaultKind => context.tr("journey_kind.default"),
       JourneyKind.flight => context.tr("journey_kind.flight"),
@@ -360,7 +351,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                 : BaseMapWebview(
                     key: const ValueKey("mapWidget"),
                     mapRendererProxy: mapRendererProxy,
-                    initialMapView: _initialMapView,
+                    initialMapBounds: _initialMapBounds,
+                    initialMapBoundsPadding: mapBoundsPadding,
                   ),
           ),
           CapsuleStyleOverlayAppBar.overlayBar(

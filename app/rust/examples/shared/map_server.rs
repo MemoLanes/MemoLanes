@@ -6,7 +6,7 @@ use actix_web::{
 use anyhow::Result;
 use memolanes_core::build_info;
 use memolanes_core::renderer::internal_server::dispatch_request;
-use memolanes_core::renderer::{get_default_camera_option_from_journey_bitmap, MapRenderer};
+use memolanes_core::renderer::MapRenderer;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
@@ -143,19 +143,19 @@ impl MapServer {
             std::env::var("DEV_SERVER").unwrap_or_else(|_| "http://localhost:8080".to_string());
 
         let cgi_host = get_dev_server_host();
-        let map_renderer = self.map_renderer.lock().unwrap();
-        let camera_option =
-            get_default_camera_option_from_journey_bitmap(map_renderer.peek_latest_bitmap());
+        let mut map_renderer = self.map_renderer.lock().unwrap();
+        let bounds = map_renderer.get_map_bounds();
 
-        match camera_option {
-            Some(camera) => format!(
-                "{}#cgi_endpoint=http%3A%2F%2F{}%3A{}&debug=true&lng={}&lat={}&zoom={}&access_key={}",
+        match bounds {
+            Some(bounds) => format!(
+                "{}#cgi_endpoint=http%3A%2F%2F{}%3A{}&debug=true&west={}&south={}&east={}&north={}&access_key={}",
                 dev_server,
                 cgi_host,
                 self.port,
-                camera.lng,
-                camera.lat,
-                camera.zoom,
+                bounds.west,
+                bounds.south,
+                bounds.east,
+                bounds.north,
                 build_info::MAPBOX_ACCESS_TOKEN.unwrap_or("")
             ),
             None => format!(
@@ -170,19 +170,19 @@ impl MapServer {
 
     pub fn get_file_url(&self) -> String {
         let cgi_host = get_dev_server_host();
-        let map_renderer = self.map_renderer.lock().unwrap();
-        let camera_option =
-            get_default_camera_option_from_journey_bitmap(map_renderer.peek_latest_bitmap());
+        let mut map_renderer = self.map_renderer.lock().unwrap();
+        let bounds = map_renderer.get_map_bounds();
 
-        match camera_option {
-            Some(camera) => format!(
-                "file://{}/journey_kernel/index.html#cgi_endpoint=http%3A%2F%2F{}%3A{}&debug=true&lng={}&lat={}&zoom={}&access_key={}", 
+        match bounds {
+            Some(bounds) => format!(
+                "file://{}/journey_kernel/index.html#cgi_endpoint=http%3A%2F%2F{}%3A{}&debug=true&west={}&south={}&east={}&north={}&access_key={}",
                 std::env::var("OUT_DIR").unwrap_or_else(|_| ".".to_string()), 
                 cgi_host,
                 self.port,
-                camera.lng,
-                camera.lat,
-                camera.zoom,
+                bounds.west,
+                bounds.south,
+                bounds.east,
+                bounds.north,
                 build_info::MAPBOX_ACCESS_TOKEN.unwrap_or(""),
             ),
             None => format!(

@@ -7,9 +7,9 @@ use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_data::JourneyData;
 use crate::journey_vector::{JourneyVector, TrackSegment};
 
-use super::api::{get, CameraOption, MapRendererProxy};
-use crate::renderer::get_default_camera_option_from_journey_bitmap;
+use super::api::{get, MapRendererProxy};
 use crate::renderer::MapRenderer;
+use crate::utils::{get_bounds_from_journey_bitmap, MapBounds};
 
 // TODO: This is a bit sus, it is comparing the lng/lat and doesn't handle anti-meridian.
 const EPS: f64 = 1e-12_f64;
@@ -23,7 +23,7 @@ pub struct EditSession {
     journey_id: String,
     journey_revision: String,
     map_renderer: Arc<Mutex<MapRenderer>>,
-    initial_camera_option: Option<CameraOption>,
+    initial_bounds: Option<MapBounds>,
     data: JourneyVector,
     undo_stack: Vec<JourneyVector>,
 }
@@ -401,15 +401,15 @@ impl EditSession {
             }
         };
 
-        let bitmap = Self::build_bitmap_from_vector(&journey_vector);
-        let initial_camera_option = get_default_camera_option_from_journey_bitmap(&bitmap);
+        let mut bitmap = Self::build_bitmap_from_vector(&journey_vector);
+        let initial_bounds = get_bounds_from_journey_bitmap(&mut bitmap);
         let map_renderer = Arc::new(Mutex::new(MapRenderer::new(bitmap)));
 
         Ok(Some(Self {
             journey_id,
             journey_revision,
             map_renderer,
-            initial_camera_option,
+            initial_bounds,
             data: journey_vector,
             undo_stack: Vec::new(),
         }))
@@ -424,10 +424,10 @@ impl EditSession {
         self.undo_stack.push(prev_data);
     }
 
-    pub fn get_map_renderer_proxy(&self) -> Result<(MapRendererProxy, Option<CameraOption>)> {
+    pub fn get_map_renderer_proxy(&self) -> Result<(MapRendererProxy, Option<MapBounds>)> {
         Ok((
             MapRendererProxy::DynamicRenderer(self.map_renderer.clone()),
-            self.initial_camera_option,
+            self.initial_bounds,
         ))
     }
 

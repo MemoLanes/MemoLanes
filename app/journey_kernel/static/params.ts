@@ -18,6 +18,20 @@ const DEFAULT_RENDER_MODE = "canvas";
 /** Valid projection types for the map */
 export type ProjectionType = "mercator" | "globe";
 
+export interface JourneyBounds {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}
+
+export interface JourneyBoundsPadding {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
 // ============================================================================
 // Layer Configuration
 // ============================================================================
@@ -65,13 +79,21 @@ export interface ExternalParams {
   lng?: string;
   lat?: string;
   zoom?: string;
+  west?: string | number;
+  south?: string | number;
+  east?: string | number;
+  north?: string | number;
+  fit_padding_top?: string | number;
+  fit_padding_right?: string | number;
+  fit_padding_bottom?: string | number;
+  fit_padding_left?: string | number;
   render?: string;
   map_style?: string;
   fog_density?: string;
   projection?: string;
   debug?: string;
   low_power_mode?: string;
-  [key: string]: string | undefined;
+  [key: string]: string | number | undefined;
 }
 
 // ============================================================================
@@ -94,6 +116,8 @@ interface ParamsData {
   lng: number;
   lat: number;
   zoom: number;
+  initialBounds: JourneyBounds | null;
+  initialBoundsPadding: JourneyBoundsPadding;
   requiresMapboxToken: boolean;
   debug: boolean;
   // Mutable properties
@@ -301,11 +325,31 @@ export function createReactiveParams(
   }
 
   // Helper to parse number with fallback
-  const parseNum = (val: string | undefined, fallback: number): number => {
-    if (!val) return fallback;
-    const parsed = parseFloat(val);
+  const parseNum = (
+    val: string | number | undefined,
+    fallback: number,
+  ): number => {
+    if (val === undefined || val === null || val === "") return fallback;
+    const parsed = typeof val === "number" ? val : parseFloat(val);
     return isNaN(parsed) ? fallback : parsed;
   };
+
+  const parseOptionalNum = (
+    val: string | number | undefined,
+  ): number | null => {
+    if (val === undefined || val === null || val === "") return null;
+    const parsed = typeof val === "number" ? val : parseFloat(val);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  const west = parseOptionalNum(externalParams.west);
+  const south = parseOptionalNum(externalParams.south);
+  const east = parseOptionalNum(externalParams.east);
+  const north = parseOptionalNum(externalParams.north);
+  const initialBounds =
+    west !== null && south !== null && east !== null && north !== null
+      ? { west, south, east, north }
+      : null;
 
   // Create the reactive proxy
   return createReactiveProxy({
@@ -315,6 +359,13 @@ export function createReactiveParams(
     lng: parseNum(externalParams.lng, 0),
     lat: parseNum(externalParams.lat, 0),
     zoom: parseNum(externalParams.zoom, 2),
+    initialBounds,
+    initialBoundsPadding: {
+      top: parseNum(externalParams.fit_padding_top, 24),
+      right: parseNum(externalParams.fit_padding_right, 24),
+      bottom: parseNum(externalParams.fit_padding_bottom, 24),
+      left: parseNum(externalParams.fit_padding_left, 24),
+    },
     renderMode,
     requiresMapboxToken,
     fogDensity: Math.max(

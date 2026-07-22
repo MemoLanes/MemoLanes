@@ -11,11 +11,13 @@ import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/map_style.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/src/rust/utils.dart' as rust_utils show MapBounds;
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 typedef MapView = ({double lng, double lat, double zoom});
+typedef MapBounds = rust_utils.MapBounds;
 
 typedef BaseMapJavaScriptMessageHandler = void Function(String message);
 
@@ -38,6 +40,8 @@ enum TrackingMode {
 class BaseMapWebview extends StatefulWidget {
   final api.MapRendererProxy mapRendererProxy;
   final MapView? initialMapView;
+  final MapBounds? initialMapBounds;
+  final EdgeInsets? initialMapBoundsPadding;
   final TrackingMode trackingMode;
   final bool isEditor;
   final void Function()? onMapMoved;
@@ -49,6 +53,8 @@ class BaseMapWebview extends StatefulWidget {
       {super.key,
       required this.mapRendererProxy,
       this.initialMapView,
+      this.initialMapBounds,
+      this.initialMapBoundsPadding,
       this.trackingMode = TrackingMode.off,
       this.isEditor = false,
       this.onMapMoved,
@@ -306,6 +312,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     final lngParam = mapView?.lng.toString() ?? 'null';
     final latParam = mapView?.lat.toString() ?? 'null';
     final zoomParam = mapView?.zoom.toString() ?? 'null';
+    final bounds = widget.initialMapBounds;
+    final boundsPadding =
+        widget.initialMapBoundsPadding ?? const EdgeInsets.all(24);
 
     debugPrint('Injecting lng: $lngParam');
     debugPrint('Injecting lat: $latParam');
@@ -326,6 +335,14 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         lng: $lngParam,
         lat: $latParam,
         zoom: $zoomParam,
+        west: ${bounds?.west ?? 'null'},
+        south: ${bounds?.south ?? 'null'},
+        east: ${bounds?.east ?? 'null'},
+        north: ${bounds?.north ?? 'null'},
+        fit_padding_top: ${boundsPadding.top},
+        fit_padding_right: ${boundsPadding.right},
+        fit_padding_bottom: ${boundsPadding.bottom},
+        fit_padding_left: ${boundsPadding.left},
         editor: ${widget.isEditor ? "true" : "false"},
         low_power_mode: "$_isLowPowerMode",
       };
