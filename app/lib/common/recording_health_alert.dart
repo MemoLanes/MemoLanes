@@ -21,7 +21,7 @@ class RecordingHealthAlert {
   bool _isShowing = false;
 
   static final _helpPageUrl =
-      Uri.parse('https://app.memolanes.com/android-background-recording');
+      Uri.parse('https://app.memolanes.com/faqs/android-background-recording');
 
   bool get isShowing => _isShowing;
 
