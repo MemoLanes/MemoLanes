@@ -13,6 +13,7 @@ class MapPanelPage extends StatelessWidget {
     required this.mapRendererProxy,
     required this.panel,
     this.initialMapView,
+    this.initialMapBounds,
     this.maxHeight,
     this.expandPanel = false,
     this.loadingBody = const SizedBox.shrink(),
@@ -22,6 +23,7 @@ class MapPanelPage extends StatelessWidget {
   final String title;
   final api.MapRendererProxy? mapRendererProxy;
   final MapView? initialMapView;
+  final MapBounds? initialMapBounds;
   final Widget panel;
   final double? maxHeight;
   final bool expandPanel;
@@ -66,6 +68,12 @@ class MapPanelPage extends StatelessWidget {
                     key: const ValueKey("mapWidget"),
                     mapRendererProxy: mapRendererProxy,
                     initialMapView: initialMapView,
+                    initialMapBounds: initialMapBounds,
+                    initialMapBoundsPadding:
+                        CapsuleStyleOverlayAppBar.mapFitPaddingForBottomOverlay(
+                      context,
+                      bottomOverlayHeight: maxHeight ?? 400,
+                    ),
                   ),
           ),
           CapsuleStyleOverlayAppBar.overlayBar(

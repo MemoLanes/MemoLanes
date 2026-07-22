@@ -27,7 +27,7 @@ class _ImportDataPage extends State<ImportDataPage> {
   late final f.Either<api.OpaqueJourneyData, import_api.RawVectorData>
       journeyDataMaybeRaw;
   api.MapRendererProxy? _mapRendererProxy;
-  MapView? _initialMapView;
+  MapBounds? _initialMapBounds;
   late import_api.ImportPreprocessor _preprocessor;
 
   @override
@@ -122,21 +122,13 @@ class _ImportDataPage extends State<ImportDataPage> {
           importProcessor: _preprocessor,
         ),
     };
-    final mapRendererProxyAndCameraOption =
-        await api.getMapRendererProxyForJourneyData(
+    final rendererAndBounds = await api.getMapRendererProxyForJourneyData(
       journeyData: journeyData,
     );
 
     setState(() {
-      _mapRendererProxy = mapRendererProxyAndCameraOption.$1;
-      final cameraOption = mapRendererProxyAndCameraOption.$2;
-      if (cameraOption != null) {
-        _initialMapView = (
-          lng: cameraOption.lng,
-          lat: cameraOption.lat,
-          zoom: cameraOption.zoom,
-        );
-      }
+      _mapRendererProxy = rendererAndBounds.$1;
+      _initialMapBounds = rendererAndBounds.$2;
     });
 
     return !await import_api.isJourneyDataEmpty(
@@ -187,7 +179,7 @@ class _ImportDataPage extends State<ImportDataPage> {
         : MapPanelPage(
             title: context.tr("data.import_data.title"),
             mapRendererProxy: _mapRendererProxy,
-            initialMapView: _initialMapView,
+            initialMapBounds: _initialMapBounds,
             maxHeight: widget.importType == ImportType.gpxOrKml ? 530 : 510,
             expandPanel: true,
             panel: JourneyInfoEditPage(
@@ -202,9 +194,7 @@ class _ImportDataPage extends State<ImportDataPage> {
                     context,
                     context.tr("import.parsing_failed"),
                   );
-                  if (context.mounted && Navigator.canPop(context)) {
-                    Navigator.pop(context);
-                  }
+                  if (context.mounted) popCurrentRoute(context);
                   return false;
                 }
                 return await _saveData(journeyInfo, preprocessor);

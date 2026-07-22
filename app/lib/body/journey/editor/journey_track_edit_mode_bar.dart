@@ -17,6 +17,9 @@ enum DrawEntryMode {
 }
 
 class ModeSwitchBar extends StatelessWidget {
+  static const double extent = 64.0;
+  static const double safeAreaMinimum = 16.0;
+
   final OperationMode currentMode;
   final ValueChanged<OperationMode> onModeChanged;
   final bool canUndo;
@@ -40,7 +43,7 @@ class ModeSwitchBar extends StatelessWidget {
       alignment: Alignment.bottomCenter,
       child: IntrinsicWidth(
         child: FrostedBarContainer(
-          extent: 64,
+          extent: extent,
           mainAxisPadding: 8,
           child: Row(
             mainAxisSize: MainAxisSize.min,

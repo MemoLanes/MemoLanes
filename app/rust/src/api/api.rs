@@ -19,15 +19,12 @@ use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::journey_vector::JourneyVector;
 use crate::logs;
-use crate::renderer::get_default_camera_option_from_journey_bitmap;
 use crate::renderer::internal_server::{dispatch_request, WebviewResponse};
 use crate::renderer::MapRenderer;
 use crate::storage::{RawDataFile, Storage};
 use crate::{archive, build_info, export_data, gps_processor, main_db};
 
-use crate::renderer::CameraOptionInternal;
-
-pub(crate) type CameraOption = CameraOptionInternal;
+use crate::utils::{get_bounds_from_journey_bitmap, MapBounds};
 
 use log::{error, info, warn};
 
@@ -366,22 +363,22 @@ pub fn get_map_renderer_proxy_for_journey_date_range(
 
 fn get_map_renderer_proxy_for_journey_data_internal(
     journey_data: JourneyData,
-) -> Result<(MapRendererProxy, Option<CameraOption>)> {
+) -> Result<(MapRendererProxy, Option<MapBounds>)> {
     let mut journey_bitmap = JourneyBitmap::new();
     journey_data.merge_into(&mut journey_bitmap);
 
-    let default_camera_option = get_default_camera_option_from_journey_bitmap(&journey_bitmap);
+    let bounds = get_bounds_from_journey_bitmap(&mut journey_bitmap);
 
     let map_renderer = MapRenderer::new(journey_bitmap);
     Ok((
         MapRendererProxy::DynamicRenderer(Arc::new(Mutex::new(map_renderer))),
-        default_camera_option,
+        bounds,
     ))
 }
 
 pub fn get_map_renderer_proxy_for_journey(
     journey_id: &str,
-) -> Result<(MapRendererProxy, Option<CameraOption>)> {
+) -> Result<(MapRendererProxy, Option<MapBounds>)> {
     let journey_data = get()
         .storage
         .with_db_txn(|txn| txn.get_journey_data(journey_id))?;
@@ -390,7 +387,7 @@ pub fn get_map_renderer_proxy_for_journey(
 
 pub fn get_map_renderer_proxy_for_journey_data(
     journey_data: &OpaqueJourneyData,
-) -> Result<(MapRendererProxy, Option<CameraOption>)> {
+) -> Result<(MapRendererProxy, Option<MapBounds>)> {
     // TODO: the clone here is not ideal, we should redesign the interface,
     // maybe consider Arc.
     let journey_data = journey_data.borrow_inner().clone();

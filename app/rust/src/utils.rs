@@ -2,6 +2,10 @@ use std::f64::consts::PI;
 
 use chrono::{Datelike, NaiveDate};
 
+use crate::journey_bitmap::{
+    JourneyBitmap, MAP_WIDTH, MAP_WIDTH_OFFSET, TILE_WIDTH, TILE_WIDTH_OFFSET,
+};
+
 // https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
 // TODO: remove these two duplicated functions once we have the new rendering system.
 pub fn lng_lat_to_tile_x_y(lng: f64, lat: f64, zoom: i32) -> (i32, i32) {
@@ -17,6 +21,117 @@ pub fn tile_x_y_to_lng_lat(x: i32, y: i32, zoom: i32) -> (f64, f64) {
     let lng = (x as f64 / n) * 360.0 - 180.0;
     let lat = (f64::atan(f64::sinh(PI * (1.0 - (2.0 * y as f64) / n))) * 180.0) / PI;
     (lng, lat)
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct MapBounds {
+    pub west: f64,
+    pub south: f64,
+    pub east: f64,
+    pub north: f64,
+}
+
+/// Returns Web Mercator-aligned bounds containing every occupied block.
+/// Longitude is circular: `east` may be greater than 180 degrees when that is
+/// the narrow tile-level representation of a journey crossing the antimeridian.
+pub fn get_bounds_from_journey_bitmap(journey_bitmap: &mut JourneyBitmap) -> Option<MapBounds> {
+    let block_zoom = (TILE_WIDTH_OFFSET + MAP_WIDTH_OFFSET) as i32;
+    let mut occupied_tile_columns = [false; MAP_WIDTH as usize];
+    let mut tile_y_bounds: Option<(u16, u16)> = None;
+    let tile_keys: Vec<_> = journey_bitmap
+        .all_tile_keys()
+        .filter(|key| key.x < MAP_WIDTH as u16 && key.y < MAP_WIDTH as u16)
+        .collect();
+    for key in &tile_keys {
+        occupied_tile_columns[key.x as usize] = true;
+        tile_y_bounds = Some(match tile_y_bounds {
+            Some((min_y, max_y)) => (min_y.min(key.y), max_y.max(key.y)),
+            None => (key.y, key.y),
+        });
+    }
+    let (north_tile_y, south_tile_y) = tile_y_bounds?;
+    let occupied_columns: Vec<usize> = occupied_tile_columns
+        .iter()
+        .enumerate()
+        .filter_map(|(x, occupied)| occupied.then_some(x))
+        .collect();
+
+    // Remove the largest empty gap on the circular x axis. The remaining arc is
+    // the narrowest interval containing every occupied tile column.
+    let mut largest_gap = 0;
+    let mut west_tile_x = occupied_columns[0];
+    let mut east_tile_x = occupied_columns[0];
+    for (index, &current) in occupied_columns.iter().enumerate() {
+        let next = if index + 1 < occupied_columns.len() {
+            occupied_columns[index + 1]
+        } else {
+            occupied_columns[0] + MAP_WIDTH as usize
+        };
+        let gap = next - current - 1;
+        if index == 0 || gap > largest_gap {
+            largest_gap = gap;
+            west_tile_x = next % MAP_WIDTH as usize;
+            east_tile_x = current;
+        }
+    }
+
+    let edge_tile_keys: Vec<_> = tile_keys
+        .into_iter()
+        .filter(|key| {
+            key.x as usize == west_tile_x
+                || key.x as usize == east_tile_x
+                || key.y == north_tile_y
+                || key.y == south_tile_y
+        })
+        .copied()
+        .collect();
+
+    let mut west_block_x: Option<u8> = None;
+    let mut east_block_x: Option<u8> = None;
+    let mut north_block_y: Option<u8> = None;
+    let mut south_block_y: Option<u8> = None;
+
+    // Loading a tile may deserialize it, so inspect only tiles on the four
+    // coarse edges instead of every tile in the journey.
+    for tile_key in edge_tile_keys {
+        let tile = journey_bitmap.get_tile(&tile_key)?;
+        for (block_key, _) in tile.iter() {
+            if tile_key.x as usize == west_tile_x {
+                west_block_x =
+                    Some(west_block_x.map_or(block_key.x(), |current| current.min(block_key.x())));
+            }
+            if tile_key.x as usize == east_tile_x {
+                east_block_x =
+                    Some(east_block_x.map_or(block_key.x(), |current| current.max(block_key.x())));
+            }
+            if tile_key.y == north_tile_y {
+                north_block_y =
+                    Some(north_block_y.map_or(block_key.y(), |current| current.min(block_key.y())));
+            }
+            if tile_key.y == south_tile_y {
+                south_block_y =
+                    Some(south_block_y.map_or(block_key.y(), |current| current.max(block_key.y())));
+            }
+        }
+    }
+
+    let west_x = west_tile_x * TILE_WIDTH as usize + west_block_x? as usize;
+    let mut east_x = east_tile_x * TILE_WIDTH as usize + east_block_x? as usize + 1;
+    if east_x <= west_x {
+        east_x += (MAP_WIDTH * TILE_WIDTH) as usize;
+    }
+    let north_y = north_tile_y as i32 * TILE_WIDTH as i32 + north_block_y? as i32;
+    let south_y = south_tile_y as i32 * TILE_WIDTH as i32 + south_block_y? as i32 + 1;
+
+    let (west, north) = tile_x_y_to_lng_lat(west_x as i32, north_y, block_zoom);
+    let (east, south) = tile_x_y_to_lng_lat(east_x as i32, south_y, block_zoom);
+
+    Some(MapBounds {
+        west,
+        south,
+        east,
+        north,
+    })
 }
 
 // We could just use num days from ce instead of epoch, but ce is quite far

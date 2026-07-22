@@ -2,7 +2,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/journey/journey_info_edit_page.dart';
 import 'package:memolanes/body/journey/journey_track_edit_page.dart';
-import 'package:memolanes/common/component/base_map_webview.dart' show MapView;
+import 'package:memolanes/common/component/base_map_webview.dart'
+    show MapBounds;
 import 'package:memolanes/common/component/basic_bottom_sheet.dart';
 import 'package:memolanes/common/component/capsule_style_bar_content.dart';
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
@@ -41,7 +42,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   final fmt = DateFormat('yyyy-MM-dd HH:mm:ss');
   late JourneyHeader _journeyHeader;
   api.MapRendererProxy? _mapRendererProxy;
-  MapView? _initialMapView;
+  MapBounds? _initialMapBounds;
   _JourneyInfoPanelMode _panelMode = _JourneyInfoPanelMode.info;
   bool _journeyInfoChanged = false;
 
@@ -69,7 +70,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   }
 
   Future<void> _refreshJourneyInfo() async {
-    final mapRendererProxyAndCameraOption = widget.previewJourneyData != null
+    final rendererAndBounds = widget.previewJourneyData != null
         ? await api.getMapRendererProxyForJourneyData(
             journeyData: widget.previewJourneyData!)
         : await api.getMapRendererProxyForJourney(journeyId: _journeyHeader.id);
@@ -77,15 +78,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     if (_isPreviewMode) {
       if (!mounted) return;
       setState(() {
-        _mapRendererProxy = mapRendererProxyAndCameraOption.$1;
-        final cameraOption = mapRendererProxyAndCameraOption.$2;
-        if (cameraOption != null) {
-          _initialMapView = (
-            lng: cameraOption.lng,
-            lat: cameraOption.lat,
-            zoom: cameraOption.zoom,
-          );
-        }
+        _mapRendererProxy = rendererAndBounds.$1;
+        _initialMapBounds = rendererAndBounds.$2;
       });
       return;
     }
@@ -98,15 +92,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
 
     if (!mounted) return;
     setState(() {
-      _mapRendererProxy = mapRendererProxyAndCameraOption.$1;
-      final cameraOption = mapRendererProxyAndCameraOption.$2;
-      if (cameraOption != null) {
-        _initialMapView = (
-          lng: cameraOption.lng,
-          lat: cameraOption.lat,
-          zoom: cameraOption.zoom,
-        );
-      }
+      _mapRendererProxy = rendererAndBounds.$1;
+      _initialMapBounds = rendererAndBounds.$2;
       if (latestHeader != null) {
         _journeyHeader = latestHeader;
       }
@@ -227,7 +214,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
             ? context.tr("journey.journey_info_edit_page_title")
             : context.tr("journey.journey_info_page_title"),
         mapRendererProxy: mapRendererProxy,
-        initialMapView: _initialMapView,
+        initialMapBounds: _initialMapBounds,
         maxHeight: isEditing ? 440 : _panelMaxHeight(context),
         expandPanel: true,
         loadingBody: const Center(child: CircularProgressIndicator()),
@@ -419,7 +406,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       page: MapPanelPage(
         title: context.tr("journey.copy_journey"),
         mapRendererProxy: _mapRendererProxy,
-        initialMapView: _initialMapView,
+        initialMapBounds: _initialMapBounds,
         maxHeight: 440,
         expandPanel: true,
         panel: JourneyInfoEditPage(
