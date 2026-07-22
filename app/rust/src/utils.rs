@@ -36,11 +36,10 @@ pub struct MapBounds {
 /// the narrow tile-level representation of a journey crossing the antimeridian.
 pub fn get_bounds_from_journey_bitmap(journey_bitmap: &mut JourneyBitmap) -> Option<MapBounds> {
     let block_zoom = (TILE_WIDTH_OFFSET + MAP_WIDTH_OFFSET) as i32;
-    let mut occupied_tile_columns = vec![false; MAP_WIDTH as usize];
+    let mut occupied_tile_columns = [false; MAP_WIDTH as usize];
     let mut tile_y_bounds: Option<(u16, u16)> = None;
     let tile_keys: Vec<_> = journey_bitmap
         .all_tile_keys()
-        .copied()
         .filter(|key| key.x < MAP_WIDTH as u16 && key.y < MAP_WIDTH as u16)
         .collect();
     for key in &tile_keys {
@@ -84,6 +83,7 @@ pub fn get_bounds_from_journey_bitmap(journey_bitmap: &mut JourneyBitmap) -> Opt
                 || key.y == north_tile_y
                 || key.y == south_tile_y
         })
+        .copied()
         .collect();
 
     let mut west_block_x: Option<u8> = None;
