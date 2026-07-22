@@ -1,6 +1,6 @@
 //! Natural Earth source download helper.
 //!
-//! The pinned commit/URL/hash live in `geo_data_format::pov` (deliberate change,
+//! The pinned commit/URL/hash live in `geo_data_format::worldview` (deliberate change,
 //! single PR) rather than as CLI arguments; this module just fetches + verifies.
 
 use std::fs;
@@ -9,7 +9,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context, Result};
-use geo_data_format::Pov;
+use geo_data_format::Worldview;
 use indicatif::{ProgressBar, ProgressStyle};
 use sha2::{Digest, Sha256};
 
@@ -17,9 +17,9 @@ use crate::atomic_write::write_atomically_with;
 
 /// Ensure `path` contains the pinned Natural Earth GeoJSON. If the file is
 /// missing or its SHA-256 doesn't match the pin, re-download and verify.
-pub fn ensure_geojson(path: &Path, pov: Pov) -> Result<()> {
-    let url = pov.source_url();
-    let expected = pov.spec().source_sha256;
+pub fn ensure_geojson(path: &Path, worldview: Worldview) -> Result<()> {
+    let url = worldview.source_url();
+    let expected = worldview.spec().source_sha256;
     match sha256_of(path)? {
         Some(actual) if actual == expected => {
             eprintln!("[geo_rasterizer] geojson cache hit ({})", &expected[..12]);
@@ -86,16 +86,18 @@ fn hex_lower(bytes: &[u8]) -> String {
 }
 
 fn download_to(path: &Path, url: &str) -> Result<()> {
-    let agent = ureq::AgentBuilder::new()
-        .timeout_connect(Duration::from_secs(30))
-        .timeout_read(Duration::from_secs(120))
-        .build();
+    let agent = ureq::Agent::config_builder()
+        .timeout_global(Some(Duration::from_secs(120)))
+        .build()
+        .new_agent();
     let resp = agent
         .get(url)
         .call()
         .with_context(|| format!("GET {url}"))?;
     let total: u64 = resp
-        .header("content-length")
+        .headers()
+        .get("content-length")
+        .and_then(|h| h.to_str().ok())
         .and_then(|h| h.parse().ok())
         .unwrap_or(0);
     let pb = if total > 0 {
@@ -111,7 +113,7 @@ fn download_to(path: &Path, url: &str) -> Result<()> {
     };
 
     {
-        let mut reader = pb.wrap_read(resp.into_reader());
+        let mut reader = pb.wrap_read(resp.into_body().into_reader());
         write_atomically_with(path, |f| {
             std::io::copy(&mut reader, f)?;
             Ok(())

@@ -11,10 +11,11 @@ import 'package:memolanes/body/achievement/achievement_body.dart'
     deferred as achievement;
 import 'package:memolanes/body/journey/journey_body.dart' deferred as journey;
 import 'package:memolanes/body/map/map_body.dart';
-import 'package:memolanes/body/privacy_agreement.dart';
+import 'package:memolanes/body/first_launch_setup.dart';
 import 'package:memolanes/body/settings/settings_body.dart'
     deferred as settings;
 import 'package:memolanes/common/achievement_stats_store.dart';
+import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/component/bottom_nav_bar.dart';
 import 'package:memolanes/common/component/map_controls/map_copyright_button.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
@@ -44,6 +45,7 @@ void main() async {
           Locale('zh', 'CN'),
         ],
         path: 'assets/translations',
+        assetLoader: const AppTranslationLoader(),
         fallbackLocale: const Locale('en', 'US'),
         saveLocale: false,
         child: MultiProvider(
@@ -134,11 +136,10 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await showPrivacyAgreementIfNeeded(context);
+      await showFirstLaunchSetupIfNeeded(context);
       if (!context.mounted) return;
 
-      var mainMapReady = AppBootstrap.mainMapReady;
-
+      final mainMapReady = AppBootstrap.mainMapReady;
       if (!mainMapReady.isCompleted) {
         await showLoadingDialog(
           asyncTask: mainMapReady.future,

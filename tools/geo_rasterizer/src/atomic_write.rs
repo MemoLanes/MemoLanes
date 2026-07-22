@@ -11,7 +11,7 @@
 //!     any leftover in place.
 //!
 //! The tradeoff: two *concurrent* writers of the same `path` would race on
-//! the shared `.tmp` inode. That can't happen in this tool — the three POV
+//! the shared `.tmp` inode. That can't happen in this tool — the three worldview
 //! bins use distinct paths and `just rasterize-geo` runs them sequentially.
 //! If same-path parallelism is ever added, switch to random temp names (the
 //! `tempfile` crate, whose `persist` is also cross-device-safe) rather than
@@ -45,6 +45,10 @@ pub fn write_atomically_with(
     write: impl FnOnce(&mut File) -> Result<()>,
 ) -> Result<()> {
     let tmp = sibling(path, ".tmp");
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("creating {}", parent.display()))?;
+    }
     {
         let mut f = File::create(&tmp).with_context(|| format!("creating {}", tmp.display()))?;
         write(&mut f).with_context(|| format!("writing {}", tmp.display()))?;

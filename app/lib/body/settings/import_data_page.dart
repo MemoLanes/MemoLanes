@@ -66,9 +66,7 @@ class _ImportDataPage extends State<ImportDataPage> {
       if (!mounted) return;
       await showCommonDialog(context, context.tr("import.parsing_failed"));
       if (!mounted) return;
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
+      popCurrentRoute(context);
     }
   }
 

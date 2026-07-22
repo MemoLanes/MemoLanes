@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/achievement/cards/achievement_coming_soon_card.dart';
-import 'package:memolanes/body/achievement/cards/achievement_overview_card.dart';
+import 'package:memolanes/body/achievement/cards/achievement_countries_card.dart';
 import 'package:memolanes/body/achievement/cards/achievement_source_card.dart';
 import 'package:memolanes/body/achievement/shared/achievement_common.dart';
 import 'package:memolanes/common/achievement_stats_store.dart';
@@ -77,6 +77,8 @@ class _AchievementBodyState extends State<AchievementBody> {
         ],
         const _AchievementStatsCards(),
         const SizedBox(height: 14),
+        const AchievementCountriesCard(),
+        const SizedBox(height: 14),
         const AchievementComingSoonCard(),
       ],
     );
@@ -92,17 +94,52 @@ class _AchievementStatsCards extends StatelessWidget {
     final stats = store.stats;
 
     if (stats == null) {
-      return store.isLoading
-          ? const _AchievementStatsSkeleton()
-          : const SizedBox.shrink();
+      if (store.isAreaStatsLoading) {
+        return const _AchievementStatsSkeleton();
+      }
+      if (store.areaStatsError != null) {
+        return const _AchievementStatsErrorCard();
+      }
+      return const SizedBox.shrink();
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AchievementOverviewCard(stats: stats),
-        const SizedBox(height: 14),
         AchievementSourceCard(stats: stats),
+      ],
+    );
+  }
+}
+
+class _AchievementStatsErrorCard extends StatelessWidget {
+  const _AchievementStatsErrorCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return OptionCard(
+      children: [
+        Padding(
+          padding: achievementCardPadding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AchievementCardTitleRow(
+                title: context.tr('achievement.source.title'),
+                info: context.tr('achievement.source.overlap_note'),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                context.tr('achievement.source.error'),
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.58),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -116,40 +153,7 @@ class _AchievementStatsSkeleton extends StatelessWidget {
     return const Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _OverviewSkeletonCard(),
-        SizedBox(height: 14),
         _SourceSkeletonCard(),
-      ],
-    );
-  }
-}
-
-class _OverviewSkeletonCard extends StatelessWidget {
-  const _OverviewSkeletonCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final compact = useCompactAchievementCardLayout(context);
-
-    return OptionCard(
-      children: [
-        Padding(
-          padding: achievementCardPadding,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: _SkeletonBlock(width: 112, height: 22),
-              ),
-              SizedBox(height: compact ? 18 : 22),
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: _SkeletonBlock(width: 186, height: 52),
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }
@@ -172,6 +176,8 @@ class _SourceSkeletonCard extends StatelessWidget {
               const _SkeletonBlock(width: 96, height: 22),
               const SizedBox(height: 12),
               const _SkeletonBlock(width: 220, height: 14),
+              SizedBox(height: compact ? 16 : 18),
+              _TotalAreaSkeleton(compact: compact),
               const SizedBox(height: 18),
               Row(
                 children: [
@@ -182,14 +188,46 @@ class _SourceSkeletonCard extends StatelessWidget {
                   Expanded(child: _SourceMetricSkeleton(compact: compact)),
                 ],
               ),
-              const SizedBox(height: 14),
-              const Center(
-                child: _SkeletonBlock(width: 188, height: 13),
-              ),
             ],
           ),
         ),
       ],
+    );
+  }
+}
+
+class _TotalAreaSkeleton extends StatelessWidget {
+  const _TotalAreaSkeleton({required this.compact});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: compact
+          ? const EdgeInsets.fromLTRB(12, 12, 12, 14)
+          : const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.035),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _SkeletonBlock(width: 16, height: 16, radius: 999),
+              SizedBox(width: 6),
+              _SkeletonBlock(width: 86, height: 13),
+            ],
+          ),
+          SizedBox(height: compact ? 10 : 12),
+          const _SkeletonBlock(width: 186, height: 52),
+        ],
+      ),
     );
   }
 }
@@ -211,7 +249,7 @@ class _SourceMetricSkeleton extends StatelessWidget {
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [

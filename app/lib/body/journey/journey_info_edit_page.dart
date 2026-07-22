@@ -145,7 +145,7 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
     if (!success) return;
     if (!context.mounted) return;
     if (widget.popOnSave) {
-      Navigator.pop(context, true);
+      popCurrentRoute(context, true);
     } else {
       widget.onSaved?.call();
     }

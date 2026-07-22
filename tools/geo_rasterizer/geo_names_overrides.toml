@@ -1,0 +1,76 @@
+# Hand-authored geo name overrides. See `src/overrides.rs` for the shape.
+#
+# A locale entry is a string value; a worldview entry is a sub-table:
+#
+#   ["country.TWN"]        # default: applies to every worldview
+#   zh-CN = "台湾"
+#
+#   ["country.TWN".usa]    # usa worldview only; beats the default
+#   en-US = "Taiwan"
+#
+# Every key is validated against Worldview::ALL / Locale::ALL, and every entity
+# named here must exist in some worldview (`build_region_names` rejects dead
+# overrides), so a typo or a leftover for a removed entity fails generation.
+
+# --- Continents -------------------------------------------------------------
+# Continents are synthesized from Natural Earth's CONTINENT / REGION_UN columns
+# and have no feature of their own, so every continent name is authored here.
+
+["continent.AF"]
+en-US = "Africa"
+zh-CN = "非洲"
+
+["continent.AN"]
+en-US = "Antarctica"
+zh-CN = "南极洲"
+
+["continent.AS"]
+en-US = "Asia"
+zh-CN = "亚洲"
+
+["continent.EU"]
+en-US = "Europe"
+zh-CN = "欧洲"
+
+["continent.NA"]
+en-US = "North America"
+zh-CN = "北美洲"
+
+["continent.OC"]
+en-US = "Oceania"
+zh-CN = "大洋洲"
+
+["continent.SA"]
+en-US = "South America"
+zh-CN = "南美洲"
+
+# --- Countries --------------------------------------------------------------
+
+# In the iso worldview, IOA is a collapsed group (Christmas I. + Cocos Is.) with
+# no `TYPE == "Country"` member, so there is no sovereign feature to take a name
+# from — Natural Earth carries no name for it in ANY language. The chn/usa
+# worldviews do have a single IOA feature, but its NAME_ZH is Traditional
+# Chinese (澳屬印度洋領地), so zh-CN is authored here for every worldview.
+["country.IOA"]
+en-US = "Australian Indian Ocean Territories"
+zh-CN = "澳属印度洋领地"
+
+# Natural Earth's NAME_ZH for TWN is 中华民国.
+["country.TWN"]
+zh-CN = "台湾"
+
+# Natural Earth's localized columns for PGA name the WRONG PLACE: NAME_EN is
+# "Wake Island" and NAME_ZH is 威克岛, but the feature's geometry is the Spratly
+# archipelago (lon 114.03..115.85, lat 9.68..11.12) — ~5,700 km from Wake, which
+# NE carries separately and correctly under UMI. NE's own NAME ("Spratly Is.")
+# and SOVEREIGNT ("Spratly Islands") columns agree with the geometry, so it is
+# the localized columns that are wrong, not our reading of them.
+#
+# The coverage gate cannot catch this class of defect: it proves every entity HAS
+# a non-empty name, not that the name is the right one. A token-overlap audit of
+# NAME_EN against NAME/SOVEREIGNT across all three worldviews found PGA to be the
+# only genuine mislabel (the other divergences are spelling variants: Czechia /
+# Czech Republic, Faeroe / Faroe, Macao / Macau, S. Geo. and the Is.).
+["country.PGA"]
+en-US = "Spratly Islands"
+zh-CN = "南沙群岛"

@@ -6,8 +6,10 @@
       "properties": {
         "ADM0_A3": "AAA",
         "ISO_A3": "AAA",
+        "ISO_A3_EH": "AAA",
         "NAME": "Aland",
         "CONTINENT": "Europe",
+        "REGION_UN": "Europe",
         "TYPE": "Sovereign country"
       },
       "geometry": {
@@ -20,8 +22,10 @@
       "properties": {
         "ADM0_A3": "BBB",
         "ISO_A3": "BBB",
+        "ISO_A3_EH": "BBB",
         "NAME": "Bland",
         "CONTINENT": "Asia",
+        "REGION_UN": "Asia",
         "TYPE": "Sovereign country"
       },
       "geometry": {
@@ -34,8 +38,10 @@
       "properties": {
         "ADM0_A3": "CCC",
         "ISO_A3": "-99",
+        "ISO_A3_EH": "CCC",
         "NAME": "Cland",
         "CONTINENT": "Africa",
+        "REGION_UN": "Africa",
         "TYPE": "Sovereign country"
       },
       "geometry": {

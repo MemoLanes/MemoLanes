@@ -1,5 +1,7 @@
 extern crate simplelog;
+use crate::achievement::{self, contract::AchievementReader, contract::AchievementStore};
 use crate::cache_db::{self, CacheDb, LayerKind};
+use crate::geo::GeoIndex;
 use crate::gps_processor::{self, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_header::JourneyKind;
@@ -123,14 +125,23 @@ impl RawDataRecorder {
 
 type FinalizedJourneyChangedCallback = Box<dyn Fn(&Storage) + Send + Sync + 'static>;
 
+/// The three databases kept transactionally in sync behind one lock: the main
+/// journey store, the bitmap cache, and the achievement store.
+struct Dbs {
+    main_db: MainDb,
+    cache_db: Box<dyn CacheDb + Send>,
+    achievement_store: Box<dyn AchievementStore + Send>,
+}
+
 pub struct Storage {
     support_dir: String,
     raw_data_recorder: Mutex<Option<RawDataRecorder>>, // `None` means disabled
     pub cache_dir: String,
-    // NOTE: both db are deliberately hidden so all operations need to go
-    // through `Storage` to make sure they are in sync. Read-only access
-    // to merged journey bitmaps is via `with_journey_snapshot`.
-    dbs: Mutex<(MainDb, Box<dyn CacheDb + Send>)>,
+    // Hidden so every operation goes through `Storage` and stays in sync; reads
+    // via `with_journey_snapshot` / `with_achievement_read`. The achievement store
+    // lives here, not in `MainState`, because granular invalidation needs the
+    // precise `Action`, visible only inside `with_db_txn`.
+    dbs: Mutex<Dbs>,
     finalized_journey_changed_callback: FinalizedJourneyChangedCallback,
 }
 
@@ -143,6 +154,8 @@ impl Storage {
     ) -> Self {
         let mut main_db = MainDb::open(&support_dir);
         let cache_db: Box<dyn CacheDb + Send> = Box::new(cache_db::new(&cache_dir));
+        let achievement_store =
+            achievement::new(&cache_dir).expect("failed to open achievement store");
         let raw_data_recorder =
             if main_db.get_setting_with_default(crate::main_db::Setting::RawDataMode, false) {
                 Some(RawDataRecorder::init(&support_dir))
@@ -153,7 +166,11 @@ impl Storage {
             support_dir,
             raw_data_recorder: Mutex::new(raw_data_recorder),
             cache_dir,
-            dbs: Mutex::new((main_db, cache_db)),
+            dbs: Mutex::new(Dbs {
+                main_db,
+                cache_db,
+                achievement_store,
+            }),
             finalized_journey_changed_callback: Box::new(|_| {}),
         }
     }
@@ -164,7 +181,11 @@ impl Storage {
         F: FnOnce(&mut main_db::Txn) -> Result<O>,
     {
         let mut dbs = self.dbs.lock().unwrap();
-        let (ref mut main_db, ref cache_db) = *dbs;
+        let Dbs {
+            main_db,
+            cache_db,
+            achievement_store,
+        } = &mut *dbs;
 
         let mut finalized_journey_changed = false;
 
@@ -185,6 +206,11 @@ impl Storage {
                             cache_db.merge_journey(entry, data)?;
                         }
                     };
+                    // Any committed journey change invalidates the achievement
+                    // store (recompute is deferred to the next read).
+                    // TODO: Invalidate based on actions. Actions other than
+                    //       MergeOne are rare.
+                    achievement_store.invalidate_all()?;
                     finalized_journey_changed = true;
                 }
             }
@@ -192,7 +218,7 @@ impl Storage {
             Ok(output)
         })?;
 
-        // Make using we are not holding the lock when calling the callback
+        // Make sure we are not holding the lock when calling the callback
         // TODO: This is still error-prone, and easy to cause deadlock. Consider
         // using a separate thread to call the callback.
         drop(dbs);
@@ -209,7 +235,7 @@ impl Storage {
             if raw_data_recorder.is_none() {
                 *raw_data_recorder = Some(RawDataRecorder::init(&self.support_dir));
                 info!("[storage] raw data mod enabled");
-                let main_db = &mut self.dbs.lock().unwrap().0;
+                let main_db = &mut self.dbs.lock().unwrap().main_db;
                 main_db
                     .set_setting(crate::main_db::Setting::RawDataMode, true)
                     .unwrap();
@@ -218,7 +244,7 @@ impl Storage {
             info!("[storage] raw data mod disabled");
             // `drop` should do the right thing and release all resources.
             *raw_data_recorder = None;
-            let main_db = &mut self.dbs.lock().unwrap().0;
+            let main_db = &mut self.dbs.lock().unwrap().main_db;
             main_db
                 .set_setting(crate::main_db::Setting::RawDataMode, false)
                 .unwrap();
@@ -270,7 +296,7 @@ impl Storage {
         }
         drop(raw_data_recorder);
 
-        let main_db = &mut self.dbs.lock().unwrap().0;
+        let main_db = &mut self.dbs.lock().unwrap().main_db;
         main_db.record(raw_data, process_result).unwrap();
     }
 
@@ -331,7 +357,9 @@ impl Storage {
         F: FnOnce(&JourneySnapshot) -> Result<O>,
     {
         let mut dbs = self.dbs.lock().unwrap();
-        let (ref mut main_db, ref cache_db) = *dbs;
+        let Dbs {
+            main_db, cache_db, ..
+        } = &mut *dbs;
         main_db.with_txn(|txn| {
             let output = f(&JourneySnapshot::new(txn, cache_db.as_ref()))?;
             // The snapshot only exposes reads, so a journey action must
@@ -339,6 +367,56 @@ impl Storage {
             debug_assert_eq!(txn.action, None);
             Ok(output)
         })
+    }
+
+    /// Run `f` against the up-to-date achievement store under one `dbs` lock and
+    /// one read txn. The store opens a read over a single [`JourneySnapshot`]
+    /// and computes on demand, so the values `f` reads are internally
+    /// consistent. The store's mutating side
+    /// stays private to `Storage`.
+    ///
+    /// Like `with_journey_snapshot`, does NOT route through `with_db_txn`
+    /// (`std::sync::Mutex` is not reentrant).
+    #[auto_context]
+    pub fn with_achievement_read<F, O>(&self, f: F) -> Result<O>
+    where
+        F: FnOnce(&dyn AchievementReader) -> Result<O>,
+    {
+        // TODO: locks here for now, add MVCC or background thread to recompute
+        let mut dbs = self.dbs.lock().unwrap();
+        let Dbs {
+            main_db,
+            cache_db,
+            achievement_store,
+        } = &mut *dbs;
+        main_db.with_txn(|txn| {
+            let snapshot = JourneySnapshot::new(txn, cache_db.as_ref());
+            let reader = achievement_store.reader(&snapshot)?;
+            let output = f(reader.as_ref())?;
+            debug_assert_eq!(txn.action, None);
+            Ok(output)
+        })
+    }
+
+    /// Install a worldview's geo asset from raw bytes. The asset must declare
+    /// the same worldview id it is loaded as (the `.bin` is self-describing); a
+    /// mismatch means the wrong bin was supplied.
+    #[auto_context]
+    pub fn init_or_change_geo_data(
+        &self,
+        worldview: geo_data_format::Worldview,
+        bytes: &[u8],
+    ) -> Result<()> {
+        let geo = GeoIndex::from_bytes(bytes)?;
+        anyhow::ensure!(
+            geo.worldview_id() == worldview.spec().id,
+            "geo asset declares worldview {:?} but was loaded as {:?}",
+            geo.worldview_id(),
+            worldview.spec().id
+        );
+        let achievement_store = &mut self.dbs.lock().unwrap().achievement_store;
+        achievement_store.set_geo(worldview, Box::new(geo))?;
+        Ok(())
     }
 
     /// The bitmap the main map renders: finalized coverage for
@@ -384,7 +462,7 @@ impl Storage {
 
     #[auto_context]
     pub fn clear_all_cache(&self) -> Result<()> {
-        let cache_db = &self.dbs.lock().unwrap().1;
+        let cache_db = &self.dbs.lock().unwrap().cache_db;
         cache_db.clear_all()?;
         Ok(())
     }
@@ -395,8 +473,8 @@ impl Storage {
         debug!("[storage] flushing");
 
         let dbs = self.dbs.lock().unwrap();
-        dbs.0.flush()?;
-        dbs.1.flush()?;
+        dbs.main_db.flush()?;
+        dbs.cache_db.flush()?;
         drop(dbs);
 
         let mut raw_data_recorder = self.raw_data_recorder.lock().unwrap();

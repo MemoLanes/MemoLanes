@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:geolocator/geolocator.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -52,17 +53,68 @@ class PermissionService {
 
   factory PermissionService() => _instance;
 
+  Future<void> logPermissionState(String event) async {
+    try {
+      final locationServiceEnabled =
+          await Geolocator.isLocationServiceEnabled();
+      final locationStatus = await Permission.location.status;
+      final locationAlwaysStatus =
+          Platform.isIOS ? '${await Permission.locationAlways.status}' : 'n/a';
+      final batteryOptimizationStatus = Platform.isAndroid
+          ? '${await Permission.ignoreBatteryOptimizations.status}'
+          : 'n/a';
+      final notificationStatus = await Permission.notification.status;
+      final permissionSheetShown = MMKVUtil.getBool(
+        MMKVKey.permissionSheetShown,
+        defaultValue: false,
+      );
+      final requestedLocation = MMKVUtil.getBool(
+        MMKVKey.requestedLocation,
+        defaultValue: false,
+      );
+      final requestedBatteryOptimization = MMKVUtil.getBool(
+        MMKVKey.requestedBatteryOptimization,
+        defaultValue: false,
+      );
+      final requestedNotification = MMKVUtil.getBool(
+        MMKVKey.requestedNotification,
+        defaultValue: false,
+      );
+      final unexpectedExitNotificationEnabled = MMKVUtil.getBool(
+        MMKVKey.isUnexpectedExitNotificationEnabled,
+        defaultValue: true,
+      );
+
+      log.info(
+        '[PermissionState] event=$event '
+        'os={locationServiceEnabled=$locationServiceEnabled '
+        'location=$locationStatus locationAlways=$locationAlwaysStatus '
+        'batteryOptimization=$batteryOptimizationStatus '
+        'notification=$notificationStatus} '
+        'mmkv={permissionSheetShown=$permissionSheetShown '
+        'requestedLocation=$requestedLocation '
+        'requestedBatteryOptimization=$requestedBatteryOptimization '
+        'requestedNotification=$requestedNotification '
+        'unexpectedExitNotificationEnabled='
+        '$unexpectedExitNotificationEnabled}',
+      );
+    } catch (e, s) {
+      log.error('[PermissionState] log failed event=$event $e', s);
+    }
+  }
+
   Future<PermissionSnapshot> readPermissionSnapshot() async {
+    final hasLocation = await checkLocationPermission();
     final locStatus = await Permission.location.status;
-    final locAlwaysStatus = await Permission.locationAlways.status;
     final isAndroid = Platform.isAndroid;
     final batteryGranted =
         !isAndroid || await Permission.ignoreBatteryOptimizations.isGranted;
     final notificationStatus = await Permission.notification.status;
     final notificationGranted = notificationStatus.isGranted;
-    final hasLocation = locStatus.isGranted || locAlwaysStatus.isGranted;
-    final locationRequested =
-        MMKVUtil.getBool(MMKVKey.requestedLocation, defaultValue: false);
+    final locationRequested = MMKVUtil.getBool(
+      MMKVKey.requestedLocation,
+      defaultValue: false,
+    );
     final batteryRequested = MMKVUtil.getBool(
       MMKVKey.requestedBatteryOptimization,
       defaultValue: false,
@@ -72,7 +124,7 @@ class PermissionService {
       defaultValue: false,
     );
 
-    return PermissionSnapshot(
+    final snapshot = PermissionSnapshot(
       location: PermissionTileStatus(
         granted: hasLocation,
         denied:
@@ -91,20 +143,28 @@ class PermissionService {
         permanentlyDenied: notificationStatus.isPermanentlyDenied,
       ),
     );
+    return snapshot;
   }
 
   Future<bool> needAnyPermission() async {
     final hasLocation = await checkLocationPermission();
-    if (!hasLocation) return true;
+    if (!hasLocation) {
+      return true;
+    }
     if (Platform.isAndroid &&
         !(await Permission.ignoreBatteryOptimizations.isGranted) &&
-        !MMKVUtil.getBool(MMKVKey.requestedBatteryOptimization,
-            defaultValue: false)) {
+        !MMKVUtil.getBool(
+          MMKVKey.requestedBatteryOptimization,
+          defaultValue: false,
+        )) {
       return true;
     }
     final notificationStatus = await Permission.notification.status;
     if (!notificationStatus.isGranted &&
-        !MMKVUtil.getBool(MMKVKey.requestedNotification, defaultValue: false) &&
+        !MMKVUtil.getBool(
+          MMKVKey.requestedNotification,
+          defaultValue: false,
+        ) &&
         !notificationStatus.isPermanentlyDenied) {
       return true;
     }
@@ -113,14 +173,17 @@ class PermissionService {
 
   Future<bool> checkLocationPermission() async {
     try {
-      if (!await Geolocator.isLocationServiceEnabled()) {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
         return false;
       }
-      if (!await Permission.location.isGranted) {
+      final granted = await Permission.location.isGranted;
+      if (!granted) {
         return false;
       }
       return true;
-    } catch (_) {
+    } catch (e, s) {
+      log.error('[PermissionService] checkLocationPermission failed $e', s);
       return false;
     }
   }
@@ -128,6 +191,10 @@ class PermissionService {
   /// GPS off → open system location page. No pre-request dialogs.
   Future<List<PermissionEffect>> runLocationRequest() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
+      log.info(
+        '[PermissionService] runLocationRequest open location settings: '
+        'location service disabled',
+      );
       return const [
         PermissionEffect(openLocationSettings: true),
       ];
@@ -137,6 +204,10 @@ class PermissionService {
 
     if (status.isPermanentlyDenied) {
       MMKVUtil.putBool(MMKVKey.requestedLocation, true);
+      log.info(
+        '[PermissionService] runLocationRequest open app settings: '
+        'status=$status',
+      );
       return const [
         PermissionEffect(
           messageTrKey:
@@ -149,6 +220,9 @@ class PermissionService {
     if (!status.isGranted) {
       MMKVUtil.putBool(MMKVKey.requestedLocation, true);
       status = await Permission.location.request();
+      log.info(
+        '[PermissionService] runLocationRequest requested result=$status',
+      );
       if (!status.isGranted) {
         if (status.isPermanentlyDenied) {
           return const [
@@ -168,7 +242,10 @@ class PermissionService {
     }
 
     if (status.isGranted && Platform.isIOS) {
-      await Permission.locationAlways.request();
+      final alwaysResult = await Permission.locationAlways.request();
+      log.info(
+        '[PermissionService] runLocationRequest iOS always result=$alwaysResult',
+      );
     }
 
     return const [];
@@ -185,7 +262,9 @@ class PermissionService {
     );
     if (alreadyRequested) {
       final ignoring = await Permission.ignoreBatteryOptimizations.isGranted;
-      if (ignoring) return const [];
+      if (ignoring) {
+        return const [];
+      }
     }
 
     // ignoreBatteryOptimizations is a "special permission" on Android — request()
@@ -194,6 +273,7 @@ class PermissionService {
     // app resumes (didChangeAppLifecycleState → _refreshStatus).
     await Permission.ignoreBatteryOptimizations.request();
     MMKVUtil.putBool(MMKVKey.requestedBatteryOptimization, true);
+    log.info('[PermissionService] runBatteryRequest launched system request');
     return const [];
   }
 
@@ -207,6 +287,10 @@ class PermissionService {
 
     if (status.isPermanentlyDenied) {
       MMKVUtil.putBool(MMKVKey.requestedNotification, true);
+      log.info(
+        '[PermissionService] runNotificationRequest open app settings: '
+        'status=$status',
+      );
       return const [
         PermissionEffect(
           messageTrKey:
@@ -217,6 +301,9 @@ class PermissionService {
     }
 
     final result = await Permission.notification.request();
+    log.info(
+      '[PermissionService] runNotificationRequest requested result=$result',
+    );
     MMKVUtil.putBool(
       MMKVKey.isUnexpectedExitNotificationEnabled,
       result.isGranted,
