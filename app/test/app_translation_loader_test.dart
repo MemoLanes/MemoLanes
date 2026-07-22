@@ -40,7 +40,7 @@ void main() {
     // Nested levels, same shape as the UI files — easy_localization resolves
     // a dotted `name_key` by walking them.
     final country = map['country'] as Map<String, dynamic>;
-    expect(country['CHN'], "People's Republic of China");
+    expect(country['CHN'], 'China');
     final continent = map['continent'] as Map<String, dynamic>;
     expect(continent['AS'], 'Asia');
     // UI translations survive the merge (disjoint top-level namespace).
@@ -77,7 +77,7 @@ void main() {
     // 1. localized name from the catalog.
     expect(
       _entity(nameKey: 'country.CHN', isoA3Eh: 'CHN').displayName('iso'),
-      "People's Republic of China",
+      'China',
     );
     // 2. a key the catalog lacks → ISO code.
     expect(

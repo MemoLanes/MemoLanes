@@ -3,7 +3,12 @@ use anyhow::{bail, Result};
 use crate::parse::ParsedFeature;
 
 /// `(worldview id, absorbed ADM0_A3, parent ADM0_A3)`.
-const ABSORPTIONS: &[(&str, &str, &str)] = &[("chn", "HKG", "CHN"), ("chn", "MAC", "CHN")];
+const ABSORPTIONS: &[(&str, &str, &str)] = &[
+    ("chn", "HKG", "CHN"),
+    ("chn", "MAC", "CHN"),
+    ("chn", "SCR", "CHN"),
+    // PGA is already absorbed into CHN
+];
 
 pub(crate) fn apply_absorptions(features: &mut Vec<ParsedFeature>, worldview: &str) -> Result<()> {
     let mut absorbed: Vec<(&'static str, geo_types::MultiPolygon<f64>)> = Vec::new();
