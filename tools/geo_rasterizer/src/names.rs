@@ -4,20 +4,24 @@
 //! the same shape as the UI translation files, and the shape easy_localization
 //! resolves natively.
 //!
-//! The un-prefixed key is worldview-agnostic. Worldviews normally agree on
-//! names (Natural Earth's POV files differ in *borders*, not names); when a
-//! future source bump makes them diverge, a worldview-scoped override supplies
-//! the divergent worldview's name under a `<worldview>.<name_key>` key the app
-//! prefers, and every worldview still reading the shared key must agree on its
-//! value — generation fails otherwise.
+//! Names come from Unicode CLDR (`territories.json`, keyed by ISO 3166-1
+//! alpha-2), joined to each entity via the sovereign feature's `ISO_A2_EH`.
+//! CLDR names are worldview-independent, so a country resolves to one name
+//! across every worldview by construction — the un-prefixed key is
+//! worldview-agnostic. (A given `ADM0_A3` must therefore carry the same
+//! `ISO_A2_EH` in every worldview; generation fails otherwise.)
 //!
 //! Resolution of the shared key, in order:
 //!   1. worldview-agnostic override
-//!   2. the locale's Natural Earth field on the group's sovereign member —
-//!      required to agree across every worldview without a scoped override
-//!   3. hard error
+//!   2. the CLDR name for the group's sovereign `ISO_A2_EH`
+//!   3. hard error — no silent fallback
 //!
-//! Scoped overrides additionally emit the `<worldview>.<name_key>` keys.
+//! Overrides exist where CLDR has no usable entry (continents have no
+//! territory; a collapsed group has no sovereign `ISO_A2_EH`; NE-only
+//! aggregates like the Spratlys) or where CLDR's name is not the one we ship. A
+//! worldview-scoped override additionally emits a `<worldview>.<name_key>` key
+//! the app prefers — implemented for future admin-1 use, where a disputed
+//! region legitimately differs by political view.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -46,14 +50,16 @@ pub fn region_names_path(dir: &Path, locale: Locale) -> PathBuf {
 
 pub fn build_region_names(
     by_worldview: &[(Worldview, Vec<ParsedFeature>)],
+    cldr: &BTreeMap<Locale, BTreeMap<String, String>>,
     overrides: &Overrides,
 ) -> Result<BTreeMap<Locale, BTreeMap<String, String>>> {
-    // 1. Collect the entity key set + each country's sovereign localized names,
-    //    kept per worldview so divergence can be judged against the overrides.
+    // 1. Collect the entity key set + each country's sovereign `ISO_A2_EH` (the
+    //    CLDR join key). CLDR names don't depend on worldview, so we keep one
+    //    alpha-2 per ADM0_A3 and require every worldview carrying a sovereign
+    //    member to agree on it — a code must denote one territory.
     let mut continent_codes: BTreeSet<&'static str> = BTreeSet::new();
     let mut country_codes: BTreeSet<String> = BTreeSet::new();
-    let mut country_localized: BTreeMap<String, BTreeMap<Worldview, BTreeMap<String, String>>> =
-        BTreeMap::new();
+    let mut country_a2: BTreeMap<String, (String, &'static str)> = BTreeMap::new();
 
     for (worldview, features) in by_worldview {
         let mut groups: BTreeMap<&str, Vec<&ParsedFeature>> = BTreeMap::new();
@@ -65,11 +71,22 @@ pub fn build_region_names(
         }
         for (adm0, group) in &groups {
             country_codes.insert((*adm0).to_string());
-            if let Some(sov) = sovereign_member(group) {
-                country_localized
-                    .entry((*adm0).to_string())
-                    .or_default()
-                    .insert(*worldview, sov.localized_names.clone());
+            let a2 = sovereign_member(group)
+                .map(|sov| sov.iso_a2_eh.as_str())
+                .filter(|a2| *a2 != "-99");
+            if let Some(a2) = a2 {
+                match country_a2.get(*adm0) {
+                    None => {
+                        country_a2
+                            .insert((*adm0).to_string(), (a2.to_string(), worldview.spec().id));
+                    }
+                    Some((seen, seen_wv)) if seen != a2 => bail!(
+                        "ADM0_A3 `{adm0}` maps to different ISO_A2_EH across worldviews: \
+                         `{seen}` ({seen_wv}) vs `{a2}` ({}) — a code must denote one territory",
+                        worldview.spec().id
+                    ),
+                    Some(_) => {}
+                }
             }
         }
     }
@@ -90,29 +107,79 @@ pub fn build_region_names(
         );
     }
 
+    let mut cldr_by_a2: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+    for adm0 in &country_codes {
+        let key = format!("country.{adm0}");
+        let fully_overridden = Locale::ALL
+            .iter()
+            .all(|&l| overrides.get_default(&key, l).is_some());
+        if fully_overridden {
+            continue;
+        }
+        if let Some((a2, _)) = country_a2.get(adm0) {
+            cldr_by_a2
+                .entry(a2.as_str())
+                .or_default()
+                .push(adm0.as_str());
+        }
+    }
+    let collisions: Vec<String> = cldr_by_a2
+        .iter()
+        .filter(|(_, adms)| adms.len() > 1)
+        .map(|(a2, adms)| {
+            format!(
+                "ISO_A2_EH `{a2}` is shared by {} entities resolving via CLDR ({}) — CLDR names \
+                 each after territory `{a2}`; override all but the canonical one in \
+                 geo_names_overrides.toml",
+                adms.len(),
+                adms.join(", ")
+            )
+        })
+        .collect();
+    if !collisions.is_empty() {
+        bail!(
+            "region names have {} alpha-2 collision(s):\n  {}",
+            collisions.len(),
+            collisions.join("\n  ")
+        );
+    }
+
     // 3. Flat map per locale, plus worldview-prefixed keys for scoped overrides.
+    //    Every unfillable key is collected so a single run reports all gaps to
+    //    author, rather than one failure per rerun.
     let mut out: BTreeMap<Locale, BTreeMap<String, String>> = BTreeMap::new();
+    let mut missing: Vec<String> = Vec::new();
     for &locale in Locale::ALL {
+        let cldr_names = cldr.get(&locale).ok_or_else(|| {
+            anyhow!(
+                "no CLDR territories loaded for locale {}",
+                locale.spec().tag
+            )
+        })?;
         let mut names: BTreeMap<String, String> = BTreeMap::new();
 
         for code in &continent_codes {
             let key = format!("continent.{code}");
-            // Continents have no NE feature — the override is the ONLY source.
-            let name = overrides.get_default(&key, locale).ok_or_else(|| {
-                anyhow!(
-                    "no name for `{key}` (locale={}): continents are synthesized and have no \
-                     Natural Earth feature, so every continent name must be authored in \
-                     geo_names_overrides.toml",
+            match overrides.get_default(&key, locale) {
+                Some(name) => {
+                    names.insert(key, name.to_string());
+                }
+                None => missing.push(format!(
+                    "`{key}` (locale={}): continents are synthesized and have no CLDR territory — \
+                     author the name in geo_names_overrides.toml",
                     locale.spec().tag
-                )
-            })?;
-            names.insert(key, name.to_string());
+                )),
+            }
         }
 
         for adm0 in &country_codes {
             let key = format!("country.{adm0}");
-            let name = resolve_country_name(&key, adm0, locale, &country_localized, overrides)?;
-            names.insert(key, name);
+            match resolve_country_name(&key, adm0, locale, &country_a2, cldr_names, overrides) {
+                Ok(name) => {
+                    names.insert(key, name);
+                }
+                Err(e) => missing.push(e.to_string()),
+            }
         }
 
         // Worldview-scoped overrides → `<worldview>.<name_key>`, only where a
@@ -125,6 +192,13 @@ pub fn build_region_names(
 
         out.insert(locale, names);
     }
+    if !missing.is_empty() {
+        bail!(
+            "region names have {} unresolved gap(s):\n  {}",
+            missing.len(),
+            missing.join("\n  ")
+        );
+    }
     Ok(out)
 }
 
@@ -132,61 +206,27 @@ fn resolve_country_name(
     key: &str,
     adm0: &str,
     locale: Locale,
-    country_localized: &BTreeMap<String, BTreeMap<Worldview, BTreeMap<String, String>>>,
+    country_a2: &BTreeMap<String, (String, &'static str)>,
+    cldr_names: &BTreeMap<String, String>,
     overrides: &Overrides,
 ) -> Result<String> {
     if let Some(name) = overrides.get_default(key, locale) {
         return Ok(name.to_string());
     }
-    let ne_field = locale.spec().ne_field;
-    let by_worldview = country_localized.get(adm0);
-    let ne_name = |worldview: Worldview| -> Option<&str> {
-        by_worldview?
-            .get(&worldview)?
-            .get(ne_field)
-            .map(String::as_str)
-    };
-
-    // NE name -> worldviews carrying it, over the worldviews with no scoped
-    // override for this locale (the ones that resolve through the shared key).
-    let mut unscoped: BTreeMap<&str, Vec<&'static str>> = BTreeMap::new();
-    for &worldview in Worldview::ALL {
-        if overrides.get_scoped(key, worldview, locale).is_some() {
-            continue;
-        }
-        if let Some(name) = ne_name(worldview) {
-            unscoped.entry(name).or_default().push(worldview.spec().id);
-        }
-    }
-    match unscoped.len() {
-        1 => Ok(unscoped.keys().next().unwrap().to_string()),
-        0 => Worldview::ALL
-            .iter()
-            .find_map(|&worldview| ne_name(worldview))
-            .map(str::to_string)
-            .ok_or_else(|| {
-                anyhow!(
-                    "no name for `{key}` (locale={}): Natural Earth has no non-empty \
-                     `{ne_field}` on this group's sovereign member (a collapsed group with no \
-                     `TYPE == \"Country\"` member has none) — add an override to \
-                     geo_names_overrides.toml",
-                    locale.spec().tag
-                )
-            }),
-        _ => {
-            let variants = unscoped
-                .iter()
-                .map(|(name, worldviews)| format!("`{name}` ({})", worldviews.join(", ")))
-                .collect::<Vec<_>>()
-                .join(" vs ");
-            bail!(
-                "Natural Earth names for `{key}` (locale={}) diverge across worldviews sharing \
-                 the un-prefixed key: {variants} — author a worldview-scoped override \
-                 (`[\"{key}\".<worldview>]`) for the divergent worldviews, or a \
-                 worldview-agnostic override",
+    match country_a2.get(adm0) {
+        None => bail!(
+            "no name for `{key}` (locale={}): this group has no usable `ISO_A2_EH` (a collapsed \
+             group with no `TYPE == \"Country\"` member, or a `-99` sentinel), so it has no CLDR \
+             territory — add an override to geo_names_overrides.toml",
+            locale.spec().tag
+        ),
+        Some((a2, _)) => cldr_names.get(a2).cloned().ok_or_else(|| {
+            anyhow!(
+                "no name for `{key}` (locale={}): CLDR has no territory `{a2}` (ISO_A2_EH of this \
+                 group's sovereign member) — add an override to geo_names_overrides.toml",
                 locale.spec().tag
             )
-        }
+        }),
     }
 }
 
