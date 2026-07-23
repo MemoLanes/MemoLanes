@@ -533,27 +533,48 @@ pub fn has_ongoing_journey() -> Result<bool> {
         .is_some())
 }
 
-pub fn years_with_journey() -> Result<Vec<i32>> {
-    get().storage.with_db_txn(|txn| txn.years_with_journey())
+/// Lists dates that contain journeys, optionally restricted to selected layers.
+///
+/// `None` includes every layer; an empty set returns no dates.
+pub fn journey_dates(journey_kinds: Option<HashSet<JourneyKind>>) -> Result<Vec<NaiveDate>> {
+    get().storage.with_db_txn(|txn| {
+        let mut dates = txn
+            .query_journeys(None, None)?
+            .into_iter()
+            .filter(|header| {
+                journey_kinds
+                    .as_ref()
+                    .is_none_or(|kinds| kinds.contains(&header.journey_kind))
+            })
+            .map(|header| header.journey_date)
+            .collect::<Vec<_>>();
+        dates.sort_unstable();
+        dates.dedup();
+        Ok(dates)
+    })
 }
 
-pub fn months_with_journey(year: i32) -> Result<Vec<i32>> {
-    get()
-        .storage
-        .with_db_txn(|txn| txn.months_with_journey(year))
-}
-
-pub fn days_with_journey(year: i32, month: i32) -> Result<Vec<i32>> {
-    get()
-        .storage
-        .with_db_txn(|txn| txn.days_with_journey(year, month))
-}
-
-pub fn list_journey_on_date(year: i32, month: u32, day: u32) -> Result<Vec<JourneyHeader>> {
+/// Lists journeys on a date, optionally restricted to selected layers.
+///
+/// `None` returns every journey on the date; an empty set returns none.
+pub fn list_journeys_on_date(
+    year: i32,
+    month: u32,
+    day: u32,
+    journey_kinds: Option<HashSet<JourneyKind>>,
+) -> Result<Vec<JourneyHeader>> {
     let date = NaiveDate::from_ymd_opt(year, month, day).unwrap();
-    get()
-        .storage
-        .with_db_txn(|txn| txn.query_journeys(Some(date), Some(date)))
+    get().storage.with_db_txn(|txn| {
+        Ok(txn
+            .query_journeys(Some(date), Some(date))?
+            .into_iter()
+            .filter(|header| {
+                journey_kinds
+                    .as_ref()
+                    .is_none_or(|kinds| kinds.contains(&header.journey_kind))
+            })
+            .collect())
+    })
 }
 
 pub fn list_all_journeys() -> Result<Vec<JourneyHeader>> {
