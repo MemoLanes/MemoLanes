@@ -41,6 +41,10 @@ class RecordingHealthService {
   }
 
   void _stopHeartbeat() {
+    // A recording status update can arrive immediately after the app resumes,
+    // before the next periodic heartbeat. Check the elapsed time before
+    // clearing it so a freeze is not missed when recording is stopped then.
+    _checkHeartbeatGap();
     _heartbeatTimer?.cancel();
     _heartbeatTimer = null;
     _lastHeartbeatAt = null;
