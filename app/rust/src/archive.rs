@@ -150,6 +150,7 @@ fn skip_bytes_with_size_header<T: Read>(reader: &mut T) -> Result<()> {
 struct SerializedJourneyRecord {
     journey_data: Vec<u8>,
     raw_data: ArchivedRawData,
+    declared_has_raw_data: Option<bool>,
 }
 
 /// Raw data can be omitted from an export without meaning that the attachment
@@ -167,11 +168,33 @@ impl ArchivedRawData {
             Self::Included(Some(raw_data)) => Some(raw_data),
         }
     }
+
+    fn attachment_presence(&self) -> Option<bool> {
+        match self {
+            Self::Omitted => None,
+            Self::Included(raw_data) => Some(raw_data.is_some()),
+        }
+    }
+}
+
+impl SerializedJourneyRecord {
+    fn correct_header(&self, header: &mut JourneyHeader, operation: &str) {
+        let Some(actual_has_raw_data) = self.raw_data.attachment_presence() else {
+            return;
+        };
+        if self.declared_has_raw_data.is_some() {
+            header.correct_has_raw_data(actual_has_raw_data, operation);
+        } else {
+            // An absent flag does not make a claim to validate. This is used
+            // when raw data was intentionally excluded from an export.
+            header.has_raw_data = actual_has_raw_data;
+        }
+    }
 }
 
 fn read_v2_journey_record<T: Read>(
     reader: &mut T,
-    includes_raw_data: bool,
+    declared_has_raw_data: Option<bool>,
 ) -> Result<SerializedJourneyRecord> {
     let field_count: u64 = reader.read_varint()?;
     if field_count == 0 {
@@ -183,10 +206,8 @@ fn read_v2_journey_record<T: Read>(
         let raw_data = SerializedJourneyRawData::from_bytes(read_bytes_with_size_header(reader)?);
         // Archive input is untrusted. Validate before it can reach the database.
         raw_data::deserialize(&raw_data)?;
-        // Accept early section-v2 archives that carried the raw-data field
-        // before the section-level inclusion flag was introduced.
         ArchivedRawData::Included(Some(raw_data))
-    } else if includes_raw_data {
+    } else if declared_has_raw_data.is_some() {
         ArchivedRawData::Included(None)
     } else {
         ArchivedRawData::Omitted
@@ -197,6 +218,7 @@ fn read_v2_journey_record<T: Read>(
     Ok(SerializedJourneyRecord {
         journey_data,
         raw_data,
+        declared_has_raw_data,
     })
 }
 
@@ -211,14 +233,19 @@ fn skip_v2_journey_record<T: Read>(reader: &mut T) -> Result<()> {
 fn read_journey_record<T: Read>(
     reader: &mut T,
     section_version: SectionVersion,
-    includes_raw_data: bool,
+    declared_has_raw_data: Option<bool>,
 ) -> Result<SerializedJourneyRecord> {
     match section_version {
         SectionVersion::V1 => Ok(SerializedJourneyRecord {
             journey_data: read_bytes_with_size_header(reader)?,
-            raw_data: ArchivedRawData::Omitted,
+            raw_data: if declared_has_raw_data.is_some() {
+                ArchivedRawData::Included(None)
+            } else {
+                ArchivedRawData::Omitted
+            },
+            declared_has_raw_data,
         }),
-        SectionVersion::V2 => read_v2_journey_record(reader, includes_raw_data),
+        SectionVersion::V2 => read_v2_journey_record(reader, declared_has_raw_data),
     }
 }
 
@@ -343,11 +370,13 @@ impl<R: Read + Seek> MldxReader<R> {
         };
         let mut file = self.zip.by_name(&section_id)?;
         let (section_version, section_header) = Self::read_section_header(&mut file)?;
-        let includes_raw_data = section_header.includes_raw_data;
         for header in section_header.journey_headers {
             if header.id == journey_id {
-                let journey_header = JourneyHeader::of_proto(header)?;
-                let record = read_journey_record(&mut file, section_version, includes_raw_data)?;
+                let declared_has_raw_data = header.has_raw_data;
+                let mut journey_header = JourneyHeader::of_proto(header)?;
+                let record =
+                    read_journey_record(&mut file, section_version, declared_has_raw_data)?;
+                record.correct_header(&mut journey_header, "load_mldx_journey");
                 let journey_data = JourneyData::deserialize(
                     record.journey_data.as_slice(),
                     journey_header.journey_type,
@@ -380,9 +409,9 @@ impl<R: Read + Seek> MldxReader<R> {
         for section_id in self.metadata.section_infos.iter().map(|s| &s.section_id) {
             let mut file = self.zip.by_name(section_id)?;
             let (section_version, section_header) = Self::read_section_header(&mut file)?;
-            let includes_raw_data = section_header.includes_raw_data;
             for header in section_header.journey_headers {
-                let journey_header = JourneyHeader::of_proto(header)?;
+                let declared_has_raw_data = header.has_raw_data;
+                let mut journey_header = JourneyHeader::of_proto(header)?;
 
                 let ignore = match selected_journey_ids {
                     None => false,
@@ -395,7 +424,9 @@ impl<R: Read + Seek> MldxReader<R> {
                 }
 
                 let existing = txn.get_journey_header(&journey_header.id)?;
-                let record = read_journey_record(&mut file, section_version, includes_raw_data)?;
+                let record =
+                    read_journey_record(&mut file, section_version, declared_has_raw_data)?;
+                record.correct_header(&mut journey_header, "import_mldx");
                 if existing
                     .as_ref()
                     .is_some_and(|existing| existing.revision == journey_header.revision)
@@ -407,6 +438,7 @@ impl<R: Read + Seek> MldxReader<R> {
                     continue;
                 }
 
+                let raw_data_was_omitted = matches!(&record.raw_data, ArchivedRawData::Omitted);
                 let raw_data = match record.raw_data {
                     ArchivedRawData::Omitted if existing.is_some() => {
                         txn.get_journey_raw_data(&journey_header.id)?
@@ -414,6 +446,9 @@ impl<R: Read + Seek> MldxReader<R> {
                     ArchivedRawData::Omitted | ArchivedRawData::Included(None) => None,
                     ArchivedRawData::Included(Some(raw_data)) => Some(raw_data),
                 };
+                if raw_data_was_omitted {
+                    journey_header.has_raw_data = raw_data.is_some();
+                }
                 if existing.is_some() {
                     txn.delete_journey(&journey_header.id)?;
                     result.overwritten_count += 1;
@@ -667,9 +702,21 @@ where
     for (_, section_id, journeys) in &to_process {
         let mut section_header = SectionHeader::new();
         section_header.section_id.clone_from(section_id);
-        section_header.includes_raw_data = options.include_raw_data;
         for j in journeys {
-            section_header.journey_headers.push(j.clone().to_proto());
+            let mut header = j.clone();
+            let declares_raw_data =
+                options.section_version == SectionVersion::V2 && options.include_raw_data;
+            if declares_raw_data {
+                header.correct_has_raw_data(load_raw_data(&j.id)?.is_some(), "export_mldx");
+            }
+            let mut header_proto = header.to_proto();
+            if !declares_raw_data {
+                // Raw-data state was intentionally omitted from this export.
+                // Leaving the optional flag absent prevents imports from
+                // interpreting omission as deletion.
+                header_proto.has_raw_data = None;
+            }
+            section_header.journey_headers.push(header_proto);
         }
 
         zip.start_file(section_id.clone(), default_options)?;
@@ -725,7 +772,30 @@ pub mod for_testing {
 
 #[cfg(test)]
 mod tests {
-    use crate::archive::YearMonth;
+    use chrono::{DateTime, NaiveDate};
+
+    use crate::{
+        archive::{ArchivedRawData, SerializedJourneyRecord, YearMonth},
+        journey_header::{JourneyHeader, JourneyKind, JourneyType},
+        raw_data::SerializedJourneyRawData,
+    };
+
+    fn journey_header(has_raw_data: bool) -> JourneyHeader {
+        JourneyHeader {
+            id: "journey-id".to_owned(),
+            revision: "revision".to_owned(),
+            journey_date: NaiveDate::from_ymd_opt(2024, 1, 2).unwrap(),
+            created_at: DateTime::from_timestamp(1, 0).unwrap(),
+            updated_at: None,
+            start: None,
+            end: None,
+            journey_type: JourneyType::Vector,
+            journey_kind: JourneyKind::DefaultKind,
+            note: None,
+            postprocessor_algo: None,
+            has_raw_data,
+        }
+    }
 
     #[test]
     fn order() {
@@ -733,5 +803,28 @@ mod tests {
         assert_eq!(ym(2000, 10), ym(2000, 10));
         assert!(ym(2000, 10) > ym(2000, 9));
         assert!(ym(1999, 12) < ym(2000, 9));
+    }
+
+    #[test]
+    fn journey_record_corrects_declared_raw_data_state() {
+        let mut header = journey_header(true);
+        SerializedJourneyRecord {
+            journey_data: Vec::new(),
+            raw_data: ArchivedRawData::Included(None),
+            declared_has_raw_data: Some(true),
+        }
+        .correct_header(&mut header, "test");
+        assert!(!header.has_raw_data);
+
+        let mut header = journey_header(false);
+        SerializedJourneyRecord {
+            journey_data: Vec::new(),
+            raw_data: ArchivedRawData::Included(Some(SerializedJourneyRawData::from_bytes(
+                Vec::new(),
+            ))),
+            declared_has_raw_data: Some(false),
+        }
+        .correct_header(&mut header, "test");
+        assert!(header.has_raw_data);
     }
 }

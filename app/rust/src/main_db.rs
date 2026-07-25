@@ -197,6 +197,7 @@ impl Txn<'_> {
             .ok_or_else(|| anyhow!("Failed to find journey with id = {id}"))?;
         header.updated_at = Some(Utc::now());
         header.revision = generate_random_revision();
+        header.has_raw_data = false;
         let header_bytes = header.to_proto().write_to_bytes()?;
         let changes = self.db_txn.execute(
             "UPDATE journey SET header = ?2, raw_data = NULL WHERE id = ?1 AND raw_data IS NOT NULL;",
@@ -219,10 +220,11 @@ impl Txn<'_> {
     #[auto_context]
     pub fn insert_journey_with_raw_data(
         &mut self,
-        header: JourneyHeader,
+        mut header: JourneyHeader,
         mut data: JourneyData,
         raw_data: Option<raw_data::SerializedJourneyRawData>,
     ) -> Result<()> {
+        header.correct_has_raw_data(raw_data.is_some(), "insert_journey");
         let journey_type = header.journey_type;
         if journey_type != data.type_() {
             bail!("[insert_journey] Mismatch journey type")
@@ -353,6 +355,7 @@ impl Txn<'_> {
             journey_kind,
             note,
             postprocessor_algo,
+            has_raw_data: raw_data.is_some(),
         };
         self.insert_journey_with_raw_data(header, journey_data, raw_data)?;
         Ok(id)
@@ -517,7 +520,7 @@ impl Txn<'_> {
         to_date_inclusive: Option<NaiveDate>,
     ) -> Result<Vec<JourneyHeader>> {
         let mut query = self.db_txn.prepare(
-            "SELECT header, type FROM journey WHERE journey_date >= (?1) AND journey_date <= (?2) ORDER BY journey_date DESC, timestamp_for_ordering DESC, id;",
+            "SELECT header, type, raw_data IS NOT NULL FROM journey WHERE journey_date >= (?1) AND journey_date <= (?2) ORDER BY journey_date DESC, timestamp_for_ordering DESC, id;",
             // use `id` to break tie
         )?;
         let from = match from_date_inclusive {
@@ -533,8 +536,9 @@ impl Txn<'_> {
         while let Some(row) = rows.next()? {
             let header_bytes = row.get_ref(0)?.as_blob()?;
             let journey_type = JourneyType::of_int(row.get(1)?)?;
-            let header =
+            let mut header =
                 JourneyHeader::of_proto(protos::journey::Header::parse_from_bytes(header_bytes)?)?;
+            header.correct_has_raw_data(row.get(2)?, "query_journeys");
             if header.journey_type != journey_type {
                 bail!(
                     "Invalid DB state, `journey_type` miss match. id: {}.",
@@ -549,19 +553,21 @@ impl Txn<'_> {
     pub fn get_journey_header(&self, id: &str) -> Result<Option<JourneyHeader>> {
         let mut query = self
             .db_txn
-            .prepare("SELECT header FROM journey WHERE id = ?1;")?;
+            .prepare("SELECT header, raw_data IS NOT NULL FROM journey WHERE id = ?1;")?;
 
-        let header_proto_result = query
+        let result = query
             .query_row([id], |row| {
-                let header_bytes = row.get_ref(0)?.as_blob()?;
-                Ok(protos::journey::Header::parse_from_bytes(header_bytes))
+                Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, bool>(1)?))
             })
             .optional()
             .context("get_journey_header")?;
 
-        match header_proto_result {
-            Some(header_proto_result) => {
-                let header = JourneyHeader::of_proto(header_proto_result?)?;
+        match result {
+            Some((header_bytes, has_raw_data)) => {
+                let mut header = JourneyHeader::of_proto(
+                    protos::journey::Header::parse_from_bytes(&header_bytes)?,
+                )?;
+                header.correct_has_raw_data(has_raw_data, "get_journey_header");
                 Ok(Some(header))
             }
             None => Ok(None),
@@ -621,9 +627,18 @@ impl Txn<'_> {
         id: &str,
         raw_data: Option<&raw_data::SerializedJourneyRawData>,
     ) -> Result<()> {
+        let mut header = self
+            .get_journey_header(id)?
+            .ok_or_else(|| anyhow!("Failed to find journey with id = {id}"))?;
+        header.has_raw_data = raw_data.is_some();
+        let header_bytes = header.to_proto().write_to_bytes()?;
         let changes = self.db_txn.execute(
-            "UPDATE journey SET raw_data = ?2 WHERE id = ?1;",
-            (id, raw_data.map(|raw_data| raw_data.as_bytes())),
+            "UPDATE journey SET header = ?2, raw_data = ?3 WHERE id = ?1;",
+            (
+                id,
+                header_bytes,
+                raw_data.map(|raw_data| raw_data.as_bytes()),
+            ),
         )?;
         if changes != 1 {
             bail!("Failed to set raw data for journey with id = {id}");

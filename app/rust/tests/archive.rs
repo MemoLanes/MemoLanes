@@ -81,6 +81,7 @@ fn sample_journey() -> (JourneyHeader, JourneyData) {
         journey_kind: JourneyKind::DefaultKind,
         note: Some("test note".to_owned()),
         postprocessor_algo: None,
+        has_raw_data: false,
     };
     let data = JourneyData::Vector(JourneyVector {
         track_segments: vec![TrackSegment {
@@ -237,8 +238,9 @@ fn write_v2_and_read_back() {
 
 #[test]
 fn v2_round_trips_optional_raw_data() {
-    let (header, data) = sample_journey();
+    let (mut header, data) = sample_journey();
     let raw_data = sample_raw_data();
+    header.has_raw_data = true;
     let mut writer = Cursor::new(Vec::new());
     archive::export_single_journey_as_mldx_with_options(
         header.clone(),
@@ -255,6 +257,46 @@ fn v2_round_trips_optional_raw_data() {
         .unwrap()
         .unwrap();
     assert_eq!(loaded, (header, data, Some(raw_data)));
+}
+
+#[test]
+fn insert_corrects_raw_data_flag_to_match_attachment() {
+    let temp_dir = TempDir::new("archive-insert_corrects_raw_data_flag").unwrap();
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let (header_with_raw_data, data) = sample_journey();
+    let raw_data = sample_raw_data();
+
+    main_db
+        .with_txn(|txn| {
+            txn.insert_journey_with_raw_data(
+                header_with_raw_data.clone(),
+                data.clone(),
+                Some(raw_data),
+            )
+        })
+        .unwrap();
+    assert!(
+        main_db
+            .with_txn(|txn| txn.get_journey_header(&header_with_raw_data.id))
+            .unwrap()
+            .unwrap()
+            .has_raw_data
+    );
+
+    let mut header_without_raw_data = header_with_raw_data;
+    header_without_raw_data.id = "test-journey-without-raw-data".to_owned();
+    header_without_raw_data.revision = "test-revision-without-raw-data".to_owned();
+    header_without_raw_data.has_raw_data = true;
+    main_db
+        .with_txn(|txn| txn.insert_journey(header_without_raw_data.clone(), data))
+        .unwrap();
+    assert!(
+        !main_db
+            .with_txn(|txn| txn.get_journey_header(&header_without_raw_data.id))
+            .unwrap()
+            .unwrap()
+            .has_raw_data
+    );
 }
 
 #[test]
@@ -301,6 +343,13 @@ fn import_adds_raw_data_to_same_revision_when_missing_locally() {
             .unwrap(),
         Some(raw_data)
     );
+    assert!(
+        main_db
+            .with_txn(|txn| txn.get_journey_header(&header.id))
+            .unwrap()
+            .unwrap()
+            .has_raw_data
+    );
 }
 
 #[test]
@@ -335,6 +384,13 @@ fn import_preserves_omitted_raw_data_but_applies_explicit_absence() {
             .unwrap(),
         Some(raw_data)
     );
+    assert!(
+        main_db
+            .with_txn(|txn| txn.get_journey_header(&local_header.id))
+            .unwrap()
+            .unwrap()
+            .has_raw_data
+    );
 
     // The authoritative archive has the same processed-data revision, but its
     // raw attachment still replaces the locally preserved one.
@@ -363,6 +419,59 @@ fn import_preserves_omitted_raw_data_but_applies_explicit_absence() {
         .with_txn(|txn| txn.get_journey_raw_data(&local_header.id))
         .unwrap()
         .is_none());
+    assert!(
+        !main_db
+            .with_txn(|txn| txn.get_journey_header(&local_header.id))
+            .unwrap()
+            .unwrap()
+            .has_raw_data
+    );
+}
+
+#[test]
+fn raw_data_flags_are_stored_per_journey_in_the_same_section() {
+    let temp_dir = TempDir::new("archive-per_journey_raw_data_flag").unwrap();
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let (with_raw_data, data) = sample_journey();
+    let mut without_raw_data = with_raw_data.clone();
+    without_raw_data.id = "test-journey-without-raw-data".to_owned();
+    without_raw_data.revision = "test-revision-without-raw-data".to_owned();
+
+    main_db
+        .with_txn(|txn| {
+            txn.insert_journey_with_raw_data(
+                with_raw_data.clone(),
+                data.clone(),
+                Some(sample_raw_data()),
+            )?;
+            txn.insert_journey(without_raw_data.clone(), data)
+        })
+        .unwrap();
+
+    let mut archive = Cursor::new(Vec::new());
+    main_db
+        .with_txn(|txn| {
+            archive::export_all_journeys_as_mldx_with_options(
+                txn,
+                &mut archive,
+                MldxExportOptions::new(SectionVersion::V2, true),
+            )
+        })
+        .unwrap();
+
+    let reader = MldxReader::open(Cursor::new(archive.into_inner())).unwrap();
+    let exported_with_raw_data = reader
+        .iter_journey_headers()
+        .iter()
+        .find(|header| header.id == with_raw_data.id)
+        .unwrap();
+    let exported_without_raw_data = reader
+        .iter_journey_headers()
+        .iter()
+        .find(|header| header.id == without_raw_data.id)
+        .unwrap();
+    assert!(exported_with_raw_data.has_raw_data);
+    assert!(!exported_without_raw_data.has_raw_data);
 }
 
 #[test]

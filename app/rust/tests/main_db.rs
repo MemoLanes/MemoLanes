@@ -127,6 +127,7 @@ fn journey_raw_data_lifecycle() {
     let header = main_db
         .with_txn(|txn| Ok(txn.query_journeys(None, None)?.remove(0)))
         .unwrap();
+    assert!(header.has_raw_data);
     let serialized = main_db
         .with_txn(|txn| txn.get_journey_raw_data(&header.id))
         .unwrap()
@@ -181,6 +182,13 @@ fn journey_raw_data_lifecycle() {
     assert!(!main_db
         .with_txn(|txn| txn.has_journey_raw_data(&header.id))
         .unwrap());
+    assert!(
+        !main_db
+            .with_txn(|txn| txn.get_journey_header(&header.id))
+            .unwrap()
+            .unwrap()
+            .has_raw_data
+    );
     assert_ne!(
         main_db
             .with_txn(|txn| Ok(txn.get_journey_header(&header.id)?.unwrap().revision))
@@ -222,6 +230,7 @@ fn disabled_raw_data_capture_does_not_create_an_attachment() {
     let header = main_db
         .with_txn(|txn| Ok(txn.query_journeys(None, None)?.remove(0)))
         .unwrap();
+    assert!(!header.has_raw_data);
     assert!(main_db
         .with_txn(|txn| txn.get_journey_raw_data(&header.id))
         .unwrap()

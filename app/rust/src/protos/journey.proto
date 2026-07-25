@@ -32,4 +32,5 @@ message Header {
   Kind kind = 8;
   optional string note = 9;
   optional string postprocessor_algo = 11;
+  optional bool has_raw_data = 12;
 }
