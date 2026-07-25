@@ -470,6 +470,37 @@ impl Txn<'_> {
         Ok(results)
     }
 
+    /// Returns finalized journey IDs in the inclusive date range, optionally
+    /// restricted to one kind. Callers that only need the IDs can avoid
+    /// deserializing every journey header.
+    pub fn query_journey_ids_in_date_range(
+        &self,
+        from_date_inclusive: NaiveDate,
+        to_date_inclusive: NaiveDate,
+        journey_kind: Option<JourneyKind>,
+    ) -> Result<Vec<String>> {
+        let from = utils::date_to_days_since_epoch(from_date_inclusive);
+        let to = utils::date_to_days_since_epoch(to_date_inclusive);
+
+        let mut query = match journey_kind {
+            Some(_) => self.db_txn.prepare(
+                "SELECT id FROM journey WHERE journey_date >= ?1 AND journey_date <= ?2 AND journey_kind = ?3;",
+            )?,
+            None => self.db_txn.prepare(
+                "SELECT id FROM journey WHERE journey_date >= ?1 AND journey_date <= ?2;",
+            )?,
+        };
+        let ids = match journey_kind {
+            Some(journey_kind) => query
+                .query_map((from, to, journey_kind.to_int()), |row| row.get(0))?
+                .collect::<rusqlite::Result<Vec<_>>>()?,
+            None => query
+                .query_map((from, to), |row| row.get(0))?
+                .collect::<rusqlite::Result<Vec<_>>>()?,
+        };
+        Ok(ids)
+    }
+
     pub fn get_journey_header(&self, id: &str) -> Result<Option<JourneyHeader>> {
         let mut query = self
             .db_txn
@@ -728,7 +759,7 @@ fn migrate_to_1_1(tx: &Transaction) -> Result<()> {
         update.execute((journey_kind, id))?;
     }
     tx.execute(
-        "CREATE INDEX journey_kind_index ON journey (journey_kind)",
+        "CREATE INDEX journey_kind_date_index ON journey (journey_kind, journey_date)",
         (),
     )?;
     Ok(())
@@ -753,7 +784,7 @@ mod migration_tests {
     }
 
     #[test]
-    fn migrate_to_1_1_backfills_journey_kind_and_creates_index() -> Result<()> {
+    fn migrate_to_1_1_backfills_journey_kind_and_creates_composite_index() -> Result<()> {
         let mut connection = Connection::open_in_memory()?;
         let tx = connection.transaction()?;
         migrate_to_1_0(&tx)?;
@@ -783,6 +814,7 @@ mod migration_tests {
             ),
         )?;
 
+        utils::db::init_metadata_and_get_version(&tx)?;
         utils::db::set_version_in_metadata(&tx, utils::db::SchemaVersion::new(1, 0))?;
         assert_eq!(
             utils::db::run_migrations(&tx, "main.db", &migrations())?,
@@ -803,7 +835,7 @@ mod migration_tests {
         assert_eq!(not_null, 1);
         assert!(tx
             .query_row(
-                "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = 'journey_kind_index'",
+                "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = 'journey_kind_date_index'",
                 (),
                 |_| Ok(()),
             )

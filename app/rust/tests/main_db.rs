@@ -289,6 +289,50 @@ fn date(s: &str) -> NaiveDate {
 }
 
 #[test]
+fn query_journey_ids_in_date_range_filters_by_kind() {
+    let temp_dir = TempDir::new("main_db-query_journey_ids_in_date_range").unwrap();
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let (default_id, flight_id) = main_db
+        .with_txn(|txn| {
+            Ok((
+                test_utils::insert_bitmap_journey(
+                    txn,
+                    date("2024-03-15"),
+                    JourneyKind::DefaultKind,
+                    test_utils::make_bitmap_with_line(test_utils::draw_line1),
+                ),
+                test_utils::insert_bitmap_journey(
+                    txn,
+                    date("2024-03-15"),
+                    JourneyKind::Flight,
+                    test_utils::make_bitmap_with_line(test_utils::draw_line2),
+                ),
+            ))
+        })
+        .unwrap();
+
+    let journey_ids = main_db
+        .with_txn(|txn| {
+            txn.query_journey_ids_in_date_range(
+                date("2024-03-15"),
+                date("2024-03-15"),
+                Some(JourneyKind::Flight),
+            )
+        })
+        .unwrap();
+    assert_eq!(journey_ids, vec![flight_id.clone()]);
+
+    let journey_ids = main_db
+        .with_txn(|txn| {
+            txn.query_journey_ids_in_date_range(date("2024-03-15"), date("2024-03-15"), None)
+        })
+        .unwrap();
+    assert_eq!(journey_ids.len(), 2);
+    assert!(journey_ids.contains(&default_id));
+    assert!(journey_ids.contains(&flight_id));
+}
+
+#[test]
 fn delete_journey_sets_invalidate_months() {
     let temp_dir = TempDir::new("main_db-delete_invalidate").unwrap();
     let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
