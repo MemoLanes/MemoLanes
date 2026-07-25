@@ -30,19 +30,9 @@ use anyhow::{anyhow, bail, Context, Result};
 use geo_data_format::{Locale, Worldview};
 
 use crate::atomic_write::write_atomically;
-use crate::entities::continent_code_pub;
+use crate::entities::{group_continent_code, sovereign_member};
 use crate::overrides::Overrides;
 use crate::parse::ParsedFeature;
-
-fn sovereign_member<'a>(group: &[&'a ParsedFeature]) -> Option<&'a ParsedFeature> {
-    match group {
-        [only] => Some(only),
-        members => members
-            .iter()
-            .copied()
-            .find(|f| f.feature_type == "Country"),
-    }
-}
 
 pub fn region_names_path(dir: &Path, locale: Locale) -> PathBuf {
     dir.join(format!("region_names.{}.json", locale.spec().tag))
@@ -67,7 +57,7 @@ pub fn build_region_names(
             groups.entry(f.adm0_a3.as_str()).or_default().push(f);
         }
         for group in groups.values() {
-            continent_codes.insert(continent_code_pub(&group[0].continent, &group[0].region_un));
+            continent_codes.insert(group_continent_code(group)?);
         }
         for (adm0, group) in &groups {
             country_codes.insert((*adm0).to_string());

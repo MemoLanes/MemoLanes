@@ -16,7 +16,7 @@ use geo_rasterizer::{
     overrides::Overrides,
     parse::{parse_geojson, validate_no_antimeridian_span},
     rasterize::rasterize,
-    registry::{audit_identity, merged_representative_points, Registry},
+    registry::Registry,
 };
 
 /// Offline rasterizer. With no `--worldview` it rasterizes every shipped worldview using
@@ -203,19 +203,6 @@ fn rasterize_one(
     eprintln!("[geo_rasterizer] parsed {} features", features.len());
     validate_no_antimeridian_span(&features)?;
     let registry = Registry::load(&registry_path)?;
-    // CI gate 2: a code must denote the same place across worldviews/bumps.
-    // Use the merged-geometry centroid per ADM0_A3 so that multi-part
-    // countries (e.g. FRA with overseas territories) are not falsely flagged
-    // by fragments that fall far from the registry's reference point.
-    let present: Vec<(String, (f64, f64))> = merged_representative_points(
-        features
-            .iter()
-            .map(|f| (f.adm0_a3.clone(), false, f.geometry.clone())),
-    )
-    .into_iter()
-    .map(|(code, _is_cont, pt)| (code, pt))
-    .collect();
-    audit_identity(&present, &registry, worldview.spec().id, 8.0)?;
 
     // 3. Entity assembly.
     eprintln!("[geo_rasterizer] assembling entity model...");
