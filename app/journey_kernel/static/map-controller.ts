@@ -30,6 +30,8 @@ import { transformStyleWithProjection } from "./utils";
 import { JOURNEY_LAYER_ID } from "./layers/journey-layer-interface";
 import type { JourneyLayer } from "./layers/journey-layer-interface";
 
+const MAX_MAP_ZOOM = 14;
+
 /**
  * Configuration options for MapController
  */
@@ -69,7 +71,20 @@ export class MapController {
       container: config.containerId,
       center: [this.params.lng, this.params.lat],
       zoom: this.params.zoom,
-      maxZoom: 14,
+      bounds: this.params.initialBounds
+        ? [
+            [this.params.initialBounds.west, this.params.initialBounds.south],
+            [this.params.initialBounds.east, this.params.initialBounds.north],
+          ]
+        : undefined,
+      fitBoundsOptions: this.params.initialBounds
+        ? {
+            padding: this.params.initialBoundsPadding,
+            maxZoom: MAX_MAP_ZOOM,
+            duration: 0,
+          }
+        : undefined,
+      maxZoom: MAX_MAP_ZOOM,
       style: {
         version: 8,
         sources: {},

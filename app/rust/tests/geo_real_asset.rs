@@ -5,7 +5,7 @@
 //! on a clean CI without the data step); the committed correctness coverage is
 //! the synthetic `geo_lookup` test.
 
-use std::path::Path;
+pub mod test_utils;
 
 use memolanes_core::{
     geo::{GeoIndex, GeoLookup},
@@ -30,14 +30,7 @@ fn block_of(lng: f64, lat: f64) -> (TileKey, BlockKey) {
 
 #[test]
 fn iso_asset_resolves_known_country_locations() {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/geo/geo_data_iso.bin");
-    if !path.exists() {
-        eprintln!(
-            "skipping: {} absent — run `just rasterize-geo` to generate it",
-            path.display()
-        );
-        return;
-    }
+    let path = test_utils::geo_asset("iso");
     let geo = GeoIndex::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
 
     // City centers, well inside their countries (ADM0_A3 iso codes).
@@ -63,14 +56,7 @@ fn iso_asset_resolves_known_country_locations() {
 /// each resolves to `CHN`, and none survives as its own country entity.
 #[test]
 fn chn_asset_groups_hong_kong_macau_taiwan_into_china() {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/geo/geo_data_chn.bin");
-    if !path.exists() {
-        eprintln!(
-            "skipping: {} absent — run `just rasterize-geo` to generate it",
-            path.display()
-        );
-        return;
-    }
+    let path = test_utils::geo_asset("chn");
     let geo = GeoIndex::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
 
     // Land points well inside each territory — all must resolve to China.
@@ -111,14 +97,7 @@ fn chn_asset_groups_hong_kong_macau_taiwan_into_china() {
 /// islands rasterize.
 #[test]
 fn iso_asset_includes_seven_seas_islands() {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/geo/geo_data_iso.bin");
-    if !path.exists() {
-        eprintln!(
-            "skipping: {} absent — run `just rasterize-geo` to generate it",
-            path.display()
-        );
-        return;
-    }
+    let path = test_utils::geo_asset("iso");
     let geo = GeoIndex::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
 
     let by_code: std::collections::HashMap<&str, _> = geo
@@ -135,6 +114,22 @@ fn iso_asset_includes_seven_seas_islands() {
         ("SHN", "AF"), // Saint Helena
         ("MDV", "AS"), // Maldives
         ("SGS", "SA"), // South Georgia (REGION_UN "Americas" → SA)
+        // The collapsed ADM0_A3 groups. A group's continent must follow its
+        // SOVEREIGN member, never Natural Earth's feature order: NE lists FRA's six
+        // features across FIVE different CONTINENT values (Africa, Europe, North
+        // America, South America, Seven seas), French Guiana first — so taking
+        // `group[0]` shipped France in South America. NOR/NLD/NZL happen to list the
+        // metropole first and were right only by luck; NOR is the sharpest, since
+        // its group holds Bouvet Island (Antarctica).
+        //
+        // The iso file has one further multi-feature group, IOA (Cocos + Christmas),
+        // which has no `TYPE == "Country"` member at all — it is not listed here
+        // because both its features are CONTINENT == "Asia", so its continent cannot
+        // depend on the ordering. These four are the ones that can actually be wrong.
+        ("FRA", "EU"), // France, not French Guiana's South America
+        ("NOR", "EU"), // Norway, not Bouvet Island's Antarctica
+        ("NLD", "EU"), // Netherlands, not the Caribbean Netherlands' North America
+        ("NZL", "OC"), // New Zealand
     ] {
         let e = by_code
             .get(code)
@@ -150,14 +145,7 @@ fn iso_asset_includes_seven_seas_islands() {
 /// alpha-3 via `iso_a3_eh` (single-feature groups use their own `ISO_A3_EH`).
 #[test]
 fn iso_asset_maps_non_iso_adm0_to_real_iso() {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/geo/geo_data_iso.bin");
-    if !path.exists() {
-        eprintln!(
-            "skipping: {} absent — run `just rasterize-geo` to generate it",
-            path.display()
-        );
-        return;
-    }
+    let path = test_utils::geo_asset("iso");
     let geo = GeoIndex::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
     let by_code: std::collections::HashMap<&str, _> = geo
         .entities_of_kind(GeoEntityKind::Country)

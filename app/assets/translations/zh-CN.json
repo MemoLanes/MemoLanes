@@ -189,10 +189,26 @@
       "title": "探索总面积"
     },
     "source": {
-      "title": "探索来源",
+      "title": "探索面积",
       "description": "总面积由地表和飞行共同贡献",
-      "overlap_note": "注：地表与飞行可能存在重叠区域。",
+      "overlap_note": "地表与飞行可能存在重叠区域。",
+      "error": "无法加载探索面积。",
       "share_of_total": "占总面积 {}"
+    },
+    "countries": {
+      "title": "探索国家",
+      "description": "已点亮 {} 个国家和地区",
+      "note": "当前仅统计地表数据中的国家、省级地区与城市，后续会接入更完整的探索范围统计。",
+      "empty": "还没有点亮国家和地区。",
+      "error": "无法加载探索国家。"
+    },
+    "country_list": {
+      "title": "探索国家",
+      "view_all": "查看全部"
+    },
+    "region_area_list": {
+      "sort_area": "面积",
+      "sort_coverage": "解锁率"
     },
     "coming_soon_card": {
       "title": "更多统计与成就敬请期待",

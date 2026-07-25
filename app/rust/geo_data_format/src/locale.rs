@@ -8,8 +8,8 @@ pub struct LocaleSpec {
     /// BCP-47 tag. Must match a `LocaleConstants.supportedLocales` entry in
     /// `app/lib/constants/locale_constants.dart`
     pub tag: &'static str,
-    /// Natural Earth property holding this locale's name (e.g. `NAME_ZH`).
-    pub ne_field: &'static str,
+    pub cldr_tag: &'static str,
+    pub cldr_source_sha256: &'static str,
 }
 
 impl Locale {
@@ -19,11 +19,15 @@ impl Locale {
         match self {
             Locale::EnUs => LocaleSpec {
                 tag: "en-US",
-                ne_field: "NAME_EN",
+                cldr_tag: "en",
+                cldr_source_sha256:
+                    "158c1d575308f7e46912edbeda435c8fe2ef5dad280798231f3a432e406b1807",
             },
             Locale::ZhCn => LocaleSpec {
                 tag: "zh-CN",
-                ne_field: "NAME_ZH",
+                cldr_tag: "zh",
+                cldr_source_sha256:
+                    "18f1426f1e8981a671517a4857a8d4e56060909906c4cfd9b9a43a8a18b9ab6f",
             },
         }
     }

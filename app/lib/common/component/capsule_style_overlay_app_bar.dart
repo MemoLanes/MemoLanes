@@ -58,6 +58,25 @@ class CapsuleStyleOverlayAppBar extends StatelessWidget
     );
   }
 
+  static EdgeInsets mapFitPaddingForBottomOverlay(
+    BuildContext context, {
+    required double bottomOverlayHeight,
+    double edgePadding = 24.0,
+    double minVisibleMapHeight = 120.0,
+  }) {
+    final mediaQuery = MediaQuery.of(context);
+    final top = mediaQuery.padding.top * 0.8 +
+        CapsuleBarConstants.barContentHeight +
+        CapsuleBarConstants.barBottomInset +
+        edgePadding;
+    final maxBottom = (mediaQuery.size.height - top - minVisibleMapHeight)
+        .clamp(edgePadding, double.infinity);
+    final bottom = (bottomOverlayHeight + edgePadding)
+        .clamp(edgePadding, maxBottom)
+        .toDouble();
+    return EdgeInsets.fromLTRB(edgePadding, top, edgePadding, bottom);
+  }
+
   /// Overlay mode: uses [flutter_appbar]'s [AppBarConnection] to pin the bar at the top with [child] below.
   /// [child] is wrapped in [CustomScrollView] + [SliverFillRemaining] so scroll behavior and layout are correct.
   static Widget connection({

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:memolanes/body/achievement/shared/achievement_common.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
+import 'package:memolanes/constants/index.dart';
 
 const _groundExploreColor = Color(0xFFFFB86B);
 const _flightExploreColor = Color(0xFF4E8BFF);
@@ -26,14 +27,9 @@ class AchievementSourceCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                context.tr('achievement.source.title'),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  height: 1,
-                ),
+              AchievementCardTitleRow(
+                title: context.tr('achievement.source.title'),
+                info: context.tr('achievement.source.overlap_note'),
               ),
               const SizedBox(height: 12),
               Text(
@@ -44,22 +40,124 @@ class AchievementSourceCard extends StatelessWidget {
                   fontWeight: FontWeight.w500,
                 ),
               ),
+              SizedBox(height: compact ? 16 : 18),
+              _TotalAreaSummary(
+                value: stats.totalKm2,
+                compact: compact,
+              ),
               const SizedBox(height: 18),
               _SourceCardsRow(compact: compact, stats: stats),
-              const SizedBox(height: 14),
-              Text(
-                context.tr('achievement.source.overlap_note'),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.5),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
             ],
           ),
         ),
       ],
+    );
+  }
+}
+
+class _TotalAreaSummary extends StatelessWidget {
+  const _TotalAreaSummary({
+    required this.value,
+    required this.compact,
+  });
+
+  final double value;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: compact
+          ? const EdgeInsets.fromLTRB(12, 12, 12, 14)
+          : const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      decoration: BoxDecoration(
+        color: StyleConstants.defaultColor.withValues(alpha: 0.045),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: StyleConstants.defaultColor.withValues(alpha: 0.12),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.area_chart_rounded,
+                color: StyleConstants.defaultColor.withValues(alpha: 0.78),
+                size: 16,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                context.tr('achievement.overview.title'),
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.68),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: compact ? 10 : 12),
+          _TotalAreaNumber(
+            value: value,
+            compact: compact,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TotalAreaNumber extends StatelessWidget {
+  const _TotalAreaNumber({
+    required this.value,
+    required this.compact,
+  });
+
+  final double value;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final area = formatArea(context, value);
+
+    return SizedBox(
+      width: double.infinity,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              area.value,
+              style: TextStyle(
+                color: StyleConstants.defaultColor,
+                fontSize: compact ? 46 : 52,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0,
+                height: 0.95,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Padding(
+              padding: EdgeInsets.only(bottom: compact ? 5 : 6),
+              child: Text(
+                area.unit,
+                style: TextStyle(
+                  color: StyleConstants.defaultColor,
+                  fontSize: compact ? 18 : 21,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

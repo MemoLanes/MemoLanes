@@ -36,6 +36,7 @@ export class FlutterBridgeEditor {
   initialize(): void {
     this.setupEditorEventListeners();
     this.setupEditorCallableMethods();
+    this.notifyMapZoomChanged();
   }
 
   private isMultiTouch(event: any): boolean {
