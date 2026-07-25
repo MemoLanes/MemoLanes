@@ -15,9 +15,10 @@
 //! The asset is gitignored and produced by `just rasterize-geo`; the test skips
 //! when it is absent (e.g. a clean CI without the data step).
 
+pub mod test_utils;
+
 use std::collections::{BTreeSet, HashMap};
 use std::fs;
-use std::path::Path;
 
 use chrono::NaiveDate;
 use geo_data_format::{GeoEntityKind, Worldview};
@@ -193,14 +194,7 @@ fn visited_country_isos(
 
 #[test]
 fn region_api_reports_correct_countries_and_areas() {
-    let asset = Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/geo/geo_data_iso.bin");
-    if !asset.exists() {
-        eprintln!(
-            "skipping: {} absent — run `just rasterize-geo` to generate it",
-            asset.display()
-        );
-        return;
-    }
+    let asset = test_utils::geo_asset("iso");
     let geo_bytes = fs::read(&asset).unwrap();
     let geo_index = GeoIndex::from_bytes(&geo_bytes).unwrap();
 

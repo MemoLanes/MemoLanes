@@ -9,6 +9,8 @@
 //! the region entry points are exercised against the real
 //! `assets/geo/geo_data_iso.bin` worldview asset (skipped when it is absent).
 
+pub mod test_utils;
+
 use std::collections::HashMap;
 
 use memolanes_core::{
@@ -23,7 +25,6 @@ use memolanes_core::{
     journey_header::JourneyKind,
 };
 use std::fs;
-use std::path::Path;
 use tempdir::TempDir;
 
 /// Import one GPX track as a finalized journey via the public GPS ingest path.
@@ -130,14 +131,7 @@ fn api_achievement_explored_area_and_region_contract() {
     );
 
     // --- Geo initializer against the real ISO asset. ---
-    let asset = Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/geo/geo_data_iso.bin");
-    if !asset.exists() {
-        eprintln!(
-            "skipping geo install: {} absent — run `just rasterize-geo` to generate it",
-            asset.display()
-        );
-        return;
-    }
+    let asset = test_utils::geo_asset("iso");
     let geo_bytes = fs::read(&asset).unwrap();
     init_or_change_geo_data(Worldview::Iso, &geo_bytes).unwrap();
     // Geo is now installed, so the seeded journeys light up region reads.

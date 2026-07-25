@@ -20,11 +20,10 @@ pub struct Entry {
     /// Continent 2-letter code or country `ADM0_A3`.
     pub code: String,
     pub id: u32,
-    /// Per-worldview representative point: worldview-id -> [lon, lat]. A code is
-    /// present only for worldviews whose source file contains it. BTreeMap for
-    /// deterministic on-disk ordering.
-    #[serde(default)]
-    pub refs: std::collections::BTreeMap<String, [f64; 2]>,
+    /// Representative point `[lon, lat]` (union centroid, merged across all
+    /// worldviews), re-baselined each regen.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub point: Option<[f64; 2]>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
@@ -44,26 +43,8 @@ impl Registry {
         Self::from_toml_str(&raw).with_context(|| format!("parsing registry at {}", path.display()))
     }
 
-    /// Parse the on-disk (compact) form back into the in-memory model:
-    /// a single `ref` (expanded to `worldview`, or to the `worldviews` universe when
-    /// `worldview` is absent), or an explicit per-worldview `refs` table. Entries with
-    /// no point at all load with empty refs.
     pub fn from_toml_str(raw: &str) -> Result<Self> {
-        let disk: DiskRegistry = toml::from_str(raw).context("parsing registry TOML")?;
-        let universe = &disk.worldviews;
-        let reg = Registry {
-            schema: disk.schema,
-            continents: disk
-                .continents
-                .into_iter()
-                .map(|d| d.expand(universe))
-                .collect(),
-            countries: disk
-                .countries
-                .into_iter()
-                .map(|d| d.expand(universe))
-                .collect(),
-        };
+        let reg: Registry = toml::from_str(raw).context("parsing registry TOML")?;
         reg.validate_unique_ids()?;
         Ok(reg)
     }
@@ -112,23 +93,34 @@ impl Registry {
     }
 }
 
-/// Representative point of a country/continent geometry: the centroid of
-/// its merged `MultiPolygon`. Deterministic for a fixed geometry.
 pub fn centroid_of(mp: &MultiPolygon<f64>) -> Option<(f64, f64)> {
     mp.centroid().map(|p| (p.x(), p.y()))
 }
 
-/// Group `(code, is_continent, geometry)` by `code`, merging all
-/// geometries sharing a code into one MultiPolygon; return one
-/// `(code, is_continent, (lon, lat))` per code in first-seen order, the
-/// point being the centroid of the MERGED geometry. Order-independent:
-/// insensitive to feature order within/across input files, so multi-part
-/// entities (FRA+overseas, USA+territories, …) get a worldview-stable point.
-/// Precondition: all items sharing a `code` must have the same
-/// `is_continent`; only the first occurrence's flag is retained.
-pub fn merged_representative_points(
-    items: impl IntoIterator<Item = (String, bool, geo_types::MultiPolygon<f64>)>,
-) -> Vec<(String, bool, (f64, f64))> {
+const POINT_DECIMALS_FACTOR: f64 = 1e4;
+
+fn round_point([lon, lat]: [f64; 2]) -> [f64; 2] {
+    [
+        (lon * POINT_DECIMALS_FACTOR).round() / POINT_DECIMALS_FACTOR,
+        (lat * POINT_DECIMALS_FACTOR).round() / POINT_DECIMALS_FACTOR,
+    ]
+}
+
+pub fn representative_point_items(
+    features: &[crate::parse::ParsedFeature],
+) -> Vec<(String, bool, MultiPolygon<f64>)> {
+    let mut items = Vec::with_capacity(features.len() * 2);
+    for f in features {
+        let continent = crate::entities::feature_continent_code(&f.continent, &f.region_un);
+        items.push((continent.to_string(), true, f.geometry.clone()));
+        items.push((f.adm0_a3.clone(), false, f.geometry.clone()));
+    }
+    items
+}
+
+pub fn merged_geometries(
+    items: impl IntoIterator<Item = (String, bool, MultiPolygon<f64>)>,
+) -> Vec<(String, bool, MultiPolygon<f64>)> {
     use std::collections::HashMap;
     let mut order: Vec<String> = Vec::new();
     let mut acc: HashMap<String, (bool, Vec<geo_types::Polygon<f64>>)> = HashMap::new();
@@ -145,212 +137,62 @@ pub fn merged_representative_points(
     }
     order
         .into_iter()
-        .filter_map(|code| {
+        .map(|code| {
             let (is_cont, polys) = acc.remove(&code).expect("ordered code must be in acc");
-            centroid_of(&geo_types::MultiPolygon(polys)).map(|pt| (code, is_cont, pt))
+            (code, is_cont, MultiPolygon(polys))
         })
         .collect()
 }
 
-/// Append-only id allocation + per-worldview ref recording. `points` is one
-/// entry per code in first-seen order (from `merged_representative_points`
-/// for ONE worldview's features). For each `(code, is_continent, (lon,lat))`:
-/// on first sight of `code` anywhere, allocate `next_id()` and push a new
-/// Entry into `continents` or `countries` per `is_continent` (this
-/// preserves first-seen order ⇒ stable ids); then set
-/// `entry.refs.insert(worldview.to_string(), [lon, lat])` (insert-or-overwrite
-/// for that worldview).
-pub fn register_worldview(
-    reg: &mut Registry,
-    worldview: &str,
-    points: &[(String, bool, (f64, f64))],
-) {
+pub fn merged_representative_points(
+    items: impl IntoIterator<Item = (String, bool, MultiPolygon<f64>)>,
+) -> Vec<(String, bool, (f64, f64))> {
+    merged_geometries(items)
+        .into_iter()
+        .filter_map(|(code, is_cont, mp)| centroid_of(&mp).map(|pt| (code, is_cont, pt)))
+        .collect()
+}
+
+pub fn register_worldview(reg: &mut Registry, points: &[(String, bool, (f64, f64))]) {
     for (code, is_continent, (lon, lat)) in points {
-        // Find the entry across both vecs; if absent, create with next_id().
         let found = reg
             .continents
             .iter_mut()
             .chain(reg.countries.iter_mut())
             .find(|e| &e.code == code);
-        let entry = if let Some(e) = found {
-            e
-        } else {
-            let id = reg.next_id();
-            let new_entry = Entry {
-                code: code.clone(),
-                id,
-                refs: std::collections::BTreeMap::new(),
-            };
-            if *is_continent {
-                reg.continents.push(new_entry);
-                reg.continents.last_mut().expect("just pushed")
-            } else {
-                reg.countries.push(new_entry);
-                reg.countries.last_mut().expect("just pushed")
-            }
-        };
-        entry.refs.insert(worldview.to_string(), [*lon, *lat]);
-    }
-}
-
-/// Decimal places kept for representative points. The identity audit
-/// compares them with a whole-degrees tolerance, so ~11 m precision is
-/// orders of magnitude tighter than needed while keeping the file stable
-/// across Natural Earth bumps that don't move a border.
-const REF_DECIMALS_FACTOR: f64 = 1e4;
-
-fn round_pt(p: [f64; 2]) -> [f64; 2] {
-    [
-        (p[0] * REF_DECIMALS_FACTOR).round() / REF_DECIMALS_FACTOR,
-        (p[1] * REF_DECIMALS_FACTOR).round() / REF_DECIMALS_FACTOR,
-    ]
-}
-
-/// Compact on-disk entry. An entity whose every present worldview shares the
-/// same (rounded) point stores a single `ref`; `worldview` lists the covered
-/// worldviews only when they're a strict subset of the registry-wide `worldviews`
-/// universe (so audit coverage is preserved without fabricating refs).
-/// Entities that genuinely differ per worldview use the explicit `refs` table.
-#[derive(Debug, Default, Serialize, Deserialize)]
-struct DiskEntry {
-    code: String,
-    id: u32,
-    #[serde(default, rename = "ref", skip_serializing_if = "Option::is_none")]
-    ref_pt: Option<[f64; 2]>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    worldview: Vec<String>,
-    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
-    refs: std::collections::BTreeMap<String, [f64; 2]>,
-}
-
-impl DiskEntry {
-    fn from_entry(e: &Entry, universe: &[String]) -> Self {
-        let rounded: std::collections::BTreeMap<String, [f64; 2]> = e
-            .refs
-            .iter()
-            .map(|(k, v)| (k.clone(), round_pt(*v)))
-            .collect();
-        let mut base = DiskEntry {
-            code: e.code.clone(),
-            id: e.id,
-            ..Default::default()
-        };
-        let mut distinct: Vec<[f64; 2]> = Vec::new();
-        for v in rounded.values() {
-            if !distinct.contains(v) {
-                distinct.push(*v);
-            }
-        }
-        match distinct.len() {
-            0 => {}
-            1 => {
-                base.ref_pt = Some(distinct[0]);
-                let keys: Vec<String> = rounded.keys().cloned().collect();
-                if keys != universe {
-                    base.worldview = keys;
+        match found {
+            Some(e) => {
+                if !is_continent {
+                    e.point = Some(round_point([*lon, *lat]));
                 }
             }
-            _ => base.refs = rounded,
-        }
-        base
-    }
-
-    fn expand(self, universe: &[String]) -> Entry {
-        let refs = if !self.refs.is_empty() {
-            self.refs
-        } else if let Some(pt) = self.ref_pt {
-            let keys = if self.worldview.is_empty() {
-                universe
-            } else {
-                &self.worldview
-            };
-            keys.iter().map(|k| (k.clone(), pt)).collect()
-        } else {
-            std::collections::BTreeMap::new()
-        };
-        Entry {
-            code: self.code,
-            id: self.id,
-            refs,
+            None => {
+                let id = reg.next_id();
+                let entry = Entry {
+                    code: code.clone(),
+                    id,
+                    point: (!is_continent).then(|| round_point([*lon, *lat])),
+                };
+                if *is_continent {
+                    reg.continents.push(entry);
+                } else {
+                    reg.countries.push(entry);
+                }
+            }
         }
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct DiskRegistry {
-    schema: u32,
-    /// Registry-wide worldview universe (sorted union of all entry refs). A bare
-    /// `ref` with no per-entry `worldview` expands to exactly these on load.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    worldviews: Vec<String>,
-    #[serde(default, rename = "continent")]
-    continents: Vec<DiskEntry>,
-    #[serde(default, rename = "country")]
-    countries: Vec<DiskEntry>,
-}
-
-/// Stable on-disk form: entries sorted by `code` for human review, points
-/// rounded ([`REF_DECIMALS_FACTOR`]) and worldview-identical entries collapsed.
-/// IDs are explicit fields, so sorting/collapsing never changes any id.
 pub fn to_toml_sorted(reg: &Registry) -> Result<String> {
-    let mut universe: Vec<String> = reg
-        .continents
-        .iter()
-        .chain(reg.countries.iter())
-        .flat_map(|e| e.refs.keys().cloned())
-        .collect();
-    universe.sort();
-    universe.dedup();
-
-    let to_disk = |list: &[Entry]| {
-        let mut v: Vec<DiskEntry> = list
-            .iter()
-            .map(|e| DiskEntry::from_entry(e, &universe))
-            .collect();
+    let sorted = |list: &[Entry]| {
+        let mut v = list.to_vec();
         v.sort_by(|a, b| a.code.cmp(&b.code));
         v
     };
-    let disk = DiskRegistry {
+    let out = Registry {
         schema: reg.schema,
-        continents: to_disk(&reg.continents),
-        countries: to_disk(&reg.countries),
-        worldviews: universe,
+        continents: sorted(&reg.continents),
+        countries: sorted(&reg.countries),
     };
-    toml::to_string(&disk).context("serializing registry")
-}
-
-/// CI gate 2 — identity audit. For every `(code, centroid)` in `present`:
-/// find the Entry by code (continents or countries). If found AND
-/// `entry.refs.get(worldview)` is `Some([rlon, rlat])`: compute Euclidean degree
-/// distance; if `> tol_deg` → bail (message includes code, worldview, distance,
-/// and both points). If the code is not in the registry OR has no ref for
-/// `worldview` → skip (Ok). A registry-absent code is ignored here (Task 3 /
-/// unknown-code gate owns that). Tolerance is intentionally generous: it
-/// must NOT trip on normal per-worldview boundary moves, only on a code denoting
-/// a different place entirely.
-pub fn audit_identity(
-    present: &[(String, (f64, f64))],
-    registry: &Registry,
-    worldview: &str,
-    tol_deg: f64,
-) -> Result<()> {
-    for (code, (lon, lat)) in present {
-        let entry = Registry::lookup(&registry.continents, code)
-            .or_else(|| Registry::lookup(&registry.countries, code));
-        let Some(e) = entry else { continue };
-        let Some([rlon, rlat]) = e.refs.get(worldview) else {
-            continue;
-        };
-        let dlon = lon - rlon;
-        let dlat = lat - rlat;
-        let dist = (dlon * dlon + dlat * dlat).sqrt();
-        if dist > tol_deg {
-            bail!(
-                "identity audit: `{code}` (worldview={worldview}) centroid ({lon:.2},{lat:.2}) is \
-                 {dist:.2}° from registry reference ({rlon:.2},{rlat:.2}); a code must \
-                 denote the same place across worldviews/bumps — investigate before bumping"
-            );
-        }
-    }
-    Ok(())
+    toml::to_string(&out).context("serializing registry")
 }

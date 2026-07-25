@@ -41,12 +41,12 @@ fn reg() -> Registry {
         continents: vec![Entry {
             code: "AS".into(),
             id: 5,
-            refs: Default::default(),
+            point: None,
         }],
         countries: vec![Entry {
             code: "AAA".into(),
             id: 3,
-            refs: Default::default(),
+            point: None,
         }],
     }
 }
@@ -94,12 +94,12 @@ fn chn_worldview_merges_hong_kong_macau_and_taiwan_into_china() {
         continents: vec![Entry {
             code: "AS".into(),
             id: 0,
-            refs: Default::default(),
+            point: None,
         }],
         countries: vec![Entry {
             code: "CHN".into(),
             id: 18,
-            refs: Default::default(),
+            point: None,
         }],
     };
     let m = assemble_entities(&features, &reg).unwrap();
@@ -189,18 +189,18 @@ fn assemble_collapses_duplicate_adm0_a3() {
             Entry {
                 code: "EU".into(),
                 id: 0,
-                refs: std::collections::BTreeMap::from([("iso".to_string(), [2.5_f64, 48.5_f64])]),
+                point: None,
             },
             Entry {
                 code: "SA".into(),
                 id: 1,
-                refs: std::collections::BTreeMap::from([("iso".to_string(), [-52.5_f64, 4.5_f64])]),
+                point: None,
             },
         ],
         countries: vec![Entry {
             code: "FRA".into(),
             id: 2,
-            refs: std::collections::BTreeMap::from([("iso".to_string(), [2.5_f64, 48.5_f64])]),
+            point: None,
         }],
     };
     let model = assemble_entities(&features, &registry).unwrap();
@@ -247,12 +247,12 @@ fn single_feature_uses_own_iso_a3_eh_even_when_adm0_differs() {
         continents: vec![Entry {
             code: "AS".into(),
             id: 0,
-            refs: std::collections::BTreeMap::from([("iso".to_string(), [35.5_f64, 31.5_f64])]),
+            point: None,
         }],
         countries: vec![Entry {
             code: "PSX".into(),
             id: 1,
-            refs: std::collections::BTreeMap::from([("iso".to_string(), [35.5_f64, 31.5_f64])]),
+            point: None,
         }],
     };
     let model = assemble_entities(&features, &registry).unwrap();
@@ -292,12 +292,12 @@ fn collapsed_group_without_sovereign_member_is_none() {
         continents: vec![Entry {
             code: "OC".into(),
             id: 0,
-            refs: std::collections::BTreeMap::from([("iso".to_string(), [100.0_f64, -11.0_f64])]),
+            point: None,
         }],
         countries: vec![Entry {
             code: "IOA".into(),
             id: 1,
-            refs: std::collections::BTreeMap::from([("iso".to_string(), [100.0_f64, -11.0_f64])]),
+            point: None,
         }],
     };
     let model = assemble_entities(&features, &registry).unwrap();

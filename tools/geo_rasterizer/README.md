@@ -23,46 +23,32 @@ entity a small, permanent integer id:
 - **countries** — keyed by [ADM0_A3](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-3)
   country code (the `ADM0_A3` field in the Natural Earth source)
 
-Each entry also stores a **representative point** — a `[lon, lat]` anchor (the
-centroid of the entity's merged geometry) used by the identity audit (see
-below). Points are kept **per worldview**, because borders differ between worldviews.
+Each **country** entry also stores a `point` — a `[lon, lat]` representative
+point (the entity's **union centroid**: its geometry merged across every
+worldview), rounded to 4 decimals. It is informational, not a gate — it makes the
+committed registry diff carry an identity signal (see [below](#why-it-exists)).
+Continents carry no `point` — a continent's identity is its code.
 
 Top level:
 
 - `schema` — format version (currently `1`).
-- `worldviews` — the worldview universe, e.g. `["chn", "iso", "usa"]`. A bare `ref` with no
-  per-entry `worldview` list means "this point applies to every worldview in `worldviews`".
-
-Each `[[continent]]` / `[[country]]` entry is written in the most compact form
-that is lossless, so a no-op source bump produces a zero-line diff:
 
 ```toml
-# Same point in every worldview → one inline ref.
+# Country: id + representative point.
 [[country]]
 code = "ARG"
 id = 7
-ref = [-65.1731, -35.3787]
+point = [-65.1731, -35.3787]
 
-# Present in only some worldviews → ref + the covered subset.
-[[country]]
-code = "TWN"
-id = 183
-ref = [120.9499, 23.753]
-worldview = ["iso", "usa"]
-
-# Genuinely different point per worldview → explicit refs sub-table.
-[[country]]
-code = "CHN"
-id = 18
-[country.refs]
-chn = [103.8162, 36.4588]
-iso = [103.9277, 36.5645]
-usa = [103.827, 36.5584]
+# Continent: identity is the code, so no point.
+[[continent]]
+code = "SA"
+id = 3
 ```
 
 Entries are sorted by `code` and points rounded to 4 dp; `id` is always an
-explicit field, so sorting/rounding never changes an id. The full schema lives
-in the `Registry` / `Entry` types in [`src/registry.rs`](src/registry.rs).
+explicit field, so sorting never changes an id. The full schema lives in the
+`Registry` / `Entry` types in [`src/registry.rs`](src/registry.rs).
 
 Unlike the generated `geo_data_*.bin` files and the downloaded
 `natural_earth/*.geojson` sources (both git-ignored), **this TOML is committed**
@@ -81,14 +67,22 @@ forever**:
   on borders, but a given country code resolves to the **same id** in every worldview,
   so per-worldview bins share one id space.
 
-To enforce "same id ⇒ same place", the registry stores the representative point
-and the rasterizer runs an **identity audit** (`audit_identity` in
-`src/main.rs`): if a code's location in a new source/worldview drifts more than ~8°
-from the registry's anchor, the build fails. That catches a code being silently
-reassigned to a different place.
+Identity is **not gated automatically**. Instead, each country's `point` is
+re-baselined to its current union centroid on every regen, and this TOML is
+committed — so a code silently reassigned to a different place shows up as a large
+`point` move in the registry diff of the source-bump PR. The CI guardrail
+(`git diff --exit-code` on this file, run after `registry-gen`) forces that diff
+to be regenerated and reviewed; a reviewer scans it for a gross jump. Rounding to
+~11 m keeps benign coastline refinement out of the diff, so only real movement
+shows. A border move barely nudges the centroid; a reassignment to another place
+moves it tens of degrees.
 
-This is why the generator is **append-only**: it only ever *adds* ids for codes
-it has never seen. It never renumbers or removes existing ids.
+`assemble_entities` still hard-fails on any source code missing from the registry
+(the unknown-code gate) — that is the correctness-critical check and the one thing
+that *is* enforced automatically.
+
+The generator is **append-only**: it only ever *adds* ids for codes it has never
+seen. It never renumbers or removes existing ids.
 
 ## How to update it
 
