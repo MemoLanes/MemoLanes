@@ -77,8 +77,6 @@ class GpsManager extends ChangeNotifier {
   // basically, we try to finalize every 30 mins + when there isn't a meaningful update in a while.
   DateTime? _tryFinalizeJourneyCountDown;
 
-  bool _recordingSignalActive = false;
-
   // We only start listening to the location service after this.
   // Otherwise we may start it before the app is fully ready (e.g. i18n not ready).
   bool _fullyReady = false;
@@ -221,18 +219,10 @@ class GpsManager extends ChangeNotifier {
           );
         }
       }
-      _syncRecordingSignalStatus();
       _internalState = newState;
+      RecordingHealthService.instance.handleRecordingStatus(recordingStatus);
       notifyListeners();
     }
-  }
-
-  void _syncRecordingSignalStatus() {
-    final shouldBeActive = recordingStatus == GpsRecordingStatus.recording;
-    if (_recordingSignalActive == shouldBeActive) return;
-
-    _recordingSignalActive = shouldBeActive;
-    RecordingHealthService.instance.handleRecordingStatus(recordingStatus);
   }
 
   // Non-blocking: fetches the OS-cached last known location and uses it as a
