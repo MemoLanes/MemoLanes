@@ -732,7 +732,7 @@ fn migrate_to_1_0(tx: &Transaction) -> Result<()> {
     Ok(())
 }
 
-fn migrate_to_1_1(tx: &Transaction) -> Result<()> {
+fn migrate_to_2_0(tx: &Transaction) -> Result<()> {
     tx.execute(
         "ALTER TABLE journey ADD COLUMN journey_kind INTEGER NOT NULL DEFAULT 0",
         (),
@@ -768,7 +768,7 @@ fn migrate_to_1_1(tx: &Transaction) -> Result<()> {
 fn migrations() -> [utils::db::Migration<'static>; 2] {
     [
         utils::db::Migration::new(1, 0, &migrate_to_1_0),
-        utils::db::Migration::new(1, 1, &migrate_to_1_1),
+        utils::db::Migration::new(2, 0, &migrate_to_2_0),
     ]
 }
 
@@ -784,7 +784,7 @@ mod migration_tests {
     }
 
     #[test]
-    fn migrate_to_1_1_backfills_journey_kind_and_creates_composite_index() -> Result<()> {
+    fn migrate_to_2_0_backfills_journey_kind_and_creates_composite_index() -> Result<()> {
         let mut connection = Connection::open_in_memory()?;
         let tx = connection.transaction()?;
         migrate_to_1_0(&tx)?;
@@ -818,7 +818,7 @@ mod migration_tests {
         utils::db::set_version_in_metadata(&tx, utils::db::SchemaVersion::new(1, 0))?;
         assert_eq!(
             utils::db::run_migrations(&tx, "main.db", &migrations())?,
-            utils::db::SchemaVersion::new(1, 1)
+            utils::db::SchemaVersion::new(2, 0)
         );
 
         let journey_kind: i8 = tx.query_row(
