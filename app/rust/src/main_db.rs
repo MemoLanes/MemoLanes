@@ -702,7 +702,10 @@ fn migrate_to_1_0(tx: &Transaction) -> Result<()> {
 }
 
 fn migrate_to_1_1(tx: &Transaction) -> Result<()> {
-    tx.execute("ALTER TABLE journey ADD COLUMN journey_kind INTEGER", ())?;
+    tx.execute(
+        "ALTER TABLE journey ADD COLUMN journey_kind INTEGER NOT NULL DEFAULT 0",
+        (),
+    )?;
 
     let journey_kinds = {
         let mut query = tx.prepare("SELECT id, header FROM journey")?;
@@ -792,6 +795,12 @@ mod migration_tests {
             |row| row.get(0),
         )?;
         assert_eq!(journey_kind, JourneyKind::Flight.to_int());
+        let not_null: i8 = tx.query_row(
+            "SELECT \"notnull\" FROM pragma_table_info('journey') WHERE name = 'journey_kind'",
+            (),
+            |row| row.get(0),
+        )?;
+        assert_eq!(not_null, 1);
         assert!(tx
             .query_row(
                 "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = 'journey_kind_index'",
