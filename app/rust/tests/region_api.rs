@@ -85,7 +85,7 @@ fn region_read_api_lists_progress_and_completion() {
         fs::create_dir_all(&p).unwrap();
         p.into_os_string().into_string().unwrap()
     };
-    let storage = Storage::init(sub("t"), sub("d"), sub("s"), sub("c"));
+    let storage = Storage::init(sub("t"), sub("d"), sub("s"), sub("c")).unwrap();
     storage
         .init_or_change_geo_data(Worldview::Iso, &geo_bytes())
         .unwrap();
@@ -163,7 +163,7 @@ fn init_or_change_geo_data_rejects_mismatched_worldview_id() {
         fs::create_dir_all(&p).unwrap();
         p.into_os_string().into_string().unwrap()
     };
-    let storage = Storage::init(sub("t"), sub("d"), sub("s"), sub("c"));
+    let storage = Storage::init(sub("t"), sub("d"), sub("s"), sub("c")).unwrap();
 
     // A bin that declares "chn", loaded as Iso, must be rejected.
     let tiles = vec![TileMembership::None; TILE_COUNT];
@@ -192,7 +192,7 @@ fn init_or_change_geo_data_rejects_invalid_bytes() {
         fs::create_dir_all(&p).unwrap();
         p.into_os_string().into_string().unwrap()
     };
-    let storage = Storage::init(sub("t"), sub("d"), sub("s"), sub("c"));
+    let storage = Storage::init(sub("t"), sub("d"), sub("s"), sub("c")).unwrap();
 
     assert!(storage
         .init_or_change_geo_data(Worldview::Iso, b"not a geo asset")

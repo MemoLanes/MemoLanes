@@ -25,7 +25,8 @@ where
         sub_folder("doc/"),
         sub_folder("support/"),
         sub_folder("cache/"),
-    );
+    )
+    .unwrap();
     f(storage);
 }
 

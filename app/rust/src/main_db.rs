@@ -43,6 +43,14 @@ fn open_db_and_run_migration(
     debug!("open and run migration for {file_name}");
     let mut conn = rusqlite::Connection::open(Path::new(support_dir).join(file_name))?;
     let tx = conn.transaction()?;
+    let current = utils::db::init_metadata_and_get_version(&tx)?;
+    let target = migrations
+        .last()
+        .expect("database must have a schema migration")
+        .version;
+    if current.major > target.major {
+        return Err(DatabaseVersionTooNew { current, target }.into());
+    }
     utils::db::run_migrations(&tx, file_name, migrations)?;
     tx.commit()?;
     Ok(conn)
@@ -656,6 +664,25 @@ pub struct MainDb {
     conn: Connection,
 }
 
+/// The only database-open condition the startup UI handles separately.
+#[derive(Debug)]
+pub struct DatabaseVersionTooNew {
+    current: utils::db::SchemaVersion,
+    target: utils::db::SchemaVersion,
+}
+
+impl std::fmt::Display for DatabaseVersionTooNew {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            formatter,
+            "main database major version is too high: current version = {:?}, target version = {:?}",
+            self.current, self.target
+        )
+    }
+}
+
+impl std::error::Error for DatabaseVersionTooNew {}
+
 fn migrations() -> [utils::db::Migration<'static>; 1] {
     fn migrate_to_1_0(tx: &Transaction) -> Result<()> {
         let sql = "
@@ -709,11 +736,18 @@ mod migration_tests {
 }
 
 impl MainDb {
+    /// Open the main database and run migrations in a single connection.
+    ///
+    /// A newer major schema is returned as a distinct error so startup can
+    /// display a compatibility gate without attempting to modify the database.
+    pub fn try_open(support_dir: &str) -> Result<MainDb> {
+        let conn = open_db_and_run_migration(support_dir, "main.db", &migrations())?;
+        Ok(MainDb { conn })
+    }
+
     pub fn open(support_dir: &str) -> MainDb {
         // TODO: better error handling
-        let conn = open_db_and_run_migration(support_dir, "main.db", &migrations())
-            .expect("failed to open main db");
-        MainDb { conn }
+        Self::try_open(support_dir).expect("failed to open main db")
     }
 
     #[auto_context]

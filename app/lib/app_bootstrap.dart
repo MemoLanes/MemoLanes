@@ -20,6 +20,8 @@ import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
+enum AppStartupStatus { ready, databaseVersionTooNew }
+
 void delayedInit(UpdateNotifier updateNotifier) {
   Future.delayed(const Duration(milliseconds: 4000), () async {
     DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
@@ -107,7 +109,7 @@ class AppBootstrap {
     }
   }
 
-  static Future<void> initAppRuntime() async {
+  static Future<AppStartupStatus> initAppRuntime() async {
     // This is required since we are doing things before calling `runApp`.
     WidgetsFlutterBinding.ensureInitialized();
 
@@ -127,14 +129,18 @@ class AppBootstrap {
       cacheDirFuture,
     ]);
 
-    await api.init(
+    final initStatus = await api.init(
       tempDir: (await tempDirFuture).path,
       docDir: (await docDirFuture).path,
       supportDir: (await supportDirFuture).path,
       systemCacheDir: (await cacheDirFuture).path,
     );
+    if (initStatus == api.InitStatus.databaseVersionTooNew) {
+      return AppStartupStatus.databaseVersionTooNew;
+    }
 
     await WorldviewManager.instance.initialize();
+    return AppStartupStatus.ready;
   }
 
   static void startAppServices({

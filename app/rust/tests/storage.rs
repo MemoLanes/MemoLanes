@@ -24,7 +24,8 @@ fn storage_for_main_map_renderer() {
         sub_folder("doc/"),
         sub_folder("support/"),
         sub_folder("cache/"),
-    );
+    )
+    .unwrap();
 
     let (raw_data_groups, _preprocessor) =
         import_data::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
@@ -71,7 +72,8 @@ where
         sub_folder("doc/"),
         sub_folder("support/"),
         sub_folder("cache/"),
-    );
+    )
+    .unwrap();
     f(storage);
 }
 

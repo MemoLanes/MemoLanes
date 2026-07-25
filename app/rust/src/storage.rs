@@ -151,8 +151,8 @@ impl Storage {
         _doc_dir: String,
         support_dir: String,
         cache_dir: String,
-    ) -> Self {
-        let mut main_db = MainDb::open(&support_dir);
+    ) -> Result<Self> {
+        let mut main_db = MainDb::try_open(&support_dir)?;
         let cache_db: Box<dyn CacheDb + Send> = Box::new(cache_db::new(&cache_dir));
         let achievement_store =
             achievement::new(&cache_dir).expect("failed to open achievement store");
@@ -162,7 +162,7 @@ impl Storage {
             } else {
                 None
             };
-        Storage {
+        Ok(Storage {
             support_dir,
             raw_data_recorder: Mutex::new(raw_data_recorder),
             cache_dir,
@@ -172,7 +172,7 @@ impl Storage {
                 achievement_store,
             }),
             finalized_journey_changed_callback: Box::new(|_| {}),
-        }
+        })
     }
 
     #[auto_context]

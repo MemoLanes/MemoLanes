@@ -38,6 +38,13 @@ pub(super) struct MainState {
 }
 
 static MAIN_STATE: OnceLock<MainState> = OnceLock::new();
+static INIT_STATUS: OnceLock<InitStatus> = OnceLock::new();
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InitStatus {
+    Ready,
+    DatabaseVersionTooNew,
+}
 
 #[frb(ignore)]
 pub fn get() -> &'static MainState {
@@ -71,11 +78,18 @@ fn reload_main_map_bitmap(storage: &Storage, main_map_state: &mut MainMapState) 
     Ok(())
 }
 
-pub fn init(temp_dir: String, doc_dir: String, support_dir: String, system_cache_dir: String) {
-    let mut already_initialized = true;
-    MAIN_STATE.get_or_init(|| {
-        already_initialized = false;
+pub fn init(
+    temp_dir: String,
+    doc_dir: String,
+    support_dir: String,
+    system_cache_dir: String,
+) -> InitStatus {
+    if let Some(status) = INIT_STATUS.get() {
+        warn!("`init` is called multiple times");
+        return *status;
+    }
 
+    *INIT_STATUS.get_or_init(|| {
         let (real_cache_dir, logs) = prepare_real_cache_dir(&support_dir, &system_cache_dir)
             .expect("Failed to initialize cache dir");
 
@@ -88,7 +102,19 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, system_cache
             }
         }
 
-        let mut storage = Storage::init(temp_dir, doc_dir, support_dir, real_cache_dir);
+        let storage = match Storage::init(temp_dir, doc_dir, support_dir, real_cache_dir) {
+            Ok(storage) => storage,
+            Err(error)
+                if error
+                    .downcast_ref::<main_db::DatabaseVersionTooNew>()
+                    .is_some() =>
+            {
+                return InitStatus::DatabaseVersionTooNew;
+            }
+            Err(error) => panic!("failed to initialize storage: {error:?}"),
+        };
+
+        let mut storage = storage;
         info!("initialized");
 
         let default_layer_filter = LayerFilter {
@@ -118,15 +144,16 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, system_cache
         }));
         info!("main map renderer initialized");
 
-        MainState {
-            storage,
-            gps_preprocessor: Mutex::new(GpsPreprocessor::new()),
-            main_map_state,
-        }
-    });
-    if already_initialized {
-        warn!("`init` is called multiple times");
-    }
+        MAIN_STATE
+            .set(MainState {
+                storage,
+                gps_preprocessor: Mutex::new(GpsPreprocessor::new()),
+                main_map_state,
+            })
+            .unwrap_or_else(|_| unreachable!("main state can only be initialized once"));
+
+        InitStatus::Ready
+    })
 }
 
 // On iOS, we use `NSCachesDirectory` for storing cache file,

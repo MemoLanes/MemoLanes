@@ -222,7 +222,8 @@ fn region_api_reports_correct_countries_and_areas() {
         sub(&dir, "d"),
         sub(&dir, "s"),
         sub(&dir, "c"),
-    );
+    )
+    .unwrap();
     storage
         .init_or_change_geo_data(Worldview::Iso, &geo_bytes)
         .unwrap();

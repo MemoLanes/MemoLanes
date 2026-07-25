@@ -55,6 +55,11 @@
     "continue": "Continue",
     "save_confirm": "Do you want to save the changes?"
   },
+  "startup_error": {
+    "title": "Data Version Incompatible",
+    "database_version_too_new": "The data on this device was created by a newer version of MemoLanes and can't be opened by this version. Update MemoLanes and try again.",
+    "exit": "Exit"
+  },
   "journey": {
     "editor": {
       "move": "Move",
