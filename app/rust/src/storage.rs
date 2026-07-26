@@ -6,55 +6,16 @@ use crate::gps_processor::ProcessResult;
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_header::JourneyKind;
 use crate::journey_snapshot::JourneySnapshot;
+use crate::legacy_raw_data::{self, LegacyRawDataFile};
 use crate::main_db::{self, Action, MainDb};
-use crate::raw_data;
 use crate::raw_data::ExtendedRawGPSPoint;
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
 use chrono::NaiveDate;
-use serde::{Deserialize, Serialize};
-use std::fs::remove_file;
-use std::path::Path;
 use std::sync::Mutex;
 
 // TODO: error handling in this file is horrifying, we should think about what
 // is the right thing to do here.
-
-pub struct RawDataFile {
-    pub name: String,
-    pub path: String,
-}
-
-/// Row format used by legacy raw-data CSV files. It remains public so existing
-/// files can still be listed, converted, and exported after v2 capture moves to
-/// the main database.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RawCsvRow {
-    pub timestamp_ms: Option<i64>,
-    pub received_timestamp_ms: i64,
-    pub latitude: f64,
-    pub longitude: f64,
-    pub accuracy: Option<f32>,
-    pub altitude: Option<f32>,
-    pub speed: Option<f32>,
-}
-
-impl RawCsvRow {
-    pub fn create_from_raw_data(
-        raw_gps_point: &raw_data::RawGPSPoint,
-        received_timestamp_ms: i64,
-    ) -> Self {
-        Self {
-            timestamp_ms: raw_gps_point.timestamp_ms,
-            received_timestamp_ms,
-            latitude: raw_gps_point.point.latitude,
-            longitude: raw_gps_point.point.longitude,
-            accuracy: raw_gps_point.accuracy,
-            altitude: raw_gps_point.altitude,
-            speed: raw_gps_point.speed,
-        }
-    }
-}
 
 type FinalizedJourneyChangedCallback = Box<dyn Fn(&Storage) + Send + Sync + 'static>;
 
@@ -175,21 +136,8 @@ impl Storage {
     }
 
     #[auto_context]
-    pub fn delete_raw_data_file(&self, filename: String) -> Result<()> {
-        let filename = if Path::new(&filename).extension().is_some() {
-            filename
-        } else {
-            format!("{filename}.csv")
-        };
-
-        let path = Path::new(&self.support_dir)
-            .join("raw_data")
-            .join(&filename);
-
-        remove_file(&path)
-            .with_context(|| format!("failed to remove raw data file: {}", path.display()))?;
-
-        Ok(())
+    pub fn delete_legacy_raw_data_file(&self, filename: String) -> Result<()> {
+        legacy_raw_data::delete_legacy_raw_data_file(&self.support_dir, &filename)
     }
 
     pub fn record_gps_data(&self, data: &ExtendedRawGPSPoint, process_result: ProcessResult) {
@@ -200,38 +148,12 @@ impl Storage {
             .unwrap();
     }
 
-    pub fn list_all_raw_data(&self) -> Result<Vec<RawDataFile>> {
-        let dir = Path::new(&self.support_dir).join("raw_data");
+    pub fn list_all_legacy_raw_data(&self) -> Result<Vec<LegacyRawDataFile>> {
+        legacy_raw_data::list_all_legacy_raw_data(&self.support_dir)
+    }
 
-        if !dir.exists() {
-            return Ok(Vec::new());
-        }
-
-        if !dir.is_dir() {
-            anyhow::bail!("raw_data path exists but is not a directory: {dir:?}");
-        }
-
-        let mut result: Vec<RawDataFile> = std::fs::read_dir(&dir)?
-            .filter_map(|entry_res| {
-                let entry = entry_res.ok()?;
-                let path = entry.path();
-                if path.is_file() && path.extension()?.to_str()? == "csv" {
-                    let name = path
-                        .file_stem()
-                        .map(|s| s.to_string_lossy().to_string())
-                        .unwrap_or_default();
-                    Some(RawDataFile {
-                        name,
-                        path: path.to_string_lossy().to_string(),
-                    })
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        result.sort_by(|a, b| b.name.cmp(&a.name));
-        Ok(result)
+    pub fn export_legacy_raw_data_gpx_file(&self, csv_filepath: &str) -> Result<String> {
+        legacy_raw_data::export_legacy_raw_data_gpx_file(csv_filepath, &self.cache_dir)
     }
 
     pub fn set_finalized_journey_changed_callback(

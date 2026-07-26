@@ -1,3 +1,7 @@
+//! Journey-attached raw data v2, serialized as compressed protobuf bytes.
+//!
+//! The filesystem CSV format is isolated in [`crate::legacy_raw_data`].
+
 use std::io::Cursor;
 
 use anyhow::Result;

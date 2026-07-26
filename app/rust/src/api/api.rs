@@ -1,13 +1,11 @@
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
-use std::io::{BufReader, BufWriter};
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
 
 use anyhow::{Context, Result};
 use auto_context::auto_context;
 use chrono::NaiveDate;
-use csv::Reader;
 use flutter_rust_bridge::frb;
 
 use super::import::JourneyInfo;
@@ -18,11 +16,12 @@ use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::journey_vector::JourneyVector;
+use crate::legacy_raw_data::LegacyRawDataFile;
 use crate::logs;
 pub use crate::raw_data::ExtendedRawGPSPoint;
 use crate::renderer::internal_server::{dispatch_request, WebviewResponse};
 use crate::renderer::MapRenderer;
-use crate::storage::{RawDataFile, Storage};
+use crate::storage::Storage;
 use crate::{archive, build_info, export_data, main_db};
 
 use crate::utils::{get_bounds_from_journey_bitmap, MapBounds};
@@ -444,16 +443,16 @@ pub fn on_location_update(data: ExtendedRawGPSPoint) -> bool {
     }
 }
 
-pub fn list_all_raw_data() -> Result<Vec<RawDataFile>> {
-    get().storage.list_all_raw_data()
+pub fn list_all_legacy_raw_data() -> Result<Vec<LegacyRawDataFile>> {
+    get().storage.list_all_legacy_raw_data()
 }
 
 pub fn get_raw_data_mode() -> bool {
     get().storage.get_raw_data_mode()
 }
 
-pub fn delete_raw_data_file(filename: String) -> Result<()> {
-    get().storage.delete_raw_data_file(filename)
+pub fn delete_legacy_raw_data_file(filename: String) -> Result<()> {
+    get().storage.delete_legacy_raw_data_file(filename)
 }
 
 pub fn delete_journey(journey_id: &str) -> Result<()> {
@@ -810,39 +809,8 @@ pub fn export_journey_raw_data(
 }
 
 #[auto_context]
-pub fn export_raw_data_gpx_file(csv_filepath: String) -> Result<String> {
-    let csv_path = Path::new(&csv_filepath);
-    let file_name = csv_path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .ok_or_else(|| anyhow::anyhow!("Failed to parse filename: {csv_filepath}"))?;
-
-    let target_dir = Path::new(&get().storage.cache_dir).join("raw_data");
-
-    if !target_dir.exists() {
-        std::fs::create_dir_all(&target_dir)?;
-    }
-
-    let gpx_path = target_dir.join(file_name).with_extension("gpx");
-    let gpx_path_str = gpx_path.to_string_lossy().to_string();
-
-    if gpx_path.exists() {
-        return Ok(gpx_path_str);
-    }
-
-    let csv_file = File::open(csv_path)
-        .with_context(|| format!("Failed to open source CSV file: {csv_filepath}"))?;
-    let mut reader = Reader::from_reader(BufReader::new(csv_file));
-
-    let gpx_file = File::create(&gpx_path)
-        .with_context(|| format!("Failed to create target GPX file: {gpx_path_str}"))?;
-
-    let mut writer = BufWriter::new(gpx_file);
-
-    export_data::gpx::raw_data_csv_to_gpx_file(&mut reader, &mut writer)
-        .with_context(|| format!("Failed to convert CSV to GPX: {csv_filepath}"))?;
-
-    Ok(gpx_path_str)
+pub fn export_legacy_raw_data_gpx_file(csv_filepath: String) -> Result<String> {
+    get().storage.export_legacy_raw_data_gpx_file(&csv_filepath)
 }
 
 pub fn delete_all_journeys() -> Result<()> {

@@ -123,27 +123,6 @@ fn journey_raw_data_gpx_uses_received_timestamp_as_fallback() {
 }
 
 #[test]
-fn legacy_raw_data_csv_gpx_uses_received_timestamp_as_fallback() {
-    let csv = concat!(
-        "timestamp_ms,received_timestamp_ms,latitude,longitude,accuracy,altitude,speed\n",
-        ",1700000001234,31.230416,121.473701,,,\n"
-    );
-    let mut reader = csv::Reader::from_reader(csv.as_bytes());
-    let mut output = Cursor::new(Vec::new());
-
-    export_data::gpx::raw_data_csv_to_gpx_file(&mut reader, &mut output).unwrap();
-    output.set_position(0);
-    let gpx = gpx::read(output).unwrap();
-    let exported_time: time::OffsetDateTime =
-        gpx.tracks[0].segments[0].points[0].time.unwrap().into();
-
-    assert_eq!(
-        exported_time.unix_timestamp_nanos(),
-        1_700_000_001_234_000_000
-    );
-}
-
-#[test]
 fn journey_raw_data_gpx_rejects_out_of_range_timestamp() {
     let raw_data = JourneyRawData {
         points: vec![point(

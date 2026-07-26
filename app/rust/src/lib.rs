@@ -29,6 +29,7 @@ pub mod journey_date_picker;
 pub mod journey_header;
 pub mod journey_snapshot;
 pub mod journey_vector;
+pub mod legacy_raw_data;
 mod logs;
 pub mod main_db;
 mod protos;
