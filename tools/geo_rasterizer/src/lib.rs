@@ -2,6 +2,7 @@ mod absorb;
 pub mod area;
 pub mod atomic_write;
 pub mod cache;
+pub mod cldr;
 pub mod download;
 pub mod entities;
 pub mod names;

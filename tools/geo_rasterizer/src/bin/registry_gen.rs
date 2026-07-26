@@ -13,10 +13,10 @@ use anyhow::{bail, Result};
 use clap::Parser;
 use geo_data_format::Worldview;
 use geo_rasterizer::download::ensure_geojson;
-use geo_rasterizer::entities::continent_code_pub;
 use geo_rasterizer::parse::parse_geojson;
 use geo_rasterizer::registry::{
-    merged_representative_points, register_worldview, to_toml_sorted, Registry,
+    merged_representative_points, register_worldview, representative_point_items, to_toml_sorted,
+    Registry,
 };
 
 #[derive(Parser, Debug)]
@@ -50,21 +50,12 @@ fn default_countries(worldview: Worldview) -> PathBuf {
         .join(worldview.spec().source_filename)
 }
 
-/// Register every ADM0_A3 (and its continent) found in `path` under `worldview`.
-fn register_source(reg: &mut Registry, worldview: Worldview, path: &Path) -> Result<()> {
+fn source_items(
+    worldview: Worldview,
+    path: &Path,
+) -> Result<Vec<(String, bool, geo_types::MultiPolygon<f64>)>> {
     let features = parse_geojson(path, worldview.spec().id)?;
-    let mut items: Vec<(String, bool, geo_types::MultiPolygon<f64>)> = Vec::new();
-    for f in &features {
-        items.push((
-            continent_code_pub(&f.continent, &f.region_un).to_string(),
-            true,
-            f.geometry.clone(),
-        ));
-        items.push((f.adm0_a3.clone(), false, f.geometry.clone()));
-    }
-    let points = merged_representative_points(items);
-    register_worldview(reg, worldview.spec().id, &points);
-    Ok(())
+    Ok(representative_point_items(&features))
 }
 
 fn main() -> Result<()> {
@@ -80,15 +71,16 @@ fn main() -> Result<()> {
             countries: vec![],
         }
     };
+    let start_id = reg.next_id();
 
-    let before = reg.next_id();
+    let mut items: Vec<(String, bool, geo_types::MultiPolygon<f64>)> = Vec::new();
     if args.sources.is_empty() {
         // Default: union every shipped worldview from repo-relative defaults,
         // downloading the pinned Natural Earth source if missing.
         for &worldview in Worldview::ALL {
             let path = default_countries(worldview);
             ensure_geojson(&path, worldview)?;
-            register_source(&mut reg, worldview, &path)?;
+            items.extend(source_items(worldview, &path)?);
         }
     } else {
         for source in &args.sources {
@@ -98,18 +90,20 @@ fn main() -> Result<()> {
                 None => bail!("--source must be in worldview:PATH form, got: {source}"),
             };
             let worldview = Worldview::from_id(worldview_str)?;
-            register_source(&mut reg, worldview, &PathBuf::from(path_str))?;
+            items.extend(source_items(worldview, &PathBuf::from(path_str))?);
         }
     }
 
+    register_worldview(&mut reg, &merged_representative_points(items));
+
     reg.validate_unique_ids()?;
-    let after = reg.next_id();
+    let after_id = reg.next_id();
     std::fs::write(&registry_path, to_toml_sorted(&reg)?)?;
     eprintln!(
         "[registry_gen] {} → {} ids ({} new); wrote {}",
-        before,
-        after,
-        after - before,
+        start_id,
+        after_id,
+        after_id - start_id,
         registry_path.display()
     );
     Ok(())

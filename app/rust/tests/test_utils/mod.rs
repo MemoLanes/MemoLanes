@@ -235,3 +235,16 @@ pub fn make_bitmap_with_line(line_fn: fn(&mut JourneyBitmap)) -> JourneyBitmap {
     line_fn(&mut bitmap);
     bitmap
 }
+
+pub fn geo_asset(worldview_id: &str) -> std::path::PathBuf {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../assets/geo")
+        .join(format!("geo_data_{worldview_id}.bin"));
+    assert!(
+        path.exists(),
+        "{} is absent — run `just rasterize-geo` (it is a gitignored build product). \
+         This test asserts against the REAL shipped asset and must not silently pass without it.",
+        path.display()
+    );
+    path
+}

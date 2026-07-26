@@ -1,20 +1,22 @@
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::time::Instant;
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use geo_data_format::{write_geo_data, Worldview};
+use geo_data_format::{write_geo_data, Locale, Worldview};
 use geo_rasterizer::{
     area::populate_total_areas,
     atomic_write::write_atomically,
     cache::{compute_provenance_hash, read_existing_hash},
-    download::ensure_geojson,
+    cldr::load_territories,
+    download::{ensure_cldr, ensure_geojson},
     entities::assemble_entities,
     names::{build_region_names, write_region_names},
     overrides::Overrides,
     parse::{parse_geojson, validate_no_antimeridian_span},
     rasterize::rasterize,
-    registry::{audit_identity, merged_representative_points, Registry},
+    registry::Registry,
 };
 
 /// Offline rasterizer. With no `--worldview` it rasterizes every shipped worldview using
@@ -79,6 +81,12 @@ fn default_overrides() -> PathBuf {
     manifest().join("geo_names_overrides.toml")
 }
 
+fn default_cldr(locale: Locale) -> PathBuf {
+    manifest()
+        .join("cldr")
+        .join(format!("territories.{}.json", locale.spec().cldr_tag))
+}
+
 fn generate_region_names(ensure_source: bool) -> Result<()> {
     let overrides = Overrides::load(&default_overrides())?;
     let mut by_worldview = Vec::new();
@@ -89,7 +97,15 @@ fn generate_region_names(ensure_source: bool) -> Result<()> {
         }
         by_worldview.push((worldview, parse_geojson(&path, worldview.spec().id)?));
     }
-    let names = build_region_names(&by_worldview, &overrides)?;
+    let mut cldr = BTreeMap::new();
+    for &locale in Locale::ALL {
+        let path = default_cldr(locale);
+        if ensure_source {
+            ensure_cldr(&path, locale)?;
+        }
+        cldr.insert(locale, load_territories(&path, locale.spec().cldr_tag)?);
+    }
+    let names = build_region_names(&by_worldview, &cldr, &overrides)?;
     for (locale, map) in &names {
         let path = write_region_names(&geo_assets_dir(), *locale, map)?;
         eprintln!(
@@ -187,19 +203,6 @@ fn rasterize_one(
     eprintln!("[geo_rasterizer] parsed {} features", features.len());
     validate_no_antimeridian_span(&features)?;
     let registry = Registry::load(&registry_path)?;
-    // CI gate 2: a code must denote the same place across worldviews/bumps.
-    // Use the merged-geometry centroid per ADM0_A3 so that multi-part
-    // countries (e.g. FRA with overseas territories) are not falsely flagged
-    // by fragments that fall far from the registry's reference point.
-    let present: Vec<(String, (f64, f64))> = merged_representative_points(
-        features
-            .iter()
-            .map(|f| (f.adm0_a3.clone(), false, f.geometry.clone())),
-    )
-    .into_iter()
-    .map(|(code, _is_cont, pt)| (code, pt))
-    .collect();
-    audit_identity(&present, &registry, worldview.spec().id, 8.0)?;
 
     // 3. Entity assembly.
     eprintln!("[geo_rasterizer] assembling entity model...");

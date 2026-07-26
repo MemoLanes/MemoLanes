@@ -56,12 +56,14 @@ pub fn cell_index(x: u8, y: u8) -> usize {
     x as usize * TILE_WIDTH + y as usize
 }
 
+mod cldr;
 mod format;
 mod locale;
 mod packed_tile;
 mod types;
 mod worldview;
 
+pub use cldr::*;
 pub use format::{
     expected_total_len, read_geo_data, write_geo_data, GeoData, TileEntry, HEADER_LEN,
 };

@@ -111,6 +111,10 @@
     "confirm": "您的数据库需要优化。建议在继续之前备份你的数据。",
     "finish": "数据库优化完成。"
   },
+  "recording_health": {
+    "freeze_warning": "轨迹记录期间应用可能被系统冻结，部分位置记录可能出现中断。建议检查系统后台运行和省电设置。",
+    "view_help": "查看帮助"
+  },
   "journey_kind": {
     "default": "地表",
     "flight": "飞行",

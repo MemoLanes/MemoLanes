@@ -83,8 +83,7 @@ class AchievementCountryStats {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(entityId, entity, visitedKm2, totalKm2);
+  int get hashCode => Object.hash(entityId, entity, visitedKm2, totalKm2);
 }
 
 class AchievementStatsStore extends ChangeNotifier {
