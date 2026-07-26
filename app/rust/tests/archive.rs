@@ -237,7 +237,7 @@ fn write_v2_and_read_back() {
 }
 
 #[test]
-fn v2_round_trips_optional_raw_data() {
+fn v2_round_trips_raw_data() {
     let (mut header, data) = sample_journey();
     let raw_data = sample_raw_data();
     header.has_raw_data = true;
@@ -290,13 +290,12 @@ fn insert_corrects_raw_data_flag_to_match_attachment() {
     main_db
         .with_txn(|txn| txn.insert_journey(header_without_raw_data.clone(), data))
         .unwrap();
-    assert!(
-        !main_db
-            .with_txn(|txn| txn.get_journey_header(&header_without_raw_data.id))
-            .unwrap()
-            .unwrap()
-            .has_raw_data
-    );
+    let inserted_header = main_db
+        .with_txn(|txn| txn.get_journey_header(&header_without_raw_data.id))
+        .unwrap()
+        .unwrap();
+    assert!(!inserted_header.has_raw_data);
+    assert_eq!(inserted_header.revision, "test-revision-without-raw-data*");
 }
 
 #[test]
@@ -353,7 +352,7 @@ fn import_adds_raw_data_to_same_revision_when_missing_locally() {
 }
 
 #[test]
-fn import_preserves_omitted_raw_data_but_applies_explicit_absence() {
+fn import_applies_exported_raw_data_absence() {
     let (local_header, data) = sample_journey();
     let raw_data = sample_raw_data();
     let temp_dir = TempDir::new("archive-import_raw_data_state").unwrap();
@@ -378,22 +377,18 @@ fn import_preserves_omitted_raw_data_but_applies_explicit_absence() {
     );
     let mut reader = MldxReader::open(Cursor::new(omitted_archive)).unwrap();
     main_db.with_txn(|txn| reader.import(txn, None)).unwrap();
-    assert_eq!(
-        main_db
-            .with_txn(|txn| txn.get_journey_raw_data(&local_header.id))
-            .unwrap(),
-        Some(raw_data)
-    );
-    assert!(
-        main_db
-            .with_txn(|txn| txn.get_journey_header(&local_header.id))
-            .unwrap()
-            .unwrap()
-            .has_raw_data
-    );
+    assert!(main_db
+        .with_txn(|txn| txn.get_journey_raw_data(&local_header.id))
+        .unwrap()
+        .is_none());
+    let imported_header = main_db
+        .with_txn(|txn| txn.get_journey_header(&local_header.id))
+        .unwrap()
+        .unwrap();
+    assert_eq!(imported_header.revision, "edited-revision*");
+    assert!(!imported_header.has_raw_data);
 
-    // The authoritative archive has the same processed-data revision, but its
-    // raw attachment still replaces the locally preserved one.
+    // Reattaching raw data keeps the processed-data revision unchanged.
     let replacement_raw_data = sample_raw_data_with_latitude(31.2305);
     let replacement_archive = write_single_journey_archive_with_raw_data(
         edited_header.clone(),
@@ -409,8 +404,16 @@ fn import_preserves_omitted_raw_data_but_applies_explicit_absence() {
             .unwrap(),
         Some(replacement_raw_data)
     );
+    assert_eq!(
+        main_db
+            .with_txn(|txn| txn.get_journey_header(&local_header.id))
+            .unwrap()
+            .unwrap()
+            .revision,
+        "edited-revision"
+    );
 
-    // Explicit absence is also authoritative when the revision matches.
+    // Removing the attachment from an otherwise matching revision appends '*'.
     let deleted_archive =
         write_single_journey_archive_with_raw_data(edited_header, data, None, true);
     let mut reader = MldxReader::open(Cursor::new(deleted_archive)).unwrap();
@@ -426,6 +429,46 @@ fn import_preserves_omitted_raw_data_but_applies_explicit_absence() {
             .unwrap()
             .has_raw_data
     );
+    assert_eq!(
+        main_db
+            .with_txn(|txn| txn.get_journey_header(&local_header.id))
+            .unwrap()
+            .unwrap()
+            .revision,
+        "edited-revision*"
+    );
+}
+
+#[test]
+fn excluding_raw_data_from_export_appends_revision_marker() {
+    let (mut header, data) = sample_journey();
+    header.has_raw_data = true;
+    let original_revision = header.revision.clone();
+    let bytes = write_single_journey_archive_with_raw_data(
+        header.clone(),
+        data.clone(),
+        Some(sample_raw_data()),
+        false,
+    );
+    let section_name = section_entry_name(&bytes);
+
+    let mut reader = MldxReader::open(Cursor::new(bytes)).unwrap();
+    let exported_header = reader.iter_journey_headers().first().unwrap();
+    assert!(!exported_header.has_raw_data);
+    assert_eq!(exported_header.revision, format!("{original_revision}*"));
+    assert!(reader
+        .load_single_journey_with_raw_data(&header.id)
+        .unwrap()
+        .unwrap()
+        .2
+        .is_none());
+
+    let mut already_removed_header = header;
+    already_removed_header.has_raw_data = false;
+    already_removed_header.revision.push('*');
+    let already_removed_bytes =
+        write_single_journey_archive_with_raw_data(already_removed_header, data, None, false);
+    assert_eq!(section_entry_name(&already_removed_bytes), section_name);
 }
 
 #[test]

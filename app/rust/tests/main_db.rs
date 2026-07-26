@@ -189,15 +189,19 @@ fn journey_raw_data_lifecycle() {
             .unwrap()
             .has_raw_data
     );
-    assert_ne!(
-        main_db
-            .with_txn(|txn| Ok(txn.get_journey_header(&header.id)?.unwrap().revision))
-            .unwrap(),
-        revision_before_delete
-    );
+    let revision_after_delete = main_db
+        .with_txn(|txn| Ok(txn.get_journey_header(&header.id)?.unwrap().revision))
+        .unwrap();
+    assert_eq!(revision_after_delete, format!("{revision_before_delete}*"));
     assert!(!main_db
         .with_txn(|txn| txn.delete_journey_raw_data(&header.id))
         .unwrap());
+    assert_eq!(
+        main_db
+            .with_txn(|txn| Ok(txn.get_journey_header(&header.id)?.unwrap().revision))
+            .unwrap(),
+        revision_after_delete
+    );
     assert!(!main_db
         .with_txn(|txn| txn.has_journey_raw_data("missing-journey"))
         .unwrap());

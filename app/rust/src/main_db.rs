@@ -196,8 +196,7 @@ impl Txn<'_> {
             .get_journey_header(id)?
             .ok_or_else(|| anyhow!("Failed to find journey with id = {id}"))?;
         header.updated_at = Some(Utc::now());
-        header.revision = generate_random_revision();
-        header.has_raw_data = false;
+        header.remove_raw_data();
         let header_bytes = header.to_proto().write_to_bytes()?;
         let changes = self.db_txn.execute(
             "UPDATE journey SET header = ?2, raw_data = NULL WHERE id = ?1 AND raw_data IS NOT NULL;",
@@ -619,8 +618,7 @@ impl Txn<'_> {
             .unwrap_or(false))
     }
 
-    /// Applies authoritative raw-data state from an archive without changing
-    /// the already-matching journey revision.
+    /// Applies authoritative raw-data state from an archive.
     #[auto_context]
     pub(crate) fn set_journey_raw_data(
         &mut self,
@@ -630,7 +628,11 @@ impl Txn<'_> {
         let mut header = self
             .get_journey_header(id)?
             .ok_or_else(|| anyhow!("Failed to find journey with id = {id}"))?;
-        header.has_raw_data = raw_data.is_some();
+        if raw_data.is_some() {
+            header.has_raw_data = true;
+        } else {
+            header.remove_raw_data();
+        }
         let header_bytes = header.to_proto().write_to_bytes()?;
         let changes = self.db_txn.execute(
             "UPDATE journey SET header = ?2, raw_data = ?3 WHERE id = ?1;",
