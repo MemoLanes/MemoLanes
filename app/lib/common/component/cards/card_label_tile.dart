@@ -15,6 +15,7 @@ class CardLabelTile extends StatelessWidget {
     required this.label,
     this.onTap,
     this.color,
+    this.icon,
     this.top = true,
   });
 
@@ -27,6 +28,8 @@ class CardLabelTile extends StatelessWidget {
   final Function()? onTap;
 
   final Color? color;
+
+  final IconData? icon;
 
   final bool top;
 
@@ -71,15 +74,31 @@ class CardLabelTile extends StatelessWidget {
                   borderRadius: borderRadius,
                 ),
                 padding: EdgeInsets.symmetric(horizontal: 16.0),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    return Align(
-                      alignment: alignment,
-                      child: Text(
-                        label,
-                      ),
-                    );
-                  },
+                child: Align(
+                  alignment: alignment,
+                  child: icon == null
+                      ? Text(
+                          label,
+                          style: color != null ? TextStyle(color: color) : null,
+                        )
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              icon,
+                              size: 18.0,
+                              color: color ??
+                                  DefaultTextStyle.of(context).style.color,
+                            ),
+                            const SizedBox(width: 8.0),
+                            Text(
+                              label,
+                              style: color != null
+                                  ? TextStyle(color: color)
+                                  : null,
+                            ),
+                          ],
+                        ),
                 ),
               ),
             ),
