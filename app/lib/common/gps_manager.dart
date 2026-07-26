@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/recording_health_service.dart';
 import 'package:memolanes/common/service/location/geolocator_service.dart';
 import 'package:memolanes/common/service/location/last_known_location.dart';
 import 'package:memolanes/common/service/location/location_service.dart';
@@ -220,6 +221,7 @@ class GpsManager extends ChangeNotifier {
         }
       }
       _internalState = newState;
+      RecordingHealthService.instance.handleRecordingStatus(recordingStatus);
       notifyListeners();
     }
   }
@@ -356,6 +358,7 @@ class GpsManager extends ChangeNotifier {
     unawaited(_locationService.stopLocationUpdates());
     unawaited(_recordingLocationUpdatePipe.close());
     unawaited(_journeyFinalizedController.close());
+    RecordingHealthService.instance.stop();
     super.dispose();
   }
 }
