@@ -199,6 +199,21 @@ pub mod db {
         }
     }
 
+    #[derive(Debug)]
+    pub enum DbError {
+        VersionTooNew,
+    }
+
+    impl std::fmt::Display for DbError {
+        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Self::VersionTooNew => write!(formatter, "database major version is too high"),
+            }
+        }
+    }
+
+    impl std::error::Error for DbError {}
+
     pub struct Migration<'a> {
         pub version: SchemaVersion,
         run: &'a dyn Fn(&Transaction) -> Result<()>,
@@ -229,7 +244,7 @@ pub mod db {
     }
 
     #[auto_context]
-    pub fn init_metadata_and_get_version(tx: &Transaction) -> Result<SchemaVersion> {
+    fn init_metadata_and_get_version(tx: &Transaction) -> Result<SchemaVersion> {
         let create_db_metadata_sql = "
         CREATE TABLE IF NOT EXISTS `db_metadata` (
 	    `key`	TEXT NOT NULL,
@@ -301,9 +316,7 @@ pub mod db {
         debug!("{db_name}: current version = {current:?}, target version = {target:?}");
 
         if current.major > target.major {
-            bail!(
-                "major version too high: current version = {current:?}, target version = {target:?}"
-            );
+            return Err(DbError::VersionTooNew.into());
         }
 
         if current.major == target.major && current.minor > target.minor {

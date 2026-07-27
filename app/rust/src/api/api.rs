@@ -24,7 +24,7 @@ use crate::renderer::MapRenderer;
 use crate::storage::{RawDataFile, Storage};
 use crate::{archive, build_info, export_data, gps_processor, main_db};
 
-use crate::utils::{get_bounds_from_journey_bitmap, MapBounds};
+use crate::utils::{db::DbError, get_bounds_from_journey_bitmap, MapBounds};
 
 use log::{error, info, warn};
 
@@ -106,9 +106,10 @@ pub fn init(
         let storage = match Storage::init(temp_dir, doc_dir, support_dir, real_cache_dir) {
             Ok(storage) => storage,
             Err(error)
-                if error
-                    .downcast_ref::<main_db::DatabaseVersionTooNew>()
-                    .is_some() =>
+                if matches!(
+                    error.downcast_ref::<DbError>(),
+                    Some(DbError::VersionTooNew)
+                ) =>
             {
                 return Err(InitError::DatabaseVersionTooNew);
             }

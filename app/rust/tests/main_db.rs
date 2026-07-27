@@ -7,20 +7,19 @@ use memolanes_core::{
     journey_data::JourneyData,
     journey_header::JourneyKind,
     journey_vector::JourneyVector,
-    main_db::{self, Action, CacheEntry, DatabaseVersionTooNew, MainDb},
-    utils::db::{init_metadata_and_get_version, set_version_in_metadata, SchemaVersion},
+    main_db::{self, Action, CacheEntry, MainDb},
+    utils::db::{run_migrations, set_version_in_metadata, DbError, SchemaVersion},
 };
 use rusqlite::Connection;
-use std::path::Path;
 use tempdir::TempDir;
 
 #[test]
 fn rejects_newer_major_schema_version_without_migrating() {
     let temp_dir = TempDir::new("main-db-newer-major-version").unwrap();
-    let db_path = Path::new(temp_dir.path()).join("main.db");
+    let db_path = temp_dir.path().join("main.db");
     let mut conn = Connection::open(&db_path).unwrap();
     let tx = conn.transaction().unwrap();
-    init_metadata_and_get_version(&tx).unwrap();
+    run_migrations(&tx, "main.db", &[]).unwrap();
     let newer_version = SchemaVersion::new(i32::MAX, 0);
     set_version_in_metadata(&tx, newer_version).unwrap();
     tx.commit().unwrap();
@@ -30,11 +29,20 @@ fn rejects_newer_major_schema_version_without_migrating() {
         Ok(_) => panic!("a newer major schema version must be rejected"),
         Err(error) => error,
     };
-    assert!(error.downcast_ref::<DatabaseVersionTooNew>().is_some());
+    assert!(matches!(
+        error.downcast_ref::<DbError>(),
+        Some(DbError::VersionTooNew)
+    ));
 
-    let mut conn = Connection::open(db_path).unwrap();
-    let tx = conn.transaction().unwrap();
-    assert_eq!(init_metadata_and_get_version(&tx).unwrap(), newer_version);
+    let conn = Connection::open(db_path).unwrap();
+    let major: String = conn
+        .query_row(
+            "SELECT value FROM db_metadata WHERE key = 'version'",
+            (),
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(major, newer_version.major.to_string());
 }
 
 #[test]

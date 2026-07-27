@@ -43,14 +43,6 @@ fn open_db_and_run_migration(
     debug!("open and run migration for {file_name}");
     let mut conn = rusqlite::Connection::open(Path::new(support_dir).join(file_name))?;
     let tx = conn.transaction()?;
-    let current = utils::db::init_metadata_and_get_version(&tx)?;
-    let target = migrations
-        .last()
-        .expect("database must have a schema migration")
-        .version;
-    if current.major > target.major {
-        return Err(DatabaseVersionTooNew { current, target }.into());
-    }
     utils::db::run_migrations(&tx, file_name, migrations)?;
     tx.commit()?;
     Ok(conn)
@@ -663,25 +655,6 @@ impl Txn<'_> {
 pub struct MainDb {
     conn: Connection,
 }
-
-/// The only database-open condition the startup UI handles separately.
-#[derive(Debug)]
-pub struct DatabaseVersionTooNew {
-    current: utils::db::SchemaVersion,
-    target: utils::db::SchemaVersion,
-}
-
-impl std::fmt::Display for DatabaseVersionTooNew {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            formatter,
-            "main database major version is too high: current version = {:?}, target version = {:?}",
-            self.current, self.target
-        )
-    }
-}
-
-impl std::error::Error for DatabaseVersionTooNew {}
 
 fn migrations() -> [utils::db::Migration<'static>; 1] {
     fn migrate_to_1_0(tx: &Transaction) -> Result<()> {

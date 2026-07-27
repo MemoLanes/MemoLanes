@@ -2,7 +2,7 @@ use std::{fs, path::Path};
 
 use memolanes_core::{
     api::api::{self, InitError},
-    utils::db::{init_metadata_and_get_version, set_version_in_metadata, SchemaVersion},
+    utils::db::{run_migrations, set_version_in_metadata, SchemaVersion},
 };
 use rusqlite::Connection;
 use tempdir::TempDir;
@@ -22,7 +22,7 @@ fn repeated_init_preserves_database_version_too_new_error() {
 
     let mut conn = Connection::open(Path::new(&support_dir).join("main.db")).unwrap();
     let tx = conn.transaction().unwrap();
-    init_metadata_and_get_version(&tx).unwrap();
+    run_migrations(&tx, "main.db", &[]).unwrap();
     set_version_in_metadata(&tx, SchemaVersion::new(i32::MAX, 0)).unwrap();
     tx.commit().unwrap();
     drop(conn);

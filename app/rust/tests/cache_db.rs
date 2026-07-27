@@ -6,11 +6,51 @@ use memolanes_core::{
     journey_bitmap::JourneyBitmap,
     journey_data::JourneyData,
     journey_header::JourneyKind,
+    utils::db::{run_migrations, set_version_in_metadata, SchemaVersion},
 };
+use rusqlite::Connection;
 use tempdir::TempDir;
 
 fn date(s: &str) -> NaiveDate {
     NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap()
+}
+
+#[test]
+fn newer_major_version_recreates_cache_db() {
+    let cache_dir = TempDir::new("cache-db-newer-major-version").unwrap();
+    let db_path = cache_dir.path().join("cache.db");
+    let mut conn = Connection::open(&db_path).unwrap();
+    let tx = conn.transaction().unwrap();
+    run_migrations(&tx, "cache.db", &[]).unwrap();
+    set_version_in_metadata(&tx, SchemaVersion::new(i32::MAX, 0)).unwrap();
+    tx.execute(
+        "CREATE VIEW journey_cache__full AS SELECT 'future' AS future_value",
+        (),
+    )
+    .unwrap();
+    tx.commit().unwrap();
+    drop(conn);
+
+    let _cache_db = CacheDbV1::open(cache_dir.path().to_str().unwrap());
+
+    let conn = Connection::open(db_path).unwrap();
+    let data_column_count: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM pragma_table_info('journey_cache__full') WHERE name = 'data'",
+            (),
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(data_column_count, 1);
+
+    let major: String = conn
+        .query_row(
+            "SELECT value FROM db_metadata WHERE key = 'version'",
+            (),
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(major, "1");
 }
 
 #[test]
