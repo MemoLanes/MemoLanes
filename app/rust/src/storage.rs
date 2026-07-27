@@ -152,7 +152,7 @@ impl Storage {
         support_dir: String,
         cache_dir: String,
     ) -> Result<Self> {
-        let mut main_db = MainDb::try_open(&support_dir)?;
+        let mut main_db = MainDb::open(&support_dir)?;
         let cache_db: Box<dyn CacheDb + Send> = Box::new(cache_db::new(&cache_dir));
         let achievement_store =
             achievement::new(&cache_dir).expect("failed to open achievement store");

@@ -736,18 +736,9 @@ mod migration_tests {
 }
 
 impl MainDb {
-    /// Open the main database and run migrations in a single connection.
-    ///
-    /// A newer major schema is returned as a distinct error so startup can
-    /// display a compatibility gate without attempting to modify the database.
-    pub fn try_open(support_dir: &str) -> Result<MainDb> {
+    pub fn open(support_dir: &str) -> Result<MainDb> {
         let conn = open_db_and_run_migration(support_dir, "main.db", &migrations())?;
         Ok(MainDb { conn })
-    }
-
-    pub fn open(support_dir: &str) -> MainDb {
-        // TODO: better error handling
-        Self::try_open(support_dir).expect("failed to open main db")
     }
 
     #[auto_context]

@@ -207,7 +207,7 @@ pub fn draw_sample_bitmap() -> JourneyBitmap {
 pub fn setup_main_and_cache_db(prefix: &str) -> (MainDb, CacheDbV1, TempDir, TempDir) {
     let main_dir = TempDir::new(&format!("{prefix}-main")).unwrap();
     let cache_dir = TempDir::new(&format!("{prefix}-cache")).unwrap();
-    let main_db = MainDb::open(main_dir.path().to_str().unwrap());
+    let main_db = MainDb::open(main_dir.path().to_str().unwrap()).unwrap();
     let cache_db = CacheDbV1::open(cache_dir.path().to_str().unwrap());
     (main_db, cache_db, main_dir, cache_dir)
 }

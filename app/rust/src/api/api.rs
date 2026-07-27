@@ -154,7 +154,7 @@ pub fn init(
 
     match state {
         Ok(_) => Ok(()),
-        Err(err) => Err(*err)
+        Err(err) => Err(*err),
     }
 }
 
