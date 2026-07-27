@@ -37,18 +37,20 @@ pub(super) struct MainState {
     main_map_state: Arc<Mutex<MainMapState>>,
 }
 
-static MAIN_STATE: OnceLock<MainState> = OnceLock::new();
-static INIT_STATUS: OnceLock<InitStatus> = OnceLock::new();
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InitStatus {
-    Ready,
+pub enum InitError {
     DatabaseVersionTooNew,
 }
 
+static MAIN_STATE: OnceLock<Result<MainState, InitError>> = OnceLock::new();
+
 #[frb(ignore)]
 pub fn get() -> &'static MainState {
-    MAIN_STATE.get().expect("main state is not initialized")
+    MAIN_STATE
+        .get()
+        .expect("main state is not initialized")
+        .as_ref()
+        .expect("main state initialization failed")
 }
 
 #[frb(sync)]
@@ -83,13 +85,12 @@ pub fn init(
     doc_dir: String,
     support_dir: String,
     system_cache_dir: String,
-) -> InitStatus {
-    if let Some(status) = INIT_STATUS.get() {
+) -> Result<(), InitError> {
+    if MAIN_STATE.get().is_some() {
         warn!("`init` is called multiple times");
-        return *status;
     }
 
-    *INIT_STATUS.get_or_init(|| {
+    let state = MAIN_STATE.get_or_init(|| {
         let (real_cache_dir, logs) = prepare_real_cache_dir(&support_dir, &system_cache_dir)
             .expect("Failed to initialize cache dir");
 
@@ -109,7 +110,7 @@ pub fn init(
                     .downcast_ref::<main_db::DatabaseVersionTooNew>()
                     .is_some() =>
             {
-                return InitStatus::DatabaseVersionTooNew;
+                return Err(InitError::DatabaseVersionTooNew);
             }
             Err(error) => panic!("failed to initialize storage: {error:?}"),
         };
@@ -144,16 +145,17 @@ pub fn init(
         }));
         info!("main map renderer initialized");
 
-        MAIN_STATE
-            .set(MainState {
-                storage,
-                gps_preprocessor: Mutex::new(GpsPreprocessor::new()),
-                main_map_state,
-            })
-            .unwrap_or_else(|_| unreachable!("main state can only be initialized once"));
+        Ok(MainState {
+            storage,
+            gps_preprocessor: Mutex::new(GpsPreprocessor::new()),
+            main_map_state,
+        })
+    });
 
-        InitStatus::Ready
-    })
+    match state {
+        Ok(_) => Ok(()),
+        Err(err) => Err(*err)
+    }
 }
 
 // On iOS, we use `NSCachesDirectory` for storing cache file,

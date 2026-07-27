@@ -134,14 +134,18 @@ class AppBootstrap {
       cacheDirFuture,
     ]);
 
-    final initStatus = await api.init(
-      tempDir: (await tempDirFuture).path,
-      docDir: (await docDirFuture).path,
-      supportDir: (await supportDirFuture).path,
-      systemCacheDir: (await cacheDirFuture).path,
-    );
-    if (initStatus == api.InitStatus.databaseVersionTooNew) {
-      return AppStartupStatus.databaseVersionTooNew;
+    try {
+      await api.init(
+        tempDir: (await tempDirFuture).path,
+        docDir: (await docDirFuture).path,
+        supportDir: (await supportDirFuture).path,
+        systemCacheDir: (await cacheDirFuture).path,
+      );
+    } on api.InitError catch (error) {
+      switch (error) {
+        case api.InitError.databaseVersionTooNew:
+          return AppStartupStatus.databaseVersionTooNew;
+      }
     }
 
     await WorldviewManager.instance.initialize();

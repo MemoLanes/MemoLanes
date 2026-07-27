@@ -1,14 +1,14 @@
 use std::{fs, path::Path};
 
 use memolanes_core::{
-    api::api::{self, InitStatus},
+    api::api::{self, InitError},
     utils::db::{init_metadata_and_get_version, set_version_in_metadata, SchemaVersion},
 };
 use rusqlite::Connection;
 use tempdir::TempDir;
 
 #[test]
-fn repeated_init_preserves_database_version_too_new_status() {
+fn repeated_init_preserves_database_version_too_new_error() {
     let temp_dir = TempDir::new("api-init-newer-major-version").unwrap();
     let sub_dir = |name: &str| {
         let path = temp_dir.path().join(name);
@@ -36,6 +36,6 @@ fn repeated_init_preserves_database_version_too_new_status() {
         )
     };
 
-    assert_eq!(call_init(), InitStatus::DatabaseVersionTooNew);
-    assert_eq!(call_init(), InitStatus::DatabaseVersionTooNew);
+    assert_eq!(call_init(), Err(InitError::DatabaseVersionTooNew));
+    assert_eq!(call_init(), Err(InitError::DatabaseVersionTooNew));
 }
