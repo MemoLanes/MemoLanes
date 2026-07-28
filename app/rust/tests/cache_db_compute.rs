@@ -29,7 +29,7 @@ fn basic() {
     let temp_dir = TempDir::new("main_db-journey_query").unwrap();
     println!("temp dir: {:?}", temp_dir.path());
 
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
     let mut journey_bitmap = test_utils::draw_sample_bitmap();
     let journey_kind = JourneyKind::DefaultKind;
 
