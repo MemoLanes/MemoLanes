@@ -139,70 +139,101 @@ impl PathInterpolator {
     ) -> Vec<TrackPoint> {
         use splines::{Interpolation, Key, Spline};
 
-        assert!(step_length > 0.0, "step_length must be bigger than zero!");
-
         if distance.len() != lat.len() || distance.len() != lon.len() || distance.is_empty() {
             return Vec::new();
         }
 
-        let original_track_point = |index: usize| TrackPoint {
-            latitude: lat[index],
-            longitude: lon[index],
-        };
+        let source_track_points: Vec<TrackPoint> = lat
+            .iter()
+            .zip(lon)
+            .map(|(&latitude, &longitude)| TrackPoint {
+                latitude,
+                longitude,
+            })
+            .collect();
 
-        if distance.len() == 1 || distance.iter().any(|value| !value.is_finite()) {
-            return (0..distance.len()).map(original_track_point).collect();
+        if !step_length.is_finite()
+            || step_length <= 0.0
+            || distance.len() == 1
+            || distance.iter().any(|value| !value.is_finite())
+        {
+            return source_track_points;
         }
 
         // Repeated source points have the same cumulative distance. Keep all of
         // them in the output, but only use one as a spline control point so the
         // spline never has duplicate keys.
-        let mut unique_indices = vec![0];
-        for index in 1..distance.len() {
-            if distance[index] > distance[*unique_indices.last().unwrap()] {
-                unique_indices.push(index);
+        let mut unique_control_points = Vec::new();
+        let mut last_unique_distance = None;
+        for (&distance, point) in distance.iter().zip(&source_track_points) {
+            if last_unique_distance.map_or(true, |last| distance > last) {
+                unique_control_points.push((distance, point.latitude, point.longitude));
+                last_unique_distance = Some(distance);
             }
         }
 
         // There is no non-zero-length interval to fill.
-        if unique_indices.len() == 1 {
-            return (0..distance.len()).map(original_track_point).collect();
+        if unique_control_points.len() == 1 {
+            return source_track_points;
         }
 
         let combine = |a: f64, b: f64| Key::new(a, b, Interpolation::<_, f64>::CatmullRom);
-        let mut vec_key_lat: Vec<Key<f64, f64>> = unique_indices
+        let mut vec_key_lat: Vec<Key<f64, f64>> = unique_control_points
             .iter()
-            .map(|&index| combine(distance[index], lat[index]))
+            .map(|&(distance, latitude, _)| combine(distance, latitude))
             .collect();
-        let mut vec_key_lon: Vec<Key<f64, f64>> = unique_indices
+        let mut vec_key_lon: Vec<Key<f64, f64>> = unique_control_points
             .iter()
-            .map(|&index| combine(distance[index], lon[index]))
+            .map(|&(distance, _, longitude)| combine(distance, longitude))
             .collect();
+
+        let Some(first_source_point) = source_track_points.first() else {
+            return Vec::new();
+        };
+        let Some(last_source_point) = source_track_points.last() else {
+            return Vec::new();
+        };
+        let Some(&(end_distance, _, _)) = unique_control_points.last() else {
+            return source_track_points;
+        };
 
         // Catmull-Rom needs one control point before and two after the
         // interpolation range.
-        vec_key_lat.insert(0, Key::new(-step_length, lat[0], Interpolation::default()));
-        vec_key_lon.insert(0, Key::new(-step_length, lon[0], Interpolation::default()));
+        vec_key_lat.insert(
+            0,
+            Key::new(
+                -step_length,
+                first_source_point.latitude,
+                Interpolation::default(),
+            ),
+        );
+        vec_key_lon.insert(
+            0,
+            Key::new(
+                -step_length,
+                first_source_point.longitude,
+                Interpolation::default(),
+            ),
+        );
 
-        let end_distance = *distance.last().unwrap();
         vec_key_lat.push(Key::new(
             end_distance + step_length,
-            *lat.last().unwrap(),
+            last_source_point.latitude,
             Interpolation::default(),
         ));
         vec_key_lat.push(Key::new(
             end_distance + step_length * 2.,
-            *lat.last().unwrap(),
+            last_source_point.latitude,
             Interpolation::default(),
         ));
         vec_key_lon.push(Key::new(
             end_distance + step_length,
-            *lon.last().unwrap(),
+            last_source_point.longitude,
             Interpolation::default(),
         ));
         vec_key_lon.push(Key::new(
             end_distance + step_length * 2.,
-            *lon.last().unwrap(),
+            last_source_point.longitude,
             Interpolation::default(),
         ));
 
@@ -210,12 +241,15 @@ impl PathInterpolator {
         let spline_lon = Spline::from_vec(vec_key_lon);
         let round_to_six_decimal_places = |num: f64| (num * 1000000.0).round() / 1000000.0;
 
-        let mut track_points = Vec::new();
-        track_points.push(original_track_point(0));
+        let mut source_track_points = source_track_points.into_iter();
+        let Some(first_source_point) = source_track_points.next() else {
+            return Vec::new();
+        };
+        let mut track_points = vec![first_source_point];
 
-        for index in 0..distance.len() - 1 {
-            let interval_start = distance[index];
-            let interval_end = distance[index + 1];
+        for (interval, source_track_point) in distance.windows(2).zip(source_track_points) {
+            let interval_start = interval[0];
+            let interval_end = interval[1];
             let mut sample_distance =
                 (interval_start / step_length).floor() * step_length + step_length;
 
@@ -234,7 +268,7 @@ impl PathInterpolator {
                 sample_distance += step_length;
             }
 
-            track_points.push(original_track_point(index + 1));
+            track_points.push(source_track_point);
         }
 
         track_points
