@@ -19,7 +19,8 @@ fn basic() {
         sub_folder("doc/"),
         sub_folder("support/"),
         sub_folder("cache/"),
-    );
+    )
+    .unwrap();
 
     let (raw_data, _preprocessor) =
         import_data::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();

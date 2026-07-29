@@ -709,11 +709,9 @@ mod migration_tests {
 }
 
 impl MainDb {
-    pub fn open(support_dir: &str) -> MainDb {
-        // TODO: better error handling
-        let conn = open_db_and_run_migration(support_dir, "main.db", &migrations())
-            .expect("failed to open main db");
-        MainDb { conn }
+    pub fn open(support_dir: &str) -> Result<MainDb> {
+        let conn = open_db_and_run_migration(support_dir, "main.db", &migrations())?;
+        Ok(MainDb { conn })
     }
 
     #[auto_context]

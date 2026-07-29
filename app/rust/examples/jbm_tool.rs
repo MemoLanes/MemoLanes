@@ -110,7 +110,8 @@ fn process_data_dir(dir: &str) -> Result<JourneyBitmap> {
         dir.to_string(),
         dir.to_string(),
         dir.to_string(),
-    );
+    )
+    .unwrap();
     init_main_map()?;
 
     let main_map_state = get_main_map_state();

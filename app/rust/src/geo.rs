@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use anyhow::Result;
 use geo_data_format::{
     read_geo_data, tile_index, GeoData, GeoEntity, GeoEntityId, GeoEntityKind, PackedTile,
-    TileEntry, TileMembership,
+    TileEntry, TileMembership, TILE_GRID_WIDTH,
 };
 
 use crate::journey_bitmap::{BlockKey, TileKey};
@@ -56,6 +56,9 @@ impl GeoIndex {
     }
 
     fn tile_entry(&self, tile: TileKey) -> &TileEntry {
+        if tile.x as usize >= TILE_GRID_WIDTH || tile.y as usize >= TILE_GRID_WIDTH {
+            return &TileEntry::None;
+        }
         &self.data.tile_index[tile_index(tile.x, tile.y)]
     }
 

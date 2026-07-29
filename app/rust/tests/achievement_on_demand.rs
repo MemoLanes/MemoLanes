@@ -114,7 +114,8 @@ fn on_demand_areas_and_region_states() {
         sub(&temp_dir, "doc/"),
         sub(&temp_dir, "support/"),
         sub(&temp_dir, "cache/"),
-    );
+    )
+    .unwrap();
     storage
         .init_or_change_geo_data(Worldview::Iso, &geo_bytes)
         .unwrap();
@@ -171,7 +172,8 @@ fn on_demand_without_geo_has_no_regions() {
         sub(&temp_dir, "doc/"),
         sub(&temp_dir, "support/"),
         sub(&temp_dir, "cache/"),
-    );
+    )
+    .unwrap();
     insert(
         &storage,
         (2025, 1, 1),

@@ -54,7 +54,7 @@ fn api_achievement_explored_area_and_region_contract() {
         fs::create_dir(&p).unwrap();
         p.into_os_string().into_string().unwrap()
     };
-    api::init(sub("temp"), sub("doc"), sub("support"), sub("cache"));
+    api::init(sub("temp"), sub("doc"), sub("support"), sub("cache")).unwrap();
 
     use AchievementLayer::*;
 

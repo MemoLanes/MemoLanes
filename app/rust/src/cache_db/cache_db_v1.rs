@@ -42,14 +42,35 @@ mod migration_tests {
     }
 }
 
-fn open_db(cache_dir: &str, file_name: &str) -> Result<Connection> {
-    debug!("opening cache db for {file_name}");
-    let mut conn = Connection::open(Path::new(cache_dir).join(file_name))?;
-
+fn run_migrations(conn: &mut Connection, file_name: &str) -> Result<()> {
     let tx = conn.transaction()?;
     utils::db::run_migrations(&tx, file_name, &migrations())?;
     tx.commit()?;
-    Ok(conn)
+    Ok(())
+}
+
+fn open_db(cache_dir: &str, file_name: &str) -> Result<Connection> {
+    debug!("opening cache db for {file_name}");
+    let db_path = Path::new(cache_dir).join(file_name);
+    let mut conn = Connection::open(&db_path)?;
+
+    match run_migrations(&mut conn, file_name) {
+        Err(error)
+            if matches!(
+                error.downcast_ref::<utils::db::DbError>(),
+                Some(utils::db::DbError::VersionTooNew)
+            ) =>
+        {
+            warn!("discarding incompatible cache db {file_name}");
+            drop(conn);
+            std::fs::remove_file(&db_path)?;
+            let mut conn = Connection::open(db_path)?;
+            run_migrations(&mut conn, file_name)?;
+            Ok(conn)
+        }
+        Err(error) => Err(error),
+        Ok(()) => Ok(conn),
+    }
 }
 
 fn query_bitmap(

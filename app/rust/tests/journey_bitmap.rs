@@ -5,7 +5,7 @@ use crate::test_utils::{
 use memolanes_core::{
     gps_processor::SegmentGapRule,
     import_data, journey_area_utils,
-    journey_bitmap::{Block, BlockKey, JourneyBitmap, Tile, TileKey},
+    journey_bitmap::{Block, BlockKey, JourneyBitmap, Tile, TileKey, MAP_WIDTH},
     journey_data::JourneyData,
     journey_header::JourneyType,
     renderer::MapRenderer,
@@ -41,6 +41,67 @@ fn add_line_cross_antimeridian() {
         "journey_bitmap_add_line_cross_antimeridian",
         &render_result.data,
     );
+}
+
+#[test]
+fn add_line_keeps_tiles_inside_the_bitmap_grid() {
+    for (lng, lat) in [(0.0, 88.0), (120.0, 88.0), (0.0, -87.0)] {
+        let mut bitmap = JourneyBitmap::new();
+        bitmap.add_line(lng, lat, lng + 0.01, lat + 0.01);
+        assert!(
+            bitmap.is_empty(),
+            "line outside the Mercator latitude range should be ignored"
+        );
+    }
+
+    let mut clipped = JourneyBitmap::new();
+    clipped.add_line(0.0, 84.0, 0.0, 88.0);
+    assert!(!clipped.is_empty());
+    assert!(clipped.all_tile_keys().any(|key| key.y == 0));
+
+    let mut wrapped = JourneyBitmap::new();
+    wrapped.add_line(-181.0, 0.0, -180.99, 0.0);
+    let mut canonical = JourneyBitmap::new();
+    canonical.add_line(179.0, 0.0, 179.01, 0.0);
+    assert_eq!(wrapped, canonical);
+    assert!([&clipped, &wrapped]
+        .into_iter()
+        .flat_map(|bitmap| bitmap.all_tile_keys())
+        .all(|key| key.x < MAP_WIDTH as u16 && key.y < MAP_WIDTH as u16));
+}
+
+#[test]
+fn add_line_clips_both_coordinates_at_the_bitmap_boundary() {
+    let minimum_expected_x = (MAP_WIDTH * 3 / 4) as u16; // 90°E
+
+    for (outside_lat, inside_lat) in [(88.0, 84.0), (-88.0, -84.0)] {
+        let mut bitmap = JourneyBitmap::new();
+        bitmap.add_line(0.0, outside_lat, 120.0, inside_lat);
+
+        assert!(!bitmap.is_empty());
+        assert!(
+            bitmap
+                .all_tile_keys()
+                .all(|key| key.x >= minimum_expected_x),
+            "clipped line from {outside_lat}° to {inside_lat}° extended west of 90°E"
+        );
+
+        let mut reversed = JourneyBitmap::new();
+        reversed.add_line(120.0, inside_lat, 0.0, outside_lat);
+        assert_eq!(bitmap, reversed);
+    }
+}
+
+#[test]
+fn add_line_rejects_latitudes_outside_the_geographic_domain() {
+    for (start_lat, end_lat) in [(91.0, 91.0), (-91.0, -91.0), (0.0, 91.0), (-91.0, 0.0)] {
+        let mut bitmap = JourneyBitmap::new();
+        bitmap.add_line(0.0, start_lat, 0.01, end_lat);
+        assert!(
+            bitmap.is_empty(),
+            "line with latitudes ({start_lat}, {end_lat}) should be ignored"
+        );
+    }
 }
 
 #[test]
@@ -302,6 +363,41 @@ fn draw_line_with_width3() {
     let render_result =
         test_utils::render_map_overlay(&mut map_renderer, 13, 120.0, 70.01, 120.01, 70.0);
     test_utils::verify_image("draw_line_with_width3", &render_result.data);
+}
+
+#[test]
+fn unchecked_deserialization_discards_out_of_bounds_tiles() {
+    let valid_key = TileKey::new(MAP_WIDTH as u16 - 1, MAP_WIDTH as u16 - 1);
+    let invalid_x = TileKey::new(MAP_WIDTH as u16, 0);
+    let invalid_y = TileKey::new(0, MAP_WIDTH as u16);
+
+    let bitmap = JourneyBitmap::of_tile_bytes_without_validation(vec![
+        (invalid_x, vec![0xff]),
+        (valid_key, Tile::new().serialize()),
+        (invalid_y, vec![0xff]),
+    ])
+    .unwrap();
+
+    assert_eq!(bitmap.tile_count(), 1);
+    assert!(bitmap.contains_tile(&valid_key));
+    assert!(!bitmap.contains_tile(&invalid_x));
+    assert!(!bitmap.contains_tile(&invalid_y));
+}
+
+#[test]
+fn insert_tile_discards_out_of_bounds_tile() {
+    let invalid_key = TileKey::new(u16::MAX, u16::MAX);
+    let mut bitmap = JourneyBitmap::new();
+
+    bitmap.insert_tile(&invalid_key, Tile::new());
+
+    assert!(bitmap.is_empty());
+}
+
+#[test]
+#[should_panic(expected = "is outside the 512x512 grid")]
+fn get_tile_mut_or_insert_empty_panics_for_out_of_bounds_tile() {
+    JourneyBitmap::new().get_tile_mut_or_insert_empty(&TileKey::new(0, MAP_WIDTH as u16));
 }
 
 #[test]
