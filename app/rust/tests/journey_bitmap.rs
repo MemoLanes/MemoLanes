@@ -71,6 +71,28 @@ fn add_line_keeps_tiles_inside_the_bitmap_grid() {
 }
 
 #[test]
+fn add_line_clips_both_coordinates_at_the_bitmap_boundary() {
+    let minimum_expected_x = (MAP_WIDTH * 3 / 4) as u16; // 90°E
+
+    for (outside_lat, inside_lat) in [(88.0, 84.0), (-88.0, -84.0)] {
+        let mut bitmap = JourneyBitmap::new();
+        bitmap.add_line(0.0, outside_lat, 120.0, inside_lat);
+
+        assert!(!bitmap.is_empty());
+        assert!(
+            bitmap
+                .all_tile_keys()
+                .all(|key| key.x >= minimum_expected_x),
+            "clipped line from {outside_lat}° to {inside_lat}° extended west of 90°E"
+        );
+
+        let mut reversed = JourneyBitmap::new();
+        reversed.add_line(120.0, inside_lat, 0.0, outside_lat);
+        assert_eq!(bitmap, reversed);
+    }
+}
+
+#[test]
 fn add_line_rejects_latitudes_outside_the_geographic_domain() {
     for (start_lat, end_lat) in [(91.0, 91.0), (-91.0, -91.0), (0.0, 91.0), (-91.0, 0.0)] {
         let mut bitmap = JourneyBitmap::new();

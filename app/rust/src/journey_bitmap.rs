@@ -30,6 +30,12 @@ pub const MIPMAP_BIT_SIZE: usize = {
 const ALL_OFFSET: i16 = TILE_WIDTH_OFFSET + BITMAP_WIDTH_OFFSET;
 const TILE_ZSTD_COMPRESS_LEVEL: i32 = 3;
 
+fn interpolate_x_at_y(x0: i32, y0: i32, x1: i32, y1: i32, y: i32) -> i32 {
+    debug_assert_ne!(y0, y1);
+    let t = (y as f64 - y0 as f64) / (y1 as f64 - y0 as f64);
+    (x0 as f64 + (x1 as f64 - x0 as f64) * t).round() as i32
+}
+
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Hash, PartialOrd, Ord)]
 pub struct TileKey {
     pub x: u16,
@@ -209,13 +215,6 @@ impl JourneyBitmap {
         let (mut x1, mut y1) =
             utils::lng_lat_to_tile_x_y(end_lng, end_lat, (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32);
 
-        let bitmap_pixel_width = (MAP_WIDTH << ALL_OFFSET) as i32;
-        if (y0 < 0 && y1 < 0) || (y0 >= bitmap_pixel_width && y1 >= bitmap_pixel_width) {
-            return;
-        }
-        y0 = y0.clamp(0, bitmap_pixel_width - 1);
-        y1 = y1.clamp(0, bitmap_pixel_width - 1);
-
         let (x_half, _) =
             utils::lng_lat_to_tile_x_y(0.0, 0.0, (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32);
 
@@ -223,6 +222,21 @@ impl JourneyBitmap {
             x0 += 2 * x_half;
         } else if x0 - x1 > x_half {
             x1 += 2 * x_half;
+        }
+
+        let bitmap_pixel_width = (MAP_WIDTH << ALL_OFFSET) as i32;
+        if (y0 < 0 && y1 < 0) || (y0 >= bitmap_pixel_width && y1 >= bitmap_pixel_width) {
+            return;
+        }
+        let max_y = bitmap_pixel_width - 1;
+        let (original_x0, original_y0, original_x1, original_y1) = (x0, y0, x1, y1);
+        if !(0..=max_y).contains(&y0) {
+            y0 = y0.clamp(0, max_y);
+            x0 = interpolate_x_at_y(original_x0, original_y0, original_x1, original_y1, y0);
+        }
+        if !(0..=max_y).contains(&y1) {
+            y1 = y1.clamp(0, max_y);
+            x1 = interpolate_x_at_y(original_x0, original_y0, original_x1, original_y1, y1);
         }
 
         // Calculate line deltas
