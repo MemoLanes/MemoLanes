@@ -87,7 +87,7 @@ class _ImportDataPage extends State<ImportDataPage> {
 
       case ImportType.gpxOrKml:
         var (journeyInfo, rawVectorData, detectedProcessor) =
-            await import_api.loadGpxOrKml(filePath: path);
+            await import_api.loadVectorData(filePath: path);
         setState(() {
           this.journeyInfo = journeyInfo;
           _preprocessor = detectedProcessor;

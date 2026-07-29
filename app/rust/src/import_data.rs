@@ -27,6 +27,10 @@ use std::result::Result::Ok;
 use std::{fs, vec};
 use std::{fs::File, io::Read, path::Path};
 
+pub mod csv;
+
+pub use csv::load_csv;
+
 struct FoWTileId {
     x: u16,
     y: u16,

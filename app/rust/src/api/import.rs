@@ -89,7 +89,7 @@ pub fn load_fow_data(file_path: String) -> Result<(JourneyInfo, OpaqueJourneyDat
 }
 
 #[auto_context]
-pub fn load_gpx_or_kml(
+pub fn load_vector_data(
     file_path: String,
 ) -> Result<(JourneyInfo, RawVectorData, ImportPreprocessor)> {
     let (raw_vector_data, import_preprocessor) = match Path::new(&file_path)
@@ -100,6 +100,7 @@ pub fn load_gpx_or_kml(
     {
         Some("gpx") => import_data::load_gpx(&file_path)?,
         Some("kml") => import_data::load_kml(&file_path)?,
+        Some("csv") => import_data::load_csv(&file_path)?,
         extension => return Err(anyhow!("Unknown extension: {extension:?}")),
     };
 
