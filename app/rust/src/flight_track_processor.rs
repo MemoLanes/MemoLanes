@@ -3,9 +3,11 @@ use crate::{
     journey_vector::{JourneyVector, TrackPoint, TrackSegment},
 };
 
-// main func to interpolate rawdata to a smooth `JourneyVector`
+// Fill gaps in raw data to produce a smooth `JourneyVector`.
+//
+// Original points are always preserved. Interpolated points are inserted at
+// `STEP_LENGTH` boundaries along the cumulative distance of each segment.
 pub fn process(raw_data: &[Vec<RawData>]) -> Option<JourneyVector> {
-    // interpolate step_length
     const STEP_LENGTH: f64 = 1000.;
 
     let mut track_segments = Vec::new();
@@ -136,93 +138,106 @@ impl PathInterpolator {
         step_length: f64,
     ) -> Vec<TrackPoint> {
         use splines::{Interpolation, Key, Spline};
+
+        assert!(step_length > 0.0, "step_length must be bigger than zero!");
+
+        if distance.len() != lat.len() || distance.len() != lon.len() || distance.is_empty() {
+            return Vec::new();
+        }
+
+        let original_track_point = |index: usize| TrackPoint {
+            latitude: lat[index],
+            longitude: lon[index],
+        };
+
+        if distance.len() == 1 || distance.iter().any(|value| !value.is_finite()) {
+            return (0..distance.len()).map(original_track_point).collect();
+        }
+
+        // Repeated source points have the same cumulative distance. Keep all of
+        // them in the output, but only use one as a spline control point so the
+        // spline never has duplicate keys.
+        let mut unique_indices = vec![0];
+        for index in 1..distance.len() {
+            if distance[index] > distance[*unique_indices.last().unwrap()] {
+                unique_indices.push(index);
+            }
+        }
+
+        // There is no non-zero-length interval to fill.
+        if unique_indices.len() == 1 {
+            return (0..distance.len()).map(original_track_point).collect();
+        }
+
+        let combine = |a: f64, b: f64| Key::new(a, b, Interpolation::<_, f64>::CatmullRom);
+        let mut vec_key_lat: Vec<Key<f64, f64>> = unique_indices
+            .iter()
+            .map(|&index| combine(distance[index], lat[index]))
+            .collect();
+        let mut vec_key_lon: Vec<Key<f64, f64>> = unique_indices
+            .iter()
+            .map(|&index| combine(distance[index], lon[index]))
+            .collect();
+
+        // Catmull-Rom needs one control point before and two after the
+        // interpolation range.
+        vec_key_lat.insert(0, Key::new(-step_length, lat[0], Interpolation::default()));
+        vec_key_lon.insert(0, Key::new(-step_length, lon[0], Interpolation::default()));
+
+        let end_distance = *distance.last().unwrap();
+        vec_key_lat.push(Key::new(
+            end_distance + step_length,
+            *lat.last().unwrap(),
+            Interpolation::default(),
+        ));
+        vec_key_lat.push(Key::new(
+            end_distance + step_length * 2.,
+            *lat.last().unwrap(),
+            Interpolation::default(),
+        ));
+        vec_key_lon.push(Key::new(
+            end_distance + step_length,
+            *lon.last().unwrap(),
+            Interpolation::default(),
+        ));
+        vec_key_lon.push(Key::new(
+            end_distance + step_length * 2.,
+            *lon.last().unwrap(),
+            Interpolation::default(),
+        ));
+
+        let spline_lat = Spline::from_vec(vec_key_lat);
+        let spline_lon = Spline::from_vec(vec_key_lon);
+        let round_to_six_decimal_places = |num: f64| (num * 1000000.0).round() / 1000000.0;
+
         let mut track_points = Vec::new();
+        track_points.push(original_track_point(0));
 
-        if distance.len() < 2 || lat.len() < 2 || lon.len() < 2 {
-            track_points
-        } else {
-            let combine = |a: f64, b: f64| Key::new(a, b, Interpolation::<_, f64>::CatmullRom);
+        for index in 0..distance.len() - 1 {
+            let interval_start = distance[index];
+            let interval_end = distance[index + 1];
+            let mut sample_distance =
+                (interval_start / step_length).floor() * step_length + step_length;
 
-            let mut vec_key_lat: Vec<Key<f64, f64>> = distance
-                .iter()
-                .zip(lat.iter())
-                .map(|(a, b)| combine(*a, *b))
-                .collect();
+            // Sample strictly inside the interval. Its endpoints are the
+            // original points and are appended without modification.
+            while sample_distance < interval_end {
+                if let (Some(latitude), Some(longitude)) = (
+                    spline_lat.sample(sample_distance),
+                    spline_lon.sample(sample_distance),
+                ) {
+                    track_points.push(TrackPoint {
+                        latitude: round_to_six_decimal_places(latitude),
+                        longitude: round_to_six_decimal_places(longitude),
+                    });
+                }
+                sample_distance += step_length;
+            }
 
-            let mut vec_key_lon: Vec<Key<f64, f64>> = distance
-                .iter()
-                .zip(lon.iter())
-                .map(|(a, b)| combine(*a, *b))
-                .collect();
-
-            // CatmullRom need [last Points,nowPoints,next one,next two] so we need ……
-
-            // add a point before the start with index  -step_length
-            vec_key_lat.insert(0, Key::new(-step_length, lat[0], Interpolation::default()));
-            vec_key_lon.insert(0, Key::new(-step_length, lon[0], Interpolation::default()));
-
-            // add two point after the end with index   last+step_length、 last+step_length*2
-            vec_key_lat.push(Key::new(
-                distance.last().unwrap() + step_length,
-                *lat.last().unwrap(),
-                Interpolation::default(),
-            ));
-            vec_key_lat.push(Key::new(
-                distance.last().unwrap() + step_length * 2.,
-                *lat.last().unwrap(),
-                Interpolation::default(),
-            ));
-            vec_key_lon.push(Key::new(
-                distance.last().unwrap() + step_length,
-                *lon.last().unwrap(),
-                Interpolation::default(),
-            ));
-            vec_key_lon.push(Key::new(
-                distance.last().unwrap() + step_length * 2.,
-                *lon.last().unwrap(),
-                Interpolation::default(),
-            ));
-
-            let spline_lat = Spline::from_vec(vec_key_lat);
-            let spline_lon = Spline::from_vec(vec_key_lon);
-
-            // get sample points index
-            let sample_points =
-                PathInterpolator::generate_range(*distance.last().unwrap(), step_length);
-
-            let round_to_six_decimal_places = |num: f64| (num * 1000000.0).round() / 1000000.0;
-
-            // do sample to get result
-            sample_points.iter().for_each(|num| {
-                track_points.push(TrackPoint {
-                    latitude: round_to_six_decimal_places(
-                        spline_lat.sample(*num).unwrap_or_default(),
-                    ),
-                    longitude: round_to_six_decimal_places(
-                        spline_lon.sample(*num).unwrap_or_default(),
-                    ),
-                })
-            });
-
-            track_points
-        }
-    }
-
-    // Generate a vector of numbers between 0 and end with a step_length.
-    fn generate_range(end: f64, step_length: f64) -> Vec<f64> {
-        if step_length <= 0.0 {
-            panic!("step_length must be bigger than zero!");
+            track_points.push(original_track_point(index + 1));
         }
 
-        let mut result = Vec::new();
-        let mut current = 0.0;
-
-        while current < end {
-            result.push(current);
-            current += step_length;
-        }
-        result.push(end);
-        result
+        track_points
     }
 
     // judge if the two lons across the ±180
