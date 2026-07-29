@@ -166,7 +166,7 @@ impl PathInterpolator {
         let mut unique_control_points = Vec::new();
         let mut last_unique_distance = None;
         for (&distance, point) in distance.iter().zip(&source_track_points) {
-            if last_unique_distance.map_or(true, |last| distance > last) {
+            if last_unique_distance.is_none_or(|last| distance > last) {
                 unique_control_points.push((distance, point.latitude, point.longitude));
                 last_unique_distance = Some(distance);
             }
