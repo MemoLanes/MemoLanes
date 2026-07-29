@@ -23,7 +23,7 @@ class ImportDataPage extends StatefulWidget {
   State<ImportDataPage> createState() => _ImportDataPage();
 }
 
-enum ImportType { fow, gpxOrKml }
+enum ImportType { fow, vector }
 
 class _ImportDataPage extends State<ImportDataPage> {
   import_api.JourneyInfo? journeyInfo;
@@ -85,7 +85,7 @@ class _ImportDataPage extends State<ImportDataPage> {
         });
         break;
 
-      case ImportType.gpxOrKml:
+      case ImportType.vector:
         var (journeyInfo, rawVectorData, detectedProcessor) =
             await import_api.loadVectorData(filePath: path);
         setState(() {
@@ -176,8 +176,7 @@ class _ImportDataPage extends State<ImportDataPage> {
   @override
   Widget build(BuildContext context) {
     final journeyInfo = this.journeyInfo;
-    final panelHeight =
-        widget.importType == ImportType.gpxOrKml ? 530.0 : 510.0;
+    final panelHeight = widget.importType == ImportType.vector ? 530.0 : 510.0;
     final mapBoundsPadding =
         CapsuleStyleOverlayAppBar.mapFitPaddingForBottomOverlay(
       context,

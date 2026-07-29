@@ -11,7 +11,7 @@ const LAOJUNSHAN_DOL_CSV: &str = "./tests/data/DoL_laojunshan.csv";
 fn loads_generated_laojunshan_dol_csv() {
     let (segments, preprocessor) = import_data::load_csv(LAOJUNSHAN_DOL_CSV).unwrap();
 
-    assert!(matches!(preprocessor, ImportPreprocessor::Generic));
+    assert!(matches!(preprocessor, ImportPreprocessor::Spare));
     assert_eq!(segments.len(), 1);
     assert_eq!(segments[0].len(), 155);
 
@@ -30,7 +30,7 @@ fn vector_file_api_processes_generated_laojunshan_dol_csv() {
         load_vector_data(LAOJUNSHAN_DOL_CSV.to_owned()).unwrap();
 
     assert_eq!(journey_info.journey_date.to_string(), "2023-10-04");
-    assert!(matches!(preprocessor, ImportPreprocessor::Generic));
+    assert!(matches!(preprocessor, ImportPreprocessor::Spare));
 
     let journey_data = process_vector_data(&vector_data, preprocessor).unwrap();
     assert!(!is_journey_data_empty(&journey_data));

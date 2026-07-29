@@ -96,17 +96,21 @@ pub fn load_csv(file_path: &str) -> Result<(Vec<Vec<RawData>>, ImportPreprocesso
         .with_context(|| format!("failed to read CSV headers: {file_path}"))?
         .clone();
 
-    if !is_dol_format(&headers) {
+    let (raw_data, preprocessor) = if is_dol_format(&headers) {
+        (
+            parse_dol_rows(&mut reader).context("failed to parse DoL CSV")?,
+            ImportPreprocessor::Spare,
+        )
+    } else {
         anyhow::bail!(
             "unsupported CSV format; headers: {}",
             headers.iter().collect::<Vec<_>>().join(",")
         );
-    }
+    };
 
-    let raw_data = parse_dol_rows(&mut reader).context("failed to parse DoL CSV")?;
     if raw_data.is_empty() {
         anyhow::bail!("CSV file contains no data rows");
     }
 
-    Ok((vec![raw_data], ImportPreprocessor::Generic))
+    Ok((vec![raw_data], preprocessor))
 }
