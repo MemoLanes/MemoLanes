@@ -23,7 +23,7 @@ use std::fs;
 use chrono::NaiveDate;
 use geo_data_format::{GeoEntityKind, Worldview};
 use memolanes_core::{
-    achievement::compute::region_state::RegionStateMap,
+    achievement::compute::region_state::{compute_region_states, RegionStateMap},
     achievement::layer::AchievementLayer,
     achievement::read_model::region::{
         region_detail, region_level_view, region_levels, RegionKind,
@@ -175,6 +175,15 @@ fn sub(dir: &TempDir, s: &str) -> String {
     let p = dir.path().join(s);
     fs::create_dir_all(&p).unwrap();
     p.into_os_string().into_string().unwrap()
+}
+
+/// Canonical codes of every credited entity, any kind, any layer.
+fn credited_codes(states: &RegionStateMap, geo: &dyn GeoLookup) -> BTreeSet<String> {
+    states
+        .keys()
+        .filter_map(|(_, id)| geo.entity(*id))
+        .map(|e| e.canonical_code.clone())
+        .collect()
 }
 
 /// ISO codes of all visited entities of kind Country, for one layer.
@@ -346,4 +355,23 @@ fn region_api_reports_correct_countries_and_areas() {
             Ok(())
         })
         .unwrap();
+}
+
+/// Past the Mercator limit (±85.0511°) `add_line` produces tile keys outside the
+/// 512×512 grid: y ≥ 512 in the south, and in the north a negative Mercator y
+/// wrapped through `as u16` to ~65461. Their raw `x*512 + y` is not a safe index
+/// — with the real asset a track at 88°N resolves to tile (383,437), which is
+/// `Single(ATA)`, so the North Pole gets credited to Antarctica, and a track at
+/// 88°N/120°E indexes past the tile grid entirely.
+#[test]
+fn track_past_the_mercator_limit_credits_nothing() {
+    let geo = GeoIndex::from_bytes(&fs::read(test_utils::geo_asset("iso")).unwrap()).unwrap();
+
+    for (lng, lat) in [(0.0, 88.0), (120.0, 88.0), (0.0, -87.0)] {
+        let mut bitmap = JourneyBitmap::new();
+        bitmap.add_line(lng, lat, lng + 0.01, lat + 0.01);
+        let states = compute_region_states([(AchievementLayer::All, bitmap)], &geo);
+        let credited = credited_codes(&states, &geo);
+        assert!(credited.is_empty(), "({lng}, {lat}) credited {credited:?}");
+    }
 }
