@@ -40,6 +40,10 @@ impl TileKey {
     pub fn new(x: u16, y: u16) -> Self {
         TileKey { x, y }
     }
+
+    fn is_in_bounds(self) -> bool {
+        self.x < MAP_WIDTH as u16 && self.y < MAP_WIDTH as u16
+    }
 }
 
 // we have 512*512 tiles, 128*128 blocks and a single block contains
@@ -70,6 +74,13 @@ impl JourneyBitmap {
     pub fn of_tile_bytes_without_validation(data: Vec<(TileKey, Vec<u8>)>) -> Result<Self> {
         let mut journey_bitmap = Self::new();
         for (key, serialized_bytes) in data {
+            if !key.is_in_bounds() {
+                warn!(
+                    "Discarding out-of-bounds journey bitmap tile ({}, {}); grid width is {}",
+                    key.x, key.y, MAP_WIDTH
+                );
+                continue;
+            }
             journey_bitmap
                 .tiles
                 .insert(key, Tile::deserialize(&serialized_bytes)?);
@@ -94,6 +105,14 @@ impl JourneyBitmap {
     }
 
     pub fn get_tile_mut_or_insert_empty(&mut self, key: &TileKey) -> &mut Tile {
+        assert!(
+            key.is_in_bounds(),
+            "journey bitmap tile ({}, {}) is outside the {}x{} grid",
+            key.x,
+            key.y,
+            MAP_WIDTH,
+            MAP_WIDTH
+        );
         self.tiles.entry(*key).or_default()
     }
 
@@ -120,6 +139,13 @@ impl JourneyBitmap {
     }
 
     pub fn insert_tile(&mut self, key: &TileKey, tile: Tile) {
+        if !key.is_in_bounds() {
+            warn!(
+                "Discarding out-of-bounds journey bitmap tile ({}, {}); grid width is {}",
+                key.x, key.y, MAP_WIDTH
+            );
+            return;
+        }
         self.tiles.insert(*key, tile);
     }
 
@@ -164,13 +190,30 @@ impl JourneyBitmap {
     {
         use std::f64::consts::PI;
 
-        let (mut x0, y0) = utils::lng_lat_to_tile_x_y(
+        if ![start_lng, start_lat, end_lng, end_lat]
+            .into_iter()
+            .all(f64::is_finite)
+        {
+            return;
+        }
+        let wrap_lng = |lng: f64| (lng + 180.0).rem_euclid(360.0) - 180.0;
+        let start_lng = wrap_lng(start_lng);
+        let end_lng = wrap_lng(end_lng);
+
+        let (mut x0, mut y0) = utils::lng_lat_to_tile_x_y(
             start_lng,
             start_lat,
             (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32,
         );
-        let (mut x1, y1) =
+        let (mut x1, mut y1) =
             utils::lng_lat_to_tile_x_y(end_lng, end_lat, (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32);
+
+        let bitmap_pixel_width = (MAP_WIDTH << ALL_OFFSET) as i32;
+        if (y0 < 0 && y1 < 0) || (y0 >= bitmap_pixel_width && y1 >= bitmap_pixel_width) {
+            return;
+        }
+        y0 = y0.clamp(0, bitmap_pixel_width - 1);
+        y1 = y1.clamp(0, bitmap_pixel_width - 1);
 
         let (x_half, _) =
             utils::lng_lat_to_tile_x_y(0.0, 0.0, (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32);
@@ -215,7 +258,7 @@ impl JourneyBitmap {
             let latirad = tile_lat * PI / 180.0;
             let width: u8 = (1.0 / latirad.cos()).round() as u8;
 
-            let tile_key = TileKey::new((tile_x % MAP_WIDTH) as u16, tile_y as u16);
+            let tile_key = TileKey::new(tile_x.rem_euclid(MAP_WIDTH) as u16, tile_y as u16);
             let (tile_x_offset, tile_y_offset) = (tile_x << ALL_OFFSET, tile_y << ALL_OFFSET);
             {
                 let tile = self.get_tile_mut_or_insert_empty(&tile_key);
