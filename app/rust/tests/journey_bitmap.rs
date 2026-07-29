@@ -71,6 +71,18 @@ fn add_line_keeps_tiles_inside_the_bitmap_grid() {
 }
 
 #[test]
+fn add_line_rejects_latitudes_outside_the_geographic_domain() {
+    for (start_lat, end_lat) in [(91.0, 91.0), (-91.0, -91.0), (0.0, 91.0), (-91.0, 0.0)] {
+        let mut bitmap = JourneyBitmap::new();
+        bitmap.add_line(0.0, start_lat, 0.01, end_lat);
+        assert!(
+            bitmap.is_empty(),
+            "line with latitudes ({start_lat}, {end_lat}) should be ignored"
+        );
+    }
+}
+
+#[test]
 fn basic() {
     let mut journey_bitmap = JourneyBitmap::new();
     journey_bitmap.add_line(START_LNG, START_LAT, END_LNG, START_LAT);

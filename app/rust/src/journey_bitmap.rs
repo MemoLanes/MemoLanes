@@ -190,9 +190,10 @@ impl JourneyBitmap {
     {
         use std::f64::consts::PI;
 
-        if ![start_lng, start_lat, end_lng, end_lat]
-            .into_iter()
-            .all(f64::is_finite)
+        if !start_lng.is_finite()
+            || !end_lng.is_finite()
+            || !(-90.0..=90.0).contains(&start_lat)
+            || !(-90.0..=90.0).contains(&end_lat)
         {
             return;
         }
