@@ -7,6 +7,7 @@ import 'package:memolanes/body/journey/editor/top_persistent_toast.dart';
 import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/component/frosted_bar_container.dart';
 import 'package:memolanes/common/component/frosted_bar_item.dart';
+import 'package:memolanes/common/component/frosted_bar_selection_group.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -411,8 +412,17 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                               axis: Axis.vertical,
                               extent: drawModeBarExtent,
                               mainAxisPadding: 0,
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
+                              child: FrostedBarSelectionGroup(
+                                axis: Axis.vertical,
+                                itemExtent: drawModeBarExtent,
+                                crossAxisExtent: drawModeBarExtent,
+                                selectedIndex: _isLinkedDrawEnabled ? 1 : 0,
+                                selectionInsets: const EdgeInsets.fromLTRB(
+                                  5,
+                                  6,
+                                  5,
+                                  6,
+                                ),
                                 children: [
                                   _DrawModeItemSlot(
                                     barExtent: drawModeBarExtent,
@@ -555,6 +565,7 @@ class _DrawEntryModeButton extends StatelessWidget {
         icon: icon,
         label: label,
         isSelected: isSelected,
+        showSelectionBackground: false,
         onTap: onPressed,
       ),
     );
