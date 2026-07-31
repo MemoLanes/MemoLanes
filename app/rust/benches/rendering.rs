@@ -8,7 +8,7 @@ fn tile_buffer_creation_benchmarks(c: &mut Criterion) {
     group.sample_size(10); // Lower sample size as this is more expensive
 
     let (bitmap_data, _warnings) =
-        import_data::load_fow_sync_data("./tests/data/fow_3.zip").unwrap();
+        import_data::fow::load_fow_sync_data("./tests/data/fow_3.zip").unwrap();
 
     let mut map_renderer = map_renderer::MapRenderer::new(bitmap_data);
 
