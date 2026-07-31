@@ -1,8 +1,6 @@
-//! Pins `CacheDbV1`'s achievement wiring — `achievement_reader` — directly on
-//! the concrete backend, independent of what `cache_db::new` returns. The
-//! answers themselves belong to `OnDemandReader` and are covered by
-//! `achievement_on_demand.rs`; what this suite pins is that `CacheDbV1` hands
-//! it the right snapshot and the installed geo.
+//! Pins behavior specific to the concrete `CacheDbV1` backend, independent of
+//! what `cache_db::new` returns: opening/recreating its database and wiring its
+//! `achievement_reader` to the right snapshot and installed geo.
 
 pub mod test_utils;
 
@@ -19,7 +17,9 @@ use memolanes_core::{
     journey_bitmap::{Block, BlockKey, JourneyBitmap, TileKey},
     journey_header::JourneyKind,
     main_db::MainDb,
+    utils::db::{run_migrations, set_version_in_metadata, SchemaVersion},
 };
+use rusqlite::Connection;
 use tempdir::TempDir;
 
 const EU: GeoEntityId = GeoEntityId(1);
@@ -64,6 +64,34 @@ fn one_block(tile: TileKey, block: BlockKey, bits: u32) -> JourneyBitmap {
 
 fn date(s: &str) -> NaiveDate {
     NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap()
+}
+
+#[test]
+fn open_recreates_cache_db_from_newer_major_version() {
+    let cache_dir = TempDir::new("cache-db-newer-major-version").unwrap();
+    let db_path = cache_dir.path().join("cache.db");
+    let mut conn = Connection::open(&db_path).unwrap();
+    let tx = conn.transaction().unwrap();
+    run_migrations(&tx, "cache.db", &[]).unwrap();
+    set_version_in_metadata(&tx, SchemaVersion::new(i32::MAX, 0)).unwrap();
+    tx.execute("CREATE TABLE future_schema_sentinel (value TEXT)", ())
+        .unwrap();
+    tx.commit().unwrap();
+    drop(conn);
+
+    let mut cache_db = CacheDbV1::open(cache_dir.path().to_str().unwrap());
+    cache_db.clear_all().unwrap();
+    drop(cache_db);
+
+    let conn = Connection::open(db_path).unwrap();
+    let sentinel_count: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM sqlite_master WHERE name = 'future_schema_sentinel'",
+            (),
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(sentinel_count, 0);
 }
 
 /// A `MainDb` holding one Default and one Flight journey in different blocks of
