@@ -18,7 +18,8 @@ const RENDER_SNAPSHOT_PATH: &str =
 const TILE_INDEX_PATH: &str = "Model/#/3389dae361";
 
 fn load_source_bitmap() -> JourneyBitmap {
-    let (bitmap, warnings) = import_data::load_fow_snapshot_data(SOURCE_SNAPSHOT_PATH).unwrap();
+    let (bitmap, warnings) =
+        import_data::fow::load_fow_snapshot_data(SOURCE_SNAPSHOT_PATH).unwrap();
     assert_eq!(format!("{warnings:?}"), "None");
     bitmap
 }
@@ -126,7 +127,7 @@ fn generated_fwss_roundtrips_through_importer() {
     std::fs::write(ROUNDTRIP_SNAPSHOT_PATH, fwss).unwrap();
 
     let (roundtripped_bitmap, warnings) =
-        import_data::load_fow_snapshot_data(ROUNDTRIP_SNAPSHOT_PATH).unwrap();
+        import_data::fow::load_fow_snapshot_data(ROUNDTRIP_SNAPSHOT_PATH).unwrap();
     assert_eq!(bitmap, roundtripped_bitmap);
     assert_eq!(format!("{warnings:?}"), "None");
 }
@@ -140,7 +141,7 @@ fn generated_fwss_roundtrip_preserves_rendered_bitmap() {
     std::fs::write(RENDER_SNAPSHOT_PATH, fwss).unwrap();
 
     let (roundtripped_bitmap, warnings) =
-        import_data::load_fow_snapshot_data(RENDER_SNAPSHOT_PATH).unwrap();
+        import_data::fow::load_fow_snapshot_data(RENDER_SNAPSHOT_PATH).unwrap();
     let roundtripped_render = render_first_tile(roundtripped_bitmap);
 
     assert_eq!(format!("{warnings:?}"), "None");

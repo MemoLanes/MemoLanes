@@ -48,7 +48,7 @@ fn rejects_newer_major_schema_version_without_migrating() {
 #[test]
 fn basic() {
     let (raw_data, _preprocessor) =
-        import_data::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
+        import_data::gpx::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
 
     let test_data: Vec<RawData> = raw_data.into_iter().flatten().collect();
     let num_of_gpx_data_in_input = test_data.len();
@@ -1327,6 +1327,72 @@ fn finalize_ongoing_sets_merge_one() {
 }
 
 // === Theme D: Insert dedup precision ===
+
+/// MergeOne promises exactly one fresh insert, so a cache may apply it as a
+/// pure addition to a cached bitmap. An edit reaching this path would need
+/// subtraction, which a union cannot express.
+#[test]
+fn merge_one_is_only_ever_a_single_fresh_insert() {
+    fn insert_one(txn: &mut main_db::Txn, day: u32) -> anyhow::Result<String> {
+        txn.create_and_insert_journey(
+            NaiveDate::from_ymd_opt(2025, 1, day).unwrap(),
+            None,
+            None,
+            None,
+            JourneyKind::DefaultKind,
+            None,
+            JourneyData::Bitmap(test_utils::make_bitmap_with_line(test_utils::draw_line1)),
+        )
+    }
+
+    let temp_dir = TempDir::new("main_db_action_shape").unwrap();
+    let mut db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
+
+    // A single insert into an untouched txn -> MergeOne.
+    let id = db
+        .with_txn(|txn| {
+            let id = insert_one(txn, 1)?;
+            assert!(matches!(txn.action, Some(Action::MergeOne { .. })));
+            Ok(id)
+        })
+        .unwrap();
+
+    // A second insert in the SAME txn -> Invalidate.
+    db.with_txn(|txn| {
+        insert_one(txn, 2)?;
+        insert_one(txn, 3)?;
+        assert!(matches!(txn.action, Some(Action::Invalidate { .. })));
+        Ok(())
+    })
+    .unwrap();
+
+    // Metadata edit -> never MergeOne. Nothing here changes date or kind, so it
+    // needs no cache action at all; a date or kind change escalates to
+    // Invalidate (see `update_metadata_changes_date`).
+    db.with_txn(|txn| {
+        let h = txn.get_journey_header(&id)?.unwrap();
+        txn.update_journey_metadata(&id, h.journey_date, h.start, h.end, None, h.journey_kind)?;
+        assert!(!matches!(txn.action, Some(Action::MergeOne { .. })));
+        Ok(())
+    })
+    .unwrap();
+
+    // Delete -> Invalidate.
+    db.with_txn(|txn| {
+        txn.delete_journey(&id)?;
+        assert!(matches!(txn.action, Some(Action::Invalidate { .. })));
+        Ok(())
+    })
+    .unwrap();
+
+    // Delete all -> CompleteRebuilt.
+    db.with_txn(|txn| {
+        txn.delete_all_journeys()?;
+        assert!(matches!(txn.action, Some(Action::CompleteRebuilt)));
+        Ok(())
+    })
+    .unwrap();
+}
 
 #[test]
 fn insert_same_date_different_kind_not_deduplicated() {

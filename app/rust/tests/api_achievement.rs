@@ -1,8 +1,8 @@
 //! End-to-end over the Flutter Rust Bridge–facing achievement API (`src/api/achievement.rs`),
 //! driven through the global app state exactly as the Flutter layer would.
 //!
-//! The backend is whatever `achievement::new()` returns, exercised through the
-//! public api surface.
+//! The backend is whichever one the live `cache_db` provides, exercised through
+//! the public api surface.
 //!
 //! Journeys are seeded through the real public ingest path (GPS points →
 //! finalize), then read back via `get_explored_area*`. The geo initializer and
@@ -29,7 +29,7 @@ use tempdir::TempDir;
 
 /// Import one GPX track as a finalized journey via the public GPS ingest path.
 fn import_gpx_as_journey(path: &str) {
-    let (raw, _pre) = import_data::load_gpx(path).unwrap();
+    let (raw, _pre) = import_data::gpx::load_gpx(path).unwrap();
     let points: Vec<RawData> = raw
         .into_iter()
         .flatten()
@@ -117,17 +117,18 @@ fn api_achievement_explored_area_and_region_contract() {
     );
 
     // --- Geo-absent contract: before geo bytes are supplied, no geo data is
-    // installed, so no regions. ---
+    // installed, so the region APIs error (rather than returning empties that
+    // read as "you've visited nowhere"). ---
     // (`api::init` is a process-global singleton, so this binary keeps a single
     // test; the geo install below continues in the same state.)
-    assert!(region_levels().unwrap().is_empty(), "no geo → no levels");
-    let view = region_level_view(Default, RegionKind::Country, None).unwrap();
-    assert_eq!((view.visited_count, view.region_count), (0, 0));
-    assert!(view.entries.is_empty());
-    assert_eq!(view.level, RegionKind::Country);
+    assert!(region_levels().is_err(), "no geo → error");
     assert!(
-        region_detail(GeoEntityId(1), Default).unwrap().is_none(),
-        "no geo → no detail"
+        region_level_view(Default, RegionKind::Country, None).is_err(),
+        "no geo → error"
+    );
+    assert!(
+        region_detail(GeoEntityId(1), Default).is_err(),
+        "no geo → error"
     );
 
     // --- Geo initializer against the real ISO asset. ---
@@ -136,4 +137,16 @@ fn api_achievement_explored_area_and_region_contract() {
     init_or_change_geo_data(Worldview::Iso, &geo_bytes).unwrap();
     // Geo is now installed, so the seeded journeys light up region reads.
     assert!(!region_levels().unwrap().is_empty(), "geo → region levels");
+
+    // --- Unknown-entity contract: with geo installed, an id the asset doesn't
+    // know (not "geo absent") must answer empty rather than error. ---
+    let unknown = GeoEntityId(u32::MAX);
+    assert!(
+        region_detail(unknown, Default).unwrap().is_none(),
+        "unknown entity → no detail, not an error"
+    );
+    let empty_view = region_level_view(Default, RegionKind::Province, Some(unknown)).unwrap();
+    assert_eq!(empty_view.region_count, 0, "unknown parent → no children");
+    assert_eq!(empty_view.visited_count, 0);
+    assert!(empty_view.entries.is_empty());
 }
