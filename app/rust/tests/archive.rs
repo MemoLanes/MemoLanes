@@ -17,7 +17,7 @@ use tempdir::TempDir;
 
 fn add_vector_journeys(main_db: &mut MainDb) {
     let (raw_data, _preprocessor) =
-        import_data::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
+        import_data::gpx::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
 
     for (i, raw_data) in raw_data.iter().flatten().enumerate() {
         if i > 1000 && i % 1000 == 0 {
@@ -35,7 +35,8 @@ fn add_vector_journeys(main_db: &mut MainDb) {
 }
 
 fn add_bitmap_journey(main_db: &mut MainDb) {
-    let (bitmap, _warnings) = import_data::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
+    let (bitmap, _warnings) =
+        import_data::fow::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
     main_db
         .with_txn(|txn| {
             let _id = txn.create_and_insert_journey(

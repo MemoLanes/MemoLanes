@@ -14,17 +14,21 @@ fn run_gpx_integrity_check(
     import_path: &str,
     export_path: &str,
 ) -> (Vec<TrackPoint>, JourneyInfo, ImportPreprocessor) {
-    let (raw_data1, preprocessor) = import_data::load_gpx(import_path).unwrap();
-    let info = import_data::journey_info_from_raw_vector_data(&raw_data1);
-    let vector1 =
-        import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data1, None).unwrap();
+    let (raw_data1, preprocessor) = import_data::gpx::load_gpx(import_path).unwrap();
+    let info = import_data::conversion::journey_info_from_raw_vector_data(&raw_data1);
+    let vector1 = import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
+        &raw_data1, None,
+    )
+    .unwrap();
 
     export_data::gpx::journey_vector_to_gpx_file(&vector1, &mut File::create(export_path).unwrap())
         .unwrap();
 
-    let (raw_data2, _) = import_data::load_gpx(export_path).unwrap();
-    let vector2 =
-        import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data2, None).unwrap();
+    let (raw_data2, _) = import_data::gpx::load_gpx(export_path).unwrap();
+    let vector2 = import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
+        &raw_data2, None,
+    )
+    .unwrap();
 
     let points1 = vector1
         .track_segments
@@ -48,17 +52,21 @@ fn run_kml_integrity_check(
     import_path: &str,
     export_path: &str,
 ) -> (Vec<TrackPoint>, JourneyInfo, ImportPreprocessor) {
-    let (raw_data1, preprocessor) = import_data::load_kml(import_path).unwrap();
-    let info = import_data::journey_info_from_raw_vector_data(&raw_data1);
-    let vector1 =
-        import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data1, None).unwrap();
+    let (raw_data1, preprocessor) = import_data::kml::load_kml(import_path).unwrap();
+    let info = import_data::conversion::journey_info_from_raw_vector_data(&raw_data1);
+    let vector1 = import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
+        &raw_data1, None,
+    )
+    .unwrap();
 
     export_data::kml::journey_vector_to_kml_file(&vector1, &mut File::create(export_path).unwrap())
         .unwrap();
 
-    let (raw_data2, _) = import_data::load_kml(export_path).unwrap();
-    let vector2 =
-        import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data2, None).unwrap();
+    let (raw_data2, _) = import_data::kml::load_kml(export_path).unwrap();
+    let vector2 = import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
+        &raw_data2, None,
+    )
+    .unwrap();
 
     let points1 = vector1
         .track_segments
@@ -80,8 +88,10 @@ fn run_kml_integrity_check(
 
 #[test]
 fn load_fow_sync_data() {
-    let (bitmap_1, warnings_1) = import_data::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
-    let (bitmap_2, warnings_2) = import_data::load_fow_sync_data("./tests/data/fow_2.zip").unwrap();
+    let (bitmap_1, warnings_1) =
+        import_data::fow::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
+    let (bitmap_2, warnings_2) =
+        import_data::fow::load_fow_sync_data("./tests/data/fow_2.zip").unwrap();
     assert_eq!(bitmap_1, bitmap_2);
     assert_eq!(format!("{warnings_1:?}"), "None");
     assert_eq!(
@@ -95,9 +105,10 @@ fn verify_fow_snapshot_data() {
     const SNAPSHOT_TEST_PATH: &str = "./tests/data/Snapshot-20260601T232045+0800.fwss";
 
     let (bitmap_1, warnings_1) =
-        import_data::load_fow_sync_data("./tests/data/snapshot_fow_test.zip").unwrap();
-    let (bitmap_2, warnings_2) = import_data::load_fow_snapshot_data(SNAPSHOT_TEST_PATH).unwrap();
-    let result_1 = import_data::load_fow_snapshot_data("./tests/data/snapshot_no_bitmap.fwss");
+        import_data::fow::load_fow_sync_data("./tests/data/snapshot_fow_test.zip").unwrap();
+    let (bitmap_2, warnings_2) =
+        import_data::fow::load_fow_snapshot_data(SNAPSHOT_TEST_PATH).unwrap();
+    let result_1 = import_data::fow::load_fow_snapshot_data("./tests/data/snapshot_no_bitmap.fwss");
     let (journey_info, _journey_data) =
         import_api::load_fow_data(SNAPSHOT_TEST_PATH.to_owned()).unwrap();
 
