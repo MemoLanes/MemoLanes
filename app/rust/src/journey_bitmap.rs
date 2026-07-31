@@ -265,11 +265,7 @@ impl JourneyBitmap {
         loop {
             // tile_x is not rounded, it may exceed the antimeridian
             let (tile_x, tile_y) = (x >> ALL_OFFSET, y >> ALL_OFFSET);
-            let (_, tile_lat) = utils::tile_x_y_to_lng_lat(
-                x as i32,
-                y as i32,
-                (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32,
-            );
+            let tile_lat = utils::tile_y_to_lat(y as i32, (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32);
             let latirad = tile_lat * PI / 180.0;
             let width: u8 = (1.0 / latirad.cos()).round() as u8;
 

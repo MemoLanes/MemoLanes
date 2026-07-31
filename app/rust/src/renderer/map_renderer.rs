@@ -14,7 +14,7 @@ use std::collections::HashMap;
 pub struct MapRenderer {
     journey_bitmap: JourneyBitmap,
     /* for each tile of 512*512 tiles in a JourneyBitmap, use buffered area to record any update */
-    tile_area_cache: HashMap<TileKey, f64>,
+    tile_area_cache: HashMap<TileKey, i64>,
     version: u64,
     current_area: Option<u64>,
 }
@@ -96,7 +96,7 @@ impl MapRenderer {
 
     pub fn get_current_area(&mut self) -> u64 {
         *self.current_area.get_or_insert_with(|| {
-            journey_area_utils::compute_journey_bitmap_area(
+            journey_area_utils::journey_bitmap_area_m2_rounded(
                 &self.journey_bitmap,
                 Some(&mut self.tile_area_cache),
             )

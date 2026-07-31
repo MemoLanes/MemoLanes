@@ -292,7 +292,7 @@ fn draw_single_point() {
     journey_bitmap.add_line(120.0, 30.0, 120.0, 30.0);
 
     assert_eq!(
-        journey_area_utils::compute_journey_bitmap_area(&journey_bitmap, None),
+        journey_area_utils::journey_bitmap_area_m2_rounded(&journey_bitmap, None),
         68
     );
 }
@@ -305,7 +305,7 @@ fn draw_line_in_different_latitude() {
     journey_bitmap.add_line(120.0, 0.0, 121.0, 0.0);
     journey_bitmap.add_line(120.0, 0.0, 121.0, 1.0);
     assert_eq!(
-        journey_area_utils::compute_journey_bitmap_area(&journey_bitmap, None),
+        journey_area_utils::journey_bitmap_area_m2_rounded(&journey_bitmap, None),
         3183812
     );
 
@@ -314,7 +314,7 @@ fn draw_line_in_different_latitude() {
     journey_bitmap2.add_line(120.0, 60.0, 120.0, 61.0);
     journey_bitmap2.add_line(120.0, 60.0, 122.0, 60.0);
     journey_bitmap2.add_line(120.0, 60.0, 122.0, 61.0);
-    let area2 = journey_area_utils::compute_journey_bitmap_area(&journey_bitmap2, None);
+    let area2 = journey_area_utils::journey_bitmap_area_m2_rounded(&journey_bitmap2, None);
     assert_eq!(area2 / 100000, 31);
 
     // width is 3 , lat 70.5
@@ -322,7 +322,7 @@ fn draw_line_in_different_latitude() {
     journey_bitmap3.add_line(120.0, 70.5, 120.0, 71.5);
     journey_bitmap3.add_line(120.0, 70.5, 123.0, 70.5);
     journey_bitmap3.add_line(120.0, 70.5, 123.0, 71.5);
-    let area3 = journey_area_utils::compute_journey_bitmap_area(&journey_bitmap3, None);
+    let area3 = journey_area_utils::journey_bitmap_area_m2_rounded(&journey_bitmap3, None);
     assert_eq!(area3 / 100000, 31);
 
     // width is 3 , lat -70.5
@@ -330,7 +330,7 @@ fn draw_line_in_different_latitude() {
     journey_bitmap4.add_line(120.0, -70.5, 120.0, -71.5);
     journey_bitmap4.add_line(120.0, -70.5, 123.0, -70.5);
     journey_bitmap4.add_line(120.0, -70.5, 123.0, -71.5);
-    let area3 = journey_area_utils::compute_journey_bitmap_area(&journey_bitmap4, None);
+    let area3 = journey_area_utils::journey_bitmap_area_m2_rounded(&journey_bitmap4, None);
     assert_eq!(area3 / 100000, 31);
 }
 

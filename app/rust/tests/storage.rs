@@ -922,7 +922,7 @@ fn explored_area_per_layer_is_consistent() {
                 .with_journey_snapshot(|snapshot| {
                     let bitmap = snapshot.finalized_bitmap(&layer_kind, None)?;
                     Ok(
-                        memolanes_core::journey_area_utils::compute_journey_bitmap_area(
+                        memolanes_core::journey_area_utils::journey_bitmap_area_m2_rounded(
                             &bitmap, None,
                         ),
                     )

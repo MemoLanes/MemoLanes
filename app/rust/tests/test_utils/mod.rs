@@ -1,5 +1,5 @@
 use chrono::NaiveDate;
-use memolanes_core::cache_db::CacheDbV1;
+use memolanes_core::cache_db::{self, CacheDb};
 use memolanes_core::journey_bitmap::JourneyBitmap;
 use memolanes_core::journey_data::JourneyData;
 use memolanes_core::journey_header::JourneyKind;
@@ -204,11 +204,15 @@ pub fn draw_sample_bitmap() -> JourneyBitmap {
     journey_bitmap
 }
 
-pub fn setup_main_and_cache_db(prefix: &str) -> (MainDb, CacheDbV1, TempDir, TempDir) {
+/// Whichever cache backend this tree ships, via `cache_db::new` — so callers
+/// that only assert on what a `CacheDb` answers stay valid regardless of the
+/// backend. Tests that need a concrete backend's storage internals build it
+/// themselves.
+pub fn setup_main_and_cache_db(prefix: &str) -> (MainDb, impl CacheDb, TempDir, TempDir) {
     let main_dir = TempDir::new(&format!("{prefix}-main")).unwrap();
     let cache_dir = TempDir::new(&format!("{prefix}-cache")).unwrap();
     let main_db = MainDb::open(main_dir.path().to_str().unwrap()).unwrap();
-    let cache_db = CacheDbV1::open(cache_dir.path().to_str().unwrap());
+    let cache_db = cache_db::new(cache_dir.path().to_str().unwrap());
     (main_db, cache_db, main_dir, cache_dir)
 }
 
