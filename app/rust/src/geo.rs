@@ -21,6 +21,7 @@ pub trait GeoLookup {
     fn ancestors(&self, id: GeoEntityId) -> Vec<GeoEntityId>;
     /// Direct children of `id` (one level down).
     fn children(&self, id: GeoEntityId) -> &[GeoEntityId];
+    fn provenance_hash(&self) -> [u8; 32];
 }
 
 /// `GeoData`-backed lookup: tile index in memory, border tiles decoded on demand.
@@ -111,5 +112,9 @@ impl GeoLookup for GeoIndex {
 
     fn children(&self, id: GeoEntityId) -> &[GeoEntityId] {
         self.children.get(&id).map_or(&[], Vec::as_slice)
+    }
+
+    fn provenance_hash(&self) -> [u8; 32] {
+        self.data.provenance_hash
     }
 }
