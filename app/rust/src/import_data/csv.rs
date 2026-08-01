@@ -7,6 +7,7 @@ use serde::Deserialize;
 use crate::{
     api::import::ImportPreprocessor,
     gps_processor::{Point, RawData},
+    storage::RawCsvRow,
 };
 
 // CSV exported by 人生点点
@@ -39,6 +40,17 @@ const STEP_HEADERS: &[&str] = &[
     "isBackForeground",
     "stepType",
     "altitude",
+];
+
+// CSV exported by MemoLanes' raw data recorder
+const MEMOLANES_HEADERS: &[&str] = &[
+    "timestamp_ms",
+    "received_timestamp_ms",
+    "latitude",
+    "longitude",
+    "accuracy",
+    "altitude",
+    "speed",
 ];
 
 #[derive(Deserialize)]
@@ -74,6 +86,10 @@ fn is_dol_format(headers: &StringRecord) -> bool {
 
 fn is_step_format(headers: &StringRecord) -> bool {
     headers.iter().eq(STEP_HEADERS.iter().copied())
+}
+
+fn is_memolanes_format(headers: &StringRecord) -> bool {
+    headers.iter().eq(MEMOLANES_HEADERS.iter().copied())
 }
 
 fn parse_dol_rows<R: Read>(reader: &mut Reader<R>) -> Result<Vec<RawData>> {
@@ -116,8 +132,52 @@ fn parse_step_rows<R: Read>(reader: &mut Reader<R>) -> Result<Vec<RawData>> {
     Ok(raw_data)
 }
 
+fn parse_memolanes_rows<R: Read>(reader: &mut Reader<R>) -> Result<Vec<RawData>> {
+    let mut raw_data = Vec::new();
+
+    for (index, result) in reader.deserialize::<RawCsvRow>().enumerate() {
+        let row_number = index + 2;
+        let row = result.with_context(|| format!("failed to parse CSV row {row_number}"))?;
+        raw_data.push(raw_data_from_millisecond_values(
+            row.timestamp_ms,
+            row.longitude,
+            row.latitude,
+            row.accuracy,
+            row.altitude,
+            row.speed,
+            row_number,
+        )?);
+    }
+
+    Ok(raw_data)
+}
+
 fn raw_data_from_values(
     timestamp: i64,
+    longitude: f64,
+    latitude: f64,
+    accuracy: Option<f32>,
+    altitude: Option<f32>,
+    speed: Option<f32>,
+    row_number: usize,
+) -> Result<RawData> {
+    let timestamp_ms = timestamp
+        .checked_mul(1000)
+        .with_context(|| format!("timestamp overflow at CSV row {row_number}"))?;
+
+    raw_data_from_millisecond_values(
+        Some(timestamp_ms),
+        longitude,
+        latitude,
+        accuracy,
+        altitude,
+        speed,
+        row_number,
+    )
+}
+
+fn raw_data_from_millisecond_values(
+    timestamp_ms: Option<i64>,
     longitude: f64,
     latitude: f64,
     accuracy: Option<f32>,
@@ -132,16 +192,12 @@ fn raw_data_from_values(
         anyhow::bail!("invalid longitude {longitude} at CSV row {row_number}");
     }
 
-    let timestamp_ms = timestamp
-        .checked_mul(1000)
-        .with_context(|| format!("timestamp overflow at CSV row {row_number}"))?;
-
     Ok(RawData {
         point: Point {
             latitude,
             longitude,
         },
-        timestamp_ms: Some(timestamp_ms),
+        timestamp_ms,
         accuracy: non_negative_finite(accuracy),
         altitude: finite(altitude),
         speed: non_negative_finite(speed),
@@ -174,6 +230,11 @@ pub fn load_csv(file_path: &str) -> Result<(Vec<Vec<RawData>>, ImportPreprocesso
         (
             parse_step_rows(&mut reader).context("failed to parse Step CSV")?,
             ImportPreprocessor::Spare,
+        )
+    } else if is_memolanes_format(&headers) {
+        (
+            parse_memolanes_rows(&mut reader).context("failed to parse MemoLanes CSV")?,
+            ImportPreprocessor::Generic,
         )
     } else {
         anyhow::bail!(

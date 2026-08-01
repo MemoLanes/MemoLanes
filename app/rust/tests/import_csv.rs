@@ -7,6 +7,7 @@ use memolanes_core::{
 
 const LAOJUNSHAN_DOL_CSV: &str = "./tests/data/DoL_laojunshan.csv";
 const STEP_CSV: &str = "./tests/data/step.csv";
+const MEMOLANES_CSV: &str = "./tests/data/raw_data.csv";
 
 #[test]
 fn loads_generated_laojunshan_dol_csv() {
@@ -62,6 +63,34 @@ fn vector_file_api_processes_step_csv() {
     let (_journey_info, vector_data, preprocessor) = load_vector_data(STEP_CSV.to_owned()).unwrap();
 
     assert!(matches!(preprocessor, ImportPreprocessor::Spare));
+
+    let journey_data = process_vector_data(&vector_data, preprocessor).unwrap();
+    assert!(!is_journey_data_empty(&journey_data));
+}
+
+#[test]
+fn loads_memolanes_csv() {
+    let (segments, preprocessor) = import_data::csv::load_csv(MEMOLANES_CSV).unwrap();
+
+    assert!(matches!(preprocessor, ImportPreprocessor::Generic));
+    assert_eq!(segments.len(), 1);
+    assert_eq!(segments[0].len(), 929);
+
+    let first = &segments[0][0];
+    assert_eq!(first.timestamp_ms, Some(1_754_726_365_283));
+    assert_eq!(first.point.longitude, -0.104277);
+    assert_eq!(first.point.latitude, 51.520302);
+    assert_eq!(first.accuracy, Some(5000.0));
+    assert_eq!(first.altitude, Some(0.0));
+    assert_eq!(first.speed, Some(0.0));
+}
+
+#[test]
+fn vector_file_api_processes_memolanes_csv() {
+    let (_journey_info, vector_data, preprocessor) =
+        load_vector_data(MEMOLANES_CSV.to_owned()).unwrap();
+
+    assert!(matches!(preprocessor, ImportPreprocessor::Generic));
 
     let journey_data = process_vector_data(&vector_data, preprocessor).unwrap();
     assert!(!is_journey_data_empty(&journey_data));
