@@ -97,7 +97,7 @@
     "journey_info_page_title": "旅程信息",
     "journey_info_edit_page_title": "编辑旅程信息",
     "import_mldx_data": "导入 MLDX 数据",
-    "import_kml_gpx_data": "导入 KML/GPX 数据",
+    "import_track_file": "导入轨迹文件",
     "import_fog_of_world_data": "导入 世界迷雾 数据",
     "export_journey_as_kml": "导出为 KML",
     "export_journey_as_gpx": "导出为 GPX",
@@ -160,6 +160,9 @@
     "empty_data": "旅途数据为空",
     "successful": "导入成功",
     "parsing_failed": "数据解析失败",
+    "import_track_file": {
+      "description_md": "支持以下轨迹文件格式：\n\n1. **GPX** (`.gpx`)\n2. **KML** (`.kml`)\n3. **CSV** (`.csv`)"
+    },
     "mldx_preview": {
       "title": "归档导入",
       "skipped_identical": "已跳过 {} 条完全相同的旅程",

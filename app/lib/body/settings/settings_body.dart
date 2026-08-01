@@ -75,7 +75,7 @@ class _SettingsBodyState extends State<SettingsBody> {
     // if (importType == ImportType.fow) {
     //   allowedExtensions = ['zip'];
     // } else {
-    //   allowedExtensions = ['kml', 'gpx'];
+    //   allowedExtensions = ['kml', 'gpx', 'csv'];
     // }
     final result = await FilePicker.pickFiles(type: FileType.any);
     final path = result?.files.single.path;
@@ -342,9 +342,15 @@ class _SettingsBodyState extends State<SettingsBody> {
           ),
           CardLabelTile(
             position: CardLabelTilePosition.middle,
-            label: context.tr("journey.import_kml_gpx_data"),
+            label: context.tr("journey.import_track_file"),
             onTap: () async {
-              _selectImportFile(context, ImportType.gpxOrKml);
+              await showCommonDialog(
+                context,
+                context.tr("import.import_track_file.description_md"),
+                markdown: true,
+              );
+              if (!context.mounted) return;
+              await _selectImportFile(context, ImportType.vector);
             },
           ),
           CardLabelTile(

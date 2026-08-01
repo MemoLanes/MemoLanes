@@ -28,7 +28,7 @@ fn storage_for_main_map_renderer() {
     .unwrap();
 
     let (raw_data_groups, _preprocessor) =
-        import_data::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
+        import_data::gpx::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
     for (i, raw_data) in raw_data_groups.iter().flatten().enumerate() {
         storage.record_gps_data(
             raw_data,
@@ -922,7 +922,7 @@ fn explored_area_per_layer_is_consistent() {
                 .with_journey_snapshot(|snapshot| {
                     let bitmap = snapshot.finalized_bitmap(&layer_kind, None)?;
                     Ok(
-                        memolanes_core::journey_area_utils::compute_journey_bitmap_area(
+                        memolanes_core::journey_area_utils::journey_bitmap_area_m2_rounded(
                             &bitmap, None,
                         ),
                     )
