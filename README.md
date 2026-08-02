@@ -75,8 +75,10 @@ There are two main components of this app: 1. A rust library for the core logic;
 ### 2. Flutter Setup
 1. Install [Flutter](https://docs.flutter.dev/get-started/install).
 2. Install [flutter_rust_bridge](https://cjycode.com/flutter_rust_bridge/quickstart). It is recommended to install the specific version that this project is using with `cargo install 'flutter_rust_bridge_codegen@2.12.0'`. The real version can be found using `just get-frb-version` or looking at `app/pubspec.yaml`.
-3. Install [yarn](https://yarnpkg.com/getting-started/install). Go to `/app/journey_kernel` folder. Install node packages by `yarn install`.
-4. Go to `/app` folder.
-5. Run pre-build via `just pre-build`. Note that this needs to be rerun every time the rust api or journey kernel is updated.
-6. Start the app via `flutter run`.
-7. `just` provides many useful commands, e.g. `just format`, `just check`, `just test`. Consider run those before opening/updating PRs.
+3. Install [Git Bash](https://git-scm.com/downloads) on Windows and make sure `bash` is available on `PATH`. MemoLanes uses Bash to run `just` recipes on all supported platforms.
+4. Install the native `wasm-pack` CLI manually with `cargo install wasm-pack --version 0.15.0 --locked`, then run `rustup target add wasm32-unknown-unknown`. Do not install `wasm-pack` with npm: the build scripts expect the native executable on `PATH` and never install it automatically.
+5. Install [yarn](https://yarnpkg.com/getting-started/install). Go to `/app/journey_kernel` folder. Install node packages by `yarn install`.
+6. Go to `/app` folder.
+7. Run pre-build via `just pre-build`. Note that this needs to be rerun every time the rust api or journey kernel is updated.
+8. Start the app via `flutter run`.
+9. `just` provides many useful commands, e.g. `just format`, `just check`, `just test`. Consider run those before opening/updating PRs.

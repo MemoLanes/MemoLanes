@@ -1,4 +1,5 @@
-set windows-powershell := true
+set shell := ["bash", "-euo", "pipefail", "-c"]
+set windows-shell := ["bash", "-euo", "pipefail", "-c"]
 
 # Show list of available commands
 default:
