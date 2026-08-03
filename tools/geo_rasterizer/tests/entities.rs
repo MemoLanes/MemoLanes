@@ -48,6 +48,7 @@ fn reg() -> Registry {
             id: 3,
             point: None,
         }],
+        provinces: vec![],
     }
 }
 
@@ -101,6 +102,7 @@ fn chn_worldview_merges_hong_kong_macau_and_taiwan_into_china() {
             id: 18,
             point: None,
         }],
+        provinces: vec![],
     };
     let m = assemble_entities(&features, &reg).unwrap();
 
@@ -202,6 +204,7 @@ fn assemble_collapses_duplicate_adm0_a3() {
             id: 2,
             point: None,
         }],
+        provinces: vec![],
     };
     let model = assemble_entities(&features, &registry).unwrap();
     let fra = model
@@ -254,6 +257,7 @@ fn single_feature_uses_own_iso_a3_eh_even_when_adm0_differs() {
             id: 1,
             point: None,
         }],
+        provinces: vec![],
     };
     let model = assemble_entities(&features, &registry).unwrap();
     let psx = model
@@ -299,6 +303,7 @@ fn collapsed_group_without_sovereign_member_is_none() {
             id: 1,
             point: None,
         }],
+        provinces: vec![],
     };
     let model = assemble_entities(&features, &registry).unwrap();
     let ioa = model

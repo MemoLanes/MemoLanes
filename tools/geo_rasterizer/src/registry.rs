@@ -17,13 +17,20 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct Entry {
-    /// Continent 2-letter code or country `ADM0_A3`.
+    /// Continent 2-letter code, country `ADM0_A3`, or province `adm1_code`.
     pub code: String,
     pub id: u32,
     /// Representative point `[lon, lat]` (union centroid, merged across all
     /// worldviews), re-baselined each regen.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub point: Option<[f64; 2]>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Namespace {
+    Continent,
+    Country,
+    Province,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
@@ -34,6 +41,8 @@ pub struct Registry {
     pub continents: Vec<Entry>,
     #[serde(default, rename = "country")]
     pub countries: Vec<Entry>,
+    #[serde(default, rename = "province")]
+    pub provinces: Vec<Entry>,
 }
 
 impl Registry {
@@ -49,10 +58,15 @@ impl Registry {
         Ok(reg)
     }
 
-    /// No id appears twice across continents+countries (corruption guard).
+    /// No id appears twice across continents+countries+provinces (corruption guard).
     pub fn validate_unique_ids(&self) -> Result<()> {
         let mut seen = BTreeMap::new();
-        for e in self.continents.iter().chain(self.countries.iter()) {
+        for e in self
+            .continents
+            .iter()
+            .chain(self.countries.iter())
+            .chain(self.provinces.iter())
+        {
             if let Some(prev) = seen.insert(e.id, e.code.clone()) {
                 bail!("registry: id {} used by both {} and {}", e.id, prev, e.code);
             }
@@ -80,11 +94,20 @@ impl Registry {
             })
     }
 
+    pub fn id_for_province(&self, adm1_code: &str) -> Result<GeoEntityId> {
+        Self::lookup(&self.provinces, adm1_code)
+            .map(|e| GeoEntityId(e.id))
+            .ok_or_else(|| {
+                anyhow!("registry: unknown adm1_code `{adm1_code}` (append it via registry_gen)")
+            })
+    }
+
     /// One past the current maximum id (next append slot). Returns 0 if empty.
     pub fn next_id(&self) -> u32 {
         self.continents
             .iter()
             .chain(self.countries.iter())
+            .chain(self.provinces.iter())
             .map(|e| e.id)
             .max()
             .map_or(0, |m| {
@@ -106,63 +129,78 @@ fn round_point([lon, lat]: [f64; 2]) -> [f64; 2] {
     ]
 }
 
-pub fn representative_point_items(
+pub fn admin0_point_items(
     features: &[crate::admin0::Admin0Feature],
-) -> Vec<(String, bool, MultiPolygon<f64>)> {
+) -> Vec<(String, Namespace, MultiPolygon<f64>)> {
     let mut items = Vec::with_capacity(features.len() * 2);
     for f in features {
         let continent = crate::entities::feature_continent_code(&f.continent, &f.region_un);
-        items.push((continent.to_string(), true, f.geometry.clone()));
-        items.push((f.adm0_a3.clone(), false, f.geometry.clone()));
+        items.push((
+            continent.to_string(),
+            Namespace::Continent,
+            f.geometry.clone(),
+        ));
+        items.push((f.adm0_a3.clone(), Namespace::Country, f.geometry.clone()));
     }
     items
 }
 
+pub fn admin1_point_items(
+    features: &[crate::admin1::Admin1Feature],
+) -> Vec<(String, Namespace, MultiPolygon<f64>)> {
+    features
+        .iter()
+        .map(|f| (f.adm1_code.clone(), Namespace::Province, f.geometry.clone()))
+        .collect()
+}
+
 pub fn merged_geometries(
-    items: impl IntoIterator<Item = (String, bool, MultiPolygon<f64>)>,
-) -> Vec<(String, bool, MultiPolygon<f64>)> {
+    items: impl IntoIterator<Item = (String, Namespace, MultiPolygon<f64>)>,
+) -> Vec<(String, Namespace, MultiPolygon<f64>)> {
     use std::collections::HashMap;
     let mut order: Vec<String> = Vec::new();
-    let mut acc: HashMap<String, (bool, Vec<geo_types::Polygon<f64>>)> = HashMap::new();
-    for (code, is_cont, mp) in items {
+    let mut acc: HashMap<String, (Namespace, Vec<geo_types::Polygon<f64>>)> = HashMap::new();
+    for (code, namespace, mp) in items {
         let entry = acc.entry(code.clone()).or_insert_with(|| {
             order.push(code.clone());
-            (is_cont, Vec::new())
+            (namespace, Vec::new())
         });
         debug_assert_eq!(
-            entry.0, is_cont,
-            "code `{code}` appeared with inconsistent is_continent (continent vs country namespace collision)"
+            entry.0, namespace,
+            "code `{code}` appeared with inconsistent namespace (cross-namespace code collision)"
         );
         entry.1.extend(mp.0);
     }
     order
         .into_iter()
         .map(|code| {
-            let (is_cont, polys) = acc.remove(&code).expect("ordered code must be in acc");
-            (code, is_cont, MultiPolygon(polys))
+            let (namespace, polys) = acc.remove(&code).expect("ordered code must be in acc");
+            (code, namespace, MultiPolygon(polys))
         })
         .collect()
 }
 
 pub fn merged_representative_points(
-    items: impl IntoIterator<Item = (String, bool, MultiPolygon<f64>)>,
-) -> Vec<(String, bool, (f64, f64))> {
+    items: impl IntoIterator<Item = (String, Namespace, MultiPolygon<f64>)>,
+) -> Vec<(String, Namespace, (f64, f64))> {
     merged_geometries(items)
         .into_iter()
-        .filter_map(|(code, is_cont, mp)| centroid_of(&mp).map(|pt| (code, is_cont, pt)))
+        .filter_map(|(code, namespace, mp)| centroid_of(&mp).map(|pt| (code, namespace, pt)))
         .collect()
 }
 
-pub fn register_worldview(reg: &mut Registry, points: &[(String, bool, (f64, f64))]) {
-    for (code, is_continent, (lon, lat)) in points {
+pub fn register_worldview(reg: &mut Registry, points: &[(String, Namespace, (f64, f64))]) {
+    for (code, namespace, (lon, lat)) in points {
+        let carries_point = *namespace != Namespace::Continent;
         let found = reg
             .continents
             .iter_mut()
             .chain(reg.countries.iter_mut())
+            .chain(reg.provinces.iter_mut())
             .find(|e| &e.code == code);
         match found {
             Some(e) => {
-                if !is_continent {
+                if carries_point {
                     e.point = Some(round_point([*lon, *lat]));
                 }
             }
@@ -171,12 +209,12 @@ pub fn register_worldview(reg: &mut Registry, points: &[(String, bool, (f64, f64
                 let entry = Entry {
                     code: code.clone(),
                     id,
-                    point: (!is_continent).then(|| round_point([*lon, *lat])),
+                    point: carries_point.then(|| round_point([*lon, *lat])),
                 };
-                if *is_continent {
-                    reg.continents.push(entry);
-                } else {
-                    reg.countries.push(entry);
+                match namespace {
+                    Namespace::Continent => reg.continents.push(entry),
+                    Namespace::Country => reg.countries.push(entry),
+                    Namespace::Province => reg.provinces.push(entry),
                 }
             }
         }
@@ -193,6 +231,7 @@ pub fn to_toml_sorted(reg: &Registry) -> Result<String> {
         schema: reg.schema,
         continents: sorted(&reg.continents),
         countries: sorted(&reg.countries),
+        provinces: sorted(&reg.provinces),
     };
     toml::to_string(&out).context("serializing registry")
 }

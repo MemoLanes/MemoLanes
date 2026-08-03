@@ -23,3 +23,15 @@ id = 4
 [[country]]
 code = "CCC"
 id = 5
+
+[[province]]
+code = "AAA-001"
+id = 6
+
+[[province]]
+code = "AAA-002"
+id = 7
+
+[[province]]
+code = "BBB-001"
+id = 8

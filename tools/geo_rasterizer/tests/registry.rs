@@ -1,7 +1,8 @@
 //! Registry behaviour: append-only id assignment, representative-point
 //! re-baselining, and the movement primitives used by the bump-time report.
 
-use geo_rasterizer::registry::{register_worldview, to_toml_sorted, Entry, Registry};
+use geo_data_format::GeoEntityId;
+use geo_rasterizer::registry::{register_worldview, to_toml_sorted, Entry, Namespace, Registry};
 
 fn country(code: &str, id: u32, point: Option<[f64; 2]>) -> Entry {
     Entry {
@@ -17,6 +18,7 @@ fn sample() -> Registry {
         // Continent: no point — identity is the code.
         continents: vec![country("AS", 0, None)],
         countries: vec![country("USA", 7, Some([-97.0, 40.0]))],
+        provinces: vec![],
     }
 }
 
@@ -35,6 +37,7 @@ fn duplicate_id_rejected() {
         schema: 1,
         continents: vec![country("AS", 5, None)],
         countries: vec![country("USA", 5, None)],
+        provinces: vec![],
     };
     assert!(r.validate_unique_ids().is_err());
 }
@@ -45,8 +48,8 @@ fn register_appends_ids_and_sets_country_points() {
     register_worldview(
         &mut r,
         &[
-            ("EU".to_string(), true, (10.0, 50.0)),     // new continent
-            ("CAN".to_string(), false, (-106.0, 56.0)), // new country
+            ("EU".to_string(), Namespace::Continent, (10.0, 50.0)), // new continent
+            ("CAN".to_string(), Namespace::Country, (-106.0, 56.0)), // new country
         ],
     );
 
@@ -62,7 +65,10 @@ fn register_appends_ids_and_sets_country_points() {
 #[test]
 fn register_rebaselines_existing_point_but_keeps_id() {
     let mut r = sample(); // USA=7 at (-97, 40)
-    register_worldview(&mut r, &[("USA".to_string(), false, (-98.5, 39.5))]);
+    register_worldview(
+        &mut r,
+        &[("USA".to_string(), Namespace::Country, (-98.5, 39.5))],
+    );
     let usa = r.countries.iter().find(|e| e.code == "USA").unwrap();
     assert_eq!(usa.id, 7, "id is frozen");
     assert_eq!(
@@ -81,4 +87,50 @@ fn toml_round_trip_preserves_point() {
     assert_eq!(back, r);
     // Only the country carries a point; the continent serializes without it.
     assert_eq!(toml.matches("point = ").count(), 1);
+}
+
+#[test]
+fn province_ids_resolve_and_stay_unique() {
+    let toml = r#"
+schema = 1
+
+[[continent]]
+code = "EU"
+id = 0
+
+[[country]]
+code = "AAA"
+id = 1
+
+[[province]]
+code = "AAA-001"
+id = 2
+point = [0.5, 0.75]
+"#;
+    let reg = Registry::from_toml_str(toml).unwrap();
+    assert_eq!(reg.id_for_province("AAA-001").unwrap(), GeoEntityId(2));
+    assert_eq!(reg.next_id(), 3);
+    let err = reg.id_for_province("AAA-999").unwrap_err().to_string();
+    assert!(err.contains("AAA-999"), "got: {err}");
+    assert!(
+        err.contains("registry_gen"),
+        "error must say how to fix it: {err}"
+    );
+}
+
+#[test]
+fn duplicate_id_across_namespaces_is_rejected() {
+    let toml = r#"
+schema = 1
+
+[[country]]
+code = "AAA"
+id = 7
+
+[[province]]
+code = "AAA-001"
+id = 7
+"#;
+    let err = Registry::from_toml_str(toml).unwrap_err().to_string();
+    assert!(err.contains("id 7"), "got: {err}");
 }

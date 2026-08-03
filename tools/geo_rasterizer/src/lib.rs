@@ -1,5 +1,6 @@
 mod absorb;
 pub mod admin0;
+pub mod admin1;
 pub mod area;
 pub mod atomic_write;
 pub mod cache;

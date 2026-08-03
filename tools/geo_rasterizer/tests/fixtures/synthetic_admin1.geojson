@@ -1,0 +1,53 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "adm1_code": "AAA-001", "adm0_a3": "AAA", "iso_3166_2": "AA-N",
+        "name_en": "Alpha North", "name_zh": "阿尔法北",
+        "FCLASS_ISO": null, "FCLASS_CN": null, "FCLASS_US": null
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[0.0, 0.5], [1.0, 0.5], [1.0, 1.0], [0.0, 1.0], [0.0, 0.5]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "adm1_code": "AAA-002", "adm0_a3": "AAA", "iso_3166_2": "AA-S",
+        "name_en": "Alpha South", "name_zh": "阿尔法南",
+        "FCLASS_ISO": null, "FCLASS_CN": "Unrecognized", "FCLASS_US": null
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[0.0, 0.0], [1.0, 0.0], [1.0, 0.5], [0.0, 0.5], [0.0, 0.0]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "adm1_code": "BBB-001", "adm0_a3": "BBB", "iso_3166_2": "BB-1",
+        "name_en": "Bland Prime", "name_zh": "布兰德一区",
+        "FCLASS_ISO": null, "FCLASS_CN": null, "FCLASS_US": null
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[10.0, 10.0], [12.0, 10.0], [12.0, 12.0], [10.0, 12.0], [10.0, 10.0]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "adm1_code": "CCC+99?", "adm0_a3": "CCC", "iso_3166_2": "CC-X01~",
+        "name_en": null, "name_zh": null,
+        "FCLASS_ISO": null, "FCLASS_CN": null, "FCLASS_US": null
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[20.0, -5.0], [22.0, -5.0], [22.0, -3.0], [20.0, -3.0], [20.0, -5.0]]]
+      }
+    }
+  ]
+}
