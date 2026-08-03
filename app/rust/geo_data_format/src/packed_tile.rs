@@ -1,6 +1,8 @@
 //! Compact storage for one border tile: palette of distinct values +
 //! packed bit-indices into it, with a per-tile zstd envelope.
 
+use std::collections::HashMap;
+
 use crate::{GeoEntityId, CELLS_PER_TILE};
 
 pub const MAX_PALETTE_ENTRIES: usize = CELLS_PER_TILE;
@@ -25,19 +27,37 @@ impl PackedTile {
             cells.len()
         );
 
-        // Build palette in first-seen order; map each value to its palette index.
-        let mut palette: Vec<Option<GeoEntityId>> = Vec::with_capacity(4);
+        // Almost every tile holds a handful of distinct values (mean 2.4), where a
+        // linear scan beats hashing
+        const LINEAR_SCAN_MAX: usize = 16;
+        let mut palette: Vec<Option<GeoEntityId>> = Vec::new();
+        let mut seen: HashMap<Option<GeoEntityId>, u16> = HashMap::new();
         let mut cell_idx: Vec<u16> = Vec::with_capacity(CELLS_PER_TILE);
         for c in cells {
-            let i = match palette.iter().position(|p| p == c) {
-                Some(i) => i as u16,
+            let found = if palette.len() <= LINEAR_SCAN_MAX {
+                palette.iter().position(|p| p == c).map(|i| i as u16)
+            } else {
+                seen.get(c).copied()
+            };
+            let i = match found {
+                Some(i) => i,
                 None => {
                     anyhow::ensure!(
                         palette.len() < MAX_PALETTE_ENTRIES,
                         "palette overflow (more than {MAX_PALETTE_ENTRIES} distinct values)"
                     );
+                    let i = palette.len() as u16;
                     palette.push(*c);
-                    (palette.len() - 1) as u16
+                    if palette.len() > LINEAR_SCAN_MAX {
+                        if seen.is_empty() {
+                            for (j, v) in palette.iter().enumerate() {
+                                seen.insert(*v, j as u16);
+                            }
+                        } else {
+                            seen.insert(*c, i);
+                        }
+                    }
+                    i
                 }
             };
             cell_idx.push(i);
