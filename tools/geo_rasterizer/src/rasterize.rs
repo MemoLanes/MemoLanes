@@ -33,6 +33,7 @@ use std::time::Instant;
 use geo::algorithm::BoundingRect;
 use geo_data_format::{cell_index, tile_index, GeoEntityId, TileMembership, NO_ENTITY, TILE_COUNT};
 use geo_types::MultiPolygon;
+use rayon::prelude::*;
 
 use crate::projection::{lng_lat_to_block_xy, BLOCK_GRID_SIZE};
 
@@ -90,34 +91,23 @@ pub fn rasterize(
     let started = Instant::now();
 
     // Phase 1: per-entity scanline rasterization.
-    let total = geometry_for_code.len();
-    let mut entity_rasters: Vec<EntityRaster> = Vec::with_capacity(total);
-    for (i, (code, geom)) in geometry_for_code.iter().enumerate() {
-        let Some(&id) = id_for_code.get(code) else {
-            continue;
-        };
-        let Some(bbox_lnglat) = geom.bounding_rect() else {
-            continue;
-        };
-        let (min_x, min_y) = lng_lat_to_block_xy(bbox_lnglat.min().x, bbox_lnglat.max().y);
-        let (max_x, max_y) = lng_lat_to_block_xy(bbox_lnglat.max().x, bbox_lnglat.min().y);
-        let bbox_area_blocks =
-            (max_x as i64 - min_x as i64).max(1) * (max_y as i64 - min_y as i64).max(1);
-        entity_rasters.push(EntityRaster {
-            id,
-            code: code.as_str(),
-            tiles: rasterize_entity(geom, min_x, min_y, max_x, max_y),
-            bbox_area_blocks,
-        });
-        if (i + 1).is_multiple_of(32) || i + 1 == total {
-            eprintln!(
-                "[geo_rasterizer] phase 1: rasterized {}/{} entities (elapsed {:.0?})",
-                i + 1,
-                total,
-                started.elapsed()
-            );
-        }
-    }
+    let mut entity_rasters: Vec<EntityRaster> = geometry_for_code
+        .par_iter()
+        .filter_map(|(code, geom)| {
+            let id = *id_for_code.get(code)?;
+            let bbox_lnglat = geom.bounding_rect()?;
+            let (min_x, min_y) = lng_lat_to_block_xy(bbox_lnglat.min().x, bbox_lnglat.max().y);
+            let (max_x, max_y) = lng_lat_to_block_xy(bbox_lnglat.max().x, bbox_lnglat.min().y);
+            let bbox_area_blocks =
+                (max_x as i64 - min_x as i64).max(1) * (max_y as i64 - min_y as i64).max(1);
+            Some(EntityRaster {
+                id,
+                code: code.as_str(),
+                tiles: rasterize_entity(geom, min_x, min_y, max_x, max_y),
+                bbox_area_blocks,
+            })
+        })
+        .collect();
 
     eprintln!(
         "[geo_rasterizer] phase 1 complete in {:.1?} ({} entities)",
