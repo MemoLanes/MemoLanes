@@ -7,7 +7,6 @@ class FrostedBarItem extends StatelessWidget {
     required this.label,
     this.isSelected = false,
     this.isEnabled = true,
-    this.showSelectionBackground = true,
     this.onTap,
     this.iconBuilder,
     this.selectedColor = Colors.black,
@@ -16,14 +15,12 @@ class FrostedBarItem extends StatelessWidget {
     this.horizontalPadding = 14,
     this.horizontalMargin = 2,
     this.verticalMargin = 6,
-    this.selectionAnimationDuration = const Duration(milliseconds: 250),
   });
 
   final IconData icon;
   final String label;
   final bool isSelected;
   final bool isEnabled;
-  final bool showSelectionBackground;
   final VoidCallback? onTap;
   final Widget Function(Color contentColor)? iconBuilder;
   final Color selectedColor;
@@ -32,19 +29,12 @@ class FrostedBarItem extends StatelessWidget {
   final double horizontalPadding;
   final double horizontalMargin;
   final double verticalMargin;
-  final Duration selectionAnimationDuration;
 
   @override
   Widget build(BuildContext context) {
     final themeColor = selectedColor;
     final baseUnselectedColor = unselectedColor ?? Colors.grey;
     final baseDisabledColor = disabledColor ?? Colors.grey.shade500;
-
-    final Color bgColor = showSelectionBackground && isSelected
-        ? (isEnabled
-            ? Colors.white.withValues(alpha: 0.5)
-            : Colors.black.withValues(alpha: 0.05))
-        : Colors.transparent;
 
     final Color contentColor = !isEnabled
         ? baseDisabledColor
@@ -55,15 +45,10 @@ class FrostedBarItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: selectionAnimationDuration,
+      child: Container(
         margin: EdgeInsets.symmetric(
           vertical: verticalMargin,
           horizontal: horizontalMargin,
-        ),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

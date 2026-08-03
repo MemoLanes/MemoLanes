@@ -57,4 +57,15 @@ class StyleConstants {
   static const Color defaultColor = Color(0xFFB4EC51);
   static const Color loadingMaskColor = Color.fromRGBO(0, 0, 0, 0.35);
   static const double overlayFloatingRadius = 16.0;
+
+  // Floating glass controls
+  static const Color glassControlSurfaceColor = Color(0x33FFFFFF);
+  static const Color glassControlBorderColor = Color(0x59FFFFFF);
+  static const Color glassControlShadowColor = Color(0x1F000000);
+  static const Color glassControlContentColor = Color(0xE0FFFFFF);
+  static const Color glassControlMutedContentColor = Color(0x8CFFFFFF);
+  static const Color glassControlAccentColor = Color(0xFF527A17);
+
+  static const Color primaryActionColor = defaultColor;
+  static const Color secondaryActionColor = glassControlSurfaceColor;
 }

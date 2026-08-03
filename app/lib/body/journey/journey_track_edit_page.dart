@@ -560,7 +560,6 @@ class _DrawEntryModeButton extends StatelessWidget {
         icon: icon,
         label: label,
         isSelected: isSelected,
-        showSelectionBackground: false,
         onTap: onPressed,
       ),
     );

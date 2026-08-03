@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/utils.dart';
+import 'package:memolanes/constants/style_constants.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 
@@ -14,6 +15,23 @@ class RecordingButtons extends StatefulWidget {
 }
 
 class _RecordingButtonsState extends State<RecordingButtons> {
+  ButtonStyle _glassActionStyle({
+    required OutlinedBorder shape,
+    required EdgeInsetsGeometry padding,
+  }) {
+    return ElevatedButton.styleFrom(
+      backgroundColor: StyleConstants.secondaryActionColor,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: Colors.transparent,
+      elevation: 0,
+      side: const BorderSide(
+        color: StyleConstants.glassControlBorderColor,
+      ),
+      shape: shape,
+      padding: padding,
+    );
+  }
+
   Future<void> _showEndJourneyDialog() async {
     AppHaptics.warning();
     final gpsManager = context.read<GpsManager>();
@@ -44,7 +62,7 @@ class _RecordingButtonsState extends State<RecordingButtons> {
             gpsManager.changeRecordingState(GpsRecordingStatus.recording);
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFB4EC51),
+            backgroundColor: StyleConstants.primaryActionColor,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(9999),
             ),
@@ -53,7 +71,7 @@ class _RecordingButtonsState extends State<RecordingButtons> {
           child: Text(
             context.tr("home.start_new_journey"),
             style: const TextStyle(
-              color: Colors.black,
+              color: Colors.black87,
               fontWeight: FontWeight.w400,
               fontSize: 20,
             ),
@@ -71,8 +89,7 @@ class _RecordingButtonsState extends State<RecordingButtons> {
                 AppHaptics.medium();
                 gpsManager.changeRecordingState(GpsRecordingStatus.paused);
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
+              style: _glassActionStyle(
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(9999),
                 ),
@@ -82,7 +99,7 @@ class _RecordingButtonsState extends State<RecordingButtons> {
               child: Text(
                 context.tr("home.pause"),
                 style: const TextStyle(
-                  color: Color(0xFFB4EC51),
+                  color: StyleConstants.glassControlContentColor,
                   fontWeight: FontWeight.w400,
                   fontSize: 20,
                 ),
@@ -92,14 +109,13 @@ class _RecordingButtonsState extends State<RecordingButtons> {
             PointerInterceptor(
                 child: ElevatedButton(
               onPressed: _showEndJourneyDialog,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
+              style: _glassActionStyle(
                 shape: const CircleBorder(),
                 padding: const EdgeInsets.all(16),
               ),
               child: const Icon(
                 Icons.close,
-                color: Colors.white,
+                color: StyleConstants.glassControlContentColor,
                 size: 24,
               ),
             )),
@@ -118,7 +134,7 @@ class _RecordingButtonsState extends State<RecordingButtons> {
                 gpsManager.changeRecordingState(GpsRecordingStatus.recording);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFFB4EC51),
+                backgroundColor: StyleConstants.primaryActionColor,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(9999),
                 ),
@@ -128,7 +144,7 @@ class _RecordingButtonsState extends State<RecordingButtons> {
               child: Text(
                 context.tr("home.resume"),
                 style: const TextStyle(
-                  color: Colors.black,
+                  color: Colors.black87,
                   fontWeight: FontWeight.w400,
                   fontSize: 20,
                 ),
@@ -138,14 +154,13 @@ class _RecordingButtonsState extends State<RecordingButtons> {
             PointerInterceptor(
                 child: ElevatedButton(
               onPressed: _showEndJourneyDialog,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
+              style: _glassActionStyle(
                 shape: const CircleBorder(),
                 padding: const EdgeInsets.all(16),
               ),
               child: const Icon(
                 Icons.close,
-                color: Colors.white,
+                color: StyleConstants.glassControlContentColor,
                 size: 24,
               ),
             )),

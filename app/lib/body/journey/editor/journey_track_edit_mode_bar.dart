@@ -115,7 +115,6 @@ class ModeSwitchBar extends StatelessWidget {
       label: context.tr('journey.editor.draw'),
       isSelected: currentMode == OperationMode.edit ||
           currentMode == OperationMode.editReadonly,
-      showSelectionBackground: false,
       onTap: () {
         AppHaptics.light();
         onModeChanged(OperationMode.edit);
@@ -134,7 +133,6 @@ class ModeSwitchBar extends StatelessWidget {
       label: label,
       isEnabled: isEnabled,
       isSelected: isEnabled,
-      showSelectionBackground: false,
       onTap: isEnabled
           ? () {
               AppHaptics.medium();
@@ -168,7 +166,6 @@ class _ModeSwitchItem extends StatelessWidget {
       icon: icon,
       label: label,
       isSelected: selected,
-      showSelectionBackground: false,
       onTap: () {
         AppHaptics.light();
         onModeChanged(mode);

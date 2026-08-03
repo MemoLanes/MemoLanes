@@ -81,7 +81,6 @@ class BottomNavBar extends StatelessWidget {
       icon: isSelected ? activeIcon : icon,
       label: label,
       isSelected: isSelected,
-      showSelectionBackground: false,
       horizontalPadding: 4,
       horizontalMargin: 0,
       onTap: () {
