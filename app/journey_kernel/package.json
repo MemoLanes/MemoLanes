@@ -7,9 +7,11 @@
   },
   "packageManager": "yarn@1.22.22",
   "scripts": {
-    "build": "rimraf dist pkg && wasm-pack build --release --target web --out-dir pkg --out-name journey_kernel --features wasm --no-default-features && webpack --mode production",
-    "preview": "rimraf dist pkg && wasm-pack build --release --target web --out-dir pkg --out-name journey_kernel --features wasm --no-default-features && webpack serve --mode production",
-    "dev": "rimraf dist pkg && wasm-pack build --dev --target web --out-dir pkg --out-name journey_kernel --features wasm --no-default-features && webpack serve --mode development",
+    "wasm:build": "wasm-pack build --release --target web --out-dir pkg --out-name journey_kernel --features wasm --no-default-features",
+    "wasm:dev": "wasm-pack build --dev --target web --out-dir pkg --out-name journey_kernel --features wasm --no-default-features",
+    "build": "rimraf dist pkg && yarn wasm:build && webpack --mode production",
+    "preview": "rimraf dist pkg && yarn wasm:build && webpack serve --mode production",
+    "dev": "rimraf dist pkg && yarn wasm:dev && webpack serve --mode development",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,html}\"",
     "check-format": "prettier --check \"**/*.{js,jsx,ts,tsx,html}\"",
     "check-types": "tsc --noEmit"
