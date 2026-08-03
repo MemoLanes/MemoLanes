@@ -7,11 +7,12 @@ use clap::Parser;
 use geo_data_format::{write_geo_data, Locale, Worldview};
 use geo_rasterizer::{
     admin0::{parse_admin0, validate_no_antimeridian_span},
+    admin1::parse_admin1,
     area::populate_total_areas,
     atomic_write::write_atomically,
     cache::{compute_provenance_hash, read_existing_hash},
-    cldr::load_territories,
-    download::{ensure_cldr, ensure_geojson},
+    cldr::{load_subdivisions, load_territories},
+    download::{ensure_cldr, ensure_cldr_subdivisions, ensure_geojson},
     entities::assemble_entities,
     names::{build_region_names, write_region_names},
     overrides::Overrides,
@@ -65,6 +66,12 @@ fn default_countries(worldview: Worldview) -> PathBuf {
         .join(worldview.spec().source_filename)
 }
 
+fn default_admin1() -> PathBuf {
+    manifest()
+        .join("natural_earth")
+        .join(geo_data_format::ADMIN1_SOURCE_FILENAME)
+}
+
 fn default_registry() -> PathBuf {
     manifest().join("geo_entity_registry.toml")
 }
@@ -87,6 +94,12 @@ fn default_cldr(locale: Locale) -> PathBuf {
         .join(format!("territories.{}.json", locale.spec().cldr_tag))
 }
 
+fn default_cldr_subdivisions(locale: Locale) -> PathBuf {
+    manifest()
+        .join("cldr")
+        .join(format!("subdivisions.{}.json", locale.spec().cldr_tag))
+}
+
 fn generate_region_names(ensure_source: bool) -> Result<()> {
     let overrides = Overrides::load(&default_overrides())?;
     let mut by_worldview = Vec::new();
@@ -97,6 +110,10 @@ fn generate_region_names(ensure_source: bool) -> Result<()> {
         }
         by_worldview.push((worldview, parse_admin0(&path, worldview.spec().id)?));
     }
+    let mut admin1_by_worldview = Vec::new();
+    for &worldview in Worldview::ALL {
+        admin1_by_worldview.push((worldview, parse_admin1(&default_admin1(), worldview)?));
+    }
     let mut cldr = BTreeMap::new();
     for &locale in Locale::ALL {
         let path = default_cldr(locale);
@@ -105,7 +122,25 @@ fn generate_region_names(ensure_source: bool) -> Result<()> {
         }
         cldr.insert(locale, load_territories(&path, locale.spec().cldr_tag)?);
     }
-    let names = build_region_names(&by_worldview, &cldr, &overrides)?;
+    let mut subdivisions = BTreeMap::new();
+    for &locale in Locale::ALL {
+        let path = default_cldr_subdivisions(locale);
+        let fetched = if ensure_source {
+            ensure_cldr_subdivisions(&path, locale)?
+        } else {
+            locale.spec().cldr_subdivisions_sha256.is_some()
+        };
+        if fetched {
+            subdivisions.insert(locale, load_subdivisions(&path, locale.spec().cldr_tag)?);
+        }
+    }
+    let names = build_region_names(
+        &by_worldview,
+        &admin1_by_worldview,
+        &cldr,
+        &subdivisions,
+        &overrides,
+    )?;
     for (locale, map) in &names {
         let path = write_region_names(&geo_assets_dir(), *locale, map)?;
         eprintln!(
