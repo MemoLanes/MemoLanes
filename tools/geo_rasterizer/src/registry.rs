@@ -7,6 +7,7 @@
 //! sections reference the same ids.
 
 use std::collections::BTreeMap;
+use std::fmt::Write as _;
 use std::path::Path;
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -33,6 +34,30 @@ pub enum Namespace {
     Province,
 }
 
+impl Namespace {
+    pub const ALL: [Namespace; 3] = [
+        Namespace::Continent,
+        Namespace::Country,
+        Namespace::Province,
+    ];
+
+    pub fn file_name(self) -> &'static str {
+        match self {
+            Namespace::Continent => "continents.toml",
+            Namespace::Country => "countries.toml",
+            Namespace::Province => "provinces.toml",
+        }
+    }
+
+    fn key(self) -> &'static str {
+        match self {
+            Namespace::Continent => "continent",
+            Namespace::Country => "country",
+            Namespace::Province => "province",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct Registry {
     // TODO: reject schema != 1 once a v2 format exists.
@@ -46,10 +71,81 @@ pub struct Registry {
 }
 
 impl Registry {
-    pub fn load(path: &Path) -> Result<Self> {
-        let raw = std::fs::read_to_string(path)
-            .with_context(|| format!("reading registry at {}", path.display()))?;
-        Self::from_toml_str(&raw).with_context(|| format!("parsing registry at {}", path.display()))
+    pub fn load(dir: &Path) -> Result<Self> {
+        let mut reg = Registry {
+            schema: 0,
+            continents: vec![],
+            countries: vec![],
+            provinces: vec![],
+        };
+        for (i, namespace) in Namespace::ALL.into_iter().enumerate() {
+            let path = dir.join(namespace.file_name());
+            let raw = std::fs::read_to_string(&path)
+                .with_context(|| format!("reading registry file {}", path.display()))?;
+            let doc = Self::from_toml_str(&raw)
+                .with_context(|| format!("parsing registry file {}", path.display()))?;
+            if i == 0 {
+                reg.schema = doc.schema;
+            } else if reg.schema != doc.schema {
+                bail!(
+                    "registry: {} declares schema {} but earlier files declare {}",
+                    path.display(),
+                    doc.schema,
+                    reg.schema
+                );
+            }
+            reg.continents.extend(doc.continents);
+            reg.countries.extend(doc.countries);
+            reg.provinces.extend(doc.provinces);
+        }
+        reg.validate_unique_ids()
+            .with_context(|| format!("validating registry at {}", dir.display()))?;
+        Ok(reg)
+    }
+
+    pub fn write(&self, dir: &Path) -> Result<()> {
+        std::fs::create_dir_all(dir)
+            .with_context(|| format!("creating registry dir {}", dir.display()))?;
+        for namespace in Namespace::ALL {
+            let path = dir.join(namespace.file_name());
+            std::fs::write(&path, self.namespace_toml(namespace))
+                .with_context(|| format!("writing {}", path.display()))?;
+        }
+        Ok(())
+    }
+
+    fn namespace_toml(&self, namespace: Namespace) -> String {
+        let mut entries: Vec<&Entry> = self.entries(namespace).iter().collect();
+        entries.sort_by(|a, b| a.code.cmp(&b.code));
+
+        let mut out = format!("schema = {}\n\n{} = [", self.schema, namespace.key());
+        if entries.is_empty() {
+            out.push_str("]\n");
+            return out;
+        }
+        out.push('\n');
+        for e in entries {
+            out.push_str("  { code = ");
+            push_toml_string(&mut out, &e.code);
+            write!(out, ", id = {}", e.id).expect("writing to a String cannot fail");
+            if let Some([lon, lat]) = e.point {
+                // `{:?}` keeps the `.0` on integral values, which TOML needs to
+                // parse them back as floats rather than integers.
+                write!(out, ", point = [{lon:?}, {lat:?}]")
+                    .expect("writing to a String cannot fail");
+            }
+            out.push_str(" },\n");
+        }
+        out.push_str("]\n");
+        out
+    }
+
+    fn entries(&self, namespace: Namespace) -> &[Entry] {
+        match namespace {
+            Namespace::Continent => &self.continents,
+            Namespace::Country => &self.countries,
+            Namespace::Province => &self.provinces,
+        }
     }
 
     pub fn from_toml_str(raw: &str) -> Result<Self> {
@@ -221,17 +317,25 @@ pub fn register_worldview(reg: &mut Registry, points: &[(String, Namespace, (f64
     }
 }
 
-pub fn to_toml_sorted(reg: &Registry) -> Result<String> {
-    let sorted = |list: &[Entry]| {
-        let mut v = list.to_vec();
-        v.sort_by(|a, b| a.code.cmp(&b.code));
-        v
-    };
-    let out = Registry {
-        schema: reg.schema,
-        continents: sorted(&reg.continents),
-        countries: sorted(&reg.countries),
-        provinces: sorted(&reg.provinces),
-    };
-    toml::to_string(&out).context("serializing registry")
+/// Append `s` as a TOML basic string. Natural Earth codes are not all
+/// bare-key-shaped (33 `adm1_code`s carry `+` and `?`), so escape rather than
+/// assume.
+fn push_toml_string(out: &mut String, s: &str) {
+    out.push('"');
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\u{8}' => out.push_str("\\b"),
+            '\t' => out.push_str("\\t"),
+            '\n' => out.push_str("\\n"),
+            '\u{c}' => out.push_str("\\f"),
+            '\r' => out.push_str("\\r"),
+            c if (c as u32) < 0x20 || c == '\u{7f}' => {
+                write!(out, "\\u{:04X}", c as u32).expect("writing to a String cannot fail")
+            }
+            c => out.push(c),
+        }
+    }
+    out.push('"');
 }

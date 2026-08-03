@@ -106,7 +106,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: app/assets/geo/geo_data_*.bin
-          key: geo-bins-${{ hashFiles('tools/geo_rasterizer/src/**', 'tools/geo_rasterizer/Cargo.lock', 'tools/geo_rasterizer/geo_entity_registry.toml', 'app/rust/geo_data_format/src/**', 'app/rust/geo_data_format/Cargo.lock') }}
+          key: geo-bins-${{ hashFiles('tools/geo_rasterizer/src/**', 'tools/geo_rasterizer/Cargo.lock', 'tools/geo_rasterizer/geo_entity_registry/*.toml', 'app/rust/geo_data_format/src/**', 'app/rust/geo_data_format/Cargo.lock') }}
 
       - name: Geo Data Format Check
         if: steps.changes.outputs.geo == 'true'
@@ -127,9 +127,9 @@ jobs:
 
       # Guardrail: rasterize-geo regenerates the committed id registry (union
       # over Worldview::ALL). CI can't commit, so a non-empty diff means someone bumped
-      # a worldview/source but forgot to regenerate + commit geo_entity_registry.toml.
+      # a worldview/source but forgot to regenerate + commit geo_entity_registry/.
       - name: Geo Registry Up To Date
-        run: git -C "$GITHUB_WORKSPACE" diff --exit-code -- tools/geo_rasterizer/geo_entity_registry.toml
+        run: git -C "$GITHUB_WORKSPACE" diff --exit-code -- tools/geo_rasterizer/geo_entity_registry
 
       # ======== START WASM MODULE ========
       - name: Get Rust Dependencies (journey kernel)

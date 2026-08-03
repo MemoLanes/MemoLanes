@@ -41,7 +41,7 @@ struct Args {
     #[arg(long, requires = "worldview")]
     admin1: Option<PathBuf>,
 
-    /// Override the frozen geo-entity id registry path. Requires `--worldview`.
+    /// Override the frozen geo-entity id registry directory. Requires `--worldview`.
     #[arg(long, requires = "worldview")]
     registry: Option<PathBuf>,
 
@@ -80,7 +80,7 @@ fn default_admin1() -> PathBuf {
 }
 
 fn default_registry() -> PathBuf {
-    manifest().join("geo_entity_registry.toml")
+    manifest().join("geo_entity_registry")
 }
 
 fn geo_assets_dir() -> PathBuf {
@@ -209,7 +209,7 @@ fn rasterize_one(
     worldview: Worldview,
     countries: PathBuf,
     admin1_path: PathBuf,
-    registry_path: PathBuf,
+    registry_dir: PathBuf,
     output: PathBuf,
     ensure_source: bool,
     download_only: bool,
@@ -233,7 +233,7 @@ fn rasterize_one(
     // 1. Smart skip — provenance hash (inputs + GEO_DATA_VERSION salt)
     //    vs. existing bin's embedded hash.
     let provenance_hash =
-        compute_provenance_hash(&countries, &admin1_path, &registry_path, worldview_id)?;
+        compute_provenance_hash(&countries, &admin1_path, &registry_dir, worldview_id)?;
     if let Some(existing) = read_existing_hash(&output)? {
         if existing == provenance_hash {
             eprintln!(
@@ -249,7 +249,7 @@ fn rasterize_one(
     let features = parse_admin0(&countries, worldview_id)?;
     eprintln!("[geo_rasterizer] parsed {} features", features.len());
     validate_no_antimeridian_span(&features)?;
-    let registry = Registry::load(&registry_path)?;
+    let registry = Registry::load(&registry_dir)?;
 
     // 3. Entity assembly.
     eprintln!("[geo_rasterizer] assembling entity model...");

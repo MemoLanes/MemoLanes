@@ -11,7 +11,7 @@ use geo_rasterizer::refine::Coverage;
 use geo_rasterizer::registry::{Entry, Registry};
 use geo_types::{Coord, LineString, MultiPolygon, Polygon};
 
-const SYNTHETIC_REGISTRY: &str = "tests/fixtures/synthetic_registry.toml";
+const SYNTHETIC_REGISTRY: &str = "tests/fixtures/synthetic_registry";
 
 /// A minimal `TYPE == "Country"` feature: one unit-square polygon, `iso_a3_eh`
 /// equal to its `adm0_a3`. `region_un` is a harmless placeholder (unused unless

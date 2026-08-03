@@ -7,7 +7,7 @@ use geo_rasterizer::{
     rasterize::rasterize, registry::Registry,
 };
 
-const SYNTHETIC_REGISTRY: &str = "tests/fixtures/synthetic_registry.toml";
+const SYNTHETIC_REGISTRY: &str = "tests/fixtures/synthetic_registry";
 
 #[test]
 fn synthetic_polygons_classify_correctly() {

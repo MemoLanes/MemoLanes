@@ -12,7 +12,7 @@
 //! only and the admin-1 side stays pinned — a registry without provinces would
 //! make every `rasterize-geo` fail on an unknown `adm1_code`.
 //!
-//! Commit the resulting geo_entity_registry.toml in the same PR as the source
+//! Commit the resulting geo_entity_registry/ files in the same PR as the source
 //! bump.
 
 use std::path::{Path, PathBuf};
@@ -25,7 +25,7 @@ use geo_rasterizer::admin1::parse_admin1;
 use geo_rasterizer::download::{ensure_admin1, ensure_geojson};
 use geo_rasterizer::registry::{
     admin0_point_items, admin1_point_items, merged_representative_points, register_worldview,
-    to_toml_sorted, Namespace, Registry,
+    Namespace, Registry,
 };
 
 #[derive(Parser, Debug)]
@@ -37,8 +37,8 @@ struct Args {
     /// (stable). The admin-1 source stays pinned either way.
     #[arg(long = "source", value_name = "worldview:PATH", num_args = 1..)]
     sources: Vec<String>,
-    /// Registry TOML to create or extend. Defaults to the crate's frozen
-    /// geo_entity_registry.toml regardless of the caller's cwd.
+    /// Registry directory to create or extend. Defaults to the crate's frozen
+    /// geo_entity_registry/ regardless of the caller's cwd.
     #[arg(long)]
     registry: Option<PathBuf>,
 }
@@ -50,7 +50,7 @@ fn manifest() -> PathBuf {
 }
 
 fn default_registry() -> PathBuf {
-    manifest().join("geo_entity_registry.toml")
+    manifest().join("geo_entity_registry")
 }
 
 fn default_countries(worldview: Worldview) -> PathBuf {
@@ -69,10 +69,10 @@ fn source_items(
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    let registry_path = args.registry.unwrap_or_else(default_registry);
+    let registry_dir = args.registry.unwrap_or_else(default_registry);
 
-    let mut reg = if registry_path.exists() {
-        Registry::load(&registry_path)?
+    let mut reg = if registry_dir.exists() {
+        Registry::load(&registry_dir)?
     } else {
         Registry {
             schema: 1,
@@ -115,13 +115,13 @@ fn main() -> Result<()> {
 
     reg.validate_unique_ids()?;
     let after_id = reg.next_id();
-    std::fs::write(&registry_path, to_toml_sorted(&reg)?)?;
+    reg.write(&registry_dir)?;
     eprintln!(
         "[registry_gen] {} → {} ids ({} new); wrote {}",
         start_id,
         after_id,
         after_id - start_id,
-        registry_path.display()
+        registry_dir.display()
     );
     Ok(())
 }

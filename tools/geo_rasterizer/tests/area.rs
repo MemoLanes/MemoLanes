@@ -12,7 +12,7 @@ use geo_rasterizer::registry::Registry;
 #[test]
 fn synthetic_areas_are_positive_and_sum_consistently() {
     let features = parse_admin0(Path::new("tests/fixtures/synthetic.geojson"), "iso").unwrap();
-    let registry = Registry::load(Path::new("tests/fixtures/synthetic_registry.toml")).unwrap();
+    let registry = Registry::load(Path::new("tests/fixtures/synthetic_registry")).unwrap();
     let mut model = assemble_entities(&features, &registry).unwrap();
     let country_ids: BTreeMap<String, GeoEntityId> = model
         .entities
@@ -116,7 +116,7 @@ fn country_area_is_the_sum_of_its_leaf_blocks_at_any_depth() {
     use std::collections::BTreeMap;
 
     let features = parse_admin0(Path::new("tests/fixtures/synthetic.geojson"), "iso").unwrap();
-    let registry = Registry::load(Path::new("tests/fixtures/synthetic_registry.toml")).unwrap();
+    let registry = Registry::load(Path::new("tests/fixtures/synthetic_registry")).unwrap();
     let mut model = assemble_entities(&features, &registry).unwrap();
 
     let country_ids: BTreeMap<String, GeoEntityId> = model

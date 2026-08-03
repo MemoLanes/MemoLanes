@@ -10,40 +10,46 @@ shipped in `app/assets/geo/`:
 Run via the `app/` Justfile (`just rasterize-geo`); it is not part of the app at
 runtime. Both outputs are git-ignored and reproducible from the pinned source.
 
-Two files in this crate are **hand-curated state**, committed as source of truth:
-`geo_entity_registry.toml` (frozen ids) and `geo_names_overrides.toml` (name
+Two things in this crate are **hand-curated state**, committed as source of truth:
+`geo_entity_registry/` (frozen ids) and `geo_names_overrides.toml` (name
 overrides). This README covers the registry first, then names.
 
-## What `geo_entity_registry.toml` is
+## What `geo_entity_registry/` is
 
 It is the **frozen, append-only id registry** for geo entities. It assigns every
-entity a small, permanent integer id:
+entity a small, permanent integer id, and is split into one file per level so a
+country-level diff is not drowned by the ~4.6k provinces:
 
-- **continents** — keyed by continent code
-- **countries** — keyed by [ADM0_A3](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-3)
+- `continents.toml` — keyed by continent code
+- `countries.toml` — keyed by [ADM0_A3](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-3)
   country code (the `ADM0_A3` field in the Natural Earth source)
+- `provinces.toml` — keyed by `adm1_code` (the admin-1 source's own code)
 
-Each **country** entry also stores a `point` — a `[lon, lat]` representative
-point (the entity's **union centroid**: its geometry merged across every
-worldview), rounded to 4 decimals. It is informational, not a gate — it makes the
-committed registry diff carry an identity signal (see [below](#why-it-exists)).
+Each **country** and **province** entry also stores a `point` — a `[lon, lat]`
+representative point (the entity's **union centroid**: its geometry merged across
+every worldview), rounded to 4 decimals. It is informational, not a gate — it makes
+the committed registry diff carry an identity signal (see [below](#why-it-exists)).
 Continents carry no `point` — a continent's identity is its code.
 
-Top level:
-
-- `schema` — format version (currently `1`).
+Each file is a standalone document: a `schema` key (format version, currently `1`;
+all three must agree) plus one array of inline tables, one line per entity.
 
 ```toml
-# Country: id + representative point.
-[[country]]
-code = "ARG"
-id = 7
-point = [-65.1731, -35.3787]
+# countries.toml
+schema = 1
 
-# Continent: identity is the code, so no point.
-[[continent]]
-code = "SA"
-id = 3
+country = [
+  { code = "ARG", id = 7, point = [-65.1731, -35.3787] },
+]
+```
+
+```toml
+# continents.toml — identity is the code, so no point.
+schema = 1
+
+continent = [
+  { code = "SA", id = 3 },
+]
 ```
 
 Entries are sorted by `code` and points rounded to 4 dp; `id` is always an
@@ -51,8 +57,8 @@ explicit field, so sorting never changes an id. The full schema lives in the
 `Registry` / `Entry` types in [`src/registry.rs`](src/registry.rs).
 
 Unlike the generated `geo_data_*.bin` files and the downloaded
-`natural_earth/*.geojson` sources (both git-ignored), **this TOML is committed**
-— it is the source of truth.
+`natural_earth/*.geojson` sources (both git-ignored), **these TOMLs are committed**
+— they are the source of truth.
 
 ## Why it exists
 
@@ -68,10 +74,10 @@ forever**:
   so per-worldview bins share one id space.
 
 Identity is **not gated automatically**. Instead, each country's `point` is
-re-baselined to its current union centroid on every regen, and this TOML is
+re-baselined to its current union centroid on every regen, and these TOMLs are
 committed — so a code silently reassigned to a different place shows up as a large
 `point` move in the registry diff of the source-bump PR. The CI guardrail
-(`git diff --exit-code` on this file, run after `registry-gen`) forces that diff
+(`git diff --exit-code` on the directory, run after `registry-gen`) forces that diff
 to be regenerated and reviewed; a reviewer scans it for a gross jump. Rounding to
 ~11 m keeps benign coastline refinement out of the diff, so only real movement
 shows. A border move barely nudges the centroid; a reassignment to another place
@@ -94,14 +100,14 @@ From the `app/` directory:
 
 ```bash
 just registry-gen     # union over every shipped worldview (Worldview::ALL); downloads
-                      # the pinned sources if missing, then rewrites the TOML
+                      # the pinned sources if missing, then rewrites every file
 ```
 
 `just rasterize-geo` depends on `registry-gen`, so the registry is always
 brought up to date before any worldview is rasterized — you normally don't need to run
 it by hand.
 
-Then **commit the updated `geo_entity_registry.toml` in the same PR** as the
+Then **commit the updated `geo_entity_registry/` in the same PR** as the
 source/worldview change. Because generation is append-only, the only change should be
 newly appended ids; existing ids must not move.
 
@@ -120,7 +126,7 @@ cargo run --release --bin registry_gen -- --source iso:natural_earth/<file>.geoj
 CI runs `just rasterize-geo` (which regenerates the registry) and then checks:
 
 ```bash
-git diff --exit-code tools/geo_rasterizer/geo_entity_registry.toml
+git diff --exit-code tools/geo_rasterizer/geo_entity_registry
 ```
 
 A non-empty diff fails the build — meaning a source/worldview bump was made without
