@@ -34,8 +34,8 @@ use geo::algorithm::BoundingRect;
 use geo_data_format::{cell_index, tile_index, GeoEntityId, TileMembership, TILE_COUNT};
 use geo_types::MultiPolygon;
 
+use crate::admin0::Admin0Feature;
 use crate::entities::EntityModel;
-use crate::parse::ParsedFeature;
 use crate::projection::{lng_lat_to_block_xy, BLOCK_GRID_SIZE};
 
 const TILE_WIDTH: usize = 128;
@@ -85,7 +85,7 @@ struct EntityRaster<'a> {
     bbox_area_blocks: i64,
 }
 
-pub fn rasterize(_features: &[ParsedFeature], model: &EntityModel) -> (TileLookup, BlockLookup) {
+pub fn rasterize(_features: &[Admin0Feature], model: &EntityModel) -> (TileLookup, BlockLookup) {
     let started = Instant::now();
 
     // Phase 1: per-entity scanline rasterization.

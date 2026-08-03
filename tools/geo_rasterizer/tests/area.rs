@@ -2,16 +2,16 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use geo_data_format::{GeoEntity, GeoEntityId, GeoEntityKind, TileMembership};
+use geo_rasterizer::admin0::parse_admin0;
 use geo_rasterizer::area::populate_total_areas;
 use geo_rasterizer::entities::{assemble_entities, EntityModel};
-use geo_rasterizer::parse::parse_geojson;
 use geo_rasterizer::projection::block_area_m2;
 use geo_rasterizer::rasterize::rasterize;
 use geo_rasterizer::registry::Registry;
 
 #[test]
 fn synthetic_areas_are_positive_and_sum_consistently() {
-    let features = parse_geojson(Path::new("tests/fixtures/synthetic.geojson"), "iso").unwrap();
+    let features = parse_admin0(Path::new("tests/fixtures/synthetic.geojson"), "iso").unwrap();
     let registry = Registry::load(Path::new("tests/fixtures/synthetic_registry.toml")).unwrap();
     let mut model = assemble_entities(&features, &registry).unwrap();
     let (tile_lookup, block_lookup) = rasterize(&features, &model);

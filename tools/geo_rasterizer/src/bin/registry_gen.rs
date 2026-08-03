@@ -12,8 +12,8 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, Result};
 use clap::Parser;
 use geo_data_format::Worldview;
+use geo_rasterizer::admin0::parse_admin0;
 use geo_rasterizer::download::ensure_geojson;
-use geo_rasterizer::parse::parse_geojson;
 use geo_rasterizer::registry::{
     merged_representative_points, register_worldview, representative_point_items, to_toml_sorted,
     Registry,
@@ -54,7 +54,7 @@ fn source_items(
     worldview: Worldview,
     path: &Path,
 ) -> Result<Vec<(String, bool, geo_types::MultiPolygon<f64>)>> {
-    let features = parse_geojson(path, worldview.spec().id)?;
+    let features = parse_admin0(path, worldview.spec().id)?;
     Ok(representative_point_items(&features))
 }
 

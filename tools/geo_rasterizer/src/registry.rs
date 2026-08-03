@@ -107,7 +107,7 @@ fn round_point([lon, lat]: [f64; 2]) -> [f64; 2] {
 }
 
 pub fn representative_point_items(
-    features: &[crate::parse::ParsedFeature],
+    features: &[crate::admin0::Admin0Feature],
 ) -> Vec<(String, bool, MultiPolygon<f64>)> {
     let mut items = Vec::with_capacity(features.len() * 2);
     for f in features {

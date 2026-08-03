@@ -29,17 +29,17 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, bail, Context, Result};
 use geo_data_format::{Locale, Worldview};
 
+use crate::admin0::Admin0Feature;
 use crate::atomic_write::write_atomically;
 use crate::entities::{group_continent_code, sovereign_member};
 use crate::overrides::Overrides;
-use crate::parse::ParsedFeature;
 
 pub fn region_names_path(dir: &Path, locale: Locale) -> PathBuf {
     dir.join(format!("region_names.{}.json", locale.spec().tag))
 }
 
 pub fn build_region_names(
-    by_worldview: &[(Worldview, Vec<ParsedFeature>)],
+    by_worldview: &[(Worldview, Vec<Admin0Feature>)],
     cldr: &BTreeMap<Locale, BTreeMap<String, String>>,
     overrides: &Overrides,
 ) -> Result<BTreeMap<Locale, BTreeMap<String, String>>> {
@@ -52,7 +52,7 @@ pub fn build_region_names(
     let mut country_a2: BTreeMap<String, (String, &'static str)> = BTreeMap::new();
 
     for (worldview, features) in by_worldview {
-        let mut groups: BTreeMap<&str, Vec<&ParsedFeature>> = BTreeMap::new();
+        let mut groups: BTreeMap<&str, Vec<&Admin0Feature>> = BTreeMap::new();
         for f in features {
             groups.entry(f.adm0_a3.as_str()).or_default().push(f);
         }

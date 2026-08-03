@@ -6,6 +6,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use geo_data_format::{write_geo_data, Locale, Worldview};
 use geo_rasterizer::{
+    admin0::{parse_admin0, validate_no_antimeridian_span},
     area::populate_total_areas,
     atomic_write::write_atomically,
     cache::{compute_provenance_hash, read_existing_hash},
@@ -14,7 +15,6 @@ use geo_rasterizer::{
     entities::assemble_entities,
     names::{build_region_names, write_region_names},
     overrides::Overrides,
-    parse::{parse_geojson, validate_no_antimeridian_span},
     rasterize::rasterize,
     registry::Registry,
 };
@@ -95,7 +95,7 @@ fn generate_region_names(ensure_source: bool) -> Result<()> {
         if ensure_source {
             ensure_geojson(&path, worldview)?;
         }
-        by_worldview.push((worldview, parse_geojson(&path, worldview.spec().id)?));
+        by_worldview.push((worldview, parse_admin0(&path, worldview.spec().id)?));
     }
     let mut cldr = BTreeMap::new();
     for &locale in Locale::ALL {
@@ -199,7 +199,7 @@ fn rasterize_one(
 
     // 2. Parse + validate.
     eprintln!("[geo_rasterizer] parsing inputs...");
-    let features = parse_geojson(&countries, worldview_id)?;
+    let features = parse_admin0(&countries, worldview_id)?;
     eprintln!("[geo_rasterizer] parsed {} features", features.len());
     validate_no_antimeridian_span(&features)?;
     let registry = Registry::load(&registry_path)?;

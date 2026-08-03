@@ -1,7 +1,7 @@
-//! Absorptions are applied inside `parse_geojson`, so they are tested through
+//! Absorptions are applied inside `parse_admin0`, so they are tested through
 //! that public door (the function itself is crate-private by design).
 
-use geo_rasterizer::parse::parse_geojson;
+use geo_rasterizer::admin0::parse_admin0;
 use serde_json::json;
 
 /// Write a chn-style FeatureCollection with one `TYPE == "Country"` square per
@@ -29,7 +29,7 @@ fn write_source(codes: &[&str]) -> tempfile::NamedTempFile {
 #[test]
 fn chn_absorbs_hong_kong_and_macau_into_china() {
     let src = write_source(&["CHN", "HKG", "MAC", "JPN"]);
-    let features = parse_geojson(src.path(), "chn").unwrap();
+    let features = parse_admin0(src.path(), "chn").unwrap();
     let codes: Vec<&str> = features.iter().map(|f| f.adm0_a3.as_str()).collect();
     assert_eq!(codes, vec!["CHN", "JPN"]);
     let china = features.iter().find(|f| f.adm0_a3 == "CHN").unwrap();
@@ -40,7 +40,7 @@ fn chn_absorbs_hong_kong_and_macau_into_china() {
 fn other_worldviews_keep_hong_kong_and_macau_separate() {
     for wv in ["iso", "usa"] {
         let src = write_source(&["CHN", "HKG", "MAC"]);
-        let features = parse_geojson(src.path(), wv).unwrap();
+        let features = parse_admin0(src.path(), wv).unwrap();
         let codes: Vec<&str> = features.iter().map(|f| f.adm0_a3.as_str()).collect();
         assert_eq!(codes, vec!["CHN", "HKG", "MAC"], "worldview {wv}");
     }
@@ -50,7 +50,7 @@ fn other_worldviews_keep_hong_kong_and_macau_separate() {
 fn missing_sovereign_is_an_error() {
     // HKG present, but its sovereign CHN is not — its geometry would vanish.
     let src = write_source(&["HKG", "JPN"]);
-    // `.err()` avoids requiring `ParsedFeature: Debug` (which `unwrap_err` needs).
-    let err = parse_geojson(src.path(), "chn").err().unwrap().to_string();
+    // `.err()` avoids requiring `Admin0Feature: Debug` (which `unwrap_err` needs).
+    let err = parse_admin0(src.path(), "chn").err().unwrap().to_string();
     assert!(err.contains("CHN"), "got: {err}");
 }

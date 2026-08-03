@@ -10,7 +10,7 @@ use anyhow::{anyhow, Result};
 use geo_data_format::{GeoEntity, GeoEntityId, GeoEntityKind};
 use geo_types::MultiPolygon;
 
-use crate::parse::ParsedFeature;
+use crate::admin0::Admin0Feature;
 use crate::registry::Registry;
 
 /// All the entity-level outputs the rasterizer needs.
@@ -51,7 +51,7 @@ fn region_un_code(region_un: &str) -> &'static str {
     }
 }
 
-pub fn sovereign_member<'a>(group: &[&'a ParsedFeature]) -> Option<&'a ParsedFeature> {
+pub fn sovereign_member<'a>(group: &[&'a Admin0Feature]) -> Option<&'a Admin0Feature> {
     match group {
         [only] => Some(only),
         members => members
@@ -61,7 +61,7 @@ pub fn sovereign_member<'a>(group: &[&'a ParsedFeature]) -> Option<&'a ParsedFea
     }
 }
 
-pub fn group_continent_code(group: &[&ParsedFeature]) -> Result<&'static str> {
+pub fn group_continent_code(group: &[&Admin0Feature]) -> Result<&'static str> {
     if let Some(sovereign) = sovereign_member(group) {
         return Ok(feature_continent_code(
             &sovereign.continent,
@@ -85,7 +85,7 @@ pub fn group_continent_code(group: &[&ParsedFeature]) -> Result<&'static str> {
 }
 
 fn continent_set<'g, 'f>(
-    groups: impl IntoIterator<Item = &'g Vec<&'f ParsedFeature>>,
+    groups: impl IntoIterator<Item = &'g Vec<&'f Admin0Feature>>,
 ) -> Result<BTreeSet<&'static str>>
 where
     'f: 'g,
@@ -96,11 +96,11 @@ where
         .collect()
 }
 
-pub fn assemble_entities(features: &[ParsedFeature], registry: &Registry) -> Result<EntityModel> {
+pub fn assemble_entities(features: &[Admin0Feature], registry: &Registry) -> Result<EntityModel> {
     // Group features by ADM0_A3 (collapse step), BTreeMap for deterministic
     // iteration. NOTE: iteration order no longer determines IDs — the
     // registry does — but determinism still matters for area/raster passes.
-    let mut groups: BTreeMap<String, Vec<&ParsedFeature>> = BTreeMap::new();
+    let mut groups: BTreeMap<String, Vec<&Admin0Feature>> = BTreeMap::new();
     for f in features {
         groups.entry(f.adm0_a3.clone()).or_default().push(f);
     }

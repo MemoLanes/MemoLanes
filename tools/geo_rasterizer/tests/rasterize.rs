@@ -2,7 +2,7 @@ use std::path::Path;
 
 use geo_data_format::TileMembership;
 use geo_rasterizer::{
-    entities::assemble_entities, parse::parse_geojson, projection::lng_lat_to_block_xy,
+    admin0::parse_admin0, entities::assemble_entities, projection::lng_lat_to_block_xy,
     rasterize::rasterize, registry::Registry,
 };
 
@@ -10,7 +10,7 @@ const SYNTHETIC_REGISTRY: &str = "tests/fixtures/synthetic_registry.toml";
 
 #[test]
 fn synthetic_polygons_classify_correctly() {
-    let features = parse_geojson(Path::new("tests/fixtures/synthetic.geojson"), "iso").unwrap();
+    let features = parse_admin0(Path::new("tests/fixtures/synthetic.geojson"), "iso").unwrap();
     let registry = Registry::load(Path::new(SYNTHETIC_REGISTRY)).unwrap();
     let model = assemble_entities(&features, &registry).unwrap();
     let (tile_lookup, block_lookup) = rasterize(&features, &model);
@@ -46,7 +46,7 @@ fn synthetic_polygons_classify_correctly() {
 
 #[test]
 fn deep_ocean_block_resolves_to_none() {
-    let features = parse_geojson(Path::new("tests/fixtures/synthetic.geojson"), "iso").unwrap();
+    let features = parse_admin0(Path::new("tests/fixtures/synthetic.geojson"), "iso").unwrap();
     let registry = Registry::load(Path::new(SYNTHETIC_REGISTRY)).unwrap();
     let model = assemble_entities(&features, &registry).unwrap();
     let (tile_lookup, _) = rasterize(&features, &model);

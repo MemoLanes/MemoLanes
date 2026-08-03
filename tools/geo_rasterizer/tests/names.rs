@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
 use geo_data_format::{Locale, Worldview};
+use geo_rasterizer::admin0::Admin0Feature;
 use geo_rasterizer::names::{build_region_names, write_region_names};
 use geo_rasterizer::overrides::Overrides;
-use geo_rasterizer::parse::ParsedFeature;
 use geo_types::{Coord, LineString, MultiPolygon, Polygon};
 
 fn sq() -> MultiPolygon<f64> {
@@ -19,8 +19,8 @@ fn sq() -> MultiPolygon<f64> {
 }
 
 /// A single-feature `TYPE == "Country"` group in Asia, joined to CLDR by `a2`.
-fn feat(adm0: &str, a2: &str) -> ParsedFeature {
-    ParsedFeature {
+fn feat(adm0: &str, a2: &str) -> Admin0Feature {
+    Admin0Feature {
         adm0_a3: adm0.into(),
         iso_a3: adm0.into(),
         iso_a3_eh: adm0.into(),
@@ -141,7 +141,7 @@ fn no_sovereign_and_no_override_is_an_error() {
     // A collapsed multi-member group with no `TYPE == "Country"` member has no
     // sovereign ISO_A2_EH to join on; without an override the key cannot fill.
     let ov = Overrides::from_toml_str(OVERRIDES).unwrap();
-    let dependency = |name: &str| ParsedFeature {
+    let dependency = |name: &str| Admin0Feature {
         feature_type: "Dependency".into(),
         name: name.into(),
         ..feat("BBB", "BB")
