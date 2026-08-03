@@ -45,7 +45,7 @@ fn synthetic_polygons_classify_correctly() {
                 .find(|e| e.canonical_code == "AAA")
                 .unwrap()
                 .id;
-            assert_eq!(blocks[block_idx], Some(entity_id));
+            assert_eq!(blocks[block_idx], entity_id.0);
         }
         other => panic!("expected Border for AAA tile, got {other:?}"),
     }

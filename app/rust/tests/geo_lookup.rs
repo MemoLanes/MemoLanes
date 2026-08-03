@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use geo_data_format::{
     write_geo_data, GeoEntity, GeoEntityId, GeoEntityKind, TileMembership, Worldview,
-    CELLS_PER_TILE, TILE_COUNT, TILE_GRID_WIDTH,
+    CELLS_PER_TILE, NO_ENTITY, TILE_COUNT, TILE_GRID_WIDTH,
 };
 use memolanes_core::{
     geo::{GeoIndex, GeoLookup},
@@ -44,10 +44,10 @@ fn synthetic_geo_with_singles_at(extra_singles: &[usize]) -> GeoIndex {
         tiles[*idx] = TileMembership::Single(GeoEntityId(2));
     }
 
-    let mut cells = vec![None; CELLS_PER_TILE];
-    cells[BlockKey::from_x_y(2, 3).index()] = Some(GeoEntityId(3)); // DE
-    cells[BlockKey::from_x_y(5, 5).index()] = Some(GeoEntityId(2)); // FR
-    let mut blocks: BTreeMap<(u16, u16), Vec<Option<GeoEntityId>>> = BTreeMap::new();
+    let mut cells = vec![NO_ENTITY; CELLS_PER_TILE];
+    cells[BlockKey::from_x_y(2, 3).index()] = 3; // DE
+    cells[BlockKey::from_x_y(5, 5).index()] = 2; // FR
+    let mut blocks: BTreeMap<(u16, u16), Vec<u32>> = BTreeMap::new();
     blocks.insert((1, 0), cells);
 
     let bytes = write_geo_data(
@@ -242,12 +242,12 @@ fn interleaved_tile_lookups_do_not_leak_across_tiles() {
     tiles[1024] = TileMembership::Border; // (tx,ty)=(2,0) → idx 2*512+0=1024
 
     let block_idx = BlockKey::from_x_y(3, 5).index();
-    let mut cells1 = vec![None; CELLS_PER_TILE];
-    cells1[block_idx] = Some(GeoEntityId(2)); // FR in first tile
-    let mut cells2 = vec![None; CELLS_PER_TILE];
-    cells2[block_idx] = Some(GeoEntityId(3)); // DE in second tile
+    let mut cells1 = vec![NO_ENTITY; CELLS_PER_TILE];
+    cells1[block_idx] = 2; // FR in first tile
+    let mut cells2 = vec![NO_ENTITY; CELLS_PER_TILE];
+    cells2[block_idx] = 3; // DE in second tile
 
-    let mut blocks: BTreeMap<(u16, u16), Vec<Option<GeoEntityId>>> = BTreeMap::new();
+    let mut blocks: BTreeMap<(u16, u16), Vec<u32>> = BTreeMap::new();
     blocks.insert((1, 0), cells1);
     blocks.insert((2, 0), cells2);
 

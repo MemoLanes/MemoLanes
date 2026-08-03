@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use geo_data_format::{GeoEntity, GeoEntityId, GeoEntityKind, TileMembership};
+use geo_data_format::{GeoEntity, GeoEntityId, GeoEntityKind, TileMembership, NO_ENTITY};
 use geo_rasterizer::admin0::parse_admin0;
 use geo_rasterizer::area::populate_total_areas;
 use geo_rasterizer::entities::{assemble_entities, EntityModel};
@@ -91,9 +91,9 @@ fn border_cell_area_weighted_by_latitude_row() {
     let mut tile_lookup = vec![TileMembership::None; MAP_WIDTH * MAP_WIDTH];
     tile_lookup[tx * MAP_WIDTH + ty] = TileMembership::Border; // x-major tile index
 
-    let mut cells = vec![None; TILE_WIDTH * TILE_WIDTH];
-    cells[lx * TILE_WIDTH + ly] = Some(id); // x-major block index = x*128 + y
-    let mut block_lookup: BTreeMap<(u16, u16), Vec<Option<GeoEntityId>>> = BTreeMap::new();
+    let mut cells = vec![NO_ENTITY; TILE_WIDTH * TILE_WIDTH];
+    cells[lx * TILE_WIDTH + ly] = id.0; // x-major block index = x*128 + y
+    let mut block_lookup: BTreeMap<(u16, u16), Vec<u32>> = BTreeMap::new();
     block_lookup.insert((tx as u16, ty as u16), cells);
 
     populate_total_areas(&mut model, &tile_lookup, &block_lookup);

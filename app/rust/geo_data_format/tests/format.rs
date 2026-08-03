@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use geo_data_format::{
     read_geo_data, write_geo_data, GeoEntity, GeoEntityId, GeoEntityKind, PackedTile, TileEntry,
-    TileMembership, CELLS_PER_TILE, TILE_COUNT,
+    TileMembership, CELLS_PER_TILE, NO_ENTITY, TILE_COUNT,
 };
 
 fn entity(id: u32, iso: &str) -> GeoEntity {
@@ -22,9 +22,9 @@ fn round_trip_single_border_none() {
     let mut tl = vec![TileMembership::None; TILE_COUNT];
     tl[0] = TileMembership::Single(GeoEntityId(7));
     tl[1] = TileMembership::Border; // x-major: tile idx 1 → tx=0, ty=1
-    let mut cells = vec![None; CELLS_PER_TILE];
-    cells[5] = Some(GeoEntityId(7));
-    let mut bl: BTreeMap<(u16, u16), Vec<Option<GeoEntityId>>> = BTreeMap::new();
+    let mut cells = vec![NO_ENTITY; CELLS_PER_TILE];
+    cells[5] = 7;
+    let mut bl: BTreeMap<(u16, u16), Vec<u32>> = BTreeMap::new();
     bl.insert((0, 1), cells);
 
     let bytes = write_geo_data(&[entity(7, "AAA")], "iso", &tl, &bl, [3u8; 32]).unwrap();

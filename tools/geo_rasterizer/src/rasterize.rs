@@ -31,7 +31,7 @@ use std::collections::BTreeMap;
 use std::time::Instant;
 
 use geo::algorithm::BoundingRect;
-use geo_data_format::{cell_index, tile_index, GeoEntityId, TileMembership, TILE_COUNT};
+use geo_data_format::{cell_index, tile_index, GeoEntityId, TileMembership, NO_ENTITY, TILE_COUNT};
 use geo_types::MultiPolygon;
 
 use crate::projection::{lng_lat_to_block_xy, BLOCK_GRID_SIZE};
@@ -48,7 +48,7 @@ pub type TileLookup = Vec<TileMembership>;
 /// `geo_data_format::cell_index` (x-major), = the runtime's `BlockKey::index()`.
 /// The internal `TileBitmap` is y-major; the transpose happens once, where this
 /// vector is emitted (phase 2 border branch).
-pub type BlockLookup = BTreeMap<(u16, u16), Vec<Option<GeoEntityId>>>;
+pub type BlockLookup = BTreeMap<(u16, u16), Vec<u32>>;
 
 /// 128×128 packed bitmap, indexed `byo * TILE_WIDTH + bxo`.
 #[derive(Clone)]
@@ -176,7 +176,7 @@ pub fn rasterize(
             // else: leave as None.
         } else {
             // Border. Per-block fill: smallest candidate with bit set wins.
-            let mut blocks: Vec<Option<GeoEntityId>> = vec![None; BLOCKS_PER_TILE];
+            let mut blocks: Vec<u32> = vec![NO_ENTITY; BLOCKS_PER_TILE];
             // Iterate candidates in sorted (smaller-first) order. Since
             // tile_candidates was built by iterating entity_rasters in
             // sorted order, cand_indices is already ascending → smaller
@@ -197,14 +197,14 @@ pub fn rasterize(
                         let i = base + b; // y-major bit index in the TileBitmap
                                           // Transpose to x-major on output: bit i is (x=i%128, y=i/128).
                         let out = cell_index((i % TILE_WIDTH) as u8, (i / TILE_WIDTH) as u8);
-                        if blocks[out].is_none() {
-                            blocks[out] = Some(value);
+                        if blocks[out] == NO_ENTITY {
+                            blocks[out] = value.0;
                         }
                         w &= w - 1;
                     }
                 }
             }
-            if blocks.iter().any(Option::is_some) {
+            if blocks.iter().any(|&v| v != NO_ENTITY) {
                 tile_lookup[tile_idx] = TileMembership::Border;
                 block_lookup.insert((*tx, *ty), blocks);
             }

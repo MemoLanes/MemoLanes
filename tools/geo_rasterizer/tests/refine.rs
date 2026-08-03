@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 
-use geo_data_format::{tile_index, GeoEntityId, TileMembership, CELLS_PER_TILE, TILE_COUNT};
+use geo_data_format::{
+    tile_index, GeoEntityId, TileMembership, CELLS_PER_TILE, NO_ENTITY, TILE_COUNT,
+};
 use geo_rasterizer::rasterize::{BlockLookup, TileLookup};
 use geo_rasterizer::refine::{block_majority, measure_coverage, refine_raster};
 
@@ -19,15 +21,9 @@ fn set_single(lookup: &mut (TileLookup, BlockLookup), tx: u16, ty: u16, id: GeoE
 }
 
 /// Tile (tx,ty) split down the middle: first half `a`, second half `b`.
-fn set_border(
-    lookup: &mut (TileLookup, BlockLookup),
-    tx: u16,
-    ty: u16,
-    a: Option<GeoEntityId>,
-    b: Option<GeoEntityId>,
-) {
+fn set_border(lookup: &mut (TileLookup, BlockLookup), tx: u16, ty: u16, a: u32, b: u32) {
     lookup.0[tile_index(tx, ty)] = TileMembership::Border;
-    let cells: Vec<Option<GeoEntityId>> = (0..CELLS_PER_TILE)
+    let cells: Vec<u32> = (0..CELLS_PER_TILE)
         .map(|i| if i < CELLS_PER_TILE / 2 { a } else { b })
         .collect();
     lookup.1.insert((tx, ty), cells);
@@ -71,7 +67,7 @@ fn the_tally_ignores_province_blocks_no_country_covers() {
 fn a_tie_resolves_to_the_lowest_country_id() {
     let mut country = empty();
     // Country tile is split exactly in half between FR and DE: a genuine tie.
-    set_border(&mut country, 0, 0, Some(FR), Some(DE));
+    set_border(&mut country, 0, 0, FR.0, DE.0);
 
     let mut province = empty();
     // Province covers the whole tile, so it overlaps FR and DE equally.
@@ -114,7 +110,7 @@ fn a_province_spilling_across_a_border_is_clipped() {
 fn a_country_border_tile_clips_the_province_per_cell() {
     let mut country = empty();
     // Country tile is itself a border: first half FR, second half DE.
-    set_border(&mut country, 0, 0, Some(FR), Some(DE));
+    set_border(&mut country, 0, 0, FR.0, DE.0);
 
     let mut province = empty();
     // Province covers the whole tile.
@@ -129,23 +125,22 @@ fn a_country_border_tile_clips_the_province_per_cell() {
     assert_eq!(tiles[tile_index(0, 0)], TileMembership::Border);
     let cells = &blocks[&(0, 0)];
     assert_eq!(
-        cells[0],
-        Some(IDF),
+        cells[0], IDF.0,
         "cell on FR's half takes the province, since IDF's parent is FR"
     );
     assert_eq!(
         cells[CELLS_PER_TILE / 2 - 1],
-        Some(IDF),
+        IDF.0,
         "cell on FR's half takes the province, since IDF's parent is FR"
     );
     assert_eq!(
         cells[CELLS_PER_TILE / 2],
-        Some(DE),
+        DE.0,
         "cell on DE's half stays DE, since IDF is not DE's province"
     );
     assert_eq!(
         cells[CELLS_PER_TILE - 1],
-        Some(DE),
+        DE.0,
         "cell on DE's half stays DE, since IDF is not DE's province"
     );
 }
@@ -154,7 +149,7 @@ fn a_country_border_tile_clips_the_province_per_cell() {
 fn a_country_border_tile_keeps_ocean_cells_empty_under_a_province() {
     let mut country = empty();
     // Country tile is itself a border: first half FR, second half open ocean.
-    set_border(&mut country, 0, 0, Some(FR), None);
+    set_border(&mut country, 0, 0, FR.0, NO_ENTITY);
 
     let mut province = empty();
     // Province polygon covers the whole tile, including the ocean half.
@@ -168,20 +163,20 @@ fn a_country_border_tile_keeps_ocean_cells_empty_under_a_province() {
     );
     assert_eq!(tiles[tile_index(0, 0)], TileMembership::Border);
     let cells = &blocks[&(0, 0)];
-    assert_eq!(cells[0], Some(IDF), "cell on FR's half takes the province");
+    assert_eq!(cells[0], IDF.0, "cell on FR's half takes the province");
     assert_eq!(
         cells[CELLS_PER_TILE / 2 - 1],
-        Some(IDF),
+        IDF.0,
         "cell on FR's half takes the province"
     );
     assert_eq!(
         cells[CELLS_PER_TILE / 2],
-        None,
+        NO_ENTITY,
         "ocean cell stays empty: a province polygon over water must not paint land"
     );
     assert_eq!(
         cells[CELLS_PER_TILE - 1],
-        None,
+        NO_ENTITY,
         "ocean cell stays empty: a province polygon over water must not paint land"
     );
 }
@@ -212,7 +207,7 @@ fn uncovered_country_blocks_fall_back_to_the_country() {
     set_single(&mut country, 0, 0, FR);
     let mut province = empty();
     // Only the first half of the tile belongs to IDF.
-    set_border(&mut province, 0, 0, Some(IDF), None);
+    set_border(&mut province, 0, 0, IDF.0, NO_ENTITY);
 
     let parents = BTreeMap::from([(IDF, FR)]);
     let (tiles, blocks) = refine_raster(
@@ -222,10 +217,10 @@ fn uncovered_country_blocks_fall_back_to_the_country() {
     );
     assert_eq!(tiles[tile_index(0, 0)], TileMembership::Border);
     let cells = &blocks[&(0, 0)];
-    assert_eq!(cells[0], Some(IDF));
+    assert_eq!(cells[0], IDF.0);
     assert_eq!(
         cells[CELLS_PER_TILE - 1],
-        Some(FR),
+        FR.0,
         "land inside the country but in no province stays with the country"
     );
 }
@@ -236,7 +231,7 @@ fn uncovered_country_blocks_fall_back_to_the_country() {
 #[test]
 fn a_uniform_country_border_tile_collapses_even_with_no_province() {
     let mut country = empty();
-    set_border(&mut country, 0, 0, Some(FR), Some(FR));
+    set_border(&mut country, 0, 0, FR.0, FR.0);
     let province = empty();
 
     let (tiles, blocks) = refine_raster(
@@ -251,7 +246,7 @@ fn a_uniform_country_border_tile_collapses_even_with_no_province() {
 #[test]
 fn a_country_border_tile_survives_untouched_with_no_province() {
     let mut country = empty();
-    set_border(&mut country, 0, 0, Some(FR), Some(DE));
+    set_border(&mut country, 0, 0, FR.0, DE.0);
     let province = empty();
 
     let (tiles, blocks) = refine_raster(

@@ -16,6 +16,11 @@ pub const PROVENANCE_HASH_OFFSET: usize = 4; // MAGIC.len()
 pub const PROVENANCE_HASH_LEN: usize = 32;
 pub const PROVENANCE_HASH_END: usize = PROVENANCE_HASH_OFFSET + PROVENANCE_HASH_LEN;
 
+/// Cell value meaning "no entity owns this cell" in a dense border-tile
+/// buffer. Use this rather than `Option` to save 4 bytes per entity
+/// during rasterization
+pub const NO_ENTITY: u32 = u32::MAX;
+
 pub const TILE_WIDTH: usize = 128;
 pub const CELLS_PER_TILE: usize = TILE_WIDTH * TILE_WIDTH;
 pub const TILE_GRID_WIDTH: usize = 512;

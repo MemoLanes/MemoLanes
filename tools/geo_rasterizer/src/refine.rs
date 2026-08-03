@@ -24,7 +24,7 @@ use std::collections::BTreeMap;
 use std::time::Instant;
 
 use geo_data_format::{
-    tile_index, GeoEntityId, TileMembership, CELLS_PER_TILE, TILE_COUNT, TILE_GRID_WIDTH,
+    tile_index, GeoEntityId, TileMembership, CELLS_PER_TILE, NO_ENTITY, TILE_COUNT, TILE_GRID_WIDTH,
 };
 
 use crate::rasterize::{BlockLookup, TileLookup};
@@ -43,7 +43,7 @@ pub type Coverage = Vec<BTreeMap<GeoEntityId, u64>>;
 enum TileCells<'a> {
     Empty,
     Uniform(GeoEntityId),
-    Dense(&'a [Option<GeoEntityId>]),
+    Dense(&'a [u32]),
 }
 
 impl TileCells<'_> {
@@ -51,7 +51,7 @@ impl TileCells<'_> {
         match self {
             TileCells::Empty => None,
             TileCells::Uniform(id) => Some(*id),
-            TileCells::Dense(cells) => cells[cell],
+            TileCells::Dense(cells) => (cells[cell] != NO_ENTITY).then(|| GeoEntityId(cells[cell])),
         }
     }
 }
@@ -141,7 +141,7 @@ pub fn refine_raster(
     let started = Instant::now();
     let mut tiles = vec![TileMembership::None; TILE_COUNT];
     let mut blocks = BlockLookup::new();
-    let mut dense: Vec<Option<GeoEntityId>> = vec![None; CELLS_PER_TILE];
+    let mut dense: Vec<u32> = vec![NO_ENTITY; CELLS_PER_TILE];
 
     for tx in 0..TILE_GRID_WIDTH as u16 {
         for ty in 0..TILE_GRID_WIDTH as u16 {
@@ -159,8 +159,8 @@ pub fn refine_raster(
                     tiles[idx] = TileMembership::Single(*cid);
                 }
                 (TileCells::Dense(cells), TileCells::Empty) => match uniform_value(cells) {
-                    Some(None) => {}
-                    Some(Some(id)) => tiles[idx] = TileMembership::Single(id),
+                    Some(NO_ENTITY) => {}
+                    Some(id) => tiles[idx] = TileMembership::Single(GeoEntityId(id)),
                     None => {
                         tiles[idx] = TileMembership::Border;
                         blocks.insert((tx, ty), cells.to_vec());
@@ -186,7 +186,7 @@ pub fn refine_raster(
                             }
                             (coarse_id, _) => coarse_id,
                         };
-                        *slot = leaf;
+                        *slot = leaf.map_or(NO_ENTITY, |id| id.0);
                         match uniform {
                             None => uniform = Some(leaf),
                             Some(seen) if seen == leaf => {}
@@ -215,7 +215,7 @@ pub fn refine_raster(
 }
 
 /// `Some(v)` when every cell holds `v`, `None` when the tile is mixed.
-fn uniform_value(cells: &[Option<GeoEntityId>]) -> Option<Option<GeoEntityId>> {
+fn uniform_value(cells: &[u32]) -> Option<u32> {
     let first = *cells.first()?;
     cells.iter().all(|c| *c == first).then_some(first)
 }

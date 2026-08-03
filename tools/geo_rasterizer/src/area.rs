@@ -4,7 +4,9 @@
 
 use std::collections::BTreeMap;
 
-use geo_data_format::{cell_index, tile_index, GeoEntityId, TileMembership, TILE_GRID_WIDTH};
+use geo_data_format::{
+    cell_index, tile_index, GeoEntityId, TileMembership, NO_ENTITY, TILE_GRID_WIDTH,
+};
 
 use crate::entities::EntityModel;
 use crate::projection::block_area_m2;
@@ -14,7 +16,7 @@ const TILE_WIDTH: usize = 128;
 pub fn populate_total_areas(
     model: &mut EntityModel,
     tile_lookup: &[TileMembership],
-    block_lookup: &BTreeMap<(u16, u16), Vec<Option<GeoEntityId>>>,
+    block_lookup: &BTreeMap<(u16, u16), Vec<u32>>,
 ) {
     // `block_area_m2(x, y)` is independent of `x`: in the projection `lng` is
     // linear in `x` (so the per-block longitude span is constant) and `lat`
@@ -72,8 +74,9 @@ pub fn populate_total_areas(
                         let by = ty * TILE_WIDTH + byo;
                         for bxo in 0..TILE_WIDTH {
                             // Weight by row `byo`, so index the cell at (x=bxo, y=byo).
-                            if let Some(id) = blocks[cell_index(bxo as u8, byo as u8)] {
-                                credit(&mut acc, id, row_area[by]);
+                            let cell = blocks[cell_index(bxo as u8, byo as u8)];
+                            if cell != NO_ENTITY {
+                                credit(&mut acc, GeoEntityId(cell), row_area[by]);
                             }
                         }
                     }
