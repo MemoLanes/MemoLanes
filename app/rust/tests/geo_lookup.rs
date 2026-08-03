@@ -226,3 +226,57 @@ fn asset_declares_its_worldview_id() {
     let geo = GeoIndex::from_bytes(&bytes).unwrap();
     assert_eq!(geo.worldview_id(), "chn");
 }
+
+#[test]
+fn interleaved_tile_lookups_do_not_leak_across_tiles() {
+    // Build a fixture with two border tiles at different indices holding
+    // different entities for the same block coordinate.
+    let entities = [
+        entity(1, GeoEntityKind::Continent, "EU", None),
+        entity(2, GeoEntityKind::Country, "FR", Some(1)),
+        entity(3, GeoEntityKind::Country, "DE", Some(1)),
+    ];
+
+    let mut tiles = vec![TileMembership::None; TILE_COUNT];
+    tiles[512] = TileMembership::Border; // (tx,ty)=(1,0) → idx 1*512+0=512
+    tiles[1024] = TileMembership::Border; // (tx,ty)=(2,0) → idx 2*512+0=1024
+
+    let block_idx = BlockKey::from_x_y(3, 5).index();
+    let mut cells1 = vec![None; CELLS_PER_TILE];
+    cells1[block_idx] = Some(GeoEntityId(2)); // FR in first tile
+    let mut cells2 = vec![None; CELLS_PER_TILE];
+    cells2[block_idx] = Some(GeoEntityId(3)); // DE in second tile
+
+    let mut blocks: BTreeMap<(u16, u16), Vec<Option<GeoEntityId>>> = BTreeMap::new();
+    blocks.insert((1, 0), cells1);
+    blocks.insert((2, 0), cells2);
+
+    let bytes = write_geo_data(
+        &entities,
+        Worldview::Iso.spec().id,
+        &tiles,
+        &blocks,
+        [0u8; 32],
+    )
+    .unwrap();
+    let geo = GeoIndex::from_bytes(&bytes).unwrap();
+
+    let border_tile_a = TileKey::new(1, 0);
+    let border_tile_b = TileKey::new(2, 0);
+    let block = BlockKey::from_x_y(3, 5);
+
+    let from_a = geo.entity_of_block(border_tile_a, block);
+    let from_b = geo.entity_of_block(border_tile_b, block);
+    assert_ne!(
+        from_a, from_b,
+        "fixture must distinguish the two tiles for this test to mean anything"
+    );
+
+    // Alternate repeatedly: a one-entry memo is evicted on every switch, so a
+    // stale hit would show up immediately.
+    for _ in 0..8 {
+        assert_eq!(geo.entity_of_block(border_tile_a, block), from_a);
+        assert_eq!(geo.entity_of_block(border_tile_b, block), from_b);
+        assert_eq!(geo.entity_of_block(border_tile_a, block), from_a);
+    }
+}

@@ -2,6 +2,7 @@
 //! over the packed `geo_data_format` asset, decode-on-demand. One asset per worldview.
 
 use std::collections::HashMap;
+use std::sync::Mutex;
 
 use anyhow::Result;
 use geo_data_format::{
@@ -30,6 +31,7 @@ pub struct GeoIndex {
     by_id: HashMap<GeoEntityId, GeoEntity>,
     by_kind: HashMap<GeoEntityKind, Vec<GeoEntityId>>,
     children: HashMap<GeoEntityId, Vec<GeoEntityId>>,
+    decoded: Mutex<Option<(u32, PackedTile)>>,
 }
 
 impl GeoIndex {
@@ -53,6 +55,7 @@ impl GeoIndex {
             by_id,
             by_kind,
             children,
+            decoded: Mutex::new(None),
         })
     }
 
@@ -74,11 +77,18 @@ impl GeoLookup for GeoIndex {
         match self.tile_entry(tile) {
             TileEntry::None => None,
             TileEntry::Single(id) => Some(*id),
-            // Decode-on-demand; a least-recently-used cache over decoded tiles is a deferred optimization.
             TileEntry::Border(i) => {
-                let packed =
-                    PackedTile::from_compressed_bytes(&self.data.border_blobs[*i as usize]);
+                let mut slot = self
+                    .decoded
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                if slot.as_ref().is_none_or(|(idx, _)| idx != i) {
+                    let packed =
+                        PackedTile::from_compressed_bytes(&self.data.border_blobs[*i as usize]);
+                    *slot = Some((*i, packed));
+                }
                 // `BlockKey::index()` is the x-major cell index PackedTile expects.
+                let (_, packed) = slot.as_ref().expect("just populated");
                 packed.lookup(block.index())
             }
         }
