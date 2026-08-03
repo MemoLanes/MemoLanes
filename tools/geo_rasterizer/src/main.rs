@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use geo_data_format::{write_geo_data, Locale, Worldview};
+use geo_data_format::{write_geo_data, GeoEntityId, GeoEntityKind, Locale, Worldview};
 use geo_rasterizer::{
     admin0::{parse_admin0, validate_no_antimeridian_span},
     admin1::parse_admin1,
@@ -12,11 +12,14 @@ use geo_rasterizer::{
     atomic_write::write_atomically,
     cache::{compute_provenance_hash, read_existing_hash},
     cldr::{load_subdivisions, load_territories},
-    download::{ensure_cldr, ensure_cldr_subdivisions, ensure_geojson},
-    entities::assemble_entities,
+    download::{ensure_admin1, ensure_cldr, ensure_cldr_subdivisions, ensure_geojson},
+    entities::{
+        assemble_entities, attach_province_entities, collect_provinces, resolve_province_parents,
+    },
     names::{build_region_names, write_region_names},
     overrides::Overrides,
     rasterize::rasterize,
+    refine::{measure_coverage, refine_raster},
     registry::Registry,
 };
 
@@ -33,6 +36,10 @@ struct Args {
     /// Override the countries GeoJSON path. Requires `--worldview`.
     #[arg(long, requires = "worldview")]
     countries: Option<PathBuf>,
+
+    /// Override the admin-1 states/provinces GeoJSON path. Requires `--worldview`.
+    #[arg(long, requires = "worldview")]
+    admin1: Option<PathBuf>,
 
     /// Override the frozen geo-entity id registry path. Requires `--worldview`.
     #[arg(long, requires = "worldview")]
@@ -165,6 +172,7 @@ fn main() -> Result<()> {
                 worldview,
                 args.countries
                     .unwrap_or_else(|| default_countries(worldview)),
+                args.admin1.clone().unwrap_or_else(default_admin1),
                 args.registry.unwrap_or_else(default_registry),
                 args.output.unwrap_or_else(|| default_output(worldview)),
                 args.ensure_source,
@@ -178,6 +186,7 @@ fn main() -> Result<()> {
                 rasterize_one(
                     worldview,
                     default_countries(worldview),
+                    args.admin1.clone().unwrap_or_else(default_admin1),
                     default_registry(),
                     default_output(worldview),
                     args.ensure_source,
@@ -199,6 +208,7 @@ fn main() -> Result<()> {
 fn rasterize_one(
     worldview: Worldview,
     countries: PathBuf,
+    admin1_path: PathBuf,
     registry_path: PathBuf,
     output: PathBuf,
     ensure_source: bool,
@@ -209,6 +219,7 @@ fn rasterize_one(
 
     if ensure_source {
         ensure_geojson(&countries, worldview)?;
+        ensure_admin1(&admin1_path)?;
     }
     if download_only {
         eprintln!("[geo_rasterizer] --download-only: source ensured, skipping rasterize");
@@ -221,7 +232,8 @@ fn rasterize_one(
 
     // 1. Smart skip — provenance hash (inputs + GEO_DATA_VERSION salt)
     //    vs. existing bin's embedded hash.
-    let provenance_hash = compute_provenance_hash(&countries, &registry_path, worldview_id)?;
+    let provenance_hash =
+        compute_provenance_hash(&countries, &admin1_path, &registry_path, worldview_id)?;
     if let Some(existing) = read_existing_hash(&output)? {
         if existing == provenance_hash {
             eprintln!(
@@ -242,28 +254,42 @@ fn rasterize_one(
     // 3. Entity assembly.
     eprintln!("[geo_rasterizer] assembling entity model...");
     let mut model = assemble_entities(&features, &registry)?;
+    let admin1_features = parse_admin1(&admin1_path, worldview)?;
+    collect_provinces(&mut model, &admin1_features, &registry)?;
     eprintln!(
-        "[geo_rasterizer] {} entities ({} continents + {} countries)",
-        model.entities.len(),
-        model
-            .entities
-            .iter()
-            .filter(|e| matches!(e.kind, geo_data_format::GeoEntityKind::Continent))
-            .count(),
-        model
-            .entities
-            .iter()
-            .filter(|e| matches!(e.kind, geo_data_format::GeoEntityKind::Country))
-            .count(),
+        "[geo_rasterizer] {} countries + {} provinces",
+        model.geometry_for_country.len(),
+        model.geometry_for_province.len(),
     );
 
-    // 4. Rasterize.
-    eprintln!("[geo_rasterizer] rasterizing...");
-    let raster_started = Instant::now();
-    let (tile_lookup, block_lookup) = rasterize(&features, &model);
+    // 4. Rasterize countries, then provinces, then merge inside the country mask.
+    eprintln!("[geo_rasterizer] rasterizing countries...");
+    let country_ids: BTreeMap<String, GeoEntityId> = model
+        .entities
+        .iter()
+        .filter(|e| matches!(e.kind, GeoEntityKind::Country))
+        .map(|e| (e.canonical_code.clone(), e.id))
+        .collect();
+    let country_raster = rasterize(&model.geometry_for_country, &country_ids);
+
+    eprintln!("[geo_rasterizer] rasterizing provinces...");
+    let province_raster = rasterize(&model.geometry_for_province, &model.province_ids);
+
+    eprintln!("[geo_rasterizer] resolving province parents...");
+    let tally = measure_coverage(
+        (&country_raster.0, &country_raster.1),
+        (&province_raster.0, &province_raster.1),
+    );
+    let parents = resolve_province_parents(&model, &tally, worldview)?;
+    attach_province_entities(&mut model, &parents);
+    let (tile_lookup, block_lookup) = refine_raster(
+        (&country_raster.0, &country_raster.1),
+        (&province_raster.0, &province_raster.1),
+        &parents,
+    );
     eprintln!(
-        "[geo_rasterizer] rasterization done in {:.1?} ({} border tiles)",
-        raster_started.elapsed(),
+        "[geo_rasterizer] merged: {} entities, {} border tiles",
+        model.entities.len(),
         block_lookup.len()
     );
 

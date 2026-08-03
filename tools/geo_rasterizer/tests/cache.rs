@@ -20,28 +20,31 @@ fn well_formed_bin(hash: [u8; 32]) -> Vec<u8> {
 #[test]
 fn compute_provenance_hash_is_stable() {
     let geo = write_tmp(b"alpha");
+    let admin1 = write_tmp(b"beta");
     let reg = write_tmp(b"gamma");
-    let h1 = compute_provenance_hash(geo.path(), reg.path(), "iso").unwrap();
-    let h2 = compute_provenance_hash(geo.path(), reg.path(), "iso").unwrap();
+    let h1 = compute_provenance_hash(geo.path(), admin1.path(), reg.path(), "iso").unwrap();
+    let h2 = compute_provenance_hash(geo.path(), admin1.path(), reg.path(), "iso").unwrap();
     assert_eq!(h1, h2, "same inputs must hash the same");
 }
 
 #[test]
 fn compute_provenance_hash_changes_with_input() {
     let geo = write_tmp(b"alpha");
+    let admin1 = write_tmp(b"beta");
     let reg = write_tmp(b"gamma");
     let reg2 = write_tmp(b"gamma-2");
-    let h1 = compute_provenance_hash(geo.path(), reg.path(), "iso").unwrap();
-    let h2 = compute_provenance_hash(geo.path(), reg2.path(), "iso").unwrap();
+    let h1 = compute_provenance_hash(geo.path(), admin1.path(), reg.path(), "iso").unwrap();
+    let h2 = compute_provenance_hash(geo.path(), admin1.path(), reg2.path(), "iso").unwrap();
     assert_ne!(h1, h2);
 }
 
 #[test]
 fn compute_provenance_hash_changes_with_worldview() {
     let geo = write_tmp(b"alpha");
+    let admin1 = write_tmp(b"beta");
     let reg = write_tmp(b"gamma");
-    let h1 = compute_provenance_hash(geo.path(), reg.path(), "iso").unwrap();
-    let h2 = compute_provenance_hash(geo.path(), reg.path(), "chn").unwrap();
+    let h1 = compute_provenance_hash(geo.path(), admin1.path(), reg.path(), "iso").unwrap();
+    let h2 = compute_provenance_hash(geo.path(), admin1.path(), reg.path(), "chn").unwrap();
     assert_ne!(h1, h2, "worldview id must participate in the cache key");
 }
 
@@ -80,4 +83,24 @@ fn read_existing_hash_old_layout_does_not_false_match() {
     // A file that is exactly MAGIC with no hash must not be accepted.
     let f = write_tmp(MAGIC);
     assert_eq!(read_existing_hash(f.path()).unwrap(), None);
+}
+
+#[test]
+fn provenance_hash_covers_the_admin1_source() {
+    let dir = tempfile::tempdir().unwrap();
+    let countries = dir.path().join("countries.geojson");
+    let registry = dir.path().join("registry.toml");
+    let admin1_a = dir.path().join("a1_a.geojson");
+    let admin1_b = dir.path().join("a1_b.geojson");
+    std::fs::write(&countries, "{}").unwrap();
+    std::fs::write(&registry, "schema = 1").unwrap();
+    std::fs::write(&admin1_a, "{\"a\":1}").unwrap();
+    std::fs::write(&admin1_b, "{\"a\":2}").unwrap();
+
+    let a = compute_provenance_hash(&countries, &admin1_a, &registry, "iso").unwrap();
+    let b = compute_provenance_hash(&countries, &admin1_b, &registry, "iso").unwrap();
+    assert_ne!(
+        a, b,
+        "changing the admin-1 source must invalidate the cache"
+    );
 }

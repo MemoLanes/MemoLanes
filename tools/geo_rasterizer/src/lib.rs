@@ -11,4 +11,5 @@ pub mod names;
 pub mod overrides;
 pub mod projection;
 pub mod rasterize;
+pub mod refine;
 pub mod registry;

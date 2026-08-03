@@ -229,9 +229,11 @@ format:
 [group: 'dev']
 regenerate-golden:
     @echo "🛠️  Regenerating geo_rasterizer golden fixture"
+    -rm -f ../tools/geo_rasterizer/tests/fixtures/synthetic.bin
     cargo run --manifest-path ../tools/geo_rasterizer/Cargo.toml --bin geo_rasterizer -- \
       --worldview iso \
       --countries ../tools/geo_rasterizer/tests/fixtures/synthetic.geojson \
+      --admin1 ../tools/geo_rasterizer/tests/fixtures/synthetic_admin1.geojson \
       --registry ../tools/geo_rasterizer/tests/fixtures/synthetic_registry.toml \
       --output ../tools/geo_rasterizer/tests/fixtures/synthetic.bin
     @echo "✅ Golden fixture regenerated"

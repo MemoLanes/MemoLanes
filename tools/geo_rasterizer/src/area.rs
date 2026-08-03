@@ -4,9 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use geo_data_format::{
-    cell_index, tile_index, GeoEntityId, GeoEntityKind, TileMembership, TILE_GRID_WIDTH,
-};
+use geo_data_format::{cell_index, tile_index, GeoEntityId, TileMembership, TILE_GRID_WIDTH};
 
 use crate::entities::EntityModel;
 use crate::projection::block_area_m2;
@@ -28,7 +26,28 @@ pub fn populate_total_areas(
         .map(|by| block_area_m2(0, by))
         .collect();
 
-    let mut country_areas: BTreeMap<GeoEntityId, f64> = BTreeMap::new();
+    let slots = model.entities.iter().map(|e| e.id.0).max().unwrap_or(0) as usize + 1;
+    let mut parent_of: Vec<Option<GeoEntityId>> = vec![None; slots];
+    let mut is_entity: Vec<bool> = vec![false; slots];
+    for e in &model.entities {
+        parent_of[e.id.0 as usize] = e.parent_id;
+        is_entity[e.id.0 as usize] = true;
+    }
+
+    let mut acc: Vec<f64> = vec![0.0; slots];
+    let credit = |acc: &mut Vec<f64>, leaf: GeoEntityId, area: f64| {
+        debug_assert!(
+            is_entity.get(leaf.0 as usize).copied().unwrap_or(false),
+            "raster leaf {leaf:?} has no entry in the entity model — every id a raster can \
+             produce must exist in `model.entities`, or its area silently vanishes"
+        );
+        let mut cur = Some(leaf);
+        while let Some(id) = cur {
+            acc[id.0 as usize] += area;
+            cur = parent_of[id.0 as usize];
+        }
+    };
+
     for tx in 0..TILE_GRID_WIDTH {
         for ty in 0..TILE_GRID_WIDTH {
             let tile_idx = tile_index(tx as u16, ty as u16);
@@ -42,7 +61,7 @@ pub fn populate_total_areas(
                             tile_area += row_area[by];
                         }
                     }
-                    *country_areas.entry(*id).or_default() += tile_area;
+                    credit(&mut acc, *id, tile_area);
                 }
                 TileMembership::Border => {
                     let blocks = match block_lookup.get(&(tx as u16, ty as u16)) {
@@ -53,9 +72,8 @@ pub fn populate_total_areas(
                         let by = ty * TILE_WIDTH + byo;
                         for bxo in 0..TILE_WIDTH {
                             // Weight by row `byo`, so index the cell at (x=bxo, y=byo).
-                            let cell = &blocks[cell_index(bxo as u8, byo as u8)];
-                            if let Some(id) = cell {
-                                *country_areas.entry(*id).or_default() += row_area[by];
+                            if let Some(id) = blocks[cell_index(bxo as u8, byo as u8)] {
+                                credit(&mut acc, id, row_area[by]);
                             }
                         }
                     }
@@ -63,19 +81,8 @@ pub fn populate_total_areas(
             }
         }
     }
-    let mut continent_areas: BTreeMap<GeoEntityId, u64> = BTreeMap::new();
+
     for entity in &mut model.entities {
-        if matches!(entity.kind, GeoEntityKind::Country) {
-            let area = country_areas.get(&entity.id).copied().unwrap_or(0.0);
-            entity.total_area_m2 = area.round() as u64;
-            if let Some(parent) = entity.parent_id {
-                *continent_areas.entry(parent).or_default() += entity.total_area_m2;
-            }
-        }
-    }
-    for entity in &mut model.entities {
-        if matches!(entity.kind, GeoEntityKind::Continent) {
-            entity.total_area_m2 = continent_areas.get(&entity.id).copied().unwrap_or(0);
-        }
+        entity.total_area_m2 = acc[entity.id.0 as usize].round() as u64;
     }
 }

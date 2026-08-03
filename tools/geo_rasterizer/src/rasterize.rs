@@ -34,8 +34,6 @@ use geo::algorithm::BoundingRect;
 use geo_data_format::{cell_index, tile_index, GeoEntityId, TileMembership, TILE_COUNT};
 use geo_types::MultiPolygon;
 
-use crate::admin0::Admin0Feature;
-use crate::entities::EntityModel;
 use crate::projection::{lng_lat_to_block_xy, BLOCK_GRID_SIZE};
 
 const TILE_WIDTH: usize = 128;
@@ -77,7 +75,7 @@ impl TileBitmap {
 /// Per-entity result of scanline fill.
 struct EntityRaster<'a> {
     id: GeoEntityId,
-    adm0_a3: &'a str,
+    code: &'a str,
     /// Per-tile bitmap of inside blocks. Only tiles the entity touches
     /// (interior or border) have an entry.
     tiles: BTreeMap<(u16, u16), TileBitmap>,
@@ -85,55 +83,54 @@ struct EntityRaster<'a> {
     bbox_area_blocks: i64,
 }
 
-pub fn rasterize(_features: &[Admin0Feature], model: &EntityModel) -> (TileLookup, BlockLookup) {
+pub fn rasterize(
+    geometry_for_code: &BTreeMap<String, MultiPolygon<f64>>,
+    id_for_code: &BTreeMap<String, GeoEntityId>,
+) -> (TileLookup, BlockLookup) {
     let started = Instant::now();
 
     // Phase 1: per-entity scanline rasterization.
-    let mut entity_rasters: Vec<EntityRaster> = Vec::with_capacity(model.entities.len());
-    for (i, e) in model.entities.iter().enumerate() {
-        let adm0 = e.canonical_code.as_str();
-        let geom = match model.geometry_for_country.get(adm0) {
-            Some(g) => g,
-            None => continue,
+    let total = geometry_for_code.len();
+    let mut entity_rasters: Vec<EntityRaster> = Vec::with_capacity(total);
+    for (i, (code, geom)) in geometry_for_code.iter().enumerate() {
+        let Some(&id) = id_for_code.get(code) else {
+            continue;
         };
-        let bbox_lnglat = match geom.bounding_rect() {
-            Some(b) => b,
-            None => continue,
+        let Some(bbox_lnglat) = geom.bounding_rect() else {
+            continue;
         };
         let (min_x, min_y) = lng_lat_to_block_xy(bbox_lnglat.min().x, bbox_lnglat.max().y);
         let (max_x, max_y) = lng_lat_to_block_xy(bbox_lnglat.max().x, bbox_lnglat.min().y);
         let bbox_area_blocks =
             (max_x as i64 - min_x as i64).max(1) * (max_y as i64 - min_y as i64).max(1);
-
-        let tiles = rasterize_entity(geom, min_x, min_y, max_x, max_y);
         entity_rasters.push(EntityRaster {
-            id: e.id,
-            adm0_a3: adm0,
-            tiles,
+            id,
+            code: code.as_str(),
+            tiles: rasterize_entity(geom, min_x, min_y, max_x, max_y),
             bbox_area_blocks,
         });
-        if (i + 1).is_multiple_of(32) || i + 1 == model.entities.len() {
+        if (i + 1).is_multiple_of(32) || i + 1 == total {
             eprintln!(
                 "[geo_rasterizer] phase 1: rasterized {}/{} entities (elapsed {:.0?})",
                 i + 1,
-                model.entities.len(),
+                total,
                 started.elapsed()
             );
         }
     }
-
-    // Sort smaller-first (smaller-poly-wins).
-    entity_rasters.sort_by(|a, b| {
-        a.bbox_area_blocks
-            .cmp(&b.bbox_area_blocks)
-            .then_with(|| a.adm0_a3.cmp(b.adm0_a3))
-    });
 
     eprintln!(
         "[geo_rasterizer] phase 1 complete in {:.1?} ({} entities)",
         started.elapsed(),
         entity_rasters.len()
     );
+
+    // Sort smaller-first (smaller-poly-wins).
+    entity_rasters.sort_by(|a, b| {
+        a.bbox_area_blocks
+            .cmp(&b.bbox_area_blocks)
+            .then_with(|| a.code.cmp(b.code))
+    });
 
     // Phase 2: invert to per-tile candidate lists.
     let mut tile_candidates: BTreeMap<(u16, u16), Vec<usize>> = BTreeMap::new();

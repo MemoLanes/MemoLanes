@@ -85,6 +85,11 @@ fn every_entity_has_a_name_in_every_locale() {
                 "{}: bin has no continents — asset looks wrong",
                 worldview.spec().id
             );
+            assert!(
+                keys.iter().any(|k| k.starts_with("province.")),
+                "{}: bin has no provinces — asset looks wrong",
+                worldview.spec().id
+            );
 
             for key in &keys {
                 match map.get(key) {
@@ -103,4 +108,81 @@ fn every_entity_has_a_name_in_every_locale() {
             }
         }
     }
+}
+
+/// CLDR must actually be supplying the English province names it is pinned and
+/// downloaded for. Nothing else would notice a join-key regression: the chain
+/// would fall through to Natural Earth for every one of the 4,587 provinces,
+/// each key would still resolve, and every other gate here would still pass
+/// while the asset quietly shipped NE's spellings in place of CLDR's.
+#[test]
+fn cldr_supplies_the_english_province_names_it_is_pinned_for() {
+    use geo_rasterizer::admin1::parse_admin1;
+    use geo_rasterizer::cldr::load_subdivisions;
+    use geo_rasterizer::names::subdivision_key;
+    use std::collections::BTreeMap;
+
+    let crate_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let admin1_path = crate_dir
+        .join("natural_earth")
+        .join(geo_data_format::ADMIN1_SOURCE_FILENAME);
+    assert!(
+        admin1_path.exists(),
+        "{} is absent — run `just fetch-natural-earth`",
+        admin1_path.display()
+    );
+    let tag = Locale::EnUs.spec().cldr_tag;
+    let subdivisions = load_subdivisions(
+        &crate_dir
+            .join("cldr")
+            .join(format!("subdivisions.{tag}.json")),
+        tag,
+    )
+    .unwrap();
+
+    // The union over worldviews, which is the set `build_region_names` keys on,
+    // plus the per-key claim counts its uniqueness rule needs.
+    let mut features: BTreeMap<String, (String, Option<String>)> = BTreeMap::new();
+    let mut claims: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for &worldview in Worldview::ALL {
+        for f in parse_admin1(&admin1_path, worldview).unwrap() {
+            let key = subdivision_key(&f.iso_3166_2);
+            claims
+                .entry(key.clone())
+                .or_default()
+                .insert(f.adm1_code.clone());
+            features
+                .entry(f.adm1_code.clone())
+                .or_insert((key, f.name_en));
+        }
+    }
+
+    let english = names(Locale::EnUs);
+    let (mut from_cldr, mut from_ne) = (0usize, 0usize);
+    for (adm1_code, (key, name_en)) in &features {
+        let shipped = english
+            .get(&format!("province.{adm1_code}"))
+            .unwrap_or_else(|| panic!("no shipped en-US name for {adm1_code}"));
+        // Step 2 of the chain: CLDR, but only where exactly one NE feature
+        // claims the key.
+        match subdivisions.get(key).filter(|_| claims[key].len() == 1) {
+            Some(cldr_name) => {
+                assert_eq!(shipped, cldr_name, "{adm1_code} should carry CLDR's name");
+                from_cldr += 1;
+            }
+            None => {
+                assert_eq!(
+                    Some(shipped.as_str()),
+                    name_en.as_deref(),
+                    "{adm1_code} should have fallen through to Natural Earth"
+                );
+                from_ne += 1;
+            }
+        }
+    }
+
+    // Pinned against the pinned sources. A drop here means the ISO 3166-2 join
+    // broke, not that the data moved: both sides are hash-verified.
+    assert_eq!(from_cldr, 4057, "provinces named by CLDR");
+    assert_eq!(from_ne, 530, "provinces that fell through to Natural Earth");
 }
