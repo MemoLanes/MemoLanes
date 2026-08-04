@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use geo_data_format::{
     tile_index, write_geo_data, GeoEntity, GeoEntityId, GeoEntityKind, TileMembership, Worldview,
-    CELLS_PER_TILE, TILE_COUNT,
+    CELLS_PER_TILE, NO_ENTITY, TILE_COUNT,
 };
 use memolanes_core::{
     achievement::attribution,
@@ -38,9 +38,9 @@ fn synthetic_geo() -> GeoIndex {
     let mut tiles = vec![TileMembership::None; TILE_COUNT];
     tiles[tile_index(0, 0)] = TileMembership::Single(FR);
     tiles[tile_index(1, 0)] = TileMembership::Border;
-    let mut cells = vec![None; CELLS_PER_TILE];
-    cells[BlockKey::from_x_y(7, 7).index()] = Some(DE);
-    let mut blocks: BTreeMap<(u16, u16), Vec<Option<GeoEntityId>>> = BTreeMap::new();
+    let mut cells = vec![NO_ENTITY; CELLS_PER_TILE];
+    cells[BlockKey::from_x_y(7, 7).index()] = DE.0;
+    let mut blocks: BTreeMap<(u16, u16), Vec<u32>> = BTreeMap::new();
     blocks.insert((1, 0), cells);
     let bytes = write_geo_data(
         &entities,
@@ -85,6 +85,45 @@ fn attributes_area_with_rollup() {
     // are integer cm2.
     assert_eq!(both[&EU], both[&FR] + both[&DE]);
     assert_eq!(both[&FR], fr_only[&FR]);
+}
+
+/// Continent EU(1) ⊃ country FR(2) ⊃ province IDF(4). Tile (0,0) is entirely
+/// IDF, so a block there must credit all three.
+#[test]
+fn a_province_block_credits_its_country_and_continent() {
+    const IDF: GeoEntityId = GeoEntityId(4);
+
+    let entities = [
+        entity(1, GeoEntityKind::Continent, "EU", None, 100),
+        entity(2, GeoEntityKind::Country, "FR", Some(1), 50),
+        entity(4, GeoEntityKind::Province, "FR-IDF", Some(2), 10),
+    ];
+    let mut tiles = vec![TileMembership::None; TILE_COUNT];
+    tiles[tile_index(0, 0)] = TileMembership::Single(IDF);
+    let bytes = write_geo_data(
+        &entities,
+        Worldview::Iso.spec().id,
+        &tiles,
+        &BTreeMap::new(),
+        [0u8; 32],
+    )
+    .unwrap();
+    let geo = GeoIndex::from_bytes(&bytes).unwrap();
+
+    let by_entity = attribution::attribute(
+        &one_block(TileKey::new(0, 0), BlockKey::from_x_y(3, 4), 20),
+        &geo,
+    );
+    let province_area = by_entity[&IDF];
+    assert!(province_area > 0);
+    assert_eq!(
+        by_entity[&FR], province_area,
+        "country must inherit the province's area"
+    );
+    assert_eq!(
+        by_entity[&EU], province_area,
+        "continent must inherit it too"
+    );
 }
 
 #[test]

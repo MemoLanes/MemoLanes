@@ -4,7 +4,7 @@ use std::fs;
 use chrono::NaiveDate;
 use geo_data_format::{
     tile_index, write_geo_data, GeoEntity, GeoEntityId, GeoEntityKind, TileMembership, Worldview,
-    CELLS_PER_TILE, TILE_COUNT,
+    CELLS_PER_TILE, NO_ENTITY, TILE_COUNT,
 };
 use memolanes_core::{
     achievement::layer::AchievementLayer,
@@ -35,8 +35,8 @@ fn geo_bytes() -> Vec<u8> {
     let mut tiles = vec![TileMembership::None; TILE_COUNT];
     tiles[tile_index(0, 0)] = TileMembership::Single(GeoEntityId(2));
     tiles[tile_index(1, 0)] = TileMembership::Border;
-    let mut cells = vec![None; CELLS_PER_TILE];
-    cells[BlockKey::from_x_y(7, 7).index()] = Some(GeoEntityId(3));
+    let mut cells = vec![NO_ENTITY; CELLS_PER_TILE];
+    cells[BlockKey::from_x_y(7, 7).index()] = 3;
     let mut blocks = BTreeMap::new();
     blocks.insert((1, 0), cells);
     write_geo_data(

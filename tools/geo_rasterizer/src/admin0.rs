@@ -6,7 +6,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use geo_types::{Geometry, MultiPolygon};
 
 /// One Natural Earth feature, with the fields the rasterizer needs.
-pub struct ParsedFeature {
+pub struct Admin0Feature {
     /// `ADM0_A3` (NE's canonical key). Always present after parsing.
     pub adm0_a3: String,
     /// `ISO_A3`. May be `'-99'` (NE's missing-value sentinel).
@@ -38,7 +38,7 @@ pub struct ParsedFeature {
 /// can never hold un-absorbed features — the fold is not a separate step anyone
 /// can forget. "Seven seas (open ocean)" features are kept and parented via
 /// `REGION_UN` (see `entities::continent_code`).
-pub fn parse_geojson(path: &Path, worldview: &str) -> Result<Vec<ParsedFeature>> {
+pub fn parse_admin0(path: &Path, worldview: &str) -> Result<Vec<Admin0Feature>> {
     let raw = std::fs::read_to_string(path)
         .with_context(|| format!("reading geojson at {}", path.display()))?;
     let collection: geojson::FeatureCollection = serde_json::from_str(&raw)
@@ -101,7 +101,7 @@ pub fn parse_geojson(path: &Path, worldview: &str) -> Result<Vec<ParsedFeature>>
             Geometry::MultiPolygon(mp) => mp,
             _ => bail!("feature {idx} ({adm0_a3}): expected Polygon/MultiPolygon"),
         };
-        out.push(ParsedFeature {
+        out.push(Admin0Feature {
             adm0_a3,
             iso_a3,
             iso_a3_eh,
@@ -125,7 +125,7 @@ pub fn parse_geojson(path: &Path, worldview: &str) -> Result<Vec<ParsedFeature>>
 /// Polar caps (e.g., Antarctica) legitimately have edges whose longitudes
 /// differ by ~360° because the ring encloses a pole. Such edges are
 /// allowed when both endpoints have |lat| > POLAR_LAT_THRESHOLD.
-pub fn validate_no_antimeridian_span(features: &[ParsedFeature]) -> Result<()> {
+pub fn validate_no_antimeridian_span(features: &[Admin0Feature]) -> Result<()> {
     const POLAR_LAT_THRESHOLD: f64 = 85.0;
     for f in features {
         for poly in &f.geometry.0 {

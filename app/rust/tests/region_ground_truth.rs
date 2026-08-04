@@ -184,6 +184,16 @@ fn credited_codes(areas: &AreaCm2ByEntity, geo: &dyn GeoLookup) -> BTreeSet<Stri
         .collect()
 }
 
+/// The `Country`-kind entity for a leaf: the leaf itself when it is a country,
+/// otherwise the country among its ancestors. Cities sit inside provinces, so
+/// the raster leaf under one is a province and its country is one level up.
+fn country_of(geo: &GeoIndex, leaf: GeoEntityId) -> Option<&geo_data_format::GeoEntity> {
+    std::iter::once(leaf)
+        .chain(geo.ancestors(leaf))
+        .filter_map(|id| geo.entity(id))
+        .find(|e| e.kind == GeoEntityKind::Country)
+}
+
 /// ISO codes of all visited entities of kind Country in one layer's areas.
 fn visited_country_isos(
     areas: &HashMap<GeoEntityId, u64>,
@@ -211,12 +221,14 @@ fn region_api_reports_correct_countries_and_areas() {
         let id = geo_index
             .entity_of_block(tile, block)
             .unwrap_or_else(|| panic!("{}: resolved to ocean", c.name));
-        assert_eq!(
-            geo_index.entity(id).unwrap().canonical_code,
-            c.iso,
-            "{}",
-            c.name
-        );
+        let country = country_of(&geo_index, id).unwrap_or_else(|| {
+            panic!(
+                "{}: leaf `{}` has no country ancestor",
+                c.name,
+                geo_index.entity(id).unwrap().canonical_code
+            )
+        });
+        assert_eq!(country.canonical_code, c.iso, "{}", c.name);
         placements.push((i, tile, block, expected_patch_area(tile, block)));
     }
 

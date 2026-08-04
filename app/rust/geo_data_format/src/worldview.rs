@@ -1,14 +1,3 @@
-//! Worldviews — the single source of truth.
-//!
-//! `Worldview` carries every per-worldview fact: the externally-meaningful worldview `id`,
-//! and the pinned Natural Earth source (filename + content hash).
-//! Adding a worldview is one enum case + one [`Worldview::spec`] arm; the compiler
-//! forces the arm, and the lock tests catch a case forgotten in [`Worldview::ALL`].
-//!
-//! Both the offline rasterizer (which downloads/verifies the source and embeds
-//! the worldview list into `geo_data.bin`) and the runtime depend on this crate,
-//! so the spec lives here rather than in the tool.
-
 /// Commit pinned on `nvkelso/natural-earth-vector` (master @ 2026-04-26).
 /// Bumping this shifts entity IDs, areas, and border tiles for every worldview.
 pub const NATURAL_EARTH_COMMIT: &str = "ca96624a56bd078437bca8184e78163e5039ad19";
@@ -17,6 +6,17 @@ pub const NATURAL_EARTH_COMMIT: &str = "ca96624a56bd078437bca8184e78163e5039ad19
 pub const NATURAL_EARTH_BASE: &str =
     "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/\
      ca96624a56bd078437bca8184e78163e5039ad19/geojson";
+
+/// Natural Earth admin-1 (states/provinces) source. Unlike admin-0, Natural
+/// Earth ships **one** admin-1 file for every worldview — the per-worldview
+/// differences live in its `FCLASS_*` columns
+pub const ADMIN1_SOURCE_FILENAME: &str = "ne_10m_admin_1_states_provinces.geojson";
+pub const ADMIN1_SOURCE_SHA256: &str =
+    "22d0e3ad85eb3e27f17cabf8ba2d50e554fbc27a87796ff891d958185da62fb5";
+
+pub fn admin1_source_url() -> String {
+    format!("{NATURAL_EARTH_BASE}/{ADMIN1_SOURCE_FILENAME}")
+}
 
 /// Worldview of Natural Earth Admin-0 Countries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -35,6 +35,10 @@ pub struct WorldviewSpec {
     pub source_filename: &'static str,
     /// SHA-256 of the pinned source's raw bytes (recorded at pin time).
     pub source_sha256: &'static str,
+    /// Natural Earth admin-1 `FCLASS_*` column carrying this worldview's
+    /// point of view. A non-null value means that POV does not treat the
+    /// feature as an admin-1 unit, so the rasterizer drops it.
+    pub admin1_fclass_field: &'static str,
 }
 
 impl Worldview {
@@ -54,16 +58,19 @@ impl Worldview {
                 id: "iso",
                 source_filename: "ne_10m_admin_0_countries_iso.geojson",
                 source_sha256: "60eb10aa951f5872507c9436937508b09be4b43dc9fa7aad7644f23ef12e1cad",
+                admin1_fclass_field: "FCLASS_ISO",
             },
             Worldview::Chn => WorldviewSpec {
                 id: "chn",
                 source_filename: "ne_10m_admin_0_countries_chn.geojson",
                 source_sha256: "a13bf5f310fde87bc0a5f994f8ce9bd706cc198d8ee37d221e61c2546b945372",
+                admin1_fclass_field: "FCLASS_CN",
             },
             Worldview::Usa => WorldviewSpec {
                 id: "usa",
                 source_filename: "ne_10m_admin_0_countries_usa.geojson",
                 source_sha256: "d3166691d3d86f113c0d8db52506f4b72936513691d1593f47010fed01fc0b93",
+                admin1_fclass_field: "FCLASS_US",
             },
         }
     }

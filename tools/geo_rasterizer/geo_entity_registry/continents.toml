@@ -1,0 +1,11 @@
+schema = 1
+
+continent = [
+  { code = "AF", id = 12 },
+  { code = "AN", id = 169 },
+  { code = "AS", id = 0 },
+  { code = "EU", id = 31 },
+  { code = "NA", id = 25 },
+  { code = "OC", id = 157 },
+  { code = "SA", id = 3 },
+]
