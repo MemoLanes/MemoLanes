@@ -1,6 +1,5 @@
 const path = require("path");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
-const WasmPackPlugin = require("@wasm-tool/wasm-pack-plugin");
 const CopyWebpackPlugin = require("copy-webpack-plugin");
 
 module.exports = (env, argv) => {
@@ -16,11 +15,6 @@ module.exports = (env, argv) => {
       template: "./static/render_diagnostics_template.html",
       filename: "render_diagnostics.html",
       chunks: ["render_diagnostics"], // Only include the render_diagnostics chunk
-    }),
-    new WasmPackPlugin({
-      crateDirectory: path.resolve(__dirname, "."),
-      outName: "journey_kernel",
-      extraArgs: "--target web --features wasm --no-default-features",
     }),
   ];
   // Only add CopyWebpackPlugin in development mode
