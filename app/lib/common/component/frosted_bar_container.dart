@@ -11,8 +11,8 @@ class FrostedBarContainer extends StatelessWidget {
     this.mainAxisPadding = 8,
     this.crossAxisPadding = 0,
     this.radius = 16,
-    this.blurSigma = 12,
-    this.backgroundAlpha = 0.7,
+    this.blurSigma = 2,
+    this.backgroundAlpha = 0.8,
   });
 
   final Widget child;
@@ -45,12 +45,11 @@ class FrostedBarContainer extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: backgroundAlpha),
             borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 20,
-                offset: const Offset(0, 4),
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
             ],
           ),

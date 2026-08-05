@@ -1,8 +1,10 @@
-import 'dart:ui';
-
 import 'package:badges/badges.dart' as badges;
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/app_haptics.dart';
+import 'package:memolanes/common/component/frosted_bar_container.dart';
+import 'package:memolanes/common/component/frosted_bar_item.dart';
+import 'package:memolanes/common/component/frosted_bar_selection_group.dart';
 
 class BottomNavBar extends StatelessWidget {
   final int selectedIndex;
@@ -25,99 +27,95 @@ class BottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
-        child: Container(
-          height: height,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.8),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+    return FrostedBarContainer(
+      extent: height,
+      mainAxisPadding: 8,
+      child: FrostedBarSelectionGroup(
+        selectedIndex: selectedIndex,
+        children: [
+          _buildNavItem(
+            icon: Icons.map_outlined,
+            activeIcon: Icons.map,
+            label: context.tr('home.navigation.map'),
+            index: 0,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildNavItem(Icons.map_outlined, Icons.map, 0),
-              _buildNavItem(Icons.update_outlined, Icons.update, 1),
-              _buildNavItem(Icons.route_outlined, Icons.route, 2),
-              _buildNavItem(
-                  Icons.workspace_premium_outlined, Icons.workspace_premium, 3),
-              _buildNavItem(Icons.settings_outlined, Icons.settings, 4),
-            ],
+          _buildNavItem(
+            icon: Icons.update_outlined,
+            activeIcon: Icons.update,
+            label: context.tr('home.navigation.time_machine'),
+            index: 1,
           ),
-        ),
+          _buildNavItem(
+            icon: Icons.route_outlined,
+            activeIcon: Icons.route,
+            label: context.tr('home.navigation.journey'),
+            index: 2,
+          ),
+          _buildNavItem(
+            icon: Icons.workspace_premium_outlined,
+            activeIcon: Icons.workspace_premium,
+            label: context.tr('home.navigation.achievement'),
+            index: 3,
+          ),
+          _buildNavItem(
+            icon: Icons.settings_outlined,
+            activeIcon: Icons.settings,
+            label: context.tr('home.navigation.settings'),
+            index: 4,
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildNavItem(IconData icon, IconData activeIcon, int index) {
+  Widget _buildNavItem({
+    required IconData icon,
+    required IconData activeIcon,
+    required String label,
+    required int index,
+  }) {
     final isSelected = selectedIndex == index;
+    final hasUpdateBadge = index == 4 && hasUpdateNotification();
 
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          AppHaptics.selection();
-          onIndexChanged(index);
-        },
-        child: Container(
-          color: Colors.transparent,
-          padding: const EdgeInsets.all(8),
-          child: Container(
-            decoration: isSelected
-                ? BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(8),
-                  )
-                : null,
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: index == 4 && hasUpdateNotification()
-                  ? badges.Badge(
-                      badgeStyle: badges.BadgeStyle(
-                        shape: badges.BadgeShape.square,
-                        borderRadius: BorderRadius.circular(5),
-                        padding: const EdgeInsets.all(2),
-                        badgeGradient: const badges.BadgeGradient.linear(
-                          colors: [
-                            Color(0xFFB7CC1F),
-                            Color(0xFFB6E13D),
-                            Color(0xFFB7CC1F),
-                          ],
-                        ),
-                      ),
-                      badgeContent: const Text(
-                        'NEW',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      child: Center(
-                        child: Icon(
-                          isSelected ? activeIcon : icon,
-                          color: isSelected ? Colors.black : Colors.grey,
-                          size: 28,
-                        ),
-                      ),
-                    )
-                  : Icon(
-                      isSelected ? activeIcon : icon,
-                      color: isSelected ? Colors.black : Colors.grey,
-                      size: 28,
-                    ),
-            ),
-          ),
-        ),
-      ),
+    return FrostedBarItem(
+      icon: isSelected ? activeIcon : icon,
+      label: label,
+      isSelected: isSelected,
+      horizontalPadding: 4,
+      horizontalMargin: 0,
+      onTap: () {
+        AppHaptics.selection();
+        onIndexChanged(index);
+      },
+      iconBuilder: hasUpdateBadge
+          ? (contentColor) => badges.Badge(
+                badgeStyle: badges.BadgeStyle(
+                  shape: badges.BadgeShape.square,
+                  borderRadius: BorderRadius.circular(5),
+                  padding: const EdgeInsets.all(2),
+                  badgeGradient: const badges.BadgeGradient.linear(
+                    colors: [
+                      Color(0xFFB7CC1F),
+                      Color(0xFFB6E13D),
+                      Color(0xFFB7CC1F),
+                    ],
+                  ),
+                ),
+                badgeContent: const Text(
+                  'NEW',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                child: Icon(
+                  isSelected ? activeIcon : icon,
+                  color: contentColor,
+                  size: 22,
+                ),
+              )
+          : null,
     );
   }
 }

@@ -155,9 +155,9 @@ class CapsuleBarContent extends StatelessWidget {
                     vertical: 4,
                   ),
                   content: PointerInterceptor(child: moreMenuContent!),
-                  child: _pillButton(
+                  builder: (context, show) => _pillButton(
                     moreIcon ?? const Icon(Icons.more_horiz, size: 24),
-                    null,
+                    show,
                   ),
                 )
               else if (onMoreTap != null)

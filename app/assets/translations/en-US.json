@@ -3,6 +3,13 @@
     "start_new_journey": "Start new journey",
     "pause": "Pause",
     "resume": "Resume",
+    "navigation": {
+      "map": "Map",
+      "time_machine": "Timeline",
+      "journey": "Journeys",
+      "achievement": "Awards",
+      "settings": "Settings"
+    },
     "end_journey_title": "End Journey?",
     "end_journey_message": "Are you sure you want to end your current journey?",
     "double_back_exit": "Press back again to exit the app",

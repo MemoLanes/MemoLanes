@@ -17,27 +17,40 @@ class LayerButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPopup(
+      theme: CustomPopupTheme.white,
       position: PopupPosition.left,
       horizontalOffset: -16,
       contentRadius: 24,
-      barrierColor: Colors.transparent,
       content: PointerInterceptor(child: const LayerPopupContent()),
-      child: PointerInterceptor(
-          child: Container(
-        width: 48,
-        height: 48,
-        decoration: const BoxDecoration(
-          color: Colors.black,
-          shape: BoxShape.circle,
-        ),
-        child: Center(
-          child: Icon(
-            Icons.layers,
-            color: StyleConstants.defaultColor,
-            size: 20,
+      builder: (context, show) => PointerInterceptor(
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            onTap: () {
+              AppHaptics.selection();
+              show();
+            },
+            customBorder: const CircleBorder(),
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: const BoxDecoration(
+                color: StyleConstants.glassControlSurfaceColor,
+                shape: BoxShape.circle,
+                border: Border.fromBorderSide(
+                  BorderSide(color: StyleConstants.glassControlBorderColor),
+                ),
+              ),
+              child: const Icon(
+                Icons.layers,
+                color: StyleConstants.glassControlContentColor,
+                size: 20,
+              ),
+            ),
           ),
         ),
-      )),
+      ),
     );
   }
 }
@@ -119,8 +132,9 @@ class _LayerPopupContentState extends State<LayerPopupContent> {
               child: Center(
                 child: FaIcon(
                   icon,
-                  color:
-                      isActive ? StyleConstants.defaultColor : Colors.white70,
+                  color: isActive
+                      ? CustomPopupTheme.white.accentColor
+                      : CustomPopupTheme.white.mutedContentColor,
                   size: 16,
                 ),
               ),
@@ -129,7 +143,9 @@ class _LayerPopupContentState extends State<LayerPopupContent> {
             Text(
               text,
               style: TextStyle(
-                color: isActive ? StyleConstants.defaultColor : Colors.white70,
+                color: isActive
+                    ? CustomPopupTheme.white.accentColor
+                    : CustomPopupTheme.white.mutedContentColor,
                 fontSize: 14,
               ),
             ),

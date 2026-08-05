@@ -208,14 +208,18 @@ class AchievementCardTitleRow extends StatelessWidget {
               ),
             ),
           ),
-          child: Tooltip(
-            message: context.tr('common.info'),
-            child: Padding(
-              padding: const EdgeInsets.only(top: 1),
-              child: Icon(
-                Icons.info_outline_rounded,
-                color: Colors.white.withValues(alpha: 0.58),
-                size: 18,
+          builder: (context, show) => GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTapUp: (_) => show(),
+            child: Tooltip(
+              message: context.tr('common.info'),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 1),
+                child: Icon(
+                  Icons.info_outline_rounded,
+                  color: Colors.white.withValues(alpha: 0.58),
+                  size: 18,
+                ),
               ),
             ),
           ),
