@@ -7,6 +7,7 @@ import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/custom_popup.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/constants/style_constants.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 
 class AccuracyDisplay extends StatelessWidget {
@@ -38,7 +39,9 @@ class AccuracyDisplay extends StatelessWidget {
             position: PopupPosition.left,
             horizontalOffset: -16,
             contentRadius: 24,
-            content: const _AccuracyPopupContent(),
+            content: PointerInterceptor(
+              child: const _AccuracyPopupContent(),
+            ),
             builder: (context, show) => _AccuracyButton(
               hasData: hasData,
               accuracy: accuracy,
