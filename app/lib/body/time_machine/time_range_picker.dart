@@ -219,17 +219,24 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
               onJourneyKindsChanged: widget.onJourneyKindsChanged,
             ),
           ),
-          child: PointerInterceptor(
-            child: TimeRangeControllerBall(
-              key: ValueKey('ball-$_displayYear-$_displayMonth-$_displayDay'),
-              viewMode: _viewMode,
-              rulerMode: _rulerMode,
-              selectedDate: _viewMode == TimeMachineViewMode.custom
-                  ? _toDate
-                  : _displayDate,
-              loading: widget.loading,
-            ),
-          ),
+          builder: (context, show) {
+            return PointerInterceptor(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: show,
+                child: TimeRangeControllerBall(
+                  key: ValueKey(
+                      'ball-$_displayYear-$_displayMonth-$_displayDay'),
+                  viewMode: _viewMode,
+                  rulerMode: _rulerMode,
+                  selectedDate: _viewMode == TimeMachineViewMode.custom
+                      ? _toDate
+                      : _displayDate,
+                  loading: widget.loading,
+                ),
+              ),
+            );
+          },
         ),
         const SizedBox(width: 12),
         Expanded(

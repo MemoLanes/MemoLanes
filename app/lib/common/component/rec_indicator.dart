@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 class RecIndicator extends StatefulWidget {
@@ -15,13 +17,13 @@ class RecIndicator extends StatefulWidget {
     super.key,
     required this.isRecording,
     this.dotSize = 10.0,
-    this.fontSize = 15.0,
+    this.fontSize = 14.0,
     this.blinkDurationMs = 1000,
-    this.borderColor = Colors.red,
-    this.borderWidth = 2.0,
-    this.borderRadius = 3.0,
-    this.padding = const EdgeInsets.symmetric(horizontal: 3.0, vertical: 0),
-    this.margin = const EdgeInsets.fromLTRB(30, 0, 0, 0),
+    this.borderColor = Colors.white,
+    this.borderWidth = 1.0,
+    this.borderRadius = 999.0,
+    this.padding = const EdgeInsets.symmetric(horizontal: 10.0, vertical: 6.0),
+    this.margin = const EdgeInsets.fromLTRB(24, 0, 0, 0),
   });
 
   @override
@@ -74,38 +76,56 @@ class _RecIndicatorState extends State<RecIndicator>
       child: SafeArea(
         child: Container(
           margin: widget.margin,
-          padding: widget.padding,
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: widget.borderColor,
-              width: widget.borderWidth,
-            ),
+          child: ClipRRect(
             borderRadius: BorderRadius.circular(widget.borderRadius),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FadeTransition(
-                opacity: _animation,
-                child: Container(
-                  width: widget.dotSize,
-                  height: widget.dotSize,
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
+              child: Container(
+                padding: widget.padding,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.8),
+                  border: Border.all(
+                    color: widget.borderColor.withValues(alpha: 0.4),
+                    width: widget.borderWidth,
                   ),
+                  borderRadius: BorderRadius.circular(widget.borderRadius),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FadeTransition(
+                      opacity: _animation,
+                      child: Container(
+                        width: widget.dotSize,
+                        height: widget.dotSize,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFF0000),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: widget.dotSize * 0.5),
+                    Text(
+                      'REC',
+                      style: TextStyle(
+                        color: const Color(0xFF222222),
+                        fontWeight: FontWeight.w700,
+                        fontSize: widget.fontSize,
+                        height: 1,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              SizedBox(width: widget.dotSize / 2),
-              Text(
-                'REC',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.bold,
-                  fontSize: widget.fontSize,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

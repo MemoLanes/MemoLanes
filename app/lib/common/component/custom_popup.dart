@@ -2,15 +2,20 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 
 enum PopupPosition { auto, top, bottom, left, right }
 
+typedef CustomPopupBuilder = Widget Function(
+  BuildContext context,
+  VoidCallback show,
+);
+
 class CustomPopup extends StatefulWidget {
   final GlobalKey? anchorKey;
   final Widget content;
-  final Widget child;
-  final bool isLongPress;
+  final CustomPopupBuilder builder;
   final Color? backgroundColor;
   final Color? barrierColor;
   final EdgeInsets contentPadding;
@@ -29,9 +34,8 @@ class CustomPopup extends StatefulWidget {
   const CustomPopup({
     super.key,
     required this.content,
-    required this.child,
+    required this.builder,
     this.anchorKey,
-    this.isLongPress = false,
     this.backgroundColor,
     this.barrierColor,
     this.contentPadding = const EdgeInsets.all(16),
@@ -82,12 +86,7 @@ class CustomPopupState extends State<CustomPopup> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onLongPress: widget.isLongPress ? () => show() : null,
-      onTapUp: !widget.isLongPress ? (_) => show() : null,
-      child: widget.child,
-    );
+    return widget.builder(context, show);
   }
 }
 
@@ -98,6 +97,7 @@ class _PopupContent extends StatelessWidget {
   final EdgeInsets contentPadding;
   final double? contentRadius;
   final BoxDecoration? contentDecoration;
+  final ValueChanged<Size>? onSizeChanged;
 
   const _PopupContent({
     required this.child,
@@ -106,27 +106,74 @@ class _PopupContent extends StatelessWidget {
     required this.contentPadding,
     this.contentRadius,
     this.contentDecoration,
+    this.onSizeChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      key: childKey,
-      padding: contentPadding,
-      constraints: const BoxConstraints(minWidth: 50),
-      decoration: contentDecoration ??
-          BoxDecoration(
-            color: backgroundColor ?? Colors.black,
-            borderRadius: BorderRadius.circular(contentRadius ?? 10),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 10,
-              ),
-            ],
-          ),
-      child: child,
+    return _SizeChangeObserver(
+      onSizeChanged: onSizeChanged,
+      child: Container(
+        key: childKey,
+        padding: contentPadding,
+        constraints: const BoxConstraints(minWidth: 50),
+        decoration: contentDecoration ??
+            BoxDecoration(
+              color: backgroundColor ?? Colors.black,
+              borderRadius: BorderRadius.circular(contentRadius ?? 10),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 10,
+                ),
+              ],
+            ),
+        child: child,
+      ),
     );
+  }
+}
+
+class _SizeChangeObserver extends SingleChildRenderObjectWidget {
+  final ValueChanged<Size>? onSizeChanged;
+
+  const _SizeChangeObserver({
+    required super.child,
+    this.onSizeChanged,
+  });
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _SizeChangeRenderObject(onSizeChanged);
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _SizeChangeRenderObject renderObject,
+  ) {
+    renderObject.onSizeChanged = onSizeChanged;
+  }
+}
+
+class _SizeChangeRenderObject extends RenderProxyBox {
+  ValueChanged<Size>? onSizeChanged;
+  Size? _lastSize;
+
+  _SizeChangeRenderObject(this.onSizeChanged);
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    if (_lastSize == size) return;
+
+    final nextSize = size;
+    _lastSize = nextSize;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (attached) {
+        onSizeChanged?.call(nextSize);
+      }
+    });
   }
 }
 
@@ -200,6 +247,12 @@ class _PopupRoute extends PopupRoute<void> {
 
   void _calculateChildOffset(Rect? childRect) {
     if (childRect == null) return;
+    _top = null;
+    _bottom = null;
+    _left = null;
+    _right = null;
+    _scaleAlignDx = 0.5;
+    _scaleAlignDy = 0.5;
 
     final view = ui.PlatformDispatcher.instance.views.first;
     final media = MediaQueryData.fromView(view);
@@ -223,7 +276,7 @@ class _PopupRoute extends PopupRoute<void> {
             (horizontalOffset ?? 0);
         break;
       case PopupPosition.left:
-        _left = targetRect.left - childRect.width + (horizontalOffset ?? 0);
+        _right = screenSize.width - targetRect.left - (horizontalOffset ?? 0);
         _top =
             targetRect.center.dy - childRect.height / 2 + (verticalOffset ?? 0);
         _scaleAlignDx = 1;
@@ -252,6 +305,12 @@ class _PopupRoute extends PopupRoute<void> {
       _left = _left!.clamp(
         padding.left + _kEdgeMargin,
         screenSize.width - childRect.width - padding.right - _kEdgeMargin,
+      );
+    }
+    if (_right != null) {
+      _right = _right!.clamp(
+        padding.right + _kEdgeMargin,
+        screenSize.width - childRect.width - padding.left - _kEdgeMargin,
       );
     }
     if (_top != null) {
@@ -305,6 +364,10 @@ class _PopupRoute extends PopupRoute<void> {
       contentPadding: contentPadding,
       contentRadius: contentRadius,
       contentDecoration: contentDecoration,
+      onSizeChanged: (size) {
+        _calculateChildOffset(Offset.zero & size);
+        changedInternalState();
+      },
       child: child,
     );
 
