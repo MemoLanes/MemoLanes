@@ -48,8 +48,8 @@ fn process_gpx_or_kml(file_path: &str) -> Result<JourneyBitmap> {
         .map(|s| s.to_ascii_lowercase());
 
     let (raw_data, preprocessor) = match ext.as_deref() {
-        Some("gpx") => import_data::load_gpx(file_path)?,
-        Some("kml") => import_data::load_kml(file_path)?,
+        Some("gpx") => import_data::gpx::load_gpx(file_path)?,
+        Some("kml") => import_data::kml::load_kml(file_path)?,
         _ => bail!("Unsupported file extension: {ext:?}"),
     };
 
@@ -67,7 +67,9 @@ fn process_gpx_or_kml(file_path: &str) -> Result<JourneyBitmap> {
         }
     };
 
-    let jv = import_data::journey_vector_from_raw_data_with_gps_preprocessor(&raw_data, gap_rule);
+    let jv = import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
+        &raw_data, gap_rule,
+    );
     let mut bm = JourneyBitmap::new();
     if let Some(v) = jv {
         bm.merge_vector(&v);
@@ -110,7 +112,8 @@ fn process_data_dir(dir: &str) -> Result<JourneyBitmap> {
         dir.to_string(),
         dir.to_string(),
         dir.to_string(),
-    );
+    )
+    .unwrap();
     init_main_map()?;
 
     let main_map_state = get_main_map_state();

@@ -58,7 +58,6 @@ pub fn init(cache_dir: &str) -> Result<()> {
         AppendTimestamp::default(FileLimit::MaxFiles(3)),
         ContentLimit::Lines(1000),
         Compression::None,
-        #[cfg(unix)]
         None,
     );
     let config = ConfigBuilder::new().set_time_format_rfc3339().build();

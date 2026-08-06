@@ -6,8 +6,8 @@ use flutter_rust_bridge::frb;
 use geo_data_format::Worldview as GeoWorldview;
 
 pub use crate::achievement::layer::AchievementLayer;
-use crate::achievement::read_model::region;
-pub use crate::achievement::read_model::region::{
+use crate::achievement::region;
+pub use crate::achievement::region::{
     LevelSummary, RegionDetail, RegionEntity, RegionKind, RegionLevelView,
 };
 pub use geo_data_format::GeoEntityId;
@@ -99,14 +99,12 @@ pub fn get_explored_area_by_layer() -> Result<HashMap<AchievementLayer, u64>> {
         })
 }
 
-// Regions (layered): Flutter Rust Bridge entry points over `achievement::read_model::region`.
+// Regions (layered): Flutter Rust Bridge entry points over `achievement::region`.
 
 pub fn region_levels() -> Result<HashMap<RegionKind, LevelSummary>> {
     crate::api::api::get()
         .storage
-        .with_achievement_read(|store| {
-            Ok(store.geo().map_or_else(HashMap::new, region::region_levels))
-        })
+        .with_achievement_read(|store| Ok(region::region_levels(store.geo()?)))
 }
 
 pub fn region_level_view(
@@ -117,21 +115,9 @@ pub fn region_level_view(
     crate::api::api::get()
         .storage
         .with_achievement_read(|store| {
-            let Some(geo) = store.geo() else {
-                return Ok(RegionLevelView {
-                    level,
-                    visited_count: 0,
-                    region_count: 0,
-                    entries: HashMap::new(),
-                });
-            };
-            Ok(region::region_level_view(
-                &store.region_states(&[layer])?,
-                geo,
-                layer,
-                level,
-                parent,
-            ))
+            let ids = region::level_scope(store.geo()?, level, parent);
+            let areas = store.region_areas(layer, &ids)?;
+            Ok(region::level_view(store.geo()?, level, &ids, &areas))
         })
 }
 
@@ -142,14 +128,8 @@ pub fn region_detail(
     crate::api::api::get()
         .storage
         .with_achievement_read(|store| {
-            let Some(geo) = store.geo() else {
-                return Ok(None);
-            };
-            Ok(region::region_detail(
-                &store.region_states(&[layer])?,
-                geo,
-                entity_id,
-                layer,
-            ))
+            let ids = region::detail_scope(store.geo()?, entity_id);
+            let areas = store.region_areas(layer, &ids)?;
+            Ok(region::detail_view(store.geo()?, entity_id, &areas))
         })
 }

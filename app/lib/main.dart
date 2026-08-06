@@ -17,6 +17,7 @@ import 'package:memolanes/body/settings/settings_body.dart'
 import 'package:memolanes/common/achievement_stats_store.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/component/bottom_nav_bar.dart';
+import 'package:memolanes/common/component/database_version_too_new_gate.dart';
 import 'package:memolanes/common/component/map_controls/map_copyright_button.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/gps_manager.dart';
@@ -32,33 +33,27 @@ import 'package:provider/provider.dart';
 
 void main() async {
   runZonedGuarded(() async {
-    await AppBootstrap.initAppRuntime();
+    final startupStatus = await AppBootstrap.initAppRuntime();
+    if (startupStatus == AppStartupStatus.databaseVersionTooNew) {
+      runApp(_appRoot(const MyApp(home: DatabaseVersionTooNewGate())));
+      return;
+    }
 
     final gpsManager = GpsManager();
     final updateNotifier = UpdateNotifier();
     final achievementStatsStore = AchievementStatsStore();
 
-    runApp(
-      EasyLocalization(
-        supportedLocales: const [
-          Locale('en', 'US'),
-          Locale('zh', 'CN'),
+    runApp(_appRoot(
+      MultiProvider(
+        providers: [
+          // Do NOT use `create: (_) => gpsManager` here
+          ChangeNotifierProvider.value(value: gpsManager),
+          ChangeNotifierProvider.value(value: updateNotifier),
+          ChangeNotifierProvider.value(value: achievementStatsStore),
         ],
-        path: 'assets/translations',
-        assetLoader: const AppTranslationLoader(),
-        fallbackLocale: const Locale('en', 'US'),
-        saveLocale: false,
-        child: MultiProvider(
-          providers: [
-            // Do NOT use `create: (_) => gpsManager` here
-            ChangeNotifierProvider.value(value: gpsManager),
-            ChangeNotifierProvider.value(value: updateNotifier),
-            ChangeNotifierProvider.value(value: achievementStatsStore),
-          ],
-          child: const MyApp(),
-        ),
+        child: const MyApp(),
       ),
-    );
+    ));
 
     AppBootstrap.startAppServices(
       gpsManager: gpsManager,
@@ -69,8 +64,21 @@ void main() async {
   });
 }
 
+Widget _appRoot(Widget child) {
+  return EasyLocalization(
+    supportedLocales: const [Locale('en', 'US'), Locale('zh', 'CN')],
+    path: 'assets/translations',
+    assetLoader: const AppTranslationLoader(),
+    fallbackLocale: const Locale('en', 'US'),
+    saveLocale: false,
+    child: child,
+  );
+}
+
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({super.key, this.home});
+
+  final Widget? home;
 
   @override
   Widget build(BuildContext context) {
@@ -105,7 +113,7 @@ class MyApp extends StatelessWidget {
           unselectedItemColor: Colors.black54,
         ),
       ),
-      home: const MyHomePage(title: 'MemoLanes [OSS]'),
+      home: home ?? const MyHomePage(title: 'MemoLanes [OSS]'),
     );
   }
 }

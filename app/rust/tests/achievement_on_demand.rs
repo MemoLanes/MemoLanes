@@ -1,8 +1,9 @@
-//! The compute-on-demand `OnDemandStore` reads explored area and region states
-//! from a journey snapshot, with distinct per-layer areas, `All` as the true
-//! union, and country→continent rollup.
+//! The compute-on-demand reads take explored area and region areas from a
+//! journey snapshot, with distinct per-layer areas, `All` as the true union,
+//! and country→continent rollup. The `AchievementReader` adapter over them
+//! (including its no-worldview branch) is covered by `cache_db_v1.rs`.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 
 use chrono::NaiveDate;
@@ -11,9 +12,10 @@ use geo_data_format::{
 };
 use memolanes_core::{
     achievement::{
-        backend::on_demand::OnDemandStore, contract::AchievementStore, layer::AchievementLayer,
+        layer::AchievementLayer,
+        on_demand::{explored_areas_from_snapshot, region_areas_from_snapshot},
     },
-    geo::GeoIndex,
+    geo::{GeoIndex, GeoLookup},
     journey_bitmap::{Block, BlockKey, JourneyBitmap, TileKey},
     journey_data::JourneyData,
     journey_header::JourneyKind,
@@ -83,30 +85,38 @@ fn sub(dir: &TempDir, s: &str) -> String {
     p.into_os_string().into_string().unwrap()
 }
 
-/// Read area for all layers + region states through the on-demand store,
-/// over one consistent snapshot from `storage`.
-fn read_on_demand(
-    storage: &Storage,
-    oss: &OnDemandStore,
-) -> (
-    [u64; 3],
-    memolanes_core::achievement::compute::region_state::RegionStateMap,
-) {
+const LAYERS: [AchievementLayer; 3] = [
+    AchievementLayer::Default,
+    AchievementLayer::Flight,
+    AchievementLayer::All,
+];
+
+/// Per-layer explored area, in `LAYERS` order.
+fn explored_areas(storage: &Storage) -> [u64; 3] {
     storage
         .with_journey_snapshot(|snap| {
-            let reader = oss.reader(snap)?;
-            let areas = [
-                reader.explored_area_m2(AchievementLayer::Default)?,
-                reader.explored_area_m2(AchievementLayer::Flight)?,
-                reader.explored_area_m2(AchievementLayer::All)?,
-            ];
-            Ok((areas, reader.region_states(&AchievementLayer::ALL_LAYERS)?))
+            let by_layer = explored_areas_from_snapshot(snap, &LAYERS)?;
+            Ok(LAYERS.map(|layer| by_layer[&layer]))
+        })
+        .unwrap()
+}
+
+/// Read area for all layers + the `All`-layer areas of EU/FR over one
+/// consistent snapshot from `storage`, so they cannot skew against each other.
+fn read_on_demand(storage: &Storage, geo: &dyn GeoLookup) -> ([u64; 3], HashMap<GeoEntityId, u64>) {
+    storage
+        .with_journey_snapshot(|snap| {
+            let by_layer = explored_areas_from_snapshot(snap, &LAYERS)?;
+            Ok((
+                LAYERS.map(|layer| by_layer[&layer]),
+                region_areas_from_snapshot(snap, geo, AchievementLayer::All, &[EU, FR])?,
+            ))
         })
         .unwrap()
 }
 
 #[test]
-fn on_demand_areas_and_region_states() {
+fn on_demand_areas_and_region_areas() {
     let temp_dir = TempDir::new("test_on_demand").unwrap();
     let geo_bytes = synthetic_geo_bytes();
     let storage = Storage::init(
@@ -114,7 +124,8 @@ fn on_demand_areas_and_region_states() {
         sub(&temp_dir, "doc/"),
         sub(&temp_dir, "support/"),
         sub(&temp_dir, "cache/"),
-    );
+    )
+    .unwrap();
     storage
         .init_or_change_geo_data(Worldview::Iso, &geo_bytes)
         .unwrap();
@@ -134,44 +145,42 @@ fn on_demand_areas_and_region_states() {
         one_block(TileKey::new(0, 0), BlockKey::from_x_y(5, 6), 40),
     );
 
-    // On-demand store with the same worldview geo.
-    let mut oss = OnDemandStore::new();
-    oss.set_geo(
-        Worldview::Iso,
-        Box::new(GeoIndex::from_bytes(&geo_bytes).unwrap()),
-    )
-    .unwrap();
+    // On-demand reads against the same worldview geo.
+    let geo = GeoIndex::from_bytes(&geo_bytes).unwrap();
 
-    let (oss_areas, oss_states) = read_on_demand(&storage, &oss);
+    let (oss_areas, all_layer_regions) = read_on_demand(&storage, &geo);
 
     // The data is non-trivial: distinct per-layer areas, All is the union,
     // France visited in every layer, rolled up to EU.
     let [default_area, flight_area, all_area] = oss_areas;
     assert!(default_area > 0 && flight_area > 0);
     assert_eq!(all_area, default_area + flight_area);
-    assert_eq!(
-        oss_states[&(AchievementLayer::Default, FR)].visited_area_m2,
-        default_area
-    );
-    assert_eq!(
-        oss_states[&(AchievementLayer::Flight, FR)].visited_area_m2,
-        flight_area
-    );
-    assert_eq!(
-        oss_states[&(AchievementLayer::All, EU)].visited_area_m2,
-        all_area
-    );
+
+    // France's Default and Flight areas are read per layer.
+    let (fr_default, fr_flight) = storage
+        .with_journey_snapshot(|snap| {
+            Ok((
+                region_areas_from_snapshot(snap, &geo, AchievementLayer::Default, &[FR])?,
+                region_areas_from_snapshot(snap, &geo, AchievementLayer::Flight, &[FR])?,
+            ))
+        })
+        .unwrap();
+    assert_eq!(fr_default[&FR], default_area);
+    assert_eq!(fr_flight[&FR], flight_area);
+    // EU rolls up the union in the All layer.
+    assert_eq!(all_layer_regions[&EU], all_area);
 }
 
 #[test]
-fn on_demand_without_geo_has_no_regions() {
+fn on_demand_area_without_geo() {
     let temp_dir = TempDir::new("test_on_demand_no_geo").unwrap();
     let storage = Storage::init(
         sub(&temp_dir, "temp/"),
         sub(&temp_dir, "doc/"),
         sub(&temp_dir, "support/"),
         sub(&temp_dir, "cache/"),
-    );
+    )
+    .unwrap();
     insert(
         &storage,
         (2025, 1, 1),
@@ -179,9 +188,6 @@ fn on_demand_without_geo_has_no_regions() {
         one_block(TileKey::new(0, 0), BlockKey::from_x_y(3, 4), 25),
     );
 
-    // No geo supplied: region states empty, but explored area still computes.
-    let oss = OnDemandStore::new();
-    let (areas, states) = read_on_demand(&storage, &oss);
-    assert!(states.is_empty());
-    assert!(areas[0] > 0);
+    // Area needs no worldview installed; regions do (see `cache_db_v1.rs`).
+    assert!(explored_areas(&storage)[0] > 0);
 }

@@ -23,10 +23,11 @@ fn basic() {
         sub_folder("doc/"),
         sub_folder("support/"),
         sub_folder("cache/"),
-    );
+    )
+    .unwrap();
 
     let (raw_data, _preprocessor) =
-        import_data::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
+        import_data::gpx::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
 
     let mut raw_data_list: Vec<RawGPSPoint> = raw_data.into_iter().flatten().collect();
     let (first_elements, remaining_elements) = raw_data_list.split_at_mut(2000);

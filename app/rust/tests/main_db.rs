@@ -9,13 +9,47 @@ use memolanes_core::{
     journey_vector::JourneyVector,
     main_db::{self, Action, CacheEntry, MainDb},
     raw_data::{self, ExtendedRawGPSPoint, RawGPSPoint},
+    utils::db::{run_migrations, set_version_in_metadata, DbError, SchemaVersion},
 };
+use rusqlite::Connection;
 use tempdir::TempDir;
+
+#[test]
+fn rejects_newer_major_schema_version_without_migrating() {
+    let temp_dir = TempDir::new("main-db-newer-major-version").unwrap();
+    let db_path = temp_dir.path().join("main.db");
+    let mut conn = Connection::open(&db_path).unwrap();
+    let tx = conn.transaction().unwrap();
+    run_migrations(&tx, "main.db", &[]).unwrap();
+    let newer_version = SchemaVersion::new(i32::MAX, 0);
+    set_version_in_metadata(&tx, newer_version).unwrap();
+    tx.commit().unwrap();
+    drop(conn);
+
+    let error = match MainDb::open(temp_dir.path().to_str().unwrap()) {
+        Ok(_) => panic!("a newer major schema version must be rejected"),
+        Err(error) => error,
+    };
+    assert!(matches!(
+        error.downcast_ref::<DbError>(),
+        Some(DbError::VersionTooNew)
+    ));
+
+    let conn = Connection::open(db_path).unwrap();
+    let major: String = conn
+        .query_row(
+            "SELECT value FROM db_metadata WHERE key = 'version'",
+            (),
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(major, newer_version.major.to_string());
+}
 
 #[test]
 fn basic() {
     let (raw_data, _preprocessor) =
-        import_data::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
+        import_data::gpx::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
 
     let test_data: Vec<RawGPSPoint> = raw_data.into_iter().flatten().collect();
     let num_of_gpx_data_in_input = test_data.len();
@@ -24,11 +58,11 @@ fn basic() {
     let temp_dir = TempDir::new("main_db-basic").unwrap();
     println!("temp dir: {:?}", temp_dir.path());
 
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
     for (i, raw_data) in test_data.iter().enumerate() {
         if i > 1000 && i % 1000 == 0 {
             // test restart
-            main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+            main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
         }
         main_db
             .record(raw_data, gps_processor::ProcessResult::Append)
@@ -92,7 +126,7 @@ fn basic() {
 #[test]
 fn journey_raw_data_lifecycle() {
     let temp_dir = TempDir::new("main_db-journey_raw_data_lifecycle").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
     let data = |timestamp_ms, latitude, received_timestamp_ms| ExtendedRawGPSPoint {
         raw_gps_point: RawGPSPoint {
             point: Point {
@@ -210,7 +244,7 @@ fn journey_raw_data_lifecycle() {
 #[test]
 fn disabled_raw_data_capture_does_not_create_an_attachment() {
     let temp_dir = TempDir::new("main_db-disabled_raw_data_capture").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
     let data = ExtendedRawGPSPoint {
         raw_gps_point: RawGPSPoint {
             point: Point {
@@ -248,7 +282,7 @@ fn setting() {
     let temp_dir = TempDir::new("main_db-setting").unwrap();
     println!("temp dir: {:?}", temp_dir.path());
 
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
     // default value
     assert!(!main_db.get_setting_with_default(Setting::RawDataMode, false));
     assert!(main_db.get_setting_with_default(Setting::RawDataMode, true));
@@ -258,7 +292,7 @@ fn setting() {
     assert!(main_db.get_setting_with_default(Setting::RawDataMode, false));
 
     // restart
-    main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
     assert!(main_db.get_setting_with_default(main_db::Setting::RawDataMode, false));
 }
 
@@ -300,7 +334,7 @@ fn migrates_v1_database_for_journey_raw_data() {
         .unwrap();
     drop(connection);
 
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
     let point = ExtendedRawGPSPoint {
         raw_gps_point: RawGPSPoint {
             point: Point {
@@ -360,7 +394,7 @@ fn get_ongoing_journey_timestamp_range() {
     let temp_dir = TempDir::new("main_db-get_lastest_timestamp_of_ongoing_journey").unwrap();
     println!("temp dir: {:?}", temp_dir.path());
 
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
     let result = main_db
         .with_txn(|txn| txn.get_ongoing_journey_timestamp_range())
         .unwrap();
@@ -427,7 +461,7 @@ fn journey_query() {
     let temp_dir = TempDir::new("main_db-journey_query").unwrap();
     println!("temp dir: {:?}", temp_dir.path());
 
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let date = |str| NaiveDate::parse_from_str(str, "%Y-%m-%d").unwrap();
 
@@ -537,7 +571,7 @@ fn date(s: &str) -> NaiveDate {
 #[test]
 fn delete_journey_sets_invalidate_months() {
     let temp_dir = TempDir::new("main_db-delete_invalidate").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let id = main_db
@@ -572,7 +606,7 @@ fn delete_journey_sets_invalidate_months() {
 #[test]
 fn delete_two_journeys_same_month_deduplicates() {
     let temp_dir = TempDir::new("main_db-delete_dedup").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap1 = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let bitmap2 = test_utils::make_bitmap_with_line(test_utils::draw_line2);
@@ -620,7 +654,7 @@ fn delete_two_journeys_same_month_deduplicates() {
 #[test]
 fn delete_two_journeys_different_months_accumulates() {
     let temp_dir = TempDir::new("main_db-delete_diff_months").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap1 = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let bitmap2 = test_utils::make_bitmap_with_line(test_utils::draw_line2);
@@ -666,7 +700,7 @@ fn delete_two_journeys_different_months_accumulates() {
 #[test]
 fn delete_two_journeys_different_kinds_accumulates() {
     let temp_dir = TempDir::new("main_db-delete_diff_kinds").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap1 = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let bitmap2 = test_utils::make_bitmap_with_line(test_utils::draw_line2);
@@ -708,7 +742,7 @@ fn delete_two_journeys_different_kinds_accumulates() {
 #[test]
 fn update_metadata_same_date_kind_no_action() {
     let temp_dir = TempDir::new("main_db-update_meta_no_action").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let id = main_db
@@ -744,7 +778,7 @@ fn update_metadata_same_date_kind_no_action() {
 #[test]
 fn update_metadata_changes_date() {
     let temp_dir = TempDir::new("main_db-update_meta_date").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let id = main_db
@@ -794,7 +828,7 @@ fn update_metadata_changes_date() {
 #[test]
 fn update_metadata_changes_kind() {
     let temp_dir = TempDir::new("main_db-update_meta_kind").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let id = main_db
@@ -834,7 +868,7 @@ fn update_metadata_changes_kind() {
 #[test]
 fn update_metadata_changes_date_and_kind() {
     let temp_dir = TempDir::new("main_db-update_meta_both").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let id = main_db
@@ -878,7 +912,7 @@ fn update_metadata_changes_date_and_kind() {
 #[test]
 fn update_journey_data_sets_invalidate_months() {
     let temp_dir = TempDir::new("main_db-update_data_invalidate").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let id = main_db
@@ -916,7 +950,7 @@ fn update_journey_data_sets_invalidate_months() {
 #[test]
 fn delete_all_journeys_sets_complete_rebuilt() {
     let temp_dir = TempDir::new("main_db-delete_all").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     main_db
@@ -944,7 +978,7 @@ fn delete_all_journeys_sets_complete_rebuilt() {
 #[test]
 fn journey_date_range_empty_db() {
     let temp_dir = TempDir::new("main_db-date_range_empty").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let result = main_db.with_txn(|txn| txn.journey_date_range()).unwrap();
     assert_eq!(result, None);
@@ -953,7 +987,7 @@ fn journey_date_range_empty_db() {
 #[test]
 fn journey_date_range_single_journey() {
     let temp_dir = TempDir::new("main_db-date_range_single").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     main_db
@@ -975,7 +1009,7 @@ fn journey_date_range_single_journey() {
 #[test]
 fn journey_date_range_multiple_journeys() {
     let temp_dir = TempDir::new("main_db-date_range_multiple").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap1 = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let bitmap2 = test_utils::make_bitmap_with_line(test_utils::draw_line2);
@@ -1004,7 +1038,7 @@ fn journey_date_range_multiple_journeys() {
 #[test]
 fn single_insert_sets_merge_one() {
     let temp_dir = TempDir::new("main_db-single_insert_merge").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let action = main_db
@@ -1032,7 +1066,7 @@ fn single_insert_sets_merge_one() {
 #[test]
 fn two_inserts_escalate_to_invalidate() {
     let temp_dir = TempDir::new("main_db-two_inserts_escalate").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap1 = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let bitmap2 = test_utils::make_bitmap_with_line(test_utils::draw_line2);
@@ -1080,7 +1114,7 @@ fn two_inserts_escalate_to_invalidate() {
 #[test]
 fn third_insert_appends_to_invalidate() {
     let temp_dir = TempDir::new("main_db-third_insert_appends").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap1 = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let bitmap2 = test_utils::make_bitmap_with_line(test_utils::draw_line2);
@@ -1136,7 +1170,7 @@ fn two_inserts_same_date_kind_deduplicates() {
     // single txn, the escalation from MergeOne to Invalidate should deduplicate:
     // the entries list should contain only one entry.
     let temp_dir = TempDir::new("main_db-two_inserts_same_dedup").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap1 = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let bitmap2 = test_utils::make_bitmap_with_line(test_utils::draw_line2);
@@ -1179,7 +1213,7 @@ fn three_inserts_two_same_date_kind_deduplicates() {
     // Three inserts: two share the exact same date+kind, one differs. The
     // Invalidate entries should contain 2 entries (not 3).
     let temp_dir = TempDir::new("main_db-three_inserts_dedup").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap1 = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let bitmap2 = test_utils::make_bitmap_with_line(test_utils::draw_line2);
@@ -1231,7 +1265,7 @@ fn insert_then_delete_same_date_kind_deduplicates() {
     // same date+kind (MergeOne), then delete the original. The escalation to
     // Invalidate should deduplicate because both refer to the same date+kind.
     let temp_dir = TempDir::new("main_db-insert_delete_same_dedup").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap_existing = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let existing_id = main_db
@@ -1279,7 +1313,7 @@ fn insert_then_delete_same_date_kind_deduplicates() {
 #[test]
 fn insert_then_delete_converts_merge_to_invalidate() {
     let temp_dir = TempDir::new("main_db-insert_then_delete").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     // Pre-insert a journey in a different month so we can delete it later.
     let bitmap_may = test_utils::make_bitmap_with_line(test_utils::draw_line1);
@@ -1338,7 +1372,7 @@ fn insert_then_delete_converts_merge_to_invalidate() {
 #[test]
 fn complete_rebuilt_survives_subsequent_insert() {
     let temp_dir = TempDir::new("main_db-complete_rebuilt_insert").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     // Pre-insert so delete_all has something to delete
@@ -1386,7 +1420,7 @@ fn complete_rebuilt_survives_subsequent_insert() {
 #[test]
 fn update_metadata_same_month_different_day_sets_invalidate() {
     let temp_dir = TempDir::new("main_db-same_month_diff_day").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let id = main_db
@@ -1433,7 +1467,7 @@ fn update_metadata_same_month_different_day_sets_invalidate() {
 #[test]
 fn update_data_then_delete_accumulates() {
     let temp_dir = TempDir::new("main_db-update_then_delete").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap_a = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let bitmap_b = test_utils::make_bitmap_with_line(test_utils::draw_line2);
@@ -1489,7 +1523,7 @@ fn update_data_then_delete_accumulates() {
 #[test]
 fn finalize_ongoing_sets_merge_one() {
     let temp_dir = TempDir::new("main_db-finalize_merge_one").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     // Record GPS data to create an ongoing journey
     main_db
@@ -1540,10 +1574,76 @@ fn finalize_ongoing_sets_merge_one() {
 
 // === Theme D: Insert dedup precision ===
 
+/// MergeOne promises exactly one fresh insert, so a cache may apply it as a
+/// pure addition to a cached bitmap. An edit reaching this path would need
+/// subtraction, which a union cannot express.
+#[test]
+fn merge_one_is_only_ever_a_single_fresh_insert() {
+    fn insert_one(txn: &mut main_db::Txn, day: u32) -> anyhow::Result<String> {
+        txn.create_and_insert_journey(
+            NaiveDate::from_ymd_opt(2025, 1, day).unwrap(),
+            None,
+            None,
+            None,
+            JourneyKind::DefaultKind,
+            None,
+            JourneyData::Bitmap(test_utils::make_bitmap_with_line(test_utils::draw_line1)),
+        )
+    }
+
+    let temp_dir = TempDir::new("main_db_action_shape").unwrap();
+    let mut db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
+
+    // A single insert into an untouched txn -> MergeOne.
+    let id = db
+        .with_txn(|txn| {
+            let id = insert_one(txn, 1)?;
+            assert!(matches!(txn.action, Some(Action::MergeOne { .. })));
+            Ok(id)
+        })
+        .unwrap();
+
+    // A second insert in the SAME txn -> Invalidate.
+    db.with_txn(|txn| {
+        insert_one(txn, 2)?;
+        insert_one(txn, 3)?;
+        assert!(matches!(txn.action, Some(Action::Invalidate { .. })));
+        Ok(())
+    })
+    .unwrap();
+
+    // Metadata edit -> never MergeOne. Nothing here changes date or kind, so it
+    // needs no cache action at all; a date or kind change escalates to
+    // Invalidate (see `update_metadata_changes_date`).
+    db.with_txn(|txn| {
+        let h = txn.get_journey_header(&id)?.unwrap();
+        txn.update_journey_metadata(&id, h.journey_date, h.start, h.end, None, h.journey_kind)?;
+        assert!(!matches!(txn.action, Some(Action::MergeOne { .. })));
+        Ok(())
+    })
+    .unwrap();
+
+    // Delete -> Invalidate.
+    db.with_txn(|txn| {
+        txn.delete_journey(&id)?;
+        assert!(matches!(txn.action, Some(Action::Invalidate { .. })));
+        Ok(())
+    })
+    .unwrap();
+
+    // Delete all -> CompleteRebuilt.
+    db.with_txn(|txn| {
+        txn.delete_all_journeys()?;
+        assert!(matches!(txn.action, Some(Action::CompleteRebuilt)));
+        Ok(())
+    })
+    .unwrap();
+}
+
 #[test]
 fn insert_same_date_different_kind_not_deduplicated() {
     let temp_dir = TempDir::new("main_db-same_date_diff_kind").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap1 = test_utils::make_bitmap_with_line(test_utils::draw_line1);
     let bitmap2 = test_utils::make_bitmap_with_line(test_utils::draw_line2);
