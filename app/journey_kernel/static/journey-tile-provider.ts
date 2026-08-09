@@ -1,6 +1,6 @@
 import { TileBuffer } from "../pkg/journey_kernel.js";
 import { getViewportTileRange } from "./layers/utils";
-import type maplibregl from "maplibre-gl";
+import type * as maplibregl from "maplibre-gl";
 import { AVAILABLE_LAYERS, type ReactiveParams } from "./params";
 
 /**

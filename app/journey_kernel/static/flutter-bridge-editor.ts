@@ -1,4 +1,4 @@
-import maplibregl from "maplibre-gl";
+import * as maplibregl from "maplibre-gl";
 import { FlutterBridge } from "./flutter-bridge";
 
 // Declare window extensions for Flutter channels (editor only)

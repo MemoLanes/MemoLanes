@@ -9,7 +9,7 @@
  * - Map style management and retry logic
  */
 
-import maplibregl from "maplibre-gl";
+import * as maplibregl from "maplibre-gl";
 import type {
   Map as MaplibreMap,
   RequestTransformFunction,
@@ -31,6 +31,13 @@ import { JOURNEY_LAYER_ID } from "./layers/journey-layer-interface";
 import type { JourneyLayer } from "./layers/journey-layer-interface";
 
 const MAX_MAP_ZOOM = 14;
+
+maplibregl.setWorkerUrl(
+  new URL(
+    "maplibre-gl/dist/maplibre-gl-worker.mjs",
+    import.meta.url,
+  ).toString(),
+);
 
 /**
  * Configuration options for MapController
@@ -276,6 +283,7 @@ export class MapController {
       undefined, // use default layerId
       bgColor,
     );
+    newLayer.setLowPowerMode?.(this.params.lowPowerMode);
     newLayer.initialize();
 
     this.currentJourneyLayer = newLayer;
@@ -316,6 +324,11 @@ export class MapController {
             newProjection as ProjectionType,
           ),
       });
+    });
+
+    this.params.on("lowPowerMode", (enabled, _oldValue) => {
+      this.currentJourneyLayer?.setLowPowerMode?.(enabled);
+      this.map.triggerRepaint();
     });
   }
 

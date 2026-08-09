@@ -16,6 +16,18 @@ module.exports = (env, argv) => {
       filename: "index.html",
       chunks: ["main"], // Only include the main chunk
     }),
+    // MapLibre v6's ESM worker imports this sibling module at runtime.
+    new CopyWebpackPlugin({
+      patterns: [
+        {
+          from: path.resolve(
+            __dirname,
+            "node_modules/maplibre-gl/dist/maplibre-gl-shared.mjs",
+          ),
+          to: "maplibre-gl-shared.mjs",
+        },
+      ],
+    }),
   ];
   if (!isBenchmark) {
     plugins.push(

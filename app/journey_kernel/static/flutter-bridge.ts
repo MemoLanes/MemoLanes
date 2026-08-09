@@ -8,7 +8,7 @@
  * (e.g., switching layers, refreshing tile data).
  */
 
-import maplibregl from "maplibre-gl";
+import * as maplibregl from "maplibre-gl";
 import { MapController } from "./map-controller";
 
 // Type definitions for Flutter message channels
