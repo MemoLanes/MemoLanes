@@ -153,7 +153,7 @@ export class MapController {
         );
 
         // Initial tile buffer load
-        await this.journeyTileProvider.pollForJourneyUpdates(true);
+        await this.journeyTileProvider.waitForTileBufferUpdate();
         console.log("initial tile buffer loaded");
 
         // Register hooks for reactive property changes
@@ -209,6 +209,17 @@ export class MapController {
    */
   getTileProvider(): JourneyTileProvider | null {
     return this.journeyTileProvider;
+  }
+
+  /**
+   * Disable periodic journey-data polling.
+   *
+   * This can be called before initialization to prevent the polling timer from
+   * being created, or afterwards to stop an existing timer.
+   */
+  disableAutoRefresh(): void {
+    this.DisableAutoRefresh = true;
+    this.clearAutoRefreshInterval();
   }
 
   /**
@@ -421,14 +432,18 @@ export class MapController {
       clearInterval(this.styleRetryIntervalId);
       this.styleRetryIntervalId = null;
     }
-    if (this.pollIntervalId) {
-      clearInterval(this.pollIntervalId);
-      this.pollIntervalId = null;
-    }
+    this.clearAutoRefreshInterval();
     if (this.currentJourneyLayer) {
       this.currentJourneyLayer.remove();
       this.currentJourneyLayer = null;
     }
     this.map.remove();
+  }
+
+  private clearAutoRefreshInterval(): void {
+    if (this.pollIntervalId !== null) {
+      clearInterval(this.pollIntervalId);
+      this.pollIntervalId = null;
+    }
   }
 }

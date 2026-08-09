@@ -1,0 +1,14 @@
+{
+  "version": 8,
+  "name": "MemoLanes Benchmark",
+  "sources": {},
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#e8e4df"
+      }
+    }
+  ]
+}
