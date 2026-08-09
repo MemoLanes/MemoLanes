@@ -6,7 +6,11 @@ const initializeMapController = MapController.prototype.initialize;
 MapController.prototype.initialize = async function () {
   this.disableAutoRefresh();
   await initializeMapController.call(this);
-  installJourneyBenchmark(this.getMap());
+  const tileProvider = this.getTileProvider();
+  if (!tileProvider) {
+    throw new Error("Journey tile provider was not initialized");
+  }
+  installJourneyBenchmark(this.getMap(), tileProvider);
 };
 
 void import("../static/index");

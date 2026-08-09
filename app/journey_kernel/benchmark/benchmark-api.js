@@ -1,8 +1,7 @@
 const BENCHMARK_CENTER = [114.21247, 22.697006];
 const PAN_DISTANCE_CSS_PIXELS = 140;
-const SETTLE_DELAY_MS = 350;
 
-export function installJourneyBenchmark(map) {
+export function installJourneyBenchmark(map, tileProvider) {
   let activeRun = null;
 
   window.__journeyBenchmark = {
@@ -11,7 +10,7 @@ export function installJourneyBenchmark(map) {
         return activeRun;
       }
 
-      const task = runBenchmark(map).finally(() => {
+      const task = runBenchmark(map, tileProvider).finally(() => {
         if (activeRun === task) {
           activeRun = null;
         }
@@ -23,11 +22,11 @@ export function installJourneyBenchmark(map) {
   console.log("Journey benchmark ready");
 }
 
-async function runBenchmark(map) {
+async function runBenchmark(map, tileProvider) {
   const scenarios = [];
-  scenarios.push(await runPanScenario(map, "low_zoom_pan", 8));
-  scenarios.push(await runZoomScenario(map));
-  scenarios.push(await runPanScenario(map, "high_zoom_pan", 14));
+  scenarios.push(await runPanScenario(map, tileProvider, "low_zoom_pan", 8));
+  scenarios.push(await runZoomScenario(map, tileProvider));
+  scenarios.push(await runPanScenario(map, tileProvider, "high_zoom_pan", 14));
 
   return {
     schemaVersion: 1,
@@ -37,25 +36,25 @@ async function runBenchmark(map) {
   };
 }
 
-async function runPanScenario(map, name, zoom) {
-  await settleAt(map, zoom);
+async function runPanScenario(map, tileProvider, name, zoom) {
+  await settleAt(map, tileProvider, zoom);
   await runPanSequence(map, 400);
-  await settleAt(map, zoom);
+  await settleAt(map, tileProvider, zoom);
 
   return measureScenario(map, name, () => runPanSequence(map, 1_200));
 }
 
-async function runZoomScenario(map) {
-  await settleAt(map, 10);
+async function runZoomScenario(map, tileProvider) {
+  await settleAt(map, tileProvider, 10);
   await runZoomSequence(map, 800);
-  await settleAt(map, 10);
+  await settleAt(map, tileProvider, 10);
 
   return measureScenario(map, "zoom_transition", () =>
     runZoomSequence(map, 1_800),
   );
 }
 
-async function settleAt(map, zoom) {
+async function settleAt(map, tileProvider, zoom) {
   map.stop();
   const idle = waitForMapEvent(map, "idle", 10_000);
   map.jumpTo({
@@ -66,7 +65,7 @@ async function settleAt(map, zoom) {
   });
   map.triggerRepaint();
   await idle;
-  await delay(SETTLE_DELAY_MS);
+  await tileProvider.waitForTileBufferUpdate();
   await nextAnimationFrames(2);
 }
 
@@ -254,10 +253,6 @@ function nextAnimationFrames(count) {
     };
     next();
   });
-}
-
-function delay(durationMs) {
-  return new Promise((resolve) => window.setTimeout(resolve, durationMs));
 }
 
 function round(value) {
