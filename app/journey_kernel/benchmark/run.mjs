@@ -96,6 +96,10 @@ try {
   );
   const pageReport = await page.evaluate(() => window.__journeyBenchmark.run());
 
+  if (browserErrors.length > 0) {
+    throw new Error(`Browser errors detected:\n${browserErrors.join("\n")}`);
+  }
+
   const report = {
     ...pageReport,
     runner: {
