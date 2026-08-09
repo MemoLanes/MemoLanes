@@ -1,5 +1,6 @@
 const BENCHMARK_CENTER = [114.21247, 22.697006];
 const PAN_DISTANCE_CSS_PIXELS = 140;
+const TILE_BUFFER_TIMEOUT_MS = 10_000;
 
 export function installJourneyBenchmark(map, tileProvider) {
   let activeRun = null;
@@ -65,7 +66,11 @@ async function settleAt(map, tileProvider, zoom) {
   });
   map.triggerRepaint();
   await idle;
-  await tileProvider.waitForTileBufferUpdate();
+  await waitWithTimeout(
+    tileProvider.waitForTileBufferUpdate(),
+    TILE_BUFFER_TIMEOUT_MS,
+    "Timed out waiting for journey tile buffer",
+  );
   await nextAnimationFrames(2);
 }
 
@@ -238,6 +243,24 @@ function waitForMapEvent(map, eventName, timeoutMs) {
       reject(new Error(`Timed out waiting for MapLibre ${eventName}`));
     }, timeoutMs);
     map.once(eventName, complete);
+  });
+}
+
+function waitWithTimeout(task, timeoutMs, message) {
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      reject(new Error(message));
+    }, timeoutMs);
+    task.then(
+      (value) => {
+        window.clearTimeout(timeout);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timeout);
+        reject(error);
+      },
+    );
   });
 }
 

@@ -153,7 +153,7 @@ export class MapController {
         );
 
         // Initial tile buffer load
-        await this.journeyTileProvider.pollForJourneyUpdates(true);
+        await this.journeyTileProvider.waitForTileBufferUpdate();
         console.log("initial tile buffer loaded");
 
         // Register hooks for reactive property changes
