@@ -212,6 +212,17 @@ export class MapController {
   }
 
   /**
+   * Disable periodic journey-data polling.
+   *
+   * This can be called before initialization to prevent the polling timer from
+   * being created, or afterwards to stop an existing timer.
+   */
+  disableAutoRefresh(): void {
+    this.DisableAutoRefresh = true;
+    this.clearAutoRefreshInterval();
+  }
+
+  /**
    * Refresh map data by forcing a tile buffer update
    * This is called when the underlying data has changed (e.g., new journey data imported)
    * @returns Promise<boolean | null> - true if data was updated, false if no change, null on error
@@ -421,14 +432,18 @@ export class MapController {
       clearInterval(this.styleRetryIntervalId);
       this.styleRetryIntervalId = null;
     }
-    if (this.pollIntervalId) {
-      clearInterval(this.pollIntervalId);
-      this.pollIntervalId = null;
-    }
+    this.clearAutoRefreshInterval();
     if (this.currentJourneyLayer) {
       this.currentJourneyLayer.remove();
       this.currentJourneyLayer = null;
     }
     this.map.remove();
+  }
+
+  private clearAutoRefreshInterval(): void {
+    if (this.pollIntervalId !== null) {
+      clearInterval(this.pollIntervalId);
+      this.pollIntervalId = null;
+    }
   }
 }

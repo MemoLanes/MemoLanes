@@ -10,145 +10,17 @@ export function installJourneyBenchmark(map) {
       if (activeRun) {
         return activeRun;
       }
-      const task = runBenchmark(map);
-      activeRun = task;
-      void task.finally(() => {
+
+      const task = runBenchmark(map).finally(() => {
         if (activeRun === task) {
           activeRun = null;
         }
       });
+      activeRun = task;
       return task;
     },
-    viewState: () => {
-      const center = map.getCenter();
-      return {
-        lng: center.lng,
-        lat: center.lat,
-        zoom: map.getZoom(),
-        moving: map.isMoving(),
-      };
-    },
   };
-  installDomTestBridge(map);
   console.log("Journey benchmark ready");
-  window.dispatchEvent(new Event("journey-benchmark-ready"));
-}
-
-function installDomTestBridge(map) {
-  const writeViewState = () => {
-    const center = map.getCenter();
-    document.documentElement.dataset.journeyBenchmarkViewState = JSON.stringify(
-      {
-        lng: center.lng,
-        lat: center.lat,
-        zoom: map.getZoom(),
-        moving: map.isMoving(),
-      },
-    );
-  };
-  map.on("move", writeViewState);
-  map.on("moveend", writeViewState);
-  writeViewState();
-
-  document.documentElement.dataset.journeyBenchmarkReady = "true";
-  const run = () => {
-    document.documentElement.dataset.journeyBenchmarkState = "running";
-    void window.__journeyBenchmark.run().then(
-      (report) => {
-        let resultElement = document.getElementById("journey-benchmark-result");
-        if (!resultElement) {
-          resultElement = document.createElement("script");
-          resultElement.id = "journey-benchmark-result";
-          resultElement.type = "application/json";
-          document.body.append(resultElement);
-        }
-        resultElement.textContent = JSON.stringify(report);
-        document.documentElement.dataset.journeyBenchmarkState = "complete";
-      },
-      (error) => {
-        document.documentElement.dataset.journeyBenchmarkState = "failed";
-        document.documentElement.dataset.journeyBenchmarkError = String(error);
-      },
-    );
-  };
-
-  document.addEventListener("journey-benchmark-run", run);
-
-  const trigger = document.createElement("button");
-  trigger.id = "journey-benchmark-run";
-  trigger.type = "button";
-  trigger.ariaLabel = "Run journey benchmark";
-  trigger.style.cssText =
-    "position:fixed;left:0;top:0;width:1px;height:1px;padding:0;border:0;opacity:.01;z-index:2147483647";
-  trigger.addEventListener(
-    "click",
-    () => {
-      trigger.remove();
-      run();
-    },
-    { once: true },
-  );
-  document.body.append(trigger);
-
-  const installVisualPanTrigger = (id, label, zoom) => {
-    const visualPanTrigger = document.createElement("button");
-    visualPanTrigger.id = id;
-    visualPanTrigger.type = "button";
-    visualPanTrigger.ariaLabel = label;
-    visualPanTrigger.style.cssText = trigger.style.cssText;
-    visualPanTrigger.style.left = zoom === 8 ? "0" : "2px";
-    visualPanTrigger.addEventListener(
-      "click",
-      () => {
-        document.documentElement.dataset.journeyBenchmarkVisualState =
-          "preparing";
-        void settleAt(map, zoom).then(async () => {
-          document.documentElement.dataset.journeyBenchmarkVisualState =
-            "running";
-          await runPanSequence(map, 1_200);
-          await nextAnimationFrames(2);
-          document.documentElement.dataset.journeyBenchmarkVisualState =
-            "complete";
-        });
-      },
-      { once: true },
-    );
-    document.body.append(visualPanTrigger);
-  };
-  installVisualPanTrigger(
-    "journey-benchmark-visual-low-pan",
-    "Run low zoom journey visual pan",
-    8,
-  );
-  installVisualPanTrigger(
-    "journey-benchmark-visual-high-pan",
-    "Run high zoom journey visual pan",
-    14,
-  );
-
-  const visualZoomTrigger = document.createElement("button");
-  visualZoomTrigger.id = "journey-benchmark-visual-zoom";
-  visualZoomTrigger.type = "button";
-  visualZoomTrigger.ariaLabel = "Run journey visual zoom transition";
-  visualZoomTrigger.style.cssText = trigger.style.cssText;
-  visualZoomTrigger.style.left = "4px";
-  visualZoomTrigger.addEventListener(
-    "click",
-    () => {
-      document.documentElement.dataset.journeyBenchmarkVisualState =
-        "preparing";
-      void settleAt(map, 10).then(async () => {
-        document.documentElement.dataset.journeyBenchmarkVisualState =
-          "running";
-        await easeTo(map, BENCHMARK_CENTER, 13, 6_000);
-        await nextAnimationFrames(2);
-        document.documentElement.dataset.journeyBenchmarkVisualState =
-          "complete";
-      });
-    },
-    { once: true },
-  );
-  document.body.append(visualZoomTrigger);
 }
 
 async function runBenchmark(map) {

@@ -4,15 +4,9 @@ import { installJourneyBenchmark } from "./benchmark-api";
 const initializeMapController = MapController.prototype.initialize;
 
 MapController.prototype.initialize = async function () {
-  const result = await initializeMapController.call(this);
-
-  if (this.pollIntervalId !== null) {
-    window.clearInterval(this.pollIntervalId);
-    this.pollIntervalId = null;
-  }
-
+  this.disableAutoRefresh();
+  await initializeMapController.call(this);
   installJourneyBenchmark(this.getMap());
-  return result;
 };
 
 void import("../static/index");

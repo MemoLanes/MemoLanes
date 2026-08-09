@@ -23,10 +23,12 @@ let interrupted = false;
 
 process.once("SIGINT", () => {
   interrupted = true;
+  process.exitCode = 130;
   void cleanup();
 });
 process.once("SIGTERM", () => {
   interrupted = true;
+  process.exitCode = 143;
   void cleanup();
 });
 
@@ -131,6 +133,7 @@ function startProcess(command, args, cwd, extraEnvironment = {}) {
     stdio: ["ignore", "pipe", "pipe"],
   });
   child.output = "";
+  child.spawnError = null;
   const collect = (chunk) => {
     child.output = `${child.output}${chunk}`.slice(-40_000);
   };
@@ -138,13 +141,17 @@ function startProcess(command, args, cwd, extraEnvironment = {}) {
   child.stderr.setEncoding("utf8");
   child.stdout.on("data", collect);
   child.stderr.on("data", collect);
+  child.on("error", (error) => {
+    child.spawnError = error;
+    collect(`${error.stack ?? error}\n`);
+  });
   return child;
 }
 
 async function waitForHttp(url, child, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    if (child.exitCode !== null) {
+    if (hasProcessStopped(child)) {
       throw new Error(`Web bundle server exited early:\n${child.output}`);
     }
     try {
@@ -167,11 +174,14 @@ function waitForOutput(child, pattern, timeoutMs) {
       if (match) {
         finish();
         resolve(match[1]);
+        return;
       }
-    };
-    const onExit = () => {
-      finish();
-      reject(new Error(`Rust benchmark server exited early:\n${child.output}`));
+      if (hasProcessStopped(child)) {
+        finish();
+        reject(
+          new Error(`Rust benchmark server exited early:\n${child.output}`),
+        );
+      }
     };
     const timeout = setTimeout(() => {
       finish();
@@ -183,12 +193,14 @@ function waitForOutput(child, pattern, timeoutMs) {
       clearTimeout(timeout);
       child.stdout.off("data", inspect);
       child.stderr.off("data", inspect);
-      child.off("exit", onExit);
+      child.off("error", inspect);
+      child.off("exit", inspect);
     };
 
     child.stdout.on("data", inspect);
     child.stderr.on("data", inspect);
-    child.once("exit", onExit);
+    child.once("error", inspect);
+    child.once("exit", inspect);
     inspect();
   });
 }
@@ -219,7 +231,7 @@ async function cleanup() {
 }
 
 async function stopProcess(child) {
-  if (child.exitCode !== null || child.signalCode !== null) {
+  if (hasProcessStopped(child)) {
     return;
   }
   signalProcess(child, "SIGINT");
@@ -246,7 +258,7 @@ function signalProcess(child, signal) {
 }
 
 function waitForExit(child, timeoutMs) {
-  if (child.exitCode !== null || child.signalCode !== null) {
+  if (hasProcessStopped(child)) {
     return Promise.resolve(true);
   }
   return new Promise((resolve) => {
@@ -260,6 +272,14 @@ function waitForExit(child, timeoutMs) {
     };
     child.once("exit", onExit);
   });
+}
+
+function hasProcessStopped(child) {
+  return (
+    child.spawnError !== null ||
+    child.exitCode !== null ||
+    child.signalCode !== null
+  );
 }
 
 function delay(durationMs) {
