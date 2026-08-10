@@ -215,11 +215,13 @@
       "empty": "还没有点亮国家和地区。",
       "error": "无法加载探索国家。"
     },
-    "country_list": {
-      "title": "探索国家",
-      "view_all": "查看全部"
-    },
-    "region_area_list": {
+    "region_list": {
+      "country_title": "探索国家",
+      "province_title": "{} · 省级地区",
+      "province_empty": "还没有点亮这个国家的省级地区。",
+      "error": "无法加载地区数据。",
+      "retry": "重试",
+      "view_all": "查看全部",
       "sort_area": "面积",
       "sort_coverage": "解锁率"
     },
