@@ -1,5 +1,5 @@
 import { tileXYToLngLat } from "./utils";
-import type maplibregl from "maplibre-gl";
+import type * as maplibregl from "maplibre-gl";
 import type { CanvasSource, CanvasSourceSpecification } from "maplibre-gl";
 import type { TileBuffer } from "../../pkg/journey_kernel.js";
 import type { JourneyTileProvider } from "../journey-tile-provider";
@@ -66,6 +66,10 @@ export class JourneyCanvasLayer implements JourneyLayer {
       throw new Error("Failed to get 2D context from canvas");
     }
     this.ctx = ctx;
+  }
+
+  setLowPowerMode(_enabled: boolean): void {
+    // Canvas rendering has no separate low-power path.
   }
 
   initialize(): void {

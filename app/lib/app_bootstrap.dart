@@ -20,6 +20,8 @@ import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
+enum AppStartupStatus { ready, databaseVersionTooNew }
+
 void delayedInit(UpdateNotifier updateNotifier) {
   Future.delayed(const Duration(milliseconds: 4000), () async {
     DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
@@ -85,29 +87,34 @@ class AppBootstrap {
   static final Completer<void> _mainMapReady = Completer<void>();
   static bool _didApplyInitialLocale = false;
 
+  // TODO: This naive version is good enough for now, as we only have two locales.
+  // The one provided by the lib is kinda weird. e.g. It will map `zh-Hans-HK` to
+  // `en-US` (I guess `Hans` + `HK` is a weird case).
+  // Maybe related to: https://github.com/aissat/easy_localization/issues/372
+  static Locale selectInitialLocale(Locale deviceLocale) {
+    return deviceLocale.languageCode == 'zh'
+        ? const Locale('zh', 'CN')
+        : const Locale('en', 'US');
+  }
+
+  static Future<Locale> applyInitialLocale(BuildContext context) async {
+    final locale = selectInitialLocale(context.deviceLocale);
+    await context.setLocale(locale);
+    return locale;
+  }
+
   static Future<void> _onFirstFrame() async {
     final ctx = navigatorKey.currentState?.context;
     if (ctx == null || !ctx.mounted) return;
 
     if (!_didApplyInitialLocale) {
       _didApplyInitialLocale = true;
-
-      // TODO: This naive version is good enough for now, as we only have two locales.
-      // The one provided by the lib is kinda weird. e.g. It will map `zh-Hans-HK` to
-      // `en-US` (I guess `Hans` + `HK` is a weird case).
-      // Maybe related to: https://github.com/aissat/easy_localization/issues/372
-      final deviceLocale = ctx.deviceLocale;
-      var locale = const Locale('en', 'US');
-      if (deviceLocale.languageCode == 'zh') {
-        locale = const Locale('zh', 'CN');
-      }
-      await ctx.setLocale(locale);
-
+      final locale = await applyInitialLocale(ctx);
       await initializeDateFormatting(locale.toString());
     }
   }
 
-  static Future<void> initAppRuntime() async {
+  static Future<AppStartupStatus> initAppRuntime() async {
     // This is required since we are doing things before calling `runApp`.
     WidgetsFlutterBinding.ensureInitialized();
 
@@ -127,14 +134,22 @@ class AppBootstrap {
       cacheDirFuture,
     ]);
 
-    await api.init(
-      tempDir: (await tempDirFuture).path,
-      docDir: (await docDirFuture).path,
-      supportDir: (await supportDirFuture).path,
-      systemCacheDir: (await cacheDirFuture).path,
-    );
+    try {
+      await api.init(
+        tempDir: (await tempDirFuture).path,
+        docDir: (await docDirFuture).path,
+        supportDir: (await supportDirFuture).path,
+        systemCacheDir: (await cacheDirFuture).path,
+      );
+    } on api.InitError catch (error) {
+      switch (error) {
+        case api.InitError.databaseVersionTooNew:
+          return AppStartupStatus.databaseVersionTooNew;
+      }
+    }
 
     await WorldviewManager.instance.initialize();
+    return AppStartupStatus.ready;
   }
 
   static void startAppServices({

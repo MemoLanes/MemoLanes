@@ -5,7 +5,6 @@ use chrono::{DateTime, Local, NaiveDate, Timelike, Utc};
 use protobuf::Message;
 use rusqlite::{Connection, OptionalExtension, Transaction};
 use std::error::Error;
-use std::path::Path;
 use std::str::FromStr;
 use uuid::Uuid;
 
@@ -33,20 +32,6 @@ deserialize the header.
 
 // 3 is the zstd default
 pub const ZSTD_COMPRESS_LEVEL: i32 = 3;
-
-#[auto_context]
-fn open_db_and_run_migration(
-    support_dir: &str,
-    file_name: &str,
-    migrations: &[utils::db::Migration<'_>],
-) -> Result<Connection> {
-    debug!("open and run migration for {file_name}");
-    let mut conn = rusqlite::Connection::open(Path::new(support_dir).join(file_name))?;
-    let tx = conn.transaction()?;
-    utils::db::run_migrations(&tx, file_name, migrations)?;
-    tx.commit()?;
-    Ok(conn)
-}
 
 pub struct Txn<'a> {
     db_txn: rusqlite::Transaction<'a>,
@@ -787,7 +772,11 @@ mod migration_tests {
     fn migrate_to_2_0_backfills_journey_kind_and_creates_composite_index() -> Result<()> {
         let mut connection = Connection::open_in_memory()?;
         let tx = connection.transaction()?;
-        migrate_to_1_0(&tx)?;
+        utils::db::run_migrations(
+            &tx,
+            "main.db",
+            &[utils::db::Migration::new(1, 0, &migrate_to_1_0)],
+        )?;
 
         let header = JourneyHeader {
             id: "flight-journey".to_owned(),
@@ -814,8 +803,6 @@ mod migration_tests {
             ),
         )?;
 
-        utils::db::init_metadata_and_get_version(&tx)?;
-        utils::db::set_version_in_metadata(&tx, utils::db::SchemaVersion::new(1, 0))?;
         assert_eq!(
             utils::db::run_migrations(&tx, "main.db", &migrations())?,
             utils::db::SchemaVersion::new(2, 0)
@@ -845,11 +832,9 @@ mod migration_tests {
 }
 
 impl MainDb {
-    pub fn open(support_dir: &str) -> MainDb {
-        // TODO: better error handling
-        let conn = open_db_and_run_migration(support_dir, "main.db", &migrations())
-            .expect("failed to open main db");
-        MainDb { conn }
+    pub fn open(support_dir: &str) -> Result<MainDb> {
+        let conn = utils::db::open_and_migrate(support_dir, "main.db", &migrations())?;
+        Ok(MainDb { conn })
     }
 
     #[auto_context]

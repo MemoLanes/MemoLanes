@@ -2,11 +2,11 @@ pub mod test_utils;
 use crate::test_utils::{draw_line1, draw_line2};
 use chrono::NaiveDate;
 use memolanes_core::{
-    achievement::compute::explored_area::compute_explored_areas,
-    achievement::layer::AchievementLayer, journey_area_utils::compute_journey_bitmap_area,
-    journey_bitmap::JourneyBitmap, journey_data::JourneyData, journey_header::JourneyKind,
-    storage::Storage,
+    achievement::layer::AchievementLayer, achievement::on_demand::explored_areas_from_snapshot,
+    journey_area_utils::journey_bitmap_area_m2_rounded, journey_bitmap::JourneyBitmap,
+    journey_data::JourneyData, journey_header::JourneyKind, storage::Storage,
 };
+use std::collections::HashMap;
 use std::fs;
 use tempdir::TempDir;
 
@@ -25,28 +25,38 @@ where
         sub_folder("doc/"),
         sub_folder("support/"),
         sub_folder("cache/"),
-    );
+    )
+    .unwrap();
     f(storage);
 }
 
+fn explored_areas(
+    storage: &Storage,
+    layers: &[AchievementLayer],
+) -> HashMap<AchievementLayer, u64> {
+    storage
+        .with_journey_snapshot(|snapshot| explored_areas_from_snapshot(snapshot, layers))
+        .unwrap()
+}
+
 /// Direct computation of a layer's explored area — the oracle
-/// `compute_explored_areas` must reproduce.
+/// `explored_areas_from_snapshot` must reproduce.
 fn oracle_area(storage: &Storage, layer: AchievementLayer) -> u64 {
     storage
         .with_journey_snapshot(|snapshot| {
             let bitmap = snapshot.finalized_bitmap(&layer.to_layer_kind(), None)?;
-            Ok(compute_journey_bitmap_area(&bitmap, None))
+            Ok(journey_bitmap_area_m2_rounded(&bitmap, None))
         })
         .unwrap()
 }
 
 #[test]
-fn compute_explored_areas_matches_direct_fold() {
+fn explored_areas_match_direct_fold() {
     setup_storage_for_test(|storage| {
         let layers = AchievementLayer::ALL_LAYERS;
 
         // Empty storage: every layer maps to zero.
-        let empty = compute_explored_areas(&storage, &layers).unwrap();
+        let empty = explored_areas(&storage, &layers);
         assert_eq!(empty.len(), 3);
         assert_eq!(empty[&AchievementLayer::Default], 0);
         assert_eq!(empty[&AchievementLayer::Flight], 0);
@@ -86,7 +96,7 @@ fn compute_explored_areas_matches_direct_fold() {
             .unwrap();
 
         // Map result equals the direct fold for every layer.
-        let map = compute_explored_areas(&storage, &layers).unwrap();
+        let map = explored_areas(&storage, &layers);
         for layer in layers {
             assert_eq!(map[&layer], oracle_area(&storage, layer), "layer {layer:?}");
         }

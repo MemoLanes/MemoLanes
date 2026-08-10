@@ -3,7 +3,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/custom_popup.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
-import 'package:memolanes/src/rust/achievement/read_model/region.dart';
+import 'package:memolanes/src/rust/achievement/region.dart';
 
 export 'package:memolanes/common/achievement_stats_store.dart'
     show AchievementAreaStats;

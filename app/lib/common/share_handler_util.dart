@@ -94,7 +94,7 @@ class ShareHandlerUtil {
       return;
     }
 
-    final importType = _resolveImportType(lowerPath);
+    final importType = resolveImportType(lowerPath);
     if (importType == null) {
       if (!context.mounted) return;
       await showCommonDialog(
@@ -113,12 +113,13 @@ class ShareHandlerUtil {
     );
   }
 
-  static ImportType? _resolveImportType(String lowerPath) {
-    const trackExtensions = ['.kml', '.gpx'];
+  static ImportType? resolveImportType(String path) {
+    final lowerPath = path.toLowerCase();
+    const vectorExtensions = ['.kml', '.gpx', '.csv'];
     const fowExtensions = ['.fwss', '.zip'];
 
-    if (trackExtensions.any(lowerPath.endsWith)) {
-      return ImportType.gpxOrKml;
+    if (vectorExtensions.any(lowerPath.endsWith)) {
+      return ImportType.vector;
     }
 
     if (fowExtensions.any(lowerPath.endsWith)) {

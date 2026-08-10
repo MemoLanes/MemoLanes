@@ -68,11 +68,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("================================================");
     println!("[Simple Map Server]:   {}", server_simple.get_http_url());
-    println!("[Simple Map Local]:    {}", server_simple.get_file_url());
 
     // ========== Server 2: Medium Map (loaded from fow_3.zip) ==========
     let (journey_bitmap_fow, _) =
-        import_data::load_fow_sync_data("./tests/data/fow_3.zip").unwrap();
+        import_data::fow::load_fow_sync_data("./tests/data/fow_3.zip").unwrap();
     let map_renderer_fow = Arc::new(Mutex::new(MapRenderer::new(journey_bitmap_fow)));
     let server_medium =
         MapServer::create_and_start(map_renderer_fow).expect("Failed to start medium map server");

@@ -1,4 +1,4 @@
-import maplibregl, { LngLat } from "maplibre-gl";
+import { LngLat, type Map as MaplibreMap } from "maplibre-gl";
 
 export function lngLatToTileXY(lngLat: LngLat, zoom: number): [number, number] {
   const n = Math.pow(2, zoom);
@@ -23,7 +23,7 @@ export function tileXYToLngLat(x: number, y: number, zoom: number): LngLat {
  * @returns {Array} - Array of [x, y, w, h, z] representing the tile range
  */
 export function getViewportTileRange(
-  map: maplibregl.Map,
+  map: MaplibreMap,
   isGlobeProjection: boolean,
 ): [number, number, number, number, number] {
   // Get the current zoom level

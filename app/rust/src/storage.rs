@@ -1,7 +1,7 @@
 extern crate simplelog;
-use crate::achievement::{self, contract::AchievementReader, contract::AchievementStore};
+use crate::achievement::AchievementReader;
 use crate::cache_db::{self, CacheDb, LayerKind};
-use crate::geo::GeoIndex;
+use crate::geo::{GeoIndex, GeoLookup};
 use crate::gps_processor::{self, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_header::JourneyKind;
@@ -125,12 +125,14 @@ impl RawDataRecorder {
 
 type FinalizedJourneyChangedCallback = Box<dyn Fn(&Storage) + Send + Sync + 'static>;
 
-/// The three databases kept transactionally in sync behind one lock: the main
-/// journey store, the bitmap cache, and the achievement store.
-struct Dbs {
+struct Inner {
     main_db: MainDb,
     cache_db: Box<dyn CacheDb + Send>,
-    achievement_store: Box<dyn AchievementStore + Send>,
+    geo: Option<Box<dyn GeoLookup + Send>>,
+}
+
+fn geo_ref(geo: &Option<Box<dyn GeoLookup + Send>>) -> Option<&dyn GeoLookup> {
+    geo.as_deref().map(|geo| geo as &dyn GeoLookup)
 }
 
 pub struct Storage {
@@ -138,10 +140,7 @@ pub struct Storage {
     raw_data_recorder: Mutex<Option<RawDataRecorder>>, // `None` means disabled
     pub cache_dir: String,
     // Hidden so every operation goes through `Storage` and stays in sync; reads
-    // via `with_journey_snapshot` / `with_achievement_read`. The achievement store
-    // lives here, not in `MainState`, because granular invalidation needs the
-    // precise `Action`, visible only inside `with_db_txn`.
-    dbs: Mutex<Dbs>,
+    dbs: Mutex<Inner>,
     finalized_journey_changed_callback: FinalizedJourneyChangedCallback,
 }
 
@@ -151,28 +150,26 @@ impl Storage {
         _doc_dir: String,
         support_dir: String,
         cache_dir: String,
-    ) -> Self {
-        let mut main_db = MainDb::open(&support_dir);
+    ) -> Result<Self> {
+        let mut main_db = MainDb::open(&support_dir)?;
         let cache_db: Box<dyn CacheDb + Send> = Box::new(cache_db::new(&cache_dir));
-        let achievement_store =
-            achievement::new(&cache_dir).expect("failed to open achievement store");
         let raw_data_recorder =
             if main_db.get_setting_with_default(crate::main_db::Setting::RawDataMode, false) {
                 Some(RawDataRecorder::init(&support_dir))
             } else {
                 None
             };
-        Storage {
+        Ok(Storage {
             support_dir,
             raw_data_recorder: Mutex::new(raw_data_recorder),
             cache_dir,
-            dbs: Mutex::new(Dbs {
+            dbs: Mutex::new(Inner {
                 main_db,
                 cache_db,
-                achievement_store,
+                geo: None,
             }),
             finalized_journey_changed_callback: Box::new(|_| {}),
-        }
+        })
     }
 
     #[auto_context]
@@ -181,38 +178,27 @@ impl Storage {
         F: FnOnce(&mut main_db::Txn) -> Result<O>,
     {
         let mut dbs = self.dbs.lock().unwrap();
-        let Dbs {
+        let Inner {
             main_db,
             cache_db,
-            achievement_store,
+            geo,
         } = &mut *dbs;
+        let geo = geo_ref(geo);
 
         let mut finalized_journey_changed = false;
 
         let output = main_db.with_txn(|txn| {
             let output = f(txn)?;
 
-            match &txn.action {
-                None => (),
-                Some(action) => {
-                    match action {
-                        Action::CompleteRebuilt => {
-                            cache_db.clear_all()?;
-                        }
-                        Action::Invalidate { entries } => {
-                            cache_db.invalidate(entries)?;
-                        }
-                        Action::MergeOne { entry, data } => {
-                            cache_db.merge_journey(entry, data)?;
-                        }
-                    };
-                    // Any committed journey change invalidates the achievement
-                    // store (recompute is deferred to the next read).
-                    // TODO: Invalidate based on actions. Actions other than
-                    //       MergeOne are rare.
-                    achievement_store.invalidate_all()?;
-                    finalized_journey_changed = true;
+            if let Some(action) = &txn.action {
+                match action {
+                    Action::CompleteRebuilt => cache_db.clear_all()?,
+                    Action::Invalidate { entries } => cache_db.invalidate(entries)?,
+                    Action::MergeOne { entry, data, .. } => {
+                        cache_db.merge_journey(entry, data, geo)?
+                    }
                 }
+                finalized_journey_changed = true;
             }
 
             Ok(output)
@@ -341,7 +327,7 @@ impl Storage {
         self.finalized_journey_changed_callback = callback;
     }
 
-    /// Run `f` with a read-only [`JourneySnapshot`] under one `dbs` lock
+    /// Run `f` with a logically read-only [`JourneySnapshot`] under one `dbs` lock
     /// and one `MainDb` transaction. Every read `f` performs sees the
     /// SAME snapshot, so a journey merge cannot land between two reads
     /// and make them mutually inconsistent (e.g. an `All` bitmap smaller
@@ -354,14 +340,14 @@ impl Storage {
     #[auto_context]
     pub fn with_journey_snapshot<F, O>(&self, f: F) -> Result<O>
     where
-        F: FnOnce(&JourneySnapshot) -> Result<O>,
+        F: FnOnce(&mut JourneySnapshot) -> Result<O>,
     {
         let mut dbs = self.dbs.lock().unwrap();
-        let Dbs {
+        let Inner {
             main_db, cache_db, ..
         } = &mut *dbs;
         main_db.with_txn(|txn| {
-            let output = f(&JourneySnapshot::new(txn, cache_db.as_ref()))?;
+            let output = f(&mut JourneySnapshot::new(txn, cache_db.as_mut()))?;
             // The snapshot only exposes reads, so a journey action must
             // never have been recorded on this txn.
             debug_assert_eq!(txn.action, None);
@@ -369,30 +355,29 @@ impl Storage {
         })
     }
 
-    /// Run `f` against the up-to-date achievement store under one `dbs` lock and
-    /// one read txn. The store opens a read over a single [`JourneySnapshot`]
-    /// and computes on demand, so the values `f` reads are internally
-    /// consistent. The store's mutating side
-    /// stays private to `Storage`.
+    /// Run `f` against achievement answers under one `dbs` lock and one read
+    /// txn, so the values `f` reads are internally consistent. Whether they come
+    /// from persisted rows or are computed on the spot is the cache's business.
     ///
     /// Like `with_journey_snapshot`, does NOT route through `with_db_txn`
     /// (`std::sync::Mutex` is not reentrant).
     #[auto_context]
     pub fn with_achievement_read<F, O>(&self, f: F) -> Result<O>
     where
-        F: FnOnce(&dyn AchievementReader) -> Result<O>,
+        F: FnOnce(&mut dyn AchievementReader) -> Result<O>,
     {
         // TODO: locks here for now, add MVCC or background thread to recompute
         let mut dbs = self.dbs.lock().unwrap();
-        let Dbs {
+        let Inner {
             main_db,
             cache_db,
-            achievement_store,
+            geo,
         } = &mut *dbs;
+        let geo = geo_ref(geo);
+        let cache_db = cache_db.as_mut();
         main_db.with_txn(|txn| {
-            let snapshot = JourneySnapshot::new(txn, cache_db.as_ref());
-            let reader = achievement_store.reader(&snapshot)?;
-            let output = f(reader.as_ref())?;
+            let mut reader = cache_db.achievement_reader(txn, geo)?;
+            let output = f(reader.as_mut())?;
             debug_assert_eq!(txn.action, None);
             Ok(output)
         })
@@ -414,8 +399,7 @@ impl Storage {
             geo.worldview_id(),
             worldview.spec().id
         );
-        let achievement_store = &mut self.dbs.lock().unwrap().achievement_store;
-        achievement_store.set_geo(worldview, Box::new(geo))?;
+        self.dbs.lock().unwrap().geo = Some(Box::new(geo));
         Ok(())
     }
 
@@ -462,8 +446,7 @@ impl Storage {
 
     #[auto_context]
     pub fn clear_all_cache(&self) -> Result<()> {
-        let cache_db = &self.dbs.lock().unwrap().cache_db;
-        cache_db.clear_all()?;
+        self.dbs.lock().unwrap().cache_db.clear_all()?;
         Ok(())
     }
 
