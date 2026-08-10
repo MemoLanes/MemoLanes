@@ -1,5 +1,5 @@
 use std::env;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 use std::{fs, io::Write};
 
@@ -13,29 +13,6 @@ fn check_and_create_file(file_path: &str, warning_message: &str, content: &str) 
         file.flush().expect("failed to flush dummy file");
         println!("cargo:warning={warning_message}");
     }
-}
-
-/// Checks and creates necessary dependency files if they do not exist
-fn check_and_copy_yarn_file(src_path: &str, out_base_dir: &Path) {
-    // Construct the destination path (preserving the original path structure)
-    let src = Path::new(src_path);
-    let dest = out_base_dir.join(src.file_name().expect("Failed to get file name"));
-
-    // Automatically create the destination directory (including parent directories)
-    if let Some(parent) = dest.parent() {
-        fs::create_dir_all(parent)
-            .unwrap_or_else(|_| panic!("Failed to create directory: {parent:?}"));
-    }
-
-    // Dynamically handle the file: copy if it exists, create an empty file if it doesn't
-    if src.exists() {
-        fs::copy(src, &dest).unwrap_or_else(|_| panic!("Failed to copy file: {src:?} → {dest:?}"));
-    } else {
-        fs::write(&dest, "").unwrap_or_else(|_| panic!("Failed to create empty file: {dest:?}"));
-    }
-
-    // Set file watch
-    println!("cargo:rerun-if-changed={src_path}");
 }
 
 fn load_env_file() {
@@ -109,19 +86,4 @@ pub const MAPBOX_ACCESS_TOKEN: Option<&str> = {mapbox_access_token};
         "`frb_generated.rs` is not found, generating a dummy file. If you are working on flutter, you need to run `flutter_rust_bridge_codegen generate` to get a real one.",
         "pub struct StreamSink<T> { _phantom: std::marker::PhantomData<T> }\nimpl<T> StreamSink<T> {\n    pub fn add(&mut self, _message: T) -> Result<(), ()> {\n        Ok(())\n    }\n}"
     );
-
-    // List of files to be embedded (wildcards need to be expanded manually)
-    let files = [
-        "../journey_kernel/dist/index.html",
-        "../journey_kernel/dist/main.bundle.js",
-        "../journey_kernel/dist/journey_kernel_bg.wasm",
-    ];
-
-    // Create a dedicated output directory (inside Cargo's temporary directory)
-    let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap()).join("journey_kernel");
-
-    // Process all files in batch
-    for file in &files {
-        check_and_copy_yarn_file(file, &out_dir);
-    }
 }
