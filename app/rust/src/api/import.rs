@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::fs::File;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use std::{ffi::OsStr, path::Path};
 
 use anyhow::{Context, Result};
@@ -32,6 +32,17 @@ pub struct JourneyInfo {
 #[frb(opaque)]
 pub struct RawVectorData {
     data: Vec<Vec<RawData>>,
+    data_by_date: OnceLock<import_data::split_by_date::RawVectorDataByDate>,
+}
+
+#[derive(Debug)]
+#[frb(non_opaque)]
+pub struct VectorImportPartSummary {
+    pub journey_date: String,
+    pub start_time: Option<DateTime<Utc>>,
+    pub end_time: Option<DateTime<Utc>>,
+    pub point_count: u64,
+    pub missing_timestamp_count: u64,
 }
 
 fn parse_fwss_snapshot_time_from_filename(file_path: &str) -> Option<DateTime<FixedOffset>> {
@@ -105,6 +116,7 @@ pub fn load_vector_data(
         import_data::conversion::journey_info_from_raw_vector_data(&raw_vector_data),
         RawVectorData {
             data: raw_vector_data,
+            data_by_date: OnceLock::new(),
         },
         import_preprocessor,
     ))
@@ -129,6 +141,7 @@ pub fn import_journey_data(
     Ok(())
 }
 
+#[derive(Clone, Copy)]
 pub enum ImportPreprocessor {
     None,
     Generic,
@@ -136,28 +149,130 @@ pub enum ImportPreprocessor {
     Spare,
 }
 
+impl RawVectorData {
+    fn data_by_date(&self) -> &import_data::split_by_date::RawVectorDataByDate {
+        self.data_by_date.get_or_init(|| {
+            import_data::split_by_date::split_raw_vector_data_by_local_date(&self.data)
+        })
+    }
+}
+
+fn raw_vector_data_for_date<'a>(
+    vector_data: &'a RawVectorData,
+    journey_date: &str,
+) -> Result<&'a [Vec<RawData>]> {
+    let journey_date = NaiveDate::parse_from_str(journey_date, "%Y-%m-%d")?;
+    vector_data
+        .data_by_date()
+        .get(&journey_date)
+        .map(Vec::as_slice)
+        .with_context(|| format!("No vector data for date {journey_date}"))
+}
+
+pub fn analyze_vector_data_by_date(vector_data: &RawVectorData) -> Vec<VectorImportPartSummary> {
+    vector_data
+        .data_by_date()
+        .iter()
+        .map(|(journey_date, data)| {
+            let info = import_data::conversion::journey_info_from_raw_vector_data(data);
+            VectorImportPartSummary {
+                journey_date: journey_date.format("%Y-%m-%d").to_string(),
+                start_time: info.start_time,
+                end_time: info.end_time,
+                point_count: data.iter().map(Vec::len).sum::<usize>() as u64,
+                missing_timestamp_count: data
+                    .iter()
+                    .flatten()
+                    .filter(|point| point.timestamp_ms.is_none())
+                    .count() as u64,
+            }
+        })
+        .collect()
+}
+
 #[auto_context]
-pub fn process_vector_data(
+pub fn process_vector_data_for_date(
     vector_data: &RawVectorData,
+    journey_date: String,
     import_processor: ImportPreprocessor,
 ) -> Result<OpaqueJourneyData> {
+    let data = raw_vector_data_for_date(vector_data, &journey_date)?;
+    Ok(process_raw_vector_data(data, import_processor))
+}
+
+#[auto_context]
+pub fn import_vector_data_by_date(
+    vector_data: &RawVectorData,
+    journey_dates: Vec<String>,
+    import_processor: ImportPreprocessor,
+    journey_kind: JourneyKind,
+    note: Option<String>,
+) -> Result<u64> {
+    let selected_dates = journey_dates
+        .into_iter()
+        .map(|date| NaiveDate::parse_from_str(&date, "%Y-%m-%d"))
+        .collect::<Result<HashSet<_>, _>>()?;
+    let split_data = vector_data.data_by_date();
+    let mut missing_dates = selected_dates
+        .iter()
+        .filter(|date| !split_data.contains_key(date))
+        .copied()
+        .collect::<Vec<_>>();
+    if !missing_dates.is_empty() {
+        missing_dates.sort_unstable();
+        bail!("No vector data for dates: {missing_dates:?}");
+    }
+    let mut parts = Vec::new();
+
+    for (journey_date, raw_data) in split_data {
+        if !selected_dates.contains(journey_date) {
+            continue;
+        }
+        let info = import_data::conversion::journey_info_from_raw_vector_data(raw_data);
+        let journey_data = process_raw_vector_data(raw_data, import_processor).into_inner();
+        if !journey_data.is_empty() {
+            parts.push((*journey_date, info.start_time, info.end_time, journey_data));
+        }
+    }
+
+    let imported_count = parts.len() as u64;
+    api::get().storage.with_db_txn(|txn| {
+        for (journey_date, start_time, end_time, journey_data) in parts {
+            txn.create_and_insert_journey(
+                journey_date,
+                start_time,
+                end_time,
+                None,
+                journey_kind,
+                note.clone(),
+                journey_data,
+            )?;
+        }
+        Ok(())
+    })?;
+    Ok(imported_count)
+}
+
+fn process_raw_vector_data(
+    raw_data: &[Vec<RawData>],
+    import_processor: ImportPreprocessor,
+) -> OpaqueJourneyData {
     let journey_vector_opt = match import_processor {
         ImportPreprocessor::None => {
             import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
-                &vector_data.data,
-                None,
+                raw_data, None,
             )
         }
         ImportPreprocessor::Generic => {
             import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
-                &vector_data.data,
+                raw_data,
                 Some(SegmentGapRule::Default),
             )
         }
-        ImportPreprocessor::FlightTrack => flight_track_processor::process(&vector_data.data),
+        ImportPreprocessor::FlightTrack => flight_track_processor::process(raw_data),
         ImportPreprocessor::Spare => {
             import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
-                &vector_data.data,
+                raw_data,
                 Some(SegmentGapRule::Spare),
             )
         }
@@ -166,7 +281,15 @@ pub fn process_vector_data(
     let journey_vector = journey_vector_opt.unwrap_or_else(|| JourneyVector {
         track_segments: vec![],
     });
-    Ok(OpaqueJourneyData::new(JourneyData::Vector(journey_vector)))
+    OpaqueJourneyData::new(JourneyData::Vector(journey_vector))
+}
+
+#[auto_context]
+pub fn process_vector_data(
+    vector_data: &RawVectorData,
+    import_processor: ImportPreprocessor,
+) -> Result<OpaqueJourneyData> {
+    Ok(process_raw_vector_data(&vector_data.data, import_processor))
 }
 
 #[auto_context]

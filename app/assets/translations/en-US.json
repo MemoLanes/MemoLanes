@@ -153,6 +153,12 @@
     "empty_data": "Journey is empty",
     "successful": "Import successful",
     "parsing_failed": "Data parsing failed",
+    "loading": {
+      "title": "Loading",
+      "description": "Large files may take a while. Please wait.",
+      "data_file": "Data file",
+      "keep_open_hint": "Keep this page open while processing"
+    },
     "import_track_file": {
       "description_md": "The following track file formats are supported:\n\n1. **GPX** (`.gpx`)\n2. **KML** (`.kml`)\n3. **CSV** (`.csv`)"
     },
@@ -174,6 +180,21 @@
       "conflict_desc_local_newer": "Local version is newer",
       "conflict_desc_same_time": "Same modified date; choose as needed",
       "conflict_desc_unknown": "Local modified date unavailable; choose carefully"
+    },
+    "vector_multi": {
+      "title": "Import Tracks by Date",
+      "mode_title": "Tracks Span Multiple Days",
+      "mode_message": "This file contains tracks from {} days. Would you like to handle them as one journey or split them into separate journeys by date?",
+      "single_action": "Import as One",
+      "split_action": "Split by Date",
+      "detected_days": "Tracks from {} days were found and will be imported as separate journeys.",
+      "local_timezone_hint": "Dates are split using the device's current time zone. Tap a date to preview it.",
+      "list_section_title": "Dates to import",
+      "confirm_import": "Import {} journeys",
+      "point_count": "{} track points",
+      "missing_time_count": "{} points without time",
+      "unknown_time": "Time unknown",
+      "successful": "Successfully imported {} journeys"
     },
     "import_fow_data": {
       "description_md": "Import data generated from the Fog of World app.\n\nThis feature supports the following formats:\n1. Zip format: Compress the Fog of World cloud sync \"Sync\" folder into a Zip archive.\n2. Fwss format: Fog of World snapshot file.\n\nThe Fog of World app data does not include history. The exported data only contains the whole tracks from the start until the export point. If you have multiple historical Fog of World data, you can try uploading these to [Fog Machine - Time Machine](https://fogmachine.8bits.io/time-machine) and using the \"Export MemoLanes Archive\" feature.",

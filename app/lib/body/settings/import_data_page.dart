@@ -2,10 +2,13 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fpdart/fpdart.dart' as f;
 import 'package:memolanes/body/journey/journey_info_edit_page.dart';
+import 'package:memolanes/body/settings/vector_multi_import_page.dart';
 import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
+import 'package:memolanes/common/component/import_loading_page.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
@@ -32,6 +35,8 @@ class _ImportDataPage extends State<ImportDataPage> {
   api.MapRendererProxy? _mapRendererProxy;
   MapBounds? _initialMapBounds;
   late import_api.ImportPreprocessor _preprocessor;
+  List<import_api.VectorImportPartSummary> _vectorParts = const [];
+  bool _isInitializing = true;
 
   @override
   void initState() {
@@ -43,20 +48,52 @@ class _ImportDataPage extends State<ImportDataPage> {
 
   Future<void> _initFlow() async {
     try {
-      if (!await showLoadingDialog(
-        asyncTask: () async {
-          await _loadFile(widget.path);
-          return await _previewDataInternal();
-        }(),
-      )) {
+      await _loadFile(widget.path);
+      if (!mounted) return;
+      if (_vectorParts.length > 1) {
+        final splitByDate = await showCommonDialog(
+          context,
+          context.tr(
+            'import.vector_multi.mode_message',
+            args: ['${_vectorParts.length}'],
+          ),
+          title: context.tr('import.vector_multi.mode_title'),
+          hasCancel: true,
+          confirmButtonText: context.tr('import.vector_multi.split_action'),
+          cancelButtonText: context.tr('import.vector_multi.single_action'),
+        );
         if (!mounted) return;
+        if (splitByDate) {
+          final vectorData = switch (journeyDataMaybeRaw) {
+            f.Right(value: final data) => data,
+            f.Left() => throw StateError('Expected vector import data'),
+          };
+          await Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => GlobalPopScope(
+                child: VectorMultiImportPage(
+                  vectorData: vectorData,
+                  parts: _vectorParts,
+                  initialPreprocessor: _preprocessor,
+                ),
+              ),
+            ),
+          );
+          return;
+        }
+      }
+      final hasData = await _previewDataInternal();
+      if (!mounted) return;
+      if (!hasData) {
         await showCommonDialog(
           context,
           context.tr("import.empty_data"),
         );
+        if (!mounted) return;
+        popCurrentRoute(context);
         return;
       }
-      if (!mounted) return;
+      setState(() => _isInitializing = false);
       if (_preprocessor == import_api.ImportPreprocessor.spare) {
         showCommonDialog(
           context,
@@ -88,10 +125,14 @@ class _ImportDataPage extends State<ImportDataPage> {
       case ImportType.vector:
         var (journeyInfo, rawVectorData, detectedProcessor) =
             await import_api.loadVectorData(filePath: path);
+        final parts = await import_api.analyzeVectorDataByDate(
+          vectorData: rawVectorData,
+        );
         setState(() {
           this.journeyInfo = journeyInfo;
           _preprocessor = detectedProcessor;
           journeyDataMaybeRaw = f.Either.right(rawVectorData);
+          _vectorParts = parts;
         });
         break;
     }
@@ -175,6 +216,10 @@ class _ImportDataPage extends State<ImportDataPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isInitializing) {
+      return ImportLoadingScaffold(filePath: widget.path);
+    }
+
     final journeyInfo = this.journeyInfo;
     final panelHeight = widget.importType == ImportType.vector ? 530.0 : 510.0;
     final mapBoundsPadding =
