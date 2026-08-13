@@ -40,10 +40,25 @@ pub(crate) fn block_area_cm2(tile_key: &TileKey, block_key: &BlockKey, bit_count
 fn compute_one_tile(journey_bitmap: &JourneyBitmap, tile_key: &TileKey) -> i64 {
     journey_bitmap.peek_tile_without_updating_cache(tile_key, |tile| match tile {
         None => 0,
-        Some(tile) => tile
-            .iter()
-            .map(|(block_key, block)| block_area_cm2(tile_key, &block_key, block.count()))
-            .sum(),
+        Some(tile) => {
+            // A bit's area depends only on its latitude row. Aggregate all
+            // blocks at the same y before doing the comparatively expensive
+            // Mercator and trigonometric work.
+            let mut bit_counts_by_row = [0_u32; TILE_WIDTH as usize];
+            for (block_key, block) in tile.iter() {
+                bit_counts_by_row[block_key.y() as usize] += block.count();
+            }
+
+            bit_counts_by_row
+                .into_iter()
+                .enumerate()
+                .filter(|(_, bit_count)| *bit_count != 0)
+                .map(|(block_y, bit_count)| {
+                    let block_key = BlockKey::from_x_y(0, block_y as u8);
+                    block_area_cm2(tile_key, &block_key, bit_count)
+                })
+                .sum()
+        }
     })
 }
 
@@ -55,9 +70,8 @@ pub fn journey_bitmap_area_cm2(
     journey_bitmap: &JourneyBitmap,
     mut tile_area_cache: Option<&mut HashMap<TileKey, i64>>,
 ) -> i64 {
-    let tile_keys = journey_bitmap.all_tile_keys().cloned().collect::<Vec<_>>();
-    tile_keys
-        .iter()
+    journey_bitmap
+        .all_tile_keys()
         .map(|tile_key| match tile_area_cache.as_mut() {
             None => compute_one_tile(journey_bitmap, tile_key),
             Some(cache) => *cache
