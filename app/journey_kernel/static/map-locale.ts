@@ -23,23 +23,20 @@ const FALLBACK_MAP_LOCALE: MapLocale = {
 // Devanagari translations, which can be added once those render paths exist.
 interface MapLanguageConfig {
   readonly targetScripts: readonly string[];
-  readonly unicodeScripts: readonly string[];
 }
 
 const LATIN_LANGUAGE_CONFIG: MapLanguageConfig = {
   targetScripts: ["Latin"],
-  unicodeScripts: ["Latn"],
 };
 
 const CYRILLIC_LANGUAGE_CONFIG: MapLanguageConfig = {
   targetScripts: ["Cyrillic"],
-  unicodeScripts: ["Cyrl"],
 };
 
 const MAP_LANGUAGE_CONFIG: Record<string, MapLanguageConfig> = {
   bg: CYRILLIC_LANGUAGE_CONFIG,
-  "zh-Hans": { targetScripts: ["Han"], unicodeScripts: ["Hans"] },
-  "zh-Hant": { targetScripts: ["Han"], unicodeScripts: ["Hant"] },
+  "zh-Hans": { targetScripts: ["Han"] },
+  "zh-Hant": { targetScripts: ["Han"] },
   hr: LATIN_LANGUAGE_CONFIG,
   cs: LATIN_LANGUAGE_CONFIG,
   da: LATIN_LANGUAGE_CONFIG,
@@ -49,16 +46,15 @@ const MAP_LANGUAGE_CONFIG: Record<string, MapLanguageConfig> = {
   fi: LATIN_LANGUAGE_CONFIG,
   fr: LATIN_LANGUAGE_CONFIG,
   de: LATIN_LANGUAGE_CONFIG,
-  el: { targetScripts: ["Greek"], unicodeScripts: ["Grek"] },
+  el: { targetScripts: ["Greek"] },
   hu: LATIN_LANGUAGE_CONFIG,
   id: LATIN_LANGUAGE_CONFIG,
   ga: LATIN_LANGUAGE_CONFIG,
   it: LATIN_LANGUAGE_CONFIG,
   ja: {
     targetScripts: ["Han", "Hiragana", "Katakana", "Mixed-Japanese"],
-    unicodeScripts: ["Jpan"],
   },
-  ko: { targetScripts: ["Hangul"], unicodeScripts: ["Kore"] },
+  ko: { targetScripts: ["Hangul"] },
   lv: LATIN_LANGUAGE_CONFIG,
   lt: LATIN_LANGUAGE_CONFIG,
   mt: LATIN_LANGUAGE_CONFIG,
@@ -101,22 +97,21 @@ function cloneMapLocale(locale: MapLocale): MapLocale {
   };
 }
 
-/** Resolve the first browser preference supported by the map tiles. */
+/**
+ * Resolve the first browser language supported by the map tiles.
+ * Except for Chinese variants, explicit script subtags fall back to the base
+ * language because the tiles do not expose script-specific name fields.
+ */
 export function resolveMapLocale(
   preferredLanguages: readonly string[],
 ): MapLocale {
   for (const preferredLanguage of preferredLanguages) {
     try {
-      const requestedLocale = new Intl.Locale(preferredLanguage);
-      const locale = requestedLocale.maximize();
+      const locale = new Intl.Locale(preferredLanguage).maximize();
       const language = resolveMapLanguage(locale);
 
       const languageConfig = MAP_LANGUAGE_CONFIG[language];
-      if (
-        !languageConfig ||
-        (requestedLocale.script !== undefined &&
-          !languageConfig.unicodeScripts.includes(requestedLocale.script))
-      ) {
+      if (!languageConfig) {
         continue;
       }
 
