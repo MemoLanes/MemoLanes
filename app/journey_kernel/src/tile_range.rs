@@ -29,9 +29,8 @@
 //! The tail may be compressed based on the header `compression` field.
 use crate::bitmap2d::BitMap2D;
 use crate::tile_archive::{
-    compress_with_len_prefix, decompress_zstd_block, deserialize_mipmap, serialize_mipmap,
-    split_len_prefixed_block, zstd_compress_block, FTA_COMPRESSION_LZ4, FTA_COMPRESSION_NONE,
-    FTA_COMPRESSION_ZSTD,
+    decompress_zstd_block, deserialize_mipmap, serialize_mipmap_into, split_len_prefixed_block,
+    zstd_compress_block, FTA_COMPRESSION_LZ4, FTA_COMPRESSION_NONE, FTA_COMPRESSION_ZSTD,
 };
 use lz4_flex::{compress_prepend_size, decompress_size_prepended};
 
@@ -95,10 +94,8 @@ pub fn encode_tile_range_response_from_tiles(
     let _ = bitmap_bytes_for_exp(tile_bitmap_exp)
         .map_err(|e| format!("Invalid tile_bitmap_exp: {e}"))?;
     let presence_len = (tile_count as usize).div_ceil(8);
-    let mut presence = vec![0u8; presence_len];
-    let mut payload = Vec::new();
     let mut present_count = 0u16;
-    let mut tile_blobs = vec![None; tile_count as usize];
+    let mut tile_bitmaps = vec![None; tile_count as usize];
 
     for tile in tiles {
         let tx = tile.x as i64;
@@ -111,7 +108,7 @@ pub fn encode_tile_range_response_from_tiles(
         }
 
         let idx = ((ty - y0 as i64) as u32 * range_w + (tx - x0 as i64) as u32) as usize;
-        if tile_blobs[idx].is_some() {
+        if tile_bitmaps[idx].is_some() {
             return Err(format!(
                 "Duplicate tile coordinates in input: ({}, {})",
                 tx, ty
@@ -129,29 +126,31 @@ pub fn encode_tile_range_response_from_tiles(
         if tile.bitmap.is_empty() {
             continue;
         }
-        let mut bm = tile.bitmap;
-        bm.build_lods();
-        let levels = bm.into_all_levels();
-        tile_blobs[idx] = Some(serialize_mipmap(&levels));
+        tile_bitmaps[idx] = Some(tile.bitmap);
     }
 
-    for (idx, tile_blob) in tile_blobs.into_iter().enumerate() {
-        if let Some(blob) = tile_blob {
-            set_lsb_bit(&mut presence, idx, true);
-            payload.extend_from_slice(&blob);
+    // Reserve the presence prefix in the final uncompressed tail, then append
+    // each row-major mipmap directly. This avoids a per-tile blob allocation
+    // and the payload -> raw_tail copy.
+    let mut raw_tail = vec![0u8; presence_len];
+    for (idx, tile_bitmap) in tile_bitmaps.into_iter().enumerate() {
+        if let Some(mut bitmap) = tile_bitmap {
+            set_lsb_bit(&mut raw_tail, idx, true);
+            bitmap.build_lods();
+            let levels = bitmap.into_all_levels();
+            serialize_mipmap_into(&levels, &mut raw_tail);
             present_count = present_count
                 .checked_add(1)
                 .ok_or_else(|| "present_count overflow".to_string())?;
         }
     }
 
-    let mut raw_tail = Vec::with_capacity(presence.len() + payload.len());
-    raw_tail.extend_from_slice(&presence);
-    raw_tail.extend_from_slice(&payload);
-    let encoded_tail = compress_tile_range_tail(&raw_tail, compression)
-        .map_err(|e| format!("Failed to encode TileRangeResponse tail: {e}"))?;
-
-    let mut out = Vec::with_capacity(TILE_RANGE_HEADER_SIZE + encoded_tail.len());
+    let tail_capacity = if compression == FTA_COMPRESSION_NONE {
+        raw_tail.len()
+    } else {
+        0
+    };
+    let mut out = Vec::with_capacity(TILE_RANGE_HEADER_SIZE + tail_capacity);
     out.push(tile_bitmap_exp);
     out.push(z);
     out.push(compression);
@@ -162,7 +161,8 @@ pub fn encode_tile_range_response_from_tiles(
     out.extend_from_slice(&(range_h as u16).to_le_bytes());
     out.extend_from_slice(&(tile_count as u16).to_le_bytes());
     out.extend_from_slice(&present_count.to_le_bytes());
-    out.extend_from_slice(&encoded_tail);
+    append_compressed_tile_range_tail(&mut out, &raw_tail, compression)
+        .map_err(|e| format!("Failed to encode TileRangeResponse tail: {e}"))?;
     Ok(out)
 }
 
@@ -221,6 +221,31 @@ pub fn parse_tiles_from_body(
     present_count: usize,
     body: &[u8],
 ) -> Result<Vec<(i32, i32, BitMap2D)>, String> {
+    let mut out = Vec::with_capacity(present_count);
+    parse_present_tiles_from_body(
+        tile_bitmap_exp,
+        tile_count,
+        present_count,
+        body,
+        |idx, bitmap| {
+            let x = x_origin + (idx % range_w) as i32;
+            let y = y_origin + (idx / range_w) as i32;
+            out.push((x, y, bitmap));
+        },
+    )?;
+    Ok(out)
+}
+
+fn parse_present_tiles_from_body<F>(
+    tile_bitmap_exp: u8,
+    tile_count: usize,
+    present_count: usize,
+    body: &[u8],
+    mut consume: F,
+) -> Result<(), String>
+where
+    F: FnMut(usize, BitMap2D),
+{
     let presence_len = tile_count.div_ceil(8);
     if body.len() < presence_len {
         return Err("TileRangeResponse body too small for presence bitmap".to_string());
@@ -228,7 +253,6 @@ pub fn parse_tiles_from_body(
     let presence = &body[..presence_len];
     let payload = &body[presence_len..];
     let mut offset = 0usize;
-    let mut out = Vec::with_capacity(present_count);
     let mut seen_present = 0usize;
 
     for idx in 0..tile_count {
@@ -238,15 +262,12 @@ pub fn parse_tiles_from_body(
                 .ok_or_else(|| "Truncated tile mipmap payload".to_string())?;
             let blob_len = parse_mipmap_blob_len(mipmap_blob)?;
             let blob = &mipmap_blob[..blob_len];
-            let levels = deserialize_mipmap(blob)?;
+            let mut levels = deserialize_mipmap(blob)?;
             validate_leaf_mipmap_levels(tile_bitmap_exp, &levels)?;
             offset += blob_len;
-            let base = levels[0].clone();
-            let lods = levels[1..].to_vec();
-            let bitmap = BitMap2D::from_precomputed(tile_bitmap_exp, base, lods);
-            let x = x_origin + (idx % range_w) as i32;
-            let y = y_origin + (idx / range_w) as i32;
-            out.push((x, y, bitmap));
+            let base = levels.remove(0);
+            let bitmap = BitMap2D::from_precomputed(tile_bitmap_exp, base, levels);
+            consume(idx, bitmap);
             seen_present += 1;
         }
     }
@@ -257,7 +278,52 @@ pub fn parse_tiles_from_body(
     if offset != payload.len() {
         return Err("Unexpected trailing bytes in TileRangeResponse".to_string());
     }
-    Ok(out)
+    Ok(())
+}
+
+#[cfg(any(feature = "wasm", test))]
+fn parse_tile_grid_from_body(
+    tile_bitmap_exp: u8,
+    tile_count: usize,
+    present_count: usize,
+    body: &[u8],
+) -> Result<Vec<Option<BitMap2D>>, String> {
+    let mut tiles: Vec<Option<BitMap2D>> = (0..tile_count).map(|_| None).collect();
+    parse_present_tiles_from_body(
+        tile_bitmap_exp,
+        tile_count,
+        present_count,
+        body,
+        |idx, bitmap| tiles[idx] = Some(bitmap),
+    )?;
+    Ok(tiles)
+}
+
+/// Decode a response directly into the row-major grid consumed by the WASM
+/// `TileBuffer`, avoiding a normalized body copy and coordinate tuple vector.
+#[cfg(any(feature = "wasm", test))]
+pub(crate) fn decode_tile_range_response_to_grid(
+    data: &[u8],
+) -> Result<(TileRangeHeader, Vec<Option<BitMap2D>>), String> {
+    let header = parse_tile_range_header(data)?;
+    let encoded_tail = data
+        .get(TILE_RANGE_HEADER_SIZE..)
+        .ok_or_else(|| "Missing TileRangeResponse body".to_string())?;
+    let parse = |body: &[u8]| {
+        parse_tile_grid_from_body(
+            header.tile_bitmap_exp,
+            header.tile_count as usize,
+            header.present_count as usize,
+            body,
+        )
+    };
+    let tiles = if header.compression == FTA_COMPRESSION_NONE {
+        parse(encoded_tail)?
+    } else {
+        let raw_tail = decompress_tile_range_tail(encoded_tail, header.compression)?;
+        parse(&raw_tail)?
+    };
+    Ok((header, tiles))
 }
 
 pub fn decode_tile_range_response(data: &[u8]) -> Result<Vec<(i32, i32, BitMap2D)>, String> {
@@ -279,18 +345,30 @@ pub fn decode_tile_range_response(data: &[u8]) -> Result<Vec<(i32, i32, BitMap2D
 
 /// Compresses the response tail (presence bitmap + mipmap payload).
 pub fn compress_tile_range_tail(raw_tail: &[u8], compression: u8) -> Result<Vec<u8>, String> {
+    let mut out = Vec::new();
+    append_compressed_tile_range_tail(&mut out, raw_tail, compression)?;
+    Ok(out)
+}
+
+fn append_compressed_tile_range_tail(
+    out: &mut Vec<u8>,
+    raw_tail: &[u8],
+    compression: u8,
+) -> Result<(), String> {
     match compression {
-        FTA_COMPRESSION_NONE => Ok(raw_tail.to_vec()),
-        FTA_COMPRESSION_LZ4 => Ok(compress_prepend_size(raw_tail)),
-        FTA_COMPRESSION_ZSTD => Ok(compress_with_len_prefix(
-            raw_tail.len(),
-            zstd_compress_block(raw_tail, 3)?,
-        )),
+        FTA_COMPRESSION_NONE => out.extend_from_slice(raw_tail),
+        FTA_COMPRESSION_LZ4 => out.extend_from_slice(&compress_prepend_size(raw_tail)),
+        FTA_COMPRESSION_ZSTD => {
+            let compressed = zstd_compress_block(raw_tail, 3)?;
+            out.extend_from_slice(&(raw_tail.len() as u32).to_le_bytes());
+            out.extend_from_slice(&compressed);
+        }
         other => Err(format!(
             "Unsupported TileRangeResponse compression: {}",
             other
-        )),
+        ))?,
     }
+    Ok(())
 }
 
 /// Decompresses the response tail into raw presence bitmap + payload bytes.
@@ -390,4 +468,53 @@ pub(crate) fn test_lsb_bit(bytes: &[u8], idx: usize) -> bool {
     let byte = idx / 8;
     let bit = idx % 8;
     (bytes[byte] & (1u8 << bit)) != 0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn direct_grid_decode_roundtrips_sparse_tiles_for_all_compressions() {
+        for compression in [
+            FTA_COMPRESSION_NONE,
+            FTA_COMPRESSION_LZ4,
+            FTA_COMPRESSION_ZSTD,
+        ] {
+            let mut first = BitMap2D::new(4);
+            first.set(0, 0, true);
+            let mut last = BitMap2D::new(4);
+            last.set(15, 15, true);
+            let encoded = encode_tile_range_response_from_tiles(
+                9,
+                10,
+                20,
+                2,
+                2,
+                4,
+                compression,
+                vec![
+                    TilePixelData {
+                        x: 10,
+                        y: 20,
+                        bitmap: first,
+                    },
+                    TilePixelData {
+                        x: 11,
+                        y: 21,
+                        bitmap: last,
+                    },
+                ],
+            )
+            .unwrap();
+
+            let (header, grid) = decode_tile_range_response_to_grid(&encoded).unwrap();
+            assert_eq!(header.compression, compression);
+            assert_eq!(grid.len(), 4);
+            assert!(grid[0].as_ref().unwrap().get(0, 0));
+            assert!(grid[1].is_none());
+            assert!(grid[2].is_none());
+            assert!(grid[3].as_ref().unwrap().get(15, 15));
+        }
+    }
 }

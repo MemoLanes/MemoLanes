@@ -13,7 +13,7 @@ use ruzstd::encoding::{compress_to_vec as ruzstd_compress_to_vec, CompressionLev
 #[cfg(target_arch = "wasm32")]
 use std::io::Read;
 
-use crate::bitmap2d::{bitvec_from_bytes_lsb, bitvec_to_bytes_lsb};
+use crate::bitmap2d::{append_bitvec_bytes_lsb, bitvec_from_bytes_lsb};
 
 pub const FTA_COMPRESSION_NONE: u8 = 0;
 pub const FTA_COMPRESSION_LZ4: u8 = 1;
@@ -22,13 +22,17 @@ pub const FTA_COMPRESSION_ZSTD: u8 = 3;
 
 pub fn serialize_mipmap(levels: &[BitVec]) -> Vec<u8> {
     let mut out = Vec::new();
+    serialize_mipmap_into(levels, &mut out);
+    out
+}
+
+pub(crate) fn serialize_mipmap_into(levels: &[BitVec], out: &mut Vec<u8>) {
     out.extend_from_slice(&(levels.len() as u16).to_le_bytes());
     for level in levels {
         let bit_count = level.len() as u32;
         out.extend_from_slice(&bit_count.to_le_bytes());
-        out.extend_from_slice(&bitvec_to_bytes_lsb(level));
+        append_bitvec_bytes_lsb(level, out);
     }
-    out
 }
 
 pub fn deserialize_mipmap(bytes: &[u8]) -> Result<Vec<BitVec>, String> {
