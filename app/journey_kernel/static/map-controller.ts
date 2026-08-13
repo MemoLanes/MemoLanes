@@ -26,6 +26,7 @@ import {
   type ProjectionType,
 } from "./params";
 import { JourneyTileProvider } from "./journey-tile-provider";
+import { detectMapLocale, type MapLocale } from "./map-locale";
 import { transformStyleWithProjection } from "./utils";
 import { JOURNEY_LAYER_ID } from "./layers/journey-layer-interface";
 import type { JourneyLayer } from "./layers/journey-layer-interface";
@@ -60,6 +61,7 @@ export interface MapControllerConfig {
 export class MapController {
   private map: MaplibreMap;
   private params: ReactiveParams;
+  private readonly mapLocale: MapLocale;
   private DisableAutoRefresh: boolean;
   private currentJourneyLayer: JourneyLayer | null = null;
   private journeyTileProvider: JourneyTileProvider | null = null;
@@ -68,6 +70,7 @@ export class MapController {
 
   constructor(config: MapControllerConfig) {
     this.params = config.params;
+    this.mapLocale = detectMapLocale();
     this.DisableAutoRefresh = config.DisableAutoRefresh ?? false;
 
     // Build transform request function for Mapbox styles
@@ -322,6 +325,7 @@ export class MapController {
             previousStyle,
             nextStyle,
             newProjection as ProjectionType,
+            this.mapLocale,
           ),
       });
     });
@@ -366,6 +370,7 @@ export class MapController {
           previousStyle,
           nextStyle,
           this.params.projection,
+          this.mapLocale,
         ),
     });
   }
