@@ -136,11 +136,46 @@ impl TileShader2 {
             let block_width_power = size_power - block_num_power;
             let block_size_power = std::cmp::min(block_width_power, buffer_size_power);
 
-            let tile_info = if block_size_power <= 0 {
-                either::Left(journey_bitmap.get_tile_summary(tile_key).unwrap())
-            } else {
-                either::Right(journey_bitmap.get_tile(tile_key).unwrap())
-            };
+            if block_size_power <= 0 {
+                let tile_summary = journey_bitmap.get_tile_summary(tile_key).unwrap();
+                let block_span = 1_i64 << std::cmp::max(block_num_power, 0);
+                let block_end_x = block_start_x + block_span;
+                let block_end_y = block_start_y + block_span;
+
+                // Coarse rendering needs occupancy only, so walk occupied
+                // blocks instead of probing every cell in a 128x128 grid.
+                for block_key in tile_summary.iter_blocks() {
+                    let block_x = i64::from(block_key.x());
+                    let block_y = i64::from(block_key.y());
+                    if block_x < block_start_x
+                        || block_x >= block_end_x
+                        || block_y < block_start_y
+                        || block_y >= block_end_y
+                    {
+                        continue;
+                    }
+
+                    let i = block_x - block_start_x;
+                    let j = block_y - block_start_y;
+                    let (offset_x, offset_y) = if block_width_power >= 0 {
+                        (i << block_width_power, j << block_width_power)
+                    } else {
+                        (i >> -block_width_power, j >> -block_width_power)
+                    };
+                    let block_start_x = start_x + offset_x;
+                    let block_start_y = start_y + offset_y;
+                    if block_start_x >= 0
+                        && block_start_x < side
+                        && block_start_y >= 0
+                        && block_start_y < side
+                    {
+                        bitmap.set(block_start_x as usize, block_start_y as usize, true);
+                    }
+                }
+                return;
+            }
+
+            let tile = journey_bitmap.get_tile(tile_key).unwrap();
 
             for i in 0..(1 << std::cmp::max(block_num_power, 0)) {
                 for j in 0..(1 << std::cmp::max(block_num_power, 0)) {
@@ -153,32 +188,18 @@ impl TileShader2 {
                     };
                     let block_start_x = start_x + offset_x;
                     let block_start_y = start_y + offset_y;
-                    match &tile_info {
-                        either::Left(tile_summary) => {
-                            if tile_summary.contains_block(&block_key)
-                                && block_start_x >= 0
-                                && block_start_x < side
-                                && block_start_y >= 0
-                                && block_start_y < side
-                            {
-                                bitmap.set(block_start_x as usize, block_start_y as usize, true);
-                            }
-                        }
-                        either::Right(tile) => {
-                            if let Some(block) = tile.get(&block_key) {
-                                Self::add_block_bits(
-                                    bitmap,
-                                    side,
-                                    block,
-                                    block_start_x,
-                                    block_start_y,
-                                    sub_block_x_idx,
-                                    sub_block_y_idx,
-                                    block_zoom_factor,
-                                    block_size_power,
-                                );
-                            }
-                        }
+                    if let Some(block) = tile.get(&block_key) {
+                        Self::add_block_bits(
+                            bitmap,
+                            side,
+                            block,
+                            block_start_x,
+                            block_start_y,
+                            sub_block_x_idx,
+                            sub_block_y_idx,
+                            block_zoom_factor,
+                            block_size_power,
+                        );
                     }
                 }
             }
