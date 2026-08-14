@@ -567,21 +567,9 @@ pub fn has_ongoing_journey() -> Result<bool> {
 ///
 /// `None` includes every layer; an empty set returns no dates.
 pub fn journey_dates(journey_kinds: Option<HashSet<JourneyKind>>) -> Result<Vec<NaiveDate>> {
-    get().storage.with_db_txn(|txn| {
-        let mut dates = txn
-            .query_journeys(None, None)?
-            .into_iter()
-            .filter(|header| {
-                journey_kinds
-                    .as_ref()
-                    .is_none_or(|kinds| kinds.contains(&header.journey_kind))
-            })
-            .map(|header| header.journey_date)
-            .collect::<Vec<_>>();
-        dates.sort_unstable();
-        dates.dedup();
-        Ok(dates)
-    })
+    get()
+        .storage
+        .with_db_txn(|txn| txn.query_journey_dates(journey_kinds.as_ref()))
 }
 
 /// Lists journeys on a date, optionally restricted to selected layers.
@@ -594,23 +582,15 @@ pub fn list_journeys_on_date(
     journey_kinds: Option<HashSet<JourneyKind>>,
 ) -> Result<Vec<JourneyHeader>> {
     let date = NaiveDate::from_ymd_opt(year, month, day).unwrap();
-    get().storage.with_db_txn(|txn| {
-        Ok(txn
-            .query_journeys(Some(date), Some(date))?
-            .into_iter()
-            .filter(|header| {
-                journey_kinds
-                    .as_ref()
-                    .is_none_or(|kinds| kinds.contains(&header.journey_kind))
-            })
-            .collect())
-    })
+    get()
+        .storage
+        .with_db_txn(|txn| txn.query_journeys(Some(date), Some(date), journey_kinds.as_ref()))
 }
 
 pub fn list_all_journeys() -> Result<Vec<JourneyHeader>> {
     get()
         .storage
-        .with_db_txn(|txn| txn.query_journeys(None, None))
+        .with_db_txn(|txn| txn.query_journeys(None, None, None))
 }
 
 pub fn has_journeys() -> Result<bool> {
@@ -877,7 +857,7 @@ pub fn contains_bitmap_journey() -> Result<bool> {
     // scan that involves deserializing all journey heads.
     let journey_headers = get()
         .storage
-        .with_db_txn(|txn| txn.query_journeys(None, None))?;
+        .with_db_txn(|txn| txn.query_journeys(None, None, None))?;
 
     Ok(journey_headers
         .iter()
