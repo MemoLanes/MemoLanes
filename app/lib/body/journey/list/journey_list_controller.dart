@@ -3,8 +3,28 @@ import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/journey_header.dart';
 
+typedef EarliestJourneyDateLoader = Future<DateTime?> Function();
+typedef JourneyDatesLoader = Future<List<DateTime>> Function(
+  Set<JourneyKind> journeyKinds,
+);
+typedef JourneyHeadersLoader = Future<List<JourneyHeader>> Function(
+  DateTime date,
+  Set<JourneyKind> journeyKinds,
+);
+
 class JourneyListController extends ChangeNotifier {
-  JourneyListController();
+  JourneyListController({
+    EarliestJourneyDateLoader? earliestJourneyDateLoader,
+    JourneyDatesLoader? journeyDatesLoader,
+    JourneyHeadersLoader? journeyHeadersLoader,
+  })  : _earliestJourneyDateLoader =
+            earliestJourneyDateLoader ?? _loadEarliestJourneyDate,
+        _journeyDatesLoader = journeyDatesLoader ?? _loadJourneyDates,
+        _journeyHeadersLoader = journeyHeadersLoader ?? _loadJourneyHeaders;
+
+  final EarliestJourneyDateLoader _earliestJourneyDateLoader;
+  final JourneyDatesLoader _journeyDatesLoader;
+  final JourneyHeadersLoader _journeyHeadersLoader;
 
   DateTime? firstDate;
   final DateTime lastDate = DateTime.now();
@@ -16,7 +36,8 @@ class JourneyListController extends ChangeNotifier {
   List<DateTime> journeyDates = [];
   List<JourneyHeader> journeyHeaders = [];
   bool isInitialLoading = true;
-  int _requestVersion = 0;
+  int _dateRequestVersion = 0;
+  int _headerRequestVersion = 0;
   bool _isDisposed = false;
 
   bool get hasFilteredJourneys => journeyDates.isNotEmpty;
@@ -37,27 +58,24 @@ class JourneyListController extends ChangeNotifier {
       .toList();
 
   Future<void> initialize() async {
-    final earliestDate = await api.earliestJourneyDate();
-    if (_isDisposed) return;
-    firstDate = earliestDate == null ? null : naiveDateToDateTime(earliestDate);
-    if (firstDate != null) {
-      await refresh(adjustSelectedDate: true);
-    }
+    await refresh(adjustSelectedDate: true);
     if (_isDisposed) return;
     isInitialLoading = false;
     notifyListeners();
   }
 
   Future<void> refresh({bool adjustSelectedDate = false}) async {
-    final requestVersion = ++_requestVersion;
+    final requestVersion = ++_dateRequestVersion;
+    ++_headerRequestVersion;
     final journeyKinds = Set<JourneyKind>.from(selectedJourneyKinds);
     journeyHeaders = [];
     notifyListeners();
-    final dates = (await api.journeyDates(journeyKinds: journeyKinds))
-        .map(naiveDateToDateTime)
-        .toList();
-    if (_isDisposed || requestVersion != _requestVersion) return;
+    final earliestDate = await _earliestJourneyDateLoader();
+    if (_isDisposed || requestVersion != _dateRequestVersion) return;
+    final dates = await _journeyDatesLoader(journeyKinds);
+    if (_isDisposed || requestVersion != _dateRequestVersion) return;
 
+    firstDate = earliestDate;
     journeyDates = dates;
     if (adjustSelectedDate && !_hasJourneyOn(selectedDate)) {
       final nearestDate = _nearestDate(
@@ -72,10 +90,7 @@ class JourneyListController extends ChangeNotifier {
       return;
     }
     notifyListeners();
-    await _loadJourneysOnSelectedDate(
-      requestVersion: requestVersion,
-      journeyKinds: journeyKinds,
-    );
+    await _loadJourneysOnSelectedDate(journeyKinds: journeyKinds);
   }
 
   Future<void> selectDate(DateTime date) async {
@@ -115,20 +130,14 @@ class JourneyListController extends ChangeNotifier {
       });
 
   Future<void> _loadJourneysOnSelectedDate({
-    int? requestVersion,
     Set<JourneyKind>? journeyKinds,
   }) async {
-    final version = requestVersion ?? ++_requestVersion;
+    final version = ++_headerRequestVersion;
     final kinds = journeyKinds ?? Set<JourneyKind>.from(selectedJourneyKinds);
     final date = selectedDate;
-    final headers = await api.listJourneysOnDate(
-      year: date.year,
-      month: date.month,
-      day: date.day,
-      journeyKinds: kinds,
-    );
+    final headers = await _journeyHeadersLoader(date, kinds);
     if (_isDisposed ||
-        version != _requestVersion ||
+        version != _headerRequestVersion ||
         !setEquals(kinds, selectedJourneyKinds) ||
         date != selectedDate) {
       return;
@@ -171,3 +180,26 @@ class JourneyListController extends ChangeNotifier {
     super.dispose();
   }
 }
+
+Future<DateTime?> _loadEarliestJourneyDate() async {
+  final date = await api.earliestJourneyDate();
+  return date == null ? null : naiveDateToDateTime(date);
+}
+
+Future<List<DateTime>> _loadJourneyDates(
+  Set<JourneyKind> journeyKinds,
+) async =>
+    (await api.journeyDates(journeyKinds: journeyKinds))
+        .map(naiveDateToDateTime)
+        .toList();
+
+Future<List<JourneyHeader>> _loadJourneyHeaders(
+  DateTime date,
+  Set<JourneyKind> journeyKinds,
+) =>
+    api.listJourneysOnDate(
+      year: date.year,
+      month: date.month,
+      day: date.day,
+      journeyKinds: journeyKinds,
+    );
