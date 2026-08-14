@@ -5,7 +5,9 @@ use memolanes_core::{
         load_vector_data, process_vector_data_for_date,
     },
     gps_processor::{Point, RawData},
-    import_data::split_by_date::split_raw_vector_data_by_local_date,
+    import_data::split_by_date::{
+        split_raw_vector_data_by_local_date, summarize_raw_vector_data_by_local_date,
+    },
     journey_header::JourneyKind,
 };
 
@@ -73,6 +75,12 @@ fn assigns_missing_timestamps_without_losing_points() {
     );
     assert_eq!(split[&day_one].len(), 2);
     assert_eq!(split[&day_two].len(), 2);
+
+    let summaries = summarize_raw_vector_data_by_local_date(&raw_data);
+    assert_eq!(summaries[&day_one].point_count, 4);
+    assert_eq!(summaries[&day_one].missing_timestamp_count, 3);
+    assert_eq!(summaries[&day_two].point_count, 3);
+    assert_eq!(summaries[&day_two].missing_timestamp_count, 2);
 }
 
 #[test]
@@ -105,9 +113,19 @@ fn vector_import_api_reuses_split_data_and_returns_string_dates() {
 
     assert_eq!(parts.len(), 2);
     assert_eq!(parts[0].journey_date, day_one.to_string());
+    assert_eq!(
+        parts[0].start_time.unwrap().timestamp_millis(),
+        timestamp_one
+    );
+    assert_eq!(parts[0].end_time.unwrap().timestamp_millis(), timestamp_one);
     assert_eq!(parts[0].point_count, 2);
     assert_eq!(parts[0].missing_timestamp_count, 1);
     assert_eq!(parts[1].journey_date, day_two.to_string());
+    assert_eq!(
+        parts[1].start_time.unwrap().timestamp_millis(),
+        timestamp_two
+    );
+    assert_eq!(parts[1].end_time.unwrap().timestamp_millis(), timestamp_two);
     assert_eq!(parts[1].point_count, 1);
     assert_eq!(parts[1].missing_timestamp_count, 0);
 

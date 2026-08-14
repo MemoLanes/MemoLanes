@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
+import 'package:memolanes/common/loading_manager.dart';
 
 class ImportLoadingPage<T> extends StatefulWidget {
   const ImportLoadingPage({
@@ -33,7 +34,9 @@ class _ImportLoadingPageState<T> extends State<ImportLoadingPage<T>> {
 
   Future<void> _load() async {
     try {
-      final result = await widget.load();
+      final result = await GlobalLoadingManager.instance.runWithWakelock(
+        widget.load,
+      );
       if (!mounted) return;
       await widget.onLoaded(context, result);
     } catch (error, stackTrace) {

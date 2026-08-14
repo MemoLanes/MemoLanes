@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fpdart/fpdart.dart' as f;
 import 'package:memolanes/body/journey/journey_info_edit_page.dart';
+import 'package:memolanes/body/settings/import_preprocessor_notice.dart';
 import 'package:memolanes/body/settings/vector_multi_import_page.dart';
 import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
@@ -48,10 +49,13 @@ class _ImportDataPage extends State<ImportDataPage> {
 
   Future<void> _initFlow() async {
     try {
-      await _loadFile(widget.path);
+      await GlobalLoadingManager.instance.runWithWakelock(
+        () => _loadFile(widget.path),
+      );
       if (!mounted) return;
+      var splitByDate = false;
       if (_vectorParts.length > 1) {
-        final splitByDate = await showCommonDialog(
+        splitByDate = await showCommonDialog(
           context,
           context.tr(
             'import.vector_multi.mode_message',
@@ -63,26 +67,33 @@ class _ImportDataPage extends State<ImportDataPage> {
           cancelButtonText: context.tr('import.vector_multi.single_action'),
         );
         if (!mounted) return;
-        if (splitByDate) {
-          final vectorData = switch (journeyDataMaybeRaw) {
-            f.Right(value: final data) => data,
-            f.Left() => throw StateError('Expected vector import data'),
-          };
-          await Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (context) => GlobalPopScope(
-                child: VectorMultiImportPage(
-                  vectorData: vectorData,
-                  parts: _vectorParts,
-                  initialPreprocessor: _preprocessor,
-                ),
+      }
+      await showAutoSelectedPreprocessorNotice(
+        context,
+        preprocessor: _preprocessor,
+      );
+      if (!mounted) return;
+      if (splitByDate) {
+        final vectorData = switch (journeyDataMaybeRaw) {
+          f.Right(value: final data) => data,
+          f.Left() => throw StateError('Expected vector import data'),
+        };
+        await Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => GlobalPopScope(
+              child: VectorMultiImportPage(
+                vectorData: vectorData,
+                parts: _vectorParts,
+                initialPreprocessor: _preprocessor,
               ),
             ),
-          );
-          return;
-        }
+          ),
+        );
+        return;
       }
-      final hasData = await _previewDataInternal();
+      final hasData = await GlobalLoadingManager.instance.runWithWakelock(
+        _previewDataInternal,
+      );
       if (!mounted) return;
       if (!hasData) {
         await showCommonDialog(
@@ -94,13 +105,6 @@ class _ImportDataPage extends State<ImportDataPage> {
         return;
       }
       setState(() => _isInitializing = false);
-      if (_preprocessor == import_api.ImportPreprocessor.spare) {
-        showCommonDialog(
-          context,
-          context.tr("preprocessor.spare_md"),
-          markdown: true,
-        );
-      }
     } catch (error) {
       log.error("[import_data] Data parsing failed $error");
       if (!mounted) return;

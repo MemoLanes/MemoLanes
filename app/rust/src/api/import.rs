@@ -170,22 +170,14 @@ fn raw_vector_data_for_date<'a>(
 }
 
 pub fn analyze_vector_data_by_date(vector_data: &RawVectorData) -> Vec<VectorImportPartSummary> {
-    vector_data
-        .data_by_date()
-        .iter()
-        .map(|(journey_date, data)| {
-            let info = import_data::conversion::journey_info_from_raw_vector_data(data);
-            VectorImportPartSummary {
-                journey_date: journey_date.format("%Y-%m-%d").to_string(),
-                start_time: info.start_time,
-                end_time: info.end_time,
-                point_count: data.iter().map(Vec::len).sum::<usize>() as u64,
-                missing_timestamp_count: data
-                    .iter()
-                    .flatten()
-                    .filter(|point| point.timestamp_ms.is_none())
-                    .count() as u64,
-            }
+    import_data::split_by_date::summarize_raw_vector_data_by_local_date(&vector_data.data)
+        .into_iter()
+        .map(|(journey_date, summary)| VectorImportPartSummary {
+            journey_date: journey_date.format("%Y-%m-%d").to_string(),
+            start_time: summary.start_time,
+            end_time: summary.end_time,
+            point_count: summary.point_count,
+            missing_timestamp_count: summary.missing_timestamp_count,
         })
         .collect()
 }
