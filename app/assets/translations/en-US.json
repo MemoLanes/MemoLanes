@@ -116,8 +116,11 @@
     "finish": "Finished optimizing database."
   },
   "recording_health": {
+    "setting_title": "Recording interruption alerts",
+    "interruption_detected": "Recording may have been interrupted",
     "freeze_warning": "The system may have frozen the app while recording. Some locations may be missing. Please check your background activity and battery settings.",
-    "view_help": "View help"
+    "view_help": "View tutorial",
+    "dont_remind_again": "Don't remind me again"
   },
   "journey_kind": {
     "default": "Ground",
