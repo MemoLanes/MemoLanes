@@ -16,11 +16,15 @@ pub fn lng_lat_to_tile_x_y(lng: f64, lat: f64, zoom: i32) -> (i32, i32) {
     (x.floor() as i32, y.floor() as i32)
 }
 
+pub fn tile_y_to_lat(y: i32, zoom: i32) -> f64 {
+    let n = f64::powi(2.0, zoom);
+    (f64::atan(f64::sinh(PI * (1.0 - (2.0 * y as f64) / n))) * 180.0) / PI
+}
+
 pub fn tile_x_y_to_lng_lat(x: i32, y: i32, zoom: i32) -> (f64, f64) {
     let n = f64::powi(2.0, zoom);
     let lng = (x as f64 / n) * 360.0 - 180.0;
-    let lat = (f64::atan(f64::sinh(PI * (1.0 - (2.0 * y as f64) / n))) * 180.0) / PI;
-    (lng, lat)
+    (lng, tile_y_to_lat(y, zoom))
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -185,7 +189,23 @@ mod tests {
 pub mod db {
     use anyhow::{Context, Result};
     use auto_context::auto_context;
-    use rusqlite::{OptionalExtension, Transaction};
+    use rusqlite::{Connection, OptionalExtension, Transaction};
+    use std::path::Path;
+
+    /// Open `dir/file_name` and bring it up to the latest migration.
+    #[auto_context]
+    pub fn open_and_migrate(
+        dir: &str,
+        file_name: &str,
+        migrations: &[Migration<'_>],
+    ) -> Result<Connection> {
+        debug!("open and run migration for {file_name}");
+        let mut conn = Connection::open(Path::new(dir).join(file_name))?;
+        let tx = conn.transaction()?;
+        run_migrations(&tx, file_name, migrations)?;
+        tx.commit()?;
+        Ok(conn)
+    }
 
     #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub struct SchemaVersion {
@@ -198,6 +218,21 @@ pub mod db {
             Self { major, minor }
         }
     }
+
+    #[derive(Debug)]
+    pub enum DbError {
+        VersionTooNew,
+    }
+
+    impl std::fmt::Display for DbError {
+        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Self::VersionTooNew => write!(formatter, "database major version is too high"),
+            }
+        }
+    }
+
+    impl std::error::Error for DbError {}
 
     pub struct Migration<'a> {
         pub version: SchemaVersion,
@@ -229,7 +264,7 @@ pub mod db {
     }
 
     #[auto_context]
-    pub fn init_metadata_and_get_version(tx: &Transaction) -> Result<SchemaVersion> {
+    fn init_metadata_and_get_version(tx: &Transaction) -> Result<SchemaVersion> {
         let create_db_metadata_sql = "
         CREATE TABLE IF NOT EXISTS `db_metadata` (
 	    `key`	TEXT NOT NULL,
@@ -301,9 +336,7 @@ pub mod db {
         debug!("{db_name}: current version = {current:?}, target version = {target:?}");
 
         if current.major > target.major {
-            bail!(
-                "major version too high: current version = {current:?}, target version = {target:?}"
-            );
+            return Err(DbError::VersionTooNew.into());
         }
 
         if current.major == target.major && current.minor > target.minor {

@@ -55,6 +55,12 @@
     "continue": "Continue",
     "save_confirm": "Do you want to save the changes?"
   },
+  "startup_error": {
+    "title": "Data Version Incompatible",
+    "database_version_too_new": "The data on this device was created by a newer version of MemoLanes and can't be opened by this version. Update MemoLanes and try again.",
+    "update": "Go to Update",
+    "exit": "Exit"
+  },
   "journey": {
     "editor": {
       "move": "Move",
@@ -93,7 +99,7 @@
     "journey_info_page_title": "Journey Information",
     "journey_info_edit_page_title": "Edit Journey Information",
     "import_mldx_data": "Import MLDX Data",
-    "import_kml_gpx_data": "Import KML/GPX Data",
+    "import_track_file": "Import Track File",
     "import_fog_of_world_data": "Import [Fog of World] Data",
     "export_journey_as_kml": "Export as KML",
     "export_journey_as_gpx": "Export as GPX",
@@ -117,6 +123,10 @@
     "already_optimized": "Database is already optimized. Nothing to do.",
     "confirm": "Your database requires optimization. It is recommended to backup your data before proceeding.",
     "finish": "Finished optimizing database."
+  },
+  "recording_health": {
+    "freeze_warning": "The system may have frozen the app while recording. Some locations may be missing. Please check your background activity and battery settings.",
+    "view_help": "View help"
   },
   "journey_kind": {
     "default": "Ground",
@@ -152,6 +162,9 @@
     "empty_data": "Journey is empty",
     "successful": "Import successful",
     "parsing_failed": "Data parsing failed",
+    "import_track_file": {
+      "description_md": "The following track file formats are supported:\n\n1. **GPX** (`.gpx`)\n2. **KML** (`.kml`)\n3. **CSV** (`.csv`)"
+    },
     "mldx_preview": {
       "title": "Archive Import",
       "skipped_identical": "{} identical journey(s) skipped",

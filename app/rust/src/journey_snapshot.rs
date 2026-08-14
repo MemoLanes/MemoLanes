@@ -1,11 +1,3 @@
-/* Journeys are stored one-by-one, but most consumers (map rendering,
-   achievement stats, the time machine) need them merged into a single
-   `JourneyBitmap`. `JourneySnapshot` is a read-only, transaction-bound
-   view that bundles the `(txn, cache_db)` pair so several reads compose
-   into ONE consistent snapshot. It exposes only reads — the cache's
-   mutating ops, and the main_db<->cache_db sync invariant, stay private
-   to `Storage` (which hands out snapshots via `with_journey_snapshot`).
-*/
 use crate::{
     cache_db::{CacheDb, LayerKind},
     journey_bitmap::JourneyBitmap,
@@ -17,11 +9,11 @@ use chrono::NaiveDate;
 
 pub struct JourneySnapshot<'a, 'txn> {
     txn: &'a main_db::Txn<'txn>,
-    cache_db: &'a dyn CacheDb,
+    cache_db: &'a mut dyn CacheDb,
 }
 
 impl<'a, 'txn> JourneySnapshot<'a, 'txn> {
-    pub(crate) fn new(txn: &'a main_db::Txn<'txn>, cache_db: &'a dyn CacheDb) -> Self {
+    pub(crate) fn new(txn: &'a main_db::Txn<'txn>, cache_db: &'a mut dyn CacheDb) -> Self {
         Self { txn, cache_db }
     }
 
@@ -29,7 +21,7 @@ impl<'a, 'txn> JourneySnapshot<'a, 'txn> {
     /// all-time (served from cache); `Some((from, to))` → that inclusive
     /// window (computed directly from main_db, not cached).
     pub fn finalized_bitmap(
-        &self,
+        &mut self,
         layer: &LayerKind,
         range: Option<(NaiveDate, NaiveDate)>,
     ) -> Result<JourneyBitmap> {

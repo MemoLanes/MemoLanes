@@ -1,1461 +1,1289 @@
 schema = 1
-worldviews = ["chn", "iso", "usa"]
 
 [[continent]]
 code = "AF"
 id = 12
 
-[continent.refs]
-chn = [18.3016, 6.4049]
-iso = [18.288, 6.3902]
-usa = [18.2962, 6.4039]
-
 [[continent]]
 code = "AN"
 id = 169
-ref = [19.9084, -80.5082]
 
 [[continent]]
 code = "AS"
 id = 0
 
-[continent.refs]
-chn = [84.6128, 32.2219]
-iso = [84.6096, 32.2405]
-usa = [84.6063, 32.2184]
-
 [[continent]]
 code = "EU"
 id = 31
-
-[continent.refs]
-chn = [78.6173, 59.9835]
-iso = [78.9111, 60.1079]
-usa = [78.6275, 59.9812]
 
 [[continent]]
 code = "NA"
 id = 25
 
-[continent.refs]
-chn = [-92.3629, 56.4873]
-iso = [-92.3615, 56.4917]
-usa = [-92.3629, 56.4873]
-
 [[continent]]
 code = "OC"
 id = 157
-
-[continent.refs]
-chn = [136.4086, -25.2808]
-iso = [136.4087, -25.2808]
-usa = [136.4086, -25.2808]
 
 [[continent]]
 code = "SA"
 id = 3
 
-[continent.refs]
-chn = [-60.8144, -15.2549]
-iso = [-60.7947, -15.3415]
-usa = [-60.8144, -15.2549]
-
 [[country]]
 code = "ABW"
 id = 180
-ref = [-69.9742, 12.5169]
+point = [-69.9742, 12.5169]
 
 [[country]]
 code = "AFG"
 id = 127
-ref = [66.0084, 33.8363]
+point = [66.0084, 33.8363]
 
 [[country]]
 code = "AGO"
 id = 99
-ref = [17.537, -12.2923]
+point = [17.537, -12.2923]
 
 [[country]]
 code = "AIA"
 id = 204
-ref = [-63.0591, 18.2301]
+point = [-63.0591, 18.2301]
 
 [[country]]
 code = "ALB"
 id = 61
-ref = [20.0538, 41.1425]
+point = [20.0538, 41.1425]
 
 [[country]]
 code = "ALD"
 id = 216
-ref = [20.0556, 60.1864]
+point = [20.0556, 60.1864]
 
 [[country]]
 code = "AND"
 id = 126
-ref = [1.5608, 42.5413]
+point = [1.5608, 42.5413]
 
 [[country]]
 code = "ARE"
 id = 57
-
-[country.refs]
-chn = [54.3008, 23.9058]
-iso = [54.3008, 23.9058]
-usa = [54.3009, 23.9061]
+point = [54.3008, 23.9059]
 
 [[country]]
 code = "ARG"
 id = 7
-ref = [-65.1731, -35.3787]
+point = [-65.1731, -35.3787]
 
 [[country]]
 code = "ARM"
 id = 68
-ref = [44.9323, 40.2881]
+point = [44.9323, 40.2881]
 
 [[country]]
 code = "ASM"
 id = 232
-
-[country.refs]
-chn = [-170.3989, -14.2549]
-iso = [-170.3919, -14.288]
-usa = [-170.3989, -14.2549]
+point = [-170.3966, -14.2659]
 
 [[country]]
 code = "ATA"
 id = 170
-ref = [19.9084, -80.5082]
+point = [19.9084, -80.5082]
 
 [[country]]
 code = "ATC"
 id = 243
-ref = [123.5864, -12.4326]
-worldview = ["chn", "usa"]
+point = [123.5864, -12.4326]
 
 [[country]]
 code = "ATF"
 id = 250
-ref = [68.9921, -49.0652]
+point = [68.9921, -49.0652]
 
 [[country]]
 code = "ATG"
 id = 199
-ref = [-61.7922, 17.2841]
+point = [-61.7922, 17.2841]
 
 [[country]]
 code = "AUS"
 id = 171
-ref = [134.4911, -25.7323]
+point = [134.4911, -25.7323]
 
 [[country]]
 code = "AUT"
 id = 87
-ref = [14.1307, 47.5857]
+point = [14.1307, 47.5857]
 
 [[country]]
 code = "AZE"
 id = 62
-ref = [47.5421, 40.2891]
+point = [47.5421, 40.2891]
 
 [[country]]
 code = "B35"
 id = 245
-ref = [41.1724, 43.0952]
-worldview = ["usa"]
+point = [41.1724, 43.0952]
 
 [[country]]
 code = "B37"
 id = 246
-ref = [44.0771, 42.3268]
-worldview = ["usa"]
+point = [44.0771, 42.3268]
 
 [[country]]
 code = "BDI"
 id = 122
-ref = [29.8751, -3.3574]
+point = [29.8751, -3.3574]
 
 [[country]]
 code = "BEL"
 id = 58
-ref = [4.64, 50.6375]
+point = [4.64, 50.6375]
 
 [[country]]
 code = "BEN"
 id = 98
-ref = [2.3287, 9.6412]
+point = [2.3287, 9.6412]
 
 [[country]]
 code = "BFA"
 id = 146
-ref = [-1.7555, 12.2696]
+point = [-1.7555, 12.2696]
 
 [[country]]
 code = "BGD"
 id = 125
-ref = [90.242, 23.8457]
+point = [90.242, 23.8457]
 
 [[country]]
 code = "BGR"
 id = 106
-ref = [25.2175, 42.7685]
+point = [25.2175, 42.7685]
 
 [[country]]
 code = "BHR"
 id = 236
-ref = [50.5635, 26.0355]
+point = [50.5635, 26.0355]
 
 [[country]]
 code = "BHS"
 id = 181
-ref = [-76.5515, 24.224]
+point = [-76.5515, 24.224]
 
 [[country]]
 code = "BIH"
 id = 129
-ref = [17.7734, 44.1717]
+point = [17.7734, 44.1717]
 
 [[country]]
 code = "BLM"
 id = 202
-ref = [-62.8326, 17.9056]
+point = [-62.8326, 17.9056]
 
 [[country]]
 code = "BLR"
 id = 33
-ref = [28.0336, 53.5319]
+point = [28.0336, 53.5319]
 
 [[country]]
 code = "BLZ"
 id = 154
-
-[country.refs]
-chn = [-88.6939, 17.2083]
-iso = [-88.695, 17.5458]
-usa = [-88.6939, 17.2083]
+point = [-88.6942, 17.2906]
 
 [[country]]
 code = "BMU"
 id = 208
-ref = [-64.7635, 32.3101]
+point = [-64.7635, 32.3101]
 
 [[country]]
 code = "BOL"
 id = 5
-ref = [-64.6848, -16.7069]
+point = [-64.6848, -16.7069]
 
 [[country]]
 code = "BRA"
 id = 43
-ref = [-53.0924, -10.7801]
+point = [-53.0924, -10.7801]
 
 [[country]]
 code = "BRB"
 id = 194
-ref = [-59.5612, 13.1811]
+point = [-59.5612, 13.1811]
 
 [[country]]
 code = "BRI"
 id = 239
-ref = [-57.623, -30.188]
-worldview = ["chn", "usa"]
+point = [-57.623, -30.188]
 
 [[country]]
 code = "BRN"
 id = 117
-ref = [114.7272, 4.5165]
+point = [114.7272, 4.5165]
 
 [[country]]
 code = "BRT"
 id = 241
-ref = [33.682, 21.8799]
-worldview = ["chn", "usa"]
+point = [33.682, 21.8799]
 
 [[country]]
 code = "BTN"
 id = 30
-
-[country.refs]
-chn = [90.4177, 27.3954]
-iso = [90.4067, 27.4215]
-usa = [90.4067, 27.4215]
+point = [90.4103, 27.413]
 
 [[country]]
 code = "BWA"
 id = 104
-ref = [23.799, -22.1858]
+point = [23.799, -22.1858]
 
 [[country]]
 code = "CAF"
 id = 83
-ref = [20.4648, 6.5663]
+point = [20.4648, 6.5663]
 
 [[country]]
 code = "CAN"
 id = 152
-ref = [-98.2937, 61.3764]
+point = [-98.2937, 61.3764]
 
 [[country]]
 code = "CHE"
 id = 90
-ref = [8.2154, 46.799]
+point = [8.2154, 46.799]
 
 [[country]]
 code = "CHL"
 id = 4
-ref = [-71.3644, -37.7436]
+point = [-71.3644, -37.7436]
 
 [[country]]
 code = "CHN"
 id = 18
-
-[country.refs]
-chn = [103.8172, 36.4574]
-iso = [103.9277, 36.5645]
-usa = [103.827, 36.5584]
+point = [103.857, 36.5265]
 
 [[country]]
 code = "CIV"
 id = 94
-ref = [-5.569, 7.628]
+point = [-5.569, 7.628]
 
 [[country]]
 code = "CLP"
 id = 258
-ref = [-109.2213, 10.2974]
-worldview = ["chn", "usa"]
+point = [-109.2213, 10.2974]
 
 [[country]]
 code = "CMR"
 id = 143
-ref = [12.737, 5.6931]
+point = [12.737, 5.6931]
 
 [[country]]
 code = "COD"
 id = 29
-ref = [23.6451, -2.8798]
+point = [23.6451, -2.8798]
 
 [[country]]
 code = "COG"
 id = 28
-ref = [15.2183, -0.8389]
+point = [15.2183, -0.8389]
 
 [[country]]
 code = "COK"
 id = 221
-ref = [-158.7912, -19.8145]
+point = [-158.7912, -19.8145]
 
 [[country]]
 code = "COL"
 id = 134
-ref = [-73.0838, 3.9094]
+point = [-73.0838, 3.9094]
 
 [[country]]
 code = "COM"
 id = 209
-ref = [43.6802, -11.8842]
+point = [43.6802, -11.8842]
 
 [[country]]
 code = "CPV"
 id = 211
-ref = [-23.9757, 15.9452]
+point = [-23.9757, 15.9452]
 
 [[country]]
 code = "CRI"
 id = 26
-ref = [-84.1935, 9.9734]
+point = [-84.1935, 9.9734]
 
 [[country]]
 code = "CSI"
 id = 242
-ref = [154.3904, -21.0293]
-worldview = ["chn", "usa"]
+point = [154.3904, -21.0293]
 
 [[country]]
 code = "CUB"
 id = 131
-
-[country.refs]
-chn = [-79.0329, 21.6243]
-iso = [-79.0352, 21.6253]
-usa = [-79.0352, 21.6253]
+point = [-79.0345, 21.625]
 
 [[country]]
 code = "CUW"
 id = 179
-ref = [-68.9713, 12.1938]
+point = [-68.9713, 12.1938]
 
 [[country]]
 code = "CYM"
 id = 207
-ref = [-80.877, 19.4263]
+point = [-80.877, 19.4263]
 
 [[country]]
 code = "CYP"
 id = 8
-ref = [33.2235, 35.055]
+point = [33.2235, 35.055]
 
 [[country]]
 code = "CZE"
 id = 47
-ref = [15.3141, 49.7324]
+point = [15.3141, 49.7324]
 
 [[country]]
 code = "DEU"
 id = 48
-ref = [10.3815, 51.1064]
+point = [10.3815, 51.1064]
 
 [[country]]
 code = "DJI"
 id = 85
-ref = [42.5665, 11.7502]
+point = [42.5665, 11.7502]
 
 [[country]]
 code = "DMA"
 id = 196
-ref = [-61.3569, 15.4364]
+point = [-61.3569, 15.4364]
 
 [[country]]
 code = "DNK"
 id = 69
-ref = [10.0514, 55.9654]
+point = [10.0514, 55.9654]
 
 [[country]]
 code = "DOM"
 id = 111
-ref = [-70.4966, 18.8964]
+point = [-70.4966, 18.8964]
 
 [[country]]
 code = "DZA"
 id = 119
-ref = [2.6531, 28.1489]
+point = [2.6531, 28.1489]
 
 [[country]]
 code = "ECU"
 id = 133
-ref = [-78.7723, -1.4262]
+point = [-78.7723, -1.4262]
 
 [[country]]
 code = "EGY"
 id = 160
-
-[country.refs]
-chn = [29.8611, 26.493]
-iso = [29.7599, 26.5666]
-usa = [29.8611, 26.493]
+point = [29.8278, 26.5172]
 
 [[country]]
 code = "ERI"
 id = 86
-ref = [38.8529, 15.3575]
+point = [38.8529, 15.3575]
 
 [[country]]
 code = "ESB"
 id = 238
-ref = [33.793, 35.0178]
-worldview = ["chn", "usa"]
+point = [33.793, 35.0178]
 
 [[country]]
 code = "ESP"
 id = 65
-
-[country.refs]
-chn = [-3.6526, 40.2272]
-iso = [-3.6487, 40.229]
-usa = [-3.6526, 40.2272]
+point = [-3.6513, 40.2278]
 
 [[country]]
 code = "EST"
 id = 49
-ref = [25.5358, 58.671]
+point = [25.5358, 58.671]
 
 [[country]]
 code = "ETH"
 id = 13
-ref = [39.6006, 8.623]
+point = [39.6006, 8.623]
 
 [[country]]
 code = "FIN"
 id = 53
-ref = [26.2708, 64.4954]
+point = [26.2708, 64.4954]
 
 [[country]]
 code = "FJI"
 id = 173
-ref = [163.4079, -17.4476]
+point = [163.4079, -17.4476]
 
 [[country]]
 code = "FLK"
 id = 229
-ref = [-59.3761, -51.7333]
+point = [-59.3761, -51.7333]
 
 [[country]]
 code = "FRA"
 id = 21
-
-[country.refs]
-chn = [-2.7552, 42.1801]
-iso = [-2.5507, 42.3377]
-usa = [-2.7552, 42.1801]
+point = [-2.6872, 42.2325]
 
 [[country]]
 code = "FRO"
 id = 217
-ref = [-6.8706, 62.074]
+point = [-6.8706, 62.074]
 
 [[country]]
 code = "FSM"
 id = 228
-ref = [155.2607, 6.9673]
+point = [155.2607, 6.9673]
 
 [[country]]
 code = "GAB"
 id = 144
-ref = [11.7896, -0.5917]
+point = [11.7896, -0.5917]
 
 [[country]]
 code = "GBR"
 id = 77
-
-[country.refs]
-chn = [-2.887, 54.147]
-iso = [-2.8869, 54.147]
-usa = [-2.887, 54.147]
+point = [-2.887, 54.147]
 
 [[country]]
 code = "GEO"
 id = 59
-
-[country.refs]
-chn = [43.5075, 42.1688]
-iso = [43.5075, 42.1688]
-usa = [43.9218, 42.0324]
+point = [43.6224, 42.131]
 
 [[country]]
 code = "GGY"
 id = 214
-ref = [-2.5305, 49.4844]
+point = [-2.5305, 49.4844]
 
 [[country]]
 code = "GHA"
 id = 148
-ref = [-1.2165, 7.954]
+point = [-1.2165, 7.954]
 
 [[country]]
 code = "GIB"
 id = 150
-ref = [-5.3467, 36.1295]
+point = [-5.3467, 36.1295]
 
 [[country]]
 code = "GIN"
 id = 81
-ref = [-10.9431, 10.4346]
+point = [-10.9431, 10.4346]
 
 [[country]]
 code = "GMB"
 id = 165
-ref = [-15.3976, 13.4497]
+point = [-15.3976, 13.4497]
 
 [[country]]
 code = "GNB"
 id = 149
-ref = [-14.9775, 12.0269]
+point = [-14.9775, 12.0269]
 
 [[country]]
 code = "GNQ"
 id = 164
-ref = [10.3329, 1.707]
+point = [10.3329, 1.707]
 
 [[country]]
 code = "GRC"
 id = 78
-ref = [22.9748, 39.0512]
+point = [22.9748, 39.0512]
 
 [[country]]
 code = "GRD"
 id = 192
-ref = [-61.6567, 12.1534]
+point = [-61.6567, 12.1534]
 
 [[country]]
 code = "GRL"
 id = 172
-ref = [-41.3457, 74.736]
+point = [-41.3457, 74.736]
 
 [[country]]
 code = "GTM"
 id = 115
-ref = [-90.3602, 15.696]
+point = [-90.3602, 15.696]
 
 [[country]]
 code = "GUM"
 id = 234
-ref = [144.7719, 13.4438]
+point = [144.7719, 13.4438]
 
 [[country]]
 code = "GUY"
 id = 22
-
-[country.refs]
-chn = [-58.9801, 4.7935]
-iso = [-58.0624, 4.6322]
-usa = [-58.9801, 4.7935]
+point = [-58.8753, 4.775]
 
 [[country]]
 code = "HKG"
 id = 166
-ref = [114.1314, 22.3846]
-worldview = ["iso", "usa"]
+point = [114.1314, 22.3846]
 
 [[country]]
 code = "HMD"
 id = 252
-ref = [73.5052, -53.0888]
+point = [73.5052, -53.0888]
 
 [[country]]
 code = "HND"
 id = 132
-ref = [-86.6252, 14.821]
+point = [-86.6252, 14.821]
 
 [[country]]
 code = "HRV"
 id = 100
-
-[country.refs]
-chn = [16.3957, 45.0675]
-iso = [16.3958, 45.0675]
-usa = [16.3958, 45.0675]
+point = [16.3958, 45.0675]
 
 [[country]]
 code = "HTI"
 id = 110
-ref = [-72.6909, 18.9384]
+point = [-72.6909, 18.9384]
 
 [[country]]
 code = "HUN"
 id = 73
-ref = [19.3968, 47.1632]
+point = [19.3968, 47.1632]
 
 [[country]]
 code = "IDN"
 id = 1
-ref = [117.2704, -2.223]
+point = [117.2704, -2.223]
 
 [[country]]
 code = "IMN"
 id = 215
-ref = [-4.5337, 54.2291]
+point = [-4.5337, 54.2291]
 
 [[country]]
 code = "IND"
 id = 108
-
-[country.refs]
-chn = [79.2683, 22.7645]
-iso = [79.4005, 22.3296]
-usa = [79.6073, 22.8801]
+point = [79.4271, 22.6643]
 
 [[country]]
 code = "IOA"
 id = 218
-ref = [104.6194, -10.6922]
+point = [104.6194, -10.6922]
 
 [[country]]
 code = "IOT"
 id = 255
-ref = [72.2988, -7.1443]
+point = [72.2988, -7.1443]
 
 [[country]]
 code = "IRL"
 id = 76
-ref = [-8.145, 53.1782]
+point = [-8.145, 53.1782]
 
 [[country]]
 code = "IRN"
 id = 91
-ref = [54.2769, 32.5707]
+point = [54.2769, 32.5707]
 
 [[country]]
 code = "IRQ"
 id = 88
-ref = [43.745, 33.0398]
+point = [43.745, 33.0398]
 
 [[country]]
 code = "ISL"
 id = 186
-ref = [-18.5964, 64.9983]
+point = [-18.5964, 64.9983]
 
 [[country]]
 code = "ISR"
 id = 9
-
-[country.refs]
-chn = [34.9536, 31.3555]
-iso = [34.9526, 31.3528]
-usa = [34.9964, 31.4461]
+point = [34.9681, 31.386]
 
 [[country]]
 code = "ITA"
 id = 89
-ref = [12.0719, 42.7864]
+point = [12.0719, 42.7864]
 
 [[country]]
 code = "JAM"
 id = 206
-ref = [-77.3188, 18.1552]
+point = [-77.3188, 18.1552]
 
 [[country]]
 code = "JEY"
 id = 213
-ref = [-2.1274, 49.2211]
+point = [-2.1274, 49.2211]
 
 [[country]]
 code = "JOR"
 id = 140
-ref = [36.7709, 31.2456]
+point = [36.7709, 31.2456]
 
 [[country]]
 code = "JPN"
 id = 184
-
-[country.refs]
-chn = [138.1113, 37.6545]
-iso = [137.9785, 37.5513]
-usa = [137.9783, 37.5512]
+point = [138.0231, 37.586]
 
 [[country]]
 code = "KAZ"
 id = 40
-ref = [67.287, 48.1557]
+point = [67.287, 48.1557]
 
 [[country]]
 code = "KEN"
 id = 163
-ref = [37.8382, 0.5261]
+point = [37.8382, 0.5261]
 
 [[country]]
 code = "KGZ"
 id = 67
-ref = [74.5417, 41.4619]
+point = [74.5417, 41.4619]
 
 [[country]]
 code = "KHM"
 id = 55
-ref = [104.9028, 12.7156]
+point = [104.9028, 12.7156]
 
 [[country]]
 code = "KIR"
 id = 189
-ref = [-51.5254, 0.6152]
+point = [-51.5254, 0.6152]
 
 [[country]]
 code = "KNA"
 id = 200
-ref = [-62.6985, 17.271]
+point = [-62.6985, 17.271]
 
 [[country]]
 code = "KOR"
 id = 168
-
-[country.refs]
-chn = [127.8191, 36.3734]
-iso = [127.8227, 36.3517]
-usa = [127.8191, 36.3734]
+point = [127.8203, 36.3662]
 
 [[country]]
 code = "KOS"
 id = 247
-ref = [20.8737, 42.5729]
-worldview = ["usa"]
+point = [20.8737, 42.5729]
 
 [[country]]
 code = "KWT"
 id = 113
-ref = [47.5946, 29.34]
+point = [47.5946, 29.34]
 
 [[country]]
 code = "LAO"
 id = 66
-ref = [103.7379, 18.5023]
+point = [103.7379, 18.5023]
 
 [[country]]
 code = "LBN"
 id = 11
-
-[country.refs]
-chn = [35.8795, 33.919]
-iso = [35.8798, 33.9201]
-usa = [35.8795, 33.919]
+point = [35.8796, 33.9194]
 
 [[country]]
 code = "LBR"
 id = 82
-ref = [-9.3199, 6.4522]
+point = [-9.3199, 6.4522]
 
 [[country]]
 code = "LBY"
 id = 70
-ref = [18.0096, 27.0303]
+point = [18.0096, 27.0303]
 
 [[country]]
 code = "LCA"
 id = 195
-ref = [-60.9703, 13.9027]
+point = [-60.9703, 13.9027]
 
 [[country]]
 code = "LIE"
 id = 93
-ref = [9.5409, 47.1382]
+point = [9.5409, 47.1382]
 
 [[country]]
 code = "LKA"
 id = 178
-ref = [80.7032, 7.6159]
+point = [80.7032, 7.6159]
 
 [[country]]
 code = "LSO"
 id = 142
-ref = [28.2286, -29.5797]
+point = [28.2286, -29.5797]
 
 [[country]]
 code = "LTU"
 id = 42
-ref = [23.8882, 55.327]
+point = [23.8882, 55.327]
 
 [[country]]
 code = "LUX"
 id = 56
-ref = [6.0718, 49.7668]
+point = [6.0718, 49.7668]
 
 [[country]]
 code = "LVA"
 id = 50
-ref = [24.9086, 56.8518]
+point = [24.9086, 56.8518]
 
 [[country]]
 code = "MAC"
 id = 237
-ref = [113.5502, 22.1578]
-worldview = ["iso", "usa"]
+point = [113.5502, 22.1578]
 
 [[country]]
 code = "MAF"
 id = 36
-ref = [-63.0551, 18.0776]
+point = [-63.0551, 18.0776]
 
 [[country]]
 code = "MAR"
 id = 23
-
-[country.refs]
-chn = [-6.2935, 31.843]
-iso = [-8.3964, 29.8417]
-usa = [-6.2935, 31.843]
+point = [-7.1604, 31.0179]
 
 [[country]]
 code = "MCO"
 id = 118
-ref = [7.399, 43.7398]
+point = [7.399, 43.7398]
 
 [[country]]
 code = "MDA"
 id = 137
-
-[country.refs]
-chn = [28.4614, 47.1951]
-iso = [28.3751, 47.1822]
-usa = [28.4614, 47.1951]
+point = [28.4344, 47.1911]
 
 [[country]]
 code = "MDG"
 id = 176
-ref = [46.706, -19.3732]
+point = [46.706, -19.3732]
 
 [[country]]
 code = "MDV"
 id = 256
-ref = [73.3023, 3.8278]
+point = [73.3023, 3.8278]
 
 [[country]]
 code = "MEX"
 id = 153
-ref = [-102.5303, 23.9492]
+point = [-102.5303, 23.9492]
 
 [[country]]
 code = "MHL"
 id = 190
-ref = [170.0995, 7.1145]
+point = [170.0995, 7.1145]
 
 [[country]]
 code = "MKD"
 id = 60
-ref = [21.6838, 41.595]
+point = [21.6838, 41.595]
 
 [[country]]
 code = "MLI"
 id = 95
-ref = [-3.5391, 17.3442]
+point = [-3.5391, 17.3442]
 
 [[country]]
 code = "MLT"
 id = 212
-ref = [14.4038, 35.921]
+point = [14.4038, 35.921]
 
 [[country]]
 code = "MMR"
 id = 124
-ref = [96.4893, 21.1677]
+point = [96.4893, 21.1677]
 
 [[country]]
 code = "MNE"
 id = 128
-ref = [19.2385, 42.7858]
+point = [19.2385, 42.7858]
 
 [[country]]
 code = "MNG"
 id = 45
-ref = [103.0563, 46.8258]
+point = [103.0563, 46.8258]
 
 [[country]]
 code = "MNP"
 id = 235
-ref = [145.6, 16.2509]
+point = [145.6, 16.2509]
 
 [[country]]
 code = "MOZ"
 id = 120
-ref = [35.5381, -17.27]
+point = [35.5381, -17.27]
 
 [[country]]
 code = "MRT"
 id = 162
-ref = [-10.3434, 20.2562]
+point = [-10.3434, 20.2562]
 
 [[country]]
 code = "MSR"
 id = 198
-ref = [-62.1874, 16.7375]
+point = [-62.1874, 16.7375]
 
 [[country]]
 code = "MUS"
 id = 254
-ref = [57.8497, -20.1855]
+point = [57.8497, -20.1855]
 
 [[country]]
 code = "MWI"
 id = 16
-ref = [34.2899, -13.2172]
+point = [34.2899, -13.2172]
 
 [[country]]
 code = "MYS"
 id = 2
-
-[country.refs]
-chn = [109.6989, 3.7924]
-iso = [108.6272, 3.5564]
-usa = [109.6989, 3.7924]
+point = [109.3708, 3.7202]
 
 [[country]]
 code = "NAM"
 id = 34
-ref = [17.2111, -22.1292]
+point = [17.2111, -22.1292]
 
 [[country]]
 code = "NCL"
 id = 175
-ref = [165.7027, -21.3043]
+point = [165.7027, -21.3043]
 
 [[country]]
 code = "NER"
 id = 145
-ref = [9.386, 17.4185]
+point = [9.386, 17.4185]
 
 [[country]]
 code = "NFK"
 id = 220
-ref = [167.9552, -29.035]
+point = [167.9552, -29.035]
 
 [[country]]
 code = "NGA"
 id = 97
-ref = [8.0912, 9.5953]
+point = [8.0912, 9.5953]
 
 [[country]]
 code = "NIC"
 id = 27
-ref = [-85.0334, 12.8455]
+point = [-85.0334, 12.8455]
 
 [[country]]
 code = "NIU"
 id = 231
-ref = [-169.8693, -19.0489]
+point = [-169.8693, -19.0489]
 
 [[country]]
 code = "NLD"
 id = 92
-ref = [5.2168, 52.0698]
+point = [5.2168, 52.0698]
 
 [[country]]
 code = "NOR"
 id = 51
-ref = [15.4096, 68.7943]
+point = [15.4096, 68.7943]
 
 [[country]]
 code = "NPL"
 id = 141
-ref = [83.9163, 28.2479]
+point = [83.9163, 28.2479]
 
 [[country]]
 code = "NRU"
 id = 227
-ref = [166.9331, -0.5208]
+point = [166.9331, -0.5208]
 
 [[country]]
 code = "NZL"
 id = 174
-ref = [171.4707, -41.8294]
+point = [171.4707, -41.8294]
 
 [[country]]
 code = "OMN"
 id = 38
-ref = [56.0927, 20.6018]
+point = [56.0927, 20.6018]
 
 [[country]]
 code = "PAK"
 id = 159
-
-[country.refs]
-chn = [69.3413, 29.9485]
-iso = [68.7798, 29.3674]
-usa = [69.3413, 29.9485]
+point = [69.1663, 29.7673]
 
 [[country]]
 code = "PAN"
 id = 155
-ref = [-80.1213, 8.5146]
+point = [-80.1213, 8.5146]
 
 [[country]]
 code = "PCN"
 id = 187
-ref = [-128.4793, -24.4128]
+point = [-128.4793, -24.4128]
 
 [[country]]
 code = "PER"
 id = 6
-ref = [-74.3781, -9.1544]
+point = [-74.3781, -9.1544]
 
 [[country]]
 code = "PGA"
 id = 249
-ref = [114.927, 10.545]
-worldview = ["usa"]
+point = [114.927, 10.545]
 
 [[country]]
 code = "PHL"
 id = 177
-ref = [122.8747, 11.7627]
+point = [122.8747, 11.7627]
 
 [[country]]
 code = "PLW"
 id = 233
-ref = [134.348, 7.1976]
+point = [134.348, 7.1976]
 
 [[country]]
 code = "PNG"
 id = 158
-ref = [145.2315, -6.4701]
+point = [145.2315, -6.4701]
 
 [[country]]
 code = "POL"
 id = 75
-ref = [19.3943, 52.1248]
+point = [19.3943, 52.1248]
 
 [[country]]
 code = "PRI"
 id = 203
-ref = [-66.4676, 18.2238]
+point = [-66.4676, 18.2238]
 
 [[country]]
 code = "PRK"
 id = 138
-
-[country.refs]
-chn = [127.1838, 40.1506]
-iso = [127.1812, 40.1678]
-usa = [127.1838, 40.1506]
+point = [127.1829, 40.1563]
 
 [[country]]
 code = "PRT"
 id = 136
-ref = [-8.5908, 39.5871]
+point = [-8.5908, 39.5871]
 
 [[country]]
 code = "PRY"
 id = 135
-ref = [-58.3984, -23.2275]
+point = [-58.3984, -23.2275]
 
 [[country]]
 code = "PSX"
 id = 10
-ref = [35.2007, 31.9175]
+point = [35.2007, 31.9175]
 
 [[country]]
 code = "PYF"
 id = 188
-ref = [-145.052, -15.1888]
+point = [-145.052, -15.1888]
 
 [[country]]
 code = "QAT"
 id = 102
-ref = [51.1868, 25.3131]
+point = [51.1868, 25.3131]
 
 [[country]]
 code = "ROU"
 id = 72
-ref = [24.9729, 45.8535]
+point = [24.9729, 45.8535]
 
 [[country]]
 code = "RUS"
 id = 46
-
-[country.refs]
-chn = [96.6841, 61.9879]
-iso = [96.6841, 61.9879]
-usa = [96.6938, 61.9846]
+point = [96.6873, 61.9868]
 
 [[country]]
 code = "RWA"
 id = 123
-ref = [29.9191, -1.9928]
+point = [29.9191, -1.9928]
 
 [[country]]
 code = "SAH"
 id = 24
-
-[country.refs]
-chn = [-13.1453, 24.6585]
-iso = [-12.215, 24.2326]
-usa = [-13.1453, 24.6585]
+point = [-13.0115, 24.5972]
 
 [[country]]
 code = "SAU"
 id = 103
-ref = [44.5369, 24.1223]
+point = [44.5369, 24.1223]
 
 [[country]]
 code = "SCR"
 id = 244
-ref = [117.7538, 15.1521]
-worldview = ["usa"]
+point = [117.7538, 15.1521]
 
 [[country]]
 code = "SDN"
 id = 84
-
-[country.refs]
-chn = [29.9354, 15.9802]
-iso = [29.9441, 16.0159]
-usa = [29.9441, 16.0159]
+point = [29.9412, 16.004]
 
 [[country]]
 code = "SDS"
 id = 14
-
-[country.refs]
-chn = [30.327, 7.27]
-iso = [30.301, 7.2836]
-usa = [30.301, 7.2836]
+point = [30.3097, 7.279]
 
 [[country]]
 code = "SEN"
 id = 96
-ref = [-14.4713, 14.3678]
+point = [-14.4713, 14.3678]
 
 [[country]]
 code = "SGP"
 id = 219
-ref = [103.8135, 1.3589]
+point = [103.8135, 1.3589]
 
 [[country]]
 code = "SGS"
 id = 257
-ref = [-35.8823, -54.6792]
+point = [-35.8823, -54.6792]
 
 [[country]]
 code = "SHN"
 id = 253
-ref = [-10.1384, -24.9114]
+point = [-10.1384, -24.9114]
 
 [[country]]
 code = "SLB"
 id = 225
-ref = [159.6381, -8.9096]
+point = [159.6381, -8.9096]
 
 [[country]]
 code = "SLE"
 id = 80
-ref = [-11.795, 8.5631]
+point = [-11.795, 8.5631]
 
 [[country]]
 code = "SLV"
 id = 114
-ref = [-88.871, 13.7358]
+point = [-88.871, 13.7358]
 
 [[country]]
 code = "SMR"
 id = 109
-ref = [12.4422, 43.9365]
+point = [12.4422, 43.9365]
 
 [[country]]
 code = "SOM"
 id = 15
-ref = [45.8508, 6.0627]
+point = [45.8508, 6.0627]
 
 [[country]]
 code = "SPM"
 id = 185
-ref = [-56.3078, 46.9305]
+point = [-56.3078, 46.9305]
 
 [[country]]
 code = "SRB"
 id = 63
-
-[country.refs]
-chn = [20.7994, 44.0236]
-iso = [20.7994, 44.0236]
-usa = [20.7893, 44.2221]
+point = [20.7963, 44.0843]
 
 [[country]]
 code = "STP"
 id = 210
-ref = [6.7264, 0.4443]
+point = [6.7264, 0.4443]
 
 [[country]]
 code = "SUR"
 id = 20
-ref = [-55.9111, 4.1312]
+point = [-55.9111, 4.1312]
 
 [[country]]
 code = "SVK"
 id = 74
-ref = [19.4804, 48.7049]
+point = [19.4804, 48.7049]
 
 [[country]]
 code = "SVN"
 id = 101
-ref = [14.8081, 46.1161]
+point = [14.8081, 46.1161]
 
 [[country]]
 code = "SWE"
 id = 52
-ref = [16.7545, 62.7771]
+point = [16.7545, 62.7771]
 
 [[country]]
 code = "SWZ"
 id = 121
-ref = [31.48, -26.5619]
+point = [31.48, -26.5619]
 
 [[country]]
 code = "SXM"
 id = 37
-ref = [-63.0701, 18.0406]
+point = [-63.0701, 18.0406]
 
 [[country]]
 code = "SYC"
 id = 251
-ref = [52.0623, -6.49]
+point = [52.0623, -6.49]
 
 [[country]]
 code = "SYR"
 id = 19
-
-[country.refs]
-chn = [38.4873, 35.0104]
-iso = [38.5046, 35.023]
-usa = [38.5046, 35.023]
+point = [38.4988, 35.0188]
 
 [[country]]
 code = "TCA"
 id = 182
-ref = [-71.8733, 21.78]
+point = [-71.8733, 21.78]
 
 [[country]]
 code = "TCD"
 id = 112
-ref = [18.6463, 15.3331]
+point = [18.6463, 15.3331]
 
 [[country]]
 code = "TGO"
 id = 147
-ref = [0.9623, 8.5268]
+point = [0.9623, 8.5268]
 
 [[country]]
 code = "THA"
 id = 107
-ref = [101.0033, 15.1144]
+point = [101.0033, 15.1144]
 
 [[country]]
 code = "TJK"
 id = 41
-ref = [71.0158, 38.5299]
+point = [71.0158, 38.5299]
 
 [[country]]
 code = "TKM"
 id = 139
-ref = [59.376, 39.1159]
+point = [59.376, 39.1159]
 
 [[country]]
 code = "TLS"
 id = 116
-ref = [125.8511, -8.8238]
+point = [125.8511, -8.8238]
 
 [[country]]
 code = "TON"
 id = 222
-ref = [-174.8685, -20.0666]
+point = [-174.8685, -20.0666]
 
 [[country]]
 code = "TTO"
 id = 191
-ref = [-61.2584, 10.4688]
+point = [-61.2584, 10.4688]
 
 [[country]]
 code = "TUN"
 id = 71
-ref = [9.5546, 34.1194]
+point = [9.5546, 34.1194]
 
 [[country]]
 code = "TUR"
 id = 64
-ref = [35.1672, 39.0611]
+point = [35.1672, 39.0611]
 
 [[country]]
 code = "TUV"
 id = 226
-ref = [178.5204, -7.7591]
+point = [178.5204, -7.7591]
 
 [[country]]
 code = "TWN"
 id = 183
-ref = [120.9499, 23.753]
-worldview = ["iso", "usa"]
+point = [120.9499, 23.753]
 
 [[country]]
 code = "TZA"
 id = 17
-ref = [34.8136, -6.2751]
+point = [34.8136, -6.2751]
 
 [[country]]
 code = "UGA"
 id = 130
-ref = [32.367, 1.2757]
+point = [32.367, 1.2757]
 
 [[country]]
 code = "UKR"
 id = 32
-
-[country.refs]
-chn = [31.3857, 48.9974]
-iso = [31.2553, 49.1601]
-usa = [31.3857, 48.9974]
+point = [31.3435, 49.0501]
 
 [[country]]
 code = "UMI"
 id = 197
-
-[country.refs]
-chn = [-103.2783, 13.3029]
-iso = [-148.0775, 12.3097]
-usa = [-103.2783, 13.3029]
+point = [-116.7237, 13.0048]
 
 [[country]]
 code = "URY"
 id = 44
-ref = [-56.0171, -32.7983]
+point = [-56.0171, -32.7983]
 
 [[country]]
 code = "USA"
 id = 151
-ref = [-112.4962, 45.6881]
+point = [-112.4962, 45.6881]
 
 [[country]]
 code = "USG"
 id = 248
-ref = [-75.1547, 19.9293]
-worldview = ["usa"]
+point = [-75.1547, 19.9293]
 
 [[country]]
 code = "UZB"
 id = 39
-ref = [63.1399, 41.756]
+point = [63.1399, 41.756]
 
 [[country]]
 code = "VAT"
 id = 167
-ref = [12.4534, 41.9033]
+point = [12.4534, 41.9033]
 
 [[country]]
 code = "VCT"
 id = 193
-ref = [-61.2034, 13.2162]
+point = [-61.2034, 13.2162]
 
 [[country]]
 code = "VEN"
 id = 156
-ref = [-66.1688, 7.1277]
+point = [-66.1688, 7.1277]
 
 [[country]]
 code = "VGB"
 id = 205
-ref = [-64.5029, 18.5099]
+point = [-64.5029, 18.5099]
 
 [[country]]
 code = "VIR"
 id = 201
-ref = [-64.7977, 17.9805]
+point = [-64.7977, 17.9805]
 
 [[country]]
 code = "VNM"
 id = 54
-ref = [106.3009, 16.6422]
+point = [106.3009, 16.6422]
 
 [[country]]
 code = "VUT"
 id = 230
-ref = [167.7008, -16.2013]
+point = [167.7008, -16.2013]
 
 [[country]]
 code = "WLF"
 id = 223
-ref = [-177.059, -13.7381]
+point = [-177.059, -13.7381]
 
 [[country]]
 code = "WSB"
 id = 240
-ref = [32.934, 34.6318]
-worldview = ["chn", "usa"]
+point = [32.934, 34.6318]
 
 [[country]]
 code = "WSM"
 id = 224
-ref = [-172.1612, -13.7546]
+point = [-172.1612, -13.7546]
 
 [[country]]
 code = "YEM"
 id = 161
-ref = [47.5906, 15.9054]
+point = [47.5906, 15.9054]
 
 [[country]]
 code = "ZAF"
 id = 35
-ref = [25.0874, -29.001]
+point = [25.0874, -29.001]
 
 [[country]]
 code = "ZMB"
 id = 79
-ref = [27.7742, -13.4601]
+point = [27.7742, -13.4601]
 
 [[country]]
 code = "ZWE"
 id = 105
-ref = [29.8519, -19.0025]
+point = [29.8519, -19.0025]

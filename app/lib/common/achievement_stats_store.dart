@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/src/rust/achievement/layer.dart';
-import 'package:memolanes/src/rust/achievement/read_model/region.dart';
+import 'package:memolanes/src/rust/achievement/region.dart';
 import 'package:memolanes/src/rust/api/achievement.dart' as achievement_api;
 
 @immutable
@@ -83,8 +83,7 @@ class AchievementCountryStats {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(entityId, entity, visitedKm2, totalKm2);
+  int get hashCode => Object.hash(entityId, entity, visitedKm2, totalKm2);
 }
 
 class AchievementStatsStore extends ChangeNotifier {

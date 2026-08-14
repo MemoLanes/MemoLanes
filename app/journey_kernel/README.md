@@ -75,6 +75,22 @@ These two files are statically generated in dev mode, but will be hosted dynamic
 
 ### Development
 
+Run the development server from `app/journey_kernel`:
+
+```bash
+yarn dev
+```
+
+This performs an initial debug WASM build and starts the webpack development server. JavaScript and TypeScript changes are rebuilt automatically.
+
+Rust source files are not watched automatically. After changing Rust code in `app/journey_kernel`, run the following command in another terminal:
+
+```bash
+yarn wasm:dev
+```
+
+Webpack will detect the regenerated files in `pkg` and refresh the bundle.
+
 #### Testing with Flutter App
 
 To test the webpack dev server with the Flutter app (useful for hot-reload during web development):
@@ -98,10 +114,11 @@ window.EXTERNAL_PARAMS = {
 
 #### Testing with Rust Demo Server
 
-The Rust demo server only handles dynamic requests (e.g., tile data). You need to host the static resources separately via `yarn dev`.
+The Rust demo server only handles dynamic requests (e.g., tile data). You need to host the static resources separately with the webpack development server.
 
-1. Start the webpack dev server: `yarn dev` in the `app/journey_kernel` folder.
-2. Start the Rust demo server in the `app/rust` folder:
+1. Start the webpack development server by running `yarn dev` in the `app/journey_kernel` folder.
+2. After modifying Journey Kernel Rust code, run `yarn wasm:dev` in `app/journey_kernel` to regenerate the WASM package.
+3. Start the Rust demo server in the `app/rust` folder:
 
 ```bash
 cargo run --example server
@@ -125,6 +142,6 @@ just pre-build
 ```
 
 This command will:
-1. Run `yarn build` to generate the static sites (output in `dist` folder, wasm files in `pkg` folder)
+1. Run `yarn build` to compile the release WASM package into `pkg` and generate the production webpack bundle in `dist`
 2. Copy the assets to Flutter's `assets/map_webview` folder
 3. Generate the FRB code

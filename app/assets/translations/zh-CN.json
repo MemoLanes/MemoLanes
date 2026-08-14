@@ -55,6 +55,12 @@
     "continue": "继续",
     "save_confirm": "是否保存？"
   },
+  "startup_error": {
+    "title": "数据版本不兼容",
+    "database_version_too_new": "此设备上的数据由更高版本的迹忆创建，当前版本无法打开。请将迹忆升级到最新版本后重试。",
+    "update": "前往更新",
+    "exit": "退出应用"
+  },
   "journey": {
     "editor": {
       "move": "移动",
@@ -93,7 +99,7 @@
     "journey_info_page_title": "旅程信息",
     "journey_info_edit_page_title": "编辑旅程信息",
     "import_mldx_data": "导入 MLDX 数据",
-    "import_kml_gpx_data": "导入 KML/GPX 数据",
+    "import_track_file": "导入轨迹文件",
     "import_fog_of_world_data": "导入 世界迷雾 数据",
     "export_journey_as_kml": "导出为 KML",
     "export_journey_as_gpx": "导出为 GPX",
@@ -117,6 +123,10 @@
     "already_optimized": "数据库已经是最优状态。无需再次优化。",
     "confirm": "您的数据库需要优化。建议在继续之前备份你的数据。",
     "finish": "数据库优化完成。"
+  },
+  "recording_health": {
+    "freeze_warning": "轨迹记录期间应用可能被系统冻结，部分位置记录可能出现中断。建议检查系统后台运行和省电设置。",
+    "view_help": "查看帮助"
   },
   "journey_kind": {
     "default": "地表",
@@ -152,6 +162,9 @@
     "empty_data": "旅途数据为空",
     "successful": "导入成功",
     "parsing_failed": "数据解析失败",
+    "import_track_file": {
+      "description_md": "支持以下轨迹文件格式：\n\n1. **GPX** (`.gpx`)\n2. **KML** (`.kml`)\n3. **CSV** (`.csv`)"
+    },
     "mldx_preview": {
       "title": "归档导入",
       "skipped_identical": "已跳过 {} 条完全相同的旅程",

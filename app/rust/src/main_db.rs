@@ -5,7 +5,6 @@ use chrono::{DateTime, Local, NaiveDate, Timelike, Utc};
 use protobuf::Message;
 use rusqlite::{Connection, OptionalExtension, Transaction};
 use std::error::Error;
-use std::path::Path;
 use std::str::FromStr;
 use uuid::Uuid;
 
@@ -33,20 +32,6 @@ deserialize the header.
 
 // 3 is the zstd default
 pub const ZSTD_COMPRESS_LEVEL: i32 = 3;
-
-#[auto_context]
-fn open_db_and_run_migration(
-    support_dir: &str,
-    file_name: &str,
-    migrations: &[utils::db::Migration<'_>],
-) -> Result<Connection> {
-    debug!("open and run migration for {file_name}");
-    let mut conn = rusqlite::Connection::open(Path::new(support_dir).join(file_name))?;
-    let tx = conn.transaction()?;
-    utils::db::run_migrations(&tx, file_name, migrations)?;
-    tx.commit()?;
-    Ok(conn)
-}
 
 pub struct Txn<'a> {
     db_txn: rusqlite::Transaction<'a>,
@@ -215,7 +200,7 @@ impl Txn<'_> {
         let mut data_bytes = Vec::new();
         data.serialize(&mut data_bytes)?;
 
-        let sql = "INSERT INTO journey (id, journey_date, timestamp_for_ordering, type, header, data) VALUES (?1, ?2, ?3, ?4, ?5, ?6);";
+        let sql = "INSERT INTO journey (id, journey_date, timestamp_for_ordering, type, journey_kind, header, data) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);";
         self.db_txn.execute(
             sql,
             (
@@ -223,6 +208,7 @@ impl Txn<'_> {
                 journey_date,
                 timestamp_for_ordering,
                 journey_type.to_int(),
+                insert_kind.to_int(),
                 header_bytes,
                 data_bytes,
             ),
@@ -320,10 +306,16 @@ impl Txn<'_> {
         let journey_date = utils::date_to_days_since_epoch(header.journey_date);
         let timestamp_for_ordering = header.start.or(header.end).map(|x| x.timestamp());
         let header_bytes = header.to_proto().write_to_bytes()?;
-        let sql = "UPDATE journey SET journey_date = ?1, timestamp_for_ordering = ?2, header = ?3 WHERE id = ?4;";
+        let sql = "UPDATE journey SET journey_date = ?1, timestamp_for_ordering = ?2, journey_kind = ?3, header = ?4 WHERE id = ?5;";
         self.db_txn.execute(
             sql,
-            (journey_date, timestamp_for_ordering, header_bytes, &id),
+            (
+                journey_date,
+                timestamp_for_ordering,
+                new_journey_kind.to_int(),
+                header_bytes,
+                &id,
+            ),
         )?;
 
         if old_journey_date != new_journey_date || old_journey_kind != new_journey_kind {
@@ -461,6 +453,37 @@ impl Txn<'_> {
             results.push(header);
         }
         Ok(results)
+    }
+
+    /// Returns finalized journey IDs in the inclusive date range, optionally
+    /// restricted to one kind. Callers that only need the IDs can avoid
+    /// deserializing every journey header.
+    pub fn query_journey_ids_in_date_range(
+        &self,
+        from_date_inclusive: NaiveDate,
+        to_date_inclusive: NaiveDate,
+        journey_kind: Option<JourneyKind>,
+    ) -> Result<Vec<String>> {
+        let from = utils::date_to_days_since_epoch(from_date_inclusive);
+        let to = utils::date_to_days_since_epoch(to_date_inclusive);
+
+        let mut query = match journey_kind {
+            Some(_) => self.db_txn.prepare(
+                "SELECT id FROM journey WHERE journey_date >= ?1 AND journey_date <= ?2 AND journey_kind = ?3;",
+            )?,
+            None => self.db_txn.prepare(
+                "SELECT id FROM journey WHERE journey_date >= ?1 AND journey_date <= ?2;",
+            )?,
+        };
+        let ids = match journey_kind {
+            Some(journey_kind) => query
+                .query_map((from, to, journey_kind.to_int()), |row| row.get(0))?
+                .collect::<rusqlite::Result<Vec<_>>>()?,
+            None => query
+                .query_map((from, to), |row| row.get(0))?
+                .collect::<rusqlite::Result<Vec<_>>>()?,
+        };
+        Ok(ids)
     }
 
     pub fn get_journey_header(&self, id: &str) -> Result<Option<JourneyHeader>> {
@@ -656,9 +679,8 @@ pub struct MainDb {
     conn: Connection,
 }
 
-fn migrations() -> [utils::db::Migration<'static>; 1] {
-    fn migrate_to_1_0(tx: &Transaction) -> Result<()> {
-        let sql = "
+fn migrate_to_1_0(tx: &Transaction) -> Result<()> {
+    let sql = "
         CREATE TABLE ongoing_journey (
             id             INTEGER PRIMARY KEY AUTOINCREMENT
                                 UNIQUE
@@ -689,31 +711,130 @@ fn migrations() -> [utils::db::Migration<'static>; 1] {
             value             TEXT
         );
         ";
-        for statement in sql_split::split(sql) {
-            tx.execute(&statement, ())?;
-        }
-        Ok(())
+    for statement in sql_split::split(sql) {
+        tx.execute(&statement, ())?;
     }
+    Ok(())
+}
 
-    [utils::db::Migration::new(1, 0, &migrate_to_1_0)]
+fn migrate_to_2_0(tx: &Transaction) -> Result<()> {
+    tx.execute(
+        "ALTER TABLE journey ADD COLUMN journey_kind INTEGER NOT NULL DEFAULT 0",
+        (),
+    )?;
+
+    let journey_kinds = {
+        let mut query = tx.prepare("SELECT id, header FROM journey")?;
+        let rows = query.query_map((), |row| {
+            let id: String = row.get(0)?;
+            let header_bytes: Vec<u8> = row.get(1)?;
+            Ok((id, header_bytes))
+        })?;
+        rows.map(|row| -> Result<_> {
+            let (id, header_bytes) = row?;
+            let header =
+                JourneyHeader::of_proto(protos::journey::Header::parse_from_bytes(&header_bytes)?)?;
+            Ok((id, header.journey_kind.to_int()))
+        })
+        .collect::<Result<Vec<_>>>()?
+    };
+
+    let mut update = tx.prepare("UPDATE journey SET journey_kind = ?1 WHERE id = ?2")?;
+    for (id, journey_kind) in journey_kinds {
+        update.execute((journey_kind, id))?;
+    }
+    tx.execute(
+        "CREATE INDEX journey_kind_date_index ON journey (journey_kind, journey_date)",
+        (),
+    )?;
+    Ok(())
+}
+
+fn migrations() -> [utils::db::Migration<'static>; 2] {
+    [
+        utils::db::Migration::new(1, 0, &migrate_to_1_0),
+        utils::db::Migration::new(2, 0, &migrate_to_2_0),
+    ]
 }
 
 #[cfg(test)]
 mod migration_tests {
+    use super::*;
+
     #[test]
     fn migrations_are_in_order() {
         assert!(crate::utils::db::migrations_are_strictly_increasing(
             &super::migrations()
         ));
     }
+
+    #[test]
+    fn migrate_to_2_0_backfills_journey_kind_and_creates_composite_index() -> Result<()> {
+        let mut connection = Connection::open_in_memory()?;
+        let tx = connection.transaction()?;
+        utils::db::run_migrations(
+            &tx,
+            "main.db",
+            &[utils::db::Migration::new(1, 0, &migrate_to_1_0)],
+        )?;
+
+        let header = JourneyHeader {
+            id: "flight-journey".to_owned(),
+            revision: "revision".to_owned(),
+            journey_date: NaiveDate::from_ymd_opt(2026, 7, 25).unwrap(),
+            created_at: Utc::now(),
+            updated_at: None,
+            start: None,
+            end: None,
+            journey_type: JourneyType::Vector,
+            journey_kind: JourneyKind::Flight,
+            note: None,
+            postprocessor_algo: None,
+        };
+        let header_bytes = header.clone().to_proto().write_to_bytes()?;
+        tx.execute(
+            "INSERT INTO journey (id, journey_date, type, header, data) VALUES (?1, ?2, ?3, ?4, ?5)",
+            (
+                &header.id,
+                utils::date_to_days_since_epoch(header.journey_date),
+                header.journey_type.to_int(),
+                header_bytes,
+                Vec::<u8>::new(),
+            ),
+        )?;
+
+        assert_eq!(
+            utils::db::run_migrations(&tx, "main.db", &migrations())?,
+            utils::db::SchemaVersion::new(2, 0)
+        );
+
+        let journey_kind: i8 = tx.query_row(
+            "SELECT journey_kind FROM journey WHERE id = ?1",
+            [&header.id],
+            |row| row.get(0),
+        )?;
+        assert_eq!(journey_kind, JourneyKind::Flight.to_int());
+        let not_null: i8 = tx.query_row(
+            "SELECT \"notnull\" FROM pragma_table_info('journey') WHERE name = 'journey_kind'",
+            (),
+            |row| row.get(0),
+        )?;
+        assert_eq!(not_null, 1);
+        assert!(tx
+            .query_row(
+                "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = 'journey_kind_date_index'",
+                (),
+                |_| Ok(()),
+            )
+            .is_ok());
+        Ok(())
+    }
 }
 
 impl MainDb {
-    pub fn open(support_dir: &str) -> MainDb {
-        // TODO: better error handling
-        let conn = open_db_and_run_migration(support_dir, "main.db", &migrations())
-            .expect("failed to open main db");
-        MainDb { conn }
+    pub fn open(support_dir: &str) -> Result<MainDb> {
+        let conn = utils::db::open_and_migrate(support_dir, "main.db", &migrations())?;
+        Ok(MainDb { conn })
     }
 
     #[auto_context]

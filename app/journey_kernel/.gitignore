@@ -18,6 +18,7 @@ target/
 static/token.json
 node_modules/
 dist/
+dist-benchmark/
 pkg/
 journey_bitmap.bin
 

@@ -56,8 +56,12 @@ impl IndexIter {
 
 pub struct MipmapIter<'a> {
     bitmap: &'a BitVec,
-    index_iter: IndexIter,
-    width_exp: i16,
+    row_width: usize,
+    x_min: i64,
+    x_max: i64,
+    y_max: i64,
+    current_x: i64,
+    current_y: i64,
     start_x: i64,
     start_y: i64,
     x_offset: i64,
@@ -68,13 +72,23 @@ impl<'a> Iterator for MipmapIter<'a> {
     type Item = (i64, i64);
 
     fn next(&mut self) -> Option<Self::Item> {
-        for (x, y) in self.index_iter.by_ref() {
-            if self.bitmap[xy_to_index(x, y, self.width_exp)] {
+        while self.current_y < self.y_max {
+            let row_start = self.current_y as usize * self.row_width;
+            let search_start = row_start + self.current_x as usize;
+            let search_end = row_start + self.x_max as usize;
+
+            if let Some(offset) = self.bitmap[search_start..search_end].first_one() {
+                let x = self.current_x + offset as i64;
+                let y = self.current_y;
+                self.current_x = x + 1;
                 return Some((
                     self.start_x + x - self.x_offset,
                     self.start_y + y - self.y_offset,
                 ));
             }
+
+            self.current_y += 1;
+            self.current_x = self.x_min;
         }
         None
     }
@@ -90,16 +104,23 @@ impl<'a> MipmapIter<'a> {
         z: i16,
         width_exp: i16,
     ) -> Self {
-        let index_iter = IndexIter::new(x, y, width_exp - z);
-        let (x_offset, y_offset) = index_iter.get_min_xy();
+        let query_exp = width_exp - z;
+        let x_min = x << query_exp;
+        let x_max = (x + 1) << query_exp;
+        let y_min = y << query_exp;
+        let y_max = (y + 1) << query_exp;
         Self {
             bitmap,
-            index_iter,
-            width_exp,
+            row_width: 1usize << width_exp,
+            x_min,
+            x_max,
+            y_max,
+            current_x: x_min,
+            current_y: y_min,
             start_x,
             start_y,
-            x_offset,
-            y_offset,
+            x_offset: x_min,
+            y_offset: y_min,
         }
     }
 }
