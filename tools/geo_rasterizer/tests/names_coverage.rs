@@ -117,8 +117,10 @@ fn every_entity_has_a_name_in_every_locale() {
 /// while the asset quietly shipped NE's spellings in place of CLDR's.
 #[test]
 fn cldr_supplies_the_english_province_names_it_is_pinned_for() {
+    use geo_rasterizer::admin0::parse_admin0;
     use geo_rasterizer::admin1::parse_admin1;
     use geo_rasterizer::cldr::load_subdivisions;
+    use geo_rasterizer::entities::apply_admin1_policy;
     use geo_rasterizer::names::subdivision_key;
     use std::collections::BTreeMap;
 
@@ -141,11 +143,27 @@ fn cldr_supplies_the_english_province_names_it_is_pinned_for() {
     .unwrap();
 
     // The union over worldviews, which is the set `build_region_names` keys on,
-    // plus the per-key claim counts its uniqueness rule needs.
+    // plus the per-key claim counts its uniqueness rule needs. Routed through
+    // the editorial step, same as the generator — the raw parse would chase
+    // name keys for features policy does not ship.
     let mut features: BTreeMap<String, (String, Option<String>)> = BTreeMap::new();
     let mut claims: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for &worldview in Worldview::ALL {
-        for f in parse_admin1(&admin1_path, worldview).unwrap() {
+        let admin0 = parse_admin0(
+            &crate_dir
+                .join("natural_earth")
+                .join(worldview.spec().source_filename),
+            worldview.spec().id,
+        )
+        .unwrap();
+        for f in apply_admin1_policy(
+            parse_admin1(&admin1_path, worldview).unwrap(),
+            worldview,
+            &admin0,
+        )
+        .unwrap()
+        .features
+        {
             let key = subdivision_key(&f.iso_3166_2);
             claims
                 .entry(key.clone())
@@ -184,5 +202,5 @@ fn cldr_supplies_the_english_province_names_it_is_pinned_for() {
     // Pinned against the pinned sources. A drop here means the ISO 3166-2 join
     // broke, not that the data moved: both sides are hash-verified.
     assert_eq!(from_cldr, 4057, "provinces named by CLDR");
-    assert_eq!(from_ne, 530, "provinces that fell through to Natural Earth");
+    assert_eq!(from_ne, 493, "provinces that fell through to Natural Earth");
 }

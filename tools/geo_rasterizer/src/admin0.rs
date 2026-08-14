@@ -29,8 +29,16 @@ pub struct Admin0Feature {
     /// `REGION_UN` (UN M49 top-level region). Geographic fallback used to
     /// parent features whose `CONTINENT` is the "Seven seas" bucket.
     pub region_un: String,
+    /// `Some(parent ADM0_A3)` when this worldview demotes the territory to a
+    /// province of `parent`. Its geometry is ALSO merged into the parent's
+    pub demoted_into: Option<String>,
     /// Geometry as `MultiPolygon` (Polygons are wrapped to a 1-element MP for uniformity).
     pub geometry: MultiPolygon<f64>,
+}
+
+pub struct Admin0Parse {
+    pub features: Vec<Admin0Feature>,
+    pub province_attributions: Vec<(String, MultiPolygon<f64>)>,
 }
 
 /// Parse a Natural Earth admin-0 countries GeoJSON for a given `worldview`, then
@@ -39,6 +47,10 @@ pub struct Admin0Feature {
 /// can forget. "Seven seas (open ocean)" features are kept and parented via
 /// `REGION_UN` (see `entities::continent_code`).
 pub fn parse_admin0(path: &Path, worldview: &str) -> Result<Vec<Admin0Feature>> {
+    Ok(parse_admin0_with_attributions(path, worldview)?.features)
+}
+
+pub fn parse_admin0_with_attributions(path: &Path, worldview: &str) -> Result<Admin0Parse> {
     let raw = std::fs::read_to_string(path)
         .with_context(|| format!("reading geojson at {}", path.display()))?;
     let collection: geojson::FeatureCollection = serde_json::from_str(&raw)
@@ -110,11 +122,15 @@ pub fn parse_admin0(path: &Path, worldview: &str) -> Result<Vec<Admin0Feature>> 
             feature_type,
             continent,
             region_un,
+            demoted_into: None,
             geometry: mp,
         });
     }
-    crate::absorb::apply_absorptions(&mut out, worldview)?;
-    Ok(out)
+    let province_attributions = crate::absorb::apply_absorptions(&mut out, worldview)?;
+    Ok(Admin0Parse {
+        features: out,
+        province_attributions,
+    })
 }
 
 /// Verify that no ring crosses the antimeridian via a single edge between

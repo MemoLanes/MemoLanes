@@ -35,6 +35,7 @@ fn feat(adm0: &str, continent: &str) -> Admin0Feature {
         feature_type: "Country".into(),
         continent: continent.into(),
         region_un: "Africa".into(),
+        demoted_into: None,
         geometry: MultiPolygon(vec![sq]),
     }
 }
@@ -69,17 +70,15 @@ fn ids_come_from_registry_not_position() {
     assert_eq!(aaa.parent_id, Some(GeoEntityId(5)));
 }
 
-/// End-to-end for the chn worldview: parsing the chn source folds Hong Kong and
-/// Macau into China — one CHN entity (no HKG/MAC), its geometry carries all three
-/// parts, and its ISO code is the sovereign's (CHN). Taiwan is already merged in
-/// NE's chn source, so this covers the whole "HK/Macau/Taiwan → China" grouping
-/// the app requires. Drives `parse_admin0` (which applies the absorptions) so it
-/// exercises the real, un-forgettable path.
+/// End-to-end for the chn worldview: parsing the chn source demotes Hong Kong
+/// and Macau to provinces of China — one CHN country entity whose mask carries
+/// all three parts, plus HKG/MAC as province-tier entities that keep their
+/// country-namespace identity (`country.HKG`, own `iso_a3_eh`). Taiwan is
+/// already merged in NE's chn source. Drives `parse_admin0` (which applies the
+/// absorptions) so it exercises the real, un-forgettable path.
 #[test]
-fn chn_worldview_merges_hong_kong_macau_and_taiwan_into_china() {
+fn chn_worldview_demotes_hong_kong_and_macau_into_provinces_of_china() {
     use serde_json::json;
-    // A chn-style source: China plus the two still-distinct dependencies, each a
-    // separate square (NE's chn source has no separate Taiwan feature).
     let feature = |adm0: &str, x0: f64| {
         json!({
             "type": "Feature",
@@ -102,25 +101,37 @@ fn chn_worldview_merges_hong_kong_macau_and_taiwan_into_china() {
             id: 0,
             point: None,
         }],
-        countries: vec![Entry {
-            code: "CHN".into(),
-            id: 18,
-            point: None,
-        }],
+        countries: vec![
+            Entry {
+                code: "CHN".into(),
+                id: 18,
+                point: None,
+            },
+            Entry {
+                code: "HKG".into(),
+                id: 19,
+                point: None,
+            },
+            Entry {
+                code: "MAC".into(),
+                id: 20,
+                point: None,
+            },
+        ],
         provinces: vec![],
     };
-    let m = assemble_entities(&features, &reg).unwrap();
+    let mut m = assemble_entities(&features, &reg).unwrap();
 
     let countries: Vec<&str> = m
         .entities
         .iter()
-        .filter(|e| matches!(e.kind, GeoEntityKind::Country))
+        .filter(|e| matches!(e.kind, GeoEntityKind::Admin0))
         .map(|e| e.canonical_code.as_str())
         .collect();
     assert_eq!(
         countries,
         vec!["CHN"],
-        "HKG/MAC must not survive as entities"
+        "demoted codes are no longer countries"
     );
 
     let china = m
@@ -131,10 +142,31 @@ fn chn_worldview_merges_hong_kong_macau_and_taiwan_into_china() {
     assert_eq!(china.iso_a3_eh.as_deref(), Some("CHN"));
     assert_eq!(china.parent_id, Some(GeoEntityId(0)));
 
-    // All three source polygons are merged under CHN; no HKG/MAC geometry.
+    // The mask still owns all three parts; the demoted features enter the
+    // province side under their own codes instead of vanishing.
     assert_eq!(m.geometry_for_country["CHN"].0.len(), 3);
     assert!(!m.geometry_for_country.contains_key("HKG"));
-    assert!(!m.geometry_for_country.contains_key("MAC"));
+    assert!(m.demoted.contains_key("HKG") && m.demoted.contains_key("MAC"));
+    assert_eq!(m.province_declared_adm0["HKG"], "CHN");
+    assert!(m.geometry_for_province.contains_key("HKG"));
+
+    // Through the normal parenting path they become Province entities that
+    // keep their country-namespace identity.
+    let tally = tally(&m, &[("HKG", &[("CHN", 5)]), ("MAC", &[("CHN", 5)])]);
+    let parents = resolve_province_parents(&m, &tally, Worldview::Chn).unwrap();
+    attach_province_entities(&mut m, &parents);
+    let hkg = m
+        .entities
+        .iter()
+        .find(|e| e.canonical_code == "HKG")
+        .expect("demoted HKG entity");
+    assert_eq!(hkg.kind, GeoEntityKind::Admin1);
+    assert_eq!(
+        hkg.name_key, "country.HKG",
+        "name key encodes source, not tier"
+    );
+    assert_eq!(hkg.iso_a3_eh.as_deref(), Some("HKG"));
+    assert_eq!(hkg.parent_id, Some(GeoEntityId(18)));
 }
 
 #[test]
@@ -163,7 +195,7 @@ fn assemble_groups_continents_and_countries() {
     let country_count = model
         .entities
         .iter()
-        .filter(|e| matches!(e.kind, GeoEntityKind::Country))
+        .filter(|e| matches!(e.kind, GeoEntityKind::Admin0))
         .count();
     assert_eq!(country_count, 3);
 }
@@ -215,7 +247,7 @@ fn assemble_collapses_duplicate_adm0_a3() {
     let fra = model
         .entities
         .iter()
-        .filter(|e| matches!(e.kind, GeoEntityKind::Country))
+        .filter(|e| matches!(e.kind, GeoEntityKind::Admin0))
         .find(|e| e.canonical_code == "FRA")
         .expect("FRA should exist exactly once");
     // Collapsed group: the sovereign is the sole TYPE=="Country" member
@@ -339,7 +371,7 @@ fn entity_ids_are_dense_and_continents_first() {
     let first_country_id = model
         .entities
         .iter()
-        .filter(|e| matches!(e.kind, GeoEntityKind::Country))
+        .filter(|e| matches!(e.kind, GeoEntityKind::Admin0))
         .map(|e| e.id.0)
         .min()
         .unwrap();
@@ -388,7 +420,7 @@ fn country_id(model: &EntityModel, code: &str) -> GeoEntityId {
     model
         .entities
         .iter()
-        .find(|e| matches!(e.kind, GeoEntityKind::Country) && e.canonical_code == code)
+        .find(|e| matches!(e.kind, GeoEntityKind::Admin0) && e.canonical_code == code)
         .expect("country entity")
         .id
 }
@@ -417,7 +449,7 @@ fn provinces_become_entities_under_their_parent() {
         !model
             .entities
             .iter()
-            .any(|e| matches!(e.kind, GeoEntityKind::Province)),
+            .any(|e| matches!(e.kind, GeoEntityKind::Admin1)),
         "collect_provinces only gathers geometry — parents are not known yet"
     );
 
@@ -430,7 +462,7 @@ fn provinces_become_entities_under_their_parent() {
         .iter()
         .find(|e| e.canonical_code == "AAA-001")
         .expect("province entity");
-    assert_eq!(province.kind, GeoEntityKind::Province);
+    assert_eq!(province.kind, GeoEntityKind::Admin1);
     assert_eq!(province.parent_id, Some(country_id(&model, "AAA")));
     assert_eq!(province.name_key, "province.AAA-001");
     assert_eq!(province.iso_a3_eh, None);
@@ -483,7 +515,7 @@ fn a_province_with_no_land_at_all_is_an_error() {
         "error must name the province: {err}"
     );
     assert!(
-        err.contains("UNPARENTED_PROVINCES"),
+        err.contains("unparented"),
         "error must tell the author how to allow it deliberately: {err}"
     );
 }
@@ -505,7 +537,7 @@ fn a_declared_parent_holding_none_of_the_province_is_an_error() {
         "error must name the province and the country the mask prefers: {err}"
     );
     assert!(
-        err.contains("MASK_OVERRULES_DECLARED_PARENT"),
+        err.contains("overrule"),
         "error must offer the reviewed-override remedy too: {err}"
     );
 }
@@ -559,7 +591,7 @@ fn a_listed_landless_province_is_skipped() {
         !model
             .entities
             .iter()
-            .any(|e| matches!(e.kind, GeoEntityKind::Province)),
+            .any(|e| matches!(e.kind, GeoEntityKind::Admin1)),
         "a listed landless province must produce no entity"
     );
 }
@@ -595,7 +627,7 @@ fn a_listed_province_that_gained_land_is_an_error() {
         "error must name the province: {err}"
     );
     assert!(
-        err.contains("UNPARENTED_PROVINCES"),
+        err.contains("unparented"),
         "error must point at the list to edit: {err}"
     );
 }
@@ -661,8 +693,62 @@ fn an_override_the_mask_no_longer_supports_is_an_error() {
         "error must name the province: {err}"
     );
     assert!(
-        err.contains("MASK_OVERRULES_DECLARED_PARENT"),
+        err.contains("overrule"),
         "error must point at the list to edit: {err}"
+    );
+}
+
+#[test]
+fn a_child_must_sit_strictly_below_its_parent() {
+    use geo_data_format::GeoEntity;
+    use geo_rasterizer::entities::validate_tier_order;
+
+    let entity = |id: u32, kind, parent: Option<u32>| GeoEntity {
+        id: GeoEntityId(id),
+        kind,
+        canonical_code: format!("E{id}"),
+        iso_a3_eh: None,
+        name_key: format!("x.E{id}"),
+        parent_id: parent.map(GeoEntityId),
+        total_area_m2: 0,
+    };
+
+    // Legal: Country under Continent, Province under Country, and a skipped
+    // tier — City directly under Country.
+    validate_tier_order(&[
+        entity(0, GeoEntityKind::Continent, None),
+        entity(1, GeoEntityKind::Admin0, Some(0)),
+        entity(2, GeoEntityKind::Admin1, Some(1)),
+        entity(3, GeoEntityKind::Admin2, Some(1)),
+    ])
+    .unwrap();
+
+    // Illegal: same-tier nesting.
+    let err = validate_tier_order(&[
+        entity(0, GeoEntityKind::Continent, None),
+        entity(1, GeoEntityKind::Admin0, Some(0)),
+        entity(2, GeoEntityKind::Admin1, Some(1)),
+        entity(3, GeoEntityKind::Admin1, Some(2)),
+    ])
+    .unwrap_err()
+    .to_string();
+    assert!(err.contains("E3"), "must name the offender: {err}");
+}
+
+#[test]
+fn a_curated_entry_whose_code_no_longer_ships_is_an_error() {
+    use geo_rasterizer::entities::validate_curated_tables;
+    // iso lists RUS-283 (and eight others) in `unparented`; a shipped
+    // set without them means the source or the editorial step dropped the
+    // features and the entries are dead.
+    let live: std::collections::BTreeSet<&str> = ["AAA-001"].into();
+    let err = validate_curated_tables(Worldview::Iso, &live)
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("RUS-283"), "must name a dead entry: {err}");
+    assert!(
+        err.contains("unparented"),
+        "must name the table to edit: {err}"
     );
 }
 

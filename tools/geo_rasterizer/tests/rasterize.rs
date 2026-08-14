@@ -17,7 +17,7 @@ fn synthetic_polygons_classify_correctly() {
     let country_ids: BTreeMap<String, geo_data_format::GeoEntityId> = model
         .entities
         .iter()
-        .filter(|e| matches!(e.kind, geo_data_format::GeoEntityKind::Country))
+        .filter(|e| matches!(e.kind, geo_data_format::GeoEntityKind::Admin0))
         .map(|e| (e.canonical_code.clone(), e.id))
         .collect();
     let (tile_lookup, block_lookup) = rasterize(&model.geometry_for_country, &country_ids);
@@ -59,7 +59,7 @@ fn deep_ocean_block_resolves_to_none() {
     let country_ids: BTreeMap<String, geo_data_format::GeoEntityId> = model
         .entities
         .iter()
-        .filter(|e| matches!(e.kind, geo_data_format::GeoEntityKind::Country))
+        .filter(|e| matches!(e.kind, geo_data_format::GeoEntityKind::Admin0))
         .map(|e| (e.canonical_code.clone(), e.id))
         .collect();
     let (tile_lookup, _) = rasterize(&model.geometry_for_country, &country_ids);

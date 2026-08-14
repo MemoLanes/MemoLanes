@@ -12,8 +12,14 @@ use geo_types::MultiPolygon;
 
 use crate::admin0::Admin0Feature;
 use crate::admin1::Admin1Feature;
+use crate::policy;
 use crate::refine::{block_majority, Coverage};
 use crate::registry::Registry;
+
+#[derive(Debug)]
+pub struct DemotedProvince {
+    pub iso_a3_eh: Option<String>,
+}
 
 /// All the entity-level outputs the rasterizer needs.
 #[derive(Debug)]
@@ -29,6 +35,170 @@ pub struct EntityModel {
     pub province_ids: BTreeMap<String, GeoEntityId>,
     /// `adm1_code → ADM0_A3` exactly as Natural Earth's admin-1 file declares it
     pub province_declared_adm0: BTreeMap<String, String>,
+    /// Territories this worldview demotes
+    pub demoted: BTreeMap<String, DemotedProvince>,
+}
+
+pub struct MergedSource {
+    pub code: String,
+    pub target: String,
+    pub geometry: MultiPolygon<f64>,
+}
+
+pub struct Admin1Policy {
+    pub features: Vec<Admin1Feature>,
+    pub merged_sources: Vec<MergedSource>,
+}
+
+pub fn apply_admin1_policy(
+    features: Vec<Admin1Feature>,
+    worldview: Worldview,
+    admin0: &[Admin0Feature],
+) -> Result<Admin1Policy> {
+    let policy = policy::get()?;
+    let kept: Vec<Admin1Feature> = features
+        .into_iter()
+        .filter(|f| !policy.drop_admin2.contains(&f.adm1_code))
+        .collect();
+
+    // A `+00?` whole-territory unit duplicates its own parent when the
+    // territory is already an entity here AND it is the territory's only unit.
+    let present: BTreeSet<&str> = admin0.iter().map(|f| f.adm0_a3.as_str()).collect();
+    let mut units_of: BTreeMap<&str, u32> = BTreeMap::new();
+    for f in &kept {
+        *units_of.entry(f.adm0_a3.as_str()).or_default() += 1;
+    }
+    let coextensive: BTreeSet<String> = kept
+        .iter()
+        .filter(|f| {
+            f.adm1_code.ends_with("+00?")
+                && units_of[f.adm0_a3.as_str()] == 1
+                && present.contains(f.adm0_a3.as_str())
+        })
+        .map(|f| f.adm1_code.clone())
+        .collect();
+    let mut kept: Vec<Admin1Feature> = kept
+        .into_iter()
+        .filter(|f| !coextensive.contains(&f.adm1_code))
+        .collect();
+
+    // Merge sources into their targets. Both ends must still exist
+    let wv = worldview.spec().id;
+    let mut merged_sources: Vec<MergedSource> = Vec::new();
+    for rule in policy.merge.iter().filter(|r| r.worldview == wv) {
+        let live: BTreeSet<&str> = kept.iter().map(|f| f.adm1_code.as_str()).collect();
+        let dead = stale_listed_codes([rule.code.as_str(), rule.into.as_str()], &live);
+        if !dead.is_empty() {
+            bail!(
+                "geo_policy.toml `merge` names {} for worldview `{wv}`, which does not ship — \
+                 drop or fix the row",
+                dead.join(", "),
+            );
+        }
+        let src = kept
+            .iter()
+            .position(|f| f.adm1_code == rule.code)
+            .expect("checked live above");
+        let src = kept.remove(src);
+        let dst = kept
+            .iter_mut()
+            .find(|f| f.adm1_code == rule.into)
+            .expect("checked live above");
+        dst.geometry.0.extend(src.geometry.0.iter().cloned());
+        merged_sources.push(MergedSource {
+            code: src.adm1_code,
+            target: rule.into.clone(),
+            geometry: src.geometry,
+        });
+    }
+
+    Ok(Admin1Policy {
+        features: kept,
+        merged_sources,
+    })
+}
+
+fn tier(kind: GeoEntityKind) -> u8 {
+    match kind {
+        GeoEntityKind::Continent => 0,
+        GeoEntityKind::Admin0 => 1,
+        GeoEntityKind::Admin1 => 2,
+        GeoEntityKind::Admin2 => 3,
+    }
+}
+
+pub fn validate_tier_order(entities: &[GeoEntity]) -> Result<()> {
+    let by_id: BTreeMap<u32, &GeoEntity> = entities.iter().map(|e| (e.id.0, e)).collect();
+    let bad: Vec<String> = entities
+        .iter()
+        .filter_map(|e| {
+            let parent = by_id.get(&e.parent_id?.0)?;
+            (tier(e.kind) <= tier(parent.kind)).then(|| {
+                format!(
+                    "`{}` ({:?}) under `{}` ({:?})",
+                    e.canonical_code, e.kind, parent.canonical_code, parent.kind
+                )
+            })
+        })
+        .collect();
+    if !bad.is_empty() {
+        bail!("tier order violated:\n  {}", bad.join("\n  "));
+    }
+    Ok(())
+}
+
+pub fn stale_listed_codes<'a>(
+    listed: impl IntoIterator<Item = &'a str>,
+    live: &BTreeSet<&str>,
+) -> Vec<String> {
+    listed
+        .into_iter()
+        .filter(|code| !live.contains(code))
+        .map(str::to_string)
+        .collect()
+}
+
+pub fn validate_curated_tables(
+    worldview: Worldview,
+    province_codes: &BTreeSet<&str>,
+) -> Result<()> {
+    let policy = policy::get()?;
+    let wv = worldview.spec().id;
+    let mut problems: Vec<String> = Vec::new();
+    for (table, listed) in [
+        (
+            "geo_policy.toml `unparented`",
+            policy
+                .unparented
+                .iter()
+                .filter(|e| e.worldview == wv)
+                .map(|e| e.code.as_str())
+                .collect::<Vec<_>>(),
+        ),
+        (
+            "geo_policy.toml `overrule`",
+            policy
+                .overrule
+                .iter()
+                .filter(|e| e.worldview == wv)
+                .map(|e| e.code.as_str())
+                .collect::<Vec<_>>(),
+        ),
+    ] {
+        let dead = stale_listed_codes(listed, province_codes);
+        if !dead.is_empty() {
+            problems.push(format!(
+                "{table} lists {} for worldview `{wv}`, which no longer ships — drop the dead \
+                 entr{}",
+                dead.join(", "),
+                if dead.len() == 1 { "y" } else { "ies" },
+            ));
+        }
+    }
+    if !problems.is_empty() {
+        bail!("curated tables are stale:\n  {}", problems.join("\n  "));
+    }
+    Ok(())
 }
 
 pub fn feature_continent_code(continent: &str, region_un: &str) -> &'static str {
@@ -109,8 +279,13 @@ pub fn assemble_entities(features: &[Admin0Feature], registry: &Registry) -> Res
     // iteration. NOTE: iteration order no longer determines IDs — the
     // registry does — but determinism still matters for area/raster passes.
     let mut groups: BTreeMap<String, Vec<&Admin0Feature>> = BTreeMap::new();
+    let mut demoted_features: Vec<&Admin0Feature> = Vec::new();
     for f in features {
-        groups.entry(f.adm0_a3.clone()).or_default().push(f);
+        if f.demoted_into.is_some() {
+            demoted_features.push(f);
+        } else {
+            groups.entry(f.adm0_a3.clone()).or_default().push(f);
+        }
     }
 
     let mut entities: Vec<GeoEntity> = Vec::new();
@@ -157,7 +332,7 @@ pub fn assemble_entities(features: &[Admin0Feature], registry: &Registry) -> Res
         .filter(|code| code != "-99");
         entities.push(GeoEntity {
             id,
-            kind: GeoEntityKind::Country,
+            kind: GeoEntityKind::Admin0,
             canonical_code: adm0.clone(),
             iso_a3_eh,
             name_key: format!("country.{adm0}"),
@@ -177,13 +352,94 @@ pub fn assemble_entities(features: &[Admin0Feature], registry: &Registry) -> Res
     // Sort by id for deterministic serialization order.
     entities.sort_by_key(|e| e.id.0);
 
+    let mut demoted: BTreeMap<String, DemotedProvince> = BTreeMap::new();
+    let mut province_ids: BTreeMap<String, GeoEntityId> = BTreeMap::new();
+    let mut province_declared_adm0: BTreeMap<String, String> = BTreeMap::new();
+    let mut geometry_for_province: BTreeMap<String, MultiPolygon<f64>> = BTreeMap::new();
+    for f in demoted_features {
+        let target = f.demoted_into.clone().expect("routed here by the tag");
+        if demoted.contains_key(&f.adm0_a3) {
+            bail!(
+                "demoted `{}` collapses several features — demotion assumes NE ships one",
+                f.adm0_a3
+            );
+        }
+        province_ids.insert(f.adm0_a3.clone(), registry.id_for_country(&f.adm0_a3)?);
+        province_declared_adm0.insert(f.adm0_a3.clone(), target);
+        geometry_for_province.insert(f.adm0_a3.clone(), f.geometry.clone());
+        demoted.insert(
+            f.adm0_a3.clone(),
+            DemotedProvince {
+                iso_a3_eh: Some(f.iso_a3_eh.clone()).filter(|code| code != "-99"),
+            },
+        );
+    }
+
     Ok(EntityModel {
         entities,
         geometry_for_country,
-        geometry_for_province: BTreeMap::new(),
-        province_ids: BTreeMap::new(),
-        province_declared_adm0: BTreeMap::new(),
+        geometry_for_province,
+        province_ids,
+        province_declared_adm0,
+        demoted,
     })
+}
+
+/// Apply the `synthesize` policy rows: for a territory this worldview's
+/// admin-0 erased outright (nothing left to demote), build the admin-1 entity
+/// a demote would have produced
+pub fn apply_synthesized(
+    model: &mut EntityModel,
+    worldview: Worldview,
+    admin1_path: &std::path::Path,
+    registry: &Registry,
+) -> Result<()> {
+    let policy = policy::get()?;
+    let wv = worldview.spec().id;
+    for rule in policy.synthesize.iter().filter(|r| r.worldview == wv) {
+        if model.geometry_for_country.contains_key(&rule.code)
+            || model.demoted.contains_key(&rule.code)
+        {
+            bail!(
+                "geo_policy.toml `synthesize` names `{}`, which this worldview's admin-0 still \
+                 ships — use an `absorb` demote row instead",
+                rule.code
+            );
+        }
+        if !model.geometry_for_country.contains_key(&rule.into) {
+            bail!(
+                "geo_policy.toml `synthesize` targets `{}`, which is no country in worldview \
+                 `{wv}`",
+                rule.into
+            );
+        }
+        let members = crate::admin1::parse_admin1_members(admin1_path, &rule.code)?;
+        if members.is_empty() {
+            bail!(
+                "geo_policy.toml `synthesize` row `{}` has no member units in the admin-1 \
+                 source — drop the dead row",
+                rule.code
+            );
+        }
+        let polys: Vec<geo_types::Polygon<f64>> =
+            members.into_iter().flat_map(|m| m.geometry.0).collect();
+        model
+            .province_ids
+            .insert(rule.code.clone(), registry.id_for_country(&rule.code)?);
+        model
+            .province_declared_adm0
+            .insert(rule.code.clone(), rule.into.clone());
+        model
+            .geometry_for_province
+            .insert(rule.code.clone(), MultiPolygon(polys));
+        model.demoted.insert(
+            rule.code.clone(),
+            DemotedProvince {
+                iso_a3_eh: rule.iso_a3_eh.clone(),
+            },
+        );
+    }
+    Ok(())
 }
 
 pub fn collect_provinces(
@@ -207,57 +463,36 @@ pub fn collect_provinces(
     Ok(())
 }
 
-/// `(worldview id, adm1_code)` for provinces this worldview's admin-0 leaves no
-/// land for, so [`resolve_province_parents`] drops them instead of failing.
-const UNPARENTED_PROVINCES: &[(&str, &str)] = &[
-    ("iso", "ASM-5001"),  // Swains Island
-    ("iso", "GUY-675"),   // Barima-Waini (Essequibo)
-    ("iso", "GUY-680"),   // Cuyuni-Mazaruni (Essequibo)
-    ("iso", "IND-20012"), // Ladakh (disputed Kashmir)
-    ("iso", "PFA+00?"),   // Paracel Islands
-    ("iso", "PGA+00?"),   // Spratly Islands
-    ("iso", "RUS-283"),   // Autonomous Republic of Crimea
-    ("iso", "RUS-5482"),  // Sevastopol
-    ("iso", "UMI-5179"),  // Wake Island
-    ("usa", "PFA+00?"),   // Paracel Islands
-];
-
-/// Resolved according country's geo definition rather than provinces's adm0
-const MASK_OVERRULES_DECLARED_PARENT: &[(&str, &str, &str)] = &[
-    ("chn", "RUS-283", "UKR"),
-    ("chn", "RUS-5482", "UKR"),
-    ("usa", "GEO-3015", "B35"),
-    ("usa", "RUS-283", "UKR"),
-    ("usa", "RUS-5482", "UKR"),
-];
-
 pub fn resolve_province_parents(
     model: &EntityModel,
     tally: &Coverage,
     worldview: Worldview,
 ) -> Result<BTreeMap<GeoEntityId, GeoEntityId>> {
+    let policy = policy::get()?;
     let wv = worldview.spec().id;
     let mut id_of_country: BTreeMap<&str, GeoEntityId> = BTreeMap::new();
     let mut code_of_country: BTreeMap<GeoEntityId, &str> = BTreeMap::new();
     for entity in &model.entities {
-        if matches!(entity.kind, GeoEntityKind::Country) {
+        if matches!(entity.kind, GeoEntityKind::Admin0) {
             id_of_country.insert(entity.canonical_code.as_str(), entity.id);
             code_of_country.insert(entity.id, entity.canonical_code.as_str());
         }
     }
-    let overruled: BTreeMap<&'static str, &'static str> = MASK_OVERRULES_DECLARED_PARENT
+    let overruled: BTreeMap<&str, &str> = policy
+        .overrule
         .iter()
-        .filter(|(w, _, _)| *w == wv)
-        .map(|(_, code, mask)| (*code, *mask))
+        .filter(|e| e.worldview == wv)
+        .map(|e| (e.code.as_str(), e.into.as_str()))
         .collect();
-    let landless_allowed: BTreeSet<&'static str> = UNPARENTED_PROVINCES
+    let landless_allowed: BTreeSet<&str> = policy
+        .unparented
         .iter()
-        .filter(|(w, _)| *w == wv)
-        .map(|(_, code)| *code)
+        .filter(|e| e.worldview == wv)
+        .map(|e| e.code.as_str())
         .collect();
 
     let mut parents: BTreeMap<GeoEntityId, GeoEntityId> = BTreeMap::new();
-    let mut dropped: BTreeSet<&'static str> = BTreeSet::new();
+    let mut dropped: BTreeSet<&str> = BTreeSet::new();
     // Every offender is collected and reported in one run: an NE pin bump
     // produces these in bulk, and each rediscovery costs a full rasterize.
     let mut landless: Vec<String> = Vec::new();
@@ -324,17 +559,17 @@ pub fn resolve_province_parents(
     if !landless.is_empty() {
         problems.push(format!(
             "{} province(s) have no block under the country they would be parented to:\n    {}\n  \
-             Either this worldview's admin-0 leaves that land unclaimed, in which case add \
-             (\"{wv}\", \"<adm1_code>\") to UNPARENTED_PROVINCES with a note, or its admin-0 \
+             Either this worldview's admin-0 leaves that land unclaimed, in which case add an \
+             `unparented` row for `{wv}` to geo_policy.toml with a note, or its admin-0 \
              deliberately places the province in the country named above, which belongs in \
-             MASK_OVERRULES_DECLARED_PARENT",
+             `overrule`",
             landless.len(),
             landless.join("\n    "),
         ));
     }
     if !stale_overrules.is_empty() {
         problems.push(format!(
-            "MASK_OVERRULES_DECLARED_PARENT has {} entr{} the mask no longer supports:\n    {}\n  \
+            "geo_policy.toml `overrule` has {} entr{} the mask no longer supports:\n    {}\n  \
              Drop them so each province falls back to its default parent — the declared code \
              where that is a country here, otherwise the block majority",
             stale_overrules.len(),
@@ -353,8 +588,8 @@ pub fn resolve_province_parents(
         .collect();
     if !stale_skips.is_empty() {
         problems.push(format!(
-            "UNPARENTED_PROVINCES lists {} which the country mask now gives land to — drop the \
-             stale entr{} so the province ships",
+            "geo_policy.toml `unparented` lists {} which the country mask now gives land to — \
+             drop the stale entr{} so the province ships",
             stale_skips.join(", "),
             if stale_skips.len() == 1 { "y" } else { "ies" },
         ));
@@ -376,12 +611,17 @@ pub fn attach_province_entities(
         let Some(&parent_id) = parent_of.get(&id) else {
             continue;
         };
+        let (name_key, iso_a3_eh) = match model.demoted.get(adm1_code) {
+            // A demoted territory keeps its country-namespace identity.
+            Some(d) => (format!("country.{adm1_code}"), d.iso_a3_eh.clone()),
+            None => (format!("province.{adm1_code}"), None),
+        };
         model.entities.push(GeoEntity {
             id,
-            kind: GeoEntityKind::Province,
+            kind: GeoEntityKind::Admin1,
             canonical_code: adm1_code.clone(),
-            iso_a3_eh: None,
-            name_key: format!("province.{adm1_code}"),
+            iso_a3_eh,
+            name_key,
             parent_id: Some(parent_id),
             total_area_m2: 0,
         });

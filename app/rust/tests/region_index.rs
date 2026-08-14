@@ -32,8 +32,8 @@ fn entity(id: u32, kind: GeoEntityKind, iso: &str, parent: Option<u32>, area: u6
 fn synthetic_geo() -> GeoIndex {
     let entities = [
         entity(1, GeoEntityKind::Continent, "EU", None, 1),
-        entity(2, GeoEntityKind::Country, "FR", Some(1), 1),
-        entity(3, GeoEntityKind::Country, "DE", Some(1), 1),
+        entity(2, GeoEntityKind::Admin0, "FR", Some(1), 1),
+        entity(3, GeoEntityKind::Admin0, "DE", Some(1), 1),
     ];
     let mut tiles = vec![TileMembership::None; TILE_COUNT];
     tiles[tile_index(0, 0)] = TileMembership::Single(FR);
@@ -95,8 +95,8 @@ fn a_province_block_credits_its_country_and_continent() {
 
     let entities = [
         entity(1, GeoEntityKind::Continent, "EU", None, 100),
-        entity(2, GeoEntityKind::Country, "FR", Some(1), 50),
-        entity(4, GeoEntityKind::Province, "FR-IDF", Some(2), 10),
+        entity(2, GeoEntityKind::Admin0, "FR", Some(1), 50),
+        entity(4, GeoEntityKind::Admin1, "FR-IDF", Some(2), 10),
     ];
     let mut tiles = vec![TileMembership::None; TILE_COUNT];
     tiles[tile_index(0, 0)] = TileMembership::Single(IDF);

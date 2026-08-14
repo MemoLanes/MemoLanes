@@ -29,8 +29,8 @@ fn geo_bytes() -> Vec<u8> {
     };
     let entities = [
         ent(1, GeoEntityKind::Continent, "EU", None),
-        ent(2, GeoEntityKind::Country, "FR", Some(1)),
-        ent(3, GeoEntityKind::Country, "DE", Some(1)),
+        ent(2, GeoEntityKind::Admin0, "FR", Some(1)),
+        ent(3, GeoEntityKind::Admin0, "DE", Some(1)),
     ];
     let mut tiles = vec![TileMembership::None; TILE_COUNT];
     tiles[tile_index(0, 0)] = TileMembership::Single(GeoEntityId(2));
@@ -109,10 +109,10 @@ fn region_read_api_lists_progress_and_completion() {
             let eu = Some(GeoEntityId(1));
             // `region_areas` takes `&mut store`, so fetch every area first with
             // per-statement `geo()` borrows, then hold one for the assertions.
-            let ids = region::level_scope(store.geo()?, RegionKind::Country, eu);
+            let ids = region::level_scope(store.geo()?, RegionKind::Admin0, eu);
             let areas = store.region_areas(Default, &ids)?;
             let all_areas = store.region_areas(All, &ids)?;
-            let world_scope = region::level_scope(store.geo()?, RegionKind::Country, None);
+            let world_scope = region::level_scope(store.geo()?, RegionKind::Admin0, None);
             let world_areas = store.region_areas(All, &world_scope)?;
             let detail_ids = region::detail_scope(store.geo()?, GeoEntityId(1));
             let detail_areas = store.region_areas(All, &detail_ids)?;
@@ -122,11 +122,11 @@ fn region_read_api_lists_progress_and_completion() {
             // Levels: 1 continent, 2 countries.
             let levels = region_levels(geo);
             assert_eq!(levels[&RegionKind::Continent].region_count, 1);
-            assert_eq!(levels[&RegionKind::Country].region_count, 2);
+            assert_eq!(levels[&RegionKind::Admin0].region_count, 2);
 
             // Entries always list every country (FR, DE); only visited ones carry
             // area. Default sees only FR visited; All sees both.
-            let def = region::level_view(geo, RegionKind::Country, &ids, &areas);
+            let def = region::level_view(geo, RegionKind::Admin0, &ids, &areas);
             let mut def_ids: Vec<_> = def.entries.keys().copied().collect();
             def_ids.sort();
             assert_eq!(def_ids, vec![GeoEntityId(2), GeoEntityId(3)]);
@@ -141,10 +141,10 @@ fn region_read_api_lists_progress_and_completion() {
 
             // Counts: a level is complete when visited_count == region_count > 0.
             assert_eq!((def.visited_count, def.region_count), (1, 2));
-            let all = region::level_view(geo, RegionKind::Country, &ids, &all_areas);
+            let all = region::level_view(geo, RegionKind::Admin0, &ids, &all_areas);
             assert_eq!((all.visited_count, all.region_count), (2, 2));
 
-            let world = region::level_view(geo, RegionKind::Country, &world_scope, &world_areas);
+            let world = region::level_view(geo, RegionKind::Admin0, &world_scope, &world_areas);
             let mut world_ids: Vec<_> = world.entries.keys().copied().collect();
             world_ids.sort();
             assert_eq!(world_ids, vec![GeoEntityId(2), GeoEntityId(3)]);

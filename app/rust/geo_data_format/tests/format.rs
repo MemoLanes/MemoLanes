@@ -8,7 +8,7 @@ use geo_data_format::{
 fn entity(id: u32, iso: &str) -> GeoEntity {
     GeoEntity {
         id: GeoEntityId(id),
-        kind: GeoEntityKind::Country,
+        kind: GeoEntityKind::Admin0,
         canonical_code: iso.into(),
         iso_a3_eh: Some(iso.into()),
         name_key: format!("c.{iso}"),

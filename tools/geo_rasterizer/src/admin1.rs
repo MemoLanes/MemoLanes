@@ -35,12 +35,23 @@ pub fn is_unassigned_remainder(adm1_code: &str) -> bool {
 }
 
 pub fn parse_admin1(path: &Path, worldview: Worldview) -> Result<Vec<Admin1Feature>> {
+    parse_filtered(path, Some(worldview.spec().admin1_fclass_field), None)
+}
+
+pub fn parse_admin1_members(path: &Path, adm0_a3: &str) -> Result<Vec<Admin1Feature>> {
+    parse_filtered(path, None, Some(adm0_a3))
+}
+
+fn parse_filtered(
+    path: &Path,
+    fclass: Option<&str>,
+    only_adm0: Option<&str>,
+) -> Result<Vec<Admin1Feature>> {
     let raw = std::fs::read_to_string(path)
         .with_context(|| format!("reading admin-1 geojson at {}", path.display()))?;
     let collection: geojson::FeatureCollection = serde_json::from_str(&raw)
         .with_context(|| format!("parsing admin-1 geojson at {}", path.display()))?;
 
-    let fclass = worldview.spec().admin1_fclass_field;
     let mut out = Vec::with_capacity(collection.features.len());
     for (idx, feature) in collection.features.into_iter().enumerate() {
         let props = feature
@@ -55,7 +66,10 @@ pub fn parse_admin1(path: &Path, worldview: Worldview) -> Result<Vec<Admin1Featu
         if is_unassigned_remainder(&adm1_code) {
             continue;
         }
-        if string(fclass).is_some() {
+        if fclass.is_some_and(|field| string(field).is_some()) {
+            continue;
+        }
+        if only_adm0.is_some_and(|code| string("adm0_a3") != Some(code)) {
             continue;
         }
 

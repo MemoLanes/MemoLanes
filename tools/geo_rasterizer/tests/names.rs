@@ -30,6 +30,7 @@ fn feat(adm0: &str, a2: &str) -> Admin0Feature {
         feature_type: "Country".into(),
         continent: "Asia".into(),
         region_un: "Asia".into(),
+        demoted_into: None,
         geometry: sq(),
     }
 }

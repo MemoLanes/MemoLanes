@@ -8,7 +8,7 @@ import 'package:memolanes/src/rust/achievement/region.dart';
 
 RegionEntity _entity({required String nameKey, String? isoA3Eh}) =>
     RegionEntity(
-      kind: RegionKind.country,
+      kind: RegionKind.admin0,
       nameKey: RegionNameKey(value: nameKey),
       isoA3Eh: isoA3Eh,
       visitedAreaM2: BigInt.zero,

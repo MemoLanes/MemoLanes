@@ -17,7 +17,7 @@ fn synthetic_areas_are_positive_and_sum_consistently() {
     let country_ids: BTreeMap<String, GeoEntityId> = model
         .entities
         .iter()
-        .filter(|e| matches!(e.kind, GeoEntityKind::Country))
+        .filter(|e| matches!(e.kind, GeoEntityKind::Admin0))
         .map(|e| (e.canonical_code.clone(), e.id))
         .collect();
     let (tile_lookup, block_lookup) = rasterize(&model.geometry_for_country, &country_ids);
@@ -25,7 +25,7 @@ fn synthetic_areas_are_positive_and_sum_consistently() {
 
     // Each country gets a positive area.
     for e in &model.entities {
-        if matches!(e.kind, GeoEntityKind::Country) {
+        if matches!(e.kind, GeoEntityKind::Admin0) {
             assert!(
                 e.total_area_m2 > 0,
                 "{} should have nonzero area",
@@ -75,7 +75,7 @@ fn border_cell_area_weighted_by_latitude_row() {
     let mut model = EntityModel {
         entities: vec![GeoEntity {
             id,
-            kind: GeoEntityKind::Country,
+            kind: GeoEntityKind::Admin0,
             canonical_code: "AAA".into(),
             iso_a3_eh: None,
             name_key: "k.AAA".into(),
@@ -86,6 +86,7 @@ fn border_cell_area_weighted_by_latitude_row() {
         geometry_for_province: BTreeMap::new(),
         province_ids: BTreeMap::new(),
         province_declared_adm0: BTreeMap::new(),
+        demoted: BTreeMap::new(),
     };
 
     let mut tile_lookup = vec![TileMembership::None; MAP_WIDTH * MAP_WIDTH];
@@ -122,7 +123,7 @@ fn country_area_is_the_sum_of_its_leaf_blocks_at_any_depth() {
     let country_ids: BTreeMap<String, GeoEntityId> = model
         .entities
         .iter()
-        .filter(|e| matches!(e.kind, GeoEntityKind::Country))
+        .filter(|e| matches!(e.kind, GeoEntityKind::Admin0))
         .map(|e| (e.canonical_code.clone(), e.id))
         .collect();
     let country_raster = rasterize(&model.geometry_for_country, &country_ids);
@@ -160,7 +161,7 @@ fn country_area_is_the_sum_of_its_leaf_blocks_at_any_depth() {
     for country in model
         .entities
         .iter()
-        .filter(|e| matches!(e.kind, GeoEntityKind::Country))
+        .filter(|e| matches!(e.kind, GeoEntityKind::Admin0))
     {
         let children: Vec<u64> = model
             .entities
@@ -197,7 +198,7 @@ fn country_area_is_the_sum_of_its_leaf_blocks_at_any_depth() {
     for province in model
         .entities
         .iter()
-        .filter(|e| matches!(e.kind, GeoEntityKind::Province))
+        .filter(|e| matches!(e.kind, GeoEntityKind::Admin1))
     {
         assert!(
             province.total_area_m2 > 0,

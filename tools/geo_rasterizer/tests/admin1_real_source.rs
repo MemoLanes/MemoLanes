@@ -91,18 +91,21 @@ fn adm1_code_is_unique() {
 /// The shipped bins must contain the province counts the design predicts.
 /// Requires `just rasterize-geo`, which `just test-geo` runs first.
 ///
-/// These are the parsed counts minus the provinces whose parent country holds
-/// none of their land (see `entities::UNPARENTED_PROVINCES`): iso drops 9 and
-/// usa drops 1, because Natural Earth's iso admin-0 excises disputed land from
-/// both claimants.
+/// These are the parsed counts minus the editorial drops (`entities::
+/// DROPPED_SUBPROVINCIAL` −18 everywhere; the coextensive `+00?` dedup −19
+/// iso / −21 chn / −24 usa) and minus the provinces whose parent country
+/// holds none of their land (geo_policy.toml `unparented`): iso drops 9
+/// and usa drops 1, because Natural Earth's iso admin-0 excises disputed land
+/// from both claimants — minus chn's two `merge` rows into Hainan, plus its
+/// synthesized Taiwan entity.
 #[test]
 fn shipped_bins_carry_the_expected_province_counts() {
     use geo_data_format::{read_geo_data, GeoEntityKind};
 
     for (worldview, expected) in [
-        (Worldview::Iso, 4578usize),
-        (Worldview::Usa, 4586),
-        (Worldview::Chn, 4534),
+        (Worldview::Iso, 4541usize),
+        (Worldview::Usa, 4544),
+        (Worldview::Chn, 4495),
     ] {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../app/assets/geo")
@@ -116,7 +119,7 @@ fn shipped_bins_carry_the_expected_province_counts() {
         let provinces = data
             .entities
             .iter()
-            .filter(|e| matches!(e.kind, GeoEntityKind::Province))
+            .filter(|e| matches!(e.kind, GeoEntityKind::Admin1))
             .count();
         assert_eq!(provinces, expected, "{}", worldview.spec().id);
 
@@ -124,13 +127,13 @@ fn shipped_bins_carry_the_expected_province_counts() {
         let countries: std::collections::BTreeSet<_> = data
             .entities
             .iter()
-            .filter(|e| matches!(e.kind, GeoEntityKind::Country))
+            .filter(|e| matches!(e.kind, GeoEntityKind::Admin0))
             .map(|e| e.id)
             .collect();
         for province in data
             .entities
             .iter()
-            .filter(|e| matches!(e.kind, GeoEntityKind::Province))
+            .filter(|e| matches!(e.kind, GeoEntityKind::Admin1))
         {
             let parent = province.parent_id.expect("province must have a parent");
             assert!(
@@ -144,6 +147,79 @@ fn shipped_bins_carry_the_expected_province_counts() {
                 "{}: province {} has zero area",
                 worldview.spec().id,
                 province.canonical_code
+            );
+        }
+    }
+}
+
+/// Every code the curated tables list must exist in the worldview it is listed
+/// for — the gate that catches an NE pin bump (or an editorial change)
+/// orphaning table entries, which the stale-skip checks cannot see (they only
+/// visit codes present in `province_ids`).
+#[test]
+fn every_curated_table_entry_names_a_code_that_ships() {
+    use geo_rasterizer::admin0::parse_admin0;
+    use geo_rasterizer::entities::{apply_admin1_policy, validate_curated_tables};
+    use std::collections::BTreeSet;
+
+    for &worldview in Worldview::ALL {
+        // Post-policy, matching the pipeline: the gate's contract is "listed
+        // codes survive the editorial step".
+        let admin0 = parse_admin0(
+            &Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("natural_earth")
+                .join(worldview.spec().source_filename),
+            worldview.spec().id,
+        )
+        .unwrap();
+        let codes: Vec<String> = apply_admin1_policy(
+            parse_admin1(&source(), worldview).unwrap(),
+            worldview,
+            &admin0,
+        )
+        .unwrap()
+        .features
+        .into_iter()
+        .map(|f| f.adm1_code)
+        .collect();
+        let live: BTreeSet<&str> = codes.iter().map(String::as_str).collect();
+        validate_curated_tables(worldview, &live)
+            .unwrap_or_else(|e| panic!("{}: {e}", worldview.spec().id));
+    }
+}
+
+/// Every province `canonical_code` in the worldview's shipped bin.
+fn shipped_provinces(worldview: Worldview) -> Vec<String> {
+    use geo_data_format::{read_geo_data, GeoEntityKind};
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../app/assets/geo")
+        .join(format!("geo_data_{}.bin", worldview.spec().id));
+    assert!(
+        path.exists(),
+        "{} is absent — run `just rasterize-geo`",
+        path.display()
+    );
+    read_geo_data(&std::fs::read(&path).unwrap())
+        .unwrap()
+        .entities
+        .into_iter()
+        .filter(|e| matches!(e.kind, GeoEntityKind::Admin1))
+        .map(|e| e.canonical_code)
+        .collect()
+}
+
+/// Hong Kong's districts are sub-provincial (one tier below the SAR) and
+/// have no tier to live in until ADM2 data ships. Under `chn` they used to land
+/// as siblings of Guangdong via block majority — the leveling defect this whole
+/// change exists to fix.
+#[test]
+fn hong_kong_districts_do_not_ship_in_any_worldview() {
+    for &worldview in Worldview::ALL {
+        for f in shipped_provinces(worldview) {
+            assert!(
+                !f.starts_with("HKG-"),
+                "{}: {f} ships as a province",
+                worldview.spec().id
             );
         }
     }
@@ -166,7 +242,7 @@ fn shipped_parent(worldview: Worldview, code: &str) -> Option<String> {
     let province = data
         .entities
         .iter()
-        .find(|e| matches!(e.kind, GeoEntityKind::Province) && e.canonical_code == code)?;
+        .find(|e| matches!(e.kind, GeoEntityKind::Admin1) && e.canonical_code == code)?;
     Some(
         data.entities
             .iter()
@@ -186,11 +262,77 @@ fn skipped_provinces_are_absent_only_where_they_are_unparentable() {
     assert_eq!(shipped_parent(Worldview::Iso, "RUS-283"), None);
     assert!(shipped_parent(Worldview::Chn, "RUS-283").is_some());
     assert!(shipped_parent(Worldview::Usa, "RUS-283").is_some());
+}
 
-    // The Paracels: unclaimed in iso and usa, awarded to China in chn.
+/// The Paracels, the Spratlys and Scarborough Shoal are administered as Sansha,
+/// a prefecture-level city under Hainan — so in chn their land merges into Hainan
+/// shipping as pseudo-provinces of CHN. Elsewhere they are untouched:
+/// landless-dropped via `unparented` (PFA in iso/usa, PGA in iso) or
+/// deduplicated (PGA in usa, a country there) — those entries stay live.
+#[test]
+fn the_south_china_sea_features_merge_into_hainan_under_chn() {
+    assert_eq!(shipped_parent(Worldview::Chn, "PFA+00?"), None);
+    assert_eq!(shipped_parent(Worldview::Chn, "PGA+00?"), None);
+    assert_eq!(
+        shipped_parent(Worldview::Chn, "CHN-1775").as_deref(),
+        Some("CHN")
+    );
     assert_eq!(shipped_parent(Worldview::Iso, "PFA+00?"), None);
     assert_eq!(shipped_parent(Worldview::Usa, "PFA+00?"), None);
-    assert!(shipped_parent(Worldview::Chn, "PFA+00?").is_some());
+}
+
+/// A demoted territory ships exactly once per worldview: as a Province of its
+/// claimant where demoted, as a Country where recognized — never both.
+#[test]
+fn demoted_territories_ship_as_provinces_of_their_claimant() {
+    assert_eq!(
+        shipped_parent(Worldview::Chn, "HKG").as_deref(),
+        Some("CHN")
+    );
+    assert_eq!(
+        shipped_parent(Worldview::Chn, "MAC").as_deref(),
+        Some("CHN")
+    );
+    // Where recognized they stay countries — no province leaf, and the dedup
+    // rule now sees the demoted MAC entity and drops MAC+00? in chn too.
+    assert_eq!(shipped_parent(Worldview::Iso, "HKG"), None);
+    assert_eq!(shipped_parent(Worldview::Chn, "MAC+00?"), None);
+}
+
+/// A `+00?` unit that is its territory's only admin-1 feature, where the
+/// territory is already an entity in this worldview, duplicates its own parent.
+/// The rule keys on coextensiveness, not on the `+00?` suffix — the kept cases
+/// are each territory's ONLY representation in that worldview.
+#[test]
+fn coextensive_whole_country_units_are_deduplicated() {
+    // Dropped: the territory is an entity here, so the +00? duplicates it.
+    for (worldview, code) in [
+        (Worldview::Iso, "MAC+00?"),
+        (Worldview::Iso, "GIB+00?"),
+        (Worldview::Iso, "VAT+00?"),
+        (Worldview::Usa, "USG+00?"),
+        (Worldview::Usa, "PGA+00?"),
+    ] {
+        assert_eq!(
+            shipped_parent(worldview, code),
+            None,
+            "{}/{code} should be deduplicated",
+            worldview.spec().id
+        );
+    }
+    // Kept: the +00? is the territory's only representation in this worldview.
+    for (worldview, code, expected) in [
+        (Worldview::Iso, "SOL+00?", "SOM"),
+        (Worldview::Iso, "CYN+00?", "CYP"),
+        (Worldview::Iso, "KAB+00?", "KAZ"),
+        (Worldview::Iso, "USG+00?", "CUB"),
+    ] {
+        assert_eq!(shipped_parent(worldview, code).as_deref(), Some(expected));
+    }
+    // Kept: not coextensive — two units under PSX, and one AUS unit of many.
+    assert!(shipped_parent(Worldview::Iso, "GAZ+00?").is_some());
+    assert!(shipped_parent(Worldview::Iso, "WEB+00?").is_some());
+    assert!(shipped_parent(Worldview::Iso, "AUS+00?").is_some());
 }
 
 /// Natural Earth's declared `adm0_a3` is what a province ships under. These are
@@ -229,7 +371,7 @@ fn a_contested_province_ships_under_the_country_that_declares_it() {
 #[test]
 fn a_province_reaches_another_country_only_by_review_or_by_absence() {
     for (worldview, code, expected) in [
-        // Reviewed overrides (MASK_OVERRULES_DECLARED_PARENT).
+        // Reviewed overrides (geo_policy.toml `overrule`).
         (Worldview::Chn, "RUS-283", "UKR"),
         (Worldview::Chn, "RUS-5482", "UKR"),
         (Worldview::Usa, "RUS-283", "UKR"),
@@ -245,8 +387,6 @@ fn a_province_reaches_another_country_only_by_review_or_by_absence() {
         (Worldview::Iso, "ESB-5132", "CYP"),
         (Worldview::Iso, "CSI+00?", "AUS"),
         (Worldview::Iso, "KAS+00?", "CHN"),
-        (Worldview::Chn, "HKG-5153", "CHN"),
-        (Worldview::Chn, "MAC+00?", "CHN"),
     ] {
         assert_eq!(
             shipped_parent(worldview, code).as_deref(),

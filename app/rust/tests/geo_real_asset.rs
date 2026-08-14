@@ -40,7 +40,7 @@ fn country_of(geo: &GeoIndex, leaf: GeoEntityId) -> Option<&GeoEntity> {
     std::iter::once(leaf)
         .chain(geo.ancestors(leaf))
         .filter_map(|id| geo.entity(id))
-        .find(|e| e.kind == GeoEntityKind::Country)
+        .find(|e| e.kind == GeoEntityKind::Admin0)
 }
 
 fn leaf_at(geo: &GeoIndex, lng: f64, lat: f64) -> Option<GeoEntityId> {
@@ -84,7 +84,7 @@ fn iso_asset_resolves_a_city_to_a_province_under_its_country() {
     let entity = geo.entity(leaf).unwrap();
     assert_eq!(
         entity.kind,
-        GeoEntityKind::Province,
+        GeoEntityKind::Admin1,
         "Paris must resolve to a province, got `{}`",
         entity.canonical_code
     );
@@ -124,7 +124,7 @@ fn chn_asset_groups_hong_kong_macau_taiwan_into_china() {
 
     // The absorbed dependencies must not exist as separate country entities.
     let codes: std::collections::HashSet<&str> = geo
-        .entities_of_kind(GeoEntityKind::Country)
+        .entities_of_kind(GeoEntityKind::Admin0)
         .iter()
         .filter_map(|id| geo.entity(*id).map(|e| e.canonical_code.as_str()))
         .collect();
@@ -147,7 +147,7 @@ fn iso_asset_includes_seven_seas_islands() {
     let geo = GeoIndex::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
 
     let by_code: std::collections::HashMap<&str, _> = geo
-        .entities_of_kind(GeoEntityKind::Country)
+        .entities_of_kind(GeoEntityKind::Admin0)
         .iter()
         .filter_map(|id| geo.entity(*id).map(|e| (e.canonical_code.as_str(), e)))
         .collect();
@@ -180,7 +180,7 @@ fn iso_asset_includes_seven_seas_islands() {
         let e = by_code
             .get(code)
             .unwrap_or_else(|| panic!("{code}: missing from iso asset"));
-        assert_eq!(e.kind, GeoEntityKind::Country, "{code}");
+        assert_eq!(e.kind, GeoEntityKind::Admin0, "{code}");
         assert_eq!(e.iso_a3_eh.as_deref(), Some(code), "{code}: iso_a3_eh");
         let parent = geo.entity(e.parent_id.unwrap()).unwrap();
         assert_eq!(parent.canonical_code, parent_code, "{code}: parent");
@@ -194,7 +194,7 @@ fn iso_asset_maps_non_iso_adm0_to_real_iso() {
     let path = test_utils::geo_asset("iso");
     let geo = GeoIndex::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
     let by_code: std::collections::HashMap<&str, _> = geo
-        .entities_of_kind(GeoEntityKind::Country)
+        .entities_of_kind(GeoEntityKind::Admin0)
         .iter()
         .filter_map(|id| geo.entity(*id).map(|e| (e.canonical_code.as_str(), e)))
         .collect();

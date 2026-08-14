@@ -229,7 +229,7 @@ pub fn admin0_point_items(
     features: &[crate::admin0::Admin0Feature],
 ) -> Vec<(String, Namespace, MultiPolygon<f64>)> {
     let mut items = Vec::with_capacity(features.len() * 2);
-    for f in features {
+    for f in features.iter().filter(|f| f.demoted_into.is_none()) {
         let continent = crate::entities::feature_continent_code(&f.continent, &f.region_un);
         items.push((
             continent.to_string(),

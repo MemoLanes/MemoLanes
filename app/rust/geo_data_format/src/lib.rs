@@ -3,8 +3,10 @@ pub const MAGIC: &[u8; 4] = b"MGEO";
 /// Version of the geo-data semantics: the on-disk layout *and* the
 /// rasterization algorithm that produces it. **Bump this whenever a
 /// change would make an existing `geo_data.bin` stale even though its
-/// source inputs are unchanged** — a format-layout change, or any
-/// rasterizer change that alters cell/tile semantics.
+/// source inputs are unchanged** — a format-layout change, any
+/// rasterizer change that alters cell/tile semantics, or an editorial
+/// policy-logic change with no `geo_policy.toml` row (e.g. the
+/// coextensive `+00?` dedup rule).
 ///
 /// It is folded into the provenance hash (see the rasterizer's
 /// `compute_provenance_hash`), so bumping it makes the rasterizer's

@@ -33,8 +33,8 @@ fn synthetic_geo() -> GeoIndex {
 fn synthetic_geo_with_singles_at(extra_singles: &[usize]) -> GeoIndex {
     let entities = [
         entity(1, GeoEntityKind::Continent, "EU", None),
-        entity(2, GeoEntityKind::Country, "FR", Some(1)),
-        entity(3, GeoEntityKind::Country, "DE", Some(1)),
+        entity(2, GeoEntityKind::Admin0, "FR", Some(1)),
+        entity(3, GeoEntityKind::Admin0, "DE", Some(1)),
     ];
 
     let mut tiles = vec![TileMembership::None; TILE_COUNT];
@@ -197,14 +197,14 @@ fn entity_metadata_kinds_and_ancestors() {
     assert_eq!(geo.entity(GeoEntityId(2)).unwrap().canonical_code, "FR");
     assert!(geo.entity(GeoEntityId(404)).is_none());
 
-    let mut countries = geo.entities_of_kind(GeoEntityKind::Country).to_vec();
+    let mut countries = geo.entities_of_kind(GeoEntityKind::Admin0).to_vec();
     countries.sort();
     assert_eq!(countries, vec![GeoEntityId(2), GeoEntityId(3)]);
     assert_eq!(
         geo.entities_of_kind(GeoEntityKind::Continent),
         &[GeoEntityId(1)]
     );
-    assert!(geo.entities_of_kind(GeoEntityKind::City).is_empty());
+    assert!(geo.entities_of_kind(GeoEntityKind::Admin2).is_empty());
 
     // FR → EU; continent has no parent.
     assert_eq!(geo.ancestors(GeoEntityId(2)), vec![GeoEntityId(1)]);
@@ -233,8 +233,8 @@ fn interleaved_tile_lookups_do_not_leak_across_tiles() {
     // different entities for the same block coordinate.
     let entities = [
         entity(1, GeoEntityKind::Continent, "EU", None),
-        entity(2, GeoEntityKind::Country, "FR", Some(1)),
-        entity(3, GeoEntityKind::Country, "DE", Some(1)),
+        entity(2, GeoEntityKind::Admin0, "FR", Some(1)),
+        entity(3, GeoEntityKind::Admin0, "DE", Some(1)),
     ];
 
     let mut tiles = vec![TileMembership::None; TILE_COUNT];
