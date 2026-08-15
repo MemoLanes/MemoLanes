@@ -42,12 +42,16 @@ impl MapRenderer {
         // Apply the update function
         f(&mut self.journey_bitmap, &mut tile_changed);
 
-        for tile_pos in changed_tiles {
-            self.tile_area_cache.remove(&tile_pos);
-        }
+        if !changed_tiles.is_empty() {
+            changed_tiles.sort_unstable();
+            changed_tiles.dedup();
+            for tile_pos in changed_tiles {
+                self.tile_area_cache.remove(&tile_pos);
+            }
 
-        // TODO: we should improve the cache invalidation rule
-        self.reset();
+            // TODO: we should improve the cache invalidation rule
+            self.reset();
+        }
     }
 
     pub fn replace(&mut self, journey_bitmap: JourneyBitmap) {
@@ -88,6 +92,10 @@ impl MapRenderer {
 
     pub fn peek_latest_bitmap(&self) -> &JourneyBitmap {
         &self.journey_bitmap
+    }
+
+    pub fn check_bitmap_invariant_and_debug_log(&mut self) {
+        self.journey_bitmap.check_invariant_and_debug_log();
     }
 
     pub fn get_map_bounds(&mut self) -> Option<MapBounds> {

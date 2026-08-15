@@ -129,8 +129,8 @@ fn validate_area_after_map_renderer_replace() {
     let journey_bitmap = JourneyBitmap::new();
     let mut map_renderer = MapRenderer::new(journey_bitmap);
 
-    map_renderer.update(|bitmap, _| {
-        bitmap.add_line(START_LNG, START_LAT, END_LNG, END_LAT);
+    map_renderer.update(|bitmap, changed| {
+        bitmap.add_line_with_change_callback(START_LNG, START_LAT, END_LNG, END_LAT, changed);
     });
 
     assert!(map_renderer.get_current_area() > 0);

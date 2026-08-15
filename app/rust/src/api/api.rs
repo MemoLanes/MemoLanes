@@ -911,8 +911,5 @@ pub fn main_map_bitmap_check_invariant_and_debug_log() {
     let mut main_map_state = state.main_map_state.lock().unwrap();
     main_map_state
         .map_renderer
-        .update(|journey_bitmap, _change_callback| {
-            // we are not changing anything here.
-            journey_bitmap.check_invariant_and_debug_log();
-        });
+        .check_bitmap_invariant_and_debug_log();
 }
