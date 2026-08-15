@@ -50,3 +50,20 @@ Two caches make repeat runs fast:
    `source_sha256` in `app/rust/geo_data_format/src/worldview.rs`.
 4. Run `just rasterize-geo` and review the diff in `app/assets/geo/geo_data_*.bin`
    (entity IDs, areas, and border tiles can shift).
+
+## Admin 1 — states and provinces
+
+File: `ne_10m_admin_1_states_provinces.geojson` (40.7 MB, 4,596 features)
+Source: <https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-1-states-provinces/>
+
+Natural Earth ships **one** admin-1 file for all worldviews — there are no
+point-of-view variants at this level, unlike admin 0. Each worldview's
+perspective is expressed through the per-POV `FCLASS_*` columns instead: a
+non-null value means that POV does not consider the feature an admin-1 unit,
+and the rasterizer drops it for that worldview.
+
+The pin lives in `app/rust/geo_data_format/src/worldview.rs` as
+`ADMIN1_SOURCE_FILENAME` / `ADMIN1_SOURCE_SHA256`, at the same
+`NATURAL_EARTH_COMMIT` as the admin-0 files. Update it the same way:
+
+    curl -sL "$NATURAL_EARTH_BASE/ne_10m_admin_1_states_provinces.geojson" | sha256sum

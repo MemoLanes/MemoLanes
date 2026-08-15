@@ -1,10 +1,10 @@
 use std::path::Path;
 
-use geo_rasterizer::parse::{parse_geojson, validate_no_antimeridian_span};
+use geo_rasterizer::admin0::{parse_admin0, validate_no_antimeridian_span};
 
 #[test]
 fn parse_geojson_drops_no_features_in_synthetic() {
-    let features = parse_geojson(Path::new("tests/fixtures/synthetic.geojson"), "iso").unwrap();
+    let features = parse_admin0(Path::new("tests/fixtures/synthetic.geojson"), "iso").unwrap();
     assert_eq!(features.len(), 3);
     let codes: Vec<&str> = features.iter().map(|f| f.adm0_a3.as_str()).collect();
     assert!(codes.contains(&"AAA"));
@@ -36,7 +36,7 @@ fn parse_geojson_keeps_seven_seas() {
     let augmented = serde_json::to_string(&value).unwrap();
     let tmp = tempfile::NamedTempFile::new().unwrap();
     std::fs::write(tmp.path(), augmented).unwrap();
-    let features = parse_geojson(tmp.path(), "iso").unwrap();
+    let features = parse_admin0(tmp.path(), "iso").unwrap();
     assert_eq!(features.len(), 4); // OCN kept, not dropped
     let ocn = features.iter().find(|f| f.adm0_a3 == "OCN").unwrap();
     // Its continent parent is resolved later from REGION_UN.
@@ -45,7 +45,7 @@ fn parse_geojson_keeps_seven_seas() {
 
 #[test]
 fn antimeridian_validation_passes_on_synthetic() {
-    let features = parse_geojson(Path::new("tests/fixtures/synthetic.geojson"), "iso").unwrap();
+    let features = parse_admin0(Path::new("tests/fixtures/synthetic.geojson"), "iso").unwrap();
     validate_no_antimeridian_span(&features).unwrap();
 }
 
@@ -71,7 +71,7 @@ fn antimeridian_validation_rejects_overspanning_ring() {
     });
     let tmp = tempfile::NamedTempFile::new().unwrap();
     std::fs::write(tmp.path(), serde_json::to_string(&raw).unwrap()).unwrap();
-    let features = parse_geojson(tmp.path(), "iso").unwrap();
+    let features = parse_admin0(tmp.path(), "iso").unwrap();
     let err = validate_no_antimeridian_span(&features).unwrap_err();
     assert!(
         err.to_string().to_lowercase().contains("antimeridian"),
@@ -108,7 +108,7 @@ fn antimeridian_validation_allows_polar_cap() {
     });
     let tmp = tempfile::NamedTempFile::new().unwrap();
     std::fs::write(tmp.path(), serde_json::to_string(&raw).unwrap()).unwrap();
-    let features = parse_geojson(tmp.path(), "iso").unwrap();
+    let features = parse_admin0(tmp.path(), "iso").unwrap();
     // All 360° edges connect vertices at |lat| > 85° → allowed.
     validate_no_antimeridian_span(&features).expect("polar cap should pass");
 }

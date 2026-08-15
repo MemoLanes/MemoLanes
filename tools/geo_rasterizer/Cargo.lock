@@ -464,6 +464,7 @@ dependencies = [
  "geo_data_format",
  "geojson",
  "indicatif",
+ "rayon",
  "serde",
  "serde_json",
  "sha2",

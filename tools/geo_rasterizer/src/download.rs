@@ -26,6 +26,25 @@ pub fn ensure_cldr(path: &Path, locale: Locale) -> Result<()> {
     )
 }
 
+pub fn ensure_admin1(path: &Path) -> Result<()> {
+    ensure_pinned(
+        path,
+        &geo_data_format::admin1_source_url(),
+        geo_data_format::ADMIN1_SOURCE_SHA256,
+    )
+}
+
+pub fn ensure_cldr_subdivisions(path: &Path, locale: Locale) -> Result<bool> {
+    let (Some(url), Some(sha)) = (
+        locale.cldr_subdivisions_url(),
+        locale.spec().cldr_subdivisions_sha256,
+    ) else {
+        return Ok(false);
+    };
+    ensure_pinned(path, &url, sha)?;
+    Ok(true)
+}
+
 fn ensure_pinned(path: &Path, url: &str, expected: &str) -> Result<()> {
     match sha256_of(path)? {
         Some(actual) if actual == expected => {

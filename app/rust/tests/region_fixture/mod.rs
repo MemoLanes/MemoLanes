@@ -75,15 +75,15 @@ pub fn synthetic_geo_bytes() -> Vec<u8> {
     };
     let entities = [
         entity(1, GeoEntityKind::Continent, "EU", None),
-        entity(2, GeoEntityKind::Country, "FRA", Some(EU)),
-        entity(3, GeoEntityKind::Country, "DEU", Some(EU)),
-        entity(4, GeoEntityKind::Province, "FR-N", Some(FR)),
-        entity(5, GeoEntityKind::Province, "FR-S", Some(FR)),
-        entity(6, GeoEntityKind::Province, "DE-W", Some(DE)),
-        entity(7, GeoEntityKind::City, "FR-N-A", Some(FR_N)),
-        entity(8, GeoEntityKind::City, "FR-N-B", Some(FR_N)),
-        entity(9, GeoEntityKind::City, "FR-S-A", Some(FR_S)),
-        entity(10, GeoEntityKind::City, "DE-W-A", Some(DE_W)),
+        entity(2, GeoEntityKind::Admin0, "FRA", Some(EU)),
+        entity(3, GeoEntityKind::Admin0, "DEU", Some(EU)),
+        entity(4, GeoEntityKind::Admin1, "FR-N", Some(FR)),
+        entity(5, GeoEntityKind::Admin1, "FR-S", Some(FR)),
+        entity(6, GeoEntityKind::Admin1, "DE-W", Some(DE)),
+        entity(7, GeoEntityKind::Admin2, "FR-N-A", Some(FR_N)),
+        entity(8, GeoEntityKind::Admin2, "FR-N-B", Some(FR_N)),
+        entity(9, GeoEntityKind::Admin2, "FR-S-A", Some(FR_S)),
+        entity(10, GeoEntityKind::Admin2, "DE-W-A", Some(DE_W)),
     ];
     let mut tiles = vec![TileMembership::None; TILE_COUNT];
     tiles[geo_data_format::tile_index(0, 0)] = TileMembership::Single(FR_N_A);

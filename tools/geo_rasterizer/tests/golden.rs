@@ -16,8 +16,10 @@ fn emitted_asset_declares_its_worldview_id() {
             "iso",
             "--countries",
             "tests/fixtures/synthetic.geojson",
+            "--admin1",
+            "tests/fixtures/synthetic_admin1.geojson",
             "--registry",
-            "tests/fixtures/synthetic_registry.toml",
+            "tests/fixtures/synthetic_registry",
             "--output",
         ])
         .arg(&out)
@@ -33,7 +35,7 @@ fn emitted_asset_declares_its_worldview_id() {
 fn golden_output_is_byte_identical() {
     let out_dir = tempfile::tempdir().unwrap();
     let out = out_dir.path().join("synthetic.bin");
-    // synthetic_registry.toml assigns continents id 0-2 and countries id 3-5,
+    // synthetic_registry/ assigns continents id 0-2 and countries id 3-5,
     // deliberately mirroring the pre-registry positional allocation so this
     // golden binary stays byte-stable across the Task 3 → Task 5 transition.
     // Do not renumber those ids or the golden must be regenerated.
@@ -44,8 +46,10 @@ fn golden_output_is_byte_identical() {
             "iso",
             "--countries",
             "tests/fixtures/synthetic.geojson",
+            "--admin1",
+            "tests/fixtures/synthetic_admin1.geojson",
             "--registry",
-            "tests/fixtures/synthetic_registry.toml",
+            "tests/fixtures/synthetic_registry",
             "--output",
         ])
         .arg(&out)

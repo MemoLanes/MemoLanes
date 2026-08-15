@@ -1,0 +1,7 @@
+schema = 1
+
+province = [
+  { code = "AAA-001", id = 6 },
+  { code = "AAA-002", id = 7 },
+  { code = "BBB-001", id = 8 },
+]

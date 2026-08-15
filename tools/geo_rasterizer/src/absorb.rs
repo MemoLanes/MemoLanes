@@ -1,29 +1,45 @@
 use anyhow::{bail, Result};
+use geo_types::MultiPolygon;
 
-use crate::parse::ParsedFeature;
+use crate::admin0::Admin0Feature;
+use crate::policy::{self, AbsorbMode};
 
-/// `(worldview id, absorbed ADM0_A3, parent ADM0_A3)`.
-const ABSORPTIONS: &[(&str, &str, &str)] = &[
-    ("chn", "HKG", "CHN"),
-    ("chn", "MAC", "CHN"),
-    ("chn", "SCR", "CHN"),
-    // PGA is already absorbed into CHN
-];
-
-pub(crate) fn apply_absorptions(features: &mut Vec<ParsedFeature>, worldview: &str) -> Result<()> {
-    let mut absorbed: Vec<(&'static str, geo_types::MultiPolygon<f64>)> = Vec::new();
-    features.retain(|f| {
-        match ABSORPTIONS
+pub(crate) fn apply_absorptions(
+    features: &mut Vec<Admin0Feature>,
+    worldview: &str,
+) -> Result<Vec<(String, MultiPolygon<f64>)>> {
+    let policy = policy::get()?;
+    let mut absorbed: Vec<(String, MultiPolygon<f64>)> = Vec::new();
+    let mut attributions: Vec<(String, MultiPolygon<f64>)> = Vec::new();
+    let mut retained = Vec::with_capacity(features.len());
+    for mut f in features.drain(..) {
+        match policy
+            .absorb
             .iter()
-            .find(|(wv, from, _)| *wv == worldview && *from == f.adm0_a3)
+            .find(|rule| rule.worldview == worldview && rule.code == f.adm0_a3)
         {
-            Some((_, _, into)) => {
-                absorbed.push((into, f.geometry.clone()));
-                false
+            Some(rule) if rule.mode == AbsorbMode::Merge => {
+                if f.feature_type == "Country" {
+                    bail!(
+                        "geo_policy.toml merges `{}` but its TYPE is \"Country\" — a \
+                         country-typed feature should be demoted, not erased; fix the absorb mode",
+                        f.adm0_a3
+                    );
+                }
+                if let Some(target) = &rule.attribute_to {
+                    attributions.push((target.clone(), f.geometry.clone()));
+                }
+                absorbed.push((rule.into.clone(), f.geometry));
             }
-            None => true,
+            Some(rule) => {
+                absorbed.push((rule.into.clone(), f.geometry.clone()));
+                f.demoted_into = Some(rule.into.clone());
+                retained.push(f);
+            }
+            None => retained.push(f),
         }
-    });
+    }
+    *features = retained;
 
     for (into, geometry) in absorbed {
         match features.iter_mut().find(|f| f.adm0_a3 == into) {
@@ -34,5 +50,5 @@ pub(crate) fn apply_absorptions(features: &mut Vec<ParsedFeature>, worldview: &s
             ),
         }
     }
-    Ok(())
+    Ok(attributions)
 }
