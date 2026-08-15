@@ -130,6 +130,8 @@ class _RecordingHealthAlert {
             DialogButton(
               text: context.tr('recording_health.dont_remind_again'),
               onPressed: () => Navigator.of(dialogContext).pop(true),
+              backgroundColor: Colors.red,
+              textColor: Colors.white,
             ),
             DialogButton(
               text: context.tr('common.ok'),
