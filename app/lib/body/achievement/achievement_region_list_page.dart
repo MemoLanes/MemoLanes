@@ -90,6 +90,7 @@ class _AchievementRegionListPageState extends State<AchievementRegionListPage> {
       emptyText: widget.emptyText,
       isLoading: view == null && _error == null,
       onRetry: _error == null ? null : _load,
+      showIcons: widget.level != achievementProvinceRegionKind,
       skeletonShowsChevron: widget.level == achievementCountryRegionKind,
     );
   }

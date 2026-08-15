@@ -42,6 +42,7 @@ class AchievementRegionAreaListPage extends StatefulWidget {
     required this.items,
     this.isLoading = false,
     this.onRetry,
+    this.showIcons = true,
     this.skeletonShowsChevron = false,
   });
 
@@ -50,6 +51,7 @@ class AchievementRegionAreaListPage extends StatefulWidget {
   final List<AchievementRegionAreaListItem> items;
   final bool isLoading;
   final VoidCallback? onRetry;
+  final bool showIcons;
   final bool skeletonShowsChevron;
 
   @override
@@ -81,6 +83,7 @@ class _AchievementRegionAreaListPageState
           children: [
             if (widget.isLoading)
               _RegionAreaListSkeleton(
+                showIcons: widget.showIcons,
                 showChevron: widget.skeletonShowsChevron,
               )
             else if (widget.onRetry != null)
@@ -95,7 +98,11 @@ class _AchievementRegionAreaListPageState
               const SizedBox(height: 12),
               OptionCard(
                 children: [
-                  for (final item in items) _RegionAreaListTile(item: item),
+                  for (final item in items)
+                    _RegionAreaListTile(
+                      item: item,
+                      showIcon: widget.showIcons,
+                    ),
                 ],
               ),
             ],
@@ -197,9 +204,10 @@ class _RegionAreaSortControl extends StatelessWidget {
 }
 
 class _RegionAreaListTile extends StatelessWidget {
-  const _RegionAreaListTile({required this.item});
+  const _RegionAreaListTile({required this.item, required this.showIcon});
 
   final AchievementRegionAreaListItem item;
+  final bool showIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -214,29 +222,31 @@ class _RegionAreaListTile extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Container(
-                width: 42,
-                height: 42,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.06),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.10),
+              if (showIcon) ...[
+                Container(
+                  width: 42,
+                  height: 42,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.06),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.10),
+                    ),
                   ),
+                  child: item.flagCountryCode == null
+                      ? Icon(
+                          Icons.public_rounded,
+                          color: Colors.white.withValues(alpha: 0.68),
+                          size: 23,
+                        )
+                      : AchievementCountryFlag(
+                          countryCode: item.flagCountryCode!,
+                          size: 34,
+                        ),
                 ),
-                child: item.flagCountryCode == null
-                    ? Icon(
-                        Icons.public_rounded,
-                        color: Colors.white.withValues(alpha: 0.68),
-                        size: 23,
-                      )
-                    : AchievementCountryFlag(
-                        countryCode: item.flagCountryCode!,
-                        size: 34,
-                      ),
-              ),
-              const SizedBox(width: 12),
+                const SizedBox(width: 12),
+              ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -303,8 +313,12 @@ class _RegionAreaListTile extends StatelessWidget {
 }
 
 class _RegionAreaListSkeleton extends StatelessWidget {
-  const _RegionAreaListSkeleton({required this.showChevron});
+  const _RegionAreaListSkeleton({
+    required this.showIcons,
+    required this.showChevron,
+  });
 
+  final bool showIcons;
   final bool showChevron;
 
   @override
@@ -312,15 +326,22 @@ class _RegionAreaListSkeleton extends StatelessWidget {
     return OptionCard(
       children: [
         for (var i = 0; i < 6; i++)
-          _RegionAreaListSkeletonTile(showChevron: showChevron),
+          _RegionAreaListSkeletonTile(
+            showIcon: showIcons,
+            showChevron: showChevron,
+          ),
       ],
     );
   }
 }
 
 class _RegionAreaListSkeletonTile extends StatelessWidget {
-  const _RegionAreaListSkeletonTile({required this.showChevron});
+  const _RegionAreaListSkeletonTile({
+    required this.showIcon,
+    required this.showChevron,
+  });
 
+  final bool showIcon;
   final bool showChevron;
 
   @override
@@ -329,12 +350,14 @@ class _RegionAreaListSkeletonTile extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       child: Row(
         children: [
-          const _RegionAreaSkeletonBlock(
-            width: 42,
-            height: 42,
-            radius: 999,
-          ),
-          const SizedBox(width: 12),
+          if (showIcon) ...[
+            const _RegionAreaSkeletonBlock(
+              width: 42,
+              height: 42,
+              radius: 999,
+            ),
+            const SizedBox(width: 12),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
