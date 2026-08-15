@@ -117,7 +117,7 @@ class _AchievementRegionListPageState extends State<AchievementRegionListPage> {
                     level: achievementProvinceRegionKind,
                     parent: entry.key,
                     emptyText: context.tr(
-                      'achievement.region_list.province_empty',
+                      'achievement.region_list.region_empty',
                     ),
                     worldviewId: worldviewId,
                   ),

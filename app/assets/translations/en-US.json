@@ -211,13 +211,13 @@
     "countries": {
       "title": "Explored countries",
       "description": "{} countries and regions unlocked",
-      "note": "Currently this only counts countries, regions, and cities from ground exploration data. A fuller exploration coverage model will be added later.",
+      "note": "Currently this only counts countries, subnational regions, and cities from ground exploration data. A fuller exploration coverage model will be added later.",
       "empty": "No countries unlocked yet.",
       "error": "Could not load explored countries."
     },
     "region_list": {
       "country_title": "Explored countries",
-      "province_empty": "No provinces unlocked in this country yet.",
+      "region_empty": "No regions unlocked in this country yet.",
       "error": "Could not load region data.",
       "retry": "Retry",
       "view_all": "View all",

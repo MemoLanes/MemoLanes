@@ -240,7 +240,7 @@ class _CountryFlagItem extends StatelessWidget {
               level: achievementProvinceRegionKind,
               parent: country.entityId,
               emptyText: context.tr(
-                'achievement.region_list.province_empty',
+                'achievement.region_list.region_empty',
               ),
             ),
           ),
