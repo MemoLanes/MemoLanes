@@ -11,6 +11,9 @@ enum _RegionAreaSortMode {
   coverage,
 }
 
+const _areaFractionDigits = 2;
+const _coverageFractionDigits = 3;
+
 class AchievementRegionAreaListItem {
   const AchievementRegionAreaListItem({
     required this.name,
@@ -211,7 +214,11 @@ class _RegionAreaListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final area = formatArea(context, item.visitedKm2);
+    final area = formatArea(
+      context,
+      item.visitedKm2,
+      fractionDigits: _areaFractionDigits,
+    );
 
     return Material(
       type: MaterialType.transparency,
@@ -283,7 +290,10 @@ class _RegionAreaListTile extends StatelessWidget {
                         ),
                         const SizedBox(width: 10),
                         Text(
-                          formatPercent(item.progress, fractionDigits: 3),
+                          formatPercent(
+                            item.progress,
+                            fractionDigits: _coverageFractionDigits,
+                          ),
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.62),
                             fontSize: 12,
