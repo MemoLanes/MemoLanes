@@ -30,7 +30,6 @@ class AchievementRegionListPage extends StatefulWidget {
     required this.emptyText,
     this.parent,
     this.showCountryFlags = false,
-    this.flagCountryCode,
     this.loadRegionView,
     this.worldviewId,
   });
@@ -40,7 +39,6 @@ class AchievementRegionListPage extends StatefulWidget {
   final String emptyText;
   final achievement_api.GeoEntityId? parent;
   final bool showCountryFlags;
-  final String? flagCountryCode;
   final AchievementRegionViewLoader? loadRegionView;
   final String? worldviewId;
 
@@ -108,23 +106,18 @@ class _AchievementRegionListPageState extends State<AchievementRegionListPage> {
         name: regionName,
         visitedKm2: entity.visitedAreaM2.toDouble() / 1000000,
         totalKm2: entity.totalAreaM2.toDouble() / 1000000,
-        flagCountryCode:
-            widget.showCountryFlags ? entity.isoA3Eh : widget.flagCountryCode,
+        flagCountryCode: widget.showCountryFlags ? entity.isoA3Eh : null,
         sortKey: entity.isoA3Eh ?? entity.nameKey.value,
         onTap: widget.level == achievementCountryRegionKind
             ? () => navigatorPush(
                   context,
                   page: AchievementRegionListPage(
-                    title: context.tr(
-                      'achievement.region_list.province_title',
-                      args: [regionName],
-                    ),
+                    title: regionName,
                     level: achievementProvinceRegionKind,
                     parent: entry.key,
                     emptyText: context.tr(
                       'achievement.region_list.province_empty',
                     ),
-                    flagCountryCode: entity.isoA3Eh,
                     worldviewId: worldviewId,
                   ),
                 )

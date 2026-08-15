@@ -236,16 +236,12 @@ class _CountryFlagItem extends StatelessWidget {
           onTap: () => navigatorPush(
             context,
             page: AchievementRegionListPage(
-              title: context.tr(
-                'achievement.region_list.province_title',
-                args: [countryName],
-              ),
+              title: countryName,
               level: achievementProvinceRegionKind,
               parent: country.entityId,
               emptyText: context.tr(
                 'achievement.region_list.province_empty',
               ),
-              flagCountryCode: country.isoA3Eh,
             ),
           ),
           child: Padding(

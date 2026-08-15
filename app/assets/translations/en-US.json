@@ -217,7 +217,6 @@
     },
     "region_list": {
       "country_title": "Explored countries",
-      "province_title": "{} · Provinces",
       "province_empty": "No provinces unlocked in this country yet.",
       "error": "Could not load region data.",
       "retry": "Retry",

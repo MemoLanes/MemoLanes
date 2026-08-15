@@ -217,7 +217,6 @@
     },
     "region_list": {
       "country_title": "探索国家",
-      "province_title": "{} · 省级地区",
       "province_empty": "还没有点亮这个国家的省级地区。",
       "error": "无法加载地区数据。",
       "retry": "重试",
