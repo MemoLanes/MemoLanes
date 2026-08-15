@@ -2,6 +2,7 @@
 //! over the packed `geo_data_format` asset, decode-on-demand. One asset per worldview.
 
 use std::collections::HashMap;
+use std::sync::Mutex;
 
 use anyhow::Result;
 use geo_data_format::{
@@ -27,9 +28,12 @@ pub trait GeoLookup {
 /// `GeoData`-backed lookup: tile index in memory, border tiles decoded on demand.
 pub struct GeoIndex {
     data: GeoData,
-    by_id: HashMap<GeoEntityId, GeoEntity>,
+    /// `entity id -> index into data.entities`, `None` where the id is absent
+    /// from this worldview
+    by_id: Vec<Option<u32>>,
     by_kind: HashMap<GeoEntityKind, Vec<GeoEntityId>>,
     children: HashMap<GeoEntityId, Vec<GeoEntityId>>,
+    decoded: Mutex<Option<(u32, PackedTile)>>,
 }
 
 impl GeoIndex {
@@ -38,21 +42,23 @@ impl GeoIndex {
     }
 
     pub fn new(data: GeoData) -> Result<Self> {
-        let mut by_id = HashMap::with_capacity(data.entities.len());
+        let slots = data.entities.iter().map(|e| e.id.0).max().unwrap_or(0) as usize + 1;
+        let mut by_id: Vec<Option<u32>> = vec![None; slots];
         let mut by_kind: HashMap<GeoEntityKind, Vec<GeoEntityId>> = HashMap::new();
         let mut children: HashMap<GeoEntityId, Vec<GeoEntityId>> = HashMap::new();
-        for e in &data.entities {
+        for (index, e) in data.entities.iter().enumerate() {
             by_kind.entry(e.kind).or_default().push(e.id);
             if let Some(parent) = e.parent_id {
                 children.entry(parent).or_default().push(e.id);
             }
-            by_id.insert(e.id, e.clone());
+            by_id[e.id.0 as usize] = Some(index as u32);
         }
         Ok(GeoIndex {
             data,
             by_id,
             by_kind,
             children,
+            decoded: Mutex::new(None),
         })
     }
 
@@ -74,11 +80,18 @@ impl GeoLookup for GeoIndex {
         match self.tile_entry(tile) {
             TileEntry::None => None,
             TileEntry::Single(id) => Some(*id),
-            // Decode-on-demand; a least-recently-used cache over decoded tiles is a deferred optimization.
             TileEntry::Border(i) => {
-                let packed =
-                    PackedTile::from_compressed_bytes(&self.data.border_blobs[*i as usize]);
+                let mut slot = self
+                    .decoded
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                if slot.as_ref().is_none_or(|(idx, _)| idx != i) {
+                    let packed =
+                        PackedTile::from_compressed_bytes(&self.data.border_blobs[*i as usize]);
+                    *slot = Some((*i, packed));
+                }
                 // `BlockKey::index()` is the x-major cell index PackedTile expects.
+                let (_, packed) = slot.as_ref().expect("just populated");
                 packed.lookup(block.index())
             }
         }
@@ -93,7 +106,8 @@ impl GeoLookup for GeoIndex {
     }
 
     fn entity(&self, id: GeoEntityId) -> Option<&GeoEntity> {
-        self.by_id.get(&id)
+        let index = self.by_id.get(id.0 as usize).copied().flatten()?;
+        self.data.entities.get(index as usize)
     }
 
     fn entities_of_kind(&self, kind: GeoEntityKind) -> &[GeoEntityId] {
@@ -102,10 +116,10 @@ impl GeoLookup for GeoIndex {
 
     fn ancestors(&self, id: GeoEntityId) -> Vec<GeoEntityId> {
         let mut out = Vec::new();
-        let mut cur = self.by_id.get(&id).and_then(|e| e.parent_id);
+        let mut cur = self.entity(id).and_then(|e| e.parent_id);
         while let Some(pid) = cur {
             out.push(pid);
-            cur = self.by_id.get(&pid).and_then(|e| e.parent_id);
+            cur = self.entity(pid).and_then(|e| e.parent_id);
         }
         out
     }

@@ -1,0 +1,7 @@
+schema = 1
+
+country = [
+  { code = "AAA", id = 3 },
+  { code = "BBB", id = 4 },
+  { code = "CCC", id = 5 },
+]

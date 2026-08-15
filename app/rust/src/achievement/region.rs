@@ -5,18 +5,18 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RegionKind {
     Continent,
-    Country,
-    Province,
-    City,
+    Admin0,
+    Admin1,
+    Admin2,
 }
 
 impl From<GeoEntityKind> for RegionKind {
     fn from(k: GeoEntityKind) -> Self {
         match k {
             GeoEntityKind::Continent => RegionKind::Continent,
-            GeoEntityKind::Country => RegionKind::Country,
-            GeoEntityKind::Province => RegionKind::Province,
-            GeoEntityKind::City => RegionKind::City,
+            GeoEntityKind::Admin0 => RegionKind::Admin0,
+            GeoEntityKind::Admin1 => RegionKind::Admin1,
+            GeoEntityKind::Admin2 => RegionKind::Admin2,
         }
     }
 }
@@ -25,9 +25,9 @@ impl RegionKind {
     fn to_geo(self) -> GeoEntityKind {
         match self {
             RegionKind::Continent => GeoEntityKind::Continent,
-            RegionKind::Country => GeoEntityKind::Country,
-            RegionKind::Province => GeoEntityKind::Province,
-            RegionKind::City => GeoEntityKind::City,
+            RegionKind::Admin0 => GeoEntityKind::Admin0,
+            RegionKind::Admin1 => GeoEntityKind::Admin1,
+            RegionKind::Admin2 => GeoEntityKind::Admin2,
         }
     }
 }
@@ -103,9 +103,9 @@ fn region_entity(
 pub fn region_levels(geo: &dyn GeoLookup) -> HashMap<RegionKind, LevelSummary> {
     [
         GeoEntityKind::Continent,
-        GeoEntityKind::Country,
-        GeoEntityKind::Province,
-        GeoEntityKind::City,
+        GeoEntityKind::Admin0,
+        GeoEntityKind::Admin1,
+        GeoEntityKind::Admin2,
     ]
     .into_iter()
     .filter_map(|kind| {
