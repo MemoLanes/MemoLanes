@@ -123,7 +123,7 @@ fn api_achievement_explored_area_and_region_contract() {
     // test; the geo install below continues in the same state.)
     assert!(region_levels().is_err(), "no geo → error");
     assert!(
-        region_level_view(Default, RegionKind::Country, None).is_err(),
+        region_level_view(Default, RegionKind::Admin0, None).is_err(),
         "no geo → error"
     );
     assert!(
@@ -145,7 +145,7 @@ fn api_achievement_explored_area_and_region_contract() {
         region_detail(unknown, Default).unwrap().is_none(),
         "unknown entity → no detail, not an error"
     );
-    let empty_view = region_level_view(Default, RegionKind::Province, Some(unknown)).unwrap();
+    let empty_view = region_level_view(Default, RegionKind::Admin1, Some(unknown)).unwrap();
     assert_eq!(empty_view.region_count, 0, "unknown parent → no children");
     assert_eq!(empty_view.visited_count, 0);
     assert!(empty_view.entries.is_empty());

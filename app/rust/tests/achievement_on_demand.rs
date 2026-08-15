@@ -39,7 +39,7 @@ fn synthetic_geo_bytes() -> Vec<u8> {
     };
     let entities = [
         entity(1, GeoEntityKind::Continent, "EU", None),
-        entity(2, GeoEntityKind::Country, "FR", Some(1)),
+        entity(2, GeoEntityKind::Admin0, "FR", Some(1)),
     ];
     let mut tiles = vec![TileMembership::None; TILE_COUNT];
     tiles[0] = TileMembership::Single(FR);

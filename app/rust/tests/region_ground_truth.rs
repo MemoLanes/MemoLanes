@@ -184,6 +184,16 @@ fn credited_codes(areas: &AreaCm2ByEntity, geo: &dyn GeoLookup) -> BTreeSet<Stri
         .collect()
 }
 
+/// The `Country`-kind entity for a leaf: the leaf itself when it is a country,
+/// otherwise the country among its ancestors. Cities sit inside provinces, so
+/// the raster leaf under one is a province and its country is one level up.
+fn country_of(geo: &GeoIndex, leaf: GeoEntityId) -> Option<&geo_data_format::GeoEntity> {
+    std::iter::once(leaf)
+        .chain(geo.ancestors(leaf))
+        .filter_map(|id| geo.entity(id))
+        .find(|e| e.kind == GeoEntityKind::Admin0)
+}
+
 /// ISO codes of all visited entities of kind Country in one layer's areas.
 fn visited_country_isos(
     areas: &HashMap<GeoEntityId, u64>,
@@ -192,7 +202,7 @@ fn visited_country_isos(
     areas
         .keys()
         .filter_map(|id| geo.entity(*id))
-        .filter(|e| e.kind == GeoEntityKind::Country)
+        .filter(|e| e.kind == GeoEntityKind::Admin0)
         .map(|e| e.canonical_code.clone())
         .collect()
 }
@@ -211,12 +221,14 @@ fn region_api_reports_correct_countries_and_areas() {
         let id = geo_index
             .entity_of_block(tile, block)
             .unwrap_or_else(|| panic!("{}: resolved to ocean", c.name));
-        assert_eq!(
-            geo_index.entity(id).unwrap().canonical_code,
-            c.iso,
-            "{}",
-            c.name
-        );
+        let country = country_of(&geo_index, id).unwrap_or_else(|| {
+            panic!(
+                "{}: leaf `{}` has no country ancestor",
+                c.name,
+                geo_index.entity(id).unwrap().canonical_code
+            )
+        });
+        assert_eq!(country.canonical_code, c.iso, "{}", c.name);
         placements.push((i, tile, block, expected_patch_area(tile, block)));
     }
 
@@ -245,7 +257,7 @@ fn region_api_reports_correct_countries_and_areas() {
 
     // The two scopes this test renders: every country, and every ancestor of a
     // placement (for the rollup check). Both come from the geo tree, not coverage.
-    let country_ids = region::level_scope(&geo_index, RegionKind::Country, None);
+    let country_ids = region::level_scope(&geo_index, RegionKind::Admin0, None);
     let ancestor_ids: Vec<_> = placements
         .iter()
         .flat_map(|(_, tile, block, _)| {
@@ -295,7 +307,7 @@ fn region_api_reports_correct_countries_and_areas() {
 
     // (2) Correct areas: per-country visited m² vs the independent integral.
     let mut iso_to_id: HashMap<String, _> = HashMap::new();
-    for id in geo_index.entities_of_kind(GeoEntityKind::Country) {
+    for id in geo_index.entities_of_kind(GeoEntityKind::Admin0) {
         if let Some(e) = geo_index.entity(*id) {
             iso_to_id.insert(e.canonical_code.clone(), *id);
         }
@@ -345,7 +357,7 @@ fn region_api_reports_correct_countries_and_areas() {
                     .find(|a| geo.entity(*a).map(|e| e.kind) == Some(GeoEntityKind::Continent))
                     .expect("FR has a continent ancestor")
             };
-            let ids = region::level_scope(store.geo()?, RegionKind::Country, Some(continent));
+            let ids = region::level_scope(store.geo()?, RegionKind::Admin0, Some(continent));
             let areas = store.region_areas(All, &ids)?;
             let detail_ids = region::detail_scope(store.geo()?, fr);
             let detail_areas = store.region_areas(Default, &detail_ids)?;
@@ -354,7 +366,7 @@ fn region_api_reports_correct_countries_and_areas() {
 
             // The asset has the full world: many countries, at least one continent.
             let levels = region_levels(geo);
-            let country_total = levels[&RegionKind::Country].region_count;
+            let country_total = levels[&RegionKind::Admin0].region_count;
             assert!(
                 country_total > 100,
                 "expected a full world, got {country_total} countries"
@@ -362,7 +374,7 @@ fn region_api_reports_correct_countries_and_areas() {
             assert!(levels.contains_key(&RegionKind::Continent));
 
             // France is listed and visited among its continent's countries.
-            let view = region::level_view(geo, RegionKind::Country, &ids, &areas);
+            let view = region::level_view(geo, RegionKind::Admin0, &ids, &areas);
             let fr_entry = view.entries.get(&fr).expect("FR listed");
             assert!(fr_entry.visited_area_m2 > 0, "FR should be visited");
             assert!(view.visited_count >= 1 && view.visited_count <= view.region_count);
