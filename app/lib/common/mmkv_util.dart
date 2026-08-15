@@ -3,6 +3,8 @@ import 'package:mmkv/mmkv.dart';
 class MMKVKey {
   static const String isUnexpectedExitNotificationEnabled =
       'isUnexpectedExitNotificationEnabled';
+  static const String isHeartbeatDetectionEnabled =
+      'Settings.heartbeatDetectionEnabled';
   static const String hapticsFeedbackEnabled =
       'Settings.hapticsFeedbackEnabled';
   static const String dbOptimizationCheck = "dbOptimizationCheck";
