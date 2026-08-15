@@ -1,8 +1,8 @@
 use super::PixelType;
 use crate::bitmap2d::BitMap2D;
 use crate::tile_range::{
-    decompress_tile_range_response as core_decompress_tile_range_response, parse_tile_range_header,
-    parse_tiles_from_body,
+    decode_tile_range_response_to_grid,
+    decompress_tile_range_response as core_decompress_tile_range_response,
 };
 use crate::utils::set_panic_hook;
 use std::cell::RefCell;
@@ -173,29 +173,10 @@ impl TileBuffer {
         data: &[u8],
     ) -> Result<TileBuffer, JsValue> {
         set_panic_hook();
-        let decompressed = core_decompress_tile_range_response(data).map_err(|e| {
-            JsValue::from_str(&format!("Failed to decompress TileRangeResponse: {}", e))
-        })?;
-        let header = parse_tile_range_header(&decompressed)
-            .map_err(|e| JsValue::from_str(&format!("Failed to parse TileRange header: {}", e)))?;
-        let body = &decompressed[crate::tile_range::TILE_RANGE_HEADER_SIZE..];
-        let parsed = parse_tiles_from_body(
-            header.tile_bitmap_exp,
-            header.x0,
-            header.y0,
-            header.range_w as usize,
-            header.tile_count as usize,
-            header.present_count as usize,
-            body,
-        )
-        .map_err(|e| JsValue::from_str(&format!("Failed to parse TileRangeResponse: {}", e)))?;
+        let (header, tiles) = decode_tile_range_response_to_grid(data)
+            .map_err(|e| JsValue::from_str(&format!("Failed to parse TileRangeResponse: {}", e)))?;
         let grid_w = header.range_w;
         let grid_h = header.range_h;
-        let mut tiles = vec![None; grid_w as usize * grid_h as usize];
-        for (x, y, bm) in parsed {
-            let idx = (y - header.y0) as usize * grid_w as usize + (x - header.x0) as usize;
-            tiles[idx] = Some(bm);
-        }
         Ok(TileBuffer {
             grid_origin_x: header.x0,
             grid_origin_y: header.y0,

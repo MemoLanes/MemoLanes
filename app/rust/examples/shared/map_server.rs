@@ -168,33 +168,6 @@ impl MapServer {
         }
     }
 
-    pub fn get_file_url(&self) -> String {
-        let cgi_host = get_dev_server_host();
-        let mut map_renderer = self.map_renderer.lock().unwrap();
-        let bounds = map_renderer.get_map_bounds();
-
-        match bounds {
-            Some(bounds) => format!(
-                "file://{}/journey_kernel/index.html#cgi_endpoint=http%3A%2F%2F{}%3A{}&debug=true&west={}&south={}&east={}&north={}&access_key={}",
-                std::env::var("OUT_DIR").unwrap_or_else(|_| ".".to_string()), 
-                cgi_host,
-                self.port,
-                bounds.west,
-                bounds.south,
-                bounds.east,
-                bounds.north,
-                build_info::MAPBOX_ACCESS_TOKEN.unwrap_or(""),
-            ),
-            None => format!(
-                "file://{}/journey_kernel/index.html#cgi_endpoint=http%3A%2F%2F{}%3A{}&debug=true&access_key={}", 
-                std::env::var("OUT_DIR").unwrap_or_else(|_| ".".to_string()), 
-                cgi_host,
-                self.port,
-                build_info::MAPBOX_ACCESS_TOKEN.unwrap_or(""),
-            )
-        }
-    }
-
     // TODO: maybe shutdown the server when switched to background
     pub fn stop(&mut self) -> Result<()> {
         if let Some((handle, server_handle)) = self.handles.take() {

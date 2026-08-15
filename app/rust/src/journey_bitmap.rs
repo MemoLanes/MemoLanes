@@ -271,9 +271,9 @@ impl JourneyBitmap {
 
             let tile_key = TileKey::new(tile_x.rem_euclid(MAP_WIDTH) as u16, tile_y as u16);
             let (tile_x_offset, tile_y_offset) = (tile_x << ALL_OFFSET, tile_y << ALL_OFFSET);
-            {
+            let (next, changed) = {
                 let tile = self.get_tile_mut_or_insert_empty(&tile_key);
-                (x, y, p) = tile.add_line(
+                tile.add_line(
                     x - tile_x_offset,
                     y - tile_y_offset,
                     end - if xaxis { tile_x_offset } else { tile_y_offset },
@@ -283,10 +283,12 @@ impl JourneyBitmap {
                     xaxis,
                     quadrants13,
                     width,
-                );
+                )
+            };
+            (x, y, p) = next;
+            if changed {
+                tile_changed(tile_key);
             }
-            // TODO: We might want to check if the tile is actually changed
-            tile_changed(tile_key);
 
             x += tile_x_offset;
             y += tile_y_offset;
@@ -299,15 +301,24 @@ impl JourneyBitmap {
 
     pub fn merge_vector(&mut self, journey_vector: &crate::journey_vector::JourneyVector) {
         for track_segment in &journey_vector.track_segments {
-            for (i, point) in track_segment.track_points.iter().enumerate() {
-                let prev_idx = i.saturating_sub(1);
-                let prev = &track_segment.track_points[prev_idx];
-                self.add_line(
-                    prev.longitude,
-                    prev.latitude,
+            match track_segment.track_points.as_slice() {
+                [] => {}
+                [point] => self.add_line(
                     point.longitude,
                     point.latitude,
-                );
+                    point.longitude,
+                    point.latitude,
+                ),
+                points => {
+                    for pair in points.windows(2) {
+                        self.add_line(
+                            pair[0].longitude,
+                            pair[0].latitude,
+                            pair[1].longitude,
+                            pair[1].latitude,
+                        );
+                    }
+                }
             }
         }
     }
@@ -439,12 +450,14 @@ impl BlockKeyBitset {
 
     fn iter(&self) -> impl Iterator<Item = BlockKey> + '_ {
         self.0.iter().enumerate().flat_map(|(byte_index, &byte)| {
-            (0..8_usize).filter_map(move |offset| {
-                if byte & (1 << offset) != 0 {
-                    Some(BlockKey::from_index(byte_index * 8 + offset))
-                } else {
-                    None
+            let mut remaining = byte;
+            std::iter::from_fn(move || {
+                if remaining == 0 {
+                    return None;
                 }
+                let offset = remaining.trailing_zeros() as usize;
+                remaining &= remaining - 1;
+                Some(BlockKey::from_index(byte_index * 8 + offset))
             })
         })
     }
@@ -470,6 +483,12 @@ impl<'a> TileSummary<'a> {
     pub fn contains_block(&self, block_key: &BlockKey) -> bool {
         match self {
             TileSummary::Tile(tile) => tile.blocks[block_key.index()].is_some(),
+        }
+    }
+
+    pub(crate) fn iter_blocks(&self) -> impl Iterator<Item = BlockKey> + '_ {
+        match self {
+            TileSummary::Tile(tile) => tile.iter().map(|(key, _)| key),
         }
     }
 }
@@ -569,10 +588,11 @@ impl Tile {
         xaxis: bool,
         quadrants13: bool,
         width: u8,
-    ) -> (i64, i64, i64) {
+    ) -> ((i64, i64, i64), bool) {
         let mut p = p;
         let mut x = x;
         let mut y = y;
+        let mut changed = false;
 
         loop {
             let (primary, secondary) = if xaxis { (x, y) } else { (y, x) };
@@ -594,7 +614,7 @@ impl Tile {
                 block_x << BITMAP_WIDTH_OFFSET,
                 block_y << BITMAP_WIDTH_OFFSET,
             );
-            (x, y, p) = block.add_line(
+            let (next, block_changed) = block.add_line(
                 x - block_x_offset,
                 y - block_y_offset,
                 e - if xaxis {
@@ -609,6 +629,8 @@ impl Tile {
                 quadrants13,
                 width,
             );
+            (x, y, p) = next;
+            changed |= block_changed;
 
             x += block_x_offset;
             y += block_y_offset;
@@ -617,7 +639,7 @@ impl Tile {
                 break;
             }
         }
-        (x, y, p)
+        ((x, y, p), changed)
     }
 
     fn serialize_internal(&self) -> anyhow::Result<Vec<u8>> {
@@ -858,7 +880,7 @@ impl Block {
 
     /// Draw a line segment of width `w` perpendicular to the dominant axis.
     /// `xaxis`: true if the line is x-axis dominant (spread along y), false for y-axis dominant (spread along x).
-    fn draw_width(&mut self, x: u8, y: u8, w: u8, even_draw_flag: bool, xaxis: bool) {
+    fn draw_width(&mut self, x: u8, y: u8, w: u8, even_draw_flag: bool, xaxis: bool) -> bool {
         let mut delta_st: u8 = w / 2;
         let mut delta_ed: u8 = w / 2;
         if w.is_multiple_of(2) {
@@ -872,16 +894,18 @@ impl Block {
         let secondary = if xaxis { y } else { x };
         let sec_st = secondary.saturating_sub(delta_st);
         let sec_ed = secondary + delta_ed;
+        let mut changed = false;
         for s in sec_st..=sec_ed {
             if xaxis {
-                self.set_point(x, s, true);
+                changed |= self.set_point_if_changed(x, s, true);
             } else {
-                self.set_point(s, y, true);
+                changed |= self.set_point_if_changed(s, y, true);
             }
         }
+        changed
     }
 
-    fn draw_width_point(&mut self, x: u8, y: u8, w: u8) {
+    fn draw_width_point(&mut self, x: u8, y: u8, w: u8) -> bool {
         let delta_st: u8 = w / 2;
         let mut delta_ed: u8 = w / 2;
         if w.is_multiple_of(2) {
@@ -891,11 +915,13 @@ impl Block {
         let x_ed: u8 = x + delta_ed;
         let y_st: u8 = y.saturating_sub(delta_st);
         let y_ed: u8 = y + delta_ed;
+        let mut changed = false;
         for x_index in x_st..=x_ed {
             for y_index in y_st..=y_ed {
-                self.set_point(x_index, y_index, true);
+                changed |= self.set_point_if_changed(x_index, y_index, true);
             }
         }
+        changed
     }
 
     fn update_mipmap_for_point(&self, x: usize, y: usize, val: bool) {
@@ -930,8 +956,12 @@ impl Block {
 
     // x ∈ [0,63], y ∈ [0，63]
     pub fn set_point(&mut self, x: u8, y: u8, val: bool) {
+        self.set_point_if_changed(x, y, val);
+    }
+
+    fn set_point_if_changed(&mut self, x: u8, y: u8, val: bool) -> bool {
         if x > 63 || y > 63 {
-            return;
+            return false;
         }
         let bit_offset = 7 - (x % 8);
         let i = (x / 8) as usize;
@@ -941,6 +971,9 @@ impl Block {
         self.data[i + j * 8] = (current & !(1 << bit_offset)) | (val_number << bit_offset);
         if self.data[i + j * 8] != current {
             self.update_mipmap_for_point(x as usize, y as usize, val);
+            true
+        } else {
+            false
         }
     }
 
@@ -957,11 +990,11 @@ impl Block {
         xaxis: bool,
         quadrants13: bool,
         width: u8,
-    ) -> (i64, i64, i64) {
+    ) -> ((i64, i64, i64), bool) {
         // Draw the first pixel
         let mut p = p;
         let mut xy = [x, y];
-        self.draw_width_point(xy[0] as u8, xy[1] as u8, width);
+        let mut changed = self.draw_width_point(xy[0] as u8, xy[1] as u8, width);
 
         // xaxis: primary is x (index 0), yaxis: primary is y (index 1)
         let pri = if xaxis { 0usize } else { 1 };
@@ -993,9 +1026,9 @@ impl Block {
             }
 
             // Draw pixel from line span at currently rasterized position
-            self.draw_width(xy[0] as u8, xy[1] as u8, width, draw_flag, xaxis);
+            changed |= self.draw_width(xy[0] as u8, xy[1] as u8, width, draw_flag, xaxis);
         }
-        (xy[0], xy[1], p)
+        ((xy[0], xy[1], p), changed)
     }
 }
 

@@ -3,13 +3,20 @@ use bitvec::prelude::*;
 
 pub fn bitvec_to_bytes_lsb(bits: &BitVec) -> Vec<u8> {
     let byte_count = bits.len().div_ceil(8);
+    let mut out = Vec::with_capacity(byte_count);
+    append_bitvec_bytes_lsb(bits, &mut out);
+    out
+}
+
+pub(crate) fn append_bitvec_bytes_lsb(bits: &BitVec, out: &mut Vec<u8>) {
+    let byte_count = bits.len().div_ceil(8);
+    let output_end = out.len() + byte_count;
     let raw_words = bits.as_raw_slice();
-    let mut out = Vec::with_capacity(std::mem::size_of_val(raw_words));
+    out.reserve(byte_count);
     for &word in raw_words {
         out.extend_from_slice(&word.to_le_bytes());
     }
-    out.truncate(byte_count);
-    out
+    out.truncate(output_end);
 }
 
 pub fn bitvec_from_bytes_lsb(bytes: &[u8], bit_count: usize) -> BitVec {
@@ -549,6 +556,21 @@ mod tests {
         bm.set(0, 0, true);
         bm.build_lods();
         assert_eq!(bm.lod_levels().len(), 0);
+    }
+
+    #[test]
+    fn sparse_pixel_iteration_preserves_row_major_subtile_coordinates() {
+        let mut bm = BitMap2D::new(3); // 8x8
+        for &(x, y) in &[(7, 0), (4, 1), (6, 3), (0, 7)] {
+            bm.set(x, y, true);
+        }
+        bm.build_lods();
+
+        let upper_right = bm.iter_pixels(10, 20, 1, 0, 1, 2).collect::<Vec<_>>();
+        assert_eq!(upper_right, vec![(13, 20), (10, 21), (12, 23)]);
+
+        let full = bm.iter_pixels(0, 0, 0, 0, 0, 3).collect::<Vec<_>>();
+        assert_eq!(full, vec![(7, 0), (4, 1), (6, 3), (0, 7)]);
     }
 
     #[test]

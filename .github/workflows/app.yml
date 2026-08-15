@@ -149,10 +149,9 @@ jobs:
       - name: Install wasm-pack
         run: cargo binstall -y --force --no-track wasm-pack@0.15.0
 
-      - name: Build the wasm package
-        working-directory: app/journey_kernel
-        run: | 
-          wasm-pack build --target web --out-name journey_kernel --features wasm --no-default-features
+      - name: Build Journey Kernel
+        working-directory: app
+        run: just journey-kernel-build
         
       - name: Journey Kernel Check
         working-directory: app/journey_kernel

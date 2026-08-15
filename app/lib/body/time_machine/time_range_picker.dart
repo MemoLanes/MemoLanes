@@ -50,7 +50,7 @@ enum TimeMachineViewMode {
 }
 
 class _TimeRangePickerState extends State<TimeRangePicker> {
-  TimeMachineViewMode _viewMode = TimeMachineViewMode.period;
+  TimeMachineViewMode _viewMode = TimeMachineViewMode.asOf;
   TimeRulerMode _rulerMode = TimeRulerMode.year;
   int _selectedYear = DateTime.now().year;
   int _selectedMonth = DateTime.now().month;
