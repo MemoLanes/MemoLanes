@@ -6,7 +6,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use geo_types::{Geometry, MultiPolygon};
 
 /// One Natural Earth feature, with the fields the rasterizer needs.
-pub struct ParsedFeature {
+pub struct Admin0Feature {
     /// `ADM0_A3` (NE's canonical key). Always present after parsing.
     pub adm0_a3: String,
     /// `ISO_A3`. May be `'-99'` (NE's missing-value sentinel).
@@ -29,8 +29,16 @@ pub struct ParsedFeature {
     /// `REGION_UN` (UN M49 top-level region). Geographic fallback used to
     /// parent features whose `CONTINENT` is the "Seven seas" bucket.
     pub region_un: String,
+    /// `Some(parent ADM0_A3)` when this worldview demotes the territory to a
+    /// province of `parent`. Its geometry is ALSO merged into the parent's
+    pub demoted_into: Option<String>,
     /// Geometry as `MultiPolygon` (Polygons are wrapped to a 1-element MP for uniformity).
     pub geometry: MultiPolygon<f64>,
+}
+
+pub struct Admin0Parse {
+    pub features: Vec<Admin0Feature>,
+    pub province_attributions: Vec<(String, MultiPolygon<f64>)>,
 }
 
 /// Parse a Natural Earth admin-0 countries GeoJSON for a given `worldview`, then
@@ -38,7 +46,11 @@ pub struct ParsedFeature {
 /// can never hold un-absorbed features — the fold is not a separate step anyone
 /// can forget. "Seven seas (open ocean)" features are kept and parented via
 /// `REGION_UN` (see `entities::continent_code`).
-pub fn parse_geojson(path: &Path, worldview: &str) -> Result<Vec<ParsedFeature>> {
+pub fn parse_admin0(path: &Path, worldview: &str) -> Result<Vec<Admin0Feature>> {
+    Ok(parse_admin0_with_attributions(path, worldview)?.features)
+}
+
+pub fn parse_admin0_with_attributions(path: &Path, worldview: &str) -> Result<Admin0Parse> {
     let raw = std::fs::read_to_string(path)
         .with_context(|| format!("reading geojson at {}", path.display()))?;
     let collection: geojson::FeatureCollection = serde_json::from_str(&raw)
@@ -101,7 +113,7 @@ pub fn parse_geojson(path: &Path, worldview: &str) -> Result<Vec<ParsedFeature>>
             Geometry::MultiPolygon(mp) => mp,
             _ => bail!("feature {idx} ({adm0_a3}): expected Polygon/MultiPolygon"),
         };
-        out.push(ParsedFeature {
+        out.push(Admin0Feature {
             adm0_a3,
             iso_a3,
             iso_a3_eh,
@@ -110,11 +122,15 @@ pub fn parse_geojson(path: &Path, worldview: &str) -> Result<Vec<ParsedFeature>>
             feature_type,
             continent,
             region_un,
+            demoted_into: None,
             geometry: mp,
         });
     }
-    crate::absorb::apply_absorptions(&mut out, worldview)?;
-    Ok(out)
+    let province_attributions = crate::absorb::apply_absorptions(&mut out, worldview)?;
+    Ok(Admin0Parse {
+        features: out,
+        province_attributions,
+    })
 }
 
 /// Verify that no ring crosses the antimeridian via a single edge between
@@ -125,7 +141,7 @@ pub fn parse_geojson(path: &Path, worldview: &str) -> Result<Vec<ParsedFeature>>
 /// Polar caps (e.g., Antarctica) legitimately have edges whose longitudes
 /// differ by ~360° because the ring encloses a pole. Such edges are
 /// allowed when both endpoints have |lat| > POLAR_LAT_THRESHOLD.
-pub fn validate_no_antimeridian_span(features: &[ParsedFeature]) -> Result<()> {
+pub fn validate_no_antimeridian_span(features: &[Admin0Feature]) -> Result<()> {
     const POLAR_LAT_THRESHOLD: f64 = 85.0;
     for f in features {
         for poly in &f.geometry.0 {

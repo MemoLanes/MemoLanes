@@ -2,31 +2,38 @@
 
 use std::fs::File;
 use std::io::{BufReader, Read};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use sha2::{Digest, Sha256};
 
+use crate::registry::Namespace;
+
 /// SHA-256 identifying the data instance this run would produce:
 /// `GEO_DATA_VERSION` (4 LE bytes, a domain-separation salt), the raw bytes
-/// of `geojson_path` then `registry_path`, then the asset's `worldview_id`
-/// (length-prefixed), in that order.
+/// of `geojson_path`, `admin1_path`,
+/// every per-namespace file under `registry_dir` (in `Namespace::ALL` order)
+/// and `policy_path`, then the asset's `worldview_id` (length-prefixed), in
+/// that order.
 ///
-/// The version salt is what closes the "same inputs, changed
-/// rasterizer/format" hole: bumping `geo_data_format::GEO_DATA_VERSION`
-/// changes this hash even when the inputs are byte-identical, so the
-/// smart-skip rebuilds and any runtime consumer cache invalidates.
 ///
 /// `worldview_id` is folded in (length-prefixed) so a bin retagged to a
 /// different worldview rebuilds even if the geojson/registry are unchanged.
 pub fn compute_provenance_hash(
     geojson_path: &Path,
-    registry_path: &Path,
+    admin1_path: &Path,
+    registry_dir: &Path,
+    policy_path: &Path,
     worldview_id: &str,
 ) -> Result<[u8; 32]> {
     let mut hasher = Sha256::new();
     hasher.update(geo_data_format::GEO_DATA_VERSION.to_le_bytes());
-    for path in [geojson_path, registry_path] {
+    let registry_files = Namespace::ALL.map(|ns| registry_dir.join(ns.file_name()));
+    let paths = [geojson_path, admin1_path]
+        .into_iter()
+        .chain(registry_files.iter().map(PathBuf::as_path))
+        .chain([policy_path]);
+    for path in paths {
         let f = File::open(path).with_context(|| format!("opening {}", path.display()))?;
         let mut reader = BufReader::new(f);
         let mut buf = [0u8; 64 * 1024];

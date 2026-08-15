@@ -1,46 +1,24 @@
-//! Build the localized region-name maps consumed by the app via
-//! easy_localization: one logical `name_key -> name` map per locale, unioned
-//! across worldviews and written as nested JSON (`{"country": {"CHN": …}}`) —
-//! the same shape as the UI translation files, and the shape easy_localization
-//! resolves natively.
-//!
-//! Names come from Unicode CLDR (`territories.json`, keyed by ISO 3166-1
-//! alpha-2), joined to each entity via the sovereign feature's `ISO_A2_EH`.
-//! CLDR names are worldview-independent, so a country resolves to one name
-//! across every worldview by construction — the un-prefixed key is
-//! worldview-agnostic. (A given `ADM0_A3` must therefore carry the same
-//! `ISO_A2_EH` in every worldview; generation fails otherwise.)
-//!
-//! Resolution of the shared key, in order:
-//!   1. worldview-agnostic override
-//!   2. the CLDR name for the group's sovereign `ISO_A2_EH`
-//!   3. hard error — no silent fallback
-//!
-//! Overrides exist where CLDR has no usable entry (continents have no
-//! territory; a collapsed group has no sovereign `ISO_A2_EH`; NE-only
-//! aggregates like the Spratlys) or where CLDR's name is not the one we ship. A
-//! worldview-scoped override additionally emits a `<worldview>.<name_key>` key
-//! the app prefers — implemented for future admin-1 use, where a disputed
-//! region legitimately differs by political view.
-
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Context, Result};
 use geo_data_format::{Locale, Worldview};
 
+use crate::admin0::Admin0Feature;
+use crate::admin1::Admin1Feature;
 use crate::atomic_write::write_atomically;
 use crate::entities::{group_continent_code, sovereign_member};
 use crate::overrides::Overrides;
-use crate::parse::ParsedFeature;
 
 pub fn region_names_path(dir: &Path, locale: Locale) -> PathBuf {
     dir.join(format!("region_names.{}.json", locale.spec().tag))
 }
 
 pub fn build_region_names(
-    by_worldview: &[(Worldview, Vec<ParsedFeature>)],
+    by_worldview: &[(Worldview, Vec<Admin0Feature>)],
+    admin1_by_worldview: &[(Worldview, Vec<Admin1Feature>)],
     cldr: &BTreeMap<Locale, BTreeMap<String, String>>,
+    cldr_subdivisions: &BTreeMap<Locale, BTreeMap<String, String>>,
     overrides: &Overrides,
 ) -> Result<BTreeMap<Locale, BTreeMap<String, String>>> {
     // 1. Collect the entity key set + each country's sovereign `ISO_A2_EH` (the
@@ -52,7 +30,7 @@ pub fn build_region_names(
     let mut country_a2: BTreeMap<String, (String, &'static str)> = BTreeMap::new();
 
     for (worldview, features) in by_worldview {
-        let mut groups: BTreeMap<&str, Vec<&ParsedFeature>> = BTreeMap::new();
+        let mut groups: BTreeMap<&str, Vec<&Admin0Feature>> = BTreeMap::new();
         for f in features {
             groups.entry(f.adm0_a3.as_str()).or_default().push(f);
         }
@@ -80,6 +58,20 @@ pub fn build_region_names(
             }
         }
     }
+    let province_sources = province_name_sources(admin1_by_worldview);
+    // drop ambiguous and let them fallback to NE's names
+    let ambiguous = ambiguous_subdivision_keys(admin1_by_worldview);
+    let cldr_subdivisions: BTreeMap<Locale, BTreeMap<String, String>> = cldr_subdivisions
+        .iter()
+        .map(|(locale, names)| {
+            let usable = names
+                .iter()
+                .filter(|(key, _)| !ambiguous.contains(key.as_str()))
+                .map(|(key, name)| (key.clone(), name.clone()))
+                .collect();
+            (*locale, usable)
+        })
+        .collect();
 
     // 2. A dead override (typo'd or removed entity) fails the build — it would
     //    otherwise ship silently as an unused key.
@@ -87,6 +79,11 @@ pub fn build_region_names(
         .iter()
         .map(|code| format!("continent.{code}"))
         .chain(country_codes.iter().map(|adm0| format!("country.{adm0}")))
+        .chain(
+            province_sources
+                .keys()
+                .map(|adm1_code| format!("province.{adm1_code}")),
+        )
         .collect();
     let dead: Vec<&str> = overrides.keys().filter(|k| !minted.contains(*k)).collect();
     if !dead.is_empty() {
@@ -172,6 +169,22 @@ pub fn build_region_names(
             }
         }
 
+        for (adm1_code, source) in &province_sources {
+            let key = format!("province.{adm1_code}");
+            match resolve_province_name(
+                &key,
+                source,
+                locale,
+                cldr_subdivisions.get(&locale),
+                overrides,
+            ) {
+                Ok(name) => {
+                    names.insert(key, name);
+                }
+                Err(e) => missing.push(e.to_string()),
+            }
+        }
+
         // Worldview-scoped overrides → `<worldview>.<name_key>`, only where a
         // scoped value genuinely exists for THIS locale (else the shared key wins).
         for (key, worldview) in overrides.scoped_keys() {
@@ -218,6 +231,87 @@ fn resolve_country_name(
             )
         }),
     }
+}
+
+pub fn subdivision_key(iso_3166_2: &str) -> String {
+    iso_3166_2.replace('-', "").to_lowercase()
+}
+
+struct ProvinceNameSource {
+    subdivision_key: String,
+    name_en: Option<String>,
+    name_zh: Option<String>,
+}
+
+impl ProvinceNameSource {
+    fn ne_name(&self, locale: Locale) -> Option<&str> {
+        match locale {
+            Locale::EnUs => self.name_en.as_deref(),
+            Locale::ZhCn => self.name_zh.as_deref(),
+        }
+    }
+}
+
+fn province_name_sources(
+    by_worldview: &[(Worldview, Vec<Admin1Feature>)],
+) -> BTreeMap<String, ProvinceNameSource> {
+    let mut out: BTreeMap<String, ProvinceNameSource> = BTreeMap::new();
+    for (_, features) in by_worldview {
+        for f in features {
+            out.entry(f.adm1_code.clone())
+                .or_insert_with(|| ProvinceNameSource {
+                    subdivision_key: subdivision_key(&f.iso_3166_2),
+                    name_en: f.name_en.clone(),
+                    name_zh: f.name_zh.clone(),
+                });
+        }
+    }
+    out
+}
+
+fn ambiguous_subdivision_keys(
+    by_worldview: &[(Worldview, Vec<Admin1Feature>)],
+) -> BTreeSet<String> {
+    let mut claims: BTreeMap<String, BTreeSet<&str>> = BTreeMap::new();
+    for (_, features) in by_worldview {
+        for f in features {
+            claims
+                .entry(subdivision_key(&f.iso_3166_2))
+                .or_default()
+                .insert(f.adm1_code.as_str());
+        }
+    }
+    claims
+        .into_iter()
+        .filter(|(_, codes)| codes.len() > 1)
+        .map(|(key, _)| key)
+        .collect()
+}
+
+fn resolve_province_name(
+    key: &str,
+    feature: &ProvinceNameSource,
+    locale: Locale,
+    cldr_subdivisions: Option<&BTreeMap<String, String>>,
+    overrides: &Overrides,
+) -> Result<String> {
+    if let Some(name) = overrides.get_default(key, locale) {
+        return Ok(name.to_string());
+    }
+    if let Some(name) = cldr_subdivisions.and_then(|m| m.get(&feature.subdivision_key)) {
+        return Ok(name.clone());
+    }
+    if let Some(name) = feature.ne_name(locale) {
+        return Ok(name.to_string());
+    }
+    bail!(
+        "no name for `{key}` (locale={}): Natural Earth has no `{}` for this feature, and CLDR \
+         has no subdivision `{}` belonging to it alone — add an override to \
+         geo_names_overrides.toml",
+        locale.spec().tag,
+        locale.ne_name_field(),
+        feature.subdivision_key,
+    )
 }
 
 fn nest(flat: &BTreeMap<String, String>) -> Result<serde_json::Value> {

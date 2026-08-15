@@ -7,9 +7,18 @@ pub const CLDR_TAG: &str = "48.2.0";
 pub const CLDR_BASE: &str = "https://raw.githubusercontent.com/unicode-org/cldr-json/\
      48.2.0/cldr-json/cldr-localenames-full/main";
 
+pub const CLDR_SUBDIVISIONS_BASE: &str = "https://raw.githubusercontent.com/unicode-org/cldr-json/\
+     48.2.0/cldr-json/cldr-subdivisions-full/subdivisions";
+
 impl Locale {
     pub fn cldr_source_url(self) -> String {
         format!("{CLDR_BASE}/{}/territories.json", self.spec().cldr_tag)
+    }
+
+    pub fn cldr_subdivisions_url(self) -> Option<String> {
+        self.spec().cldr_subdivisions_sha256?;
+        let tag = self.spec().cldr_tag;
+        Some(format!("{CLDR_SUBDIVISIONS_BASE}/{tag}/{tag}.json"))
     }
 }
 
@@ -40,6 +49,10 @@ mod tests {
         assert!(
             CLDR_BASE.contains(CLDR_TAG),
             "CLDR_BASE does not contain CLDR_TAG (pin desync)"
+        );
+        assert!(
+            CLDR_SUBDIVISIONS_BASE.contains(CLDR_TAG),
+            "CLDR_SUBDIVISIONS_BASE does not contain CLDR_TAG (pin desync)"
         );
     }
 }
