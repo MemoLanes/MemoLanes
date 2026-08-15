@@ -7,7 +7,6 @@ import 'package:memolanes/body/achievement/shared/achievement_common.dart';
 import 'package:memolanes/common/achievement_stats_store.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/region_preference.dart';
-import 'package:memolanes/src/rust/achievement/region.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:provider/provider.dart';
 
@@ -128,7 +127,7 @@ class _CountriesHeader extends StatelessWidget {
                       title: context.tr(
                         'achievement.region_list.country_title',
                       ),
-                      level: RegionKind.country,
+                      level: achievementCountryRegionKind,
                       emptyText: context.tr('achievement.countries.empty'),
                       showCountryFlags: true,
                     ),
@@ -241,7 +240,7 @@ class _CountryFlagItem extends StatelessWidget {
                 'achievement.region_list.province_title',
                 args: [countryName],
               ),
-              level: RegionKind.province,
+              level: achievementProvinceRegionKind,
               parent: country.entityId,
               emptyText: context.tr(
                 'achievement.region_list.province_empty',

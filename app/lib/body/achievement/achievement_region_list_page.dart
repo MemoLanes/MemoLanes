@@ -11,6 +11,17 @@ import 'package:memolanes/utils/nav_helper.dart';
 
 typedef AchievementRegionViewLoader = Future<RegionLevelView> Function();
 
+// The geo hierarchy API renamed these enum cases from country/province to
+// admin0/admin1. Resolve by name so this UI remains compatible with both APIs.
+final achievementCountryRegionKind = _regionKindNamed('admin0', 'country');
+final achievementProvinceRegionKind = _regionKindNamed('admin1', 'province');
+
+RegionKind _regionKindNamed(String name, String legacyName) {
+  return RegionKind.values.singleWhere(
+    (kind) => kind.name == name || kind.name == legacyName,
+  );
+}
+
 class AchievementRegionListPage extends StatefulWidget {
   const AchievementRegionListPage({
     super.key,
@@ -81,7 +92,7 @@ class _AchievementRegionListPageState extends State<AchievementRegionListPage> {
       emptyText: widget.emptyText,
       isLoading: view == null && _error == null,
       onRetry: _error == null ? null : _load,
-      skeletonShowsChevron: widget.level == RegionKind.country,
+      skeletonShowsChevron: widget.level == achievementCountryRegionKind,
     );
   }
 
@@ -100,7 +111,7 @@ class _AchievementRegionListPageState extends State<AchievementRegionListPage> {
         flagCountryCode:
             widget.showCountryFlags ? entity.isoA3Eh : widget.flagCountryCode,
         sortKey: entity.isoA3Eh ?? entity.nameKey.value,
-        onTap: widget.level == RegionKind.country
+        onTap: widget.level == achievementCountryRegionKind
             ? () => navigatorPush(
                   context,
                   page: AchievementRegionListPage(
@@ -108,7 +119,7 @@ class _AchievementRegionListPageState extends State<AchievementRegionListPage> {
                       'achievement.region_list.province_title',
                       args: [regionName],
                     ),
-                    level: RegionKind.province,
+                    level: achievementProvinceRegionKind,
                     parent: entry.key,
                     emptyText: context.tr(
                       'achievement.region_list.province_empty',
