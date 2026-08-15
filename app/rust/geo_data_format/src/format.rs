@@ -66,7 +66,7 @@ pub fn write_geo_data(
     entities: &[GeoEntity],
     worldview_id: &str,
     tile_lookup: &[TileMembership],
-    block_lookup: &BTreeMap<(u16, u16), Vec<Option<GeoEntityId>>>,
+    block_lookup: &BTreeMap<(u16, u16), Vec<u32>>,
     provenance_hash: [u8; 32],
 ) -> anyhow::Result<Vec<u8>> {
     anyhow::ensure!(
@@ -86,7 +86,11 @@ pub fn write_geo_data(
                 let cells = block_lookup.get(&(tx, ty)).ok_or_else(|| {
                     anyhow::anyhow!("border tile ({tx},{ty}) missing block_lookup entry")
                 })?;
-                let blob = PackedTile::try_from_dense(cells)
+                let cells: Vec<Option<GeoEntityId>> = cells
+                    .iter()
+                    .map(|&v| (v != crate::NO_ENTITY).then_some(GeoEntityId(v)))
+                    .collect();
+                let blob = PackedTile::try_from_dense(&cells)
                     .map_err(|e| e.context(format!("border tile ({tx},{ty})")))?
                     .to_compressed_bytes();
                 let blob_idx = blobs.len() as u32;

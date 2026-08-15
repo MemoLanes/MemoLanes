@@ -31,11 +31,10 @@ use std::collections::BTreeMap;
 use std::time::Instant;
 
 use geo::algorithm::BoundingRect;
-use geo_data_format::{cell_index, tile_index, GeoEntityId, TileMembership, TILE_COUNT};
+use geo_data_format::{cell_index, tile_index, GeoEntityId, TileMembership, NO_ENTITY, TILE_COUNT};
 use geo_types::MultiPolygon;
+use rayon::prelude::*;
 
-use crate::entities::EntityModel;
-use crate::parse::ParsedFeature;
 use crate::projection::{lng_lat_to_block_xy, BLOCK_GRID_SIZE};
 
 const TILE_WIDTH: usize = 128;
@@ -50,7 +49,7 @@ pub type TileLookup = Vec<TileMembership>;
 /// `geo_data_format::cell_index` (x-major), = the runtime's `BlockKey::index()`.
 /// The internal `TileBitmap` is y-major; the transpose happens once, where this
 /// vector is emitted (phase 2 border branch).
-pub type BlockLookup = BTreeMap<(u16, u16), Vec<Option<GeoEntityId>>>;
+pub type BlockLookup = BTreeMap<(u16, u16), Vec<u32>>;
 
 /// 128×128 packed bitmap, indexed `byo * TILE_WIDTH + bxo`.
 #[derive(Clone)]
@@ -77,7 +76,7 @@ impl TileBitmap {
 /// Per-entity result of scanline fill.
 struct EntityRaster<'a> {
     id: GeoEntityId,
-    adm0_a3: &'a str,
+    code: &'a str,
     /// Per-tile bitmap of inside blocks. Only tiles the entity touches
     /// (interior or border) have an entry.
     tiles: BTreeMap<(u16, u16), TileBitmap>,
@@ -85,55 +84,43 @@ struct EntityRaster<'a> {
     bbox_area_blocks: i64,
 }
 
-pub fn rasterize(_features: &[ParsedFeature], model: &EntityModel) -> (TileLookup, BlockLookup) {
+pub fn rasterize(
+    geometry_for_code: &BTreeMap<String, MultiPolygon<f64>>,
+    id_for_code: &BTreeMap<String, GeoEntityId>,
+) -> (TileLookup, BlockLookup) {
     let started = Instant::now();
 
     // Phase 1: per-entity scanline rasterization.
-    let mut entity_rasters: Vec<EntityRaster> = Vec::with_capacity(model.entities.len());
-    for (i, e) in model.entities.iter().enumerate() {
-        let adm0 = e.canonical_code.as_str();
-        let geom = match model.geometry_for_country.get(adm0) {
-            Some(g) => g,
-            None => continue,
-        };
-        let bbox_lnglat = match geom.bounding_rect() {
-            Some(b) => b,
-            None => continue,
-        };
-        let (min_x, min_y) = lng_lat_to_block_xy(bbox_lnglat.min().x, bbox_lnglat.max().y);
-        let (max_x, max_y) = lng_lat_to_block_xy(bbox_lnglat.max().x, bbox_lnglat.min().y);
-        let bbox_area_blocks =
-            (max_x as i64 - min_x as i64).max(1) * (max_y as i64 - min_y as i64).max(1);
-
-        let tiles = rasterize_entity(geom, min_x, min_y, max_x, max_y);
-        entity_rasters.push(EntityRaster {
-            id: e.id,
-            adm0_a3: adm0,
-            tiles,
-            bbox_area_blocks,
-        });
-        if (i + 1).is_multiple_of(32) || i + 1 == model.entities.len() {
-            eprintln!(
-                "[geo_rasterizer] phase 1: rasterized {}/{} entities (elapsed {:.0?})",
-                i + 1,
-                model.entities.len(),
-                started.elapsed()
-            );
-        }
-    }
-
-    // Sort smaller-first (smaller-poly-wins).
-    entity_rasters.sort_by(|a, b| {
-        a.bbox_area_blocks
-            .cmp(&b.bbox_area_blocks)
-            .then_with(|| a.adm0_a3.cmp(b.adm0_a3))
-    });
+    let mut entity_rasters: Vec<EntityRaster> = geometry_for_code
+        .par_iter()
+        .filter_map(|(code, geom)| {
+            let id = *id_for_code.get(code)?;
+            let bbox_lnglat = geom.bounding_rect()?;
+            let (min_x, min_y) = lng_lat_to_block_xy(bbox_lnglat.min().x, bbox_lnglat.max().y);
+            let (max_x, max_y) = lng_lat_to_block_xy(bbox_lnglat.max().x, bbox_lnglat.min().y);
+            let bbox_area_blocks =
+                (max_x as i64 - min_x as i64).max(1) * (max_y as i64 - min_y as i64).max(1);
+            Some(EntityRaster {
+                id,
+                code: code.as_str(),
+                tiles: rasterize_entity(geom, min_x, min_y, max_x, max_y),
+                bbox_area_blocks,
+            })
+        })
+        .collect();
 
     eprintln!(
         "[geo_rasterizer] phase 1 complete in {:.1?} ({} entities)",
         started.elapsed(),
         entity_rasters.len()
     );
+
+    // Sort smaller-first (smaller-poly-wins).
+    entity_rasters.sort_by(|a, b| {
+        a.bbox_area_blocks
+            .cmp(&b.bbox_area_blocks)
+            .then_with(|| a.code.cmp(b.code))
+    });
 
     // Phase 2: invert to per-tile candidate lists.
     let mut tile_candidates: BTreeMap<(u16, u16), Vec<usize>> = BTreeMap::new();
@@ -179,7 +166,7 @@ pub fn rasterize(_features: &[ParsedFeature], model: &EntityModel) -> (TileLooku
             // else: leave as None.
         } else {
             // Border. Per-block fill: smallest candidate with bit set wins.
-            let mut blocks: Vec<Option<GeoEntityId>> = vec![None; BLOCKS_PER_TILE];
+            let mut blocks: Vec<u32> = vec![NO_ENTITY; BLOCKS_PER_TILE];
             // Iterate candidates in sorted (smaller-first) order. Since
             // tile_candidates was built by iterating entity_rasters in
             // sorted order, cand_indices is already ascending → smaller
@@ -200,14 +187,14 @@ pub fn rasterize(_features: &[ParsedFeature], model: &EntityModel) -> (TileLooku
                         let i = base + b; // y-major bit index in the TileBitmap
                                           // Transpose to x-major on output: bit i is (x=i%128, y=i/128).
                         let out = cell_index((i % TILE_WIDTH) as u8, (i / TILE_WIDTH) as u8);
-                        if blocks[out].is_none() {
-                            blocks[out] = Some(value);
+                        if blocks[out] == NO_ENTITY {
+                            blocks[out] = value.0;
                         }
                         w &= w - 1;
                     }
                 }
             }
-            if blocks.iter().any(Option::is_some) {
+            if blocks.iter().any(|&v| v != NO_ENTITY) {
                 tile_lookup[tile_idx] = TileMembership::Border;
                 block_lookup.insert((*tx, *ty), blocks);
             }

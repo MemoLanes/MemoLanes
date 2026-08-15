@@ -63,3 +63,56 @@ fn all_round_trips_through_from_id() {
         assert_eq!(Worldview::from_id(p.spec().id).unwrap(), p);
     }
 }
+
+use geo_data_format::{admin1_source_url, Locale, ADMIN1_SOURCE_SHA256};
+
+#[test]
+fn admin1_source_is_pinned_to_the_same_commit() {
+    let url = admin1_source_url();
+    assert!(
+        url.starts_with(geo_data_format::NATURAL_EARTH_BASE),
+        "admin-1 url must sit under the pinned base: {url}"
+    );
+    assert!(
+        url.ends_with("/ne_10m_admin_1_states_provinces.geojson"),
+        "{url}"
+    );
+    assert_eq!(ADMIN1_SOURCE_SHA256.len(), 64);
+    assert!(ADMIN1_SOURCE_SHA256.bytes().all(|b| b.is_ascii_hexdigit()));
+}
+
+#[test]
+fn every_worldview_names_an_admin1_fclass_column() {
+    for &wv in Worldview::ALL {
+        let field = wv.spec().admin1_fclass_field;
+        assert!(
+            field.starts_with("FCLASS_"),
+            "{}: {field} is not an FCLASS column",
+            wv.spec().id
+        );
+    }
+}
+
+#[test]
+fn subdivisions_url_exists_exactly_where_a_pin_does() {
+    for &locale in Locale::ALL {
+        match (
+            locale.spec().cldr_subdivisions_sha256,
+            locale.cldr_subdivisions_url(),
+        ) {
+            (Some(sha), Some(url)) => {
+                assert_eq!(sha.len(), 64, "{}", locale.spec().tag);
+                assert!(url.contains("cldr-subdivisions-full"), "{url}");
+                assert!(url.contains(geo_data_format::CLDR_TAG), "{url}");
+            }
+            (None, None) => {}
+            (a, b) => panic!(
+                "{}: pin/url disagree (sha={a:?}, url={b:?})",
+                locale.spec().tag
+            ),
+        }
+    }
+    // en-US is the only locale CLDR has approved subdivision data for.
+    assert!(Locale::EnUs.spec().cldr_subdivisions_sha256.is_some());
+    assert!(Locale::ZhCn.spec().cldr_subdivisions_sha256.is_none());
+}

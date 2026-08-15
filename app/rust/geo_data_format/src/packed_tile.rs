@@ -1,18 +1,17 @@
 //! Compact storage for one border tile: palette of distinct values +
 //! packed bit-indices into it, with a per-tile zstd envelope.
-//!
-//! Single source of truth shared by the offline rasterizer (writer) and
-//! the runtime `BorderTileStore` (reader).
+
+use std::collections::HashMap;
 
 use crate::{GeoEntityId, CELLS_PER_TILE};
 
-pub const MAX_PALETTE_ENTRIES: usize = 16;
+pub const MAX_PALETTE_ENTRIES: usize = CELLS_PER_TILE;
 
 /// One border tile: palette of distinct values + packed bit-indices into it.
 #[derive(Debug, Clone)]
 pub struct PackedTile {
     palette: Vec<Option<GeoEntityId>>, // up to MAX_PALETTE_ENTRIES
-    bits_per_cell: u8,                 // 1, 2, or 4
+    bits_per_cell: u8,                 // 1, 2, 4, 8, or 16
     indices: Box<[u8]>,                // ceil(CELLS_PER_TILE * bits_per_cell / 8) bytes
 }
 
@@ -28,22 +27,40 @@ impl PackedTile {
             cells.len()
         );
 
-        // Build palette in first-seen order; map each value to its palette index.
-        let mut palette: Vec<Option<GeoEntityId>> = Vec::with_capacity(4);
-        let mut cell_idx: Vec<u8> = Vec::with_capacity(CELLS_PER_TILE);
+        // Almost every tile holds a handful of distinct values (mean 2.4), where a
+        // linear scan beats hashing
+        const LINEAR_SCAN_MAX: usize = 16;
+        let mut palette: Vec<Option<GeoEntityId>> = Vec::new();
+        let mut seen: HashMap<Option<GeoEntityId>, u16> = HashMap::new();
+        let mut cell_idx: Vec<u16> = Vec::with_capacity(CELLS_PER_TILE);
         for c in cells {
-            let i = match palette.iter().position(|p| p == c) {
+            let found = if palette.len() <= LINEAR_SCAN_MAX {
+                palette.iter().position(|p| p == c).map(|i| i as u16)
+            } else {
+                seen.get(c).copied()
+            };
+            let i = match found {
                 Some(i) => i,
                 None => {
                     anyhow::ensure!(
                         palette.len() < MAX_PALETTE_ENTRIES,
                         "palette overflow (more than {MAX_PALETTE_ENTRIES} distinct values)"
                     );
+                    let i = palette.len() as u16;
                     palette.push(*c);
-                    palette.len() - 1
+                    if palette.len() > LINEAR_SCAN_MAX {
+                        if seen.is_empty() {
+                            for (j, v) in palette.iter().enumerate() {
+                                seen.insert(*v, j as u16);
+                            }
+                        } else {
+                            seen.insert(*c, i);
+                        }
+                    }
+                    i
                 }
             };
-            cell_idx.push(i as u8);
+            cell_idx.push(i);
         }
 
         let bits_per_cell = bits_for_palette(palette.len());
@@ -76,14 +93,14 @@ impl PackedTile {
         (0..CELLS_PER_TILE).map(|i| self.lookup(i)).collect()
     }
 
-    /// Bit width of one palette index: 1, 2, or 4.
+    /// Bit width of one palette index: 1, 2, 4, 8 or 16.
     pub fn bits_per_cell(&self) -> u8 {
         self.bits_per_cell
     }
 
     pub fn to_compressed_bytes(&self) -> Vec<u8> {
-        let mut raw = Vec::with_capacity(2 + self.palette.len() * 5 + self.indices.len());
-        raw.push(self.palette.len() as u8);
+        let mut raw = Vec::with_capacity(3 + self.palette.len() * 5 + self.indices.len());
+        raw.extend_from_slice(&(self.palette.len() as u16).to_le_bytes());
         raw.push(self.bits_per_cell);
         for entry in &self.palette {
             match entry {
@@ -102,12 +119,12 @@ impl PackedTile {
     pub fn from_compressed_bytes(bytes: &[u8]) -> Self {
         let raw = zstd::decode_all(bytes).expect("decompress per-tile blob");
         let mut p = 0usize;
-        let palette_len = raw[p] as usize;
-        p += 1;
+        let palette_len = u16::from_le_bytes(raw[p..p + 2].try_into().unwrap()) as usize;
+        p += 2;
         let bits_per_cell = raw[p];
         p += 1;
         assert!(palette_len <= MAX_PALETTE_ENTRIES);
-        assert!(matches!(bits_per_cell, 1 | 2 | 4));
+        assert!(matches!(bits_per_cell, 1 | 2 | 4 | 8 | 16));
         let mut palette = Vec::with_capacity(palette_len);
         for _ in 0..palette_len {
             let tag = raw[p];
@@ -138,28 +155,49 @@ fn bits_for_palette(n: usize) -> u8 {
     match n {
         0..=2 => 1,
         3..=4 => 2,
-        _ => 4,
+        5..=16 => 4,
+        17..=256 => 8,
+        _ => 16,
     }
 }
 
-fn pack(cell_idx: &[u8], bits_per_cell: u8) -> Box<[u8]> {
+fn pack(cell_idx: &[u16], bits_per_cell: u8) -> Box<[u8]> {
     let total_bits = cell_idx.len() * bits_per_cell as usize;
-    let bytes = total_bits.div_ceil(8);
-    let mut out = vec![0u8; bytes];
-    let mask = (1u8 << bits_per_cell) - 1;
-    let cells_per_byte = 8 / bits_per_cell as usize;
-    for (i, &v) in cell_idx.iter().enumerate() {
-        let byte = i / cells_per_byte;
-        let shift = (i % cells_per_byte) * bits_per_cell as usize;
-        out[byte] |= (v & mask) << shift;
+    let mut out = vec![0u8; total_bits.div_ceil(8)];
+    match bits_per_cell {
+        16 => {
+            for (i, &v) in cell_idx.iter().enumerate() {
+                out[i * 2..i * 2 + 2].copy_from_slice(&v.to_le_bytes());
+            }
+        }
+        8 => {
+            for (i, &v) in cell_idx.iter().enumerate() {
+                out[i] = v as u8;
+            }
+        }
+        bits => {
+            let mask = (1u8 << bits) - 1;
+            let cells_per_byte = 8 / bits as usize;
+            for (i, &v) in cell_idx.iter().enumerate() {
+                let byte = i / cells_per_byte;
+                let shift = (i % cells_per_byte) * bits as usize;
+                out[byte] |= (v as u8 & mask) << shift;
+            }
+        }
     }
     out.into_boxed_slice()
 }
 
-fn unpack_one(indices: &[u8], bits_per_cell: u8, i: usize) -> u8 {
-    let mask = (1u8 << bits_per_cell) - 1;
-    let cells_per_byte = 8 / bits_per_cell as usize;
-    let byte = i / cells_per_byte;
-    let shift = (i % cells_per_byte) * bits_per_cell as usize;
-    (indices[byte] >> shift) & mask
+fn unpack_one(indices: &[u8], bits_per_cell: u8, i: usize) -> u16 {
+    match bits_per_cell {
+        16 => u16::from_le_bytes([indices[i * 2], indices[i * 2 + 1]]),
+        8 => indices[i] as u16,
+        bits => {
+            let mask = (1u8 << bits) - 1;
+            let cells_per_byte = 8 / bits as usize;
+            let byte = i / cells_per_byte;
+            let shift = (i % cells_per_byte) * bits as usize;
+            ((indices[byte] >> shift) & mask) as u16
+        }
+    }
 }

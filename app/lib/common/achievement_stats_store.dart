@@ -194,7 +194,7 @@ class AchievementStatsStore extends ChangeNotifier {
   Future<List<AchievementCountryStats>> _fetchCountryStats() async {
     final countriesView = await achievement_api.regionLevelView(
       layer: AchievementLayer.default_,
-      level: RegionKind.country,
+      level: RegionKind.admin0,
     );
 
     final countries = countriesView.entries.entries

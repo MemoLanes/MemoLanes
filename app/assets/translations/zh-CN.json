@@ -125,8 +125,11 @@
     "finish": "数据库优化完成。"
   },
   "recording_health": {
+    "setting_title": "记录中断提醒",
+    "interruption_detected": "记录可能已中断",
     "freeze_warning": "轨迹记录期间应用可能被系统冻结，部分位置记录可能出现中断。建议检查系统后台运行和省电设置。",
-    "view_help": "查看帮助"
+    "view_help": "查看教程",
+    "dont_remind_again": "不再提示"
   },
   "journey_kind": {
     "default": "地表",
