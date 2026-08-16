@@ -11,12 +11,16 @@ enum _RegionAreaSortMode {
   coverage,
 }
 
+const _areaFractionDigits = 2;
+const _coverageFractionDigits = 3;
+
 class AchievementRegionAreaListItem {
   const AchievementRegionAreaListItem({
     required this.name,
     required this.visitedKm2,
     required this.totalKm2,
     this.flagCountryCode,
+    this.onTap,
     String? sortKey,
   }) : sortKey = sortKey ?? name;
 
@@ -24,6 +28,7 @@ class AchievementRegionAreaListItem {
   final double visitedKm2;
   final double totalKm2;
   final String? flagCountryCode;
+  final VoidCallback? onTap;
   final String sortKey;
 
   double get progress {
@@ -38,11 +43,19 @@ class AchievementRegionAreaListPage extends StatefulWidget {
     required this.title,
     required this.emptyText,
     required this.items,
+    this.isLoading = false,
+    this.onRetry,
+    this.showIcons = true,
+    this.skeletonShowsChevron = false,
   });
 
   final String title;
   final String emptyText;
   final List<AchievementRegionAreaListItem> items;
+  final bool isLoading;
+  final VoidCallback? onRetry;
+  final bool showIcons;
+  final bool skeletonShowsChevron;
 
   @override
   State<AchievementRegionAreaListPage> createState() =>
@@ -71,19 +84,31 @@ class _AchievementRegionAreaListPageState
             StyleConstants.navBarSafeArea,
           ),
           children: [
-            _RegionAreaSortControl(
-              value: _sortMode,
-              onChanged: (value) => setState(() => _sortMode = value),
-            ),
-            const SizedBox(height: 12),
-            if (items.isEmpty)
+            if (widget.isLoading)
+              _RegionAreaListSkeleton(
+                showIcons: widget.showIcons,
+                showChevron: widget.skeletonShowsChevron,
+              )
+            else if (widget.onRetry != null)
+              _RegionAreaListErrorCard(onRetry: widget.onRetry!)
+            else if (items.isEmpty)
               _RegionAreaListEmptyCard(text: widget.emptyText)
-            else
+            else ...[
+              _RegionAreaSortControl(
+                value: _sortMode,
+                onChanged: (value) => setState(() => _sortMode = value),
+              ),
+              const SizedBox(height: 12),
               OptionCard(
                 children: [
-                  for (final item in items) _RegionAreaListTile(item: item),
+                  for (final item in items)
+                    _RegionAreaListTile(
+                      item: item,
+                      showIcon: widget.showIcons,
+                    ),
                 ],
               ),
+            ],
           ],
         ),
       ),
@@ -139,12 +164,12 @@ class _RegionAreaSortControl extends StatelessWidget {
         segments: [
           ButtonSegment(
             value: _RegionAreaSortMode.area,
-            label: Text(context.tr('achievement.region_area_list.sort_area')),
+            label: Text(context.tr('achievement.region_list.sort_area')),
           ),
           ButtonSegment(
             value: _RegionAreaSortMode.coverage,
             label: Text(
-              context.tr('achievement.region_area_list.sort_coverage'),
+              context.tr('achievement.region_list.sort_coverage'),
             ),
           ),
         ],
@@ -182,93 +207,232 @@ class _RegionAreaSortControl extends StatelessWidget {
 }
 
 class _RegionAreaListTile extends StatelessWidget {
-  const _RegionAreaListTile({required this.item});
+  const _RegionAreaListTile({required this.item, required this.showIcon});
 
   final AchievementRegionAreaListItem item;
+  final bool showIcon;
 
   @override
   Widget build(BuildContext context) {
-    final area = formatArea(context, item.visitedKm2);
+    final area = formatArea(
+      context,
+      item.visitedKm2,
+      fractionDigits: _areaFractionDigits,
+    );
 
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: item.onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              if (showIcon) ...[
+                Container(
+                  width: 42,
+                  height: 42,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.06),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.10),
+                    ),
+                  ),
+                  child: item.flagCountryCode == null
+                      ? Icon(
+                          Icons.public_rounded,
+                          color: Colors.white.withValues(alpha: 0.68),
+                          size: 23,
+                        )
+                      : AchievementCountryFlag(
+                          countryCode: item.flagCountryCode!,
+                          size: 34,
+                        ),
+                ),
+                const SizedBox(width: 12),
+              ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              height: 1.1,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        _RegionAreaText(area: area),
+                      ],
+                    ),
+                    const SizedBox(height: 9),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: AchievementProgressLine(
+                            progress: item.progress,
+                            accent: StyleConstants.defaultColor,
+                            height: 6,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          formatPercent(
+                            item.progress,
+                            fractionDigits: _coverageFractionDigits,
+                          ),
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.62),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            height: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              if (item.onTap != null) ...[
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: Colors.white.withValues(alpha: 0.38),
+                  size: 22,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RegionAreaListSkeleton extends StatelessWidget {
+  const _RegionAreaListSkeleton({
+    required this.showIcons,
+    required this.showChevron,
+  });
+
+  final bool showIcons;
+  final bool showChevron;
+
+  @override
+  Widget build(BuildContext context) {
+    return OptionCard(
+      children: [
+        for (var i = 0; i < 6; i++)
+          _RegionAreaListSkeletonTile(
+            showIcon: showIcons,
+            showChevron: showChevron,
+          ),
+      ],
+    );
+  }
+}
+
+class _RegionAreaListSkeletonTile extends StatelessWidget {
+  const _RegionAreaListSkeletonTile({
+    required this.showIcon,
+    required this.showChevron,
+  });
+
+  final bool showIcon;
+  final bool showChevron;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.06),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.10),
-              ),
+          if (showIcon) ...[
+            const _RegionAreaSkeletonBlock(
+              width: 42,
+              height: 42,
+              radius: 999,
             ),
-            child: item.flagCountryCode == null
-                ? Icon(
-                    Icons.public_rounded,
-                    color: Colors.white.withValues(alpha: 0.68),
-                    size: 23,
-                  )
-                : AchievementCountryFlag(
-                    countryCode: item.flagCountryCode!,
-                    size: 34,
-                  ),
-          ),
-          const SizedBox(width: 12),
+            const SizedBox(width: 12),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        item.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          height: 1.1,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: _RegionAreaSkeletonBlock(
+                          width: 128,
+                          height: 16,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    _RegionAreaText(area: area),
+                    SizedBox(width: 10),
+                    _RegionAreaSkeletonBlock(width: 78, height: 16),
                   ],
                 ),
                 const SizedBox(height: 9),
                 Row(
                   children: [
-                    Expanded(
-                      child: AchievementProgressLine(
-                        progress: item.progress,
-                        accent: StyleConstants.defaultColor,
+                    const Expanded(
+                      child: _RegionAreaSkeletonBlock(
+                        width: double.infinity,
                         height: 6,
+                        radius: 999,
                       ),
                     ),
                     const SizedBox(width: 10),
-                    Text(
-                      formatPercent(item.progress, fractionDigits: 3),
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.62),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        height: 1,
-                      ),
-                    ),
+                    const _RegionAreaSkeletonBlock(width: 54, height: 12),
                   ],
                 ),
               ],
             ),
           ),
+          if (showChevron) ...[
+            const SizedBox(width: 8),
+            const _RegionAreaSkeletonBlock(width: 22, height: 22),
+          ],
         ],
       ),
+    );
+  }
+}
+
+class _RegionAreaSkeletonBlock extends StatelessWidget {
+  const _RegionAreaSkeletonBlock({
+    required this.width,
+    required this.height,
+    this.radius = 6,
+  });
+
+  final double width;
+  final double height;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.075),
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      child: SizedBox(width: width, height: height),
     );
   }
 }
@@ -335,6 +499,49 @@ class _RegionAreaListEmptyCard extends StatelessWidget {
               fontWeight: FontWeight.w500,
               height: 1.35,
             ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RegionAreaListErrorCard extends StatelessWidget {
+  const _RegionAreaListErrorCard({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return OptionCard(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 28),
+          child: Column(
+            children: [
+              Text(
+                context.tr('achievement.region_list.error'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.58),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 14),
+              OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: Text(context.tr('achievement.region_list.retry')),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: StyleConstants.defaultColor,
+                  side: BorderSide(
+                    color: StyleConstants.defaultColor.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],

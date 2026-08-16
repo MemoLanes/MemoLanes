@@ -110,6 +110,11 @@ export function transformStyleWithProjection(
   return {
     ...convertedStyle,
     projection: { type: projectionValue },
+    sky: {
+      "sky-color": "#080820",
+      "horizon-color": "#2a2a3a",
+      "atmosphere-blend": 0.8,
+    },
   };
 }
 
