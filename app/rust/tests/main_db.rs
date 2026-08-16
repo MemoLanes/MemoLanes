@@ -321,7 +321,7 @@ fn copy_journey_with_metadata() {
     let temp_dir = TempDir::new("main_db-copy_journey_with_metadata").unwrap();
     println!("temp dir: {:?}", temp_dir.path());
 
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap());
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
     let source_start = DateTime::from_timestamp(1_704_067_200, 0).unwrap();
     let copied_end = DateTime::from_timestamp(1_707_868_800, 0).unwrap();
 
