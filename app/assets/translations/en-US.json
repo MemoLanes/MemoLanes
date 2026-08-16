@@ -205,7 +205,7 @@
       "title": "Total explored area"
     },
     "source": {
-      "title": "Explored area",
+      "title": "Explored Area",
       "description": "Total area combines Ground and Flight",
       "overlap_note": "Ground and Flight may overlap.",
       "error": "Could not load explored area.",
@@ -219,7 +219,7 @@
       "error": "Could not load explored countries."
     },
     "region_list": {
-      "country_title": "Explored countries",
+      "country_title": "Countries & Regions",
       "region_empty": "No regions unlocked in this country yet.",
       "error": "Could not load region data.",
       "retry": "Retry",
