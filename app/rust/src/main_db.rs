@@ -1,7 +1,7 @@
 extern crate simplelog;
 use anyhow::{Context, Result};
 use auto_context::auto_context;
-use chrono::{DateTime, Local, NaiveDate, Timelike, Utc};
+use chrono::{DateTime, Local, NaiveDate, Utc};
 use protobuf::Message;
 use rusqlite::{Connection, OptionalExtension, Transaction};
 use std::error::Error;
@@ -582,20 +582,8 @@ impl Txn<'_> {
 
                 let now = Local::now();
                 let recording_length_hours = (now.timestamp() - start.timestamp()) / 60 / 60;
-                let required_gap_mins = if recording_length_hours >= 48 {
-                    0 // let's just finalize it
-                } else if recording_length_hours >= 24 {
-                    2
-                } else {
-                    // if the local date changed since start, we should try to finalize it, otherwise we don't want that unless there is a huge gap (6h)
-                    if start.with_timezone(&Local).date_naive() == now.date_naive() {
-                        6 * 60
-                    } else if now.hour() <= 4 || recording_length_hours <= 8 {
-                        20
-                    } else {
-                        5
-                    }
-                };
+                let required_gap_mins =
+                    crate::journey_date_picker::min_gap(start, now, recording_length_hours);
 
                 let gap_mins = (now.timestamp() - end.timestamp()).max(0) / 60;
 

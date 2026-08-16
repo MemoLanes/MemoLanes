@@ -11,7 +11,7 @@ Future<void> showAutoSelectedPreprocessorNotice(
     case import_api.ImportPreprocessor.spare:
       await showCommonDialog(
         context,
-        context.tr('preprocessor.spare_md'),
+        context.tr('import.preprocessor.spare_md'),
         markdown: true,
       );
       return;

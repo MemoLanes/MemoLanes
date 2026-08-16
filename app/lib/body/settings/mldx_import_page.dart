@@ -218,8 +218,8 @@ class _MldxImportPageState extends State<MldxImportPage> {
   Future<void> _confirmImport() async {
     if (_selectedIds.isEmpty) {
       if (mounted) {
-        await showCommonDialog(
-            context, context.tr('import.mldx_preview.select_at_least_one'));
+        await showCommonDialog(context,
+            context.tr('import.journey_selection.select_at_least_one'));
       }
       return;
     }
@@ -248,6 +248,7 @@ class _MldxImportPageState extends State<MldxImportPage> {
   @override
   Widget build(BuildContext context) {
     final journey = _sortedJourneyWithoutIgnored;
+    final newCount = journey.length - _conflictCount;
     return MultiJourneyImportPage(
       title: context.tr('import.mldx_preview.title'),
       items: journey.map((j) {
@@ -288,18 +289,24 @@ class _MldxImportPageState extends State<MldxImportPage> {
         );
       }).toList(),
       selectedKeys: _selectedIds,
-      listSectionTitle: context.tr('import.mldx_preview.list_section_title'),
-      selectAllLabel: context.tr('import.mldx_preview.select_all'),
-      deselectAllLabel: context.tr('import.mldx_preview.deselect_all'),
-      confirmLabel: context.tr('import.mldx_preview.confirm_import'),
+      listSectionTitle: context.tr(
+        'import.journey_selection.list_section_title',
+        args: ['${journey.length}'],
+      ),
+      selectAllLabel: context.tr('import.journey_selection.select_all'),
+      deselectAllLabel: context.tr('import.journey_selection.deselect_all'),
+      confirmLabel: context.tr(
+        'import.journey_selection.confirm_import',
+        args: ['${_selectedIds.length}'],
+      ),
       onToggleItem: (id, selected) =>
           _onToggleItem(_journeyForId(id), selected),
       onToggleAll: _toggleSelectAll,
       onPreview: (id) => _openJourneyPreview(_journeyForId(id)),
       onConfirm: _confirmImport,
-      header: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-        child: Column(
+      collapsibleHeader: MultiJourneyCollapsibleHeader.standard(
+        expandedHeight: 120,
+        expandedContent: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (_unchangedCount > 0)
@@ -324,11 +331,16 @@ class _MldxImportPageState extends State<MldxImportPage> {
             Text(
               context.tr(
                 'import.mldx_preview.new_count',
-                args: ['${journey.length - _conflictCount}'],
+                args: ['$newCount'],
               ),
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ],
+        ),
+        collapsedIcon: Icons.summarize_outlined,
+        collapsedText: context.tr(
+          'import.mldx_preview.summary_counts',
+          args: ['$newCount', '$_conflictCount', '$_unchangedCount'],
         ),
       ),
     );

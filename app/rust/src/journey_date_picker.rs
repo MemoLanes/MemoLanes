@@ -1,10 +1,55 @@
 use std::collections::HashMap;
 
-use chrono::{DateTime, Local, NaiveDate, Utc};
+use chrono::{DateTime, Local, NaiveDate, TimeZone, Timelike, Utc};
 
 use crate::{gps_processor::Point, journey_vector::TrackPoint};
 
-// TODO: we don't have test for this because mocking timezone in test is annoying.
+/// Returns the idle gap required to end a journey at `now`.
+pub(crate) fn min_gap<Tz: TimeZone>(
+    start: DateTime<Utc>,
+    now: DateTime<Tz>,
+    duration_hours: i64,
+) -> i64 {
+    if duration_hours >= 48 {
+        0 // Finalize very long recordings immediately.
+    } else if duration_hours >= 24 {
+        2
+    } else {
+        // On the starting date, avoid ending a journey unless there is a huge
+        // gap. After crossing midnight, shorter gaps are enough, while the
+        // first few hours retain a 20-minute grace period.
+        if start.with_timezone(&now.timezone()).date_naive() == now.date_naive() {
+            6 * 60
+        } else if now.hour() <= 4 || duration_hours <= 8 {
+            20
+        } else {
+            5
+        }
+    }
+}
+
+/// Tracks enough history to apply `min_gap` to a stream of timestamps.
+#[derive(Default)]
+pub(crate) struct BoundaryTracker {
+    start: Option<DateTime<Utc>>,
+    end: Option<DateTime<Utc>>,
+}
+
+impl BoundaryTracker {
+    pub(crate) fn should_end_at<Tz: TimeZone>(&self, now: DateTime<Tz>) -> bool {
+        let (Some(start), Some(end)) = (self.start, self.end) else {
+            return false;
+        };
+        let duration_hours = (now.timestamp() - start.timestamp()) / 60 / 60;
+        let gap_mins = (now.timestamp() - end.timestamp()).max(0) / 60;
+        gap_mins >= min_gap(start, now, duration_hours)
+    }
+
+    pub(crate) fn observe(&mut self, timestamp: DateTime<Utc>) {
+        self.start.get_or_insert(timestamp);
+        self.end = Some(timestamp);
+    }
+}
 
 // TODO: I think using `chrono::Local` might be problematic. I think on mobile
 // devices, the timezone might change as the user travels. We should probably

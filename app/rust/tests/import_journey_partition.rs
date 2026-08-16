@@ -5,9 +5,7 @@ use memolanes_core::{
         load_vector_data, process_vector_data_for_date,
     },
     gps_processor::{Point, RawData},
-    import_data::split_by_date::{
-        split_raw_vector_data_by_local_date, summarize_raw_vector_data_by_local_date,
-    },
+    import_data::journey_partition::{group_by_date, summarize},
     journey_header::JourneyKind,
 };
 
@@ -33,26 +31,41 @@ fn local_timestamp(year: i32, month: u32, day: u32, hour: u32, minute: u32, seco
 }
 
 #[test]
-fn splits_at_local_midnight_and_preserves_source_segments() {
+fn continuous_midnight_track_stays_on_previous_day() {
     let day_one = NaiveDate::from_ymd_opt(2026, 8, 11).unwrap();
-    let day_two = NaiveDate::from_ymd_opt(2026, 8, 12).unwrap();
     let raw_data = vec![
         vec![
-            point(Some(local_timestamp(2026, 8, 11, 23, 59, 59)), 1.0),
-            point(Some(local_timestamp(2026, 8, 12, 0, 0, 0)), 2.0),
+            point(Some(local_timestamp(2026, 8, 11, 23, 50, 0)), 0.0),
+            point(Some(local_timestamp(2026, 8, 11, 23, 59, 0)), 2.0),
+            point(Some(local_timestamp(2026, 8, 12, 0, 0, 0)), 2.01),
         ],
-        vec![point(Some(local_timestamp(2026, 8, 12, 12, 0, 0)), 3.0)],
+        vec![point(Some(local_timestamp(2026, 8, 12, 0, 10, 0)), 2.02)],
     ];
 
-    let split = split_raw_vector_data_by_local_date(&raw_data);
-    assert_eq!(split.len(), 2);
-    assert_eq!(split[&day_one].len(), 1);
-    assert_eq!(split[&day_two].len(), 2);
-    assert_eq!(split[&day_two].iter().map(Vec::len).sum::<usize>(), 2);
+    let parts = group_by_date(&raw_data);
+    assert_eq!(parts.len(), 1);
+    assert_eq!(parts[&day_one].len(), 2);
+    assert_eq!(parts[&day_one].iter().map(Vec::len).sum::<usize>(), 4);
 }
 
 #[test]
-fn assigns_missing_timestamps_without_losing_points() {
+fn cross_midnight_idle_gap_splits() {
+    let day_one = NaiveDate::from_ymd_opt(2026, 8, 11).unwrap();
+    let day_two = NaiveDate::from_ymd_opt(2026, 8, 12).unwrap();
+    let raw_data = vec![vec![
+        point(Some(local_timestamp(2026, 8, 11, 23, 50, 0)), 0.0),
+        point(Some(local_timestamp(2026, 8, 11, 23, 59, 0)), 1.0),
+        point(Some(local_timestamp(2026, 8, 12, 0, 30, 0)), 2.0),
+    ]];
+
+    let parts = group_by_date(&raw_data);
+    assert_eq!(parts.len(), 2);
+    assert_eq!(parts[&day_one].iter().map(Vec::len).sum::<usize>(), 2);
+    assert_eq!(parts[&day_two].iter().map(Vec::len).sum::<usize>(), 1);
+}
+
+#[test]
+fn missing_timestamps_are_preserved() {
     let day_one = NaiveDate::from_ymd_opt(2026, 8, 11).unwrap();
     let day_two = NaiveDate::from_ymd_opt(2026, 8, 12).unwrap();
     let raw_data = vec![
@@ -61,22 +74,22 @@ fn assigns_missing_timestamps_without_losing_points() {
             point(None, 2.0),
             point(Some(local_timestamp(2026, 8, 11, 23, 59, 59)), 3.0),
             point(None, 4.0),
-            point(Some(local_timestamp(2026, 8, 12, 0, 0, 0)), 5.0),
+            point(Some(local_timestamp(2026, 8, 12, 0, 30, 0)), 5.0),
             point(None, 6.0),
         ],
         vec![point(None, 7.0)],
     ];
 
-    let split = split_raw_vector_data_by_local_date(&raw_data);
-    assert_eq!(split.len(), 2);
+    let parts = group_by_date(&raw_data);
+    assert_eq!(parts.len(), 2);
     assert_eq!(
-        split.values().flatten().map(Vec::len).sum::<usize>(),
+        parts.values().flatten().map(Vec::len).sum::<usize>(),
         raw_data.iter().map(Vec::len).sum::<usize>()
     );
-    assert_eq!(split[&day_one].len(), 2);
-    assert_eq!(split[&day_two].len(), 2);
+    assert_eq!(parts[&day_one].len(), 2);
+    assert_eq!(parts[&day_two].len(), 2);
 
-    let summaries = summarize_raw_vector_data_by_local_date(&raw_data);
+    let summaries = summarize(&raw_data);
     assert_eq!(summaries[&day_one].point_count, 4);
     assert_eq!(summaries[&day_one].missing_timestamp_count, 3);
     assert_eq!(summaries[&day_two].point_count, 3);
@@ -84,18 +97,18 @@ fn assigns_missing_timestamps_without_losing_points() {
 }
 
 #[test]
-fn cannot_split_fully_untimed_data() {
-    assert!(split_raw_vector_data_by_local_date(&[vec![point(None, 1.0)]]).is_empty());
+fn fully_untimed_data_cannot_be_grouped() {
+    assert!(group_by_date(&[vec![point(None, 1.0)]]).is_empty());
 }
 
 #[test]
-fn vector_import_api_reuses_split_data_and_returns_string_dates() {
+fn api_uses_partitioned_data() {
     let day_one = NaiveDate::from_ymd_opt(2026, 8, 11).unwrap();
     let day_two = NaiveDate::from_ymd_opt(2026, 8, 12).unwrap();
     let temp_dir = tempdir::TempDir::new("vector-import-by-date").unwrap();
     let csv_path = temp_dir.path().join("multi-day.csv");
     let timestamp_one = local_timestamp(2026, 8, 11, 23, 59, 59);
-    let timestamp_two = local_timestamp(2026, 8, 12, 0, 0, 0);
+    let timestamp_two = local_timestamp(2026, 8, 12, 0, 30, 0);
     std::fs::write(
         &csv_path,
         format!(
@@ -137,7 +150,7 @@ fn vector_import_api_reuses_split_data_and_returns_string_dates() {
 }
 
 #[test]
-fn vector_import_rejects_dates_that_are_not_in_the_loaded_data() {
+fn api_rejects_unknown_dates() {
     let temp_dir = tempdir::TempDir::new("vector-import-invalid-date").unwrap();
     let csv_path = temp_dir.path().join("single-day.csv");
     let timestamp = local_timestamp(2026, 8, 11, 12, 0, 0);

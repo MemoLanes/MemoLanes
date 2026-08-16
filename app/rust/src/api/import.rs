@@ -32,7 +32,7 @@ pub struct JourneyInfo {
 #[frb(opaque)]
 pub struct RawVectorData {
     data: Vec<Vec<RawData>>,
-    data_by_date: OnceLock<import_data::split_by_date::RawVectorDataByDate>,
+    parts_by_date: OnceLock<import_data::journey_partition::RawDataByDate>,
 }
 
 #[derive(Debug)]
@@ -116,7 +116,7 @@ pub fn load_vector_data(
         import_data::conversion::journey_info_from_raw_vector_data(&raw_vector_data),
         RawVectorData {
             data: raw_vector_data,
-            data_by_date: OnceLock::new(),
+            parts_by_date: OnceLock::new(),
         },
         import_preprocessor,
     ))
@@ -150,27 +150,26 @@ pub enum ImportPreprocessor {
 }
 
 impl RawVectorData {
-    fn data_by_date(&self) -> &import_data::split_by_date::RawVectorDataByDate {
-        self.data_by_date.get_or_init(|| {
-            import_data::split_by_date::split_raw_vector_data_by_local_date(&self.data)
-        })
+    fn parts_by_date(&self) -> &import_data::journey_partition::RawDataByDate {
+        self.parts_by_date
+            .get_or_init(|| import_data::journey_partition::group_by_date(&self.data))
     }
 }
 
-fn raw_vector_data_for_date<'a>(
+fn data_for_date<'a>(
     vector_data: &'a RawVectorData,
     journey_date: &str,
 ) -> Result<&'a [Vec<RawData>]> {
     let journey_date = NaiveDate::parse_from_str(journey_date, "%Y-%m-%d")?;
     vector_data
-        .data_by_date()
+        .parts_by_date()
         .get(&journey_date)
         .map(Vec::as_slice)
         .with_context(|| format!("No vector data for date {journey_date}"))
 }
 
 pub fn analyze_vector_data_by_date(vector_data: &RawVectorData) -> Vec<VectorImportPartSummary> {
-    import_data::split_by_date::summarize_raw_vector_data_by_local_date(&vector_data.data)
+    import_data::journey_partition::summarize(&vector_data.data)
         .into_iter()
         .map(|(journey_date, summary)| VectorImportPartSummary {
             journey_date: journey_date.format("%Y-%m-%d").to_string(),
@@ -188,7 +187,7 @@ pub fn process_vector_data_for_date(
     journey_date: String,
     import_processor: ImportPreprocessor,
 ) -> Result<OpaqueJourneyData> {
-    let data = raw_vector_data_for_date(vector_data, &journey_date)?;
+    let data = data_for_date(vector_data, &journey_date)?;
     Ok(process_raw_vector_data(data, import_processor))
 }
 
@@ -204,10 +203,10 @@ pub fn import_vector_data_by_date(
         .into_iter()
         .map(|date| NaiveDate::parse_from_str(&date, "%Y-%m-%d"))
         .collect::<Result<HashSet<_>, _>>()?;
-    let split_data = vector_data.data_by_date();
+    let parts_by_date = vector_data.parts_by_date();
     let mut missing_dates = selected_dates
         .iter()
-        .filter(|date| !split_data.contains_key(date))
+        .filter(|date| !parts_by_date.contains_key(date))
         .copied()
         .collect::<Vec<_>>();
     if !missing_dates.is_empty() {
@@ -216,7 +215,7 @@ pub fn import_vector_data_by_date(
     }
     let mut parts = Vec::new();
 
-    for (journey_date, raw_data) in split_data {
+    for (journey_date, raw_data) in parts_by_date {
         if !selected_dates.contains(journey_date) {
             continue;
         }

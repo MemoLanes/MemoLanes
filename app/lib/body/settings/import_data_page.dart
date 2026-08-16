@@ -53,9 +53,9 @@ class _ImportDataPage extends State<ImportDataPage> {
         () => _loadFile(widget.path),
       );
       if (!mounted) return;
-      var splitByDate = false;
+      var importSeparately = false;
       if (_vectorParts.length > 1) {
-        splitByDate = await showCommonDialog(
+        importSeparately = await showCommonDialog(
           context,
           context.tr(
             'import.vector_multi.mode_message',
@@ -63,7 +63,7 @@ class _ImportDataPage extends State<ImportDataPage> {
           ),
           title: context.tr('import.vector_multi.mode_title'),
           hasCancel: true,
-          confirmButtonText: context.tr('import.vector_multi.split_action'),
+          confirmButtonText: context.tr('import.vector_multi.separate_action'),
           cancelButtonText: context.tr('import.vector_multi.single_action'),
         );
         if (!mounted) return;
@@ -73,7 +73,7 @@ class _ImportDataPage extends State<ImportDataPage> {
         preprocessor: _preprocessor,
       );
       if (!mounted) return;
-      if (splitByDate) {
+      if (importSeparately) {
         final vectorData = switch (journeyDataMaybeRaw) {
           f.Right(value: final data) => data,
           f.Left() => throw StateError('Expected vector import data'),

@@ -74,12 +74,14 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
 
   String _preprocessorLabel(import_api.ImportPreprocessor value) =>
       switch (value) {
-        import_api.ImportPreprocessor.none => context.tr('preprocessor.none'),
+        import_api.ImportPreprocessor.none =>
+          context.tr('import.preprocessor.none'),
         import_api.ImportPreprocessor.generic =>
-          context.tr('preprocessor.generic'),
+          context.tr('import.preprocessor.generic'),
         import_api.ImportPreprocessor.flightTrack =>
-          context.tr('preprocessor.flightTrack'),
-        import_api.ImportPreprocessor.spare => context.tr('preprocessor.spare'),
+          context.tr('import.preprocessor.flight_track'),
+        import_api.ImportPreprocessor.spare =>
+          context.tr('import.preprocessor.spare'),
       };
 
   Future<void> _openPreview(String key) async {
@@ -125,7 +127,7 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
     if (_selectedDates.isEmpty) {
       await showCommonDialog(
         context,
-        context.tr('import.mldx_preview.select_at_least_one'),
+        context.tr('import.journey_selection.select_at_least_one'),
       );
       return;
     }
@@ -226,11 +228,14 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
       title: context.tr('import.vector_multi.title'),
       items: items,
       selectedKeys: _selectedDates,
-      listSectionTitle: context.tr('import.vector_multi.list_section_title'),
-      selectAllLabel: context.tr('import.mldx_preview.select_all'),
-      deselectAllLabel: context.tr('import.mldx_preview.deselect_all'),
+      listSectionTitle: context.tr(
+        'import.journey_selection.list_section_title',
+        args: ['${widget.parts.length}'],
+      ),
+      selectAllLabel: context.tr('import.journey_selection.select_all'),
+      deselectAllLabel: context.tr('import.journey_selection.deselect_all'),
       confirmLabel: context.tr(
-        'import.vector_multi.confirm_import',
+        'import.journey_selection.confirm_import',
         args: ['${_selectedDates.length}'],
       ),
       onToggleItem: (key, selected) async {
@@ -247,109 +252,59 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
       onPreview: _openPreview,
       onConfirm: _confirmImport,
       confirmEnabled: !_isImporting,
-      header: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+      collapsibleHeader: MultiJourneyCollapsibleHeader.standard(
+        expandedContent: Column(
           children: [
-            Text(
-              context.tr(
-                'import.vector_multi.detected_days',
-                args: ['${widget.parts.length}'],
+            LabelTile(
+              label: context.tr('import.preprocessor.label'),
+              trailing: LabelTileContent(
+                content: _preprocessorLabel(_preprocessor),
+                showArrow: true,
               ),
+              onTap: _showPreprocessorPicker,
             ),
-            const SizedBox(height: 4),
-            Text(
-              context.tr('import.vector_multi.local_timezone_hint'),
-              style: Theme.of(context).textTheme.bodySmall,
+            LabelTile(
+              label: context.tr('journey.journey_kind'),
+              trailing: LabelTileContent(
+                content: _journeyKind == JourneyKind.defaultKind
+                    ? context.tr('journey_kind.default')
+                    : context.tr('journey_kind.flight'),
+                showArrow: true,
+              ),
+              onTap: _showJourneyKindPicker,
+            ),
+            LabelTile(
+              label: context.tr('journey.note'),
+              maxHeight: 100,
+              trailing: SizedBox(
+                width: MediaQuery.sizeOf(context).width * 0.55,
+                child: TextField(
+                  controller: _noteController,
+                  keyboardType: TextInputType.multiline,
+                  textInputAction: TextInputAction.newline,
+                  maxLines: 2,
+                  minLines: 1,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0x99FFFFFF),
+                  ),
+                  decoration: InputDecoration.collapsed(
+                    border: InputBorder.none,
+                    hintText: context.tr('common.please_enter'),
+                    hintStyle: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0x99FFFFFF),
+                    ),
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ),
             ),
           ],
         ),
-      ),
-      collapsibleHeader: MultiJourneyCollapsibleHeader(
-        expandedChild: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-          child: Column(
-            children: [
-              LabelTile(
-                label: context.tr('journey.preprocessor'),
-                trailing: LabelTileContent(
-                  content: _preprocessorLabel(_preprocessor),
-                  showArrow: true,
-                ),
-                onTap: _showPreprocessorPicker,
-              ),
-              LabelTile(
-                label: context.tr('journey.journey_kind'),
-                trailing: LabelTileContent(
-                  content: _journeyKind == JourneyKind.defaultKind
-                      ? context.tr('journey_kind.default')
-                      : context.tr('journey_kind.flight'),
-                  showArrow: true,
-                ),
-                onTap: _showJourneyKindPicker,
-              ),
-              LabelTile(
-                label: context.tr('journey.note'),
-                maxHeight: 100,
-                trailing: SizedBox(
-                  width: MediaQuery.sizeOf(context).width * 0.55,
-                  child: TextField(
-                    controller: _noteController,
-                    keyboardType: TextInputType.multiline,
-                    textInputAction: TextInputAction.newline,
-                    maxLines: 2,
-                    minLines: 1,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Color(0x99FFFFFF),
-                    ),
-                    decoration: InputDecoration.collapsed(
-                      border: InputBorder.none,
-                      hintText: context.tr('common.please_enter'),
-                      hintStyle: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0x99FFFFFF),
-                      ),
-                    ),
-                    textAlign: TextAlign.right,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        collapsedChild: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: const Color(0x1AFFFFFF),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.tune,
-                  size: 18,
-                  color: Color(0x99FFFFFF),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    '${_preprocessorLabel(_preprocessor)} · ${_journeyKind == JourneyKind.defaultKind ? context.tr('journey_kind.default') : context.tr('journey_kind.flight')}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Color(0x99FFFFFF),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+        collapsedIcon: Icons.tune,
+        collapsedText:
+            '${_preprocessorLabel(_preprocessor)} · ${_journeyKind == JourneyKind.defaultKind ? context.tr('journey_kind.default') : context.tr('journey_kind.flight')}',
       ),
     );
   }

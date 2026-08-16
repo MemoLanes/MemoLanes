@@ -25,10 +25,72 @@ class MultiJourneyCollapsibleHeader {
     this.collapsedHeight = 58,
   });
 
+  factory MultiJourneyCollapsibleHeader.standard({
+    required Widget expandedContent,
+    required IconData collapsedIcon,
+    required String collapsedText,
+    double expandedHeight = 202,
+    double collapsedHeight = 58,
+  }) {
+    return MultiJourneyCollapsibleHeader(
+      expandedHeight: expandedHeight,
+      collapsedHeight: collapsedHeight,
+      expandedChild: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        child: expandedContent,
+      ),
+      collapsedChild: _CollapsedImportHeader(
+        icon: collapsedIcon,
+        text: collapsedText,
+      ),
+    );
+  }
+
   final Widget expandedChild;
   final Widget collapsedChild;
   final double expandedHeight;
   final double collapsedHeight;
+}
+
+class _CollapsedImportHeader extends StatelessWidget {
+  const _CollapsedImportHeader({
+    required this.icon,
+    required this.text,
+  });
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: const Color(0x1AFFFFFF),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: const Color(0x99FFFFFF)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0x99FFFFFF),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// Shared selectable-list shell for importing multiple journeys.
@@ -49,9 +111,8 @@ class MultiJourneyImportPage extends StatelessWidget {
     required this.onToggleAll,
     required this.onPreview,
     required this.onConfirm,
+    required this.collapsibleHeader,
     this.confirmEnabled = true,
-    this.header,
-    this.collapsibleHeader,
   });
 
   final String title;
@@ -66,8 +127,7 @@ class MultiJourneyImportPage extends StatelessWidget {
   final Future<void> Function(String key) onPreview;
   final Future<void> Function() onConfirm;
   final bool confirmEnabled;
-  final Widget? header;
-  final MultiJourneyCollapsibleHeader? collapsibleHeader;
+  final MultiJourneyCollapsibleHeader collapsibleHeader;
 
   bool get _allSelected =>
       items.isNotEmpty &&
@@ -76,16 +136,13 @@ class MultiJourneyImportPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final collapsibleHeader = this.collapsibleHeader;
     return Scaffold(
       appBar: CapsuleStyleAppBar(title: title),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
-            child: collapsibleHeader == null
-                ? _buildRegularList(context)
-                : _buildCollapsibleList(context, collapsibleHeader),
+            child: _buildCollapsibleList(context, collapsibleHeader),
           ),
           SafeArea(
             child: Padding(
@@ -101,17 +158,6 @@ class MultiJourneyImportPage extends StatelessWidget {
     );
   }
 
-  Widget _buildRegularList(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (header != null) header!,
-        if (items.isNotEmpty) _buildListSectionHeader(context),
-        Expanded(child: _buildListView()),
-      ],
-    );
-  }
-
   Widget _buildCollapsibleList(
     BuildContext context,
     MultiJourneyCollapsibleHeader collapsibleHeader,
@@ -119,7 +165,6 @@ class MultiJourneyImportPage extends StatelessWidget {
     return CustomScrollView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       slivers: [
-        if (header != null) SliverToBoxAdapter(child: header),
         SliverPersistentHeader(
           pinned: true,
           delegate: _CollapsibleHeaderDelegate(
@@ -159,14 +204,6 @@ class MultiJourneyImportPage extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildListView() {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: items.length,
-      itemBuilder: (context, index) => _buildItem(index),
     );
   }
 

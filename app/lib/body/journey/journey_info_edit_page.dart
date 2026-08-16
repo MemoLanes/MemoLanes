@@ -202,23 +202,23 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
             widget.importType == ImportType.fow
                 ? SizedBox.shrink()
                 : LabelTile(
-                    label: context.tr("journey.preprocessor"),
+                    label: context.tr("import.preprocessor.label"),
                     infoLabelOnTap: () => showCommonDialog(
                       context,
-                      context.tr("preprocessor.description_md"),
+                      context.tr("import.preprocessor.description_md"),
                       markdown: true,
                     ),
                     position: LabelTilePosition.single,
                     trailing: LabelTileContent(
                       content: switch (_preprocessor) {
                         import_api.ImportPreprocessor.none =>
-                          context.tr("preprocessor.none"),
+                          context.tr("import.preprocessor.none"),
                         import_api.ImportPreprocessor.generic =>
-                          context.tr("preprocessor.generic"),
+                          context.tr("import.preprocessor.generic"),
                         import_api.ImportPreprocessor.flightTrack =>
-                          context.tr("preprocessor.flightTrack"),
+                          context.tr("import.preprocessor.flight_track"),
                         import_api.ImportPreprocessor.spare =>
-                          context.tr("preprocessor.spare"),
+                          context.tr("import.preprocessor.spare"),
                       },
                       showArrow: true,
                     ),
@@ -318,7 +318,7 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
         children: [
           CardLabelTile(
             position: CardLabelTilePosition.top,
-            label: context.tr("preprocessor.none"),
+            label: context.tr("import.preprocessor.none"),
             onTap: () {
               _selectPreprocessor(import_api.ImportPreprocessor.none);
             },
@@ -326,21 +326,21 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
           ),
           CardLabelTile(
             position: CardLabelTilePosition.middle,
-            label: context.tr("preprocessor.generic"),
+            label: context.tr("import.preprocessor.generic"),
             onTap: () {
               _selectPreprocessor(import_api.ImportPreprocessor.generic);
             },
           ),
           CardLabelTile(
             position: CardLabelTilePosition.bottom,
-            label: context.tr("preprocessor.flightTrack"),
+            label: context.tr("import.preprocessor.flight_track"),
             onTap: () {
               _selectPreprocessor(import_api.ImportPreprocessor.flightTrack);
             },
           ),
           CardLabelTile(
             position: CardLabelTilePosition.middle,
-            label: context.tr("preprocessor.spare"),
+            label: context.tr("import.preprocessor.spare"),
             onTap: () {
               _selectPreprocessor(import_api.ImportPreprocessor.spare);
             },
