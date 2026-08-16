@@ -40,30 +40,38 @@ class FormattedArea {
   final String unit;
 }
 
-FormattedArea formatArea(BuildContext context, double km2) {
+FormattedArea formatArea(
+  BuildContext context,
+  double km2, {
+  int? fractionDigits,
+}) {
+  String formatValue(double value) => fractionDigits == null
+      ? _formatNumberWithinDigits(value)
+      : value.toStringAsFixed(fractionDigits);
+
   if (!km2.isFinite || km2 <= 0) {
     return FormattedArea(
-      value: '0',
+      value: formatValue(0),
       unit: context.tr('achievement.area_units.square_meters'),
     );
   }
 
   if (km2 < 0.01) {
     return FormattedArea(
-      value: _formatNumberWithinDigits(km2 * 1000000),
+      value: formatValue(km2 * 1000000),
       unit: context.tr('achievement.area_units.square_meters'),
     );
   }
 
   if (km2 >= 99999.5) {
     return FormattedArea(
-      value: _formatNumberWithinDigits(km2 / 10000),
+      value: formatValue(km2 / 10000),
       unit: context.tr('achievement.area_units.ten_thousand_square_kilometers'),
     );
   }
 
   return FormattedArea(
-    value: _formatNumberWithinDigits(km2),
+    value: formatValue(km2),
     unit: context.tr('achievement.area_units.square_kilometers'),
   );
 }

@@ -2,7 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:memolanes/body/achievement/achievement_country_list_page.dart';
+import 'package:memolanes/body/achievement/achievement_region_list_page.dart';
 import 'package:memolanes/body/achievement/shared/achievement_common.dart';
 import 'package:memolanes/common/achievement_stats_store.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
@@ -123,12 +123,19 @@ class _CountriesHeader extends StatelessWidget {
                 onPressed: () {
                   navigatorPush(
                     context,
-                    page: const AchievementCountryListPage(),
+                    page: AchievementRegionListPage(
+                      title: context.tr(
+                        'achievement.region_list.country_title',
+                      ),
+                      level: achievementCountryRegionKind,
+                      emptyText: context.tr('achievement.countries.empty'),
+                      showCountryFlags: true,
+                    ),
                   );
                 },
                 icon: const Icon(Icons.arrow_forward_rounded, size: 16),
                 label: Text(
-                  context.tr('achievement.country_list.view_all'),
+                  context.tr('achievement.region_list.view_all'),
                 ),
                 style: TextButton.styleFrom(
                   foregroundColor: _countryGold,
@@ -220,51 +227,66 @@ class _CountryFlagItem extends StatelessWidget {
       WorldviewManager.instance.currentWorldview.id,
     );
 
-    // TODO: Re-enable country detail navigation after province/city data is wired.
     return Tooltip(
       message: countryName,
-      child: SizedBox.expand(
-        child: Padding(
-          padding:
-              const EdgeInsets.symmetric(vertical: _countryItemVerticalPadding),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: _countryFlagSize,
-                height: _countryFlagSize,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF2A2A2A), Color(0xFF1A1A1A)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _countryGold.withValues(alpha: 0.25),
-                      blurRadius: 6,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => navigatorPush(
+            context,
+            page: AchievementRegionListPage(
+              title: countryName,
+              level: achievementProvinceRegionKind,
+              parent: country.entityId,
+              emptyText: context.tr(
+                'achievement.region_list.region_empty',
+              ),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              vertical: _countryItemVerticalPadding,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: _countryFlagSize,
+                  height: _countryFlagSize,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF2A2A2A), Color(0xFF1A1A1A)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                  ],
-                ),
-                child: SizedBox.square(
-                  dimension: 36,
-                  child: AchievementCountryFlag(
-                    countryCode: country.isoA3Eh ?? '',
-                    size: 36,
+                    boxShadow: [
+                      BoxShadow(
+                        color: _countryGold.withValues(alpha: 0.25),
+                        blurRadius: 6,
+                      ),
+                    ],
+                  ),
+                  child: SizedBox.square(
+                    dimension: 36,
+                    child: AchievementCountryFlag(
+                      countryCode: country.isoA3Eh ?? '',
+                      size: 36,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: _countryNameTopSpacing),
-              SizedBox(
-                height: _countryNameSlotHeight,
-                child: FractionallySizedBox(
-                  widthFactor: _countryNameWidthFactor,
-                  child: _CountryNameText(countryName),
+                const SizedBox(height: _countryNameTopSpacing),
+                SizedBox(
+                  height: _countryNameSlotHeight,
+                  child: FractionallySizedBox(
+                    widthFactor: _countryNameWidthFactor,
+                    child: _CountryNameText(countryName),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
