@@ -16,15 +16,28 @@ module.exports = (env, argv) => {
       filename: "index.html",
       chunks: ["main"], // Only include the main chunk
     }),
-    // MapLibre v6's ESM worker imports this sibling module at runtime.
+    // Android's WebView asset loader serves unknown extensions as text/plain,
+    // so use .js for MapLibre's ESM worker and its imported sibling module.
     new CopyWebpackPlugin({
       patterns: [
         {
           from: path.resolve(
             __dirname,
+            "node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs",
+          ),
+          to: "maplibre-gl-worker.js",
+          transform(content) {
+            return content
+              .toString()
+              .replaceAll("maplibre-gl-shared.mjs", "maplibre-gl-shared.js");
+          },
+        },
+        {
+          from: path.resolve(
+            __dirname,
             "node_modules/maplibre-gl/dist/maplibre-gl-shared.mjs",
           ),
-          to: "maplibre-gl-shared.mjs",
+          to: "maplibre-gl-shared.js",
         },
       ],
     }),

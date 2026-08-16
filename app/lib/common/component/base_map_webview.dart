@@ -9,6 +9,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/map_style.dart';
+import 'package:memolanes/common/map_webview_assets.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/utils.dart' as rust_utils show MapBounds;
@@ -287,17 +288,17 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
     if (!mounted) return;
 
-    // Load the page after listeners are registered
+    // Load the page after listeners are registered. Platform-specific asset
+    // mechanics are isolated in MapWebViewAssets.
     if (_devServer.isNotEmpty) {
-      final devUrl = _devServer.endsWith('/')
+      final pageUrl = _devServer.endsWith('/')
           ? '${_devServer}index.html'
           : '$_devServer/index.html';
-      log.info('[base_map_webview] Loading from dev server: $devUrl');
-      await controller.loadUrl(urlRequest: URLRequest(url: WebUri(devUrl)));
+      log.info('[base_map_webview] Loading map page: $pageUrl');
+      await controller.loadUrl(urlRequest: URLRequest(url: WebUri(pageUrl)));
     } else {
-      final assetPath = 'assets/map_webview/index.html';
-      log.info('[base_map_webview] Loading asset: $assetPath');
-      await controller.loadFile(assetFilePath: assetPath);
+      log.info('[base_map_webview] Loading bundled map page');
+      await MapWebViewAssets.load(controller, 'index.html');
     }
   }
 
@@ -444,6 +445,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
                 allowFileAccessFromFileURLs: true,
                 allowUniversalAccessFromFileURLs: true,
                 resourceCustomSchemes: ['memolanes'],
+                webViewAssetLoader: MapWebViewAssets.createAssetLoader(),
               ),
               onWebViewCreated: (controller) {
                 _onWebViewCreated(controller);
@@ -458,6 +460,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
                   contentEncoding: 'utf-8',
                   statusCode: result.status,
                   headers: {
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Expose-Headers':
+                        'X-Tile-Version, X-Not-Modified',
                     'Content-Type': result.contentType,
                     ...result.headers,
                   },
@@ -495,7 +500,10 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
                   return NavigationActionPolicy.CANCEL;
                 }
                 final scheme = url.scheme;
-                if (scheme == 'file' || scheme == 'about') {
+                if (scheme == 'about') {
+                  return NavigationActionPolicy.ALLOW;
+                }
+                if (MapWebViewAssets.owns(url)) {
                   return NavigationActionPolicy.ALLOW;
                 }
                 if (_devServer.isNotEmpty &&
