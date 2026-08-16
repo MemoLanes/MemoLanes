@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -5,6 +7,7 @@ import 'package:memolanes/body/journey/list/journey_layer_filter_menu.dart';
 import 'package:memolanes/body/journey/list/journey_list_controller.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/custom_popup.dart';
+import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
@@ -120,11 +123,11 @@ class JourneyListCalendar extends StatelessWidget {
           controller.hasJourneyOnSelectedDate ? [controller.selectedDate] : [],
       onValueChanged: (dates) {
         AppHaptics.selection();
-        controller.selectDate(dates.first);
+        _runWithLoading(() => controller.selectDate(dates.first));
       },
       onDisplayedMonthChanged: (value) {
         AppHaptics.selection();
-        controller.displayMonth(value);
+        _runWithLoading(() => controller.displayMonth(value));
       },
     );
   }
@@ -164,7 +167,7 @@ class JourneyListCalendar extends StatelessWidget {
           selectedKinds: controller.selectedJourneyKinds,
           onChanged: (kinds) {
             AppHaptics.selection();
-            controller.setJourneyKinds(kinds);
+            _runWithLoading(() => controller.setJourneyKinds(kinds));
           },
         ),
       ),
@@ -204,5 +207,9 @@ class JourneyListCalendar extends StatelessWidget {
     return controller.selectedJourneyKinds.single == JourneyKind.defaultKind
         ? context.tr('journey_kind.default')
         : context.tr('journey_kind.flight');
+  }
+
+  void _runWithLoading(Future<void> Function() task) {
+    unawaited(GlobalLoadingManager.instance.runWithLoading(task));
   }
 }

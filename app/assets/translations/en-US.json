@@ -89,6 +89,8 @@
       "empty_all_description": "Start exploring and make your first journey.",
       "empty_filtered_title": "No matching journeys",
       "empty_filtered_description": "Try a different layer to see more journeys.",
+      "empty_month_title": "No journeys this month",
+      "empty_month_description": "Try another month or layer to see more journeys.",
       "show_all_layers": "Show all journeys"
     },
     "journey_date_is_empty": "JourneyDate is empty",

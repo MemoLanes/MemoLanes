@@ -118,6 +118,10 @@ class JourneyListController extends ChangeNotifier {
     selectedDate =
         _nearestDateInMonth(displayedMonth.year, displayedMonth.month, date) ??
             date;
+    if (!_hasJourneyOn(selectedDate)) {
+      _showEmptyJourneyList();
+      return;
+    }
     await _loadJourneysOnSelectedDate();
   }
 
@@ -156,7 +160,6 @@ class JourneyListController extends ChangeNotifier {
   Object _beginJourneyListLoad() {
     final token = Object();
     _activeHeaderLoad = token;
-    journeyHeaders = [];
     isJourneyListLoading = true;
     notifyListeners();
     return token;

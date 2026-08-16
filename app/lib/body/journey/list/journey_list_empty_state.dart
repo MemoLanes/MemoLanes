@@ -2,26 +2,39 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/constants/style_constants.dart';
 
+enum JourneyListEmptyType { all, filtered, month }
+
 class JourneyListEmptyState extends StatelessWidget {
-  final bool filtered;
+  final JourneyListEmptyType type;
   final bool topAligned;
   final VoidCallback? onShowAll;
 
   const JourneyListEmptyState({
     super.key,
-    required this.filtered,
+    required this.type,
     this.topAligned = false,
     this.onShowAll,
   });
 
   @override
   Widget build(BuildContext context) {
-    final titleKey = filtered
-        ? 'journey.list.empty_filtered_title'
-        : 'journey.list.empty_all_title';
-    final descriptionKey = filtered
-        ? 'journey.list.empty_filtered_description'
-        : 'journey.list.empty_all_description';
+    final (titleKey, descriptionKey, icon) = switch (type) {
+      JourneyListEmptyType.all => (
+          'journey.list.empty_all_title',
+          'journey.list.empty_all_description',
+          Icons.explore_outlined,
+        ),
+      JourneyListEmptyType.filtered => (
+          'journey.list.empty_filtered_title',
+          'journey.list.empty_filtered_description',
+          Icons.layers_clear_outlined,
+        ),
+      JourneyListEmptyType.month => (
+          'journey.list.empty_month_title',
+          'journey.list.empty_month_description',
+          Icons.calendar_month_outlined,
+        ),
+    };
 
     return Align(
       alignment: topAligned ? Alignment.topCenter : Alignment.center,
@@ -48,9 +61,7 @@ class JourneyListEmptyState extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    filtered
-                        ? Icons.layers_clear_outlined
-                        : Icons.explore_outlined,
+                    icon,
                     color: StyleConstants.defaultColor,
                     size: 25,
                   ),
@@ -71,7 +82,7 @@ class JourneyListEmptyState extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Colors.white60, height: 1.45),
                 ),
-                if (filtered && onShowAll != null) ...[
+                if (onShowAll != null) ...[
                   const SizedBox(height: 12),
                   FilledButton.icon(
                     onPressed: onShowAll,

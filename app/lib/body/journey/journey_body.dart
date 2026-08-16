@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/journey/journey_info_page.dart';
@@ -6,6 +8,7 @@ import 'package:memolanes/body/journey/list/journey_list_controller.dart';
 import 'package:memolanes/body/journey/list/journey_list_empty_state.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
+import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/constants/index.dart';
 import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/utils/nav_helper.dart';
@@ -46,14 +49,20 @@ class _JourneyBodyState extends State<JourneyBody> {
   }
 
   Widget _buildJourneyHeaderList() {
-    if (_controller.isJourneyListLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
     if (!_controller.hasFilteredJourneys) {
       return JourneyListEmptyState(
-        filtered: true,
+        type: JourneyListEmptyType.filtered,
         topAligned: true,
-        onShowAll: _controller.showAllJourneyKinds,
+        onShowAll: _showAllJourneyKinds,
+      );
+    }
+    if (!_controller.hasJourneyOnSelectedDate) {
+      return JourneyListEmptyState(
+        type: JourneyListEmptyType.month,
+        topAligned: true,
+        onShowAll: _controller.selectedJourneyKinds.length == 1
+            ? _showAllJourneyKinds
+            : null,
       );
     }
     return ListView.builder(
@@ -73,12 +82,22 @@ class _JourneyBodyState extends State<JourneyBody> {
               page: JourneyInfoPage(journeyHeader: header),
             ).then((refresh) async {
               if (refresh == true) {
-                await _controller.refresh(adjustSelectedDate: true);
+                await GlobalLoadingManager.instance.runWithLoading(
+                  () => _controller.refresh(adjustSelectedDate: true),
+                );
               }
             });
           },
         );
       },
+    );
+  }
+
+  void _showAllJourneyKinds() {
+    unawaited(
+      GlobalLoadingManager.instance.runWithLoading(
+        _controller.showAllJourneyKinds,
+      ),
     );
   }
 
@@ -131,7 +150,7 @@ class _JourneyBodyState extends State<JourneyBody> {
     }
     final firstDate = _controller.firstDate;
     if (firstDate == null) {
-      return const JourneyListEmptyState(filtered: false);
+      return const JourneyListEmptyState(type: JourneyListEmptyType.all);
     }
     if (MediaQuery.of(context).orientation == Orientation.landscape) {
       return _buildLandscapeBody(firstDate);

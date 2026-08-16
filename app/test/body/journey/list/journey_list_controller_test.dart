@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/body/journey/list/journey_list_controller.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 
+class _FakeJourneyHeader extends Fake implements JourneyHeader {}
+
 void main() {
   test('calendar input does not cancel a pending date refresh', () async {
     final dateRequestStarted = Completer<void>();
@@ -123,5 +125,50 @@ void main() {
     await secondLoad;
 
     expect(controller.isJourneyListLoading, isFalse);
+  });
+
+  test('keeps the current list visible while another date is loading',
+      () async {
+    final headerRequest = Completer<List<JourneyHeader>>();
+    final controller = JourneyListController(
+      journeyHeadersLoader: (date, journeyKinds) => headerRequest.future,
+    );
+    addTearDown(controller.dispose);
+    final currentHeaders = <JourneyHeader>[_FakeJourneyHeader()];
+    controller.journeyHeaders = currentHeaders;
+
+    final load = controller.selectDate(DateTime(2024, 1, 2));
+
+    expect(controller.isJourneyListLoading, isTrue);
+    expect(controller.journeyHeaders, same(currentHeaders));
+
+    headerRequest.complete(<JourneyHeader>[]);
+    await load;
+
+    expect(controller.isJourneyListLoading, isFalse);
+    expect(controller.journeyHeaders, isEmpty);
+  });
+
+  test('an empty month clears the list without loading headers', () async {
+    var headerLoadCount = 0;
+    final controller = JourneyListController(
+      journeyHeadersLoader: (date, journeyKinds) async {
+        headerLoadCount += 1;
+        return <JourneyHeader>[];
+      },
+    );
+    addTearDown(controller.dispose);
+    controller.firstDate = DateTime(2024, 1, 1);
+    controller.selectedDate = DateTime(2024, 1, 1);
+    controller.journeyDates = [DateTime(2024, 1, 1)];
+    controller.journeyHeaders = <JourneyHeader>[_FakeJourneyHeader()];
+
+    await controller.displayMonth(DateTime(2024, 2, 1));
+
+    expect(controller.selectedDate, DateTime(2024, 2, 1));
+    expect(controller.hasJourneyOnSelectedDate, isFalse);
+    expect(controller.journeyHeaders, isEmpty);
+    expect(controller.isJourneyListLoading, isFalse);
+    expect(headerLoadCount, 0);
   });
 }
