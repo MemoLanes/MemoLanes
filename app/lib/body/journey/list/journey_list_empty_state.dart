@@ -16,8 +16,9 @@ class JourneyListEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final titleKey =
-        filtered ? 'journey.list.empty_filtered_title' : 'journey.list.empty_all_title';
+    final titleKey = filtered
+        ? 'journey.list.empty_filtered_title'
+        : 'journey.list.empty_all_title';
     final descriptionKey = filtered
         ? 'journey.list.empty_filtered_description'
         : 'journey.list.empty_all_description';

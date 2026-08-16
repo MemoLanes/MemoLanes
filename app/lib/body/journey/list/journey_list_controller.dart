@@ -37,8 +37,8 @@ class JourneyListController extends ChangeNotifier {
   List<JourneyHeader> journeyHeaders = [];
   bool isInitialLoading = true;
   bool isJourneyListLoading = false;
-  int _dateRequestVersion = 0;
-  int _headerRequestVersion = 0;
+  Object? _activeDateRefresh;
+  Object? _activeHeaderLoad;
   bool _isDisposed = false;
 
   bool get hasFilteredJourneys => journeyDates.isNotEmpty;
@@ -67,23 +67,18 @@ class JourneyListController extends ChangeNotifier {
   }
 
   Future<void> refresh({bool adjustSelectedDate = false}) async {
-    final requestVersion = ++_dateRequestVersion;
-    final loadingVersion = ++_headerRequestVersion;
+    final refreshToken = Object();
+    _activeDateRefresh = refreshToken;
+    final pendingHeaderToken = _beginJourneyListLoad();
     final journeyKinds = Set<JourneyKind>.from(selectedJourneyKinds);
-    journeyHeaders = [];
-    isJourneyListLoading = true;
-    notifyListeners();
     try {
       final earliestDate = await _earliestJourneyDateLoader();
-      if (_isDisposed || requestVersion != _dateRequestVersion) return;
+      if (!_isActiveDateRefresh(refreshToken)) return;
       final dates = await _journeyDatesLoader(journeyKinds);
-      if (_isDisposed || requestVersion != _dateRequestVersion) return;
+      if (!_isActiveDateRefresh(refreshToken)) return;
 
-      final appliedHeaderVersion = ++_headerRequestVersion;
       firstDate = earliestDate;
       journeyDates = dates;
-      journeyHeaders = [];
-      isJourneyListLoading = true;
       if (adjustSelectedDate && !_hasJourneyOn(selectedDate)) {
         final nearestDate = _nearestDate(
           dates,
@@ -92,21 +87,17 @@ class JourneyListController extends ChangeNotifier {
         if (nearestDate != null) selectedDate = nearestDate;
       }
       if (dates.isEmpty) {
-        if (appliedHeaderVersion == _headerRequestVersion) {
-          isJourneyListLoading = false;
-          notifyListeners();
-        }
+        _showEmptyJourneyList();
         return;
       }
       await _loadJourneysOnSelectedDate(journeyKinds: journeyKinds);
     } catch (_) {
-      if (!_isDisposed &&
-          requestVersion == _dateRequestVersion &&
-          loadingVersion == _headerRequestVersion) {
-        isJourneyListLoading = false;
-        notifyListeners();
-      }
+      _finishJourneyListLoad(pendingHeaderToken);
       rethrow;
+    } finally {
+      if (identical(refreshToken, _activeDateRefresh)) {
+        _activeDateRefresh = null;
+      }
     }
   }
 
@@ -145,28 +136,48 @@ class JourneyListController extends ChangeNotifier {
   Future<void> _loadJourneysOnSelectedDate({
     Set<JourneyKind>? journeyKinds,
   }) async {
-    final version = ++_headerRequestVersion;
+    final loadToken = _beginJourneyListLoad();
     final kinds = journeyKinds ?? Set<JourneyKind>.from(selectedJourneyKinds);
     final date = selectedDate;
-    journeyHeaders = [];
-    isJourneyListLoading = true;
-    notifyListeners();
     try {
       final headers = await _journeyHeadersLoader(date, kinds);
       if (_isDisposed ||
-          version != _headerRequestVersion ||
+          !identical(loadToken, _activeHeaderLoad) ||
           !setEquals(kinds, selectedJourneyKinds) ||
           date != selectedDate) {
         return;
       }
       journeyHeaders = headers.reversed.toList();
     } finally {
-      if (!_isDisposed && version == _headerRequestVersion) {
-        isJourneyListLoading = false;
-        notifyListeners();
-      }
+      _finishJourneyListLoad(loadToken);
     }
   }
+
+  Object _beginJourneyListLoad() {
+    final token = Object();
+    _activeHeaderLoad = token;
+    journeyHeaders = [];
+    isJourneyListLoading = true;
+    notifyListeners();
+    return token;
+  }
+
+  void _finishJourneyListLoad(Object token) {
+    if (_isDisposed || !identical(token, _activeHeaderLoad)) return;
+    _activeHeaderLoad = null;
+    isJourneyListLoading = false;
+    notifyListeners();
+  }
+
+  void _showEmptyJourneyList() {
+    _activeHeaderLoad = null;
+    journeyHeaders = [];
+    isJourneyListLoading = false;
+    notifyListeners();
+  }
+
+  bool _isActiveDateRefresh(Object token) =>
+      !_isDisposed && identical(token, _activeDateRefresh);
 
   bool _hasJourneyOn(DateTime date) => journeyDates.any((journeyDate) =>
       journeyDate.year == date.year &&
@@ -199,6 +210,8 @@ class JourneyListController extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    _activeDateRefresh = null;
+    _activeHeaderLoad = null;
     super.dispose();
   }
 }

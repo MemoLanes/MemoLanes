@@ -96,4 +96,32 @@ void main() {
 
     expect(controller.isJourneyListLoading, isFalse);
   });
+
+  test('a stale header request cannot finish the current loading state',
+      () async {
+    final requests = <DateTime, Completer<List<JourneyHeader>>>{};
+    final controller = JourneyListController(
+      journeyHeadersLoader: (date, journeyKinds) {
+        final request = Completer<List<JourneyHeader>>();
+        requests[date] = request;
+        return request.future;
+      },
+    );
+    addTearDown(controller.dispose);
+    final firstDate = DateTime(2024, 1, 1);
+    final secondDate = DateTime(2024, 1, 2);
+
+    final firstLoad = controller.selectDate(firstDate);
+    final secondLoad = controller.selectDate(secondDate);
+
+    requests[firstDate]!.complete(<JourneyHeader>[]);
+    await firstLoad;
+
+    expect(controller.isJourneyListLoading, isTrue);
+
+    requests[secondDate]!.complete(<JourneyHeader>[]);
+    await secondLoad;
+
+    expect(controller.isJourneyListLoading, isFalse);
+  });
 }
