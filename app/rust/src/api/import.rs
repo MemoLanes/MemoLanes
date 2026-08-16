@@ -15,10 +15,7 @@ use crate::gps_processor::SegmentGapRule;
 use crate::journey_header::JourneyHeader;
 use crate::journey_vector::JourneyVector;
 use crate::{
-    flight_track_processor,
-    gps_processor::RawData,
-    import_data::{self, journey_info_from_raw_vector_data},
-    journey_data::JourneyData,
+    flight_track_processor, gps_processor::RawData, import_data, journey_data::JourneyData,
     journey_header::JourneyKind,
 };
 
@@ -59,8 +56,8 @@ pub fn load_fow_data(file_path: String) -> Result<(JourneyInfo, OpaqueJourneyDat
         .map(|s| s.to_ascii_lowercase());
 
     let (journey_bitmap, _warnings) = match extension.as_deref() {
-        Some("zip") => import_data::load_fow_sync_data(&file_path)?,
-        Some("fwss") => import_data::load_fow_snapshot_data(&file_path)?,
+        Some("zip") => import_data::fow::load_fow_sync_data(&file_path)?,
+        Some("fwss") => import_data::fow::load_fow_snapshot_data(&file_path)?,
         _ => bail!("Unknown extension {extension:?}"),
     };
 
@@ -89,7 +86,7 @@ pub fn load_fow_data(file_path: String) -> Result<(JourneyInfo, OpaqueJourneyDat
 }
 
 #[auto_context]
-pub fn load_gpx_or_kml(
+pub fn load_vector_data(
     file_path: String,
 ) -> Result<(JourneyInfo, RawVectorData, ImportPreprocessor)> {
     let (raw_vector_data, import_preprocessor) = match Path::new(&file_path)
@@ -98,13 +95,14 @@ pub fn load_gpx_or_kml(
         .map(|x| x.to_lowercase())
         .as_deref()
     {
-        Some("gpx") => import_data::load_gpx(&file_path)?,
-        Some("kml") => import_data::load_kml(&file_path)?,
+        Some("gpx") => import_data::gpx::load_gpx(&file_path)?,
+        Some("kml") => import_data::kml::load_kml(&file_path)?,
+        Some("csv") => import_data::csv::load_csv(&file_path)?,
         extension => return Err(anyhow!("Unknown extension: {extension:?}")),
     };
 
     Ok((
-        journey_info_from_raw_vector_data(&raw_vector_data),
+        import_data::conversion::journey_info_from_raw_vector_data(&raw_vector_data),
         RawVectorData {
             data: raw_vector_data,
         },
@@ -145,17 +143,20 @@ pub fn process_vector_data(
 ) -> Result<OpaqueJourneyData> {
     let journey_vector_opt = match import_processor {
         ImportPreprocessor::None => {
-            import_data::journey_vector_from_raw_data_with_gps_preprocessor(&vector_data.data, None)
+            import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
+                &vector_data.data,
+                None,
+            )
         }
         ImportPreprocessor::Generic => {
-            import_data::journey_vector_from_raw_data_with_gps_preprocessor(
+            import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
                 &vector_data.data,
                 Some(SegmentGapRule::Default),
             )
         }
         ImportPreprocessor::FlightTrack => flight_track_processor::process(&vector_data.data),
         ImportPreprocessor::Spare => {
-            import_data::journey_vector_from_raw_data_with_gps_preprocessor(
+            import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
                 &vector_data.data,
                 Some(SegmentGapRule::Spare),
             )

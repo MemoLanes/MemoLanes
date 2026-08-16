@@ -30,6 +30,12 @@ pub const MIPMAP_BIT_SIZE: usize = {
 const ALL_OFFSET: i16 = TILE_WIDTH_OFFSET + BITMAP_WIDTH_OFFSET;
 const TILE_ZSTD_COMPRESS_LEVEL: i32 = 3;
 
+fn interpolate_x_at_y(x0: i32, y0: i32, x1: i32, y1: i32, y: i32) -> i32 {
+    debug_assert_ne!(y0, y1);
+    let t = (y as f64 - y0 as f64) / (y1 as f64 - y0 as f64);
+    (x0 as f64 + (x1 as f64 - x0 as f64) * t).round() as i32
+}
+
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Hash, PartialOrd, Ord)]
 pub struct TileKey {
     pub x: u16,
@@ -39,6 +45,10 @@ pub struct TileKey {
 impl TileKey {
     pub fn new(x: u16, y: u16) -> Self {
         TileKey { x, y }
+    }
+
+    fn is_in_bounds(self) -> bool {
+        self.x < MAP_WIDTH as u16 && self.y < MAP_WIDTH as u16
     }
 }
 
@@ -70,6 +80,13 @@ impl JourneyBitmap {
     pub fn of_tile_bytes_without_validation(data: Vec<(TileKey, Vec<u8>)>) -> Result<Self> {
         let mut journey_bitmap = Self::new();
         for (key, serialized_bytes) in data {
+            if !key.is_in_bounds() {
+                warn!(
+                    "Discarding out-of-bounds journey bitmap tile ({}, {}); grid width is {}",
+                    key.x, key.y, MAP_WIDTH
+                );
+                continue;
+            }
             journey_bitmap
                 .tiles
                 .insert(key, Tile::deserialize(&serialized_bytes)?);
@@ -94,6 +111,14 @@ impl JourneyBitmap {
     }
 
     pub fn get_tile_mut_or_insert_empty(&mut self, key: &TileKey) -> &mut Tile {
+        assert!(
+            key.is_in_bounds(),
+            "journey bitmap tile ({}, {}) is outside the {}x{} grid",
+            key.x,
+            key.y,
+            MAP_WIDTH,
+            MAP_WIDTH
+        );
         self.tiles.entry(*key).or_default()
     }
 
@@ -120,6 +145,13 @@ impl JourneyBitmap {
     }
 
     pub fn insert_tile(&mut self, key: &TileKey, tile: Tile) {
+        if !key.is_in_bounds() {
+            warn!(
+                "Discarding out-of-bounds journey bitmap tile ({}, {}); grid width is {}",
+                key.x, key.y, MAP_WIDTH
+            );
+            return;
+        }
         self.tiles.insert(*key, tile);
     }
 
@@ -164,12 +196,23 @@ impl JourneyBitmap {
     {
         use std::f64::consts::PI;
 
-        let (mut x0, y0) = utils::lng_lat_to_tile_x_y(
+        if !start_lng.is_finite()
+            || !end_lng.is_finite()
+            || !(-90.0..=90.0).contains(&start_lat)
+            || !(-90.0..=90.0).contains(&end_lat)
+        {
+            return;
+        }
+        let wrap_lng = |lng: f64| (lng + 180.0).rem_euclid(360.0) - 180.0;
+        let start_lng = wrap_lng(start_lng);
+        let end_lng = wrap_lng(end_lng);
+
+        let (mut x0, mut y0) = utils::lng_lat_to_tile_x_y(
             start_lng,
             start_lat,
             (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32,
         );
-        let (mut x1, y1) =
+        let (mut x1, mut y1) =
             utils::lng_lat_to_tile_x_y(end_lng, end_lat, (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32);
 
         let (x_half, _) =
@@ -179,6 +222,21 @@ impl JourneyBitmap {
             x0 += 2 * x_half;
         } else if x0 - x1 > x_half {
             x1 += 2 * x_half;
+        }
+
+        let bitmap_pixel_width = (MAP_WIDTH << ALL_OFFSET) as i32;
+        if (y0 < 0 && y1 < 0) || (y0 >= bitmap_pixel_width && y1 >= bitmap_pixel_width) {
+            return;
+        }
+        let max_y = bitmap_pixel_width - 1;
+        let (original_x0, original_y0, original_x1, original_y1) = (x0, y0, x1, y1);
+        if !(0..=max_y).contains(&y0) {
+            y0 = y0.clamp(0, max_y);
+            x0 = interpolate_x_at_y(original_x0, original_y0, original_x1, original_y1, y0);
+        }
+        if !(0..=max_y).contains(&y1) {
+            y1 = y1.clamp(0, max_y);
+            x1 = interpolate_x_at_y(original_x0, original_y0, original_x1, original_y1, y1);
         }
 
         // Calculate line deltas
@@ -207,19 +265,15 @@ impl JourneyBitmap {
         loop {
             // tile_x is not rounded, it may exceed the antimeridian
             let (tile_x, tile_y) = (x >> ALL_OFFSET, y >> ALL_OFFSET);
-            let (_, tile_lat) = utils::tile_x_y_to_lng_lat(
-                x as i32,
-                y as i32,
-                (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32,
-            );
+            let tile_lat = utils::tile_y_to_lat(y as i32, (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32);
             let latirad = tile_lat * PI / 180.0;
             let width: u8 = (1.0 / latirad.cos()).round() as u8;
 
-            let tile_key = TileKey::new((tile_x % MAP_WIDTH) as u16, tile_y as u16);
+            let tile_key = TileKey::new(tile_x.rem_euclid(MAP_WIDTH) as u16, tile_y as u16);
             let (tile_x_offset, tile_y_offset) = (tile_x << ALL_OFFSET, tile_y << ALL_OFFSET);
-            {
+            let (next, changed) = {
                 let tile = self.get_tile_mut_or_insert_empty(&tile_key);
-                (x, y, p) = tile.add_line(
+                tile.add_line(
                     x - tile_x_offset,
                     y - tile_y_offset,
                     end - if xaxis { tile_x_offset } else { tile_y_offset },
@@ -229,10 +283,12 @@ impl JourneyBitmap {
                     xaxis,
                     quadrants13,
                     width,
-                );
+                )
+            };
+            (x, y, p) = next;
+            if changed {
+                tile_changed(tile_key);
             }
-            // TODO: We might want to check if the tile is actually changed
-            tile_changed(tile_key);
 
             x += tile_x_offset;
             y += tile_y_offset;
@@ -245,15 +301,24 @@ impl JourneyBitmap {
 
     pub fn merge_vector(&mut self, journey_vector: &crate::journey_vector::JourneyVector) {
         for track_segment in &journey_vector.track_segments {
-            for (i, point) in track_segment.track_points.iter().enumerate() {
-                let prev_idx = i.saturating_sub(1);
-                let prev = &track_segment.track_points[prev_idx];
-                self.add_line(
-                    prev.longitude,
-                    prev.latitude,
+            match track_segment.track_points.as_slice() {
+                [] => {}
+                [point] => self.add_line(
                     point.longitude,
                     point.latitude,
-                );
+                    point.longitude,
+                    point.latitude,
+                ),
+                points => {
+                    for pair in points.windows(2) {
+                        self.add_line(
+                            pair[0].longitude,
+                            pair[0].latitude,
+                            pair[1].longitude,
+                            pair[1].latitude,
+                        );
+                    }
+                }
             }
         }
     }
@@ -385,12 +450,14 @@ impl BlockKeyBitset {
 
     fn iter(&self) -> impl Iterator<Item = BlockKey> + '_ {
         self.0.iter().enumerate().flat_map(|(byte_index, &byte)| {
-            (0..8_usize).filter_map(move |offset| {
-                if byte & (1 << offset) != 0 {
-                    Some(BlockKey::from_index(byte_index * 8 + offset))
-                } else {
-                    None
+            let mut remaining = byte;
+            std::iter::from_fn(move || {
+                if remaining == 0 {
+                    return None;
                 }
+                let offset = remaining.trailing_zeros() as usize;
+                remaining &= remaining - 1;
+                Some(BlockKey::from_index(byte_index * 8 + offset))
             })
         })
     }
@@ -416,6 +483,12 @@ impl<'a> TileSummary<'a> {
     pub fn contains_block(&self, block_key: &BlockKey) -> bool {
         match self {
             TileSummary::Tile(tile) => tile.blocks[block_key.index()].is_some(),
+        }
+    }
+
+    pub(crate) fn iter_blocks(&self) -> impl Iterator<Item = BlockKey> + '_ {
+        match self {
+            TileSummary::Tile(tile) => tile.iter().map(|(key, _)| key),
         }
     }
 }
@@ -515,10 +588,11 @@ impl Tile {
         xaxis: bool,
         quadrants13: bool,
         width: u8,
-    ) -> (i64, i64, i64) {
+    ) -> ((i64, i64, i64), bool) {
         let mut p = p;
         let mut x = x;
         let mut y = y;
+        let mut changed = false;
 
         loop {
             let (primary, secondary) = if xaxis { (x, y) } else { (y, x) };
@@ -540,7 +614,7 @@ impl Tile {
                 block_x << BITMAP_WIDTH_OFFSET,
                 block_y << BITMAP_WIDTH_OFFSET,
             );
-            (x, y, p) = block.add_line(
+            let (next, block_changed) = block.add_line(
                 x - block_x_offset,
                 y - block_y_offset,
                 e - if xaxis {
@@ -555,6 +629,8 @@ impl Tile {
                 quadrants13,
                 width,
             );
+            (x, y, p) = next;
+            changed |= block_changed;
 
             x += block_x_offset;
             y += block_y_offset;
@@ -563,7 +639,7 @@ impl Tile {
                 break;
             }
         }
-        (x, y, p)
+        ((x, y, p), changed)
     }
 
     fn serialize_internal(&self) -> anyhow::Result<Vec<u8>> {
@@ -804,7 +880,7 @@ impl Block {
 
     /// Draw a line segment of width `w` perpendicular to the dominant axis.
     /// `xaxis`: true if the line is x-axis dominant (spread along y), false for y-axis dominant (spread along x).
-    fn draw_width(&mut self, x: u8, y: u8, w: u8, even_draw_flag: bool, xaxis: bool) {
+    fn draw_width(&mut self, x: u8, y: u8, w: u8, even_draw_flag: bool, xaxis: bool) -> bool {
         let mut delta_st: u8 = w / 2;
         let mut delta_ed: u8 = w / 2;
         if w.is_multiple_of(2) {
@@ -818,16 +894,18 @@ impl Block {
         let secondary = if xaxis { y } else { x };
         let sec_st = secondary.saturating_sub(delta_st);
         let sec_ed = secondary + delta_ed;
+        let mut changed = false;
         for s in sec_st..=sec_ed {
             if xaxis {
-                self.set_point(x, s, true);
+                changed |= self.set_point_if_changed(x, s, true);
             } else {
-                self.set_point(s, y, true);
+                changed |= self.set_point_if_changed(s, y, true);
             }
         }
+        changed
     }
 
-    fn draw_width_point(&mut self, x: u8, y: u8, w: u8) {
+    fn draw_width_point(&mut self, x: u8, y: u8, w: u8) -> bool {
         let delta_st: u8 = w / 2;
         let mut delta_ed: u8 = w / 2;
         if w.is_multiple_of(2) {
@@ -837,11 +915,13 @@ impl Block {
         let x_ed: u8 = x + delta_ed;
         let y_st: u8 = y.saturating_sub(delta_st);
         let y_ed: u8 = y + delta_ed;
+        let mut changed = false;
         for x_index in x_st..=x_ed {
             for y_index in y_st..=y_ed {
-                self.set_point(x_index, y_index, true);
+                changed |= self.set_point_if_changed(x_index, y_index, true);
             }
         }
+        changed
     }
 
     fn update_mipmap_for_point(&self, x: usize, y: usize, val: bool) {
@@ -876,8 +956,12 @@ impl Block {
 
     // x ∈ [0,63], y ∈ [0，63]
     pub fn set_point(&mut self, x: u8, y: u8, val: bool) {
+        self.set_point_if_changed(x, y, val);
+    }
+
+    fn set_point_if_changed(&mut self, x: u8, y: u8, val: bool) -> bool {
         if x > 63 || y > 63 {
-            return;
+            return false;
         }
         let bit_offset = 7 - (x % 8);
         let i = (x / 8) as usize;
@@ -887,6 +971,9 @@ impl Block {
         self.data[i + j * 8] = (current & !(1 << bit_offset)) | (val_number << bit_offset);
         if self.data[i + j * 8] != current {
             self.update_mipmap_for_point(x as usize, y as usize, val);
+            true
+        } else {
+            false
         }
     }
 
@@ -903,11 +990,11 @@ impl Block {
         xaxis: bool,
         quadrants13: bool,
         width: u8,
-    ) -> (i64, i64, i64) {
+    ) -> ((i64, i64, i64), bool) {
         // Draw the first pixel
         let mut p = p;
         let mut xy = [x, y];
-        self.draw_width_point(xy[0] as u8, xy[1] as u8, width);
+        let mut changed = self.draw_width_point(xy[0] as u8, xy[1] as u8, width);
 
         // xaxis: primary is x (index 0), yaxis: primary is y (index 1)
         let pri = if xaxis { 0usize } else { 1 };
@@ -939,9 +1026,9 @@ impl Block {
             }
 
             // Draw pixel from line span at currently rasterized position
-            self.draw_width(xy[0] as u8, xy[1] as u8, width, draw_flag, xaxis);
+            changed |= self.draw_width(xy[0] as u8, xy[1] as u8, width, draw_flag, xaxis);
         }
-        (xy[0], xy[1], p)
+        ((xy[0], xy[1], p), changed)
     }
 }
 

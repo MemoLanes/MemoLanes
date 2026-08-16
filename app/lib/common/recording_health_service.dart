@@ -7,10 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/utils/nav_helper.dart';
-import 'package:url_launcher/url_launcher_string.dart';
 
-class RecordingHealthService {
+class RecordingHealthService extends ChangeNotifier {
   static final RecordingHealthService instance = RecordingHealthService._();
 
   RecordingHealthService._();
@@ -23,9 +23,17 @@ class RecordingHealthService {
   final _alert = _RecordingHealthAlert();
 
   bool get isRunning => _heartbeatTimer != null;
+  bool get isHeartbeatDetectionEnabled => MMKVUtil.getBool(
+        MMKVKey.isHeartbeatDetectionEnabled,
+        defaultValue: true,
+      );
 
   void handleRecordingStatus(GpsRecordingStatus status) {
     if (defaultTargetPlatform != TargetPlatform.android) return;
+    if (!isHeartbeatDetectionEnabled) {
+      _stopHeartbeat(checkGap: false);
+      return;
+    }
     switch (status) {
       case GpsRecordingStatus.recording:
         _startHeartbeat();
@@ -38,6 +46,22 @@ class RecordingHealthService {
     _stopHeartbeat();
   }
 
+  void setHeartbeatDetectionEnabled(
+    bool enabled, {
+    GpsRecordingStatus? recordingStatus,
+  }) {
+    if (enabled == isHeartbeatDetectionEnabled) return;
+
+    MMKVUtil.putBool(MMKVKey.isHeartbeatDetectionEnabled, enabled);
+    if (!enabled) {
+      _stopHeartbeat(checkGap: false);
+    } else if (defaultTargetPlatform == TargetPlatform.android &&
+        recordingStatus == GpsRecordingStatus.recording) {
+      _startHeartbeat();
+    }
+    notifyListeners();
+  }
+
   void _startHeartbeat() {
     if (_heartbeatTimer != null) return;
 
@@ -47,13 +71,15 @@ class RecordingHealthService {
     });
   }
 
-  void _stopHeartbeat() {
+  void _stopHeartbeat({bool checkGap = true}) {
     if (_heartbeatTimer == null) return;
 
     // A recording status update can arrive immediately after the app resumes,
     // before the next periodic heartbeat. Check the elapsed time before
     // clearing it so a freeze is not missed when recording is stopped then.
-    _checkHeartbeatGap();
+    if (checkGap) {
+      _checkHeartbeatGap();
+    }
     _heartbeatTimer?.cancel();
     _heartbeatTimer = null;
     _lastHeartbeatAt = null;
@@ -92,16 +118,20 @@ class _RecordingHealthAlert {
       final helpUrl = await _helpUrl();
       if (!context.mounted) return;
 
-      final openHelp = await showDialog<bool>(
+      final disableHeartbeatDetection = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
         builder: (dialogContext) => CommonDialog(
-          title: context.tr('common.info'),
-          content: context.tr('recording_health.freeze_warning'),
+          title: context.tr('recording_health.interruption_detected'),
+          content: '${context.tr('recording_health.freeze_warning')}\n\n'
+              '**[${context.tr('recording_health.view_help')} ↗]($helpUrl)**',
+          markdown: true,
           buttons: [
             DialogButton(
-              text: context.tr('recording_health.view_help'),
+              text: context.tr('recording_health.dont_remind_again'),
               onPressed: () => Navigator.of(dialogContext).pop(true),
+              backgroundColor: Colors.red,
+              textColor: Colors.white,
             ),
             DialogButton(
               text: context.tr('common.ok'),
@@ -110,11 +140,8 @@ class _RecordingHealthAlert {
           ],
         ),
       );
-      if (openHelp == true) {
-        await launchUrlString(
-          helpUrl.toString(),
-          mode: LaunchMode.externalApplication,
-        );
+      if (disableHeartbeatDetection == true) {
+        RecordingHealthService.instance.setHeartbeatDetectionEnabled(false);
       }
     } finally {
       _isShowingWarning = false;

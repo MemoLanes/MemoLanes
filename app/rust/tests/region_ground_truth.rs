@@ -21,13 +21,11 @@ use std::collections::{BTreeSet, HashMap};
 use std::fs;
 
 use chrono::NaiveDate;
-use geo_data_format::{GeoEntityKind, Worldview};
+use geo_data_format::{GeoEntityId, GeoEntityKind, Worldview};
 use memolanes_core::{
-    achievement::compute::region_state::RegionStateMap,
+    achievement::attribution::{self, AreaCm2ByEntity},
     achievement::layer::AchievementLayer,
-    achievement::read_model::region::{
-        region_detail, region_level_view, region_levels, RegionKind,
-    },
+    achievement::region::{self, region_levels, RegionKind},
     geo::{GeoIndex, GeoLookup},
     journey_bitmap::{
         Block, BlockKey, JourneyBitmap, TileKey, BITMAP_WIDTH_OFFSET, MAP_WIDTH_OFFSET,
@@ -177,17 +175,34 @@ fn sub(dir: &TempDir, s: &str) -> String {
     p.into_os_string().into_string().unwrap()
 }
 
-/// ISO codes of all visited entities of kind Country, for one layer.
-fn visited_country_isos(
-    states: &RegionStateMap,
-    geo: &dyn GeoLookup,
-    layer: AchievementLayer,
-) -> BTreeSet<String> {
-    states
+/// Canonical codes of every credited entity, any kind.
+fn credited_codes(areas: &AreaCm2ByEntity, geo: &dyn GeoLookup) -> BTreeSet<String> {
+    areas
         .keys()
-        .filter(|(l, _)| *l == layer)
-        .filter_map(|(_, id)| geo.entity(*id))
-        .filter(|e| e.kind == GeoEntityKind::Country)
+        .filter_map(|id| geo.entity(*id))
+        .map(|e| e.canonical_code.clone())
+        .collect()
+}
+
+/// The `Country`-kind entity for a leaf: the leaf itself when it is a country,
+/// otherwise the country among its ancestors. Cities sit inside provinces, so
+/// the raster leaf under one is a province and its country is one level up.
+fn country_of(geo: &GeoIndex, leaf: GeoEntityId) -> Option<&geo_data_format::GeoEntity> {
+    std::iter::once(leaf)
+        .chain(geo.ancestors(leaf))
+        .filter_map(|id| geo.entity(id))
+        .find(|e| e.kind == GeoEntityKind::Admin0)
+}
+
+/// ISO codes of all visited entities of kind Country in one layer's areas.
+fn visited_country_isos(
+    areas: &HashMap<GeoEntityId, u64>,
+    geo: &dyn GeoLookup,
+) -> BTreeSet<String> {
+    areas
+        .keys()
+        .filter_map(|id| geo.entity(*id))
+        .filter(|e| e.kind == GeoEntityKind::Admin0)
         .map(|e| e.canonical_code.clone())
         .collect()
 }
@@ -206,12 +221,14 @@ fn region_api_reports_correct_countries_and_areas() {
         let id = geo_index
             .entity_of_block(tile, block)
             .unwrap_or_else(|| panic!("{}: resolved to ocean", c.name));
-        assert_eq!(
-            geo_index.entity(id).unwrap().canonical_code,
-            c.iso,
-            "{}",
-            c.name
-        );
+        let country = country_of(&geo_index, id).unwrap_or_else(|| {
+            panic!(
+                "{}: leaf `{}` has no country ancestor",
+                c.name,
+                geo_index.entity(id).unwrap().canonical_code
+            )
+        });
+        assert_eq!(country.canonical_code, c.iso, "{}", c.name);
         placements.push((i, tile, block, expected_patch_area(tile, block)));
     }
 
@@ -222,7 +239,8 @@ fn region_api_reports_correct_countries_and_areas() {
         sub(&dir, "d"),
         sub(&dir, "s"),
         sub(&dir, "c"),
-    );
+    )
+    .unwrap();
     storage
         .init_or_change_geo_data(Worldview::Iso, &geo_bytes)
         .unwrap();
@@ -235,13 +253,29 @@ fn region_api_reports_correct_countries_and_areas() {
         );
     }
 
-    // Region states over one consistent snapshot.
-    let states = storage
-        .with_achievement_read(|s| s.region_states(&AchievementLayer::ALL_LAYERS))
-        .unwrap();
-    let states = &states;
-
     use AchievementLayer::*;
+
+    // The two scopes this test renders: every country, and every ancestor of a
+    // placement (for the rollup check). Both come from the geo tree, not coverage.
+    let country_ids = region::level_scope(&geo_index, RegionKind::Admin0, None);
+    let ancestor_ids: Vec<_> = placements
+        .iter()
+        .flat_map(|(_, tile, block, _)| {
+            geo_index.ancestors(geo_index.entity_of_block(*tile, *block).unwrap())
+        })
+        .collect();
+
+    // Region coverage for those scopes over one consistent snapshot.
+    let (default_areas, flight_areas, all_areas, all_ancestor_areas) = storage
+        .with_achievement_read(|s| {
+            Ok((
+                s.region_areas(Default, &country_ids)?,
+                s.region_areas(Flight, &country_ids)?,
+                s.region_areas(All, &country_ids)?,
+                s.region_areas(All, &ancestor_ids)?,
+            ))
+        })
+        .unwrap();
 
     // (1) Correct countries: exact visited sets per layer, nothing spurious.
     let truth = |k: JourneyKind| -> BTreeSet<String> {
@@ -253,38 +287,39 @@ fn region_api_reports_correct_countries_and_areas() {
     };
     let all_truth: BTreeSet<String> = CITIES.iter().map(|c| c.iso.into()).collect();
     assert_eq!(
-        visited_country_isos(states, &geo_index, Default),
+        visited_country_isos(&default_areas, &geo_index),
         truth(JourneyKind::DefaultKind)
     );
     assert_eq!(
-        visited_country_isos(states, &geo_index, Flight),
+        visited_country_isos(&flight_areas, &geo_index),
         truth(JourneyKind::Flight)
     );
-    assert_eq!(visited_country_isos(states, &geo_index, All), all_truth);
+    assert_eq!(visited_country_isos(&all_areas, &geo_index), all_truth);
 
     // Continents roll up: each visited country's ancestors are visited too.
-    for (_, tile, block, _) in &placements {
-        let id = geo_index.entity_of_block(*tile, *block).unwrap();
-        for anc in geo_index.ancestors(id) {
-            assert!(states.contains_key(&(All, anc)), "ancestor not rolled up");
-        }
+    assert!(!ancestor_ids.is_empty(), "placements have ancestors");
+    for anc in &ancestor_ids {
+        assert!(
+            all_ancestor_areas.contains_key(anc),
+            "ancestor not rolled up"
+        );
     }
 
     // (2) Correct areas: per-country visited m² vs the independent integral.
     let mut iso_to_id: HashMap<String, _> = HashMap::new();
-    for id in geo_index.entities_of_kind(GeoEntityKind::Country) {
+    for id in geo_index.entities_of_kind(GeoEntityKind::Admin0) {
         if let Some(e) = geo_index.entity(*id) {
             iso_to_id.insert(e.canonical_code.clone(), *id);
         }
     }
     for (i, _t, _b, expected) in &placements {
         let c = &CITIES[*i];
-        let layer = if c.kind == JourneyKind::Flight {
-            Flight
+        let layer_areas = if c.kind == JourneyKind::Flight {
+            &flight_areas
         } else {
-            Default
+            &default_areas
         };
-        let api = states[&(layer, iso_to_id[c.iso])].visited_area_m2 as f64;
+        let api = layer_areas[&iso_to_id[c.iso]] as f64;
         let rel = (api - expected).abs() / expected;
         assert!(
             rel < 0.02,
@@ -297,8 +332,8 @@ fn region_api_reports_correct_countries_and_areas() {
     // (3) cos²(latitude) law: a fixed N-bit patch is N conformal Mercator pixels,
     //     which shrink in BOTH dimensions by cos(lat), so ground area scales as
     //     cos²(lat). Equatorial Nairobi vs high-latitude Reykjavik must obey it.
-    let nairobi = states[&(Default, iso_to_id["KEN"])].visited_area_m2 as f64;
-    let reykjavik = states[&(Default, iso_to_id["ISL"])].visited_area_m2 as f64;
+    let nairobi = default_areas[&iso_to_id["KEN"]] as f64;
+    let reykjavik = default_areas[&iso_to_id["ISL"]] as f64;
     let cos_ratio = 64.1466f64.to_radians().cos() / 1.2921f64.to_radians().cos();
     let predicted = cos_ratio * cos_ratio;
     let measured = reykjavik / nairobi;
@@ -311,18 +346,27 @@ fn region_api_reports_correct_countries_and_areas() {
     //     detail for France must agree with the raw states.
     storage
         .with_achievement_read(|store| {
-            let geo = store.geo().unwrap();
-            let states = store.region_states(&AchievementLayer::ALL_LAYERS)?;
             let fr = iso_to_id["FRA"];
-            let continent = geo_index
-                .ancestors(fr)
-                .into_iter()
-                .find(|a| geo.entity(*a).map(|e| e.kind) == Some(GeoEntityKind::Continent))
-                .expect("FR has a continent ancestor");
+            // `region_areas` takes `&mut store`, so fetch every area first with
+            // per-statement `geo()` borrows, then hold one for the assertions.
+            let continent = {
+                let geo = store.geo().unwrap();
+                geo_index
+                    .ancestors(fr)
+                    .into_iter()
+                    .find(|a| geo.entity(*a).map(|e| e.kind) == Some(GeoEntityKind::Continent))
+                    .expect("FR has a continent ancestor")
+            };
+            let ids = region::level_scope(store.geo()?, RegionKind::Admin0, Some(continent));
+            let areas = store.region_areas(All, &ids)?;
+            let detail_ids = region::detail_scope(store.geo()?, fr);
+            let detail_areas = store.region_areas(Default, &detail_ids)?;
+
+            let geo = store.geo().unwrap();
 
             // The asset has the full world: many countries, at least one continent.
             let levels = region_levels(geo);
-            let country_total = levels[&RegionKind::Country].region_count;
+            let country_total = levels[&RegionKind::Admin0].region_count;
             assert!(
                 country_total > 100,
                 "expected a full world, got {country_total} countries"
@@ -330,19 +374,35 @@ fn region_api_reports_correct_countries_and_areas() {
             assert!(levels.contains_key(&RegionKind::Continent));
 
             // France is listed and visited among its continent's countries.
-            let view = region_level_view(&states, geo, All, RegionKind::Country, Some(continent));
+            let view = region::level_view(geo, RegionKind::Admin0, &ids, &areas);
             let fr_entry = view.entries.get(&fr).expect("FR listed");
             assert!(fr_entry.visited_area_m2 > 0, "FR should be visited");
             assert!(view.visited_count >= 1 && view.visited_count <= view.region_count);
 
-            // Detail of France (Default layer): area matches its source states.
-            let detail = region_detail(&states, geo, fr, Default).unwrap();
+            // Detail of France (Default layer): area matches the raw coverage read.
+            let detail = region::detail_view(geo, fr, &detail_areas).unwrap();
             assert_eq!(detail.entity_id, fr);
-            assert_eq!(
-                detail.node.visited_area_m2,
-                states[&(Default, fr)].visited_area_m2
-            );
+            assert_eq!(detail.node.visited_area_m2, default_areas[&fr]);
             Ok(())
         })
         .unwrap();
+}
+
+/// Past the Mercator limit (±85.0511°) `add_line` produces tile keys outside the
+/// 512×512 grid: y ≥ 512 in the south, and in the north a negative Mercator y
+/// wrapped through `as u16` to ~65461. Their raw `x*512 + y` is not a safe index
+/// — with the real asset a track at 88°N resolves to tile (383,437), which is
+/// `Single(ATA)`, so the North Pole gets credited to Antarctica, and a track at
+/// 88°N/120°E indexes past the tile grid entirely.
+#[test]
+fn track_past_the_mercator_limit_credits_nothing() {
+    let geo = GeoIndex::from_bytes(&fs::read(test_utils::geo_asset("iso")).unwrap()).unwrap();
+
+    for (lng, lat) in [(0.0, 88.0), (120.0, 88.0), (0.0, -87.0)] {
+        let mut bitmap = JourneyBitmap::new();
+        bitmap.add_line(lng, lat, lng + 0.01, lat + 0.01);
+        let areas = attribution::attribute(&bitmap, &geo);
+        let credited = credited_codes(&areas, &geo);
+        assert!(credited.is_empty(), "({lng}, {lat}) credited {credited:?}");
+    }
 }

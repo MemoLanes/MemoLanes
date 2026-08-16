@@ -20,7 +20,7 @@ class ImportDataPage extends StatefulWidget {
   State<ImportDataPage> createState() => _ImportDataPage();
 }
 
-enum ImportType { fow, gpxOrKml }
+enum ImportType { fow, vector }
 
 class _ImportDataPage extends State<ImportDataPage> {
   import_api.JourneyInfo? journeyInfo;
@@ -82,9 +82,9 @@ class _ImportDataPage extends State<ImportDataPage> {
         });
         break;
 
-      case ImportType.gpxOrKml:
+      case ImportType.vector:
         var (journeyInfo, rawVectorData, detectedProcessor) =
-            await import_api.loadGpxOrKml(filePath: path);
+            await import_api.loadVectorData(filePath: path);
         setState(() {
           this.journeyInfo = journeyInfo;
           _preprocessor = detectedProcessor;
@@ -180,7 +180,7 @@ class _ImportDataPage extends State<ImportDataPage> {
             title: context.tr("data.import_data.title"),
             mapRendererProxy: _mapRendererProxy,
             initialMapBounds: _initialMapBounds,
-            maxHeight: widget.importType == ImportType.gpxOrKml ? 530 : 510,
+            maxHeight: widget.importType == ImportType.vector ? 530 : 510,
             expandPanel: true,
             panel: JourneyInfoEditPage(
               startTime: journeyInfo.startTime,
@@ -199,9 +199,8 @@ class _ImportDataPage extends State<ImportDataPage> {
                 }
                 return await _saveData(journeyInfo, preprocessor);
               },
-              previewData: widget.importType == ImportType.gpxOrKml
-                  ? _previewData
-                  : null,
+              previewData:
+                  widget.importType == ImportType.vector ? _previewData : null,
               importType: widget.importType,
               preprocessor: _preprocessor,
             ),

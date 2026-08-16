@@ -56,6 +56,12 @@
     "continue": "继续",
     "save_confirm": "是否保存？"
   },
+  "startup_error": {
+    "title": "数据版本不兼容",
+    "database_version_too_new": "此设备上的数据由更高版本的迹忆创建，当前版本无法打开。请将迹忆升级到最新版本后重试。",
+    "update": "前往更新",
+    "exit": "退出应用"
+  },
   "journey": {
     "editor": {
       "move": "移动",
@@ -86,7 +92,7 @@
     "journey_info_edit_page_title": "编辑旅程信息",
     "copy_journey": "复制旅程",
     "import_mldx_data": "导入 MLDX 数据",
-    "import_kml_gpx_data": "导入 KML/GPX 数据",
+    "import_track_file": "导入轨迹文件",
     "import_fog_of_world_data": "导入 世界迷雾 数据",
     "export_journey_as_kml": "导出为 KML",
     "export_journey_as_gpx": "导出为 GPX",
@@ -112,8 +118,11 @@
     "finish": "数据库优化完成。"
   },
   "recording_health": {
+    "setting_title": "记录中断提醒",
+    "interruption_detected": "记录可能已中断",
     "freeze_warning": "轨迹记录期间应用可能被系统冻结，部分位置记录可能出现中断。建议检查系统后台运行和省电设置。",
-    "view_help": "查看帮助"
+    "view_help": "查看教程",
+    "dont_remind_again": "不再提示"
   },
   "journey_kind": {
     "default": "地表",
@@ -149,6 +158,9 @@
     "empty_data": "旅途数据为空",
     "successful": "导入成功",
     "parsing_failed": "数据解析失败",
+    "import_track_file": {
+      "description_md": "支持以下轨迹文件格式：\n\n1. **GPX** (`.gpx`)\n2. **KML** (`.kml`)\n3. **CSV** (`.csv`)"
+    },
     "mldx_preview": {
       "title": "归档导入",
       "skipped_identical": "已跳过 {} 条完全相同的旅程",
@@ -202,17 +214,18 @@
       "share_of_total": "占总面积 {}"
     },
     "countries": {
-      "title": "探索国家",
-      "description": "已点亮 {} 个国家和地区",
-      "note": "当前仅统计地表数据中的国家、省级地区与城市，后续会接入更完整的探索范围统计。",
-      "empty": "还没有点亮国家和地区。",
-      "error": "无法加载探索国家。"
+      "title": "国家与地区",
+      "description": "已点亮 {} 个国家与地区",
+      "note": "当前仅统计地表数据中的国家、下辖地区与城市，后续会接入更完整的探索范围统计。",
+      "empty": "还没有点亮国家与地区。",
+      "error": "无法加载探索国家与地区。"
     },
-    "country_list": {
-      "title": "探索国家",
-      "view_all": "查看全部"
-    },
-    "region_area_list": {
+    "region_list": {
+      "country_title": "国家与地区",
+      "region_empty": "还没有点亮这个国家的下辖地区。",
+      "error": "无法加载地区数据。",
+      "retry": "重试",
+      "view_all": "查看全部",
       "sort_area": "面积",
       "sort_coverage": "解锁率"
     },

@@ -1,6 +1,6 @@
 import { TileBuffer } from "../pkg/journey_kernel.js";
 import { getViewportTileRange } from "./layers/utils";
-import type maplibregl from "maplibre-gl";
+import type * as maplibregl from "maplibre-gl";
 import { AVAILABLE_LAYERS, type ReactiveParams } from "./params";
 
 /**
@@ -70,7 +70,7 @@ export class JourneyTileProvider {
   // TODO: evaluate whether we need to make this public (also the bufferSizePower)
   tileBuffer: TileBuffer | null; // Store the tile buffer data
   private viewRangeUpdated: boolean; // Flag indicating view range has been updated
-  private downloadInProgress: boolean; // Flag indicating download is in progress
+  private tileBufferUpdatePromise: Promise<boolean> | null;
   bufferSizePower: number;
   private isGlobeProjection: boolean; // Flag indicating if globe projection is used
   private tileBufferCallbacks: TileBufferCallback[]; // Array to store tile buffer update callbacks
@@ -87,7 +87,7 @@ export class JourneyTileProvider {
     this.viewRange = null;
     this.tileBuffer = null;
     this.viewRangeUpdated = false;
-    this.downloadInProgress = false;
+    this.tileBufferUpdatePromise = null;
 
     this.bufferSizePower = this.getBufferSizePowerFromRenderMode(
       params.renderMode,
@@ -139,6 +139,11 @@ export class JourneyTileProvider {
     }
   }
 
+  /** Wait until the current viewport's tile buffer has finished updating. */
+  async waitForTileBufferUpdate(): Promise<void> {
+    await this.checkAndFetchTileBuffer(true);
+  }
+
   setBufferSizePower(bufferSizePower: number): void {
     if (this.bufferSizePower === bufferSizePower) {
       return;
@@ -178,20 +183,46 @@ export class JourneyTileProvider {
     // Force download since we need tiles for a different area
     this.viewRangeUpdated = true;
 
-    this.checkAndFetchTileBuffer(true); // Force update when view range changes
+    if (!this.tileBufferUpdatePromise) {
+      void this.checkAndFetchTileBuffer(true); // Force update when view range changes
+    }
 
     return this.viewRange;
   }
 
   // Check state and fetch tile buffer if needed
-  private async checkAndFetchTileBuffer(
+  private checkAndFetchTileBuffer(
     forceUpdate: boolean = false,
   ): Promise<boolean> {
-    // If no download is in progress and view range has been updated, fetch new tile buffer
-    if (!this.downloadInProgress && this.viewRangeUpdated) {
-      return await this.fetchTileBuffer(forceUpdate);
+    if (this.tileBufferUpdatePromise) {
+      return this.tileBufferUpdatePromise;
     }
-    return false;
+
+    const pendingUpdate = this.fetchPendingTileBufferUpdates(
+      forceUpdate,
+    ).finally(() => {
+      if (this.tileBufferUpdatePromise === pendingUpdate) {
+        this.tileBufferUpdatePromise = null;
+      }
+    });
+    this.tileBufferUpdatePromise = pendingUpdate;
+    return pendingUpdate;
+  }
+
+  private async fetchPendingTileBufferUpdates(
+    forceUpdate: boolean,
+  ): Promise<boolean> {
+    let tileBufferUpdated = false;
+
+    while (this.viewRangeUpdated) {
+      if (await this.fetchTileBuffer(forceUpdate)) {
+        tileBufferUpdated = true;
+      }
+      // A viewport change queued during the download must bypass version caching.
+      forceUpdate = true;
+    }
+
+    return tileBufferUpdated;
   }
 
   // Register a callback to be called when new tile buffer is ready
@@ -252,8 +283,6 @@ export class JourneyTileProvider {
     if (!this.viewRange) return false;
 
     this.viewRangeUpdated = false;
-    this.downloadInProgress = true;
-
     const [x, y, w, h, z] = this.viewRange;
 
     const requestParams: TileBufferRequestParams = {
@@ -338,15 +367,6 @@ export class JourneyTileProvider {
       tileBufferUpdated = true;
     } catch (error) {
       console.error("Error fetching or deserializing tile buffer:", error);
-    } finally {
-      this.downloadInProgress = false;
-
-      if (this.viewRangeUpdated) {
-        console.log(
-          "View range was updated during download, fetching new tile buffer",
-        );
-        this.checkAndFetchTileBuffer(true);
-      }
     }
 
     return tileBufferUpdated;

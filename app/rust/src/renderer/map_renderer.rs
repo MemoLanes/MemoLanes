@@ -14,7 +14,7 @@ use std::collections::HashMap;
 pub struct MapRenderer {
     journey_bitmap: JourneyBitmap,
     /* for each tile of 512*512 tiles in a JourneyBitmap, use buffered area to record any update */
-    tile_area_cache: HashMap<TileKey, f64>,
+    tile_area_cache: HashMap<TileKey, i64>,
     version: u64,
     current_area: Option<u64>,
 }
@@ -42,12 +42,16 @@ impl MapRenderer {
         // Apply the update function
         f(&mut self.journey_bitmap, &mut tile_changed);
 
-        for tile_pos in changed_tiles {
-            self.tile_area_cache.remove(&tile_pos);
-        }
+        if !changed_tiles.is_empty() {
+            changed_tiles.sort_unstable();
+            changed_tiles.dedup();
+            for tile_pos in changed_tiles {
+                self.tile_area_cache.remove(&tile_pos);
+            }
 
-        // TODO: we should improve the cache invalidation rule
-        self.reset();
+            // TODO: we should improve the cache invalidation rule
+            self.reset();
+        }
     }
 
     pub fn replace(&mut self, journey_bitmap: JourneyBitmap) {
@@ -90,13 +94,17 @@ impl MapRenderer {
         &self.journey_bitmap
     }
 
+    pub fn check_bitmap_invariant_and_debug_log(&mut self) {
+        self.journey_bitmap.check_invariant_and_debug_log();
+    }
+
     pub fn get_map_bounds(&mut self) -> Option<MapBounds> {
         utils::get_bounds_from_journey_bitmap(&mut self.journey_bitmap)
     }
 
     pub fn get_current_area(&mut self) -> u64 {
         *self.current_area.get_or_insert_with(|| {
-            journey_area_utils::compute_journey_bitmap_area(
+            journey_area_utils::journey_bitmap_area_m2_rounded(
                 &self.journey_bitmap,
                 Some(&mut self.tile_area_cache),
             )

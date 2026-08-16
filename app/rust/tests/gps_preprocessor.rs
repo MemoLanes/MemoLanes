@@ -146,18 +146,19 @@ fn run_though_test_data(name: &str) -> HashMap<ProcessResult, i32> {
     let mut gps_preprocessor = GpsPreprocessor::new();
     let mut counter = HashMap::new();
     let (loaded_data, _preprocessor) =
-        import_data::load_gpx(&format!("./tests/data/raw_gps_{name}.gpx")).unwrap();
+        import_data::gpx::load_gpx(&format!("./tests/data/raw_gps_{name}.gpx")).unwrap();
     for data in loaded_data.iter().flatten() {
         let result = gps_preprocessor.preprocess(data);
         counter.entry(result).and_modify(|c| *c += 1).or_insert(1);
     }
 
     if GENERATE_RESULT_GPX_FOR_INSPECTION {
-        let journey_vector = import_data::journey_vector_from_raw_data_with_gps_preprocessor(
-            &loaded_data,
-            Some(SegmentGapRule::Default),
-        )
-        .unwrap();
+        let journey_vector =
+            import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
+                &loaded_data,
+                Some(SegmentGapRule::Default),
+            )
+            .unwrap();
 
         let mut file = File::create(format!(
             "./tests/for_inspection/gps_preprocessor_run_though_test_data_{name}.gpx"

@@ -2,13 +2,11 @@ use std::collections::BTreeMap;
 
 use geo_data_format::{
     tile_index, write_geo_data, GeoEntity, GeoEntityId, GeoEntityKind, TileMembership, Worldview,
-    CELLS_PER_TILE, TILE_COUNT,
+    CELLS_PER_TILE, NO_ENTITY, TILE_COUNT,
 };
 use memolanes_core::{
-    achievement::compute::region_state::compute_region_states,
-    achievement::layer::AchievementLayer,
+    achievement::attribution,
     geo::GeoIndex,
-    journey_area_utils::compute_journey_bitmap_area,
     journey_bitmap::{Block, BlockKey, JourneyBitmap, TileKey},
 };
 
@@ -34,15 +32,15 @@ fn entity(id: u32, kind: GeoEntityKind, iso: &str, parent: Option<u32>, area: u6
 fn synthetic_geo() -> GeoIndex {
     let entities = [
         entity(1, GeoEntityKind::Continent, "EU", None, 1),
-        entity(2, GeoEntityKind::Country, "FR", Some(1), 1),
-        entity(3, GeoEntityKind::Country, "DE", Some(1), 1),
+        entity(2, GeoEntityKind::Admin0, "FR", Some(1), 1),
+        entity(3, GeoEntityKind::Admin0, "DE", Some(1), 1),
     ];
     let mut tiles = vec![TileMembership::None; TILE_COUNT];
     tiles[tile_index(0, 0)] = TileMembership::Single(FR);
     tiles[tile_index(1, 0)] = TileMembership::Border;
-    let mut cells = vec![None; CELLS_PER_TILE];
-    cells[BlockKey::from_x_y(7, 7).index()] = Some(DE);
-    let mut blocks: BTreeMap<(u16, u16), Vec<Option<GeoEntityId>>> = BTreeMap::new();
+    let mut cells = vec![NO_ENTITY; CELLS_PER_TILE];
+    cells[BlockKey::from_x_y(7, 7).index()] = DE.0;
+    let mut blocks: BTreeMap<(u16, u16), Vec<u32>> = BTreeMap::new();
     blocks.insert((1, 0), cells);
     let bytes = write_geo_data(
         &entities,
@@ -67,51 +65,64 @@ fn one_block(tile: TileKey, block: BlockKey, bits: u32) -> JourneyBitmap {
 }
 
 #[test]
-fn attributes_area_with_rollup_and_layers() {
+fn attributes_area_with_rollup() {
     let geo = synthetic_geo();
-
-    // Per-layer coverage as cache_db would supply it: Default holds France,
-    // Flight holds Germany, All is their union. Both blocks share a bit pattern.
     let fr_block = one_block(TileKey::new(0, 0), BlockKey::from_x_y(3, 4), 20);
     let de_block = one_block(TileKey::new(1, 0), BlockKey::from_x_y(7, 7), 20);
-    let fr_area = compute_journey_bitmap_area(&fr_block, None);
-    let de_area = compute_journey_bitmap_area(&de_block, None);
-    // EU's area is the union (disjoint blocks), summed as f64 then rounded —
-    // not round(fr)+round(de), which can differ by a metre from rounding.
+
+    let fr_only = attribution::attribute(&fr_block, &geo);
+    assert!(fr_only.contains_key(&FR));
+    assert!(!fr_only.contains_key(&DE));
+    // Continent rollup: EU carries France's area.
+    assert_eq!(fr_only[&EU], fr_only[&FR]);
+
     let mut union = fr_block.clone();
     union.merge(de_block.clone());
-    let eu_area = compute_journey_bitmap_area(&union, None);
+    let both = attribution::attribute(&union, &geo);
 
-    let states = compute_region_states(
-        [
-            (AchievementLayer::Default, fr_block),
-            (AchievementLayer::Flight, de_block),
-            (AchievementLayer::All, union),
-        ],
+    // Subtree-inclusive: EU is credited each block alongside its owner, so its
+    // total is the sum of the two addends on the right. Exact because the areas
+    // are integer cm2.
+    assert_eq!(both[&EU], both[&FR] + both[&DE]);
+    assert_eq!(both[&FR], fr_only[&FR]);
+}
+
+/// Continent EU(1) ⊃ country FR(2) ⊃ province IDF(4). Tile (0,0) is entirely
+/// IDF, so a block there must credit all three.
+#[test]
+fn a_province_block_credits_its_country_and_continent() {
+    const IDF: GeoEntityId = GeoEntityId(4);
+
+    let entities = [
+        entity(1, GeoEntityKind::Continent, "EU", None, 100),
+        entity(2, GeoEntityKind::Admin0, "FR", Some(1), 50),
+        entity(4, GeoEntityKind::Admin1, "FR-IDF", Some(2), 10),
+    ];
+    let mut tiles = vec![TileMembership::None; TILE_COUNT];
+    tiles[tile_index(0, 0)] = TileMembership::Single(IDF);
+    let bytes = write_geo_data(
+        &entities,
+        Worldview::Iso.spec().id,
+        &tiles,
+        &BTreeMap::new(),
+        [0u8; 32],
+    )
+    .unwrap();
+    let geo = GeoIndex::from_bytes(&bytes).unwrap();
+
+    let by_entity = attribution::attribute(
+        &one_block(TileKey::new(0, 0), BlockKey::from_x_y(3, 4), 20),
         &geo,
     );
-
-    // France: Default layer only, area == the block oracle.
-    let fr = &states[&(AchievementLayer::Default, FR)];
-    assert_eq!(fr.visited_area_m2, fr_area);
-    assert!(!states.contains_key(&(AchievementLayer::Flight, FR)));
-
-    // Germany: Flight layer only.
-    let de = &states[&(AchievementLayer::Flight, DE)];
-    assert_eq!(de.visited_area_m2, de_area);
-    assert!(!states.contains_key(&(AchievementLayer::Default, DE)));
-
-    // EU rollup: All layer is the union of both kinds.
-    let eu_all = &states[&(AchievementLayer::All, EU)];
-    assert_eq!(eu_all.visited_area_m2, eu_area);
-    // Per-layer EU: Default sees only FR, Flight only DE.
+    let province_area = by_entity[&IDF];
+    assert!(province_area > 0);
     assert_eq!(
-        states[&(AchievementLayer::Default, EU)].visited_area_m2,
-        fr_area
+        by_entity[&FR], province_area,
+        "country must inherit the province's area"
     );
     assert_eq!(
-        states[&(AchievementLayer::Flight, EU)].visited_area_m2,
-        de_area
+        by_entity[&EU], province_area,
+        "continent must inherit it too"
     );
 }
 
@@ -119,11 +130,8 @@ fn attributes_area_with_rollup_and_layers() {
 fn ocean_blocks_are_ignored() {
     let geo = synthetic_geo();
     // Border tile (1,0), but a block with no geo owner.
-    let states = compute_region_states(
-        [(
-            AchievementLayer::Default,
-            one_block(TileKey::new(1, 0), BlockKey::from_x_y(0, 0), 10),
-        )],
+    let states = attribution::attribute(
+        &one_block(TileKey::new(1, 0), BlockKey::from_x_y(0, 0), 10),
         &geo,
     );
     assert!(states.is_empty());

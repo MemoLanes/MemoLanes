@@ -1,4 +1,4 @@
-import maplibregl, { LngLat } from "maplibre-gl";
+import { LngLat, type Map as MaplibreMap } from "maplibre-gl";
 
 export function lngLatToTileXY(lngLat: LngLat, zoom: number): [number, number] {
   const n = Math.pow(2, zoom);
@@ -20,14 +20,19 @@ export function tileXYToLngLat(x: number, y: number, zoom: number): LngLat {
 
 /* Get the range of tiles that covers the current map viewport
  * @param {Object} map - Mapbox map object
+ * @param {Boolean} isGlobeProjection - Whether the map uses globe projection
+ * @param {Number} maxZ - Optional maximum zoom level to cap the result
  * @returns {Array} - Array of [x, y, w, h, z] representing the tile range
  */
 export function getViewportTileRange(
-  map: maplibregl.Map,
+  map: MaplibreMap,
   isGlobeProjection: boolean,
+  maxZ?: number,
 ): [number, number, number, number, number] {
   // Get the current zoom level
-  const z = Math.max(0, Math.floor(map.getZoom()));
+  // Apply maxZ cap only if maxZ is provided
+  const rawZ = Math.max(0, Math.floor(map.getZoom()));
+  const z = maxZ !== undefined ? Math.min(maxZ, rawZ) : rawZ;
 
   // Get the bounds of the map
   const bounds = map.getBounds();

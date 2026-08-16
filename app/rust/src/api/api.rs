@@ -24,7 +24,7 @@ use crate::renderer::MapRenderer;
 use crate::storage::{RawDataFile, Storage};
 use crate::{archive, build_info, export_data, gps_processor, main_db};
 
-use crate::utils::{get_bounds_from_journey_bitmap, MapBounds};
+use crate::utils::{db::DbError, get_bounds_from_journey_bitmap, MapBounds};
 
 use log::{error, info, warn};
 
@@ -37,11 +37,20 @@ pub(super) struct MainState {
     main_map_state: Arc<Mutex<MainMapState>>,
 }
 
-static MAIN_STATE: OnceLock<MainState> = OnceLock::new();
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InitError {
+    DatabaseVersionTooNew,
+}
+
+static MAIN_STATE: OnceLock<Result<MainState, InitError>> = OnceLock::new();
 
 #[frb(ignore)]
 pub fn get() -> &'static MainState {
-    MAIN_STATE.get().expect("main state is not initialized")
+    MAIN_STATE
+        .get()
+        .expect("main state is not initialized")
+        .as_ref()
+        .expect("main state initialization failed")
 }
 
 #[frb(sync)]
@@ -71,11 +80,17 @@ fn reload_main_map_bitmap(storage: &Storage, main_map_state: &mut MainMapState) 
     Ok(())
 }
 
-pub fn init(temp_dir: String, doc_dir: String, support_dir: String, system_cache_dir: String) {
-    let mut already_initialized = true;
-    MAIN_STATE.get_or_init(|| {
-        already_initialized = false;
+pub fn init(
+    temp_dir: String,
+    doc_dir: String,
+    support_dir: String,
+    system_cache_dir: String,
+) -> Result<(), InitError> {
+    if MAIN_STATE.get().is_some() {
+        warn!("`init` is called multiple times");
+    }
 
+    let state = MAIN_STATE.get_or_init(|| {
         let (real_cache_dir, logs) = prepare_real_cache_dir(&support_dir, &system_cache_dir)
             .expect("Failed to initialize cache dir");
 
@@ -88,7 +103,20 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, system_cache
             }
         }
 
-        let mut storage = Storage::init(temp_dir, doc_dir, support_dir, real_cache_dir);
+        let storage = match Storage::init(temp_dir, doc_dir, support_dir, real_cache_dir) {
+            Ok(storage) => storage,
+            Err(error)
+                if matches!(
+                    error.downcast_ref::<DbError>(),
+                    Some(DbError::VersionTooNew)
+                ) =>
+            {
+                return Err(InitError::DatabaseVersionTooNew);
+            }
+            Err(error) => panic!("failed to initialize storage: {error:?}"),
+        };
+
+        let mut storage = storage;
         info!("initialized");
 
         let default_layer_filter = LayerFilter {
@@ -118,14 +146,16 @@ pub fn init(temp_dir: String, doc_dir: String, support_dir: String, system_cache
         }));
         info!("main map renderer initialized");
 
-        MainState {
+        Ok(MainState {
             storage,
             gps_preprocessor: Mutex::new(GpsPreprocessor::new()),
             main_map_state,
-        }
+        })
     });
-    if already_initialized {
-        warn!("`init` is called multiple times");
+
+    match state {
+        Ok(_) => Ok(()),
+        Err(err) => Err(*err),
     }
 }
 
@@ -894,8 +924,5 @@ pub fn main_map_bitmap_check_invariant_and_debug_log() {
     let mut main_map_state = state.main_map_state.lock().unwrap();
     main_map_state
         .map_renderer
-        .update(|journey_bitmap, _change_callback| {
-            // we are not changing anything here.
-            journey_bitmap.check_invariant_and_debug_log();
-        });
+        .check_bitmap_invariant_and_debug_log();
 }

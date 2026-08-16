@@ -29,47 +29,110 @@ class _JourneyBodyState extends State<JourneyBody> {
   List<JourneyHeader> _journeyHeaderList = [];
 
   DateTime _selectedDate = DateTime.now();
-  late final DateTime? _firstDate;
+  DateTime? _firstDate;
   final lastDate = DateTime.now();
   late List<int> _yearsWithJourneyList;
   late List<int> _monthsWithJourneyList;
   late List<int> _daysWithJourneyList;
   bool _isLoadingFirstDate = true;
+  bool _isLoadingJourneyHeaderList = false;
+  Object? _activeJourneyLoad;
 
   @override
   void initState() {
     super.initState();
     _initialize();
-    _updateJourneyHeaderList();
   }
 
   Future<void> _initialize() async {
-    NaiveDate? earliestDate = await api.earliestJourneyDate();
-    if (earliestDate != null) {
-      _firstDate = naiveDateToDateTime(earliestDate);
-    } else {
-      _firstDate = null;
-    }
-    _yearsWithJourneyList = await api.yearsWithJourney();
-    _monthsWithJourneyList =
+    final earliestDate = await api.earliestJourneyDate();
+    final firstDate =
+        earliestDate == null ? null : naiveDateToDateTime(earliestDate);
+    final yearsWithJourneyList = await api.yearsWithJourney();
+    final monthsWithJourneyList =
         await api.monthsWithJourney(year: _selectedDate.year);
-    _daysWithJourneyList = await api.daysWithJourney(
+    final daysWithJourneyList = await api.daysWithJourney(
         year: _selectedDate.year, month: _selectedDate.month);
-    if (!mounted) return;
-    setState(() {
-      _isLoadingFirstDate = false;
-    });
-  }
-
-  void _updateJourneyHeaderList() async {
     final journeyHeaderList = await api.listJourneyOnDate(
         year: _selectedDate.year,
         month: _selectedDate.month,
         day: _selectedDate.day);
     if (!mounted) return;
+    _firstDate = firstDate;
     setState(() {
+      _yearsWithJourneyList = yearsWithJourneyList;
+      _monthsWithJourneyList = monthsWithJourneyList;
+      _daysWithJourneyList = daysWithJourneyList;
       _journeyHeaderList = journeyHeaderList.reversed.toList();
+      _isLoadingFirstDate = false;
     });
+  }
+
+  Future<void> _loadJourneys(
+    DateTime targetDate, {
+    bool preferTargetDay = true,
+    bool reloadYears = false,
+  }) async {
+    if (!mounted) return;
+    final token = Object();
+    _activeJourneyLoad = token;
+    setState(() {
+      _selectedDate = targetDate;
+      _isLoadingJourneyHeaderList = true;
+      _journeyHeaderList = [];
+    });
+    try {
+      final yearsWithJourneyList =
+          reloadYears ? await api.yearsWithJourney() : null;
+
+      if (yearsWithJourneyList != null && yearsWithJourneyList.isEmpty) {
+        if (!mounted || !identical(token, _activeJourneyLoad)) return;
+        setState(() {
+          _firstDate = null;
+          _yearsWithJourneyList = [];
+          _monthsWithJourneyList = [];
+          _daysWithJourneyList = [];
+          _journeyHeaderList = [];
+        });
+        return;
+      }
+
+      final monthsWithJourneyList =
+          await api.monthsWithJourney(year: targetDate.year);
+      final daysWithJourneyList = await api.daysWithJourney(
+          year: targetDate.year, month: targetDate.month);
+      var selectedDate = targetDate;
+      if (daysWithJourneyList.isNotEmpty &&
+          (!preferTargetDay ||
+              !daysWithJourneyList.contains(selectedDate.day))) {
+        selectedDate = DateTime(
+          selectedDate.year,
+          selectedDate.month,
+          daysWithJourneyList.first,
+        );
+      }
+      final journeyHeaderList = await api.listJourneyOnDate(
+          year: selectedDate.year,
+          month: selectedDate.month,
+          day: selectedDate.day);
+      if (!mounted || !identical(token, _activeJourneyLoad)) return;
+      setState(() {
+        if (yearsWithJourneyList != null) {
+          _yearsWithJourneyList = yearsWithJourneyList;
+        }
+        _monthsWithJourneyList = monthsWithJourneyList;
+        _daysWithJourneyList = daysWithJourneyList;
+        _selectedDate = selectedDate;
+        _journeyHeaderList = journeyHeaderList.reversed.toList();
+      });
+    } finally {
+      if (mounted && identical(token, _activeJourneyLoad)) {
+        _activeJourneyLoad = null;
+        setState(() {
+          _isLoadingJourneyHeaderList = false;
+        });
+      }
+    }
   }
 
   Widget _buildDatePickerWithValue(DateTime firstDate) {
@@ -148,19 +211,22 @@ class _JourneyBodyState extends State<JourneyBody> {
     );
     return CalendarDatePicker2(
       config: config,
-      value: [_selectedDate],
+      displayedMonthDate: _selectedDate,
+      value: _daysWithJourneyList.contains(_selectedDate.day)
+          ? [_selectedDate]
+          : [],
       onValueChanged: (dates) {
         AppHaptics.selection();
-        setState(() => _selectedDate = dates.first);
-        _updateJourneyHeaderList();
+        _loadJourneys(dates.first);
       },
-      onDisplayedMonthChanged: (value) async {
+      onDisplayedMonthChanged: (value) {
         AppHaptics.selection();
+        final selectedDate = _selectedDate;
         DateTime jumpToDate =
-            DateTime(value.year, value.month, _selectedDate.day);
+            DateTime(value.year, value.month, selectedDate.day);
         DateTime jumpToDateMonthLastDay =
             DateTime(value.year, value.month + 1, 0);
-        if (_selectedDate.day > jumpToDateMonthLastDay.day) {
+        if (selectedDate.day > jumpToDateMonthLastDay.day) {
           jumpToDate = jumpToDateMonthLastDay;
         }
         if (lastDate.isBefore(jumpToDate)) {
@@ -169,23 +235,15 @@ class _JourneyBodyState extends State<JourneyBody> {
         if (firstDate.isAfter(jumpToDate)) {
           jumpToDate = firstDate;
         }
-        if (value.year != _selectedDate.year) {
-          _monthsWithJourneyList =
-              await api.monthsWithJourney(year: jumpToDate.year);
-        }
-
-        _daysWithJourneyList = await api.daysWithJourney(
-            month: jumpToDate.month, year: jumpToDate.year);
-        if (!mounted) return;
-        setState(() {
-          _selectedDate = jumpToDate;
-        });
-        _updateJourneyHeaderList();
+        _loadJourneys(jumpToDate, preferTargetDay: false);
       },
     );
   }
 
   Widget _buildJourneyHeaderList() {
+    if (_isLoadingJourneyHeaderList) {
+      return const Center(child: CircularProgressIndicator());
+    }
     return ListView.builder(
       padding: EdgeInsets.only(
         bottom: StyleConstants.navBarSafeArea + 5,
@@ -204,15 +262,9 @@ class _JourneyBodyState extends State<JourneyBody> {
               page: JourneyInfoPage(
                 journeyHeader: _journeyHeaderList[index],
               ),
-            ).then((refresh) async {
-              if (refresh != null && refresh) {
-                _yearsWithJourneyList = await api.yearsWithJourney();
-                _monthsWithJourneyList =
-                    await api.monthsWithJourney(year: _selectedDate.year);
-                _daysWithJourneyList = await api.daysWithJourney(
-                    year: _selectedDate.year, month: _selectedDate.month);
-                if (!mounted) return;
-                _updateJourneyHeaderList();
+            ).then((refresh) {
+              if (refresh == true) {
+                _loadJourneys(_selectedDate, reloadYears: true);
               }
             });
           },

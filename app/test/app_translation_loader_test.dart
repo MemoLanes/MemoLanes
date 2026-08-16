@@ -4,11 +4,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/body/achievement/shared/achievement_common.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
-import 'package:memolanes/src/rust/achievement/read_model/region.dart';
+import 'package:memolanes/src/rust/achievement/region.dart';
 
 RegionEntity _entity({required String nameKey, String? isoA3Eh}) =>
     RegionEntity(
-      kind: RegionKind.country,
+      kind: RegionKind.admin0,
       nameKey: RegionNameKey(value: nameKey),
       isoA3Eh: isoA3Eh,
       visitedAreaM2: BigInt.zero,

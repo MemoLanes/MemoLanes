@@ -1,12 +1,80 @@
 pub mod test_utils;
 
 use memolanes_core::flight_track_processor;
+use memolanes_core::gps_processor::{Point, RawData};
 use memolanes_core::{export_data, import_data};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::{Cursor, Write};
 use std::path::Path;
+
+fn raw_data(longitude: f64) -> RawData {
+    RawData {
+        point: Point {
+            latitude: 0.0,
+            longitude,
+        },
+        timestamp_ms: None,
+        accuracy: None,
+        altitude: None,
+        speed: None,
+    }
+}
+
+#[test]
+fn preserves_dense_source_points() {
+    let source = vec![
+        raw_data(0.0),
+        raw_data(0.001),
+        raw_data(0.002),
+        raw_data(0.003),
+    ];
+
+    let result = flight_track_processor::process(std::slice::from_ref(&source)).unwrap();
+    let track_points = &result.track_segments[0].track_points;
+
+    assert_eq!(track_points.len(), source.len());
+    for (result, source) in track_points.iter().zip(source) {
+        assert_eq!(result.latitude, source.point.latitude);
+        assert_eq!(result.longitude, source.point.longitude);
+    }
+}
+
+#[test]
+fn fills_gaps_without_replacing_source_points() {
+    let source = vec![raw_data(0.0), raw_data(0.005), raw_data(0.02)];
+
+    let result = flight_track_processor::process(std::slice::from_ref(&source)).unwrap();
+    let track_points = &result.track_segments[0].track_points;
+
+    assert!(track_points.len() > source.len());
+    assert_eq!(track_points[0].longitude, source[0].point.longitude);
+    assert_eq!(track_points[1].longitude, source[1].point.longitude);
+    assert_eq!(
+        track_points.last().unwrap().longitude,
+        source.last().unwrap().point.longitude
+    );
+}
+
+#[test]
+fn preserves_single_and_repeated_source_points() {
+    let single = vec![raw_data(1.0)];
+    let single_result = flight_track_processor::process(&[single]).unwrap();
+    let single_track_points = &single_result.track_segments[0].track_points;
+    assert_eq!(single_track_points.len(), 1);
+    assert_eq!(single_track_points[0].longitude, 1.0);
+
+    let repeated = vec![raw_data(0.0), raw_data(0.0), raw_data(0.02)];
+    let repeated_result = flight_track_processor::process(std::slice::from_ref(&repeated)).unwrap();
+    let repeated_track_points = &repeated_result.track_segments[0].track_points;
+    assert!(repeated_track_points.len() >= repeated.len());
+    assert_eq!(repeated_track_points[0].longitude, 0.0);
+    assert_eq!(repeated_track_points[1].longitude, 0.0);
+    assert!(repeated_track_points
+        .iter()
+        .all(|point| point.latitude.is_finite() && point.longitude.is_finite()));
+}
 
 #[test]
 fn run_tests() {
@@ -19,8 +87,18 @@ fn run_tests() {
         const GENERATE_RESULT_GPX_FOR_INSPECTION: bool = false;
 
         let (loaded_data, _preprocessor) =
-            import_data::load_kml(&format!("./tests/data/flight_{name}.kml")).unwrap();
+            import_data::kml::load_kml(&format!("./tests/data/flight_{name}.kml")).unwrap();
         let result = flight_track_processor::process(&loaded_data).unwrap();
+        let input_point_count: usize = loaded_data.iter().map(Vec::len).sum();
+        let output_point_count: usize = result
+            .track_segments
+            .iter()
+            .map(|segment| segment.track_points.len())
+            .sum();
+        assert!(
+            output_point_count >= input_point_count,
+            "{name}: flight track interpolation removed points ({input_point_count} -> {output_point_count})"
+        );
         let mut gpx = Vec::new();
         export_data::gpx::journey_vector_to_gpx_file(&result, &mut Cursor::new(&mut gpx)).unwrap();
         verify_gpx(name, &gpx);

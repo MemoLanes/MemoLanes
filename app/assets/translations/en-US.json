@@ -56,6 +56,12 @@
     "continue": "Continue",
     "save_confirm": "Do you want to save the changes?"
   },
+  "startup_error": {
+    "title": "Data Version Incompatible",
+    "database_version_too_new": "The data on this device was created by a newer version of MemoLanes and can't be opened by this version. Update MemoLanes and try again.",
+    "update": "Go to Update",
+    "exit": "Exit"
+  },
   "journey": {
     "editor": {
       "move": "Move",
@@ -86,7 +92,7 @@
     "journey_info_edit_page_title": "Edit Journey Information",
     "copy_journey": "Copy Journey",
     "import_mldx_data": "Import MLDX Data",
-    "import_kml_gpx_data": "Import KML/GPX Data",
+    "import_track_file": "Import Track File",
     "import_fog_of_world_data": "Import [Fog of World] Data",
     "export_journey_as_kml": "Export as KML",
     "export_journey_as_gpx": "Export as GPX",
@@ -112,8 +118,11 @@
     "finish": "Finished optimizing database."
   },
   "recording_health": {
+    "setting_title": "Recording interruption alerts",
+    "interruption_detected": "Recording may have been interrupted",
     "freeze_warning": "The system may have frozen the app while recording. Some locations may be missing. Please check your background activity and battery settings.",
-    "view_help": "View help"
+    "view_help": "View tutorial",
+    "dont_remind_again": "Don't remind me again"
   },
   "journey_kind": {
     "default": "Ground",
@@ -149,6 +158,9 @@
     "empty_data": "Journey is empty",
     "successful": "Import successful",
     "parsing_failed": "Data parsing failed",
+    "import_track_file": {
+      "description_md": "The following track file formats are supported:\n\n1. **GPX** (`.gpx`)\n2. **KML** (`.kml`)\n3. **CSV** (`.csv`)"
+    },
     "mldx_preview": {
       "title": "Archive Import",
       "skipped_identical": "{} identical journey(s) skipped",
@@ -195,24 +207,25 @@
       "title": "Total explored area"
     },
     "source": {
-      "title": "Explored area",
+      "title": "Explored Area",
       "description": "Total area combines Ground and Flight",
       "overlap_note": "Ground and Flight may overlap.",
       "error": "Could not load explored area.",
       "share_of_total": "{} of total"
     },
     "countries": {
-      "title": "Explored countries",
+      "title": "Countries",
       "description": "{} countries and regions unlocked",
-      "note": "Currently this only counts countries, regions, and cities from ground exploration data. A fuller exploration coverage model will be added later.",
+      "note": "Currently this only counts countries, subnational regions, and cities from ground exploration data. A fuller exploration coverage model will be added later.",
       "empty": "No countries unlocked yet.",
       "error": "Could not load explored countries."
     },
-    "country_list": {
-      "title": "Explored countries",
-      "view_all": "View all"
-    },
-    "region_area_list": {
+    "region_list": {
+      "country_title": "Countries & Regions",
+      "region_empty": "No regions unlocked in this country yet.",
+      "error": "Could not load region data.",
+      "retry": "Retry",
+      "view_all": "View all",
       "sort_area": "Area",
       "sort_coverage": "Unlock rate"
     },

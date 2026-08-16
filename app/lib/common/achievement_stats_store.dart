@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/src/rust/achievement/layer.dart';
-import 'package:memolanes/src/rust/achievement/read_model/region.dart';
+import 'package:memolanes/src/rust/achievement/region.dart';
 import 'package:memolanes/src/rust/api/achievement.dart' as achievement_api;
 
 @immutable
@@ -194,7 +194,7 @@ class AchievementStatsStore extends ChangeNotifier {
   Future<List<AchievementCountryStats>> _fetchCountryStats() async {
     final countriesView = await achievement_api.regionLevelView(
       layer: AchievementLayer.default_,
-      level: RegionKind.country,
+      level: RegionKind.admin0,
     );
 
     final countries = countriesView.entries.entries
