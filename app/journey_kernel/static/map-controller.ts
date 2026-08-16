@@ -34,10 +34,7 @@ import type { JourneyLayer } from "./layers/journey-layer-interface";
 const MAX_MAP_ZOOM = 14;
 
 maplibregl.setWorkerUrl(
-  new URL(
-    "maplibre-gl/dist/maplibre-gl-worker.mjs",
-    import.meta.url,
-  ).toString(),
+  new URL("./maplibre-gl-worker.js", window.location.href).toString(),
 );
 
 /**
