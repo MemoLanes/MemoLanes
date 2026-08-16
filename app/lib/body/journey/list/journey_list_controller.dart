@@ -36,11 +36,13 @@ class JourneyListController extends ChangeNotifier {
   List<DateTime> journeyDates = [];
   List<JourneyHeader> journeyHeaders = [];
   bool isInitialLoading = true;
+  bool isJourneyListLoading = false;
   int _dateRequestVersion = 0;
   int _headerRequestVersion = 0;
   bool _isDisposed = false;
 
   bool get hasFilteredJourneys => journeyDates.isNotEmpty;
+  bool get hasJourneyOnSelectedDate => _hasJourneyOn(selectedDate);
 
   List<int> get yearsWithJourneys =>
       journeyDates.map((date) => date.year).toSet().toList();
@@ -66,37 +68,50 @@ class JourneyListController extends ChangeNotifier {
 
   Future<void> refresh({bool adjustSelectedDate = false}) async {
     final requestVersion = ++_dateRequestVersion;
-    ++_headerRequestVersion;
+    final loadingVersion = ++_headerRequestVersion;
     final journeyKinds = Set<JourneyKind>.from(selectedJourneyKinds);
     journeyHeaders = [];
+    isJourneyListLoading = true;
     notifyListeners();
-    final earliestDate = await _earliestJourneyDateLoader();
-    if (_isDisposed || requestVersion != _dateRequestVersion) return;
-    final dates = await _journeyDatesLoader(journeyKinds);
-    if (_isDisposed || requestVersion != _dateRequestVersion) return;
+    try {
+      final earliestDate = await _earliestJourneyDateLoader();
+      if (_isDisposed || requestVersion != _dateRequestVersion) return;
+      final dates = await _journeyDatesLoader(journeyKinds);
+      if (_isDisposed || requestVersion != _dateRequestVersion) return;
 
-    firstDate = earliestDate;
-    journeyDates = dates;
-    if (adjustSelectedDate && !_hasJourneyOn(selectedDate)) {
-      final nearestDate = _nearestDate(
-        dates,
-        DateTime(selectedDate.year, selectedDate.month, selectedDate.day),
-      );
-      if (nearestDate != null) selectedDate = nearestDate;
-    }
-    if (dates.isEmpty) {
+      final appliedHeaderVersion = ++_headerRequestVersion;
+      firstDate = earliestDate;
+      journeyDates = dates;
       journeyHeaders = [];
-      notifyListeners();
-      return;
+      isJourneyListLoading = true;
+      if (adjustSelectedDate && !_hasJourneyOn(selectedDate)) {
+        final nearestDate = _nearestDate(
+          dates,
+          DateTime(selectedDate.year, selectedDate.month, selectedDate.day),
+        );
+        if (nearestDate != null) selectedDate = nearestDate;
+      }
+      if (dates.isEmpty) {
+        if (appliedHeaderVersion == _headerRequestVersion) {
+          isJourneyListLoading = false;
+          notifyListeners();
+        }
+        return;
+      }
+      await _loadJourneysOnSelectedDate(journeyKinds: journeyKinds);
+    } catch (_) {
+      if (!_isDisposed &&
+          requestVersion == _dateRequestVersion &&
+          loadingVersion == _headerRequestVersion) {
+        isJourneyListLoading = false;
+        notifyListeners();
+      }
+      rethrow;
     }
-    notifyListeners();
-    await _loadJourneysOnSelectedDate(journeyKinds: journeyKinds);
   }
 
   Future<void> selectDate(DateTime date) async {
     selectedDate = DateTime(date.year, date.month, date.day);
-    journeyHeaders = [];
-    notifyListeners();
     await _loadJourneysOnSelectedDate();
   }
 
@@ -112,8 +127,6 @@ class JourneyListController extends ChangeNotifier {
     selectedDate =
         _nearestDateInMonth(displayedMonth.year, displayedMonth.month, date) ??
             date;
-    journeyHeaders = [];
-    notifyListeners();
     await _loadJourneysOnSelectedDate();
   }
 
@@ -135,15 +148,24 @@ class JourneyListController extends ChangeNotifier {
     final version = ++_headerRequestVersion;
     final kinds = journeyKinds ?? Set<JourneyKind>.from(selectedJourneyKinds);
     final date = selectedDate;
-    final headers = await _journeyHeadersLoader(date, kinds);
-    if (_isDisposed ||
-        version != _headerRequestVersion ||
-        !setEquals(kinds, selectedJourneyKinds) ||
-        date != selectedDate) {
-      return;
-    }
-    journeyHeaders = headers.reversed.toList();
+    journeyHeaders = [];
+    isJourneyListLoading = true;
     notifyListeners();
+    try {
+      final headers = await _journeyHeadersLoader(date, kinds);
+      if (_isDisposed ||
+          version != _headerRequestVersion ||
+          !setEquals(kinds, selectedJourneyKinds) ||
+          date != selectedDate) {
+        return;
+      }
+      journeyHeaders = headers.reversed.toList();
+    } finally {
+      if (!_isDisposed && version == _headerRequestVersion) {
+        isJourneyListLoading = false;
+        notifyListeners();
+      }
+    }
   }
 
   bool _hasJourneyOn(DateTime date) => journeyDates.any((journeyDate) =>

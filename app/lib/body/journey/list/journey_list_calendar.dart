@@ -115,7 +115,9 @@ class JourneyListCalendar extends StatelessWidget {
 
     return CalendarDatePicker2(
       config: config,
-      value: [controller.selectedDate],
+      displayedMonthDate: controller.selectedDate,
+      value:
+          controller.hasJourneyOnSelectedDate ? [controller.selectedDate] : [],
       onValueChanged: (dates) {
         AppHaptics.selection();
         controller.selectDate(dates.first);

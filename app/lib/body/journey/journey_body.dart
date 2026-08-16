@@ -6,8 +6,8 @@ import 'package:memolanes/body/journey/list/journey_list_controller.dart';
 import 'package:memolanes/body/journey/list/journey_list_empty_state.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
-import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/constants/index.dart';
+import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 
 class JourneyBody extends StatefulWidget {
@@ -46,6 +46,9 @@ class _JourneyBodyState extends State<JourneyBody> {
   }
 
   Widget _buildJourneyHeaderList() {
+    if (_controller.isJourneyListLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
     if (!_controller.hasFilteredJourneys) {
       return JourneyListEmptyState(
         filtered: true,
@@ -124,7 +127,7 @@ class _JourneyBodyState extends State<JourneyBody> {
   @override
   Widget build(BuildContext context) {
     if (_controller.isInitialLoading) {
-      return const SizedBox.shrink();
+      return const Center(child: CircularProgressIndicator());
     }
     final firstDate = _controller.firstDate;
     if (firstDate == null) {

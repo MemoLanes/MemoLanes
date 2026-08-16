@@ -44,5 +44,56 @@ void main() {
 
     expect(controller.firstDate, isNull);
     expect(controller.journeyDates, isEmpty);
+    expect(controller.hasJourneyOnSelectedDate, isFalse);
+    expect(controller.isJourneyListLoading, isFalse);
+  });
+
+  test('refresh selects the nearest remaining date after a deletion', () async {
+    var dates = [DateTime(2024, 1, 10), DateTime(2024, 2, 3)];
+    final loadedDates = <DateTime>[];
+    final controller = JourneyListController(
+      earliestJourneyDateLoader: () async => dates.isEmpty ? null : dates.first,
+      journeyDatesLoader: (journeyKinds) async => dates,
+      journeyHeadersLoader: (date, journeyKinds) async {
+        loadedDates.add(date);
+        return <JourneyHeader>[];
+      },
+    );
+    addTearDown(controller.dispose);
+    controller.selectedDate = dates.first;
+
+    await controller.refresh(adjustSelectedDate: true);
+    dates = [DateTime(2024, 2, 3)];
+    await controller.refresh(adjustSelectedDate: true);
+
+    expect(controller.selectedDate, DateTime(2024, 2, 3));
+    expect(controller.hasJourneyOnSelectedDate, isTrue);
+    expect(loadedDates.last, DateTime(2024, 2, 3));
+  });
+
+  test('list loading ends only after the current header request', () async {
+    final headerRequestStarted = Completer<void>();
+    final headerRequest = Completer<List<JourneyHeader>>();
+    final date = DateTime(2024, 1, 2);
+    final controller = JourneyListController(
+      earliestJourneyDateLoader: () async => date,
+      journeyDatesLoader: (journeyKinds) async => [date],
+      journeyHeadersLoader: (date, journeyKinds) {
+        headerRequestStarted.complete();
+        return headerRequest.future;
+      },
+    );
+    addTearDown(controller.dispose);
+
+    final refresh = controller.refresh(adjustSelectedDate: true);
+    await headerRequestStarted.future;
+
+    expect(controller.isJourneyListLoading, isTrue);
+    expect(controller.journeyHeaders, isEmpty);
+
+    headerRequest.complete(<JourneyHeader>[]);
+    await refresh;
+
+    expect(controller.isJourneyListLoading, isFalse);
   });
 }
