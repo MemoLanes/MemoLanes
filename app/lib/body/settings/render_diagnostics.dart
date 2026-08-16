@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
+import 'package:memolanes/common/map_webview_assets.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 
 class RenderDiagnosticsPage extends StatefulWidget {
@@ -25,8 +26,7 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
 
   Future<void> _onWebViewCreated(InAppWebViewController controller) async {
     _controller = controller;
-    await controller.loadFile(
-        assetFilePath: 'assets/map_webview/render_diagnostics.html');
+    await MapWebViewAssets.load(controller, 'render_diagnostics.html');
   }
 
   Future<
@@ -86,6 +86,7 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
           allowFileAccessFromFileURLs: true,
           allowUniversalAccessFromFileURLs: true,
           resourceCustomSchemes: ['memolanes'],
+          webViewAssetLoader: MapWebViewAssets.createAssetLoader(),
         ),
         onWebViewCreated: (controller) {
           _onWebViewCreated(controller);
@@ -98,6 +99,8 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
             contentEncoding: 'utf-8',
             statusCode: result.status,
             headers: {
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Expose-Headers': 'X-Tile-Version, X-Not-Modified',
               'Content-Type': result.contentType,
               ...result.headers,
             },
