@@ -2,7 +2,7 @@ use chrono::{Local, NaiveDate, TimeZone};
 use memolanes_core::{
     api::import::{
         analyze_vector_data_by_date, import_vector_data_by_date, is_journey_data_empty,
-        load_vector_data, process_vector_data_for_date,
+        load_vector_data, process_vector_data_for_date, ImportPreprocessor, RawVectorData,
     },
     gps_processor::{Point, RawData},
     import_data::journey_partition::{group_by_date, summarize},
@@ -30,6 +30,21 @@ fn local_timestamp(year: i32, month: u32, day: u32, hour: u32, minute: u32, seco
         .timestamp_millis()
 }
 
+fn load_csv_vector_data(name: &str, rows: &str) -> (RawVectorData, ImportPreprocessor) {
+    let temp_dir = tempdir::TempDir::new(name).unwrap();
+    let csv_path = temp_dir.path().join("data.csv");
+    std::fs::write(
+        &csv_path,
+        format!(
+            "timestamp_ms,received_timestamp_ms,latitude,longitude,accuracy,altitude,speed\n{rows}"
+        ),
+    )
+    .unwrap();
+    let (_, vector_data, preprocessor) =
+        load_vector_data(csv_path.to_string_lossy().into_owned()).unwrap();
+    (vector_data, preprocessor)
+}
+
 #[test]
 fn continuous_midnight_track_stays_on_previous_day() {
     let day_one = NaiveDate::from_ymd_opt(2026, 8, 11).unwrap();
@@ -44,8 +59,7 @@ fn continuous_midnight_track_stays_on_previous_day() {
 
     let parts = group_by_date(&raw_data);
     assert_eq!(parts.len(), 1);
-    assert_eq!(parts[&day_one].len(), 2);
-    assert_eq!(parts[&day_one].iter().map(Vec::len).sum::<usize>(), 4);
+    assert_eq!(parts[&day_one], raw_data);
 }
 
 #[test]
@@ -60,8 +74,8 @@ fn cross_midnight_idle_gap_splits() {
 
     let parts = group_by_date(&raw_data);
     assert_eq!(parts.len(), 2);
-    assert_eq!(parts[&day_one].iter().map(Vec::len).sum::<usize>(), 2);
-    assert_eq!(parts[&day_two].iter().map(Vec::len).sum::<usize>(), 1);
+    assert_eq!(parts[&day_one], vec![raw_data[0][..2].to_vec()]);
+    assert_eq!(parts[&day_two], vec![raw_data[0][2..].to_vec()]);
 }
 
 #[test]
@@ -105,23 +119,16 @@ fn fully_untimed_data_cannot_be_grouped() {
 fn api_uses_partitioned_data() {
     let day_one = NaiveDate::from_ymd_opt(2026, 8, 11).unwrap();
     let day_two = NaiveDate::from_ymd_opt(2026, 8, 12).unwrap();
-    let temp_dir = tempdir::TempDir::new("vector-import-by-date").unwrap();
-    let csv_path = temp_dir.path().join("multi-day.csv");
     let timestamp_one = local_timestamp(2026, 8, 11, 23, 59, 59);
     let timestamp_two = local_timestamp(2026, 8, 12, 0, 30, 0);
-    std::fs::write(
-        &csv_path,
-        format!(
-            "timestamp_ms,received_timestamp_ms,latitude,longitude,accuracy,altitude,speed\n\
-             {timestamp_one},{timestamp_one},0,1,,,\n\
+    let (vector_data, preprocessor) = load_csv_vector_data(
+        "vector-import-by-date",
+        &format!(
+            "{timestamp_one},{timestamp_one},0,1,,,\n\
              ,{timestamp_one},0,2,,,\n\
              {timestamp_two},{timestamp_two},0,3,,,\n"
         ),
-    )
-    .unwrap();
-
-    let (_, vector_data, preprocessor) =
-        load_vector_data(csv_path.to_string_lossy().into_owned()).unwrap();
+    );
     let parts = analyze_vector_data_by_date(&vector_data);
 
     assert_eq!(parts.len(), 2);
@@ -151,20 +158,11 @@ fn api_uses_partitioned_data() {
 
 #[test]
 fn api_rejects_unknown_dates() {
-    let temp_dir = tempdir::TempDir::new("vector-import-invalid-date").unwrap();
-    let csv_path = temp_dir.path().join("single-day.csv");
     let timestamp = local_timestamp(2026, 8, 11, 12, 0, 0);
-    std::fs::write(
-        &csv_path,
-        format!(
-            "timestamp_ms,received_timestamp_ms,latitude,longitude,accuracy,altitude,speed\n\
-             {timestamp},{timestamp},0,1,,,\n"
-        ),
-    )
-    .unwrap();
-
-    let (_, vector_data, preprocessor) =
-        load_vector_data(csv_path.to_string_lossy().into_owned()).unwrap();
+    let (vector_data, preprocessor) = load_csv_vector_data(
+        "vector-import-invalid-date",
+        &format!("{timestamp},{timestamp},0,1,,,\n"),
+    );
     let error = import_vector_data_by_date(
         &vector_data,
         vec!["2026-08-12".to_owned()],

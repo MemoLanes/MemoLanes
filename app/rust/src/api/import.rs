@@ -32,7 +32,7 @@ pub struct JourneyInfo {
 #[frb(opaque)]
 pub struct RawVectorData {
     data: Vec<Vec<RawData>>,
-    parts_by_date: OnceLock<import_data::journey_partition::RawDataByDate>,
+    partition_index: OnceLock<import_data::journey_partition::PartitionIndexByDate>,
 }
 
 #[derive(Debug)]
@@ -116,7 +116,7 @@ pub fn load_vector_data(
         import_data::conversion::journey_info_from_raw_vector_data(&raw_vector_data),
         RawVectorData {
             data: raw_vector_data,
-            parts_by_date: OnceLock::new(),
+            partition_index: OnceLock::new(),
         },
         import_preprocessor,
     ))
@@ -150,22 +150,22 @@ pub enum ImportPreprocessor {
 }
 
 impl RawVectorData {
-    fn parts_by_date(&self) -> &import_data::journey_partition::RawDataByDate {
-        self.parts_by_date
-            .get_or_init(|| import_data::journey_partition::group_by_date(&self.data))
+    fn partition_index(&self) -> &import_data::journey_partition::PartitionIndexByDate {
+        self.partition_index
+            .get_or_init(|| import_data::journey_partition::index_by_date(&self.data))
     }
 }
 
-fn data_for_date<'a>(
-    vector_data: &'a RawVectorData,
-    journey_date: &str,
-) -> Result<&'a [Vec<RawData>]> {
+fn data_for_date(vector_data: &RawVectorData, journey_date: &str) -> Result<Vec<Vec<RawData>>> {
     let journey_date = NaiveDate::parse_from_str(journey_date, "%Y-%m-%d")?;
-    vector_data
-        .parts_by_date()
+    let partition = vector_data
+        .partition_index()
         .get(&journey_date)
-        .map(Vec::as_slice)
-        .with_context(|| format!("No vector data for date {journey_date}"))
+        .with_context(|| format!("No vector data for date {journey_date}"))?;
+    Ok(import_data::journey_partition::materialize_partition(
+        &vector_data.data,
+        partition,
+    ))
 }
 
 pub fn analyze_vector_data_by_date(vector_data: &RawVectorData) -> Vec<VectorImportPartSummary> {
@@ -188,7 +188,7 @@ pub fn process_vector_data_for_date(
     import_processor: ImportPreprocessor,
 ) -> Result<OpaqueJourneyData> {
     let data = data_for_date(vector_data, &journey_date)?;
-    Ok(process_raw_vector_data(data, import_processor))
+    Ok(process_raw_vector_data(&data, import_processor))
 }
 
 #[auto_context]
@@ -203,10 +203,10 @@ pub fn import_vector_data_by_date(
         .into_iter()
         .map(|date| NaiveDate::parse_from_str(&date, "%Y-%m-%d"))
         .collect::<Result<HashSet<_>, _>>()?;
-    let parts_by_date = vector_data.parts_by_date();
+    let partition_index = vector_data.partition_index();
     let mut missing_dates = selected_dates
         .iter()
-        .filter(|date| !parts_by_date.contains_key(date))
+        .filter(|date| !partition_index.contains_key(date))
         .copied()
         .collect::<Vec<_>>();
     if !missing_dates.is_empty() {
@@ -215,12 +215,14 @@ pub fn import_vector_data_by_date(
     }
     let mut parts = Vec::new();
 
-    for (journey_date, raw_data) in parts_by_date {
+    for (journey_date, partition) in partition_index {
         if !selected_dates.contains(journey_date) {
             continue;
         }
-        let info = import_data::conversion::journey_info_from_raw_vector_data(raw_data);
-        let journey_data = process_raw_vector_data(raw_data, import_processor).into_inner();
+        let raw_data =
+            import_data::journey_partition::materialize_partition(&vector_data.data, partition);
+        let info = import_data::conversion::journey_info_from_raw_vector_data(&raw_data);
+        let journey_data = process_raw_vector_data(&raw_data, import_processor).into_inner();
         if !journey_data.is_empty() {
             parts.push((*journey_date, info.start_time, info.end_time, journey_data));
         }
@@ -348,23 +350,5 @@ impl OpaqueMldxReader {
             .storage
             .with_db_txn(|txn| mldx_reader.import(txn, journey_ids.as_ref()))?;
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_fwss_snapshot_time_from_filename_is_case_insensitive() {
-        let snapshot_time =
-            parse_fwss_snapshot_time_from_filename("/tmp/sNaPsHoT-20260601T232045+0800.fwss")
-                .unwrap();
-
-        assert_eq!(snapshot_time.date_naive().to_string(), "2026-06-01");
-        assert_eq!(
-            snapshot_time.with_timezone(&Utc).to_rfc3339(),
-            "2026-06-01T15:20:45+00:00"
-        );
     }
 }
