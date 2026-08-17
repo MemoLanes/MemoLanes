@@ -9,6 +9,7 @@ use crate::admin1::Admin1Feature;
 use crate::atomic_write::write_atomically;
 use crate::entities::{group_continent_code, sovereign_member};
 use crate::overrides::Overrides;
+use crate::policy;
 
 pub fn region_names_path(dir: &Path, locale: Locale) -> PathBuf {
     dir.join(format!("region_names.{}.json", locale.spec().tag))
@@ -58,7 +59,7 @@ pub fn build_region_names(
             }
         }
     }
-    let province_sources = province_name_sources(admin1_by_worldview);
+    let province_sources = province_name_sources(admin1_by_worldview)?;
     // drop ambiguous and let them fallback to NE's names
     let ambiguous = ambiguous_subdivision_keys(admin1_by_worldview);
     let cldr_subdivisions: BTreeMap<Locale, BTreeMap<String, String>> = cldr_subdivisions
@@ -254,10 +255,23 @@ impl ProvinceNameSource {
 
 fn province_name_sources(
     by_worldview: &[(Worldview, Vec<Admin1Feature>)],
-) -> BTreeMap<String, ProvinceNameSource> {
+) -> Result<BTreeMap<String, ProvinceNameSource>> {
+    let policy = policy::get()?;
     let mut out: BTreeMap<String, ProvinceNameSource> = BTreeMap::new();
-    for (_, features) in by_worldview {
+    for (worldview, features) in by_worldview {
+        let wv = worldview.spec().id;
         for f in features {
+            let dropped_here = policy
+                .unparented
+                .iter()
+                .any(|u| u.worldview == wv && u.code == f.adm1_code)
+                || policy
+                    .merge
+                    .iter()
+                    .any(|m| m.worldview == wv && m.code == f.adm1_code);
+            if dropped_here {
+                continue;
+            }
             out.entry(f.adm1_code.clone())
                 .or_insert_with(|| ProvinceNameSource {
                     subdivision_key: subdivision_key(&f.iso_3166_2),
@@ -266,7 +280,7 @@ fn province_name_sources(
                 });
         }
     }
-    out
+    Ok(out)
 }
 
 fn ambiguous_subdivision_keys(

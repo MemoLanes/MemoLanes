@@ -73,26 +73,56 @@ fn iso_asset_resolves_known_country_locations() {
 }
 
 /// End-to-end proof that provinces are not just present as entities but are
-/// actually the raster leaf over real land: Paris must resolve to an
-/// Île-de-France province owned by France, not to France itself.
+/// actually the raster leaf over real land: Tokyo must resolve to a Japanese
+/// prefecture owned by Japan, not to Japan itself.
 #[test]
 fn iso_asset_resolves_a_city_to_a_province_under_its_country() {
     let path = test_utils::geo_asset("iso");
     let geo = GeoIndex::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
 
-    let leaf = leaf_at(&geo, 2.3522, 48.8566).expect("Paris resolved to ocean");
+    let leaf = leaf_at(&geo, 139.6917, 35.6895).expect("Tokyo resolved to ocean");
     let entity = geo.entity(leaf).unwrap();
     assert_eq!(
         entity.kind,
         GeoEntityKind::Admin1,
-        "Paris must resolve to a province, got `{}`",
+        "Tokyo must resolve to a province, got `{}`",
         entity.canonical_code
     );
     assert_eq!(
         country_of(&geo, leaf).unwrap().canonical_code,
-        "FRA",
-        "the province at Paris must be parented to France"
+        "JPN",
+        "the province at Tokyo must be parented to Japan"
     );
+}
+
+/// The other end of the same proof. Natural Earth's admin-1 rows for these
+/// countries are the local-government tier, so `geo_policy.toml`
+/// `drop_admin1_in` drops them wholesale and the country is the leaf over all
+/// of its land. A province appearing here means that tier came back — France
+/// would need its 18 regions, not its 96 departments.
+#[test]
+fn iso_asset_resolves_a_country_below_the_state_tier_to_itself() {
+    let path = test_utils::geo_asset("iso");
+    let geo = GeoIndex::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
+
+    for (lng, lat, iso, city) in [
+        (2.3522, 48.8566, "FRA", "Paris"),
+        (-0.1276, 51.5074, "GBR", "London"),
+        (12.4964, 41.9028, "ITA", "Rome"),
+        (-3.7038, 40.4168, "ESP", "Madrid"),
+        (18.4131, 43.8563, "BIH", "Sarajevo"),
+        (14.5146, 35.8997, "MLT", "Valletta"),
+    ] {
+        let leaf = leaf_at(&geo, lng, lat).unwrap_or_else(|| panic!("{city} resolved to ocean"));
+        let entity = geo.entity(leaf).unwrap();
+        assert_eq!(
+            entity.kind,
+            GeoEntityKind::Admin0,
+            "{city} must resolve to {iso} itself, got `{}`",
+            entity.canonical_code
+        );
+        assert_eq!(entity.canonical_code, iso, "leaf at {city}");
+    }
 }
 
 /// chn worldview groups Hong Kong, Macau, and Taiwan into China: a lookup at
