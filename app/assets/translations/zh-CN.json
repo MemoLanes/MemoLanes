@@ -101,7 +101,6 @@
     "journey_info_page_title": "旅程信息",
     "journey_info_edit_page_title": "编辑旅程信息",
     "import_mldx_data": "导入 MLDX 数据",
-    "import_track_file": "导入轨迹文件",
     "import_fog_of_world_data": "导入 世界迷雾 数据",
     "export_journey_as_kml": "导出为 KML",
     "export_journey_as_gpx": "导出为 GPX",
@@ -109,7 +108,6 @@
     "export_journey_as_fwss": "导出为 FWSS",
     "delete_all": "删除所有旅程",
     "delete_all_success": "所有旅程已清除!",
-    "preprocessor": "预处理器",
     "journey_date": "旅程日期",
     "journey_kind": "图层标签",
     "start_time": "开始时间",
@@ -149,14 +147,6 @@
     "menu_month": "月",
     "menu_day": "日"
   },
-  "preprocessor": {
-    "generic": "通用模式",
-    "flightTrack": "航迹模式",
-    "none": "不使用",
-    "spare": "稀疏模式",
-    "description_md": "预处理器可以帮助你优化旅程数据:\n- **通用** 适用于大部分轨迹，可以过滤掉异常的数据并将数据合理分段。\n- **航迹** 适用于飞行轨迹等，会通过差值算法补全轨迹。\n- **稀疏** 适用于记录频次较低的稀疏数据。",
-    "spare_md": "根据当前文件属性，已为你自动选择「稀疏模式」。\n你也可以尝试其他预处理方案，但可能在低密度数据上效果不佳。"
-  },
   "import": {
     "shared_file": {
       "confirm_title": "导入数据",
@@ -167,27 +157,57 @@
     "empty_data": "旅途数据为空",
     "successful": "导入成功",
     "parsing_failed": "数据解析失败",
-    "import_track_file": {
+    "preprocessor": {
+      "label": "预处理器",
+      "generic": "通用模式",
+      "flight_track": "航迹模式",
+      "none": "不使用",
+      "spare": "稀疏模式",
+      "description_md": "预处理器可以帮助你优化旅程数据:\n- **通用** 适用于大部分轨迹，可以过滤掉异常的数据并将数据合理分段。\n- **航迹** 适用于飞行轨迹等，会通过差值算法补全轨迹。\n- **稀疏** 适用于记录频次较低的稀疏数据。",
+      "spare_md": "根据当前文件属性，已为你自动选择「稀疏模式」。\n你也可以尝试其他预处理方案，但可能在低密度数据上效果不佳。"
+    },
+    "journey_selection": {
+      "list_section_title": "待导入旅途（{} 条）",
+      "select_all": "全选",
+      "deselect_all": "取消全选",
+      "confirm_import": "确认导入 {} 条",
+      "select_at_least_one": "请至少选择一条要导入的旅途。"
+    },
+    "loading": {
+      "title": "正在加载",
+      "description": "大文件可能需要一些时间，请稍候。",
+      "data_file": "数据文件",
+      "keep_open_hint": "处理期间请保持此页面打开"
+    },
+    "vector": {
+      "title": "导入轨迹文件",
       "description_md": "支持以下轨迹文件格式：\n\n1. **GPX** (`.gpx`)\n2. **KML** (`.kml`)\n3. **CSV** (`.csv`)"
     },
     "mldx_preview": {
       "title": "归档导入",
       "skipped_identical": "已跳过 {} 条完全相同的旅程",
       "new_count": "新增 {} 条",
-      "list_section_title": "待导入旅程",
-      "select_all": "全选",
-      "deselect_all": "取消全选",
-      "confirm_import": "确认导入",
+      "summary_counts": "新增 {} · 冲突 {} · 跳过 {}",
       "conflict_label": "冲突",
       "conflict_force_confirm": "强制覆盖？选择后将覆盖本地该旅程的数据。",
       "conflict_hint": "以下 {} 条与本地冲突，已默认不勾选。",
-      "select_at_least_one": "请至少选择一条要导入的旅程。",
       "all_skipped": "已跳过 {} 条完全相同的旅程，没有可导入的内容。",
       "last_modified": "修改时间：{}",
       "conflict_desc_import_newer": "导入版本较新",
       "conflict_desc_local_newer": "本地版本较新",
       "conflict_desc_same_time": "更新时间相同，请按需选择",
       "conflict_desc_unknown": "无法获取本地修改时间，请谨慎选择"
+    },
+    "vector_multi": {
+      "title": "导入多条旅途",
+      "mode_title": "检测到多条旅途",
+      "mode_message": "检测到文件中的轨迹可拆分为 {} 条旅途。你希望合并为一条导入，还是分别导入？",
+      "single_action": "作为一条旅途",
+      "separate_action": "分别导入",
+      "point_count": "{} 个轨迹点",
+      "missing_time_count": "{} 个点缺少时间",
+      "unknown_time": "时间未知",
+      "successful": "成功导入 {} 条旅程"
     },
     "import_fow_data": {
       "description_md": "导入世界迷雾 App 中产生的数据。\n\n支持以下格式：\n1. Zip 格式：将世界迷雾网盘同步 Sync 文件夹压缩为 Zip 格式压缩包。\n2. Fwss 格式：世界迷雾快照文件。  \n\n世界迷雾 App 数据不包含轨迹历史变化过程，实际导出数据为从使用开始到导出时点的所有轨迹。如您保留了多个世界迷雾历史文件，可尝试将数据上传至 [迷雾机器-时光机](https://fogmachine.8bits.io/time-machine)，并使用“导出迹忆归档”功能。",

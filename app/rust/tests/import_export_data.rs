@@ -131,6 +131,23 @@ fn verify_fow_snapshot_data() {
 }
 
 #[test]
+fn parse_fwss_snapshot_time_from_filename_is_case_insensitive() {
+    const SNAPSHOT_TEST_PATH: &str = "./tests/data/Snapshot-20260601T232045+0800.fwss";
+    let temp_dir = tempdir::TempDir::new("mixed-case-fwss-snapshot").unwrap();
+    let mixed_case_path = temp_dir.path().join("sNaPsHoT-20260601T232045+0800.fwss");
+    std::fs::copy(SNAPSHOT_TEST_PATH, &mixed_case_path).unwrap();
+
+    let (journey_info, _journey_data) =
+        import_api::load_fow_data(mixed_case_path.to_string_lossy().into_owned()).unwrap();
+
+    assert_eq!(journey_info.journey_date.to_string(), "2026-06-01");
+    assert_eq!(
+        journey_info.end_time.map(|time| time.to_rfc3339()),
+        Some("2026-06-01T15:20:45+00:00".to_owned())
+    );
+}
+
+#[test]
 pub fn gpx() {
     const IMPORT_PATH: &str = "./tests/data/raw_gps_laojunshan.gpx";
     const EXPORT_PATH: &str = "./tests/for_inspection/laojunshan.gpx";

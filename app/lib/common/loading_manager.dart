@@ -10,31 +10,63 @@ class GlobalLoadingManager extends ChangeNotifier {
 
   static final GlobalLoadingManager instance = GlobalLoadingManager._internal();
 
-  int _activeTaskCount = 0;
+  int _activeWakelockTaskCount = 0;
+  int _activeOverlayTaskCount = 0;
   bool _isLoading = false;
   Timer? _loadingDelayTimer;
 
-  /// Whether there is any active loading task.
+  /// Whether the global loading overlay is active.
   bool get isLoading => _isLoading;
 
   /// Manages the loading lifecycle for async tasks in a unified way.
   ///
   /// - Supports parallel/nested tasks (reference counting).
   Future<T> runWithLoading<T>(Future<T> Function() task) async {
-    await _increment();
+    await _incrementWakelock();
+    _incrementOverlay();
     try {
       return await task();
     } finally {
-      await _decrement();
+      _decrementOverlay();
+      await _decrementWakelock();
     }
   }
 
-  Future<void> _increment() async {
-    final bool wasIdle = _activeTaskCount == 0;
-    _activeTaskCount += 1;
+  /// Keeps the device awake for a task without showing the global overlay.
+  ///
+  /// Use this when the page already provides its own blocking loading UI.
+  Future<T> runWithWakelock<T>(Future<T> Function() task) async {
+    await _incrementWakelock();
+    try {
+      return await task();
+    } finally {
+      await _decrementWakelock();
+    }
+  }
+
+  Future<void> _incrementWakelock() async {
+    final bool wasIdle = _activeWakelockTaskCount == 0;
+    _activeWakelockTaskCount += 1;
 
     if (wasIdle) {
       await WakelockPlus.enable();
+    }
+  }
+
+  Future<void> _decrementWakelock() async {
+    if (_activeWakelockTaskCount > 0) {
+      _activeWakelockTaskCount -= 1;
+    }
+    if (_activeWakelockTaskCount == 0) {
+      await WakelockPlus.disable();
+    }
+  }
+
+  void _incrementOverlay() {
+    final bool wasHidden = _activeOverlayTaskCount == 0;
+    _activeOverlayTaskCount += 1;
+
+    if (wasHidden) {
       _loadingDelayTimer?.cancel();
       // Delay showing the loading UI a bit to avoid flickering for very fast tasks.
       _loadingDelayTimer = Timer(const Duration(milliseconds: 200), () {
@@ -44,12 +76,11 @@ class GlobalLoadingManager extends ChangeNotifier {
     }
   }
 
-  Future<void> _decrement() async {
-    if (_activeTaskCount > 0) {
-      _activeTaskCount -= 1;
+  void _decrementOverlay() {
+    if (_activeOverlayTaskCount > 0) {
+      _activeOverlayTaskCount -= 1;
     }
-    if (_activeTaskCount == 0) {
-      await WakelockPlus.disable();
+    if (_activeOverlayTaskCount == 0) {
       _loadingDelayTimer?.cancel();
       _loadingDelayTimer = null;
       _isLoading = false;

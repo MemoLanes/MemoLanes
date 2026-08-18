@@ -1,8 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/journey/journey_info_page.dart';
-import 'package:memolanes/common/component/capsule_style_app_bar.dart';
-import 'package:memolanes/common/component/tiles/label_tile.dart';
+import 'package:memolanes/common/component/multi_journey_import_page.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
@@ -107,14 +106,8 @@ class _MldxImportPageState extends State<MldxImportPage> {
     return _lastModifiedFormat.format(_lastModifiedTime(h));
   }
 
-  bool get _allSelected {
-    final newIds = _sortedJourneyWithoutIgnored.map((j) => j.$1.id).toSet();
-    return newIds.length == _selectedIds.length &&
-        newIds.every(_selectedIds.contains);
-  }
-
-  Future<void> _toggleSelectAll() async {
-    if (_allSelected) {
+  Future<void> _toggleSelectAll(bool selectAll) async {
+    if (!selectAll) {
       setState(() => _selectedIds.clear());
       return;
     }
@@ -134,6 +127,9 @@ class _MldxImportPageState extends State<MldxImportPage> {
       _selectedIds = _sortedJourneyWithoutIgnored.map((j) => j.$1.id).toSet();
     });
   }
+
+  (JourneyHeader, MldxJourneyImportAnalyzeResult) _journeyForId(String id) =>
+      _sortedJourneyWithoutIgnored.firstWhere((journey) => journey.$1.id == id);
 
   String _itemDesc(JourneyHeader importHeader, bool isConflict) {
     final importLastModified = _lastModifiedLabel(importHeader);
@@ -222,8 +218,8 @@ class _MldxImportPageState extends State<MldxImportPage> {
   Future<void> _confirmImport() async {
     if (_selectedIds.isEmpty) {
       if (mounted) {
-        await showCommonDialog(
-            context, context.tr('import.mldx_preview.select_at_least_one'));
+        await showCommonDialog(context,
+            context.tr('import.journey_selection.select_at_least_one'));
       }
       return;
     }
@@ -252,146 +248,100 @@ class _MldxImportPageState extends State<MldxImportPage> {
   @override
   Widget build(BuildContext context) {
     final journey = _sortedJourneyWithoutIgnored;
-
-    return Scaffold(
-      appBar: CapsuleStyleAppBar(
-        title: context.tr('import.mldx_preview.title'),
+    final newCount = journey.length - _conflictCount;
+    return MultiJourneyImportPage(
+      title: context.tr('import.mldx_preview.title'),
+      items: journey.map((j) {
+        final header = j.$1;
+        final isConflict = j.$2 == MldxJourneyImportAnalyzeResult.conflict;
+        return MultiJourneyImportListItem(
+          keyValue: header.id,
+          label: _journeyDateLabel(header),
+          description: _itemDesc(header, isConflict),
+          trailing: isConflict
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          size: 30,
+                          color: Colors.red,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          context.tr('import.mldx_preview.conflict_label'),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.red,
+                                  ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 8),
+                    const LabelTileContent(showArrow: true),
+                  ],
+                )
+              : null,
+        );
+      }).toList(),
+      selectedKeys: _selectedIds,
+      listSectionTitle: context.tr(
+        'import.journey_selection.list_section_title',
+        args: ['${journey.length}'],
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (_unchangedCount > 0)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      context.tr(
-                        'import.mldx_preview.skipped_identical',
-                        args: ['$_unchangedCount'],
-                      ),
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ),
-                if (_conflictCount > 0) ...[
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      _conflictHintText(context, _conflictCount),
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ),
-                ],
-                Text(
+      selectAllLabel: context.tr('import.journey_selection.select_all'),
+      deselectAllLabel: context.tr('import.journey_selection.deselect_all'),
+      confirmLabel: context.tr(
+        'import.journey_selection.confirm_import',
+        args: ['${_selectedIds.length}'],
+      ),
+      onToggleItem: (id, selected) =>
+          _onToggleItem(_journeyForId(id), selected),
+      onToggleAll: _toggleSelectAll,
+      onPreview: (id) => _openJourneyPreview(_journeyForId(id)),
+      onConfirm: _confirmImport,
+      collapsibleHeader: MultiJourneyCollapsibleHeader.standard(
+        expandedHeight: 120,
+        expandedContent: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_unchangedCount > 0)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
                   context.tr(
-                    'import.mldx_preview.new_count',
-                    args: ['${journey.length - _conflictCount}'],
+                    'import.mldx_preview.skipped_identical',
+                    args: ['$_unchangedCount'],
                   ),
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
-              ],
-            ),
-          ),
-          if (journey.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: Row(
-                children: [
-                  Text(
-                    context.tr('import.mldx_preview.list_section_title'),
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  const Spacer(),
-                  TextButton.icon(
-                    onPressed: () async => await _toggleSelectAll(),
-                    icon: Icon(
-                      _allSelected
-                          ? Icons.check_box
-                          : Icons.check_box_outline_blank,
-                      size: 20,
-                    ),
-                    label: Text(
-                      _allSelected
-                          ? context.tr('import.mldx_preview.deselect_all')
-                          : context.tr('import.mldx_preview.select_all'),
-                    ),
-                  ),
-                ],
               ),
+            if (_conflictCount > 0)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  _conflictHintText(context, _conflictCount),
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+            Text(
+              context.tr(
+                'import.mldx_preview.new_count',
+                args: ['$newCount'],
+              ),
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
           ],
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: journey.length,
-              itemBuilder: (context, index) {
-                final j = journey[index];
-                final header = j.$1;
-                final isConflict =
-                    j.$2 == MldxJourneyImportAnalyzeResult.conflict;
-                final selected = _selectedIds.contains(header.id);
-                return LabelTile(
-                  label: _journeyDateLabel(header),
-                  desc: _itemDesc(header, isConflict),
-                  prefix: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => _onToggleItem(j, !selected),
-                    child: Checkbox(
-                      value: selected,
-                      onChanged: (v) {
-                        if (v != null) _onToggleItem(j, v);
-                      },
-                    ),
-                  ),
-                  trailing: isConflict
-                      ? Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Column(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(
-                                  Icons.error_outline,
-                                  size: 30,
-                                  color: Colors.red,
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  context
-                                      .tr('import.mldx_preview.conflict_label'),
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(
-                                        color: Colors.red,
-                                      ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(width: 8),
-                            const LabelTileContent(showArrow: true),
-                          ],
-                        )
-                      : const LabelTileContent(showArrow: true),
-                  onTap: () => _openJourneyPreview(j),
-                );
-              },
-            ),
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: FilledButton(
-                onPressed: _confirmImport,
-                child: Text(context.tr('import.mldx_preview.confirm_import')),
-              ),
-            ),
-          ),
-        ],
+        ),
+        collapsedIcon: Icons.summarize_outlined,
+        collapsedText: context.tr(
+          'import.mldx_preview.summary_counts',
+          args: ['$newCount', '$_conflictCount', '$_unchangedCount'],
+        ),
       ),
     );
   }

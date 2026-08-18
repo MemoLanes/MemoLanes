@@ -364,11 +364,11 @@ class _SettingsBodyState extends State<SettingsBody> {
           ),
           CardLabelTile(
             position: CardLabelTilePosition.middle,
-            label: context.tr("journey.import_track_file"),
+            label: context.tr("import.vector.title"),
             onTap: () async {
               await showCommonDialog(
                 context,
-                context.tr("import.import_track_file.description_md"),
+                context.tr("import.vector.description_md"),
                 markdown: true,
               );
               if (!context.mounted) return;
