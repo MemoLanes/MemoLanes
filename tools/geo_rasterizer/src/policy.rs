@@ -66,7 +66,7 @@ pub struct Policy {
     #[serde(default)]
     pub synthesize: Vec<SynthesizeRule>,
     pub merge: Vec<MergeRule>,
-    pub drop_admin2: BTreeSet<String>,
+    pub drop_admin1_in: BTreeSet<String>,
     pub unparented: Vec<WorldviewCode>,
     pub overrule: Vec<OverruleRule>,
 }

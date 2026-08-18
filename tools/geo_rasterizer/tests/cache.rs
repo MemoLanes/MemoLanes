@@ -150,5 +150,5 @@ fn read_existing_hash_old_layout_does_not_false_match() {
 fn the_committed_policy_file_parses_and_validates() {
     let policy = geo_rasterizer::policy::get().unwrap();
     assert!(!policy.absorb.is_empty());
-    assert!(!policy.drop_admin2.is_empty());
+    assert!(!policy.drop_admin1_in.is_empty());
 }
