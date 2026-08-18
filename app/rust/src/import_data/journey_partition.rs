@@ -171,16 +171,21 @@ pub(crate) fn for_each_part(raw_data: &[Vec<RawData>], mut emit: impl FnMut(Part
     }
 }
 
-/// Builds a compact date index without cloning or retaining track points.
-pub(crate) fn index_by_date(raw_data: &[Vec<RawData>]) -> PartitionIndexByDate {
-    let mut result = BTreeMap::new();
+/// Date index plus per-date summaries from a single `for_each_part` walk.
+pub(crate) struct PartitionByDate {
+    pub index: PartitionIndexByDate,
+    pub summaries: SummariesByDate,
+}
+
+/// Builds the date index and summaries without cloning track points.
+pub(crate) fn partition_by_date(raw_data: &[Vec<RawData>]) -> PartitionByDate {
+    let mut index = PartitionIndexByDate::new();
+    let mut summaries = SummariesByDate::new();
     for_each_part(raw_data, |part| {
-        result
-            .entry(part.date)
-            .or_insert_with(Vec::new)
-            .extend(part.segments);
+        summaries.entry(part.date).or_default().add(&part);
+        index.entry(part.date).or_default().extend(part.segments);
     });
-    result
+    PartitionByDate { index, summaries }
 }
 
 /// Materializes only one requested date partition from the source data.
@@ -197,10 +202,11 @@ pub(crate) fn materialize_partition(
 /// Materializes imported points grouped by their chosen journey date.
 ///
 /// This is kept for callers that explicitly need all owned partitions. Import
-/// APIs use [`index_by_date`] and [`materialize_partition`] instead so they
+/// APIs use [`partition_by_date`] and [`materialize_partition`] instead so they
 /// never retain a second full copy of the source track.
 pub fn group_by_date(raw_data: &[Vec<RawData>]) -> RawDataByDate {
-    index_by_date(raw_data)
+    partition_by_date(raw_data)
+        .index
         .into_iter()
         .map(|(date, partition)| (date, materialize_partition(raw_data, &partition)))
         .collect()
@@ -208,12 +214,5 @@ pub fn group_by_date(raw_data: &[Vec<RawData>]) -> RawDataByDate {
 
 /// Summarizes the same partition without cloning or retaining track points.
 pub fn summarize(raw_data: &[Vec<RawData>]) -> SummariesByDate {
-    let mut result = BTreeMap::new();
-    for_each_part(raw_data, |part| {
-        result
-            .entry(part.date)
-            .or_insert_with(DateSummary::default)
-            .add(&part);
-    });
-    result
+    partition_by_date(raw_data).summaries
 }

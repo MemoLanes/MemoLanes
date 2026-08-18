@@ -51,7 +51,7 @@ fn loads_step_csv() {
     assert_eq!(first.point.longitude, 117.118118);
     assert_eq!(first.point.latitude, 36.697596);
     assert_eq!(first.accuracy, Some(5.35099));
-    assert_eq!(first.altitude, Some(49.254_64));
+    assert_eq!(first.altitude, Some(49.254637));
     assert_eq!(first.speed, None);
 
     let last = segments[0].last().unwrap();

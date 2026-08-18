@@ -32,7 +32,7 @@ pub struct JourneyInfo {
 #[frb(opaque)]
 pub struct RawVectorData {
     data: Vec<Vec<RawData>>,
-    partition_index: OnceLock<import_data::journey_partition::PartitionIndexByDate>,
+    partition: OnceLock<import_data::journey_partition::PartitionByDate>,
 }
 
 #[derive(Debug)]
@@ -116,7 +116,7 @@ pub fn load_vector_data(
         import_data::conversion::journey_info_from_raw_vector_data(&raw_vector_data),
         RawVectorData {
             data: raw_vector_data,
-            partition_index: OnceLock::new(),
+            partition: OnceLock::new(),
         },
         import_preprocessor,
     ))
@@ -150,27 +150,30 @@ pub enum ImportPreprocessor {
 }
 
 impl RawVectorData {
-    fn partition_index(&self) -> &import_data::journey_partition::PartitionIndexByDate {
-        self.partition_index
-            .get_or_init(|| import_data::journey_partition::index_by_date(&self.data))
+    fn partition(&self) -> &import_data::journey_partition::PartitionByDate {
+        self.partition
+            .get_or_init(|| import_data::journey_partition::partition_by_date(&self.data))
     }
 }
 
 fn data_for_date(vector_data: &RawVectorData, journey_date: &str) -> Result<Vec<Vec<RawData>>> {
     let journey_date = NaiveDate::parse_from_str(journey_date, "%Y-%m-%d")?;
-    let partition = vector_data
-        .partition_index()
+    let slices = vector_data
+        .partition()
+        .index
         .get(&journey_date)
         .with_context(|| format!("No vector data for date {journey_date}"))?;
     Ok(import_data::journey_partition::materialize_partition(
         &vector_data.data,
-        partition,
+        slices,
     ))
 }
 
 pub fn analyze_vector_data_by_date(vector_data: &RawVectorData) -> Vec<VectorImportPartSummary> {
-    import_data::journey_partition::summarize(&vector_data.data)
-        .into_iter()
+    vector_data
+        .partition()
+        .summaries
+        .iter()
         .map(|(journey_date, summary)| VectorImportPartSummary {
             journey_date: journey_date.format("%Y-%m-%d").to_string(),
             start_time: summary.start_time,
@@ -203,10 +206,10 @@ pub fn import_vector_data_by_date(
         .into_iter()
         .map(|date| NaiveDate::parse_from_str(&date, "%Y-%m-%d"))
         .collect::<Result<HashSet<_>, _>>()?;
-    let partition_index = vector_data.partition_index();
+    let partition = vector_data.partition();
     let mut missing_dates = selected_dates
         .iter()
-        .filter(|date| !partition_index.contains_key(date))
+        .filter(|date| !partition.index.contains_key(date))
         .copied()
         .collect::<Vec<_>>();
     if !missing_dates.is_empty() {
@@ -215,16 +218,24 @@ pub fn import_vector_data_by_date(
     }
     let mut parts = Vec::new();
 
-    for (journey_date, partition) in partition_index {
+    for (journey_date, slices) in &partition.index {
         if !selected_dates.contains(journey_date) {
             continue;
         }
+        let summary = partition
+            .summaries
+            .get(journey_date)
+            .expect("partition index and summaries are built together");
         let raw_data =
-            import_data::journey_partition::materialize_partition(&vector_data.data, partition);
-        let info = import_data::conversion::journey_info_from_raw_vector_data(&raw_data);
+            import_data::journey_partition::materialize_partition(&vector_data.data, slices);
         let journey_data = process_raw_vector_data(&raw_data, import_processor).into_inner();
         if !journey_data.is_empty() {
-            parts.push((*journey_date, info.start_time, info.end_time, journey_data));
+            parts.push((
+                *journey_date,
+                summary.start_time,
+                summary.end_time,
+                journey_data,
+            ));
         }
     }
 

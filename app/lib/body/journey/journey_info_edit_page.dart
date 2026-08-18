@@ -3,10 +3,8 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:memolanes/body/journey/journey_info_fields.dart';
 import 'package:memolanes/body/settings/import_data_page.dart' show ImportType;
-import 'package:memolanes/common/component/basic_bottom_sheet.dart';
-import 'package:memolanes/common/component/cards/card_label_tile.dart';
-import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
@@ -135,7 +133,6 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQueryData.fromView(View.of(context)).size.width;
     return ConstrainedBox(
       constraints: BoxConstraints(
         maxHeight: 440,
@@ -201,63 +198,20 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
           if (widget.importType != null)
             widget.importType == ImportType.fow
                 ? SizedBox.shrink()
-                : LabelTile(
-                    label: context.tr("import.preprocessor.label"),
-                    infoLabelOnTap: () => showCommonDialog(
+                : ImportPreprocessorTile(
+                    value: _preprocessor,
+                    onSelected: _selectPreprocessor,
+                    onInfoTap: () => showCommonDialog(
                       context,
                       context.tr("import.preprocessor.description_md"),
                       markdown: true,
                     ),
-                    position: LabelTilePosition.single,
-                    trailing: LabelTileContent(
-                      content: switch (_preprocessor) {
-                        import_api.ImportPreprocessor.none =>
-                          context.tr("import.preprocessor.none"),
-                        import_api.ImportPreprocessor.generic =>
-                          context.tr("import.preprocessor.generic"),
-                        import_api.ImportPreprocessor.flightTrack =>
-                          context.tr("import.preprocessor.flight_track"),
-                        import_api.ImportPreprocessor.spare =>
-                          context.tr("import.preprocessor.spare"),
-                      },
-                      showArrow: true,
-                    ),
-                    onTap: () => _showJourneyPreprocessorCard(context),
                   ),
-          LabelTile(
-            label: context.tr("journey.journey_kind"),
-            position: LabelTilePosition.single,
-            trailing: LabelTileContent(
-                content: _journeyKind == JourneyKind.defaultKind
-                    ? context.tr("journey_kind.default")
-                    : context.tr("journey_kind.flight"),
-                showArrow: true),
-            onTap: () => _showJourneyKindCard(context),
+          JourneyKindTile(
+            value: _journeyKind,
+            onSelected: (value) => setState(() => _journeyKind = value),
           ),
-          LabelTile(
-            label: context.tr("journey.note"),
-            position: LabelTilePosition.single,
-            maxHeight: 150,
-            trailing: SizedBox(
-              width: width * 0.6,
-              child: TextField(
-                controller: _noteController,
-                keyboardType: TextInputType.multiline,
-                textInputAction: TextInputAction.newline,
-                maxLines: 5,
-                minLines: 1,
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  counterText: '',
-                  hintText: context.tr("common.please_enter"),
-                  hintStyle: TextStyle(
-                    fontSize: 14.0,
-                  ),
-                ),
-                textAlign: TextAlign.right,
-              ),
-            ),
-          ),
+          JourneyNoteTile(controller: _noteController),
           ElevatedButton(
             onPressed: () => _saveData(context),
             style: ElevatedButton.styleFrom(
@@ -275,78 +229,10 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
     );
   }
 
-  void _showJourneyKindCard(BuildContext context) {
-    showBasicCard(
-      context,
-      child: OptionCard(
-        children: [
-          CardLabelTile(
-            position: CardLabelTilePosition.top,
-            label: context.tr("journey_kind.default"),
-            onTap: () {
-              setState(() {
-                _journeyKind = JourneyKind.defaultKind;
-              });
-            },
-            top: false,
-          ),
-          CardLabelTile(
-            position: CardLabelTilePosition.bottom,
-            label: context.tr("journey_kind.flight"),
-            onTap: () {
-              setState(() {
-                _journeyKind = JourneyKind.flight;
-              });
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
   void _selectPreprocessor(import_api.ImportPreprocessor processor) {
     setState(() {
       _preprocessor = processor;
     });
     widget.previewData?.call(_preprocessor);
-  }
-
-  void _showJourneyPreprocessorCard(BuildContext context) {
-    showBasicCard(
-      context,
-      child: OptionCard(
-        children: [
-          CardLabelTile(
-            position: CardLabelTilePosition.top,
-            label: context.tr("import.preprocessor.none"),
-            onTap: () {
-              _selectPreprocessor(import_api.ImportPreprocessor.none);
-            },
-            top: false,
-          ),
-          CardLabelTile(
-            position: CardLabelTilePosition.middle,
-            label: context.tr("import.preprocessor.generic"),
-            onTap: () {
-              _selectPreprocessor(import_api.ImportPreprocessor.generic);
-            },
-          ),
-          CardLabelTile(
-            position: CardLabelTilePosition.bottom,
-            label: context.tr("import.preprocessor.flight_track"),
-            onTap: () {
-              _selectPreprocessor(import_api.ImportPreprocessor.flightTrack);
-            },
-          ),
-          CardLabelTile(
-            position: CardLabelTilePosition.middle,
-            label: context.tr("import.preprocessor.spare"),
-            onTap: () {
-              _selectPreprocessor(import_api.ImportPreprocessor.spare);
-            },
-          ),
-        ],
-      ),
-    );
   }
 }

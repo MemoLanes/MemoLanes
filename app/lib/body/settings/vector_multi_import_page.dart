@@ -1,12 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/body/journey/journey_info_fields.dart';
 import 'package:memolanes/body/journey/journey_info_page.dart';
-import 'package:memolanes/common/component/basic_bottom_sheet.dart';
-import 'package:memolanes/common/component/cards/card_label_tile.dart';
-import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/multi_journey_import_page.dart';
-import 'package:memolanes/common/component/tiles/label_tile.dart';
-import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
@@ -71,18 +67,6 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
         : null;
     return [timeRange, points, missing].whereType<String>().join(' · ');
   }
-
-  String _preprocessorLabel(import_api.ImportPreprocessor value) =>
-      switch (value) {
-        import_api.ImportPreprocessor.none =>
-          context.tr('import.preprocessor.none'),
-        import_api.ImportPreprocessor.generic =>
-          context.tr('import.preprocessor.generic'),
-        import_api.ImportPreprocessor.flightTrack =>
-          context.tr('import.preprocessor.flight_track'),
-        import_api.ImportPreprocessor.spare =>
-          context.tr('import.preprocessor.spare'),
-      };
 
   Future<void> _openPreview(String key) async {
     final part = _partForKey(key);
@@ -169,49 +153,6 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
     }
   }
 
-  void _showPreprocessorPicker() {
-    showBasicCard(
-      context,
-      child: OptionCard(
-        children: import_api.ImportPreprocessor.values.map((value) {
-          return CardLabelTile(
-            position: value == import_api.ImportPreprocessor.values.first
-                ? CardLabelTilePosition.top
-                : value == import_api.ImportPreprocessor.values.last
-                    ? CardLabelTilePosition.bottom
-                    : CardLabelTilePosition.middle,
-            label: value == _preprocessor
-                ? '✓ ${_preprocessorLabel(value)}'
-                : _preprocessorLabel(value),
-            onTap: () {
-              setState(() => _preprocessor = value);
-            },
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  void _showJourneyKindPicker() {
-    showBasicCard(
-      context,
-      child: OptionCard(
-        children: JourneyKind.values.map((value) {
-          return CardLabelTile(
-            position: value == JourneyKind.values.first
-                ? CardLabelTilePosition.top
-                : CardLabelTilePosition.bottom,
-            label:
-                '${value == _journeyKind ? '✓ ' : ''}${value == JourneyKind.defaultKind ? context.tr('journey_kind.default') : context.tr('journey_kind.flight')}',
-            onTap: () {
-              setState(() => _journeyKind = value);
-            },
-          );
-        }).toList(),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final items = widget.parts
@@ -255,56 +196,25 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
       collapsibleHeader: MultiJourneyCollapsibleHeader.standard(
         expandedContent: Column(
           children: [
-            LabelTile(
-              label: context.tr('import.preprocessor.label'),
-              trailing: LabelTileContent(
-                content: _preprocessorLabel(_preprocessor),
-                showArrow: true,
-              ),
-              onTap: _showPreprocessorPicker,
+            ImportPreprocessorTile(
+              value: _preprocessor,
+              onSelected: (value) => setState(() => _preprocessor = value),
             ),
-            LabelTile(
-              label: context.tr('journey.journey_kind'),
-              trailing: LabelTileContent(
-                content: _journeyKind == JourneyKind.defaultKind
-                    ? context.tr('journey_kind.default')
-                    : context.tr('journey_kind.flight'),
-                showArrow: true,
-              ),
-              onTap: _showJourneyKindPicker,
+            JourneyKindTile(
+              value: _journeyKind,
+              onSelected: (value) => setState(() => _journeyKind = value),
             ),
-            LabelTile(
-              label: context.tr('journey.note'),
+            JourneyNoteTile(
+              controller: _noteController,
               maxHeight: 100,
-              trailing: SizedBox(
-                width: MediaQuery.sizeOf(context).width * 0.55,
-                child: TextField(
-                  controller: _noteController,
-                  keyboardType: TextInputType.multiline,
-                  textInputAction: TextInputAction.newline,
-                  maxLines: 2,
-                  minLines: 1,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0x99FFFFFF),
-                  ),
-                  decoration: InputDecoration.collapsed(
-                    border: InputBorder.none,
-                    hintText: context.tr('common.please_enter'),
-                    hintStyle: const TextStyle(
-                      fontSize: 14,
-                      color: Color(0x99FFFFFF),
-                    ),
-                  ),
-                  textAlign: TextAlign.right,
-                ),
-              ),
+              maxLines: 2,
+              widthFactor: 0.55,
             ),
           ],
         ),
         collapsedIcon: Icons.tune,
         collapsedText:
-            '${_preprocessorLabel(_preprocessor)} · ${_journeyKind == JourneyKind.defaultKind ? context.tr('journey_kind.default') : context.tr('journey_kind.flight')}',
+            '${importPreprocessorLabel(context, _preprocessor)} · ${journeyKindLabel(context, _journeyKind)}',
       ),
     );
   }
