@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:memolanes/common/app_lifecycle_service.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/map_webview_assets.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -25,7 +26,12 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
   }
 
   Future<void> _onWebViewCreated(InAppWebViewController controller) async {
+    final previousController = _controller;
+    if (previousController != null && previousController != controller) {
+      AppLifecycleService.instance.unregisterWebView(previousController);
+    }
     _controller = controller;
+    AppLifecycleService.instance.registerWebView(controller);
     await MapWebViewAssets.load(controller, 'render_diagnostics.html');
   }
 
@@ -71,6 +77,11 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
 
   @override
   void dispose() {
+    final controller = _controller;
+    if (controller != null) {
+      AppLifecycleService.instance.unregisterWebView(controller);
+    }
+    _controller = null;
     super.dispose();
   }
 

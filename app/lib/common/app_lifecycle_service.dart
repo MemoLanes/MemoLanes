@@ -14,10 +14,8 @@ class AppLifecycleService {
   Timer? _freeResourceCountdown;
   bool _countdownCanceled = false;
   final Set<InAppWebViewController> _webViewControllers = {};
-  final Set<InAppWebViewController> _pausedWebViewControllers = {};
   Future<void> _webViewLifecycleTask = Future<void>.value();
   bool _webViewsShouldBePaused = false;
-  bool _androidTimersPaused = false;
 
   bool get isRunning => _sub != null;
 
@@ -54,7 +52,6 @@ class AppLifecycleService {
 
   void unregisterWebView(InAppWebViewController controller) {
     _webViewControllers.remove(controller);
-    _pausedWebViewControllers.remove(controller);
   }
 
   void _scheduleWebViewLifecycleSync() {
@@ -73,104 +70,52 @@ class AppLifecycleService {
   Future<void> _syncWebViewLifecycle() async {
     if (!Platform.isAndroid && !Platform.isIOS) return;
 
+    final shouldPause = _webViewsShouldBePaused;
     final controllers = _webViewControllers.toList(growable: false);
-    if (_webViewsShouldBePaused) {
-      if (Platform.isAndroid) {
-        // WebView.onPause() is per-instance and does not pause JavaScript.
-        for (final controller in controllers) {
-          if (!_webViewControllers.contains(controller) ||
-              _pausedWebViewControllers.contains(controller)) {
-            continue;
-          }
-          if (await _runWebViewOperation(
-                'pause Android WebView',
-                controller.pause,
-              ) &&
-              _webViewControllers.contains(controller)) {
-            _pausedWebViewControllers.add(controller);
-          }
-        }
-
-        // Android WebView.pauseTimers() is process-global, so one live
-        // controller is enough to stop JavaScript timers in every WebView.
-        if (!_androidTimersPaused) {
-          final controller = _firstRegisteredController(controllers);
-          if (controller != null &&
-              await _runWebViewOperation(
-                'pause Android WebView timers',
-                controller.pauseTimers,
-              )) {
-            _androidTimersPaused = true;
-          }
-        }
-      } else {
-        // WKWebView has no pause()/resume() equivalent. The plugin implements
-        // pauseTimers()/resumeTimers() per WebView using JavaScript.
-        for (final controller in controllers) {
-          if (!_webViewControllers.contains(controller) ||
-              _pausedWebViewControllers.contains(controller)) {
-            continue;
-          }
-          if (await _runWebViewOperation(
-                'pause iOS WebView timers',
-                controller.pauseTimers,
-              ) &&
-              _webViewControllers.contains(controller)) {
-            _pausedWebViewControllers.add(controller);
-          }
-        }
-      }
-      return;
-    }
-
     if (Platform.isAndroid) {
-      // Timers were paused globally, so resume them before resuming each view.
-      if (_androidTimersPaused) {
-        final controller = _firstRegisteredController(controllers);
-        if (controller != null &&
-            await _runWebViewOperation(
-              'resume Android WebView timers',
-              controller.resumeTimers,
-            )) {
-          _androidTimersPaused = false;
-        }
+      // WebView timers are process-global on Android. Resume them before the
+      // individual views, and pause them after the individual views.
+      if (!shouldPause) {
+        await _syncAndroidTimers(controllers, shouldPause: false);
       }
-
       for (final controller in controllers) {
-        if (!_webViewControllers.contains(controller) ||
-            !_pausedWebViewControllers.contains(controller)) {
-          continue;
-        }
-        if (await _runWebViewOperation(
-          'resume Android WebView',
-          controller.resume,
-        )) {
-          _pausedWebViewControllers.remove(controller);
-        }
+        if (!_webViewControllers.contains(controller)) continue;
+        await _runWebViewOperation(
+          shouldPause ? 'pause Android WebView' : 'resume Android WebView',
+          shouldPause ? controller.pause : controller.resume,
+        );
+      }
+      if (shouldPause) {
+        await _syncAndroidTimers(controllers, shouldPause: true);
       }
     } else {
       for (final controller in controllers) {
-        if (!_webViewControllers.contains(controller) ||
-            !_pausedWebViewControllers.contains(controller)) {
-          continue;
-        }
-        if (await _runWebViewOperation(
-          'resume iOS WebView timers',
-          controller.resumeTimers,
-        )) {
-          _pausedWebViewControllers.remove(controller);
-        }
+        if (!_webViewControllers.contains(controller)) continue;
+        await _runWebViewOperation(
+          shouldPause
+              ? 'pause iOS WebView timers'
+              : 'resume iOS WebView timers',
+          shouldPause ? controller.pauseTimers : controller.resumeTimers,
+        );
       }
     }
   }
 
-  InAppWebViewController? _firstRegisteredController(
-    List<InAppWebViewController> controllers,
-  ) {
+  Future<void> _syncAndroidTimers(
+    List<InAppWebViewController> controllers, {
+    required bool shouldPause,
+  }) async {
     for (final controller in controllers) {
-      if (_webViewControllers.contains(controller)) return controller;
+      if (!_webViewControllers.contains(controller)) continue;
+      if (await _runWebViewOperation(
+        shouldPause
+            ? 'pause Android WebView timers'
+            : 'resume Android WebView timers',
+        shouldPause ? controller.pauseTimers : controller.resumeTimers,
+      )) {
+        return;
+      }
     }
-    return null;
   }
 
   Future<bool> _runWebViewOperation(
