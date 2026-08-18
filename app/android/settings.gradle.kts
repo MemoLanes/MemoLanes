@@ -1,3 +1,5 @@
+import com.android.build.api.dsl.LibraryExtension
+
 pluginManagement {
     val flutterSdkPath = run {
         val properties = java.util.Properties()
@@ -18,8 +20,21 @@ pluginManagement {
 
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    id("com.android.application") version "8.12.0" apply false
-    id("org.jetbrains.kotlin.android") version "2.2.20" apply false
+    id("com.android.application") version "9.1.0" apply false
+    id("org.jetbrains.kotlin.android") version "2.4.0" apply false
 }
 
 include(":app")
+
+// This callback is registered before Flutter configures plugin projects. The
+// published notification_when_app_is_killed package still sets compileSdk 33,
+// although its AndroidX dependencies require 34 or newer.
+gradle.beforeProject {
+    if (name == "notification_when_app_is_killed") {
+        afterEvaluate {
+            extensions.configure<LibraryExtension> {
+                compileSdk = 36
+            }
+        }
+    }
+}

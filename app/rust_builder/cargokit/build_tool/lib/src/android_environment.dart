@@ -189,12 +189,21 @@ class AndroidEnvironment {
     if (rustFlags.isNotEmpty) {
       rustFlags = '$rustFlags\x1f';
     }
-    rustFlags = '$rustFlags-L\x1f$workaroundDir';
+    if (["arm64-v8a", "x86_64"].contains(target.android)) {
+      rustFlags = '$rustFlags-L\x1f$workaroundDir\x1f';
 
-    // Add 16 KB linker alignment so native libraries are compatible with Android 15+
-    // Use max-page-size to set ELF alignment; avoid common-page-size which can make
-    // binaries require 16 KB pages and break on 4 KB devices.
-    rustFlags = '$rustFlags\x1f-C\x1flink-args=-Wl,-z,max-page-size=16384';
+      const pageSizeArgs = [
+        "-C",
+        "link-arg=-Wl,--hash-style=both",
+        "-C",
+        "link-arg=-Wl,-z,max-page-size=16384"
+      ];
+      final pageSizeArgsString = pageSizeArgs.join("\x1f");
+
+      rustFlags = '$rustFlags$pageSizeArgsString';
+    } else {
+      rustFlags = '$rustFlags-L\x1f$workaroundDir';
+    }
 
     return rustFlags;
   }
