@@ -91,21 +91,21 @@ fn adm1_code_is_unique() {
 /// The shipped bins must contain the province counts the design predicts.
 /// Requires `just rasterize-geo`, which `just test-geo` runs first.
 ///
-/// These are the parsed counts minus the editorial drops (`entities::
-/// DROPPED_SUBPROVINCIAL` −18 everywhere; the coextensive `+00?` dedup −19
-/// iso / −21 chn / −24 usa) and minus the provinces whose parent country
-/// holds none of their land (geo_policy.toml `unparented`): iso drops 9
-/// and usa drops 1, because Natural Earth's iso admin-0 excises disputed land
-/// from both claimants — minus chn's two `merge` rows into Hainan, plus its
-/// synthesized Taiwan entity.
+/// These are the parsed counts minus the editorial drops (geo_policy.toml
+/// `drop_admin1_in` −1075 everywhere; the coextensive sole-unit dedup −28 iso /
+/// −33 chn / −35 usa) and minus the provinces whose parent country holds none
+/// of their land (geo_policy.toml `unparented`): iso drops 9 and usa drops 1,
+/// because Natural Earth's iso admin-0 excises disputed land from both
+/// claimants — minus chn's two `merge` rows into Hainan, plus the two
+/// territories it demotes (Hong Kong, Macau) and its synthesized Taiwan entity.
 #[test]
 fn shipped_bins_carry_the_expected_province_counts() {
     use geo_data_format::{read_geo_data, GeoEntityKind};
 
     for (worldview, expected) in [
-        (Worldview::Iso, 4541usize),
-        (Worldview::Usa, 4544),
-        (Worldview::Chn, 4495),
+        (Worldview::Iso, 3475usize),
+        (Worldview::Usa, 3476),
+        (Worldview::Chn, 3427),
     ] {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../app/assets/geo")
@@ -208,21 +208,127 @@ fn shipped_provinces(worldview: Worldview) -> Vec<String> {
         .collect()
 }
 
-/// Hong Kong's districts are sub-provincial (one tier below the SAR) and
-/// have no tier to live in until ADM2 data ships. Under `chn` they used to land
-/// as siblings of Guangdong via block majority — the leveling defect this whole
-/// change exists to fix.
+/// A country `drop_admin1_in` lists must ship no province at all, in any
+/// worldview — the drop is all-or-nothing, so a survivor means a hole rendering
+/// as the country beside a sibling rendering as a province.
+///
+/// Hong Kong is the case that named the rule: its districts are one tier below
+/// the SAR, and under `chn` they used to land as siblings of Guangdong via
+/// block majority.
 #[test]
-fn hong_kong_districts_do_not_ship_in_any_worldview() {
+fn a_country_below_the_state_tier_ships_no_provinces() {
+    let policy = geo_rasterizer::policy::get().unwrap();
     for &worldview in Worldview::ALL {
         for f in shipped_provinces(worldview) {
+            // A demoted or synthesized territory carries a bare `ADM0_A3`; only
+            // rows from the admin-1 source are subject to the drop.
+            let Some((adm0, _)) = f.split_once(['-', '+']) else {
+                continue;
+            };
             assert!(
-                !f.starts_with("HKG-"),
-                "{}: {f} ships as a province",
+                !policy.drop_admin1_in.contains(adm0),
+                "{}: {f} ships as a province, but `{adm0}` is dropped wholesale",
                 worldview.spec().id
             );
         }
     }
+}
+
+/// Every country `drop_admin1_in` names must exist in the source. A pin bump
+/// that renames or retires one would otherwise leave a row that silently drops
+/// nothing.
+#[test]
+fn every_dropped_country_names_a_country_in_the_source() {
+    use std::collections::BTreeSet;
+
+    let policy = geo_rasterizer::policy::get().unwrap();
+    let raw = std::fs::read_to_string(source()).unwrap();
+    let collection: geojson::FeatureCollection = serde_json::from_str(&raw).unwrap();
+    let present: BTreeSet<&str> = collection
+        .features
+        .iter()
+        .filter_map(|f| f.properties.as_ref()?.get("adm0_a3")?.as_str())
+        .collect();
+    let dead: Vec<&String> = policy
+        .drop_admin1_in
+        .iter()
+        .filter(|c| !present.contains(c.as_str()))
+        .collect();
+    assert!(
+        dead.is_empty(),
+        "geo_policy.toml `drop_admin1_in` names {dead:?}, which the admin-1 source has no rows \
+         for — drop the dead entries"
+    );
+}
+
+/// The tier is all of a country or none of it. A country that keeps some of its
+/// units and loses others renders partly as itself and partly as provinces,
+/// which is what a drop keyed on anything but the country produces.
+///
+/// Per-code removals stay possible, but each is a reviewed row (`unparented`,
+/// `merge`) or the coextensive `+00?` dedup, so each is excluded from both
+/// sides of the count. Nothing else may thin a country's tier.
+#[test]
+fn the_province_tier_is_never_partial_for_a_country() {
+    use geo_rasterizer::admin0::parse_admin0;
+    use geo_rasterizer::entities::apply_admin1_policy;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    let policy = geo_rasterizer::policy::get().unwrap();
+    let mut partial: Vec<String> = Vec::new();
+    for &worldview in Worldview::ALL {
+        let wv = worldview.spec().id;
+        let reviewed: BTreeSet<&str> = policy
+            .unparented
+            .iter()
+            .filter(|u| u.worldview == wv)
+            .map(|u| u.code.as_str())
+            .chain(
+                policy
+                    .merge
+                    .iter()
+                    .filter(|m| m.worldview == wv)
+                    .map(|m| m.code.as_str()),
+            )
+            .collect();
+        let counts = |features: &[geo_rasterizer::admin1::Admin1Feature]| {
+            let mut by_country: BTreeMap<String, usize> = BTreeMap::new();
+            for f in features {
+                if reviewed.contains(f.adm1_code.as_str()) || f.adm1_code.ends_with("+00?") {
+                    continue;
+                }
+                *by_country.entry(f.adm0_a3.clone()).or_default() += 1;
+            }
+            by_country
+        };
+
+        let parsed = parse_admin1(&source(), worldview).unwrap();
+        let source_units = counts(&parsed);
+        let admin0 = parse_admin0(
+            &Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("natural_earth")
+                .join(worldview.spec().source_filename),
+            wv,
+        )
+        .unwrap();
+        let shipped = counts(
+            &apply_admin1_policy(parsed, worldview, &admin0)
+                .unwrap()
+                .features,
+        );
+
+        for (adm0, &in_source) in &source_units {
+            let kept = shipped.get(adm0).copied().unwrap_or(0);
+            if kept != 0 && kept != in_source {
+                partial.push(format!("{wv}: {adm0} keeps {kept} of {in_source} units"));
+            }
+        }
+    }
+    assert!(
+        partial.is_empty(),
+        "the province tier is partial for:\n  {}",
+        partial.join("\n  ")
+    );
 }
 
 /// `adm1_code → the ADM0_A3 that province ships under`, or `None` when the bin
@@ -299,17 +405,21 @@ fn demoted_territories_ship_as_provinces_of_their_claimant() {
     assert_eq!(shipped_parent(Worldview::Chn, "MAC+00?"), None);
 }
 
-/// A `+00?` unit that is its territory's only admin-1 feature, where the
-/// territory is already an entity in this worldview, duplicates its own parent.
-/// The rule keys on coextensiveness, not on the `+00?` suffix — the kept cases
-/// are each territory's ONLY representation in that worldview.
+/// A unit that is its territory's only admin-1 feature, where the territory is
+/// already an entity in this worldview, duplicates its own parent. The rule
+/// keys on the unit count, not on the `+00?` suffix — the kept cases are each
+/// territory's ONLY representation in that worldview.
 #[test]
 fn coextensive_whole_country_units_are_deduplicated() {
-    // Dropped: the territory is an entity here, so the +00? duplicates it.
+    // Dropped: the territory is an entity here, so its sole unit duplicates it.
+    // `FRO-1443` and `PRI-5260` are the numbered form of the same thing, and
+    // Faroe's is drawn over the whole country while naming itself Eysturoyar.
     for (worldview, code) in [
         (Worldview::Iso, "MAC+00?"),
         (Worldview::Iso, "GIB+00?"),
         (Worldview::Iso, "VAT+00?"),
+        (Worldview::Iso, "FRO-1443"),
+        (Worldview::Iso, "PRI-5260"),
         (Worldview::Usa, "USG+00?"),
         (Worldview::Usa, "PGA+00?"),
     ] {
@@ -393,6 +503,31 @@ fn a_province_reaches_another_country_only_by_review_or_by_absence() {
             Some(expected),
             "{}/{code}",
             worldview.spec().id
+        );
+    }
+}
+
+/// A country's first-order units keep shipping whatever Natural Earth's
+/// `TYPE_EN` calls them — the class string is not evidence of tier. `County` is
+/// first-order in Sweden, Liberia, Romania, Estonia and Norway and second-order
+/// in the UK; `District` is first-order in Eswatini and second-order in Sri
+/// Lanka.
+#[test]
+fn first_order_units_ship_whatever_their_class_string_says() {
+    for code in [
+        "SWE-3429", // Skåne, County
+        "LBR-785",  // Grand Bassa, County
+        "ROU-296",  // Cluj, County
+        "EST-1654", // Harju, County
+        "NOR-75",   // Nordland, County
+        "SWZ-534",  // Hhohho, District
+        "TLS-546",  // Baucau, District|Regencies
+        "USA-3556", // District of Columbia, Federal District
+        "BRA-599",  // Distrito Federal, Federal District
+    ] {
+        assert!(
+            shipped_parent(Worldview::Iso, code).is_some(),
+            "iso/{code} must ship"
         );
     }
 }

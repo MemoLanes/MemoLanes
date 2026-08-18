@@ -58,11 +58,15 @@ pub fn apply_admin1_policy(
     let policy = policy::get()?;
     let kept: Vec<Admin1Feature> = features
         .into_iter()
-        .filter(|f| !policy.drop_admin2.contains(&f.adm1_code))
+        .filter(|f| !policy.drop_admin1_in.contains(&f.adm0_a3))
         .collect();
 
-    // A `+00?` whole-territory unit duplicates its own parent when the
-    // territory is already an entity here AND it is the territory's only unit.
+    // A territory's sole admin-1 unit duplicates its own parent when the
+    // territory is already an entity here: Natural Earth draws these
+    // whole-territory rows over the whole country. Most carry a `+00?` code,
+    // but some are numbered (`ABW-5150` Aruba, `PRI-5260` Puerto Rico), and
+    // `FRO-1443` even names itself after one Faroese region while covering all
+    // of them — so the unit count is the test, not the code.
     let present: BTreeSet<&str> = admin0.iter().map(|f| f.adm0_a3.as_str()).collect();
     let mut units_of: BTreeMap<&str, u32> = BTreeMap::new();
     for f in &kept {
@@ -70,11 +74,7 @@ pub fn apply_admin1_policy(
     }
     let coextensive: BTreeSet<String> = kept
         .iter()
-        .filter(|f| {
-            f.adm1_code.ends_with("+00?")
-                && units_of[f.adm0_a3.as_str()] == 1
-                && present.contains(f.adm0_a3.as_str())
-        })
+        .filter(|f| units_of[f.adm0_a3.as_str()] == 1 && present.contains(f.adm0_a3.as_str()))
         .map(|f| f.adm1_code.clone())
         .collect();
     let mut kept: Vec<Admin1Feature> = kept

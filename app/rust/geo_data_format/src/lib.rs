@@ -6,7 +6,7 @@ pub const MAGIC: &[u8; 4] = b"MGEO";
 /// source inputs are unchanged** — a format-layout change, any
 /// rasterizer change that alters cell/tile semantics, or an editorial
 /// policy-logic change with no `geo_policy.toml` row (e.g. the
-/// coextensive `+00?` dedup rule).
+/// coextensive sole-unit dedup rule).
 ///
 /// It is folded into the provenance hash (see the rasterizer's
 /// `compute_provenance_hash`), so bumping it makes the rasterizer's
