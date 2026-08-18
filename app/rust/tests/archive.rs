@@ -55,7 +55,7 @@ fn add_bitmap_journey(main_db: &mut MainDb) {
 
 fn all_journeys(main_db: &mut MainDb) -> Vec<(JourneyHeader, JourneyData)> {
     let journey_headers = main_db
-        .with_txn(|txn| txn.query_journeys(None, None))
+        .with_txn(|txn| txn.query_journeys(None, None, None))
         .unwrap();
     let mut journeys = Vec::new();
     for journey_header in journey_headers.into_iter() {

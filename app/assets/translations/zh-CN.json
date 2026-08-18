@@ -81,7 +81,18 @@
       "discard_changes_confirm": "未保存的操作都会丢失，是否继续？",
       "zoom_too_low": "请放大地图再绘制。"
     },
-    "no_data": "当前暂无旅程数据，开始探索世界吧！",
+    "list": {
+      "filter_layers": "筛选图层",
+      "filter_all_layers": "全部",
+      "filter_at_least_one_layer": "请至少选择一个图层",
+      "empty_all_title": "还没有旅途",
+      "empty_all_description": "开始探索，留下你的第一段旅途吧。",
+      "empty_filtered_title": "没有符合条件的旅途",
+      "empty_filtered_description": "试试切换图层，查看其他旅途。",
+      "empty_month_title": "本月没有旅途",
+      "empty_month_description": "试试切换月份或图层，查看其他旅途。",
+      "show_all_layers": "查看全部旅途"
+    },
     "journey_date_is_empty": "旅程日期是空的",
     "delete_journey_title": "删除旅程",
     "delete_journey_message": "确认删除该旅程记录?",

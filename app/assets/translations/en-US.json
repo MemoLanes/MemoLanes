@@ -81,7 +81,18 @@
       "discard_changes_confirm": "Unsaved changes will be lost. Do you want to continue?",
       "zoom_too_low": "Zoom in to draw."
     },
-    "no_data": "There's no data yet, go ahead and explore the world!",
+    "list": {
+      "filter_layers": "Filter layers",
+      "filter_all_layers": "All",
+      "filter_at_least_one_layer": "Select at least one layer.",
+      "empty_all_title": "No journeys yet",
+      "empty_all_description": "Start exploring and make your first journey.",
+      "empty_filtered_title": "No matching journeys",
+      "empty_filtered_description": "Try a different layer to see more journeys.",
+      "empty_month_title": "No journeys this month",
+      "empty_month_description": "Try another month or layer to see more journeys.",
+      "show_all_layers": "Show all journeys"
+    },
     "journey_date_is_empty": "JourneyDate is empty",
     "delete_journey_title": "Delete Journey",
     "delete_journey_message": "Delete this journey record?",
