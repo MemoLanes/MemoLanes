@@ -264,8 +264,8 @@ class GpsManager extends ChangeNotifier {
         }
 
         var meaningful = await api.onLocationUpdate(
-          data: ExtendedRawDataPoint(
-              rawDataPoint: RawDataPoint(
+          data: ExtendedRawGPSPoint(
+              rawGpsPoint: RawGPSPoint(
                 point: Point(
                   latitude: update.data.latitude,
                   longitude: update.data.longitude,

@@ -79,3 +79,47 @@ fn zstd_round_trip_preserves_lookups() {
         assert_eq!(pt2.lookup(i), *expected, "cell {i}");
     }
 }
+
+/// Fill the tile with `n` distinct ids spread round-robin, so the palette is
+/// forced to exactly `n` entries.
+fn cells_with_distinct(n: usize) -> Vec<Option<GeoEntityId>> {
+    (0..CELLS_PER_TILE)
+        .map(|i| Some(GeoEntityId((i % n) as u32 + 1)))
+        .collect()
+}
+
+#[test]
+fn round_trip_seventeen_unique_uses_eight_bits() {
+    let cells = cells_with_distinct(17);
+    let pt = PackedTile::from_dense(&cells);
+    assert_eq!(pt.bits_per_cell(), 8);
+    assert_eq!(pt.to_dense(), cells);
+}
+
+#[test]
+fn round_trip_three_hundred_unique_uses_sixteen_bits() {
+    let cells = cells_with_distinct(300);
+    let pt = PackedTile::from_dense(&cells);
+    assert_eq!(pt.bits_per_cell(), 16);
+    assert_eq!(pt.to_dense(), cells);
+}
+
+#[test]
+fn round_trip_every_cell_distinct() {
+    // The structural ceiling: one palette entry per cell. This must not error.
+    let cells = cells_with_distinct(CELLS_PER_TILE);
+    let pt = PackedTile::try_from_dense(&cells).expect("full-tile palette must be legal");
+    assert_eq!(pt.bits_per_cell(), 16);
+    assert_eq!(pt.to_dense(), cells);
+}
+
+#[test]
+fn zstd_round_trip_at_every_bit_width() {
+    for n in [2usize, 3, 5, 17, 300, CELLS_PER_TILE] {
+        let cells = cells_with_distinct(n);
+        let pt = PackedTile::from_dense(&cells);
+        let restored = PackedTile::from_compressed_bytes(&pt.to_compressed_bytes());
+        assert_eq!(restored.bits_per_cell(), pt.bits_per_cell(), "n={n}");
+        assert_eq!(restored.to_dense(), cells, "n={n}");
+    }
+}

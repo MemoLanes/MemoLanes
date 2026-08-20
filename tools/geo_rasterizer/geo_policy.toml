@@ -1,0 +1,92 @@
+# Editorial policy: what ships, and at what tier.
+# - hand-curated, committed, hashed as a provenance input (edits rebuild bins)
+# - logic-only changes (e.g. the sole-unit dedup rule) bump GEO_DATA_VERSION
+# - rows are level-free: the code's namespace (ADM0_A3 vs adm1_code) sets the level
+schema = 1
+
+# Territories a worldview does not recognize at admin-0.
+# - demote: feature survives as an admin-1 entity under `into` (keeps its
+#   `country.<code>` name key and ISO code)
+# - merge: geometry only, no entity; `attribute_to` assigns the land to an
+#   admin-1 unit
+# - both modes also merge geometry into `into`'s polygon — the coarse mask is
+#   authoritative in `refine`
+# - merging a `TYPE == "Country"` feature fails the build (misclassification)
+absorb = [
+  { worldview = "chn", code = "HKG", into = "CHN", mode = "demote" },
+  { worldview = "chn", code = "MAC", into = "CHN", mode = "demote" },
+  { worldview = "chn", code = "SCR", into = "CHN", mode = "merge", attribute_to = "CHN-1775" }, # Scarborough Shoal -> Hainan (administered as Sansha)
+  # PGA is already absorbed into CHN by the source itself.
+]
+
+# Demote-equivalent for territories this worldview's admin-0 erased outright
+# (nothing left to demote).
+# - admin-1 entity under `into`, geometry = union of the admin-1 units
+#   declaring `code`, read ignoring their `FCLASS_*` suppression
+# - `iso_a3_eh` is authored: the member units carry none
+synthesize = [
+  { worldview = "chn", code = "TWN", into = "CHN", iso_a3_eh = "TWN" },
+]
+
+# Admin-1 features that are no administrative units of their own; their land
+# merges into a real admin-1 unit.
+# - a merge contributing zero blocks fails the build (zero-block gate)
+merge = [
+  { worldview = "chn", code = "PFA+00?", into = "CHN-1775" }, # Paracel Islands -> Hainan
+  { worldview = "chn", code = "PGA+00?", into = "CHN-1775" }, # Spratly Islands -> Hainan
+]
+
+# Countries whose admin-1 rows are the local-government tier, not the tier a
+# user means by "state" or "province". Dropped until an ADM2 tier exists; the
+# country leaf carries their land. Registry ids stay frozen.
+#
+# Keyed by country because the tier is a property of the country, never of
+# `TYPE_EN`: `County` is first-order in Sweden, Romania and Norway and
+# second-order in the UK. The source's own class strings are not evidence
+# either — Spain's 50 provinces are typed `Autonomous Community`, 72 of North
+# Macedonia's 84 municipalities are typed `Statistical Region`, and `GBR-2054`
+# (Leicestershire) is typed `Kingdom`.
+#
+# All-or-nothing per country, by construction: dropping part of a country's
+# units would leave holes rendering as the country beside siblings rendering as
+# provinces.
+drop_admin1_in = [
+  "BIH", # 10 cantons and 7 Republika Srpska regions; the two entities and Brčko have no rows
+  "ESP", # 50 provinces and 2 autonomous cities; the 17 autonomous communities have no rows
+  "FRA", # 101 departments; the 18 regions have no rows
+  "GBR", # 232 local authorities; England, Scotland, Wales and NI have no rows
+  "GIN", # 33 prefectures; the 7 regions have no rows
+  "HKG", # 18 districts, under a unit that ships at admin-1 itself
+  "ITA", # 110 provinces; the 20 regions have no rows
+  "LKA", # 25 districts; the 9 provinces have no rows
+  "MKD", # 84 municipalities
+  "MLT", # 68 local councils; the 5 regions have no rows
+  "MWI", # 28 districts
+  "SVN", # 193 municipalities
+  "UGA", # 112 districts and counties
+]
+
+# Admin-1 entries this worldview's admin-0 leaves no land for; dropped instead
+# of failing the landless check.
+unparented = [
+  { worldview = "iso", code = "ASM-5001" },  # Swains Island
+  { worldview = "iso", code = "GUY-675" },   # Barima-Waini (Essequibo)
+  { worldview = "iso", code = "GUY-680" },   # Cuyuni-Mazaruni (Essequibo)
+  { worldview = "iso", code = "IND-20012" }, # Ladakh (disputed Kashmir)
+  { worldview = "iso", code = "PFA+00?" },   # Paracel Islands
+  { worldview = "iso", code = "PGA+00?" },   # Spratly Islands
+  { worldview = "iso", code = "RUS-283" },   # Autonomous Republic of Crimea
+  { worldview = "iso", code = "RUS-5482" },  # Sevastopol
+  { worldview = "iso", code = "UMI-5179" },  # Wake Island
+  { worldview = "usa", code = "PFA+00?" },   # Paracel Islands
+]
+
+# Reviewed overrides: the admin-0 mask, not the declared adm0_a3, decides the
+# parent — the worldview deliberately awards the whole unit to another country.
+overrule = [
+  { worldview = "chn", code = "RUS-283", into = "UKR" },
+  { worldview = "chn", code = "RUS-5482", into = "UKR" },
+  { worldview = "usa", code = "GEO-3015", into = "B35" },
+  { worldview = "usa", code = "RUS-283", into = "UKR" },
+  { worldview = "usa", code = "RUS-5482", into = "UKR" },
+]

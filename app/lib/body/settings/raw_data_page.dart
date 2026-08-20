@@ -8,7 +8,7 @@ import 'package:memolanes/common/component/common_export.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:memolanes/src/rust/storage.dart';
+import 'package:memolanes/src/rust/legacy_raw_data.dart';
 
 class RawDataSwitch extends StatefulWidget {
   const RawDataSwitch({super.key});
@@ -57,7 +57,7 @@ class RawDataPage extends StatefulWidget {
 }
 
 class _RawDataPage extends State<RawDataPage> {
-  List<RawDataFile> items = [];
+  List<LegacyRawDataFile> items = [];
 
   @override
   void initState() {
@@ -66,7 +66,7 @@ class _RawDataPage extends State<RawDataPage> {
   }
 
   void _loadList() async {
-    var list = await api.listAllRawData();
+    var list = await api.listAllLegacyRawData();
     setState(() {
       items = list;
     });
@@ -90,7 +90,7 @@ class _RawDataPage extends State<RawDataPage> {
             label: context.tr("general.advanced_settings.raw_data_export_gpx"),
             onTap: () async {
               final gpxPath =
-                  await api.exportRawDataGpxFile(csvFilepath: filePath);
+                  await api.exportLegacyRawDataGpxFile(csvFilepath: filePath);
               if (!context.mounted) return;
               showCommonExport(context, gpxPath, deleteFile: true);
             },
@@ -131,7 +131,7 @@ class _RawDataPage extends State<RawDataPage> {
                           confirmButtonText: context.tr("common.delete"),
                           confirmGroundColor: Colors.red,
                           confirmTextColor: Colors.white)) {
-                        await api.deleteRawDataFile(filename: item.name);
+                        await api.deleteLegacyRawDataFile(filename: item.name);
                         _loadList();
                       }
                     },

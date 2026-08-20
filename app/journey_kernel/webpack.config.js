@@ -4,6 +4,11 @@ const CopyWebpackPlugin = require("copy-webpack-plugin");
 
 module.exports = (env, argv) => {
   const isDevelopment = argv.mode === "development";
+  const isBenchmark = env?.benchmark === true || env?.benchmark === "true";
+  const outputPath = path.resolve(
+    __dirname,
+    isBenchmark ? "dist-benchmark" : "dist",
+  );
 
   const plugins = [
     new HtmlWebpackPlugin({
@@ -11,12 +16,41 @@ module.exports = (env, argv) => {
       filename: "index.html",
       chunks: ["main"], // Only include the main chunk
     }),
-    new HtmlWebpackPlugin({
-      template: "./static/render_diagnostics_template.html",
-      filename: "render_diagnostics.html",
-      chunks: ["render_diagnostics"], // Only include the render_diagnostics chunk
+    // Android's WebView asset loader serves unknown extensions as text/plain,
+    // so use .js for MapLibre's ESM worker and its imported sibling module.
+    new CopyWebpackPlugin({
+      patterns: [
+        {
+          from: path.resolve(
+            __dirname,
+            "node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs",
+          ),
+          to: "maplibre-gl-worker.js",
+          transform(content) {
+            return content
+              .toString()
+              .replaceAll("maplibre-gl-shared.mjs", "maplibre-gl-shared.js");
+          },
+        },
+        {
+          from: path.resolve(
+            __dirname,
+            "node_modules/maplibre-gl/dist/maplibre-gl-shared.mjs",
+          ),
+          to: "maplibre-gl-shared.js",
+        },
+      ],
     }),
   ];
+  if (!isBenchmark) {
+    plugins.push(
+      new HtmlWebpackPlugin({
+        template: "./static/render_diagnostics_template.html",
+        filename: "render_diagnostics.html",
+        chunks: ["render_diagnostics"], // Only include the render_diagnostics chunk
+      }),
+    );
+  }
   // Only add CopyWebpackPlugin in development mode
   if (isDevelopment) {
     plugins.push(
@@ -34,14 +68,28 @@ module.exports = (env, argv) => {
       }),
     );
   }
+  if (isBenchmark) {
+    plugins.push(
+      new CopyWebpackPlugin({
+        patterns: [
+          {
+            from: "./benchmark/blank-style.json",
+            to: "./benchmark-style.json",
+          },
+        ],
+      }),
+    );
+  }
 
   return {
-    entry: {
-      main: "./static/index.ts",
-      render_diagnostics: "./static/render_diagnostics.ts",
-    },
+    entry: isBenchmark
+      ? { main: "./benchmark/benchmark-entry.js" }
+      : {
+          main: "./static/index.ts",
+          render_diagnostics: "./static/render_diagnostics.ts",
+        },
     output: {
-      path: path.resolve(__dirname, "dist"),
+      path: outputPath,
       filename: "[name].bundle.js",
       assetModuleFilename: "[name][ext]",
       // Remove or comment out this line to prevent webpack from expecting a separate WASM file
@@ -72,7 +120,7 @@ module.exports = (env, argv) => {
     },
     plugins,
     devServer: {
-      static: "./dist",
+      static: outputPath,
       client: {
         overlay: {
           // Show errors in overlay, but filter out aborted fetch errors

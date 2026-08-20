@@ -1,38 +1,31 @@
-//! On-disk binary format for MemoLanes geo reference data.
-//! Shared by the runtime (`memolanes_core`) and the offline rasterizer
-//! (`tools/geo_rasterizer/`).
-
 pub const MAGIC: &[u8; 4] = b"MGEO";
 
 /// Version of the geo-data semantics: the on-disk layout *and* the
 /// rasterization algorithm that produces it. **Bump this whenever a
 /// change would make an existing `geo_data.bin` stale even though its
-/// source inputs are unchanged** — a format-layout change, or any
-/// rasterizer change that alters cell/tile semantics.
+/// source inputs are unchanged** — a format-layout change, any
+/// rasterizer change that alters cell/tile semantics, or an editorial
+/// policy-logic change with no `geo_policy.toml` row (e.g. the
+/// coextensive sole-unit dedup rule).
 ///
 /// It is folded into the provenance hash (see the rasterizer's
 /// `compute_provenance_hash`), so bumping it makes the rasterizer's
 /// smart-skip rebuild and invalidates any runtime consumer cache
 /// without relying on a manual "delete the .bin" step.
-pub const GEO_DATA_VERSION: u32 = 2;
+pub const GEO_DATA_VERSION: u32 = 3;
 
-/// Byte offset of the 32-byte provenance hash within the file header
-/// (immediately after the 4-byte `MAGIC`). The section table follows
-/// the hash. Keep readers in sync with this — see `format.rs`.
 pub const PROVENANCE_HASH_OFFSET: usize = 4; // MAGIC.len()
-/// Length of the provenance hash (SHA-256).
 pub const PROVENANCE_HASH_LEN: usize = 32;
-/// One-past-the-end of the provenance hash; also the minimum bytes
-/// needed to read the hash from an existing file.
 pub const PROVENANCE_HASH_END: usize = PROVENANCE_HASH_OFFSET + PROVENANCE_HASH_LEN;
 
-/// Block-grid side length within one tile (128×128 cells per tile).
+/// Cell value meaning "no entity owns this cell" in a dense border-tile
+/// buffer. Use this rather than `Option` to save 4 bytes per entity
+/// during rasterization
+pub const NO_ENTITY: u32 = u32::MAX;
+
 pub const TILE_WIDTH: usize = 128;
-/// Cells per tile = 128 × 128.
 pub const CELLS_PER_TILE: usize = TILE_WIDTH * TILE_WIDTH;
-/// Tile-grid side length (512×512 tiles).
 pub const TILE_GRID_WIDTH: usize = 512;
-/// Total tiles in the tile grid.
 pub const TILE_COUNT: usize = TILE_GRID_WIDTH * TILE_GRID_WIDTH;
 
 /// x-major tile index in the tile grid: `tx * TILE_GRID_WIDTH + ty`. The one
@@ -42,7 +35,6 @@ pub fn tile_index(tx: u16, ty: u16) -> usize {
     tx as usize * TILE_GRID_WIDTH + ty as usize
 }
 
-/// Inverse of [`tile_index`]: `(tx, ty)` from a tile-grid index.
 pub fn tile_xy(idx: usize) -> (u16, u16) {
     (
         (idx / TILE_GRID_WIDTH) as u16,

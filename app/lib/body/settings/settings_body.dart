@@ -1,6 +1,7 @@
 import 'package:badges/badges.dart' as badges;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/body/settings/advanced_settings_page.dart';
@@ -16,6 +17,7 @@ import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/component/tiles/label_tile_title.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/recording_health_service.dart';
 import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/style_constants.dart';
@@ -257,7 +259,9 @@ class _SettingsBodyState extends State<SettingsBody> {
         ),
         LabelTile(
           label: context.tr("unexpected_exit_notification.setting_title"),
-          position: LabelTilePosition.bottom,
+          position: defaultTargetPlatform == TargetPlatform.android
+              ? LabelTilePosition.middle
+              : LabelTilePosition.bottom,
           trailing: Switch(
             value: _isUnexpectedExitNotificationEnabled,
             onChanged: (value) async {
@@ -294,6 +298,24 @@ class _SettingsBodyState extends State<SettingsBody> {
             },
           ),
         ),
+        if (defaultTargetPlatform == TargetPlatform.android)
+          LabelTile(
+            label: context.tr("recording_health.setting_title"),
+            position: LabelTilePosition.bottom,
+            trailing: ListenableBuilder(
+              listenable: RecordingHealthService.instance,
+              builder: (context, _) => Switch(
+                value:
+                    RecordingHealthService.instance.isHeartbeatDetectionEnabled,
+                onChanged: (value) {
+                  RecordingHealthService.instance.setHeartbeatDetectionEnabled(
+                    value,
+                    recordingStatus: gpsManager.recordingStatus,
+                  );
+                },
+              ),
+            ),
+          ),
         LabelTileTitle(
           label: context.tr("settings.about"),
         ),
@@ -342,11 +364,11 @@ class _SettingsBodyState extends State<SettingsBody> {
           ),
           CardLabelTile(
             position: CardLabelTilePosition.middle,
-            label: context.tr("journey.import_track_file"),
+            label: context.tr("import.vector.title"),
             onTap: () async {
               await showCommonDialog(
                 context,
-                context.tr("import.import_track_file.description_md"),
+                context.tr("import.vector.description_md"),
                 markdown: true,
               );
               if (!context.mounted) return;

@@ -12,6 +12,7 @@ use memolanes_core::{
     utils::db::{run_migrations, set_version_in_metadata, DbError, SchemaVersion},
 };
 use rusqlite::Connection;
+use std::collections::HashSet;
 use tempdir::TempDir;
 
 #[test]
@@ -74,7 +75,7 @@ fn basic() {
 
     // validate the finalized journey
     let journeys = main_db
-        .with_txn(|txn| txn.query_journeys(None, None))
+        .with_txn(|txn| txn.query_journeys(None, None, None))
         .unwrap();
     assert_eq!(journeys.len(), 1);
     let journey_id = &journeys[0].id;
@@ -116,7 +117,7 @@ fn basic() {
         .unwrap();
     assert_eq!(
         main_db
-            .with_txn(|txn| txn.query_journeys(None, None))
+            .with_txn(|txn| txn.query_journeys(None, None, None))
             .unwrap()
             .len(),
         1
@@ -159,7 +160,7 @@ fn journey_raw_data_lifecycle() {
         .with_txn(|txn| txn.finalize_ongoing_journey())
         .unwrap());
     let header = main_db
-        .with_txn(|txn| Ok(txn.query_journeys(None, None)?.remove(0)))
+        .with_txn(|txn| Ok(txn.query_journeys(None, None, None)?.remove(0)))
         .unwrap();
     assert!(header.has_raw_data);
     let serialized = main_db
@@ -266,7 +267,7 @@ fn disabled_raw_data_capture_does_not_create_an_attachment() {
         .with_txn(|txn| txn.finalize_ongoing_journey())
         .unwrap();
     let header = main_db
-        .with_txn(|txn| Ok(txn.query_journeys(None, None)?.remove(0)))
+        .with_txn(|txn| Ok(txn.query_journeys(None, None, None)?.remove(0)))
         .unwrap();
     assert!(!header.has_raw_data);
     assert!(main_db
@@ -386,7 +387,15 @@ fn migrates_v1_database_for_journey_raw_data() {
             |row| row.get(0),
         )
         .unwrap();
-    assert_eq!(minor_version, "1");
+    assert_eq!(minor_version, "0");
+    let major_version: String = connection
+        .query_row(
+            "SELECT value FROM db_metadata WHERE key = 'version'",
+            (),
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(major_version, "2");
 }
 
 #[test]
@@ -506,28 +515,30 @@ fn journey_query() {
 
     assert_eq!(
         main_db
-            .with_txn(|txn| txn.query_journeys(None, None))
+            .with_txn(|txn| txn.query_journeys(None, None, None))
             .unwrap()
             .len(),
         8
     );
     assert_eq!(
         main_db
-            .with_txn(|txn| txn.query_journeys(Some(date("2024-08-06")), None))
+            .with_txn(|txn| txn.query_journeys(Some(date("2024-08-06")), None, None))
             .unwrap()
             .len(),
         3
     );
     assert_eq!(
         main_db
-            .with_txn(|txn| txn.query_journeys(Some(date("2024-08-06")), Some(date("2024-08-06"))))
+            .with_txn(|txn| {
+                txn.query_journeys(Some(date("2024-08-06")), Some(date("2024-08-06")), None)
+            })
             .unwrap()
             .len(),
         2
     );
     assert_eq!(
         main_db
-            .with_txn(|txn| txn.query_journeys(None, Some(date("2024-08-05"))))
+            .with_txn(|txn| txn.query_journeys(None, Some(date("2024-08-05")), None))
             .unwrap()
             .len(),
         5
@@ -566,6 +577,123 @@ fn journey_query() {
 
 fn date(s: &str) -> NaiveDate {
     NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap()
+}
+
+#[test]
+fn query_journey_ids_in_date_range_filters_by_kind() {
+    let temp_dir = TempDir::new("main_db-query_journey_ids_in_date_range").unwrap();
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
+    let (default_id, flight_id) = main_db
+        .with_txn(|txn| {
+            Ok((
+                test_utils::insert_bitmap_journey(
+                    txn,
+                    date("2024-03-15"),
+                    JourneyKind::DefaultKind,
+                    test_utils::make_bitmap_with_line(test_utils::draw_line1),
+                ),
+                test_utils::insert_bitmap_journey(
+                    txn,
+                    date("2024-03-15"),
+                    JourneyKind::Flight,
+                    test_utils::make_bitmap_with_line(test_utils::draw_line2),
+                ),
+            ))
+        })
+        .unwrap();
+
+    let journey_ids = main_db
+        .with_txn(|txn| {
+            txn.query_journey_ids_in_date_range(
+                date("2024-03-15"),
+                date("2024-03-15"),
+                Some(JourneyKind::Flight),
+            )
+        })
+        .unwrap();
+    assert_eq!(journey_ids, vec![flight_id.clone()]);
+
+    let journey_ids = main_db
+        .with_txn(|txn| {
+            txn.query_journey_ids_in_date_range(date("2024-03-15"), date("2024-03-15"), None)
+        })
+        .unwrap();
+    assert_eq!(journey_ids.len(), 2);
+    assert!(journey_ids.contains(&default_id));
+    assert!(journey_ids.contains(&flight_id));
+}
+
+#[test]
+fn indexed_journey_queries_filter_dates_and_headers_by_kind() {
+    let temp_dir = TempDir::new("main_db-indexed-journey-queries").unwrap();
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
+    main_db
+        .with_txn(|txn| {
+            test_utils::insert_bitmap_journey(
+                txn,
+                date("2024-03-15"),
+                JourneyKind::DefaultKind,
+                test_utils::make_bitmap_with_line(test_utils::draw_line1),
+            );
+            test_utils::insert_bitmap_journey(
+                txn,
+                date("2024-03-15"),
+                JourneyKind::Flight,
+                test_utils::make_bitmap_with_line(test_utils::draw_line2),
+            );
+            test_utils::insert_bitmap_journey(
+                txn,
+                date("2024-05-20"),
+                JourneyKind::Flight,
+                test_utils::make_bitmap_with_line(test_utils::draw_line3),
+            );
+            Ok(())
+        })
+        .unwrap();
+
+    assert_eq!(
+        main_db
+            .with_txn(|txn| txn.query_journey_dates(None))
+            .unwrap(),
+        vec![date("2024-03-15"), date("2024-05-20")]
+    );
+    let default_kind = HashSet::from([JourneyKind::DefaultKind]);
+    assert_eq!(
+        main_db
+            .with_txn(|txn| txn.query_journey_dates(Some(&default_kind)))
+            .unwrap(),
+        vec![date("2024-03-15")]
+    );
+    let flight_kind = HashSet::from([JourneyKind::Flight]);
+    assert_eq!(
+        main_db
+            .with_txn(|txn| txn.query_journey_dates(Some(&flight_kind)))
+            .unwrap(),
+        vec![date("2024-03-15"), date("2024-05-20")]
+    );
+    let all_kinds = HashSet::from([JourneyKind::DefaultKind, JourneyKind::Flight]);
+    assert_eq!(
+        main_db
+            .with_txn(|txn| txn.query_journey_dates(Some(&all_kinds)))
+            .unwrap(),
+        vec![date("2024-03-15"), date("2024-05-20")]
+    );
+    assert!(main_db
+        .with_txn(|txn| txn.query_journey_dates(Some(&HashSet::new())))
+        .unwrap()
+        .is_empty());
+
+    let flight_headers = main_db
+        .with_txn(|txn| {
+            txn.query_journeys(
+                Some(date("2024-03-15")),
+                Some(date("2024-03-15")),
+                Some(&flight_kind),
+            )
+        })
+        .unwrap();
+    assert_eq!(flight_headers.len(), 1);
+    assert_eq!(flight_headers[0].journey_kind, JourneyKind::Flight);
 }
 
 #[test]

@@ -68,7 +68,6 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("================================================");
     println!("[Simple Map Server]:   {}", server_simple.get_http_url());
-    println!("[Simple Map Local]:    {}", server_simple.get_file_url());
 
     // ========== Server 2: Medium Map (loaded from fow_3.zip) ==========
     let (journey_bitmap_fow, _) =
@@ -107,8 +106,14 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let next_lng = lng + lng_step;
                 let next_lat = lat + rng.random_range(-lat_step..=lat_step);
                 let mut map_renderer = map_renderer_arc_clone.lock().unwrap();
-                map_renderer.update(|bitmap, _tile_cb| {
-                    bitmap.add_line(lng, lat, next_lng, next_lat);
+                map_renderer.update(|bitmap, tile_changed| {
+                    bitmap.add_line_with_change_callback(
+                        lng,
+                        lat,
+                        next_lng,
+                        next_lat,
+                        tile_changed,
+                    );
                 });
                 lng = next_lng;
                 lat = next_lat;

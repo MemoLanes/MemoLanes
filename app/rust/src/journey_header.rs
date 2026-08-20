@@ -61,12 +61,17 @@ mod tests {
 }
 
 #[derive(Eq, Hash, Clone, Copy, Debug, PartialEq, EnumIter)]
+#[repr(i8)]
 pub enum JourneyKind {
-    DefaultKind,
-    Flight,
+    DefaultKind = 0,
+    Flight = 1,
 }
 
 impl JourneyKind {
+    pub fn to_int(&self) -> i8 {
+        *self as i8
+    }
+
     pub fn to_proto(self) -> protos::journey::header::Kind {
         use protos::journey::header::{kind, Kind};
         let mut kind = Kind::new();

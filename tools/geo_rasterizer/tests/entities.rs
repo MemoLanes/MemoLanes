@@ -1,17 +1,22 @@
 use std::path::Path;
 
-use geo_data_format::{GeoEntityId, GeoEntityKind};
-use geo_rasterizer::entities::{assemble_entities, EntityModel};
-use geo_rasterizer::parse::{parse_geojson, ParsedFeature};
+use geo_data_format::{GeoEntityId, GeoEntityKind, Worldview};
+use geo_rasterizer::admin0::{parse_admin0, Admin0Feature};
+use geo_rasterizer::admin1::Admin1Feature;
+use geo_rasterizer::entities::{
+    assemble_entities, attach_province_entities, collect_provinces, resolve_province_parents,
+    EntityModel,
+};
+use geo_rasterizer::refine::Coverage;
 use geo_rasterizer::registry::{Entry, Registry};
 use geo_types::{Coord, LineString, MultiPolygon, Polygon};
 
-const SYNTHETIC_REGISTRY: &str = "tests/fixtures/synthetic_registry.toml";
+const SYNTHETIC_REGISTRY: &str = "tests/fixtures/synthetic_registry";
 
 /// A minimal `TYPE == "Country"` feature: one unit-square polygon, `iso_a3_eh`
 /// equal to its `adm0_a3`. `region_un` is a harmless placeholder (unused unless
 /// `continent` is the "Seven seas" bucket).
-fn feat(adm0: &str, continent: &str) -> ParsedFeature {
+fn feat(adm0: &str, continent: &str) -> Admin0Feature {
     let sq = Polygon::new(
         LineString(vec![
             Coord { x: 0.0, y: 0.0 },
@@ -21,7 +26,7 @@ fn feat(adm0: &str, continent: &str) -> ParsedFeature {
         ]),
         vec![],
     );
-    ParsedFeature {
+    Admin0Feature {
         adm0_a3: adm0.into(),
         iso_a3: adm0.into(),
         iso_a3_eh: adm0.into(),
@@ -30,6 +35,7 @@ fn feat(adm0: &str, continent: &str) -> ParsedFeature {
         feature_type: "Country".into(),
         continent: continent.into(),
         region_un: "Africa".into(),
+        demoted_into: None,
         geometry: MultiPolygon(vec![sq]),
     }
 }
@@ -48,6 +54,7 @@ fn reg() -> Registry {
             id: 3,
             point: None,
         }],
+        provinces: vec![],
     }
 }
 
@@ -63,17 +70,15 @@ fn ids_come_from_registry_not_position() {
     assert_eq!(aaa.parent_id, Some(GeoEntityId(5)));
 }
 
-/// End-to-end for the chn worldview: parsing the chn source folds Hong Kong and
-/// Macau into China — one CHN entity (no HKG/MAC), its geometry carries all three
-/// parts, and its ISO code is the sovereign's (CHN). Taiwan is already merged in
-/// NE's chn source, so this covers the whole "HK/Macau/Taiwan → China" grouping
-/// the app requires. Drives `parse_geojson` (which applies the absorptions) so it
-/// exercises the real, un-forgettable path.
+/// End-to-end for the chn worldview: parsing the chn source demotes Hong Kong
+/// and Macau to provinces of China — one CHN country entity whose mask carries
+/// all three parts, plus HKG/MAC as province-tier entities that keep their
+/// country-namespace identity (`country.HKG`, own `iso_a3_eh`). Taiwan is
+/// already merged in NE's chn source. Drives `parse_admin0` (which applies the
+/// absorptions) so it exercises the real, un-forgettable path.
 #[test]
-fn chn_worldview_merges_hong_kong_macau_and_taiwan_into_china() {
+fn chn_worldview_demotes_hong_kong_and_macau_into_provinces_of_china() {
     use serde_json::json;
-    // A chn-style source: China plus the two still-distinct dependencies, each a
-    // separate square (NE's chn source has no separate Taiwan feature).
     let feature = |adm0: &str, x0: f64| {
         json!({
             "type": "Feature",
@@ -87,7 +92,7 @@ fn chn_worldview_merges_hong_kong_macau_and_taiwan_into_china() {
     });
     let tmp = tempfile::NamedTempFile::new().unwrap();
     std::fs::write(tmp.path(), serde_json::to_string(&raw).unwrap()).unwrap();
-    let features = parse_geojson(tmp.path(), "chn").unwrap();
+    let features = parse_admin0(tmp.path(), "chn").unwrap();
 
     let reg = Registry {
         schema: 1,
@@ -96,24 +101,37 @@ fn chn_worldview_merges_hong_kong_macau_and_taiwan_into_china() {
             id: 0,
             point: None,
         }],
-        countries: vec![Entry {
-            code: "CHN".into(),
-            id: 18,
-            point: None,
-        }],
+        countries: vec![
+            Entry {
+                code: "CHN".into(),
+                id: 18,
+                point: None,
+            },
+            Entry {
+                code: "HKG".into(),
+                id: 19,
+                point: None,
+            },
+            Entry {
+                code: "MAC".into(),
+                id: 20,
+                point: None,
+            },
+        ],
+        provinces: vec![],
     };
-    let m = assemble_entities(&features, &reg).unwrap();
+    let mut m = assemble_entities(&features, &reg).unwrap();
 
     let countries: Vec<&str> = m
         .entities
         .iter()
-        .filter(|e| matches!(e.kind, GeoEntityKind::Country))
+        .filter(|e| matches!(e.kind, GeoEntityKind::Admin0))
         .map(|e| e.canonical_code.as_str())
         .collect();
     assert_eq!(
         countries,
         vec!["CHN"],
-        "HKG/MAC must not survive as entities"
+        "demoted codes are no longer countries"
     );
 
     let china = m
@@ -124,10 +142,31 @@ fn chn_worldview_merges_hong_kong_macau_and_taiwan_into_china() {
     assert_eq!(china.iso_a3_eh.as_deref(), Some("CHN"));
     assert_eq!(china.parent_id, Some(GeoEntityId(0)));
 
-    // All three source polygons are merged under CHN; no HKG/MAC geometry.
+    // The mask still owns all three parts; the demoted features enter the
+    // province side under their own codes instead of vanishing.
     assert_eq!(m.geometry_for_country["CHN"].0.len(), 3);
     assert!(!m.geometry_for_country.contains_key("HKG"));
-    assert!(!m.geometry_for_country.contains_key("MAC"));
+    assert!(m.demoted.contains_key("HKG") && m.demoted.contains_key("MAC"));
+    assert_eq!(m.province_declared_adm0["HKG"], "CHN");
+    assert!(m.geometry_for_province.contains_key("HKG"));
+
+    // Through the normal parenting path they become Province entities that
+    // keep their country-namespace identity.
+    let tally = tally(&m, &[("HKG", &[("CHN", 5)]), ("MAC", &[("CHN", 5)])]);
+    let parents = resolve_province_parents(&m, &tally, Worldview::Chn).unwrap();
+    attach_province_entities(&mut m, &parents);
+    let hkg = m
+        .entities
+        .iter()
+        .find(|e| e.canonical_code == "HKG")
+        .expect("demoted HKG entity");
+    assert_eq!(hkg.kind, GeoEntityKind::Admin1);
+    assert_eq!(
+        hkg.name_key, "country.HKG",
+        "name key encodes source, not tier"
+    );
+    assert_eq!(hkg.iso_a3_eh.as_deref(), Some("HKG"));
+    assert_eq!(hkg.parent_id, Some(GeoEntityId(18)));
 }
 
 #[test]
@@ -140,7 +179,7 @@ fn unknown_adm0_is_an_error() {
 
 #[test]
 fn assemble_groups_continents_and_countries() {
-    let features = parse_geojson(Path::new("tests/fixtures/synthetic.geojson"), "iso").unwrap();
+    let features = parse_admin0(Path::new("tests/fixtures/synthetic.geojson"), "iso").unwrap();
     let registry = Registry::load(Path::new(SYNTHETIC_REGISTRY)).unwrap();
     let model: EntityModel = assemble_entities(&features, &registry).unwrap();
 
@@ -156,7 +195,7 @@ fn assemble_groups_continents_and_countries() {
     let country_count = model
         .entities
         .iter()
-        .filter(|e| matches!(e.kind, GeoEntityKind::Country))
+        .filter(|e| matches!(e.kind, GeoEntityKind::Admin0))
         .count();
     assert_eq!(country_count, 3);
 }
@@ -181,7 +220,7 @@ fn assemble_collapses_duplicate_adm0_a3() {
     });
     let tmp = tempfile::NamedTempFile::new().unwrap();
     std::fs::write(tmp.path(), serde_json::to_string(&raw).unwrap()).unwrap();
-    let features = parse_geojson(tmp.path(), "iso").unwrap();
+    let features = parse_admin0(tmp.path(), "iso").unwrap();
     // Build an inline registry: EU=0, SA=1, FRA=2.
     let registry = Registry {
         schema: 1,
@@ -202,12 +241,13 @@ fn assemble_collapses_duplicate_adm0_a3() {
             id: 2,
             point: None,
         }],
+        provinces: vec![],
     };
     let model = assemble_entities(&features, &registry).unwrap();
     let fra = model
         .entities
         .iter()
-        .filter(|e| matches!(e.kind, GeoEntityKind::Country))
+        .filter(|e| matches!(e.kind, GeoEntityKind::Admin0))
         .find(|e| e.canonical_code == "FRA")
         .expect("FRA should exist exactly once");
     // Collapsed group: the sovereign is the sole TYPE=="Country" member
@@ -241,7 +281,7 @@ fn single_feature_uses_own_iso_a3_eh_even_when_adm0_differs() {
     });
     let tmp = tempfile::NamedTempFile::new().unwrap();
     std::fs::write(tmp.path(), serde_json::to_string(&raw).unwrap()).unwrap();
-    let features = parse_geojson(tmp.path(), "iso").unwrap();
+    let features = parse_admin0(tmp.path(), "iso").unwrap();
     let registry = Registry {
         schema: 1,
         continents: vec![Entry {
@@ -254,6 +294,7 @@ fn single_feature_uses_own_iso_a3_eh_even_when_adm0_differs() {
             id: 1,
             point: None,
         }],
+        provinces: vec![],
     };
     let model = assemble_entities(&features, &registry).unwrap();
     let psx = model
@@ -286,7 +327,7 @@ fn collapsed_group_without_sovereign_member_is_none() {
     });
     let tmp = tempfile::NamedTempFile::new().unwrap();
     std::fs::write(tmp.path(), serde_json::to_string(&raw).unwrap()).unwrap();
-    let features = parse_geojson(tmp.path(), "iso").unwrap();
+    let features = parse_admin0(tmp.path(), "iso").unwrap();
     let registry = Registry {
         schema: 1,
         continents: vec![Entry {
@@ -299,6 +340,7 @@ fn collapsed_group_without_sovereign_member_is_none() {
             id: 1,
             point: None,
         }],
+        provinces: vec![],
     };
     let model = assemble_entities(&features, &registry).unwrap();
     let ioa = model
@@ -311,7 +353,7 @@ fn collapsed_group_without_sovereign_member_is_none() {
 
 #[test]
 fn entity_ids_are_dense_and_continents_first() {
-    let features = parse_geojson(Path::new("tests/fixtures/synthetic.geojson"), "iso").unwrap();
+    let features = parse_admin0(Path::new("tests/fixtures/synthetic.geojson"), "iso").unwrap();
     let registry = Registry::load(Path::new(SYNTHETIC_REGISTRY)).unwrap();
     let model = assemble_entities(&features, &registry).unwrap();
     // Continents at IDs 0..continent_count; countries follow (registry assigns 0-2 to
@@ -329,7 +371,7 @@ fn entity_ids_are_dense_and_continents_first() {
     let first_country_id = model
         .entities
         .iter()
-        .filter(|e| matches!(e.kind, GeoEntityKind::Country))
+        .filter(|e| matches!(e.kind, GeoEntityKind::Admin0))
         .map(|e| e.id.0)
         .min()
         .unwrap();
@@ -338,8 +380,388 @@ fn entity_ids_are_dense_and_continents_first() {
 
 #[test]
 fn unused_lookup_value_is_referenced() {
-    let features = parse_geojson(Path::new("tests/fixtures/synthetic.geojson"), "iso").unwrap();
+    let features = parse_admin0(Path::new("tests/fixtures/synthetic.geojson"), "iso").unwrap();
     let registry = Registry::load(Path::new(SYNTHETIC_REGISTRY)).unwrap();
     let model = assemble_entities(&features, &registry).unwrap();
     let _value = model.entities[0].id;
+}
+
+fn prov(code: &str, adm0: &str) -> Admin1Feature {
+    let sq = Polygon::new(
+        LineString(vec![
+            Coord { x: 0.0, y: 0.0 },
+            Coord { x: 1.0, y: 0.0 },
+            Coord { x: 1.0, y: 1.0 },
+            Coord { x: 0.0, y: 0.0 },
+        ]),
+        vec![],
+    );
+    Admin1Feature {
+        adm1_code: code.into(),
+        adm0_a3: adm0.into(),
+        iso_3166_2: format!("{adm0}-1"),
+        name_en: Some(code.into()),
+        name_zh: Some(code.into()),
+        geometry: MultiPolygon(vec![sq]),
+    }
+}
+
+/// Countries `AAA` and `BBB` (both in Asia) plus the given provinces, all keyed
+/// through the synthetic registry.
+fn model_with(provinces: &[Admin1Feature]) -> EntityModel {
+    let features = [feat("AAA", "Asia"), feat("BBB", "Asia")];
+    let registry = Registry::load(Path::new(SYNTHETIC_REGISTRY)).unwrap();
+    let mut model = assemble_entities(&features, &registry).unwrap();
+    collect_provinces(&mut model, provinces, &registry).unwrap();
+    model
+}
+
+fn country_id(model: &EntityModel, code: &str) -> GeoEntityId {
+    model
+        .entities
+        .iter()
+        .find(|e| matches!(e.kind, GeoEntityKind::Admin0) && e.canonical_code == code)
+        .expect("country entity")
+        .id
+}
+
+/// `[(adm1_code, [(country code, blocks)])]` → the tally the raster would give.
+fn tally(model: &EntityModel, entries: &[(&str, &[(&str, u64)])]) -> Coverage {
+    let mut out = Coverage::new();
+    for (adm1_code, by_country) in entries {
+        let slot = model.province_ids[*adm1_code].0 as usize;
+        if slot >= out.len() {
+            out.resize_with(slot + 1, Default::default);
+        }
+        out[slot] = by_country
+            .iter()
+            .map(|(code, blocks)| (country_id(model, code), *blocks))
+            .collect();
+    }
+    out
+}
+
+#[test]
+fn provinces_become_entities_under_their_parent() {
+    let mut model = model_with(&[prov("AAA-001", "AAA")]);
+    assert!(model.geometry_for_province.contains_key("AAA-001"));
+    assert!(
+        !model
+            .entities
+            .iter()
+            .any(|e| matches!(e.kind, GeoEntityKind::Admin1)),
+        "collect_provinces only gathers geometry — parents are not known yet"
+    );
+
+    let tally = tally(&model, &[("AAA-001", &[("AAA", 10)])]);
+    let parents = resolve_province_parents(&model, &tally, Worldview::Iso).unwrap();
+    attach_province_entities(&mut model, &parents);
+
+    let province = model
+        .entities
+        .iter()
+        .find(|e| e.canonical_code == "AAA-001")
+        .expect("province entity");
+    assert_eq!(province.kind, GeoEntityKind::Admin1);
+    assert_eq!(province.parent_id, Some(country_id(&model, "AAA")));
+    assert_eq!(province.name_key, "province.AAA-001");
+    assert_eq!(province.iso_a3_eh, None);
+    assert!(
+        model.entities.windows(2).all(|w| w[0].id.0 <= w[1].id.0),
+        "entities must stay sorted by id"
+    );
+}
+
+/// The defect this rule exists for: Natural Earth's admin-0 excises disputed
+/// land from both claimants, leaving the province a residue of coverage that
+/// happens to sit in a neighbour. Block majority over that residue used to ship
+/// Ladakh under China; the declared `adm0_a3` outranks it.
+#[test]
+fn the_declared_country_outranks_the_block_majority() {
+    let model = model_with(&[prov("AAA-001", "AAA")]);
+    let tally = tally(&model, &[("AAA-001", &[("AAA", 1), ("BBB", 100)])]);
+
+    let parents = resolve_province_parents(&model, &tally, Worldview::Iso).unwrap();
+    assert_eq!(
+        parents[&model.province_ids["AAA-001"]],
+        country_id(&model, "AAA"),
+    );
+}
+
+/// The case block majority was designed for and must keep serving: an
+/// `adm0_a3` that is no country in this worldview (Kosovo in `iso`, Hong Kong
+/// in `chn`, Somaliland everywhere).
+#[test]
+fn block_majority_governs_a_declared_code_this_worldview_lacks() {
+    let model = model_with(&[prov("AAA-001", "ZZZ")]);
+    let tally = tally(&model, &[("AAA-001", &[("AAA", 1), ("BBB", 100)])]);
+
+    let parents = resolve_province_parents(&model, &tally, Worldview::Iso).unwrap();
+    assert_eq!(
+        parents[&model.province_ids["AAA-001"]],
+        country_id(&model, "BBB"),
+    );
+}
+
+#[test]
+fn a_province_with_no_land_at_all_is_an_error() {
+    let model = model_with(&[prov("AAA-001", "AAA")]);
+
+    let err = resolve_province_parents(&model, &Coverage::new(), Worldview::Iso)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        err.contains("AAA-001"),
+        "error must name the province: {err}"
+    );
+    assert!(
+        err.contains("unparented"),
+        "error must tell the author how to allow it deliberately: {err}"
+    );
+}
+
+/// The declared code wins, but only over land its country actually holds. A
+/// province the mask hands entirely to someone else cannot quietly fall back to
+/// that someone else — that is exactly the misattribution this rule fixes — so
+/// it stops the build and names both remedies.
+#[test]
+fn a_declared_parent_holding_none_of_the_province_is_an_error() {
+    let model = model_with(&[prov("AAA-001", "AAA")]);
+    let tally = tally(&model, &[("AAA-001", &[("BBB", 100)])]);
+
+    let err = resolve_province_parents(&model, &tally, Worldview::Iso)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        err.contains("AAA-001") && err.contains("BBB"),
+        "error must name the province and the country the mask prefers: {err}"
+    );
+    assert!(
+        err.contains("overrule"),
+        "error must offer the reviewed-override remedy too: {err}"
+    );
+}
+
+/// An NE pin bump orphans these in bulk and every rediscovery costs a full
+/// rasterize, so one run has to report all of them.
+#[test]
+fn every_landless_province_is_reported_in_one_run() {
+    let model = model_with(&[prov("AAA-001", "AAA"), prov("AAA-002", "AAA")]);
+
+    let err = resolve_province_parents(&model, &Coverage::new(), Worldview::Iso)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        err.contains("AAA-001") && err.contains("AAA-002"),
+        "both offenders must appear in one failure: {err}"
+    );
+}
+
+/// A model holding exactly one province under the real `adm1_code` the skip
+/// list keys on. The gate keys on the code, so the real code can stand in for
+/// the real province without its geometry.
+fn model_with_one_real_province(adm1_code: &str, adm0: &str) -> EntityModel {
+    let features = [feat("AAA", "Asia"), feat("BBB", "Asia")];
+    let registry = Registry::load(Path::new(SYNTHETIC_REGISTRY)).unwrap();
+    let mut model = assemble_entities(&features, &registry).unwrap();
+    model
+        .province_ids
+        .insert(adm1_code.to_string(), GeoEntityId(100));
+    model
+        .province_declared_adm0
+        .insert(adm1_code.to_string(), adm0.to_string());
+    model
+}
+
+#[test]
+fn a_listed_landless_province_is_skipped() {
+    // Crimea in the ISO worldview: NE's iso admin-0 leaves it unclaimed, so the
+    // country raster has a hole there and its declared country holds none of it.
+    let model = model_with_one_real_province("RUS-283", "AAA");
+
+    let parents = resolve_province_parents(&model, &Coverage::new(), Worldview::Iso).unwrap();
+    assert!(
+        parents.is_empty(),
+        "a listed landless province must get no parent"
+    );
+
+    let mut model = model;
+    attach_province_entities(&mut model, &parents);
+    assert!(
+        !model
+            .entities
+            .iter()
+            .any(|e| matches!(e.kind, GeoEntityKind::Admin1)),
+        "a listed landless province must produce no entity"
+    );
+}
+
+#[test]
+fn the_skip_list_is_keyed_by_worldview_not_by_code() {
+    // The Essequibo under `chn`, whose admin-0 awards it to Guyana. It is not
+    // listed there, so a landless one is still a hard error.
+    let model = model_with_one_real_province("GUY-680", "AAA");
+
+    let err = resolve_province_parents(&model, &Coverage::new(), Worldview::Chn)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        err.contains("GUY-680"),
+        "error must name the province: {err}"
+    );
+    assert!(err.contains("chn"), "error must name the worldview: {err}");
+}
+
+#[test]
+fn a_listed_province_that_gained_land_is_an_error() {
+    // The list must not rot: once the country mask covers it, keeping the entry
+    // would silently hold a real province out of the asset.
+    let model = model_with_one_real_province("RUS-283", "AAA");
+    let tally = tally(&model, &[("RUS-283", &[("AAA", 10)])]);
+
+    let err = resolve_province_parents(&model, &tally, Worldview::Iso)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        err.contains("RUS-283"),
+        "error must name the province: {err}"
+    );
+    assert!(
+        err.contains("unparented"),
+        "error must point at the list to edit: {err}"
+    );
+}
+
+/// Countries `RUS` and `UKR` plus Crimea, so the reviewed override list can be
+/// exercised against the real `(worldview, adm1_code, ADM0_A3)` triple it holds.
+fn crimea_model() -> EntityModel {
+    let registry = Registry {
+        schema: 1,
+        continents: vec![Entry {
+            code: "AS".into(),
+            id: 0,
+            point: None,
+        }],
+        countries: vec![
+            Entry {
+                code: "RUS".into(),
+                id: 1,
+                point: None,
+            },
+            Entry {
+                code: "UKR".into(),
+                id: 2,
+                point: None,
+            },
+        ],
+        provinces: vec![Entry {
+            code: "RUS-283".into(),
+            id: 3,
+            point: None,
+        }],
+    };
+    let features = [feat("RUS", "Asia"), feat("UKR", "Asia")];
+    let mut model = assemble_entities(&features, &registry).unwrap();
+    collect_provinces(&mut model, &[prov("RUS-283", "RUS")], &registry).unwrap();
+    model
+}
+
+/// `chn`'s admin-0 awards the whole peninsula to Ukraine and leaves Russia not
+/// one block of it, so there the mask is the one to believe.
+#[test]
+fn a_reviewed_override_lets_the_mask_beat_the_declared_parent() {
+    let model = crimea_model();
+    let tally = tally(&model, &[("RUS-283", &[("UKR", 143191)])]);
+
+    let parents = resolve_province_parents(&model, &tally, Worldview::Chn).unwrap();
+    assert_eq!(
+        parents[&model.province_ids["RUS-283"]],
+        country_id(&model, "UKR"),
+    );
+}
+
+#[test]
+fn an_override_the_mask_no_longer_supports_is_an_error() {
+    let model = crimea_model();
+    let tally = tally(&model, &[("RUS-283", &[("RUS", 143191)])]);
+
+    let err = resolve_province_parents(&model, &tally, Worldview::Chn)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        err.contains("RUS-283"),
+        "error must name the province: {err}"
+    );
+    assert!(
+        err.contains("overrule"),
+        "error must point at the list to edit: {err}"
+    );
+}
+
+#[test]
+fn a_child_must_sit_strictly_below_its_parent() {
+    use geo_data_format::GeoEntity;
+    use geo_rasterizer::entities::validate_tier_order;
+
+    let entity = |id: u32, kind, parent: Option<u32>| GeoEntity {
+        id: GeoEntityId(id),
+        kind,
+        canonical_code: format!("E{id}"),
+        iso_a3_eh: None,
+        name_key: format!("x.E{id}"),
+        parent_id: parent.map(GeoEntityId),
+        total_area_m2: 0,
+    };
+
+    // Legal: Country under Continent, Province under Country, and a skipped
+    // tier — City directly under Country.
+    validate_tier_order(&[
+        entity(0, GeoEntityKind::Continent, None),
+        entity(1, GeoEntityKind::Admin0, Some(0)),
+        entity(2, GeoEntityKind::Admin1, Some(1)),
+        entity(3, GeoEntityKind::Admin2, Some(1)),
+    ])
+    .unwrap();
+
+    // Illegal: same-tier nesting.
+    let err = validate_tier_order(&[
+        entity(0, GeoEntityKind::Continent, None),
+        entity(1, GeoEntityKind::Admin0, Some(0)),
+        entity(2, GeoEntityKind::Admin1, Some(1)),
+        entity(3, GeoEntityKind::Admin1, Some(2)),
+    ])
+    .unwrap_err()
+    .to_string();
+    assert!(err.contains("E3"), "must name the offender: {err}");
+}
+
+#[test]
+fn a_curated_entry_whose_code_no_longer_ships_is_an_error() {
+    use geo_rasterizer::entities::validate_curated_tables;
+    // iso lists RUS-283 (and eight others) in `unparented`; a shipped
+    // set without them means the source or the editorial step dropped the
+    // features and the entries are dead.
+    let live: std::collections::BTreeSet<&str> = ["AAA-001"].into();
+    let err = validate_curated_tables(Worldview::Iso, &live)
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("RUS-283"), "must name a dead entry: {err}");
+    assert!(
+        err.contains("unparented"),
+        "must name the table to edit: {err}"
+    );
+}
+
+/// The same code under `iso`, which lists no override for it: the declared
+/// country wins and, holding none of the province, sends it to the skip list.
+#[test]
+fn the_override_list_is_keyed_by_worldview_too() {
+    let model = crimea_model();
+    let tally = tally(&model, &[("RUS-283", &[("UKR", 143191)])]);
+
+    let parents = resolve_province_parents(&model, &tally, Worldview::Iso).unwrap();
+    assert!(
+        parents.is_empty(),
+        "iso lists RUS-283 as landless, not as mask-overruled"
+    );
 }

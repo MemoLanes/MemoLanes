@@ -138,3 +138,567 @@ zh-CN = "关塔那摩湾海军基地"
 ["country.WSB"]
 en-US = "Akrotiri Sovereign Base Area"
 zh-CN = "阿克罗蒂里主权基地区"
+
+# --- Provinces ----------------------------------------------------------------
+# zh-CN has no CLDR tier — CLDR 48.2.0 ships three zh subdivision names
+# (gbeng/gbsct/gbwls), so `cldr_subdivisions_sha256` is None and every zh-CN
+# province name comes straight from `NAME_ZH`. Most entries below re-author it in
+# Simplified; the rest replace a name `NAME_EN`/`NAME_ZH` copied from a neighbour.
+#
+# Replacements are sourced from NE's own `name` column or a Wikidata/GeoNames
+# label no colliding sibling claims, never invented. Siblings that still share a
+# display name had no such source.
+
+["province.AFG-1753"]
+en-US = "Daykundi"  # was Urozgan
+zh-CN = "代孔迪省"  # was 乌鲁兹甘省
+
+["province.AFG-1769"]
+en-US = "Panjshir"  # was Parwan
+zh-CN = "潘杰希尔省"  # was 帕尔旺省
+
+["province.ARE-344"]
+en-US = "Neutral Zone"  # was Fujairah
+
+["province.AUS-1932"]
+zh-CN = "杰维斯湾地区"  # was 傑維斯灣地區
+
+["province.AZE-5566"]
+zh-CN = "叶夫拉赫"  # was 葉夫拉赫
+
+["province.BEN-2169"]
+zh-CN = "博尔古省"  # was 博爾古省
+
+["province.BFA-2806"]
+zh-CN = "苏姆省"  # was 蘇姆省
+
+["province.BGR-2243"]
+zh-CN = "索菲亚市州"  # was 索菲亞市州
+
+["province.BGR-2250"]
+zh-CN = "蒙塔纳州"  # was 蒙塔納州
+
+["province.BMU-5134"]
+en-US = "City of Hamilton"  # was Hamilton
+
+["province.BMU-5137"]
+en-US = "Hamilton Parish"  # was Hamilton
+
+["province.BRA-625"]
+zh-CN = "圣埃斯皮里图州"  # was 聖埃斯皮里圖州
+
+["province.BRB-1992"]
+zh-CN = "圣詹姆斯教区"  # was 聖詹姆斯教區
+
+["province.BRB-1994"]
+zh-CN = "圣约瑟夫区"  # was 聖約瑟夫區
+
+["province.BRB-1997"]
+zh-CN = "圣彼得教区"  # was 聖彼得教區
+
+["province.CHE-159"]
+zh-CN = "日内瓦州"  # was 日內瓦州
+
+["province.CHE-169"]
+zh-CN = "格拉鲁斯州"  # was 格拉魯斯州
+
+["province.COL-1342"]
+zh-CN = "圣安德列斯-普罗维登西亚和圣卡塔利娜群岛省"  # was 聖安德列斯-普羅維登西亞和聖卡塔利娜群島省
+
+["province.CZE-10369"]
+zh-CN = "比尔森城县"  # was 比爾森城縣
+
+["province.CZE-10371"]
+zh-CN = "兹林县"  # was 茲林縣
+
+["province.DOM-1985"]
+zh-CN = "国家特区"  # was 國家特區
+
+["province.EGY-5494"]
+zh-CN = "卢克索省"  # was 盧克索省
+
+["province.FIN-3176"]
+zh-CN = "拉普兰区"  # was 拉普蘭區
+
+["province.FIN-3177"]
+zh-CN = "中芬兰区"  # was 中芬蘭區
+
+["province.FIN-3182"]
+zh-CN = "博滕区"  # was 博滕區
+
+["province.FIN-3191"]
+zh-CN = "西南芬兰区"  # was 西南芬蘭區
+
+["province.GRC-2883"]
+zh-CN = "伊奥尼亚群岛区"  # was 伊奧尼亞群島區
+
+["province.GRL-2738"]
+zh-CN = "图勒"  # was 圖勒
+
+["province.GUY-679"]
+zh-CN = "埃塞奎博群岛-西德梅拉拉区"  # was 马海卡-伯比斯区
+
+["province.IDN-1933"]
+zh-CN = "西巴布亚省"  # was 西巴布亞省
+
+["province.IND-2445"]
+zh-CN = "达德拉-纳加尔哈维利和达曼-第乌"  # was 達德拉-納加爾哈維利和達曼-第烏
+
+["province.IOA-2652"]
+zh-CN = "圣诞岛"  # was 聖誕島
+
+["province.IRN-3228"]
+zh-CN = "霍尔木兹甘省"  # was 霍爾木茲甘省
+
+["province.IRN-3234"]
+zh-CN = "赞詹省"  # was 贊詹省
+
+["province.KAZ-3207"]
+en-US = "Almaty Region"  # was Almaty
+
+["province.KOR-2495"]
+zh-CN = "仁川广域市"  # was 仁川廣域市
+
+["province.KOR-5129"]
+zh-CN = "世宗特别自治市"  # was 世宗特別自治市
+
+["province.LBY-2985"]
+zh-CN = "苏尔特省"  # was 蘇爾特省
+
+["province.LCA-5077"]
+zh-CN = "卡斯特里区"  # was 卡斯特里區
+
+["province.LCA-5078"]
+zh-CN = "舒瓦瑟尔区"  # was 舒瓦瑟爾區
+
+["province.LCA-5079"]
+zh-CN = "多芬区"  # was 多芬區
+
+["province.LIE-4892"]
+zh-CN = "特里森贝格"  # was 特里森貝格
+
+["province.LVA-1063"]
+zh-CN = "巴尔维自治市"  # was 巴爾維自治市
+
+["province.LVA-1065"]
+zh-CN = "卢扎自治市"  # was 盧扎自治市
+
+["province.LVA-1068"]
+zh-CN = "萨尔杜斯自治市"  # was 薩爾杜斯自治市
+
+["province.LVA-1076"]
+zh-CN = "阿卢克斯内自治市"  # was 阿盧克斯內自治市
+
+["province.LVA-1083"]
+zh-CN = "古尔贝内自治市"  # was 古爾貝內自治市
+
+["province.LVA-1086"]
+zh-CN = "林巴济自治市"  # was 林巴濟自治市
+
+["province.LVA-1088"]
+zh-CN = "奥格雷自治市"  # was 奧格雷自治市
+
+["province.LVA-5709"]
+zh-CN = "库尔迪加自治市"  # was 庫爾迪加自治市
+
+["province.LVA-5710"]
+zh-CN = "阿尔松加自治市"  # was 阿爾松加自治市
+
+["province.LVA-5711"]
+zh-CN = "布罗采尼自治市"  # was 布羅采尼自治市
+
+["province.LVA-5712"]
+zh-CN = "斯克伦达自治市"  # was 斯克倫達自治市
+
+["province.LVA-5713"]
+zh-CN = "瓦伊诺迪斯自治市"  # was 瓦伊諾迪斯自治市
+
+["province.LVA-5714"]
+zh-CN = "艾兹普泰自治市"  # was 艾茲普泰自治市
+
+["province.LVA-5715"]
+zh-CN = "普列库莱自治市"  # was 普列庫萊自治市
+
+["province.LVA-5716"]
+zh-CN = "格罗比纳自治市"  # was 格羅比納自治市
+
+["province.LVA-5719"]
+zh-CN = "帕维洛斯塔自治市"  # was 帕維洛斯塔自治市
+
+["province.LVA-5720"]
+zh-CN = "杜尔贝自治市"  # was 杜爾貝自治市
+
+["province.LVA-5722"]
+zh-CN = "罗亚自治市"  # was 羅亞自治市
+
+["province.LVA-5724"]
+zh-CN = "内雷塔自治市"  # was 內雷塔自治市
+
+["province.LVA-5727"]
+zh-CN = "萨拉茨格里瓦自治市"  # was 薩拉自治市
+
+["province.LVA-5728"]
+zh-CN = "普拉维纳斯自治市"  # was 普拉維納斯自治市
+
+["province.LVA-5729"]
+zh-CN = "科克内塞自治市"  # was 科克內塞自治市
+
+["province.LVA-5730"]
+zh-CN = "艾兹克劳克莱自治市"  # was 艾茲克勞克萊自治市
+
+["province.LVA-5731"]
+zh-CN = "斯克里韦里自治市"  # was 斯克里韋里自治市
+
+["province.LVA-5732"]
+zh-CN = "新叶尔加瓦自治市"  # was 新葉爾加瓦自治市
+
+["province.LVA-5735"]
+zh-CN = "旧库米尼库自治市"  # was 舊庫米尼庫自治市
+
+["province.LVA-5737"]
+zh-CN = "奥佐内库自治市"  # was 奧佐內庫自治市
+
+["province.LVA-5738"]
+zh-CN = "朗岱尔斯自治市"  # was 朗岱爾斯自治市
+
+["province.LVA-5739"]
+zh-CN = "特维提斯自治市"  # was 特維提斯自治市
+
+["province.LVA-5740"]
+zh-CN = "奥采自治市"  # was 奧采自治市
+
+["province.LVA-5742"]
+zh-CN = "维拉卡自治市"  # was 維拉卡自治市
+
+["province.LVA-5743"]
+zh-CN = "巴尔季纳瓦自治市"  # was 巴爾季納瓦自治市
+
+["province.LVA-5744"]
+zh-CN = "卡尔萨瓦自治市"  # was 卡爾薩瓦自治市
+
+["province.LVA-5745"]
+zh-CN = "齐布拉自治市"  # was 齊布拉自治市
+
+["province.LVA-5746"]
+zh-CN = "济卢佩自治市"  # was 濟盧佩自治市
+
+["province.LVA-5747"]
+zh-CN = "达格达自治市"  # was 達格達自治市
+
+["province.LVA-5749"]
+zh-CN = "伊卢克斯泰自治市"  # was 伊盧克斯泰自治市
+
+["province.LVA-5754"]
+zh-CN = "阿达日自治市"  # was 阿達日自治市
+
+["province.LVA-5755"]
+zh-CN = "亚洛亚自治市"  # was 亞洛亞自治市
+
+["province.LVA-5757"]
+zh-CN = "巴尔多内自治市"  # was 巴爾多內自治市
+
+["province.LVA-5758"]
+zh-CN = "察尔尼卡瓦自治市"  # was 察爾尼卡瓦自治市
+
+["province.LVA-5760"]
+zh-CN = "加卡尔尼斯自治市"  # was 加卡爾尼斯自治市
+
+["province.LVA-5762"]
+zh-CN = "英丘卡尔纳自治市"  # was 英丘卡爾納自治市
+
+["province.LVA-5763"]
+zh-CN = "新皮尔斯自治市"  # was 新皮爾斯自治市
+
+["province.LVA-5766"]
+zh-CN = "凯古姆斯自治市"  # was 凱古姆斯自治市
+
+["province.LVA-5768"]
+zh-CN = "克里穆尔达斯自治市"  # was 克里穆爾達斯自治市
+
+["province.LVA-5769"]
+zh-CN = "利耶尔瓦尔代自治市"  # was 利耶爾瓦爾代自治市
+
+["province.LVA-5770"]
+zh-CN = "马尔皮尔斯自治市"  # was 馬爾皮爾斯自治市
+
+["province.LVA-5771"]
+zh-CN = "马鲁皮斯自治市"  # was 馬魯皮斯自治市
+
+["province.LVA-5772"]
+zh-CN = "奥莱内自治市"  # was 奧萊內自治市
+
+["province.LVA-5773"]
+zh-CN = "罗帕日自治市"  # was 羅帕日自治市
+
+["province.LVA-5774"]
+zh-CN = "萨拉自治市"  # was 薩拉茨格里瓦自治市
+
+["province.LVA-5775"]
+zh-CN = "萨拉斯皮尔斯自治市"  # was 薩拉斯皮爾斯自治市
+
+["province.LVA-5776"]
+zh-CN = "萨乌尔克拉斯蒂自治市"  # was 薩烏爾克拉斯蒂自治市
+
+["province.LVA-5777"]
+zh-CN = "塞亚自治市"  # was 塞亞自治市
+
+["province.LVA-5778"]
+zh-CN = "锡古尔达自治市"  # was 錫古爾達自治市
+
+["province.LVA-5781"]
+zh-CN = "阿马塔市镇"  # was 瓦尔米耶拉
+
+["province.LVA-5782"]
+zh-CN = "阿佩市镇"  # was 瓦尔米耶拉
+
+["province.LVA-5783"]
+zh-CN = "贝韦里纳市镇"  # was 瓦尔米耶拉
+
+["province.LVA-5784"]
+zh-CN = "布尔特涅基市镇"  # was 瓦尔米耶拉
+
+["province.LVA-5785"]
+zh-CN = "采斯瓦伊内市镇"  # was 瓦尔米耶拉
+
+["province.LVA-5786"]
+zh-CN = "埃尔格利市镇"  # was 瓦尔米耶拉
+
+["province.LVA-5787"]
+zh-CN = "新皮耶巴尔加市镇"  # was 瓦尔米耶拉
+
+["province.LVA-5788"]
+zh-CN = "科采尼市镇"  # was 瓦尔米耶拉
+
+["province.LVA-5789"]
+zh-CN = "利加特内市镇"  # was 瓦尔米耶拉
+
+["province.LVA-5790"]
+zh-CN = "卢巴纳市镇"  # was 瓦尔米耶拉
+
+["province.LVA-5791"]
+zh-CN = "马兹萨拉察市镇"  # was 瓦尔米耶拉
+
+["province.LVA-5792"]
+zh-CN = "瑙克谢尼市镇"  # was 瓦尔米耶拉
+
+["province.LVA-5793"]
+zh-CN = "帕高亚市镇"  # was 瓦尔米耶拉
+
+["province.LVA-5794"]
+zh-CN = "普里埃库利市镇"  # was 瓦尔米耶拉
+
+["province.LVA-5795"]
+zh-CN = "斯特伦奇市镇"  # was 瓦尔米耶拉
+
+["province.LVA-5796"]
+zh-CN = "鲁伊耶纳市镇"  # was 瓦尔米耶拉
+
+["province.LVA-5797"]
+zh-CN = "旧皮耶巴尔加市镇"  # was 瓦尔米耶拉
+
+["province.LVA-5798"]
+zh-CN = "斯米尔泰内市镇"  # was 瓦尔米耶拉
+
+["province.LVA-5799"]
+zh-CN = "劳纳市镇"  # was 瓦尔米耶拉
+
+["province.LVA-5800"]
+zh-CN = "瓦拉克利亚尼市镇"  # was 瓦尔米耶拉
+
+["province.MDG-5860"]
+en-US = "Alaotra-Mangoro"  # was Toamasina
+
+["province.MDG-5862"]
+en-US = "Analamanga"  # was Antananarivo
+
+["province.MDG-5863"]
+en-US = "Analanjirofo"  # was Toamasina
+
+["province.MDG-5868"]
+en-US = "Atsinanana"  # was Toamasina
+
+["province.MDG-5871"]
+en-US = "Bongolava"  # was Antananarivo
+
+["province.MDG-5875"]
+en-US = "Itasy"  # was Antananarivo
+
+["province.MDG-5881"]
+en-US = "Vakinankaratra"  # was Antananarivo
+
+["province.MDV-5229"]
+zh-CN = "拉黑比亚尼环礁"  # was 拉黑比亞尼環礁
+
+["province.MDV-5236"]
+zh-CN = "美慕环礁"  # was 美慕環礁
+
+["province.MDV-5237"]
+zh-CN = "达鲁环礁"  # was 達魯環礁
+
+["province.MNE-1496"]
+zh-CN = "巴尔区"  # was 巴爾區
+
+["province.MNE-1499"]
+zh-CN = "布德瓦区"  # was 布德瓦區
+
+["province.MNE-1500"]
+zh-CN = "采蒂涅区"  # was 采蒂涅區
+
+["province.MNE-1501"]
+zh-CN = "罗扎耶区"  # was 羅扎耶區
+
+["province.MNE-1503"]
+zh-CN = "普拉夫区"  # was 普拉夫區
+
+["province.MNE-1508"]
+zh-CN = "安德里耶维察区"  # was 安德里耶維察區
+
+["province.MNE-1509"]
+zh-CN = "贝拉内区"  # was 貝拉內區
+
+["province.MNE-1510"]
+zh-CN = "比耶洛波列区"  # was 比耶洛波列區
+
+["province.MNE-1511"]
+zh-CN = "达尼洛夫格勒区"  # was 達尼洛夫格勒區
+
+["province.MNE-1512"]
+zh-CN = "科拉欣区"  # was 科拉欣區
+
+["province.MNE-1513"]
+zh-CN = "莫伊科瓦茨区"  # was 莫伊科瓦茨區
+
+["province.MNE-1514"]
+zh-CN = "尼克希奇区"  # was 尼克希奇區
+
+["province.MNE-1515"]
+zh-CN = "普卢日内区"  # was 普盧日內區
+
+["province.MNE-1516"]
+zh-CN = "普列夫利亚区"  # was 普列夫利亞區
+
+["province.MNE-1517"]
+zh-CN = "波德戈里察区"  # was 波德里查區
+
+["province.MNE-1518"]
+zh-CN = "蒂瓦特区"  # was 蒂瓦特區
+
+["province.MNE-1519"]
+zh-CN = "沙夫尼克区"  # was 沙夫尼克區
+
+["province.MNE-1520"]
+zh-CN = "扎布利亚克区"  # was 扎布利亞克區
+
+["province.MRT-2784"]
+zh-CN = "卜拉克纳省"  # was 卜拉克納省
+
+["province.MRT-2796"]
+zh-CN = "东胡德省"  # was 東胡德省
+
+["province.MUS-5181"]
+zh-CN = "罗斯希尔"  # was 羅斯希爾
+
+["province.MUS-5189"]
+en-US = "Port Louis District"  # was Port Louis
+zh-CN = "路易港区"  # was 路易港區
+
+["province.NIC-655"]
+zh-CN = "格拉纳达省"  # was 格拉納達省
+
+["province.NIC-658"]
+zh-CN = "莱昂省"  # was 萊昂省
+
+["province.NLD-5147"]
+zh-CN = "萨巴"  # was 薩巴
+
+["province.NPL-1127"]
+zh-CN = "蓝毗尼专区"  # was 藍毗尼專區
+
+["province.OMN-2406"]
+zh-CN = "东部区"  # was 東部區
+
+["province.OMN-2426"]
+zh-CN = "马斯喀特省"  # was 馬斯喀特省
+
+["province.PER-587"]
+en-US = "Lima Province"  # was Lima
+
+["province.PER-591"]
+zh-CN = "利马大区"  # was 利马省
+
+["province.PER-3505"]
+zh-CN = "卡亚俄宪法省"  # was 卡亞俄憲法省
+
+["province.PHL-2586"]
+zh-CN = "北萨马"  # was 北薩馬
+
+["province.PHL-5522"]
+zh-CN = "宿雾"  # was 宿霧
+
+["province.QAT-1107"]
+zh-CN = "乌姆锡拉勒"  # was 烏姆錫拉勒
+
+["province.QAT-5487"]
+zh-CN = "戴扬"  # was 戴揚
+
+["province.RUS-2399"]
+zh-CN = "阿尔泰边疆区"  # was 阿尔泰共和国
+
+["province.RUS-2602"]
+zh-CN = "伊尔库茨克州"  # was 伊爾庫茨克州
+
+["province.RUS-3468"]
+zh-CN = "堪察加边疆区"  # was 堪察加邊疆區
+
+["province.SDN-5859"]
+en-US = "Central Darfur"  # was East Darfur
+
+["province.SLB-3509"]
+zh-CN = "马基拉-乌拉瓦省"  # was 馬基拉-烏拉瓦省
+
+["province.SYC-5210"]
+zh-CN = "格朗当斯区 (马埃岛)"  # was 普拉兰大安塞区
+
+["province.SYR-4843"]
+zh-CN = "大马士革省"  # was 大馬士革省
+
+["province.TGO-89"]
+zh-CN = "中央大区"  # was 中央大區
+
+["province.TON-4947"]
+zh-CN = "纽阿斯群岛"  # was 紐阿斯群島
+
+["province.TTO-50"]
+en-US = "Eastern Tobago"  # was Tobago
+zh-CN = "东多巴哥岛"  # was 多巴哥岛
+
+["province.TTO-5090"]
+en-US = "Western Tobago"  # was Tobago
+zh-CN = "西多巴哥岛"  # was 多巴哥岛
+
+["province.TUR-2230"]
+zh-CN = "伊兹密尔省"  # was 伊茲密爾次分區
+
+["province.TUR-3008"]
+zh-CN = "安卡拉省"  # was 安卡拉次分區
+
+["province.TZA-3337"]
+zh-CN = "尚西巴南区"  # was 尚西巴南區
+
+["province.TZA-3385"]
+zh-CN = "多多马区"  # was 多多马區
+
+["province.UKR-321"]
+zh-CN = "基辅州"  # was 基辅
+
+["province.USA-3532"]
+zh-CN = "内布拉斯加州"  # was 內布拉斯加州
+
+["province.USA-3554"]
+zh-CN = "西维吉尼亚州"  # was 西維吉尼亞州
+
+["province.YEM-3496"]
+zh-CN = "萨那省"  # was 萨那
+
+["province.ZMB-5511"]
+zh-CN = "穆钦加省"  # was 穆欽加省

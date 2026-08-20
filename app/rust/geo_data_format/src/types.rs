@@ -6,12 +6,25 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct GeoEntityId(pub u32);
 
+/// The administrative tier. Named for the level, not for what the units are —
+/// what a unit *is* lives in its display name and flags.
+///
+/// Tiers are POSITIONAL: an entity's tier is the deepest position any
+/// worldview's tree requires, never a cross-country administrative class
+/// (US counties and Chinese counties land at different tiers because their
+/// ladders differ). A tree may skip tiers below that; class-like semantics
+/// belong in flags.
+///
+/// NOTE: the serialized name-key prefixes stay `country.` / `province.` — they
+/// encode the source namespace, are baked into shipped bins and name JSON, and
+/// deliberately do not track these variant names.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum GeoEntityKind {
     Continent,
-    Country,
-    Province,
-    City,
+    Admin0,
+    Admin1,
+    /// Empty until ADM2 data ships.
+    Admin2,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

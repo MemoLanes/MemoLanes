@@ -462,7 +462,7 @@ pub fn export_all_journeys_as_mldx_with_options<T: Write + Seek>(
     options: MldxExportOptions,
 ) -> Result<()> {
     validate_export_options(options)?;
-    let journey_headers = txn.query_journeys(None, None)?;
+    let journey_headers = txn.query_journeys(None, None, None)?;
     write_mldx(
         journey_headers,
         |journey_id| txn.get_journey_data(journey_id),
