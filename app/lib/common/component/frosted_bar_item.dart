@@ -8,6 +8,7 @@ class FrostedBarItem extends StatelessWidget {
     this.isSelected = false,
     this.isEnabled = true,
     this.onTap,
+    this.iconBuilder,
     this.selectedColor = Colors.black,
     this.unselectedColor,
     this.disabledColor,
@@ -21,6 +22,7 @@ class FrostedBarItem extends StatelessWidget {
   final bool isSelected;
   final bool isEnabled;
   final VoidCallback? onTap;
+  final Widget Function(Color contentColor)? iconBuilder;
   final Color selectedColor;
   final Color? unselectedColor;
   final Color? disabledColor;
@@ -31,14 +33,8 @@ class FrostedBarItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeColor = selectedColor;
-    final baseUnselectedColor = unselectedColor ?? Colors.grey.shade800;
+    final baseUnselectedColor = unselectedColor ?? Colors.grey;
     final baseDisabledColor = disabledColor ?? Colors.grey.shade500;
-
-    final Color bgColor = isSelected
-        ? (isEnabled
-            ? themeColor.withValues(alpha: 0.12)
-            : Colors.black.withValues(alpha: 0.05))
-        : Colors.transparent;
 
     final Color contentColor = !isEnabled
         ? baseDisabledColor
@@ -49,15 +45,10 @@ class FrostedBarItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
+      child: Container(
         margin: EdgeInsets.symmetric(
           vertical: verticalMargin,
           horizontal: horizontalMargin,
-        ),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -69,7 +60,8 @@ class FrostedBarItem extends StatelessWidget {
                 height: 24,
                 child: Align(
                   alignment: Alignment.center,
-                  child: Icon(icon, color: contentColor, size: 22),
+                  child: iconBuilder?.call(contentColor) ??
+                      Icon(icon, color: contentColor, size: 22),
                 ),
               ),
             ),

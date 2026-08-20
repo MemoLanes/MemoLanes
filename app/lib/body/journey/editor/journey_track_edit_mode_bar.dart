@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/frosted_bar_container.dart';
 import 'package:memolanes/common/component/frosted_bar_item.dart';
+import 'package:memolanes/common/component/frosted_bar_selection_group.dart';
+import 'package:memolanes/body/journey/editor/journey_editor_overlay_layout.dart';
 
 enum OperationMode {
   move,
@@ -17,8 +19,8 @@ enum DrawEntryMode {
 }
 
 class ModeSwitchBar extends StatelessWidget {
-  static const double extent = 64.0;
-  static const double safeAreaMinimum = 16.0;
+  static const double extent = JourneyEditorOverlayLayout.modeBarExtent;
+  static const double modeItemExtent = 60.0;
 
   final OperationMode currentMode;
   final ValueChanged<OperationMode> onModeChanged;
@@ -48,7 +50,12 @@ class ModeSwitchBar extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ..._buildModeItems(context),
+              FrostedBarSelectionGroup(
+                selectedIndex: _selectionIndexFor(currentMode),
+                itemExtent: modeItemExtent,
+                crossAxisExtent: extent,
+                children: _buildModeItems(context),
+              ),
               Container(
                 width: 1,
                 height: 24,
@@ -94,6 +101,14 @@ class ModeSwitchBar extends StatelessWidget {
     ];
   }
 
+  int _selectionIndexFor(OperationMode mode) {
+    return switch (mode) {
+      OperationMode.move => 0,
+      OperationMode.edit || OperationMode.editReadonly => 1,
+      OperationMode.delete => 2,
+    };
+  }
+
   Widget _buildDrawModeItem(BuildContext context) {
     return FrostedBarItem(
       icon: Icons.gesture_rounded,
@@ -117,6 +132,7 @@ class ModeSwitchBar extends StatelessWidget {
       icon: icon,
       label: label,
       isEnabled: isEnabled,
+      isSelected: isEnabled,
       onTap: isEnabled
           ? () {
               AppHaptics.medium();

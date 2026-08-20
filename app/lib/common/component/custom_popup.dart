@@ -2,15 +2,78 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:memolanes/constants/style_constants.dart';
 
 enum PopupPosition { auto, top, bottom, left, right }
+
+/// Visual presets for [CustomPopup].
+///
+/// The default black popup keeps the previous appearance. The white preset
+/// shares the translucent surface and border used by floating glass controls.
+enum CustomPopupTheme { black, white }
+
+extension CustomPopupThemeStyle on CustomPopupTheme {
+  Color get backgroundColor => switch (this) {
+        CustomPopupTheme.black => Colors.black,
+        // Matches FrostedBarContainer's default white background at 80%.
+        CustomPopupTheme.white => const Color(0xCCFFFFFF),
+      };
+
+  Color get barrierColor => switch (this) {
+        CustomPopupTheme.black => Colors.black.withValues(alpha: 0.1),
+        CustomPopupTheme.white => Colors.transparent,
+      };
+
+  Border? get border => switch (this) {
+        CustomPopupTheme.black => null,
+        CustomPopupTheme.white => const Border.fromBorderSide(
+            BorderSide(color: StyleConstants.glassControlBorderColor),
+          ),
+      };
+
+  Color get contentColor => switch (this) {
+        CustomPopupTheme.black => StyleConstants.glassControlContentColor,
+        CustomPopupTheme.white => const Color(0xDE000000),
+      };
+
+  Color get mutedContentColor => switch (this) {
+        CustomPopupTheme.black => StyleConstants.glassControlMutedContentColor,
+        CustomPopupTheme.white => const Color(0x99000000),
+      };
+
+  Color get accentColor => switch (this) {
+        CustomPopupTheme.black => StyleConstants.defaultColor,
+        CustomPopupTheme.white => StyleConstants.glassControlAccentColor,
+      };
+
+  Color get dividerColor => switch (this) {
+        CustomPopupTheme.black => StyleConstants.glassControlBorderColor,
+        CustomPopupTheme.white => const Color(0x1F000000),
+      };
+
+  List<BoxShadow> get boxShadow => switch (this) {
+        CustomPopupTheme.black => [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 10,
+            ),
+          ],
+        CustomPopupTheme.white => const [],
+      };
+}
+
+typedef CustomPopupBuilder = Widget Function(
+  BuildContext context,
+  VoidCallback show,
+);
 
 class CustomPopup extends StatefulWidget {
   final GlobalKey? anchorKey;
   final Widget content;
-  final Widget child;
-  final bool isLongPress;
+  final CustomPopupBuilder builder;
+  final CustomPopupTheme theme;
   final Color? backgroundColor;
   final Color? barrierColor;
   final EdgeInsets contentPadding;
@@ -29,9 +92,9 @@ class CustomPopup extends StatefulWidget {
   const CustomPopup({
     super.key,
     required this.content,
-    required this.child,
+    required this.builder,
     this.anchorKey,
-    this.isLongPress = false,
+    this.theme = CustomPopupTheme.black,
     this.backgroundColor,
     this.barrierColor,
     this.contentPadding = const EdgeInsets.all(16),
@@ -64,6 +127,7 @@ class CustomPopupState extends State<CustomPopup> {
         .push(
           _PopupRoute(
             targetRect: offset & renderBox.paintBounds.size,
+            theme: widget.theme,
             backgroundColor: widget.backgroundColor,
             barriersColor: widget.barrierColor,
             contentPadding: widget.contentPadding,
@@ -82,51 +146,88 @@ class CustomPopupState extends State<CustomPopup> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onLongPress: widget.isLongPress ? () => show() : null,
-      onTapUp: !widget.isLongPress ? (_) => show() : null,
-      child: widget.child,
-    );
+    return widget.builder(context, show);
   }
 }
 
 class _PopupContent extends StatelessWidget {
   final Widget child;
   final GlobalKey childKey;
+  final CustomPopupTheme theme;
   final Color? backgroundColor;
   final EdgeInsets contentPadding;
   final double? contentRadius;
   final BoxDecoration? contentDecoration;
+  final ValueChanged<Size>? onSizeChanged;
 
   const _PopupContent({
     required this.child,
     required this.childKey,
+    required this.theme,
     this.backgroundColor,
     required this.contentPadding,
     this.contentRadius,
     this.contentDecoration,
+    this.onSizeChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      key: childKey,
-      padding: contentPadding,
-      constraints: const BoxConstraints(minWidth: 50),
-      decoration: contentDecoration ??
-          BoxDecoration(
-            color: backgroundColor ?? Colors.black,
-            borderRadius: BorderRadius.circular(contentRadius ?? 10),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 10,
-              ),
-            ],
-          ),
-      child: child,
+    return _SizeChangeObserver(
+      onSizeChanged: onSizeChanged,
+      child: Container(
+        key: childKey,
+        padding: contentPadding,
+        constraints: const BoxConstraints(minWidth: 50),
+        decoration: contentDecoration ??
+            BoxDecoration(
+              color: backgroundColor ?? theme.backgroundColor,
+              borderRadius: BorderRadius.circular(contentRadius ?? 10),
+              border: theme.border,
+              boxShadow: theme.boxShadow,
+            ),
+        child: child,
+      ),
     );
+  }
+}
+
+class _SizeChangeObserver extends SingleChildRenderObjectWidget {
+  const _SizeChangeObserver({
+    required super.child,
+    this.onSizeChanged,
+  });
+
+  final ValueChanged<Size>? onSizeChanged;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _SizeChangeRenderObject(onSizeChanged);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _SizeChangeRenderObject renderObject,
+  ) {
+    renderObject.onSizeChanged = onSizeChanged;
+  }
+}
+
+class _SizeChangeRenderObject extends RenderProxyBox {
+  _SizeChangeRenderObject(this.onSizeChanged);
+
+  ValueChanged<Size>? onSizeChanged;
+  Size? _lastSize;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    if (_lastSize == size) return;
+
+    _lastSize = size;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (attached) onSizeChanged?.call(size);
+    });
   }
 }
 
@@ -134,6 +235,7 @@ class _PopupRoute extends PopupRoute<void> {
   final Rect targetRect;
   final PopupPosition position;
   final Widget child;
+  final CustomPopupTheme theme;
   final double? horizontalOffset;
   final double? verticalOffset;
 
@@ -157,6 +259,7 @@ class _PopupRoute extends PopupRoute<void> {
   _PopupRoute({
     required this.child,
     required this.targetRect,
+    required this.theme,
     this.position = PopupPosition.auto,
     this.horizontalOffset,
     this.verticalOffset,
@@ -170,8 +273,7 @@ class _PopupRoute extends PopupRoute<void> {
   });
 
   @override
-  Color? get barrierColor =>
-      barriersColor ?? Colors.black.withValues(alpha: 0.1);
+  Color? get barrierColor => barriersColor ?? theme.barrierColor;
   @override
   bool get barrierDismissible => true;
   @override
@@ -200,6 +302,12 @@ class _PopupRoute extends PopupRoute<void> {
 
   void _calculateChildOffset(Rect? childRect) {
     if (childRect == null) return;
+    _top = null;
+    _bottom = null;
+    _left = null;
+    _right = null;
+    _scaleAlignDx = 0.5;
+    _scaleAlignDy = 0.5;
 
     final view = ui.PlatformDispatcher.instance.views.first;
     final media = MediaQueryData.fromView(view);
@@ -223,7 +331,7 @@ class _PopupRoute extends PopupRoute<void> {
             (horizontalOffset ?? 0);
         break;
       case PopupPosition.left:
-        _left = targetRect.left - childRect.width + (horizontalOffset ?? 0);
+        _right = screenSize.width - targetRect.left - (horizontalOffset ?? 0);
         _top =
             targetRect.center.dy - childRect.height / 2 + (verticalOffset ?? 0);
         _scaleAlignDx = 1;
@@ -252,6 +360,12 @@ class _PopupRoute extends PopupRoute<void> {
       _left = _left!.clamp(
         padding.left + _kEdgeMargin,
         screenSize.width - childRect.width - padding.right - _kEdgeMargin,
+      );
+    }
+    if (_right != null) {
+      _right = _right!.clamp(
+        padding.right + _kEdgeMargin,
+        screenSize.width - childRect.width - padding.left - _kEdgeMargin,
       );
     }
     if (_top != null) {
@@ -301,10 +415,15 @@ class _PopupRoute extends PopupRoute<void> {
       Animation<double> secondaryAnimation, Widget child) {
     child = _PopupContent(
       childKey: _childKey,
+      theme: theme,
       backgroundColor: backgroundColor,
       contentPadding: contentPadding,
       contentRadius: contentRadius,
       contentDecoration: contentDecoration,
+      onSizeChanged: (size) {
+        _calculateChildOffset(Offset.zero & size);
+        changedInternalState();
+      },
       child: child,
     );
 

@@ -238,10 +238,10 @@ Widget _rulerContainer(Widget child) => ClipRRect(
         filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
+            color: StyleConstants.glassControlSurfaceColor,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-                color: Colors.white.withValues(alpha: 0.2), width: 1),
+                color: StyleConstants.glassControlBorderColor, width: 1),
           ),
           child: child,
         ),
@@ -538,12 +538,12 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
           height: isSelected ? 10 : 6,
           color: isSelected
               ? StyleConstants.defaultColor
-              : Colors.white.withValues(alpha: 0.5),
+              : StyleConstants.glassControlMutedContentColor,
         ),
         SizedBox(height: isSelected ? 4 : 6),
         Text(label,
             style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.9), fontSize: 11)),
+                color: StyleConstants.glassControlContentColor, fontSize: 11)),
       ],
     );
   }

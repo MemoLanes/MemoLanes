@@ -2,11 +2,13 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/body/journey/editor/journey_editor_map_view.dart';
+import 'package:memolanes/body/journey/editor/journey_editor_overlay_layout.dart';
 import 'package:memolanes/body/journey/editor/journey_track_edit_mode_bar.dart';
 import 'package:memolanes/body/journey/editor/top_persistent_toast.dart';
 import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/component/frosted_bar_container.dart';
 import 'package:memolanes/common/component/frosted_bar_item.dart';
+import 'package:memolanes/common/component/frosted_bar_selection_group.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -350,9 +352,9 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   @override
   Widget build(BuildContext context) {
     const double drawModeBarExtent = 60;
-    final screenSize = MediaQuery.of(context).size;
-    final isLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
+    final modeBarBottomInset =
+        JourneyEditorOverlayLayout.modeBarBottomInset(context);
+    final pagePadding = MediaQuery.paddingOf(context);
 
     return PopScope(
       canPop: false,
@@ -396,60 +398,54 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                 _mode == OperationMode.editReadonly)
               Positioned.fill(
                 child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        const Spacer(),
-                        Padding(
-                          padding: EdgeInsets.only(
-                            bottom: isLandscape ? 16 : screenSize.height * 0.08,
-                          ),
-                          child: PointerInterceptor(
-                            child: FrostedBarContainer(
-                              axis: Axis.vertical,
-                              extent: drawModeBarExtent,
-                              mainAxisPadding: 0,
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  _DrawModeItemSlot(
-                                    barExtent: drawModeBarExtent,
-                                    child: _DrawEntryModeButton(
-                                      icon: Icons.draw_rounded,
-                                      label: context
-                                          .tr('journey.editor.free_draw'),
-                                      tooltip: context
-                                          .tr('journey.editor.free_draw'),
-                                      isSelected: !_isLinkedDrawEnabled,
-                                      onPressed: () => _handleDrawEntrySelected(
-                                        DrawEntryMode.freehand,
-                                      ),
-                                    ),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 24),
+                      child: PointerInterceptor(
+                        child: FrostedBarContainer(
+                          axis: Axis.vertical,
+                          extent: drawModeBarExtent,
+                          mainAxisPadding: 0,
+                          child: FrostedBarSelectionGroup(
+                            axis: Axis.vertical,
+                            itemExtent: drawModeBarExtent,
+                            crossAxisExtent: drawModeBarExtent,
+                            selectedIndex: _isLinkedDrawEnabled ? 1 : 0,
+                            selectionInsets:
+                                const EdgeInsets.fromLTRB(5, 6, 5, 6),
+                            children: [
+                              _DrawModeItemSlot(
+                                barExtent: drawModeBarExtent,
+                                child: _DrawEntryModeButton(
+                                  icon: Icons.draw_rounded,
+                                  label: context.tr('journey.editor.free_draw'),
+                                  tooltip:
+                                      context.tr('journey.editor.free_draw'),
+                                  isSelected: !_isLinkedDrawEnabled,
+                                  onPressed: () => _handleDrawEntrySelected(
+                                    DrawEntryMode.freehand,
                                   ),
-                                  _DrawModeItemSlot(
-                                    barExtent: drawModeBarExtent,
-                                    child: _DrawEntryModeButton(
-                                      icon: Icons.link_rounded,
-                                      label: context.tr(
-                                        'journey.editor.linked_draw',
-                                      ),
-                                      tooltip: context
-                                          .tr('journey.editor.linked_draw'),
-                                      isSelected: _isLinkedDrawEnabled,
-                                      onPressed: () => _handleDrawEntrySelected(
-                                        DrawEntryMode.linked,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
-                            ),
+                              _DrawModeItemSlot(
+                                barExtent: drawModeBarExtent,
+                                child: _DrawEntryModeButton(
+                                  icon: Icons.link_rounded,
+                                  label:
+                                      context.tr('journey.editor.linked_draw'),
+                                  tooltip:
+                                      context.tr('journey.editor.linked_draw'),
+                                  isSelected: _isLinkedDrawEnabled,
+                                  onPressed: () => _handleDrawEntrySelected(
+                                    DrawEntryMode.linked,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 172),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -457,9 +453,18 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
             Positioned(
               left: 0,
               right: 0,
-              bottom: 0,
-              child: SafeArea(
-                minimum: const EdgeInsets.all(ModeSwitchBar.safeAreaMinimum),
+              bottom: modeBarBottomInset,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: pagePadding.left.clamp(
+                    JourneyEditorOverlayLayout.minimumHorizontalInset,
+                    double.infinity,
+                  ),
+                  right: pagePadding.right.clamp(
+                    JourneyEditorOverlayLayout.minimumHorizontalInset,
+                    double.infinity,
+                  ),
+                ),
                 child: ModeSwitchBar(
                   currentMode: _mode,
                   onModeChanged: _handleModeChange,
