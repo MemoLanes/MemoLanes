@@ -8,7 +8,7 @@ use memolanes_core::{
     journey_bitmap::JourneyBitmap,
     journey_data::JourneyData,
     journey_header::JourneyKind,
-    main_db::FinalizeStatus,
+    main_db::FinalizeJourneyResult,
     storage::Storage,
 };
 use std::fs;
@@ -128,7 +128,7 @@ fn finalize_without_ongoing_leaves_status_unchanged() {
     setup_storage_for_test(|storage| {
         assert_eq!(
             storage.finalize_ongoing_journey().unwrap(),
-            FinalizeStatus::OngoingUnchanged
+            FinalizeJourneyResult::Noop
         );
     });
 }
@@ -148,6 +148,7 @@ fn finalize_discards_small_journey_covered_by_ground_history() {
         record_point(&storage, longitude, latitude);
 
         let status = storage.finalize_ongoing_journey().unwrap();
+        assert_eq!(status, FinalizeJourneyResult::Discarded);
         assert!(!status.journey_saved());
         assert!(status.ongoing_cleared());
         assert_eq!(
@@ -176,6 +177,7 @@ fn finalize_keeps_small_journey_covered_only_by_flight_history() {
         record_point(&storage, longitude, latitude);
 
         let status = storage.finalize_ongoing_journey().unwrap();
+        assert_eq!(status, FinalizeJourneyResult::Saved);
         assert!(status.journey_saved());
         assert!(status.ongoing_cleared());
         let journeys = storage
@@ -203,6 +205,7 @@ fn finalize_keeps_large_journey_even_when_ground_history_covers_it() {
         record_point(&storage, end_longitude, latitude);
 
         let status = storage.finalize_ongoing_journey().unwrap();
+        assert_eq!(status, FinalizeJourneyResult::Saved);
         assert!(status.journey_saved());
         assert!(status.ongoing_cleared());
         assert_eq!(

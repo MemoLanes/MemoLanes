@@ -13,6 +13,7 @@ import 'package:memolanes/common/service/permission_service.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/gps_processor.dart';
+import 'package:memolanes/src/rust/main_db.dart';
 import 'package:mutex/mutex.dart';
 import 'package:notification_when_app_is_killed/model/args_for_ios.dart';
 import 'package:notification_when_app_is_killed/model/args_for_kill_notification.dart';
@@ -110,21 +111,19 @@ class GpsManager extends ChangeNotifier {
   }
 
   Future<void> _tryFinalizeJourneyWithoutLock() async {
-    final journeySaved = await api.tryAutoFinalizeJourney();
-    final journeyFinalized = journeySaved ||
-        (recordingStatus == GpsRecordingStatus.paused &&
-            !await api.hasOngoingJourney());
-    if (journeyFinalized) {
-      if (journeySaved) {
-        Fluttertoast.showToast(msg: tr("journey.finalize_saved"));
-      }
-      if (recordingStatus == GpsRecordingStatus.paused) {
-        recordingStatus = GpsRecordingStatus.none;
-        notifyListeners();
-        await _syncInternalStateWithoutLock();
-      }
-      _notifyJourneyFinalized();
+    final result = await api.tryAutoFinalizeJourney();
+    if (result == FinalizeJourneyResult.noop) {
+      return;
     }
+    if (result == FinalizeJourneyResult.saved) {
+      Fluttertoast.showToast(msg: tr("journey.finalize_saved"));
+    }
+    if (recordingStatus == GpsRecordingStatus.paused) {
+      recordingStatus = GpsRecordingStatus.none;
+      notifyListeners();
+      await _syncInternalStateWithoutLock();
+    }
+    _notifyJourneyFinalized();
   }
 
   void _notifyJourneyFinalized() {
@@ -325,7 +324,8 @@ class GpsManager extends ChangeNotifier {
       );
 
       if (needToFinalize) {
-        if (await api.finalizeOngoingJourney()) {
+        final result = await api.finalizeOngoingJourney();
+        if (result == FinalizeJourneyResult.saved) {
           Fluttertoast.showToast(msg: tr("journey.finalize_saved"));
         } else {
           Fluttertoast.showToast(msg: tr("journey.finalize_empty"));

@@ -1,5 +1,7 @@
 pub mod test_utils;
-use memolanes_core::{api::api, gps_processor::RawData, import_data};
+use memolanes_core::{
+    api::api, gps_processor::RawData, import_data, main_db::FinalizeJourneyResult,
+};
 use std::fs;
 use tempdir::TempDir;
 
@@ -34,7 +36,10 @@ fn basic() {
         api::on_location_update(raw_data.clone(), raw_data.timestamp_ms.unwrap());
         if i == 1000 {
             assert!(api::has_ongoing_journey().unwrap());
-            assert!(api::finalize_ongoing_journey().unwrap());
+            assert_eq!(
+                api::finalize_ongoing_journey().unwrap(),
+                FinalizeJourneyResult::Saved
+            );
         }
     }
 
@@ -54,9 +59,26 @@ fn basic() {
     }
 
     assert!(api::has_ongoing_journey().unwrap());
-    assert!(api::finalize_ongoing_journey().unwrap());
+    assert_eq!(
+        api::finalize_ongoing_journey().unwrap(),
+        FinalizeJourneyResult::Saved
+    );
     assert!(!api::has_ongoing_journey().unwrap());
-    assert!(!api::finalize_ongoing_journey().unwrap());
+    assert_eq!(
+        api::finalize_ongoing_journey().unwrap(),
+        FinalizeJourneyResult::Noop
+    );
+
+    // A stationary point already covered by finalized ground data is consumed
+    // without creating another journey.
+    let covered_point = first_elements[0].clone();
+    api::on_location_update(covered_point.clone(), covered_point.timestamp_ms.unwrap());
+    assert!(api::has_ongoing_journey().unwrap());
+    assert_eq!(
+        api::finalize_ongoing_journey().unwrap(),
+        FinalizeJourneyResult::Discarded
+    );
+    assert!(!api::has_ongoing_journey().unwrap());
 
     for raw_data in remaining_elements {
         api::on_location_update(raw_data.clone(), raw_data.timestamp_ms.unwrap());

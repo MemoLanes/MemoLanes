@@ -48,26 +48,23 @@ pub struct PreparedOngoingJourney {
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub enum FinalizeStatus {
+pub enum FinalizeJourneyResult {
     #[default]
-    OngoingUnchanged,
-    OngoingCleared {
-        journey_saved: bool,
-    },
+    Noop,
+    Discarded,
+    Saved,
 }
 
-impl FinalizeStatus {
+impl FinalizeJourneyResult {
     pub fn journey_saved(self) -> bool {
-        matches!(
-            self,
-            FinalizeStatus::OngoingCleared {
-                journey_saved: true
-            }
-        )
+        matches!(self, FinalizeJourneyResult::Saved)
     }
 
     pub fn ongoing_cleared(self) -> bool {
-        matches!(self, FinalizeStatus::OngoingCleared { .. })
+        matches!(
+            self,
+            FinalizeJourneyResult::Discarded | FinalizeJourneyResult::Saved
+        )
     }
 }
 
@@ -461,7 +458,7 @@ impl Txn<'_> {
         &mut self,
         prepared: Option<PreparedOngoingJourney>,
         discard: bool,
-    ) -> Result<FinalizeStatus> {
+    ) -> Result<FinalizeJourneyResult> {
         debug_assert!(!discard || prepared.is_some());
         let had_prepared_journey = prepared.is_some();
 
@@ -497,10 +494,12 @@ impl Txn<'_> {
         info!(
             "Ongoing journey finalized: journey_saved={journey_saved}, ongoing_cleared={ongoing_cleared}, discarded={discard}"
         );
-        Ok(if ongoing_cleared {
-            FinalizeStatus::OngoingCleared { journey_saved }
+        Ok(if journey_saved {
+            FinalizeJourneyResult::Saved
+        } else if ongoing_cleared {
+            FinalizeJourneyResult::Discarded
         } else {
-            FinalizeStatus::OngoingUnchanged
+            FinalizeJourneyResult::Noop
         })
     }
 
@@ -508,7 +507,7 @@ impl Txn<'_> {
     pub(crate) fn finalize_ongoing_journey_with<F>(
         &mut self,
         should_discard: F,
-    ) -> Result<FinalizeStatus>
+    ) -> Result<FinalizeJourneyResult>
     where
         F: FnOnce(&Txn, &PreparedOngoingJourney) -> Result<bool>,
     {

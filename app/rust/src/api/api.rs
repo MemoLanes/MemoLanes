@@ -531,9 +531,11 @@ pub fn set_main_map_layer_filter(new_layer_filter: &LayerFilter) -> Result<()> {
 }
 
 #[auto_context]
-fn reset_gps_preprocessor_if_ongoing_cleared<F>(finalize_op: F) -> Result<bool>
+fn reset_gps_preprocessor_if_ongoing_cleared<F>(
+    finalize_op: F,
+) -> Result<main_db::FinalizeJourneyResult>
 where
-    F: FnOnce(&Storage) -> Result<main_db::FinalizeStatus>,
+    F: FnOnce(&Storage) -> Result<main_db::FinalizeJourneyResult>,
 {
     let state = get();
     // TODO: I think we need to hold the gps_preprocessor lock first, otherwise
@@ -546,14 +548,14 @@ where
     if status.ongoing_cleared() {
         *gps_preprocessor = GpsPreprocessor::new();
     }
-    Ok(status.journey_saved())
+    Ok(status)
 }
 
-pub fn finalize_ongoing_journey() -> Result<bool> {
+pub fn finalize_ongoing_journey() -> Result<main_db::FinalizeJourneyResult> {
     reset_gps_preprocessor_if_ongoing_cleared(Storage::finalize_ongoing_journey)
 }
 
-pub fn try_auto_finalize_journey() -> Result<bool> {
+pub fn try_auto_finalize_journey() -> Result<main_db::FinalizeJourneyResult> {
     reset_gps_preprocessor_if_ongoing_cleared(Storage::try_auto_finalize_journey)
 }
 

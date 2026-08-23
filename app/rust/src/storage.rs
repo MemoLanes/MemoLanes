@@ -7,7 +7,7 @@ use crate::journey_area_utils::journey_bitmap_area_cm2;
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_header::JourneyKind;
 use crate::journey_snapshot::JourneySnapshot;
-use crate::main_db::{self, Action, FinalizeStatus, MainDb, PreparedOngoingJourney};
+use crate::main_db::{self, Action, FinalizeJourneyResult, MainDb, PreparedOngoingJourney};
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
 use chrono::{Local, NaiveDate};
@@ -263,10 +263,10 @@ impl Storage {
         Ok(fully_covered)
     }
 
-    fn finalize_ongoing_journey_impl(&self, auto: bool) -> Result<FinalizeStatus> {
+    fn finalize_ongoing_journey_impl(&self, auto: bool) -> Result<FinalizeJourneyResult> {
         let status = self.with_db_and_cache_txn(|txn, cache_db| {
             if auto && !txn.should_auto_finalize_journey()? {
-                return Ok(FinalizeStatus::default());
+                return Ok(FinalizeJourneyResult::default());
             }
 
             txn.finalize_ongoing_journey_with(|txn, prepared| {
@@ -284,11 +284,11 @@ impl Storage {
         Ok(status)
     }
 
-    pub fn finalize_ongoing_journey(&self) -> Result<FinalizeStatus> {
+    pub fn finalize_ongoing_journey(&self) -> Result<FinalizeJourneyResult> {
         self.finalize_ongoing_journey_impl(false)
     }
 
-    pub fn try_auto_finalize_journey(&self) -> Result<FinalizeStatus> {
+    pub fn try_auto_finalize_journey(&self) -> Result<FinalizeJourneyResult> {
         self.finalize_ongoing_journey_impl(true)
     }
 
