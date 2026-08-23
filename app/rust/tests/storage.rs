@@ -2,8 +2,14 @@ pub mod test_utils;
 use crate::test_utils::{draw_line1, draw_line2, draw_line3};
 use chrono::NaiveDate;
 use memolanes_core::{
-    cache_db::LayerKind, gps_processor::ProcessResult, import_data, journey_bitmap::JourneyBitmap,
-    journey_data::JourneyData, journey_header::JourneyKind, storage::Storage,
+    cache_db::LayerKind,
+    gps_processor::{Point, ProcessResult, RawData},
+    import_data, journey_area_utils,
+    journey_bitmap::JourneyBitmap,
+    journey_data::JourneyData,
+    journey_header::JourneyKind,
+    main_db::FinalizeStatus,
+    storage::Storage,
 };
 use std::fs;
 use tempdir::TempDir;
@@ -75,6 +81,138 @@ where
     )
     .unwrap();
     f(storage);
+}
+
+fn bitmap_with_point(longitude: f64, latitude: f64) -> JourneyBitmap {
+    let mut bitmap = JourneyBitmap::new();
+    bitmap.add_line(longitude, latitude, longitude, latitude);
+    bitmap
+}
+
+fn record_point(storage: &Storage, longitude: f64, latitude: f64) {
+    let timestamp_ms = 1_697_349_115_000;
+    storage.record_gps_data(
+        &RawData {
+            point: Point {
+                latitude,
+                longitude,
+            },
+            timestamp_ms: Some(timestamp_ms),
+            accuracy: None,
+            altitude: None,
+            speed: None,
+        },
+        ProcessResult::Append,
+        timestamp_ms,
+    );
+}
+
+fn insert_bitmap_history(storage: &Storage, kind: JourneyKind, bitmap: JourneyBitmap) {
+    storage
+        .with_db_txn(|txn| {
+            txn.create_and_insert_journey(
+                NaiveDate::from_ymd_opt(2023, 10, 15).unwrap(),
+                None,
+                None,
+                None,
+                kind,
+                None,
+                JourneyData::Bitmap(bitmap),
+            )
+        })
+        .unwrap();
+}
+
+#[test]
+fn finalize_without_ongoing_leaves_status_unchanged() {
+    setup_storage_for_test(|storage| {
+        assert_eq!(
+            storage.finalize_ongoing_journey().unwrap(),
+            FinalizeStatus::OngoingUnchanged
+        );
+    });
+}
+
+#[test]
+fn finalize_discards_small_journey_covered_by_ground_history() {
+    setup_storage_for_test(|storage| {
+        let (longitude, latitude) = (0.0, 85.0);
+        let candidate = bitmap_with_point(longitude, latitude);
+        let candidate_area_m2 =
+            journey_area_utils::journey_bitmap_area_m2_rounded(&candidate, None);
+        assert!(
+            candidate_area_m2 <= 100,
+            "fixture must exercise the small-journey path, got {candidate_area_m2} m2"
+        );
+        insert_bitmap_history(&storage, JourneyKind::DefaultKind, candidate);
+        record_point(&storage, longitude, latitude);
+
+        let status = storage.finalize_ongoing_journey().unwrap();
+        assert!(!status.journey_saved());
+        assert!(status.ongoing_cleared());
+        assert_eq!(
+            storage
+                .with_db_txn(|txn| txn.query_journeys(None, None, None))
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(storage
+            .with_db_txn(|txn| txn.get_ongoing_journey_timestamp_range())
+            .unwrap()
+            .is_none());
+    });
+}
+
+#[test]
+fn finalize_keeps_small_journey_covered_only_by_flight_history() {
+    setup_storage_for_test(|storage| {
+        let (longitude, latitude) = (0.0, 85.0);
+        let candidate = bitmap_with_point(longitude, latitude);
+        let candidate_area_m2 =
+            journey_area_utils::journey_bitmap_area_m2_rounded(&candidate, None);
+        assert!(candidate_area_m2 <= 100, "got {candidate_area_m2} m2");
+        insert_bitmap_history(&storage, JourneyKind::Flight, candidate);
+        record_point(&storage, longitude, latitude);
+
+        let status = storage.finalize_ongoing_journey().unwrap();
+        assert!(status.journey_saved());
+        assert!(status.ongoing_cleared());
+        let journeys = storage
+            .with_db_txn(|txn| txn.query_journeys(None, None, None))
+            .unwrap();
+        assert_eq!(journeys.len(), 2);
+        assert!(journeys
+            .iter()
+            .any(|journey| journey.journey_kind == JourneyKind::DefaultKind));
+    });
+}
+
+#[test]
+fn finalize_keeps_large_journey_even_when_ground_history_covers_it() {
+    setup_storage_for_test(|storage| {
+        let (start_longitude, end_longitude, latitude) = (0.0, 0.01, 0.0);
+        let mut candidate = JourneyBitmap::new();
+        candidate.add_line(start_longitude, latitude, end_longitude, latitude);
+        assert!(
+            journey_area_utils::journey_bitmap_area_m2_rounded(&candidate, None) > 100,
+            "fixture must bypass the small-journey coverage check"
+        );
+        insert_bitmap_history(&storage, JourneyKind::DefaultKind, candidate);
+        record_point(&storage, start_longitude, latitude);
+        record_point(&storage, end_longitude, latitude);
+
+        let status = storage.finalize_ongoing_journey().unwrap();
+        assert!(status.journey_saved());
+        assert!(status.ongoing_cleared());
+        assert_eq!(
+            storage
+                .with_db_txn(|txn| txn.query_journeys(None, None, None))
+                .unwrap()
+                .len(),
+            2
+        );
+    });
 }
 
 fn assert_cache(storage: &Storage, default: &JourneyBitmap, flight: &JourneyBitmap) {

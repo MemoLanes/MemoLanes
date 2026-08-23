@@ -110,8 +110,14 @@ class GpsManager extends ChangeNotifier {
   }
 
   Future<void> _tryFinalizeJourneyWithoutLock() async {
-    if (await api.tryAutoFinalizeJourney()) {
-      Fluttertoast.showToast(msg: tr("journey.finalize_saved"));
+    final journeySaved = await api.tryAutoFinalizeJourney();
+    final journeyFinalized = journeySaved ||
+        (recordingStatus == GpsRecordingStatus.paused &&
+            !await api.hasOngoingJourney());
+    if (journeyFinalized) {
+      if (journeySaved) {
+        Fluttertoast.showToast(msg: tr("journey.finalize_saved"));
+      }
       if (recordingStatus == GpsRecordingStatus.paused) {
         recordingStatus = GpsRecordingStatus.none;
         notifyListeners();
