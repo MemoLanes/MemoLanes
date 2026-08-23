@@ -1,6 +1,6 @@
 [toolchain]
 # native_toolchain_rust requires an exact channel version/date for reproducible builds.
-channel = "1.97.1"
+channel = "1.97.0"
 targets = [
   "aarch64-apple-darwin",
   "aarch64-apple-ios",
