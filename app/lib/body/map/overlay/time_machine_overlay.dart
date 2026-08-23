@@ -47,9 +47,7 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
     api.earliestJourneyDate().then((value) {
       if (!mounted) return;
       setState(() {
-        _earliestJourneyDate = value != null
-            ? naiveDateToDateTime(value)
-            : DateTime(DateTime.now().year, 1, 1);
+        _earliestJourneyDate = value ?? DateTime(DateTime.now().year, 1, 1);
       });
     });
   }
@@ -62,8 +60,8 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
     setState(() => _loading = true);
     try {
       final proxy = await api.getMapRendererProxyForJourneyDateRange(
-        fromDateInclusive: dateTimeToNaiveDate(from),
-        toDateInclusive: dateTimeToNaiveDate(to),
+        fromDateInclusive: dateOnlyUtc(from),
+        toDateInclusive: dateOnlyUtc(to),
         journeyKinds: _selectedJourneyKinds,
       );
       if (mounted) widget.onJourneyRangeLoaded(proxy);

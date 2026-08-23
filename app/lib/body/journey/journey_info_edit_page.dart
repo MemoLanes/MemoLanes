@@ -10,7 +10,6 @@ import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
-import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 
 class JourneyInfoEditPage extends StatefulWidget {
@@ -29,7 +28,7 @@ class JourneyInfoEditPage extends StatefulWidget {
 
   final DateTime? startTime;
   final DateTime? endTime;
-  final NaiveDate journeyDate;
+  final DateTime journeyDate;
   final String? note;
   final JourneyKind? journeyKind;
   final Function saveData;
@@ -89,7 +88,7 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
     setState(() {
       _startTime = widget.startTime;
       _endTime = widget.endTime;
-      _journeyDate = naiveDateToDateTime(widget.journeyDate);
+      _journeyDate = widget.journeyDate;
       _note = widget.note;
       _journeyKind = widget.journeyKind ?? _journeyKind;
       _noteController.text = _note ?? "";
@@ -117,7 +116,7 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
     }
     _note ??= "";
     import_api.JourneyInfo journeyInfo = import_api.JourneyInfo(
-        journeyDate: dateTimeToNaiveDate(_journeyDate!),
+        journeyDate: dateOnlyUtc(_journeyDate!),
         startTime: _startTime,
         endTime: _endTime,
         note: _note,

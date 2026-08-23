@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/journey_header.dart';
 
@@ -220,16 +219,13 @@ class JourneyListController extends ChangeNotifier {
 }
 
 Future<DateTime?> _loadEarliestJourneyDate() async {
-  final date = await api.earliestJourneyDate();
-  return date == null ? null : naiveDateToDateTime(date);
+  return api.earliestJourneyDate();
 }
 
 Future<List<DateTime>> _loadJourneyDates(
   Set<JourneyKind> journeyKinds,
 ) async =>
-    (await api.journeyDates(journeyKinds: journeyKinds))
-        .map(naiveDateToDateTime)
-        .toList();
+    api.journeyDates(journeyKinds: journeyKinds);
 
 Future<List<JourneyHeader>> _loadJourneyHeaders(
   DateTime date,
