@@ -11,4 +11,6 @@ targets = [
   "x86_64-linux-android",
   # Flutter tests build Native Assets for the Linux CI host.
   "x86_64-unknown-linux-gnu",
+  # Flutter desktop on Windows uses the MSVC Rust target.
+  "x86_64-pc-windows-msvc",
 ]
