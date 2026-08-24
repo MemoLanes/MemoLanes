@@ -8,14 +8,6 @@ import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/common/log.dart';
 
-/// Normalizes a calendar date for FRB's `chrono::NaiveDate` mapping.
-///
-/// FRB 2.13 represents `NaiveDate` as a UTC [DateTime]. Normalizing an
-/// arbitrary local [DateTime] avoids shifting its calendar date when it is
-/// serialized as an instant for Rust.
-DateTime dateOnlyUtc(DateTime dateTime) =>
-    DateTime.utc(dateTime.year, dateTime.month, dateTime.day);
-
 bool popCurrentRoute<T>(BuildContext context, [T? result]) {
   if (!context.mounted) return false;
 

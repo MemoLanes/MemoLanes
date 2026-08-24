@@ -2,10 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/time_machine/time_range_picker.dart';
+import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/journey_header.dart';
-import 'package:memolanes/common/utils.dart';
 
 /// Initial layer selection for time machine: ensure at least default kind (from main map filter).
 Set<JourneyKind> _initialJourneyKindsFromMainMap() {
@@ -33,10 +33,10 @@ class TimeMachineOverlay extends StatefulWidget {
 }
 
 class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
-  DateTime? _earliestJourneyDate;
+  SimpleDate? _earliestJourneyDate;
   bool _loading = false;
-  DateTime? _lastFrom;
-  DateTime? _lastTo;
+  SimpleDate? _lastFrom;
+  SimpleDate? _lastTo;
 
   late Set<JourneyKind> _selectedJourneyKinds;
 
@@ -47,12 +47,13 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
     api.earliestJourneyDate().then((value) {
       if (!mounted) return;
       setState(() {
-        _earliestJourneyDate = value ?? DateTime(DateTime.now().year, 1, 1);
+        _earliestJourneyDate =
+            value?.toSimpleDate() ?? SimpleDate(DateTime.now().year);
       });
     });
   }
 
-  Future<void> _loadJourneyForRange(DateTime from, DateTime to) async {
+  Future<void> _loadJourneyForRange(SimpleDate from, SimpleDate to) async {
     if (_earliestJourneyDate == null) return;
     if (from.isAfter(to)) return;
     _lastFrom = from;
@@ -60,8 +61,8 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
     setState(() => _loading = true);
     try {
       final proxy = await api.getMapRendererProxyForJourneyDateRange(
-        fromDateInclusive: dateOnlyUtc(from),
-        toDateInclusive: dateOnlyUtc(to),
+        fromDateInclusive: from.toFrbNaiveDate(),
+        toDateInclusive: to.toFrbNaiveDate(),
         journeyKinds: _selectedJourneyKinds,
       );
       if (mounted) widget.onJourneyRangeLoaded(proxy);

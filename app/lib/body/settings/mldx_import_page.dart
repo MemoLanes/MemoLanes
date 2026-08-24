@@ -4,10 +4,10 @@ import 'package:memolanes/body/journey/journey_info_page.dart';
 import 'package:memolanes/common/component/multi_journey_import_page.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart';
-import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 
 class MldxImportPage extends StatefulWidget {
@@ -62,8 +62,8 @@ class _MldxImportPageState extends State<MldxImportPage> {
       final aConflict = a.$2 == MldxJourneyImportAnalyzeResult.conflict;
       final bConflict = b.$2 == MldxJourneyImportAnalyzeResult.conflict;
       if (aConflict != bConflict) return aConflict ? -1 : 1;
-      final aStr = naiveDateToString(date: a.$1.journeyDate);
-      final bStr = naiveDateToString(date: b.$1.journeyDate);
+      final aStr = a.$1.journeyDate.toSimpleDate().toString();
+      final bStr = b.$1.journeyDate.toSimpleDate().toString();
       return aStr.compareTo(bStr);
     });
     return result;
@@ -95,7 +95,7 @@ class _MldxImportPageState extends State<MldxImportPage> {
   }
 
   String _journeyDateLabel(JourneyHeader h) {
-    return naiveDateToString(date: h.journeyDate);
+    return h.journeyDate.toSimpleDate().toString();
   }
 
   DateTime _lastModifiedTime(JourneyHeader h) {

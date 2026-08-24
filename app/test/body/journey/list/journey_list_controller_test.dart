@@ -3,15 +3,16 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/body/journey/list/journey_list_controller.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
+import 'package:simple_date/simple_date.dart';
 
 class _FakeJourneyHeader extends Fake implements JourneyHeader {}
 
 void main() {
   test('calendar input does not cancel a pending date refresh', () async {
     final dateRequestStarted = Completer<void>();
-    final dateRequest = Completer<List<DateTime>>();
+    final dateRequest = Completer<List<SimpleDate>>();
     final controller = JourneyListController(
-      earliestJourneyDateLoader: () async => DateTime(2024),
+      earliestJourneyDateLoader: () async => SimpleDate(2024),
       journeyDatesLoader: (journeyKinds) {
         dateRequestStarted.complete();
         return dateRequest.future;
@@ -22,9 +23,9 @@ void main() {
 
     final filterChange = controller.setJourneyKinds({JourneyKind.flight});
     await dateRequestStarted.future;
-    await controller.selectDate(DateTime(2024, 1, 2));
+    await controller.selectDate(SimpleDate(2024, 1, 2));
 
-    final filteredDate = DateTime(2024, 2, 3);
+    final filteredDate = SimpleDate(2024, 2, 3);
     dateRequest.complete([filteredDate]);
     await filterChange;
 
@@ -36,11 +37,11 @@ void main() {
       () async {
     final controller = JourneyListController(
       earliestJourneyDateLoader: () async => null,
-      journeyDatesLoader: (journeyKinds) async => <DateTime>[],
+      journeyDatesLoader: (journeyKinds) async => <SimpleDate>[],
       journeyHeadersLoader: (date, journeyKinds) async => <JourneyHeader>[],
     );
     addTearDown(controller.dispose);
-    controller.firstDate = DateTime(2024);
+    controller.firstDate = SimpleDate(2024);
 
     await controller.refresh(adjustSelectedDate: true);
 
@@ -51,8 +52,8 @@ void main() {
   });
 
   test('refresh selects the nearest remaining date after a deletion', () async {
-    var dates = [DateTime(2024, 1, 10), DateTime(2024, 2, 3)];
-    final loadedDates = <DateTime>[];
+    var dates = [SimpleDate(2024, 1, 10), SimpleDate(2024, 2, 3)];
+    final loadedDates = <SimpleDate>[];
     final controller = JourneyListController(
       earliestJourneyDateLoader: () async => dates.isEmpty ? null : dates.first,
       journeyDatesLoader: (journeyKinds) async => dates,
@@ -65,18 +66,34 @@ void main() {
     controller.selectedDate = dates.first;
 
     await controller.refresh(adjustSelectedDate: true);
-    dates = [DateTime(2024, 2, 3)];
+    dates = [SimpleDate(2024, 2, 3)];
     await controller.refresh(adjustSelectedDate: true);
 
-    expect(controller.selectedDate, DateTime(2024, 2, 3));
+    expect(controller.selectedDate, SimpleDate(2024, 2, 3));
     expect(controller.hasJourneyOnSelectedDate, isTrue);
-    expect(loadedDates.last, DateTime(2024, 2, 3));
+    expect(loadedDates.last, SimpleDate(2024, 2, 3));
+  });
+
+  test('refresh prefers the later date when calendar distances are equal',
+      () async {
+    final dates = [SimpleDate(2024, 1, 1), SimpleDate(2024, 1, 3)];
+    final controller = JourneyListController(
+      earliestJourneyDateLoader: () async => dates.first,
+      journeyDatesLoader: (journeyKinds) async => dates,
+      journeyHeadersLoader: (date, journeyKinds) async => <JourneyHeader>[],
+    );
+    addTearDown(controller.dispose);
+    controller.selectedDate = SimpleDate(2024, 1, 2);
+
+    await controller.refresh(adjustSelectedDate: true);
+
+    expect(controller.selectedDate, SimpleDate(2024, 1, 3));
   });
 
   test('list loading ends only after the current header request', () async {
     final headerRequestStarted = Completer<void>();
     final headerRequest = Completer<List<JourneyHeader>>();
-    final date = DateTime(2024, 1, 2);
+    final date = SimpleDate(2024, 1, 2);
     final controller = JourneyListController(
       earliestJourneyDateLoader: () async => date,
       journeyDatesLoader: (journeyKinds) async => [date],
@@ -101,7 +118,7 @@ void main() {
 
   test('a stale header request cannot finish the current loading state',
       () async {
-    final requests = <DateTime, Completer<List<JourneyHeader>>>{};
+    final requests = <SimpleDate, Completer<List<JourneyHeader>>>{};
     final controller = JourneyListController(
       journeyHeadersLoader: (date, journeyKinds) {
         final request = Completer<List<JourneyHeader>>();
@@ -110,8 +127,8 @@ void main() {
       },
     );
     addTearDown(controller.dispose);
-    final firstDate = DateTime(2024, 1, 1);
-    final secondDate = DateTime(2024, 1, 2);
+    final firstDate = SimpleDate(2024, 1, 1);
+    final secondDate = SimpleDate(2024, 1, 2);
 
     final firstLoad = controller.selectDate(firstDate);
     final secondLoad = controller.selectDate(secondDate);
@@ -137,7 +154,7 @@ void main() {
     final currentHeaders = <JourneyHeader>[_FakeJourneyHeader()];
     controller.journeyHeaders = currentHeaders;
 
-    final load = controller.selectDate(DateTime(2024, 1, 2));
+    final load = controller.selectDate(SimpleDate(2024, 1, 2));
 
     expect(controller.isJourneyListLoading, isTrue);
     expect(controller.journeyHeaders, same(currentHeaders));
@@ -158,14 +175,14 @@ void main() {
       },
     );
     addTearDown(controller.dispose);
-    controller.firstDate = DateTime(2024, 1, 1);
-    controller.selectedDate = DateTime(2024, 1, 1);
-    controller.journeyDates = [DateTime(2024, 1, 1)];
+    controller.firstDate = SimpleDate(2024, 1, 1);
+    controller.selectedDate = SimpleDate(2024, 1, 1);
+    controller.journeyDates = [SimpleDate(2024, 1, 1)];
     controller.journeyHeaders = <JourneyHeader>[_FakeJourneyHeader()];
 
-    await controller.displayMonth(DateTime(2024, 2, 1));
+    await controller.displayMonth(SimpleDate(2024, 2, 1));
 
-    expect(controller.selectedDate, DateTime(2024, 2, 1));
+    expect(controller.selectedDate, SimpleDate(2024, 2, 1));
     expect(controller.hasJourneyOnSelectedDate, isFalse);
     expect(controller.journeyHeaders, isEmpty);
     expect(controller.isJourneyListLoading, isFalse);

@@ -1339,6 +1339,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.0"
+  simple_date:
+    dependency: "direct main"
+    description:
+      name: simple_date
+      sha256: "676215e5c57fd9403197b061ff56f7e589b7ba99020fab8a09b7e0ea9448a33e"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.1"
   sky_engine:
     dependency: transitive
     description: flutter
