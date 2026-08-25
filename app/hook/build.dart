@@ -27,7 +27,7 @@ Future<Map<String, String>> _cargoEnvironmentVariablesFor({
   }
 
   if (input.config.code.targetOS == OS.android) {
-    // Temporary workaround for native_toolchain_rust, which currently
+    // TODO: Temporary workaround for native_toolchain_rust, which currently
     // hard-codes Android NDK API 35 instead of using
     // CodeConfig.android.targetNdkApi from Native Assets.
     // See https://github.com/GregoryConrad/native_toolchain_rust/issues/1.
@@ -37,8 +37,8 @@ Future<Map<String, String>> _cargoEnvironmentVariablesFor({
     return const <String, String>{};
   }
 
-  // Temporary workaround for native_toolchain_rust, which currently does not
-  // forward CodeConfig.iOS.targetVersion as IPHONEOS_DEPLOYMENT_TARGET.
+  // TODO: Temporary workaround for native_toolchain_rust, which currently does
+  // not forward CodeConfig.iOS.targetVersion as IPHONEOS_DEPLOYMENT_TARGET.
   final projectFile = input.packageRoot.resolve(
     'ios/Runner.xcodeproj/project.pbxproj',
   );
