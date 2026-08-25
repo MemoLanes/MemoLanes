@@ -35,7 +35,7 @@ void main() {
             body: JourneyInfoEditPage(
               startTime: null,
               endTime: null,
-              journeyDate: SimpleDate(1, 1, 1),
+              journeyDate: SimpleDate(1970, 1, 1),
               note: null,
               saveData: (_) async {},
             ),
@@ -50,7 +50,7 @@ void main() {
     });
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('01-01-01'));
+    await tester.tap(find.text('1970-01-01'));
     await tester.pumpAndSettle();
 
     expect(find.byType(DatePickerDialog), findsOneWidget);
