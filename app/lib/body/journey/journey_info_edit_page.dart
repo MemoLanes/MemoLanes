@@ -43,7 +43,7 @@ class JourneyInfoEditPage extends StatefulWidget {
 
 class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
   final DateFormat dateTimeFormat = DateFormat('yyyy-MM-dd HH:mm:ss');
-  final SimpleDate firstDate = SimpleDate(1990);
+  final SimpleDate _minimumSupportedDate = SimpleDate(1900);
   DateTime? _startTime;
   DateTime? _endTime;
   SimpleDate? _journeyDate;
@@ -59,7 +59,7 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
     DateTime? selectedDateTime = await showDatePicker(
       context: context,
       initialDate: localDateTime,
-      firstDate: firstDate.toLocalDateTime(),
+      firstDate: _minimumSupportedDate.toLocalDateTime(),
       lastDate: now,
     );
 
@@ -118,8 +118,8 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
     _note ??= "";
     import_api.JourneyInfo journeyInfo = import_api.JourneyInfo(
         journeyDate: _journeyDate!.toFrbNaiveDate(),
-        startTime: _startTime?.toUtc(),
-        endTime: _endTime?.toUtc(),
+        startTime: _startTime,
+        endTime: _endTime,
         note: _note,
         journeyKind: _journeyKind);
     if (widget.importType != null) {
@@ -182,7 +182,7 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
               DateTime? time = await showDatePicker(
                 context: context,
                 initialDate: _journeyDate?.toLocalDateTime(),
-                firstDate: firstDate.toLocalDateTime(),
+                firstDate: _minimumSupportedDate.toLocalDateTime(),
                 lastDate: DateTime.now(),
               );
               if (time != null) {

@@ -88,7 +88,7 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
               id: key,
               revision: '',
               journeyDate: date.toFrbNaiveDate(),
-              createdAt: DateTime.now().toUtc(),
+              createdAt: DateTime.now(),
               start: part.startTime,
               end: part.endTime,
               journeyType: JourneyType.vector,

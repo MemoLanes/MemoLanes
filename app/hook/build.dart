@@ -27,25 +27,26 @@ Future<Map<String, String>> _cargoEnvironmentVariablesFor({
   }
 
   if (input.config.code.targetOS == OS.android) {
+    // Temporary workaround for native_toolchain_rust, which currently
+    // hard-codes Android NDK API 35 instead of using
+    // CodeConfig.android.targetNdkApi from Native Assets.
+    // See https://github.com/GregoryConrad/native_toolchain_rust/issues/1.
     return _androidCargoEnvironmentVariables(input.config.code);
   }
   if (input.config.code.targetOS != OS.iOS) {
     return const <String, String>{};
   }
 
+  // Temporary workaround for native_toolchain_rust, which currently does not
+  // forward CodeConfig.iOS.targetVersion as IPHONEOS_DEPLOYMENT_TARGET.
   final projectFile = input.packageRoot.resolve(
     'ios/Runner.xcodeproj/project.pbxproj',
   );
   output.dependencies.add(projectFile);
   final deploymentTarget = await _readDeploymentTarget(projectFile);
-  final iOSVersionFlag =
-      input.config.code.iOS.targetSdk == IOSSdk.iPhoneSimulator
-          ? '-mios-simulator-version-min=$deploymentTarget'
-          : '-mios-version-min=$deploymentTarget';
 
   return <String, String>{
     'IPHONEOS_DEPLOYMENT_TARGET': deploymentTarget,
-    'RUSTFLAGS': '-C link-arg=$iOSVersionFlag',
   };
 }
 
