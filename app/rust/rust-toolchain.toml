@@ -1,16 +1,29 @@
 [toolchain]
-# native_toolchain_rust requires an exact channel version/date for reproducible builds.
-channel = "1.97.0"
+# WARNING: *do not* use `stable`, `beta`, or `nightly` (alone) for the channel!
+# You must specify a version number/date in order to ensure reproducible builds.
+channel = "1.97.0" # or newer. another example: `nightly-2025-01-01`
+
+# The targets you want to support; these are the default:
 targets = [
-  "aarch64-apple-darwin",
+  # Android
+  "armv7-linux-androideabi",
+  "aarch64-linux-android",
+  "x86_64-linux-android",
+
+  # iOS (device + simulator)
   "aarch64-apple-ios",
   "aarch64-apple-ios-sim",
-  "aarch64-linux-android",
-  "armv7-linux-androideabi",
   "x86_64-apple-ios",
-  "x86_64-linux-android",
-  # Flutter tests build Native Assets for the Linux CI host.
-  "x86_64-unknown-linux-gnu",
-  # Flutter desktop on Windows uses the MSVC Rust target.
+
+  # Windows
+  "aarch64-pc-windows-msvc",
   "x86_64-pc-windows-msvc",
+
+  # Linux
+  "aarch64-unknown-linux-gnu",
+  "x86_64-unknown-linux-gnu",
+
+  # macOS
+  "aarch64-apple-darwin",
+  "x86_64-apple-darwin",
 ]

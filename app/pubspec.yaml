@@ -37,6 +37,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter_rust_bridge: 2.13.0
   flutter_rust_bridge_hooks: 2.13.0
+  native_toolchain_rust: 1.0.6
   # Meta package pinned by flutter SDK
   meta: ^1.12.0
   uuid: ^4.4.2

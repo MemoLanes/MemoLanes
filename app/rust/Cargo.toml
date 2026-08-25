@@ -5,6 +5,7 @@ edition = "2021"
 
 
 [lib]
+name = "memolanes_core"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
