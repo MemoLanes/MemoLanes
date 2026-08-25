@@ -194,11 +194,9 @@ class JourneyListController extends ChangeNotifier {
     var closest = iterator.current;
     while (iterator.moveNext()) {
       final candidate = iterator.current;
-      final closestDistance =
-          closest.toFrbNaiveDate().difference(target.toFrbNaiveDate()).abs();
-      final candidateDistance =
-          candidate.toFrbNaiveDate().difference(target.toFrbNaiveDate()).abs();
-      if (candidateDistance.compareTo(closestDistance) < 0 ||
+      final closestDistance = calendarDaysBetween(closest, target).abs();
+      final candidateDistance = calendarDaysBetween(candidate, target).abs();
+      if (candidateDistance < closestDistance ||
           (candidateDistance == closestDistance &&
               candidate.isAfter(closest))) {
         closest = candidate;

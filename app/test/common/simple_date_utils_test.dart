@@ -5,6 +5,7 @@ void main() {
   test('FRB NaiveDate carrier converts to a domain date by fields', () {
     final carrier = DateTime.utc(2026, 8, 24);
 
+    expect(carrier.isUtc, isTrue);
     expect(carrier.toSimpleDate(), SimpleDate(2026, 8, 24));
   });
 
@@ -20,5 +21,16 @@ void main() {
 
     expect(widgetDate, DateTime(2026, 8, 24));
     expect(widgetDate.isUtc, isFalse);
+  });
+
+  test('calendar day distance is not affected by daylight saving time', () {
+    expect(
+      calendarDaysBetween(SimpleDate(2026, 3, 9), SimpleDate(2026, 3, 7)),
+      2,
+    );
+    expect(
+      calendarDaysBetween(SimpleDate(2026, 3, 7), SimpleDate(2026, 3, 9)),
+      -2,
+    );
   });
 }
