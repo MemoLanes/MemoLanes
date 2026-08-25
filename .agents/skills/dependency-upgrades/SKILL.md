@@ -9,7 +9,8 @@ description: Upgrade and verify dependencies across MemoLanes' Flutter/Dart, Rus
 
 Cover every ecosystem unless the request narrows the scope:
 
-- Flutter/Dart: `app/pubspec.yaml` and the local packages under `app/rust_builder/`.
+- Flutter/Dart and Native Assets: `app/pubspec.yaml`, `app/pubspec.lock`, and
+  `app/hook/build.dart`.
 - Rust: `app/rust`, `app/rust/geo_data_format`, `app/journey_kernel`, and `tools/geo_rasterizer`.
 - Journey web/WASM: `app/journey_kernel/package.json`.
 - Toolchains: Node, Flutter, Rust, and `wasm-pack` pins in `.github/workflows/app.yml` and `app/journey_kernel/.nvmrc`.

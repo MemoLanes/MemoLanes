@@ -9,8 +9,8 @@ import 'package:memolanes/body/journey/list/journey_list_empty_state.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/loading_manager.dart';
+import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/constants/index.dart';
-import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 
 class JourneyBody extends StatefulWidget {
@@ -74,7 +74,7 @@ class _JourneyBodyState extends State<JourneyBody> {
           label: header.start != null
               ? DateFormat('yyyy-MM-dd HH:mm:ss')
                   .format(header.start!.toLocal())
-              : naiveDateToString(date: header.journeyDate),
+              : header.journeyDate.toSimpleDate().toString(),
           trailing: LabelTileContent(showArrow: true),
           onTap: () {
             navigatorPush(
@@ -101,7 +101,7 @@ class _JourneyBodyState extends State<JourneyBody> {
     );
   }
 
-  Widget _buildLandscapeBody(DateTime firstDate) {
+  Widget _buildLandscapeBody(SimpleDate firstDate) {
     const bottomPadding = StyleConstants.navBarSafeArea + 5;
     return LayoutBuilder(
       builder: (context, constraints) {
