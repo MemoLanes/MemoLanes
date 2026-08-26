@@ -891,21 +891,6 @@ fn migrate_to_1_0(tx: &Transaction) -> Result<()> {
     Ok(())
 }
 
-fn migrate_to_1_1(tx: &Transaction) -> Result<()> {
-    tx.execute_batch(
-        "
-        CREATE TABLE ongoing_journey_raw_data (
-            id   INTEGER PRIMARY KEY AUTOINCREMENT
-                         UNIQUE
-                         NOT NULL,
-            data BLOB    NOT NULL
-        );
-        ALTER TABLE journey ADD COLUMN raw_data BLOB;
-        ",
-    )?;
-    Ok(())
-}
-
 fn migrate_to_2_0(tx: &Transaction) -> Result<()> {
     tx.execute(
         "ALTER TABLE journey ADD COLUMN journey_kind INTEGER NOT NULL DEFAULT 0",
@@ -939,11 +924,26 @@ fn migrate_to_2_0(tx: &Transaction) -> Result<()> {
     Ok(())
 }
 
+fn migrate_to_2_1(tx: &Transaction) -> Result<()> {
+    tx.execute_batch(
+        "
+        CREATE TABLE ongoing_journey_raw_data (
+            id   INTEGER PRIMARY KEY AUTOINCREMENT
+                         UNIQUE
+                         NOT NULL,
+            data BLOB    NOT NULL
+        );
+        ALTER TABLE journey ADD COLUMN raw_data BLOB;
+        ",
+    )?;
+    Ok(())
+}
+
 fn migrations() -> [utils::db::Migration<'static>; 3] {
     [
         utils::db::Migration::new(1, 0, &migrate_to_1_0),
-        utils::db::Migration::new(1, 1, &migrate_to_1_1),
         utils::db::Migration::new(2, 0, &migrate_to_2_0),
+        utils::db::Migration::new(2, 1, &migrate_to_2_1),
     ]
 }
 
@@ -996,7 +996,7 @@ mod migration_tests {
 
         assert_eq!(
             utils::db::run_migrations(&tx, "main.db", &migrations())?,
-            utils::db::SchemaVersion::new(2, 0)
+            utils::db::SchemaVersion::new(2, 1)
         );
 
         let journey_kind: i8 = tx.query_row(

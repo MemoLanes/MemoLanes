@@ -387,7 +387,7 @@ fn migrates_v1_database_for_journey_raw_data() {
             |row| row.get(0),
         )
         .unwrap();
-    assert_eq!(minor_version, "0");
+    assert_eq!(minor_version, "1");
     let major_version: String = connection
         .query_row(
             "SELECT value FROM db_metadata WHERE key = 'version'",
@@ -396,6 +396,98 @@ fn migrates_v1_database_for_journey_raw_data() {
         )
         .unwrap();
     assert_eq!(major_version, "2");
+}
+
+#[test]
+fn migrates_v2_0_database_for_journey_raw_data() {
+    let temp_dir = TempDir::new("main_db-migrate-v2-0-raw-data").unwrap();
+    let db_path = temp_dir.path().join("main.db");
+    let connection = rusqlite::Connection::open(&db_path).unwrap();
+    connection
+        .execute_batch(
+            "
+            CREATE TABLE ongoing_journey (
+                id INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE NOT NULL,
+                timestamp_sec INTEGER,
+                lat REAL NOT NULL,
+                lng REAL NOT NULL,
+                process_result INTEGER NOT NULL
+            );
+            CREATE TABLE journey (
+                id TEXT PRIMARY KEY NOT NULL UNIQUE,
+                journey_date INTEGER NOT NULL,
+                timestamp_for_ordering INTEGER,
+                type INTEGER NOT NULL,
+                journey_kind INTEGER NOT NULL DEFAULT 0,
+                header BLOB NOT NULL,
+                data BLOB NOT NULL
+            );
+            CREATE INDEX journey_date_index ON journey (journey_date DESC);
+            CREATE INDEX journey_kind_date_index ON journey (journey_kind, journey_date);
+            CREATE TABLE setting (
+                key TEXT PRIMARY KEY NOT NULL UNIQUE,
+                value TEXT
+            );
+            CREATE TABLE db_metadata (
+                key TEXT NOT NULL PRIMARY KEY,
+                value TEXT
+            );
+            INSERT INTO db_metadata (key, value) VALUES ('version', '2');
+            INSERT INTO db_metadata (key, value) VALUES ('minor_version', '0');
+            ",
+        )
+        .unwrap();
+    drop(connection);
+
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
+    let point = ExtendedRawGPSPoint {
+        raw_gps_point: RawGPSPoint {
+            point: Point {
+                latitude: 31.2304,
+                longitude: 121.4737,
+            },
+            timestamp_ms: Some(1_700_000_000_000),
+            accuracy: None,
+            altitude: None,
+            speed: None,
+        },
+        received_timestamp_ms: 1_700_000_000_010,
+    };
+    main_db
+        .record_with_raw_data(&point, gps_processor::ProcessResult::Ignore, true)
+        .unwrap();
+    assert_eq!(
+        main_db
+            .with_txn(|txn| txn.get_ongoing_journey_raw_data())
+            .unwrap()
+            .points,
+        vec![point]
+    );
+
+    drop(main_db);
+    let connection = rusqlite::Connection::open(&db_path).unwrap();
+    assert!(connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'ongoing_journey_raw_data')",
+            (),
+            |row| row.get::<_, bool>(0),
+        )
+        .unwrap());
+    assert!(connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM pragma_table_info('journey') WHERE name = 'raw_data')",
+            (),
+            |row| row.get::<_, bool>(0),
+        )
+        .unwrap());
+    let minor_version: String = connection
+        .query_row(
+            "SELECT value FROM db_metadata WHERE key = 'minor_version'",
+            (),
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(minor_version, "1");
 }
 
 #[test]
