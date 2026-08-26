@@ -1,14 +1,14 @@
 import 'package:flutter/foundation.dart';
-import 'package:memolanes/common/utils.dart';
+import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/journey_header.dart';
 
-typedef EarliestJourneyDateLoader = Future<DateTime?> Function();
-typedef JourneyDatesLoader = Future<List<DateTime>> Function(
+typedef EarliestJourneyDateLoader = Future<SimpleDate?> Function();
+typedef JourneyDatesLoader = Future<List<SimpleDate>> Function(
   Set<JourneyKind> journeyKinds,
 );
 typedef JourneyHeadersLoader = Future<List<JourneyHeader>> Function(
-  DateTime date,
+  SimpleDate date,
   Set<JourneyKind> journeyKinds,
 );
 
@@ -26,14 +26,14 @@ class JourneyListController extends ChangeNotifier {
   final JourneyDatesLoader _journeyDatesLoader;
   final JourneyHeadersLoader _journeyHeadersLoader;
 
-  DateTime? firstDate;
-  final DateTime lastDate = DateTime.now();
-  DateTime selectedDate = DateTime.now();
+  SimpleDate? firstDate;
+  final SimpleDate lastDate = SimpleDate.today();
+  SimpleDate selectedDate = SimpleDate.today();
   Set<JourneyKind> selectedJourneyKinds = {
     JourneyKind.defaultKind,
     JourneyKind.flight,
   };
-  List<DateTime> journeyDates = [];
+  List<SimpleDate> journeyDates = [];
   List<JourneyHeader> journeyHeaders = [];
   bool isInitialLoading = true;
   bool isJourneyListLoading = false;
@@ -80,10 +80,7 @@ class JourneyListController extends ChangeNotifier {
       firstDate = earliestDate;
       journeyDates = dates;
       if (adjustSelectedDate && !_hasJourneyOn(selectedDate)) {
-        final nearestDate = _nearestDate(
-          dates,
-          DateTime(selectedDate.year, selectedDate.month, selectedDate.day),
-        );
+        final nearestDate = _nearestDate(dates, selectedDate);
         if (nearestDate != null) selectedDate = nearestDate;
       }
       if (dates.isEmpty) {
@@ -101,17 +98,18 @@ class JourneyListController extends ChangeNotifier {
     }
   }
 
-  Future<void> selectDate(DateTime date) async {
-    selectedDate = DateTime(date.year, date.month, date.day);
+  Future<void> selectDate(SimpleDate date) async {
+    selectedDate = date;
     await _loadJourneysOnSelectedDate();
   }
 
-  Future<void> displayMonth(DateTime displayedMonth) async {
+  Future<void> displayMonth(SimpleDate displayedMonth) async {
     final earliest = firstDate;
     if (earliest == null) return;
     var date =
-        DateTime(displayedMonth.year, displayedMonth.month, selectedDate.day);
-    final lastDay = DateTime(displayedMonth.year, displayedMonth.month + 1, 0);
+        SimpleDate(displayedMonth.year, displayedMonth.month, selectedDate.day);
+    final lastDay =
+        SimpleDate(displayedMonth.year, displayedMonth.month + 1, 0);
     if (selectedDate.day > lastDay.day) date = lastDay;
     if (lastDate.isBefore(date)) date = lastDate;
     if (earliest.isAfter(date)) date = earliest;
@@ -182,25 +180,22 @@ class JourneyListController extends ChangeNotifier {
   bool _isActiveDateRefresh(Object token) =>
       !_isDisposed && identical(token, _activeDateRefresh);
 
-  bool _hasJourneyOn(DateTime date) => journeyDates.any((journeyDate) =>
-      journeyDate.year == date.year &&
-      journeyDate.month == date.month &&
-      journeyDate.day == date.day);
+  bool _hasJourneyOn(SimpleDate date) => journeyDates.contains(date);
 
-  DateTime? _nearestDateInMonth(int year, int month, DateTime target) =>
+  SimpleDate? _nearestDateInMonth(int year, int month, SimpleDate target) =>
       _nearestDate(
         journeyDates.where((date) => date.year == year && date.month == month),
         target,
       );
 
-  DateTime? _nearestDate(Iterable<DateTime> dates, DateTime target) {
+  SimpleDate? _nearestDate(Iterable<SimpleDate> dates, SimpleDate target) {
     final iterator = dates.iterator;
     if (!iterator.moveNext()) return null;
     var closest = iterator.current;
     while (iterator.moveNext()) {
       final candidate = iterator.current;
-      final closestDistance = closest.difference(target).inDays.abs();
-      final candidateDistance = candidate.difference(target).inDays.abs();
+      final closestDistance = calendarDaysBetween(closest, target).abs();
+      final candidateDistance = calendarDaysBetween(candidate, target).abs();
       if (candidateDistance < closestDistance ||
           (candidateDistance == closestDistance &&
               candidate.isAfter(closest))) {
@@ -219,20 +214,19 @@ class JourneyListController extends ChangeNotifier {
   }
 }
 
-Future<DateTime?> _loadEarliestJourneyDate() async {
-  final date = await api.earliestJourneyDate();
-  return date == null ? null : naiveDateToDateTime(date);
+Future<SimpleDate?> _loadEarliestJourneyDate() async {
+  return (await api.earliestJourneyDate())?.toSimpleDate();
 }
 
-Future<List<DateTime>> _loadJourneyDates(
+Future<List<SimpleDate>> _loadJourneyDates(
   Set<JourneyKind> journeyKinds,
-) async =>
-    (await api.journeyDates(journeyKinds: journeyKinds))
-        .map(naiveDateToDateTime)
-        .toList();
+) async {
+  final dates = await api.journeyDates(journeyKinds: journeyKinds);
+  return dates.map((date) => date.toSimpleDate()).toList();
+}
 
 Future<List<JourneyHeader>> _loadJourneyHeaders(
-  DateTime date,
+  SimpleDate date,
   Set<JourneyKind> journeyKinds,
 ) =>
     api.listJourneysOnDate(

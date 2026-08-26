@@ -1,5 +1,4 @@
 import 'package:easy_localization/easy_localization.dart';
-import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
 import 'package:memolanes/common/component/import_loading_page.dart';
@@ -8,14 +7,6 @@ import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/common/log.dart';
-
-final _naiveDateFormat = DateFormat('yyyy-MM-dd');
-
-NaiveDate dateTimeToNaiveDate(DateTime dateTime) =>
-    naiveDateOfString(str: _naiveDateFormat.format(dateTime));
-
-DateTime naiveDateToDateTime(NaiveDate naiveDate) =>
-    _naiveDateFormat.parse(naiveDateToString(date: naiveDate));
 
 bool popCurrentRoute<T>(BuildContext context, [T? result]) {
   if (!context.mounted) return false;

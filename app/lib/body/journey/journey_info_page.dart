@@ -15,12 +15,12 @@ import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
+import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
 import 'package:memolanes/src/rust/api/import.dart';
-import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -126,7 +126,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
           child: JourneyInfoEditPage(
             startTime: _journeyHeader.start,
             endTime: _journeyHeader.end,
-            journeyDate: _journeyHeader.journeyDate,
+            journeyDate: _journeyHeader.journeyDate.toSimpleDate(),
             note: _journeyHeader.note,
             journeyKind: _journeyHeader.journeyKind,
             saveData: (JourneyInfo journeyInfo) async {
@@ -164,7 +164,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   Future<CommonExportResult> _generateExportFile(
       JourneyHeader journeyHeader, CommonExportFormat exportFormat) async {
     final tmpDir = await getTemporaryDirectory();
-    final dateStr = naiveDateToString(date: journeyHeader.journeyDate);
+    final dateStr = journeyHeader.journeyDate.toSimpleDate().toString();
     final filePath =
         "${tmpDir.path}/$dateStr-${journeyHeader.revision}.${exportFormat.extension}";
     final exportType = switch (exportFormat) {
@@ -246,9 +246,9 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                           label: context.tr("journey.journey_date"),
                           position: LabelTilePosition.top,
                           trailing: LabelTileContent(
-                            content: naiveDateToString(
-                              date: _journeyHeader.journeyDate,
-                            ),
+                            content: _journeyHeader.journeyDate
+                                .toSimpleDate()
+                                .toString(),
                           ),
                         ),
                         LabelTile(

@@ -5,6 +5,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/custom_popup.dart';
+import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
@@ -19,9 +20,9 @@ export 'time_ruler.dart' show TimeRulerMode, TimeRuler;
 /// with [TimeRulerMode] controlling the time granularity shown by the ruler.
 /// Reports the selected [from]-[to] range to the parent via [onRangeChanged].
 class TimeRangePicker extends StatefulWidget {
-  final DateTime? earliestDate;
+  final SimpleDate? earliestDate;
   final bool loading;
-  final void Function(DateTime from, DateTime to) onRangeChanged;
+  final void Function(SimpleDate from, SimpleDate to) onRangeChanged;
   final Set<JourneyKind> selectedJourneyKinds;
   final void Function(Set<JourneyKind>)? onJourneyKindsChanged;
 
@@ -60,31 +61,31 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
   int _displayYear = DateTime.now().year;
   int _displayMonth = DateTime.now().month;
   int _displayDay = DateTime.now().day;
-  DateTime _fromDate = DateTime.now();
-  DateTime _toDate = DateTime.now();
+  SimpleDate _fromDate = SimpleDate.today();
+  SimpleDate _toDate = SimpleDate.today();
 
   /// Single source of truth for lower bound used by ruler/range/pickers.
-  DateTime get _effectiveEarliest {
-    final now = DateUtils.dateOnly(DateTime.now());
-    final fallback = DateTime(now.year - 1, 1, 1);
+  SimpleDate get _effectiveEarliest {
+    final now = SimpleDate.today();
+    final fallback = SimpleDate(now.year - 1);
     final candidate = widget.earliestDate ?? fallback;
     // Guard: if upstream provides a future earliest, cap to "now".
     return candidate.isAfter(now) ? now : candidate;
   }
 
-  (DateTime from, DateTime to) _periodRangeForSelection() {
+  (SimpleDate from, SimpleDate to) _periodRangeForSelection() {
     switch (_rulerMode) {
       case TimeRulerMode.year:
-        return (DateTime(_selectedYear, 1, 1), DateTime(_selectedYear, 12, 31));
+        return (SimpleDate(_selectedYear), SimpleDate(_selectedYear, 12, 31));
       case TimeRulerMode.month:
         return (
-          DateTime(_selectedYear, _selectedMonth, 1),
-          DateTime(_selectedYear, _selectedMonth + 1, 0),
+          SimpleDate(_selectedYear, _selectedMonth),
+          SimpleDate(_selectedYear, _selectedMonth + 1, 0),
         );
       case TimeRulerMode.day:
-        final lastDay = DateTime(_selectedYear, _selectedMonth + 1, 0).day;
+        final lastDay = SimpleDate(_selectedYear, _selectedMonth + 1, 0).day;
         final d = _selectedDay.clamp(1, lastDay);
-        final date = DateTime(_selectedYear, _selectedMonth, d);
+        final date = SimpleDate(_selectedYear, _selectedMonth, d);
         return (date, date);
       case TimeRulerMode.any:
         return (_fromDate, _toDate);
@@ -133,8 +134,8 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
     _notifyRange();
   }
 
-  DateTime get _displayDate =>
-      DateTime(_displayYear, _displayMonth, _displayDay);
+  SimpleDate get _displayDate =>
+      SimpleDate(_displayYear, _displayMonth, _displayDay);
 
   void _updateDisplay(int y, [int? m, int? d]) {
     _displayYear = y;
@@ -166,7 +167,7 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
             selectedYear: _selectedYear,
             selectedMonth: _selectedMonth,
             selectedDay: _selectedDay,
-            earliest: _effectiveEarliest,
+            earliest: _effectiveEarliest.toLocalDateTime(),
             onSelectionChanged: (selection) => _commitRulerChange(() {
               _selectedYear = selection.$1;
               if (selection.$2 != null) _selectedMonth = selection.$2!;
@@ -176,12 +177,12 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
                 setState(() => _updateDisplay(s.$1, s.$2, s.$3)),
           )
         : TimeRangeOverlayPicker(
-            fromDate: _fromDate,
-            toDate: _toDate,
-            earliest: _effectiveEarliest,
+            fromDate: _fromDate.toLocalDateTime(),
+            toDate: _toDate.toLocalDateTime(),
+            earliest: _effectiveEarliest.toLocalDateTime(),
             onFromChanged: (d) {
               setState(() {
-                _fromDate = d;
+                _fromDate = d.toSimpleDate();
                 if (_fromDate.isBefore(_effectiveEarliest)) {
                   _fromDate = _effectiveEarliest;
                 }
@@ -191,7 +192,7 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
             },
             onToChanged: (d) {
               setState(() {
-                _toDate = d;
+                _toDate = d.toSimpleDate();
                 if (_toDate.isBefore(_effectiveEarliest)) {
                   _toDate = _effectiveEarliest;
                 }
@@ -490,7 +491,7 @@ class _TimeMachineViewModeAndLayerMenuState
 class TimeRangeControllerBall extends StatelessWidget {
   final TimeMachineViewMode viewMode;
   final TimeRulerMode rulerMode;
-  final DateTime selectedDate;
+  final SimpleDate selectedDate;
   final bool loading;
 
   const TimeRangeControllerBall({

@@ -26,8 +26,14 @@ linter:
   
 analyzer:
   exclude: 
-    - 'rust_builder/**'
-    - 'lib/src/rust/**'
+    - lib/src/rust/**
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

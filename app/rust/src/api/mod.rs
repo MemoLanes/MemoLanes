@@ -3,4 +3,3 @@ pub mod achievement;
 pub mod api;
 pub mod edit_session;
 pub mod import;
-pub mod utils;

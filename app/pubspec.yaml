@@ -21,6 +21,7 @@ version: 0.0.1+1
 
 environment:
   sdk: '>=3.6.0 <4.0.0'
+  flutter: '>=3.47.0'
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -35,9 +36,9 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  rust_builder:
-    path: rust_builder
-  flutter_rust_bridge: 2.12.0
+  flutter_rust_bridge: 2.13.0
+  flutter_rust_bridge_hooks: 2.13.0
+  native_toolchain_rust: 1.0.6
   # Meta package pinned by flutter SDK
   meta: ^1.12.0
   uuid: ^4.4.2
@@ -51,6 +52,7 @@ dependencies:
   freezed_annotation: ^3.0.0
   fluttertoast: ^9.0.0
   intl: ^0.20.2
+  simple_date: 1.1.1
   package_info_plus: ^10.1.0
   device_info_plus: ^13.1.0
   url_launcher: ^6.3.0
@@ -84,6 +86,7 @@ dependencies:
   haptic_feedback: ^0.6.5
   country_flags: ^4.1.2
   battery_plus: ^7.1.0
+  code_assets: ^1.2.1
 
 dependency_overrides:
   flutter_inappwebview_platform_interface:

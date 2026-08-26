@@ -10,6 +10,7 @@ import 'package:memolanes/common/component/cards/line_painter.dart';
 import 'package:memolanes/common/component/import_loading_page.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/loading_manager.dart';
+import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
@@ -261,7 +262,7 @@ class _ImportDataPage extends State<ImportDataPage> {
                           JourneyInfoEditPage(
                             startTime: journeyInfo.startTime,
                             endTime: journeyInfo.endTime,
-                            journeyDate: journeyInfo.journeyDate,
+                            journeyDate: journeyInfo.journeyDate.toSimpleDate(),
                             note: journeyInfo.note,
                             saveData: _saveData,
                             previewData: _previewData,

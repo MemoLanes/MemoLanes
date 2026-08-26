@@ -8,12 +8,13 @@ import 'package:memolanes/body/journey/list/journey_list_controller.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/custom_popup.dart';
 import 'package:memolanes/common/loading_manager.dart';
+import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 class JourneyListCalendar extends StatelessWidget {
   final JourneyListController controller;
-  final DateTime firstDate;
+  final SimpleDate firstDate;
 
   const JourneyListCalendar({
     super.key,
@@ -24,8 +25,8 @@ class JourneyListCalendar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final config = CalendarDatePicker2Config(
-      firstDate: firstDate,
-      lastDate: controller.lastDate,
+      firstDate: firstDate.toLocalDateTime(),
+      lastDate: controller.lastDate.toLocalDateTime(),
       centerAlignModePicker: true,
       calendarType: CalendarDatePicker2Type.single,
       selectedDayHighlightColor: const Color(0xFFB6E13D).withAlpha(230),
@@ -118,16 +119,18 @@ class JourneyListCalendar extends StatelessWidget {
 
     return CalendarDatePicker2(
       config: config,
-      displayedMonthDate: controller.selectedDate,
-      value:
-          controller.hasJourneyOnSelectedDate ? [controller.selectedDate] : [],
+      displayedMonthDate: controller.selectedDate.toLocalDateTime(),
+      value: controller.hasJourneyOnSelectedDate
+          ? [controller.selectedDate.toLocalDateTime()]
+          : [],
       onValueChanged: (dates) {
         AppHaptics.selection();
-        _runWithLoading(() => controller.selectDate(dates.first));
+        _runWithLoading(
+            () => controller.selectDate(dates.first.toSimpleDate()));
       },
       onDisplayedMonthChanged: (value) {
         AppHaptics.selection();
-        _runWithLoading(() => controller.displayMonth(value));
+        _runWithLoading(() => controller.displayMonth(value.toSimpleDate()));
       },
     );
   }
