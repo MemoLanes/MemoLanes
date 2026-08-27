@@ -682,36 +682,6 @@ impl Txn<'_> {
             .unwrap_or(false))
     }
 
-    /// Applies authoritative raw-data state from an archive.
-    #[auto_context]
-    pub(crate) fn set_journey_raw_data(
-        &mut self,
-        id: &str,
-        raw_data: Option<&raw_data::SerializedJourneyRawData>,
-    ) -> Result<()> {
-        let mut header = self
-            .get_journey_header(id)?
-            .ok_or_else(|| anyhow!("Failed to find journey with id = {id}"))?;
-        if raw_data.is_some() {
-            header.has_raw_data = true;
-        } else {
-            header.remove_raw_data();
-        }
-        let header_bytes = header.to_proto().write_to_bytes()?;
-        let changes = self.db_txn.execute(
-            "UPDATE journey SET header = ?2, raw_data = ?3 WHERE id = ?1;",
-            (
-                id,
-                header_bytes,
-                raw_data.map(|raw_data| raw_data.as_bytes()),
-            ),
-        )?;
-        if changes != 1 {
-            bail!("Failed to set raw data for journey with id = {id}");
-        }
-        Ok(())
-    }
-
     #[auto_context]
     pub fn has_journeys(&self) -> Result<bool> {
         let mut query = self.db_txn.prepare("SELECT 1 FROM journey LIMIT 1;")?;

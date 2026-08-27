@@ -371,16 +371,17 @@ impl<R: Read + Seek> MldxReader<R> {
                 }
 
                 let existing = txn.get_journey_header(&journey_header.id)?;
-                let record = read_journey_record(&mut file, section_version)?;
-                record.correct_header(&mut journey_header, "import_mldx");
                 if existing
                     .as_ref()
                     .is_some_and(|existing| existing.revision == journey_header.revision)
                 {
-                    txn.set_journey_raw_data(&journey_header.id, record.raw_data.as_ref())?;
+                    skip_journey_record(&mut file, section_version)?;
                     result.skipped_count += 1;
                     continue;
                 }
+
+                let record = read_journey_record(&mut file, section_version)?;
+                record.correct_header(&mut journey_header, "import_mldx");
 
                 if existing.is_some() {
                     txn.delete_journey(&journey_header.id)?;
