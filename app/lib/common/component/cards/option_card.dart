@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
+import 'package:memolanes/constants/style_constants.dart';
 
 class OptionCard extends StatelessWidget {
   const OptionCard({
@@ -14,8 +15,9 @@ class OptionCard extends StatelessWidget {
     return SafeAreaWrapper(
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0x1AFFFFFF),
+          color: StyleConstants.surfaceColor,
           borderRadius: BorderRadius.circular(16.0),
+          border: Border.all(color: StyleConstants.lineColor),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -31,7 +33,7 @@ class OptionCard extends StatelessWidget {
     for (int i = 0; i < widgets.length; i++) {
       result.add(widgets[i]);
       if (i != widgets.length - 1) {
-        result.add(Container(height: 0.5, color: const Color(0xFF262626)));
+        result.add(Container(height: 0.5, color: StyleConstants.lineColor));
       }
     }
     return result;

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:easy_localization/easy_localization.dart';
@@ -15,6 +14,8 @@ import 'package:memolanes/body/first_launch_setup.dart';
 import 'package:memolanes/body/settings/settings_body.dart'
     deferred as settings;
 import 'package:memolanes/common/achievement_stats_store.dart';
+import 'package:memolanes/common/app_theme.dart';
+import 'package:memolanes/common/app_theme_controller.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/component/bottom_nav_bar.dart';
 import 'package:memolanes/common/component/database_version_too_new_gate.dart';
@@ -35,7 +36,12 @@ void main() async {
   runZonedGuarded(() async {
     final startupStatus = await AppBootstrap.initAppRuntime();
     if (startupStatus == AppStartupStatus.databaseVersionTooNew) {
-      runApp(_appRoot(const MyApp(home: DatabaseVersionTooNewGate())));
+      runApp(_appRoot(
+        ChangeNotifierProvider(
+          create: (_) => AppThemeController(),
+          child: const MyApp(home: DatabaseVersionTooNewGate()),
+        ),
+      ));
       return;
     }
 
@@ -50,6 +56,7 @@ void main() async {
           ChangeNotifierProvider.value(value: gpsManager),
           ChangeNotifierProvider.value(value: updateNotifier),
           ChangeNotifierProvider.value(value: achievementStatsStore),
+          ChangeNotifierProvider(create: (_) => AppThemeController()),
         ],
         child: const MyApp(),
       ),
@@ -82,6 +89,9 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = context.watch<AppThemeController>().brightness;
+    final systemOverlayStyle = AppTheme.systemOverlayStyle(brightness);
+
     return MaterialApp(
       title: "MemoLanes",
       onGenerateTitle: (context) => context.tr('common.memolanes'),
@@ -90,28 +100,16 @@ class MyApp extends StatelessWidget {
       locale: context.locale,
       navigatorKey: navigatorKey,
       builder: (context, child) {
-        return GlobalLoadingOverlay(
-          child: child ?? const SizedBox.shrink(),
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: systemOverlayStyle,
+          child: GlobalLoadingOverlay(
+            child: child ?? const SizedBox.shrink(),
+          ),
         );
       },
-      theme: ThemeData(
-        useMaterial3: true,
-        fontFamilyFallback:
-            Platform.isIOS ? ['.AppleSystemUIFont', 'PingFang SC'] : null,
-        scaffoldBackgroundColor: const Color(0xFF141414),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFB6E13D),
-          brightness: Brightness.dark,
-        ),
-        iconTheme: const IconThemeData(
-          color: Colors.black87,
-        ),
-        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-          elevation: 8,
-          backgroundColor: Colors.white,
-          selectedItemColor: Colors.black,
-          unselectedItemColor: Colors.black54,
-        ),
+      theme: AppTheme.data(
+        brightness,
+        systemOverlayStyle: systemOverlayStyle,
       ),
       home: home ?? const MyHomePage(title: 'MemoLanes [OSS]'),
     );
@@ -227,6 +225,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    // Persistent map and navigation controls read the shared palette directly.
+    context.watch<AppThemeController>();
     final mediaQuery = MediaQuery.of(context);
     final navBarBottomInset = StyleConstants.navBarBottomInset(context);
     final horizontalSafeArea =

@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/body/settings/advanced_settings_page.dart';
 import 'package:memolanes/body/settings/import_data_page.dart';
+import 'package:memolanes/body/settings/interface_settings_page.dart';
 import 'package:memolanes/body/settings/map_settings_page.dart';
+import 'package:memolanes/common/app_theme_controller.dart';
 import 'package:memolanes/common/component/basic_bottom_sheet.dart';
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
@@ -99,6 +101,9 @@ class _SettingsBodyState extends State<SettingsBody> {
 
   @override
   Widget build(BuildContext context) {
+    // Cards read the shared palette directly, so rebuild this persistent route
+    // after a nested settings page changes the theme preference.
+    context.watch<AppThemeController>();
     var updateUrl = context.watch<UpdateNotifier>().updateUrl;
     var gpsManager = context.watch<GpsManager>();
 
@@ -174,6 +179,15 @@ class _SettingsBodyState extends State<SettingsBody> {
           position: LabelTilePosition.middle,
           trailing: LabelTileContent(showArrow: true),
           onTap: () => navigatorPush(context, page: const MapSettingsPage()),
+        ),
+        LabelTile(
+          label: context.tr("general.interface_settings.title"),
+          position: LabelTilePosition.middle,
+          trailing: LabelTileContent(showArrow: true),
+          onTap: () => navigatorPush(
+            context,
+            page: const InterfaceSettingsPage(),
+          ),
         ),
         LabelTile(
           label: context.tr("general.advanced_settings.title"),

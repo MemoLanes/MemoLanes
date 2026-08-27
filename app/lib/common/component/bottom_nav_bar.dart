@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:badges/badges.dart' as badges;
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/app_haptics.dart';
+import 'package:memolanes/constants/style_constants.dart';
 
 class BottomNavBar extends StatelessWidget {
   final int selectedIndex;
@@ -10,7 +11,7 @@ class BottomNavBar extends StatelessWidget {
   final Function hasUpdateNotification;
 
   // Visual height of the floating navigation capsule.
-  static const double height = 64;
+  static const double height = StyleConstants.navBarHeight;
 
   // Original side margin used to derive the unscaled design width.
   // The actual side inset is handled by the surrounding safe-area layout.

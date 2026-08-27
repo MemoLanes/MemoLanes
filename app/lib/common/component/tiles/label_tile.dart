@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:memolanes/constants/app_typography.dart';
+import 'package:memolanes/constants/style_constants.dart';
 
 enum LabelTilePosition {
   single,
@@ -93,21 +95,27 @@ class LabelTile extends StatelessWidget {
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+                  style: AppTypography.itemTitle.copyWith(
+                    color: StyleConstants.inkColor,
+                  ),
                 ),
                 if (desc.isNotEmpty)
                   Text(
                     desc,
                     maxLines: descMaxLines,
                     overflow: TextOverflow.ellipsis,
+                    style: AppTypography.caption.copyWith(
+                      color: StyleConstants.mutedInkColor,
+                    ),
                   ),
               ],
             ),
             if (infoLabelOnTap != null) ...[
               const SizedBox(width: 6),
-              const Icon(
+              Icon(
                 Icons.info_outline,
                 size: 18.0,
-                color: Color(0x99FFFFFF),
+                color: StyleConstants.mutedInkColor,
               ),
             ],
           ],
@@ -139,7 +147,7 @@ class LabelTile extends StatelessWidget {
                 child: Ink(
                   padding: EdgeInsets.symmetric(horizontal: 16.0),
                   decoration: BoxDecoration(
-                    color: const Color(0x1AFFFFFF),
+                    color: StyleConstants.surfaceColor,
                     borderRadius: borderRadius,
                   ),
                   child: IntrinsicHeight(

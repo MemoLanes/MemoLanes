@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/component/app_checkbox.dart';
 import 'package:memolanes/common/component/setup_bottom_sheet.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/region_preference.dart';
@@ -255,11 +256,9 @@ class _PrivacyAgreementTile extends StatelessWidget {
           ),
         ),
       ),
-      trailing: Checkbox(
+      trailing: AppCheckbox(
         value: accepted,
-        onChanged: (value) => onChanged(value ?? false),
-        activeColor: StyleConstants.defaultColor,
-        checkColor: Colors.black,
+        onChanged: onChanged,
       ),
     );
   }

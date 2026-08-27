@@ -281,6 +281,14 @@
         "openfreemap": "OpenFreeMap"
       }
     },
+    "interface_settings": {
+      "title": "界面设置",
+      "mode_name": {
+        "system": "跟随系统",
+        "light": "浅色模式",
+        "dark": "深色模式"
+      }
+    },
     "advanced_settings": {
       "title": "高级设置",
       "export_logs": "导出日志",
