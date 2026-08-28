@@ -6,6 +6,7 @@ import 'package:battery_plus/battery_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:memolanes/common/app_lifecycle_service.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/map_style.dart';
@@ -194,6 +195,10 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   void dispose() {
     _batteryStateSubscription?.cancel();
     _gpsManager.removeListener(_updateLocationMarker);
+    final controller = _webViewController;
+    if (controller != null) {
+      AppLifecycleService.instance.unregisterWebView(controller);
+    }
     _webViewController = null;
     super.dispose();
   }
@@ -229,7 +234,12 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   Future<void> _onWebViewCreated(InAppWebViewController controller) async {
     if (!mounted) return;
+    final previousController = _webViewController;
+    if (previousController != null && previousController != controller) {
+      AppLifecycleService.instance.unregisterWebView(previousController);
+    }
     _webViewController = controller;
+    AppLifecycleService.instance.registerWebView(controller);
 
     // Add web message listeners (JS channels) before loading the page.
     // These create window.channelName.postMessage(str) objects on the JS side,
