@@ -3,15 +3,17 @@ import 'dart:io' show Platform;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/component/app_button.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/common/component/setup_bottom_sheet.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/service/permission_service.dart';
 import 'package:memolanes/common/utils.dart';
+import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-/// Shows the unified permission request bottom sheet (layout + copy only).
+/// Shows the unified permission request card (layout + copy only).
 ///
 /// Completes after the sheet is closed.
 Future<void> showPermissionRequestSheet(
@@ -19,14 +21,9 @@ Future<void> showPermissionRequestSheet(
 ) async {
   final permissions = PermissionService();
   unawaited(permissions.logPermissionState('sheet_open'));
-  await showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: Colors.transparent,
-    isScrollControlled: true,
-    isDismissible: true,
-    builder: (context) {
-      return _PermissionRequestSheetContent();
-    },
+  await showSetupCard<void>(
+    context,
+    child: _PermissionRequestSheetContent(),
   );
   await permissions.logPermissionState('sheet_close');
 }
@@ -193,7 +190,11 @@ class _PermissionRequestSheetContentState
       title: context.tr("permission_sheet.title"),
       maxHeightFactor: 0.6,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
+        icon: Icon(
+          Icons.arrow_back_ios,
+          color: StyleConstants.deepGreen,
+          size: 20,
+        ),
         onPressed: _closeSheet,
         style: IconButton.styleFrom(
           padding: const EdgeInsets.all(8),
@@ -201,23 +202,14 @@ class _PermissionRequestSheetContentState
         ),
       ),
       actions: [
-        OutlinedButton(
+        AppButton(
+          label: context.tr("permission_sheet.skip"),
           onPressed: _onSkip,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.white,
-            side: const BorderSide(color: Color(0xFFB5B5B5)),
-            padding: const EdgeInsets.symmetric(vertical: 12),
-          ),
-          child: Text(context.tr("permission_sheet.skip")),
+          variant: AppButtonVariant.secondary,
         ),
-        FilledButton(
+        AppButton(
+          label: context.tr("permission_sheet.enable_all"),
           onPressed: _onEnableAll,
-          style: FilledButton.styleFrom(
-            backgroundColor: StyleConstants.defaultColor,
-            foregroundColor: Colors.black,
-            padding: const EdgeInsets.symmetric(vertical: 12),
-          ),
-          child: Text(context.tr("permission_sheet.enable_all")),
         ),
       ],
       child: Column(
@@ -302,15 +294,14 @@ class _PermissionTile extends StatelessWidget {
                     padding: EdgeInsets.zero,
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    foregroundColor: StyleConstants.defaultColor,
+                    foregroundColor: StyleConstants.deepGreen,
                   ),
                   child: Text(
                     context.tr('permission_sheet.open_system_settings'),
-                    style: TextStyle(
-                      fontSize: 13,
+                    style: AppTypography.supporting.copyWith(
                       fontWeight: FontWeight.w600,
                       decoration: TextDecoration.underline,
-                      decorationColor: StyleConstants.defaultColor,
+                      decorationColor: StyleConstants.deepGreen,
                     ),
                   ),
                 ),
@@ -340,13 +331,13 @@ class _PermissionStatusIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isGranted) {
-      return const SizedBox(
+      return SizedBox(
         width: 52,
         height: 40,
         child: Center(
           child: Icon(
             Icons.check_circle,
-            color: StyleConstants.defaultColor,
+            color: StyleConstants.deepGreen,
             size: 24,
           ),
         ),
@@ -354,7 +345,7 @@ class _PermissionStatusIndicator extends StatelessWidget {
     }
 
     if (isDenied) {
-      const color = Color(0xFFFF6B6B);
+      final color = StyleConstants.dangerColor;
       return SizedBox(
         width: 52,
         height: 40,
@@ -371,7 +362,7 @@ class _PermissionStatusIndicator extends StatelessWidget {
                 border: Border.all(color: color.withValues(alpha: 0.75)),
               ),
               alignment: Alignment.center,
-              child: const Icon(
+              child: Icon(
                 Icons.close,
                 color: color,
                 size: 18,
@@ -397,19 +388,17 @@ class _PermissionStatusIndicator extends StatelessWidget {
             height: 30,
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
-              color: StyleConstants.defaultColor.withValues(alpha: 0.12),
+              color: StyleConstants.deepGreen.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(999),
               border: Border.all(
-                color: StyleConstants.defaultColor.withValues(alpha: 0.75),
+                color: StyleConstants.deepGreen.withValues(alpha: 0.75),
               ),
             ),
             alignment: Alignment.center,
             child: Text(
               label,
-              style: const TextStyle(
-                color: StyleConstants.defaultColor,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+              style: AppTypography.label.copyWith(
+                color: StyleConstants.deepGreen,
               ),
             ),
           ),
@@ -433,10 +422,10 @@ class _PermissionInfoIcon extends StatelessWidget {
     Widget icon = GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: const Icon(
+      child: Icon(
         Icons.info_outline,
         size: 18.0,
-        color: Color(0x99FFFFFF),
+        color: StyleConstants.mutedInkColor,
       ),
     );
     if (tooltip != null && tooltip!.isNotEmpty) {
