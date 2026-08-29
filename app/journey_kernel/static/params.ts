@@ -10,6 +10,7 @@
 
 import { JourneyCanvasLayer } from "./layers/journey-canvas-layer";
 import type { JourneyLayerConstructor } from "./layers/journey-layer-interface";
+import { DEFAULT_FOG_OPACITY, normalizeFogColor } from "./fog-style";
 
 // Default values for parameters
 const DEFAULT_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
@@ -89,6 +90,7 @@ export interface ExternalParams {
   fit_padding_left?: string | number;
   render?: string;
   map_style?: string;
+  fog_color?: string;
   fog_density?: string;
   projection?: string;
   debug?: string;
@@ -105,7 +107,7 @@ export type PropertyChangeCallback<T> = (newValue: T, oldValue: T) => void;
 
 /** Mutable property names that support hooks */
 export type MutablePropertyName =
-  "renderMode" | "fogDensity" | "projection" | "lowPowerMode";
+  "renderMode" | "fogColor" | "fogDensity" | "projection" | "lowPowerMode";
 
 /** Internal data structure for ReactiveParams */
 interface ParamsData {
@@ -122,6 +124,7 @@ interface ParamsData {
   debug: boolean;
   // Mutable properties
   renderMode: string;
+  fogColor: string;
   fogDensity: number;
   projection: ProjectionType;
   lowPowerMode: boolean;
@@ -131,7 +134,8 @@ interface ParamsData {
  * ReactiveParams - A Proxy-based reactive parameters object
  *
  * Properties can be accessed and set directly. Setting mutable properties
- * (renderMode, fogDensity, projection, lowPowerMode) triggers registered hooks.
+ * (renderMode, fogColor, fogDensity, projection, lowPowerMode) triggers
+ * registered hooks.
  *
  * Usage:
  * ```typescript
@@ -173,6 +177,7 @@ export interface ReactiveParams extends ParamsData {
 /** Set of properties that trigger hooks when changed */
 const MUTABLE_PROPERTIES = new Set<MutablePropertyName>([
   "renderMode",
+  "fogColor",
   "fogDensity",
   "projection",
   "lowPowerMode",
@@ -218,6 +223,8 @@ function createReactiveProxy(data: ParamsData): ReactiveParams {
       if (prop === "fogDensity") {
         // Clamp fogDensity between 0 and 1
         newValue = Math.max(0, Math.min(1, value));
+      } else if (prop === "fogColor") {
+        newValue = normalizeFogColor(value);
       } else if (prop === "projection") {
         // Normalize projection value
         newValue = value === "mercator" ? "mercator" : "globe";
@@ -368,9 +375,10 @@ export function createReactiveParams(
     },
     renderMode,
     requiresMapboxToken,
+    fogColor: normalizeFogColor(externalParams.fog_color),
     fogDensity: Math.max(
       0,
-      Math.min(1, parseNum(externalParams.fog_density, 0.5)),
+      Math.min(1, parseNum(externalParams.fog_density, DEFAULT_FOG_OPACITY)),
     ),
     projection: externalParams.projection === "mercator" ? "mercator" : "globe",
     debug: externalParams.debug === "true",

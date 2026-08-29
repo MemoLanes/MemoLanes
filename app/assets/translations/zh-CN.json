@@ -1,12 +1,27 @@
 {
+  "navigation": {
+    "record": "记录",
+    "time_machine": "时光机",
+    "edit": "编辑",
+    "achievement": "成就",
+    "settings": "设置"
+  },
   "home": {
+    "recording": "正在记录",
     "start_new_journey": "开始新旅程",
     "pause": "暂停",
     "resume": "恢复",
     "end_journey_title": "结束旅程？",
     "end_journey_message": "确定要结束当前的旅程吗？",
     "double_back_exit": "再按一次退出应用",
-    "map_data_source_copyright_title": "数据来源"
+    "map_data_source_copyright_title": "数据来源",
+    "gps_accuracy": "定位精度",
+    "gps_signal": {
+      "excellent": "信号强",
+      "good": "信号良好",
+      "fair": "信号一般",
+      "poor": "信号弱"
+    }
   },
   "permission_sheet": {
     "title": "授权以体验完整功能",
@@ -276,6 +291,11 @@
     "map_settings": {
       "title": "地图设置",
       "style": "地图样式",
+      "fog_mode": "遮罩模式",
+      "fog_mode_name": {
+        "dark": "深色",
+        "light": "浅色"
+      },
       "style_name": {
         "maplibre": "MapLibre 演示瓦片",
         "openfreemap": "OpenFreeMap"

@@ -1,12 +1,27 @@
 {
+  "navigation": {
+    "record": "Record",
+    "time_machine": "Timeline",
+    "edit": "Edit",
+    "achievement": "Awards",
+    "settings": "Settings"
+  },
   "home": {
+    "recording": "Recording",
     "start_new_journey": "Start new journey",
     "pause": "Pause",
     "resume": "Resume",
     "end_journey_title": "End Journey?",
     "end_journey_message": "Are you sure you want to end your current journey?",
     "double_back_exit": "Press back again to exit the app",
-    "map_data_source_copyright_title": "Data Source"
+    "map_data_source_copyright_title": "Data Source",
+    "gps_accuracy": "Accuracy",
+    "gps_signal": {
+      "excellent": "Strong",
+      "good": "Good",
+      "fair": "Fair",
+      "poor": "Weak"
+    }
   },
   "permission_sheet": {
     "title": "Authorize for the full experience",
@@ -276,6 +291,11 @@
     "map_settings": {
       "title": "Map Settings",
       "style": "Map Style",
+      "fog_mode": "Fog Mode",
+      "fog_mode_name": {
+        "dark": "Dark",
+        "light": "Light"
+      },
       "style_name": {
         "maplibre": "MapLibre Demo Tile",
         "openfreemap": "OpenFreeMap"

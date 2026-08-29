@@ -1,28 +1,20 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:memolanes/constants/app_typography.dart';
+import 'package:memolanes/constants/style_constants.dart';
 
 class RecIndicator extends StatefulWidget {
-  final bool isRecording;
-  final double dotSize;
-  final double fontSize;
-  final int blinkDurationMs;
-  final Color borderColor;
-  final double borderWidth;
-  final double borderRadius;
-  final EdgeInsetsGeometry padding;
-  final EdgeInsetsGeometry margin;
-
   const RecIndicator({
     super.key,
     required this.isRecording,
-    this.dotSize = 10.0,
-    this.fontSize = 15.0,
-    this.blinkDurationMs = 1000,
-    this.borderColor = Colors.red,
-    this.borderWidth = 2.0,
-    this.borderRadius = 3.0,
-    this.padding = const EdgeInsets.symmetric(horizontal: 3.0, vertical: 0),
-    this.margin = const EdgeInsets.fromLTRB(30, 0, 0, 0),
+    this.blinkDurationMs = 1300,
+    this.margin = const EdgeInsets.fromLTRB(18, 8, 0, 0),
   });
+
+  final bool isRecording;
+  final int blinkDurationMs;
+  final EdgeInsetsGeometry margin;
 
   @override
   State<RecIndicator> createState() => _RecIndicatorState();
@@ -30,8 +22,8 @@ class RecIndicator extends StatefulWidget {
 
 class _RecIndicatorState extends State<RecIndicator>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
+  late final AnimationController _controller;
+  late Animation<double> _pulse;
 
   @override
   void initState() {
@@ -39,23 +31,23 @@ class _RecIndicatorState extends State<RecIndicator>
     _controller = AnimationController(
       duration: Duration(milliseconds: widget.blinkDurationMs),
       vsync: this,
-    )..repeat(reverse: true);
-    _animation = Tween<double>(begin: 1.0, end: 0.0).animate(_controller);
+    );
+    _pulse = CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
+    if (widget.isRecording) _controller.repeat(reverse: true);
   }
 
   @override
   void didUpdateWidget(covariant RecIndicator oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.isRecording != oldWidget.isRecording) {
-      if (widget.isRecording) {
-        _controller.repeat(reverse: true);
-      } else {
-        _controller.stop();
-        _controller.value = 1.0;
-      }
-    }
     if (widget.blinkDurationMs != oldWidget.blinkDurationMs) {
       _controller.duration = Duration(milliseconds: widget.blinkDurationMs);
+    }
+    if (widget.isRecording == oldWidget.isRecording) return;
+    if (widget.isRecording) {
+      _controller.repeat(reverse: true);
+    } else {
+      _controller.stop();
+      _controller.value = 0;
     }
   }
 
@@ -67,45 +59,95 @@ class _RecIndicatorState extends State<RecIndicator>
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.isRecording) {
-      return const SizedBox.shrink();
-    }
+    if (!widget.isRecording) return const SizedBox.shrink();
+
     return IgnorePointer(
       child: SafeArea(
-        child: Container(
-          margin: widget.margin,
-          padding: widget.padding,
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: widget.borderColor,
-              width: widget.borderWidth,
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: Container(
+            margin: widget.margin,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: StyleConstants.shadowColor.withValues(
+                    alpha: StyleConstants.isDarkMode ? 0.42 : 0.12,
+                  ),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
-            borderRadius: BorderRadius.circular(widget.borderRadius),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FadeTransition(
-                opacity: _animation,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                 child: Container(
-                  width: widget.dotSize,
-                  height: widget.dotSize,
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: StyleConstants.glassColor.withValues(
+                      alpha: StyleConstants.isDarkMode ? 0.92 : 0.72,
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: StyleConstants.glassBorderColor.withValues(
+                        alpha: StyleConstants.isDarkMode ? 0.48 : 0.86,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AnimatedBuilder(
+                        animation: _pulse,
+                        builder: (context, _) => SizedBox.square(
+                          dimension: 14,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Transform.scale(
+                                scale: 0.8 + _pulse.value * 0.45,
+                                child: Container(
+                                  width: 14,
+                                  height: 14,
+                                  decoration: BoxDecoration(
+                                    color: StyleConstants.recordingColor
+                                        .withValues(
+                                      alpha: 0.1 + _pulse.value * 0.1,
+                                    ),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                              SizedBox.square(
+                                dimension: 7,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: StyleConstants.recordingColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 7),
+                      Text(
+                        'REC',
+                        style: AppTypography.label.copyWith(
+                          color: StyleConstants.inkColor,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              SizedBox(width: widget.dotSize / 2),
-              Text(
-                'REC',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.bold,
-                  fontSize: widget.fontSize,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

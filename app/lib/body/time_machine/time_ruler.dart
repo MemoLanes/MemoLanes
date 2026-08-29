@@ -1,9 +1,10 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:memolanes/body/time_machine/time_machine_glass_surface.dart';
 import 'package:memolanes/common/app_haptics.dart';
+import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/constants/style_constants.dart';
 
 /// Time dimension: year / month / day / any.
@@ -232,21 +233,7 @@ class _DayRulerData extends _RulerData {
 
 // --- Ruler UI ---
 
-Widget _rulerContainer(Widget child) => ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: Colors.white.withValues(alpha: 0.2), width: 1),
-          ),
-          child: child,
-        ),
-      ),
-    );
+Widget _rulerContainer(Widget child) => TimeMachineGlassSurface(child: child);
 
 /// Time ruler: horizontal scroll list that snaps to ticks (year / month / day).
 class TimeRuler extends StatelessWidget {
@@ -514,7 +501,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
                       child: Container(
                         width: 2,
                         height: kRulerExtent,
-                        color: StyleConstants.defaultColor,
+                        color: StyleConstants.journeyYellow,
                       ),
                     ),
                   ),
@@ -537,13 +524,16 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
           width: 2,
           height: isSelected ? 10 : 6,
           color: isSelected
-              ? StyleConstants.defaultColor
-              : Colors.white.withValues(alpha: 0.5),
+              ? StyleConstants.deepGreen
+              : StyleConstants.mutedInkColor.withValues(alpha: 0.68),
         ),
         SizedBox(height: isSelected ? 4 : 6),
         Text(label,
-            style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.9), fontSize: 11)),
+            style: AppTypography.micro.copyWith(
+                color: isSelected
+                    ? StyleConstants.deepGreen
+                    : StyleConstants.deepGreen.withValues(alpha: 0.72),
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600)),
       ],
     );
   }

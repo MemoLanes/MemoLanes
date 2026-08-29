@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -37,6 +38,8 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
   bool _loading = false;
   SimpleDate? _lastFrom;
   SimpleDate? _lastTo;
+  Timer? _layerReloadTimer;
+  int _loadGeneration = 0;
 
   late Set<JourneyKind> _selectedJourneyKinds;
 
@@ -56,6 +59,9 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
   Future<void> _loadJourneyForRange(SimpleDate from, SimpleDate to) async {
     if (_earliestJourneyDate == null) return;
     if (from.isAfter(to)) return;
+    _layerReloadTimer?.cancel();
+    _layerReloadTimer = null;
+    final generation = ++_loadGeneration;
     _lastFrom = from;
     _lastTo = to;
     setState(() => _loading = true);
@@ -65,19 +71,39 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
         toDateInclusive: to.toFrbNaiveDate(),
         journeyKinds: _selectedJourneyKinds,
       );
-      if (mounted) widget.onJourneyRangeLoaded(proxy);
+      if (mounted && generation == _loadGeneration) {
+        widget.onJourneyRangeLoaded(proxy);
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && generation == _loadGeneration) {
+        setState(() => _loading = false);
+      }
     }
   }
 
   void _onJourneyKindsChanged(Set<JourneyKind> newKinds) {
+    // Invalidate an in-flight request immediately; otherwise it could briefly
+    // publish a map rendered with the previous layer selection while this
+    // debounced reload is waiting to start.
+    _loadGeneration++;
     setState(() => _selectedJourneyKinds = newKinds);
-    final from = _lastFrom;
-    final to = _lastTo;
-    if (from != null && to != null) {
-      _loadJourneyForRange(from, to);
+    _layerReloadTimer?.cancel();
+    if (_lastFrom != null && _lastTo != null) {
+      _layerReloadTimer = Timer(const Duration(milliseconds: 600), () {
+        _layerReloadTimer = null;
+        final from = _lastFrom;
+        final to = _lastTo;
+        if (from != null && to != null) {
+          _loadJourneyForRange(from, to);
+        }
+      });
     }
+  }
+
+  @override
+  void dispose() {
+    _layerReloadTimer?.cancel();
+    super.dispose();
   }
 
   @override

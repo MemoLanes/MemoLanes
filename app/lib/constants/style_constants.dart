@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:memolanes/common/component/bottom_nav_bar.dart';
 
 class StyleConstants {
   StyleConstants._();
@@ -46,8 +45,17 @@ class StyleConstants {
   static const Color dangerInkColor = Color(0xFFFF9AA4);
   static const Color dangerSurfaceColor = Color(0xFF3A2026);
   static const Color onDangerColor = inverseInkColor;
+  static const Color recordingColor = Color(0xFFFF6268);
+  static const Color statusExcellentColor = deepGreen;
+  static const Color statusGoodColor = deepYellow;
+  static const Color statusFairColor = Color(0xFFE89A55);
+  static const Color statusPoorColor = dangerColor;
 
   // navBar
+  // Kept here so map overlays can share the same layout metrics without
+  // depending on the BottomNavBar widget implementation.
+  static const double navBarHeight = 58;
+
   // Visual bottom inset for the floating nav bar on gesture/home-indicator
   // devices. This intentionally differs from the raw safe-area value so iOS
   // and Android look closer while still clearing bottom rounded corners.
@@ -62,12 +70,11 @@ class StyleConstants {
 
   // Vertical space occupied by the nav bar and its fixed bottom inset.
   // Scrollable pages use this to keep content clear of the floating nav bar.
-  static const double navBarSafeArea =
-      BottomNavBar.height + navBarMinimumBottomInset;
+  static const double navBarSafeArea = navBarHeight + navBarMinimumBottomInset;
 
   // Gap between the nav bar and primary map controls such as recording buttons
   // and the time-machine ruler.
-  static const double mapPrimaryControlNavBarSpacing = 20;
+  static const double mapPrimaryControlNavBarSpacing = 14;
 
   // Bottom inset shared by primary map controls so they align across map modes.
   static const double mapPrimaryControlBottomInset =
@@ -90,7 +97,7 @@ class StyleConstants {
   }
 
   static double navBarSafeAreaForContext(BuildContext context) =>
-      BottomNavBar.height + navBarBottomInset(context);
+      navBarHeight + navBarBottomInset(context);
 
   static double mapPrimaryControlBottomInsetForContext(BuildContext context) =>
       navBarSafeAreaForContext(context) + mapPrimaryControlNavBarSpacing;
@@ -106,4 +113,11 @@ class StyleConstants {
   static const double mapOverlayShadowBlurRadius = 26;
   static const double mapOverlayShadowSpreadRadius = -3;
   static const Offset mapOverlayShadowOffset = Offset(0, 8);
+
+  // Calm, readable glass used by the time-machine ruler and secondary map
+  // controls. These stay fixed while UI v2 remains dark-only.
+  static const double timelineGlassBackgroundAlpha = 0.84;
+  static const double timelineGlassBorderAlpha = 0.46;
+  static const double timelineGlassBlurSigma = 24;
+  static const double timelineGlassReflectionAlpha = 0.12;
 }

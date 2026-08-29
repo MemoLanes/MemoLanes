@@ -26,6 +26,7 @@ import {
   type ProjectionType,
 } from "./params";
 import { JourneyTileProvider } from "./journey-tile-provider";
+import { createFogRgba } from "./fog-style";
 import { detectMapLocale, type MapLocale } from "./map-locale";
 import { transformStyleWithProjection } from "./utils";
 import { JOURNEY_LAYER_ID } from "./layers/journey-layer-interface";
@@ -267,15 +268,10 @@ export class MapController {
       this.currentJourneyLayer.remove();
     }
 
-    // Create new layer instance
+    // Create new layer instance. Flutter controls fog appearance separately
+    // from the selected base-map tile style.
     const LayerClass = AVAILABLE_LAYERS[renderingMode].layerClass;
-    // Use fogDensity as the alpha value for bgColor
-    const bgColor: [number, number, number, number] = [
-      0.0,
-      0.0,
-      0.0,
-      this.params.fogDensity,
-    ];
+    const bgColor = createFogRgba(this.params.fogColor, this.params.fogDensity);
 
     const newLayer = new LayerClass(
       this.map,
@@ -292,13 +288,21 @@ export class MapController {
 
   /**
    * Register hooks on ReactiveParams to handle property changes
-   * These hooks automatically respond to changes in renderMode, fogDensity, and projection
+   * These hooks automatically respond to changes in rendering and map properties.
    */
   private registerParamsHooks(): void {
     // Hook for renderMode changes - switch rendering layer
     this.params.on("renderMode", (newMode, oldMode) => {
       console.log(
         `[MapController] renderMode changed: ${oldMode} -> ${newMode}`,
+      );
+      this.switchRenderingLayer();
+    });
+
+    // Recreate the layer when switching between light and dark fog palettes.
+    this.params.on("fogColor", (newColor, oldColor) => {
+      console.log(
+        `[MapController] fogColor changed: ${oldColor} -> ${newColor}`,
       );
       this.switchRenderingLayer();
     });
