@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/common_export.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/gps_manager.dart';
@@ -77,8 +78,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
                 hasCancel: true,
                 title: context.tr("journey.delete_journey_title"),
                 confirmButtonText: context.tr("common.delete"),
-                confirmGroundColor: Colors.red,
-                confirmTextColor: Colors.white,
+                confirmVariant: AppButtonVariant.danger,
               )) {
                 return;
               }
@@ -182,8 +182,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
                 title:
                     context.tr("general.advanced_settings.reset_local_prefs"),
                 confirmButtonText: context.tr("common.reset"),
-                confirmGroundColor: Colors.red,
-                confirmTextColor: Colors.white,
+                confirmVariant: AppButtonVariant.danger,
               )) {
                 return;
               }

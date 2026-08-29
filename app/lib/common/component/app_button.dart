@@ -51,9 +51,11 @@ class AppButton extends StatelessWidget {
     this.backgroundAlpha = 1,
     this.borderRadius,
     this.fontSize,
+    this.labelMaxLines = 1,
   })  : assert(backgroundAlpha >= 0 && backgroundAlpha <= 1),
         assert(borderRadius == null || borderRadius >= 0),
-        assert(fontSize == null || fontSize > 0);
+        assert(fontSize == null || fontSize > 0),
+        assert(labelMaxLines > 0);
 
   final String label;
   final VoidCallback? onPressed;
@@ -65,6 +67,7 @@ class AppButton extends StatelessWidget {
   final double backgroundAlpha;
   final double? borderRadius;
   final double? fontSize;
+  final int labelMaxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -130,7 +133,7 @@ class AppButton extends StatelessWidget {
             style: style,
             child: Text(
               label,
-              maxLines: 1,
+              maxLines: labelMaxLines,
               overflow: TextOverflow.ellipsis,
             ),
           )
@@ -140,7 +143,7 @@ class AppButton extends StatelessWidget {
             icon: iconWidget,
             label: Text(
               label,
-              maxLines: 1,
+              maxLines: labelMaxLines,
               overflow: TextOverflow.ellipsis,
             ),
           );

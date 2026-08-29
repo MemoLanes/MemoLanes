@@ -341,7 +341,9 @@ class _SettingsBodyState extends State<SettingsBody> {
   void _showImportDataCard(BuildContext context) {
     showBasicCard(
       context,
-      child: OptionCard(
+      builder: (_) => OptionCard(
+        useSafeArea: false,
+        embedded: true,
         children: [
           CardLabelTile(
             position: CardLabelTilePosition.top,

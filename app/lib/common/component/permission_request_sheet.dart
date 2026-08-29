@@ -23,7 +23,7 @@ Future<void> showPermissionRequestSheet(
   unawaited(permissions.logPermissionState('sheet_open'));
   await showSetupCard<void>(
     context,
-    child: _PermissionRequestSheetContent(),
+    builder: (_) => _PermissionRequestSheetContent(),
   );
   await permissions.logPermissionState('sheet_close');
 }
@@ -186,7 +186,7 @@ class _PermissionRequestSheetContentState
 
   @override
   Widget build(BuildContext context) {
-    return SetupBottomSheet(
+    return SetupDialogCard(
       title: context.tr("permission_sheet.title"),
       maxHeightFactor: 0.6,
       leading: IconButton(
@@ -204,11 +204,13 @@ class _PermissionRequestSheetContentState
       actions: [
         AppButton(
           label: context.tr("permission_sheet.skip"),
+          labelMaxLines: 2,
           onPressed: _onSkip,
           variant: AppButtonVariant.secondary,
         ),
         AppButton(
           label: context.tr("permission_sheet.enable_all"),
+          labelMaxLines: 2,
           onPressed: _onEnableAll,
         ),
       ],

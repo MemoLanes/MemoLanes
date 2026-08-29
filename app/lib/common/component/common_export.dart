@@ -101,7 +101,7 @@ Future<void> showCommonExportWithFormatPicker({
   final selectedFormat = await showAppDialog<CommonExportFormat>(
     context,
     barrierDismissible: false,
-    child: _ExportFormatDialog(
+    builder: (_) => _ExportFormatDialog(
       title: title,
       formats: formats,
       initialFormat: initialFormat,
@@ -170,7 +170,7 @@ Future<bool> showCommonExport(
     final action = await showBasicCard<_PreparedExportAction>(
       context,
       title: context.tr('common.export'),
-      child: const _ExportActionSheetContent(),
+      builder: (_) => const _ExportActionSheetContent(),
     );
 
     if (action == null || !context.mounted) return false;

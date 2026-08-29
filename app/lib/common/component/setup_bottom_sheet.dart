@@ -5,7 +5,7 @@ import 'package:memolanes/constants/style_constants.dart';
 
 Future<T?> showSetupCard<T>(
   BuildContext context, {
-  required Widget child,
+  required WidgetBuilder builder,
   bool barrierDismissible = true,
   Color? barrierColor,
 }) {
@@ -14,12 +14,12 @@ Future<T?> showSetupCard<T>(
     barrierDismissible: barrierDismissible,
     barrierColor: barrierColor,
     maxWidth: 440,
-    child: child,
+    builder: builder,
   );
 }
 
-class SetupBottomSheet extends StatelessWidget {
-  const SetupBottomSheet({
+class SetupDialogCard extends StatelessWidget {
+  const SetupDialogCard({
     super.key,
     required this.title,
     required this.child,
@@ -53,6 +53,20 @@ class SetupBottomSheet extends StatelessWidget {
       child: child,
     );
   }
+}
+
+@Deprecated('Use SetupDialogCard; UI v2 presents a centered dialog card.')
+class SetupBottomSheet extends SetupDialogCard {
+  const SetupBottomSheet({
+    super.key,
+    required super.title,
+    required super.child,
+    super.actions,
+    super.leading,
+    super.showTitle,
+    super.maxHeightFactor,
+    super.contentPadding,
+  });
 }
 
 class SetupTile extends StatelessWidget {

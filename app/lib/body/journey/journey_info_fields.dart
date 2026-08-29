@@ -145,7 +145,9 @@ void _showOptionPicker<T>(
 }) {
   showBasicCard(
     context,
-    child: OptionCard(
+    builder: (_) => OptionCard(
+      useSafeArea: false,
+      embedded: true,
       children: [
         for (var i = 0; i < values.length; i++)
           CardLabelTile(

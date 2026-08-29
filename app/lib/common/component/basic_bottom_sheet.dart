@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/constants/style_constants.dart';
 
-Future<T?> showBasicBottomSheet<T>(
+/// Shows a centered, constrained application card.
+///
+/// The legacy API was named like a bottom sheet even though UI v2 presents
+/// this surface as a dialog.
+Future<T?> showBasicDialogCard<T>(
   BuildContext context, {
-  required Widget child,
+  required WidgetBuilder builder,
   String? title,
   Widget? actions,
   bool showTitle = true,
@@ -17,28 +21,53 @@ Future<T?> showBasicBottomSheet<T>(
     context,
     barrierColor: barrierColor,
     maxWidth: 440,
-    child: AppDialogCard(
+    builder: (dialogContext) => AppDialogCard(
       title: title,
       showHeader: showTitle && title != null,
       maxHeightFactor: maxHeightFactor ?? 0.78,
       contentPadding: contentPadding,
       backgroundColor: backgroundColor ?? StyleConstants.canvasColor,
       actions: actions,
-      child: child,
+      child: builder(dialogContext),
     ),
+  );
+}
+
+@Deprecated('Use showBasicDialogCard; UI v2 presents a centered dialog card.')
+Future<T?> showBasicBottomSheet<T>(
+  BuildContext context, {
+  required Widget child,
+  String? title,
+  Widget? actions,
+  bool showTitle = true,
+  double? maxHeightFactor,
+  EdgeInsetsGeometry contentPadding = EdgeInsets.zero,
+  Color? barrierColor,
+  Color? backgroundColor,
+}) {
+  return showBasicDialogCard<T>(
+    context,
+    builder: (_) => child,
+    title: title,
+    actions: actions,
+    showTitle: showTitle,
+    maxHeightFactor: maxHeightFactor,
+    contentPadding: contentPadding,
+    barrierColor: barrierColor,
+    backgroundColor: backgroundColor,
   );
 }
 
 Future<T?> showBasicCard<T>(
   BuildContext context, {
-  required Widget child,
+  required WidgetBuilder builder,
   String? title,
 }) {
-  return showBasicBottomSheet<T>(
+  return showBasicDialogCard<T>(
     context,
     title: title,
     showTitle: title != null,
     contentPadding: EdgeInsets.fromLTRB(12, title == null ? 4 : 12, 12, 12),
-    child: child,
+    builder: builder,
   );
 }

@@ -54,7 +54,7 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
     showBasicCard(
       context,
       title: context.tr("general.map_settings.style"),
-      child: Column(
+      builder: (dialogContext) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           for (var i = 0; i < MapStyle.all.length; i++) ...[
@@ -64,7 +64,7 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
               selected: _current.id == MapStyle.all[i].id,
               trailing: AppOptionTileTrailing.selection,
               onTap: () {
-                Navigator.of(context).pop();
+                Navigator.of(dialogContext).pop();
                 _updateStyle(MapStyle.all[i]);
               },
             ),
@@ -79,7 +79,7 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
     showBasicCard(
       context,
       title: context.tr("general.map_settings.fog_mode"),
-      child: Column(
+      builder: (dialogContext) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           for (var i = 0; i < MapFogStyle.all.length; i++) ...[
@@ -91,7 +91,7 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
               selected: _currentFogStyle.id == MapFogStyle.all[i].id,
               trailing: AppOptionTileTrailing.selection,
               onTap: () {
-                Navigator.of(context).pop();
+                Navigator.of(dialogContext).pop();
                 _updateFogStyle(MapFogStyle.all[i]);
               },
             ),
