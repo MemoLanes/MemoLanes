@@ -4,6 +4,8 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/component/app_button.dart';
+import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
@@ -118,10 +120,10 @@ class _RecordingHealthAlert {
       final helpUrl = await _helpUrl();
       if (!context.mounted) return;
 
-      final disableHeartbeatDetection = await showDialog<bool>(
-        context: context,
+      final disableHeartbeatDetection = await showAppDialog<bool>(
+        context,
         barrierDismissible: false,
-        builder: (dialogContext) => CommonDialog(
+        child: CommonDialog(
           title: context.tr('recording_health.interruption_detected'),
           content: '${context.tr('recording_health.freeze_warning')}\n\n'
               '**[${context.tr('recording_health.view_help')} ↗]($helpUrl)**',
@@ -129,13 +131,12 @@ class _RecordingHealthAlert {
           buttons: [
             DialogButton(
               text: context.tr('recording_health.dont_remind_again'),
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              backgroundColor: Colors.red,
-              textColor: Colors.white,
+              variant: AppButtonVariant.danger,
+              onPressed: () => Navigator.of(context).pop(true),
             ),
             DialogButton(
               text: context.tr('common.ok'),
-              onPressed: () => Navigator.of(dialogContext).pop(false),
+              onPressed: () => Navigator.of(context).pop(false),
             ),
           ],
         ),

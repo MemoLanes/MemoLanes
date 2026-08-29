@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:memolanes/app_bootstrap.dart';
+import 'package:memolanes/common/component/app_button.dart';
+import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 const _updateWebsiteUrl = 'https://app.memolanes.com/';
@@ -43,23 +45,24 @@ class _DatabaseVersionTooNewGateState extends State<DatabaseVersionTooNewGate> {
     await AppBootstrap.applyInitialLocale(context);
     if (!mounted) return;
 
-    await showDialog<void>(
-      context: context,
+    await showAppDialog<void>(
+      context,
       barrierDismissible: false,
-      builder: (dialogContext) => PopScope(
+      child: PopScope(
         canPop: false,
-        child: AlertDialog(
-          title: Text(dialogContext.tr('startup_error.title')),
-          content:
-              Text(dialogContext.tr('startup_error.database_version_too_new')),
-          actions: [
-            TextButton(
-              onPressed: _handleAction,
-              child: Text(dialogContext.tr(
-                _isIOS ? 'startup_error.update' : 'startup_error.exit',
-              )),
+        child: AppDialogCard(
+          title: context.tr('startup_error.title'),
+          actions: AppButton(
+            label: context.tr(
+              _isIOS ? 'startup_error.update' : 'startup_error.exit',
             ),
-          ],
+            onPressed: _handleAction,
+            expand: true,
+          ),
+          child: Text(
+            context.tr('startup_error.database_version_too_new'),
+            style: const TextStyle(height: 1.42),
+          ),
         ),
       ),
     );
