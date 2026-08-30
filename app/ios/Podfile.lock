@@ -2,13 +2,6 @@ PODS:
   - Flutter (1.0.0)
   - flutter_app_intents (0.1.0):
     - Flutter
-  - MMKV (2.4.0):
-    - MMKVCore (~> 2.4.0)
-  - mmkv_ios (2.4.0):
-    - Flutter
-    - FlutterMacOS
-    - MMKV (< 2.5, >= 2.4.0)
-  - MMKVCore (2.4.0)
   - notification_when_app_is_killed (0.0.1):
     - Flutter
   - share_handler_ios (0.0.14):
@@ -23,23 +16,15 @@ PODS:
 DEPENDENCIES:
   - Flutter (from `Flutter`)
   - flutter_app_intents (from `.symlinks/plugins/flutter_app_intents/ios`)
-  - mmkv_ios (from `.symlinks/plugins/mmkv_ios/darwin`)
   - notification_when_app_is_killed (from `.symlinks/plugins/notification_when_app_is_killed/ios`)
   - share_handler_ios (from `.symlinks/plugins/share_handler_ios/ios`)
   - share_handler_ios_models (from `.symlinks/plugins/share_handler_ios/ios/Models`)
-
-SPEC REPOS:
-  trunk:
-    - MMKV
-    - MMKVCore
 
 EXTERNAL SOURCES:
   Flutter:
     :path: Flutter
   flutter_app_intents:
     :path: ".symlinks/plugins/flutter_app_intents/ios"
-  mmkv_ios:
-    :path: ".symlinks/plugins/mmkv_ios/darwin"
   notification_when_app_is_killed:
     :path: ".symlinks/plugins/notification_when_app_is_killed/ios"
   share_handler_ios:
@@ -50,9 +35,6 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
   flutter_app_intents: e77f999f398c841ab584a1925dbce33ee0168fb5
-  MMKV: 86859fdfa2b0b21db1fd6e48788474a6416a2c77
-  mmkv_ios: 92c9ad54c630cdd783f8711d082710b3dd1ec5ea
-  MMKVCore: 3d16ce9f7d411e135020915fde98a056859a1efa
   notification_when_app_is_killed: d11c6b91df3fc39bb18eeb878ad435cf8fc0e4c7
   share_handler_ios: e2244e990f826b2c8eaa291ac3831569438ba0fb
   share_handler_ios_models: fc638c9b4330dc7f082586c92aee9dfa0b87b871

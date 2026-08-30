@@ -85,7 +85,7 @@ class BasicBottomSheet extends StatelessWidget {
               child: child,
             ),
           ),
-          if (actions != null) actions!,
+          ?actions,
         ],
       ),
     );

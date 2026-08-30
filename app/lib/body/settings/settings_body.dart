@@ -79,8 +79,8 @@ class _SettingsBodyState extends State<SettingsBody> {
     // } else {
     //   allowedExtensions = ['kml', 'gpx', 'csv'];
     // }
-    final result = await FilePicker.pickFiles(type: FileType.any);
-    final path = result?.files.single.path;
+    final result = await FilePicker.pickFile(type: FileType.any);
+    final path = result?.path;
     if (path != null && context.mounted) {
       navigatorPush(
         context,
@@ -349,12 +349,12 @@ class _SettingsBodyState extends State<SettingsBody> {
             onTap: () async {
               // TODO: FilePicker is weird and `allowedExtensions` does not really work.
               // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
-              var result = await FilePicker.pickFiles(
+              var result = await FilePicker.pickFile(
                 type: FileType.any,
               );
               if (!context.mounted) return;
               if (result != null) {
-                var path = result.files.single.path;
+                var path = result.path;
                 if (path != null) {
                   await importMldx(context, path);
                 }

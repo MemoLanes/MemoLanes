@@ -179,11 +179,11 @@ class SetupTile extends StatelessWidget {
                       ),
                     ),
                   ),
-                if (extraContent != null) extraContent!,
+                ?extraContent,
               ],
             ),
           ),
-          if (trailing != null) trailing!,
+          ?trailing,
         ],
       ),
     );
