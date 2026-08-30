@@ -29,8 +29,11 @@ Future<void> _showPrivacyAndRegionSheet(
   if (!privacyAlreadyAccepted) {
     // NOTE: we also use the same mechanism to show public beta testing notice.
     await showCommonDialog(
-        context, context.tr("beta_testing_notice.content_md"),
-        title: context.tr("beta_testing_notice.title"), markdown: true);
+      context,
+      context.tr("beta_testing_notice.content_md"),
+      title: context.tr("beta_testing_notice.title"),
+      markdown: true,
+    );
   }
 
   // A little weird, but shouldn't happen.
@@ -62,8 +65,10 @@ Future<void> _showPrivacyAndRegionSheet(
 
 /// Shows the privacy / welcome UI when needed.
 Future<void> showFirstLaunchSetupIfNeeded(BuildContext context) async {
-  var acceptedVersion =
-      MMKVUtil.getInt(MMKVKey.privacyAgreementAccepted, defaultValue: 0);
+  var acceptedVersion = MMKVUtil.getInt(
+    MMKVKey.privacyAgreementAccepted,
+    defaultValue: 0,
+  );
   final privacyAlreadyAccepted =
       acceptedVersion >= _latestPrivacyAgreementVersion;
   final setupCompletedVersion = MMKVUtil.getInt(
@@ -239,10 +244,7 @@ class _PrivacyAgreementTile extends StatelessWidget {
           ),
         ),
       ),
-      trailing: AppCheckbox(
-        value: accepted,
-        onChanged: onChanged,
-      ),
+      trailing: AppCheckbox(value: accepted, onChanged: onChanged),
     );
   }
 }

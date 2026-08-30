@@ -8,10 +8,10 @@ export 'package:simple_date/simple_date.dart';
 /// with `SimpleDate.difference()`, which uses local midnights and can be 23 or
 /// 25 hours across daylight-saving transitions.
 int calendarDaysBetween(SimpleDate date, SimpleDate other) => DateTime.utc(
-      date.year,
-      date.month,
-      date.day,
-    ).difference(DateTime.utc(other.year, other.month, other.day)).inDays;
+  date.year,
+  date.month,
+  date.day,
+).difference(DateTime.utc(other.year, other.month, other.day)).inDays;
 
 extension SimpleDateBridgeConversion on SimpleDate {
   /// Converts a domain date to FRB's UTC-midnight representation of

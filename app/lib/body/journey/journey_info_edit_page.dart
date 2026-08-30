@@ -53,7 +53,9 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
   late import_api.ImportPreprocessor _preprocessor;
 
   Future<DateTime?> selectDateAndTime(
-      BuildContext context, DateTime? datetime) async {
+    BuildContext context,
+    DateTime? datetime,
+  ) async {
     final now = DateTime.now();
     final localDateTime = datetime?.toLocal() ?? now;
     DateTime? selectedDateTime = await showDatePicker(
@@ -68,8 +70,10 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
 
     TimeOfDay? selectedTime = await showTimePicker(
       context: context,
-      initialTime:
-          TimeOfDay(hour: localDateTime.hour, minute: localDateTime.minute),
+      initialTime: TimeOfDay(
+        hour: localDateTime.hour,
+        minute: localDateTime.minute,
+      ),
     );
 
     if (selectedTime == null) return null;
@@ -117,11 +121,12 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
     }
     _note ??= "";
     import_api.JourneyInfo journeyInfo = import_api.JourneyInfo(
-        journeyDate: _journeyDate!.toFrbNaiveDate(),
-        startTime: _startTime,
-        endTime: _endTime,
-        note: _note,
-        journeyKind: _journeyKind);
+      journeyDate: _journeyDate!.toFrbNaiveDate(),
+      startTime: _startTime,
+      endTime: _endTime,
+      note: _note,
+      journeyKind: _journeyKind,
+    );
     if (widget.importType != null) {
       await widget.saveData(journeyInfo, _preprocessor);
     } else {
@@ -134,10 +139,7 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: 440,
-        minHeight: 420,
-      ),
+      constraints: BoxConstraints(maxHeight: 440, minHeight: 420),
       child: MlSingleChildScrollView(
         padding: const EdgeInsets.symmetric(vertical: 16.0),
         mainAxisAlignment: MainAxisAlignment.center,
@@ -146,9 +148,10 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
             label: context.tr("journey.start_time"),
             position: LabelTilePosition.single,
             trailing: LabelTileContent(
-                content: _startTime != null
-                    ? dateTimeFormat.format(_startTime!)
-                    : ""),
+              content: _startTime != null
+                  ? dateTimeFormat.format(_startTime!)
+                  : "",
+            ),
             onTap: () async {
               DateTime? time = await selectDateAndTime(context, _startTime);
               if (time != null) {
@@ -162,8 +165,8 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
             label: context.tr("journey.end_time"),
             position: LabelTilePosition.single,
             trailing: LabelTileContent(
-                content:
-                    _endTime != null ? dateTimeFormat.format(_endTime!) : ""),
+              content: _endTime != null ? dateTimeFormat.format(_endTime!) : "",
+            ),
             onTap: () async {
               DateTime? time = await selectDateAndTime(context, _endTime);
               if (time != null) {
@@ -177,7 +180,8 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
             label: context.tr("journey.journey_date"),
             position: LabelTilePosition.single,
             trailing: LabelTileContent(
-                content: _journeyDate != null ? _journeyDate!.toString() : ''),
+              content: _journeyDate != null ? _journeyDate!.toString() : '',
+            ),
             onTap: () async {
               DateTime? time = await showDatePicker(
                 context: context,

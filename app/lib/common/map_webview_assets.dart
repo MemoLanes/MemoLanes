@@ -29,9 +29,7 @@ class MapWebViewAssets {
   ) async {
     if (Platform.isAndroid) {
       await controller.loadUrl(
-        urlRequest: URLRequest(
-          url: WebUri('$_androidAssetBaseUrl$fileName'),
-        ),
+        urlRequest: URLRequest(url: WebUri('$_androidAssetBaseUrl$fileName')),
       );
       return;
     }

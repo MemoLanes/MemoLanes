@@ -134,14 +134,15 @@ class GpsManager extends ChangeNotifier {
 
     var newState = switch (recordingStatus) {
       GpsRecordingStatus.recording => _InternalState.recording,
-      GpsRecordingStatus.paused || GpsRecordingStatus.none => switch (
-            mapTracking) {
-          true => _InternalState.justForTracking,
-          false => _InternalState.off,
-        },
+      GpsRecordingStatus.paused ||
+      GpsRecordingStatus.none => switch (mapTracking) {
+        true => _InternalState.justForTracking,
+        false => _InternalState.off,
+      },
     };
     final lifecycleStateAtSync = WidgetsBinding.instance.lifecycleState;
-    final allowTrackingOnlyGps = lifecycleStateAtSync == null ||
+    final allowTrackingOnlyGps =
+        lifecycleStateAtSync == null ||
         lifecycleStateAtSync == AppLifecycleState.resumed;
     if (!allowTrackingOnlyGps && newState == _InternalState.justForTracking) {
       // Map tracking should only use GPS when app is visible.
@@ -190,32 +191,38 @@ class GpsManager extends ChangeNotifier {
           }
         });
 
-        _lastPositionTooOldTimer ??=
-            Timer.periodic(const Duration(seconds: 1), (timer) {
-          var latestPosition = this.latestPosition;
-          if (latestPosition != null) {
-            if (_positionTooOld(latestPosition)) {
-              this.latestPosition = null;
-              notifyListeners();
+        _lastPositionTooOldTimer ??= Timer.periodic(
+          const Duration(seconds: 1),
+          (timer) {
+            var latestPosition = this.latestPosition;
+            if (latestPosition != null) {
+              if (_positionTooOld(latestPosition)) {
+                this.latestPosition = null;
+                notifyListeners();
+              }
             }
-          }
-        });
+          },
+        );
 
         final unexpectedExitNotificationStatus =
             await Permission.notification.isGranted &&
-                MMKVUtil.getBool(MMKVKey.isUnexpectedExitNotificationEnabled,
-                    defaultValue: true);
+            MMKVUtil.getBool(
+              MMKVKey.isUnexpectedExitNotificationEnabled,
+              defaultValue: true,
+            );
         if (newState == _InternalState.recording &&
             unexpectedExitNotificationStatus) {
           await _notificationWhenAppIsKilledPlugin.setNotificationOnKillService(
             ArgsForKillNotification(
-                title: tr("unexpected_exit_notification.notification_title"),
-                description:
-                    tr("unexpected_exit_notification.notification_message"),
-                argsForIos: ArgsForIos(
-                  interruptionLevel: InterruptionLevel.critical,
-                  useDefaultSound: true,
-                )),
+              title: tr("unexpected_exit_notification.notification_title"),
+              description: tr(
+                "unexpected_exit_notification.notification_message",
+              ),
+              argsForIos: ArgsForIos(
+                interruptionLevel: InterruptionLevel.critical,
+                useDefaultSound: true,
+              ),
+            ),
           );
         }
       }
@@ -281,7 +288,9 @@ class GpsManager extends ChangeNotifier {
         }
       } catch (error, stackTrace) {
         log.error(
-            "[GpsManager] record location update failed: $error", stackTrace);
+          "[GpsManager] record location update failed: $error",
+          stackTrace,
+        );
       } finally {
         _pendingRecordingLocationUpdates -= 1;
         if (_pendingRecordingLocationUpdates == 0) {

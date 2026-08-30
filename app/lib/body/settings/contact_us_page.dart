@@ -26,9 +26,7 @@ class _ContactUsPage extends State<ContactUsPage> {
     const emailText = "support@memolanes.com";
     const weiboUrl = "https://weibo.com/u/8445160502";
     return Scaffold(
-      appBar: CapsuleStyleAppBar(
-        title: context.tr("contact_us.title"),
-      ),
+      appBar: CapsuleStyleAppBar(title: context.tr("contact_us.title")),
       body: MlSingleChildScrollView(
         padding: EdgeInsets.all(8.0),
         children: [
@@ -37,8 +35,10 @@ class _ContactUsPage extends State<ContactUsPage> {
             position: LabelTilePosition.top,
             trailing: LabelTileContent(rightIcon: Icons.open_in_new),
             onTap: () async {
-              await launchUrlString(websiteUrl,
-                  mode: LaunchMode.externalApplication);
+              await launchUrlString(
+                websiteUrl,
+                mode: LaunchMode.externalApplication,
+              );
             },
           ),
           LabelTile(
@@ -46,8 +46,10 @@ class _ContactUsPage extends State<ContactUsPage> {
             position: LabelTilePosition.middle,
             trailing: LabelTileContent(rightIcon: Icons.open_in_new),
             onTap: () async {
-              await launchUrlString(githubUrl,
-                  mode: LaunchMode.externalApplication);
+              await launchUrlString(
+                githubUrl,
+                mode: LaunchMode.externalApplication,
+              );
             },
           ),
           LabelTile(
@@ -55,8 +57,10 @@ class _ContactUsPage extends State<ContactUsPage> {
             position: LabelTilePosition.middle,
             trailing: LabelTileContent(rightIcon: Icons.open_in_new),
             onTap: () async {
-              await launchUrlString(rednoteUrl,
-                  mode: LaunchMode.externalApplication);
+              await launchUrlString(
+                rednoteUrl,
+                mode: LaunchMode.externalApplication,
+              );
             },
           ),
           LabelTile(
@@ -64,15 +68,19 @@ class _ContactUsPage extends State<ContactUsPage> {
             position: LabelTilePosition.middle,
             trailing: LabelTileContent(rightIcon: Icons.open_in_new),
             onTap: () async {
-              await launchUrlString(weiboUrl,
-                  mode: LaunchMode.externalApplication);
+              await launchUrlString(
+                weiboUrl,
+                mode: LaunchMode.externalApplication,
+              );
             },
           ),
           LabelTile(
             label: context.tr("contact_us.qq_group"),
             position: LabelTilePosition.middle,
-            trailing:
-                LabelTileContent(content: qqGroupText, rightIcon: Icons.copy),
+            trailing: LabelTileContent(
+              content: qqGroupText,
+              rightIcon: Icons.copy,
+            ),
             onTap: () {
               Clipboard.setData(ClipboardData(text: qqGroupText));
               Fluttertoast.showToast(msg: context.tr("common.copy_success"));
@@ -81,13 +89,15 @@ class _ContactUsPage extends State<ContactUsPage> {
           LabelTile(
             label: context.tr("contact_us.email"),
             position: LabelTilePosition.bottom,
-            trailing:
-                LabelTileContent(content: emailText, rightIcon: Icons.copy),
+            trailing: LabelTileContent(
+              content: emailText,
+              rightIcon: Icons.copy,
+            ),
             onTap: () {
               Clipboard.setData(ClipboardData(text: emailText));
               Fluttertoast.showToast(msg: context.tr("common.copy_success"));
             },
-          )
+          ),
         ],
       ),
     );

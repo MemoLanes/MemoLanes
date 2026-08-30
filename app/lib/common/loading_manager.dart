@@ -96,10 +96,7 @@ class GlobalLoadingManager extends ChangeNotifier {
 class GlobalLoadingOverlay extends StatelessWidget {
   final Widget child;
 
-  const GlobalLoadingOverlay({
-    super.key,
-    required this.child,
-  });
+  const GlobalLoadingOverlay({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -153,10 +150,7 @@ class GlobalPopScope extends StatelessWidget {
       animation: manager,
       child: child,
       builder: (context, child) {
-        return PopScope(
-          canPop: !manager.isLoading,
-          child: child!,
-        );
+        return PopScope(canPop: !manager.isLoading, child: child!);
       },
     );
   }
@@ -179,9 +173,7 @@ class _DefaultLoadingCard extends StatelessWidget {
         child: SizedBox(
           width: 32,
           height: 32,
-          child: CircularProgressIndicator(
-            strokeWidth: 3.0,
-          ),
+          child: CircularProgressIndicator(strokeWidth: 3.0),
         ),
       ),
     );

@@ -19,7 +19,8 @@ class ImportLoadingPage<T> extends StatefulWidget {
     BuildContext context,
     Object error,
     StackTrace stackTrace,
-  ) onError;
+  )
+  onError;
 
   @override
   State<ImportLoadingPage<T>> createState() => _ImportLoadingPageState<T>();
@@ -46,16 +47,12 @@ class _ImportLoadingPageState<T> extends State<ImportLoadingPage<T>> {
   }
 
   @override
-  Widget build(BuildContext context) => ImportLoadingScaffold(
-        filePath: widget.filePath,
-      );
+  Widget build(BuildContext context) =>
+      ImportLoadingScaffold(filePath: widget.filePath);
 }
 
 class ImportLoadingScaffold extends StatelessWidget {
-  const ImportLoadingScaffold({
-    super.key,
-    required this.filePath,
-  });
+  const ImportLoadingScaffold({super.key, required this.filePath});
 
   final String filePath;
 
@@ -69,9 +66,7 @@ class ImportLoadingScaffold extends StatelessWidget {
     return PopScope(
       canPop: false,
       child: Scaffold(
-        appBar: CapsuleStyleAppBar(
-          title: context.tr('data.import_data.title'),
-        ),
+        appBar: CapsuleStyleAppBar(title: context.tr('data.import_data.title')),
         body: SafeArea(
           top: false,
           child: Center(
@@ -89,9 +84,8 @@ class ImportLoadingScaffold extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(
                       context.tr('import.loading.description'),
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: const Color(0x99FFFFFF),
-                          ),
+                      style: Theme.of(context).textTheme.bodyMedium
+                          ?.copyWith(color: const Color(0x99FFFFFF)),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 24),
@@ -130,9 +124,7 @@ class ImportLoadingScaffold extends StatelessWidget {
                                 const SizedBox(height: 3),
                                 Text(
                                   fileExtension,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
+                                  style: Theme.of(context).textTheme.bodySmall
                                       ?.copyWith(
                                         color: const Color(0x99FFFFFF),
                                       ),
@@ -173,10 +165,8 @@ class ImportLoadingScaffold extends StatelessWidget {
                         Flexible(
                           child: Text(
                             context.tr('import.loading.keep_open_hint'),
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: const Color(0x66FFFFFF),
-                                    ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: const Color(0x66FFFFFF)),
                             textAlign: TextAlign.center,
                           ),
                         ),

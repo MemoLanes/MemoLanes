@@ -7,20 +7,13 @@ import 'package:memolanes/common/gps_manager.dart';
 import 'package:provider/provider.dart';
 
 class AccuracyDisplay extends StatefulWidget {
-  const AccuracyDisplay({
-    super.key,
-  });
+  const AccuracyDisplay({super.key});
 
   @override
   State<AccuracyDisplay> createState() => _AccuracyDisplayState();
 }
 
-enum AccuracyLevel {
-  excellent,
-  good,
-  fair,
-  poor,
-}
+enum AccuracyLevel { excellent, good, fair, poor }
 
 AccuracyLevel getAccuracyLevel(double accuracy) {
   // TODO: tweak this
@@ -84,7 +77,7 @@ class _AccuracyDisplayState extends State<AccuracyDisplay> {
                   color: Colors.transparent,
                   child: InkWell(
                     onTap: () => {
-                      if (hasData) {setState(() => showDetail = !showDetail)}
+                      if (hasData) {setState(() => showDetail = !showDetail)},
                     },
                     borderRadius: BorderRadius.circular(24),
                     child: Stack(
@@ -147,8 +140,9 @@ class _AccuracyDisplayState extends State<AccuracyDisplay> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Padding(
-                                      padding:
-                                          const EdgeInsets.only(right: 16.0),
+                                      padding: const EdgeInsets.only(
+                                        right: 16.0,
+                                      ),
                                       child: Text(
                                         '${position.accuracy.round()} m',
                                         style: const TextStyle(
@@ -196,10 +190,10 @@ class _AccuracyDisplayState extends State<AccuracyDisplay> {
                               ),
                             ),
                             Text(
-                              position.timestamp
-                                  .toLocal()
-                                  .toString()
-                                  .substring(0, 19),
+                              position.timestamp.toLocal().toString().substring(
+                                0,
+                                19,
+                              ),
                               style: const TextStyle(
                                 color: Colors.white70,
                                 fontSize: 12,

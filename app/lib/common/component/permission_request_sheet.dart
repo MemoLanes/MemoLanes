@@ -16,15 +16,10 @@ import 'package:permission_handler/permission_handler.dart';
 /// Shows the unified permission request card (layout + copy only).
 ///
 /// Completes after the sheet is closed.
-Future<void> showPermissionRequestSheet(
-  BuildContext context,
-) async {
+Future<void> showPermissionRequestSheet(BuildContext context) async {
   final permissions = PermissionService();
   unawaited(permissions.logPermissionState('sheet_open'));
-  await showSetupCard<void>(
-    context,
-    child: _PermissionRequestSheetContent(),
-  );
+  await showSetupCard<void>(context, child: _PermissionRequestSheetContent());
   await permissions.logPermissionState('sheet_close');
 }
 
@@ -35,13 +30,15 @@ class _PermissionRequestSheetContent extends StatefulWidget {
 }
 
 class _PermissionRequestSheetContentState
-    extends State<_PermissionRequestSheetContent> with WidgetsBindingObserver {
+    extends State<_PermissionRequestSheetContent>
+    with WidgetsBindingObserver {
   final PermissionService _permissions = PermissionService();
 
   PermissionTileStatus _location = const PermissionTileStatus(granted: false);
   PermissionTileStatus _battery = const PermissionTileStatus(granted: false);
-  PermissionTileStatus _notification =
-      const PermissionTileStatus(granted: false);
+  PermissionTileStatus _notification = const PermissionTileStatus(
+    granted: false,
+  );
   bool _isClosing = false;
 
   Future<void> _showLocationRationaleDialog() async {
@@ -118,7 +115,8 @@ class _PermissionRequestSheetContentState
     _isClosing = true;
     if (!popCurrentRoute(context)) {
       log.warning(
-          '[PermissionSheet] close failed: popCurrentRoute returned false');
+        '[PermissionSheet] close failed: popCurrentRoute returned false',
+      );
       _isClosing = false;
     }
   }
@@ -221,8 +219,9 @@ class _PermissionRequestSheetContentState
             status: _location,
             onTap: _requestLocation,
             onRationaleTap: _showLocationRationaleDialog,
-            rationaleTooltip:
-                context.tr("permission_sheet.location_help_tooltip"),
+            rationaleTooltip: context.tr(
+              "permission_sheet.location_help_tooltip",
+            ),
           ),
           if (Platform.isAndroid)
             _PermissionTile(
@@ -232,8 +231,9 @@ class _PermissionRequestSheetContentState
               status: _battery,
               onTap: _requestBattery,
               onRationaleTap: _showBatteryRationaleDialog,
-              rationaleTooltip:
-                  context.tr("permission_sheet.battery_help_tooltip"),
+              rationaleTooltip: context.tr(
+                "permission_sheet.battery_help_tooltip",
+              ),
             ),
           _PermissionTile(
             icon: Icons.notifications_outlined,
@@ -242,8 +242,9 @@ class _PermissionRequestSheetContentState
             status: _notification,
             onTap: _requestNotification,
             onRationaleTap: _showNotificationRationaleDialog,
-            rationaleTooltip:
-                context.tr("permission_sheet.notification_help_tooltip"),
+            rationaleTooltip: context.tr(
+              "permission_sheet.notification_help_tooltip",
+            ),
           ),
         ],
       ),
@@ -362,11 +363,7 @@ class _PermissionStatusIndicator extends StatelessWidget {
                 border: Border.all(color: color.withValues(alpha: 0.75)),
               ),
               alignment: Alignment.center,
-              child: Icon(
-                Icons.close,
-                color: color,
-                size: 18,
-              ),
+              child: Icon(Icons.close, color: color, size: 18),
             ),
           ),
         ),
@@ -376,10 +373,7 @@ class _PermissionStatusIndicator extends StatelessWidget {
     final label = context.tr('permission_sheet.allow');
 
     return ConstrainedBox(
-      constraints: const BoxConstraints(
-        minWidth: 52,
-        minHeight: 40,
-      ),
+      constraints: const BoxConstraints(minWidth: 52, minHeight: 40),
       child: Center(
         child: InkWell(
           onTap: onTap,
@@ -409,10 +403,7 @@ class _PermissionStatusIndicator extends StatelessWidget {
 }
 
 class _PermissionInfoIcon extends StatelessWidget {
-  const _PermissionInfoIcon({
-    required this.onTap,
-    this.tooltip,
-  });
+  const _PermissionInfoIcon({required this.onTap, this.tooltip});
 
   final VoidCallback onTap;
   final String? tooltip;

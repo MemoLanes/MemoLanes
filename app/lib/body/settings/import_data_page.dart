@@ -18,8 +18,11 @@ import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 
 class ImportDataPage extends StatefulWidget {
-  const ImportDataPage(
-      {super.key, required this.path, required this.importType});
+  const ImportDataPage({
+    super.key,
+    required this.path,
+    required this.importType,
+  });
 
   final String path;
   final ImportType importType;
@@ -33,7 +36,7 @@ enum ImportType { fow, vector }
 class _ImportDataPage extends State<ImportDataPage> {
   import_api.JourneyInfo? journeyInfo;
   late final f.Either<api.OpaqueJourneyData, import_api.RawVectorData>
-      journeyDataMaybeRaw;
+  journeyDataMaybeRaw;
   api.MapRendererProxy? _mapRendererProxy;
   MapBounds? _initialMapBounds;
   late import_api.ImportPreprocessor _preprocessor;
@@ -97,10 +100,7 @@ class _ImportDataPage extends State<ImportDataPage> {
       );
       if (!mounted) return;
       if (!hasData) {
-        await showCommonDialog(
-          context,
-          context.tr("import.empty_data"),
-        );
+        await showCommonDialog(context, context.tr("import.empty_data"));
         if (!mounted) return;
         popCurrentRoute(context);
         return;
@@ -118,8 +118,9 @@ class _ImportDataPage extends State<ImportDataPage> {
   Future<void> _loadFile(String path) async {
     switch (widget.importType) {
       case ImportType.fow:
-        var (journeyInfo, journeyData) =
-            await import_api.loadFowData(filePath: path);
+        var (journeyInfo, journeyData) = await import_api.loadFowData(
+          filePath: path,
+        );
         setState(() {
           this.journeyInfo = journeyInfo;
           journeyDataMaybeRaw = f.Either.left(journeyData);
@@ -128,8 +129,8 @@ class _ImportDataPage extends State<ImportDataPage> {
         break;
 
       case ImportType.vector:
-        var (journeyInfo, rawVectorData, detectedProcessor) =
-            await import_api.loadVectorData(filePath: path);
+        var (journeyInfo, rawVectorData, detectedProcessor) = await import_api
+            .loadVectorData(filePath: path);
         final parts = await import_api.analyzeVectorDataByDate(
           vectorData: rawVectorData,
         );
@@ -156,10 +157,7 @@ class _ImportDataPage extends State<ImportDataPage> {
       }(),
     )) {
       if (!mounted) return;
-      await showCommonDialog(
-        context,
-        context.tr("import.empty_data"),
-      );
+      await showCommonDialog(context, context.tr("import.empty_data"));
     }
   }
 
@@ -167,9 +165,9 @@ class _ImportDataPage extends State<ImportDataPage> {
     final journeyData = switch (journeyDataMaybeRaw) {
       f.Left(value: final l) => l,
       f.Right(value: final r) => await import_api.processVectorData(
-          vectorData: r,
-          importProcessor: _preprocessor,
-        ),
+        vectorData: r,
+        importProcessor: _preprocessor,
+      ),
     };
     final rendererAndBounds = await api.getMapRendererProxyForJourneyData(
       journeyData: journeyData,
@@ -180,40 +178,38 @@ class _ImportDataPage extends State<ImportDataPage> {
       _initialMapBounds = rendererAndBounds.$2;
     });
 
-    return !await import_api.isJourneyDataEmpty(
-      journeyData: journeyData,
-    );
+    return !await import_api.isJourneyDataEmpty(journeyData: journeyData);
   }
 
-  Future<void> _saveData(import_api.JourneyInfo journeyInfo,
-      import_api.ImportPreprocessor processor) async {
+  Future<void> _saveData(
+    import_api.JourneyInfo journeyInfo,
+    import_api.ImportPreprocessor processor,
+  ) async {
     final success = await showLoadingDialog<bool>(
       asyncTask: (() async {
         final journeyDataMaybeRaw = this.journeyDataMaybeRaw;
         final journeyData = switch (journeyDataMaybeRaw) {
           f.Left(value: final l) => l,
           f.Right(value: final r) => await import_api.processVectorData(
-              vectorData: r, importProcessor: processor),
+            vectorData: r,
+            importProcessor: processor,
+          ),
         };
         if (await import_api.isJourneyDataEmpty(journeyData: journeyData)) {
           return false;
         }
         await import_api.importJourneyData(
-            journeyInfo: journeyInfo, journeyData: journeyData);
+          journeyInfo: journeyInfo,
+          journeyData: journeyData,
+        );
         return true;
       })(),
     );
     if (!mounted) return;
     if (success) {
-      await showCommonDialog(
-        context,
-        context.tr("import.successful"),
-      );
+      await showCommonDialog(context, context.tr("import.successful"));
     } else {
-      await showCommonDialog(
-        context,
-        context.tr("import.empty_data"),
-      );
+      await showCommonDialog(context, context.tr("import.empty_data"));
       // Blocking the return after the save process completes
       throw Exception("[import_data] Save data is empty");
     }
@@ -229,9 +225,9 @@ class _ImportDataPage extends State<ImportDataPage> {
     final panelHeight = widget.importType == ImportType.vector ? 530.0 : 510.0;
     final mapBoundsPadding =
         CapsuleStyleOverlayAppBar.mapFitPaddingForBottomOverlay(
-      context,
-      bottomOverlayHeight: panelHeight,
-    );
+          context,
+          bottomOverlayHeight: panelHeight,
+        );
 
     return Scaffold(
       body: journeyInfo == null
@@ -254,8 +250,9 @@ class _ImportDataPage extends State<ImportDataPage> {
                             padding: const EdgeInsets.only(top: 12.0),
                             child: CustomPaint(
                               size: const Size(40.0, 4.0),
-                              painter:
-                                  LinePainter(color: const Color(0xFFB5B5B5)),
+                              painter: LinePainter(
+                                color: const Color(0xFFB5B5B5),
+                              ),
                             ),
                           ),
                           const SizedBox(height: 16.0),

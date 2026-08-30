@@ -22,12 +22,14 @@ class AppLifecycleService {
 
       if (event == FGBGType.background) {
         log.info(
-            '[AppLifecycleService][$triggerTime] Background event received.');
+          '[AppLifecycleService][$triggerTime] Background event received.',
+        );
         _countdownCanceled = false;
         _startFreeResourceCountdown();
       } else if (event == FGBGType.foreground) {
         log.info(
-            '[AppLifecycleService][$triggerTime] Foreground event received.');
+          '[AppLifecycleService][$triggerTime] Foreground event received.',
+        );
         _reset();
         _reloadResource();
       }
@@ -55,7 +57,8 @@ class AppLifecycleService {
         } else {
           final triggerTime = DateTime.now();
           log.info(
-              '[AppLifecycleService][$triggerTime] free resource task skipped.');
+            '[AppLifecycleService][$triggerTime] free resource task skipped.',
+          );
         }
       });
     });

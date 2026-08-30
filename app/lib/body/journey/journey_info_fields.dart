@@ -11,17 +11,18 @@ import 'package:memolanes/src/rust/journey_header.dart';
 String importPreprocessorLabel(
   BuildContext context,
   import_api.ImportPreprocessor value,
-) =>
-    switch (value) {
-      import_api.ImportPreprocessor.none =>
-        context.tr('import.preprocessor.none'),
-      import_api.ImportPreprocessor.generic =>
-        context.tr('import.preprocessor.generic'),
-      import_api.ImportPreprocessor.flightTrack =>
-        context.tr('import.preprocessor.flight_track'),
-      import_api.ImportPreprocessor.spare =>
-        context.tr('import.preprocessor.spare'),
-    };
+) => switch (value) {
+  import_api.ImportPreprocessor.none => context.tr('import.preprocessor.none'),
+  import_api.ImportPreprocessor.generic => context.tr(
+    'import.preprocessor.generic',
+  ),
+  import_api.ImportPreprocessor.flightTrack => context.tr(
+    'import.preprocessor.flight_track',
+  ),
+  import_api.ImportPreprocessor.spare => context.tr(
+    'import.preprocessor.spare',
+  ),
+};
 
 String journeyKindLabel(BuildContext context, JourneyKind value) =>
     switch (value) {
@@ -118,17 +119,11 @@ class JourneyNoteTile extends StatelessWidget {
           textInputAction: TextInputAction.newline,
           maxLines: maxLines,
           minLines: 1,
-          style: const TextStyle(
-            fontSize: 14,
-            color: Color(0x99FFFFFF),
-          ),
+          style: const TextStyle(fontSize: 14, color: Color(0x99FFFFFF)),
           decoration: InputDecoration.collapsed(
             border: InputBorder.none,
             hintText: context.tr('common.please_enter'),
-            hintStyle: const TextStyle(
-              fontSize: 14,
-              color: Color(0x99FFFFFF),
-            ),
+            hintStyle: const TextStyle(fontSize: 14, color: Color(0x99FFFFFF)),
           ),
           textAlign: TextAlign.right,
         ),
@@ -152,8 +147,8 @@ void _showOptionPicker<T>(
             position: i == 0
                 ? CardLabelTilePosition.top
                 : i == values.length - 1
-                    ? CardLabelTilePosition.bottom
-                    : CardLabelTilePosition.middle,
+                ? CardLabelTilePosition.bottom
+                : CardLabelTilePosition.middle,
             top: i != 0,
             label: labelOf(values[i]),
             onTap: () => onSelected(values[i]),

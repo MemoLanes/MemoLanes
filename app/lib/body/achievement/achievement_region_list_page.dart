@@ -101,29 +101,30 @@ class _AchievementRegionListPageState extends State<AchievementRegionListPage> {
     return view.entries.entries
         .where((entry) => entry.value.visitedAreaM2 > BigInt.zero)
         .map((entry) {
-      final entity = entry.value;
-      final regionName = entity.displayName(worldviewId);
-      return AchievementRegionAreaListItem(
-        name: regionName,
-        visitedKm2: entity.visitedAreaM2.toDouble() / 1000000,
-        totalKm2: entity.totalAreaM2.toDouble() / 1000000,
-        flagCountryCode: widget.showCountryFlags ? entity.isoA3Eh : null,
-        sortKey: entity.isoA3Eh ?? entity.nameKey.value,
-        onTap: widget.level == achievementCountryRegionKind
-            ? () => navigatorPush(
-                  context,
-                  page: AchievementRegionListPage(
-                    title: regionName,
-                    level: achievementProvinceRegionKind,
-                    parent: entry.key,
-                    emptyText: context.tr(
-                      'achievement.region_list.region_empty',
+          final entity = entry.value;
+          final regionName = entity.displayName(worldviewId);
+          return AchievementRegionAreaListItem(
+            name: regionName,
+            visitedKm2: entity.visitedAreaM2.toDouble() / 1000000,
+            totalKm2: entity.totalAreaM2.toDouble() / 1000000,
+            flagCountryCode: widget.showCountryFlags ? entity.isoA3Eh : null,
+            sortKey: entity.isoA3Eh ?? entity.nameKey.value,
+            onTap: widget.level == achievementCountryRegionKind
+                ? () => navigatorPush(
+                    context,
+                    page: AchievementRegionListPage(
+                      title: regionName,
+                      level: achievementProvinceRegionKind,
+                      parent: entry.key,
+                      emptyText: context.tr(
+                        'achievement.region_list.region_empty',
+                      ),
+                      worldviewId: worldviewId,
                     ),
-                    worldviewId: worldviewId,
-                  ),
-                )
-            : null,
-      );
-    }).toList(growable: false);
+                  )
+                : null,
+          );
+        })
+        .toList(growable: false);
   }
 }

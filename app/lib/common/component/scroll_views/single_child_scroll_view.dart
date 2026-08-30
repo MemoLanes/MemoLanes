@@ -22,32 +22,36 @@ class MlSingleChildScrollView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraint) {
-      final allChildren = <Widget>[const SizedBox(width: double.infinity)];
-      allChildren.addAll(children);
-      return SingleChildScrollView(
-        physics: AlwaysScrollableScrollPhysics(),
-        child: Padding(
-          padding: padding ?? EdgeInsets.zero,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: constraint.maxHeight - (padding?.vertical ?? 0),
-            ),
-            child: IntrinsicHeight(
-              child: Column(
-                crossAxisAlignment:
-                    crossAxisAlignment ?? CrossAxisAlignment.center,
-                mainAxisAlignment: mainAxisAlignment ?? MainAxisAlignment.start,
-                mainAxisSize: MainAxisSize.max,
-                verticalDirection: verticalDirection ?? VerticalDirection.down,
-                textBaseline: textBaseline,
-                textDirection: textDirection,
-                children: allChildren,
+    return LayoutBuilder(
+      builder: (context, constraint) {
+        final allChildren = <Widget>[const SizedBox(width: double.infinity)];
+        allChildren.addAll(children);
+        return SingleChildScrollView(
+          physics: AlwaysScrollableScrollPhysics(),
+          child: Padding(
+            padding: padding ?? EdgeInsets.zero,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: constraint.maxHeight - (padding?.vertical ?? 0),
+              ),
+              child: IntrinsicHeight(
+                child: Column(
+                  crossAxisAlignment:
+                      crossAxisAlignment ?? CrossAxisAlignment.center,
+                  mainAxisAlignment:
+                      mainAxisAlignment ?? MainAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.max,
+                  verticalDirection:
+                      verticalDirection ?? VerticalDirection.down,
+                  textBaseline: textBaseline,
+                  textDirection: textDirection,
+                  children: allChildren,
+                ),
               ),
             ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 }

@@ -92,8 +92,9 @@ class _SettingsBodyState extends State<SettingsBody> {
   Future<void> _loadNotificationStatus() async {
     setState(() {
       _isUnexpectedExitNotificationEnabled = MMKVUtil.getBool(
-          MMKVKey.isUnexpectedExitNotificationEnabled,
-          defaultValue: true);
+        MMKVKey.isUnexpectedExitNotificationEnabled,
+        defaultValue: true,
+      );
     });
   }
 
@@ -123,9 +124,7 @@ class _SettingsBodyState extends State<SettingsBody> {
         //     ),
         //   ),
         // ),
-        LabelTileTitle(
-          label: context.tr("general.title"),
-        ),
+        LabelTileTitle(label: context.tr("general.title")),
         LabelTile(
           label: context.tr("general.version.title"),
           position: LabelTilePosition.middle,
@@ -151,13 +150,9 @@ class _SettingsBodyState extends State<SettingsBody> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  child: LabelTileContent(
-                    content: _version,
-                  ),
+                  child: LabelTileContent(content: _version),
                 )
-              : LabelTileContent(
-                  content: _version,
-                ),
+              : LabelTileContent(content: _version),
           onTap: () async {
             if (updateUrl != null) {
               _launchUrl(updateUrl);
@@ -181,9 +176,7 @@ class _SettingsBodyState extends State<SettingsBody> {
           trailing: LabelTileContent(showArrow: true),
           onTap: () => navigatorPush(context, page: AdvancedSettingsPage()),
         ),
-        LabelTileTitle(
-          label: context.tr("data.title"),
-        ),
+        LabelTileTitle(label: context.tr("data.title")),
         // TODO: This is unused, but we may use it depending on the design of
         // import/export workflow.
         //
@@ -229,10 +222,7 @@ class _SettingsBodyState extends State<SettingsBody> {
             await showCommonExportWithFormatPicker(
               context: context,
               title: context.tr("data.export_data.export_all_title"),
-              formats: const [
-                CommonExportFormat.mldx,
-                CommonExportFormat.fwss,
-              ],
+              formats: const [CommonExportFormat.mldx, CommonExportFormat.fwss],
               exportFile: (format) async {
                 var tmpDir = await getTemporaryDirectory();
                 final now = DateTime.now();
@@ -240,23 +230,23 @@ class _SettingsBodyState extends State<SettingsBody> {
                 final filepath =
                     "${tmpDir.path}/all-journeys-$timestamp.${format.extension}";
                 final exportResult = switch (format) {
-                  CommonExportFormat.mldx =>
-                    await api.generateFullArchive(targetFilepath: filepath),
-                  CommonExportFormat.fwss =>
-                    await api.exportAllJourneysAsFwss(targetFilepath: filepath),
+                  CommonExportFormat.mldx => await api.generateFullArchive(
+                    targetFilepath: filepath,
+                  ),
+                  CommonExportFormat.fwss => await api.exportAllJourneysAsFwss(
+                    targetFilepath: filepath,
+                  ),
                   CommonExportFormat.kml ||
-                  CommonExportFormat.gpx =>
-                    throw UnsupportedError(
-                        'Unsupported export format: $format'),
+                  CommonExportFormat.gpx => throw UnsupportedError(
+                    'Unsupported export format: $format',
+                  ),
                 };
                 return CommonExportResult.create(exportResult, filepath);
               },
             );
           },
         ),
-        LabelTileTitle(
-          label: context.tr("settings.other"),
-        ),
+        LabelTileTitle(label: context.tr("settings.other")),
         LabelTile(
           label: context.tr("unexpected_exit_notification.setting_title"),
           position: defaultTargetPlatform == TargetPlatform.android
@@ -276,24 +266,28 @@ class _SettingsBodyState extends State<SettingsBody> {
                   await showCommonDialog(
                     context,
                     context.tr(
-                        "unexpected_exit_notification.notification_permission_denied"),
+                      "unexpected_exit_notification.notification_permission_denied",
+                    ),
                   );
                   Geolocator.openAppSettings();
                   return;
                 }
               }
               MMKVUtil.putBool(
-                  MMKVKey.isUnexpectedExitNotificationEnabled, value);
+                MMKVKey.isUnexpectedExitNotificationEnabled,
+                value,
+              );
               setState(() {
                 _isUnexpectedExitNotificationEnabled = value;
               });
               if (gpsManager.recordingStatus == GpsRecordingStatus.recording) {
                 if (!context.mounted) return;
                 await showCommonDialog(
-                    context,
-                    context.tr(
-                      "unexpected_exit_notification.change_affect_next_time",
-                    ));
+                  context,
+                  context.tr(
+                    "unexpected_exit_notification.change_affect_next_time",
+                  ),
+                );
               }
             },
           ),
@@ -316,16 +310,16 @@ class _SettingsBodyState extends State<SettingsBody> {
               ),
             ),
           ),
-        LabelTileTitle(
-          label: context.tr("settings.about"),
-        ),
+        LabelTileTitle(label: context.tr("settings.about")),
         LabelTile(
           label: context.tr("privacy.name"),
           position: LabelTilePosition.middle,
           trailing: LabelTileContent(rightIcon: Icons.open_in_new),
           onTap: () async {
-            await launchUrlString(context.tr("privacy.url"),
-                mode: LaunchMode.externalApplication);
+            await launchUrlString(
+              context.tr("privacy.url"),
+              mode: LaunchMode.externalApplication,
+            );
           },
         ),
         LabelTile(
@@ -349,9 +343,7 @@ class _SettingsBodyState extends State<SettingsBody> {
             onTap: () async {
               // TODO: FilePicker is weird and `allowedExtensions` does not really work.
               // https://github.com/miguelpruivo/flutter_file_picker/wiki/FAQ
-              var result = await FilePicker.pickFile(
-                type: FileType.any,
-              );
+              var result = await FilePicker.pickFile(type: FileType.any);
               if (!context.mounted) return;
               if (result != null) {
                 var path = result.path;

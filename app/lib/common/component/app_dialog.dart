@@ -17,9 +17,9 @@ class AppDialogSurface extends StatelessWidget {
     this.shadowBlurRadius = 32,
     this.shadowSpreadRadius = -8,
     this.shadowOffset = const Offset(0, 12),
-  })  : assert(glassBackgroundAlpha >= 0 && glassBackgroundAlpha <= 1),
-        assert(shadowAlpha >= 0 && shadowAlpha <= 1),
-        assert(shadowBlurRadius >= 0);
+  }) : assert(glassBackgroundAlpha >= 0 && glassBackgroundAlpha <= 1),
+       assert(shadowAlpha >= 0 && shadowAlpha <= 1),
+       assert(shadowBlurRadius >= 0);
 
   final Widget child;
   final AppDialogSurfaceStyle style;
@@ -55,9 +55,7 @@ class AppDialogSurface extends StatelessWidget {
         border: Border.all(color: StyleConstants.lineColor),
         boxShadow: [
           BoxShadow(
-            color: StyleConstants.shadowColor.withValues(
-              alpha: shadowAlpha,
-            ),
+            color: StyleConstants.shadowColor.withValues(alpha: shadowAlpha),
             blurRadius: shadowBlurRadius,
             spreadRadius: shadowSpreadRadius,
             offset: shadowOffset,
@@ -164,11 +162,8 @@ class AppDialogCard extends StatelessWidget {
 }
 
 class AppDialogActions extends StatelessWidget {
-  const AppDialogActions({
-    super.key,
-    required this.children,
-    this.spacing = 10,
-  }) : assert(spacing >= 0);
+  const AppDialogActions({super.key, required this.children, this.spacing = 10})
+    : assert(spacing >= 0);
 
   final List<Widget> children;
   final double spacing;
@@ -192,14 +187,17 @@ Future<T?> showAppDialog<T>(
   bool barrierDismissible = true,
   Color? barrierColor,
   double maxWidth = 420,
-  EdgeInsets insetPadding =
-      const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+  EdgeInsets insetPadding = const EdgeInsets.symmetric(
+    horizontal: 24,
+    vertical: 24,
+  ),
 }) {
   assert(maxWidth > 0);
   return showDialog<T>(
     context: context,
     barrierDismissible: barrierDismissible,
-    barrierColor: barrierColor ??
+    barrierColor:
+        barrierColor ??
         StyleConstants.shadowColor.withValues(
           alpha: StyleConstants.isDarkMode ? 0.58 : 0.22,
         ),
