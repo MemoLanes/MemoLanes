@@ -23,7 +23,7 @@ console_error_panic_hook = { version = "0.1", optional = true }
 
 wasm-bindgen-futures = { version = "0.4", optional = true }
 bitvec = "1.1"
-lz4_flex = "0.13"
+lz4_flex = "0.14"
 miniz_oxide = "0.9"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -32,4 +32,4 @@ zstd = "0.13"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_log = "1"
 web-sys = { version = "0.3", features = ["console", "Performance", "Window"] }
-ruzstd = "0.8"
+ruzstd = "0.9"

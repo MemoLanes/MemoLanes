@@ -27,8 +27,10 @@ class SetupBottomSheet extends StatelessWidget {
     this.leading,
     this.showTitle = true,
     this.maxHeightFactor = 0.75,
-    this.contentPadding =
-        const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+    this.contentPadding = const EdgeInsets.symmetric(
+      horizontal: 20,
+      vertical: 4,
+    ),
   });
 
   final String title;
@@ -67,8 +69,10 @@ class SetupTile extends StatelessWidget {
     this.onTap,
     this.selected = false,
     this.minHeight,
-    this.contentPadding =
-        const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    this.contentPadding = const EdgeInsets.symmetric(
+      horizontal: 12,
+      vertical: 10,
+    ),
   });
 
   final IconData icon;
@@ -85,8 +89,9 @@ class SetupTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tile = Container(
-      constraints:
-          minHeight == null ? null : BoxConstraints(minHeight: minHeight!),
+      constraints: minHeight == null
+          ? null
+          : BoxConstraints(minHeight: minHeight!),
       padding: contentPadding,
       decoration: BoxDecoration(
         color: selected
@@ -94,8 +99,9 @@ class SetupTile extends StatelessWidget {
             : StyleConstants.surfaceColor,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color:
-              selected ? StyleConstants.primaryGreen : StyleConstants.lineColor,
+          color: selected
+              ? StyleConstants.primaryGreen
+              : StyleConstants.lineColor,
           width: selected ? 1.4 : 1,
         ),
       ),
@@ -112,11 +118,7 @@ class SetupTile extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
             alignment: Alignment.center,
-            child: Icon(
-              icon,
-              color: StyleConstants.deepGreen,
-              size: 20,
-            ),
+            child: Icon(icon, color: StyleConstants.deepGreen, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -153,11 +155,11 @@ class SetupTile extends StatelessWidget {
                       ),
                     ),
                   ),
-                if (extraContent != null) extraContent!,
+                ?extraContent,
               ],
             ),
           ),
-          if (trailing != null) trailing!,
+          ?trailing,
         ],
       ),
     );

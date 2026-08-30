@@ -10,6 +10,7 @@ import 'package:memolanes/constants/style_constants.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 import 'time_ruler.dart';
+
 import 'package:memolanes/src/rust/journey_header.dart';
 
 export 'time_ruler.dart' show TimeRulerMode, TimeRuler;
@@ -235,10 +236,7 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
         const SizedBox(width: 12),
         Expanded(
           child: PointerInterceptor(
-            child: SizedBox(
-              height: _kPickerBlockHeight,
-              child: rulerChild,
-            ),
+            child: SizedBox(height: _kPickerBlockHeight, child: rulerChild),
           ),
         ),
       ],
@@ -345,7 +343,8 @@ class _TimeMachineViewModeAndLayerMenuState
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               _buildColumnTitle(
-                  context.tr('time_machine.menu_title_granularity')),
+                context.tr('time_machine.menu_title_granularity'),
+              ),
               ..._granularityKeys.map((e) => _buildGranularityItem(e.$1, e.$2)),
             ],
           ),
@@ -382,16 +381,17 @@ class _TimeMachineViewModeAndLayerMenuState
       child: Text(
         text,
         textAlign: TextAlign.center,
-        style: TextStyle(
-          color: Colors.white54,
-          fontSize: 12,
-        ),
+        style: TextStyle(color: Colors.white54, fontSize: 12),
       ),
     );
   }
 
-  Widget _buildMenuTile(BuildContext context, String labelKey, bool isSelected,
-      VoidCallback onTap) {
+  Widget _buildMenuTile(
+    BuildContext context,
+    String labelKey,
+    bool isSelected,
+    VoidCallback onTap,
+  ) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -408,8 +408,9 @@ class _TimeMachineViewModeAndLayerMenuState
             Text(
               context.tr(labelKey),
               style: TextStyle(
-                color:
-                    isSelected ? StyleConstants.defaultColor : Colors.white70,
+                color: isSelected
+                    ? StyleConstants.defaultColor
+                    : Colors.white70,
                 fontSize: 14,
               ),
             ),
@@ -420,16 +421,11 @@ class _TimeMachineViewModeAndLayerMenuState
   }
 
   Widget _buildViewModeItem(TimeMachineViewMode mode, String labelKey) {
-    return _buildMenuTile(
-      context,
-      labelKey,
-      mode == _localViewMode,
-      () {
-        AppHaptics.selection();
-        setState(() => _localViewMode = mode);
-        widget.onViewModeSelect(mode);
-      },
-    );
+    return _buildMenuTile(context, labelKey, mode == _localViewMode, () {
+      AppHaptics.selection();
+      setState(() => _localViewMode = mode);
+      widget.onViewModeSelect(mode);
+    });
   }
 
   Widget _buildGranularityItem(TimeRulerMode rulerMode, String labelKey) {
@@ -454,28 +450,23 @@ class _TimeMachineViewModeAndLayerMenuState
 
   Widget _buildLayerItem(JourneyKind kind, String labelKey) {
     final isSelected = _localKinds.contains(kind);
-    return _buildMenuTile(
-      context,
-      labelKey,
-      isSelected,
-      () {
-        AppHaptics.selection();
-        setState(() {
-          final next = Set<JourneyKind>.from(_localKinds);
-          if (next.contains(kind)) {
-            next.remove(kind);
-          } else {
-            next.add(kind);
-          }
-          _localKinds = next;
-        });
-        _layerTimer?.cancel();
-        _layerTimer = Timer(const Duration(milliseconds: 600), () {
-          _layerTimer = null;
-          widget.onJourneyKindsChanged?.call(_localKinds);
-        });
-      },
-    );
+    return _buildMenuTile(context, labelKey, isSelected, () {
+      AppHaptics.selection();
+      setState(() {
+        final next = Set<JourneyKind>.from(_localKinds);
+        if (next.contains(kind)) {
+          next.remove(kind);
+        } else {
+          next.add(kind);
+        }
+        _localKinds = next;
+      });
+      _layerTimer?.cancel();
+      _layerTimer = Timer(const Duration(milliseconds: 600), () {
+        _layerTimer = null;
+        widget.onJourneyKindsChanged?.call(_localKinds);
+      });
+    });
   }
 
   @override

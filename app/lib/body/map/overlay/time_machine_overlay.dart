@@ -21,10 +21,7 @@ Set<JourneyKind> _initialJourneyKindsFromMainMap() {
 }
 
 class TimeMachineOverlay extends StatefulWidget {
-  const TimeMachineOverlay({
-    super.key,
-    required this.onJourneyRangeLoaded,
-  });
+  const TimeMachineOverlay({super.key, required this.onJourneyRangeLoaded});
 
   final void Function(api.MapRendererProxy? proxy) onJourneyRangeLoaded;
 
@@ -95,8 +92,9 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
         Positioned(
           left: horizontalSafeArea + 24,
           right: horizontalSafeArea + 24,
-          bottom:
-              StyleConstants.mapPrimaryControlBottomInsetForContext(context),
+          bottom: StyleConstants.mapPrimaryControlBottomInsetForContext(
+            context,
+          ),
           child: TimeRangePicker(
             earliestDate: earliest,
             loading: _loading,

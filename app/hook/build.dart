@@ -45,9 +45,7 @@ Future<Map<String, String>> _cargoEnvironmentVariablesFor({
   output.dependencies.add(projectFile);
   final deploymentTarget = await _readDeploymentTarget(projectFile);
 
-  return <String, String>{
-    'IPHONEOS_DEPLOYMENT_TARGET': deploymentTarget,
-  };
+  return <String, String>{'IPHONEOS_DEPLOYMENT_TARGET': deploymentTarget};
 }
 
 Map<String, String> _androidCargoEnvironmentVariables(CodeConfig codeConfig) {
@@ -58,23 +56,16 @@ Map<String, String> _androidCargoEnvironmentVariables(CodeConfig codeConfig) {
     );
   }
 
-  final (rustTargetTriple, ndkTargetTriple) =
-      switch (codeConfig.targetArchitecture) {
-    Architecture.arm64 => (
-        'aarch64-linux-android',
-        'aarch64-linux-android',
-      ),
-    Architecture.arm => (
-        'armv7-linux-androideabi',
-        'armv7a-linux-androideabi',
-      ),
-    Architecture.x64 => (
-        'x86_64-linux-android',
-        'x86_64-linux-android',
-      ),
+  final (
+    rustTargetTriple,
+    ndkTargetTriple,
+  ) = switch (codeConfig.targetArchitecture) {
+    Architecture.arm64 => ('aarch64-linux-android', 'aarch64-linux-android'),
+    Architecture.arm => ('armv7-linux-androideabi', 'armv7a-linux-androideabi'),
+    Architecture.x64 => ('x86_64-linux-android', 'x86_64-linux-android'),
     final architecture => throw UnsupportedError(
-        'Unsupported Android architecture: $architecture',
-      ),
+      'Unsupported Android architecture: $architecture',
+    ),
   };
   final apiTarget = codeConfig.android.targetNdkApi;
   final compilerDirectory = path.dirname(File.fromUri(cCompiler.compiler).path);
@@ -113,12 +104,11 @@ Future<String> _readDeploymentTarget(Uri projectFile) async {
     );
   }
 
-  final deploymentTargets = RegExp(
-    r'IPHONEOS_DEPLOYMENT_TARGET\s*=\s*([0-9]+(?:\.[0-9]+){0,2})\s*;',
-  )
-      .allMatches(await file.readAsString())
-      .map((match) => match.group(1)!)
-      .toSet();
+  final deploymentTargets =
+      RegExp(r'IPHONEOS_DEPLOYMENT_TARGET\s*=\s*([0-9]+(?:\.[0-9]+){0,2})\s*;')
+          .allMatches(await file.readAsString())
+          .map((match) => match.group(1)!)
+          .toSet();
 
   if (deploymentTargets.isEmpty) {
     throw StateError(

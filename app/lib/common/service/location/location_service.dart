@@ -45,7 +45,8 @@ abstract class ILocationService {
   Future<void> stopLocationUpdates();
 
   StreamSubscription<LocationData> onLocationUpdate(
-      void Function(LocationData) callback);
+    void Function(LocationData) callback,
+  );
 
   LocationBackend get locationBackend;
 }

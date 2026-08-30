@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 class LinePainter extends CustomPainter {
   late Color color;
 
-  LinePainter({
-    required this.color,
-  });
+  LinePainter({required this.color});
 
   @override
   void paint(Canvas canvas, Size size) {

@@ -25,10 +25,11 @@ class CapsuleStyleAppBar extends StatelessWidget
   final Color? foregroundColor;
 
   @override
-  Size get preferredSize =>
-      const Size.fromHeight(CapsuleBarConstants.barContentHeight +
-          CapsuleBarConstants.barBottomInset +
-          CapsuleBarConstants.maxSafeTop);
+  Size get preferredSize => const Size.fromHeight(
+    CapsuleBarConstants.barContentHeight +
+        CapsuleBarConstants.barBottomInset +
+        CapsuleBarConstants.maxSafeTop,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -47,18 +48,19 @@ class CapsuleStyleAppBar extends StatelessWidget
         : CapsuleBarConstants.barBorderColor;
 
     return Container(
-      height: topInset +
+      height:
+          topInset +
           CapsuleBarConstants.barContentHeight +
           CapsuleBarConstants.barBottomInset,
       decoration: BoxDecoration(
         color: bg,
-        border: Border(
-          bottom: BorderSide(color: borderColor, width: 0.5),
-        ),
+        border: Border(bottom: BorderSide(color: borderColor, width: 0.5)),
       ),
       child: Padding(
         padding: EdgeInsets.only(
-            top: topInset, bottom: CapsuleBarConstants.barBottomInset),
+          top: topInset,
+          bottom: CapsuleBarConstants.barBottomInset,
+        ),
         child: CapsuleBarContent(
           showOnlyBackButton: false,
           title: title,

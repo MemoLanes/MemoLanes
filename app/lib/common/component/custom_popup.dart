@@ -114,7 +114,8 @@ class _PopupContent extends StatelessWidget {
       key: childKey,
       padding: contentPadding,
       constraints: const BoxConstraints(minWidth: 50),
-      decoration: contentDecoration ??
+      decoration:
+          contentDecoration ??
           BoxDecoration(
             color: backgroundColor ?? Colors.black,
             borderRadius: BorderRadius.circular(contentRadius ?? 10),
@@ -211,14 +212,16 @@ class _PopupRoute extends PopupRoute<void> {
         _top = null;
         _bottom = screenSize.height - targetRect.top + (verticalOffset ?? 0);
         _scaleAlignDy = 1;
-        _left = targetRect.center.dx -
+        _left =
+            targetRect.center.dx -
             childRect.width / 2 +
             (horizontalOffset ?? 0);
         break;
       case PopupPosition.bottom:
         _top = targetRect.bottom + (verticalOffset ?? 0);
         _scaleAlignDy = 0;
-        _left = targetRect.center.dx -
+        _left =
+            targetRect.center.dx -
             childRect.width / 2 +
             (horizontalOffset ?? 0);
         break;
@@ -242,7 +245,8 @@ class _PopupRoute extends PopupRoute<void> {
           _bottom = screenSize.height - targetRect.top + (verticalOffset ?? 0);
           _scaleAlignDy = 1;
         }
-        _left = targetRect.center.dx -
+        _left =
+            targetRect.center.dx -
             childRect.width / 2 +
             (horizontalOffset ?? 0);
         break;
@@ -291,14 +295,21 @@ class _PopupRoute extends PopupRoute<void> {
   }
 
   @override
-  Widget buildPage(BuildContext context, Animation<double> animation,
-      Animation<double> secondaryAnimation) {
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) {
     return child;
   }
 
   @override
-  Widget buildTransitions(BuildContext context, Animation<double> animation,
-      Animation<double> secondaryAnimation, Widget child) {
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
     child = _PopupContent(
       childKey: _childKey,
       backgroundColor: backgroundColor,
@@ -308,8 +319,10 @@ class _PopupRoute extends PopupRoute<void> {
       child: child,
     );
 
-    final curvedAnimation =
-        CurvedAnimation(parent: animation, curve: animationCurve);
+    final curvedAnimation = CurvedAnimation(
+      parent: animation,
+      curve: animationCurve,
+    );
 
     return Stack(
       children: [
@@ -325,10 +338,7 @@ class _PopupRoute extends PopupRoute<void> {
               child: ScaleTransition(
                 alignment: FractionalOffset(_scaleAlignDx, _scaleAlignDy),
                 scale: curvedAnimation,
-                child: Material(
-                  color: Colors.transparent,
-                  child: child,
-                ),
+                child: Material(color: Colors.transparent, child: child),
               ),
             ),
           ),

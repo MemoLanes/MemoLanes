@@ -106,8 +106,9 @@ class CapsuleBarContent extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: _pill,
-                      borderRadius:
-                          BorderRadius.circular(CapsuleBarConstants.pillRadius),
+                      borderRadius: BorderRadius.circular(
+                        CapsuleBarConstants.pillRadius,
+                      ),
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -129,10 +130,7 @@ class CapsuleBarContent extends StatelessWidget {
                           const SizedBox(height: 1),
                           Text(
                             subtitle!,
-                            style: TextStyle(
-                              color: _subFg,
-                              fontSize: 11,
-                            ),
+                            style: TextStyle(color: _subFg, fontSize: 11),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.center,

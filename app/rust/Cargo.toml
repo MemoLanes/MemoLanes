@@ -18,7 +18,7 @@ log = "0.4"
 rusqlite = { version = "0.40", features = ["bundled"] }
 simplelog = "0.12"
 protobuf = "3.7"
-uuid = { version = "1.23", features = ["v4", "fast-rng", "macro-diagnostics", "serde"] }
+uuid = { version = "1.26", features = ["v4", "fast-rng", "macro-diagnostics", "serde"] }
 sql_split = "0.1"
 zstd = "0.13"
 itertools = "0.15"
@@ -40,16 +40,16 @@ file-rotate = "0.8"
 serde_json = "1.0"
 rand = "0.10"
 serde = { version = "1.0", features = ["derive"] }
-tokio = { version = "1.52", features = ["full"] }
+tokio = { version = "1.53", features = ["full"] }
 splines = { version = "5.0.0" }
-base64 = "0.22.1"
-serde_with = { version = "3.21", features = ["base64"] }
-quick-xml = "0.41"
+base64 = "0.23.1"
+serde_with = { version = "3.22", features = ["base64"] }
+quick-xml = "0.42"
 bitvec = "1.1.1"
 auto-context = "0.1.1"
 csv = "1.4"
 time= "0.3"
-either = "1.16.0"
+either = "1.18.0"
 
 [dev-dependencies]
 tempdir = "0.3"
@@ -64,7 +64,7 @@ clap = { version = "4", features = ["derive"] }
 # HTTP server dependencies (only used in examples)
 actix = "0.13"
 actix-web-actors = "4.3"
-actix-web = "4.14"
+actix-web = "4.15"
 ctrlc = "3.5"
 pollster = "1.0.1"
 qr2term = "0.3"

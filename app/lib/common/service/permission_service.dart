@@ -58,8 +58,9 @@ class PermissionService {
       final locationServiceEnabled =
           await Geolocator.isLocationServiceEnabled();
       final locationStatus = await Permission.location.status;
-      final locationAlwaysStatus =
-          Platform.isIOS ? '${await Permission.locationAlways.status}' : 'n/a';
+      final locationAlwaysStatus = Platform.isIOS
+          ? '${await Permission.locationAlways.status}'
+          : 'n/a';
       final batteryOptimizationStatus = Platform.isAndroid
           ? '${await Permission.ignoreBatteryOptimizations.status}'
           : 'n/a';
@@ -137,7 +138,8 @@ class PermissionService {
       ),
       notification: PermissionTileStatus(
         granted: notificationGranted,
-        denied: !notificationGranted &&
+        denied:
+            !notificationGranted &&
             notificationRequested &&
             !notificationStatus.isPermanentlyDenied,
         permanentlyDenied: notificationStatus.isPermanentlyDenied,
@@ -161,10 +163,7 @@ class PermissionService {
     }
     final notificationStatus = await Permission.notification.status;
     if (!notificationStatus.isGranted &&
-        !MMKVUtil.getBool(
-          MMKVKey.requestedNotification,
-          defaultValue: false,
-        ) &&
+        !MMKVUtil.getBool(MMKVKey.requestedNotification, defaultValue: false) &&
         !notificationStatus.isPermanentlyDenied) {
       return true;
     }
@@ -195,9 +194,7 @@ class PermissionService {
         '[PermissionService] runLocationRequest open location settings: '
         'location service disabled',
       );
-      return const [
-        PermissionEffect(openLocationSettings: true),
-      ];
+      return const [PermissionEffect(openLocationSettings: true)];
     }
 
     var status = await Permission.location.status;

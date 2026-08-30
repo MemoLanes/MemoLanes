@@ -41,79 +41,83 @@ class JourneyListCalendar extends StatelessWidget {
         fontWeight: FontWeight.bold,
       ),
       modePickersGap: 8,
-      modePickerBuilder: ({
-        required viewMode,
-        required monthDate,
-        isMonthPicker,
-      }) {
-        if (isMonthPicker == true) {
-          return _buildHeaderSelector(
-            DateFormat.MMMM(context.locale.toString()).format(monthDate),
-          );
-        }
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildHeaderSelector(
-              MaterialLocalizations.of(context).formatYear(monthDate),
-            ),
-            const SizedBox(width: 8),
-            _buildFilterButton(context),
-          ],
-        );
-      },
+      modePickerBuilder:
+          ({required viewMode, required monthDate, isMonthPicker}) {
+            if (isMonthPicker == true) {
+              return _buildHeaderSelector(
+                DateFormat.MMMM(context.locale.toString()).format(monthDate),
+              );
+            }
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildHeaderSelector(
+                  MaterialLocalizations.of(context).formatYear(monthDate),
+                ),
+                const SizedBox(width: 8),
+                _buildFilterButton(context),
+              ],
+            );
+          },
       selectableYearPredicate: (year) =>
           controller.yearsWithJourneys.contains(year),
       selectableMonthPredicate: (year, month) =>
           controller.monthsForYear(year).contains(month),
       selectableDayPredicate: (day) =>
           controller.daysForMonth(day.year, day.month).contains(day.day),
-      dayBuilder: ({
-        required date,
-        textStyle,
-        decoration,
-        isSelected,
-        isDisabled,
-        isToday,
-      }) {
-        if (!controller
-            .daysForMonth(date.year, date.month)
-            .contains(date.day)) {
-          return null;
-        }
-        return Container(
-          decoration: decoration,
-          child: Center(
-            child: Stack(
-              alignment: AlignmentDirectional.center,
-              children: [
-                Text(
-                  MaterialLocalizations.of(context).formatDecimal(date.day),
-                  style: textStyle,
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 27.5),
-                  child: Container(
-                    height: 4,
-                    width: 4,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(5),
-                      color: const Color(0xFFB6E13D),
+      dayBuilder:
+          ({
+            required date,
+            textStyle,
+            decoration,
+            isSelected,
+            isDisabled,
+            isToday,
+          }) {
+            if (!controller
+                .daysForMonth(date.year, date.month)
+                .contains(date.day)) {
+              return null;
+            }
+            return Container(
+              decoration: decoration,
+              child: Center(
+                child: Stack(
+                  alignment: AlignmentDirectional.center,
+                  children: [
+                    Text(
+                      MaterialLocalizations.of(context).formatDecimal(date.day),
+                      style: textStyle,
                     ),
-                  ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 27.5),
+                      child: Container(
+                        height: 4,
+                        width: 4,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(5),
+                          color: const Color(0xFFB6E13D),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-        );
-      },
+              ),
+            );
+          },
       dynamicCalendarRows: false,
-      disabledDayTextStyle:
-          const TextStyle(color: Colors.grey, fontWeight: FontWeight.w400),
-      disabledMonthTextStyle:
-          const TextStyle(color: Colors.grey, fontWeight: FontWeight.w400),
-      disabledYearTextStyle:
-          const TextStyle(color: Colors.grey, fontWeight: FontWeight.w400),
+      disabledDayTextStyle: const TextStyle(
+        color: Colors.grey,
+        fontWeight: FontWeight.w400,
+      ),
+      disabledMonthTextStyle: const TextStyle(
+        color: Colors.grey,
+        fontWeight: FontWeight.w400,
+      ),
+      disabledYearTextStyle: const TextStyle(
+        color: Colors.grey,
+        fontWeight: FontWeight.w400,
+      ),
       disableVibration: true,
     );
 
@@ -126,7 +130,8 @@ class JourneyListCalendar extends StatelessWidget {
       onValueChanged: (dates) {
         AppHaptics.selection();
         _runWithLoading(
-            () => controller.selectDate(dates.first.toSimpleDate()));
+          () => controller.selectDate(dates.first.toSimpleDate()),
+        );
       },
       onDisplayedMonthChanged: (value) {
         AppHaptics.selection();

@@ -12,7 +12,7 @@ pub const MAGIC: &[u8; 4] = b"MGEO";
 /// `compute_provenance_hash`), so bumping it makes the rasterizer's
 /// smart-skip rebuild and invalidates any runtime consumer cache
 /// without relying on a manual "delete the .bin" step.
-pub const GEO_DATA_VERSION: u32 = 3;
+pub const GEO_DATA_VERSION: u32 = 4;
 
 pub const PROVENANCE_HASH_OFFSET: usize = 4; // MAGIC.len()
 pub const PROVENANCE_HASH_LEN: usize = 32;

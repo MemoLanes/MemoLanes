@@ -42,9 +42,9 @@ fn read_kml_description_and_remove(xml: &str) -> Result<(String, Vec<String>)> {
 
     loop {
         match reader.read_event_into(&mut buf) {
-            Ok(Event::Start(e)) if e.name().as_ref() == b"description" => {
+            Ok(Event::Start(e)) if e.name().as_ref() == "description" => {
                 let text = reader.read_text(e.name())?;
-                descriptions.push(text.decode()?.into_owned());
+                descriptions.push(text.into_inner().into_owned());
             }
             Ok(Event::Start(e)) => writer.write_event(Event::Start(e.into_owned()))?,
             Ok(Event::Empty(e)) => writer.write_event(Event::Empty(e.into_owned()))?,

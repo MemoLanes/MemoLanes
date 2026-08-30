@@ -4,17 +4,9 @@ import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/frosted_bar_container.dart';
 import 'package:memolanes/common/component/frosted_bar_item.dart';
 
-enum OperationMode {
-  move,
-  edit,
-  editReadonly,
-  delete,
-}
+enum OperationMode { move, edit, editReadonly, delete }
 
-enum DrawEntryMode {
-  freehand,
-  linked,
-}
+enum DrawEntryMode { freehand, linked }
 
 class ModeSwitchBar extends StatelessWidget {
   static const double extent = 64.0;
@@ -98,7 +90,8 @@ class ModeSwitchBar extends StatelessWidget {
     return FrostedBarItem(
       icon: Icons.gesture_rounded,
       label: context.tr('journey.editor.draw'),
-      isSelected: currentMode == OperationMode.edit ||
+      isSelected:
+          currentMode == OperationMode.edit ||
           currentMode == OperationMode.editReadonly,
       onTap: () {
         AppHaptics.light();

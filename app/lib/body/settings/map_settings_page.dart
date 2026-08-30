@@ -48,8 +48,8 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
               position: i == 0
                   ? CardLabelTilePosition.top
                   : i == MapStyle.all.length - 1
-                      ? CardLabelTilePosition.bottom
-                      : CardLabelTilePosition.middle,
+                  ? CardLabelTilePosition.bottom
+                  : CardLabelTilePosition.middle,
               onTap: () => _updateStyle(MapStyle.all[i]),
             ),
           ],

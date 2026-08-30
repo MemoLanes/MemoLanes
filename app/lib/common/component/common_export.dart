@@ -41,30 +41,30 @@ enum CommonExportFormat {
   CommonExportOption get option {
     return switch (this) {
       CommonExportFormat.mldx => CommonExportOption(
-          extension: 'mldx',
-          icon: Icons.archive_outlined,
-          title: tr('data.export_data.format_mldx'),
-          description: tr('data.export_data.format_mldx_desc'),
-          keepsCompleteData: true,
-        ),
+        extension: 'mldx',
+        icon: Icons.archive_outlined,
+        title: tr('data.export_data.format_mldx'),
+        description: tr('data.export_data.format_mldx_desc'),
+        keepsCompleteData: true,
+      ),
       CommonExportFormat.fwss => CommonExportOption(
-          extension: 'fwss',
-          icon: Icons.public_outlined,
-          title: tr('data.export_data.format_fwss'),
-          description: tr('data.export_data.format_fwss_desc'),
-        ),
+        extension: 'fwss',
+        icon: Icons.public_outlined,
+        title: tr('data.export_data.format_fwss'),
+        description: tr('data.export_data.format_fwss_desc'),
+      ),
       CommonExportFormat.kml => CommonExportOption(
-          extension: 'kml',
-          icon: Icons.map_outlined,
-          title: tr('data.export_data.format_kml'),
-          description: tr('data.export_data.format_kml_desc'),
-        ),
+        extension: 'kml',
+        icon: Icons.map_outlined,
+        title: tr('data.export_data.format_kml'),
+        description: tr('data.export_data.format_kml_desc'),
+      ),
       CommonExportFormat.gpx => CommonExportOption(
-          extension: 'gpx',
-          icon: Icons.route_outlined,
-          title: tr('data.export_data.format_gpx'),
-          description: tr('data.export_data.format_gpx_desc'),
-        ),
+        extension: 'gpx',
+        icon: Icons.route_outlined,
+        title: tr('data.export_data.format_gpx'),
+        description: tr('data.export_data.format_gpx_desc'),
+      ),
     };
   }
 
@@ -136,19 +136,16 @@ Future<void> showCommonExportWithFormatPicker({
           return;
         }
 
-        await showCommonExport(
-          context,
-          filePath,
-          deleteFile: deleteFile,
-        );
+        await showCommonExport(context, filePath, deleteFile: deleteFile);
       }
     case api.ExportResult.dataIsEmpty:
       {
         if (context.mounted) {
           await showCommonDialog(
             context,
-            context
-                .tr('data.export_data.error.no_track_data_for_selected_format'),
+            context.tr(
+              'data.export_data.error.no_track_data_for_selected_format',
+            ),
           );
         }
       }
@@ -323,10 +320,7 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
             variant: AppButtonVariant.secondary,
             onPressed: () => Navigator.of(context).pop(),
           ),
-          AppButton(
-            label: context.tr('common.export'),
-            onPressed: _submit,
-          ),
+          AppButton(label: context.tr('common.export'), onPressed: _submit),
         ],
       ),
       child: AnimatedSize(
