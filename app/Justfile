@@ -67,6 +67,7 @@ flutter-fmt:
 [group: 'utils']
 flutter-check:
     @echo "🔍 Analyzing Flutter code"
+    @dart format --output=none --set-exit-if-changed .
     @flutter analyze
     @echo "✅ Flutter code analysis completed"
 
