@@ -3,16 +3,18 @@ import 'dart:io';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_file_saver/flutter_file_saver.dart';
+import 'package:memolanes/common/component/app_button.dart';
+import 'package:memolanes/common/component/app_dialog.dart';
+import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/basic_bottom_sheet.dart';
 import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
+import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
-
-const Color _exportActionSheetBackgroundColor = Color(0xFF242424);
 
 class CommonExportOption {
   const CommonExportOption({
@@ -96,10 +98,10 @@ Future<void> showCommonExportWithFormatPicker({
           (format) => format == defaultFormat,
           orElse: () => formats.first,
         );
-  final selectedFormat = await showDialog<CommonExportFormat>(
-    context: context,
+  final selectedFormat = await showAppDialog<CommonExportFormat>(
+    context,
     barrierDismissible: false,
-    builder: (_) => _ExportFormatDialog(
+    child: _ExportFormatDialog(
       title: title,
       formats: formats,
       initialFormat: initialFormat,
@@ -165,16 +167,9 @@ Future<bool> showCommonExport(
       return true;
     }
 
-    final action = await showBasicBottomSheet<_PreparedExportAction>(
+    final action = await showBasicCard<_PreparedExportAction>(
       context,
-      showTitle: false,
-      contentPadding: EdgeInsets.only(
-        left: 20.0,
-        right: 20.0,
-        bottom: 12.0 + MediaQuery.of(context).padding.bottom,
-      ),
-      barrierColor: const Color(0x99000000),
-      backgroundColor: _exportActionSheetBackgroundColor,
+      title: context.tr('common.export'),
       child: const _ExportActionSheetContent(),
     );
 
@@ -271,53 +266,13 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
     final option = format.option;
     final selected = _selectedFormat == format;
 
-    return Semantics(
-      button: true,
+    return AppOptionTile(
+      icon: option.icon,
+      title: option.title,
+      subtitle: option.description,
       selected: selected,
-      child: InkWell(
-        onTap: () => _selectFormat(format),
-        borderRadius: BorderRadius.circular(12.0),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 4.0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Icon(
-                option.icon,
-                color: selected
-                    ? StyleConstants.defaultColor
-                    : const Color(0x99FFFFFF),
-              ),
-              const SizedBox(width: 12.0),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(option.title),
-                    const SizedBox(height: 2.0),
-                    Text(
-                      option.description,
-                      style: const TextStyle(
-                        color: Color(0x99FFFFFF),
-                        fontSize: 13.0,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12.0),
-              Icon(
-                selected
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_unchecked,
-                color: selected
-                    ? StyleConstants.defaultColor
-                    : const Color(0x99FFFFFF),
-              ),
-            ],
-          ),
-        ),
-      ),
+      trailing: AppOptionTileTrailing.selection,
+      onTap: () => _selectFormat(format),
     );
   }
 
@@ -332,22 +287,22 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
       margin: const EdgeInsets.only(top: 6.0),
       padding: const EdgeInsets.all(10.0),
       decoration: BoxDecoration(
-        color: const Color(0x22FFC107),
+        color: StyleConstants.warningSurfaceColor.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(10.0),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
+          Icon(
             Icons.info_outline,
-            color: Color(0xFFFFC107),
+            color: StyleConstants.warningInkColor,
             size: 18.0,
           ),
           const SizedBox(width: 8.0),
           Expanded(
             child: Text(
               context.tr('data.export_data.lossy_format_warning'),
-              style: const TextStyle(fontSize: 13.0),
+              style: AppTypography.supporting,
             ),
           ),
         ],
@@ -357,13 +312,24 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      scrollable: true,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
+    return AppDialogCard(
+      title: widget.title,
+      maxHeightFactor: 0.78,
+      contentPadding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+      actions: AppDialogActions(
+        children: [
+          AppButton(
+            label: context.tr('common.cancel'),
+            variant: AppButtonVariant.secondary,
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          AppButton(
+            label: context.tr('common.export'),
+            onPressed: _submit,
+          ),
+        ],
       ),
-      title: Text(widget.title),
-      content: AnimatedSize(
+      child: AnimatedSize(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
         alignment: Alignment.topCenter,
@@ -376,34 +342,21 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
                 alignment: AlignmentDirectional.centerStart,
                 child: Text(
                   context.tr('data.export_data.format_section_title'),
-                  style: const TextStyle(
-                    color: Color(0x99FFFFFF),
-                    fontSize: 13.0,
+                  style: AppTypography.sectionLabel.copyWith(
+                    color: StyleConstants.mutedInkColor,
                   ),
                 ),
               ),
               const SizedBox(height: 6.0),
-              for (final format in widget.formats) _buildFormatOption(format),
+              for (var i = 0; i < widget.formats.length; i++) ...[
+                _buildFormatOption(widget.formats[i]),
+                if (i < widget.formats.length - 1) const SizedBox(height: 8),
+              ],
               _buildLossyWarning(),
             ],
           ),
         ),
       ),
-      actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(context.tr('common.cancel')),
-        ),
-        FilledButton(
-          onPressed: _submit,
-          style: FilledButton.styleFrom(
-            backgroundColor: StyleConstants.defaultColor,
-            foregroundColor: Colors.black,
-          ),
-          child: Text(context.tr('common.export')),
-        ),
-      ],
     );
   }
 }
@@ -413,70 +366,21 @@ enum _PreparedExportAction { save, share }
 class _ExportActionSheetContent extends StatelessWidget {
   const _ExportActionSheetContent();
 
-  Widget _buildActionButton({
-    required BuildContext context,
-    required IconData icon,
-    required String label,
-    required _PreparedExportAction action,
-  }) {
-    return InkWell(
-      onTap: () => Navigator.of(context).pop(action),
-      borderRadius: BorderRadius.circular(16.0),
-      child: SizedBox(
-        width: 96.0,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 56.0,
-                height: 56.0,
-                decoration: const BoxDecoration(
-                  color: Color(0x1AFFFFFF),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  icon,
-                  color: StyleConstants.defaultColor,
-                  size: 26.0,
-                ),
-              ),
-              const SizedBox(height: 8.0),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildActionButton(
-              context: context,
-              icon: Icons.save_alt_outlined,
-              label: context.tr('common.save'),
-              action: _PreparedExportAction.save,
-            ),
-            _buildActionButton(
-              context: context,
-              icon: Icons.ios_share_outlined,
-              label: context.tr('common.share'),
-              action: _PreparedExportAction.share,
-            ),
-          ],
+        AppOptionTile(
+          icon: Icons.save_alt_outlined,
+          title: context.tr('common.save'),
+          onTap: () => Navigator.of(context).pop(_PreparedExportAction.save),
+        ),
+        const SizedBox(height: 8),
+        AppOptionTile(
+          icon: Icons.ios_share_outlined,
+          title: context.tr('common.share'),
+          onTap: () => Navigator.of(context).pop(_PreparedExportAction.share),
         ),
       ],
     );
