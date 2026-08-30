@@ -11,19 +11,19 @@ class MapCopyrightButton extends StatelessWidget {
   static const double buttonOpacity = 0.70;
   static const double buttonSize = iconSize + contentPadding * 2;
 
-  const MapCopyrightButton({
-    super.key,
-    required this.textMarkdown,
-  });
+  const MapCopyrightButton({super.key, required this.textMarkdown});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
-        showCommonDialog(context, textMarkdown,
-            title: context.tr("home.map_data_source_copyright_title"),
-            markdown: true);
+        showCommonDialog(
+          context,
+          textMarkdown,
+          title: context.tr("home.map_data_source_copyright_title"),
+          markdown: true,
+        );
       },
       child: Opacity(
         opacity: buttonOpacity,

@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum CardLabelTilePosition {
-  single,
-  top,
-  middle,
-  bottom,
-}
+enum CardLabelTilePosition { single, top, middle, bottom }
 
 class CardLabelTile extends StatelessWidget {
   const CardLabelTile({
@@ -47,10 +42,7 @@ class CardLabelTile extends StatelessWidget {
     if (position == CardLabelTilePosition.single ||
         position == CardLabelTilePosition.top) {
       margin = EdgeInsets.only(top: top ? 8.0 : 0.0);
-      borderRadius = borderRadius.copyWith(
-        topLeft: radius,
-        topRight: radius,
-      );
+      borderRadius = borderRadius.copyWith(topLeft: radius, topRight: radius);
     }
 
     return Container(
@@ -67,18 +59,11 @@ class CardLabelTile extends StatelessWidget {
               borderRadius: borderRadius,
               child: Ink(
                 height: 54.0,
-                decoration: BoxDecoration(
-                  borderRadius: borderRadius,
-                ),
+                decoration: BoxDecoration(borderRadius: borderRadius),
                 padding: EdgeInsets.symmetric(horizontal: 16.0),
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    return Align(
-                      alignment: alignment,
-                      child: Text(
-                        label,
-                      ),
-                    );
+                    return Align(alignment: alignment, child: Text(label));
                   },
                 ),
               ),
@@ -86,10 +71,7 @@ class CardLabelTile extends StatelessWidget {
           ),
           (position == CardLabelTilePosition.top ||
                   position == CardLabelTilePosition.middle)
-              ? Container(
-                  height: 0.5,
-                  color: const Color(0xFF262626),
-                )
+              ? Container(height: 0.5, color: const Color(0xFF262626))
               : SizedBox.shrink(),
         ],
       ),

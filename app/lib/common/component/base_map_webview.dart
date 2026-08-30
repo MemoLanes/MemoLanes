@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+
 import 'package:battery_plus/battery_plus.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:memolanes/common/gps_manager.dart';
@@ -33,11 +33,7 @@ class BaseMapJavaScriptChannel {
   });
 }
 
-enum TrackingMode {
-  displayAndTracking,
-  displayOnly,
-  off,
-}
+enum TrackingMode { displayAndTracking, displayOnly, off }
 
 class BaseMapWebview extends StatefulWidget {
   final api.MapRendererProxy mapRendererProxy;
@@ -51,18 +47,19 @@ class BaseMapWebview extends StatefulWidget {
   final void Function(int)? onMapZoomChanged;
   final List<BaseMapJavaScriptChannel> extraJavaScriptChannels;
 
-  const BaseMapWebview(
-      {super.key,
-      required this.mapRendererProxy,
-      this.initialMapView,
-      this.initialMapBounds,
-      this.initialMapBoundsPadding,
-      this.trackingMode = TrackingMode.off,
-      this.isEditor = false,
-      this.onMapMoved,
-      this.onRoughMapViewUpdate,
-      this.onMapZoomChanged,
-      this.extraJavaScriptChannels = const []});
+  const BaseMapWebview({
+    super.key,
+    required this.mapRendererProxy,
+    this.initialMapView,
+    this.initialMapBounds,
+    this.initialMapBoundsPadding,
+    this.trackingMode = TrackingMode.off,
+    this.isEditor = false,
+    this.onMapMoved,
+    this.onRoughMapViewUpdate,
+    this.onMapZoomChanged,
+    this.extraJavaScriptChannels = const [],
+  });
 
   @override
   State<StatefulWidget> createState() => BaseMapWebviewState();
@@ -82,9 +79,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   // It is rough because we don't update it frequently.
   MapView? _currentRoughMapView;
-
-  // For bug workaround
-  bool _isiOS18 = false;
 
   // Low Power Mode tracking
   final Battery _battery = Battery();
@@ -115,14 +109,16 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   Future<void> _refreshMapData() async {
     if (!mounted) return;
     log.info('[base_map_webview] Refreshing map data');
-    await _webViewController?.evaluateJavascript(source: '''
+    await _webViewController?.evaluateJavascript(
+      source: '''
       if (typeof refreshMapData === 'function') {
         console.log('Refreshing map data');
         refreshMapData();
       } else {
         console.warn('refreshMapData function not available yet');
       }
-    ''');
+    ''',
+    );
   }
 
   Future<void> manualRefresh() async {
@@ -138,18 +134,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _selectedMapStyle = _loadMapStyleFromStorage();
     _selectedMapFogStyle = _loadMapFogStyleFromStorage();
 
-    () async {
-      if (Platform.isIOS) {
-        DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
-        var iosInfo = await deviceInfo.iosInfo;
-        if (iosInfo.systemVersion.startsWith('18.')) {
-          _setStateIfMounted(() {
-            _isiOS18 = true;
-          });
-        }
-      }
-    }();
-
     _initLowPowerMode();
   }
 
@@ -161,36 +145,41 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     }
 
     if (!mounted) return;
-    _batteryStateSubscription =
-        _battery.onBatteryStateChanged.listen((_) async {
-      try {
-        final newLPM = await _battery.isInBatterySaveMode;
-        if (!mounted) return;
-        if (newLPM != _isLowPowerMode) {
-          _isLowPowerMode = newLPM;
-          _pushLowPowerModeToWebView();
+    _batteryStateSubscription = _battery.onBatteryStateChanged.listen(
+      (_) async {
+        try {
+          final newLPM = await _battery.isInBatterySaveMode;
+          if (!mounted) return;
+          if (newLPM != _isLowPowerMode) {
+            _isLowPowerMode = newLPM;
+            _pushLowPowerModeToWebView();
+          }
+        } catch (e) {
+          log.error('[base_map_webview] Failed to query battery save mode: $e');
         }
-      } catch (e) {
-        log.error('[base_map_webview] Failed to query battery save mode: $e');
-      }
-    }, onError: (Object error) {
-      // Charging status is only used as a signal to refresh low-power mode.
-      // Some devices cannot provide it temporarily, so keep the stream alive
-      // and retain the last known low-power-mode value.
-      log.warning(
-        '[base_map_webview] Battery state unavailable; '
-        'keeping the last known low-power mode: $error',
-      );
-    });
+      },
+      onError: (Object error) {
+        // Charging status is only used as a signal to refresh low-power mode.
+        // Some devices cannot provide it temporarily, so keep the stream alive
+        // and retain the last known low-power-mode value.
+        log.warning(
+          '[base_map_webview] Battery state unavailable; '
+          'keeping the last known low-power mode: $error',
+        );
+      },
+    );
   }
 
   void _pushLowPowerModeToWebView() {
     if (!mounted) return;
-    _webViewController?.evaluateJavascript(source: '''
+    _webViewController?.evaluateJavascript(
+      source:
+          '''
       if (typeof window.setLowPowerMode === 'function') {
         window.setLowPowerMode($_isLowPowerMode);
       }
-    ''');
+    ''',
+    );
   }
 
   @override
@@ -204,11 +193,13 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   void _updateLocationMarker() {
     if (!mounted) return;
     if (widget.trackingMode == TrackingMode.off) {
-      _webViewController?.evaluateJavascript(source: '''
+      _webViewController?.evaluateJavascript(
+        source: '''
         if (typeof updateLocationMarker === 'function') {
           updateLocationMarker(0, 0, false);
         }
-      ''');
+      ''',
+      );
     } else {
       // Prefer the live position; fall back to the OS-cached last known
       // location so the marker shows up immediately on cold start while the
@@ -216,7 +207,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       final position =
           _gpsManager.latestPosition ?? _gpsManager.lastKnownPosition;
       if (position != null) {
-        _webViewController?.evaluateJavascript(source: '''
+        _webViewController?.evaluateJavascript(
+          source:
+              '''
         if (typeof updateLocationMarker === 'function') {
           updateLocationMarker(
             ${position.longitude}, 
@@ -225,7 +218,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             ${widget.trackingMode == TrackingMode.displayAndTracking}
           );
         }
-      ''');
+      ''',
+        );
       }
     }
   }
@@ -238,55 +232,67 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     // These create window.channelName.postMessage(str) objects on the JS side,
     // matching the calling convention of webview_flutter's addJavaScriptChannel.
     await Future.wait([
-      controller.addWebMessageListener(WebMessageListener(
-        jsObjectName: 'onMapMoved',
-        allowedOriginRules: {'*'},
-        onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
-          if (!mounted) return;
-          widget.onMapMoved?.call();
-        },
-      )),
-      controller.addWebMessageListener(WebMessageListener(
-        jsObjectName: 'readyForDisplay',
-        allowedOriginRules: {'*'},
-        onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
-          _setStateIfMounted(() {
-            _readyForDisplay = true;
-          });
-        },
-      )),
-      controller.addWebMessageListener(WebMessageListener(
-        jsObjectName: 'onMapViewChanged',
-        allowedOriginRules: {'*'},
-        onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
-          if (!mounted) return;
-          final data = message?.data;
-          if (data is String) {
-            _handleMapViewPush(data);
-          }
-        },
-      )),
-      controller.addWebMessageListener(WebMessageListener(
-        jsObjectName: 'onMapZoomChanged',
-        allowedOriginRules: {'*'},
-        onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
-          if (!mounted) return;
-          final data = message?.data;
-          if (data is String) {
-            _handleMapZoomPush(data);
-          }
-        },
-      )),
-      for (final channel in widget.extraJavaScriptChannels)
-        controller.addWebMessageListener(WebMessageListener(
-          jsObjectName: channel.name,
+      controller.addWebMessageListener(
+        WebMessageListener(
+          jsObjectName: 'onMapMoved',
+          allowedOriginRules: {'*'},
+          onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
+            if (!mounted) return;
+            widget.onMapMoved?.call();
+          },
+        ),
+      ),
+      controller.addWebMessageListener(
+        WebMessageListener(
+          jsObjectName: 'readyForDisplay',
+          allowedOriginRules: {'*'},
+          onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
+            _setStateIfMounted(() {
+              _readyForDisplay = true;
+            });
+          },
+        ),
+      ),
+      controller.addWebMessageListener(
+        WebMessageListener(
+          jsObjectName: 'onMapViewChanged',
           allowedOriginRules: {'*'},
           onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
             if (!mounted) return;
             final data = message?.data;
-            channel.onMessageReceived(data is String ? data : data.toString());
+            if (data is String) {
+              _handleMapViewPush(data);
+            }
           },
-        )),
+        ),
+      ),
+      controller.addWebMessageListener(
+        WebMessageListener(
+          jsObjectName: 'onMapZoomChanged',
+          allowedOriginRules: {'*'},
+          onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
+            if (!mounted) return;
+            final data = message?.data;
+            if (data is String) {
+              _handleMapZoomPush(data);
+            }
+          },
+        ),
+      ),
+      for (final channel in widget.extraJavaScriptChannels)
+        controller.addWebMessageListener(
+          WebMessageListener(
+            jsObjectName: channel.name,
+            allowedOriginRules: {'*'},
+            onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
+              if (!mounted) return;
+              final data = message?.data;
+              channel.onMessageReceived(
+                data is String ? data : data.toString(),
+              );
+            },
+          ),
+        ),
     ]);
 
     if (!mounted) return;
@@ -324,12 +330,15 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     debugPrint('Injecting lat: $latParam');
     debugPrint('Injecting zoom: $zoomParam');
 
-    final cgiEndpoint =
-        Platform.isIOS ? 'memolanes://api' : 'https://memolanes.local/api';
+    final cgiEndpoint = Platform.isIOS
+        ? 'memolanes://api'
+        : 'https://memolanes.local/api';
 
     final style = _selectedMapStyle;
     final fogStyle = _selectedMapFogStyle;
-    await controller.evaluateJavascript(source: '''
+    await controller.evaluateJavascript(
+      source:
+          '''
       // Set the params
       window.EXTERNAL_PARAMS = {
         cgi_endpoint: "$cgiEndpoint",
@@ -362,7 +371,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       } else {
         console.log("JS not ready yet, params stored for later");
       }
-    ''');
+    ''',
+    );
 
     debugPrint('Initialization completed');
   }
@@ -418,12 +428,14 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   /// Handle an intercepted request by forwarding path + query to the unified Rust dispatcher.
   Future<
-      ({
-        int status,
-        Uint8List body,
-        String contentType,
-        Map<String, String> headers
-      })> _handleInterceptedRequest(WebUri url) async {
+    ({
+      int status,
+      Uint8List body,
+      String contentType,
+      Map<String, String> headers,
+    })
+  >
+  _handleInterceptedRequest(WebUri url) async {
     final path = url.path.replaceFirst(RegExp(r'^/?(api/)?'), '');
     final result = await widget.mapRendererProxy.handleRequest(
       path: path,
@@ -439,113 +451,107 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   @override
   Widget build(BuildContext context) {
-    // TODO: The `IgnorePointer` is a workaround for a bug in the webview on iOS.
-    // https://github.com/flutter/flutter/issues/165305
-    // But unfortunately, it only works for iOS 18, so we still have this weird
-    // double tap behavior on older iOS versions.
     return Stack(
       children: [
-        IgnorePointer(
-            ignoring: _isiOS18,
-            child: InAppWebView(
-              key: const ValueKey('map_webview'),
-              initialSettings: InAppWebViewSettings(
-                javaScriptEnabled: true,
-                useShouldOverrideUrlLoading: true,
-                allowFileAccessFromFileURLs: true,
-                allowUniversalAccessFromFileURLs: true,
-                resourceCustomSchemes: ['memolanes'],
-                webViewAssetLoader: MapWebViewAssets.createAssetLoader(),
-              ),
-              onWebViewCreated: (controller) {
-                _onWebViewCreated(controller);
+        InAppWebView(
+          key: const ValueKey('map_webview'),
+          initialSettings: InAppWebViewSettings(
+            javaScriptEnabled: true,
+            useShouldOverrideUrlLoading: true,
+            allowFileAccessFromFileURLs: true,
+            allowUniversalAccessFromFileURLs: true,
+            resourceCustomSchemes: ['memolanes'],
+            webViewAssetLoader: MapWebViewAssets.createAssetLoader(),
+          ),
+          onWebViewCreated: (controller) {
+            _onWebViewCreated(controller);
+          },
+          // iOS: intercept custom scheme requests (memolanes://)
+          onLoadResourceWithCustomScheme: (controller, request) async {
+            if (!mounted) return null;
+            final result = await _handleInterceptedRequest(request.url);
+            return CustomSchemeResponse(
+              data: result.body,
+              contentType: result.contentType,
+              contentEncoding: 'utf-8',
+              statusCode: result.status,
+              headers: {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Expose-Headers':
+                    'X-Tile-Version, X-Not-Modified',
+                'Content-Type': result.contentType,
+                ...result.headers,
               },
-              // iOS: intercept custom scheme requests (memolanes://)
-              onLoadResourceWithCustomScheme: (controller, request) async {
-                if (!mounted) return null;
-                final result = await _handleInterceptedRequest(request.url);
-                return CustomSchemeResponse(
-                  data: result.body,
-                  contentType: result.contentType,
-                  contentEncoding: 'utf-8',
-                  statusCode: result.status,
-                  headers: {
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Expose-Headers':
-                        'X-Tile-Version, X-Not-Modified',
-                    'Content-Type': result.contentType,
-                    ...result.headers,
-                  },
-                );
+            );
+          },
+          // Android: intercept URL pattern requests (https://memolanes.local/api/)
+          shouldInterceptRequest: (controller, request) async {
+            if (!mounted) return null;
+            final url = request.url.toString();
+            if (!url.startsWith('https://memolanes.local/api/')) {
+              return null;
+            }
+            final result = await _handleInterceptedRequest(request.url);
+            return WebResourceResponse(
+              contentType: result.contentType,
+              contentEncoding: 'utf-8',
+              data: result.body,
+              statusCode: result.status,
+              reasonPhrase: result.status == 200 ? 'OK' : 'Not Modified',
+              headers: {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Expose-Headers':
+                    'X-Tile-Version, X-Not-Modified',
+                'Content-Type': result.contentType,
+                ...result.headers,
               },
-              // Android: intercept URL pattern requests (https://memolanes.local/api/)
-              shouldInterceptRequest: (controller, request) async {
-                if (!mounted) return null;
-                final url = request.url.toString();
-                if (!url.startsWith('https://memolanes.local/api/')) {
-                  return null;
-                }
-                final result = await _handleInterceptedRequest(request.url);
-                return WebResourceResponse(
-                  contentType: result.contentType,
-                  contentEncoding: 'utf-8',
-                  data: result.body,
-                  statusCode: result.status,
-                  reasonPhrase: result.status == 200 ? 'OK' : 'Not Modified',
-                  headers: {
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Expose-Headers':
-                        'X-Tile-Version, X-Not-Modified',
-                    'Content-Type': result.contentType,
-                    ...result.headers,
-                  },
-                );
-              },
-              shouldOverrideUrlLoading: (controller, navigationAction) async {
-                if (!mounted) {
-                  return NavigationActionPolicy.CANCEL;
-                }
-                final url = navigationAction.request.url;
-                if (url == null) {
-                  return NavigationActionPolicy.CANCEL;
-                }
-                final scheme = url.scheme;
-                if (scheme == 'about') {
-                  return NavigationActionPolicy.ALLOW;
-                }
-                if (MapWebViewAssets.owns(url)) {
-                  return NavigationActionPolicy.ALLOW;
-                }
-                if (_devServer.isNotEmpty &&
-                    url.toString().startsWith(_devServer)) {
-                  return NavigationActionPolicy.ALLOW;
-                }
-                launchUrl(
-                  Uri.parse(url.toString()),
-                  mode: LaunchMode.externalApplication,
-                );
-                return NavigationActionPolicy.CANCEL;
-              },
-              onLoadStop: (controller, url) {
-                if (!mounted) return;
-                debugPrint('Page finished loading: $url');
-                _injectApiEndpoint();
-              },
-              onReceivedError: (controller, request, error) async {
-                if (!mounted) return;
-                final failedUrl = request.url.toString();
-                if (!failedUrl.contains('events.mapbox.com')) {
-                  log.error('''Map WebView Error: 
+            );
+          },
+          shouldOverrideUrlLoading: (controller, navigationAction) async {
+            if (!mounted) {
+              return NavigationActionPolicy.CANCEL;
+            }
+            final url = navigationAction.request.url;
+            if (url == null) {
+              return NavigationActionPolicy.CANCEL;
+            }
+            final scheme = url.scheme;
+            if (scheme == 'about') {
+              return NavigationActionPolicy.ALLOW;
+            }
+            if (MapWebViewAssets.owns(url)) {
+              return NavigationActionPolicy.ALLOW;
+            }
+            if (_devServer.isNotEmpty &&
+                url.toString().startsWith(_devServer)) {
+              return NavigationActionPolicy.ALLOW;
+            }
+            launchUrl(
+              Uri.parse(url.toString()),
+              mode: LaunchMode.externalApplication,
+            );
+            return NavigationActionPolicy.CANCEL;
+          },
+          onLoadStop: (controller, url) {
+            if (!mounted) return;
+            debugPrint('Page finished loading: $url');
+            _injectApiEndpoint();
+          },
+          onReceivedError: (controller, request, error) async {
+            if (!mounted) return;
+            final failedUrl = request.url.toString();
+            if (!failedUrl.contains('events.mapbox.com')) {
+              log.error('''Map WebView Error:
                       Description: ${error.description}
                       Error Type: ${error.type} 
                       Failed URL: $failedUrl''');
-                }
-              },
-              onWebContentProcessDidTerminate: (controller) async {
-                if (!mounted) return;
-                await controller.reload();
-              },
-            )),
+            }
+          },
+          onWebContentProcessDidTerminate: (controller) async {
+            if (!mounted) return;
+            await controller.reload();
+          },
+        ),
         IgnorePointer(
           ignoring: true,
           child: AnimatedOpacity(

@@ -72,8 +72,9 @@ class WorldviewManager {
 
   achievement.Worldview _defaultWorldviewFromDeviceLocale() {
     final locales = WidgetsBinding.instance.platformDispatcher.locales;
-    final countryCode =
-        locales.isNotEmpty ? locales.first.countryCode?.toUpperCase() : null;
+    final countryCode = locales.isNotEmpty
+        ? locales.first.countryCode?.toUpperCase()
+        : null;
 
     return switch (countryCode) {
       'CN' => achievement.Worldview.chn,
@@ -84,7 +85,9 @@ class WorldviewManager {
 }
 
 String regionPreferenceTitle(
-    BuildContext context, achievement.Worldview worldview) {
+  BuildContext context,
+  achievement.Worldview worldview,
+) {
   return switch (worldview) {
     achievement.Worldview.chn => context.tr("privacy.region_mainland_china"),
     achievement.Worldview.iso => context.tr("privacy.region_international"),
@@ -126,10 +129,7 @@ class _RegionPickerSheet extends StatelessWidget {
           for (var i = 0; i < _worldviewDisplayOrder.length; i++) ...[
             AppOptionTile(
               icon: regionPreferenceIcon(_worldviewDisplayOrder[i]),
-              title: regionPreferenceTitle(
-                context,
-                _worldviewDisplayOrder[i],
-              ),
+              title: regionPreferenceTitle(context, _worldviewDisplayOrder[i]),
               selected: _worldviewDisplayOrder[i] == selectedWorldview,
               trailing: AppOptionTileTrailing.selection,
               onTap: () => Navigator.of(context).pop(_worldviewDisplayOrder[i]),

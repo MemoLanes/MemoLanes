@@ -1,7 +1,7 @@
 [toolchain]
 # WARNING: *do not* use `stable`, `beta`, or `nightly` (alone) for the channel!
 # You must specify a version number/date in order to ensure reproducible builds.
-channel = "1.97.0" # or newer. another example: `nightly-2025-01-01`
+channel = "1.98.0"
 
 # The targets you want to support; these are the default:
 targets = [

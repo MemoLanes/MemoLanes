@@ -15,8 +15,12 @@ class JourneyEditorMapView extends StatefulWidget {
   final api.MapRendererProxy mapRendererProxy;
   final JourneyEditorMapBounds? initialMapBounds;
   final void Function(
-          double startLat, double startLng, double endLat, double endLng)?
-      onSelectionBox;
+    double startLat,
+    double startLng,
+    double endLat,
+    double endLng,
+  )?
+  onSelectionBox;
   final void Function(List<JourneyEditorDrawPoint> points)? onDrawPath;
   final void Function()? onMapMoved;
   final void Function(int)? onMapZoomChanged;
@@ -72,8 +76,12 @@ class _JourneyEditorMapWebview extends StatefulWidget {
   final api.MapRendererProxy mapRendererProxy;
   final JourneyEditorMapBounds? initialMapBounds;
   final void Function(
-          double startLat, double startLng, double endLat, double endLng)?
-      onSelectionBox;
+    double startLat,
+    double startLng,
+    double endLat,
+    double endLng,
+  )?
+  onSelectionBox;
   final void Function(List<JourneyEditorDrawPoint> points)? onDrawPath;
   final void Function()? onMapMoved;
   final void Function(int)? onMapZoomChanged;
@@ -130,9 +138,9 @@ class _JourneyEditorMapWebviewState extends State<_JourneyEditorMapWebview> {
         ModeSwitchBar.extent + ModeSwitchBar.safeAreaMinimum + safeBottom;
     final mapBoundsPadding =
         CapsuleStyleOverlayAppBar.mapFitPaddingForBottomOverlay(
-      context,
-      bottomOverlayHeight: bottomOverlayHeight,
-    );
+          context,
+          bottomOverlayHeight: bottomOverlayHeight,
+        );
 
     return BaseMapWebview(
       key: _baseKey,
@@ -170,10 +178,12 @@ class _JourneyEditorMapWebviewState extends State<_JourneyEditorMapWebview> {
               final data = jsonDecode(raw) as Map<String, dynamic>;
               final rawPoints = data['points'] as List<dynamic>;
               final points = rawPoints
-                  .map((p) => (
-                        lat: (p['lat'] as num).toDouble(),
-                        lng: (p['lng'] as num).toDouble(),
-                      ))
+                  .map(
+                    (p) => (
+                      lat: (p['lat'] as num).toDouble(),
+                      lng: (p['lng'] as num).toDouble(),
+                    ),
+                  )
                   .toList(growable: false);
               handler(points);
             } catch (e) {

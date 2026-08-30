@@ -23,12 +23,12 @@ class BottomNavBar extends StatelessWidget {
   static const double designHorizontalMargin = 24;
 
   Alignment get _selectionAlignment => switch (selectedIndex) {
-        0 => Alignment.centerLeft,
-        1 => const Alignment(-0.5, 0),
-        2 => Alignment.center,
-        3 => const Alignment(0.5, 0),
-        _ => Alignment.centerRight,
-      };
+    0 => Alignment.centerLeft,
+    1 => const Alignment(-0.5, 0),
+    2 => Alignment.center,
+    3 => const Alignment(0.5, 0),
+    _ => Alignment.centerRight,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -58,8 +58,8 @@ class BottomNavBar extends StatelessWidget {
                             ? StyleConstants.primaryGreen
                             : StyleConstants.softGreen)
                         .withValues(
-                      alpha: StyleConstants.isDarkMode ? 0.22 : 0.54,
-                    ),
+                          alpha: StyleConstants.isDarkMode ? 0.22 : 0.54,
+                        ),
                     (StyleConstants.isDarkMode
                             ? StyleConstants.primaryGreen
                             : StyleConstants.surfaceColor)
@@ -80,11 +80,15 @@ class BottomNavBar extends StatelessWidget {
               curve: Curves.linear,
               builder: (context, progress, child) {
                 const expansionEnd = 0.38;
-                final expansionProgress =
-                    (progress / expansionEnd).clamp(0.0, 1.0);
+                final expansionProgress = (progress / expansionEnd).clamp(
+                  0.0,
+                  1.0,
+                );
                 final settlingProgress =
-                    ((progress - expansionEnd) / (1 - expansionEnd))
-                        .clamp(0.0, 1.0);
+                    ((progress - expansionEnd) / (1 - expansionEnd)).clamp(
+                      0.0,
+                      1.0,
+                    );
                 final expansion = progress <= expansionEnd
                     ? Curves.easeOutCubic.transform(expansionProgress)
                     : 1 - Curves.easeOutCubic.transform(settlingProgress);
@@ -100,25 +104,31 @@ class BottomNavBar extends StatelessWidget {
                 widthFactor: 0.2,
                 heightFactor: 1,
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 5,
+                  ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(19),
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                       child: DecoratedBox(
                         decoration: BoxDecoration(
-                          color: (StyleConstants.isDarkMode
-                                  ? StyleConstants.primaryGreen
-                                  : StyleConstants.strongLineColor)
-                              .withValues(
-                            alpha: StyleConstants.isDarkMode ? 0.16 : 0.22,
-                          ),
+                          color:
+                              (StyleConstants.isDarkMode
+                                      ? StyleConstants.primaryGreen
+                                      : StyleConstants.strongLineColor)
+                                  .withValues(
+                                    alpha: StyleConstants.isDarkMode
+                                        ? 0.16
+                                        : 0.22,
+                                  ),
                           borderRadius: BorderRadius.circular(19),
                           boxShadow: [
                             BoxShadow(
-                              color: StyleConstants.deepGreen
-                                  .withValues(alpha: 0.14),
+                              color: StyleConstants.deepGreen.withValues(
+                                alpha: 0.14,
+                              ),
                               blurRadius: 12,
                               spreadRadius: -1,
                               offset: const Offset(0, 4),
@@ -179,8 +189,13 @@ class BottomNavBar extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem(BuildContext context, IconData icon, IconData activeIcon,
-      String labelKey, int index) {
+  Widget _buildNavItem(
+    BuildContext context,
+    IconData icon,
+    IconData activeIcon,
+    String labelKey,
+    int index,
+  ) {
     final isSelected = selectedIndex == index;
     final label = context.tr(labelKey);
 

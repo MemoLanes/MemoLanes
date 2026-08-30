@@ -8,12 +8,7 @@ import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/constants/style_constants.dart';
 
 /// Time dimension: year / month / day / any.
-enum TimeRulerMode {
-  year,
-  month,
-  day,
-  any,
-}
+enum TimeRulerMode { year, month, day, any }
 
 typedef TimeRulerSelection = (int year, int? month, int? day);
 
@@ -37,7 +32,11 @@ abstract class _RulerData {
 
 class _YearRulerData extends _RulerData {
   _YearRulerData(
-      this.earliest, this.selectedYear, this.onSelected, this.onDisplay);
+    this.earliest,
+    this.selectedYear,
+    this.onSelected,
+    this.onDisplay,
+  );
   final DateTime earliest;
   final int selectedYear;
   final void Function(int year) onSelected;
@@ -73,8 +72,13 @@ class _YearRulerData extends _RulerData {
 
 /// Month mode: window from (earliest.year, earliest.month) to current month; no months before earliest.
 class _MonthRulerData extends _RulerData {
-  _MonthRulerData(this.earliest, this.selectedYear, this.selectedMonth,
-      this.onSelected, this.onDisplay);
+  _MonthRulerData(
+    this.earliest,
+    this.selectedYear,
+    this.selectedMonth,
+    this.onSelected,
+    this.onDisplay,
+  );
   final DateTime earliest;
   final int selectedYear;
   final int selectedMonth;
@@ -128,8 +132,10 @@ class _MonthRulerData extends _RulerData {
   @override
   String labelAt(BuildContext context, int index) {
     final (_, m) = _at(_start + index);
-    return DateFormat('MMM', Localizations.localeOf(context).toString())
-        .format(DateTime(2000, m, 1));
+    return DateFormat(
+      'MMM',
+      Localizations.localeOf(context).toString(),
+    ).format(DateTime(2000, m, 1));
   }
 
   @override
@@ -153,8 +159,14 @@ class _MonthRulerData extends _RulerData {
 
 /// Day mode: window start is not before earliest, so selection is never before trajectory start.
 class _DayRulerData extends _RulerData {
-  _DayRulerData(this.earliest, this.selectedYear, this.selectedMonth,
-      this.selectedDay, this.onSelected, this.onDisplay);
+  _DayRulerData(
+    this.earliest,
+    this.selectedYear,
+    this.selectedMonth,
+    this.selectedDay,
+    this.onSelected,
+    this.onDisplay,
+  );
   final DateTime earliest;
   final int selectedYear;
   final int selectedMonth;
@@ -308,21 +320,27 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
 
   static _RulerData _buildData(_InfiniteTimeRuler w) {
     return switch (w.rulerMode) {
-      TimeRulerMode.year => _YearRulerData(w.earliest, w.selectedYear,
-          (y) => w.onSelectionChanged((y, null, null)), w.onDisplayChanged),
+      TimeRulerMode.year => _YearRulerData(
+        w.earliest,
+        w.selectedYear,
+        (y) => w.onSelectionChanged((y, null, null)),
+        w.onDisplayChanged,
+      ),
       TimeRulerMode.month => _MonthRulerData(
-          w.earliest,
-          w.selectedYear,
-          w.selectedMonth,
-          (y, m) => w.onSelectionChanged((y, m, null)),
-          w.onDisplayChanged),
+        w.earliest,
+        w.selectedYear,
+        w.selectedMonth,
+        (y, m) => w.onSelectionChanged((y, m, null)),
+        w.onDisplayChanged,
+      ),
       TimeRulerMode.day => _DayRulerData(
-          w.earliest,
-          w.selectedYear,
-          w.selectedMonth,
-          w.selectedDay,
-          (y, m, d) => w.onSelectionChanged((y, m, d)),
-          w.onDisplayChanged),
+        w.earliest,
+        w.selectedYear,
+        w.selectedMonth,
+        w.selectedDay,
+        (y, m, d) => w.onSelectionChanged((y, m, d)),
+        w.onDisplayChanged,
+      ),
       TimeRulerMode.any => throw StateError('any mode has no ruler'),
     };
   }
@@ -347,7 +365,8 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
   @override
   void didUpdateWidget(_InfiniteTimeRuler oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final selectionChanged = oldWidget.selectedYear != widget.selectedYear ||
+    final selectionChanged =
+        oldWidget.selectedYear != widget.selectedYear ||
         oldWidget.selectedMonth != widget.selectedMonth ||
         oldWidget.selectedDay != widget.selectedDay;
     if (!_isScrolling && selectionChanged && _data.itemCount > 0) {
@@ -395,9 +414,10 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
     }
     final centerContent = pixels + _viewportWidth / 2;
     final centerPadding = _viewportWidth / 2 - kRulerUnitSpacing / 2;
-    final index = ((centerContent - centerPadding - kRulerUnitSpacing / 2) /
-            kRulerUnitSpacing)
-        .round();
+    final index =
+        ((centerContent - centerPadding - kRulerUnitSpacing / 2) /
+                kRulerUnitSpacing)
+            .round();
     return index.clamp(0, maxIdx);
   }
 
@@ -421,8 +441,10 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
     if (_viewportWidth <= 0) return;
     if (_isSnapping) return;
     final maxIdx = _data.itemCount > 0 ? _data.itemCount - 1 : 0;
-    final bucket =
-        (n.metrics.pixels / kRulerUnitSpacing).floor().clamp(0, maxIdx);
+    final bucket = (n.metrics.pixels / kRulerUnitSpacing).floor().clamp(
+      0,
+      maxIdx,
+    );
     if (bucket != _lastHapticIndex) {
       _lastHapticIndex = bucket;
       AppHaptics.selection();
@@ -448,7 +470,9 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
       return SizedBox(
         height: kRulerExtent,
         child: Padding(
-            padding: kRulerMargin, child: _rulerContainer(const SizedBox())),
+          padding: kRulerMargin,
+          child: _rulerContainer(const SizedBox()),
+        ),
       );
     }
     final selectedIndex = _data.selectedIndex.clamp(0, count - 1);
@@ -465,8 +489,10 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
                   if (mounted) setState(() => _viewportWidth = w);
                 });
               }
-              final centerPadding =
-                  (w / 2 - kRulerUnitSpacing / 2).clamp(0.0, double.infinity);
+              final centerPadding = (w / 2 - kRulerUnitSpacing / 2).clamp(
+                0.0,
+                double.infinity,
+              );
               return Stack(
                 alignment: Alignment.center,
                 children: [
@@ -487,7 +513,9 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
                       itemExtent: kRulerUnitSpacing,
                       itemCount: count,
                       padding: EdgeInsets.only(
-                          left: centerPadding, right: centerPadding),
+                        left: centerPadding,
+                        right: centerPadding,
+                      ),
                       physics: const AlwaysScrollableScrollPhysics(),
                       itemBuilder: (context, i) => _buildTick(
                         context,
@@ -515,7 +543,10 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
   }
 
   static Widget _buildTick(
-      BuildContext context, String label, bool isSelected) {
+    BuildContext context,
+    String label,
+    bool isSelected,
+  ) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
@@ -528,12 +559,15 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
               : StyleConstants.mutedInkColor.withValues(alpha: 0.68),
         ),
         SizedBox(height: isSelected ? 4 : 6),
-        Text(label,
-            style: AppTypography.micro.copyWith(
-                color: isSelected
-                    ? StyleConstants.deepGreen
-                    : StyleConstants.deepGreen.withValues(alpha: 0.72),
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600)),
+        Text(
+          label,
+          style: AppTypography.micro.copyWith(
+            color: isSelected
+                ? StyleConstants.deepGreen
+                : StyleConstants.deepGreen.withValues(alpha: 0.72),
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+          ),
+        ),
       ],
     );
   }

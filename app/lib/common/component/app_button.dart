@@ -2,40 +2,34 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/constants/style_constants.dart';
 
-enum AppButtonVariant {
-  primary,
-  secondary,
-  tonal,
-  dangerTonal,
-  danger,
-}
+enum AppButtonVariant { primary, secondary, tonal, dangerTonal, danger }
 
 enum AppButtonSize { compact, regular, large }
 
 extension on AppButtonVariant {
   Color get backgroundColor => switch (this) {
-        AppButtonVariant.primary => StyleConstants.primaryActionColor,
-        AppButtonVariant.secondary => StyleConstants.surfaceColor,
-        AppButtonVariant.tonal => StyleConstants.selectedSurfaceColor,
-        AppButtonVariant.dangerTonal => StyleConstants.dangerSurfaceColor,
-        AppButtonVariant.danger => StyleConstants.dangerColor,
-      };
+    AppButtonVariant.primary => StyleConstants.primaryActionColor,
+    AppButtonVariant.secondary => StyleConstants.surfaceColor,
+    AppButtonVariant.tonal => StyleConstants.selectedSurfaceColor,
+    AppButtonVariant.dangerTonal => StyleConstants.dangerSurfaceColor,
+    AppButtonVariant.danger => StyleConstants.dangerColor,
+  };
 
   Color get foregroundColor => switch (this) {
-        AppButtonVariant.primary => StyleConstants.onPrimaryActionColor,
-        AppButtonVariant.danger => StyleConstants.onDangerColor,
-        AppButtonVariant.dangerTonal => StyleConstants.dangerInkColor,
-        AppButtonVariant.secondary => StyleConstants.isDarkMode
-            ? StyleConstants.inkColor
-            : StyleConstants.onPrimaryActionColor,
-        AppButtonVariant.tonal => StyleConstants.deepGreen,
-      };
+    AppButtonVariant.primary => StyleConstants.onPrimaryActionColor,
+    AppButtonVariant.danger => StyleConstants.onDangerColor,
+    AppButtonVariant.dangerTonal => StyleConstants.dangerInkColor,
+    AppButtonVariant.secondary =>
+      StyleConstants.isDarkMode
+          ? StyleConstants.inkColor
+          : StyleConstants.onPrimaryActionColor,
+    AppButtonVariant.tonal => StyleConstants.deepGreen,
+  };
 
   BorderSide? get side => switch (this) {
-        AppButtonVariant.secondary =>
-          BorderSide(color: StyleConstants.lineColor),
-        _ => null,
-      };
+    AppButtonVariant.secondary => BorderSide(color: StyleConstants.lineColor),
+    _ => null,
+  };
 }
 
 class AppButton extends StatelessWidget {
@@ -52,10 +46,10 @@ class AppButton extends StatelessWidget {
     this.borderRadius,
     this.fontSize,
     this.labelMaxLines = 1,
-  })  : assert(backgroundAlpha >= 0 && backgroundAlpha <= 1),
-        assert(borderRadius == null || borderRadius >= 0),
-        assert(fontSize == null || fontSize > 0),
-        assert(labelMaxLines > 0);
+  }) : assert(backgroundAlpha >= 0 && backgroundAlpha <= 1),
+       assert(borderRadius == null || borderRadius >= 0),
+       assert(fontSize == null || fontSize > 0),
+       assert(labelMaxLines > 0);
 
   final String label;
   final VoidCallback? onPressed;
@@ -76,7 +70,8 @@ class AppButton extends StatelessWidget {
       AppButtonSize.regular => 44.0,
       AppButtonSize.large => 52.0,
     };
-    final radius = borderRadius ??
+    final radius =
+        borderRadius ??
         switch (size) {
           AppButtonSize.compact => 13.0,
           AppButtonSize.regular => 14.0,
@@ -99,8 +94,9 @@ class AppButton extends StatelessWidget {
     };
     final style = FilledButton.styleFrom(
       elevation: 0,
-      backgroundColor:
-          variant.backgroundColor.withValues(alpha: backgroundAlpha),
+      backgroundColor: variant.backgroundColor.withValues(
+        alpha: backgroundAlpha,
+      ),
       foregroundColor: variant.foregroundColor,
       disabledBackgroundColor: StyleConstants.lineColor,
       disabledForegroundColor: StyleConstants.subtleInkColor,
@@ -121,11 +117,8 @@ class AppButton extends StatelessWidget {
             ),
           )
         : icon == null
-            ? null
-            : Icon(
-                icon,
-                size: iconSize,
-              );
+        ? null
+        : Icon(icon, size: iconSize);
     final effectiveOnPressed = loading ? null : onPressed;
     final button = iconWidget == null
         ? FilledButton(
@@ -167,8 +160,8 @@ class AppIconButton extends StatelessWidget {
     this.variant = AppButtonVariant.tonal,
     this.size = 42,
     this.backgroundAlpha = 1,
-  })  : assert(size > 0),
-        assert(backgroundAlpha >= 0 && backgroundAlpha <= 1);
+  }) : assert(size > 0),
+       assert(backgroundAlpha >= 0 && backgroundAlpha <= 1);
 
   final IconData icon;
   final VoidCallback? onPressed;
@@ -183,8 +176,9 @@ class AppIconButton extends StatelessWidget {
       onPressed: onPressed,
       tooltip: tooltip,
       style: IconButton.styleFrom(
-        backgroundColor:
-            variant.backgroundColor.withValues(alpha: backgroundAlpha),
+        backgroundColor: variant.backgroundColor.withValues(
+          alpha: backgroundAlpha,
+        ),
         foregroundColor: variant.foregroundColor,
         disabledBackgroundColor: StyleConstants.lineColor,
         disabledForegroundColor: StyleConstants.subtleInkColor,

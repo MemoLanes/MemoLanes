@@ -14,9 +14,7 @@ import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/journey_header.dart';
 
 class LayerButton extends StatelessWidget {
-  const LayerButton({
-    super.key,
-  });
+  const LayerButton({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -67,19 +65,13 @@ class LayerButton extends StatelessWidget {
 }
 
 class LayerPopupContent extends StatefulWidget {
-  const LayerPopupContent({
-    super.key,
-  });
+  const LayerPopupContent({super.key});
 
   @override
   State<LayerPopupContent> createState() => _LayerPopupContentState();
 }
 
-enum LayerOption {
-  current,
-  default_,
-  flight,
-}
+enum LayerOption { current, default_, flight }
 
 class _LayerPopupContentState extends State<LayerPopupContent> {
   final api.LayerFilter _layerFilter = api.getCurrentMainMapLayerFilter();
@@ -96,12 +88,21 @@ class _LayerPopupContentState extends State<LayerPopupContent> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildItem(LayerOption.current, context.tr("journey_kind.current"),
-            FontAwesomeIcons.locationDot),
-        _buildItem(LayerOption.default_, context.tr("journey_kind.default"),
-            journeyKindIconData(JourneyKind.defaultKind)),
-        _buildItem(LayerOption.flight, context.tr("journey_kind.flight"),
-            journeyKindIconData(JourneyKind.flight)),
+        _buildItem(
+          LayerOption.current,
+          context.tr("journey_kind.current"),
+          FontAwesomeIcons.locationDot,
+        ),
+        _buildItem(
+          LayerOption.default_,
+          context.tr("journey_kind.default"),
+          journeyKindIconData(JourneyKind.defaultKind),
+        ),
+        _buildItem(
+          LayerOption.flight,
+          context.tr("journey_kind.flight"),
+          journeyKindIconData(JourneyKind.flight),
+        ),
       ],
     );
   }

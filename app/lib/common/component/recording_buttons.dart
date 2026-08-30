@@ -71,34 +71,30 @@ class _RecordingButtonsState extends State<RecordingButtons> {
           ),
           child: switch (status) {
             GpsRecordingStatus.none => _StartJourneyButton(
-                key: const ValueKey('record-start'),
-                onPressed: () {
-                  AppHaptics.heavy();
-                  gpsManager.changeRecordingState(
-                    GpsRecordingStatus.recording,
-                  );
-                },
-              ),
+              key: const ValueKey('record-start'),
+              onPressed: () {
+                AppHaptics.heavy();
+                gpsManager.changeRecordingState(GpsRecordingStatus.recording);
+              },
+            ),
             GpsRecordingStatus.recording => _ActiveJourneyControls(
-                key: const ValueKey('record-active'),
-                isPaused: false,
-                onPrimaryPressed: () {
-                  AppHaptics.medium();
-                  gpsManager.changeRecordingState(GpsRecordingStatus.paused);
-                },
-                onEndPressed: _showEndJourneyDialog,
-              ),
+              key: const ValueKey('record-active'),
+              isPaused: false,
+              onPrimaryPressed: () {
+                AppHaptics.medium();
+                gpsManager.changeRecordingState(GpsRecordingStatus.paused);
+              },
+              onEndPressed: _showEndJourneyDialog,
+            ),
             GpsRecordingStatus.paused => _ActiveJourneyControls(
-                key: const ValueKey('record-paused'),
-                isPaused: true,
-                onPrimaryPressed: () {
-                  AppHaptics.medium();
-                  gpsManager.changeRecordingState(
-                    GpsRecordingStatus.recording,
-                  );
-                },
-                onEndPressed: _showEndJourneyDialog,
-              ),
+              key: const ValueKey('record-paused'),
+              isPaused: true,
+              onPrimaryPressed: () {
+                AppHaptics.medium();
+                gpsManager.changeRecordingState(GpsRecordingStatus.recording);
+              },
+              onEndPressed: _showEndJourneyDialog,
+            ),
           },
         ),
       ),
@@ -162,7 +158,8 @@ class _StartJourneyButton extends StatelessWidget {
                     textDirection: Directionality.of(context),
                     textScaler: MediaQuery.textScalerOf(context),
                   )..layout();
-                  final leftover = constraints.maxWidth -
+                  final leftover =
+                      constraints.maxWidth -
                       _triangleSize.width -
                       textPainter.width;
                   textPainter.dispose();
@@ -210,10 +207,7 @@ class _PlayTrianglePainter extends CustomPainter {
       ..lineTo(size.width, size.height / 2)
       ..lineTo(0, size.height)
       ..close();
-    canvas.drawPath(
-      path,
-      Paint()..color = color,
-    );
+    canvas.drawPath(path, Paint()..color = color);
   }
 
   @override

@@ -24,9 +24,11 @@ class _RawDataSwitchState extends State<RawDataSwitch> {
   @override
   initState() {
     super.initState();
-    api.getRawDataMode().then((value) => setState(() {
-          enabled = value;
-        }));
+    api.getRawDataMode().then(
+      (value) => setState(() {
+        enabled = value;
+      }),
+    );
   }
 
   @override
@@ -92,8 +94,9 @@ class _RawDataPage extends State<RawDataPage> {
             position: CardLabelTilePosition.bottom,
             label: context.tr("general.advanced_settings.raw_data_export_gpx"),
             onTap: () async {
-              final gpxPath =
-                  await api.exportRawDataGpxFile(csvFilepath: filePath);
+              final gpxPath = await api.exportRawDataGpxFile(
+                csvFilepath: filePath,
+              );
               if (!context.mounted) return;
               showCommonExport(context, gpxPath, deleteFile: true);
             },
@@ -128,11 +131,13 @@ class _RawDataPage extends State<RawDataPage> {
                   trailing: ElevatedButton(
                     onPressed: () async {
                       if (await showCommonDialog(
-                          context, context.tr("journey.delete_journey_message"),
-                          hasCancel: true,
-                          title: context.tr("journey.delete_journey_title"),
-                          confirmButtonText: context.tr("common.delete"),
-                          confirmVariant: AppButtonVariant.danger)) {
+                        context,
+                        context.tr("journey.delete_journey_message"),
+                        hasCancel: true,
+                        title: context.tr("journey.delete_journey_title"),
+                        confirmButtonText: context.tr("common.delete"),
+                        confirmVariant: AppButtonVariant.danger,
+                      )) {
                         await api.deleteRawDataFile(filename: item.name);
                         _loadList();
                       }

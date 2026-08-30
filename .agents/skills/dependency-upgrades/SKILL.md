@@ -21,7 +21,7 @@ Check current stable releases and relevant breaking changes before editing.
 
 - Update each manifest with its lockfile and prefer stable compatible releases.
 - Preserve git/path overrides unless an upstream replacement is explicitly verified.
-- Treat `geo_data_format` serialization changes, especially `bincode`, as file-format migrations rather than routine upgrades.
+- Treat `geo_data_format`'s exactly pinned `bitcode` dependency and serialized Meta schema as an on-disk file format, not a routine dependency. When the bitcode version, configuration, or schema changes, bump `GEO_DATA_VERSION`, run `just rasterize-geo`, and regenerate the golden fixture with `just regenerate-golden` only after confirming the byte change is intentional.
 - Keep local and CI toolchain pins aligned and assess the Node/Rust/WASM toolchain together.
 
 ## Regenerate and verify

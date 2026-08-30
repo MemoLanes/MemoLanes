@@ -16,9 +16,9 @@ class AppOptionTile extends StatelessWidget {
     this.selected = false,
     this.trailing = AppOptionTileTrailing.chevron,
     this.backgroundAlpha = 0.76,
-  })  : assert(icon == null || iconWidget == null),
-        assert(backgroundAlpha >= 0 && backgroundAlpha <= 1),
-        assert(!selected || trailing == AppOptionTileTrailing.selection);
+  }) : assert(icon == null || iconWidget == null),
+       assert(backgroundAlpha >= 0 && backgroundAlpha <= 1),
+       assert(!selected || trailing == AppOptionTileTrailing.selection);
 
   final String title;
   final VoidCallback onTap;
@@ -32,13 +32,11 @@ class AppOptionTile extends StatelessWidget {
   Widget _buildTrailing() {
     return switch (trailing) {
       AppOptionTileTrailing.chevron => Icon(
-          Icons.chevron_right_rounded,
-          color: StyleConstants.mutedInkColor,
-          size: 22,
-        ),
-      AppOptionTileTrailing.selection => AppCheckbox.indicator(
-          value: selected,
-        ),
+        Icons.chevron_right_rounded,
+        color: StyleConstants.mutedInkColor,
+        size: 22,
+      ),
+      AppOptionTileTrailing.selection => AppCheckbox.indicator(value: selected),
     };
   }
 
@@ -60,8 +58,9 @@ class AppOptionTile extends StatelessWidget {
             decoration: BoxDecoration(
               color: selected
                   ? StyleConstants.softGreen.withValues(alpha: 0.88)
-                  : StyleConstants.surfaceColor
-                      .withValues(alpha: backgroundAlpha),
+                  : StyleConstants.surfaceColor.withValues(
+                      alpha: backgroundAlpha,
+                    ),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: selected
@@ -84,12 +83,9 @@ class AppOptionTile extends StatelessWidget {
                       borderRadius: BorderRadius.circular(11),
                     ),
                     alignment: Alignment.center,
-                    child: iconWidget ??
-                        Icon(
-                          icon,
-                          color: StyleConstants.deepGreen,
-                          size: 20,
-                        ),
+                    child:
+                        iconWidget ??
+                        Icon(icon, color: StyleConstants.deepGreen, size: 20),
                   ),
                   const SizedBox(width: 12),
                 ],

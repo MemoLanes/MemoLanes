@@ -47,51 +47,52 @@ void main() {
   setUpAll(() async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.flutter.io/shared_preferences'),
-      (call) async => call.method == 'getAll' ? <String, Object>{} : null,
-    );
+          const MethodChannel('plugins.flutter.io/shared_preferences'),
+          (call) async => call.method == 'getAll' ? <String, Object>{} : null,
+        );
     await EasyLocalization.ensureInitialized();
     await _loader.load('assets/translations', _enUs);
   });
 
   testWidgets(
-      'mode menu keeps its content size and leaves the timeline interactive',
-      (tester) async {
-    tester.view.physicalSize = const Size(1080, 1920);
-    tester.view.devicePixelRatio = 3;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+    'mode menu keeps its content size and leaves the timeline interactive',
+    (tester) async {
+      tester.view.physicalSize = const Size(1080, 1920);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
-    final app = _buildTestApp(onRangeChanged: (_, __) {});
+      final app = _buildTestApp(onRangeChanged: (_, _) {});
 
-    await tester.runAsync(() async {
-      await tester.pumpWidget(app);
-      await tester.pump(const Duration(seconds: 1));
-    });
-    await tester.pumpAndSettle();
+      await tester.runAsync(() async {
+        await tester.pumpWidget(app);
+        await tester.pump(const Duration(seconds: 1));
+      });
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byType(TimeRangeControllerBall));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byType(TimeRangeControllerBall));
+      await tester.pumpAndSettle();
 
-    final periodText = find.text('Period');
-    expect(periodText, findsOneWidget);
-    final menuGlass = find.ancestor(
-      of: periodText,
-      matching: find.byType(BackdropFilter),
-    );
-    expect(menuGlass, findsOneWidget);
-    final menuSize = tester.getSize(menuGlass);
-    expect(menuSize.width, lessThan(tester.view.physicalSize.width / 3));
-    expect(menuSize.height, lessThan(tester.view.physicalSize.height / 3));
+      final periodText = find.text('Period');
+      expect(periodText, findsOneWidget);
+      final menuGlass = find.ancestor(
+        of: periodText,
+        matching: find.byType(BackdropFilter),
+      );
+      expect(menuGlass, findsOneWidget);
+      final menuSize = tester.getSize(menuGlass);
+      expect(menuSize.width, lessThan(tester.view.physicalSize.width / 3));
+      expect(menuSize.height, lessThan(tester.view.physicalSize.height / 3));
 
-    await tester.drag(find.byType(TimeRuler), const Offset(-80, 0));
-    await tester.pumpAndSettle();
-    expect(periodText, findsOneWidget);
+      await tester.drag(find.byType(TimeRuler), const Offset(-80, 0));
+      await tester.pumpAndSettle();
+      expect(periodText, findsOneWidget);
 
-    await tester.tapAt(const Offset(350, 20));
-    await tester.pumpAndSettle();
-    expect(periodText, findsNothing);
-  });
+      await tester.tapAt(const Offset(350, 20));
+      await tester.pumpAndSettle();
+      expect(periodText, findsNothing);
+    },
+  );
 
   testWidgets('mode menu remains usable on a 320px viewport', (tester) async {
     tester.view.physicalSize = const Size(320, 480);
@@ -100,7 +101,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.runAsync(() async {
-      await tester.pumpWidget(_buildTestApp(onRangeChanged: (_, __) {}));
+      await tester.pumpWidget(_buildTestApp(onRangeChanged: (_, _) {}));
       await tester.pump(const Duration(seconds: 1));
     });
     await tester.pumpAndSettle();
@@ -119,9 +120,7 @@ void main() {
     final currentYear = DateTime.now().year;
     await tester.runAsync(() async {
       await tester.pumpWidget(
-        _buildTestApp(
-          onRangeChanged: (from, to) => ranges.add((from, to)),
-        ),
+        _buildTestApp(onRangeChanged: (from, to) => ranges.add((from, to))),
       );
       await tester.pump(const Duration(seconds: 1));
     });

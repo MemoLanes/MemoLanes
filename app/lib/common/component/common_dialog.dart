@@ -39,30 +39,30 @@ class CommonDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final messageBody = switch (markdown) {
       false => ListBody(
-          children: const LineSplitter()
-              .convert(content)
-              .map(
-                (line) => Text(
-                  line,
-                  style: AppTypography.body.copyWith(
-                    color: StyleConstants.inkColor,
-                  ),
+        children: const LineSplitter()
+            .convert(content)
+            .map(
+              (line) => Text(
+                line,
+                style: AppTypography.body.copyWith(
+                  color: StyleConstants.inkColor,
                 ),
-              )
-              .toList(),
-        ),
+              ),
+            )
+            .toList(),
+      ),
       true => MarkdownBody(
-          data: content,
-          onTapLink: (text, href, title) async {
-            if (href == null) return;
-            if (!await launchUrlString(
-              href,
-              mode: LaunchMode.externalApplication,
-            )) {
-              throw Exception('Could not launch url: $href');
-            }
-          },
-        ),
+        data: content,
+        onTapLink: (text, href, title) async {
+          if (href == null) return;
+          if (!await launchUrlString(
+            href,
+            mode: LaunchMode.externalApplication,
+          )) {
+            throw Exception('Could not launch url: $href');
+          }
+        },
+      ),
     };
 
     return AppDialogCard(

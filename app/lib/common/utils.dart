@@ -22,13 +22,16 @@ bool popCurrentRoute<T>(BuildContext context, [T? result]) {
   return true;
 }
 
-Future<bool> showCommonDialog(BuildContext context, String message,
-    {bool hasCancel = false,
-    String? title,
-    String? confirmButtonText,
-    String? cancelButtonText,
-    AppButtonVariant confirmVariant = AppButtonVariant.primary,
-    bool markdown = false}) async {
+Future<bool> showCommonDialog(
+  BuildContext context,
+  String message, {
+  bool hasCancel = false,
+  String? title,
+  String? confirmButtonText,
+  String? cancelButtonText,
+  AppButtonVariant confirmVariant = AppButtonVariant.primary,
+  bool markdown = false,
+}) async {
   final resolvedConfirmButtonText =
       confirmButtonText ?? context.tr("common.ok");
   final resolvedCancelButtonText =
@@ -59,9 +62,7 @@ Future<bool> showCommonDialog(BuildContext context, String message,
   return result ?? false;
 }
 
-Future<T> showLoadingDialog<T>({
-  required Future<T> asyncTask,
-}) async {
+Future<T> showLoadingDialog<T>({required Future<T> asyncTask}) async {
   final result = await GlobalLoadingManager.instance.runWithLoading<T>(
     () => asyncTask,
   );
@@ -81,14 +82,10 @@ Future<void> importMldx(BuildContext context, String path) async {
         onLoaded: (loadingContext, result) async {
           final (mldxFile, preview) = result;
           final unchangedCount = preview
-              .where(
-                (j) => j.$2 == MldxJourneyImportAnalyzeResult.unchanged,
-              )
+              .where((j) => j.$2 == MldxJourneyImportAnalyzeResult.unchanged)
               .length;
           final importableCount = preview
-              .where(
-                (j) => j.$2 != MldxJourneyImportAnalyzeResult.unchanged,
-              )
+              .where((j) => j.$2 != MldxJourneyImportAnalyzeResult.unchanged)
               .length;
 
           if (importableCount == 0 && unchangedCount > 0) {
@@ -105,10 +102,8 @@ Future<void> importMldx(BuildContext context, String path) async {
           } else if (loadingContext.mounted) {
             await Navigator.of(loadingContext).pushReplacement<bool, void>(
               MaterialPageRoute(
-                builder: (context) => MldxImportPage(
-                  journeys: preview,
-                  mldxReader: mldxFile,
-                ),
+                builder: (context) =>
+                    MldxImportPage(journeys: preview, mldxReader: mldxFile),
               ),
             );
           }

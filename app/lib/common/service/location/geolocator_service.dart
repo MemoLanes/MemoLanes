@@ -63,10 +63,12 @@ class GeoLocatorService implements ILocationService {
     final settings = _buildLocationSettings(enableBackground);
 
     _positionStreamSub =
-        Geolocator.getPositionStream(locationSettings: settings)
-            .listen(_onPositionReceived, onError: (e) {
-      log.error("[GeoLocatorService] getPositionStream error: $e");
-    });
+        Geolocator.getPositionStream(locationSettings: settings).listen(
+          _onPositionReceived,
+          onError: (e) {
+            log.error("[GeoLocatorService] getPositionStream error: $e");
+          },
+        );
 
     _pokeTask = _PokeGeolocatorTask.start(settings);
 
@@ -139,7 +141,8 @@ class GeoLocatorService implements ILocationService {
 
   @override
   StreamSubscription<LocationData> onLocationUpdate(
-      void Function(LocationData) callback) {
+    void Function(LocationData) callback,
+  ) {
     return _locationUpdateController.stream.listen(callback);
   }
 
@@ -149,11 +152,14 @@ class GeoLocatorService implements ILocationService {
       case TargetPlatform.android:
         var foregroundNotificationConfig = ForegroundNotificationConfig(
           notificationChannelName: tr(
-              "location_service.android_foreground_notification_channel_name"),
-          notificationTitle:
-              tr("location_service.android_foreground_notification_title"),
-          notificationText:
-              tr("location_service.android_foreground_notification_text"),
+            "location_service.android_foreground_notification_channel_name",
+          ),
+          notificationTitle: tr(
+            "location_service.android_foreground_notification_title",
+          ),
+          notificationText: tr(
+            "location_service.android_foreground_notification_text",
+          ),
           setOngoing: true,
           enableWakeLock: true,
         );
@@ -163,8 +169,9 @@ class GeoLocatorService implements ILocationService {
           forceLocationManager: false,
           // 1 sec feels like a reasonable interval
           intervalDuration: const Duration(seconds: 1),
-          foregroundNotificationConfig:
-              (enableBackground) ? foregroundNotificationConfig : null,
+          foregroundNotificationConfig: (enableBackground)
+              ? foregroundNotificationConfig
+              : null,
         );
       case TargetPlatform.iOS || TargetPlatform.macOS:
         return AppleSettings(

@@ -86,7 +86,9 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
                 await api.deleteAllJourneys();
                 if (context.mounted) {
                   await showCommonDialog(
-                      context, context.tr("journey.delete_all_success"));
+                    context,
+                    context.tr("journey.delete_all_success"),
+                  );
                 }
               } catch (e) {
                 if (context.mounted) {
@@ -113,9 +115,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
                   hasCancel: true,
                 )) {
                   if (!context.mounted) return;
-                  await showLoadingDialog(
-                    asyncTask: api.optimizeMainDb(),
-                  );
+                  await showLoadingDialog(asyncTask: api.optimizeMainDb());
                   if (!context.mounted) return;
                   await showCommonDialog(
                     context,
@@ -135,11 +135,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
               final filepath = "${tmpDir.path}/logs-$timestamp.zip";
               await api.exportLogs(targetFilePath: filepath);
               if (!context.mounted) return;
-              await showCommonExport(
-                context,
-                filepath,
-                deleteFile: true,
-              );
+              await showCommonExport(context, filepath, deleteFile: true);
             },
           ),
           LabelTile(
@@ -150,9 +146,8 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
           LabelTile(
             label: context.tr("general.advanced_settings.rebuild_cache"),
             position: LabelTilePosition.middle,
-            onTap: () async => await showLoadingDialog(
-              asyncTask: api.rebuildCache(),
-            ),
+            onTap: () async =>
+                await showLoadingDialog(asyncTask: api.rebuildCache()),
           ),
           LabelTile(
             label: context.tr("privacy.region_title"),
@@ -176,11 +171,13 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
               }
               if (!await showCommonDialog(
                 context,
-                context
-                    .tr("general.advanced_settings.reset_local_prefs_message"),
+                context.tr(
+                  "general.advanced_settings.reset_local_prefs_message",
+                ),
                 hasCancel: true,
-                title:
-                    context.tr("general.advanced_settings.reset_local_prefs"),
+                title: context.tr(
+                  "general.advanced_settings.reset_local_prefs",
+                ),
                 confirmButtonText: context.tr("common.reset"),
                 confirmVariant: AppButtonVariant.danger,
               )) {
@@ -194,7 +191,8 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
             label: context.tr("location_service.location_backend.title"),
             position: LabelTilePosition.middle,
             trailing: LabelTileContent(
-                content: gpsManager.locationBackend.displayName(context)),
+              content: gpsManager.locationBackend.displayName(context),
+            ),
           ),
           LabelTile(
             label: context.tr("haptics.setting_title"),
@@ -213,7 +211,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
             label: context.tr("general.advanced_settings.render_diagnostics"),
             position: LabelTilePosition.bottom,
             onTap: () => navigatorPush(context, page: RenderDiagnosticsPage()),
-          )
+          ),
         ],
       ),
     );

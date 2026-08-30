@@ -10,6 +10,7 @@ import 'package:memolanes/constants/style_constants.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 import 'time_ruler.dart';
+
 import 'package:memolanes/src/rust/journey_header.dart';
 
 export 'time_ruler.dart' show TimeRulerMode, TimeRuler;
@@ -278,7 +279,8 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
                   onTap: _toggleModeMenu,
                   child: TimeRangeControllerBall(
                     key: ValueKey(
-                        'ball-$_displayYear-$_displayMonth-$_displayDay'),
+                      'ball-$_displayYear-$_displayMonth-$_displayDay',
+                    ),
                     viewMode: _viewMode,
                     rulerMode: _rulerMode,
                     selectedDate: _viewMode == TimeMachineViewMode.custom
@@ -296,10 +298,7 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
           child: TapRegion(
             groupId: _modeMenuTapRegionGroup,
             child: PointerInterceptor(
-              child: SizedBox(
-                height: _kPickerBlockHeight,
-                child: rulerChild,
-              ),
+              child: SizedBox(height: _kPickerBlockHeight, child: rulerChild),
             ),
           ),
         ),
@@ -435,8 +434,9 @@ class _TimeMachineViewModeAndLayerMenuState
               _buildMenuColumn(
                 width: columnWidth,
                 title: context.tr('time_machine.menu_title_layer'),
-                children:
-                    _layerKeys.map((e) => _buildLayerItem(e.$1, e.$2)).toList(),
+                children: _layerKeys
+                    .map((e) => _buildLayerItem(e.$1, e.$2))
+                    .toList(),
               ),
             ],
           ),
@@ -462,10 +462,7 @@ class _TimeMachineViewModeAndLayerMenuState
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildColumnTitle(title),
-          ...children,
-        ],
+        children: [_buildColumnTitle(title), ...children],
       ),
     );
   }
@@ -500,8 +497,12 @@ class _TimeMachineViewModeAndLayerMenuState
     );
   }
 
-  Widget _buildMenuTile(BuildContext context, String labelKey, bool isSelected,
-      VoidCallback onTap) {
+  Widget _buildMenuTile(
+    BuildContext context,
+    String labelKey,
+    bool isSelected,
+    VoidCallback onTap,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
       child: Material(
@@ -536,8 +537,9 @@ class _TimeMachineViewModeAndLayerMenuState
                         color: isSelected
                             ? StyleConstants.deepGreen
                             : StyleConstants.deepGreen.withValues(alpha: 0.82),
-                        fontWeight:
-                            isSelected ? FontWeight.w700 : FontWeight.w600,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w600,
                       ),
                     ),
                   ),
@@ -551,15 +553,10 @@ class _TimeMachineViewModeAndLayerMenuState
   }
 
   Widget _buildViewModeItem(TimeMachineViewMode mode, String labelKey) {
-    return _buildMenuTile(
-      context,
-      labelKey,
-      mode == _localViewMode,
-      () {
-        setState(() => _localViewMode = mode);
-        widget.onViewModeSelect(mode);
-      },
-    );
+    return _buildMenuTile(context, labelKey, mode == _localViewMode, () {
+      setState(() => _localViewMode = mode);
+      widget.onViewModeSelect(mode);
+    });
   }
 
   Widget _buildGranularityItem(TimeRulerMode rulerMode, String labelKey) {
@@ -583,24 +580,19 @@ class _TimeMachineViewModeAndLayerMenuState
 
   Widget _buildLayerItem(JourneyKind kind, String labelKey) {
     final isSelected = _localKinds.contains(kind);
-    return _buildMenuTile(
-      context,
-      labelKey,
-      isSelected,
-      () {
-        AppHaptics.selection();
-        setState(() {
-          final next = Set<JourneyKind>.from(_localKinds);
-          if (next.contains(kind)) {
-            next.remove(kind);
-          } else {
-            next.add(kind);
-          }
-          _localKinds = next;
-        });
-        widget.onJourneyKindsChanged?.call(_localKinds);
-      },
-    );
+    return _buildMenuTile(context, labelKey, isSelected, () {
+      AppHaptics.selection();
+      setState(() {
+        final next = Set<JourneyKind>.from(_localKinds);
+        if (next.contains(kind)) {
+          next.remove(kind);
+        } else {
+          next.add(kind);
+        }
+        _localKinds = next;
+      });
+      widget.onJourneyKindsChanged?.call(_localKinds);
+    });
   }
 }
 
@@ -625,9 +617,9 @@ class TimeRangeControllerBall extends StatelessWidget {
   static const double _buttonSize = 60;
   static const double _borderRadius = 12;
   TextStyle get _contentStyle => AppTypography.sectionLabel.copyWith(
-        color: StyleConstants.deepGreen,
-        fontWeight: FontWeight.w700,
-      );
+    color: StyleConstants.deepGreen,
+    fontWeight: FontWeight.w700,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -692,10 +684,7 @@ class TimeRangeControllerBall extends StatelessWidget {
 const double _kPickerBlockHeight = 60.0;
 
 Widget _buildGlassPanel(Widget child, {EdgeInsets? padding}) {
-  return TimeMachineGlassSurface(
-    padding: padding,
-    child: child,
-  );
+  return TimeMachineGlassSurface(padding: padding, child: child);
 }
 
 class TimeRangeOverlayPicker extends StatelessWidget {

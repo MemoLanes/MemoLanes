@@ -12,18 +12,14 @@ class BackupDataPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CapsuleStyleAppBar(
-        title: context.tr("data.backup_data.title"),
-      ),
+      appBar: CapsuleStyleAppBar(title: context.tr("data.backup_data.title")),
       body: MlSingleChildScrollView(
         padding: EdgeInsets.all(8.0),
         children: [
           LabelTile(
             label: context.tr("data.backup_data.last_backup_time"),
             position: LabelTilePosition.top,
-            trailing: LabelTileContent(
-              content: '2025-07-12',
-            ),
+            trailing: LabelTileContent(content: '2025-07-12'),
           ),
           LabelTile(
             label: context.tr("data.backup_data.backup"),

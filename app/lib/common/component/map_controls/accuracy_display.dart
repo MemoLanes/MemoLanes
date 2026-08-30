@@ -11,20 +11,13 @@ import 'package:memolanes/constants/style_constants.dart';
 import 'package:provider/provider.dart';
 
 class AccuracyDisplay extends StatefulWidget {
-  const AccuracyDisplay({
-    super.key,
-  });
+  const AccuracyDisplay({super.key});
 
   @override
   State<AccuracyDisplay> createState() => _AccuracyDisplayState();
 }
 
-enum AccuracyLevel {
-  excellent,
-  good,
-  fair,
-  poor,
-}
+enum AccuracyLevel { excellent, good, fair, poor }
 
 AccuracyLevel getAccuracyLevel(double accuracy) {
   // TODO: tweak this
@@ -86,7 +79,7 @@ class _AccuracyDisplayState extends State<AccuracyDisplay> {
                     color: Colors.transparent,
                     child: InkWell(
                       onTap: () => {
-                        if (hasData) {setState(() => showDetail = !showDetail)}
+                        if (hasData) {setState(() => showDetail = !showDetail)},
                       },
                       borderRadius: BorderRadius.circular(22),
                       child: Stack(
@@ -126,8 +119,10 @@ class _AccuracyDisplayState extends State<AccuracyDisplay> {
                   final position = gpsState.latestPosition;
                   if (position != null) {
                     final accuracyLevel = getAccuracyLevel(position.accuracy);
-                    final signalStatus =
-                        getSignalStatus(context, accuracyLevel);
+                    final signalStatus = getSignalStatus(
+                      context,
+                      accuracyLevel,
+                    );
                     final statusColor = getStatusColor(accuracyLevel);
 
                     return GestureDetector(
@@ -144,16 +139,19 @@ class _AccuracyDisplayState extends State<AccuracyDisplay> {
                               ),
                               borderRadius: BorderRadius.circular(24),
                               border: Border.all(
-                                color:
-                                    StyleConstants.glassBorderColor.withValues(
-                                  alpha: StyleConstants.isDarkMode ? 0.48 : 0.8,
-                                ),
+                                color: StyleConstants.glassBorderColor
+                                    .withValues(
+                                      alpha: StyleConstants.isDarkMode
+                                          ? 0.48
+                                          : 0.8,
+                                    ),
                               ),
                               boxShadow: [
                                 BoxShadow(
                                   color: StyleConstants.shadowColor.withValues(
-                                    alpha:
-                                        StyleConstants.isDarkMode ? 0.48 : 0.14,
+                                    alpha: StyleConstants.isDarkMode
+                                        ? 0.48
+                                        : 0.14,
                                   ),
                                   blurRadius: 22,
                                   offset: const Offset(0, 8),
@@ -181,16 +179,18 @@ class _AccuracyDisplayState extends State<AccuracyDisplay> {
                                             '${position.accuracy.round()} m',
                                             style: AppTypography.dataValue
                                                 .copyWith(
-                                              color: StyleConstants.inkColor,
-                                            ),
+                                                  color:
+                                                      StyleConstants.inkColor,
+                                                ),
                                           ),
                                         ),
                                         Text(
                                           context.tr('home.gps_accuracy'),
-                                          style:
-                                              AppTypography.bodyLarge.copyWith(
-                                            color: StyleConstants.mutedInkColor,
-                                          ),
+                                          style: AppTypography.bodyLarge
+                                              .copyWith(
+                                                color: StyleConstants
+                                                    .mutedInkColor,
+                                              ),
                                         ),
                                       ],
                                     ),

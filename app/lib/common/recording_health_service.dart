@@ -25,10 +25,8 @@ class RecordingHealthService extends ChangeNotifier {
   final _alert = _RecordingHealthAlert();
 
   bool get isRunning => _heartbeatTimer != null;
-  bool get isHeartbeatDetectionEnabled => MMKVUtil.getBool(
-        MMKVKey.isHeartbeatDetectionEnabled,
-        defaultValue: true,
-      );
+  bool get isHeartbeatDetectionEnabled =>
+      MMKVUtil.getBool(MMKVKey.isHeartbeatDetectionEnabled, defaultValue: true);
 
   void handleRecordingStatus(GpsRecordingStatus status) {
     if (defaultTargetPlatform != TargetPlatform.android) return;
@@ -104,8 +102,9 @@ class RecordingHealthService extends ChangeNotifier {
 }
 
 class _RecordingHealthAlert {
-  static final _helpPageUrl =
-      Uri.parse('https://app.memolanes.com/faqs/android-background-recording');
+  static final _helpPageUrl = Uri.parse(
+    'https://app.memolanes.com/faqs/android-background-recording',
+  );
 
   bool _isShowingWarning = false;
 
@@ -125,7 +124,8 @@ class _RecordingHealthAlert {
         barrierDismissible: false,
         builder: (dialogContext) => CommonDialog(
           title: dialogContext.tr('recording_health.interruption_detected'),
-          content: '${dialogContext.tr('recording_health.freeze_warning')}\n\n'
+          content:
+              '${dialogContext.tr('recording_health.freeze_warning')}\n\n'
               '**[${dialogContext.tr('recording_health.view_help')} ↗]($helpUrl)**',
           markdown: true,
           buttons: [

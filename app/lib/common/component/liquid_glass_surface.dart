@@ -24,13 +24,15 @@ class LiquidGlassSurface extends StatelessWidget {
     this.shadowSpreadRadius = StyleConstants.mapOverlayShadowSpreadRadius,
     this.shadowOffset = StyleConstants.mapOverlayShadowOffset,
     this.padding,
-  })  : assert(backgroundAlpha == null ||
-            backgroundAlpha >= 0 && backgroundAlpha <= 1),
-        assert(borderAlpha == null || borderAlpha >= 0 && borderAlpha <= 1),
-        assert(blurSigma >= 0),
-        assert(reflectionAlpha >= 0 && reflectionAlpha <= 1),
-        assert(shadowAlpha == null || shadowAlpha >= 0 && shadowAlpha <= 1),
-        assert(shadowBlurRadius >= 0);
+  }) : assert(
+         backgroundAlpha == null ||
+             backgroundAlpha >= 0 && backgroundAlpha <= 1,
+       ),
+       assert(borderAlpha == null || borderAlpha >= 0 && borderAlpha <= 1),
+       assert(blurSigma >= 0),
+       assert(reflectionAlpha >= 0 && reflectionAlpha <= 1),
+       assert(shadowAlpha == null || shadowAlpha >= 0 && shadowAlpha <= 1),
+       assert(shadowBlurRadius >= 0);
 
   final Widget child;
   final BorderRadius borderRadius;
@@ -109,11 +111,13 @@ class LiquidGlassSurface extends StatelessWidget {
               Positioned.fill(
                 child: DecoratedBox(
                   decoration: _decoration(
-                    color: StyleConstants.glassColor
-                        .withValues(alpha: effectiveBackgroundAlpha),
+                    color: StyleConstants.glassColor.withValues(
+                      alpha: effectiveBackgroundAlpha,
+                    ),
                     border: Border.all(
-                      color: StyleConstants.glassBorderColor
-                          .withValues(alpha: effectiveBorderAlpha),
+                      color: StyleConstants.glassBorderColor.withValues(
+                        alpha: effectiveBorderAlpha,
+                      ),
                       width: 1.1,
                     ),
                   ),

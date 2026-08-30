@@ -59,7 +59,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   double _panelMaxHeight(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
     final baseMaxHeight = _isPreviewMode ? 400.0 : 480.0;
-    final overlayBarHeight = mediaQuery.padding.top * 0.8 +
+    final overlayBarHeight =
+        mediaQuery.padding.top * 0.8 +
         CapsuleBarConstants.barContentHeight +
         CapsuleBarConstants.barBottomInset;
     final availableHeight = mediaQuery.size.height - overlayBarHeight;
@@ -73,7 +74,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   Future<void> _refreshJourneyInfo() async {
     final rendererAndBounds = widget.previewJourneyData != null
         ? await api.getMapRendererProxyForJourneyData(
-            journeyData: widget.previewJourneyData!)
+            journeyData: widget.previewJourneyData!,
+          )
         : await api.getMapRendererProxyForJourney(journeyId: _journeyHeader.id);
 
     if (_isPreviewMode) {
@@ -103,11 +105,13 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
 
   Future<void> _deleteJourneyInfo(BuildContext context) async {
     if (await showCommonDialog(
-        context, context.tr("journey.delete_journey_message"),
-        hasCancel: true,
-        title: context.tr("journey.delete_journey_title"),
-        confirmButtonText: context.tr("common.delete"),
-        confirmVariant: AppButtonVariant.danger)) {
+      context,
+      context.tr("journey.delete_journey_message"),
+      hasCancel: true,
+      title: context.tr("journey.delete_journey_title"),
+      confirmButtonText: context.tr("common.delete"),
+      confirmVariant: AppButtonVariant.danger,
+    )) {
       await api.deleteJourney(journeyId: _journeyHeader.id);
       if (!context.mounted) return;
       popCurrentRoute(context, true);
@@ -131,7 +135,9 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
             journeyKind: _journeyHeader.journeyKind,
             saveData: (JourneyInfo journeyInfo) async {
               await api.updateJourneyMetadata(
-                  id: _journeyHeader.id, journeyInfo: journeyInfo);
+                id: _journeyHeader.id,
+                journeyInfo: journeyInfo,
+              );
             },
           ),
         ),
@@ -162,7 +168,9 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   }
 
   Future<CommonExportResult> _generateExportFile(
-      JourneyHeader journeyHeader, CommonExportFormat exportFormat) async {
+    JourneyHeader journeyHeader,
+    CommonExportFormat exportFormat,
+  ) async {
     final tmpDir = await getTemporaryDirectory();
     final dateStr = journeyHeader.journeyDate.toSimpleDate().toString();
     final filePath =
@@ -175,9 +183,10 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     };
 
     final exportResult = await api.exportJourney(
-        targetFilepath: filePath,
-        journeyId: journeyHeader.id,
-        exportType: exportType);
+      targetFilepath: filePath,
+      journeyId: journeyHeader.id,
+      exportType: exportType,
+    );
     return CommonExportResult.create(exportResult, filePath);
   }
 
@@ -202,9 +211,9 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     final mapRendererProxy = _mapRendererProxy;
     final mapBoundsPadding =
         CapsuleStyleOverlayAppBar.mapFitPaddingForBottomOverlay(
-      context,
-      bottomOverlayHeight: _panelMaxHeight(context),
-    );
+          context,
+          bottomOverlayHeight: _panelMaxHeight(context),
+        );
     final journeyKindName = switch (_journeyHeader.journeyKind) {
       JourneyKind.defaultKind => context.tr("journey_kind.default"),
       JourneyKind.flight => context.tr("journey_kind.flight"),
@@ -219,7 +228,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
               topRight: Radius.circular(16.0),
             ),
             maxHeight: _panelMaxHeight(context),
-            minHeight: MediaQuery.sizeOf(context).width >
+            minHeight:
+                MediaQuery.sizeOf(context).width >
                     MediaQuery.sizeOf(context).height
                 ? 32
                 : 100,
@@ -232,9 +242,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                     child: Center(
                       child: CustomPaint(
                         size: Size(40.0, 4.0),
-                        painter: LinePainter(
-                          color: const Color(0xFFB5B5B5),
-                        ),
+                        painter: LinePainter(color: const Color(0xFFB5B5B5)),
                       ),
                     ),
                   ),
@@ -254,9 +262,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                         LabelTile(
                           label: context.tr("journey.journey_kind"),
                           position: LabelTilePosition.middle,
-                          trailing: LabelTileContent(
-                            content: journeyKindName,
-                          ),
+                          trailing: LabelTileContent(content: journeyKindName),
                         ),
                         LabelTile(
                           label: context.tr("journey.start_time"),
@@ -280,8 +286,9 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                           label: context.tr("journey.created_at"),
                           position: LabelTilePosition.middle,
                           trailing: LabelTileContent(
-                            content:
-                                fmt.format(_journeyHeader.createdAt.toLocal()),
+                            content: fmt.format(
+                              _journeyHeader.createdAt.toLocal(),
+                            ),
                           ),
                         ),
                         LabelTile(
