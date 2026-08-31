@@ -1,6 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
+import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/import_loading_page.dart';
 import 'package:memolanes/body/settings/mldx_import_page.dart';
 import 'package:memolanes/common/loading_manager.dart';
@@ -21,57 +23,61 @@ bool popCurrentRoute<T>(BuildContext context, [T? result]) {
   return true;
 }
 
-Future<bool> showCommonDialog(BuildContext context, String message,
-    {hasCancel = false,
-    title,
-    confirmButtonText,
-    cancelButtonText,
-    confirmGroundColor,
-    confirmTextColor = Colors.black,
-    markdown = false}) async {
-  confirmButtonText = confirmButtonText ?? context.tr("common.ok");
-  cancelButtonText = cancelButtonText ?? context.tr("common.cancel");
-  title = title ?? context.tr("common.info");
-  confirmGroundColor = confirmGroundColor ?? StyleConstants.defaultColor;
+Future<bool> showCommonDialog(
+  BuildContext context,
+  String message, {
+  bool hasCancel = false,
+  String? title,
+  String? confirmButtonText,
+  String? cancelButtonText,
+  AppButtonVariant confirmVariant = AppButtonVariant.primary,
+  // Temporary compatibility for pages migrated in later UI v2 PRs.
+  Color? confirmGroundColor,
+  Color? confirmTextColor,
+  bool markdown = false,
+}) async {
+  final resolvedConfirmButtonText =
+      confirmButtonText ?? context.tr("common.ok");
+  final resolvedCancelButtonText =
+      cancelButtonText ?? context.tr("common.cancel");
+  final dialogTitle = title ?? context.tr("common.info");
+  final effectiveConfirmVariant =
+      confirmGroundColor == null ||
+          confirmGroundColor == StyleConstants.defaultColor
+      ? confirmVariant
+      : AppButtonVariant.danger;
   final List<DialogButton> allButtons = [
+    if (hasCancel)
+      DialogButton(
+        text: resolvedCancelButtonText,
+        variant: AppButtonVariant.secondary,
+        onPressed: () {
+          Navigator.of(context).pop(false);
+        },
+      ),
     DialogButton(
-      text: confirmButtonText,
+      text: resolvedConfirmButtonText,
+      variant: effectiveConfirmVariant,
       onPressed: () {
         Navigator.of(context).pop(true);
       },
-      backgroundColor: confirmGroundColor,
-      textColor: confirmTextColor,
     ),
-    if (hasCancel)
-      DialogButton(
-          text: cancelButtonText,
-          backgroundColor: confirmGroundColor == StyleConstants.defaultColor
-              ? Colors.grey
-              : StyleConstants.defaultColor,
-          onPressed: () {
-            Navigator.of(context).pop(false);
-          })
   ];
 
-  var result = await showDialog<bool>(
-    context: context,
+  final result = await showAppDialog<bool>(
+    context,
     barrierDismissible: false,
-    builder: (BuildContext context) {
-      return CommonDialog(
-        title: title,
-        content: message,
-        showCancel: hasCancel,
-        buttons: allButtons,
-        markdown: markdown,
-      );
-    },
+    child: CommonDialog(
+      title: dialogTitle,
+      content: message,
+      buttons: allButtons,
+      markdown: markdown,
+    ),
   );
   return result ?? false;
 }
 
-Future<T> showLoadingDialog<T>({
-  required Future<T> asyncTask,
-}) async {
+Future<T> showLoadingDialog<T>({required Future<T> asyncTask}) async {
   final result = await GlobalLoadingManager.instance.runWithLoading<T>(
     () => asyncTask,
   );
@@ -91,14 +97,10 @@ Future<void> importMldx(BuildContext context, String path) async {
         onLoaded: (loadingContext, result) async {
           final (mldxFile, preview) = result;
           final unchangedCount = preview
-              .where(
-                (j) => j.$2 == MldxJourneyImportAnalyzeResult.unchanged,
-              )
+              .where((j) => j.$2 == MldxJourneyImportAnalyzeResult.unchanged)
               .length;
           final importableCount = preview
-              .where(
-                (j) => j.$2 != MldxJourneyImportAnalyzeResult.unchanged,
-              )
+              .where((j) => j.$2 != MldxJourneyImportAnalyzeResult.unchanged)
               .length;
 
           if (importableCount == 0 && unchangedCount > 0) {
@@ -115,10 +117,8 @@ Future<void> importMldx(BuildContext context, String path) async {
           } else if (loadingContext.mounted) {
             await Navigator.of(loadingContext).pushReplacement<bool, void>(
               MaterialPageRoute(
-                builder: (context) => MldxImportPage(
-                  journeys: preview,
-                  mldxReader: mldxFile,
-                ),
+                builder: (context) =>
+                    MldxImportPage(journeys: preview, mldxReader: mldxFile),
               ),
             );
           }

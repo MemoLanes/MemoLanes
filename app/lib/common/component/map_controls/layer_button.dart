@@ -10,9 +10,7 @@ import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 
 class LayerButton extends StatelessWidget {
-  const LayerButton({
-    super.key,
-  });
+  const LayerButton({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -23,39 +21,34 @@ class LayerButton extends StatelessWidget {
       barrierColor: Colors.transparent,
       content: PointerInterceptor(child: const LayerPopupContent()),
       child: PointerInterceptor(
-          child: Container(
-        width: 48,
-        height: 48,
-        decoration: const BoxDecoration(
-          color: Colors.black,
-          shape: BoxShape.circle,
-        ),
-        child: Center(
-          child: Icon(
-            Icons.layers,
-            color: StyleConstants.defaultColor,
-            size: 20,
+        child: Container(
+          width: 48,
+          height: 48,
+          decoration: const BoxDecoration(
+            color: Colors.black,
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: Icon(
+              Icons.layers,
+              color: StyleConstants.defaultColor,
+              size: 20,
+            ),
           ),
         ),
-      )),
+      ),
     );
   }
 }
 
 class LayerPopupContent extends StatefulWidget {
-  const LayerPopupContent({
-    super.key,
-  });
+  const LayerPopupContent({super.key});
 
   @override
   State<LayerPopupContent> createState() => _LayerPopupContentState();
 }
 
-enum LayerOption {
-  current,
-  default_,
-  flight,
-}
+enum LayerOption { current, default_, flight }
 
 class _LayerPopupContentState extends State<LayerPopupContent> {
   final api.LayerFilter _layerFilter = api.getCurrentMainMapLayerFilter();
@@ -72,12 +65,21 @@ class _LayerPopupContentState extends State<LayerPopupContent> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildItem(LayerOption.current, context.tr("journey_kind.current"),
-            FontAwesomeIcons.locationDot),
-        _buildItem(LayerOption.default_, context.tr("journey_kind.default"),
-            FontAwesomeIcons.shoePrints),
-        _buildItem(LayerOption.flight, context.tr("journey_kind.flight"),
-            FontAwesomeIcons.planeUp),
+        _buildItem(
+          LayerOption.current,
+          context.tr("journey_kind.current"),
+          FontAwesomeIcons.locationDot,
+        ),
+        _buildItem(
+          LayerOption.default_,
+          context.tr("journey_kind.default"),
+          FontAwesomeIcons.shoePrints,
+        ),
+        _buildItem(
+          LayerOption.flight,
+          context.tr("journey_kind.flight"),
+          FontAwesomeIcons.planeUp,
+        ),
       ],
     );
   }
@@ -119,8 +121,9 @@ class _LayerPopupContentState extends State<LayerPopupContent> {
               child: Center(
                 child: FaIcon(
                   icon,
-                  color:
-                      isActive ? StyleConstants.defaultColor : Colors.white70,
+                  color: isActive
+                      ? StyleConstants.defaultColor
+                      : Colors.white70,
                   size: 16,
                 ),
               ),

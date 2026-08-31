@@ -106,10 +106,7 @@ class AchievementStatsStore extends ChangeNotifier {
   bool get hasCountryStats => _hasCountryStats;
 
   Future<void> refresh() async {
-    await Future.wait<void>([
-      _refreshAreaStats(),
-      _refreshCountryStats(),
-    ]);
+    await Future.wait<void>([_refreshAreaStats(), _refreshCountryStats()]);
   }
 
   Future<void> _refreshAreaStats() {
@@ -197,22 +194,23 @@ class AchievementStatsStore extends ChangeNotifier {
       level: RegionKind.admin0,
     );
 
-    final countries = countriesView.entries.entries
-        .where((entry) => entry.value.visitedAreaM2 > BigInt.zero)
-        .map(
-          (entry) => AchievementCountryStats(
-            entityId: entry.key,
-            entity: entry.value,
-            visitedKm2: entry.value.visitedAreaM2.toDouble() / 1000000,
-            totalKm2: entry.value.totalAreaM2.toDouble() / 1000000,
-          ),
-        )
-        .toList()
-      ..sort((a, b) {
-        final areaOrder = b.visitedKm2.compareTo(a.visitedKm2);
-        if (areaOrder != 0) return areaOrder;
-        return (a.isoA3Eh ?? '').compareTo(b.isoA3Eh ?? '');
-      });
+    final countries =
+        countriesView.entries.entries
+            .where((entry) => entry.value.visitedAreaM2 > BigInt.zero)
+            .map(
+              (entry) => AchievementCountryStats(
+                entityId: entry.key,
+                entity: entry.value,
+                visitedKm2: entry.value.visitedAreaM2.toDouble() / 1000000,
+                totalKm2: entry.value.totalAreaM2.toDouble() / 1000000,
+              ),
+            )
+            .toList()
+          ..sort((a, b) {
+            final areaOrder = b.visitedKm2.compareTo(a.visitedKm2);
+            if (areaOrder != 0) return areaOrder;
+            return (a.isoA3Eh ?? '').compareTo(b.isoA3Eh ?? '');
+          });
 
     return countries;
   }

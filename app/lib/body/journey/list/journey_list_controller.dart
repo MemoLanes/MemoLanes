@@ -17,10 +17,10 @@ class JourneyListController extends ChangeNotifier {
     EarliestJourneyDateLoader? earliestJourneyDateLoader,
     JourneyDatesLoader? journeyDatesLoader,
     JourneyHeadersLoader? journeyHeadersLoader,
-  })  : _earliestJourneyDateLoader =
-            earliestJourneyDateLoader ?? _loadEarliestJourneyDate,
-        _journeyDatesLoader = journeyDatesLoader ?? _loadJourneyDates,
-        _journeyHeadersLoader = journeyHeadersLoader ?? _loadJourneyHeaders;
+  }) : _earliestJourneyDateLoader =
+           earliestJourneyDateLoader ?? _loadEarliestJourneyDate,
+       _journeyDatesLoader = journeyDatesLoader ?? _loadJourneyDates,
+       _journeyHeadersLoader = journeyHeadersLoader ?? _loadJourneyHeaders;
 
   final EarliestJourneyDateLoader _earliestJourneyDateLoader;
   final JourneyDatesLoader _journeyDatesLoader;
@@ -106,16 +106,22 @@ class JourneyListController extends ChangeNotifier {
   Future<void> displayMonth(SimpleDate displayedMonth) async {
     final earliest = firstDate;
     if (earliest == null) return;
-    var date =
-        SimpleDate(displayedMonth.year, displayedMonth.month, selectedDate.day);
-    final lastDay =
-        SimpleDate(displayedMonth.year, displayedMonth.month + 1, 0);
+    var date = SimpleDate(
+      displayedMonth.year,
+      displayedMonth.month,
+      selectedDate.day,
+    );
+    final lastDay = SimpleDate(
+      displayedMonth.year,
+      displayedMonth.month + 1,
+      0,
+    );
     if (selectedDate.day > lastDay.day) date = lastDay;
     if (lastDate.isBefore(date)) date = lastDate;
     if (earliest.isAfter(date)) date = earliest;
     selectedDate =
         _nearestDateInMonth(displayedMonth.year, displayedMonth.month, date) ??
-            date;
+        date;
     if (!_hasJourneyOn(selectedDate)) {
       _showEmptyJourneyList();
       return;
@@ -130,10 +136,8 @@ class JourneyListController extends ChangeNotifier {
     await refresh(adjustSelectedDate: true);
   }
 
-  Future<void> showAllJourneyKinds() => setJourneyKinds({
-        JourneyKind.defaultKind,
-        JourneyKind.flight,
-      });
+  Future<void> showAllJourneyKinds() =>
+      setJourneyKinds({JourneyKind.defaultKind, JourneyKind.flight});
 
   Future<void> _loadJourneysOnSelectedDate({
     Set<JourneyKind>? journeyKinds,
@@ -228,10 +232,9 @@ Future<List<SimpleDate>> _loadJourneyDates(
 Future<List<JourneyHeader>> _loadJourneyHeaders(
   SimpleDate date,
   Set<JourneyKind> journeyKinds,
-) =>
-    api.listJourneysOnDate(
-      year: date.year,
-      month: date.month,
-      day: date.day,
-      journeyKinds: journeyKinds,
-    );
+) => api.listJourneysOnDate(
+  year: date.year,
+  month: date.month,
+  day: date.day,
+  journeyKinds: journeyKinds,
+);

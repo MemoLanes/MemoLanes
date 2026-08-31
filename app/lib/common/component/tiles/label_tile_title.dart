@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 
 class LabelTileTitle extends StatelessWidget {
-  const LabelTileTitle({
-    super.key,
-    required this.label,
-  });
+  const LabelTileTitle({super.key, required this.label});
 
   final String label;
 
@@ -13,10 +10,7 @@ class LabelTileTitle extends StatelessWidget {
     final radius = Radius.circular(16.0);
 
     BorderRadius? borderRadius = BorderRadius.zero;
-    borderRadius = borderRadius.copyWith(
-      topLeft: radius,
-      topRight: radius,
-    );
+    borderRadius = borderRadius.copyWith(topLeft: radius, topRight: radius);
 
     return Container(
       padding: EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
@@ -25,10 +19,7 @@ class LabelTileTitle extends StatelessWidget {
         borderRadius: borderRadius,
       ),
       child: ConstrainedBox(
-        constraints: BoxConstraints(
-          minWidth: double.infinity,
-          maxHeight: 54.0,
-        ),
+        constraints: BoxConstraints(minWidth: double.infinity, maxHeight: 54.0),
         child: Text(
           label,
           style: TextStyle(color: const Color(0x99FFFFFF)),

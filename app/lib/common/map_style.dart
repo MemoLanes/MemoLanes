@@ -18,8 +18,7 @@ class MapStyle {
     MapStyle(
       id: 'openfreemap',
       url: 'https://tiles.openfreemap.org/styles/liberty',
-      copyright:
-          '[OpenFreeMap](https://openfreemap.org) [© OpenMapTiles](https://www.openmaptiles.org/) Data from [OpenStreetMap](https://www.openstreetmap.org/copyright)',
+      copyright: '[OpenFreeMap](https://openfreemap.org) [© OpenMapTiles](https://www.openmaptiles.org/) Data from [OpenStreetMap](https://www.openstreetmap.org/copyright)',
       fogOpacity: 0.5,
     ),
     MapStyle(
@@ -31,9 +30,6 @@ class MapStyle {
   ];
 
   static MapStyle findById(String? id) {
-    return all.firstWhere(
-      (s) => s.id == id,
-      orElse: () => all[0],
-    );
+    return all.firstWhere((s) => s.id == id, orElse: () => all[0]);
   }
 }

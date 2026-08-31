@@ -18,12 +18,14 @@ class _RecordingButtonsState extends State<RecordingButtons> {
     AppHaptics.warning();
     final gpsManager = context.read<GpsManager>();
     final shouldEndJourney = await showCommonDialog(
-        context, context.tr("home.end_journey_message"),
-        hasCancel: true,
-        title: context.tr("home.end_journey_title"),
-        confirmButtonText: context.tr("common.end"),
-        confirmGroundColor: Colors.red,
-        confirmTextColor: Colors.white);
+      context,
+      context.tr("home.end_journey_message"),
+      hasCancel: true,
+      title: context.tr("home.end_journey_title"),
+      confirmButtonText: context.tr("common.end"),
+      confirmGroundColor: Colors.red,
+      confirmTextColor: Colors.white,
+    );
 
     if (shouldEndJourney) {
       gpsManager.changeRecordingState(GpsRecordingStatus.none);
@@ -38,27 +40,28 @@ class _RecordingButtonsState extends State<RecordingButtons> {
     if (gpsManager.recordingStatus == GpsRecordingStatus.none) {
       controls = Center(
         child: PointerInterceptor(
-            child: ElevatedButton(
-          onPressed: () async {
-            AppHaptics.heavy();
-            gpsManager.changeRecordingState(GpsRecordingStatus.recording);
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFB4EC51),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(9999),
+          child: ElevatedButton(
+            onPressed: () async {
+              AppHaptics.heavy();
+              gpsManager.changeRecordingState(GpsRecordingStatus.recording);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFB4EC51),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(9999),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-          ),
-          child: Text(
-            context.tr("home.start_new_journey"),
-            style: const TextStyle(
-              color: Colors.black,
-              fontWeight: FontWeight.w400,
-              fontSize: 20,
+            child: Text(
+              context.tr("home.start_new_journey"),
+              style: const TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.w400,
+                fontSize: 20,
+              ),
             ),
           ),
-        )),
+        ),
       );
     } else if (gpsManager.recordingStatus == GpsRecordingStatus.recording) {
       controls = Center(
@@ -66,43 +69,43 @@ class _RecordingButtonsState extends State<RecordingButtons> {
           mainAxisSize: MainAxisSize.min,
           children: [
             PointerInterceptor(
-                child: ElevatedButton(
-              onPressed: () async {
-                AppHaptics.medium();
-                gpsManager.changeRecordingState(GpsRecordingStatus.paused);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(9999),
+              child: ElevatedButton(
+                onPressed: () async {
+                  AppHaptics.medium();
+                  gpsManager.changeRecordingState(GpsRecordingStatus.paused);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(9999),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 16,
+                  ),
                 ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              ),
-              child: Text(
-                context.tr("home.pause"),
-                style: const TextStyle(
-                  color: Color(0xFFB4EC51),
-                  fontWeight: FontWeight.w400,
-                  fontSize: 20,
+                child: Text(
+                  context.tr("home.pause"),
+                  style: const TextStyle(
+                    color: Color(0xFFB4EC51),
+                    fontWeight: FontWeight.w400,
+                    fontSize: 20,
+                  ),
                 ),
               ),
-            )),
+            ),
             const SizedBox(width: 24),
             PointerInterceptor(
-                child: ElevatedButton(
-              onPressed: _showEndJourneyDialog,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                shape: const CircleBorder(),
-                padding: const EdgeInsets.all(16),
+              child: ElevatedButton(
+                onPressed: _showEndJourneyDialog,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  shape: const CircleBorder(),
+                  padding: const EdgeInsets.all(16),
+                ),
+                child: const Icon(Icons.close, color: Colors.white, size: 24),
               ),
-              child: const Icon(
-                Icons.close,
-                color: Colors.white,
-                size: 24,
-              ),
-            )),
+            ),
           ],
         ),
       );
@@ -112,43 +115,43 @@ class _RecordingButtonsState extends State<RecordingButtons> {
           mainAxisSize: MainAxisSize.min,
           children: [
             PointerInterceptor(
-                child: ElevatedButton(
-              onPressed: () async {
-                AppHaptics.medium();
-                gpsManager.changeRecordingState(GpsRecordingStatus.recording);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFFB4EC51),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(9999),
+              child: ElevatedButton(
+                onPressed: () async {
+                  AppHaptics.medium();
+                  gpsManager.changeRecordingState(GpsRecordingStatus.recording);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFFB4EC51),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(9999),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 16,
+                  ),
                 ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              ),
-              child: Text(
-                context.tr("home.resume"),
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.w400,
-                  fontSize: 20,
+                child: Text(
+                  context.tr("home.resume"),
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w400,
+                    fontSize: 20,
+                  ),
                 ),
               ),
-            )),
+            ),
             const SizedBox(width: 24),
             PointerInterceptor(
-                child: ElevatedButton(
-              onPressed: _showEndJourneyDialog,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                shape: const CircleBorder(),
-                padding: const EdgeInsets.all(16),
+              child: ElevatedButton(
+                onPressed: _showEndJourneyDialog,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  shape: const CircleBorder(),
+                  padding: const EdgeInsets.all(16),
+                ),
+                child: const Icon(Icons.close, color: Colors.white, size: 24),
               ),
-              child: const Icon(
-                Icons.close,
-                color: Colors.white,
-                size: 24,
-              ),
-            )),
+            ),
           ],
         ),
       );

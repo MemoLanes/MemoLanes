@@ -31,10 +31,7 @@ extension RegionEntityDisplay on RegionEntity {
 }
 
 class FormattedArea {
-  const FormattedArea({
-    required this.value,
-    required this.unit,
-  });
+  const FormattedArea({required this.value, required this.unit});
 
   final String value;
   final String unit;
@@ -121,20 +118,13 @@ class AchievementCountryFlag extends StatelessWidget {
 
     return CountryFlag.fromCountryCode(
       countryCode,
-      theme: ImageTheme(
-        width: size,
-        height: size,
-        shape: const Circle(),
-      ),
+      theme: ImageTheme(width: size, height: size, shape: const Circle()),
     );
   }
 }
 
 class _FallbackCountryFlag extends StatelessWidget {
-  const _FallbackCountryFlag({
-    required this.countryCode,
-    required this.size,
-  });
+  const _FallbackCountryFlag({required this.countryCode, required this.size});
 
   final String countryCode;
   final double size;
@@ -150,9 +140,7 @@ class _FallbackCountryFlag extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: Colors.white.withValues(alpha: 0.08),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.14),
-          ),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
         ),
         child: Icon(
           Icons.public_rounded,

@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum LabelTilePosition {
-  single,
-  top,
-  middle,
-  bottom,
-}
+enum LabelTilePosition { single, top, middle, bottom }
 
 class LabelTile extends StatelessWidget {
   const LabelTile({
@@ -74,10 +69,7 @@ class LabelTile extends StatelessWidget {
     }
     if (position == LabelTilePosition.single ||
         position == LabelTilePosition.top) {
-      borderRadius = borderRadius.copyWith(
-        topLeft: radius,
-        topRight: radius,
-      );
+      borderRadius = borderRadius.copyWith(topLeft: radius, topRight: radius);
     }
 
     List<Widget> children = [
@@ -89,11 +81,7 @@ class LabelTile extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
                 if (desc.isNotEmpty)
                   Text(
                     desc,
@@ -112,7 +100,7 @@ class LabelTile extends StatelessWidget {
             ],
           ],
         ),
-      )
+      ),
     ];
     if (prefix != null) children.insert(0, prefix!);
     if (suffix != null) children.add(suffix!);

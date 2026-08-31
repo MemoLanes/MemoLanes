@@ -46,15 +46,18 @@ void delayedInit(UpdateNotifier updateNotifier) {
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
 
     await api.delayedInit(
-        deviceInfo: api.DeviceInfo(
-            isPhysicalDevice: isPhysicalDevice,
-            manufacturer: manufacturer,
-            model: model,
-            systemVersion: systemVersion),
-        appInfo: api.AppInfo(
-            packageName: packageInfo.packageName,
-            version: packageInfo.version,
-            buildNumber: packageInfo.buildNumber));
+      deviceInfo: api.DeviceInfo(
+        isPhysicalDevice: isPhysicalDevice,
+        manufacturer: manufacturer,
+        model: model,
+        systemVersion: systemVersion,
+      ),
+      appInfo: api.AppInfo(
+        packageName: packageInfo.packageName,
+        version: packageInfo.version,
+        buildNumber: packageInfo.buildNumber,
+      ),
+    );
 
     // Db optimization check
     const currentOptimizationCheckVersion = 1;
@@ -64,11 +67,15 @@ void delayedInit(UpdateNotifier updateNotifier) {
         var context = navigatorKey.currentState?.context;
         if (context != null && context.mounted) {
           await showCommonDialog(
-              context, context.tr("db_optimization.notification"));
+            context,
+            context.tr("db_optimization.notification"),
+          );
         }
       } else {
         MMKVUtil.putInt(
-            MMKVKey.dbOptimizationCheck, currentOptimizationCheckVersion);
+          MMKVKey.dbOptimizationCheck,
+          currentOptimizationCheckVersion,
+        );
       }
     }
 

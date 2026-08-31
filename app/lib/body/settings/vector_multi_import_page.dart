@@ -127,8 +127,9 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
       final count = await showLoadingDialog(
         asyncTask: import_api.importVectorDataByDate(
           vectorData: widget.vectorData,
-          journeyDates:
-              selectedParts.map((part) => _dateKey(part).toString()).toList(),
+          journeyDates: selectedParts
+              .map((part) => _dateKey(part).toString())
+              .toList(),
           importProcessor: _preprocessor,
           journeyKind: _journeyKind,
           note: _noteController.text,
@@ -191,8 +192,9 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
       },
       onToggleAll: (selectAll) async {
         setState(() {
-          _selectedDates =
-              selectAll ? widget.parts.map(_dateKey).toSet() : <SimpleDate>{};
+          _selectedDates = selectAll
+              ? widget.parts.map(_dateKey).toSet()
+              : <SimpleDate>{};
         });
       },
       onPreview: _openPreview,

@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/settings/import_data_page.dart';
@@ -15,25 +16,29 @@ class ShareHandlerUtil {
 
   /// Subscribes to share intents immediately. [navigatorKey] is used to obtain
   /// context for dialogs/navigation when handling shares.
-  static void init({
-    required GlobalKey<NavigatorState> navigatorKey,
-  }) {
+  static void init({required GlobalKey<NavigatorState> navigatorKey}) {
     _navigatorKey = navigatorKey;
     final handler = ShareHandlerPlatform.instance;
 
-    handler.getInitialSharedMedia().then((media) {
-      final attachments = media?.attachments ?? const [];
-      _setPendingAndProcess(attachments);
-    }).catchError((e) {
-      log.error('Failed to get initial shared media: $e');
-    });
+    handler
+        .getInitialSharedMedia()
+        .then((media) {
+          final attachments = media?.attachments ?? const [];
+          _setPendingAndProcess(attachments);
+        })
+        .catchError((e) {
+          log.error('Failed to get initial shared media: $e');
+        });
 
-    handler.sharedMediaStream.listen((media) {
-      final attachments = media.attachments ?? const [];
-      _setPendingAndProcess(attachments);
-    }, onError: (err) {
-      log.error('Error in sharedMediaStream: $err');
-    });
+    handler.sharedMediaStream.listen(
+      (media) {
+        final attachments = media.attachments ?? const [];
+        _setPendingAndProcess(attachments);
+      },
+      onError: (err) {
+        log.error('Error in sharedMediaStream: $err');
+      },
+    );
   }
 
   static void _setPendingAndProcess(List<SharedAttachment?> attachments) {
@@ -54,7 +59,9 @@ class ShareHandlerUtil {
   }
 
   static Future<void> _handleSharedFile(
-      BuildContext context, List<SharedAttachment?> attachments) async {
+    BuildContext context,
+    List<SharedAttachment?> attachments,
+  ) async {
     final paths = attachments
         .whereType<SharedAttachment>()
         .map((e) => e.path)
@@ -98,7 +105,9 @@ class ShareHandlerUtil {
     if (importType == null) {
       if (!context.mounted) return;
       await showCommonDialog(
-          context, context.tr("import.unsupported_file_failed"));
+        context,
+        context.tr("import.unsupported_file_failed"),
+      );
       return;
     }
 
@@ -106,10 +115,7 @@ class ShareHandlerUtil {
 
     navigatorPush(
       context,
-      page: ImportDataPage(
-        path: path,
-        importType: importType,
-      ),
+      page: ImportDataPage(path: path, importType: importType),
     );
   }
 

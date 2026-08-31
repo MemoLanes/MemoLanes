@@ -7,7 +7,6 @@
 
 use std::collections::BTreeMap;
 
-use bincode::Options;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -48,12 +47,6 @@ pub struct GeoData {
     pub tile_index: Vec<TileEntry>,
     pub border_blobs: Vec<Box<[u8]>>,
     pub provenance_hash: [u8; 32],
-}
-
-fn bincode_opts() -> impl Options {
-    bincode::DefaultOptions::new()
-        .with_fixint_encoding()
-        .with_little_endian()
 }
 
 fn read_u32(b: &[u8], at: usize) -> u32 {
@@ -106,8 +99,7 @@ pub fn write_geo_data(
         entities: entities.to_vec(),
         worldview_id: worldview_id.to_owned(),
     };
-    let meta_bytes =
-        zstd::encode_all(bincode_opts().serialize(&meta)?.as_slice(), META_ZSTD_LEVEL)?;
+    let meta_bytes = zstd::encode_all(bitcode::serialize(&meta)?.as_slice(), META_ZSTD_LEVEL)?;
     let tile_index_bytes = zstd::encode_all(tile_index_raw.as_slice(), TILE_INDEX_ZSTD_LEVEL)?;
 
     let mut border_offsets = Vec::with_capacity(blobs.len() * 8);
@@ -201,7 +193,9 @@ pub fn read_geo_data(bytes: &[u8]) -> anyhow::Result<GeoData> {
     };
 
     let meta_raw = zstd::decode_all(slice(meta_off, meta_len)?)?;
-    let meta: MetaSection = bincode_opts().deserialize(meta_raw.as_slice())?;
+    // `bitcode::deserialize` rejects trailing bytes, preserving the format's
+    // strict section-boundary validation.
+    let meta: MetaSection = bitcode::deserialize(meta_raw.as_slice())?;
 
     let tile_raw = zstd::decode_all(slice(tile_off, tile_len)?)?;
     anyhow::ensure!(

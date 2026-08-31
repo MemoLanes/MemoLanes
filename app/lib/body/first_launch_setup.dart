@@ -2,10 +2,13 @@ import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/component/app_button.dart';
+import 'package:memolanes/common/component/app_checkbox.dart';
 import 'package:memolanes/common/component/setup_bottom_sheet.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/region_preference.dart';
 import 'package:memolanes/common/utils.dart';
+import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -26,24 +29,22 @@ Future<void> _showPrivacyAndRegionSheet(
   if (!privacyAlreadyAccepted) {
     // NOTE: we also use the same mechanism to show public beta testing notice.
     await showCommonDialog(
-        context, context.tr("beta_testing_notice.content_md"),
-        title: context.tr("beta_testing_notice.title"), markdown: true);
+      context,
+      context.tr("beta_testing_notice.content_md"),
+      title: context.tr("beta_testing_notice.title"),
+      markdown: true,
+    );
   }
 
   // A little weird, but shouldn't happen.
   if (!context.mounted) return;
 
-  final accepted = await showModalBottomSheet<_FirstLaunchAccepted>(
-    context: context,
-    backgroundColor: Colors.transparent,
-    isScrollControlled: true,
-    isDismissible: false,
-    enableDrag: false,
-    builder: (context) {
-      return FirstLaunchSetupSheet(
-        initialPrivacyAccepted: privacyAlreadyAccepted,
-      );
-    },
+  final accepted = await showSetupCard<_FirstLaunchAccepted>(
+    context,
+    barrierDismissible: false,
+    child: FirstLaunchSetupSheet(
+      initialPrivacyAccepted: privacyAlreadyAccepted,
+    ),
   );
 
   if (accepted == null) {
@@ -64,8 +65,10 @@ Future<void> _showPrivacyAndRegionSheet(
 
 /// Shows the privacy / welcome UI when needed.
 Future<void> showFirstLaunchSetupIfNeeded(BuildContext context) async {
-  var acceptedVersion =
-      MMKVUtil.getInt(MMKVKey.privacyAgreementAccepted, defaultValue: 0);
+  var acceptedVersion = MMKVUtil.getInt(
+    MMKVKey.privacyAgreementAccepted,
+    defaultValue: 0,
+  );
   final privacyAlreadyAccepted =
       acceptedVersion >= _latestPrivacyAgreementVersion;
   final setupCompletedVersion = MMKVUtil.getInt(
@@ -137,23 +140,14 @@ class _FirstLaunchSetupSheetState extends State<FirstLaunchSetupSheet> {
       title: context.tr("privacy.setup_title"),
       maxHeightFactor: 0.75,
       actions: [
-        OutlinedButton(
+        AppButton(
+          label: context.tr("privacy.disagree_and_exit"),
           onPressed: _onDisagree,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.white,
-            side: const BorderSide(color: Color(0xFFB5B5B5)),
-            padding: const EdgeInsets.symmetric(vertical: 12),
-          ),
-          child: Text(context.tr("privacy.disagree_and_exit")),
+          variant: AppButtonVariant.secondary,
         ),
-        FilledButton(
+        AppButton(
+          label: context.tr("common.continue"),
           onPressed: _privacyAccepted ? _onContinue : null,
-          style: FilledButton.styleFrom(
-            backgroundColor: StyleConstants.defaultColor,
-            foregroundColor: Colors.black,
-            padding: const EdgeInsets.symmetric(vertical: 12),
-          ),
-          child: Text(context.tr("common.continue")),
         ),
       ],
       child: Column(
@@ -163,10 +157,8 @@ class _FirstLaunchSetupSheetState extends State<FirstLaunchSetupSheet> {
             padding: const EdgeInsets.only(bottom: 10),
             child: Text(
               context.tr("privacy.setup_desc"),
-              style: const TextStyle(
-                color: Color(0xFFB0B0B0),
-                fontSize: 13,
-                height: 1.35,
+              style: AppTypography.supporting.copyWith(
+                color: StyleConstants.mutedInkColor,
               ),
             ),
           ),
@@ -176,9 +168,9 @@ class _FirstLaunchSetupSheetState extends State<FirstLaunchSetupSheet> {
             title: regionPreferenceTitle(context, _selectedWorldview),
             onTap: _showRegionPicker,
             minHeight: _setupTileMinHeight,
-            trailing: const Icon(
+            trailing: Icon(
               Icons.keyboard_arrow_right,
-              color: Color(0x99FFFFFF),
+              color: StyleConstants.mutedInkColor,
             ),
           ),
           const SizedBox(height: 2),
@@ -207,10 +199,8 @@ class _SectionTitle extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8, top: 4),
       child: Text(
         text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
+        style: AppTypography.cardTitle.copyWith(
+          color: StyleConstants.deepGreen,
         ),
       ),
     );
@@ -242,25 +232,19 @@ class _PrivacyAgreementTile extends StatelessWidget {
             padding: EdgeInsets.zero,
             minimumSize: Size.zero,
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            foregroundColor: StyleConstants.defaultColor,
+            foregroundColor: StyleConstants.deepGreen,
           ),
           child: Text(
             context.tr("privacy.view_policy"),
-            style: TextStyle(
-              fontSize: 13,
+            style: AppTypography.supporting.copyWith(
               fontWeight: FontWeight.w600,
               decoration: TextDecoration.underline,
-              decorationColor: StyleConstants.defaultColor,
+              decorationColor: StyleConstants.deepGreen,
             ),
           ),
         ),
       ),
-      trailing: Checkbox(
-        value: accepted,
-        onChanged: (value) => onChanged(value ?? false),
-        activeColor: StyleConstants.defaultColor,
-        checkColor: Colors.black,
-      ),
+      trailing: AppCheckbox(value: accepted, onChanged: onChanged),
     );
   }
 }

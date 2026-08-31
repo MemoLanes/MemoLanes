@@ -73,7 +73,7 @@ class _JourneyBodyState extends State<JourneyBody> {
         return LabelTile(
           label: header.start != null
               ? DateFormat('yyyy-MM-dd HH:mm:ss')
-                  .format(header.start!.toLocal())
+                    .format(header.start!.toLocal())
               : header.journeyDate.toSimpleDate().toString(),
           trailing: LabelTileContent(showArrow: true),
           onTap: () {
@@ -105,7 +105,8 @@ class _JourneyBodyState extends State<JourneyBody> {
     const bottomPadding = StyleConstants.navBarSafeArea + 5;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final availableWidth = constraints.maxWidth -
+        final availableWidth =
+            constraints.maxWidth -
             _landscapeContentPadding * 2 -
             _landscapeColumnGap;
         final preferredCalendarWidth = availableWidth * 0.42;

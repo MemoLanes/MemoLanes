@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
 
 class OptionCard extends StatelessWidget {
-  const OptionCard({
-    super.key,
-    required this.children,
-  });
+  const OptionCard({super.key, required this.children});
 
   final List<Widget> children;
 

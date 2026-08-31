@@ -64,10 +64,7 @@ class TopPersistentToast {
                           allowExplicitNewlines: true,
                         ),
                       ),
-                      TextButton(
-                        onPressed: hide,
-                        child: Text(okText),
-                      ),
+                      TextButton(onPressed: hide, child: Text(okText)),
                     ],
                   ),
                 ),
