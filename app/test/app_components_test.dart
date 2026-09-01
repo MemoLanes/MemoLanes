@@ -1,12 +1,60 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/common/component/app_button.dart';
+import 'package:memolanes/common/component/app_checkbox.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
+import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
 
 void main() {
-  testWidgets('dark liquid glass omits the scratch-like top highlight', (
+  testWidgets('option tiles are circular while checkboxes stay square', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              AppOptionTile(
+                title: 'Single choice',
+                selected: true,
+                trailing: AppOptionTileTrailing.selection,
+                onTap: () {},
+              ),
+              AppCheckbox(
+                key: const ValueKey('multiple-choice-checkbox'),
+                value: true,
+                onChanged: (_) {},
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final optionIndicator = tester.widget<Checkbox>(
+      find.descendant(
+        of: find.byType(AppOptionTile),
+        matching: find.byType(Checkbox),
+      ),
+    );
+    final checkbox = tester.widget<Checkbox>(
+      find.descendant(
+        of: find.byKey(const ValueKey('multiple-choice-checkbox')),
+        matching: find.byType(Checkbox),
+      ),
+    );
+    expect(optionIndicator.shape, isA<CircleBorder>());
+    expect(checkbox.shape, isA<RoundedRectangleBorder>());
+    expect(optionIndicator.checkColor, checkbox.checkColor);
+    expect(
+      optionIndicator.fillColor?.resolve({WidgetState.selected}),
+      checkbox.fillColor?.resolve({WidgetState.selected}),
+    );
+  });
+
+  testWidgets('liquid glass omits the scratch-like top highlight', (
     tester,
   ) async {
     await tester.pumpWidget(

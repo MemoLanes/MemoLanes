@@ -36,7 +36,10 @@ class AppOptionTile extends StatelessWidget {
         color: StyleConstants.mutedInkColor,
         size: 22,
       ),
-      AppOptionTileTrailing.selection => AppCheckbox.indicator(value: selected),
+      AppOptionTileTrailing.selection => AppCheckbox.indicator(
+        value: selected,
+        shape: AppCheckboxShape.circle,
+      ),
     };
   }
 
