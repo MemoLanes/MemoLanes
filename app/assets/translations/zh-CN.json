@@ -79,8 +79,7 @@
     "exit": "退出应用"
   },
   "journey": {
-    "editor_overview_title": "整理旅途",
-    "editor_overview_subtitle": "按日期查看记录，修正不完整或有偏差的轨迹",
+    "editor_overview_title": "编辑旅途",
     "records_title": "当日记录",
     "editor": {
       "move": "移动",

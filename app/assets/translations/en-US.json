@@ -79,8 +79,7 @@
     "exit": "Exit"
   },
   "journey": {
-    "editor_overview_title": "Refine journeys",
-    "editor_overview_subtitle": "Browse by date and correct incomplete or inaccurate tracks",
+    "editor_overview_title": "Edit journeys",
     "records_title": "Journeys on this day",
     "editor": {
       "move": "Move",

@@ -257,13 +257,6 @@ class _JourneyPageHeader extends StatelessWidget {
             color: StyleConstants.inkColor,
           ),
         ),
-        const SizedBox(height: 7),
-        Text(
-          context.tr('journey.editor_overview_subtitle'),
-          style: AppTypography.body.copyWith(
-            color: StyleConstants.mutedInkColor,
-          ),
-        ),
       ],
     );
   }
