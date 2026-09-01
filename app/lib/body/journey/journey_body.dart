@@ -8,6 +8,7 @@ import 'package:memolanes/body/journey/list/journey_list_controller.dart';
 import 'package:memolanes/body/journey/list/journey_list_empty_state.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
+import 'package:memolanes/common/journey_kind_visuals.dart';
 import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/constants/index.dart';
@@ -28,6 +29,7 @@ class _JourneyBodyState extends State<JourneyBody> {
   static const _landscapeListMinWidth = 280.0;
 
   late final JourneyListController _controller;
+  final ScrollController _journeyListScrollController = ScrollController();
 
   @override
   void initState() {
@@ -41,6 +43,7 @@ class _JourneyBodyState extends State<JourneyBody> {
     _controller
       ..removeListener(_onControllerChanged)
       ..dispose();
+    _journeyListScrollController.dispose();
     super.dispose();
   }
 
@@ -65,16 +68,35 @@ class _JourneyBodyState extends State<JourneyBody> {
             : null,
       );
     }
-    return ListView.builder(
+
+    final timeFormat = DateFormat('HH:mm:ss');
+    final journeyList = ListView.builder(
+      controller: _journeyListScrollController,
       padding: EdgeInsets.only(bottom: StyleConstants.navBarSafeArea + 5),
       itemCount: _controller.journeyHeaders.length,
       itemBuilder: (context, index) {
         final header = _controller.journeyHeaders[index];
         return LabelTile(
           label: header.start != null
-              ? DateFormat('yyyy-MM-dd HH:mm:ss')
-                    .format(header.start!.toLocal())
+              ? timeFormat.format(header.start!.toLocal())
               : header.journeyDate.toSimpleDate().toString(),
+          prefix: Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Container(
+              width: 34,
+              height: 34,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: StyleConstants.softGreen,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: JourneyKindIcon(
+                kind: header.journeyKind,
+                color: StyleConstants.deepGreen,
+                size: 18,
+              ),
+            ),
+          ),
           trailing: LabelTileContent(showArrow: true),
           onTap: () {
             navigatorPush(
@@ -91,6 +113,8 @@ class _JourneyBodyState extends State<JourneyBody> {
         );
       },
     );
+
+    return journeyList;
   }
 
   void _showAllJourneyKinds() {
@@ -128,10 +152,12 @@ class _JourneyBodyState extends State<JourneyBody> {
               SizedBox(
                 width: calendarWidth,
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.only(bottom: bottomPadding),
-                  child: JourneyListCalendar(
-                    controller: _controller,
-                    firstDate: firstDate,
+                  padding: EdgeInsets.only(bottom: bottomPadding),
+                  child: _CalendarSurface(
+                    child: JourneyListCalendar(
+                      controller: _controller,
+                      firstDate: firstDate,
+                    ),
                   ),
                 ),
               ),
@@ -149,19 +175,95 @@ class _JourneyBodyState extends State<JourneyBody> {
     if (_controller.isInitialLoading) {
       return const Center(child: CircularProgressIndicator());
     }
+
     final firstDate = _controller.firstDate;
     if (firstDate == null) {
-      return const JourneyListEmptyState(type: JourneyListEmptyType.all);
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(20, 28, 20, 140),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const _JourneyPageHeader(),
+            const Expanded(
+              child: JourneyListEmptyState(type: JourneyListEmptyType.all),
+            ),
+          ],
+        ),
+      );
     }
+
     if (MediaQuery.of(context).orientation == Orientation.landscape) {
       return _buildLandscapeBody(firstDate);
     }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 22, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _JourneyPageHeader(),
+          const SizedBox(height: 18),
+          _CalendarSurface(
+            child: JourneyListCalendar(
+              controller: _controller,
+              firstDate: firstDate,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            context.tr('journey.records_title'),
+            style: AppTypography.subpageTitle.copyWith(
+              color: StyleConstants.inkColor,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Expanded(child: _buildJourneyHeaderList()),
+        ],
+      ),
+    );
+  }
+}
+
+class _CalendarSurface extends StatelessWidget {
+  const _CalendarSurface({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: StyleConstants.surfaceColor,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: StyleConstants.lineColor),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _JourneyPageHeader extends StatelessWidget {
+  const _JourneyPageHeader();
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        JourneyListCalendar(controller: _controller, firstDate: firstDate),
-        const SizedBox(height: 16),
-        Expanded(child: _buildJourneyHeaderList()),
+        Text(
+          context.tr('journey.editor_overview_title'),
+          style: AppTypography.pageTitle.copyWith(
+            color: StyleConstants.inkColor,
+          ),
+        ),
+        const SizedBox(height: 7),
+        Text(
+          context.tr('journey.editor_overview_subtitle'),
+          style: AppTypography.body.copyWith(
+            color: StyleConstants.mutedInkColor,
+          ),
+        ),
       ],
     );
   }

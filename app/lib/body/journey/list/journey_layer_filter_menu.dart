@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/common/app_haptics.dart';
+import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 
@@ -39,7 +40,9 @@ class _JourneyLayerFilterMenuState extends State<JourneyLayerFilterMenu> {
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
           child: Text(
             context.tr('journey.list.filter_layers'),
-            style: const TextStyle(color: Colors.white54, fontSize: 12),
+            style: AppTypography.caption.copyWith(
+              color: StyleConstants.mutedInkColor,
+            ),
           ),
         ),
         _buildItem(
@@ -94,13 +97,18 @@ class _JourneyLayerFilterMenuState extends State<JourneyLayerFilterMenu> {
             Icon(
               selected ? Icons.check : Icons.check_box_outline_blank,
               size: 18,
-              color: selected ? StyleConstants.defaultColor : Colors.white54,
+              color: selected
+                  ? StyleConstants.deepGreen
+                  : StyleConstants.mutedInkColor,
             ),
             const SizedBox(width: 8),
             Text(
               label,
-              style: TextStyle(
-                color: selected ? StyleConstants.defaultColor : Colors.white70,
+              style: AppTypography.body.copyWith(
+                color: selected
+                    ? StyleConstants.inkColor
+                    : StyleConstants.mutedInkColor,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
               ),
             ),
           ],

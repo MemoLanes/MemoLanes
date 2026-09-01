@@ -1,29 +1,30 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/component/app_button.dart';
+import 'package:memolanes/body/journey/compact_journey_info_card.dart';
+import 'package:memolanes/body/journey/journey_export.dart';
 import 'package:memolanes/body/journey/journey_info_edit_page.dart';
 import 'package:memolanes/body/journey/journey_track_edit_page.dart';
-import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/basic_bottom_sheet.dart';
+import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/component/capsule_style_bar_content.dart';
 import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
-import 'package:memolanes/common/component/cards/card_label_tile.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
-import 'package:memolanes/common/component/cards/option_card.dart';
-import 'package:memolanes/common/component/common_export.dart';
+import 'package:memolanes/common/component/map_glass_back_button.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/common/utils.dart';
+import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
 import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 
@@ -119,7 +120,6 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   }
 
   Future<void> _editJourneyInfo(BuildContext context) async {
-    var trackEdited = false;
     final result = await navigatorPush(
       context,
       page: Scaffold(
@@ -133,7 +133,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
             journeyDate: _journeyHeader.journeyDate.toSimpleDate(),
             note: _journeyHeader.note,
             journeyKind: _journeyHeader.journeyKind,
-            saveData: (JourneyInfo journeyInfo) async {
+            saveData: (JourneyInfo journeyInfo, _) async {
               await api.updateJourneyMetadata(
                 id: _journeyHeader.id,
                 journeyInfo: journeyInfo,
@@ -145,7 +145,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     );
 
     // `JourneyInfoEditPage` pops with `true` when metadata is saved.
-    if (result == true || trackEdited) {
+    if (result == true && mounted) {
       await _refreshJourneyInfo();
     }
   }
@@ -164,51 +164,21 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       context,
       page: JourneyTrackEditPage(editSession: session),
     );
+    if (!mounted) return;
     await _refreshJourneyInfo();
   }
 
-  Future<CommonExportResult> _generateExportFile(
-    JourneyHeader journeyHeader,
-    CommonExportFormat exportFormat,
-  ) async {
-    final tmpDir = await getTemporaryDirectory();
-    final dateStr = journeyHeader.journeyDate.toSimpleDate().toString();
-    final filePath =
-        "${tmpDir.path}/$dateStr-${journeyHeader.revision}.${exportFormat.extension}";
-    final exportType = switch (exportFormat) {
-      CommonExportFormat.mldx => api.ExportType.mldx,
-      CommonExportFormat.fwss => api.ExportType.fwss,
-      CommonExportFormat.gpx => api.ExportType.gpx,
-      CommonExportFormat.kml => api.ExportType.kml,
-    };
-
-    final exportResult = await api.exportJourney(
-      targetFilepath: filePath,
-      journeyId: journeyHeader.id,
-      exportType: exportType,
-    );
-    return CommonExportResult.create(exportResult, filePath);
-  }
-
-  void _export() async {
-    final supportsVectorExport =
-        _journeyHeader.journeyType != JourneyType.bitmap;
-    await showCommonExportWithFormatPicker(
-      context: context,
-      title: context.tr("data.export_data.export_journey_title"),
-      formats: [
-        CommonExportFormat.mldx,
-        CommonExportFormat.fwss,
-        if (supportsVectorExport) CommonExportFormat.kml,
-        if (supportsVectorExport) CommonExportFormat.gpx,
-      ],
-      exportFile: (format) => _generateExportFile(_journeyHeader, format),
-    );
+  Future<void> _export() async {
+    await showJourneyExportPicker(context, _journeyHeader);
   }
 
   @override
   Widget build(BuildContext context) {
     final mapRendererProxy = _mapRendererProxy;
+    if (_isPreviewMode) {
+      return _buildImportPreview(context, mapRendererProxy);
+    }
+
     final mapBoundsPadding =
         CapsuleStyleOverlayAppBar.mapFitPaddingForBottomOverlay(
           context,
@@ -222,7 +192,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       body: Stack(
         children: [
           SlidingUpPanel(
-            color: Colors.black,
+            color: StyleConstants.canvasColor,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(16.0),
               topRight: Radius.circular(16.0),
@@ -242,7 +212,11 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                     child: Center(
                       child: CustomPaint(
                         size: Size(40.0, 4.0),
-                        painter: LinePainter(color: const Color(0xFFB5B5B5)),
+                        painter: LinePainter(
+                          color: StyleConstants.mutedInkColor.withValues(
+                            alpha: 0.44,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -308,42 +282,36 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
-                              ElevatedButton(
-                                onPressed: _export,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFFFFFFF),
-                                  foregroundColor: Colors.black,
-                                  fixedSize: Size(100, 42),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(25.0),
-                                  ),
+                              SizedBox(
+                                width: 100,
+                                child: AppButton(
+                                  label: context.tr("common.export"),
+                                  icon: Icons.ios_share_rounded,
+                                  variant: AppButtonVariant.secondary,
+                                  size: AppButtonSize.compact,
+                                  onPressed: _export,
                                 ),
-                                child: Text(context.tr("common.export")),
                               ),
-                              ElevatedButton(
-                                onPressed: () async => _showEditMenu(context),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFB6E13D),
-                                  foregroundColor: Colors.black,
-                                  fixedSize: Size(100, 42),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(25.0),
-                                  ),
+                              SizedBox(
+                                width: 100,
+                                child: AppButton(
+                                  label: context.tr("common.edit"),
+                                  icon: Icons.edit_outlined,
+                                  variant: AppButtonVariant.primary,
+                                  size: AppButtonSize.compact,
+                                  onPressed: () async => _showEditMenu(context),
                                 ),
-                                child: Text(context.tr("common.edit")),
                               ),
-                              ElevatedButton(
-                                onPressed: () async =>
-                                    await _deleteJourneyInfo(context),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFEC4162),
-                                  foregroundColor: Colors.black,
-                                  fixedSize: Size(100, 42),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(25.0),
-                                  ),
+                              SizedBox(
+                                width: 100,
+                                child: AppButton(
+                                  label: context.tr("common.delete"),
+                                  icon: Icons.delete_outline_rounded,
+                                  variant: AppButtonVariant.danger,
+                                  size: AppButtonSize.compact,
+                                  onPressed: () async =>
+                                      await _deleteJourneyInfo(context),
                                 ),
-                                child: Text(context.tr("common.delete")),
                               ),
                             ],
                           ),
@@ -370,25 +338,81 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     );
   }
 
+  Widget _buildImportPreview(
+    BuildContext context,
+    api.MapRendererProxy? mapRendererProxy,
+  ) {
+    final viewPadding = MediaQuery.viewPaddingOf(context);
+    final mapPadding = EdgeInsets.fromLTRB(
+      24,
+      viewPadding.top + 82,
+      24,
+      viewPadding.bottom + 270,
+    );
+
+    return Scaffold(
+      backgroundColor: StyleConstants.canvasColor,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (mapRendererProxy == null)
+            const Center(child: CircularProgressIndicator())
+          else
+            BaseMapWebview(
+              key: const ValueKey('importJourneyPreviewMap'),
+              mapRendererProxy: mapRendererProxy,
+              initialMapBounds: _initialMapBounds,
+              initialMapBoundsPadding: mapPadding,
+            ),
+          Positioned(
+            left: viewPadding.left + 16,
+            right: viewPadding.right + 16,
+            bottom: viewPadding.bottom + 16,
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 430),
+                child: PointerInterceptor(
+                  child: ReadOnlyJourneyInfoCard(journey: _journeyHeader),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: viewPadding.left + 16,
+            top: viewPadding.top + 14,
+            child: PointerInterceptor(
+              child: MapGlassBackButton(
+                onPressed: () => Navigator.maybePop(context),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showEditMenu(BuildContext context) {
     showBasicCard(
       context,
-      builder: (_) => OptionCard(
-        useSafeArea: false,
-        embedded: true,
+      title: context.tr("common.edit"),
+      builder: (_) => Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          CardLabelTile(
-            position: CardLabelTilePosition.top,
-            label: context.tr("journey.journey_info_edit_page_title"),
+          AppOptionTile(
+            icon: Icons.description_outlined,
+            title: context.tr("journey.journey_info_edit_page_title"),
             onTap: () {
+              Navigator.of(context).pop();
               _editJourneyInfo(context);
             },
-            top: false,
           ),
-          CardLabelTile(
-            position: CardLabelTilePosition.bottom,
-            label: context.tr("journey.editor.page_title"),
+          const SizedBox(height: 8),
+          AppOptionTile(
+            icon: Icons.edit_road_rounded,
+            title: context.tr("journey.editor.page_title"),
             onTap: () async {
+              Navigator.of(context).pop();
               _trackEdit(context);
             },
           ),

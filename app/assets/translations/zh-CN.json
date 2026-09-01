@@ -68,6 +68,8 @@
     "copy_success": "复制成功",
     "save_success": "保存成功",
     "continue": "继续",
+    "select_year": "选择年份",
+    "select_month": "选择月份",
     "save_confirm": "是否保存？"
   },
   "startup_error": {
@@ -77,6 +79,9 @@
     "exit": "退出应用"
   },
   "journey": {
+    "editor_overview_title": "整理旅途",
+    "editor_overview_subtitle": "按日期查看记录，修正不完整或有偏差的轨迹",
+    "records_title": "当日记录",
     "editor": {
       "move": "移动",
       "draw": "绘制",
@@ -92,8 +97,9 @@
       "linked_draw_needs_multiple_tracks": "至少需要两条轨迹。\n请先用自由绘制添加。",
       "linked_draw_invalid_link_targets": "无法找到合适的连接目标，请确保周围有至少两条轨迹的端点。",
       "erase_mode_enabled": "删除模式已开启。\n框选区域删除轨迹。",
-      "bitmap_not_supported": "暂不支持编辑编辑当前记录（通常为从世界迷雾导入的数据）。",
+      "bitmap_not_supported": "暂不支持编辑当前记录（通常为从世界迷雾导入的数据）。",
       "discard_changes_confirm": "未保存的操作都会丢失，是否继续？",
+      "operation_failed": "操作出现问题，请重试。",
       "zoom_too_low": "请放大地图再绘制。"
     },
     "list": {
