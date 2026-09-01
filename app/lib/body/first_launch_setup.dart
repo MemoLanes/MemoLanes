@@ -42,9 +42,8 @@ Future<void> _showPrivacyAndRegionSheet(
   final accepted = await showSetupCard<_FirstLaunchAccepted>(
     context,
     barrierDismissible: false,
-    builder: (_) => FirstLaunchSetupSheet(
-      initialPrivacyAccepted: privacyAlreadyAccepted,
-    ),
+    builder: (_) =>
+        FirstLaunchSetupSheet(initialPrivacyAccepted: privacyAlreadyAccepted),
   );
 
   if (accepted == null) {

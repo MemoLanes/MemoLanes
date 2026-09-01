@@ -12,14 +12,11 @@ void main() {
   setUpAll(() async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.flutter.io/shared_preferences'),
-      (call) async => call.method == 'getAll' ? <String, Object>{} : null,
-    );
+          const MethodChannel('plugins.flutter.io/shared_preferences'),
+          (call) async => call.method == 'getAll' ? <String, Object>{} : null,
+        );
     await EasyLocalization.ensureInitialized();
-    await const AppTranslationLoader().load(
-      'assets/translations',
-      locale,
-    );
+    await const AppTranslationLoader().load('assets/translations', locale);
   });
 
   Widget buildApp() {
@@ -56,8 +53,9 @@ void main() {
     );
   }
 
-  testWidgets('selection animation is valid on first build and update',
-      (tester) async {
+  testWidgets('selection animation is valid on first build and update', (
+    tester,
+  ) async {
     await tester.runAsync(() async {
       await tester.pumpWidget(buildApp());
       await tester.pump(const Duration(seconds: 1));

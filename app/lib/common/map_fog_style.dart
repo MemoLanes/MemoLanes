@@ -34,9 +34,6 @@ class MapFogStyle {
   static const all = [dark, light];
 
   static MapFogStyle findById(String? id) {
-    return all.firstWhere(
-      (style) => style.id == id,
-      orElse: () => dark,
-    );
+    return all.firstWhere((style) => style.id == id, orElse: () => dark);
   }
 }

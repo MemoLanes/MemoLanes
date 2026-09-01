@@ -84,8 +84,10 @@ class _RecIndicatorState extends State<RecIndicator>
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 11,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: StyleConstants.glassColor.withValues(
                       alpha: StyleConstants.isDarkMode ? 0.92 : 0.72,
@@ -115,8 +117,8 @@ class _RecIndicatorState extends State<RecIndicator>
                                   decoration: BoxDecoration(
                                     color: StyleConstants.recordingColor
                                         .withValues(
-                                      alpha: 0.1 + _pulse.value * 0.1,
-                                    ),
+                                          alpha: 0.1 + _pulse.value * 0.1,
+                                        ),
                                     shape: BoxShape.circle,
                                   ),
                                 ),

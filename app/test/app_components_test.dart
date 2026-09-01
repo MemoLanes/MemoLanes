@@ -6,8 +6,9 @@ import 'package:memolanes/common/component/common_dialog.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
 
 void main() {
-  testWidgets('dark liquid glass omits the scratch-like top highlight',
-      (tester) async {
+  testWidgets('dark liquid glass omits the scratch-like top highlight', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: Center(
@@ -33,8 +34,9 @@ void main() {
     expect(find.byType(BackdropFilter), findsOneWidget);
   });
 
-  testWidgets('loading button cannot trigger duplicate actions',
-      (tester) async {
+  testWidgets('loading button cannot trigger duplicate actions', (
+    tester,
+  ) async {
     var pressCount = 0;
 
     Widget buildButton({required bool loading}) {
@@ -67,8 +69,9 @@ void main() {
     expect(pressCount, 1);
   });
 
-  testWidgets('short dialog shrink-wraps instead of filling its height cap',
-      (tester) async {
+  testWidgets('short dialog shrink-wraps instead of filling its height cap', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(400, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -140,8 +143,9 @@ void main() {
                         ),
                       ],
                     ),
-                    child:
-                        Text(List.filled(30, 'Scrollable content').join('\n')),
+                    child: Text(
+                      List.filled(30, 'Scrollable content').join('\n'),
+                    ),
                   ),
                 ),
                 child: const Text('Open'),
@@ -169,8 +173,9 @@ void main() {
     );
   });
 
-  testWidgets('dialog builder supplies the route context and result',
-      (tester) async {
+  testWidgets('dialog builder supplies the route context and result', (
+    tester,
+  ) async {
     bool? result;
     BuildContext? sourceContext;
     BuildContext? routeContext;

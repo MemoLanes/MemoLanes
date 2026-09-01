@@ -131,8 +131,9 @@ class _PopupContent extends StatelessWidget {
                       : (backgroundColor == null ? 0.12 : 0.1),
                 ),
                 blurRadius: backgroundColor == null ? 18 : 10,
-                offset:
-                    backgroundColor == null ? const Offset(0, 6) : Offset.zero,
+                offset: backgroundColor == null
+                    ? const Offset(0, 6)
+                    : Offset.zero,
               ),
             ],
           ),
