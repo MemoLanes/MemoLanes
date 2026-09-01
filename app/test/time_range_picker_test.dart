@@ -180,6 +180,52 @@ void main() {
     },
   );
 
+  testWidgets('custom date tiles use the shared app date picker', (
+    tester,
+  ) async {
+    final app = EasyLocalization(
+      supportedLocales: const [_enUs],
+      path: 'assets/translations',
+      assetLoader: _loader,
+      fallbackLocale: _enUs,
+      child: Builder(
+        builder: (context) => MaterialApp(
+          localizationsDelegates: context.localizationDelegates,
+          supportedLocales: context.supportedLocales,
+          locale: context.locale,
+          home: Scaffold(
+            body: Center(
+              child: TimeRangeOverlayPicker(
+                fromDate: DateTime(2020, 1, 2),
+                toDate: DateTime(2024, 12, 31),
+                earliest: DateTime(2020),
+                onFromChanged: (_) {},
+                onToChanged: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.runAsync(() async {
+      await tester.pumpWidget(app);
+      await tester.pump(const Duration(seconds: 1));
+    });
+    await tester.pumpAndSettle();
+
+    final dateTiles = find.descendant(
+      of: find.byType(TimeRangeOverlayPicker),
+      matching: find.byType(InkWell),
+    );
+    await tester.tap(dateTiles.first);
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(Dialog), findsOneWidget);
+    expect(find.byType(DatePickerDialog), findsNothing);
+  });
+
   testWidgets('defaults to the cumulative as-of range', (tester) async {
     final ranges = <(SimpleDate, SimpleDate)>[];
     final currentYear = DateTime.now().year;

@@ -1,13 +1,31 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/app_checkbox.dart';
+import 'package:memolanes/common/component/app_date_picker_dialog.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  const locale = Locale('en', 'US');
+  const loader = AppTranslationLoader();
+
+  setUpAll(() async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.flutter.io/shared_preferences'),
+          (call) async => call.method == 'getAll' ? <String, Object>{} : null,
+        );
+    await EasyLocalization.ensureInitialized();
+    await loader.load('assets/translations', locale);
+  });
+
   testWidgets('option tiles are circular while checkboxes stay square', (
     tester,
   ) async {
@@ -325,4 +343,66 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  for (final width in [320.0, 360.0, 380.0]) {
+    testWidgets(
+      'date picker dialog returns its selected date at ${width.toInt()}px',
+      (tester) async {
+        tester.view.physicalSize = Size(width, 480);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        final initialDate = DateTime(2024, 6, 15);
+        DateTime? result;
+
+        final app = EasyLocalization(
+          supportedLocales: const [locale],
+          path: 'assets/translations',
+          assetLoader: loader,
+          fallbackLocale: locale,
+          child: Builder(
+            builder: (context) => MaterialApp(
+              localizationsDelegates: context.localizationDelegates,
+              supportedLocales: context.supportedLocales,
+              locale: context.locale,
+              home: Builder(
+                builder: (context) => Scaffold(
+                  body: TextButton(
+                    onPressed: () async {
+                      result = await showAppDatePickerDialog(
+                        context,
+                        initialDate: initialDate,
+                        firstDate: DateTime(2024),
+                        lastDate: DateTime(2024, 12, 31),
+                        highlightInitialDate: true,
+                      );
+                    },
+                    child: const Text('Open'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.runAsync(() async {
+          await tester.pumpWidget(app);
+          await tester.pump(const Duration(seconds: 1));
+        });
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(find.byType(Dialog), findsOneWidget);
+        await tester.tap(find.text('OK'));
+        await tester.pumpAndSettle();
+
+        expect(result, initialDate);
+        expect(find.byType(Dialog), findsNothing);
+      },
+    );
+  }
 }
