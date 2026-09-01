@@ -163,7 +163,7 @@ class BottomNavBar extends StatelessWidget {
                 _buildNavItem(
                   context,
                   Icons.route_outlined,
-                  Icons.edit_road_rounded,
+                  Icons.route,
                   'navigation.edit',
                   2,
                 ),

@@ -705,34 +705,97 @@ class TimeRangeOverlayPicker extends StatelessWidget {
 
   static final DateFormat _fmt = DateFormat('yyyy-MM-dd');
 
+  static String _compactDate(DateTime date) {
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '${date.year}\n$month-$day';
+  }
+
+  static double _singleLineWidth(
+    BuildContext context,
+    String text,
+    TextStyle style,
+  ) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      maxLines: 1,
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    return width;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: _buildGlassPanel(
-        Row(
-          children: [
-            Expanded(
-              child: _TapTile(
-                label: context.tr('journey.start_time'),
-                value: _fmt.format(fromDate),
-                onTap: () =>
-                    _showDatePicker(context, fromDate, earliest, onFromChanged),
-              ),
+    final fromValue = _fmt.format(fromDate);
+    final toValue = _fmt.format(toDate);
+    final valueStyle = AppTypography.label.copyWith(
+      color: StyleConstants.deepGreen,
+    );
+    final widestValue = math.max(
+      _singleLineWidth(context, fromValue, valueStyle),
+      _singleLineWidth(context, toValue, valueStyle),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const regularOuterPadding = 16.0;
+        const regularPanelPadding = 16.0;
+        const regularTilePadding = 10.0;
+        const regularGap = 12.0;
+        final regularRequiredWidth =
+            regularOuterPadding * 2 +
+            regularPanelPadding * 2 +
+            regularGap +
+            (widestValue + regularTilePadding * 2) * 2;
+        final compact =
+            constraints.hasBoundedWidth &&
+            constraints.maxWidth < regularRequiredWidth;
+        final outerPadding = compact ? 4.0 : regularOuterPadding;
+        final panelPadding = compact ? 6.0 : regularPanelPadding;
+        final gap = compact ? 6.0 : regularGap;
+
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: outerPadding),
+          child: _buildGlassPanel(
+            Row(
+              children: [
+                Expanded(
+                  child: _TapTile(
+                    label: context.tr('journey.start_time'),
+                    value: fromValue,
+                    compactValue: _compactDate(fromDate),
+                    compactSpacing: compact,
+                    onTap: () => _showDatePicker(
+                      context,
+                      fromDate,
+                      earliest,
+                      onFromChanged,
+                    ),
+                  ),
+                ),
+                SizedBox(width: gap),
+                Expanded(
+                  child: _TapTile(
+                    label: context.tr('journey.end_time'),
+                    value: toValue,
+                    compactValue: _compactDate(toDate),
+                    compactSpacing: compact,
+                    onTap: () =>
+                        _showDatePicker(context, toDate, earliest, onToChanged),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _TapTile(
-                label: context.tr('journey.end_time'),
-                value: _fmt.format(toDate),
-                onTap: () =>
-                    _showDatePicker(context, toDate, earliest, onToChanged),
-              ),
+            padding: EdgeInsets.symmetric(
+              horizontal: panelPadding,
+              vertical: compact ? 3 : 6,
             ),
-          ],
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -761,50 +824,73 @@ class TimeRangeOverlayPicker extends StatelessWidget {
 class _TapTile extends StatelessWidget {
   final String label;
   final String value;
+  final String compactValue;
+  final bool compactSpacing;
   final VoidCallback onTap;
 
   const _TapTile({
     required this.label,
     required this.value,
+    required this.compactValue,
+    required this.compactSpacing,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                maxLines: 1,
-                softWrap: false,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.micro.copyWith(
-                  color: StyleConstants.mutedInkColor,
-                ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final horizontalPadding = compactSpacing ? 4.0 : 10.0;
+        final valueStyle = AppTypography.label.copyWith(
+          color: StyleConstants.deepGreen,
+          fontSize: compactSpacing ? 11 : null,
+        );
+        final valueWidth = TimeRangeOverlayPicker._singleLineWidth(
+          context,
+          value,
+          valueStyle,
+        );
+        final availableValueWidth = constraints.hasBoundedWidth
+            ? math.max(0.0, constraints.maxWidth - horizontalPadding * 2)
+            : double.infinity;
+        final splitValue = valueWidth > availableValueWidth;
+
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: horizontalPadding,
+                vertical: splitValue ? 2 : 4,
               ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                maxLines: 1,
-                softWrap: false,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.label.copyWith(
-                  color: StyleConstants.deepGreen,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    label,
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.micro.copyWith(
+                      color: StyleConstants.mutedInkColor,
+                    ),
+                  ),
+                  SizedBox(height: splitValue ? 0 : 2),
+                  Text(
+                    splitValue ? compactValue : value,
+                    maxLines: splitValue ? 2 : 1,
+                    softWrap: false,
+                    style: valueStyle,
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

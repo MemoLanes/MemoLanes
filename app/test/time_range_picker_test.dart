@@ -115,6 +115,71 @@ void main() {
     expect(find.text('Ground'), findsOneWidget);
   });
 
+  testWidgets(
+    'narrow custom dates wrap without changing the horizontal tap areas',
+    (tester) async {
+      final app = EasyLocalization(
+        supportedLocales: const [_enUs],
+        path: 'assets/translations',
+        assetLoader: _loader,
+        fallbackLocale: _enUs,
+        child: Builder(
+          builder: (context) => MaterialApp(
+            localizationsDelegates: context.localizationDelegates,
+            supportedLocales: context.supportedLocales,
+            locale: context.locale,
+            home: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 110,
+                  height: 60,
+                  child: TimeRangeOverlayPicker(
+                    fromDate: DateTime(2020, 1, 2),
+                    toDate: DateTime(2024, 12, 31),
+                    earliest: DateTime(2020),
+                    onFromChanged: (_) {},
+                    onToChanged: (_) {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.runAsync(() async {
+        await tester.pumpWidget(app);
+        await tester.pump(const Duration(seconds: 1));
+      });
+      await tester.pumpAndSettle();
+
+      final renderedText = tester
+          .widgetList<Text>(
+            find.descendant(
+              of: find.byType(TimeRangeOverlayPicker),
+              matching: find.byType(Text),
+            ),
+          )
+          .map((text) => text.data)
+          .whereType<String>()
+          .toList();
+      expect(renderedText, contains('2020\n01-02'));
+      expect(renderedText, contains('2024\n12-31'));
+      expect(find.textContaining('…'), findsNothing);
+      expect(tester.takeException(), isNull);
+
+      final tapTargets = find.descendant(
+        of: find.byType(TimeRangeOverlayPicker),
+        matching: find.byType(InkWell),
+      );
+      expect(tapTargets, findsNWidgets(2));
+      final fromRect = tester.getRect(tapTargets.at(0));
+      final toRect = tester.getRect(tapTargets.at(1));
+      expect(fromRect.top, toRect.top);
+      expect(fromRect.bottom, toRect.bottom);
+      expect(fromRect.right, lessThanOrEqualTo(toRect.left));
+    },
+  );
+
   testWidgets('defaults to the cumulative as-of range', (tester) async {
     final ranges = <(SimpleDate, SimpleDate)>[];
     final currentYear = DateTime.now().year;

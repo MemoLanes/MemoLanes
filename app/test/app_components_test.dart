@@ -3,8 +3,36 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
+import 'package:memolanes/common/component/liquid_glass_surface.dart';
 
 void main() {
+  testWidgets('dark liquid glass omits the scratch-like top highlight',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Center(
+          child: SizedBox(
+            width: 240,
+            height: 58,
+            child: LiquidGlassSurface(child: SizedBox.expand()),
+          ),
+        ),
+      ),
+    );
+
+    final hasNarrowTopHighlight = tester
+        .widgetList<Positioned>(
+          find.descendant(
+            of: find.byType(LiquidGlassSurface),
+            matching: find.byType(Positioned),
+          ),
+        )
+        .any((positioned) => positioned.top == 1 && positioned.height == 1.2);
+
+    expect(hasNarrowTopHighlight, isFalse);
+    expect(find.byType(BackdropFilter), findsOneWidget);
+  });
+
   testWidgets('loading button cannot trigger duplicate actions',
       (tester) async {
     var pressCount = 0;

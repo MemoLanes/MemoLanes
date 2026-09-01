@@ -148,25 +148,34 @@ class LiquidGlassSurface extends StatelessWidget {
                     ),
                   ),
                 ),
-              Positioned(
-                left: circular ? 10 : 14,
-                right: circular ? 10 : 14,
-                top: 1,
-                height: 1.2,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        StyleConstants.glassHighlightColor.withValues(alpha: 0),
-                        StyleConstants.glassHighlightColor.withValues(
-                          alpha: StyleConstants.isDarkMode ? 0.32 : 0.88,
-                        ),
-                        StyleConstants.glassHighlightColor.withValues(alpha: 0),
-                      ],
+              // The narrow specular line reads as a scratch against dark
+              // glass. Dark surfaces retain their blur, translucent fill,
+              // border, shadow, and radial reflection without this line.
+              // Keep the existing light-mode treatment unchanged.
+              if (!StyleConstants.isDarkMode)
+                Positioned(
+                  left: circular ? 10 : 14,
+                  right: circular ? 10 : 14,
+                  top: 1,
+                  height: 1.2,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          StyleConstants.glassHighlightColor.withValues(
+                            alpha: 0,
+                          ),
+                          StyleConstants.glassHighlightColor.withValues(
+                            alpha: 0.88,
+                          ),
+                          StyleConstants.glassHighlightColor.withValues(
+                            alpha: 0,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
               if (padding == null)
                 child
               else
