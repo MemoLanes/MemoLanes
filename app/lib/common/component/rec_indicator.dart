@@ -1,9 +1,13 @@
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/constants/style_constants.dart';
 
+// TODO(perf): Re-enable the REC pulse on Android when Flutter/WebView
+// cross-Surface composition can animate without frame jitter. Other platforms,
+// including iOS, retain the animation.
 class RecIndicator extends StatefulWidget {
   const RecIndicator({
     super.key,
@@ -23,7 +27,9 @@ class RecIndicator extends StatefulWidget {
 class _RecIndicatorState extends State<RecIndicator>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late Animation<double> _pulse;
+  late final Animation<double> _pulse;
+
+  bool get _shouldAnimate => defaultTargetPlatform != TargetPlatform.android;
 
   @override
   void initState() {
@@ -33,7 +39,7 @@ class _RecIndicatorState extends State<RecIndicator>
       vsync: this,
     );
     _pulse = CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
-    if (widget.isRecording) _controller.repeat(reverse: true);
+    _syncAnimation();
   }
 
   @override
@@ -42,13 +48,52 @@ class _RecIndicatorState extends State<RecIndicator>
     if (widget.blinkDurationMs != oldWidget.blinkDurationMs) {
       _controller.duration = Duration(milliseconds: widget.blinkDurationMs);
     }
-    if (widget.isRecording == oldWidget.isRecording) return;
-    if (widget.isRecording) {
+    if (widget.isRecording != oldWidget.isRecording) {
+      _syncAnimation();
+    }
+  }
+
+  void _syncAnimation() {
+    if (_shouldAnimate && widget.isRecording) {
       _controller.repeat(reverse: true);
     } else {
       _controller.stop();
       _controller.value = 0;
     }
+  }
+
+  Widget _buildRecordingDot({required bool animated, double pulse = 0}) {
+    return SizedBox.square(
+      dimension: 14,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Transform.scale(
+            scale: animated ? 0.8 + pulse * 0.45 : 1,
+            child: SizedBox.square(
+              dimension: 14,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: StyleConstants.recordingColor.withValues(
+                    alpha: animated ? 0.1 + pulse * 0.1 : 0.18,
+                  ),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox.square(
+            dimension: 7,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: StyleConstants.recordingColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -102,40 +147,16 @@ class _RecIndicatorState extends State<RecIndicator>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      AnimatedBuilder(
-                        animation: _pulse,
-                        builder: (context, _) => SizedBox.square(
-                          dimension: 14,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              Transform.scale(
-                                scale: 0.8 + _pulse.value * 0.45,
-                                child: Container(
-                                  width: 14,
-                                  height: 14,
-                                  decoration: BoxDecoration(
-                                    color: StyleConstants.recordingColor
-                                        .withValues(
-                                          alpha: 0.1 + _pulse.value * 0.1,
-                                        ),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                              ),
-                              SizedBox.square(
-                                dimension: 7,
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    color: StyleConstants.recordingColor,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                              ),
-                            ],
+                      if (_shouldAnimate)
+                        AnimatedBuilder(
+                          animation: _pulse,
+                          builder: (context, _) => _buildRecordingDot(
+                            animated: true,
+                            pulse: _pulse.value,
                           ),
-                        ),
-                      ),
+                        )
+                      else
+                        _buildRecordingDot(animated: false),
                       const SizedBox(width: 7),
                       Text(
                         'REC',

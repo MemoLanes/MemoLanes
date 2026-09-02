@@ -52,8 +52,10 @@ class _RecordingButtonsState extends State<RecordingButtons> {
 
   @override
   Widget build(BuildContext context) {
-    final gpsManager = context.watch<GpsManager>();
-    final status = gpsManager.recordingStatus;
+    final status = context.select<GpsManager, GpsRecordingStatus>(
+      (gpsManager) => gpsManager.recordingStatus,
+    );
+    final gpsManager = context.read<GpsManager>();
 
     return PointerInterceptor(
       child: ConstrainedBox(
