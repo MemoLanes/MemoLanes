@@ -100,7 +100,7 @@ fn adm1_code_is_unique() {
 /// territories it demotes (Hong Kong, Macau) and its synthesized Taiwan entity.
 #[test]
 fn shipped_bins_carry_the_expected_province_counts() {
-    use geo_data_format::{read_geo_data, GeoEntityKind};
+    use geo_data_format::{GeoData, GeoEntityKind};
 
     for (worldview, expected) in [
         (Worldview::Iso, 3475usize),
@@ -115,7 +115,7 @@ fn shipped_bins_carry_the_expected_province_counts() {
             "{} is absent — run `just rasterize-geo`",
             path.display()
         );
-        let data = read_geo_data(&std::fs::read(&path).unwrap()).unwrap();
+        let data = GeoData::open(&path).unwrap();
         let provinces = data
             .entities
             .iter()
@@ -190,7 +190,7 @@ fn every_curated_table_entry_names_a_code_that_ships() {
 
 /// Every province `canonical_code` in the worldview's shipped bin.
 fn shipped_provinces(worldview: Worldview) -> Vec<String> {
-    use geo_data_format::{read_geo_data, GeoEntityKind};
+    use geo_data_format::{GeoData, GeoEntityKind};
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../app/assets/geo")
         .join(format!("geo_data_{}.bin", worldview.spec().id));
@@ -199,7 +199,7 @@ fn shipped_provinces(worldview: Worldview) -> Vec<String> {
         "{} is absent — run `just rasterize-geo`",
         path.display()
     );
-    read_geo_data(&std::fs::read(&path).unwrap())
+    GeoData::open(&path)
         .unwrap()
         .entities
         .into_iter()
@@ -334,7 +334,7 @@ fn the_province_tier_is_never_partial_for_a_country() {
 /// `adm1_code → the ADM0_A3 that province ships under`, or `None` when the bin
 /// carries no such province.
 fn shipped_parent(worldview: Worldview, code: &str) -> Option<String> {
-    use geo_data_format::{read_geo_data, GeoEntityKind};
+    use geo_data_format::{GeoData, GeoEntityKind};
 
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../app/assets/geo")
@@ -344,7 +344,7 @@ fn shipped_parent(worldview: Worldview, code: &str) -> Option<String> {
         "{} is absent — run `just rasterize-geo`",
         path.display()
     );
-    let data = read_geo_data(&std::fs::read(&path).unwrap()).unwrap();
+    let data = GeoData::open(&path).unwrap();
     let province = data
         .entities
         .iter()

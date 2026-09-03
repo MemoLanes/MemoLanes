@@ -2,10 +2,13 @@
 //!
 //! Layout: `Header(68 B) | Meta | TileIndex | BorderOffsets | BorderBlobs`.
 //! All integers little-endian. Border tiles are stored already
-//! `PackedTile`-compressed so the runtime loads them by slice-copy with
-//! no dense intermediate. See the design spec.
+//! `PackedTile`-compressed, and the blob region is the one section a reader
+//! may leave on disk: [`GeoData::open`] keeps only its span table in memory
+//! and reads each blob on demand. See the design spec.
 
 use std::collections::BTreeMap;
+use std::fs::File;
+use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
@@ -37,15 +40,54 @@ pub enum TileEntry {
     None,
 }
 
-/// Fully parsed geo data. `border_blobs[i]` is the still-compressed
-/// `PackedTile` for the tile whose `TileEntry::Border(i)` references it.
+/// Border tiles' compressed `PackedTile` blobs, left in the file and read on
+/// demand; only the span table is resident.
+#[derive(Debug)]
+pub struct BorderBlobs {
+    spans: Box<[(u32, u32)]>,
+    file: File,
+    region_offset: u64,
+}
+
+impl BorderBlobs {
+    pub fn get(&self, i: u32) -> anyhow::Result<Vec<u8>> {
+        let (off, len) = *self
+            .spans
+            .get(i as usize)
+            .ok_or_else(|| anyhow::anyhow!("geo_data: no border blob {i}"))?;
+        let mut buf = vec![0u8; len as usize];
+        read_exact_at(&self.file, &mut buf, self.region_offset + off as u64)
+            .map_err(|e| anyhow::anyhow!("geo_data: reading border blob {i}: {e}"))?;
+        Ok(buf)
+    }
+}
+
+#[cfg(unix)]
+fn read_exact_at(file: &File, buf: &mut [u8], offset: u64) -> std::io::Result<()> {
+    std::os::unix::fs::FileExt::read_exact_at(file, buf, offset)
+}
+
+#[cfg(windows)]
+fn read_exact_at(file: &File, mut buf: &mut [u8], mut offset: u64) -> std::io::Result<()> {
+    while !buf.is_empty() {
+        match std::os::windows::fs::FileExt::seek_read(file, buf, offset)? {
+            0 => return Err(std::io::ErrorKind::UnexpectedEof.into()),
+            n => {
+                buf = &mut buf[n..];
+                offset += n as u64;
+            }
+        }
+    }
+    Ok(())
+}
+
 #[derive(Debug)]
 pub struct GeoData {
     pub entities: Vec<GeoEntity>,
     /// The worldview id this asset represents (see [`MetaSection::worldview_id`]).
     pub worldview_id: String,
     pub tile_index: Vec<TileEntry>,
-    pub border_blobs: Vec<Box<[u8]>>,
+    pub border_blobs: BorderBlobs,
     pub provenance_hash: [u8; 32],
 }
 
@@ -158,46 +200,62 @@ pub fn expected_total_len(header: &[u8]) -> Option<usize> {
     Some(total)
 }
 
-/// Parse the sectioned format. No dense border tile is ever materialized:
-/// each blob is slice-copied out still-compressed.
-pub fn read_geo_data(bytes: &[u8]) -> anyhow::Result<GeoData> {
+#[derive(Clone, Copy)]
+struct Section {
+    off: usize,
+    len: usize,
+}
+
+struct Header {
+    provenance_hash: [u8; 32],
+    meta: Section,
+    tile_index: Section,
+    border_offsets: Section,
+    border_blobs: Section,
+}
+
+fn parse_header(header: &[u8]) -> anyhow::Result<Header> {
     anyhow::ensure!(
-        bytes.len() >= HEADER_LEN,
+        header.len() >= HEADER_LEN,
         "geo_data: too short ({} bytes)",
-        bytes.len()
+        header.len()
     );
     anyhow::ensure!(
-        &bytes[0..crate::PROVENANCE_HASH_OFFSET] == MAGIC,
+        &header[0..crate::PROVENANCE_HASH_OFFSET] == MAGIC,
         "geo_data: bad magic"
     );
     let mut provenance_hash = [0u8; 32];
     provenance_hash
-        .copy_from_slice(&bytes[crate::PROVENANCE_HASH_OFFSET..crate::PROVENANCE_HASH_END]);
-
-    let sec = |i: usize| -> (usize, usize) {
+        .copy_from_slice(&header[crate::PROVENANCE_HASH_OFFSET..crate::PROVENANCE_HASH_END]);
+    let sec = |i: usize| -> Section {
         let base = crate::PROVENANCE_HASH_END + i * 8;
-        (
-            read_u32(bytes, base) as usize,
-            read_u32(bytes, base + 4) as usize,
-        )
+        Section {
+            off: read_u32(header, base) as usize,
+            len: read_u32(header, base + 4) as usize,
+        }
     };
-    let (meta_off, meta_len) = sec(0);
-    let (tile_off, tile_len) = sec(1);
-    let (boff_off, boff_len) = sec(2);
-    let (blob_off, blob_len) = sec(3);
+    Ok(Header {
+        provenance_hash,
+        meta: sec(0),
+        tile_index: sec(1),
+        border_offsets: sec(2),
+        border_blobs: sec(3),
+    })
+}
 
-    let slice = |off: usize, len: usize| -> anyhow::Result<&[u8]> {
-        bytes
-            .get(off..off + len)
-            .ok_or_else(|| anyhow::anyhow!("geo_data: section out of bounds"))
-    };
-
-    let meta_raw = zstd::decode_all(slice(meta_off, meta_len)?)?;
+fn assemble(
+    header: Header,
+    meta_compressed: &[u8],
+    tile_index_compressed: &[u8],
+    border_offsets: &[u8],
+    file: File,
+) -> anyhow::Result<GeoData> {
+    let meta_raw = zstd::decode_all(meta_compressed)?;
     // `bitcode::deserialize` rejects trailing bytes, preserving the format's
     // strict section-boundary validation.
     let meta: MetaSection = bitcode::deserialize(meta_raw.as_slice())?;
 
-    let tile_raw = zstd::decode_all(slice(tile_off, tile_len)?)?;
+    let tile_raw = zstd::decode_all(tile_index_compressed)?;
     anyhow::ensure!(
         tile_raw.len() == TILE_COUNT * 5,
         "geo_data: tile index size {} != {}",
@@ -216,24 +274,24 @@ pub fn read_geo_data(bytes: &[u8]) -> anyhow::Result<GeoData> {
         });
     }
 
-    let boff = slice(boff_off, boff_len)?;
     anyhow::ensure!(
-        boff_len % 8 == 0,
+        border_offsets.len().is_multiple_of(8),
         "geo_data: border offset table misaligned"
     );
-    let blob_region = slice(blob_off, blob_len)?;
-    let n = boff_len / 8;
-    let mut border_blobs = Vec::with_capacity(n);
+    let blob_len = header.border_blobs.len;
+    let n = border_offsets.len() / 8;
+    let mut spans = Vec::with_capacity(n);
     for i in 0..n {
-        let off = read_u32(boff, i * 8) as usize;
-        let len = read_u32(boff, i * 8 + 4) as usize;
-        let b = blob_region
-            .get(off..off + len)
-            .ok_or_else(|| anyhow::anyhow!("geo_data: blob {i} out of bounds"))?;
-        border_blobs.push(b.to_vec().into_boxed_slice());
+        let off = read_u32(border_offsets, i * 8);
+        let len = read_u32(border_offsets, i * 8 + 4);
+        anyhow::ensure!(
+            off.checked_add(len)
+                .is_some_and(|end| end as usize <= blob_len),
+            "geo_data: blob {i} out of bounds"
+        );
+        spans.push((off, len));
     }
-
-    let blob_count = border_blobs.len();
+    let blob_count = spans.len();
     for entry in &tile_index {
         if let TileEntry::Border(i) = entry {
             anyhow::ensure!(
@@ -247,7 +305,38 @@ pub fn read_geo_data(bytes: &[u8]) -> anyhow::Result<GeoData> {
         entities: meta.entities,
         worldview_id: meta.worldview_id,
         tile_index,
-        border_blobs,
-        provenance_hash,
+        border_blobs: BorderBlobs {
+            spans: spans.into_boxed_slice(),
+            file,
+            region_offset: header.border_blobs.off as u64,
+        },
+        provenance_hash: header.provenance_hash,
     })
+}
+
+impl GeoData {
+    pub fn open(path: &Path) -> anyhow::Result<GeoData> {
+        let file = File::open(path)
+            .map_err(|e| anyhow::anyhow!("geo_data: opening {}: {e}", path.display()))?;
+        let mut header_bytes = [0u8; HEADER_LEN];
+        read_exact_at(&file, &mut header_bytes, 0)
+            .map_err(|e| anyhow::anyhow!("geo_data: reading header: {e}"))?;
+        let header = parse_header(&header_bytes)?;
+        let expected = expected_total_len(&header_bytes).expect("header already validated") as u64;
+        let actual = file.metadata()?.len();
+        anyhow::ensure!(
+            actual == expected,
+            "geo_data: file is {actual} bytes, header says {expected}"
+        );
+        let read = |s: Section| -> anyhow::Result<Vec<u8>> {
+            let mut buf = vec![0u8; s.len];
+            read_exact_at(&file, &mut buf, s.off as u64)
+                .map_err(|e| anyhow::anyhow!("geo_data: reading section: {e}"))?;
+            Ok(buf)
+        };
+        let meta = read(header.meta)?;
+        let tile_index = read(header.tile_index)?;
+        let border_offsets = read(header.border_offsets)?;
+        assemble(header, &meta, &tile_index, &border_offsets, file)
+    }
 }

@@ -4,6 +4,10 @@ use geo_data_format::{
     tile_index, write_geo_data, GeoEntity, GeoEntityId, GeoEntityKind, TileMembership, Worldview,
     CELLS_PER_TILE, NO_ENTITY, TILE_COUNT,
 };
+use tempdir::TempDir;
+
+pub mod test_utils;
+
 use memolanes_core::{
     achievement::attribution,
     geo::GeoIndex,
@@ -29,7 +33,7 @@ fn entity(id: u32, kind: GeoEntityKind, iso: &str, parent: Option<u32>, area: u6
 /// Geo where the whole tile (0,0) is France and tile (1,0) is a border tile
 /// owned block-by-block by Germany. EU is their parent continent. Entity total
 /// areas are deliberately tiny so a single visited block completes them.
-fn synthetic_geo() -> GeoIndex {
+fn synthetic_geo() -> (TempDir, GeoIndex) {
     let entities = [
         entity(1, GeoEntityKind::Continent, "EU", None, 1),
         entity(2, GeoEntityKind::Admin0, "FR", Some(1), 1),
@@ -50,7 +54,9 @@ fn synthetic_geo() -> GeoIndex {
         [0u8; 32],
     )
     .unwrap();
-    GeoIndex::from_bytes(&bytes).unwrap()
+    let dir = TempDir::new("region_index").unwrap();
+    let geo = test_utils::geo_index_from_bytes(&dir, &bytes);
+    (dir, geo)
 }
 
 /// A bitmap with `bits` pixels set in one block of one tile.
@@ -66,11 +72,11 @@ fn one_block(tile: TileKey, block: BlockKey, bits: u32) -> JourneyBitmap {
 
 #[test]
 fn attributes_area_with_rollup() {
-    let geo = synthetic_geo();
+    let (_dir, geo) = synthetic_geo();
     let fr_block = one_block(TileKey::new(0, 0), BlockKey::from_x_y(3, 4), 20);
     let de_block = one_block(TileKey::new(1, 0), BlockKey::from_x_y(7, 7), 20);
 
-    let fr_only = attribution::attribute(&fr_block, &geo);
+    let fr_only = attribution::attribute(&fr_block, &geo).unwrap();
     assert!(fr_only.contains_key(&FR));
     assert!(!fr_only.contains_key(&DE));
     // Continent rollup: EU carries France's area.
@@ -78,7 +84,7 @@ fn attributes_area_with_rollup() {
 
     let mut union = fr_block.clone();
     union.merge(de_block.clone());
-    let both = attribution::attribute(&union, &geo);
+    let both = attribution::attribute(&union, &geo).unwrap();
 
     // Subtree-inclusive: EU is credited each block alongside its owner, so its
     // total is the sum of the two addends on the right. Exact because the areas
@@ -108,12 +114,14 @@ fn a_province_block_credits_its_country_and_continent() {
         [0u8; 32],
     )
     .unwrap();
-    let geo = GeoIndex::from_bytes(&bytes).unwrap();
+    let dir = TempDir::new("region_index").unwrap();
+    let geo = test_utils::geo_index_from_bytes(&dir, &bytes);
 
     let by_entity = attribution::attribute(
         &one_block(TileKey::new(0, 0), BlockKey::from_x_y(3, 4), 20),
         &geo,
-    );
+    )
+    .unwrap();
     let province_area = by_entity[&IDF];
     assert!(province_area > 0);
     assert_eq!(
@@ -128,11 +136,12 @@ fn a_province_block_credits_its_country_and_continent() {
 
 #[test]
 fn ocean_blocks_are_ignored() {
-    let geo = synthetic_geo();
+    let (_dir, geo) = synthetic_geo();
     // Border tile (1,0), but a block with no geo owner.
     let states = attribution::attribute(
         &one_block(TileKey::new(1, 0), BlockKey::from_x_y(0, 0), 10),
         &geo,
-    );
+    )
+    .unwrap();
     assert!(states.is_empty());
 }

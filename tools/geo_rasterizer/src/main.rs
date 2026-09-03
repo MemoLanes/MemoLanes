@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use anyhow::{Context, Result};
@@ -252,6 +252,7 @@ fn rasterize_one(
     )?;
     if let Some(existing) = read_existing_hash(&output)? {
         if existing == provenance_hash {
+            write_provenance_sidecar(&output, provenance_hash)?;
             eprintln!(
                 "[geo_rasterizer] inputs unchanged (hash match) — output up to date in {:.0?}",
                 started.elapsed()
@@ -379,6 +380,7 @@ fn rasterize_one(
     )
     .context("serializing geo_data.bin")?;
     write_atomically(&output, &bytes)?;
+    write_provenance_sidecar(&output, provenance_hash)?;
 
     eprintln!(
         "[geo_rasterizer] wrote {} ({} bytes) in {:.1?}",
@@ -387,4 +389,12 @@ fn rasterize_one(
         started.elapsed()
     );
     Ok(())
+}
+
+fn write_provenance_sidecar(output: &Path, provenance_hash: [u8; 32]) -> Result<()> {
+    let sidecar = output.with_extension("provenance");
+    write_atomically(
+        &sidecar,
+        format!("{}\n", hex::encode(provenance_hash)).as_bytes(),
+    )
 }

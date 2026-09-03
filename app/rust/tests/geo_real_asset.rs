@@ -45,13 +45,13 @@ fn country_of(geo: &GeoIndex, leaf: GeoEntityId) -> Option<&GeoEntity> {
 
 fn leaf_at(geo: &GeoIndex, lng: f64, lat: f64) -> Option<GeoEntityId> {
     let (tile, block) = block_of(lng, lat);
-    geo.entity_of_block(tile, block)
+    geo.entity_of_block(tile, block).unwrap()
 }
 
 #[test]
 fn iso_asset_resolves_known_country_locations() {
     let path = test_utils::geo_asset("iso");
-    let geo = GeoIndex::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
+    let geo = GeoIndex::open(&path).unwrap();
 
     // City centers, well inside their countries (ADM0_A3 iso codes).
     for (lng, lat, iso) in [
@@ -78,7 +78,7 @@ fn iso_asset_resolves_known_country_locations() {
 #[test]
 fn iso_asset_resolves_a_city_to_a_province_under_its_country() {
     let path = test_utils::geo_asset("iso");
-    let geo = GeoIndex::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
+    let geo = GeoIndex::open(&path).unwrap();
 
     let leaf = leaf_at(&geo, 139.6917, 35.6895).expect("Tokyo resolved to ocean");
     let entity = geo.entity(leaf).unwrap();
@@ -103,7 +103,7 @@ fn iso_asset_resolves_a_city_to_a_province_under_its_country() {
 #[test]
 fn iso_asset_resolves_a_country_below_the_state_tier_to_itself() {
     let path = test_utils::geo_asset("iso");
-    let geo = GeoIndex::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
+    let geo = GeoIndex::open(&path).unwrap();
 
     for (lng, lat, iso, city) in [
         (2.3522, 48.8566, "FRA", "Paris"),
@@ -130,7 +130,7 @@ fn iso_asset_resolves_a_country_below_the_state_tier_to_itself() {
 #[test]
 fn chn_asset_groups_hong_kong_macau_taiwan_into_china() {
     let path = test_utils::geo_asset("chn");
-    let geo = GeoIndex::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
+    let geo = GeoIndex::open(&path).unwrap();
 
     // Land points well inside each territory — all must resolve to China.
     for (lng, lat, place) in [
@@ -174,7 +174,7 @@ fn chn_asset_groups_hong_kong_macau_taiwan_into_china() {
 #[test]
 fn iso_asset_includes_seven_seas_islands() {
     let path = test_utils::geo_asset("iso");
-    let geo = GeoIndex::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
+    let geo = GeoIndex::open(&path).unwrap();
 
     let by_code: std::collections::HashMap<&str, _> = geo
         .entities_of_kind(GeoEntityKind::Admin0)
@@ -222,7 +222,7 @@ fn iso_asset_includes_seven_seas_islands() {
 #[test]
 fn iso_asset_maps_non_iso_adm0_to_real_iso() {
     let path = test_utils::geo_asset("iso");
-    let geo = GeoIndex::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
+    let geo = GeoIndex::open(&path).unwrap();
     let by_code: std::collections::HashMap<&str, _> = geo
         .entities_of_kind(GeoEntityKind::Admin0)
         .iter()

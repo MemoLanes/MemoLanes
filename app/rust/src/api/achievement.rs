@@ -34,6 +34,11 @@ impl Worldview {
         format!("assets/geo/geo_data_{}.bin", self.inner().spec().id)
     }
 
+    #[frb(sync, getter)]
+    pub fn provenance_path(&self) -> String {
+        format!("assets/geo/geo_data_{}.provenance", self.inner().spec().id)
+    }
+
     #[frb(sync)]
     pub fn from_id(id: &str) -> Option<Self> {
         GeoWorldview::from_id(id).ok().map(Self::from)
@@ -78,6 +83,16 @@ pub fn init_or_change_geo_data(worldview: Worldview, geo_data: &[u8]) -> Result<
     crate::api::api::get()
         .storage
         .init_or_change_geo_data(worldview.into(), geo_data)
+}
+
+pub fn open_installed_geo_data(worldview: Worldview, provenance_hash_hex: String) -> Result<bool> {
+    let hash: [u8; 32] = hex::decode(provenance_hash_hex.trim())
+        .ok()
+        .and_then(|bytes| bytes.try_into().ok())
+        .ok_or_else(|| anyhow::anyhow!("provenance hash must be 32 bytes of hex"))?;
+    crate::api::api::get()
+        .storage
+        .open_installed_geo_data(worldview.into(), hash)
 }
 
 /// Explored area for a single layer.

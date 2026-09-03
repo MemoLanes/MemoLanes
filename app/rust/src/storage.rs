@@ -172,6 +172,12 @@ impl Storage {
         })
     }
 
+    pub fn installed_geo_data_file(&self, worldview: geo_data_format::Worldview) -> PathBuf {
+        Path::new(&self.support_dir)
+            .join("geo")
+            .join(format!("geo_data_{}.bin", worldview.spec().id))
+    }
+
     #[auto_context]
     pub fn with_db_txn<F, O>(&self, f: F) -> Result<O>
     where
@@ -383,23 +389,68 @@ impl Storage {
         })
     }
 
-    /// Install a worldview's geo asset from raw bytes. The asset must declare
-    /// the same worldview id it is loaded as (the `.bin` is self-describing); a
-    /// mismatch means the wrong bin was supplied.
     #[auto_context]
     pub fn init_or_change_geo_data(
         &self,
         worldview: geo_data_format::Worldview,
         bytes: &[u8],
     ) -> Result<()> {
-        let geo = GeoIndex::from_bytes(bytes)?;
+        let path = self.installed_geo_data_file(worldview);
+        let dir = path.parent().expect("installed geo path has a parent");
+        std::fs::create_dir_all(dir)?;
+        let tmp = path.with_extension("bin.tmp");
+        std::fs::write(&tmp, bytes)?;
+        let staged = GeoIndex::open(&tmp).and_then(|geo| Self::check_worldview(&geo, worldview));
+        if let Err(e) = staged {
+            let _ = remove_file(&tmp);
+            return Err(e);
+        }
+        #[cfg(windows)]
+        if path.exists() {
+            remove_file(&path)?;
+        }
+        std::fs::rename(&tmp, &path)?;
+        let geo = GeoIndex::open(&path)?;
+        self.dbs.lock().unwrap().geo = Some(Box::new(geo));
+        Ok(())
+    }
+
+    #[auto_context]
+    pub fn open_installed_geo_data(
+        &self,
+        worldview: geo_data_format::Worldview,
+        expected_provenance_hash: [u8; 32],
+    ) -> Result<bool> {
+        let path = self.installed_geo_data_file(worldview);
+        if !path.exists() {
+            return Ok(false);
+        }
+        let geo = match GeoIndex::open(&path) {
+            std::result::Result::Ok(geo) => geo,
+            Err(e) => {
+                warn!(
+                    "[storage] installed geo asset {} unusable, will reinstall: {e:#}",
+                    path.display()
+                );
+                return Ok(false);
+            }
+        };
+        if geo.provenance_hash() != expected_provenance_hash
+            || Self::check_worldview(&geo, worldview).is_err()
+        {
+            return Ok(false);
+        }
+        self.dbs.lock().unwrap().geo = Some(Box::new(geo));
+        Ok(true)
+    }
+
+    fn check_worldview(geo: &GeoIndex, worldview: geo_data_format::Worldview) -> Result<()> {
         anyhow::ensure!(
             geo.worldview_id() == worldview.spec().id,
             "geo asset declares worldview {:?} but was loaded as {:?}",
             geo.worldview_id(),
             worldview.spec().id
         );
-        self.dbs.lock().unwrap().geo = Some(Box::new(geo));
         Ok(())
     }
 

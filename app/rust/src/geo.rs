@@ -2,19 +2,21 @@
 //! over the packed `geo_data_format` asset, decode-on-demand. One asset per worldview.
 
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::Mutex;
 
 use anyhow::Result;
 use geo_data_format::{
-    read_geo_data, tile_index, GeoData, GeoEntity, GeoEntityId, GeoEntityKind, PackedTile,
-    TileEntry, TileMembership, TILE_GRID_WIDTH,
+    tile_index, GeoData, GeoEntity, GeoEntityId, GeoEntityKind, PackedTile, TileEntry,
+    TileMembership, TILE_GRID_WIDTH,
 };
 
 use crate::journey_bitmap::{BlockKey, TileKey};
 
 pub trait GeoLookup {
-    /// The entity owning a block, or `None` over ocean.
-    fn entity_of_block(&self, tile: TileKey, block: BlockKey) -> Option<GeoEntityId>;
+    /// The entity owning a block, or `None` over ocean. Errors only when the
+    /// backing asset cannot be read.
+    fn entity_of_block(&self, tile: TileKey, block: BlockKey) -> Result<Option<GeoEntityId>>;
     fn tile_membership(&self, tile: TileKey) -> TileMembership;
     fn entity(&self, id: GeoEntityId) -> Option<&GeoEntity>;
     fn entities_of_kind(&self, kind: GeoEntityKind) -> &[GeoEntityId];
@@ -25,7 +27,6 @@ pub trait GeoLookup {
     fn provenance_hash(&self) -> [u8; 32];
 }
 
-/// `GeoData`-backed lookup: tile index in memory, border tiles decoded on demand.
 pub struct GeoIndex {
     data: GeoData,
     /// `entity id -> index into data.entities`, `None` where the id is absent
@@ -37,11 +38,12 @@ pub struct GeoIndex {
 }
 
 impl GeoIndex {
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        Self::new(read_geo_data(bytes)?)
+    /// border tiles on disk, decoded on demand
+    pub fn open(path: &Path) -> Result<Self> {
+        Self::new(GeoData::open(path)?)
     }
 
-    pub fn new(data: GeoData) -> Result<Self> {
+    fn new(data: GeoData) -> Result<Self> {
         let slots = data.entities.iter().map(|e| e.id.0).max().unwrap_or(0) as usize + 1;
         let mut by_id: Vec<Option<u32>> = vec![None; slots];
         let mut by_kind: HashMap<GeoEntityKind, Vec<GeoEntityId>> = HashMap::new();
@@ -76,23 +78,22 @@ impl GeoIndex {
 }
 
 impl GeoLookup for GeoIndex {
-    fn entity_of_block(&self, tile: TileKey, block: BlockKey) -> Option<GeoEntityId> {
+    fn entity_of_block(&self, tile: TileKey, block: BlockKey) -> Result<Option<GeoEntityId>> {
         match self.tile_entry(tile) {
-            TileEntry::None => None,
-            TileEntry::Single(id) => Some(*id),
+            TileEntry::None => Ok(None),
+            TileEntry::Single(id) => Ok(Some(*id)),
             TileEntry::Border(i) => {
                 let mut slot = self
                     .decoded
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner);
                 if slot.as_ref().is_none_or(|(idx, _)| idx != i) {
-                    let packed =
-                        PackedTile::from_compressed_bytes(&self.data.border_blobs[*i as usize]);
-                    *slot = Some((*i, packed));
+                    let blob = self.data.border_blobs.get(*i)?;
+                    *slot = Some((*i, PackedTile::from_compressed_bytes(&blob)));
                 }
                 // `BlockKey::index()` is the x-major cell index PackedTile expects.
                 let (_, packed) = slot.as_ref().expect("just populated");
-                packed.lookup(block.index())
+                Ok(packed.lookup(block.index()))
             }
         }
     }

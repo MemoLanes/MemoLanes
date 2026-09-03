@@ -211,7 +211,7 @@ fn visited_country_isos(
 fn region_api_reports_correct_countries_and_areas() {
     let asset = test_utils::geo_asset("iso");
     let geo_bytes = fs::read(&asset).unwrap();
-    let geo_index = GeoIndex::from_bytes(&geo_bytes).unwrap();
+    let geo_index = GeoIndex::open(&asset).unwrap();
 
     // Resolve each city to its block and confirm the asset agrees with truth, so
     // any later mis-attribution is the region API's doing, not bad placement.
@@ -220,6 +220,7 @@ fn region_api_reports_correct_countries_and_areas() {
         let (tile, block) = block_of(c.lng, c.lat);
         let id = geo_index
             .entity_of_block(tile, block)
+            .unwrap()
             .unwrap_or_else(|| panic!("{}: resolved to ocean", c.name));
         let country = country_of(&geo_index, id).unwrap_or_else(|| {
             panic!(
@@ -261,7 +262,7 @@ fn region_api_reports_correct_countries_and_areas() {
     let ancestor_ids: Vec<_> = placements
         .iter()
         .flat_map(|(_, tile, block, _)| {
-            geo_index.ancestors(geo_index.entity_of_block(*tile, *block).unwrap())
+            geo_index.ancestors(geo_index.entity_of_block(*tile, *block).unwrap().unwrap())
         })
         .collect();
 
@@ -396,12 +397,12 @@ fn region_api_reports_correct_countries_and_areas() {
 /// 88°N/120°E indexes past the tile grid entirely.
 #[test]
 fn track_past_the_mercator_limit_credits_nothing() {
-    let geo = GeoIndex::from_bytes(&fs::read(test_utils::geo_asset("iso")).unwrap()).unwrap();
+    let geo = GeoIndex::open(&test_utils::geo_asset("iso")).unwrap();
 
     for (lng, lat) in [(0.0, 88.0), (120.0, 88.0), (0.0, -87.0)] {
         let mut bitmap = JourneyBitmap::new();
         bitmap.add_line(lng, lat, lng + 0.01, lat + 0.01);
-        let areas = attribution::attribute(&bitmap, &geo);
+        let areas = attribution::attribute(&bitmap, &geo).unwrap();
         let credited = credited_codes(&areas, &geo);
         assert!(credited.is_empty(), "({lng}, {lat}) credited {credited:?}");
     }
