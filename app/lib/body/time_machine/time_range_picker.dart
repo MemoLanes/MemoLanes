@@ -70,6 +70,7 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
     debugLabel: 'time-machine-mode-menu',
   );
   final LayerLink _modeMenuLayerLink = LayerLink();
+  final GlobalKey _modeMenuTargetKey = GlobalKey();
   final Object _modeMenuTapRegionGroup = Object();
 
   /// Single source of truth for lower bound used by ruler/range/pickers.
@@ -227,6 +228,8 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
           controller: _modeMenuController,
           overlayChildBuilder: (overlayContext) {
             final mediaQuery = MediaQuery.of(overlayContext);
+            const menuGap = 12.0;
+            const safeAreaMargin = 12.0;
             final maxMenuWidth = math.max(
               0.0,
               mediaQuery.size.width -
@@ -234,6 +237,25 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
                   mediaQuery.viewPadding.right -
                   48,
             );
+            final targetRenderObject = _modeMenuTargetKey.currentContext
+                ?.findRenderObject();
+            final targetBox = targetRenderObject is RenderBox
+                ? targetRenderObject
+                : null;
+            final targetTop = targetBox?.localToGlobal(Offset.zero).dy ?? 0;
+            final targetBottom = targetTop + (targetBox?.size.height ?? 0);
+            final safeTop = mediaQuery.viewPadding.top + safeAreaMargin;
+            final safeBottom =
+                mediaQuery.size.height -
+                mediaQuery.viewPadding.bottom -
+                safeAreaMargin;
+            final spaceAbove = math.max(0.0, targetTop - menuGap - safeTop);
+            final spaceBelow = math.max(
+              0.0,
+              safeBottom - targetBottom - menuGap,
+            );
+            final placeAbove = spaceAbove >= spaceBelow;
+            final maxMenuHeight = placeAbove ? spaceAbove : spaceBelow;
 
             // OverlayPortal's child receives full-screen constraints. Align
             // loosens them before the follower is measured, so the follower's
@@ -243,14 +265,21 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
               child: CompositedTransformFollower(
                 link: _modeMenuLayerLink,
                 showWhenUnlinked: false,
-                targetAnchor: Alignment.topLeft,
-                followerAnchor: Alignment.bottomLeft,
-                offset: const Offset(0, -12),
+                targetAnchor: placeAbove
+                    ? Alignment.topLeft
+                    : Alignment.bottomLeft,
+                followerAnchor: placeAbove
+                    ? Alignment.bottomLeft
+                    : Alignment.topLeft,
+                offset: Offset(0, placeAbove ? -menuGap : menuGap),
                 child: TapRegion(
                   groupId: _modeMenuTapRegionGroup,
                   onTapOutside: (_) => _hideModeMenu(),
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: maxMenuWidth),
+                    constraints: BoxConstraints(
+                      maxWidth: maxMenuWidth,
+                      maxHeight: maxMenuHeight,
+                    ),
                     child: TweenAnimationBuilder<double>(
                       tween: Tween(begin: 0, end: 1),
                       duration: const Duration(milliseconds: 160),
@@ -259,7 +288,9 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
                         opacity: value,
                         child: Transform.scale(
                           scale: 0.96 + value * 0.04,
-                          alignment: Alignment.bottomLeft,
+                          alignment: placeAbove
+                              ? Alignment.bottomLeft
+                              : Alignment.topLeft,
                           child: child,
                         ),
                       ),
@@ -271,6 +302,7 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
             );
           },
           child: CompositedTransformTarget(
+            key: _modeMenuTargetKey,
             link: _modeMenuLayerLink,
             child: TapRegion(
               groupId: _modeMenuTapRegionGroup,
@@ -311,13 +343,15 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
     return TimeMachineGlassSurface(
       padding: const EdgeInsets.all(16),
       child: PointerInterceptor(
-        child: _TimeMachineViewModeAndLayerMenu(
-          currentViewMode: _viewMode,
-          onViewModeSelect: _onViewModeSelected,
-          currentRulerMode: _rulerMode,
-          onRulerModeSelect: _onRulerModeSelected,
-          selectedJourneyKinds: widget.selectedJourneyKinds,
-          onJourneyKindsChanged: widget.onJourneyKindsChanged,
+        child: SingleChildScrollView(
+          child: _TimeMachineViewModeAndLayerMenu(
+            currentViewMode: _viewMode,
+            onViewModeSelect: _onViewModeSelected,
+            currentRulerMode: _rulerMode,
+            onRulerModeSelect: _onRulerModeSelected,
+            selectedJourneyKinds: widget.selectedJourneyKinds,
+            onJourneyKindsChanged: widget.onJourneyKindsChanged,
+          ),
         ),
       ),
     );

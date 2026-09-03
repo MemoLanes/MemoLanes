@@ -52,8 +52,10 @@ class _RecordingButtonsState extends State<RecordingButtons> {
 
   @override
   Widget build(BuildContext context) {
-    final gpsManager = context.watch<GpsManager>();
-    final status = gpsManager.recordingStatus;
+    final status = context.select<GpsManager, GpsRecordingStatus>(
+      (gpsManager) => gpsManager.recordingStatus,
+    );
+    final gpsManager = context.read<GpsManager>();
 
     return PointerInterceptor(
       child: ConstrainedBox(
@@ -108,8 +110,7 @@ class _StartJourneyButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   static const _triangleSize = Size(10, 12);
-  static const _minIconGap = 4.0;
-  static const _maxIconGap = 10.0;
+  static const _iconGap = 10.0;
 
   @override
   Widget build(BuildContext context) {
@@ -121,9 +122,12 @@ class _StartJourneyButton extends StatelessWidget {
       fontWeight: FontWeight.w600,
     );
 
-    return SizedBox(
-      width: _recordingControlWidth,
-      height: _recordingControlHeight,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        minWidth: _recordingControlWidth,
+        minHeight: _recordingControlHeight,
+        maxHeight: _recordingControlHeight,
+      ),
       child: LiquidGlassSurface(
         borderRadius: BorderRadius.circular(23),
         backgroundAlpha: isDarkMode
@@ -150,42 +154,26 @@ class _StartJourneyButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(23),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final textPainter = TextPainter(
-                    text: TextSpan(text: label, style: labelStyle),
-                    maxLines: 1,
-                    textDirection: Directionality.of(context),
-                    textScaler: MediaQuery.textScalerOf(context),
-                  )..layout();
-                  final leftover =
-                      constraints.maxWidth -
-                      _triangleSize.width -
-                      textPainter.width;
-                  textPainter.dispose();
-                  final gap = leftover.clamp(_minIconGap, _maxIconGap);
-                  final overflows = leftover < _minIconGap;
-                  final labelText = Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: labelStyle,
-                  );
-
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CustomPaint(
-                        size: _triangleSize,
-                        painter: _PlayTrianglePainter(
-                          StyleConstants.onPrimaryActionColor,
-                        ),
-                      ),
-                      SizedBox(width: gap),
-                      if (overflows) Flexible(child: labelText) else labelText,
-                    ],
-                  );
-                },
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CustomPaint(
+                    size: _triangleSize,
+                    painter: _PlayTrianglePainter(
+                      StyleConstants.onPrimaryActionColor,
+                    ),
+                  ),
+                  const SizedBox(width: _iconGap),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: labelStyle,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

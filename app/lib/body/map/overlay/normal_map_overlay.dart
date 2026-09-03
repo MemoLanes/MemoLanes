@@ -69,7 +69,7 @@ class NormalMapOverlay extends StatelessWidget {
               ),
               Positioned(
                 right: padding.right + 32.0,
-                bottom: controlBottom,
+                bottom: recordingBottom,
                 child: _buildMapControls(),
               ),
             ]
@@ -91,15 +91,15 @@ class NormalMapOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gpsManager = context.watch<GpsManager>();
+    final isRecording = context.select<GpsManager, bool>(
+      (gpsManager) =>
+          gpsManager.recordingStatus == GpsRecordingStatus.recording,
+    );
 
     return Stack(
       children: [
         _buildControlsLayout(context),
-        RecIndicator(
-          isRecording:
-              gpsManager.recordingStatus == GpsRecordingStatus.recording,
-        ),
+        RecIndicator(isRecording: isRecording),
       ],
     );
   }
