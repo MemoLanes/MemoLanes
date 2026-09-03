@@ -114,7 +114,10 @@
     "end_time": "End Time",
     "created_at": "Created At",
     "note": "Note",
+    "drop_covered_small_journey": "Avoid creating duplicate journeys",
+    "drop_covered_small_journey_description": "When enabled, ending a journey will not create a new journey record if its track covers only a small area that is already fully included in your existing tracks. Existing tracks are not affected.",
     "finalize_saved": "New journey added",
+    "finalize_discarded": "No new tracks detected. This journey was ignored.",
     "finalize_empty": "No journey detected"
   },
   "db_optimization": {

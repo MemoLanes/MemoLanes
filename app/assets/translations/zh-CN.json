@@ -114,7 +114,10 @@
     "end_time": "结束时间",
     "created_at": "创建时间",
     "note": "备注",
+    "drop_covered_small_journey": "避免生成重复旅途",
+    "drop_covered_small_journey_description": "开启后，结束旅途时，如果本次轨迹范围较小，并且已完全包含在已有足迹中，将不会生成新的旅途记录。已有足迹不会受到影响。",
     "finalize_saved": "新增旅程",
+    "finalize_discarded": "未检测到新的轨迹，已忽略该旅途",
     "finalize_empty": "未检测到新旅程"
   },
   "db_optimization": {

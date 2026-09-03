@@ -3,10 +3,12 @@ use crate::achievement::AchievementReader;
 use crate::cache_db::{self, CacheDb, LayerKind};
 use crate::geo::{GeoIndex, GeoLookup};
 use crate::gps_processor::{self, ProcessResult};
+use crate::journey_area_utils::journey_bitmap_area_cm2;
 use crate::journey_bitmap::JourneyBitmap;
+use crate::journey_data::JourneyData;
 use crate::journey_header::JourneyKind;
 use crate::journey_snapshot::JourneySnapshot;
-use crate::main_db::{self, Action, MainDb};
+use crate::main_db::{self, Action, FinalizeJourneyResult, MainDb, PreparedOngoingJourney};
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
 use chrono::{Local, NaiveDate};
@@ -14,6 +16,10 @@ use serde::{Deserialize, Serialize};
 use std::fs::{remove_file, File};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+
+// A single stationary point occupies roughly 45-90 m² at the bitmap's current
+// resolution, so this captures no-op recordings without affecting real trips.
+const DROP_COVERED_JOURNEY_MAX_AREA_CM2: i64 = 100 * 10_000;
 
 // TODO: error handling in this file is horrifying, we should think about what
 // is the right thing to do here.
@@ -177,6 +183,14 @@ impl Storage {
     where
         F: FnOnce(&mut main_db::Txn) -> Result<O>,
     {
+        self.with_db_and_cache_txn(|txn, _| f(txn))
+    }
+
+    #[auto_context]
+    fn with_db_and_cache_txn<F, O>(&self, f: F) -> Result<O>
+    where
+        F: FnOnce(&mut main_db::Txn, &mut dyn CacheDb) -> Result<O>,
+    {
         let mut dbs = self.dbs.lock().unwrap();
         let Inner {
             main_db,
@@ -188,7 +202,7 @@ impl Storage {
         let mut finalized_journey_changed = false;
 
         let output = main_db.with_txn(|txn| {
-            let output = f(txn)?;
+            let output = f(txn, cache_db.as_mut())?;
 
             if let Some(action) = &txn.action {
                 match action {
@@ -213,6 +227,91 @@ impl Storage {
         }
 
         Ok(output)
+    }
+
+    fn should_discard_prepared_ongoing_journey(
+        txn: &main_db::Txn,
+        cache_db: &mut dyn CacheDb,
+        prepared: &PreparedOngoingJourney,
+    ) -> Result<bool> {
+        let mut candidate = JourneyBitmap::new();
+        let mut area_cm2 = 0;
+        let exceeds_max_area = match &prepared.journey_data {
+            JourneyData::Vector(vector) => candidate.merge_vector_until(vector, |candidate| {
+                area_cm2 = journey_bitmap_area_cm2(candidate, None);
+                area_cm2 > DROP_COVERED_JOURNEY_MAX_AREA_CM2
+            }),
+            JourneyData::Bitmap(bitmap) => {
+                candidate.merge_with_partial_clone(bitmap);
+                area_cm2 = journey_bitmap_area_cm2(&candidate, None);
+                area_cm2 > DROP_COVERED_JOURNEY_MAX_AREA_CM2
+            }
+        };
+
+        if candidate.is_empty() {
+            info!("Discarding ongoing journey because its coverage bitmap is empty");
+            return Ok(true);
+        }
+
+        if exceeds_max_area {
+            info!(
+                "Keeping ongoing journey after candidate exceeded coverage-check limit: area_cm2={area_cm2}, threshold_cm2={DROP_COVERED_JOURNEY_MAX_AREA_CM2}"
+            );
+            return Ok(false);
+        }
+
+        let historical_ground = cache_db.get_or_compute(
+            txn,
+            &LayerKind::JourneyKind(JourneyKind::DefaultKind),
+            None,
+        )?;
+        let fully_covered = candidate.is_subset_of(&historical_ground);
+        info!(
+            "Small ongoing journey coverage check: area_cm2={area_cm2}, threshold_cm2={DROP_COVERED_JOURNEY_MAX_AREA_CM2}, fully_covered={fully_covered}"
+        );
+        Ok(fully_covered)
+    }
+
+    fn finalize_ongoing_journey_impl(
+        &self,
+        auto: bool,
+        drop_covered_small_journey: bool,
+    ) -> Result<FinalizeJourneyResult> {
+        let status = self.with_db_and_cache_txn(|txn, cache_db| {
+            if auto && !txn.should_auto_finalize_journey()? {
+                return Ok(FinalizeJourneyResult::default());
+            }
+
+            txn.finalize_ongoing_journey_with(|txn, prepared| {
+                if drop_covered_small_journey {
+                    Self::should_discard_prepared_ongoing_journey(txn, cache_db, prepared)
+                } else {
+                    Ok(false)
+                }
+            })
+        })?;
+
+        // A discarded journey does not create a cache action, but its ongoing
+        // overlay disappeared and the renderer still needs to reload.
+        if status.ongoing_cleared() && !status.journey_saved() {
+            (self.finalized_journey_changed_callback)(self);
+        }
+
+        Ok(status)
+    }
+
+    pub fn finalize_ongoing_journey(
+        &self,
+        drop_covered_small_journey: bool,
+    ) -> Result<FinalizeJourneyResult> {
+        self.finalize_ongoing_journey_impl(false, drop_covered_small_journey)
+    }
+
+    pub fn try_auto_finalize_journey(
+        &self,
+        drop_covered_small_journey: bool,
+    ) -> Result<FinalizeJourneyResult> {
+        self.finalize_ongoing_journey_impl(true, drop_covered_small_journey)
     }
 
     pub fn toggle_raw_data_mode(&self, enable: bool) {

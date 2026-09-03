@@ -299,16 +299,28 @@ impl JourneyBitmap {
         }
     }
 
-    pub fn merge_vector(&mut self, journey_vector: &crate::journey_vector::JourneyVector) {
+    pub(crate) fn merge_vector_until<F>(
+        &mut self,
+        journey_vector: &crate::journey_vector::JourneyVector,
+        mut should_stop: F,
+    ) -> bool
+    where
+        F: FnMut(&JourneyBitmap) -> bool,
+    {
         for track_segment in &journey_vector.track_segments {
             match track_segment.track_points.as_slice() {
                 [] => {}
-                [point] => self.add_line(
-                    point.longitude,
-                    point.latitude,
-                    point.longitude,
-                    point.latitude,
-                ),
+                [point] => {
+                    self.add_line(
+                        point.longitude,
+                        point.latitude,
+                        point.longitude,
+                        point.latitude,
+                    );
+                    if should_stop(self) {
+                        return true;
+                    }
+                }
                 points => {
                     for pair in points.windows(2) {
                         self.add_line(
@@ -317,10 +329,18 @@ impl JourneyBitmap {
                             pair[1].longitude,
                             pair[1].latitude,
                         );
+                        if should_stop(self) {
+                            return true;
+                        }
                     }
                 }
             }
         }
+        false
+    }
+
+    pub fn merge_vector(&mut self, journey_vector: &crate::journey_vector::JourneyVector) {
+        let _ = self.merge_vector_until(journey_vector, |_| false);
     }
 
     pub fn merge(&mut self, other_journey_bitmap: JourneyBitmap) {
@@ -397,6 +417,24 @@ impl JourneyBitmap {
                 }
             },
         );
+    }
+
+    /// Returns whether every visited bit in `self` is also visited in `other`.
+    ///
+    /// Iterating from `self` keeps the check proportional to a small candidate
+    /// journey and avoids scanning the complete historical bitmap.
+    pub fn is_subset_of(&self, other: &JourneyBitmap) -> bool {
+        self.tiles.iter().all(|(tile_key, tile)| {
+            let Some(other_tile) = other.tiles.get(tile_key) else {
+                return false;
+            };
+
+            tile.iter().all(|(block_key, block)| {
+                other_tile
+                    .get(&block_key)
+                    .is_some_and(|other_block| block.is_subset_of(other_block))
+            })
+        })
     }
 
     pub fn check_invariant_and_debug_log(&mut self) {
@@ -778,6 +816,13 @@ impl Block {
         self.data.iter().map(|x| x.count_ones()).sum()
     }
 
+    fn is_subset_of(&self, other: &Block) -> bool {
+        self.data
+            .iter()
+            .zip(other.data.iter())
+            .all(|(self_byte, other_byte)| self_byte & !other_byte == 0)
+    }
+
     pub fn is_visited(&self, x: u8, y: u8) -> bool {
         let bit_offset = 7 - (x % 8);
         let i = (x / 8) as usize;
@@ -1034,7 +1079,49 @@ impl Block {
 
 #[cfg(test)]
 mod tests {
-    use crate::journey_bitmap::{Block, BlockKey};
+    use crate::{
+        journey_area_utils::journey_bitmap_area_cm2,
+        journey_bitmap::{Block, BlockKey, JourneyBitmap},
+        journey_vector::{JourneyVector, TrackPoint, TrackSegment},
+    };
+
+    #[test]
+    fn merge_vector_until_stops_after_predicate_matches() {
+        let points = [
+            TrackPoint {
+                longitude: 0.0,
+                latitude: 0.0,
+            },
+            TrackPoint {
+                longitude: 0.01,
+                latitude: 0.0,
+            },
+            TrackPoint {
+                longitude: 10.0,
+                latitude: 0.0,
+            },
+        ];
+        let vector = JourneyVector {
+            track_segments: vec![TrackSegment {
+                track_points: points.to_vec(),
+            }],
+        };
+        let mut candidate = JourneyBitmap::new();
+
+        let stopped = candidate.merge_vector_until(&vector, |candidate| {
+            journey_bitmap_area_cm2(candidate, None) > 100 * 10_000
+        });
+
+        let mut first_line_only = JourneyBitmap::new();
+        first_line_only.add_line(
+            points[0].longitude,
+            points[0].latitude,
+            points[1].longitude,
+            points[1].latitude,
+        );
+        assert!(stopped);
+        assert_eq!(candidate, first_line_only);
+    }
 
     #[test]
     fn block_key_conversion() {
