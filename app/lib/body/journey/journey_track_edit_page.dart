@@ -414,9 +414,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                                       label: context.tr(
                                         'journey.editor.free_draw',
                                       ),
-                                      tooltip: context.tr(
-                                        'journey.editor.free_draw',
-                                      ),
                                       isSelected: !_isLinkedDrawEnabled,
                                       onPressed: () => _handleDrawEntrySelected(
                                         DrawEntryMode.freehand,
@@ -428,9 +425,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                                     child: _DrawEntryModeButton(
                                       icon: Icons.link_rounded,
                                       label: context.tr(
-                                        'journey.editor.linked_draw',
-                                      ),
-                                      tooltip: context.tr(
                                         'journey.editor.linked_draw',
                                       ),
                                       isSelected: _isLinkedDrawEnabled,
@@ -527,27 +521,22 @@ class _DrawEntryModeButton extends StatelessWidget {
   const _DrawEntryModeButton({
     required this.icon,
     required this.label,
-    required this.tooltip,
     required this.isSelected,
     required this.onPressed,
   });
 
   final IconData icon;
   final String label;
-  final String tooltip;
   final bool isSelected;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: FrostedBarItem(
-        icon: icon,
-        label: label,
-        isSelected: isSelected,
-        onTap: onPressed,
-      ),
+    return FrostedBarItem(
+      icon: icon,
+      label: label,
+      isSelected: isSelected,
+      onTap: onPressed,
     );
   }
 }
