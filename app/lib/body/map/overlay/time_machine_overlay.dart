@@ -33,6 +33,7 @@ class TimeMachineOverlay extends StatefulWidget {
 }
 
 class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
+  static const _rangeLoadDebounce = Duration(milliseconds: 100);
   static const _loadErrorMessage =
       '[TimeMachineOverlay] failed to load journey range';
 
@@ -41,6 +42,7 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
   SimpleDate? _lastFrom;
   SimpleDate? _lastTo;
   final _loadGuard = AsyncLoadToken();
+  Timer? _rangeLoadDebounceTimer;
 
   late Set<JourneyKind> _selectedJourneyKinds;
 
@@ -68,6 +70,8 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
   }
 
   Future<void> _loadJourneyForRange(SimpleDate from, SimpleDate to) async {
+    _rangeLoadDebounceTimer?.cancel();
+    _rangeLoadDebounceTimer = null;
     if (!mounted) return;
     if (_earliestJourneyDate == null) return;
     if (from.isAfter(to)) return;
@@ -95,6 +99,14 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
     }
   }
 
+  void _scheduleJourneyRangeLoad(SimpleDate from, SimpleDate to) {
+    _rangeLoadDebounceTimer?.cancel();
+    _rangeLoadDebounceTimer = Timer(_rangeLoadDebounce, () {
+      _rangeLoadDebounceTimer = null;
+      unawaited(_loadJourneyForRange(from, to));
+    });
+  }
+
   void _onJourneyKindsChanged(Set<JourneyKind> newKinds) {
     final kinds = Set<JourneyKind>.from(newKinds);
     setState(() => _selectedJourneyKinds = kinds);
@@ -107,6 +119,7 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
 
   @override
   void dispose() {
+    _rangeLoadDebounceTimer?.cancel();
     _loadGuard.clear();
     super.dispose();
   }
@@ -132,7 +145,8 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
           child: TimeRangePicker(
             earliestDate: earliest,
             loading: _loading,
-            onRangeChanged: _loadJourneyForRange,
+            onRangeChanged: _scheduleJourneyRangeLoad,
+            onRangeCommitted: _loadJourneyForRange,
             selectedJourneyKinds: _selectedJourneyKinds,
             onJourneyKindsChanged: _onJourneyKindsChanged,
           ),
