@@ -102,7 +102,7 @@ fn sample_journey() -> (JourneyHeader, JourneyData) {
 }
 
 fn sample_raw_data_with_latitude(latitude: f64) -> raw_data::SerializedJourneyRawData {
-    raw_data::serialize(&JourneyRawData {
+    JourneyRawData {
         points: vec![ExtendedRawGPSPoint {
             raw_gps_point: RawGPSPoint {
                 point: gps_processor::Point {
@@ -116,7 +116,8 @@ fn sample_raw_data_with_latitude(latitude: f64) -> raw_data::SerializedJourneyRa
             },
             received_timestamp_ms: 1_700_000_000_010,
         }],
-    })
+    }
+    .serialize()
     .unwrap()
 }
 

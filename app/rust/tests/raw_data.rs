@@ -1,7 +1,7 @@
 use memolanes_core::{
     export_data,
     gps_processor::Point,
-    raw_data::{self, ExtendedRawGPSPoint, JourneyRawData, RawGPSPoint, SerializedJourneyRawData},
+    raw_data::{ExtendedRawGPSPoint, JourneyRawData, RawGPSPoint, SerializedJourneyRawData},
 };
 use std::io::Cursor;
 
@@ -46,17 +46,17 @@ fn journey_raw_data_round_trips_through_serialized_form() {
         ],
     };
 
-    let serialized = raw_data::serialize(&raw_data).unwrap();
+    let serialized = raw_data.serialize().unwrap();
 
     assert!(serialized.as_bytes().starts_with(b"R0"));
-    assert_eq!(raw_data::deserialize(&serialized).unwrap(), raw_data);
+    assert_eq!(serialized.deserialize().unwrap(), raw_data);
 }
 
 #[test]
 fn rejects_invalid_magic_header() {
     let serialized = SerializedJourneyRawData::from_bytes(vec![b'X', b'0']);
 
-    let error = raw_data::deserialize(&serialized).unwrap_err().to_string();
+    let error = serialized.deserialize().unwrap_err().to_string();
 
     assert!(error.contains("Invalid magic header"));
 }

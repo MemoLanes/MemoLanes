@@ -171,7 +171,7 @@ fn journey_raw_data_lifecycle() {
         .with_txn(|txn| txn.has_journey_raw_data(&header.id))
         .unwrap());
     assert_eq!(
-        raw_data::deserialize(&serialized).unwrap().points,
+        serialized.deserialize().unwrap().points,
         vec![ignored, appended]
     );
     assert!(main_db

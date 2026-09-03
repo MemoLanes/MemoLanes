@@ -115,7 +115,7 @@ impl Txn<'_> {
             .prepare("SELECT data FROM ongoing_journey_raw_data ORDER BY id;")?;
         let rows = query.query_map((), |row| row.get::<_, Vec<u8>>(0))?;
         let points = rows
-            .map(|row| raw_data::deserialize_point(&row?))
+            .map(|row| raw_data::ExtendedRawGPSPoint::deserialize(&row?))
             .collect::<Result<Vec<_>>>()?;
         Ok(raw_data::JourneyRawData { points })
     }
@@ -464,7 +464,7 @@ impl Txn<'_> {
                 let serialized_raw_data = if ongoing_journey_raw_data.is_empty() {
                     None
                 } else {
-                    Some(raw_data::serialize(&ongoing_journey_raw_data)?)
+                    Some(ongoing_journey_raw_data.serialize()?)
                 };
 
                 self.create_and_insert_journey_with_raw_data(
@@ -1069,7 +1069,7 @@ impl MainDb {
             ))?;
         }
         if let Some(raw_data) = raw_data {
-            let bytes = raw_data::serialize_point(raw_data)?;
+            let bytes = raw_data.serialize()?;
             tx.prepare_cached("INSERT INTO ongoing_journey_raw_data (data) VALUES (?1);")?
                 .execute([bytes])?;
         }

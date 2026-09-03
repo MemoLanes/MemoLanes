@@ -56,7 +56,7 @@ use crate::{
     journey_header::JourneyHeader,
     main_db,
     protos::archive::{metadata, Metadata, SectionHeader},
-    raw_data::{self, SerializedJourneyRawData},
+    raw_data::SerializedJourneyRawData,
 };
 
 const METADATA_MAGIC_HEADER: [u8; 3] = *b"MLM";
@@ -168,7 +168,7 @@ fn read_v2_journey_record<T: Read>(reader: &mut T) -> Result<SerializedJourneyRe
     let raw_data = if field_count >= 2 {
         let raw_data = SerializedJourneyRawData::from_bytes(read_bytes_with_size_header(reader)?);
         // Archive input is untrusted. Validate before it can reach the database.
-        raw_data::deserialize(&raw_data)?;
+        raw_data.deserialize()?;
         Some(raw_data)
     } else {
         None

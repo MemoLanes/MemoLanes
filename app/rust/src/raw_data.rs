@@ -37,6 +37,16 @@ pub struct SerializedJourneyRawData {
 }
 
 impl ExtendedRawGPSPoint {
+    pub(crate) fn serialize(&self) -> Result<Vec<u8>> {
+        Ok(self.to_proto().write_to_bytes()?)
+    }
+
+    pub(crate) fn deserialize(bytes: &[u8]) -> Result<Self> {
+        Ok(Self::of_proto(
+            protos::raw_data::ExtendedRawGPSPointProto::parse_from_bytes(bytes)?,
+        ))
+    }
+
     fn to_proto(&self) -> protos::raw_data::ExtendedRawGPSPointProto {
         let ExtendedRawGPSPoint {
             raw_gps_point,
@@ -83,6 +93,17 @@ impl ExtendedRawGPSPoint {
 }
 
 impl JourneyRawData {
+    pub fn serialize(&self) -> Result<SerializedJourneyRawData> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&JOURNEY_RAW_DATA_MAGIC_HEADER);
+
+        let mut encoder = zstd::Encoder::new(&mut bytes, journey_data::ZSTD_COMPRESS_LEVEL)?;
+        self.to_proto().write_to_writer(&mut encoder)?;
+        encoder.finish()?;
+
+        Ok(SerializedJourneyRawData { bytes })
+    }
+
     fn to_proto(&self) -> protos::raw_data::JourneyRawDataProto {
         let JourneyRawData { points } = self;
 
@@ -107,6 +128,15 @@ impl JourneyRawData {
 }
 
 impl SerializedJourneyRawData {
+    pub fn deserialize(&self) -> Result<JourneyRawData> {
+        let mut reader = Cursor::new(self.as_bytes());
+        utils::validate_magic_header(&mut reader, &JOURNEY_RAW_DATA_MAGIC_HEADER)?;
+
+        let mut decoder = zstd::Decoder::new(reader)?;
+        let proto = protos::raw_data::JourneyRawDataProto::parse_from_reader(&mut decoder)?;
+        Ok(JourneyRawData::of_proto(proto))
+    }
+
     pub fn from_bytes(bytes: Vec<u8>) -> Self {
         SerializedJourneyRawData { bytes }
     }
@@ -124,34 +154,4 @@ impl AsRef<[u8]> for SerializedJourneyRawData {
     fn as_ref(&self) -> &[u8] {
         self.as_bytes()
     }
-}
-
-pub(crate) fn serialize_point(point: &ExtendedRawGPSPoint) -> Result<Vec<u8>> {
-    Ok(point.to_proto().write_to_bytes()?)
-}
-
-pub(crate) fn deserialize_point(bytes: &[u8]) -> Result<ExtendedRawGPSPoint> {
-    Ok(ExtendedRawGPSPoint::of_proto(
-        protos::raw_data::ExtendedRawGPSPointProto::parse_from_bytes(bytes)?,
-    ))
-}
-
-pub fn serialize(raw_data: &JourneyRawData) -> Result<SerializedJourneyRawData> {
-    let mut bytes = Vec::new();
-    bytes.extend_from_slice(&JOURNEY_RAW_DATA_MAGIC_HEADER);
-
-    let mut encoder = zstd::Encoder::new(&mut bytes, journey_data::ZSTD_COMPRESS_LEVEL)?;
-    raw_data.to_proto().write_to_writer(&mut encoder)?;
-    encoder.finish()?;
-
-    Ok(SerializedJourneyRawData { bytes })
-}
-
-pub fn deserialize(serialized: &SerializedJourneyRawData) -> Result<JourneyRawData> {
-    let mut reader = Cursor::new(serialized.as_bytes());
-    utils::validate_magic_header(&mut reader, &JOURNEY_RAW_DATA_MAGIC_HEADER)?;
-
-    let mut decoder = zstd::Decoder::new(reader)?;
-    let proto = protos::raw_data::JourneyRawDataProto::parse_from_reader(&mut decoder)?;
-    Ok(JourneyRawData::of_proto(proto))
 }
