@@ -33,7 +33,8 @@ fn entity_keys(worldview: Worldview) -> BTreeSet<String> {
     require(&path);
     GeoData::open(&path)
         .unwrap()
-        .entities
+        .entities()
+        .unwrap()
         .iter()
         .map(|e| e.name_key.clone())
         .collect()

@@ -117,7 +117,8 @@ fn shipped_bins_carry_the_expected_province_counts() {
         );
         let data = GeoData::open(&path).unwrap();
         let provinces = data
-            .entities
+            .entities()
+            .unwrap()
             .iter()
             .filter(|e| matches!(e.kind, GeoEntityKind::Admin1))
             .count();
@@ -125,13 +126,15 @@ fn shipped_bins_carry_the_expected_province_counts() {
 
         // Every province must be parented to a country that exists in this bin.
         let countries: std::collections::BTreeSet<_> = data
-            .entities
+            .entities()
+            .unwrap()
             .iter()
             .filter(|e| matches!(e.kind, GeoEntityKind::Admin0))
             .map(|e| e.id)
             .collect();
         for province in data
-            .entities
+            .entities()
+            .unwrap()
             .iter()
             .filter(|e| matches!(e.kind, GeoEntityKind::Admin1))
         {
@@ -201,7 +204,8 @@ fn shipped_provinces(worldview: Worldview) -> Vec<String> {
     );
     GeoData::open(&path)
         .unwrap()
-        .entities
+        .entities()
+        .unwrap()
         .into_iter()
         .filter(|e| matches!(e.kind, GeoEntityKind::Admin1))
         .map(|e| e.canonical_code)
@@ -344,13 +348,12 @@ fn shipped_parent(worldview: Worldview, code: &str) -> Option<String> {
         "{} is absent — run `just rasterize-geo`",
         path.display()
     );
-    let data = GeoData::open(&path).unwrap();
-    let province = data
-        .entities
+    let entities = GeoData::open(&path).unwrap().entities().unwrap();
+    let province = entities
         .iter()
         .find(|e| matches!(e.kind, GeoEntityKind::Admin1) && e.canonical_code == code)?;
     Some(
-        data.entities
+        entities
             .iter()
             .find(|e| Some(e.id) == province.parent_id)
             .expect("a shipped province's parent must be in the same bin")

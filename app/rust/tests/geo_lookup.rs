@@ -208,8 +208,10 @@ fn out_of_grid_tile_x_resolves_to_none() {
 fn entity_metadata_kinds_and_ancestors() {
     let (_dir, geo) = synthetic_geo();
 
-    assert_eq!(geo.entity(GeoEntityId(2)).unwrap().canonical_code, "FR");
-    assert!(geo.entity(GeoEntityId(404)).is_none());
+    let fr = geo.node(GeoEntityId(2)).unwrap();
+    assert_eq!(fr.kind, GeoEntityKind::Admin0);
+    assert_eq!(fr.parent_id, Some(GeoEntityId(1)));
+    assert!(geo.node(GeoEntityId(404)).is_none());
 
     let mut countries = geo.entities_of_kind(GeoEntityKind::Admin0).to_vec();
     countries.sort();
@@ -295,4 +297,18 @@ fn interleaved_tile_lookups_do_not_leak_across_tiles() {
         assert_eq!(geo.entity_of_block(border_tile_b, block).unwrap(), from_b);
         assert_eq!(geo.entity_of_block(border_tile_a, block).unwrap(), from_a);
     }
+}
+
+#[test]
+fn describe_returns_only_the_requested_entities() {
+    let (_dir, geo) = synthetic_geo();
+
+    let described = geo.describe(&[GeoEntityId(2), GeoEntityId(404)]).unwrap();
+    assert_eq!(described.len(), 1);
+    let fr = &described[&GeoEntityId(2)];
+    assert_eq!(fr.canonical_code, "FR");
+    assert_eq!(fr.name_key, "k.FR");
+    assert_eq!(fr.parent_id, Some(GeoEntityId(1)));
+
+    assert!(geo.describe(&[]).unwrap().is_empty());
 }

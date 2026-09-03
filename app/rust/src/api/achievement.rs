@@ -132,7 +132,7 @@ pub fn region_level_view(
         .with_achievement_read(|store| {
             let ids = region::level_scope(store.geo()?, level, parent);
             let areas = store.region_areas(layer, &ids)?;
-            Ok(region::level_view(store.geo()?, level, &ids, &areas))
+            region::level_view(store.geo()?, level, &ids, &areas)
         })
 }
 
@@ -145,6 +145,6 @@ pub fn region_detail(
         .with_achievement_read(|store| {
             let ids = region::detail_scope(store.geo()?, entity_id);
             let areas = store.region_areas(layer, &ids)?;
-            Ok(region::detail_view(store.geo()?, entity_id, &areas))
+            region::detail_view(store.geo()?, entity_id, &areas)
         })
 }

@@ -126,7 +126,7 @@ fn region_read_api_lists_progress_and_completion() {
 
             // Entries always list every country (FR, DE); only visited ones carry
             // area. Default sees only FR visited; All sees both.
-            let def = region::level_view(geo, RegionKind::Admin0, &ids, &areas);
+            let def = region::level_view(geo, RegionKind::Admin0, &ids, &areas)?;
             let mut def_ids: Vec<_> = def.entries.keys().copied().collect();
             def_ids.sort();
             assert_eq!(def_ids, vec![GeoEntityId(2), GeoEntityId(3)]);
@@ -141,17 +141,17 @@ fn region_read_api_lists_progress_and_completion() {
 
             // Counts: a level is complete when visited_count == region_count > 0.
             assert_eq!((def.visited_count, def.region_count), (1, 2));
-            let all = region::level_view(geo, RegionKind::Admin0, &ids, &all_areas);
+            let all = region::level_view(geo, RegionKind::Admin0, &ids, &all_areas)?;
             assert_eq!((all.visited_count, all.region_count), (2, 2));
 
-            let world = region::level_view(geo, RegionKind::Admin0, &world_scope, &world_areas);
+            let world = region::level_view(geo, RegionKind::Admin0, &world_scope, &world_areas)?;
             let mut world_ids: Vec<_> = world.entries.keys().copied().collect();
             world_ids.sort();
             assert_eq!(world_ids, vec![GeoEntityId(2), GeoEntityId(3)]);
             assert_eq!((world.visited_count, world.region_count), (2, 2));
 
             // Detail of EU (All layer): single-layer node + FR/DE children.
-            let detail = region::detail_view(geo, GeoEntityId(1), &detail_areas).unwrap();
+            let detail = region::detail_view(geo, GeoEntityId(1), &detail_areas)?.unwrap();
             assert_eq!(detail.entity_id, GeoEntityId(1));
             assert!(detail.node.visited_area_m2 > 0);
             let mut kids: Vec<_> = detail.children.keys().copied().collect();

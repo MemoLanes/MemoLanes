@@ -2,9 +2,9 @@
 //!
 //! Layout: `Header(68 B) | Meta | TileIndex | BorderOffsets | BorderBlobs`.
 //! All integers little-endian. Border tiles are stored already
-//! `PackedTile`-compressed, and the blob region is the one section a reader
-//! may leave on disk: [`GeoData::open`] keeps only its span table in memory
-//! and reads each blob on demand. See the design spec.
+//! `PackedTile`-compressed. [`GeoData::open`] keeps the tile index (sparse)
+//! and the compressed meta section in memory; border offsets and blobs stay
+//! on disk and are read per lookup, entities are decoded per request.
 
 use std::collections::BTreeMap;
 use std::fs::File;
@@ -33,31 +33,129 @@ struct MetaSection {
 
 /// Tile classification as read back: `Border` carries the index into
 /// `GeoData::border_blobs`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TileEntry {
     Single(GeoEntityId),
     Border(u32),
     None,
 }
 
-/// Border tiles' compressed `PackedTile` blobs, left in the file and read on
-/// demand; only the span table is resident.
+const TILE_BORDER_BIT: u32 = 1 << 31;
+const TILE_PAYLOAD_MAX: u32 = TILE_BORDER_BIT - 1;
+const TILES_PER_WORD: usize = 64;
+
+fn check_tile_payload(what: &str, value: u32) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        value <= TILE_PAYLOAD_MAX,
+        "geo_data: {what} {value} exceeds the tile index range ({TILE_PAYLOAD_MAX})"
+    );
+    Ok(())
+}
+
+#[derive(Debug)]
+pub struct TileIndex {
+    present: Box<[u64]>,
+    rank: Box<[u32]>,
+    entries: Box<[u32]>,
+}
+
+impl TileIndex {
+    fn from_raw(tile_raw: &[u8]) -> anyhow::Result<Self> {
+        let words = TILE_COUNT / TILES_PER_WORD;
+        let mut present = vec![0u64; words];
+        let mut rank = vec![0u32; words];
+        let mut entries = Vec::new();
+        for (i, raw) in tile_raw.as_chunks::<5>().0.iter().enumerate() {
+            if i % TILES_PER_WORD == 0 {
+                rank[i / TILES_PER_WORD] = entries.len() as u32;
+            }
+            let payload = read_u32(raw, 1);
+            let packed = match raw[0] {
+                0 => continue,
+                1 => {
+                    check_tile_payload("entity id", payload)?;
+                    payload
+                }
+                3 => {
+                    check_tile_payload("border blob index", payload)?;
+                    TILE_BORDER_BIT | payload
+                }
+                t => anyhow::bail!("geo_data: bad tile tag {t}"),
+            };
+            present[i / TILES_PER_WORD] |= 1 << (i % TILES_PER_WORD);
+            entries.push(packed);
+        }
+        Ok(TileIndex {
+            present: present.into_boxed_slice(),
+            rank: rank.into_boxed_slice(),
+            entries: entries.into_boxed_slice(),
+        })
+    }
+
+    pub fn get(&self, idx: usize) -> TileEntry {
+        let word = self.present[idx / TILES_PER_WORD];
+        let bit = 1u64 << (idx % TILES_PER_WORD);
+        if word & bit == 0 {
+            return TileEntry::None;
+        }
+        let below = (word & (bit - 1)).count_ones() as usize;
+        let v = self.entries[self.rank[idx / TILES_PER_WORD] as usize + below];
+        if v & TILE_BORDER_BIT != 0 {
+            TileEntry::Border(v & !TILE_BORDER_BIT)
+        } else {
+            TileEntry::Single(GeoEntityId(v))
+        }
+    }
+
+    fn max_border_index(&self) -> Option<u32> {
+        self.entries
+            .iter()
+            .filter(|v| *v & TILE_BORDER_BIT != 0)
+            .map(|v| v & !TILE_BORDER_BIT)
+            .max()
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Section {
+    off: usize,
+    len: usize,
+}
+
 #[derive(Debug)]
 pub struct BorderBlobs {
-    spans: Box<[(u32, u32)]>,
     file: File,
-    region_offset: u64,
+    offsets: Section,
+    region: Section,
 }
 
 impl BorderBlobs {
+    fn count(&self) -> usize {
+        self.offsets.len / 8
+    }
+
     pub fn get(&self, i: u32) -> anyhow::Result<Vec<u8>> {
-        let (off, len) = *self
-            .spans
-            .get(i as usize)
-            .ok_or_else(|| anyhow::anyhow!("geo_data: no border blob {i}"))?;
+        anyhow::ensure!((i as usize) < self.count(), "geo_data: no border blob {i}");
+        let mut span = [0u8; 8];
+        read_exact_at(
+            &self.file,
+            &mut span,
+            (self.offsets.off + i as usize * 8) as u64,
+        )
+        .map_err(|e| anyhow::anyhow!("geo_data: reading span of border blob {i}: {e}"))?;
+        let (off, len) = (read_u32(&span, 0), read_u32(&span, 4));
+        anyhow::ensure!(
+            off.checked_add(len)
+                .is_some_and(|end| end as usize <= self.region.len),
+            "geo_data: border blob {i} out of bounds"
+        );
         let mut buf = vec![0u8; len as usize];
-        read_exact_at(&self.file, &mut buf, self.region_offset + off as u64)
-            .map_err(|e| anyhow::anyhow!("geo_data: reading border blob {i}: {e}"))?;
+        read_exact_at(
+            &self.file,
+            &mut buf,
+            (self.region.off + off as usize) as u64,
+        )
+        .map_err(|e| anyhow::anyhow!("geo_data: reading border blob {i}: {e}"))?;
         Ok(buf)
     }
 }
@@ -83,12 +181,25 @@ fn read_exact_at(file: &File, mut buf: &mut [u8], mut offset: u64) -> std::io::R
 
 #[derive(Debug)]
 pub struct GeoData {
-    pub entities: Vec<GeoEntity>,
     /// The worldview id this asset represents (see [`MetaSection::worldview_id`]).
     pub worldview_id: String,
-    pub tile_index: Vec<TileEntry>,
+    pub tile_index: TileIndex,
     pub border_blobs: BorderBlobs,
     pub provenance_hash: [u8; 32],
+    meta_compressed: Box<[u8]>,
+}
+
+impl GeoData {
+    pub fn entities(&self) -> anyhow::Result<Vec<GeoEntity>> {
+        Ok(decode_meta(&self.meta_compressed)?.entities)
+    }
+}
+
+fn decode_meta(compressed: &[u8]) -> anyhow::Result<MetaSection> {
+    let raw = zstd::decode_all(compressed)?;
+    // `bitcode::deserialize` rejects trailing bytes, preserving the format's
+    // strict section-boundary validation.
+    Ok(bitcode::deserialize(raw.as_slice())?)
 }
 
 fn read_u32(b: &[u8], at: usize) -> u32 {
@@ -115,7 +226,10 @@ pub fn write_geo_data(
     for (idx, m) in tile_lookup.iter().enumerate() {
         let (tag, payload): (u8, u32) = match m {
             TileMembership::None => (0, 0),
-            TileMembership::Single(id) => (1, id.0),
+            TileMembership::Single(id) => {
+                check_tile_payload("entity id", id.0)?;
+                (1, id.0)
+            }
             TileMembership::Border => {
                 let (tx, ty) = tile_xy(idx);
                 let cells = block_lookup.get(&(tx, ty)).ok_or_else(|| {
@@ -129,6 +243,7 @@ pub fn write_geo_data(
                     .map_err(|e| e.context(format!("border tile ({tx},{ty})")))?
                     .to_compressed_bytes();
                 let blob_idx = blobs.len() as u32;
+                check_tile_payload("border blob index", blob_idx)?;
                 blobs.push(blob);
                 (3, blob_idx)
             }
@@ -200,12 +315,6 @@ pub fn expected_total_len(header: &[u8]) -> Option<usize> {
     Some(total)
 }
 
-#[derive(Clone, Copy)]
-struct Section {
-    off: usize,
-    len: usize,
-}
-
 struct Header {
     provenance_hash: [u8; 32],
     meta: Section,
@@ -243,77 +352,6 @@ fn parse_header(header: &[u8]) -> anyhow::Result<Header> {
     })
 }
 
-fn assemble(
-    header: Header,
-    meta_compressed: &[u8],
-    tile_index_compressed: &[u8],
-    border_offsets: &[u8],
-    file: File,
-) -> anyhow::Result<GeoData> {
-    let meta_raw = zstd::decode_all(meta_compressed)?;
-    // `bitcode::deserialize` rejects trailing bytes, preserving the format's
-    // strict section-boundary validation.
-    let meta: MetaSection = bitcode::deserialize(meta_raw.as_slice())?;
-
-    let tile_raw = zstd::decode_all(tile_index_compressed)?;
-    anyhow::ensure!(
-        tile_raw.len() == TILE_COUNT * 5,
-        "geo_data: tile index size {} != {}",
-        tile_raw.len(),
-        TILE_COUNT * 5
-    );
-    let mut tile_index = Vec::with_capacity(TILE_COUNT);
-    for i in 0..TILE_COUNT {
-        let tag = tile_raw[i * 5];
-        let payload = read_u32(&tile_raw, i * 5 + 1);
-        tile_index.push(match tag {
-            0 => TileEntry::None,
-            1 => TileEntry::Single(GeoEntityId(payload)),
-            3 => TileEntry::Border(payload),
-            t => anyhow::bail!("geo_data: bad tile tag {t}"),
-        });
-    }
-
-    anyhow::ensure!(
-        border_offsets.len().is_multiple_of(8),
-        "geo_data: border offset table misaligned"
-    );
-    let blob_len = header.border_blobs.len;
-    let n = border_offsets.len() / 8;
-    let mut spans = Vec::with_capacity(n);
-    for i in 0..n {
-        let off = read_u32(border_offsets, i * 8);
-        let len = read_u32(border_offsets, i * 8 + 4);
-        anyhow::ensure!(
-            off.checked_add(len)
-                .is_some_and(|end| end as usize <= blob_len),
-            "geo_data: blob {i} out of bounds"
-        );
-        spans.push((off, len));
-    }
-    let blob_count = spans.len();
-    for entry in &tile_index {
-        if let TileEntry::Border(i) = entry {
-            anyhow::ensure!(
-                (*i as usize) < blob_count,
-                "geo_data: Border index {i} out of range ({blob_count} blobs)"
-            );
-        }
-    }
-
-    Ok(GeoData {
-        entities: meta.entities,
-        worldview_id: meta.worldview_id,
-        tile_index,
-        border_blobs: BorderBlobs {
-            spans: spans.into_boxed_slice(),
-            file,
-            region_offset: header.border_blobs.off as u64,
-        },
-        provenance_hash: header.provenance_hash,
-    })
-}
-
 impl GeoData {
     pub fn open(path: &Path) -> anyhow::Result<GeoData> {
         let file = File::open(path)
@@ -334,9 +372,42 @@ impl GeoData {
                 .map_err(|e| anyhow::anyhow!("geo_data: reading section: {e}"))?;
             Ok(buf)
         };
-        let meta = read(header.meta)?;
-        let tile_index = read(header.tile_index)?;
-        let border_offsets = read(header.border_offsets)?;
-        assemble(header, &meta, &tile_index, &border_offsets, file)
+
+        let meta_compressed = read(header.meta)?.into_boxed_slice();
+        let worldview_id = decode_meta(&meta_compressed)?.worldview_id;
+
+        let tile_raw = zstd::decode_all(read(header.tile_index)?.as_slice())?;
+        anyhow::ensure!(
+            tile_raw.len() == TILE_COUNT * 5,
+            "geo_data: tile index size {} != {}",
+            tile_raw.len(),
+            TILE_COUNT * 5
+        );
+        let tile_index = TileIndex::from_raw(&tile_raw)?;
+
+        anyhow::ensure!(
+            header.border_offsets.len.is_multiple_of(8),
+            "geo_data: border offset table misaligned"
+        );
+        let border_blobs = BorderBlobs {
+            file,
+            offsets: header.border_offsets,
+            region: header.border_blobs,
+        };
+        if let Some(max) = tile_index.max_border_index() {
+            let count = border_blobs.count();
+            anyhow::ensure!(
+                (max as usize) < count,
+                "geo_data: Border index {max} out of range ({count} blobs)"
+            );
+        }
+
+        Ok(GeoData {
+            worldview_id,
+            tile_index,
+            border_blobs,
+            provenance_hash: header.provenance_hash,
+            meta_compressed,
+        })
     }
 }
