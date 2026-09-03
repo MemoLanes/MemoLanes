@@ -13,6 +13,7 @@ import 'package:memolanes/common/service/permission_service.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/gps_processor.dart';
+import 'package:memolanes/src/rust/main_db.dart';
 import 'package:mutex/mutex.dart';
 import 'package:notification_when_app_is_killed/model/args_for_ios.dart';
 import 'package:notification_when_app_is_killed/model/args_for_kill_notification.dart';
@@ -110,15 +111,24 @@ class GpsManager extends ChangeNotifier {
   }
 
   Future<void> _tryFinalizeJourneyWithoutLock() async {
-    if (await api.tryAutoFinalizeJourney()) {
-      Fluttertoast.showToast(msg: tr("journey.finalize_saved"));
-      if (recordingStatus == GpsRecordingStatus.paused) {
-        recordingStatus = GpsRecordingStatus.none;
-        notifyListeners();
-        await _syncInternalStateWithoutLock();
-      }
-      _notifyJourneyFinalized();
+    final result = await api.tryAutoFinalizeJourney(
+      dropCoveredSmallJourney: MMKVUtil.getBool(
+        MMKVKey.dropCoveredSmallJourneyEnabled,
+        defaultValue: true,
+      ),
+    );
+    if (result == FinalizeJourneyResult.noop) {
+      return;
     }
+    if (result == FinalizeJourneyResult.saved) {
+      Fluttertoast.showToast(msg: tr("journey.finalize_saved"));
+    }
+    if (recordingStatus == GpsRecordingStatus.paused) {
+      recordingStatus = GpsRecordingStatus.none;
+      notifyListeners();
+      await _syncInternalStateWithoutLock();
+    }
+    _notifyJourneyFinalized();
   }
 
   void _notifyJourneyFinalized() {
@@ -328,11 +338,18 @@ class GpsManager extends ChangeNotifier {
       );
 
       if (needToFinalize) {
-        if (await api.finalizeOngoingJourney()) {
-          Fluttertoast.showToast(msg: tr("journey.finalize_saved"));
-        } else {
-          Fluttertoast.showToast(msg: tr("journey.finalize_empty"));
-        }
+        final result = await api.finalizeOngoingJourney(
+          dropCoveredSmallJourney: MMKVUtil.getBool(
+            MMKVKey.dropCoveredSmallJourneyEnabled,
+            defaultValue: true,
+          ),
+        );
+        final messageKey = switch (result) {
+          FinalizeJourneyResult.saved => "journey.finalize_saved",
+          FinalizeJourneyResult.discarded => "journey.finalize_discarded",
+          FinalizeJourneyResult.noop => "journey.finalize_empty",
+        };
+        Fluttertoast.showToast(msg: tr(messageKey));
         _notifyJourneyFinalized();
       }
     });

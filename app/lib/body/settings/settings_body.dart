@@ -41,11 +41,16 @@ class SettingsBody extends StatefulWidget {
 
 class _SettingsBodyState extends State<SettingsBody> {
   bool _isUnexpectedExitNotificationEnabled = false;
+  bool _dropCoveredSmallJourneyEnabled = true;
   String _version = "";
 
   @override
   void initState() {
     super.initState();
+    _dropCoveredSmallJourneyEnabled = MMKVUtil.getBool(
+      MMKVKey.dropCoveredSmallJourneyEnabled,
+      defaultValue: true,
+    );
     _loadNotificationStatus();
     _loadVersion();
   }
@@ -247,6 +252,31 @@ class _SettingsBodyState extends State<SettingsBody> {
           },
         ),
         LabelTileTitle(label: context.tr("settings.other")),
+        LabelTile(
+          label: context.tr("journey.drop_covered_small_journey"),
+          infoLabelOnTap: () async {
+            await showCommonDialog(
+              context,
+              context.tr("journey.drop_covered_small_journey_description"),
+              title: context.tr("journey.drop_covered_small_journey"),
+            );
+          },
+          position: LabelTilePosition.middle,
+          trailing: Switch(
+            value: _dropCoveredSmallJourneyEnabled,
+            onChanged: gpsManager.recordingStatus == GpsRecordingStatus.none
+                ? (value) {
+                    MMKVUtil.putBool(
+                      MMKVKey.dropCoveredSmallJourneyEnabled,
+                      value,
+                    );
+                    setState(() {
+                      _dropCoveredSmallJourneyEnabled = value;
+                    });
+                  }
+                : null,
+          ),
+        ),
         LabelTile(
           label: context.tr("unexpected_exit_notification.setting_title"),
           position: defaultTargetPlatform == TargetPlatform.android

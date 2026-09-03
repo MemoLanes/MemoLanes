@@ -531,29 +531,40 @@ pub fn set_main_map_layer_filter(new_layer_filter: &LayerFilter) -> Result<()> {
 }
 
 #[auto_context]
-fn reset_gps_preprocessor_if_finalized<F>(finalize_op: F) -> Result<bool>
+fn reset_gps_preprocessor_if_ongoing_cleared<F>(
+    finalize_op: F,
+) -> Result<main_db::FinalizeJourneyResult>
 where
-    F: FnOnce(&mut main_db::Txn) -> Result<bool>,
+    F: FnOnce(&Storage) -> Result<main_db::FinalizeJourneyResult>,
 {
     let state = get();
     // TODO: I think we need to hold the gps_preprocessor lock first, otherwise
     // we might have a deadlock because the locking story in `on_location_update`
     // is quite complex. We should fix all the locking mess.
     let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
-    let finalized = state.storage.with_db_txn(finalize_op)?;
-    // when journey is finalized, we should reset the gps_preprocessor to prevent old state affecting new journey
-    if finalized {
+    let status = finalize_op(&state.storage)?;
+    // A covered journey is not saved, but its ongoing rows were consumed. It
+    // must still start the next recording with a fresh preprocessor.
+    if status.ongoing_cleared() {
         *gps_preprocessor = GpsPreprocessor::new();
     }
-    Ok(finalized)
+    Ok(status)
 }
 
-pub fn finalize_ongoing_journey() -> Result<bool> {
-    reset_gps_preprocessor_if_finalized(|txn| txn.finalize_ongoing_journey())
+pub fn finalize_ongoing_journey(
+    drop_covered_small_journey: bool,
+) -> Result<main_db::FinalizeJourneyResult> {
+    reset_gps_preprocessor_if_ongoing_cleared(|storage| {
+        storage.finalize_ongoing_journey(drop_covered_small_journey)
+    })
 }
 
-pub fn try_auto_finalize_journey() -> Result<bool> {
-    reset_gps_preprocessor_if_finalized(|txn| txn.try_auto_finalize_journey())
+pub fn try_auto_finalize_journey(
+    drop_covered_small_journey: bool,
+) -> Result<main_db::FinalizeJourneyResult> {
+    reset_gps_preprocessor_if_ongoing_cleared(|storage| {
+        storage.try_auto_finalize_journey(drop_covered_small_journey)
+    })
 }
 
 pub fn has_ongoing_journey() -> Result<bool> {
