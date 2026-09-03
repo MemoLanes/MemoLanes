@@ -12,6 +12,6 @@ message ExtendedRawGPSPointProto {
   int64 received_timestamp_ms = 7;
 }
 
-message JourneyRawDataProto {
-  repeated ExtendedRawGPSPointProto points = 1;
+message JourneyRawDataHeaderProto {
+  int64 created_at_timestamp_ms = 1;
 }

@@ -186,6 +186,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       targetFilepath: filePath,
       journeyId: journeyHeader.id,
       exportType: exportType,
+      includeRawData: false,
     );
     return CommonExportResult.create(exportResult, filePath);
   }

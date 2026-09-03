@@ -2,8 +2,13 @@ pub mod test_utils;
 use crate::test_utils::{draw_line1, draw_line2, draw_line3};
 use chrono::NaiveDate;
 use memolanes_core::{
-    cache_db::LayerKind, gps_processor::ProcessResult, import_data, journey_bitmap::JourneyBitmap,
-    journey_data::JourneyData, journey_header::JourneyKind, raw_data::ExtendedRawGPSPoint,
+    cache_db::LayerKind,
+    gps_processor::{Point, ProcessResult},
+    import_data,
+    journey_bitmap::JourneyBitmap,
+    journey_data::JourneyData,
+    journey_header::JourneyKind,
+    raw_data::{ExtendedRawGPSPoint, RawGPSPoint},
     storage::Storage,
 };
 use std::fs;
@@ -47,7 +52,7 @@ fn storage_for_main_map_renderer() {
             // assert!(!storage.main_map_renderer_need_to_reload());
         } else if i == 1010 {
             let _: bool = storage
-                .with_db_txn(|txn| txn.finalize_ongoing_journey())
+                .with_db_txn(|txn| txn.finalize_ongoing_journey(storage.get_raw_data_mode()))
                 .unwrap();
         } else if i == 1020 {
             // assert!(storage.main_map_renderer_need_to_reload());
@@ -78,6 +83,95 @@ where
     )
     .unwrap();
     f(storage);
+}
+
+#[test]
+fn raw_data_mode_controls_capture_and_finalization() {
+    for auto_finalize in [false, true] {
+        for retain_raw_data in [false, true] {
+            setup_storage_for_test(|storage| {
+                assert!(!storage.get_raw_data_mode());
+                storage.toggle_raw_data_mode(true);
+                let point = ExtendedRawGPSPoint {
+                    raw_gps_point: RawGPSPoint {
+                        point: Point {
+                            latitude: 31.2304,
+                            longitude: 121.4737,
+                        },
+                        timestamp_ms: Some(1_700_000_000_000),
+                        accuracy: None,
+                        altitude: None,
+                        speed: None,
+                    },
+                    received_timestamp_ms: 1_700_000_000_010,
+                };
+                storage.record_gps_data(&point, ProcessResult::Append);
+                storage.toggle_raw_data_mode(retain_raw_data);
+                assert_eq!(storage.get_raw_data_mode(), retain_raw_data);
+                let mut next_point = point.clone();
+                next_point.raw_gps_point.point.latitude += 0.001;
+                next_point.raw_gps_point.timestamp_ms = Some(1_700_000_001_000);
+                next_point.received_timestamp_ms += 1_000;
+                storage.record_gps_data(&next_point, ProcessResult::Append);
+
+                storage
+                    .with_db_txn(|txn| {
+                        let pending = txn.get_ongoing_journey_raw_data()?;
+                        let expected_points = if retain_raw_data {
+                            vec![point, next_point]
+                        } else {
+                            vec![point]
+                        };
+                        assert_eq!(pending.points, expected_points);
+                        let raw_data_mode = storage.get_raw_data_mode();
+                        let finalized = if auto_finalize {
+                            txn.try_auto_finalize_journey(raw_data_mode)?
+                        } else {
+                            txn.finalize_ongoing_journey(raw_data_mode)?
+                        };
+                        assert!(finalized);
+                        let headers = txn.query_journeys(None, None, None)?;
+                        assert_eq!(headers.len(), 1);
+                        let header = &headers[0];
+                        assert_eq!(header.has_raw_data, retain_raw_data);
+                        assert!(!txn.get_journey_data(&header.id)?.is_empty());
+                        let raw_data = txn.get_journey_raw_data(&header.id)?;
+                        assert_eq!(raw_data.is_some(), retain_raw_data);
+                        if let Some(raw_data) = raw_data {
+                            assert_eq!(raw_data.deserialize()?.points, expected_points);
+                        }
+                        assert!(txn.get_ongoing_journey_raw_data()?.is_empty());
+                        assert!(txn.get_ongoing_journey(None)?.is_none());
+                        Ok(())
+                    })
+                    .unwrap();
+            });
+        }
+    }
+}
+
+#[test]
+fn raw_data_mode_persists_across_restarts() {
+    let temp_dir = TempDir::new("raw_data_mode_persistence").unwrap();
+    let init = || {
+        let dir = |name| {
+            let path = temp_dir.path().join(name);
+            fs::create_dir_all(&path).unwrap();
+            path.to_str().unwrap().to_owned()
+        };
+        Storage::init(dir("temp"), dir("doc"), dir("support"), dir("cache")).unwrap()
+    };
+    let storage = init();
+    assert!(!storage.get_raw_data_mode());
+    storage.toggle_raw_data_mode(true);
+    drop(storage);
+
+    let storage = init();
+    assert!(storage.get_raw_data_mode());
+    storage.toggle_raw_data_mode(false);
+    drop(storage);
+
+    assert!(!init().get_raw_data_mode());
 }
 
 fn assert_cache(storage: &Storage, default: &JourneyBitmap, flight: &JourneyBitmap) {

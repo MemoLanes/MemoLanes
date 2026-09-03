@@ -1,7 +1,10 @@
 use memolanes_core::{
     export_data,
     gps_processor::Point,
-    raw_data::{ExtendedRawGPSPoint, JourneyRawData, RawGPSPoint, SerializedJourneyRawData},
+    raw_data::{
+        ExtendedRawGPSPoint, JourneyRawData, JourneyRawDataHeader, RawGPSPoint,
+        SerializedJourneyRawData,
+    },
 };
 use std::io::Cursor;
 
@@ -32,6 +35,9 @@ fn point(
 #[test]
 fn journey_raw_data_round_trips_through_serialized_form() {
     let raw_data = JourneyRawData {
+        header: JourneyRawDataHeader {
+            created_at_timestamp_ms: 1_700_000_000_000,
+        },
         points: vec![
             point(
                 31.230416,
@@ -61,9 +67,108 @@ fn rejects_invalid_magic_header() {
     assert!(error.contains("Invalid magic header"));
 }
 
+fn framed_raw_data(payload: &[u8]) -> SerializedJourneyRawData {
+    let mut bytes = b"R0".to_vec();
+    bytes.extend(zstd::stream::encode_all(payload, 3).unwrap());
+    SerializedJourneyRawData::from_bytes(bytes)
+}
+
+#[test]
+fn raw_data_uses_a_header_followed_by_independently_framed_points() {
+    let raw_data = JourneyRawData {
+        header: JourneyRawDataHeader {
+            created_at_timestamp_ms: 150,
+        },
+        points: vec![
+            point(0., 0., None, None, None, None, 7),
+            point(0., 0., None, None, None, None, 0),
+        ],
+    };
+    // Header: field 1 = 150. First point: field 7 = 7.
+    // The second point has all default values, so its protobuf is empty.
+    let payload = [3, 0x08, 0x96, 0x01, 2, 0x38, 7, 0];
+    let serialized = raw_data.serialize().unwrap();
+    assert_eq!(
+        zstd::stream::decode_all(&serialized.as_bytes()[2..]).unwrap(),
+        payload
+    );
+    assert_eq!(framed_raw_data(&payload).deserialize().unwrap(), raw_data);
+}
+
+#[test]
+fn raw_data_header_can_exist_without_points() {
+    let raw_data = JourneyRawData {
+        header: JourneyRawDataHeader {
+            created_at_timestamp_ms: 150,
+        },
+        points: Vec::new(),
+    };
+    assert_eq!(
+        raw_data.serialize().unwrap().deserialize().unwrap(),
+        raw_data
+    );
+    assert_eq!(
+        framed_raw_data(&[0])
+            .deserialize()
+            .unwrap()
+            .header
+            .created_at_timestamp_ms,
+        0
+    );
+}
+
+#[test]
+fn raw_data_skips_future_header_and_point_fields() {
+    // Unknown string field 2 in the header, and string field 8 in the point.
+    let payload = [
+        8, 0x08, 0x96, 0x01, 0x12, 3, b'a', b'b', b'c', 7, 0x38, 7, 0x42, 3, b'x', b'y', b'z',
+    ];
+    let raw_data = framed_raw_data(&payload).deserialize().unwrap();
+    assert_eq!(raw_data.header.created_at_timestamp_ms, 150);
+    assert_eq!(
+        raw_data.points,
+        vec![point(0., 0., None, None, None, None, 7)]
+    );
+}
+
+#[test]
+fn raw_data_rejects_missing_header_and_truncated_or_invalid_records() {
+    for payload in [
+        &[][..],                // missing header
+        &[0x80],                // truncated header length
+        &[3, 0x08],             // truncated header payload
+        &[3, 0x08, 0x00],       // valid header protobuf, but shorter than declared
+        &[0, 0x80],             // truncated point length
+        &[0, 2, 0x38],          // truncated point payload
+        &[0, 3, 0x38, 7],       // valid point protobuf, but shorter than declared
+        &[0, 2, 0x38, 7, 0x80], // truncated length after a valid point
+        &[0, 1, 0],             // invalid protobuf tag in a point
+    ] {
+        assert!(
+            framed_raw_data(payload).deserialize().is_err(),
+            "payload: {payload:?}"
+        );
+    }
+}
+
+#[test]
+fn raw_data_rejects_truncated_compression_frame() {
+    let mut bytes = JourneyRawData::new(Vec::new(), 1_700_000_000_000)
+        .serialize()
+        .unwrap()
+        .into_bytes();
+    bytes.pop();
+    assert!(SerializedJourneyRawData::from_bytes(bytes)
+        .deserialize()
+        .is_err());
+}
+
 #[test]
 fn journey_raw_data_exports_to_csv_gpx_and_kml() {
     let raw_data = JourneyRawData {
+        header: JourneyRawDataHeader {
+            created_at_timestamp_ms: 1_700_000_000_000,
+        },
         points: vec![point(
             31.230416,
             121.473701,
@@ -98,6 +203,9 @@ fn journey_raw_data_exports_to_csv_gpx_and_kml() {
 #[test]
 fn journey_raw_data_gpx_uses_received_timestamp_as_fallback() {
     let raw_data = JourneyRawData {
+        header: JourneyRawDataHeader {
+            created_at_timestamp_ms: 1_700_000_000_000,
+        },
         points: vec![point(
             31.230416,
             121.473701,
@@ -125,6 +233,9 @@ fn journey_raw_data_gpx_uses_received_timestamp_as_fallback() {
 #[test]
 fn journey_raw_data_gpx_rejects_out_of_range_timestamp() {
     let raw_data = JourneyRawData {
+        header: JourneyRawDataHeader {
+            created_at_timestamp_ms: 1_700_000_000_000,
+        },
         points: vec![point(
             31.230416,
             121.473701,
@@ -146,6 +257,9 @@ fn journey_raw_data_gpx_rejects_out_of_range_timestamp() {
 #[test]
 fn journey_raw_data_kml_orders_track_fields_and_rejects_invalid_timestamps() {
     let raw_data = JourneyRawData {
+        header: JourneyRawDataHeader {
+            created_at_timestamp_ms: 1_700_000_000_000,
+        },
         points: vec![
             point(
                 31.230416,
@@ -176,6 +290,9 @@ fn journey_raw_data_kml_orders_track_fields_and_rejects_invalid_timestamps() {
     assert!(second_when < first_coord);
 
     let invalid = JourneyRawData {
+        header: JourneyRawDataHeader {
+            created_at_timestamp_ms: 1_700_000_000_000,
+        },
         points: vec![point(
             31.230416,
             121.473701,

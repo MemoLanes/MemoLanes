@@ -1,11 +1,30 @@
-//! Journey-attached raw data v2, serialized as compressed protobuf bytes.
+//! Journey-attached raw data, stored as independently framed protobuf records.
 //!
-//! The filesystem CSV format is isolated in [`crate::legacy_raw_data`].
+//! R0 layout:
+//!
+//! ```text
+//! "R0"
+//! Zstd frame containing:
+//!   header byte length: unsigned varint32
+//!   JourneyRawDataHeaderProto bytes
+//!   point byte length: unsigned varint32
+//!   ExtendedRawGPSPointProto bytes
+//!   ... (points in recording order, until the decompressed stream ends)
+//! ```
+//!
+//! The header is mandatory, including for an empty recording. Every protobuf
+//! has its own length prefix; there is no enclosing protobuf or total point
+//! count. Header and point fields can be extended independently. A future
+//! implementation can process these records incrementally without changing
+//! the format. The current API still returns all points in memory.
+//!
+//! EOF is valid only between point records. Incomplete lengths or payloads
+//! are errors. The filesystem CSV format is isolated in `crate::legacy_raw_data`.
 
 use std::io::Cursor;
 
 use anyhow::Result;
-use protobuf::Message;
+use protobuf::{CodedInputStream, CodedOutputStream, Message};
 
 use crate::{gps_processor::Point, journey_data, protos, utils};
 
@@ -27,7 +46,14 @@ pub struct ExtendedRawGPSPoint {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct JourneyRawDataHeader {
+    /// UTC creation time of this raw-data attachment, in milliseconds.
+    pub created_at_timestamp_ms: i64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct JourneyRawData {
+    pub header: JourneyRawDataHeader,
     pub points: Vec<ExtendedRawGPSPoint>,
 }
 
@@ -92,34 +118,48 @@ impl ExtendedRawGPSPoint {
     }
 }
 
+impl JourneyRawDataHeader {
+    fn to_proto(&self) -> protos::raw_data::JourneyRawDataHeaderProto {
+        let mut proto = protos::raw_data::JourneyRawDataHeaderProto::new();
+        proto.created_at_timestamp_ms = self.created_at_timestamp_ms;
+        proto
+    }
+
+    fn of_proto(proto: protos::raw_data::JourneyRawDataHeaderProto) -> Self {
+        Self {
+            created_at_timestamp_ms: proto.created_at_timestamp_ms,
+        }
+    }
+}
+
 impl JourneyRawData {
+    pub fn new(points: Vec<ExtendedRawGPSPoint>, created_at_timestamp_ms: i64) -> Self {
+        Self {
+            header: JourneyRawDataHeader {
+                created_at_timestamp_ms,
+            },
+            points,
+        }
+    }
+
     pub fn serialize(&self) -> Result<SerializedJourneyRawData> {
         let mut bytes = Vec::new();
         bytes.extend_from_slice(&JOURNEY_RAW_DATA_MAGIC_HEADER);
 
         let mut encoder = zstd::Encoder::new(&mut bytes, journey_data::ZSTD_COMPRESS_LEVEL)?;
-        self.to_proto().write_to_writer(&mut encoder)?;
+        {
+            let mut output = CodedOutputStream::new(&mut encoder);
+            self.header
+                .to_proto()
+                .write_length_delimited_to(&mut output)?;
+            for point in &self.points {
+                point.to_proto().write_length_delimited_to(&mut output)?;
+            }
+            output.flush()?;
+        }
         encoder.finish()?;
 
         Ok(SerializedJourneyRawData { bytes })
-    }
-
-    fn to_proto(&self) -> protos::raw_data::JourneyRawDataProto {
-        let JourneyRawData { points } = self;
-
-        let mut proto = protos::raw_data::JourneyRawDataProto::new();
-        proto.points = points.iter().map(ExtendedRawGPSPoint::to_proto).collect();
-        proto
-    }
-
-    fn of_proto(proto: protos::raw_data::JourneyRawDataProto) -> Self {
-        JourneyRawData {
-            points: proto
-                .points
-                .into_iter()
-                .map(ExtendedRawGPSPoint::of_proto)
-                .collect(),
-        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -133,8 +173,15 @@ impl SerializedJourneyRawData {
         utils::validate_magic_header(&mut reader, &JOURNEY_RAW_DATA_MAGIC_HEADER)?;
 
         let mut decoder = zstd::Decoder::new(reader)?;
-        let proto = protos::raw_data::JourneyRawDataProto::parse_from_reader(&mut decoder)?;
-        Ok(JourneyRawData::of_proto(proto))
+        let mut input = CodedInputStream::new(&mut decoder);
+        let header = JourneyRawDataHeader::of_proto(
+            protos::raw_data::JourneyRawDataHeaderProto::parse_from_bytes(&input.read_bytes()?)?,
+        );
+        let mut points = Vec::new();
+        while !input.eof()? {
+            points.push(ExtendedRawGPSPoint::deserialize(&input.read_bytes()?)?);
+        }
+        Ok(JourneyRawData { header, points })
     }
 
     pub fn from_bytes(bytes: Vec<u8>) -> Self {

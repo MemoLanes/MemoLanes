@@ -11,6 +11,7 @@ use memolanes_core::{
     raw_data::{self, ExtendedRawGPSPoint, RawGPSPoint},
     utils::db::{run_migrations, set_version_in_metadata, DbError, SchemaVersion},
 };
+use protobuf::Message;
 use rusqlite::Connection;
 use std::collections::HashSet;
 use tempdir::TempDir;
@@ -70,7 +71,7 @@ fn basic() {
             .unwrap();
     }
     main_db
-        .with_txn(|txn| txn.finalize_ongoing_journey())
+        .with_txn(|txn| txn.finalize_ongoing_journey(false))
         .unwrap();
 
     // validate the finalized journey
@@ -113,7 +114,7 @@ fn basic() {
 
     // without any more gpx data, should be no-op
     main_db
-        .with_txn(|txn| txn.finalize_ongoing_journey())
+        .with_txn(|txn| txn.finalize_ongoing_journey(false))
         .unwrap();
     assert_eq!(
         main_db
@@ -157,7 +158,7 @@ fn journey_raw_data_lifecycle() {
     assert_eq!(ongoing.points, vec![ignored.clone(), appended.clone()]);
 
     assert!(main_db
-        .with_txn(|txn| txn.finalize_ongoing_journey())
+        .with_txn(|txn| txn.finalize_ongoing_journey(true))
         .unwrap());
     let header = main_db
         .with_txn(|txn| Ok(txn.query_journeys(None, None, None)?.remove(0)))
@@ -243,6 +244,64 @@ fn journey_raw_data_lifecycle() {
 }
 
 #[test]
+fn journey_header_reads_preserve_stored_raw_data_state() {
+    let temp_dir = TempDir::new("main_db-inconsistent-raw-data").unwrap();
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
+    main_db
+        .with_txn(|txn| {
+            test_utils::insert_bitmap_journey(
+                txn,
+                date("2024-05-20"),
+                JourneyKind::DefaultKind,
+                test_utils::make_bitmap_with_line(test_utils::draw_line3),
+            );
+            Ok(())
+        })
+        .unwrap();
+    let mut header = main_db
+        .with_txn(|txn| Ok(txn.query_journeys(None, None, None)?.remove(0)))
+        .unwrap();
+    let connection = Connection::open(temp_dir.path().join("main.db")).unwrap();
+    let raw_data = raw_data::JourneyRawData::new(Vec::new(), 1_700_000_000_000)
+        .serialize()
+        .unwrap();
+
+    for has_raw_data in [false, true] {
+        header.has_raw_data = !has_raw_data;
+        let header_bytes = header.clone().to_proto().write_to_bytes().unwrap();
+        connection
+            .execute(
+                "UPDATE journey SET header = ?2, raw_data = ?3 WHERE id = ?1;",
+                (
+                    &header.id,
+                    &header_bytes,
+                    has_raw_data.then_some(raw_data.as_bytes()),
+                ),
+            )
+            .unwrap();
+
+        let queried_headers = main_db
+            .with_txn(|txn| txn.query_journeys(None, None, None))
+            .unwrap();
+        let loaded_header = main_db
+            .with_txn(|txn| txn.get_journey_header(&header.id))
+            .unwrap()
+            .unwrap();
+        assert_eq!(queried_headers, vec![header.clone()]);
+        assert_eq!(loaded_header, header);
+
+        let stored_header: Vec<u8> = connection
+            .query_row(
+                "SELECT header FROM journey WHERE id = ?1;",
+                [&header.id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(stored_header, header_bytes);
+    }
+}
+
+#[test]
 fn disabled_raw_data_capture_does_not_create_an_attachment() {
     let temp_dir = TempDir::new("main_db-disabled_raw_data_capture").unwrap();
     let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
@@ -264,7 +323,7 @@ fn disabled_raw_data_capture_does_not_create_an_attachment() {
         .record_with_raw_data(&data, gps_processor::ProcessResult::Append, false)
         .unwrap();
     main_db
-        .with_txn(|txn| txn.finalize_ongoing_journey())
+        .with_txn(|txn| txn.finalize_ongoing_journey(false))
         .unwrap();
     let header = main_db
         .with_txn(|txn| Ok(txn.query_journeys(None, None, None)?.remove(0)))
@@ -1779,7 +1838,7 @@ fn finalize_ongoing_sets_merge_one() {
 
     let action = main_db
         .with_txn(|txn| {
-            let finalized = txn.finalize_ongoing_journey()?;
+            let finalized = txn.finalize_ongoing_journey(false)?;
             assert!(finalized, "Should have finalized a journey");
             Ok(txn.action.clone())
         })

@@ -117,7 +117,10 @@ impl Txn<'_> {
         let points = rows
             .map(|row| raw_data::ExtendedRawGPSPoint::deserialize(&row?))
             .collect::<Result<Vec<_>>>()?;
-        Ok(raw_data::JourneyRawData { points })
+        Ok(raw_data::JourneyRawData::new(
+            points,
+            Utc::now().timestamp_millis(),
+        ))
     }
 
     // the fist timestamp is the start time, the second is the end time
@@ -205,11 +208,10 @@ impl Txn<'_> {
     #[auto_context]
     pub fn insert_journey_with_raw_data(
         &mut self,
-        mut header: JourneyHeader,
+        header: JourneyHeader,
         mut data: JourneyData,
         raw_data: Option<raw_data::SerializedJourneyRawData>,
     ) -> Result<()> {
-        header.correct_has_raw_data(raw_data.is_some(), "insert_journey");
         let journey_type = header.journey_type;
         if journey_type != data.type_() {
             bail!("[insert_journey] Mismatch journey type")
@@ -452,19 +454,26 @@ impl Txn<'_> {
         Ok(())
     }
 
+    /// When `retain_raw_data` is false, discard pending raw points while
+    /// finalizing the processed journey normally.
     #[auto_context]
-    pub fn finalize_ongoing_journey(&mut self) -> Result<bool> {
+    pub fn finalize_ongoing_journey(&mut self, retain_raw_data: bool) -> Result<bool> {
         let mut journey_date_picker = JourneyDatePicker::new();
         let new_journey_added = match self.get_ongoing_journey(Some(&mut journey_date_picker))? {
             None => false,
             Some(journey_vector) => {
                 // TODO: allow user to set this when recording?
                 let journey_kind = JourneyKind::DefaultKind;
-                let ongoing_journey_raw_data = self.get_ongoing_journey_raw_data()?;
-                let serialized_raw_data = if ongoing_journey_raw_data.is_empty() {
-                    None
+
+                let serialized_raw_data = if retain_raw_data {
+                    let ongoing_journey_raw_data = self.get_ongoing_journey_raw_data()?;
+                    if ongoing_journey_raw_data.is_empty() {
+                        None
+                    } else {
+                        Some(ongoing_journey_raw_data.serialize()?)
+                    }
                 } else {
-                    Some(ongoing_journey_raw_data.serialize()?)
+                    None
                 };
 
                 self.create_and_insert_journey_with_raw_data(
@@ -520,8 +529,8 @@ impl Txn<'_> {
 
         // Use `id` to break ordering ties.
         let mut query = self.db_txn.prepare(match journey_kind {
-            Some(_) => "SELECT header, type, raw_data IS NOT NULL FROM journey WHERE journey_date >= ?1 AND journey_date <= ?2 AND journey_kind = ?3 ORDER BY journey_date DESC, timestamp_for_ordering DESC, id;",
-            None => "SELECT header, type, raw_data IS NOT NULL FROM journey WHERE journey_date >= ?1 AND journey_date <= ?2 ORDER BY journey_date DESC, timestamp_for_ordering DESC, id;",
+            Some(_) => "SELECT header, type FROM journey WHERE journey_date >= ?1 AND journey_date <= ?2 AND journey_kind = ?3 ORDER BY journey_date DESC, timestamp_for_ordering DESC, id;",
+            None => "SELECT header, type FROM journey WHERE journey_date >= ?1 AND journey_date <= ?2 ORDER BY journey_date DESC, timestamp_for_ordering DESC, id;",
         })?;
         let from = match from_date_inclusive {
             None => i32::MIN,
@@ -539,9 +548,8 @@ impl Txn<'_> {
         while let Some(row) = rows.next()? {
             let header_bytes = row.get_ref(0)?.as_blob()?;
             let journey_type = JourneyType::of_int(row.get(1)?)?;
-            let mut header =
+            let header =
                 JourneyHeader::of_proto(protos::journey::Header::parse_from_bytes(header_bytes)?)?;
-            header.correct_has_raw_data(row.get(2)?, "query_journeys");
             if header.journey_type != journey_type {
                 bail!(
                     "Invalid DB state, `journey_type` miss match. id: {}.",
@@ -616,21 +624,18 @@ impl Txn<'_> {
     pub fn get_journey_header(&self, id: &str) -> Result<Option<JourneyHeader>> {
         let mut query = self
             .db_txn
-            .prepare("SELECT header, raw_data IS NOT NULL FROM journey WHERE id = ?1;")?;
+            .prepare("SELECT header FROM journey WHERE id = ?1;")?;
 
         let result = query
-            .query_row([id], |row| {
-                Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, bool>(1)?))
-            })
+            .query_row([id], |row| row.get::<_, Vec<u8>>(0))
             .optional()
             .context("get_journey_header")?;
 
         match result {
-            Some((header_bytes, has_raw_data)) => {
-                let mut header = JourneyHeader::of_proto(
-                    protos::journey::Header::parse_from_bytes(&header_bytes)?,
-                )?;
-                header.correct_has_raw_data(has_raw_data, "get_journey_header");
+            Some(header_bytes) => {
+                let header = JourneyHeader::of_proto(protos::journey::Header::parse_from_bytes(
+                    &header_bytes,
+                )?)?;
                 Ok(Some(header))
             }
             None => Ok(None),
@@ -730,7 +735,7 @@ impl Txn<'_> {
 
     // TODO: consider moving this to `storage.rs`
     #[auto_context]
-    pub fn try_auto_finalize_journey(&mut self) -> Result<bool> {
+    pub fn try_auto_finalize_journey(&mut self, retain_raw_data: bool) -> Result<bool> {
         match self.get_ongoing_journey_timestamp_range()? {
             None => Ok(false),
             Some((start, end)) => {
@@ -749,7 +754,7 @@ impl Txn<'_> {
                     "Auto finalize ongoing journey: recording_length_hours={recording_length_hours}, gap_mins={gap_mins}, required_gap_mins={required_gap_mins}, try_finalize={try_finalize}"
                 );
                 if try_finalize {
-                    self.finalize_ongoing_journey()
+                    self.finalize_ongoing_journey(retain_raw_data)
                 } else {
                     Ok(false)
                 }

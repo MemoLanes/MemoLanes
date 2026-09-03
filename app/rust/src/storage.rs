@@ -12,7 +12,10 @@ use crate::raw_data::ExtendedRawGPSPoint;
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
 use chrono::NaiveDate;
-use std::sync::Mutex;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Mutex,
+};
 
 // TODO: error handling in this file is horrifying, we should think about what
 // is the right thing to do here.
@@ -31,7 +34,7 @@ fn geo_ref(geo: &Option<Box<dyn GeoLookup + Send>>) -> Option<&dyn GeoLookup> {
 
 pub struct Storage {
     support_dir: String,
-    raw_data_mode: Mutex<bool>,
+    raw_data_mode: AtomicBool,
     pub cache_dir: String,
     // Hidden so every operation goes through `Storage` and stays in sync; reads
     dbs: Mutex<Inner>,
@@ -51,7 +54,7 @@ impl Storage {
             main_db.get_setting_with_default(crate::main_db::Setting::RawDataMode, false);
         Ok(Storage {
             support_dir,
-            raw_data_mode: Mutex::new(raw_data_mode),
+            raw_data_mode: AtomicBool::new(raw_data_mode),
             cache_dir,
             dbs: Mutex::new(Inner {
                 main_db,
@@ -106,19 +109,20 @@ impl Storage {
     }
 
     pub fn toggle_raw_data_mode(&self, enable: bool) {
-        let mut raw_data_mode = self.raw_data_mode.lock().unwrap();
-        if *raw_data_mode != enable {
-            *raw_data_mode = enable;
-            info!("[storage] raw data mode enabled={enable}");
-            let main_db = &mut self.dbs.lock().unwrap().main_db;
+        // Serialize setting changes with recording and finalization. Publish
+        // the in-memory value only after the setting has been persisted.
+        let main_db = &mut self.dbs.lock().unwrap().main_db;
+        if self.get_raw_data_mode() != enable {
             main_db
                 .set_setting(crate::main_db::Setting::RawDataMode, enable)
                 .unwrap();
+            self.raw_data_mode.store(enable, Ordering::Relaxed);
+            info!("[storage] raw data mode enabled={enable}");
         }
     }
 
     pub fn get_raw_data_mode(&self) -> bool {
-        *self.raw_data_mode.lock().unwrap()
+        self.raw_data_mode.load(Ordering::Relaxed)
     }
 
     #[auto_context]
@@ -127,10 +131,9 @@ impl Storage {
     }
 
     pub fn record_gps_data(&self, data: &ExtendedRawGPSPoint, process_result: ProcessResult) {
-        let raw_data_mode = *self.raw_data_mode.lock().unwrap();
         let main_db = &mut self.dbs.lock().unwrap().main_db;
         main_db
-            .record_with_raw_data(data, process_result, raw_data_mode)
+            .record_with_raw_data(data, process_result, self.get_raw_data_mode())
             .unwrap();
     }
 

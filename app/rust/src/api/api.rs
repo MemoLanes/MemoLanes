@@ -532,14 +532,17 @@ pub fn set_main_map_layer_filter(new_layer_filter: &LayerFilter) -> Result<()> {
 #[auto_context]
 fn reset_gps_preprocessor_if_finalized<F>(finalize_op: F) -> Result<bool>
 where
-    F: FnOnce(&mut main_db::Txn) -> Result<bool>,
+    F: FnOnce(&mut main_db::Txn, bool) -> Result<bool>,
 {
     let state = get();
     // TODO: I think we need to hold the gps_preprocessor lock first, otherwise
     // we might have a deadlock because the locking story in `on_location_update`
     // is quite complex. We should fix all the locking mess.
     let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
-    let finalized = state.storage.with_db_txn(finalize_op)?;
+    // Sample the mode under the DB lock shared with setting changes.
+    let finalized = state
+        .storage
+        .with_db_txn(|txn| finalize_op(txn, state.storage.get_raw_data_mode()))?;
     // when journey is finalized, we should reset the gps_preprocessor to prevent old state affecting new journey
     if finalized {
         *gps_preprocessor = GpsPreprocessor::new();
@@ -548,11 +551,15 @@ where
 }
 
 pub fn finalize_ongoing_journey() -> Result<bool> {
-    reset_gps_preprocessor_if_finalized(|txn| txn.finalize_ongoing_journey())
+    reset_gps_preprocessor_if_finalized(|txn, retain_raw_data| {
+        txn.finalize_ongoing_journey(retain_raw_data)
+    })
 }
 
 pub fn try_auto_finalize_journey() -> Result<bool> {
-    reset_gps_preprocessor_if_finalized(|txn| txn.try_auto_finalize_journey())
+    reset_gps_preprocessor_if_finalized(|txn, retain_raw_data| {
+        txn.try_auto_finalize_journey(retain_raw_data)
+    })
 }
 
 pub fn has_ongoing_journey() -> Result<bool> {
@@ -602,28 +609,11 @@ pub fn get_journey_header(journey_id: String) -> Result<Option<JourneyHeader>> {
         .with_db_txn(|txn| txn.get_journey_header(&journey_id))
 }
 
-pub fn generate_full_archive(target_filepath: String) -> Result<ExportResult> {
-    generate_full_archive_impl(
-        target_filepath,
-        archive::MldxExportOptions::new(archive::SectionVersion::V1, false),
-    )
-}
-
 /// Generates a section-v2 archive and optionally includes each journey's raw
 /// GPS attachment.
-pub fn generate_full_archive_with_raw_data(
+pub fn generate_full_archive(
     target_filepath: String,
     include_raw_data: bool,
-) -> Result<ExportResult> {
-    generate_full_archive_impl(
-        target_filepath,
-        archive::MldxExportOptions::new(archive::SectionVersion::V2, include_raw_data),
-    )
-}
-
-fn generate_full_archive_impl(
-    target_filepath: String,
-    options: archive::MldxExportOptions,
 ) -> Result<ExportResult> {
     info!("generating full archive");
     if !has_journeys()? {
@@ -631,7 +621,7 @@ fn generate_full_archive_impl(
     } else {
         let mut file = File::create(target_filepath)?;
         get().storage.with_db_txn(|txn| {
-            archive::export_all_journeys_as_mldx_with_options(txn, &mut file, options)
+            archive::export_all_journeys_as_mldx(txn, &mut file, include_raw_data)
         })?;
         Ok(ExportResult::Succeed)
     }
@@ -673,47 +663,19 @@ enum InternalDataForExport {
         JourneyHeader,
         JourneyData,
         Option<crate::raw_data::SerializedJourneyRawData>,
-        archive::MldxExportOptions,
     ),
     Fwss(JourneyData),
     Gpx(JourneyVector),
     Kml(JourneyVector),
 }
 
+/// Uses MLDX section v2 and controls whether the journey's raw GPS attachment
+/// is included. For non-MLDX formats, `include_raw_data` has no effect.
 pub fn export_journey(
     target_filepath: String,
     journey_id: String,
     export_type: ExportType,
-) -> Result<ExportResult> {
-    export_journey_impl(
-        target_filepath,
-        journey_id,
-        export_type,
-        archive::MldxExportOptions::new(archive::SectionVersion::V1, false),
-    )
-}
-
-/// Uses MLDX section v2 and controls whether the journey's raw GPS attachment
-/// is included. For non-MLDX formats, `include_raw_data` has no effect.
-pub fn export_journey_with_raw_data(
-    target_filepath: String,
-    journey_id: String,
-    export_type: ExportType,
     include_raw_data: bool,
-) -> Result<ExportResult> {
-    export_journey_impl(
-        target_filepath,
-        journey_id,
-        export_type,
-        archive::MldxExportOptions::new(archive::SectionVersion::V2, include_raw_data),
-    )
-}
-
-fn export_journey_impl(
-    target_filepath: String,
-    journey_id: String,
-    export_type: ExportType,
-    mldx_options: archive::MldxExportOptions,
 ) -> Result<ExportResult> {
     let data_for_export = get().storage.with_db_txn(|txn| {
         let journey_data = txn.get_journey_data(&journey_id)?;
@@ -735,12 +697,11 @@ fn export_journey_impl(
                 Ok(Some(InternalDataForExport::Mldx(
                     journey_header,
                     journey_data,
-                    if mldx_options.include_raw_data {
+                    if include_raw_data {
                         txn.get_journey_raw_data(&journey_id)?
                     } else {
                         None
                     },
-                    mldx_options,
                 )))
             }
             ExportType::FWSS => Ok(Some(InternalDataForExport::Fwss(journey_data))),
@@ -763,9 +724,13 @@ fn export_journey_impl(
         Some(data_for_export) => {
             let mut file = File::create(&target_filepath)?;
             match data_for_export {
-                InternalDataForExport::Mldx(header, data, raw_data, options) => {
-                    archive::export_single_journey_as_mldx_with_options(
-                        header, data, raw_data, &mut file, options,
+                InternalDataForExport::Mldx(header, data, raw_data) => {
+                    archive::export_single_journey_as_mldx(
+                        header,
+                        data,
+                        raw_data,
+                        &mut file,
+                        include_raw_data,
                     )?
                 }
                 InternalDataForExport::Fwss(data) => {

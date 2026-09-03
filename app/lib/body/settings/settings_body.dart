@@ -232,6 +232,7 @@ class _SettingsBodyState extends State<SettingsBody> {
                 final exportResult = switch (format) {
                   CommonExportFormat.mldx => await api.generateFullArchive(
                     targetFilepath: filepath,
+                    includeRawData: false,
                   ),
                   CommonExportFormat.fwss => await api.exportAllJourneysAsFwss(
                     targetFilepath: filepath,
