@@ -26,6 +26,7 @@ class TimeRangePicker extends StatefulWidget {
   final SimpleDate? earliestDate;
   final bool loading;
   final void Function(SimpleDate from, SimpleDate to) onRangeChanged;
+
   /// Optional fast path for a value committed by a user interaction.
   final void Function(SimpleDate from, SimpleDate to)? onRangeCommitted;
   final Set<JourneyKind> selectedJourneyKinds;

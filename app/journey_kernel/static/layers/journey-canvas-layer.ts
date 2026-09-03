@@ -3,11 +3,7 @@ import type * as maplibregl from "maplibre-gl";
 import type { CanvasSource, CanvasSourceSpecification } from "maplibre-gl";
 import type { TileBuffer } from "../../pkg/journey_kernel.js";
 import type { JourneyTileProvider } from "../journey-tile-provider";
-import {
-  createFogRgba,
-  DEFAULT_FOG_COLOR,
-  DEFAULT_FOG_OPACITY,
-} from "../fog-style";
+import { DEFAULT_FOG_RGBA } from "../fog-style";
 import { JOURNEY_LAYER_ID } from "./journey-layer-interface";
 import type { JourneyLayer, RGBAColor } from "./journey-layer-interface";
 import { CanvasPoleFoggyLayer } from "./canvas-pole-foggy-layer";
@@ -47,7 +43,7 @@ export class JourneyCanvasLayer implements JourneyLayer {
     map: maplibregl.Map,
     journeyTileProvider: JourneyTileProvider,
     layerId: string = JOURNEY_LAYER_ID,
-    bgColor: RGBAColor = createFogRgba(DEFAULT_FOG_COLOR, DEFAULT_FOG_OPACITY),
+    bgColor: RGBAColor = [...DEFAULT_FOG_RGBA],
     fgColor: RGBAColor = [1.0, 1.0, 1.0, 0.0],
   ) {
     this.map = map;
