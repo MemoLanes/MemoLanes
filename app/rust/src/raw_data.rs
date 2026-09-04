@@ -28,7 +28,7 @@ use protobuf::{CodedInputStream, CodedOutputStream, Message};
 
 use crate::{gps_processor::Point, journey_data, protos, utils};
 
-const JOURNEY_RAW_DATA_MAGIC_HEADER: [u8; 2] = [b'R', b'0'];
+const JOURNEY_RAW_DATA_MAGIC_HEADER: [u8; 2] = *b"R0";
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RawGPSPoint {

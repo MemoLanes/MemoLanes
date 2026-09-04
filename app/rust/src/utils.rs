@@ -166,7 +166,7 @@ pub fn validate_magic_header<T: Read>(
         bail!(
             "Invalid magic header, expect: {:?}, got: {:?}",
             expected_header,
-            &magic_header
+            magic_header
         );
     };
     Ok(())
