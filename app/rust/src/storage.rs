@@ -1,7 +1,7 @@
 extern crate simplelog;
 use crate::achievement::AchievementReader;
 use crate::cache_db::{self, CacheDb, LayerKind};
-use crate::geo::{GeoIndex, GeoLookup};
+use crate::geo::{GeoAssetError, GeoIndex, GeoLookup};
 use crate::gps_processor::{self, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_header::JourneyKind;
@@ -129,6 +129,7 @@ struct Inner {
     main_db: MainDb,
     cache_db: Box<dyn CacheDb + Send>,
     geo: Option<Box<dyn GeoLookup + Send>>,
+    worldview: Option<geo_data_format::Worldview>,
 }
 
 fn geo_ref(geo: &Option<Box<dyn GeoLookup + Send>>) -> Option<&dyn GeoLookup> {
@@ -167,6 +168,7 @@ impl Storage {
                 main_db,
                 cache_db,
                 geo: None,
+                worldview: None,
             }),
             finalized_journey_changed_callback: Box::new(|_| {}),
         })
@@ -188,10 +190,12 @@ impl Storage {
             main_db,
             cache_db,
             geo,
+            ..
         } = &mut *dbs;
         let geo = geo_ref(geo);
 
         let mut finalized_journey_changed = false;
+        let mut geo_broken = false;
 
         let output = main_db.with_txn(|txn| {
             let output = f(txn)?;
@@ -201,7 +205,13 @@ impl Storage {
                     Action::CompleteRebuilt => cache_db.clear_all()?,
                     Action::Invalidate { entries } => cache_db.invalidate(entries)?,
                     Action::MergeOne { entry, data, .. } => {
-                        cache_db.merge_journey(entry, data, geo)?
+                        match cache_db.merge_journey(entry, data, geo) {
+                            Err(e) if GeoAssetError::is_in(&e) => {
+                                geo_broken = true;
+                                cache_db.merge_journey(entry, data, None)?
+                            }
+                            merged => merged?,
+                        }
                     }
                 }
                 finalized_journey_changed = true;
@@ -209,6 +219,9 @@ impl Storage {
 
             Ok(output)
         })?;
+        if geo_broken {
+            self.discard_geo(&mut dbs);
+        }
 
         // Make sure we are not holding the lock when calling the callback
         // TODO: This is still error-prone, and easy to cause deadlock. Consider
@@ -378,15 +391,32 @@ impl Storage {
             main_db,
             cache_db,
             geo,
+            ..
         } = &mut *dbs;
         let geo = geo_ref(geo);
         let cache_db = cache_db.as_mut();
-        main_db.with_txn(|txn| {
+        let output = main_db.with_txn(|txn| {
             let mut reader = cache_db.achievement_reader(txn, geo)?;
             let output = f(reader.as_mut())?;
             debug_assert_eq!(txn.action, None);
             Ok(output)
-        })
+        });
+        if output.as_ref().is_err_and(GeoAssetError::is_in) {
+            self.discard_geo(&mut dbs);
+        }
+        output
+    }
+
+    fn discard_geo(&self, dbs: &mut Inner) {
+        dbs.geo = None;
+        if let Some(worldview) = dbs.worldview.take() {
+            let path = self.installed_geo_data_file(worldview);
+            warn!(
+                "[storage] geo asset {} unreadable, discarding it for reinstall",
+                path.display()
+            );
+            let _ = remove_file(path);
+        }
     }
 
     #[auto_context]
@@ -399,7 +429,11 @@ impl Storage {
         let dir = path.parent().expect("installed geo path has a parent");
         std::fs::create_dir_all(dir)?;
         let tmp = path.with_extension("bin.tmp");
-        std::fs::write(&tmp, bytes)?;
+        {
+            let mut file = File::create(&tmp)?;
+            std::io::Write::write_all(&mut file, bytes)?;
+            file.sync_all()?;
+        }
         let staged = GeoIndex::open(&tmp).and_then(|geo| Self::check_worldview(&geo, worldview));
         if let Err(e) = staged {
             let _ = remove_file(&tmp);
@@ -411,7 +445,9 @@ impl Storage {
         }
         std::fs::rename(&tmp, &path)?;
         let geo = GeoIndex::open(&path)?;
-        self.dbs.lock().unwrap().geo = Some(Box::new(geo));
+        let mut dbs = self.dbs.lock().unwrap();
+        dbs.geo = Some(Box::new(geo));
+        dbs.worldview = Some(worldview);
         Ok(())
     }
 
@@ -440,7 +476,9 @@ impl Storage {
         {
             return Ok(false);
         }
-        self.dbs.lock().unwrap().geo = Some(Box::new(geo));
+        let mut dbs = self.dbs.lock().unwrap();
+        dbs.geo = Some(Box::new(geo));
+        dbs.worldview = Some(worldview);
         Ok(true)
     }
 

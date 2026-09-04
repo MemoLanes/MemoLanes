@@ -13,9 +13,11 @@ pub mod test_utils;
 
 use std::collections::HashMap;
 
+use flutter_rust_bridge::DartFnFuture;
+use memolanes_core::geo::{GeoIndex, GeoLookup};
 use memolanes_core::{
     api::achievement::{
-        get_explored_area, get_explored_area_by_layer, init_or_change_geo_data, region_detail,
+        activate_geo_data, get_explored_area, get_explored_area_by_layer, region_detail,
         region_level_view, region_levels, AchievementLayer, GeoEntityId, RegionKind, Worldview,
     },
     api::api,
@@ -25,6 +27,8 @@ use memolanes_core::{
     journey_header::JourneyKind,
 };
 use std::fs;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use tempdir::TempDir;
 
 /// Import one GPX track as a finalized journey via the public GPS ingest path.
@@ -46,8 +50,8 @@ fn areas() -> HashMap<AchievementLayer, u64> {
     get_explored_area_by_layer().unwrap()
 }
 
-#[test]
-fn api_achievement_explored_area_and_region_contract() {
+#[tokio::test]
+async fn api_achievement_explored_area_and_region_contract() {
     let dir = TempDir::new("api_achievement").unwrap();
     let sub = |s: &str| {
         let p = dir.path().join(s);
@@ -133,8 +137,32 @@ fn api_achievement_explored_area_and_region_contract() {
 
     // --- Geo initializer against the real ISO asset. ---
     let asset = test_utils::geo_asset("iso");
-    let geo_bytes = fs::read(&asset).unwrap();
-    init_or_change_geo_data(Worldview::Iso, &geo_bytes).unwrap();
+    let provenance = hex::encode(GeoIndex::open(&asset).unwrap().provenance_hash());
+    let loads = Arc::new(AtomicUsize::new(0));
+    let load_asset = {
+        let loads = loads.clone();
+        let asset = asset.clone();
+        move || -> DartFnFuture<Vec<u8>> {
+            loads.fetch_add(1, Ordering::SeqCst);
+            Box::pin(std::future::ready(fs::read(&asset).unwrap()))
+        }
+    };
+    activate_geo_data(Worldview::Iso, provenance.clone(), &load_asset)
+        .await
+        .unwrap();
+    assert_eq!(
+        loads.load(Ordering::SeqCst),
+        1,
+        "no installed copy → asset loaded"
+    );
+    activate_geo_data(Worldview::Iso, provenance, &load_asset)
+        .await
+        .unwrap();
+    assert_eq!(
+        loads.load(Ordering::SeqCst),
+        1,
+        "installed copy reused → not loaded again"
+    );
     // Geo is now installed, so the seeded journeys light up region reads.
     assert!(!region_levels().unwrap().is_empty(), "geo → region levels");
 

@@ -48,7 +48,7 @@ fn round_trip_single_border_none() {
     assert_eq!(gd.tile_index.get(0), TileEntry::Single(GeoEntityId(7)));
     assert_eq!(gd.tile_index.get(1), TileEntry::Border(0));
     assert!(matches!(gd.tile_index.get(2), TileEntry::None));
-    let pt = PackedTile::from_compressed_bytes(&gd.border_blobs.get(0).unwrap());
+    let pt = PackedTile::from_compressed_bytes(&gd.border_blobs.get(0).unwrap()).unwrap();
     assert_eq!(pt.lookup(5), Some(GeoEntityId(7)));
     assert_eq!(pt.lookup(6), None);
     assert!(gd.border_blobs.get(1).is_err());
@@ -79,7 +79,7 @@ fn border_blobs_keep_their_tile_order() {
             panic!("tile {i} should be Border");
         };
         assert_eq!(blob as usize, i);
-        let pt = PackedTile::from_compressed_bytes(&gd.border_blobs.get(blob).unwrap());
+        let pt = PackedTile::from_compressed_bytes(&gd.border_blobs.get(blob).unwrap()).unwrap();
         assert_eq!(pt.lookup(0), Some(GeoEntityId(id)));
     }
     assert!(gd.border_blobs.get(3).is_err());

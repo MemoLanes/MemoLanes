@@ -13,6 +13,23 @@ use geo_data_format::{
 
 use crate::journey_bitmap::{BlockKey, TileKey};
 
+#[derive(Debug)]
+pub struct GeoAssetError(anyhow::Error);
+
+impl std::fmt::Display for GeoAssetError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "geo asset unreadable: {}", self.0)
+    }
+}
+
+impl std::error::Error for GeoAssetError {}
+
+impl GeoAssetError {
+    pub fn is_in(error: &anyhow::Error) -> bool {
+        error.chain().any(|cause| cause.is::<GeoAssetError>())
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GeoNode {
     pub kind: GeoEntityKind,
@@ -114,8 +131,13 @@ impl GeoLookup for GeoIndex {
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner);
                 if slot.as_ref().is_none_or(|(idx, _)| *idx != i) {
-                    let blob = self.data.border_blobs.get(i)?;
-                    *slot = Some((i, PackedTile::from_compressed_bytes(&blob)));
+                    let packed = self
+                        .data
+                        .border_blobs
+                        .get(i)
+                        .and_then(|blob| PackedTile::from_compressed_bytes(&blob))
+                        .map_err(GeoAssetError)?;
+                    *slot = Some((i, packed));
                 }
                 // `BlockKey::index()` is the x-major cell index PackedTile expects.
                 let (_, packed) = slot.as_ref().expect("just populated");

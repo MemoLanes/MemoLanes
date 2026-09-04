@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 
-use flutter_rust_bridge::frb;
+use flutter_rust_bridge::{frb, DartFnFuture};
 use geo_data_format::Worldview as GeoWorldview;
 
 pub use crate::achievement::layer::AchievementLayer;
@@ -79,20 +79,21 @@ impl From<Worldview> for GeoWorldview {
     }
 }
 
-pub fn init_or_change_geo_data(worldview: Worldview, geo_data: &[u8]) -> Result<()> {
-    crate::api::api::get()
-        .storage
-        .init_or_change_geo_data(worldview.into(), geo_data)
-}
-
-pub fn open_installed_geo_data(worldview: Worldview, provenance_hash_hex: String) -> Result<bool> {
-    let hash: [u8; 32] = hex::decode(provenance_hash_hex.trim())
+pub async fn activate_geo_data(
+    worldview: Worldview,
+    provenance_hash_hex: String,
+    load_asset: impl Fn() -> DartFnFuture<Vec<u8>>,
+) -> Result<()> {
+    let provenance_hash: [u8; 32] = hex::decode(provenance_hash_hex.trim())
         .ok()
         .and_then(|bytes| bytes.try_into().ok())
         .ok_or_else(|| anyhow::anyhow!("provenance hash must be 32 bytes of hex"))?;
-    crate::api::api::get()
-        .storage
-        .open_installed_geo_data(worldview.into(), hash)
+    let storage = &crate::api::api::get().storage;
+    if storage.open_installed_geo_data(worldview.into(), provenance_hash)? {
+        return Ok(());
+    }
+    let bytes = load_asset().await;
+    storage.init_or_change_geo_data(worldview.into(), &bytes)
 }
 
 /// Explored area for a single layer.

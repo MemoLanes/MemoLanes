@@ -74,7 +74,7 @@ fn zstd_round_trip_preserves_lookups() {
     let bytes = pt.to_compressed_bytes();
     // Should be much smaller than the dense form (16_384 × 8 B = 131_072).
     assert!(bytes.len() < 2_000, "compressed too large: {}", bytes.len());
-    let pt2 = PackedTile::from_compressed_bytes(&bytes);
+    let pt2 = PackedTile::from_compressed_bytes(&bytes).unwrap();
     for (i, expected) in cells.iter().enumerate() {
         assert_eq!(pt2.lookup(i), *expected, "cell {i}");
     }
@@ -118,8 +118,20 @@ fn zstd_round_trip_at_every_bit_width() {
     for n in [2usize, 3, 5, 17, 300, CELLS_PER_TILE] {
         let cells = cells_with_distinct(n);
         let pt = PackedTile::from_dense(&cells);
-        let restored = PackedTile::from_compressed_bytes(&pt.to_compressed_bytes());
+        let restored = PackedTile::from_compressed_bytes(&pt.to_compressed_bytes()).unwrap();
         assert_eq!(restored.bits_per_cell(), pt.bits_per_cell(), "n={n}");
         assert_eq!(restored.to_dense(), cells, "n={n}");
     }
+}
+
+#[test]
+fn corrupt_compressed_bytes_are_an_error() {
+    let cells = vec![None; CELLS_PER_TILE];
+    let mut bytes = PackedTile::from_dense(&cells).to_compressed_bytes();
+    let n = bytes.len();
+    for b in &mut bytes[n / 2..] {
+        *b ^= 0xFF;
+    }
+    assert!(PackedTile::from_compressed_bytes(&bytes).is_err());
+    assert!(PackedTile::from_compressed_bytes(&[]).is_err());
 }

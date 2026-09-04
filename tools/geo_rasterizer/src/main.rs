@@ -392,9 +392,8 @@ fn rasterize_one(
 }
 
 fn write_provenance_sidecar(output: &Path, provenance_hash: [u8; 32]) -> Result<()> {
-    let sidecar = output.with_extension("provenance");
     write_atomically(
-        &sidecar,
+        &output.with_extension("provenance"),
         format!("{}\n", hex::encode(provenance_hash)).as_bytes(),
     )
 }

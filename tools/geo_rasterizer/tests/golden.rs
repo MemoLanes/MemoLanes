@@ -31,9 +31,6 @@ fn emitted_asset_declares_its_worldview_id() {
     assert_eq!(data.worldview_id, "iso");
 }
 
-/// Next to the bin the rasterizer writes a `.provenance` sidecar holding the
-/// header's provenance hash as hex. The app bundles it so a launch can check
-/// whether its installed copy of the asset is current without loading the bin.
 #[test]
 fn emitted_asset_has_a_matching_provenance_sidecar() {
     let out_dir = tempfile::tempdir().unwrap();
