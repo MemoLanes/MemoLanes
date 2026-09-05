@@ -5,7 +5,7 @@ import 'package:memolanes/body/journey/compact_journey_info_card.dart';
 import 'package:memolanes/body/journey/journey_export.dart';
 import 'package:memolanes/body/journey/journey_info_edit_page.dart';
 import 'package:memolanes/body/journey/journey_track_edit_page.dart';
-import 'package:memolanes/common/component/basic_bottom_sheet.dart';
+import 'package:memolanes/common/component/basic_dialog_card.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
@@ -396,14 +396,14 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     showBasicCard(
       context,
       title: context.tr("common.edit"),
-      builder: (_) => Column(
+      builder: (dialogContext) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           AppOptionTile(
             icon: Icons.description_outlined,
             title: context.tr("journey.journey_info_edit_page_title"),
             onTap: () {
-              Navigator.of(context).pop();
+              Navigator.of(dialogContext).pop();
               _editJourneyInfo(context);
             },
           ),
@@ -412,7 +412,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
             icon: Icons.edit_road_rounded,
             title: context.tr("journey.editor.page_title"),
             onTap: () async {
-              Navigator.of(context).pop();
+              Navigator.of(dialogContext).pop();
               _trackEdit(context);
             },
           ),

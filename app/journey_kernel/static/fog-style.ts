@@ -1,35 +1,32 @@
-import type { RGBAColor } from "./layers/journey-layer-interface";
+/** Normalized RGBA color used by map layers: [red, green, blue, alpha]. */
+export type RGBAColor = [number, number, number, number];
 
-/** Fallback used by the standalone web map when Flutter supplies no style. */
-export const DEFAULT_FOG_COLOR = "#001228";
-export const DEFAULT_FOG_OPACITY = 0.5;
+export type FogStyleId = "dark" | "light";
 
-const HEX_RGB_PATTERN = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i;
-
-/** Return a canonical #RRGGBB fog color, falling back on invalid input. */
-export function normalizeFogColor(color?: string): string {
-  if (!color) return DEFAULT_FOG_COLOR;
-
-  const match = HEX_RGB_PATTERN.exec(color.trim());
-  if (!match) {
-    console.warn(
-      `[FogStyle] Invalid fog color '${color}', using ${DEFAULT_FOG_COLOR}.`,
-    );
-    return DEFAULT_FOG_COLOR;
-  }
-
-  return `#${match[1]}${match[2]}${match[3]}`.toUpperCase();
+export interface FogStyle {
+  /** Normalized renderer color: [red, green, blue, alpha]. */
+  readonly rgba: RGBAColor;
 }
 
-/** Combine a validated CSS hex color and opacity for a journey layer. */
-export function createFogRgba(color: string, opacity: number): RGBAColor {
-  const normalized = normalizeFogColor(color);
-  const match = HEX_RGB_PATTERN.exec(normalized)!;
+/** Canonical fog palette owned by the map renderer. */
+export const FOG_STYLES: Record<FogStyleId, FogStyle> = {
+  dark: { rgba: [0.0, 0.07, 0.16, 0.5] },
+  light: { rgba: [0.75, 0.84, 0.89, 0.6] },
+};
 
-  return [
-    Number.parseInt(match[1], 16) / 255,
-    Number.parseInt(match[2], 16) / 255,
-    Number.parseInt(match[3], 16) / 255,
-    Math.max(0, Math.min(1, opacity)),
-  ];
+export const DEFAULT_FOG_STYLE: FogStyleId = "dark";
+export const DEFAULT_FOG_RGBA: RGBAColor = [
+  ...FOG_STYLES[DEFAULT_FOG_STYLE].rgba,
+];
+
+/** Resolve an external style ID without allowing invalid renderer input. */
+export function normalizeFogStyleId(styleId?: string): FogStyleId {
+  return styleId === "light" ? "light" : DEFAULT_FOG_STYLE;
+}
+
+export function getFogStyle(styleId: FogStyleId): FogStyle {
+  const style = FOG_STYLES[styleId];
+  // Return an independent style so a runtime density override cannot mutate
+  // the shared palette used as the source of truth for future map instances.
+  return { rgba: [...style.rgba] };
 }

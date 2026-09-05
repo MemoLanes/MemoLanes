@@ -34,9 +34,6 @@ class TrackingButton extends StatelessWidget {
                 ? StyleConstants.deepGreen
                 : StyleConstants.mutedInkColor,
           ),
-          tooltip: trackingMode == TrackingMode.off
-              ? 'Enable location tracking'
-              : 'Disable location tracking',
         ),
       ),
     );

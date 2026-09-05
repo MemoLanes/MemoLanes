@@ -131,22 +131,19 @@ class _FallbackCountryFlag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      label: countryCode,
-      child: Container(
-        width: size,
-        height: size,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white.withValues(alpha: 0.08),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-        ),
-        child: Icon(
-          Icons.public_rounded,
-          color: Colors.white.withValues(alpha: 0.68),
-          size: size * 0.54,
-        ),
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white.withValues(alpha: 0.08),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+      ),
+      child: Icon(
+        Icons.public_rounded,
+        color: Colors.white.withValues(alpha: 0.68),
+        size: size * 0.54,
       ),
     );
   }
@@ -204,15 +201,12 @@ class AchievementCardTitleRow extends StatelessWidget {
               ),
             ),
           ),
-          child: Tooltip(
-            message: context.tr('common.info'),
-            child: Padding(
-              padding: const EdgeInsets.only(top: 1),
-              child: Icon(
-                Icons.info_outline_rounded,
-                color: Colors.white.withValues(alpha: 0.58),
-                size: 18,
-              ),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(
+              Icons.info_outline_rounded,
+              color: Colors.white.withValues(alpha: 0.58),
+              size: 18,
             ),
           ),
         ),

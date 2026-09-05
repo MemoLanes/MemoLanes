@@ -246,7 +246,6 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
   Widget _buildFilterButton(BuildContext context) {
     final controller = widget.controller;
     final label = _filterLabel(context);
-    final tooltip = '${context.tr('journey.list.filter_layers')}: $label';
     return CustomPopup(
       position: PopupPosition.bottom,
       horizontalOffset: -8,
@@ -264,28 +263,21 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
         ),
       ),
       child: PointerInterceptor(
-        child: Tooltip(
-          message: tooltip,
-          child: Semantics(
-            label: tooltip,
-            button: true,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    label,
-                    style:
-                        (widget.compact
-                                ? AppTypography.sectionLabel
-                                : AppTypography.cardTitle)
-                            .copyWith(color: StyleConstants.deepGreen),
-                  ),
-                  Icon(Icons.arrow_drop_down, color: StyleConstants.deepGreen),
-                ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style:
+                    (widget.compact
+                            ? AppTypography.sectionLabel
+                            : AppTypography.cardTitle)
+                        .copyWith(color: StyleConstants.deepGreen),
               ),
-            ),
+              Icon(Icons.arrow_drop_down, color: StyleConstants.deepGreen),
+            ],
           ),
         ),
       ),

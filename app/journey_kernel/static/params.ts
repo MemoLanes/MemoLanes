@@ -10,7 +10,7 @@
 
 import { JourneyCanvasLayer } from "./layers/journey-canvas-layer";
 import type { JourneyLayerConstructor } from "./layers/journey-layer-interface";
-import { DEFAULT_FOG_OPACITY, normalizeFogColor } from "./fog-style";
+import { getFogStyle, normalizeFogStyleId, type FogStyleId } from "./fog-style";
 
 // Default values for parameters
 const DEFAULT_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
@@ -90,7 +90,8 @@ export interface ExternalParams {
   fit_padding_left?: string | number;
   render?: string;
   map_style?: string;
-  fog_color?: string;
+  /** Fog palette ID owned and validated by the map renderer. */
+  fog_style?: string;
   fog_density?: string;
   projection?: string;
   debug?: string;
@@ -107,7 +108,7 @@ export type PropertyChangeCallback<T> = (newValue: T, oldValue: T) => void;
 
 /** Mutable property names that support hooks */
 export type MutablePropertyName =
-  "renderMode" | "fogColor" | "fogDensity" | "projection" | "lowPowerMode";
+  "renderMode" | "fogStyle" | "fogDensity" | "projection" | "lowPowerMode";
 
 /** Internal data structure for ReactiveParams */
 interface ParamsData {
@@ -124,7 +125,8 @@ interface ParamsData {
   debug: boolean;
   // Mutable properties
   renderMode: string;
-  fogColor: string;
+  /** Validated palette ID; RGB/opacity remain owned by fog-style.ts. */
+  fogStyle: FogStyleId;
   fogDensity: number;
   projection: ProjectionType;
   lowPowerMode: boolean;
@@ -134,7 +136,7 @@ interface ParamsData {
  * ReactiveParams - A Proxy-based reactive parameters object
  *
  * Properties can be accessed and set directly. Setting mutable properties
- * (renderMode, fogColor, fogDensity, projection, lowPowerMode) triggers
+ * (renderMode, fogStyle, fogDensity, projection, lowPowerMode) triggers
  * registered hooks.
  *
  * Usage:
@@ -162,22 +164,14 @@ export interface ReactiveParams extends ParamsData {
    */
   on<K extends MutablePropertyName>(
     property: K,
-    callback: PropertyChangeCallback<
-      K extends "fogDensity"
-        ? number
-        : K extends "projection"
-          ? ProjectionType
-          : K extends "lowPowerMode"
-            ? boolean
-            : string
-    >,
+    callback: PropertyChangeCallback<ParamsData[K]>,
   ): () => void;
 }
 
 /** Set of properties that trigger hooks when changed */
 const MUTABLE_PROPERTIES = new Set<MutablePropertyName>([
   "renderMode",
-  "fogColor",
+  "fogStyle",
   "fogDensity",
   "projection",
   "lowPowerMode",
@@ -223,8 +217,9 @@ function createReactiveProxy(data: ParamsData): ReactiveParams {
       if (prop === "fogDensity") {
         // Clamp fogDensity between 0 and 1
         newValue = Math.max(0, Math.min(1, value));
-      } else if (prop === "fogColor") {
-        newValue = normalizeFogColor(value);
+      } else if (prop === "fogStyle") {
+        // Keep runtime updates constrained to the renderer-owned palette.
+        newValue = normalizeFogStyleId(value);
       } else if (prop === "projection") {
         // Normalize projection value
         newValue = value === "mercator" ? "mercator" : "globe";
@@ -281,6 +276,14 @@ export function parseUrlHash(): ExternalParams {
   for (const [key, value] of params.entries()) {
     if (value) {
       try {
+        // fog_color is intentionally not accepted as a raw CSS string here;
+        // callers must provide the fog_style ID owned by the renderer.
+        if (key === "fog_color") {
+          console.warn(
+            "Ignoring legacy fog_color URL value; provide a fog_style ID instead.",
+          );
+          continue;
+        }
         externalParams[key] = decodeURIComponent(value);
       } catch (error) {
         console.warn(
@@ -375,10 +378,18 @@ export function createReactiveParams(
     },
     renderMode,
     requiresMapboxToken,
-    fogColor: normalizeFogColor(externalParams.fog_color),
+    // The host supplies the palette ID and its initial opacity. RGB values stay
+    // owned by fog-style.ts so Dart and TypeScript cannot drift apart.
+    fogStyle: normalizeFogStyleId(externalParams.fog_style),
     fogDensity: Math.max(
       0,
-      Math.min(1, parseNum(externalParams.fog_density, DEFAULT_FOG_OPACITY)),
+      Math.min(
+        1,
+        parseNum(
+          externalParams.fog_density,
+          getFogStyle(normalizeFogStyleId(externalParams.fog_style)).rgba[3],
+        ),
+      ),
     ),
     projection: externalParams.projection === "mercator" ? "mercator" : "globe",
     debug: externalParams.debug === "true",

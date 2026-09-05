@@ -15,8 +15,7 @@ class AppCheckbox extends StatelessWidget {
     this.shape = AppCheckboxShape.roundedSquare,
   }) : _indicator = false;
 
-  /// A non-interactive selection indicator whose state and semantics are owned
-  /// by its parent control, such as a selectable settings tile.
+  /// A non-interactive selection indicator whose semantics belong to its parent.
   const AppCheckbox.indicator({
     super.key,
     required this.value,

@@ -20,11 +20,16 @@ export 'time_ruler.dart' show TimeRulerMode, TimeRuler;
 /// Supports the [TimeMachineViewMode.period],
 /// [TimeMachineViewMode.asOf], and [TimeMachineViewMode.custom] views,
 /// with [TimeRulerMode] controlling the time granularity shown by the ruler.
-/// Reports the selected [from]-[to] range to the parent via [onRangeChanged].
+/// Reports range changes via [onRangeChanged]. A committed interaction (for
+/// example, a ruler selection after the user releases and snapping completes)
+/// uses [onRangeCommitted] when provided.
 class TimeRangePicker extends StatefulWidget {
   final SimpleDate? earliestDate;
   final bool loading;
   final void Function(SimpleDate from, SimpleDate to) onRangeChanged;
+
+  /// Optional fast path for a value committed by a user interaction.
+  final void Function(SimpleDate from, SimpleDate to)? onRangeCommitted;
   final Set<JourneyKind> selectedJourneyKinds;
   final void Function(Set<JourneyKind>)? onJourneyKindsChanged;
 
@@ -33,6 +38,7 @@ class TimeRangePicker extends StatefulWidget {
     this.earliestDate,
     this.loading = false,
     required this.onRangeChanged,
+    this.onRangeCommitted,
     required this.selectedJourneyKinds,
     this.onJourneyKindsChanged,
   });
@@ -119,8 +125,11 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
     }
   }
 
-  void _notifyRange() {
-    widget.onRangeChanged(_fromDate, _toDate);
+  void _notifyRange({bool committed = false}) {
+    final callback = committed && widget.onRangeCommitted != null
+        ? widget.onRangeCommitted!
+        : widget.onRangeChanged;
+    callback(_fromDate, _toDate);
   }
 
   void _onRulerModeSelected(TimeRulerMode rulerMode) {
@@ -130,7 +139,7 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
       _rulerMode = rulerMode;
       _applyCurrentRange();
     });
-    _notifyRange();
+    _notifyRange(committed: true);
   }
 
   void _onViewModeSelected(TimeMachineViewMode viewMode) {
@@ -168,14 +177,16 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
       _updateDisplay(_selectedYear, _selectedMonth, _selectedDay);
       _applyCurrentRange();
     });
-    _notifyRange();
+    _notifyRange(committed: true);
   }
 
   @override
   void initState() {
     super.initState();
     _applyCurrentRange();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _notifyRange());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _notifyRange(committed: true),
+    );
   }
 
   @override

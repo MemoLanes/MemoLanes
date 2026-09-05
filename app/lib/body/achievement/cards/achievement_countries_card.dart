@@ -228,64 +228,61 @@ class _CountryFlagItem extends StatelessWidget {
       WorldviewManager.instance.currentWorldview.id,
     );
 
-    return Tooltip(
-      message: countryName,
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () => navigatorPush(
-            context,
-            page: AchievementRegionListPage(
-              title: countryName,
-              level: achievementProvinceRegionKind,
-              parent: country.entityId,
-              emptyText: context.tr('achievement.region_list.region_empty'),
-            ),
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => navigatorPush(
+          context,
+          page: AchievementRegionListPage(
+            title: countryName,
+            level: achievementProvinceRegionKind,
+            parent: country.entityId,
+            emptyText: context.tr('achievement.region_list.region_empty'),
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              vertical: _countryItemVerticalPadding,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: _countryFlagSize,
-                  height: _countryFlagSize,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF2A2A2A), Color(0xFF1A1A1A)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _countryGold.withValues(alpha: 0.25),
-                        blurRadius: 6,
-                      ),
-                    ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            vertical: _countryItemVerticalPadding,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: _countryFlagSize,
+                height: _countryFlagSize,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF2A2A2A), Color(0xFF1A1A1A)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  child: SizedBox.square(
-                    dimension: 36,
-                    child: AchievementCountryFlag(
-                      countryCode: country.isoA3Eh ?? '',
-                      size: 36,
+                  boxShadow: [
+                    BoxShadow(
+                      color: _countryGold.withValues(alpha: 0.25),
+                      blurRadius: 6,
                     ),
+                  ],
+                ),
+                child: SizedBox.square(
+                  dimension: 36,
+                  child: AchievementCountryFlag(
+                    countryCode: country.isoA3Eh ?? '',
+                    size: 36,
                   ),
                 ),
-                const SizedBox(height: _countryNameTopSpacing),
-                SizedBox(
-                  height: _countryNameSlotHeight,
-                  child: FractionallySizedBox(
-                    widthFactor: _countryNameWidthFactor,
-                    child: _CountryNameText(countryName),
-                  ),
+              ),
+              const SizedBox(height: _countryNameTopSpacing),
+              SizedBox(
+                height: _countryNameSlotHeight,
+                child: FractionallySizedBox(
+                  widthFactor: _countryNameWidthFactor,
+                  child: _CountryNameText(countryName),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

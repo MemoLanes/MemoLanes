@@ -276,7 +276,6 @@ class _ActiveJourneyControls extends StatelessWidget {
                 secondaryReflectionColor: StyleConstants.glassHighlightColor,
                 child: AppIconButton(
                   onPressed: onEndPressed,
-                  tooltip: context.tr('common.end'),
                   icon: Icons.stop_rounded,
                   variant: AppButtonVariant.danger,
                   size: 42,

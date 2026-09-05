@@ -7,7 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/body/settings/advanced_settings_page.dart';
 import 'package:memolanes/body/settings/import_data_page.dart';
 import 'package:memolanes/body/settings/map_settings_page.dart';
-import 'package:memolanes/common/component/basic_bottom_sheet.dart';
+import 'package:memolanes/common/component/basic_dialog_card.dart';
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/common_export.dart';

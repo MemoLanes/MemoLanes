@@ -3,6 +3,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/time_machine/time_range_picker.dart';
+import 'package:memolanes/common/async_load_token.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -31,12 +33,16 @@ class TimeMachineOverlay extends StatefulWidget {
 }
 
 class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
+  static const _rangeLoadDebounce = Duration(milliseconds: 100);
+  static const _loadErrorMessage =
+      '[TimeMachineOverlay] failed to load journey range';
+
   SimpleDate? _earliestJourneyDate;
   bool _loading = false;
-  SimpleDate? _lastFrom;
-  SimpleDate? _lastTo;
-  Timer? _layerReloadTimer;
-  int _loadGeneration = 0;
+  SimpleDate? _requestedFrom;
+  SimpleDate? _requestedTo;
+  final _loadGuard = AsyncLoadToken();
+  Timer? _rangeLoadDebounceTimer;
 
   late Set<JourneyKind> _selectedJourneyKinds;
 
@@ -44,62 +50,79 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
   void initState() {
     super.initState();
     _selectedJourneyKinds = _initialJourneyKindsFromMainMap();
-    api.earliestJourneyDate().then((value) {
+    unawaited(_loadEarliestJourneyDate());
+  }
+
+  Future<void> _loadEarliestJourneyDate() async {
+    try {
+      final value = await api.earliestJourneyDate();
       if (!mounted) return;
       setState(() {
         _earliestJourneyDate =
             value?.toSimpleDate() ?? SimpleDate(DateTime.now().year);
       });
-    });
+    } catch (error, stackTrace) {
+      log.error(
+        '[TimeMachineOverlay] failed to load earliest journey date: $error',
+        stackTrace,
+      );
+    }
   }
 
   Future<void> _loadJourneyForRange(SimpleDate from, SimpleDate to) async {
+    _rangeLoadDebounceTimer?.cancel();
+    _rangeLoadDebounceTimer = null;
+    if (!mounted) return;
     if (_earliestJourneyDate == null) return;
     if (from.isAfter(to)) return;
-    _layerReloadTimer?.cancel();
-    _layerReloadTimer = null;
-    final generation = ++_loadGeneration;
-    _lastFrom = from;
-    _lastTo = to;
+    final loadToken = _loadGuard.begin();
+    _requestedFrom = from;
+    _requestedTo = to;
+    final journeyKinds = Set<JourneyKind>.from(_selectedJourneyKinds);
     setState(() => _loading = true);
     try {
       final proxy = await api.getMapRendererProxyForJourneyDateRange(
         fromDateInclusive: from.toFrbNaiveDate(),
         toDateInclusive: to.toFrbNaiveDate(),
-        journeyKinds: _selectedJourneyKinds,
+        journeyKinds: journeyKinds,
       );
-      if (mounted && generation == _loadGeneration) {
+      if (mounted && _loadGuard.isActive(loadToken)) {
         widget.onJourneyRangeLoaded(proxy);
       }
+    } catch (error, stackTrace) {
+      log.error('$_loadErrorMessage: $error', stackTrace);
     } finally {
-      if (mounted && generation == _loadGeneration) {
+      if (mounted && _loadGuard.isActive(loadToken)) {
         setState(() => _loading = false);
+        _loadGuard.clear();
       }
     }
   }
 
+  void _scheduleJourneyRangeLoad(SimpleDate from, SimpleDate to) {
+    _requestedFrom = from;
+    _requestedTo = to;
+    _rangeLoadDebounceTimer?.cancel();
+    _rangeLoadDebounceTimer = Timer(_rangeLoadDebounce, () {
+      _rangeLoadDebounceTimer = null;
+      unawaited(_loadJourneyForRange(from, to));
+    });
+  }
+
   void _onJourneyKindsChanged(Set<JourneyKind> newKinds) {
-    // Invalidate an in-flight request immediately; otherwise it could briefly
-    // publish a map rendered with the previous layer selection while this
-    // debounced reload is waiting to start.
-    _loadGeneration++;
-    setState(() => _selectedJourneyKinds = newKinds);
-    _layerReloadTimer?.cancel();
-    if (_lastFrom != null && _lastTo != null) {
-      _layerReloadTimer = Timer(const Duration(milliseconds: 600), () {
-        _layerReloadTimer = null;
-        final from = _lastFrom;
-        final to = _lastTo;
-        if (from != null && to != null) {
-          _loadJourneyForRange(from, to);
-        }
-      });
+    final kinds = Set<JourneyKind>.from(newKinds);
+    setState(() => _selectedJourneyKinds = kinds);
+    final from = _requestedFrom;
+    final to = _requestedTo;
+    if (from != null && to != null) {
+      unawaited(_loadJourneyForRange(from, to));
     }
   }
 
   @override
   void dispose() {
-    _layerReloadTimer?.cancel();
+    _rangeLoadDebounceTimer?.cancel();
+    _loadGuard.clear();
     super.dispose();
   }
 
@@ -124,7 +147,8 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
           child: TimeRangePicker(
             earliestDate: earliest,
             loading: _loading,
-            onRangeChanged: _loadJourneyForRange,
+            onRangeChanged: _scheduleJourneyRangeLoad,
+            onRangeCommitted: _loadJourneyForRange,
             selectedJourneyKinds: _selectedJourneyKinds,
             onJourneyKindsChanged: _onJourneyKindsChanged,
           ),

@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
-import 'package:memolanes/common/component/basic_bottom_sheet.dart';
+import 'package:memolanes/common/component/basic_dialog_card.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
@@ -57,18 +57,18 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
       builder: (dialogContext) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (var i = 0; i < MapStyle.all.length; i++) ...[
+          for (final mapStyle in MapStyle.all) ...[
             AppOptionTile(
               icon: Icons.map_outlined,
-              title: _labelFor(MapStyle.all[i]),
-              selected: _current.id == MapStyle.all[i].id,
+              title: _labelFor(mapStyle),
+              selected: _current.id == mapStyle.id,
               trailing: AppOptionTileTrailing.selection,
               onTap: () {
                 Navigator.of(dialogContext).pop();
-                _updateStyle(MapStyle.all[i]);
+                _updateStyle(mapStyle);
               },
             ),
-            if (i < MapStyle.all.length - 1) const SizedBox(height: 8),
+            if (mapStyle != MapStyle.all.last) const SizedBox(height: 8),
           ],
         ],
       ),
@@ -82,20 +82,20 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
       builder: (dialogContext) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (var i = 0; i < MapFogStyle.all.length; i++) ...[
+          for (final fogStyle in MapFogStyle.all) ...[
             AppOptionTile(
-              icon: MapFogStyle.all[i].id == MapFogStyle.dark.id
+              icon: fogStyle == MapFogStyle.dark
                   ? Icons.dark_mode_outlined
                   : Icons.light_mode_outlined,
-              title: _fogStyleLabelFor(MapFogStyle.all[i]),
-              selected: _currentFogStyle.id == MapFogStyle.all[i].id,
+              title: _fogStyleLabelFor(fogStyle),
+              selected: _currentFogStyle == fogStyle,
               trailing: AppOptionTileTrailing.selection,
               onTap: () {
                 Navigator.of(dialogContext).pop();
-                _updateFogStyle(MapFogStyle.all[i]);
+                _updateFogStyle(fogStyle);
               },
             ),
-            if (i < MapFogStyle.all.length - 1) const SizedBox(height: 8),
+            if (fogStyle != MapFogStyle.all.last) const SizedBox(height: 8),
           ],
         ],
       ),

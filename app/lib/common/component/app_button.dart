@@ -156,7 +156,6 @@ class AppIconButton extends StatelessWidget {
     super.key,
     required this.icon,
     required this.onPressed,
-    this.tooltip,
     this.variant = AppButtonVariant.tonal,
     this.size = 42,
     this.backgroundAlpha = 1,
@@ -165,7 +164,6 @@ class AppIconButton extends StatelessWidget {
 
   final IconData icon;
   final VoidCallback? onPressed;
-  final String? tooltip;
   final AppButtonVariant variant;
   final double size;
   final double backgroundAlpha;
@@ -174,7 +172,6 @@ class AppIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton.filled(
       onPressed: onPressed,
-      tooltip: tooltip,
       style: IconButton.styleFrom(
         backgroundColor: variant.backgroundColor.withValues(
           alpha: backgroundAlpha,

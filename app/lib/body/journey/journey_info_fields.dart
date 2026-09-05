@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
-import 'package:memolanes/common/component/basic_bottom_sheet.dart';
+import 'package:memolanes/common/component/basic_dialog_card.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/journey_kind_visuals.dart';
@@ -169,7 +169,7 @@ void _showOptionPicker<T>(
 }) {
   showBasicCard(
     context,
-    builder: (_) => Column(
+    builder: (dialogContext) => Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         for (var i = 0; i < values.length; i++) ...[
@@ -180,7 +180,7 @@ void _showOptionPicker<T>(
             selected: values[i] == selectedValue,
             trailing: AppOptionTileTrailing.selection,
             onTap: () {
-              Navigator.of(context).pop();
+              Navigator.of(dialogContext).pop();
               onSelected(values[i]);
             },
           ),
