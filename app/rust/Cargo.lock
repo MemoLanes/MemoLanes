@@ -2256,7 +2256,6 @@ dependencies = [
  "console_log",
  "log",
  "lz4_flex",
- "miniz_oxide 0.9.1",
  "ruzstd",
  "web-sys",
  "zstd",

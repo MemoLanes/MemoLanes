@@ -146,3 +146,25 @@ This command will:
 1. Run `yarn build` to compile the release WASM package into `pkg` and generate the production webpack bundle in `dist`
 2. Copy the assets to Flutter's `assets/map_webview` folder
 3. Generate the FRB code
+
+## Tile data and renderer backends
+
+`JourneyTileProvider` owns viewport demand, version negotiation, response
+commit order and decoded-source lifetime. `layer-config.ts` registers renderer
+implementations and their request policies. Canvas keeps its 256-pixel tiles
+and source zoom up to 14.
+
+The default `MainThreadTileBufferBackend` decodes the shared WASM `TileBuffer`
+and exposes it to Canvas callbacks. Additional renderers may register a
+`createTileBufferBackend` factory without adding renderer-specific queries to
+the provider. A backend returns an independently releasable source; superseded
+responses and decodes finishing after disposal are released without publishing
+them. The invalidation callback queues fresh data if a backend loses its source.
+
+## Tests
+
+Run `just journey-kernel-test` from `app` to build the WASM bindings and run
+both Rust (including the WASM-facing pixel queries) and frontend tests. After
+`yarn wasm:dev` or `yarn build`, `yarn test` runs the frontend suite alone.
+The provider integration tests use the generated OSS WASM package and deferred
+backends to exercise stale responses, disposal and version negotiation.

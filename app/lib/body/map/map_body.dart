@@ -141,6 +141,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     switch (state) {
       case AppLifecycleState.resumed:
         _syncTrackingModeWithGpsManager();
+        _mainMapKey.currentState?.manualRefresh();
         break;
 
       case AppLifecycleState.paused:

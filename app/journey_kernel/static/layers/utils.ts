@@ -1,4 +1,5 @@
 import { LngLat, type Map as MaplibreMap } from "maplibre-gl";
+import type { TileRange } from "./tile-range";
 
 export function lngLatToTileXY(lngLat: LngLat, zoom: number): [number, number] {
   const n = Math.pow(2, zoom);
@@ -28,11 +29,21 @@ export function getViewportTileRange(
   map: MaplibreMap,
   isGlobeProjection: boolean,
   maxZ?: number,
-): [number, number, number, number, number] {
+): TileRange {
   // Get the current zoom level
   // Apply maxZ cap only if maxZ is provided
   const rawZ = Math.max(0, Math.floor(map.getZoom()));
   const z = maxZ !== undefined ? Math.min(maxZ, rawZ) : rawZ;
+  return getViewportTileRangeAtZoom(map, isGlobeProjection, z);
+}
+
+/** Get the viewport range at an explicitly selected source-data zoom. */
+export function getViewportTileRangeAtZoom(
+  map: MaplibreMap,
+  isGlobeProjection: boolean,
+  sourceZoom: number,
+): TileRange {
+  const z = Math.max(0, Math.floor(sourceZoom));
 
   // Get the bounds of the map
   const bounds = map.getBounds();
@@ -79,4 +90,9 @@ export function tileXYZToKey(x: number, y: number, z: number): string {
 export function keyToTileXYZ(key: string): { x: number; y: number; z: number } {
   const [z, x, y] = key.split("/").map(Number);
   return { x, y, z };
+}
+
+/** MapLibre's world size in CSS pixels at the current zoom. */
+export function getMapWorldSize(map: MaplibreMap): number {
+  return 512 * Math.pow(2, map.getZoom());
 }
