@@ -345,6 +345,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         render: "canvas",
         map_style: "${style.url}",
         fog_style: "${fogStyle.id}",
+        fog_density: ${style.fogOpacityByStyle[fogStyle] ?? 0.50},
         access_key: ${accessKey != null ? "\"$accessKey\"" : "null"},
         lng: $lngParam,
         lat: $latParam,

@@ -33,31 +33,6 @@ Future<T?> showBasicDialogCard<T>(
   );
 }
 
-@Deprecated('Use showBasicDialogCard; UI v2 presents a centered dialog card.')
-Future<T?> showBasicBottomSheet<T>(
-  BuildContext context, {
-  required Widget child,
-  String? title,
-  Widget? actions,
-  bool showTitle = true,
-  double? maxHeightFactor,
-  EdgeInsetsGeometry contentPadding = EdgeInsets.zero,
-  Color? barrierColor,
-  Color? backgroundColor,
-}) {
-  return showBasicDialogCard<T>(
-    context,
-    builder: (_) => child,
-    title: title,
-    actions: actions,
-    showTitle: showTitle,
-    maxHeightFactor: maxHeightFactor,
-    contentPadding: contentPadding,
-    barrierColor: barrierColor,
-    backgroundColor: backgroundColor,
-  );
-}
-
 Future<T?> showBasicCard<T>(
   BuildContext context, {
   required WidgetBuilder builder,
