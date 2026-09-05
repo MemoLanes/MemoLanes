@@ -3,9 +3,6 @@ import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/constants/style_constants.dart';
 
 /// Shows a centered, constrained application card.
-///
-/// The legacy API was named like a bottom sheet even though UI v2 presents
-/// this surface as a dialog.
 Future<T?> showBasicDialogCard<T>(
   BuildContext context, {
   required WidgetBuilder builder,
