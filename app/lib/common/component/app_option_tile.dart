@@ -45,80 +45,84 @@ class AppOptionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 170),
-          curve: Curves.easeOutCubic,
-          constraints: const BoxConstraints(minHeight: 58),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: selected
-                ? StyleConstants.softGreen.withValues(alpha: 0.88)
-                : StyleConstants.surfaceColor.withValues(
-                    alpha: backgroundAlpha,
-                  ),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
+    return Semantics(
+      button: true,
+      selected: trailing == AppOptionTileTrailing.selection ? selected : null,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 170),
+            curve: Curves.easeOutCubic,
+            constraints: const BoxConstraints(minHeight: 58),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
               color: selected
-                  ? StyleConstants.primaryGreen
-                  : StyleConstants.lineColor,
-              width: selected ? 1.4 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              if (icon != null || iconWidget != null) ...[
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 170),
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? StyleConstants.primaryGreen.withValues(alpha: 0.34)
-                        : StyleConstants.softGreen,
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  alignment: Alignment.center,
-                  child:
-                      iconWidget ??
-                      Icon(icon, color: StyleConstants.deepGreen, size: 20),
-                ),
-                const SizedBox(width: 12),
-              ],
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.itemTitle.copyWith(
-                        color: StyleConstants.inkColor,
-                      ),
+                  ? StyleConstants.softGreen.withValues(alpha: 0.88)
+                  : StyleConstants.surfaceColor.withValues(
+                      alpha: backgroundAlpha,
                     ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 3),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: selected
+                    ? StyleConstants.primaryGreen
+                    : StyleConstants.lineColor,
+                width: selected ? 1.4 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                if (icon != null || iconWidget != null) ...[
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 170),
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? StyleConstants.primaryGreen.withValues(alpha: 0.34)
+                          : StyleConstants.softGreen,
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    alignment: Alignment.center,
+                    child:
+                        iconWidget ??
+                        Icon(icon, color: StyleConstants.deepGreen, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        subtitle!,
-                        maxLines: 3,
+                        title,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: AppTypography.caption.copyWith(
-                          color: StyleConstants.mutedInkColor,
+                        style: AppTypography.itemTitle.copyWith(
+                          color: StyleConstants.inkColor,
                         ),
                       ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          subtitle!,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.caption.copyWith(
+                            color: StyleConstants.mutedInkColor,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              _buildTrailing(),
-            ],
+                const SizedBox(width: 10),
+                _buildTrailing(),
+              ],
+            ),
           ),
         ),
       ),
