@@ -4,11 +4,7 @@ use anyhow::{Context, Result};
 use csv::{Reader, ReaderBuilder, StringRecord, Trim};
 use serde::Deserialize;
 
-use crate::{
-    api::import::ImportPreprocessor,
-    gps_processor::{Point, RawData},
-    storage::RawCsvRow,
-};
+use crate::{api::import::ImportPreprocessor, gps_processor::Point, raw_data::RawGPSPoint};
 
 // CSV exported by 人生点点
 const DOL_HEADERS: &[&str] = &[
@@ -80,6 +76,18 @@ struct StepRow {
     altitude: Option<f32>,
 }
 
+#[derive(Deserialize)]
+struct MemoLanesRow {
+    timestamp_ms: Option<i64>,
+    #[allow(dead_code)]
+    received_timestamp_ms: i64,
+    latitude: f64,
+    longitude: f64,
+    accuracy: Option<f32>,
+    altitude: Option<f32>,
+    speed: Option<f32>,
+}
+
 fn is_dol_format(headers: &StringRecord) -> bool {
     headers.iter().eq(DOL_HEADERS.iter().copied())
 }
@@ -92,7 +100,7 @@ fn is_memolanes_format(headers: &StringRecord) -> bool {
     headers.iter().eq(MEMOLANES_HEADERS.iter().copied())
 }
 
-fn parse_dol_rows<R: Read>(reader: &mut Reader<R>) -> Result<Vec<RawData>> {
+fn parse_dol_rows<R: Read>(reader: &mut Reader<R>) -> Result<Vec<RawGPSPoint>> {
     let mut raw_data = Vec::new();
 
     for (index, result) in reader.deserialize::<DolRow>().enumerate() {
@@ -112,7 +120,7 @@ fn parse_dol_rows<R: Read>(reader: &mut Reader<R>) -> Result<Vec<RawData>> {
     Ok(raw_data)
 }
 
-fn parse_step_rows<R: Read>(reader: &mut Reader<R>) -> Result<Vec<RawData>> {
+fn parse_step_rows<R: Read>(reader: &mut Reader<R>) -> Result<Vec<RawGPSPoint>> {
     let mut raw_data = Vec::new();
 
     for (index, result) in reader.deserialize::<StepRow>().enumerate() {
@@ -132,10 +140,10 @@ fn parse_step_rows<R: Read>(reader: &mut Reader<R>) -> Result<Vec<RawData>> {
     Ok(raw_data)
 }
 
-fn parse_memolanes_rows<R: Read>(reader: &mut Reader<R>) -> Result<Vec<RawData>> {
+fn parse_memolanes_rows<R: Read>(reader: &mut Reader<R>) -> Result<Vec<RawGPSPoint>> {
     let mut raw_data = Vec::new();
 
-    for (index, result) in reader.deserialize::<RawCsvRow>().enumerate() {
+    for (index, result) in reader.deserialize::<MemoLanesRow>().enumerate() {
         let row_number = index + 2;
         let row = result.with_context(|| format!("failed to parse CSV row {row_number}"))?;
         raw_data.push(raw_data_from_millisecond_values(
@@ -160,7 +168,7 @@ fn raw_data_from_values(
     altitude: Option<f32>,
     speed: Option<f32>,
     row_number: usize,
-) -> Result<RawData> {
+) -> Result<RawGPSPoint> {
     let timestamp_ms = timestamp
         .checked_mul(1000)
         .with_context(|| format!("timestamp overflow at CSV row {row_number}"))?;
@@ -184,7 +192,7 @@ fn raw_data_from_millisecond_values(
     altitude: Option<f32>,
     speed: Option<f32>,
     row_number: usize,
-) -> Result<RawData> {
+) -> Result<RawGPSPoint> {
     if !latitude.is_finite() || !(-90.0..=90.0).contains(&latitude) {
         anyhow::bail!("invalid latitude {latitude} at CSV row {row_number}");
     }
@@ -192,7 +200,7 @@ fn raw_data_from_millisecond_values(
         anyhow::bail!("invalid longitude {longitude} at CSV row {row_number}");
     }
 
-    Ok(RawData {
+    Ok(RawGPSPoint {
         point: Point {
             latitude,
             longitude,
@@ -212,7 +220,7 @@ fn non_negative_finite(value: Option<f32>) -> Option<f32> {
     finite(value).filter(|value| *value >= 0.0)
 }
 
-pub fn load_csv(file_path: &str) -> Result<(Vec<Vec<RawData>>, ImportPreprocessor)> {
+pub fn load_csv(file_path: &str) -> Result<(Vec<Vec<RawGPSPoint>>, ImportPreprocessor)> {
     let file =
         File::open(file_path).with_context(|| format!("failed to open CSV file: {file_path}"))?;
     let mut reader = ReaderBuilder::new().trim(Trim::All).from_reader(file);

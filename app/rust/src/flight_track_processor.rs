@@ -1,13 +1,14 @@
 use crate::{
-    gps_processor::{Point, RawData},
+    gps_processor::Point,
     journey_vector::{JourneyVector, TrackPoint, TrackSegment},
+    raw_data::RawGPSPoint,
 };
 
 // Fill gaps in raw data to produce a smooth `JourneyVector`.
 //
 // Original points are always preserved. Interpolated points are inserted at
 // `STEP_LENGTH` boundaries along the cumulative distance of each segment.
-pub fn process(raw_data: &[Vec<RawData>]) -> Option<JourneyVector> {
+pub fn process(raw_data: &[Vec<RawGPSPoint>]) -> Option<JourneyVector> {
     const STEP_LENGTH: f64 = 1000.;
 
     let mut track_segments = Vec::new();

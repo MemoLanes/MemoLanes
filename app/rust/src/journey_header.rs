@@ -109,6 +109,7 @@ pub struct JourneyHeader {
     pub journey_kind: JourneyKind,
     pub note: Option<String>,
     pub postprocessor_algo: Option<String>,
+    pub has_raw_data: bool,
 }
 
 impl JourneyHeader {
@@ -139,7 +140,32 @@ impl JourneyHeader {
             }),
             note: proto.note,
             postprocessor_algo: proto.postprocessor_algo,
+            has_raw_data: proto.has_raw_data,
         })
+    }
+
+    /// Marks a raw-data removal as a deterministic derivative of this revision.
+    pub(crate) fn remove_raw_data(&mut self) {
+        if self.has_raw_data {
+            self.has_raw_data = false;
+            self.revision.push('*');
+        }
+    }
+
+    pub(crate) fn correct_has_raw_data(&mut self, actual_has_raw_data: bool, operation: &str) {
+        if self.has_raw_data != actual_has_raw_data {
+            log::warn!(
+                "[{operation}] Journey {} has inconsistent raw-data state: header has_raw_data={}, actual={}; correcting the header",
+                self.id,
+                self.has_raw_data,
+                actual_has_raw_data,
+            );
+            if actual_has_raw_data {
+                self.has_raw_data = true;
+            } else {
+                self.remove_raw_data();
+            }
+        }
     }
 
     pub fn to_proto(self) -> protos::journey::Header {
@@ -155,6 +181,7 @@ impl JourneyHeader {
             journey_kind,
             note,
             postprocessor_algo,
+            has_raw_data,
         } = self;
         let mut proto = protos::journey::Header::new();
         proto.id = id;
@@ -168,6 +195,7 @@ impl JourneyHeader {
         proto.kind.0 = Some(Box::new(journey_kind.to_proto()));
         proto.note = note;
         proto.postprocessor_algo = postprocessor_algo;
+        proto.has_raw_data = has_raw_data;
         proto
     }
 }
