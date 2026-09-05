@@ -52,7 +52,6 @@ void main() {
                     barrierDismissible: false,
                     builder: (dialogContext) => AppDialogCard(
                       title: 'Delete item?',
-                      child: const Text('This action cannot be undone.'),
                       actions: AppDialogActions(
                         children: [
                           AppButton(
@@ -68,6 +67,7 @@ void main() {
                           ),
                         ],
                       ),
+                      child: const Text('This action cannot be undone.'),
                     ),
                   ),
                 );
