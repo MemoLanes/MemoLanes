@@ -60,7 +60,8 @@ All parameters are optional except `cgi_endpoint` which is required.
 | `zoom` | Initial zoom level | number | 2 |
 | `render` | Render method | `'canvas'` | `'canvas'` |
 | `map_style` | Map style URL | string | OpenFreeMap Liberty |
-| `fog_density` | Fog density (0-1) | number | 0.5 |
+| `fog_style` | Fog palette ID (`dark` or `light`) | string | `dark` |
+| `fog_density` | Fog density (0-1) | number | Style default (0.5 dark, 0.6 light) |
 | `projection` | Map projection | `'mercator'` \| `'globe'` | `'globe'` |
 | `debug` | Show debug panel | `'true'` \| `'false'` | `'false'` |
 

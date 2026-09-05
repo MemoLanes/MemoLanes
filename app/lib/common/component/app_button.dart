@@ -45,9 +45,11 @@ class AppButton extends StatelessWidget {
     this.backgroundAlpha = 1,
     this.borderRadius,
     this.fontSize,
+    this.labelMaxLines = 1,
   }) : assert(backgroundAlpha >= 0 && backgroundAlpha <= 1),
        assert(borderRadius == null || borderRadius >= 0),
-       assert(fontSize == null || fontSize > 0);
+       assert(fontSize == null || fontSize > 0),
+       assert(labelMaxLines > 0);
 
   final String label;
   final VoidCallback? onPressed;
@@ -59,6 +61,7 @@ class AppButton extends StatelessWidget {
   final double backgroundAlpha;
   final double? borderRadius;
   final double? fontSize;
+  final int labelMaxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -121,13 +124,21 @@ class AppButton extends StatelessWidget {
         ? FilledButton(
             onPressed: effectiveOnPressed,
             style: style,
-            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+            child: Text(
+              label,
+              maxLines: labelMaxLines,
+              overflow: TextOverflow.ellipsis,
+            ),
           )
         : FilledButton.icon(
             onPressed: effectiveOnPressed,
             style: style,
             icon: iconWidget,
-            label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+            label: Text(
+              label,
+              maxLines: labelMaxLines,
+              overflow: TextOverflow.ellipsis,
+            ),
           );
 
     return ConstrainedBox(
@@ -145,7 +156,6 @@ class AppIconButton extends StatelessWidget {
     super.key,
     required this.icon,
     required this.onPressed,
-    this.tooltip,
     this.variant = AppButtonVariant.tonal,
     this.size = 42,
     this.backgroundAlpha = 1,
@@ -154,7 +164,6 @@ class AppIconButton extends StatelessWidget {
 
   final IconData icon;
   final VoidCallback? onPressed;
-  final String? tooltip;
   final AppButtonVariant variant;
   final double size;
   final double backgroundAlpha;
@@ -163,7 +172,6 @@ class AppIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton.filled(
       onPressed: onPressed,
-      tooltip: tooltip,
       style: IconButton.styleFrom(
         backgroundColor: variant.backgroundColor.withValues(
           alpha: backgroundAlpha,

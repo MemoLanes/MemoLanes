@@ -109,7 +109,7 @@ Future<achievement.Worldview?> showWorldviewPicker(
 }) {
   return showSetupCard<achievement.Worldview>(
     context,
-    child: _RegionPickerSheet(selectedWorldview: selectedWorldview),
+    builder: (_) => _RegionPickerSheet(selectedWorldview: selectedWorldview),
   );
 }
 
@@ -120,7 +120,7 @@ class _RegionPickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SetupBottomSheet(
+    return SetupDialogCard(
       title: context.tr("privacy.region_title"),
       maxHeightFactor: 0.55,
       contentPadding: const EdgeInsets.fromLTRB(20, 14, 20, 10),

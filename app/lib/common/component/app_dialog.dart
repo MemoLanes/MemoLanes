@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/constants/style_constants.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 enum AppDialogSurfaceStyle { solid, glass }
 
@@ -144,7 +145,9 @@ class AppDialogCard extends StatelessWidget {
             ] else
               const SizedBox(height: 8),
             Flexible(
+              fit: FlexFit.loose,
               child: SingleChildScrollView(
+                primary: false,
                 padding: contentPadding,
                 child: child,
               ),
@@ -170,20 +173,39 @@ class AppDialogActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (var i = 0; i < children.length; i++) ...[
-          if (i > 0) SizedBox(width: spacing),
-          Expanded(child: children[i]),
-        ],
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
+        final useColumn = constraints.maxWidth < 280 || textScale > 1.25;
+
+        if (useColumn) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < children.length; i++) ...[
+                if (i > 0) SizedBox(height: spacing),
+                children[i],
+              ],
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            for (var i = 0; i < children.length; i++) ...[
+              if (i > 0) SizedBox(width: spacing),
+              Expanded(child: children[i]),
+            ],
+          ],
+        );
+      },
     );
   }
 }
 
 Future<T?> showAppDialog<T>(
   BuildContext context, {
-  required Widget child,
+  required WidgetBuilder builder,
   bool barrierDismissible = true,
   Color? barrierColor,
   double maxWidth = 420,
@@ -201,13 +223,18 @@ Future<T?> showAppDialog<T>(
         StyleConstants.shadowColor.withValues(
           alpha: StyleConstants.isDarkMode ? 0.58 : 0.22,
         ),
-    builder: (dialogContext) => Dialog(
-      elevation: 0,
-      backgroundColor: Colors.transparent,
-      insetPadding: insetPadding,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxWidth),
-        child: SizedBox(width: double.infinity, child: child),
+    builder: (dialogContext) => PointerInterceptor(
+      child: Dialog(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        insetPadding: insetPadding,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: SizedBox(
+            width: double.infinity,
+            child: builder(dialogContext),
+          ),
+        ),
       ),
     ),
   );

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/common/map_fog_style.dart';
 import 'package:memolanes/common/map_style.dart';
 import 'package:memolanes/common/map_webview_assets.dart';
 import 'package:memolanes/common/mmkv_util.dart';
@@ -70,6 +71,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   bool _readyForDisplay = false;
 
   late MapStyle _selectedMapStyle;
+  late MapFogStyle _selectedMapFogStyle;
 
   // Dev server URL for loading map webview from a local dev server.
   // Usage: flutter run --dart-define=DEV_SERVER=http://ip:port
@@ -130,6 +132,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _gpsManager.addListener(_updateLocationMarker);
     _currentRoughMapView = widget.initialMapView;
     _selectedMapStyle = _loadMapStyleFromStorage();
+    _selectedMapFogStyle = _loadMapFogStyleFromStorage();
 
     _initLowPowerMode();
   }
@@ -332,6 +335,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         : 'https://memolanes.local/api';
 
     final style = _selectedMapStyle;
+    final fogStyle = _selectedMapFogStyle;
     await controller.evaluateJavascript(
       source:
           '''
@@ -340,7 +344,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         cgi_endpoint: "$cgiEndpoint",
         render: "canvas",
         map_style: "${style.url}",
-        fog_density: ${style.fogOpacity},
+        fog_style: "${fogStyle.id}",
+        fog_density: ${style.fogOpacityByStyle[fogStyle] ?? 0.50},
         access_key: ${accessKey != null ? "\"$accessKey\"" : "null"},
         lng: $lngParam,
         lat: $latParam,
@@ -375,6 +380,11 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   MapStyle _loadMapStyleFromStorage() {
     final id = MMKVUtil.getString(MMKVKey.mapStyle);
     return MapStyle.findById(id);
+  }
+
+  MapFogStyle _loadMapFogStyleFromStorage() {
+    final id = MMKVUtil.getStringOpt(MMKVKey.mapFogMode);
+    return MapFogStyle.findById(id);
   }
 
   void _handleMapViewPush(String message) {
@@ -441,10 +451,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   @override
   Widget build(BuildContext context) {
-    // TODO: The `IgnorePointer` is a workaround for a bug in the webview on iOS.
-    // https://github.com/flutter/flutter/issues/165305
-    // But unfortunately, it only works for iOS 18, so we still have this weird
-    // double tap behavior on older iOS versions.
     return Stack(
       children: [
         InAppWebView(
@@ -535,7 +541,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             if (!mounted) return;
             final failedUrl = request.url.toString();
             if (!failedUrl.contains('events.mapbox.com')) {
-              log.error('''Map WebView Error: 
+              log.error('''Map WebView Error:
                       Description: ${error.description}
                       Error Type: ${error.type} 
                       Failed URL: $failedUrl''');

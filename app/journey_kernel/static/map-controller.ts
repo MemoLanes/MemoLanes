@@ -26,6 +26,7 @@ import {
   type ProjectionType,
 } from "./params";
 import { JourneyTileProvider } from "./journey-tile-provider";
+import { getFogStyle } from "./fog-style";
 import { detectMapLocale, type MapLocale } from "./map-locale";
 import { transformStyleWithProjection } from "./utils";
 import { JOURNEY_LAYER_ID } from "./layers/journey-layer-interface";
@@ -267,21 +268,18 @@ export class MapController {
       this.currentJourneyLayer.remove();
     }
 
-    // Create new layer instance
+    // Resolve a private copy of the selected palette. Density is a runtime
+    // override (debug panel), so update the RGBA value directly before passing
+    // it to the layer; the canonical palette remains unchanged.
     const LayerClass = AVAILABLE_LAYERS[renderingMode].layerClass;
-    // Use fogDensity as the alpha value for bgColor
-    const bgColor: [number, number, number, number] = [
-      0.0,
-      0.0,
-      0.0,
-      this.params.fogDensity,
-    ];
+    const fogStyle = getFogStyle(this.params.fogStyle);
+    fogStyle.rgba[3] = this.params.fogDensity;
 
     const newLayer = new LayerClass(
       this.map,
       this.journeyTileProvider!,
       undefined, // use default layerId
-      bgColor,
+      fogStyle.rgba,
     );
     newLayer.setLowPowerMode?.(this.params.lowPowerMode);
     newLayer.initialize();
@@ -292,13 +290,21 @@ export class MapController {
 
   /**
    * Register hooks on ReactiveParams to handle property changes
-   * These hooks automatically respond to changes in renderMode, fogDensity, and projection
+   * These hooks automatically respond to changes in rendering and map properties.
    */
   private registerParamsHooks(): void {
     // Hook for renderMode changes - switch rendering layer
     this.params.on("renderMode", (newMode, oldMode) => {
       console.log(
         `[MapController] renderMode changed: ${oldMode} -> ${newMode}`,
+      );
+      this.switchRenderingLayer();
+    });
+
+    // Recreate the layer when switching between light and dark fog palettes.
+    this.params.on("fogStyle", (newStyle, oldStyle) => {
+      console.log(
+        `[MapController] fogStyle changed: ${oldStyle} -> ${newStyle}`,
       );
       this.switchRenderingLayer();
     });

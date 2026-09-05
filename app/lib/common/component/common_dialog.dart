@@ -7,7 +7,6 @@ import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/constants/style_constants.dart';
-import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 class DialogButton {
@@ -66,28 +65,27 @@ class CommonDialog extends StatelessWidget {
       ),
     };
 
-    return PointerInterceptor(
-      child: AppDialogCard(
-        title: title,
-        maxHeightFactor: 0.78,
-        contentPadding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
-        actions: buttons.isEmpty
-            ? null
-            : AppDialogActions(
-                children: [
-                  for (final button in buttons)
-                    AppButton(
-                      label: button.text,
-                      variant: button.variant,
-                      onPressed: () {
-                        AppHaptics.selection();
-                        button.onPressed();
-                      },
-                    ),
-                ],
-              ),
-        child: messageBody,
-      ),
+    return AppDialogCard(
+      title: title,
+      maxHeightFactor: 0.78,
+      contentPadding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+      actions: buttons.isEmpty
+          ? null
+          : AppDialogActions(
+              children: [
+                for (final button in buttons)
+                  AppButton(
+                    label: button.text,
+                    labelMaxLines: 2,
+                    variant: button.variant,
+                    onPressed: () {
+                      AppHaptics.selection();
+                      button.onPressed();
+                    },
+                  ),
+              ],
+            ),
+      child: messageBody,
     );
   }
 }

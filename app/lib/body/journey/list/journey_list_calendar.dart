@@ -162,7 +162,6 @@ class JourneyListCalendar extends StatelessWidget {
 
   Widget _buildFilterButton(BuildContext context) {
     final label = _filterLabel(context);
-    final tooltip = '${context.tr('journey.list.filter_layers')}: $label';
     return CustomPopup(
       position: PopupPosition.bottom,
       horizontalOffset: -8,
@@ -180,28 +179,21 @@ class JourneyListCalendar extends StatelessWidget {
         ),
       ),
       child: PointerInterceptor(
-        child: Tooltip(
-          message: tooltip,
-          child: Semantics(
-            label: tooltip,
-            button: true,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Icon(Icons.arrow_drop_down, color: Colors.white),
-                ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
+              const Icon(Icons.arrow_drop_down, color: Colors.white),
+            ],
           ),
         ),
       ),

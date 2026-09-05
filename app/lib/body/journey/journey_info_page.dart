@@ -2,7 +2,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/journey/journey_info_edit_page.dart';
 import 'package:memolanes/body/journey/journey_track_edit_page.dart';
-import 'package:memolanes/common/component/basic_bottom_sheet.dart';
+import 'package:memolanes/common/component/app_button.dart';
+import 'package:memolanes/common/component/basic_dialog_card.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/component/capsule_style_bar_content.dart';
@@ -109,8 +110,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
       hasCancel: true,
       title: context.tr("journey.delete_journey_title"),
       confirmButtonText: context.tr("common.delete"),
-      confirmGroundColor: Colors.red,
-      confirmTextColor: Colors.white,
+      confirmVariant: AppButtonVariant.danger,
     )) {
       await api.deleteJourney(journeyId: _journeyHeader.id);
       if (!context.mounted) return;
@@ -373,7 +373,9 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   void _showEditMenu(BuildContext context) {
     showBasicCard(
       context,
-      child: OptionCard(
+      builder: (_) => OptionCard(
+        useSafeArea: false,
+        embedded: true,
         children: [
           CardLabelTile(
             position: CardLabelTilePosition.top,

@@ -122,21 +122,21 @@ class _RecordingHealthAlert {
       final disableHeartbeatDetection = await showAppDialog<bool>(
         context,
         barrierDismissible: false,
-        child: CommonDialog(
-          title: context.tr('recording_health.interruption_detected'),
+        builder: (dialogContext) => CommonDialog(
+          title: dialogContext.tr('recording_health.interruption_detected'),
           content:
-              '${context.tr('recording_health.freeze_warning')}\n\n'
-              '**[${context.tr('recording_health.view_help')} ↗]($helpUrl)**',
+              '${dialogContext.tr('recording_health.freeze_warning')}\n\n'
+              '**[${dialogContext.tr('recording_health.view_help')} ↗]($helpUrl)**',
           markdown: true,
           buttons: [
             DialogButton(
-              text: context.tr('recording_health.dont_remind_again'),
+              text: dialogContext.tr('recording_health.dont_remind_again'),
               variant: AppButtonVariant.danger,
-              onPressed: () => Navigator.of(context).pop(true),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
             ),
             DialogButton(
-              text: context.tr('common.ok'),
-              onPressed: () => Navigator.of(context).pop(false),
+              text: dialogContext.tr('common.ok'),
+              onPressed: () => Navigator.of(dialogContext).pop(false),
             ),
           ],
         ),
