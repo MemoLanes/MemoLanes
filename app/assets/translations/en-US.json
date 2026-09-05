@@ -115,7 +115,9 @@
     "created_at": "Created At",
     "note": "Note",
     "finalize_saved": "New journey added",
-    "finalize_empty": "No journey detected"
+    "finalize_empty": "No journey detected",
+    "drop_covered_small_journey": "Avoid creating duplicate journeys",
+    "drop_covered_small_journey_description": "When enabled, ending a journey will not create a new journey record if its track covers only a small area that is already fully included in your existing tracks. Existing tracks are not affected."
   },
   "db_optimization": {
     "notification": "Your database requires optimization, please go to Settings tab and click [Optimize database] button.",
@@ -331,8 +333,37 @@
     }
   },
   "settings": {
+    "title": "Settings",
     "other": "Other",
-    "about": "About"
+    "about": "About",
+    "categories": {
+      "journey_recording": {"title": "Journey & Recording", "desc": "Journey, recording, and notifications"},
+      "map": {"title": "Map Settings", "desc": "Map style, display, and region"},
+      "appearance": {"title": "Appearance", "desc": "Language, haptics, and interface"},
+      "data": {"title": "Data", "desc": "Import, export, and cleanup"},
+      "advanced": {"title": "Advanced", "desc": "Logs, diagnostics, and recovery"},
+      "about": {"title": "About MemoLanes", "desc": "Version, privacy, and contact"}
+    },
+    "groups": {
+      "journey": "Journey",
+      "recording_protection": "Recording Protection",
+      "appearance": "Appearance",
+      "future": "Future",
+      "future_theme": "Theme options will be added here",
+      "map_display": "Map Display",
+      "region": "Region",
+      "data_exchange": "Data Exchange",
+      "data_maintenance": "Data Maintenance",
+      "danger_zone": "Danger Zone",
+      "diagnostics": "Diagnostics",
+      "recovery": "Recovery"
+    },
+    "language": {
+      "title": "Language",
+      "system": "Follow system",
+      "chinese": "Simplified Chinese",
+      "english": "English"
+    }
   },
   "beta_testing_notice": {
     "title": "Welcome to MemoLanes Public Beta",

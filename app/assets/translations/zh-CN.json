@@ -115,7 +115,9 @@
     "created_at": "创建时间",
     "note": "备注",
     "finalize_saved": "新增旅程",
-    "finalize_empty": "未检测到新旅程"
+    "finalize_empty": "未检测到新旅程",
+    "drop_covered_small_journey": "避免生成重复旅途",
+    "drop_covered_small_journey_description": "开启后，结束旅途时，如果本次轨迹范围较小，并且已完全包含在已有足迹中，将不会生成新的旅途记录。已有足迹不会受到影响。"
   },
   "db_optimization": {
     "notification": "你的数据库需要优化，请前往设置选项卡并点击[优化数据库]按钮。",
@@ -331,8 +333,37 @@
     }
   },
   "settings": {
+    "title": "设置",
     "other": "其他",
-    "about": "关于"
+    "about": "关于",
+    "categories": {
+      "journey_recording": {"title": "旅途与录制", "desc": "旅途生成、录制保护与通知"},
+      "map": {"title": "地图设置", "desc": "地图样式、显示与地区偏好"},
+      "appearance": {"title": "界面外观", "desc": "语言、触感与外观选项"},
+      "data": {"title": "数据管理", "desc": "导入、导出与维护"},
+      "advanced": {"title": "高级设置", "desc": "日志、诊断与偏好恢复"},
+      "about": {"title": "关于迹忆", "desc": "版本、隐私政策与联系我们"}
+    },
+    "groups": {
+      "journey": "旅途",
+      "recording_protection": "录制保护",
+      "appearance": "界面外观",
+      "future": "后续扩展",
+      "future_theme": "深色/浅色模式预留",
+      "map_display": "地图显示",
+      "region": "地区",
+      "data_exchange": "数据交换",
+      "data_maintenance": "数据维护",
+      "danger_zone": "危险操作",
+      "diagnostics": "诊断",
+      "recovery": "恢复"
+    },
+    "language": {
+      "title": "语言",
+      "system": "跟随系统",
+      "chinese": "简体中文",
+      "english": "English"
+    }
   },
   "beta_testing_notice": {
     "title": "欢迎体验「迹忆」公测版",

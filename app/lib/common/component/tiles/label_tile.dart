@@ -7,8 +7,10 @@ class LabelTile extends StatelessWidget {
     super.key,
     this.position = LabelTilePosition.single,
     required this.label,
+    this.labelStyle,
     this.desc = '',
     this.descMaxLines = 1,
+    this.descStyle,
     this.prefix,
     this.suffix,
     this.trailing,
@@ -26,9 +28,13 @@ class LabelTile extends StatelessWidget {
 
   final String label;
 
+  final TextStyle? labelStyle;
+
   final String desc;
 
   final int descMaxLines;
+
+  final TextStyle? descStyle;
 
   final Widget? prefix;
 
@@ -81,12 +87,18 @@ class LabelTile extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: labelStyle,
+                ),
                 if (desc.isNotEmpty)
                   Text(
                     desc,
                     maxLines: descMaxLines,
                     overflow: TextOverflow.ellipsis,
+                    style: descStyle,
                   ),
               ],
             ),

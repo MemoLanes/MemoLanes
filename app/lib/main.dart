@@ -70,11 +70,17 @@ void main() async {
 }
 
 Widget _appRoot(Widget child) {
+  final savedLocale = MMKVUtil.getStringOpt(MMKVKey.localePreference);
   return EasyLocalization(
     supportedLocales: const [Locale('en', 'US'), Locale('zh', 'CN')],
     path: 'assets/translations',
     assetLoader: const AppTranslationLoader(),
     fallbackLocale: const Locale('en', 'US'),
+    startLocale: savedLocale == 'zh-CN'
+        ? const Locale('zh', 'CN')
+        : savedLocale == 'en-US'
+        ? const Locale('en', 'US')
+        : null,
     saveLocale: false,
     child: child,
   );
