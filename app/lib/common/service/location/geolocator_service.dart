@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/service/location/location_service.dart';
+import 'package:mutex/mutex.dart';
 
 /// `PokeGeolocatorTask` is a hacky workaround.
 /// The behavior we observe is that the position stream from geolocator will
@@ -46,6 +47,7 @@ class _PokeGeolocatorTask {
 ILocationService createDefaultLocationService() => GeoLocatorService();
 
 class GeoLocatorService implements ILocationService {
+  final _lifecycleMutex = Mutex();
   StreamSubscription<Position>? _positionStreamSub;
   _PokeGeolocatorTask? _pokeTask;
   Timer? _tooOldTimer;
@@ -67,35 +69,43 @@ class GeoLocatorService implements ILocationService {
   Stream<LocationData> get locations => _locationUpdateController.stream;
 
   @override
-  Future<void> start(LocationStartOptions options) async {
-    if (_running) return;
-    _recordingConsumer = options.recordingConsumer;
-    final settings = _buildLocationSettings(options.allowBackground);
+  Future<void> start(LocationStartOptions options) =>
+      _lifecycleMutex.protect(() async {
+        if (_running) return;
+        _recordingConsumer = options.recordingConsumer;
+        final settings = _buildLocationSettings(options.allowBackground);
 
-    try {
-      _positionStreamSub =
-          Geolocator.getPositionStream(locationSettings: settings).listen(
-            _onPositionReceived,
-            onError: (e) {
-              log.error("[GeoLocatorService] getPositionStream error: $e");
-            },
-          );
+        try {
+          _positionStreamSub =
+              Geolocator.getPositionStream(locationSettings: settings).listen(
+                _onPositionReceived,
+                onError: (e) {
+                  log.error("[GeoLocatorService] getPositionStream error: $e");
+                },
+              );
 
-      _pokeTask = _PokeGeolocatorTask.start(settings);
+          _pokeTask = _PokeGeolocatorTask.start(settings);
 
-      _tooOldTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-        final now = DateTime.now().millisecondsSinceEpoch;
-        final ts = _latestLocation?.timestampMs;
-        if (ts != null && now - ts > 5000) {
-          _latestLocation = null;
+          _tooOldTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+            final now = DateTime.now().millisecondsSinceEpoch;
+            final ts = _latestLocation?.timestampMs;
+            if (ts != null && now - ts > 5000) {
+              _latestLocation = null;
+            }
+          });
+          _running = true;
+        } catch (error, stackTrace) {
+          try {
+            await _stopResources(deliverBufferedLocations: false);
+          } catch (cleanupError, cleanupStackTrace) {
+            log.error(
+              '[GeoLocatorService] partial-start cleanup failed: $cleanupError',
+              cleanupStackTrace,
+            );
+          }
+          Error.throwWithStackTrace(error, stackTrace);
         }
       });
-      _running = true;
-    } catch (_) {
-      _recordingConsumer = null;
-      rethrow;
-    }
-  }
 
   @override
   Future<void> setForeground(bool foreground) async {
@@ -104,24 +114,51 @@ class GeoLocatorService implements ILocationService {
   }
 
   @override
-  Future<void> stop() async {
-    if (!_running) return;
-    _running = false;
-    await _positionStreamSub?.cancel();
-    _positionStreamSub = null;
+  Future<void> recoverPendingDeliveries(LocationBatchConsumer consumer) async {}
 
+  @override
+  Future<void> stop() => _lifecycleMutex.protect(
+    () => _stopResources(deliverBufferedLocations: true),
+  );
+
+  Future<void> _stopResources({required bool deliverBufferedLocations}) async {
+    _running = false;
     _pokeTask?.cancel();
     _pokeTask = null;
-
     _tooOldTimer?.cancel();
     _tooOldTimer = null;
-
     _bufferFlushTimer?.cancel();
     _bufferFlushTimer = null;
 
-    _flushBuffer();
-    await _recordingTail;
+    Object? firstError;
+    StackTrace? firstStackTrace;
+    try {
+      await _positionStreamSub?.cancel();
+    } catch (error, stackTrace) {
+      firstError = error;
+      firstStackTrace = stackTrace;
+    } finally {
+      _positionStreamSub = null;
+    }
+
+    if (deliverBufferedLocations) {
+      _flushBuffer();
+      try {
+        await _recordingTail;
+      } catch (error, stackTrace) {
+        firstError ??= error;
+        firstStackTrace ??= stackTrace;
+      }
+    } else {
+      _buffer.clear();
+      _firstBufferReceiveTime = null;
+    }
     _recordingConsumer = null;
+    _latestLocation = null;
+
+    if (firstError != null) {
+      Error.throwWithStackTrace(firstError, firstStackTrace!);
+    }
   }
 
   void _onPositionReceived(Position pos) {

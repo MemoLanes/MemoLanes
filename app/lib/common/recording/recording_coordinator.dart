@@ -34,15 +34,16 @@ class RecordingCoordinator {
   final Future<bool> Function()? _tryAutoFinalizeOverride;
   final DateTime Function() _now;
 
-  final _writeMutex = Mutex();
-  final _finalizeMutex = Mutex();
+  // Every Rust preprocessor operation uses one mutex and one lock order.
+  // Finalization callbacks run only after this mutex has been released.
+  final _operationMutex = Mutex();
   // Dart set literals preserve insertion order, which is the LRU order here.
   final _persistedKeys = <String>{};
 
   bool _recording = false;
   DateTime? _lastMeaningfulLiveUpdate;
 
-  Future<void> start() => _writeMutex.protect(() async {
+  Future<void> start() => _operationMutex.protect(() async {
     if (_recording) return;
     _recording = true;
     _persistedKeys.clear();
@@ -57,75 +58,80 @@ class RecordingCoordinator {
   Future<bool> persistLocations(
     List<LocationData> locations, {
     required bool isReplay,
-  }) => _writeMutex.protect(() async {
-    if (!_recording) {
-      throw StateError('Recording coordinator is not active');
-    }
+  }) async {
+    var finalized = false;
+    final meaningful = await _operationMutex.protect(() async {
+      if (!_recording) {
+        throw StateError('Recording coordinator is not active');
+      }
 
-    final ordered = sortLocationDataByTimestamp(locations);
-    final updates = <RecordingLocationUpdate>[];
-    final batchKeys = <String>{};
-    for (final location in ordered) {
-      final key = _locationKey(location);
-      if (_touchPersistedKey(key) || !batchKeys.add(key)) continue;
-      updates.add((location: location, receivedAt: _now()));
-    }
-    if (updates.isEmpty) return false;
+      final ordered = sortLocationDataByTimestamp(locations);
+      final updates = <RecordingLocationUpdate>[];
+      final batchKeys = <String>{};
+      for (final location in ordered) {
+        final key = _locationKey(location);
+        if (_touchPersistedKey(key) || !batchKeys.add(key)) continue;
+        updates.add((location: location, receivedAt: _now()));
+      }
+      if (updates.isEmpty) return false;
 
-    final receivedAt = updates.first.receivedAt;
-    final lastMeaningful = _lastMeaningfulLiveUpdate;
-    if (!isReplay &&
-        lastMeaningful != null &&
-        receivedAt.difference(lastMeaningful).inSeconds >= 60) {
-      await _finalizeMutex.protect(_tryFinalizeJourney);
-      // Avoid retrying auto-finalize for every subsequent ignored point.
-      _lastMeaningfulLiveUpdate = receivedAt;
-    }
+      final receivedAt = updates.first.receivedAt;
+      final lastMeaningful = _lastMeaningfulLiveUpdate;
+      if (!isReplay &&
+          lastMeaningful != null &&
+          receivedAt.difference(lastMeaningful).inSeconds >= 60) {
+        finalized = await _tryFinalizeJourney();
+        // Avoid retrying auto-finalize for every subsequent ignored point.
+        _lastMeaningfulLiveUpdate = receivedAt;
+      }
 
-    final locationUpdates = _onLocationUpdates;
-    final meaningful = locationUpdates == null
-        ? await api.onLocationUpdates(
-            updates: updates
-                .map(
-                  (update) => api.LocationUpdate(
-                    rawData: _rawData(update.location),
-                    receivedTimestampMs:
-                        update.receivedAt.millisecondsSinceEpoch,
-                  ),
-                )
-                .toList(growable: false),
-          )
-        : await locationUpdates(updates);
+      final locationUpdates = _onLocationUpdates;
+      final meaningful = locationUpdates == null
+          ? await api.onLocationUpdates(
+              updates: updates
+                  .map(
+                    (update) => api.LocationUpdate(
+                      rawData: _rawData(update.location),
+                      receivedTimestampMs:
+                          update.receivedAt.millisecondsSinceEpoch,
+                    ),
+                  )
+                  .toList(growable: false),
+            )
+          : await locationUpdates(updates);
 
-    // Remember only after the write completed. A thrown write is not an
-    // acknowledgement and must remain retryable by a durable provider.
-    _rememberPersistedKeys(batchKeys);
-    if (!isReplay && meaningful) {
-      _lastMeaningfulLiveUpdate = updates.last.receivedAt;
-    }
+      // Remember only after the write completed. A thrown write is not an
+      // acknowledgement and must remain retryable by a durable provider.
+      _rememberPersistedKeys(batchKeys);
+      if (!isReplay && meaningful) {
+        _lastMeaningfulLiveUpdate = updates.last.receivedAt;
+      }
+      return meaningful;
+    });
+    if (finalized) await _onJourneyFinalized?.call();
     return meaningful;
-  });
+  }
 
   /// Stops accepting data after every earlier write has completed.
-  Future<void> stop() => _writeMutex.protect(() async {
+  Future<void> stop() => _operationMutex.protect(() async {
     _recording = false;
   });
 
-  Future<void> _tryFinalizeJourney() async {
+  Future<bool> _tryFinalizeJourney() async {
     final tryAutoFinalize = _tryAutoFinalizeOverride;
     final finalized = tryAutoFinalize == null
         ? await api.tryAutoFinalizeJourney()
         : await tryAutoFinalize();
-    if (finalized) await _onJourneyFinalized?.call();
+    return finalized;
   }
 
   Future<void> tryAutoFinalize() async {
-    await _finalizeMutex.protect(_tryAutoFinalizeJourneyAndResetCountdown);
-  }
-
-  Future<void> _tryAutoFinalizeJourneyAndResetCountdown() async {
-    await _tryFinalizeJourney();
-    _lastMeaningfulLiveUpdate = _now();
+    final finalized = await _operationMutex.protect(() async {
+      final result = await _tryFinalizeJourney();
+      _lastMeaningfulLiveUpdate = _now();
+      return result;
+    });
+    if (finalized) await _onJourneyFinalized?.call();
   }
 
   String _locationKey(LocationData location) =>

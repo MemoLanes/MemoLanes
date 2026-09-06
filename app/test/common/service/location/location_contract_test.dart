@@ -32,6 +32,9 @@ class _FakeLocationService implements ILocationService {
   }
 
   @override
+  Future<void> recoverPendingDeliveries(LocationBatchConsumer consumer) async {}
+
+  @override
   Future<void> start(LocationStartOptions options) async {
     this.options = options;
   }

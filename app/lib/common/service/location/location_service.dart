@@ -76,6 +76,14 @@ abstract interface class ILocationService {
   /// Reports app visibility and must tolerate duplicates and inactive states.
   Future<void> setForeground(bool foreground);
 
+  /// Delivers the durable backlog that existed before this call began.
+  ///
+  /// This is an awaited recovery barrier: when it completes, every recoverable
+  /// batch that preceded the call has either been acknowledged by [consumer]
+  /// or the method has thrown. It must not start live acquisition. Providers
+  /// without durable storage implement this as a no-op.
+  Future<void> recoverPendingDeliveries(LocationBatchConsumer consumer);
+
   /// Stops producing points and waits for all in-flight recording deliveries.
   /// Repeating a stop must be safe.
   Future<void> stop();

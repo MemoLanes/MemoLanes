@@ -161,4 +161,51 @@ void main() {
     expect(finalizeCalls, 2);
     await coordinator.dispose();
   });
+
+  test('serializes explicit finalization behind an in-flight write', () async {
+    final writeStarted = Completer<void>();
+    final releaseWrite = Completer<void>();
+    var finalizeCalls = 0;
+    final coordinator = RecordingCoordinator(
+      onLocationUpdates: (_) async {
+        writeStarted.complete();
+        await releaseWrite.future;
+        return true;
+      },
+      tryAutoFinalize: () async {
+        finalizeCalls += 1;
+        return false;
+      },
+    );
+
+    await coordinator.start();
+    final write = coordinator.persistLocations([
+      _location(10),
+    ], isReplay: false);
+    await writeStarted.future;
+    final finalize = coordinator.tryAutoFinalize();
+    await Future<void>.delayed(Duration.zero);
+    expect(finalizeCalls, 0);
+
+    releaseWrite.complete();
+    await Future.wait([write, finalize]);
+    expect(finalizeCalls, 1);
+    await coordinator.dispose();
+  });
+
+  test('finalization callback may stop without re-entering the lock', () async {
+    late RecordingCoordinator coordinator;
+    coordinator = RecordingCoordinator(
+      onLocationUpdates: (_) async => true,
+      tryAutoFinalize: () async => true,
+      onJourneyFinalized: () => coordinator.stop(),
+    );
+
+    await coordinator.start();
+    await coordinator.tryAutoFinalize().timeout(const Duration(seconds: 1));
+    await expectLater(
+      coordinator.persistLocations([_location(10)], isReplay: false),
+      throwsStateError,
+    );
+  });
 }

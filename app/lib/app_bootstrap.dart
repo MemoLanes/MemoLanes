@@ -171,7 +171,11 @@ class AppBootstrap {
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _onFirstFrame();
-      gpsManager.readyToStart();
+      try {
+        await gpsManager.readyToStart();
+      } catch (error, stackTrace) {
+        log.error('GPS startup recovery failed: $error', stackTrace);
+      }
     });
 
     api.initMainMap().then(
