@@ -108,11 +108,17 @@ void main() {
 
     expect(results, [false, true]);
   });
-  for (final width in [320.0, 360.0, 380.0]) {
+  for (final size in [
+    const Size(320, 480),
+    const Size(360, 480),
+    const Size(380, 480),
+    const Size(640, 320),
+    const Size(740, 300),
+  ]) {
     testWidgets(
-      'date picker dialog returns its selected date at ${width.toInt()}px',
+      'date picker dialog keeps dates and actions reachable at $size',
       (tester) async {
-        tester.view.physicalSize = Size(width, 480);
+        tester.view.physicalSize = size;
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
@@ -161,6 +167,13 @@ void main() {
 
         expect(tester.takeException(), isNull);
         expect(find.byType(Dialog), findsOneWidget);
+        // June 2024 has six rows. Its last day must remain reachable even
+        // when the calendar has to scroll in a short landscape viewport.
+        await tester.ensureVisible(find.text('30'));
+        await tester.pumpAndSettle();
+        expect(find.text('30').hitTestable(), findsOneWidget);
+        expect(find.text('Cancel').hitTestable(), findsOneWidget);
+        expect(find.text('OK').hitTestable(), findsOneWidget);
         await tester.tap(find.text('OK'));
         await tester.pumpAndSettle();
 

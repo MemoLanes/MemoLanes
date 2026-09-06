@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/body/journey/editor/journey_editor_map_view.dart';
+import 'package:memolanes/body/journey/editor/journey_editor_operation_queue.dart';
 import 'package:memolanes/body/journey/editor/journey_track_edit_mode_bar.dart';
 import 'package:memolanes/body/journey/editor/top_persistent_toast.dart';
 import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
@@ -34,7 +35,8 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   bool _canUndo = false;
   bool _isLinkedDrawEnabled = false;
   bool _isDrawModeMenuOpen = false;
-  bool _operationInProgress = false;
+  final _operations = JourneyEditorOperationQueue();
+  bool get _operationInProgress => _operations.isBusy;
   String? _linkedDrawErrorTrKey;
 
   bool _zoomOk = false;
@@ -121,6 +123,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   void initState() {
     _editSession = widget.editSession;
     super.initState();
+    _operations.addListener(_onOperationsChanged);
     _loadMap();
   }
 
@@ -140,19 +143,10 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     }
   }
 
-  bool _beginOperation() {
-    if (!mounted || _operationInProgress) return false;
-    setState(() {
-      _operationInProgress = true;
-    });
-    return true;
-  }
-
-  void _finishOperation() {
+  void _onOperationsChanged() {
     if (!mounted) return;
     setState(() {
-      _operationInProgress = false;
-      _canUndo = _editSession.canUndo();
+      if (!_operationInProgress) _canUndo = _editSession.canUndo();
     });
   }
 
@@ -305,42 +299,45 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   Future<void> _onDrawPath(List<JourneyEditorDrawPoint> points) async {
     if (_mode != OperationMode.edit) return;
     if (points.length < 2) return;
-    if (!_beginOperation()) return;
+    if (!mounted) return;
 
-    try {
-      if (_linkedDrawErrorTrKey != null) {
-        _clearLinkedDrawConstraintError();
-      }
+    final snapEndpoints = _isLinkedDrawEnabled;
+    return _operations.run(() async {
+      try {
+        if (_linkedDrawErrorTrKey != null) {
+          _clearLinkedDrawConstraintError();
+        }
 
-      final recordPoints = points
-          .map((p) => (p.lat, p.lng))
-          .toList(growable: false);
-      final outcome = await _editSession.addLines(
-        points: recordPoints,
-        snapEndpoints: _isLinkedDrawEnabled,
-      );
-      switch (outcome) {
-        case AddLinesOutcome.added || AddLinesOutcome.ignored:
-          if (!mounted) return;
-          _showToast(_EditorToastRequest.syncCurrentState);
-          await _mapWebviewKey.currentState?.manualRefresh();
-        case AddLinesOutcome.linkedDrawTooFar:
-          _showLinkedDrawConstraintToast('journey.editor.linked_draw_too_far');
-        case AddLinesOutcome.linkedDrawNeedsMultipleTracks:
-          _showLinkedDrawConstraintToast(
-            'journey.editor.linked_draw_needs_multiple_tracks',
-          );
-        case AddLinesOutcome.linkedDrawInvalidLinkTargets:
-          _showLinkedDrawConstraintToast(
-            'journey.editor.linked_draw_invalid_link_targets',
-          );
+        final recordPoints = points
+            .map((p) => (p.lat, p.lng))
+            .toList(growable: false);
+        final outcome = await _editSession.addLines(
+          points: recordPoints,
+          snapEndpoints: snapEndpoints,
+        );
+        switch (outcome) {
+          case AddLinesOutcome.added || AddLinesOutcome.ignored:
+            if (!mounted) return;
+            _showToast(_EditorToastRequest.syncCurrentState);
+            await _mapWebviewKey.currentState?.manualRefresh();
+          case AddLinesOutcome.linkedDrawTooFar:
+            _showLinkedDrawConstraintToast(
+              'journey.editor.linked_draw_too_far',
+            );
+          case AddLinesOutcome.linkedDrawNeedsMultipleTracks:
+            _showLinkedDrawConstraintToast(
+              'journey.editor.linked_draw_needs_multiple_tracks',
+            );
+          case AddLinesOutcome.linkedDrawInvalidLinkTargets:
+            _showLinkedDrawConstraintToast(
+              'journey.editor.linked_draw_invalid_link_targets',
+            );
+        }
+      } catch (error, stackTrace) {
+        log.error("[JourneyTrackEditPage] addLines failed: $error", stackTrace);
+        await _showOperationError();
       }
-    } catch (error, stackTrace) {
-      log.error("[JourneyTrackEditPage] addLines failed: $error", stackTrace);
-      await _showOperationError();
-    } finally {
-      _finishOperation();
-    }
+    });
   }
 
   Future<void> _onSelectionBox(
@@ -350,81 +347,84 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
     double endLng,
   ) async {
     if (_mode != OperationMode.delete) return;
-    if (!_beginOperation()) return;
+    if (!mounted) return;
 
-    try {
-      await _editSession.deletePointsInBox(
-        startLat: startLat,
-        startLng: startLng,
-        endLat: endLat,
-        endLng: endLng,
-      );
+    return _operations.run(() async {
+      try {
+        await _editSession.deletePointsInBox(
+          startLat: startLat,
+          startLng: startLng,
+          endLat: endLat,
+          endLng: endLng,
+        );
 
-      if (!mounted) return;
-      await _mapWebviewKey.currentState?.manualRefresh();
-    } catch (error, stackTrace) {
-      log.error(
-        "[JourneyTrackEditPage] deletePointsInBox failed: $error",
-        stackTrace,
-      );
-      await _showOperationError();
-    } finally {
-      _finishOperation();
-    }
+        if (!mounted) return;
+        await _mapWebviewKey.currentState?.manualRefresh();
+      } catch (error, stackTrace) {
+        log.error(
+          "[JourneyTrackEditPage] deletePointsInBox failed: $error",
+          stackTrace,
+        );
+        await _showOperationError();
+      }
+    });
   }
 
   Future<void> _undo() async {
-    if (!_canUndo || !_beginOperation()) return;
+    if (!_canUndo || _operationInProgress || !mounted) return;
     _dismissDrawModeMenu();
-    try {
-      await _editSession.undo();
-      if (!mounted) return;
-      await _mapWebviewKey.currentState?.manualRefresh();
-    } catch (error, stackTrace) {
-      log.error("[JourneyTrackEditPage] undo failed: $error", stackTrace);
-      await _showOperationError();
-    } finally {
-      _finishOperation();
-    }
+    return _operations.run(() async {
+      try {
+        await _editSession.undo();
+        if (!mounted) return;
+        await _mapWebviewKey.currentState?.manualRefresh();
+      } catch (error, stackTrace) {
+        log.error("[JourneyTrackEditPage] undo failed: $error", stackTrace);
+        await _showOperationError();
+      }
+    });
   }
 
   Future<void> _save() async {
-    if (!_canUndo || !_beginOperation()) return;
+    if (!_canUndo || _operationInProgress || !mounted) return;
     _dismissDrawModeMenu();
     _showToast(_EditorToastRequest.clear);
 
-    try {
-      final shouldSave = await showCommonDialog(
-        context,
-        context.tr("common.save_confirm"),
-        title: context.tr("common.save"),
-        hasCancel: true,
-      );
-      if (!mounted) return;
-      if (!shouldSave) {
-        _showToast(
-          _EditorToastRequest.syncCurrentState,
-          clearLinkedDrawError: true,
+    return _operations.run(() async {
+      try {
+        final shouldSave = await showCommonDialog(
+          context,
+          context.tr("common.save_confirm"),
+          title: context.tr("common.save"),
+          hasCancel: true,
         );
-        return;
-      }
+        if (!mounted) return;
+        if (!shouldSave) {
+          _showToast(
+            _EditorToastRequest.syncCurrentState,
+            clearLinkedDrawError: true,
+          );
+          return;
+        }
 
-      await showLoadingDialog(asyncTask: _editSession.commit());
-      if (!mounted) return;
-      _showToast(_EditorToastRequest.saveSuccess);
-      popCurrentRoute(context, true);
-    } catch (error, stackTrace) {
-      log.error("[JourneyTrackEditPage] commit failed: $error", stackTrace);
-      await _showOperationError();
-    } finally {
-      _finishOperation();
-    }
+        await showLoadingDialog(asyncTask: _editSession.commit());
+        if (!mounted) return;
+        _showToast(_EditorToastRequest.saveSuccess);
+        popCurrentRoute(context, true);
+      } catch (error, stackTrace) {
+        log.error("[JourneyTrackEditPage] commit failed: $error", stackTrace);
+        await _showOperationError();
+      }
+    });
   }
 
   @override
   void dispose() {
     // Keep the editor's persistent overlay from leaking onto the previous page.
     _showToast(_EditorToastRequest.clear);
+    _operations
+      ..removeListener(_onOperationsChanged)
+      ..dispose();
     super.dispose();
   }
 

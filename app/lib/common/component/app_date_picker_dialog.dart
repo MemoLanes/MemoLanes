@@ -294,30 +294,37 @@ class _AppDatePickerDialogState extends State<_AppDatePickerDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                SizedBox(
-                  width: double.infinity,
-                  height: 290,
-                  child: CalendarDatePicker2(
-                    key: ValueKey('app-date-picker-$_calendarPickerRevision'),
-                    config: config,
-                    displayedMonthDate: _displayedMonthDate,
-                    value: [_selectedDate],
-                    onValueChanged: (dates) {
-                      final selected = dates.firstOrNull;
-                      if (selected == null) return;
-                      AppHaptics.selection();
-                      setState(() => _selectedDate = selected);
-                    },
-                    onDisplayedMonthChanged: (displayedMonth) {
-                      // The package has already returned its own view to day
-                      // mode. Keep our next config rebuild in sync without
-                      // rebuilding early and resetting its newly chosen month.
-                      _displayedMonthDate = DateTime(
-                        displayedMonth.year,
-                        displayedMonth.month,
-                      );
-                      _calendarViewMode = CalendarDatePicker2Mode.day;
-                    },
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: SingleChildScrollView(
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 290,
+                      child: CalendarDatePicker2(
+                        key: ValueKey(
+                          'app-date-picker-$_calendarPickerRevision',
+                        ),
+                        config: config,
+                        displayedMonthDate: _displayedMonthDate,
+                        value: [_selectedDate],
+                        onValueChanged: (dates) {
+                          final selected = dates.firstOrNull;
+                          if (selected == null) return;
+                          AppHaptics.selection();
+                          setState(() => _selectedDate = selected);
+                        },
+                        onDisplayedMonthChanged: (displayedMonth) {
+                          // The package has already returned its own view to day
+                          // mode. Keep our next config rebuild in sync without
+                          // rebuilding early and resetting its newly chosen month.
+                          _displayedMonthDate = DateTime(
+                            displayedMonth.year,
+                            displayedMonth.month,
+                          );
+                          _calendarViewMode = CalendarDatePicker2Mode.day;
+                        },
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 6),

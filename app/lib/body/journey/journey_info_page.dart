@@ -343,11 +343,9 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     api.MapRendererProxy? mapRendererProxy,
   ) {
     final viewPadding = MediaQuery.viewPaddingOf(context);
-    final mapPadding = EdgeInsets.fromLTRB(
-      24,
-      viewPadding.top + 82,
-      24,
-      viewPadding.bottom + 270,
+    final mapPadding = CapsuleStyleOverlayAppBar.mapFitPaddingForBottomOverlay(
+      context,
+      bottomOverlayHeight: viewPadding.bottom + 246,
     );
 
     return Scaffold(
