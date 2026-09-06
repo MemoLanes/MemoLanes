@@ -137,11 +137,8 @@ pub fn init(
         // TODO: redesign the callback to better handle locks and avoid deadlocks
         storage.set_finalized_journey_changed_callback(Box::new(move |storage| {
             let mut main_map_state = main_map_state_copy.lock().unwrap();
-            match reload_main_map_bitmap(storage, &mut main_map_state) {
-                Ok(()) => (),
-                Err(e) => {
-                    error!("Failed to get latest bitmap for main map renderer: {e:?}");
-                }
+            if let Err(e) = reload_main_map_bitmap(storage, &mut main_map_state) {
+                error!("Failed to get latest bitmap for main map renderer: {e:?}");
             }
         }));
         info!("main map renderer initialized");
@@ -464,6 +461,10 @@ pub fn on_location_update(raw_data: gps_processor::RawData, received_timestamp_m
         };
     };
 
+    // Tile-range generation uses the same mutex. Release it before the storage
+    // write so persistence does not extend renderer lock hold time.
+    drop(main_map_state);
+
     state
         .storage
         .record_gps_data(&raw_data, process_result, received_timestamp_ms);
@@ -522,7 +523,6 @@ pub fn get_current_main_map_layer_filter() -> LayerFilter {
 pub fn set_main_map_layer_filter(new_layer_filter: &LayerFilter) -> Result<()> {
     let state = get();
     let mut main_map_state = state.main_map_state.lock().unwrap();
-
     if *new_layer_filter != main_map_state.layer_filter {
         main_map_state.layer_filter = *new_layer_filter;
         reload_main_map_bitmap(&state.storage, &mut main_map_state)?;

@@ -1,6 +1,26 @@
 use crate::utils::xy_to_index;
 use bitvec::prelude::*;
 
+/// A source subtile sampled at a requested resolution and placed at an output origin.
+#[derive(Clone, Copy)]
+pub struct PixelQuery {
+    pub origin: (i64, i64),
+    pub subtile: (i64, i64),
+    pub zoom: i16,
+    pub resolution_exp: i16,
+}
+
+impl PixelQuery {
+    pub fn full_tile(resolution_exp: i16) -> Self {
+        Self {
+            origin: (0, 0),
+            subtile: (0, 0),
+            zoom: 0,
+            resolution_exp,
+        }
+    }
+}
+
 /// IndexIter helps index pixels within a tile with a specific width_exp.
 pub struct IndexIter {
     x_min: i64,
@@ -95,15 +115,13 @@ impl<'a> Iterator for MipmapIter<'a> {
 }
 
 impl<'a> MipmapIter<'a> {
-    pub fn new(
-        bitmap: &'a BitVec,
-        start_x: i64,
-        start_y: i64,
-        x: i64,
-        y: i64,
-        z: i16,
-        width_exp: i16,
-    ) -> Self {
+    pub fn new(bitmap: &'a BitVec, query: PixelQuery, width_exp: i16) -> Self {
+        let PixelQuery {
+            origin: (start_x, start_y),
+            subtile: (x, y),
+            zoom: z,
+            ..
+        } = query;
         let query_exp = width_exp - z;
         let x_min = x << query_exp;
         let x_max = (x + 1) << query_exp;
@@ -166,17 +184,14 @@ impl<'a> Iterator for OverscanIter<'a> {
 }
 
 impl<'a> OverscanIter<'a> {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        bitmap: &'a BitVec,
-        start_x: i64,
-        start_y: i64,
-        x: i64,
-        y: i64,
-        z: i16,
-        width_exp: i16,
-        subtile_resolution_exp: i16,
-    ) -> Self {
+    pub fn new(bitmap: &'a BitVec, query: PixelQuery, width_exp: i16) -> Self {
+        let PixelQuery {
+            origin: (start_x, start_y),
+            subtile: (x, y),
+            zoom: z,
+            resolution_exp,
+        } = query;
+        let subtile_resolution_exp = z + resolution_exp - width_exp;
         Self {
             bitmap,
             index_iter: IndexIter::new(x, y, width_exp - z),
