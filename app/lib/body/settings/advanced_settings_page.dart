@@ -191,7 +191,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
             label: context.tr("location_service.location_backend.title"),
             position: LabelTilePosition.middle,
             trailing: LabelTileContent(
-              content: gpsManager.locationBackend.displayName(context),
+              content: gpsManager.locationProvider.displayName(context),
             ),
           ),
           LabelTile(

@@ -183,7 +183,10 @@ class AppBootstrap {
         log.error("initMainMap error $e");
       },
     );
-    AppLifecycleService.instance.start();
+    AppLifecycleService.instance.start(
+      onForeground: gpsManager.handleAppForeground,
+      onBackground: gpsManager.handleAppBackground,
+    );
 
     delayedInit(updateNotifier);
   }

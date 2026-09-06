@@ -43,6 +43,8 @@ class _PokeGeolocatorTask {
   }
 }
 
+ILocationService createDefaultLocationService() => GeoLocatorService();
+
 class GeoLocatorService implements ILocationService {
   StreamSubscription<Position>? _positionStreamSub;
   _PokeGeolocatorTask? _pokeTask;
@@ -54,35 +56,57 @@ class GeoLocatorService implements ILocationService {
   LocationData? _latestLocation;
   final List<LocationData> _buffer = [];
   DateTime? _firstBufferReceiveTime;
+  LocationBatchConsumer? _recordingConsumer;
+  Future<void> _recordingTail = Future<void>.value();
+  bool _running = false;
 
   @override
-  LocationBackend get locationBackend => LocationBackend.native;
+  LocationProviderInfo get providerInfo => LocationProviderInfo.native;
 
   @override
-  Future<void> startLocationUpdates(bool enableBackground) async {
-    final settings = _buildLocationSettings(enableBackground);
+  Stream<LocationData> get locations => _locationUpdateController.stream;
 
-    _positionStreamSub =
-        Geolocator.getPositionStream(locationSettings: settings).listen(
-          _onPositionReceived,
-          onError: (e) {
-            log.error("[GeoLocatorService] getPositionStream error: $e");
-          },
-        );
+  @override
+  Future<void> start(LocationStartOptions options) async {
+    if (_running) return;
+    _recordingConsumer = options.recordingConsumer;
+    final settings = _buildLocationSettings(options.allowBackground);
 
-    _pokeTask = _PokeGeolocatorTask.start(settings);
+    try {
+      _positionStreamSub =
+          Geolocator.getPositionStream(locationSettings: settings).listen(
+            _onPositionReceived,
+            onError: (e) {
+              log.error("[GeoLocatorService] getPositionStream error: $e");
+            },
+          );
 
-    _tooOldTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final ts = _latestLocation?.timestampMs;
-      if (ts != null && now - ts > 5000) {
-        _latestLocation = null;
-      }
-    });
+      _pokeTask = _PokeGeolocatorTask.start(settings);
+
+      _tooOldTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        final now = DateTime.now().millisecondsSinceEpoch;
+        final ts = _latestLocation?.timestampMs;
+        if (ts != null && now - ts > 5000) {
+          _latestLocation = null;
+        }
+      });
+      _running = true;
+    } catch (_) {
+      _recordingConsumer = null;
+      rethrow;
+    }
   }
 
   @override
-  Future<void> stopLocationUpdates() async {
+  Future<void> setForeground(bool foreground) async {
+    // This provider has no durable queue, so delivery remains live in either
+    // lifecycle state. Platform background behavior is configured at start.
+  }
+
+  @override
+  Future<void> stop() async {
+    if (!_running) return;
+    _running = false;
     await _positionStreamSub?.cancel();
     _positionStreamSub = null;
 
@@ -95,8 +119,9 @@ class GeoLocatorService implements ILocationService {
     _bufferFlushTimer?.cancel();
     _bufferFlushTimer = null;
 
-    _buffer.clear();
-    _firstBufferReceiveTime = null;
+    _flushBuffer();
+    await _recordingTail;
+    _recordingConsumer = null;
   }
 
   void _onPositionReceived(Position pos) {
@@ -128,22 +153,31 @@ class GeoLocatorService implements ILocationService {
   void _flushBuffer() {
     if (_buffer.isEmpty) return;
 
-    final sorted = List<LocationData>.from(_buffer)
-      ..sort((a, b) => a.timestampMs.compareTo(b.timestampMs));
+    final sorted = sortLocationDataByTimestamp(_buffer);
 
     for (final loc in sorted) {
       _locationUpdateController.add(loc);
     }
+    _enqueueRecordingBatch(sorted);
 
     _buffer.clear();
     _firstBufferReceiveTime = null;
   }
 
-  @override
-  StreamSubscription<LocationData> onLocationUpdate(
-    void Function(LocationData) callback,
-  ) {
-    return _locationUpdateController.stream.listen(callback);
+  void _enqueueRecordingBatch(List<LocationData> locations) {
+    final consumer = _recordingConsumer;
+    if (consumer == null || locations.isEmpty) return;
+
+    _recordingTail = _recordingTail
+        .then((_) => consumer(locations, isReplay: false))
+        .catchError((Object error, StackTrace stackTrace) {
+          // The native provider has no durable queue to retry from. Keep the
+          // delivery chain usable and surface the failure in diagnostics.
+          log.error(
+            '[GeoLocatorService] recording consumer failed: $error',
+            stackTrace,
+          );
+        });
   }
 
   LocationSettings? _buildLocationSettings(bool enableBackground) {
@@ -192,8 +226,8 @@ class GeoLocatorService implements ILocationService {
     }
   }
 
-  void dispose() {
-    stopLocationUpdates();
+  Future<void> dispose() async {
+    await stop();
     _locationUpdateController.close();
   }
 }

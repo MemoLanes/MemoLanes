@@ -1,52 +1,82 @@
 import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
-class LocationData {
-  final double latitude;
-  final double longitude;
-  final int timestampMs;
-  final double accuracy;
-  final double? altitude;
-  final double? speed;
+import 'location_data.dart';
 
-  LocationData({
-    required this.latitude,
-    required this.longitude,
-    required this.accuracy,
-    required this.timestampMs,
-    this.altitude,
-    this.speed,
-  });
+export 'location_data.dart';
 
-  DateTime get timestamp => DateTime.fromMillisecondsSinceEpoch(timestampMs);
+typedef LocationProviderDisplayName = String Function(BuildContext context);
 
-  @override
-  String toString() {
-    return 'LocationData(latitude: $latitude,longitude: $longitude, timestampMs: $timestampMs, accuracy: $accuracy, altitude: $altitude, speed: $speed)';
-  }
-}
+String _nativeProviderDisplayName(BuildContext context) =>
+    context.tr('location_service.location_backend.native');
 
-enum LocationBackend {
-  native;
+/// Display metadata supplied by a location provider.
+///
+/// [id] is a stable machine-readable identifier. The display-name callback is
+/// deliberately provider-owned so downstream products can add a provider
+/// without changing an upstream enum or translation switch.
+@immutable
+class LocationProviderInfo {
+  const LocationProviderInfo({required this.id, required this.displayName})
+    : assert(id != '');
 
-  String displayName(BuildContext context) {
-    switch (this) {
-      case LocationBackend.native:
-        return context.tr("location_service.location_backend.native");
-    }
-  }
-}
-
-abstract class ILocationService {
-  Future<void> startLocationUpdates(bool enableBackground);
-
-  Future<void> stopLocationUpdates();
-
-  StreamSubscription<LocationData> onLocationUpdate(
-    void Function(LocationData) callback,
+  static const native = LocationProviderInfo(
+    id: 'native',
+    displayName: _nativeProviderDisplayName,
   );
 
-  LocationBackend get locationBackend;
+  final String id;
+  final LocationProviderDisplayName displayName;
+
+  @override
+  bool operator ==(Object other) =>
+      other is LocationProviderInfo && other.id == id;
+
+  @override
+  int get hashCode => id.hashCode;
+}
+
+/// Delivers a recording batch to the application-owned recording pipeline.
+///
+/// A normally completed future acknowledges the whole batch, even when the
+/// GPS preprocessor ignores every point. A thrown error means the batch was
+/// not acknowledged; durable providers must retain it for a later retry.
+typedef LocationBatchConsumer = Future<void> Function(
+  List<LocationData> locations, {
+  required bool isReplay,
+});
+
+class LocationStartOptions {
+  const LocationStartOptions({
+    required this.allowBackground,
+    this.recordingConsumer,
+  });
+
+  final bool allowBackground;
+  final LocationBatchConsumer? recordingConsumer;
+}
+
+typedef LocationServiceFactory = ILocationService Function();
+
+/// Provider-neutral location acquisition.
+///
+/// [locations] is exclusively the live display stream. Recording data is
+/// delivered through [LocationStartOptions.recordingConsumer], which also
+/// gives durable providers a clear acknowledgement boundary.
+abstract interface class ILocationService {
+  LocationProviderInfo get providerInfo;
+
+  Stream<LocationData> get locations;
+
+  /// Starts acquisition. Repeating an equivalent start must be safe.
+  Future<void> start(LocationStartOptions options);
+
+  /// Reports app visibility and must tolerate duplicates and inactive states.
+  Future<void> setForeground(bool foreground);
+
+  /// Stops producing points and waits for all in-flight recording deliveries.
+  /// Repeating a stop must be safe.
+  Future<void> stop();
 }

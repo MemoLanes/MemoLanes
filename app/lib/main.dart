@@ -24,6 +24,7 @@ import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/map_style.dart';
 import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/service/location/location_service.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/utils.dart';
@@ -31,7 +32,14 @@ import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/constants/index.dart';
 import 'package:provider/provider.dart';
 
-void main() async {
+void main() => runMemoLanesApp();
+
+/// Runs the complete MemoLanes application with a product-owned location
+/// provider factory.
+///
+/// Alternate product entry points can call this function and inject their
+/// provider without copying the app bootstrap or changing [GpsManager].
+void runMemoLanesApp({LocationServiceFactory? locationServiceFactory}) {
   runZonedGuarded(
     () async {
       final startupStatus = await AppBootstrap.initAppRuntime();
@@ -40,7 +48,9 @@ void main() async {
         return;
       }
 
-      final gpsManager = GpsManager();
+      final gpsManager = GpsManager(
+        locationServiceFactory: locationServiceFactory,
+      );
       final updateNotifier = UpdateNotifier();
       final achievementStatsStore = AchievementStatsStore();
 
