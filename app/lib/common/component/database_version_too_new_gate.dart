@@ -48,19 +48,19 @@ class _DatabaseVersionTooNewGateState extends State<DatabaseVersionTooNewGate> {
     await showAppDialog<void>(
       context,
       barrierDismissible: false,
-      child: PopScope(
+      builder: (dialogContext) => PopScope(
         canPop: false,
         child: AppDialogCard(
-          title: context.tr('startup_error.title'),
+          title: dialogContext.tr('startup_error.title'),
           actions: AppButton(
-            label: context.tr(
+            label: dialogContext.tr(
               _isIOS ? 'startup_error.update' : 'startup_error.exit',
             ),
             onPressed: _handleAction,
             expand: true,
           ),
           child: Text(
-            context.tr('startup_error.database_version_too_new'),
+            dialogContext.tr('startup_error.database_version_too_new'),
             style: const TextStyle(height: 1.42),
           ),
         ),

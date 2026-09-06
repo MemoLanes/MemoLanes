@@ -219,7 +219,6 @@ function buildBenchmarkUrl(rawUrl) {
   params.set("debug", "false");
   params.set("render", "canvas");
   params.set("projection", "mercator");
-  params.set("low_power_mode", "false");
   params.set("lng", "114.21247");
   params.set("lat", "22.697006");
   params.set("zoom", "8");

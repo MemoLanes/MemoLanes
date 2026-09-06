@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/component/app_checkbox.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
@@ -200,15 +201,9 @@ class MultiJourneyImportPage extends StatelessWidget {
     return LabelTile(
       label: item.label,
       desc: item.description,
-      prefix: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => onToggleItem(item.keyValue, !selected),
-        child: Checkbox(
-          value: selected,
-          onChanged: (value) {
-            if (value != null) onToggleItem(item.keyValue, value);
-          },
-        ),
+      prefix: AppCheckbox(
+        value: selected,
+        onChanged: (value) => onToggleItem(item.keyValue, value),
       ),
       trailing: item.trailing ?? const LabelTileContent(showArrow: true),
       onTap: () => onPreview(item.keyValue),

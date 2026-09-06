@@ -6,13 +6,17 @@
     "end_journey_title": "结束旅程？",
     "end_journey_message": "确定要结束当前的旅程吗？",
     "double_back_exit": "再按一次退出应用",
-    "map_data_source_copyright_title": "数据来源"
+    "map_data_source_copyright_title": "数据来源",
+    "gps_accuracy": "定位精度",
+    "gps_signal": {
+      "excellent": "信号强",
+      "good": "信号良好",
+      "fair": "信号一般",
+      "poor": "信号弱"
+    }
   },
   "permission_sheet": {
     "title": "授权以体验完整功能",
-    "location_help_tooltip": "位置权限说明",
-    "battery_help_tooltip": "电池优化说明",
-    "notification_help_tooltip": "通知权限说明",
     "enable_all": "全部开启",
     "allow": "允许",
     "skip": "跳过",
@@ -102,10 +106,6 @@
     "journey_info_edit_page_title": "编辑旅程信息",
     "import_mldx_data": "导入 MLDX 数据",
     "import_fog_of_world_data": "导入 世界迷雾 数据",
-    "export_journey_as_kml": "导出为 KML",
-    "export_journey_as_gpx": "导出为 GPX",
-    "export_journey_as_mldx": "导出为 MLDX",
-    "export_journey_as_fwss": "导出为 FWSS",
     "delete_all": "删除所有旅程",
     "delete_all_success": "所有旅程已清除!",
     "journey_date": "旅程日期",
@@ -276,6 +276,11 @@
     "map_settings": {
       "title": "地图设置",
       "style": "地图样式",
+      "fog_mode": "遮罩模式",
+      "fog_mode_name": {
+        "dark": "深色",
+        "light": "浅色"
+      },
       "style_name": {
         "maplibre": "MapLibre 演示瓦片",
         "openfreemap": "OpenFreeMap"

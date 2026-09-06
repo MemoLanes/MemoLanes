@@ -3,6 +3,7 @@ import type * as maplibregl from "maplibre-gl";
 import type { CanvasSource, CanvasSourceSpecification } from "maplibre-gl";
 import type { TileBuffer } from "../../pkg/journey_kernel.js";
 import type { JourneyTileProvider } from "../journey-tile-provider";
+import { DEFAULT_FOG_RGBA } from "../fog-style";
 import { JOURNEY_LAYER_ID } from "./journey-layer-interface";
 import type { JourneyLayer, RGBAColor } from "./journey-layer-interface";
 import { CanvasPoleFoggyLayer } from "./canvas-pole-foggy-layer";
@@ -42,7 +43,7 @@ export class JourneyCanvasLayer implements JourneyLayer {
     map: maplibregl.Map,
     journeyTileProvider: JourneyTileProvider,
     layerId: string = JOURNEY_LAYER_ID,
-    bgColor: RGBAColor = [0.0, 0.0, 0.0, 0.5],
+    bgColor: RGBAColor = [...DEFAULT_FOG_RGBA],
     fgColor: RGBAColor = [1.0, 1.0, 1.0, 0.0],
   ) {
     this.map = map;
@@ -73,10 +74,6 @@ export class JourneyCanvasLayer implements JourneyLayer {
       throw new Error("Failed to get 2D context from canvas");
     }
     this.ctx = ctx;
-  }
-
-  setLowPowerMode(_enabled: boolean): void {
-    // Canvas rendering has no separate low-power path.
   }
 
   initialize(): void {
@@ -157,7 +154,7 @@ export class JourneyCanvasLayer implements JourneyLayer {
     this.canvas.height = tileSize * h;
 
     const n = Math.pow(2, z);
-    // Initialize the canvas with a semi-transparent grey background
+    // Initialize the canvas with a semi-transparent gray fog
     this.ctx.fillStyle = this.bgColor;
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 

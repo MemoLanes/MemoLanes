@@ -6,13 +6,17 @@
     "end_journey_title": "End Journey?",
     "end_journey_message": "Are you sure you want to end your current journey?",
     "double_back_exit": "Press back again to exit the app",
-    "map_data_source_copyright_title": "Data Source"
+    "map_data_source_copyright_title": "Data Source",
+    "gps_accuracy": "Accuracy",
+    "gps_signal": {
+      "excellent": "Strong",
+      "good": "Good",
+      "fair": "Fair",
+      "poor": "Weak"
+    }
   },
   "permission_sheet": {
     "title": "Authorize for the full experience",
-    "location_help_tooltip": "About location permission",
-    "battery_help_tooltip": "About battery optimization",
-    "notification_help_tooltip": "About notification permission",
     "enable_all": "Enable All",
     "allow": "Allow",
     "skip": "Skip",
@@ -102,10 +106,6 @@
     "journey_info_edit_page_title": "Edit Journey Information",
     "import_mldx_data": "Import MLDX Data",
     "import_fog_of_world_data": "Import [Fog of World] Data",
-    "export_journey_as_kml": "Export as KML",
-    "export_journey_as_gpx": "Export as GPX",
-    "export_journey_as_mldx": "Export as MLDX",
-    "export_journey_as_fwss": "Export as FWSS",
     "delete_all": "Delete All Journeys",
     "delete_all_success": "All journeys are deleted!",
     "journey_date": "Journey Date",
@@ -276,6 +276,11 @@
     "map_settings": {
       "title": "Map Settings",
       "style": "Map Style",
+      "fog_mode": "Fog Mode",
+      "fog_mode_name": {
+        "dark": "Dark",
+        "light": "Light"
+      },
       "style_name": {
         "maplibre": "MapLibre Demo Tile",
         "openfreemap": "OpenFreeMap"

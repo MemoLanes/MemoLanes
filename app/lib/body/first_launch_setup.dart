@@ -42,9 +42,8 @@ Future<void> _showPrivacyAndRegionSheet(
   final accepted = await showSetupCard<_FirstLaunchAccepted>(
     context,
     barrierDismissible: false,
-    child: FirstLaunchSetupSheet(
-      initialPrivacyAccepted: privacyAlreadyAccepted,
-    ),
+    builder: (_) =>
+        FirstLaunchSetupSheet(initialPrivacyAccepted: privacyAlreadyAccepted),
   );
 
   if (accepted == null) {
@@ -136,17 +135,19 @@ class _FirstLaunchSetupSheetState extends State<FirstLaunchSetupSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return SetupBottomSheet(
+    return SetupDialogCard(
       title: context.tr("privacy.setup_title"),
       maxHeightFactor: 0.75,
       actions: [
         AppButton(
           label: context.tr("privacy.disagree_and_exit"),
+          labelMaxLines: 2,
           onPressed: _onDisagree,
           variant: AppButtonVariant.secondary,
         ),
         AppButton(
           label: context.tr("common.continue"),
+          labelMaxLines: 2,
           onPressed: _privacyAccepted ? _onContinue : null,
         ),
       ],
