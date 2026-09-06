@@ -124,7 +124,6 @@ class SettingsBody extends StatelessWidget {
           color: StyleConstants.mutedInkColor,
         ),
         minHeight: 76,
-        maxHeight: 84,
         bottom: false,
         prefix: Padding(
           padding: const EdgeInsets.only(right: 12),

@@ -17,8 +17,6 @@ class MMKVKey {
   static const String mapStyle = "mapStyle";
   static const String mapFogMode = "mapFogMode";
   static const String localePreference = "Settings.locale";
-  static const String dropCoveredSmallJourneyEnabled =
-      "Settings.dropCoveredSmallJourneyEnabled";
   static const String requestedBatteryOptimization =
       'Permission.requestedBatteryOptimization';
   static const String requestedLocation = 'Permission.requestedLocation';

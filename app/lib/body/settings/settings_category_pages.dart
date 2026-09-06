@@ -44,17 +44,12 @@ class JourneyRecordingSettingsPage extends StatefulWidget {
 class _JourneyRecordingSettingsPageState
     extends State<JourneyRecordingSettingsPage> {
   late bool _notificationEnabled;
-  late bool _dropCoveredSmallJourneyEnabled;
 
   @override
   void initState() {
     super.initState();
     _notificationEnabled = MMKVUtil.getBool(
       MMKVKey.isUnexpectedExitNotificationEnabled,
-      defaultValue: true,
-    );
-    _dropCoveredSmallJourneyEnabled = MMKVUtil.getBool(
-      MMKVKey.dropCoveredSmallJourneyEnabled,
       defaultValue: true,
     );
   }
@@ -69,35 +64,6 @@ class _JourneyRecordingSettingsPageState
       body: MlSingleChildScrollView(
         padding: const EdgeInsets.all(8),
         children: [
-          SettingsSection(
-            title: context.tr('settings.groups.journey'),
-            children: [
-              LabelTile(
-                label: context.tr('journey.drop_covered_small_journey'),
-                position: LabelTilePosition.single,
-                infoLabelOnTap: () => showCommonDialog(
-                  context,
-                  context.tr('journey.drop_covered_small_journey_description'),
-                  title: context.tr('journey.drop_covered_small_journey'),
-                ),
-                trailing: Switch(
-                  value: _dropCoveredSmallJourneyEnabled,
-                  onChanged:
-                      gpsManager.recordingStatus == GpsRecordingStatus.none
-                      ? (value) {
-                          MMKVUtil.putBool(
-                            MMKVKey.dropCoveredSmallJourneyEnabled,
-                            value,
-                          );
-                          setState(
-                            () => _dropCoveredSmallJourneyEnabled = value,
-                          );
-                        }
-                      : null,
-                ),
-              ),
-            ],
-          ),
           SettingsSection(
             title: context.tr('settings.groups.recording_protection'),
             children: [
@@ -216,12 +182,12 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
       'en-US' => const Locale('en', 'US'),
       _ => _systemLocale(),
     };
-    await context.setLocale(locale);
     if (selected == 'system') {
       MMKVUtil.removeAppKey(MMKVKey.localePreference);
     } else {
       MMKVUtil.putString(MMKVKey.localePreference, locale.toLanguageTag());
     }
+    await context.setLocale(locale);
     if (mounted) setState(() {});
   }
 

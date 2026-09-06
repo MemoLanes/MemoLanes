@@ -78,12 +78,12 @@ class LabelTile extends StatelessWidget {
       borderRadius = borderRadius.copyWith(topLeft: radius, topRight: radius);
     }
 
-    List<Widget> children = [
-      GestureDetector(
-        onTap: infoLabelOnTap,
-        child: Row(
-          children: [
-            Column(
+    final labelContent = GestureDetector(
+      onTap: infoLabelOnTap,
+      child: Row(
+        children: [
+          Flexible(
+            child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -102,23 +102,24 @@ class LabelTile extends StatelessWidget {
                   ),
               ],
             ),
-            if (infoLabelOnTap != null) ...[
-              const SizedBox(width: 6),
-              const Icon(
-                Icons.info_outline,
-                size: 18.0,
-                color: Color(0x99FFFFFF),
-              ),
-            ],
+          ),
+          if (infoLabelOnTap != null) ...[
+            const SizedBox(width: 6),
+            const Icon(
+              Icons.info_outline,
+              size: 18.0,
+              color: Color(0x99FFFFFF),
+            ),
           ],
-        ),
+        ],
       ),
+    );
+    final children = <Widget>[
+      ?prefix,
+      Expanded(child: labelContent),
+      ?suffix,
+      ?trailing,
     ];
-    if (prefix != null) children.insert(0, prefix!);
-    if (suffix != null) children.add(suffix!);
-    if (trailing != null) {
-      children.addAll([Expanded(child: SizedBox.shrink()), trailing!]);
-    }
 
     return Container(
       margin: margin,
@@ -133,7 +134,7 @@ class LabelTile extends StatelessWidget {
               borderRadius: borderRadius,
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxHeight: maxHeight ?? 54.0,
+                  maxHeight: maxHeight ?? double.infinity,
                   minHeight: minHeight,
                 ),
                 child: Ink(

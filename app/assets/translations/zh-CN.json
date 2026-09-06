@@ -115,9 +115,7 @@
     "created_at": "创建时间",
     "note": "备注",
     "finalize_saved": "新增旅程",
-    "finalize_empty": "未检测到新旅程",
-    "drop_covered_small_journey": "避免生成重复旅途",
-    "drop_covered_small_journey_description": "开启后，结束旅途时，如果本次轨迹范围较小，并且已完全包含在已有足迹中，将不会生成新的旅途记录。已有足迹不会受到影响。"
+    "finalize_empty": "未检测到新旅程"
   },
   "db_optimization": {
     "notification": "你的数据库需要优化，请前往设置选项卡并点击[优化数据库]按钮。",
@@ -337,15 +335,14 @@
     "other": "其他",
     "about": "关于",
     "categories": {
-      "journey_recording": {"title": "旅途与录制", "desc": "旅途生成、录制保护与通知"},
-      "map": {"title": "地图设置", "desc": "地图样式、显示与地区偏好"},
-      "appearance": {"title": "界面外观", "desc": "语言、触感与外观选项"},
-      "data": {"title": "数据管理", "desc": "导入、导出与维护"},
-      "advanced": {"title": "高级设置", "desc": "日志、诊断与偏好恢复"},
-      "about": {"title": "关于迹忆", "desc": "版本、隐私政策与联系我们"}
+      "journey_recording": {"title": "旅途与录制", "desc": "录制通知与中断提醒"},
+      "map": {"title": "地图设置", "desc": "地图样式、遮罩模式与地区偏好"},
+      "appearance": {"title": "界面外观", "desc": "语言与触感反馈"},
+      "data": {"title": "数据管理", "desc": "数据导入、导出与维护"},
+      "advanced": {"title": "高级设置", "desc": "诊断信息、定位状态与设置重置"},
+      "about": {"title": "关于迹忆", "desc": "版本信息、隐私政策与联系我们"}
     },
     "groups": {
-      "journey": "旅途",
       "recording_protection": "录制保护",
       "appearance": "界面外观",
       "map_display": "地图显示",
