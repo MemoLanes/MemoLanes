@@ -354,7 +354,7 @@ class GpsManager extends ChangeNotifier {
   Future<void> _disposeAsync() async {
     try {
       await _providerOperationMutex.protect(() async {
-        await _locationService.stop();
+        await _locationService.dispose();
         await _locationUpdateSub?.cancel();
         await _recordingCoordinator.dispose();
       });

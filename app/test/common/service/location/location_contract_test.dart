@@ -18,6 +18,7 @@ class _FakeLocationService implements ILocationService {
   final lifecycleEvents = <bool>[];
   LocationStartOptions? options;
   Completer<void>? stopBarrier;
+  var disposed = false;
 
   @override
   Stream<LocationData> get locations => controller.stream;
@@ -37,6 +38,13 @@ class _FakeLocationService implements ILocationService {
 
   @override
   Future<void> stop() => stopBarrier?.future ?? Future<void>.value();
+
+  @override
+  Future<void> dispose() async {
+    disposed = true;
+    await stop();
+    await controller.close();
+  }
 }
 
 void main() {
@@ -79,6 +87,7 @@ void main() {
     provider.stopBarrier!.complete();
     await stopping;
     expect(completed, isTrue);
-    await provider.controller.close();
+    await provider.dispose();
+    expect(provider.disposed, isTrue);
   });
 }

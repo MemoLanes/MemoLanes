@@ -79,4 +79,8 @@ abstract interface class ILocationService {
   /// Stops producing points and waits for all in-flight recording deliveries.
   /// Repeating a stop must be safe.
   Future<void> stop();
+
+  /// Permanently releases provider-owned subscriptions, timers, and streams.
+  /// The service must not be started again after this completes.
+  Future<void> dispose();
 }
