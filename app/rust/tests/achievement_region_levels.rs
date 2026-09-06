@@ -9,7 +9,7 @@ pub mod region_fixture;
 
 use std::collections::HashMap;
 
-use geo_data_format::GeoEntityId;
+use geo_data_format::{GeoEntityId, Worldview};
 use memolanes_core::{
     achievement::{layer::AchievementLayer, on_demand::region_areas_from_snapshot},
     geo::GeoIndex,
@@ -46,7 +46,7 @@ fn setup(name: &str) -> (TempDir, Storage, GeoIndex) {
     let temp_dir = TempDir::new(name).unwrap();
     let geo_bytes = synthetic_geo_bytes();
     let storage = new_storage(&temp_dir, &geo_bytes);
-    let geo = GeoIndex::from_bytes(&geo_bytes).unwrap();
+    let geo = GeoIndex::open(&storage.installed_geo_data_file(Worldview::Iso)).unwrap();
     insert_journeys(&storage);
     (temp_dir, storage, geo)
 }

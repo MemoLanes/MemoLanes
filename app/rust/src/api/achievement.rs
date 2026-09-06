@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 
-use flutter_rust_bridge::frb;
+use flutter_rust_bridge::{frb, DartFnFuture};
 use geo_data_format::Worldview as GeoWorldview;
 
 pub use crate::achievement::layer::AchievementLayer;
@@ -32,6 +32,11 @@ impl Worldview {
     #[frb(sync, getter)]
     pub fn asset_path(&self) -> String {
         format!("assets/geo/geo_data_{}.bin", self.inner().spec().id)
+    }
+
+    #[frb(sync, getter)]
+    pub fn provenance_path(&self) -> String {
+        format!("assets/geo/geo_data_{}.provenance", self.inner().spec().id)
     }
 
     #[frb(sync)]
@@ -74,10 +79,21 @@ impl From<Worldview> for GeoWorldview {
     }
 }
 
-pub fn init_or_change_geo_data(worldview: Worldview, geo_data: &[u8]) -> Result<()> {
-    crate::api::api::get()
-        .storage
-        .init_or_change_geo_data(worldview.into(), geo_data)
+pub async fn activate_geo_data(
+    worldview: Worldview,
+    provenance_hash_hex: String,
+    load_asset: impl Fn() -> DartFnFuture<Vec<u8>>,
+) -> Result<()> {
+    let provenance_hash: [u8; 32] = hex::decode(provenance_hash_hex.trim())
+        .ok()
+        .and_then(|bytes| bytes.try_into().ok())
+        .ok_or_else(|| anyhow::anyhow!("provenance hash must be 32 bytes of hex"))?;
+    let storage = &crate::api::api::get().storage;
+    if storage.open_installed_geo_data(worldview.into(), provenance_hash)? {
+        return Ok(());
+    }
+    let bytes = load_asset().await;
+    storage.init_or_change_geo_data(worldview.into(), &bytes)
 }
 
 /// Explored area for a single layer.
@@ -117,7 +133,7 @@ pub fn region_level_view(
         .with_achievement_read(|store| {
             let ids = region::level_scope(store.geo()?, level, parent);
             let areas = store.region_areas(layer, &ids)?;
-            Ok(region::level_view(store.geo()?, level, &ids, &areas))
+            region::level_view(store.geo()?, level, &ids, &areas)
         })
 }
 
@@ -130,6 +146,6 @@ pub fn region_detail(
         .with_achievement_read(|store| {
             let ids = region::detail_scope(store.geo()?, entity_id);
             let areas = store.region_areas(layer, &ids)?;
-            Ok(region::detail_view(store.geo()?, entity_id, &areas))
+            region::detail_view(store.geo()?, entity_id, &areas)
         })
 }

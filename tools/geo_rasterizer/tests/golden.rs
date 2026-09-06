@@ -1,6 +1,6 @@
 use std::process::Command;
 
-use geo_data_format::read_geo_data;
+use geo_data_format::GeoData;
 
 /// A shipped asset must declare its own worldview id; the runtime
 /// (`Storage::set_geo_data`) rejects a bin whose declared id differs from the
@@ -27,8 +27,35 @@ fn emitted_asset_declares_its_worldview_id() {
         .expect("run rasterizer");
     assert!(status.success());
 
-    let data = read_geo_data(&std::fs::read(&out).unwrap()).unwrap();
+    let data = GeoData::open(&out).unwrap();
     assert_eq!(data.worldview_id, "iso");
+}
+
+#[test]
+fn emitted_asset_has_a_matching_provenance_sidecar() {
+    let out_dir = tempfile::tempdir().unwrap();
+    let out = out_dir.path().join("geo_data_iso.bin");
+    let status = Command::new(env!("CARGO_BIN_EXE_geo_rasterizer"))
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .args([
+            "--worldview",
+            "iso",
+            "--countries",
+            "tests/fixtures/synthetic.geojson",
+            "--admin1",
+            "tests/fixtures/synthetic_admin1.geojson",
+            "--registry",
+            "tests/fixtures/synthetic_registry",
+            "--output",
+        ])
+        .arg(&out)
+        .status()
+        .expect("run rasterizer");
+    assert!(status.success());
+
+    let data = GeoData::open(&out).unwrap();
+    let sidecar = std::fs::read_to_string(out_dir.path().join("geo_data_iso.provenance")).unwrap();
+    assert_eq!(sidecar.trim(), hex::encode(data.provenance_hash));
 }
 
 #[test]

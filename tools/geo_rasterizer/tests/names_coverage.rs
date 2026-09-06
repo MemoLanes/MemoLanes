@@ -12,7 +12,7 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use geo_data_format::{read_geo_data, Locale, Worldview};
+use geo_data_format::{GeoData, Locale, Worldview};
 use geo_rasterizer::names::region_names_path;
 
 fn assets_dir() -> PathBuf {
@@ -31,9 +31,10 @@ fn require(path: &Path) {
 fn entity_keys(worldview: Worldview) -> BTreeSet<String> {
     let path = assets_dir().join(format!("geo_data_{}.bin", worldview.spec().id));
     require(&path);
-    read_geo_data(&fs::read(&path).unwrap())
+    GeoData::open(&path)
         .unwrap()
-        .entities
+        .entities()
+        .unwrap()
         .iter()
         .map(|e| e.name_key.clone())
         .collect()

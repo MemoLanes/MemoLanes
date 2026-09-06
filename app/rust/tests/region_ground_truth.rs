@@ -177,21 +177,22 @@ fn sub(dir: &TempDir, s: &str) -> String {
 
 /// Canonical codes of every credited entity, any kind.
 fn credited_codes(areas: &AreaCm2ByEntity, geo: &dyn GeoLookup) -> BTreeSet<String> {
-    areas
-        .keys()
-        .filter_map(|id| geo.entity(*id))
-        .map(|e| e.canonical_code.clone())
+    let ids: Vec<_> = areas.keys().copied().collect();
+    geo.describe(&ids)
+        .unwrap()
+        .into_values()
+        .map(|e| e.canonical_code)
         .collect()
 }
 
 /// The `Country`-kind entity for a leaf: the leaf itself when it is a country,
 /// otherwise the country among its ancestors. Cities sit inside provinces, so
 /// the raster leaf under one is a province and its country is one level up.
-fn country_of(geo: &GeoIndex, leaf: GeoEntityId) -> Option<&geo_data_format::GeoEntity> {
-    std::iter::once(leaf)
+fn country_of(geo: &GeoIndex, leaf: GeoEntityId) -> Option<geo_data_format::GeoEntity> {
+    let id = std::iter::once(leaf)
         .chain(geo.ancestors(leaf))
-        .filter_map(|id| geo.entity(id))
-        .find(|e| e.kind == GeoEntityKind::Admin0)
+        .find(|&id| geo.node(id).map(|n| n.kind) == Some(GeoEntityKind::Admin0))?;
+    geo.describe(&[id]).unwrap().remove(&id)
 }
 
 /// ISO codes of all visited entities of kind Country in one layer's areas.
@@ -199,11 +200,12 @@ fn visited_country_isos(
     areas: &HashMap<GeoEntityId, u64>,
     geo: &dyn GeoLookup,
 ) -> BTreeSet<String> {
-    areas
-        .keys()
-        .filter_map(|id| geo.entity(*id))
+    let ids: Vec<_> = areas.keys().copied().collect();
+    geo.describe(&ids)
+        .unwrap()
+        .into_values()
         .filter(|e| e.kind == GeoEntityKind::Admin0)
-        .map(|e| e.canonical_code.clone())
+        .map(|e| e.canonical_code)
         .collect()
 }
 
@@ -211,7 +213,7 @@ fn visited_country_isos(
 fn region_api_reports_correct_countries_and_areas() {
     let asset = test_utils::geo_asset("iso");
     let geo_bytes = fs::read(&asset).unwrap();
-    let geo_index = GeoIndex::from_bytes(&geo_bytes).unwrap();
+    let geo_index = GeoIndex::open(&asset).unwrap();
 
     // Resolve each city to its block and confirm the asset agrees with truth, so
     // any later mis-attribution is the region API's doing, not bad placement.
@@ -220,12 +222,13 @@ fn region_api_reports_correct_countries_and_areas() {
         let (tile, block) = block_of(c.lng, c.lat);
         let id = geo_index
             .entity_of_block(tile, block)
+            .unwrap()
             .unwrap_or_else(|| panic!("{}: resolved to ocean", c.name));
         let country = country_of(&geo_index, id).unwrap_or_else(|| {
             panic!(
                 "{}: leaf `{}` has no country ancestor",
                 c.name,
-                geo_index.entity(id).unwrap().canonical_code
+                geo_index.describe(&[id]).unwrap()[&id].canonical_code
             )
         });
         assert_eq!(country.canonical_code, c.iso, "{}", c.name);
@@ -261,7 +264,7 @@ fn region_api_reports_correct_countries_and_areas() {
     let ancestor_ids: Vec<_> = placements
         .iter()
         .flat_map(|(_, tile, block, _)| {
-            geo_index.ancestors(geo_index.entity_of_block(*tile, *block).unwrap())
+            geo_index.ancestors(geo_index.entity_of_block(*tile, *block).unwrap().unwrap())
         })
         .collect();
 
@@ -306,12 +309,12 @@ fn region_api_reports_correct_countries_and_areas() {
     }
 
     // (2) Correct areas: per-country visited m² vs the independent integral.
-    let mut iso_to_id: HashMap<String, _> = HashMap::new();
-    for id in geo_index.entities_of_kind(GeoEntityKind::Admin0) {
-        if let Some(e) = geo_index.entity(*id) {
-            iso_to_id.insert(e.canonical_code.clone(), *id);
-        }
-    }
+    let iso_to_id: HashMap<String, _> = geo_index
+        .describe(geo_index.entities_of_kind(GeoEntityKind::Admin0))
+        .unwrap()
+        .into_iter()
+        .map(|(id, e)| (e.canonical_code, id))
+        .collect();
     for (i, _t, _b, expected) in &placements {
         let c = &CITIES[*i];
         let layer_areas = if c.kind == JourneyKind::Flight {
@@ -354,7 +357,7 @@ fn region_api_reports_correct_countries_and_areas() {
                 geo_index
                     .ancestors(fr)
                     .into_iter()
-                    .find(|a| geo.entity(*a).map(|e| e.kind) == Some(GeoEntityKind::Continent))
+                    .find(|a| geo.node(*a).map(|n| n.kind) == Some(GeoEntityKind::Continent))
                     .expect("FR has a continent ancestor")
             };
             let ids = region::level_scope(store.geo()?, RegionKind::Admin0, Some(continent));
@@ -374,13 +377,13 @@ fn region_api_reports_correct_countries_and_areas() {
             assert!(levels.contains_key(&RegionKind::Continent));
 
             // France is listed and visited among its continent's countries.
-            let view = region::level_view(geo, RegionKind::Admin0, &ids, &areas);
+            let view = region::level_view(geo, RegionKind::Admin0, &ids, &areas)?;
             let fr_entry = view.entries.get(&fr).expect("FR listed");
             assert!(fr_entry.visited_area_m2 > 0, "FR should be visited");
             assert!(view.visited_count >= 1 && view.visited_count <= view.region_count);
 
             // Detail of France (Default layer): area matches the raw coverage read.
-            let detail = region::detail_view(geo, fr, &detail_areas).unwrap();
+            let detail = region::detail_view(geo, fr, &detail_areas)?.unwrap();
             assert_eq!(detail.entity_id, fr);
             assert_eq!(detail.node.visited_area_m2, default_areas[&fr]);
             Ok(())
@@ -396,12 +399,12 @@ fn region_api_reports_correct_countries_and_areas() {
 /// 88°N/120°E indexes past the tile grid entirely.
 #[test]
 fn track_past_the_mercator_limit_credits_nothing() {
-    let geo = GeoIndex::from_bytes(&fs::read(test_utils::geo_asset("iso")).unwrap()).unwrap();
+    let geo = GeoIndex::open(&test_utils::geo_asset("iso")).unwrap();
 
     for (lng, lat) in [(0.0, 88.0), (120.0, 88.0), (0.0, -87.0)] {
         let mut bitmap = JourneyBitmap::new();
         bitmap.add_line(lng, lat, lng + 0.01, lat + 0.01);
-        let areas = attribution::attribute(&bitmap, &geo);
+        let areas = attribution::attribute(&bitmap, &geo).unwrap();
         let credited = credited_codes(&areas, &geo);
         assert!(credited.is_empty(), "({lng}, {lat}) credited {credited:?}");
     }

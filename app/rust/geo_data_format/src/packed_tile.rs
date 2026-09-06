@@ -116,35 +116,42 @@ impl PackedTile {
             .expect("zstd encode of a small in-memory buffer cannot fail")
     }
 
-    pub fn from_compressed_bytes(bytes: &[u8]) -> Self {
-        let raw = zstd::decode_all(bytes).expect("decompress per-tile blob");
-        let mut p = 0usize;
-        let palette_len = u16::from_le_bytes(raw[p..p + 2].try_into().unwrap()) as usize;
-        p += 2;
-        let bits_per_cell = raw[p];
-        p += 1;
-        assert!(palette_len <= MAX_PALETTE_ENTRIES);
-        assert!(matches!(bits_per_cell, 1 | 2 | 4 | 8 | 16));
+    pub fn from_compressed_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        let raw = zstd::decode_all(bytes)?;
+        anyhow::ensure!(raw.len() >= 3, "packed tile: truncated header");
+        let palette_len = u16::from_le_bytes([raw[0], raw[1]]) as usize;
+        let bits_per_cell = raw[2];
+        anyhow::ensure!(
+            palette_len <= MAX_PALETTE_ENTRIES,
+            "packed tile: palette of {palette_len} entries"
+        );
+        anyhow::ensure!(
+            matches!(bits_per_cell, 1 | 2 | 4 | 8 | 16),
+            "packed tile: {bits_per_cell} bits per cell"
+        );
+        let indices_len = (CELLS_PER_TILE * bits_per_cell as usize).div_ceil(8);
+        anyhow::ensure!(
+            raw.len() == 3 + palette_len * 5 + indices_len,
+            "packed tile: {} bytes, expected {}",
+            raw.len(),
+            3 + palette_len * 5 + indices_len
+        );
         let mut palette = Vec::with_capacity(palette_len);
+        let mut p = 3usize;
         for _ in 0..palette_len {
-            let tag = raw[p];
-            p += 1;
-            let id = u32::from_le_bytes(raw[p..p + 4].try_into().unwrap());
-            p += 4;
-            palette.push(match tag {
+            let id = u32::from_le_bytes(raw[p + 1..p + 5].try_into().unwrap());
+            palette.push(match raw[p] {
                 0 => None,
                 1 => Some(GeoEntityId(id)),
-                _ => panic!("bad palette tag {tag}"),
+                tag => anyhow::bail!("packed tile: palette tag {tag}"),
             });
+            p += 5;
         }
-        let indices_len = (CELLS_PER_TILE * bits_per_cell as usize).div_ceil(8);
-        assert_eq!(raw.len() - p, indices_len);
-        let indices = raw[p..p + indices_len].to_vec().into_boxed_slice();
-        Self {
+        Ok(Self {
             palette,
             bits_per_cell,
-            indices,
-        }
+            indices: raw[p..].to_vec().into_boxed_slice(),
+        })
     }
 }
 

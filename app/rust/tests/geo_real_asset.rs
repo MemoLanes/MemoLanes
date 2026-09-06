@@ -36,22 +36,34 @@ fn block_of(lng: f64, lat: f64) -> (TileKey, BlockKey) {
 
 /// The `Country`-kind entity for a leaf: the leaf itself when it is a country,
 /// otherwise the country among its ancestors.
-fn country_of(geo: &GeoIndex, leaf: GeoEntityId) -> Option<&GeoEntity> {
-    std::iter::once(leaf)
+fn country_of(geo: &GeoIndex, leaf: GeoEntityId) -> Option<GeoEntity> {
+    let id = std::iter::once(leaf)
         .chain(geo.ancestors(leaf))
-        .filter_map(|id| geo.entity(id))
-        .find(|e| e.kind == GeoEntityKind::Admin0)
+        .find(|&id| geo.node(id).map(|n| n.kind) == Some(GeoEntityKind::Admin0))?;
+    describe_one(geo, id)
+}
+
+fn describe_one(geo: &GeoIndex, id: GeoEntityId) -> Option<GeoEntity> {
+    geo.describe(&[id]).unwrap().remove(&id)
+}
+
+fn admin0_by_code(geo: &GeoIndex) -> std::collections::HashMap<String, GeoEntity> {
+    geo.describe(geo.entities_of_kind(GeoEntityKind::Admin0))
+        .unwrap()
+        .into_values()
+        .map(|e| (e.canonical_code.clone(), e))
+        .collect()
 }
 
 fn leaf_at(geo: &GeoIndex, lng: f64, lat: f64) -> Option<GeoEntityId> {
     let (tile, block) = block_of(lng, lat);
-    geo.entity_of_block(tile, block)
+    geo.entity_of_block(tile, block).unwrap()
 }
 
 #[test]
 fn iso_asset_resolves_known_country_locations() {
     let path = test_utils::geo_asset("iso");
-    let geo = GeoIndex::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
+    let geo = GeoIndex::open(&path).unwrap();
 
     // City centers, well inside their countries (ADM0_A3 iso codes).
     for (lng, lat, iso) in [
@@ -65,7 +77,7 @@ fn iso_asset_resolves_known_country_locations() {
         let country = country_of(&geo, leaf).unwrap_or_else(|| {
             panic!(
                 "{iso}: leaf `{}` at ({lng}, {lat}) has no country ancestor",
-                geo.entity(leaf).unwrap().canonical_code
+                describe_one(&geo, leaf).unwrap().canonical_code
             )
         });
         assert_eq!(country.canonical_code, iso, "lookup at ({lng}, {lat})");
@@ -78,10 +90,10 @@ fn iso_asset_resolves_known_country_locations() {
 #[test]
 fn iso_asset_resolves_a_city_to_a_province_under_its_country() {
     let path = test_utils::geo_asset("iso");
-    let geo = GeoIndex::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
+    let geo = GeoIndex::open(&path).unwrap();
 
     let leaf = leaf_at(&geo, 139.6917, 35.6895).expect("Tokyo resolved to ocean");
-    let entity = geo.entity(leaf).unwrap();
+    let entity = describe_one(&geo, leaf).unwrap();
     assert_eq!(
         entity.kind,
         GeoEntityKind::Admin1,
@@ -103,7 +115,7 @@ fn iso_asset_resolves_a_city_to_a_province_under_its_country() {
 #[test]
 fn iso_asset_resolves_a_country_below_the_state_tier_to_itself() {
     let path = test_utils::geo_asset("iso");
-    let geo = GeoIndex::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
+    let geo = GeoIndex::open(&path).unwrap();
 
     for (lng, lat, iso, city) in [
         (2.3522, 48.8566, "FRA", "Paris"),
@@ -114,7 +126,7 @@ fn iso_asset_resolves_a_country_below_the_state_tier_to_itself() {
         (14.5146, 35.8997, "MLT", "Valletta"),
     ] {
         let leaf = leaf_at(&geo, lng, lat).unwrap_or_else(|| panic!("{city} resolved to ocean"));
-        let entity = geo.entity(leaf).unwrap();
+        let entity = describe_one(&geo, leaf).unwrap();
         assert_eq!(
             entity.kind,
             GeoEntityKind::Admin0,
@@ -130,7 +142,7 @@ fn iso_asset_resolves_a_country_below_the_state_tier_to_itself() {
 #[test]
 fn chn_asset_groups_hong_kong_macau_taiwan_into_china() {
     let path = test_utils::geo_asset("chn");
-    let geo = GeoIndex::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
+    let geo = GeoIndex::open(&path).unwrap();
 
     // Land points well inside each territory — all must resolve to China.
     for (lng, lat, place) in [
@@ -143,7 +155,7 @@ fn chn_asset_groups_hong_kong_macau_taiwan_into_china() {
         let country = country_of(&geo, leaf).unwrap_or_else(|| {
             panic!(
                 "{place}: leaf `{}` at ({lng}, {lat}) has no country ancestor",
-                geo.entity(leaf).unwrap().canonical_code
+                describe_one(&geo, leaf).unwrap().canonical_code
             )
         });
         assert_eq!(
@@ -153,11 +165,8 @@ fn chn_asset_groups_hong_kong_macau_taiwan_into_china() {
     }
 
     // The absorbed dependencies must not exist as separate country entities.
-    let codes: std::collections::HashSet<&str> = geo
-        .entities_of_kind(GeoEntityKind::Admin0)
-        .iter()
-        .filter_map(|id| geo.entity(*id).map(|e| e.canonical_code.as_str()))
-        .collect();
+    let by_code = admin0_by_code(&geo);
+    let codes: std::collections::HashSet<&str> = by_code.keys().map(String::as_str).collect();
     assert!(codes.contains("CHN"), "China missing from chn asset");
     for absorbed in ["HKG", "MAC", "TWN"] {
         assert!(
@@ -174,13 +183,9 @@ fn chn_asset_groups_hong_kong_macau_taiwan_into_china() {
 #[test]
 fn iso_asset_includes_seven_seas_islands() {
     let path = test_utils::geo_asset("iso");
-    let geo = GeoIndex::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
+    let geo = GeoIndex::open(&path).unwrap();
 
-    let by_code: std::collections::HashMap<&str, _> = geo
-        .entities_of_kind(GeoEntityKind::Admin0)
-        .iter()
-        .filter_map(|id| geo.entity(*id).map(|e| (e.canonical_code.as_str(), e)))
-        .collect();
+    let by_code = admin0_by_code(&geo);
 
     // (ADM0_A3, expected parent continent code) — REGION_UN parents these:
     // Africa → AF, Asia → AS, Americas → SA.
@@ -212,7 +217,7 @@ fn iso_asset_includes_seven_seas_islands() {
             .unwrap_or_else(|| panic!("{code}: missing from iso asset"));
         assert_eq!(e.kind, GeoEntityKind::Admin0, "{code}");
         assert_eq!(e.iso_a3_eh.as_deref(), Some(code), "{code}: iso_a3_eh");
-        let parent = geo.entity(e.parent_id.unwrap()).unwrap();
+        let parent = describe_one(&geo, e.parent_id.unwrap()).unwrap();
         assert_eq!(parent.canonical_code, parent_code, "{code}: parent");
     }
 }
@@ -222,12 +227,8 @@ fn iso_asset_includes_seven_seas_islands() {
 #[test]
 fn iso_asset_maps_non_iso_adm0_to_real_iso() {
     let path = test_utils::geo_asset("iso");
-    let geo = GeoIndex::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
-    let by_code: std::collections::HashMap<&str, _> = geo
-        .entities_of_kind(GeoEntityKind::Admin0)
-        .iter()
-        .filter_map(|id| geo.entity(*id).map(|e| (e.canonical_code.as_str(), e)))
-        .collect();
+    let geo = GeoIndex::open(&path).unwrap();
+    let by_code = admin0_by_code(&geo);
 
     // (ADM0_A3 identity key, real ISO_A3_EH). ADM0_A3 differs from the ISO code.
     for (adm0, iso) in [

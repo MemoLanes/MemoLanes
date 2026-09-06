@@ -1,5 +1,6 @@
 use chrono::NaiveDate;
 use memolanes_core::cache_db::{self, CacheDb};
+use memolanes_core::geo::GeoIndex;
 use memolanes_core::journey_bitmap::JourneyBitmap;
 use memolanes_core::journey_data::JourneyData;
 use memolanes_core::journey_header::JourneyKind;
@@ -44,6 +45,13 @@ pub struct RenderResult {
     pub right: f64,
     pub bottom: f64,
     pub data: Vec<u8>,
+}
+
+/// Open a synthetic geo asset from its bytes; `dir` must outlive the index.
+pub fn geo_index_from_bytes(dir: &TempDir, bytes: &[u8]) -> GeoIndex {
+    let path = dir.path().join("geo_data.bin");
+    fs::write(&path, bytes).unwrap();
+    GeoIndex::open(&path).unwrap()
 }
 
 pub fn verify_image(name: &str, image: &Vec<u8>) {

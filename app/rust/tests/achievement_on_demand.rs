@@ -146,7 +146,7 @@ fn on_demand_areas_and_region_areas() {
     );
 
     // On-demand reads against the same worldview geo.
-    let geo = GeoIndex::from_bytes(&geo_bytes).unwrap();
+    let geo = GeoIndex::open(&storage.installed_geo_data_file(Worldview::Iso)).unwrap();
 
     let (oss_areas, all_layer_regions) = read_on_demand(&storage, &geo);
 

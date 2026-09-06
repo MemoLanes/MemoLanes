@@ -4,6 +4,8 @@ Offline build tool. Converts Natural Earth GeoJSON into the geo-reference data
 shipped in `app/assets/geo/`:
 
 - `geo_data_<worldview>.bin` — the packed entity/tile data (one per worldview).
+- `geo_data_<worldview>.provenance` — the bin's provenance hash as hex; the app
+  compares it against its installed copy of the bin at launch.
 - `region_names.<locale>.json` — the localized region-name maps (one per
   locale), resolved from Unicode CLDR (see "Region names" below).
 
