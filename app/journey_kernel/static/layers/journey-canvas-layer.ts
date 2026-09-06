@@ -76,10 +76,6 @@ export class JourneyCanvasLayer implements JourneyLayer {
     this.ctx = ctx;
   }
 
-  setLowPowerMode(_enabled: boolean): void {
-    // Canvas rendering has no separate low-power path.
-  }
-
   initialize(): void {
     this.map.addSource(this.sourceId, this.getSourceConfig() as any);
     this.map.addLayer({

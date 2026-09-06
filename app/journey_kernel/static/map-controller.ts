@@ -12,6 +12,7 @@
 import * as maplibregl from "maplibre-gl";
 import type {
   Map as MaplibreMap,
+  MapContextEvent,
   RequestTransformFunction,
   ResourceType,
 } from "maplibre-gl";
@@ -31,8 +32,19 @@ import { detectMapLocale, type MapLocale } from "./map-locale";
 import { transformStyleWithProjection } from "./utils";
 import { JOURNEY_LAYER_ID } from "./layers/journey-layer-interface";
 import type { JourneyLayer } from "./layers/journey-layer-interface";
+import { MAX_MAP_ZOOM } from "./layer-config";
 
-const MAX_MAP_ZOOM = 14;
+const DATA_POLL_INTERVAL_MS = 1_000;
+
+interface WebGLContextMessageChannel {
+  postMessage: (message: string) => void;
+}
+
+declare global {
+  interface Window {
+    onWebGLContextEvent?: WebGLContextMessageChannel;
+  }
+}
 
 maplibregl.setWorkerUrl(
   new URL("./maplibre-gl-worker.js", window.location.href).toString(),
@@ -65,6 +77,9 @@ export class MapController {
   private journeyTileProvider: JourneyTileProvider | null = null;
   private styleRetryIntervalId: ReturnType<typeof setInterval> | null = null;
   private pollIntervalId: ReturnType<typeof setInterval> | null = null;
+  private webGLContextLost = false;
+  private webGLContextLossCount = 0;
+  private webGLContextLostAt: number | null = null;
 
   constructor(config: MapControllerConfig) {
     this.params = config.params;
@@ -120,6 +135,104 @@ export class MapController {
     // Disable rotation controls
     this.map.dragRotate.disable();
     this.map.touchZoomRotate.disableRotation();
+    this.setupWebGLContextMonitoring();
+  }
+
+  private readonly handleWebGLContextLost = (event: MapContextEvent): void => {
+    // Ignore duplicate notifications for the same loss. The native side
+    // should issue only one WebView reload attempt.
+    if (this.webGLContextLostAt !== null) return;
+
+    this.webGLContextLossCount++;
+    this.webGLContextLostAt = Date.now();
+    this.webGLContextLost = true;
+    // MapLibre destroys the old style (and invokes custom-layer onRemove)
+    // before emitting this event. Do not call remove() on that dead context.
+    this.currentJourneyLayer = null;
+    this.reportWebGLContextEvent("lost", event.originalEvent.statusMessage);
+  };
+
+  private readonly handleWebGLContextRestored = (
+    event: MapContextEvent,
+  ): void => {
+    const elapsedMs =
+      this.webGLContextLostAt === null
+        ? undefined
+        : Date.now() - this.webGLContextLostAt;
+
+    this.webGLContextLostAt = null;
+    this.webGLContextLost = false;
+
+    // MapLibre fires this after creating the replacement painter, but before
+    // its asynchronously restored style is guaranteed to accept custom
+    // layers. The styledata handler remains the single rebuild point.
+    this.currentJourneyLayer = null;
+
+    // This is useful for browser diagnostics. The Flutter app reloads the
+    // complete WebView immediately on context loss because MapLibre cannot
+    // restore custom layers reliably.
+    this.map.resize();
+    this.map.triggerRepaint();
+    this.reportWebGLContextEvent(
+      "restored",
+      event.originalEvent.statusMessage,
+      elapsedMs,
+    );
+  };
+
+  /**
+   * Observe MapLibre's public context events. Flutter uses the lost event to
+   * reload the complete WebView; restored remains useful in browser tooling
+   * and when no Flutter channel is installed.
+   */
+  private setupWebGLContextMonitoring(): void {
+    this.map.on("webglcontextlost", this.handleWebGLContextLost);
+    this.map.on("webglcontextrestored", this.handleWebGLContextRestored);
+  }
+
+  private reportWebGLContextEvent(
+    state: "lost" | "restored",
+    statusMessage: string,
+    elapsedMs?: number,
+  ): void {
+    const center = this.map.getCenter();
+    const canvas = this.map.getCanvas();
+    const payload = {
+      state,
+      timestamp: new Date().toISOString(),
+      lossCount: this.webGLContextLossCount,
+      elapsedMs,
+      statusMessage: statusMessage || undefined,
+      renderMode: this.params.renderMode,
+      view: {
+        lng: Number(center.lng.toFixed(6)),
+        lat: Number(center.lat.toFixed(6)),
+        zoom: Number(this.map.getZoom().toFixed(2)),
+      },
+      canvas: {
+        width: canvas.width,
+        height: canvas.height,
+        clientWidth: canvas.clientWidth,
+        clientHeight: canvas.clientHeight,
+        devicePixelRatio: window.devicePixelRatio || 1,
+      },
+    };
+    const message = JSON.stringify(payload);
+
+    if (state === "lost") {
+      console.warn(`[MapController] WebGL context lost: ${message}`);
+    } else {
+      console.log(`[MapController] WebGL context restored: ${message}`);
+    }
+
+    try {
+      window.onWebGLContextEvent?.postMessage(message);
+    } catch (error) {
+      console.warn(
+        "[MapController] Failed to report WebGL context event to Flutter:",
+        error,
+      );
+    }
   }
 
   /**
@@ -177,7 +290,7 @@ export class MapController {
         if (!this.DisableAutoRefresh) {
           this.pollIntervalId = setInterval(
             () => this.journeyTileProvider?.pollForJourneyUpdates(false),
-            1000,
+            DATA_POLL_INTERVAL_MS,
           );
         }
 
@@ -252,7 +365,18 @@ export class MapController {
    *
    * @returns The newly created journey layer instance
    */
-  private switchRenderingLayer(): JourneyLayer {
+  private switchRenderingLayer(): JourneyLayer | null {
+    // MapLibre restores its style before it creates the replacement painter.
+    // During that window, styledata and reactive hooks must not initialize a
+    // custom layer against the context that has just been lost.
+    if (this.webGLContextLost) {
+      this.currentJourneyLayer = null;
+      return null;
+    }
+    if (!this.journeyTileProvider || !this.hasUsableStyle()) {
+      return null;
+    }
+
     let renderingMode = this.params.renderMode;
 
     if (!AVAILABLE_LAYERS[renderingMode]) {
@@ -281,7 +405,6 @@ export class MapController {
       undefined, // use default layerId
       fogStyle.rgba,
     );
-    newLayer.setLowPowerMode?.(this.params.lowPowerMode);
     newLayer.initialize();
 
     this.currentJourneyLayer = newLayer;
@@ -332,11 +455,6 @@ export class MapController {
           ),
       });
     });
-
-    this.params.on("lowPowerMode", (enabled, _oldValue) => {
-      this.currentJourneyLayer?.setLowPowerMode?.(enabled);
-      this.map.triggerRepaint();
-    });
   }
 
   /**
@@ -346,6 +464,10 @@ export class MapController {
   private setupStyleDataHandler(): void {
     this.map.on("styledata", (_) => {
       console.log("styledata event received");
+      if (this.webGLContextLost) {
+        return;
+      }
+
       const orderedLayerIds = this.map.getLayersOrder();
 
       // After style reset, layers may have different lifecycles:
@@ -384,6 +506,10 @@ export class MapController {
    */
   private setupStyleRetryLogic(): void {
     this.styleRetryIntervalId = setInterval(() => {
+      if (this.webGLContextLost) {
+        return;
+      }
+
       const layerCount = this.map.getLayersOrder().length;
       if (layerCount <= 1) {
         console.log("Re-attempting to load map style");
@@ -449,6 +575,8 @@ export class MapController {
    * Clean up resources when the controller is destroyed
    */
   destroy(): void {
+    this.map.off("webglcontextlost", this.handleWebGLContextLost);
+    this.map.off("webglcontextrestored", this.handleWebGLContextRestored);
     if (this.styleRetryIntervalId) {
       clearInterval(this.styleRetryIntervalId);
       this.styleRetryIntervalId = null;
@@ -458,7 +586,15 @@ export class MapController {
       this.currentJourneyLayer.remove();
       this.currentJourneyLayer = null;
     }
+    this.journeyTileProvider?.dispose();
+    this.journeyTileProvider = null;
     this.map.remove();
+  }
+
+  private hasUsableStyle(): boolean {
+    const style = this.map.getStyle() as
+      { layers?: Array<{ id: string }> } | undefined;
+    return Array.isArray(style?.layers) && style.layers.length > 0;
   }
 
   private clearAutoRefreshInterval(): void {

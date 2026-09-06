@@ -24,9 +24,6 @@ export interface JourneyLayer {
    * Remove the layer from the map and clean up resources.
    */
   remove(): void;
-
-  /** Update the rendering quality policy without recreating the layer. */
-  setLowPowerMode?(enabled: boolean): void;
 }
 
 /**
