@@ -15,7 +15,7 @@ class AppCheckbox extends StatelessWidget {
     this.shape = AppCheckboxShape.roundedSquare,
   }) : _indicator = false;
 
-  /// A non-interactive selection indicator, such as a selectable settings tile.
+  /// A non-interactive selection indicator whose semantics belong to its parent.
   const AppCheckbox.indicator({
     super.key,
     required this.value,
@@ -59,6 +59,6 @@ class AppCheckbox extends StatelessWidget {
     );
 
     if (!_indicator) return checkbox;
-    return IgnorePointer(child: checkbox);
+    return ExcludeSemantics(child: IgnorePointer(child: checkbox));
   }
 }

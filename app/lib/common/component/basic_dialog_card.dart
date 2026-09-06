@@ -3,9 +3,6 @@ import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/constants/style_constants.dart';
 
 /// Shows a centered, constrained application card.
-///
-/// The legacy API was named like a bottom sheet even though UI v2 presents
-/// this surface as a dialog.
 Future<T?> showBasicDialogCard<T>(
   BuildContext context, {
   required WidgetBuilder builder,
@@ -30,31 +27,6 @@ Future<T?> showBasicDialogCard<T>(
       actions: actions,
       child: builder(dialogContext),
     ),
-  );
-}
-
-@Deprecated('Use showBasicDialogCard; UI v2 presents a centered dialog card.')
-Future<T?> showBasicBottomSheet<T>(
-  BuildContext context, {
-  required Widget child,
-  String? title,
-  Widget? actions,
-  bool showTitle = true,
-  double? maxHeightFactor,
-  EdgeInsetsGeometry contentPadding = EdgeInsets.zero,
-  Color? barrierColor,
-  Color? backgroundColor,
-}) {
-  return showBasicDialogCard<T>(
-    context,
-    builder: (_) => child,
-    title: title,
-    actions: actions,
-    showTitle: showTitle,
-    maxHeightFactor: maxHeightFactor,
-    contentPadding: contentPadding,
-    barrierColor: barrierColor,
-    backgroundColor: backgroundColor,
   );
 }
 

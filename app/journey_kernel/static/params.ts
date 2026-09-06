@@ -8,8 +8,6 @@
  * 3. createReactiveParams function to build params from external input
  */
 
-import { JourneyCanvasLayer } from "./layers/journey-canvas-layer";
-import type { JourneyLayerConstructor } from "./layers/journey-layer-interface";
 import { getFogStyle, normalizeFogStyleId, type FogStyleId } from "./fog-style";
 
 // Default values for parameters
@@ -33,41 +31,8 @@ export interface JourneyBoundsPadding {
   left: number;
 }
 
-// ============================================================================
-// Layer Configuration
-// ============================================================================
-
-/**
- * Configuration for a rendering layer.
- * Add new layer implementations by creating a new LayerConfig entry.
- */
-export interface LayerConfig {
-  /** Display name for the layer */
-  name: string;
-  /** The layer class constructor, must implement JourneyLayer interface */
-  layerClass: JourneyLayerConstructor;
-  /** Power of 2 for tile buffer size (e.g., 8 = 256px, 10 = 1024px) */
-  bufferSizePower: number;
-  /** Human-readable description */
-  description: string;
-}
-
-/**
- * Available rendering layers.
- *
- * To add a new layer:
- * 1. Create a class that implements the JourneyLayer interface
- * 2. Import it at the top of this file
- * 3. Add a new entry below with a unique key
- */
-export const AVAILABLE_LAYERS: { [key: string]: LayerConfig } = {
-  canvas: {
-    name: "Canvas",
-    layerClass: JourneyCanvasLayer,
-    bufferSizePower: 8,
-    description: "Uses Canvas API for rendering",
-  },
-};
+import { AVAILABLE_LAYERS } from "./layer-config";
+export { AVAILABLE_LAYERS, type LayerConfig } from "./layer-config";
 
 // ============================================================================
 // External Parameters Interface
@@ -95,7 +60,6 @@ export interface ExternalParams {
   fog_density?: string;
   projection?: string;
   debug?: string;
-  low_power_mode?: string;
   [key: string]: string | number | undefined;
 }
 
@@ -108,7 +72,7 @@ export type PropertyChangeCallback<T> = (newValue: T, oldValue: T) => void;
 
 /** Mutable property names that support hooks */
 export type MutablePropertyName =
-  "renderMode" | "fogStyle" | "fogDensity" | "projection" | "lowPowerMode";
+  "renderMode" | "fogStyle" | "fogDensity" | "projection";
 
 /** Internal data structure for ReactiveParams */
 interface ParamsData {
@@ -129,14 +93,13 @@ interface ParamsData {
   fogStyle: FogStyleId;
   fogDensity: number;
   projection: ProjectionType;
-  lowPowerMode: boolean;
 }
 
 /**
  * ReactiveParams - A Proxy-based reactive parameters object
  *
  * Properties can be accessed and set directly. Setting mutable properties
- * (renderMode, fogStyle, fogDensity, projection, lowPowerMode) triggers
+ * (renderMode, fogStyle, fogDensity, projection) triggers
  * registered hooks.
  *
  * Usage:
@@ -164,17 +127,7 @@ export interface ReactiveParams extends ParamsData {
    */
   on<K extends MutablePropertyName>(
     property: K,
-    callback: PropertyChangeCallback<
-      K extends "fogDensity"
-        ? number
-        : K extends "fogStyle"
-          ? FogStyleId
-          : K extends "projection"
-            ? ProjectionType
-            : K extends "lowPowerMode"
-              ? boolean
-              : string
-    >,
+    callback: PropertyChangeCallback<ParamsData[K]>,
   ): () => void;
 }
 
@@ -184,7 +137,6 @@ const MUTABLE_PROPERTIES = new Set<MutablePropertyName>([
   "fogStyle",
   "fogDensity",
   "projection",
-  "lowPowerMode",
 ]);
 
 /**
@@ -403,6 +355,5 @@ export function createReactiveParams(
     ),
     projection: externalParams.projection === "mercator" ? "mercator" : "globe",
     debug: externalParams.debug === "true",
-    lowPowerMode: externalParams.low_power_mode === "true",
   });
 }

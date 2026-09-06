@@ -10,7 +10,7 @@ import 'package:memolanes/body/settings/raw_data_page.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
-import 'package:memolanes/common/component/basic_bottom_sheet.dart';
+import 'package:memolanes/common/component/basic_dialog_card.dart';
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
@@ -24,7 +24,6 @@ import 'package:memolanes/common/recording_health_service.dart';
 import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/body/settings/settings_section.dart';
-import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -275,20 +274,6 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
                     if (value) AppHaptics.selection();
                     setState(() {});
                   },
-                ),
-              ),
-            ],
-          ),
-          SettingsSection(
-            title: context.tr('settings.groups.future'),
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                child: Text(
-                  context.tr('settings.groups.future_theme'),
-                  style: AppTypography.supporting.copyWith(
-                    color: const Color(0x99FFFFFF),
-                  ),
                 ),
               ),
             ],

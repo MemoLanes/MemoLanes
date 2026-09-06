@@ -17,7 +17,8 @@
     "benchmark:install": "playwright install chromium",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,html}\"",
     "check-format": "prettier --check \"**/*.{js,jsx,ts,tsx,html}\"",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "test": "node --test --experimental-strip-types 'static/**/*.test.mjs'"
   },
   "dependencies": {
     "@types/ua-parser-js": "^0.7.39",

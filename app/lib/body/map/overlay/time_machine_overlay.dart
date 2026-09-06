@@ -39,8 +39,8 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
 
   SimpleDate? _earliestJourneyDate;
   bool _loading = false;
-  SimpleDate? _lastFrom;
-  SimpleDate? _lastTo;
+  SimpleDate? _requestedFrom;
+  SimpleDate? _requestedTo;
   final _loadGuard = AsyncLoadToken();
   Timer? _rangeLoadDebounceTimer;
 
@@ -76,8 +76,8 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
     if (_earliestJourneyDate == null) return;
     if (from.isAfter(to)) return;
     final loadToken = _loadGuard.begin();
-    _lastFrom = from;
-    _lastTo = to;
+    _requestedFrom = from;
+    _requestedTo = to;
     final journeyKinds = Set<JourneyKind>.from(_selectedJourneyKinds);
     setState(() => _loading = true);
     try {
@@ -100,6 +100,8 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
   }
 
   void _scheduleJourneyRangeLoad(SimpleDate from, SimpleDate to) {
+    _requestedFrom = from;
+    _requestedTo = to;
     _rangeLoadDebounceTimer?.cancel();
     _rangeLoadDebounceTimer = Timer(_rangeLoadDebounce, () {
       _rangeLoadDebounceTimer = null;
@@ -110,8 +112,8 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
   void _onJourneyKindsChanged(Set<JourneyKind> newKinds) {
     final kinds = Set<JourneyKind>.from(newKinds);
     setState(() => _selectedJourneyKinds = kinds);
-    final from = _lastFrom;
-    final to = _lastTo;
+    final from = _requestedFrom;
+    final to = _requestedTo;
     if (from != null && to != null) {
       unawaited(_loadJourneyForRange(from, to));
     }
