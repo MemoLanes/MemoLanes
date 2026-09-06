@@ -226,6 +226,7 @@ class GeoLocatorService implements ILocationService {
     }
   }
 
+  @override
   Future<void> dispose() async {
     await stop();
     _locationUpdateController.close();
