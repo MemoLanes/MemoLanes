@@ -54,7 +54,7 @@ void main() {
   });
 
   test(
-    'leaving the editor skips waiting mutations without notifications',
+    'disposing the queue skips waiting operations without notifications',
     () async {
       final queue = JourneyEditorOperationQueue();
       final gate = Completer<void>();
