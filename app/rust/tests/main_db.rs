@@ -1,5 +1,6 @@
 pub mod test_utils;
 
+use anyhow::Result;
 use chrono::{DateTime, Datelike, NaiveDate};
 use memolanes_core::{
     gps_processor::{self, Point, RawData},
@@ -7,12 +8,54 @@ use memolanes_core::{
     journey_data::JourneyData,
     journey_header::JourneyKind,
     journey_vector::JourneyVector,
-    main_db::{self, Action, CacheEntry, MainDb},
+    main_db::{
+        self, Action, CacheEntry, DurableBatchMetadata, MainDb, OngoingJourneyRecord,
+        RecordLocationBatchResult,
+    },
     utils::db::{run_migrations, set_version_in_metadata, DbError, SchemaVersion},
 };
 use rusqlite::Connection;
 use std::collections::HashSet;
 use tempdir::TempDir;
+
+fn durable_record(
+    main_db: &mut MainDb,
+    first_sequence: i64,
+    last_sequence: i64,
+    fingerprint: &str,
+    latitudes: &[f64],
+) -> Result<RecordLocationBatchResult> {
+    let raw_data = latitudes
+        .iter()
+        .enumerate()
+        .map(|(index, latitude)| RawData {
+            point: Point {
+                latitude: *latitude,
+                longitude: 2.0,
+            },
+            timestamp_ms: Some((first_sequence + index as i64) * 1000),
+            accuracy: Some(1.0),
+            altitude: None,
+            speed: None,
+        })
+        .collect::<Vec<_>>();
+    let records = raw_data
+        .iter()
+        .map(|raw_data| OngoingJourneyRecord {
+            raw_data,
+            process_result: gps_processor::ProcessResult::Append,
+            received_timestamp_ms: raw_data.timestamp_ms.unwrap(),
+        })
+        .collect::<Vec<_>>();
+    let durable = DurableBatchMetadata {
+        provider_id: "test-provider",
+        stream_id: "recording-1",
+        first_sequence,
+        last_sequence,
+        payload_fingerprint: fingerprint,
+    };
+    main_db.with_txn(|txn| txn.record_location_batch(&records, Some(&durable)))
+}
 
 #[test]
 fn rejects_newer_major_schema_version_without_migrating() {
@@ -44,6 +87,67 @@ fn rejects_newer_major_schema_version_without_migrating() {
         )
         .unwrap();
     assert_eq!(major, newer_version.major.to_string());
+}
+
+#[test]
+fn durable_batches_are_idempotent_and_reject_invalid_cursors() {
+    let temp_dir = TempDir::new("main-db-durable-batch").unwrap();
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
+
+    assert_eq!(
+        durable_record(&mut main_db, 1, 2, "hash-1-2", &[1.0, 2.0]).unwrap(),
+        RecordLocationBatchResult::Applied
+    );
+    assert_eq!(
+        durable_record(&mut main_db, 1, 2, "hash-1-2", &[1.0, 2.0]).unwrap(),
+        RecordLocationBatchResult::Duplicate
+    );
+    assert!(durable_record(&mut main_db, 1, 2, "changed", &[9.0, 9.0]).is_err());
+    assert!(durable_record(&mut main_db, 4, 4, "gap", &[4.0]).is_err());
+    assert_eq!(
+        durable_record(&mut main_db, 3, 3, "hash-3", &[3.0]).unwrap(),
+        RecordLocationBatchResult::Applied
+    );
+    assert!(durable_record(&mut main_db, 1, 2, "hash-1-2", &[1.0, 2.0]).is_err());
+
+    let range = main_db
+        .with_txn(|txn| txn.get_ongoing_journey_timestamp_range())
+        .unwrap()
+        .unwrap();
+    assert_eq!(range.0.timestamp(), 1);
+    assert_eq!(range.1.timestamp(), 3);
+}
+
+#[test]
+fn failed_journey_insert_rolls_back_delivery_watermark() {
+    let temp_dir = TempDir::new("main-db-durable-rollback").unwrap();
+    let db_path = temp_dir.path().join("main.db");
+    let main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
+    drop(main_db);
+
+    let conn = Connection::open(&db_path).unwrap();
+    conn.execute(
+        "CREATE TRIGGER reject_ongoing_insert BEFORE INSERT ON ongoing_journey
+         BEGIN SELECT RAISE(ABORT, 'injected failure'); END",
+        (),
+    )
+    .unwrap();
+    drop(conn);
+
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
+    assert!(durable_record(&mut main_db, 1, 1, "hash-1", &[1.0]).is_err());
+    drop(main_db);
+
+    let conn = Connection::open(&db_path).unwrap();
+    conn.execute("DROP TRIGGER reject_ongoing_insert", ())
+        .unwrap();
+    drop(conn);
+
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
+    assert_eq!(
+        durable_record(&mut main_db, 1, 1, "hash-1", &[1.0]).unwrap(),
+        RecordLocationBatchResult::Applied
+    );
 }
 
 #[test]

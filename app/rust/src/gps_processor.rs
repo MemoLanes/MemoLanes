@@ -153,6 +153,7 @@ mod process_result_tests {
 
 // It is unfortunate that we may keep duplicate data but I believe this is
 // clearer and easier to maintain.
+#[derive(Clone)]
 struct BadDataDetector {
     timestamp_ms_and_point: Option<(i64, Point)>,
     speed: Option<f32>,
@@ -218,6 +219,7 @@ impl BadDataDetector {
     }
 }
 
+#[derive(Clone)]
 enum GpsPreprocessorState {
     Empty,
     Moving {
@@ -244,6 +246,7 @@ pub enum SegmentGapRule {
     Spare,
 }
 
+#[derive(Clone)]
 pub struct GpsPreprocessor {
     state: GpsPreprocessorState,
     bad_data_detector: BadDataDetector,

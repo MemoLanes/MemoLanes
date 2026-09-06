@@ -433,14 +433,8 @@ class GpsManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _persistLocations(
-    List<LocationData> locations, {
-    required bool isReplay,
-  }) async {
-    final meaningful = await _recordingCoordinator.persistLocations(
-      locations,
-      isReplay: isReplay,
-    );
+  Future<void> _persistLocations(LocationRecordingBatch batch) async {
+    final meaningful = await _recordingCoordinator.persistLocations(batch);
     if (meaningful && !_disposed) {
       _recordingDataChangedController.add(null);
     }

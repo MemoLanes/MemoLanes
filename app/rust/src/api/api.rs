@@ -27,6 +27,7 @@ use crate::{archive, build_info, export_data, gps_processor, main_db};
 use crate::utils::{db::DbError, get_bounds_from_journey_bitmap, MapBounds};
 
 use log::{error, info, warn};
+use sha1::{Digest, Sha1};
 
 // TODO: we have way too many locking here and now it is hard to track.
 //  e.g. we could mess up with the order and cause a deadlock
@@ -426,62 +427,122 @@ pub struct LocationUpdate {
     pub received_timestamp_ms: i64,
 }
 
-fn process_location_update(
-    state: &MainState,
-    gps_preprocessor: &mut GpsPreprocessor,
-    raw_data: &gps_processor::RawData,
-    received_timestamp_ms: i64,
-) -> bool {
-    let last_point = gps_preprocessor.last_kept_point();
-    let process_result = gps_preprocessor.preprocess(raw_data);
-    {
-        let mut main_map_state = state.main_map_state.lock().unwrap();
-        if !main_map_state.dropped_for_power_saving && main_map_state.layer_filter.current_journey {
-            let line_to_add = match process_result {
+pub struct DurableDeliveryCursor {
+    pub provider_id: String,
+    pub stream_id: String,
+    pub first_sequence: i64,
+    pub last_sequence: i64,
+}
+
+pub struct LocationRecordingBatch {
+    pub updates: Vec<LocationUpdate>,
+    pub durable_cursor: Option<DurableDeliveryCursor>,
+}
+
+pub struct LocationRecordingBatchOutcome {
+    pub meaningful: bool,
+    pub duplicate: bool,
+}
+
+struct ProcessedLocationUpdate {
+    update: LocationUpdate,
+    process_result: ProcessResult,
+    line_start: Option<gps_processor::Point>,
+}
+
+fn preprocess_location_batch(
+    gps_preprocessor: &GpsPreprocessor,
+    updates: Vec<LocationUpdate>,
+) -> (GpsPreprocessor, Vec<ProcessedLocationUpdate>, bool) {
+    let mut candidate = gps_preprocessor.clone();
+    let mut meaningful = false;
+    let processed = updates
+        .into_iter()
+        .map(|update| {
+            let last_point = candidate.last_kept_point();
+            let process_result = candidate.preprocess(&update.raw_data);
+            let line_start = match process_result {
                 ProcessResult::Ignore => None,
-                ProcessResult::NewSegment => Some((&raw_data.point, &raw_data.point)),
                 ProcessResult::Append => {
-                    let start = last_point.as_ref().unwrap_or(&raw_data.point);
-                    Some((start, &raw_data.point))
+                    Some(last_point.unwrap_or_else(|| update.raw_data.point.clone()))
                 }
+                ProcessResult::NewSegment => Some(update.raw_data.point.clone()),
             };
-            if let Some((start, end)) = line_to_add {
-                main_map_state.map_renderer.update(
-                    |journey_bitmap: &mut crate::journey_bitmap::JourneyBitmap, tile_changed| {
-                        journey_bitmap.add_line_with_change_callback(
-                            start.longitude,
-                            start.latitude,
-                            end.longitude,
-                            end.latitude,
-                            tile_changed,
-                        );
-                    },
-                );
+            meaningful |= process_result != ProcessResult::Ignore;
+            ProcessedLocationUpdate {
+                update,
+                process_result,
+                line_start,
             }
+        })
+        .collect();
+    (candidate, processed, meaningful)
+}
+
+fn preprocess_and_persist_location_batch<F>(
+    gps_preprocessor: &mut GpsPreprocessor,
+    updates: Vec<LocationUpdate>,
+    persist: F,
+) -> Result<(
+    Vec<ProcessedLocationUpdate>,
+    bool,
+    main_db::RecordLocationBatchResult,
+)>
+where
+    F: FnOnce(&[ProcessedLocationUpdate]) -> Result<main_db::RecordLocationBatchResult>,
+{
+    let (candidate, processed, meaningful) = preprocess_location_batch(gps_preprocessor, updates);
+    let result = persist(&processed)?;
+    if result == main_db::RecordLocationBatchResult::Applied {
+        *gps_preprocessor = candidate;
+    }
+    Ok((processed, meaningful, result))
+}
+
+fn location_payload_fingerprint(updates: &[LocationUpdate]) -> String {
+    fn hash_optional<T: Copy>(
+        hasher: &mut Sha1,
+        value: Option<T>,
+        bytes: impl FnOnce(T) -> Vec<u8>,
+    ) {
+        match value {
+            Some(value) => {
+                hasher.update([1]);
+                hasher.update(bytes(value));
+            }
+            None => hasher.update([0]),
         }
     }
 
-    state
-        .storage
-        .record_gps_data(raw_data, process_result, received_timestamp_ms);
-
-    match process_result {
-        ProcessResult::Ignore => false,
-        ProcessResult::Append | ProcessResult::NewSegment => true,
+    let mut hasher = Sha1::new();
+    hasher.update((updates.len() as u64).to_le_bytes());
+    for update in updates {
+        let raw = &update.raw_data;
+        hasher.update(raw.point.latitude.to_bits().to_le_bytes());
+        hasher.update(raw.point.longitude.to_bits().to_le_bytes());
+        hash_optional(&mut hasher, raw.timestamp_ms, |value| {
+            value.to_le_bytes().to_vec()
+        });
+        hash_optional(&mut hasher, raw.accuracy, |value| {
+            value.to_bits().to_le_bytes().to_vec()
+        });
+        hash_optional(&mut hasher, raw.altitude, |value| {
+            value.to_bits().to_le_bytes().to_vec()
+        });
+        hash_optional(&mut hasher, raw.speed, |value| {
+            value.to_bits().to_le_bytes().to_vec()
+        });
     }
+    hex::encode(hasher.finalize())
 }
 
 // Return `true` if this update contains meaningful data.
 // Meaningful data means it is not ignored by the gps preprocessor.
 pub fn on_location_update(raw_data: gps_processor::RawData, received_timestamp_ms: i64) -> bool {
-    let state = get();
-    let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
-    process_location_update(
-        state,
-        &mut gps_preprocessor,
-        &raw_data,
+    on_location_updates(vec![LocationUpdate {
+        raw_data,
         received_timestamp_ms,
-    )
+    }])
 }
 
 /// Processes an ordered batch while holding the stateful GPS preprocessor lock
@@ -491,20 +552,96 @@ pub fn on_location_update(raw_data: gps_processor::RawData, received_timestamp_m
 /// result is still a successful write and must not be treated as a failed
 /// durable-queue acknowledgement.
 pub fn on_location_updates(updates: Vec<LocationUpdate>) -> bool {
+    on_location_recording_batch(LocationRecordingBatch {
+        updates,
+        durable_cursor: None,
+    })
+    .expect("failed to persist location batch")
+    .meaningful
+}
+
+/// Atomically persists an ordered batch and its optional durable cursor.
+///
+/// Exact retries of the latest durable cursor are acknowledged as duplicates.
+/// Gaps, stale/overlapping ranges, and payload-changing retries are rejected.
+pub fn on_location_recording_batch(
+    batch: LocationRecordingBatch,
+) -> Result<LocationRecordingBatchOutcome> {
     let state = get();
     let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
-    let mut meaningful = false;
-    for update in updates {
-        if process_location_update(
-            state,
-            &mut gps_preprocessor,
-            &update.raw_data,
-            update.received_timestamp_ms,
-        ) {
-            meaningful = true;
+    let payload_fingerprint = batch
+        .durable_cursor
+        .as_ref()
+        .map(|_| location_payload_fingerprint(&batch.updates));
+    let durable = batch
+        .durable_cursor
+        .as_ref()
+        .map(|cursor| main_db::DurableBatchMetadata {
+            provider_id: &cursor.provider_id,
+            stream_id: &cursor.stream_id,
+            first_sequence: cursor.first_sequence,
+            last_sequence: cursor.last_sequence,
+            payload_fingerprint: payload_fingerprint.as_deref().unwrap(),
+        });
+    let (processed, meaningful, persist_result) =
+        preprocess_and_persist_location_batch(&mut gps_preprocessor, batch.updates, |processed| {
+            let records = processed
+                .iter()
+                .map(|processed| main_db::OngoingJourneyRecord {
+                    raw_data: &processed.update.raw_data,
+                    process_result: processed.process_result,
+                    received_timestamp_ms: processed.update.received_timestamp_ms,
+                })
+                .collect::<Vec<_>>();
+            state
+                .storage
+                .record_location_batch(&records, durable.as_ref())
+        })?;
+    if persist_result == main_db::RecordLocationBatchResult::Duplicate {
+        return Ok(LocationRecordingBatchOutcome {
+            meaningful: false,
+            duplicate: true,
+        });
+    }
+
+    let mut main_map_state = state.main_map_state.lock().unwrap();
+    if !main_map_state.dropped_for_power_saving && main_map_state.layer_filter.current_journey {
+        for processed in &processed {
+            let Some(start) = &processed.line_start else {
+                continue;
+            };
+            let end = &processed.update.raw_data.point;
+            main_map_state.map_renderer.update(
+                |journey_bitmap: &mut crate::journey_bitmap::JourneyBitmap, tile_changed| {
+                    journey_bitmap.add_line_with_change_callback(
+                        start.longitude,
+                        start.latitude,
+                        end.longitude,
+                        end.latitude,
+                        tile_changed,
+                    );
+                },
+            );
         }
     }
-    meaningful
+    drop(main_map_state);
+
+    // CSV raw-data mode is diagnostic and cannot join the SQLite transaction.
+    // Run it only after both journey persistence and live map state succeeded.
+    let records = processed
+        .iter()
+        .map(|processed| main_db::OngoingJourneyRecord {
+            raw_data: &processed.update.raw_data,
+            process_result: processed.process_result,
+            received_timestamp_ms: processed.update.received_timestamp_ms,
+        })
+        .collect::<Vec<_>>();
+    state.storage.record_raw_location_batch(&records);
+
+    Ok(LocationRecordingBatchOutcome {
+        meaningful,
+        duplicate: false,
+    })
 }
 
 pub fn list_all_raw_data() -> Result<Vec<RawDataFile>> {
@@ -945,4 +1082,56 @@ pub fn main_map_bitmap_check_invariant_and_debug_log() {
     main_map_state
         .map_renderer
         .check_bitmap_invariant_and_debug_log();
+}
+
+#[cfg(test)]
+mod location_batch_tests {
+    use super::*;
+
+    fn update(timestamp_ms: i64) -> LocationUpdate {
+        LocationUpdate {
+            raw_data: gps_processor::RawData {
+                point: gps_processor::Point {
+                    latitude: 1.0,
+                    longitude: 2.0,
+                },
+                timestamp_ms: Some(timestamp_ms),
+                accuracy: Some(1.0),
+                altitude: None,
+                speed: None,
+            },
+            received_timestamp_ms: timestamp_ms,
+        }
+    }
+
+    #[test]
+    fn transaction_failure_does_not_advance_preprocessor() {
+        let mut preprocessor = GpsPreprocessor::new();
+        let result =
+            preprocess_and_persist_location_batch(&mut preprocessor, vec![update(1)], |_| {
+                anyhow::bail!("injected transaction failure")
+            });
+        assert!(result.is_err());
+
+        assert_eq!(
+            preprocessor.preprocess(&update(1).raw_data),
+            ProcessResult::NewSegment
+        );
+    }
+
+    #[test]
+    fn payload_fingerprint_excludes_received_timestamp() {
+        let first = vec![update(1)];
+        let mut retry = vec![update(1)];
+        retry[0].received_timestamp_ms = 999;
+        assert_eq!(
+            location_payload_fingerprint(&first),
+            location_payload_fingerprint(&retry)
+        );
+        retry[0].raw_data.point.latitude = 3.0;
+        assert_ne!(
+            location_payload_fingerprint(&first),
+            location_payload_fingerprint(&retry)
+        );
+    }
 }

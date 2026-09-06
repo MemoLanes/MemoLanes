@@ -206,7 +206,11 @@ class GeoLocatorService implements ILocationService {
     if (consumer == null || locations.isEmpty) return;
 
     _recordingTail = _recordingTail
-        .then((_) => consumer(locations, isReplay: false))
+        .then(
+          (_) => consumer(
+            LocationRecordingBatch(locations: locations, isReplay: false),
+          ),
+        )
         .catchError((Object error, StackTrace stackTrace) {
           // The native provider has no durable queue to retry from. Keep the
           // delivery chain usable and surface the failure in diagnostics.
