@@ -70,20 +70,56 @@ void main() async {
 }
 
 Widget _appRoot(Widget child) {
+  final savedLocale = MMKVUtil.getStringOpt(MMKVKey.localePreference);
   return EasyLocalization(
     supportedLocales: const [Locale('en', 'US'), Locale('zh', 'CN')],
     path: 'assets/translations',
     assetLoader: const AppTranslationLoader(),
     fallbackLocale: const Locale('en', 'US'),
+    startLocale: savedLocale == 'zh-CN'
+        ? const Locale('zh', 'CN')
+        : savedLocale == 'en-US'
+        ? const Locale('en', 'US')
+        : null,
     saveLocale: false,
     child: child,
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key, this.home});
 
   final Widget? home;
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeLocales(List<Locale>? locales) {
+    super.didChangeLocales(locales);
+    if (MMKVUtil.getStringOpt(MMKVKey.localePreference) != null) return;
+
+    final deviceLocale = locales != null && locales.isNotEmpty
+        ? locales.first
+        : WidgetsBinding.instance.platformDispatcher.locale;
+    unawaited(
+      context.setLocale(AppBootstrap.selectInitialLocale(deviceLocale)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -115,7 +151,7 @@ class MyApp extends StatelessWidget {
           unselectedItemColor: Colors.black54,
         ),
       ),
-      home: home ?? const MyHomePage(title: 'MemoLanes [OSS]'),
+      home: widget.home ?? const MyHomePage(title: 'MemoLanes [OSS]'),
     );
   }
 }

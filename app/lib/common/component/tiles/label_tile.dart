@@ -7,8 +7,10 @@ class LabelTile extends StatelessWidget {
     super.key,
     this.position = LabelTilePosition.single,
     required this.label,
+    this.labelStyle,
     this.desc = '',
     this.descMaxLines = 1,
+    this.descStyle,
     this.prefix,
     this.suffix,
     this.trailing,
@@ -26,9 +28,13 @@ class LabelTile extends StatelessWidget {
 
   final String label;
 
+  final TextStyle? labelStyle;
+
   final String desc;
 
   final int descMaxLines;
+
+  final TextStyle? descStyle;
 
   final Widget? prefix;
 
@@ -72,41 +78,48 @@ class LabelTile extends StatelessWidget {
       borderRadius = borderRadius.copyWith(topLeft: radius, topRight: radius);
     }
 
-    List<Widget> children = [
-      GestureDetector(
-        onTap: infoLabelOnTap,
-        child: Row(
-          children: [
-            Column(
+    final labelContent = GestureDetector(
+      onTap: infoLabelOnTap,
+      child: Row(
+        children: [
+          Flexible(
+            child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: labelStyle,
+                ),
                 if (desc.isNotEmpty)
                   Text(
                     desc,
                     maxLines: descMaxLines,
                     overflow: TextOverflow.ellipsis,
+                    style: descStyle,
                   ),
               ],
             ),
-            if (infoLabelOnTap != null) ...[
-              const SizedBox(width: 6),
-              const Icon(
-                Icons.info_outline,
-                size: 18.0,
-                color: Color(0x99FFFFFF),
-              ),
-            ],
+          ),
+          if (infoLabelOnTap != null) ...[
+            const SizedBox(width: 6),
+            const Icon(
+              Icons.info_outline,
+              size: 18.0,
+              color: Color(0x99FFFFFF),
+            ),
           ],
-        ),
+        ],
       ),
+    );
+    final children = <Widget>[
+      ?prefix,
+      Expanded(child: labelContent),
+      ?suffix,
+      ?trailing,
     ];
-    if (prefix != null) children.insert(0, prefix!);
-    if (suffix != null) children.add(suffix!);
-    if (trailing != null) {
-      children.addAll([Expanded(child: SizedBox.shrink()), trailing!]);
-    }
 
     return Container(
       margin: margin,
@@ -121,7 +134,7 @@ class LabelTile extends StatelessWidget {
               borderRadius: borderRadius,
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxHeight: maxHeight ?? 54.0,
+                  maxHeight: maxHeight ?? double.infinity,
                   minHeight: minHeight,
                 ),
                 child: Ink(
