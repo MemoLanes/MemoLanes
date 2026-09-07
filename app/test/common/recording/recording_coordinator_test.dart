@@ -40,7 +40,7 @@ void main() {
     await coordinator.dispose();
   });
 
-  test('deduplicates live and replay deliveries', () async {
+  test('passes repeated live and replay deliveries through', () async {
     final written = <int>[];
     final coordinator = RecordingCoordinator(
       onLocationUpdates: (updates) async {
@@ -60,11 +60,11 @@ void main() {
       _location(30),
     ], isReplay: true);
 
-    expect(written, [10, 20, 30]);
+    expect(written, [10, 20, 20, 30]);
     await coordinator.dispose();
   });
 
-  test('a false meaningful result still acknowledges the batch', () async {
+  test('a false meaningful result still completes the batch', () async {
     var writes = 0;
     final coordinator = RecordingCoordinator(
       onLocationUpdates: (_) async {
@@ -79,9 +79,12 @@ void main() {
       await coordinator.persistLocations([location], isReplay: true),
       isFalse,
     );
-    await coordinator.persistLocations([location], isReplay: true);
+    expect(
+      await coordinator.persistLocations([location], isReplay: true),
+      isFalse,
+    );
 
-    expect(writes, 1);
+    expect(writes, 2);
     await coordinator.dispose();
   });
 

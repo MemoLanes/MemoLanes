@@ -11,13 +11,10 @@ typedef RecordingLocationUpdate = ({
   DateTime receivedAt,
 });
 
-const _persistedKeyCapacity = 8192;
-
 /// Owns the provider-neutral ordering boundary into Rust recording.
 ///
 /// Live deliveries and durable replay batches both enter here, making this the
-/// single place that serializes the stateful GPS preprocessor and deduplicates
-/// points that arrive through both paths.
+/// single place that serializes the stateful GPS preprocessor.
 class RecordingCoordinator {
   RecordingCoordinator({
     Future<void> Function()? onJourneyFinalized,
@@ -40,8 +37,6 @@ class RecordingCoordinator {
   // Every Rust preprocessor operation uses one mutex and one lock order.
   // Finalization callbacks run only after this mutex has been released.
   final _operationMutex = Mutex();
-  // Dart set literals preserve insertion order, which is the LRU order here.
-  final _persistedKeys = <String>{};
 
   bool _recording = false;
   DateTime? _lastMeaningfulLiveUpdate;
@@ -49,7 +44,6 @@ class RecordingCoordinator {
   Future<void> start() => _operationMutex.protect(() async {
     if (_recording) return;
     _recording = true;
-    _persistedKeys.clear();
     _lastMeaningfulLiveUpdate = null;
   });
 
@@ -95,13 +89,9 @@ class RecordingCoordinator {
       }
 
       final ordered = sortLocationDataByTimestamp(locations);
-      final updates = <RecordingLocationUpdate>[];
-      final batchKeys = <String>{};
-      for (final location in ordered) {
-        final key = _locationKey(location);
-        if (_touchPersistedKey(key) || !batchKeys.add(key)) continue;
-        updates.add((location: location, receivedAt: _now()));
-      }
+      final updates = ordered
+          .map((location) => (location: location, receivedAt: _now()))
+          .toList(growable: false);
       if (updates.isEmpty) return false;
 
       final receivedAt = updates.first.receivedAt;
@@ -129,9 +119,6 @@ class RecordingCoordinator {
             )
           : await locationUpdates(updates);
 
-      // Remember only after the write completed. A thrown write is not an
-      // acknowledgement and must remain retryable by a durable provider.
-      _rememberPersistedKeys(batchKeys);
       if (!isReplay && meaningful) {
         _lastMeaningfulLiveUpdate = updates.last.receivedAt;
       }
@@ -176,25 +163,6 @@ class RecordingCoordinator {
         );
       }
     });
-  }
-
-  String _locationKey(LocationData location) =>
-      '${location.timestampMs}:${location.latitude}:${location.longitude}';
-
-  bool _touchPersistedKey(String key) {
-    if (!_persistedKeys.remove(key)) return false;
-    _persistedKeys.add(key);
-    return true;
-  }
-
-  void _rememberPersistedKeys(Iterable<String> keys) {
-    for (final key in keys) {
-      _persistedKeys.remove(key);
-      _persistedKeys.add(key);
-    }
-    while (_persistedKeys.length > _persistedKeyCapacity) {
-      _persistedKeys.remove(_persistedKeys.first);
-    }
   }
 
   RawData _rawData(LocationData location) => RawData(
