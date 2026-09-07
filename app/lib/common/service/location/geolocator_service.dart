@@ -31,10 +31,18 @@ class _PokeGeolocatorTask {
   Future<void> _loop() async {
     await Future.delayed(const Duration(minutes: 1));
     if (_running) {
-      await Geolocator.getCurrentPosition(locationSettings: _locationSettings)
-          // we don't care about the result
-          .then((_) => null)
-          .catchError((_) => null);
+      try {
+        // We only use this request to wake a stalled position stream.
+        await Geolocator.getCurrentPosition(
+          locationSettings: _locationSettings,
+        );
+      } catch (error, stackTrace) {
+        // Failure here does not affect the actual position subscription.
+        log.error(
+          '[GeoLocatorService] failed to poke geolocator: $error',
+          stackTrace,
+        );
+      }
       _loop();
     }
   }
