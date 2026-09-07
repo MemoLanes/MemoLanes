@@ -207,26 +207,8 @@ class GpsManager extends ChangeNotifier {
           },
         );
 
-        final unexpectedExitNotificationStatus =
-            await Permission.notification.isGranted &&
-            MMKVUtil.getBool(
-              MMKVKey.isUnexpectedExitNotificationEnabled,
-              defaultValue: true,
-            );
-        if (newState == _InternalState.recording &&
-            unexpectedExitNotificationStatus) {
-          await _notificationWhenAppIsKilledPlugin.setNotificationOnKillService(
-            ArgsForKillNotification(
-              title: tr("unexpected_exit_notification.notification_title"),
-              description: tr(
-                "unexpected_exit_notification.notification_message",
-              ),
-              argsForIos: ArgsForIos(
-                interruptionLevel: InterruptionLevel.critical,
-                useDefaultSound: true,
-              ),
-            ),
-          );
+        if (newState == _InternalState.recording) {
+          await _configureKillNotificationBestEffort(true);
         }
       }
       _internalState = newState;
@@ -259,10 +241,7 @@ class GpsManager extends ChangeNotifier {
     _lastPositionTooOldTimer?.cancel();
     _lastPositionTooOldTimer = null;
     if (oldState == _InternalState.recording) {
-      await attempt(() async {
-        await _notificationWhenAppIsKilledPlugin
-            .cancelNotificationOnKillService();
-      });
+      await _configureKillNotificationBestEffort(false);
       await attempt(_recordingCoordinator.stop);
     }
     _internalState = _InternalState.off;
@@ -270,6 +249,38 @@ class GpsManager extends ChangeNotifier {
     final error = firstError;
     if (error != null) {
       Error.throwWithStackTrace(error, firstStackTrace!);
+    }
+  }
+
+  Future<void> _configureKillNotificationBestEffort(bool recording) async {
+    try {
+      if (!recording) {
+        await _notificationWhenAppIsKilledPlugin
+            .cancelNotificationOnKillService();
+        return;
+      }
+      final enabled =
+          await Permission.notification.isGranted &&
+          MMKVUtil.getBool(
+            MMKVKey.isUnexpectedExitNotificationEnabled,
+            defaultValue: true,
+          );
+      if (!enabled) return;
+      await _notificationWhenAppIsKilledPlugin.setNotificationOnKillService(
+        ArgsForKillNotification(
+          title: tr('unexpected_exit_notification.notification_title'),
+          description: tr('unexpected_exit_notification.notification_message'),
+          argsForIos: ArgsForIos(
+            interruptionLevel: InterruptionLevel.critical,
+            useDefaultSound: true,
+          ),
+        ),
+      );
+    } catch (error, stackTrace) {
+      log.error(
+        '[GpsManager] failed to configure kill notification: $error',
+        stackTrace,
+      );
     }
   }
 
@@ -309,7 +320,7 @@ class GpsManager extends ChangeNotifier {
   }
 
   Future<void> changeRecordingState(GpsRecordingStatus to) async {
-    await _initialStateFuture;
+    await readyToStart();
     await _providerOperationMutex.protect(() async {
       if (to == GpsRecordingStatus.recording &&
           !await checkAndRequestPermission()) {
@@ -317,13 +328,28 @@ class GpsManager extends ChangeNotifier {
       }
 
       await _m.protect(() async {
+        final previousStatus = recordingStatus;
         final needToFinalize =
-            recordingStatus != to && to == GpsRecordingStatus.none;
+            previousStatus != to && to == GpsRecordingStatus.none;
         recordingStatus = to;
 
         notifyListeners();
 
-        await _syncInternalStateWithoutLock();
+        try {
+          await _syncInternalStateWithoutLock();
+        } catch (error, stackTrace) {
+          recordingStatus = previousStatus;
+          notifyListeners();
+          try {
+            await _syncInternalStateWithoutLock();
+          } catch (restoreError, restoreStackTrace) {
+            log.error(
+              '[GpsManager] failed to restore previous state: $restoreError',
+              restoreStackTrace,
+            );
+          }
+          Error.throwWithStackTrace(error, stackTrace);
+        }
         MMKVUtil.putBool(
           MMKVKey.isRecording,
           recordingStatus == GpsRecordingStatus.recording,
@@ -342,14 +368,30 @@ class GpsManager extends ChangeNotifier {
   }
 
   Future<bool> toggleMapTracking(bool enable) async {
+    await readyToStart();
     if (enable && !await PermissionService().checkLocationPermission()) {
       return false;
     }
 
     await _providerOperationMutex.protect(() async {
       await _m.protect(() async {
+        final previousMapTracking = mapTracking;
         mapTracking = enable;
-        await _syncInternalStateWithoutLock();
+        try {
+          await _syncInternalStateWithoutLock();
+        } catch (error, stackTrace) {
+          mapTracking = previousMapTracking;
+          notifyListeners();
+          try {
+            await _syncInternalStateWithoutLock();
+          } catch (restoreError, restoreStackTrace) {
+            log.error(
+              '[GpsManager] failed to restore map tracking: $restoreError',
+              restoreStackTrace,
+            );
+          }
+          Error.throwWithStackTrace(error, stackTrace);
+        }
       });
     });
     return true;
@@ -364,24 +406,43 @@ class GpsManager extends ChangeNotifier {
   );
 
   Future<void> readyToStart() {
-    return _readyFuture ??= _readyToStart();
+    final existing = _readyFuture;
+    if (existing != null) return existing;
+    final attempt = _readyToStart();
+    _readyFuture = attempt;
+    return attempt;
   }
 
   Future<void> _readyToStart() async {
     await _initialStateFuture;
-    await _providerOperationMutex.protect(() async {
-      await _m.protect(() async {
-        final meaningful = await _recordingCoordinator.recoverPending(
-          _locationService.recoverPendingDeliveries,
-          remainActive: recordingStatus == GpsRecordingStatus.recording,
-        );
-        if (meaningful && !_disposed) {
-          _recordingDataChangedController.add(null);
-        }
-        _fullyReady = true;
-        await _syncInternalStateWithoutLock();
+    try {
+      await _providerOperationMutex.protect(() async {
+        await _m.protect(() async {
+          final meaningful = await _recordingCoordinator.recoverPending(
+            _locationService.recoverPendingDeliveries,
+            remainActive: recordingStatus == GpsRecordingStatus.recording,
+          );
+          if (meaningful && !_disposed) {
+            _recordingDataChangedController.add(null);
+          }
+          _fullyReady = true;
+          await _syncInternalStateWithoutLock();
+        });
       });
-    });
+    } catch (error, stackTrace) {
+      await _m.protect(() async {
+        if (recordingStatus == GpsRecordingStatus.recording) {
+          recordingStatus = GpsRecordingStatus.paused;
+          MMKVUtil.putBool(MMKVKey.isRecording, false);
+          RecordingHealthService.instance.handleRecordingStatus(
+            recordingStatus,
+          );
+          notifyListeners();
+        }
+      });
+      _readyFuture = null;
+      Error.throwWithStackTrace(error, stackTrace);
+    }
   }
 
   @override
