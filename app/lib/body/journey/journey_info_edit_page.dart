@@ -25,6 +25,8 @@ class JourneyInfoEditPage extends StatefulWidget {
     this.journeyKind,
     this.importType,
     this.preprocessor,
+    this.popOnSave = true,
+    this.onSaved,
   });
 
   final DateTime? startTime;
@@ -36,6 +38,8 @@ class JourneyInfoEditPage extends StatefulWidget {
   final Function? previewData;
   final ImportType? importType;
   final import_api.ImportPreprocessor? preprocessor;
+  final bool popOnSave;
+  final VoidCallback? onSaved;
 
   @override
   State<JourneyInfoEditPage> createState() => _JourneyInfoEditPageState();
@@ -133,7 +137,11 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
       await widget.saveData(journeyInfo);
     }
     if (!context.mounted) return;
-    popCurrentRoute(context, true);
+    if (widget.popOnSave) {
+      popCurrentRoute(context, true);
+    } else {
+      widget.onSaved?.call();
+    }
   }
 
   @override
