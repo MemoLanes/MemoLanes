@@ -39,6 +39,35 @@ pub struct Txn<'a> {
     pub action: Option<Action>,
 }
 
+pub struct PreparedOngoingJourney {
+    pub journey_date: NaiveDate,
+    pub start: Option<DateTime<Utc>>,
+    pub end: Option<DateTime<Utc>>,
+    pub journey_data: JourneyData,
+    pub postprocessor_algo: Option<String>,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum FinalizeJourneyResult {
+    #[default]
+    Noop,
+    Discarded,
+    Saved,
+}
+
+impl FinalizeJourneyResult {
+    pub fn journey_saved(self) -> bool {
+        matches!(self, FinalizeJourneyResult::Saved)
+    }
+
+    pub fn ongoing_cleared(self) -> bool {
+        matches!(
+            self,
+            FinalizeJourneyResult::Discarded | FinalizeJourneyResult::Saved
+        )
+    }
+}
+
 #[derive(PartialEq, Debug, Clone)]
 pub enum Action {
     /// `MergeOne` is aimed to optimize the most common case: end the current ongoing journey and update the internal state.
@@ -253,6 +282,30 @@ impl Txn<'_> {
             JourneyData::Bitmap(bitmap) => (JourneyData::Bitmap(bitmap), None),
         };
 
+        self.create_and_insert_prepared_journey(
+            journey_date,
+            start,
+            end,
+            created_at,
+            journey_kind,
+            note,
+            journey_data,
+            postprocessor_algo,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn create_and_insert_prepared_journey(
+        &mut self,
+        journey_date: NaiveDate,
+        start: Option<DateTime<Utc>>,
+        end: Option<DateTime<Utc>>,
+        created_at: Option<DateTime<Utc>>,
+        journey_kind: JourneyKind,
+        note: Option<String>,
+        journey_data: JourneyData,
+        postprocessor_algo: Option<String>,
+    ) -> Result<String> {
         let id = Uuid::new_v4().as_hyphenated().to_string();
         let journey_type = journey_data.type_();
         // create new journey
@@ -381,39 +434,96 @@ impl Txn<'_> {
     }
 
     #[auto_context]
-    pub fn finalize_ongoing_journey(&mut self) -> Result<bool> {
+    fn prepare_ongoing_journey_for_finalize(&self) -> Result<Option<PreparedOngoingJourney>> {
         let mut journey_date_picker = JourneyDatePicker::new();
-        let new_journey_added = match self.get_ongoing_journey(Some(&mut journey_date_picker))? {
-            None => false,
-            Some(journey_vector) => {
-                // TODO: allow user to set this when recording?
-                let journey_kind = JourneyKind::DefaultKind;
+        let Some(journey_vector) = self.get_ongoing_journey(Some(&mut journey_date_picker))? else {
+            return Ok(None);
+        };
 
-                self.create_and_insert_journey(
-                    // In practice, `end` could never be none but just in case ...
-                    // TODO: Maybe we want better journey date strategy
-                    journey_date_picker
-                        .pick_journey_date()
-                        .unwrap_or_else(|| Local::now().date_naive()),
-                    journey_date_picker.min_time(),
-                    journey_date_picker.max_time(),
+        Ok(Some(PreparedOngoingJourney {
+            // In practice, `end` could never be none but just in case ...
+            // TODO: Maybe we want better journey date strategy
+            journey_date: journey_date_picker
+                .pick_journey_date()
+                .unwrap_or_else(|| Local::now().date_naive()),
+            start: journey_date_picker.min_time(),
+            end: journey_date_picker.max_time(),
+            journey_data: JourneyData::Vector(GpsPostprocessor::process(journey_vector)),
+            postprocessor_algo: Some(GpsPostprocessor::current_algo()),
+        }))
+    }
+
+    #[auto_context]
+    fn finish_ongoing_journey_finalize(
+        &mut self,
+        prepared: Option<PreparedOngoingJourney>,
+        discard: bool,
+    ) -> Result<FinalizeJourneyResult> {
+        debug_assert!(!discard || prepared.is_some());
+        let had_prepared_journey = prepared.is_some();
+
+        let journey_saved = match prepared {
+            Some(prepared) if !discard => {
+                // TODO: allow user to set this when recording?
+                self.create_and_insert_prepared_journey(
+                    prepared.journey_date,
+                    prepared.start,
+                    prepared.end,
                     None,
-                    journey_kind,
+                    JourneyKind::DefaultKind,
                     None,
-                    JourneyData::Vector(journey_vector),
+                    prepared.journey_data,
+                    prepared.postprocessor_algo,
                 )?;
                 true
             }
+            _ => false,
         };
 
-        self.db_txn.execute("DELETE FROM ongoing_journey;", ())?;
+        let ongoing_cleared = self.db_txn.execute("DELETE FROM ongoing_journey;", ())? > 0;
         self.db_txn.execute(
             "DELETE FROM sqlite_sequence WHERE name='ongoing_journey';",
             (),
         )?;
 
-        info!("Ongoing journey finalized: new_journey_added={new_journey_added}");
-        Ok(new_journey_added)
+        ensure!(
+            !had_prepared_journey || ongoing_cleared,
+            "prepared an ongoing journey but cleared no ongoing rows"
+        );
+
+        info!(
+            "Ongoing journey finalized: journey_saved={journey_saved}, ongoing_cleared={ongoing_cleared}, discarded={discard}"
+        );
+        Ok(if journey_saved {
+            FinalizeJourneyResult::Saved
+        } else if ongoing_cleared {
+            FinalizeJourneyResult::Discarded
+        } else {
+            FinalizeJourneyResult::Noop
+        })
+    }
+
+    #[auto_context]
+    pub(crate) fn finalize_ongoing_journey_with<F>(
+        &mut self,
+        should_discard: F,
+    ) -> Result<FinalizeJourneyResult>
+    where
+        F: FnOnce(&Txn, &PreparedOngoingJourney) -> Result<bool>,
+    {
+        let prepared = self.prepare_ongoing_journey_for_finalize()?;
+        let discard = match prepared.as_ref() {
+            Some(prepared) => should_discard(self, prepared)?,
+            None => false,
+        };
+        self.finish_ongoing_journey_finalize(prepared, discard)
+    }
+
+    #[auto_context]
+    pub fn finalize_ongoing_journey(&mut self) -> Result<bool> {
+        Ok(self
+            .finalize_ongoing_journey_with(|_, _| Ok(false))?
+            .journey_saved())
     }
 
     // TODO: we should consider disallow unbounded queries. Keeping all
@@ -615,7 +725,7 @@ impl Txn<'_> {
 
     // TODO: consider moving this to `storage.rs`
     #[auto_context]
-    pub fn try_auto_finalize_journey(&mut self) -> Result<bool> {
+    pub fn should_auto_finalize_journey(&self) -> Result<bool> {
         match self.get_ongoing_journey_timestamp_range()? {
             None => Ok(false),
             Some((start, end)) => {
@@ -633,12 +743,17 @@ impl Txn<'_> {
                 info!(
                     "Auto finalize ongoing journey: recording_length_hours={recording_length_hours}, gap_mins={gap_mins}, required_gap_mins={required_gap_mins}, try_finalize={try_finalize}"
                 );
-                if try_finalize {
-                    self.finalize_ongoing_journey()
-                } else {
-                    Ok(false)
-                }
+                Ok(try_finalize)
             }
+        }
+    }
+
+    #[auto_context]
+    pub fn try_auto_finalize_journey(&mut self) -> Result<bool> {
+        if self.should_auto_finalize_journey()? {
+            self.finalize_ongoing_journey()
+        } else {
+            Ok(false)
         }
     }
 
