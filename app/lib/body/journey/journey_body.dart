@@ -179,7 +179,7 @@ class _JourneyBodyState extends State<JourneyBody> {
     final firstDate = _controller.firstDate;
     if (firstDate == null) {
       return Padding(
-        padding: const EdgeInsets.fromLTRB(20, 28, 20, 140),
+        padding: const EdgeInsets.fromLTRB(8, 16, 8, 140),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -197,12 +197,12 @@ class _JourneyBodyState extends State<JourneyBody> {
     }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 22, 16, 0),
+      padding: const EdgeInsets.fromLTRB(8, 16, 8, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const _JourneyPageHeader(),
-          const SizedBox(height: 18),
+          const SizedBox(height: 20),
           _CalendarSurface(
             child: JourneyListCalendar(
               controller: _controller,
@@ -255,6 +255,8 @@ class _JourneyPageHeader extends StatelessWidget {
           context.tr('journey.editor_overview_title'),
           style: AppTypography.pageTitle.copyWith(
             color: StyleConstants.inkColor,
+            fontWeight: FontWeight.w700,
+            height: 1,
           ),
         ),
       ],

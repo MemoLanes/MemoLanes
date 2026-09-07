@@ -18,13 +18,11 @@ import 'package:pointer_interceptor/pointer_interceptor.dart';
 class JourneyListCalendar extends StatefulWidget {
   final JourneyListController controller;
   final SimpleDate firstDate;
-  final bool compact;
 
   const JourneyListCalendar({
     super.key,
     required this.controller,
     required this.firstDate,
-    this.compact = false,
   });
 
   @override
@@ -32,6 +30,8 @@ class JourneyListCalendar extends StatefulWidget {
 }
 
 class _JourneyListCalendarState extends State<JourneyListCalendar> {
+  static const _compactWidthBreakpoint = 360.0;
+
   late final DateTime _initialSelectedDate;
   CalendarDatePicker2Mode _calendarViewMode = CalendarDatePicker2Mode.day;
   int _calendarPickerRevision = 0;
@@ -57,8 +57,16 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
 
   @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) => _buildCalendar(
+        context,
+        compact: constraints.maxWidth < _compactWidthBreakpoint,
+      ),
+    );
+  }
+
+  Widget _buildCalendar(BuildContext context, {required bool compact}) {
     final controller = widget.controller;
-    final compact = widget.compact;
     final controlsTextStyle =
         (compact ? AppTypography.sectionLabel : AppTypography.cardTitle)
             .copyWith(color: StyleConstants.deepGreen);
@@ -93,7 +101,7 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
             color: StyleConstants.mutedInkColor,
           ),
       controlsTextStyle: controlsTextStyle,
-      modePickersGap: 8,
+      modePickersGap: compact ? 4 : 8,
       modePickerBuilder:
           ({required viewMode, required monthDate, isMonthPicker}) {
             final occupiesPackageMonthSlot = isMonthPicker == true;
@@ -108,7 +116,8 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
               },
               trailing: occupiesPackageMonthSlot
                   ? null
-                  : _buildFilterButton(context),
+                  : _buildFilterButton(context, compact: compact),
+              trailingGap: compact ? 4 : 8,
             );
           },
       selectableYearPredicate: (year) =>
@@ -243,7 +252,7 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
     );
   }
 
-  Widget _buildFilterButton(BuildContext context) {
+  Widget _buildFilterButton(BuildContext context, {required bool compact}) {
     final controller = widget.controller;
     final label = _filterLabel(context);
     return CustomPopup(
@@ -264,19 +273,26 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
       ),
       child: PointerInterceptor(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 2 : 4,
+            vertical: compact ? 6 : 8,
+          ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 label,
                 style:
-                    (widget.compact
+                    (compact
                             ? AppTypography.sectionLabel
                             : AppTypography.cardTitle)
                         .copyWith(color: StyleConstants.deepGreen),
               ),
-              Icon(Icons.arrow_drop_down, color: StyleConstants.deepGreen),
+              Icon(
+                Icons.arrow_drop_down,
+                color: StyleConstants.deepGreen,
+                size: compact ? 20 : null,
+              ),
             ],
           ),
         ),
