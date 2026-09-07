@@ -421,31 +421,31 @@ pub fn get_map_renderer_proxy_for_journey_data(
     get_map_renderer_proxy_for_journey_data_internal(journey_data)
 }
 
-// Return `true` if this update contains meaningful data.
-// Meaningful data means it is not ignored by the gps preprocessor.
-pub fn on_location_update(raw_data: gps_processor::RawData, received_timestamp_ms: i64) -> bool {
-    let state = get();
-    // NOTE: On Android, we might received a batch of location updates that are out of order.
-    // Not very sure why yet.
+pub struct LocationUpdate {
+    pub raw_data: gps_processor::RawData,
+    pub received_timestamp_ms: i64,
+}
 
-    // we need handle a batch in one go so we hold the lock for the whole time
-    let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
-    let mut main_map_state = state.main_map_state.lock().unwrap();
-
+fn process_location_update(
+    state: &MainState,
+    gps_preprocessor: &mut GpsPreprocessor,
+    raw_data: &gps_processor::RawData,
+    received_timestamp_ms: i64,
+) -> bool {
     let last_point = gps_preprocessor.last_kept_point();
-    let process_result = gps_preprocessor.preprocess(&raw_data);
-    if !main_map_state.dropped_for_power_saving && main_map_state.layer_filter.current_journey {
-        let line_to_add = match process_result {
-            ProcessResult::Ignore => None,
-            ProcessResult::NewSegment => Some((&raw_data.point, &raw_data.point)),
-            ProcessResult::Append => {
-                let start = last_point.as_ref().unwrap_or(&raw_data.point);
-                Some((start, &raw_data.point))
-            }
-        };
-        match line_to_add {
-            None => (),
-            Some((start, end)) => {
+    let process_result = gps_preprocessor.preprocess(raw_data);
+    {
+        let mut main_map_state = state.main_map_state.lock().unwrap();
+        if !main_map_state.dropped_for_power_saving && main_map_state.layer_filter.current_journey {
+            let line_to_add = match process_result {
+                ProcessResult::Ignore => None,
+                ProcessResult::NewSegment => Some((&raw_data.point, &raw_data.point)),
+                ProcessResult::Append => {
+                    let start = last_point.as_ref().unwrap_or(&raw_data.point);
+                    Some((start, &raw_data.point))
+                }
+            };
+            if let Some((start, end)) = line_to_add {
                 main_map_state.map_renderer.update(
                     |journey_bitmap: &mut crate::journey_bitmap::JourneyBitmap, tile_changed| {
                         journey_bitmap.add_line_with_change_callback(
@@ -458,21 +458,53 @@ pub fn on_location_update(raw_data: gps_processor::RawData, received_timestamp_m
                     },
                 );
             }
-        };
-    };
-
-    // Tile-range generation uses the same mutex. Release it before the storage
-    // write so persistence does not extend renderer lock hold time.
-    drop(main_map_state);
+        }
+    }
 
     state
         .storage
-        .record_gps_data(&raw_data, process_result, received_timestamp_ms);
+        .record_gps_data(raw_data, process_result, received_timestamp_ms);
 
     match process_result {
         ProcessResult::Ignore => false,
         ProcessResult::Append | ProcessResult::NewSegment => true,
     }
+}
+
+// Return `true` if this update contains meaningful data.
+// Meaningful data means it is not ignored by the gps preprocessor.
+pub fn on_location_update(raw_data: gps_processor::RawData, received_timestamp_ms: i64) -> bool {
+    let state = get();
+    let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
+    process_location_update(
+        state,
+        &mut gps_preprocessor,
+        &raw_data,
+        received_timestamp_ms,
+    )
+}
+
+/// Processes an ordered batch while holding the stateful GPS preprocessor lock
+/// across the entire batch.
+///
+/// Returns `true` when at least one update contains meaningful data. A `false`
+/// result is still a successful write and must not be treated as a failed
+/// durable-queue acknowledgement.
+pub fn on_location_updates(updates: Vec<LocationUpdate>) -> bool {
+    let state = get();
+    let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
+    let mut meaningful = false;
+    for update in updates {
+        if process_location_update(
+            state,
+            &mut gps_preprocessor,
+            &update.raw_data,
+            update.received_timestamp_ms,
+        ) {
+            meaningful = true;
+        }
+    }
+    meaningful
 }
 
 pub fn list_all_raw_data() -> Result<Vec<RawDataFile>> {
