@@ -1,5 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/component/app_button.dart';
+import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/constants/style_constants.dart';
 
 enum JourneyListEmptyType { all, filtered, month }
@@ -8,12 +10,14 @@ class JourneyListEmptyState extends StatelessWidget {
   final JourneyListEmptyType type;
   final bool topAligned;
   final VoidCallback? onShowAll;
+  final bool compact;
 
   const JourneyListEmptyState({
     super.key,
     required this.type,
     this.topAligned = false,
     this.onShowAll,
+    this.compact = false,
   });
 
   @override
@@ -39,16 +43,21 @@ class JourneyListEmptyState extends StatelessWidget {
     return Align(
       alignment: topAligned ? Alignment.topCenter : Alignment.center,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(24, topAligned ? 24 : 32, 24, 24),
+        padding: EdgeInsets.fromLTRB(
+          compact ? 8 : 24,
+          topAligned ? (compact ? 10 : 24) : 32,
+          compact ? 8 : 24,
+          compact ? 12 : 24,
+        ),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 320),
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(compact ? 18 : 24),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
+              color: StyleConstants.surfaceColor,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              border: Border.all(color: StyleConstants.lineColor),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -57,48 +66,36 @@ class JourneyListEmptyState extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: StyleConstants.defaultColor.withValues(alpha: 0.14),
+                    color: StyleConstants.softYellow,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
-                    icon,
-                    color: StyleConstants.defaultColor,
-                    size: 25,
-                  ),
+                  child: Icon(icon, color: StyleConstants.deepYellow, size: 25),
                 ),
                 const SizedBox(height: 14),
                 Text(
                   context.tr(titleKey),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                  style: AppTypography.subpageTitle.copyWith(
+                    color: StyleConstants.inkColor,
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   context.tr(descriptionKey),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white60, height: 1.45),
+                  style: AppTypography.supporting.copyWith(
+                    color: StyleConstants.mutedInkColor,
+                  ),
                 ),
                 if (onShowAll != null) ...[
                   const SizedBox(height: 12),
-                  FilledButton.icon(
+                  AppButton(
                     onPressed: onShowAll,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: StyleConstants.defaultColor,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    icon: const Icon(Icons.layers_outlined, size: 18),
-                    label: Text(context.tr('journey.list.show_all_layers')),
+                    icon: Icons.layers_outlined,
+                    size: compact
+                        ? AppButtonSize.compact
+                        : AppButtonSize.regular,
+                    label: context.tr('journey.list.show_all_layers'),
                   ),
                 ],
               ],

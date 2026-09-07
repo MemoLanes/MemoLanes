@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/time_machine/time_machine_glass_surface.dart';
 import 'package:memolanes/common/app_haptics.dart';
+import 'package:memolanes/common/component/app_date_picker_dialog.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/constants/style_constants.dart';
@@ -856,11 +857,12 @@ class TimeRangeOverlayPicker extends StatelessWidget {
     var safeInitial = initial;
     if (safeInitial.isBefore(first)) safeInitial = first;
     if (safeInitial.isAfter(last)) safeInitial = last;
-    final picked = await showDatePicker(
-      context: context,
+    final picked = await showAppDatePickerDialog(
+      context,
       initialDate: safeInitial,
       firstDate: first,
       lastDate: last,
+      highlightInitialDate: true,
     );
     if (picked != null) onChanged(picked);
   }
