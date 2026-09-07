@@ -39,26 +39,6 @@ pub struct Txn<'a> {
     pub action: Option<Action>,
 }
 
-pub struct OngoingJourneyRecord<'a> {
-    pub raw_data: &'a gps_processor::RawData,
-    pub process_result: ProcessResult,
-    pub received_timestamp_ms: i64,
-}
-
-pub struct DurableBatchMetadata<'a> {
-    pub provider_id: &'a str,
-    pub stream_id: &'a str,
-    pub first_sequence: i64,
-    pub last_sequence: i64,
-    pub payload_fingerprint: &'a str,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum RecordLocationBatchResult {
-    Applied,
-    Duplicate,
-}
-
 #[derive(PartialEq, Debug, Clone)]
 pub enum Action {
     /// `MergeOne` is aimed to optimize the most common case: end the current ongoing journey and update the internal state.
@@ -79,109 +59,6 @@ fn generate_random_revision() -> String {
 // NOTE: the `Txn` here is not only for making operation atomic, the `storage`
 // will also use this to make sure the `cache_db` is in sync.
 impl Txn<'_> {
-    #[auto_context]
-    pub fn record_location_batch(
-        &mut self,
-        records: &[OngoingJourneyRecord<'_>],
-        durable: Option<&DurableBatchMetadata<'_>>,
-    ) -> Result<RecordLocationBatchResult> {
-        if let Some(durable) = durable {
-            if durable.provider_id.is_empty() || durable.stream_id.is_empty() {
-                bail!("durable cursor provider_id and stream_id must not be empty");
-            }
-            if durable.first_sequence <= 0 || durable.last_sequence < durable.first_sequence {
-                bail!("invalid durable cursor sequence range");
-            }
-            let sequence_count = durable.last_sequence - durable.first_sequence + 1;
-            if usize::try_from(sequence_count).ok() != Some(records.len()) {
-                bail!("durable cursor range must match the payload length");
-            }
-
-            let mut statement = self.db_txn.prepare_cached(
-                "SELECT last_sequence, batch_first_sequence, payload_fingerprint
-                 FROM location_delivery_watermark
-                 WHERE provider_id = ?1 AND stream_id = ?2",
-            )?;
-            let mut rows = statement.query((durable.provider_id, durable.stream_id))?;
-            let watermark = match rows.next()? {
-                Some(row) => Some((
-                    row.get::<_, i64>(0)?,
-                    row.get::<_, i64>(1)?,
-                    row.get::<_, String>(2)?,
-                )),
-                None => None,
-            };
-            drop(rows);
-            drop(statement);
-
-            match watermark {
-                None if durable.first_sequence != 1 => {
-                    bail!("durable cursor starts with a gap; expected sequence 1")
-                }
-                None => {}
-                Some((last_sequence, batch_first_sequence, fingerprint))
-                    if durable.first_sequence == batch_first_sequence
-                        && durable.last_sequence == last_sequence =>
-                {
-                    if fingerprint != durable.payload_fingerprint {
-                        bail!("durable cursor was retried with a mismatched payload");
-                    }
-                    return Ok(RecordLocationBatchResult::Duplicate);
-                }
-                Some((last_sequence, _, _)) if durable.first_sequence <= last_sequence => {
-                    bail!("durable cursor is stale or overlaps committed data")
-                }
-                Some((last_sequence, _, _)) if durable.first_sequence != last_sequence + 1 => {
-                    bail!(
-                        "durable cursor contains a gap; expected sequence {}",
-                        last_sequence + 1
-                    )
-                }
-                Some(_) => {}
-            }
-        }
-
-        let sql = "INSERT INTO ongoing_journey
-            (timestamp_sec, lat, lng, process_result) VALUES (?1, ?2, ?3, ?4)";
-        let mut insert = self.db_txn.prepare_cached(sql)?;
-        for record in records {
-            if record.process_result == ProcessResult::Ignore {
-                continue;
-            }
-            insert.execute((
-                record
-                    .raw_data
-                    .timestamp_ms
-                    .map(|timestamp| timestamp / 1000),
-                record.raw_data.point.latitude,
-                record.raw_data.point.longitude,
-                record.process_result.to_int(),
-            ))?;
-        }
-        drop(insert);
-
-        if let Some(durable) = durable {
-            self.db_txn.execute(
-                "INSERT INTO location_delivery_watermark
-                    (provider_id, stream_id, last_sequence, batch_first_sequence, payload_fingerprint)
-                 VALUES (?1, ?2, ?3, ?4, ?5)
-                 ON CONFLICT(provider_id, stream_id) DO UPDATE SET
-                    last_sequence = excluded.last_sequence,
-                    batch_first_sequence = excluded.batch_first_sequence,
-                    payload_fingerprint = excluded.payload_fingerprint",
-                (
-                    durable.provider_id,
-                    durable.stream_id,
-                    durable.last_sequence,
-                    durable.first_sequence,
-                    durable.payload_fingerprint,
-                ),
-            )?;
-        }
-
-        Ok(RecordLocationBatchResult::Applied)
-    }
-
     fn set_invalidate_action(&mut self, new_entries: Vec<CacheEntry>) -> Result<()> {
         self.action = Some(match self.action.take() {
             Some(Action::CompleteRebuilt) => Action::CompleteRebuilt,
@@ -902,27 +779,10 @@ fn migrate_to_2_0(tx: &Transaction) -> Result<()> {
     Ok(())
 }
 
-fn migrate_to_2_1(tx: &Transaction) -> Result<()> {
-    tx.execute(
-        "CREATE TABLE location_delivery_watermark (
-            provider_id          TEXT    NOT NULL,
-            stream_id            TEXT    NOT NULL,
-            last_sequence        INTEGER NOT NULL,
-            batch_first_sequence INTEGER NOT NULL,
-            payload_fingerprint  TEXT    NOT NULL,
-            PRIMARY KEY (provider_id, stream_id)
-        )",
-        (),
-    )?;
-    Ok(())
-}
-
-fn migrations() -> [utils::db::Migration<'static>; 3] {
+fn migrations() -> [utils::db::Migration<'static>; 2] {
     [
         utils::db::Migration::new(1, 0, &migrate_to_1_0),
         utils::db::Migration::new(2, 0, &migrate_to_2_0),
-        // Additive so older 2.x readers remain compatible with main.db.
-        utils::db::Migration::new(2, 1, &migrate_to_2_1),
     ]
 }
 
@@ -938,7 +798,7 @@ mod migration_tests {
     }
 
     #[test]
-    fn migrations_backfill_journey_kind_and_add_delivery_watermark() -> Result<()> {
+    fn migrate_to_2_0_backfills_journey_kind_and_creates_composite_index() -> Result<()> {
         let mut connection = Connection::open_in_memory()?;
         let tx = connection.transaction()?;
         utils::db::run_migrations(
@@ -974,7 +834,7 @@ mod migration_tests {
 
         assert_eq!(
             utils::db::run_migrations(&tx, "main.db", &migrations())?,
-            utils::db::SchemaVersion::new(2, 1)
+            utils::db::SchemaVersion::new(2, 0)
         );
 
         let journey_kind: i8 = tx.query_row(
@@ -996,42 +856,6 @@ mod migration_tests {
                 |_| Ok(()),
             )
             .is_ok());
-        assert!(tx
-            .query_row(
-                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'location_delivery_watermark'",
-                (),
-                |_| Ok(()),
-            )
-            .is_ok());
-        Ok(())
-    }
-
-    #[test]
-    fn migrate_from_2_0_to_2_1_preserves_existing_journey_rows() -> Result<()> {
-        let mut connection = Connection::open_in_memory()?;
-        let tx = connection.transaction()?;
-        utils::db::run_migrations(&tx, "main.db", &migrations()[..2])?;
-        tx.execute(
-            "INSERT INTO ongoing_journey
-             (timestamp_sec, lat, lng, process_result) VALUES (1, 2.0, 3.0, 1)",
-            (),
-        )?;
-
-        assert_eq!(
-            utils::db::run_migrations(&tx, "main.db", &migrations())?,
-            utils::db::SchemaVersion::new(2, 1)
-        );
-        let count: i64 =
-            tx.query_row("SELECT COUNT(*) FROM ongoing_journey", (), |row| row.get(0))?;
-        assert_eq!(count, 1);
-        assert!(tx
-            .query_row(
-                "SELECT 1 FROM location_delivery_watermark LIMIT 1",
-                (),
-                |_| Ok(()),
-            )
-            .optional()?
-            .is_none());
         Ok(())
     }
 }

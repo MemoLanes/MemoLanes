@@ -38,50 +38,15 @@ class LocationProviderInfo {
   int get hashCode => id.hashCode;
 }
 
-/// A monotonic stable-prefix cursor owned by a durable provider.
-///
-/// Sequences start at one and are contiguous within one [providerId]/[streamId]
-/// pair. A provider must retry the exact same payload with the exact same
-/// cursor until it is acknowledged, then advance to the next contiguous range.
-@immutable
-class DurableDeliveryCursor {
-  const DurableDeliveryCursor({
-    required this.providerId,
-    required this.streamId,
-    required this.firstSequence,
-    required this.lastSequence,
-  }) : assert(providerId != ''),
-       assert(streamId != ''),
-       assert(firstSequence > 0),
-       assert(lastSequence >= firstSequence);
-
-  final String providerId;
-  final String streamId;
-  final int firstSequence;
-  final int lastSequence;
-}
-
-@immutable
-class LocationRecordingBatch {
-  const LocationRecordingBatch({
-    required this.locations,
-    required this.isReplay,
-    this.durableCursor,
-  });
-
-  final List<LocationData> locations;
-  final bool isReplay;
-  final DurableDeliveryCursor? durableCursor;
-}
-
 /// Delivers a recording batch to the application-owned recording pipeline.
 ///
 /// A normally completed future acknowledges the whole batch, even when the
 /// GPS preprocessor ignores every point. A thrown error means the batch was
 /// not acknowledged; durable providers must retain it for a later retry.
 typedef LocationBatchConsumer = Future<void> Function(
-  LocationRecordingBatch batch,
-);
+  List<LocationData> locations, {
+  required bool isReplay,
+});
 
 class LocationStartOptions {
   const LocationStartOptions({

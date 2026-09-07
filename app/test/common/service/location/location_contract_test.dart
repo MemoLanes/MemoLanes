@@ -93,28 +93,4 @@ void main() {
     await provider.dispose();
     expect(provider.disposed, isTrue);
   });
-
-  test('durable cursor describes a contiguous stable-prefix batch', () {
-    const cursor = DurableDeliveryCursor(
-      providerId: 'test-provider',
-      streamId: 'recording-1',
-      firstSequence: 4,
-      lastSequence: 6,
-    );
-    const batch = LocationRecordingBatch(
-      locations: [
-        LocationData(latitude: 1, longitude: 2, accuracy: 3, timestampMs: 4),
-        LocationData(latitude: 2, longitude: 3, accuracy: 4, timestampMs: 5),
-        LocationData(latitude: 3, longitude: 4, accuracy: 5, timestampMs: 6),
-      ],
-      isReplay: true,
-      durableCursor: cursor,
-    );
-
-    expect(batch.durableCursor?.providerId, 'test-provider');
-    expect(batch.durableCursor?.streamId, 'recording-1');
-    expect(batch.durableCursor?.firstSequence, 4);
-    expect(batch.durableCursor?.lastSequence, 6);
-    expect(batch.isReplay, isTrue);
-  });
 }

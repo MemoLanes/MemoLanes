@@ -6,9 +6,7 @@ use crate::gps_processor::{self, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_header::JourneyKind;
 use crate::journey_snapshot::JourneySnapshot;
-use crate::main_db::{
-    self, Action, DurableBatchMetadata, MainDb, OngoingJourneyRecord, RecordLocationBatchResult,
-};
+use crate::main_db::{self, Action, MainDb};
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
 use chrono::{Local, NaiveDate};
@@ -286,28 +284,6 @@ impl Storage {
 
         let main_db = &mut self.dbs.lock().unwrap().main_db;
         main_db.record(raw_data, process_result).unwrap();
-    }
-
-    /// Atomically commits journey rows and the durable-delivery watermark.
-    ///
-    /// Raw CSV diagnostics are deliberately a separate post-commit operation:
-    /// those optional files cannot participate in SQLite atomicity.
-    pub fn record_location_batch(
-        &self,
-        records: &[OngoingJourneyRecord<'_>],
-        durable: Option<&DurableBatchMetadata<'_>>,
-    ) -> Result<RecordLocationBatchResult> {
-        self.with_db_txn(|txn| txn.record_location_batch(records, durable))
-    }
-
-    /// Non-transactional diagnostic side effect after journey state is durable.
-    pub fn record_raw_location_batch(&self, records: &[OngoingJourneyRecord<'_>]) {
-        let mut raw_data_recorder = self.raw_data_recorder.lock().unwrap();
-        if let Some(recorder) = raw_data_recorder.as_mut() {
-            for record in records {
-                recorder.record(record.raw_data, record.received_timestamp_ms);
-            }
-        }
     }
 
     pub fn list_all_raw_data(&self) -> Result<Vec<RawDataFile>> {

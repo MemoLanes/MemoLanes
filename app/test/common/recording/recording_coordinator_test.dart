@@ -11,16 +11,6 @@ LocationData _location(int timestampMs, {double latitude = 1}) => LocationData(
   timestampMs: timestampMs,
 );
 
-LocationRecordingBatch _batch(
-  List<LocationData> locations, {
-  required bool isReplay,
-  DurableDeliveryCursor? durableCursor,
-}) => LocationRecordingBatch(
-  locations: locations,
-  isReplay: isReplay,
-  durableCursor: durableCursor,
-);
-
 void main() {
   test('stably sorts a batch at the Rust-facing boundary', () async {
     final writes = <List<RecordingLocationUpdate>>[];
@@ -32,14 +22,12 @@ void main() {
     );
 
     await coordinator.start();
-    await coordinator.persistLocations(
-      _batch([
-        _location(30),
-        _location(10),
-        _location(20, latitude: 2),
-        _location(20, latitude: 3),
-      ], isReplay: true),
-    );
+    await coordinator.persistLocations([
+      _location(30),
+      _location(10),
+      _location(20, latitude: 2),
+      _location(20, latitude: 3),
+    ], isReplay: true);
 
     expect(writes.single.map((update) => update.location.timestampMs), [
       10,
@@ -63,49 +51,16 @@ void main() {
     final duplicate = _location(20);
 
     await coordinator.start();
-    await coordinator.persistLocations(
-      _batch([_location(10), duplicate], isReplay: false),
-    );
-    await coordinator.persistLocations(
-      _batch([duplicate, _location(30)], isReplay: true),
-    );
+    await coordinator.persistLocations([
+      _location(10),
+      duplicate,
+    ], isReplay: false);
+    await coordinator.persistLocations([
+      duplicate,
+      _location(30),
+    ], isReplay: true);
 
     expect(written, [10, 20, 30]);
-    await coordinator.dispose();
-  });
-
-  test('keeps the complete payload when a durable cursor is present', () async {
-    final writes = <List<int>>[];
-    final coordinator = RecordingCoordinator(
-      onLocationUpdates: (updates) async {
-        writes.add(
-          updates.map((update) => update.location.timestampMs).toList(),
-        );
-        return true;
-      },
-    );
-
-    await coordinator.start();
-    await coordinator.persistLocations(
-      _batch([_location(10)], isReplay: false),
-    );
-    await coordinator.persistLocations(
-      _batch(
-        [_location(10), _location(20)],
-        isReplay: true,
-        durableCursor: const DurableDeliveryCursor(
-          providerId: 'test-provider',
-          streamId: 'recording-1',
-          firstSequence: 1,
-          lastSequence: 2,
-        ),
-      ),
-    );
-
-    expect(writes, [
-      [10],
-      [10, 20],
-    ]);
     await coordinator.dispose();
   });
 
@@ -121,10 +76,10 @@ void main() {
 
     await coordinator.start();
     expect(
-      await coordinator.persistLocations(_batch([location], isReplay: true)),
+      await coordinator.persistLocations([location], isReplay: true),
       isFalse,
     );
-    await coordinator.persistLocations(_batch([location], isReplay: true));
+    await coordinator.persistLocations([location], isReplay: true);
 
     expect(writes, 1);
     await coordinator.dispose();
@@ -143,10 +98,10 @@ void main() {
 
     await coordinator.start();
     await expectLater(
-      coordinator.persistLocations(_batch([location], isReplay: true)),
+      coordinator.persistLocations([location], isReplay: true),
       throwsStateError,
     );
-    await coordinator.persistLocations(_batch([location], isReplay: true));
+    await coordinator.persistLocations([location], isReplay: true);
 
     expect(writes, 2);
     await coordinator.dispose();
@@ -168,9 +123,9 @@ void main() {
       );
 
       await coordinator.start();
-      final write = coordinator.persistLocations(
-        _batch([_location(10)], isReplay: false),
-      );
+      final write = coordinator.persistLocations([
+        _location(10),
+      ], isReplay: false);
       await firstStarted.future;
       var stopped = false;
       final stop = coordinator.stop().then((_) => stopped = true);
@@ -199,12 +154,10 @@ void main() {
     await coordinator.start();
     await coordinator.tryAutoFinalize();
     now = now.add(const Duration(minutes: 2));
-    await coordinator.persistLocations(_batch([_location(10)], isReplay: true));
+    await coordinator.persistLocations([_location(10)], isReplay: true);
     expect(finalizeCalls, 1);
 
-    await coordinator.persistLocations(
-      _batch([_location(20)], isReplay: false),
-    );
+    await coordinator.persistLocations([_location(20)], isReplay: false);
     expect(finalizeCalls, 2);
     await coordinator.dispose();
   });
@@ -226,9 +179,9 @@ void main() {
     );
 
     await coordinator.start();
-    final write = coordinator.persistLocations(
-      _batch([_location(10)], isReplay: false),
-    );
+    final write = coordinator.persistLocations([
+      _location(10),
+    ], isReplay: false);
     await writeStarted.future;
     final finalize = coordinator.tryAutoFinalize();
     await Future<void>.delayed(Duration.zero);
@@ -251,7 +204,7 @@ void main() {
     await coordinator.start();
     await coordinator.tryAutoFinalize().timeout(const Duration(seconds: 1));
     await expectLater(
-      coordinator.persistLocations(_batch([_location(10)], isReplay: false)),
+      coordinator.persistLocations([_location(10)], isReplay: false),
       throwsStateError,
     );
   });

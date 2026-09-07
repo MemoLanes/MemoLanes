@@ -55,32 +55,29 @@ class RecordingCoordinator {
   /// The input is stably ordered by provider timestamp. A `false` return still
   /// means the batch was persisted successfully; only a thrown error means a
   /// durable provider must retain its data for retry.
-  Future<bool> persistLocations(LocationRecordingBatch batch) async {
+  Future<bool> persistLocations(
+    List<LocationData> locations, {
+    required bool isReplay,
+  }) async {
     var finalized = false;
     final meaningful = await _operationMutex.protect(() async {
       if (!_recording) {
         throw StateError('Recording coordinator is not active');
       }
 
-      final ordered = sortLocationDataByTimestamp(batch.locations);
+      final ordered = sortLocationDataByTimestamp(locations);
       final updates = <RecordingLocationUpdate>[];
       final batchKeys = <String>{};
       for (final location in ordered) {
         final key = _locationKey(location);
-        // A durable cursor is the authoritative idempotency mechanism. Keep
-        // its complete immutable payload so Rust can validate retries.
-        if (batch.durableCursor == null &&
-            (_touchPersistedKey(key) || !batchKeys.add(key))) {
-          continue;
-        }
-        batchKeys.add(key);
+        if (_touchPersistedKey(key) || !batchKeys.add(key)) continue;
         updates.add((location: location, receivedAt: _now()));
       }
       if (updates.isEmpty) return false;
 
       final receivedAt = updates.first.receivedAt;
       final lastMeaningful = _lastMeaningfulLiveUpdate;
-      if (!batch.isReplay &&
+      if (!isReplay &&
           lastMeaningful != null &&
           receivedAt.difference(lastMeaningful).inSeconds >= 60) {
         finalized = await _tryFinalizeJourney();
@@ -90,34 +87,23 @@ class RecordingCoordinator {
 
       final locationUpdates = _onLocationUpdates;
       final meaningful = locationUpdates == null
-          ? (await api.onLocationRecordingBatch(
-              batch: api.LocationRecordingBatch(
-                updates: updates
-                    .map(
-                      (update) => api.LocationUpdate(
-                        rawData: _rawData(update.location),
-                        receivedTimestampMs:
-                            update.receivedAt.millisecondsSinceEpoch,
-                      ),
-                    )
-                    .toList(growable: false),
-                durableCursor: switch (batch.durableCursor) {
-                  null => null,
-                  final cursor => api.DurableDeliveryCursor(
-                    providerId: cursor.providerId,
-                    streamId: cursor.streamId,
-                    firstSequence: cursor.firstSequence,
-                    lastSequence: cursor.lastSequence,
-                  ),
-                },
-              ),
-            )).meaningful
+          ? await api.onLocationUpdates(
+              updates: updates
+                  .map(
+                    (update) => api.LocationUpdate(
+                      rawData: _rawData(update.location),
+                      receivedTimestampMs:
+                          update.receivedAt.millisecondsSinceEpoch,
+                    ),
+                  )
+                  .toList(growable: false),
+            )
           : await locationUpdates(updates);
 
       // Remember only after the write completed. A thrown write is not an
       // acknowledgement and must remain retryable by a durable provider.
       _rememberPersistedKeys(batchKeys);
-      if (!batch.isReplay && meaningful) {
+      if (!isReplay && meaningful) {
         _lastMeaningfulLiveUpdate = updates.last.receivedAt;
       }
       return meaningful;
