@@ -418,28 +418,34 @@ class GpsManager extends ChangeNotifier {
     try {
       await _providerOperationMutex.protect(() async {
         await _m.protect(() async {
-          final meaningful = await _recordingCoordinator.recoverPending(
-            _locationService.recoverPendingDeliveries,
-            remainActive: recordingStatus == GpsRecordingStatus.recording,
-          );
-          if (meaningful && !_disposed) {
-            _recordingDataChangedController.add(null);
+          try {
+            final meaningful = await _recordingCoordinator.recoverPending(
+              _locationService.recoverPendingDeliveries,
+              remainActive: recordingStatus == GpsRecordingStatus.recording,
+            );
+            if (meaningful && !_disposed) {
+              _recordingDataChangedController.add(null);
+            }
+            _fullyReady = true;
+            await _syncInternalStateWithoutLock();
+          } catch (_) {
+            // Settle startup state before releasing the provider mutex. An
+            // auto-finalize callback queued during recovery will then observe
+            // paused and can complete the paused-to-none transition.
+            _fullyReady = false;
+            if (recordingStatus == GpsRecordingStatus.recording) {
+              recordingStatus = GpsRecordingStatus.paused;
+              MMKVUtil.putBool(MMKVKey.isRecording, false);
+              RecordingHealthService.instance.handleRecordingStatus(
+                recordingStatus,
+              );
+              notifyListeners();
+            }
+            rethrow;
           }
-          _fullyReady = true;
-          await _syncInternalStateWithoutLock();
         });
       });
     } catch (error, stackTrace) {
-      await _m.protect(() async {
-        if (recordingStatus == GpsRecordingStatus.recording) {
-          recordingStatus = GpsRecordingStatus.paused;
-          MMKVUtil.putBool(MMKVKey.isRecording, false);
-          RecordingHealthService.instance.handleRecordingStatus(
-            recordingStatus,
-          );
-          notifyListeners();
-        }
-      });
       _readyFuture = null;
       Error.throwWithStackTrace(error, stackTrace);
     }
