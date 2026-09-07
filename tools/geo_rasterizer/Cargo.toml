@@ -23,7 +23,7 @@ geo-types = "=0.7.19"
 geojson = "=1.0.0"
 tempfile = "3"
 indicatif = "0.18"
-ureq = { version = "3.3", default-features = false, features = ["rustls"] }
+ureq = { version = "3.4", default-features = false, features = ["rustls"] }
 geo_data_format = { path = "../../app/rust/geo_data_format" }
 rayon = "1"
 

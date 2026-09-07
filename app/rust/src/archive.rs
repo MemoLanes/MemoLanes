@@ -386,7 +386,7 @@ pub fn export_all_journeys_as_mldx<T: Write + Seek>(
     writer: &mut T,
     section_version: SectionVersion,
 ) -> Result<()> {
-    let journey_headers = txn.query_journeys(None, None)?;
+    let journey_headers = txn.query_journeys(None, None, None)?;
     write_mldx(
         journey_headers,
         |journey_id| txn.get_journey_data(journey_id),

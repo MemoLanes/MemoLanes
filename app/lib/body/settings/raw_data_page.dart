@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:memolanes/common/component/basic_bottom_sheet.dart';
+import 'package:memolanes/common/component/app_button.dart';
+import 'package:memolanes/common/component/basic_dialog_card.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
@@ -23,9 +24,11 @@ class _RawDataSwitchState extends State<RawDataSwitch> {
   @override
   initState() {
     super.initState();
-    api.getRawDataMode().then((value) => setState(() {
-          enabled = value;
-        }));
+    api.getRawDataMode().then(
+      (value) => setState(() {
+        enabled = value;
+      }),
+    );
   }
 
   @override
@@ -75,7 +78,9 @@ class _RawDataPage extends State<RawDataPage> {
   void _showExportCard(BuildContext context, String filePath) {
     showBasicCard(
       context,
-      child: OptionCard(
+      builder: (_) => OptionCard(
+        useSafeArea: false,
+        embedded: true,
         children: [
           CardLabelTile(
             position: CardLabelTilePosition.top,
@@ -89,8 +94,9 @@ class _RawDataPage extends State<RawDataPage> {
             position: CardLabelTilePosition.bottom,
             label: context.tr("general.advanced_settings.raw_data_export_gpx"),
             onTap: () async {
-              final gpxPath =
-                  await api.exportRawDataGpxFile(csvFilepath: filePath);
+              final gpxPath = await api.exportRawDataGpxFile(
+                csvFilepath: filePath,
+              );
               if (!context.mounted) return;
               showCommonExport(context, gpxPath, deleteFile: true);
             },
@@ -125,12 +131,13 @@ class _RawDataPage extends State<RawDataPage> {
                   trailing: ElevatedButton(
                     onPressed: () async {
                       if (await showCommonDialog(
-                          context, context.tr("journey.delete_journey_message"),
-                          hasCancel: true,
-                          title: context.tr("journey.delete_journey_title"),
-                          confirmButtonText: context.tr("common.delete"),
-                          confirmGroundColor: Colors.red,
-                          confirmTextColor: Colors.white)) {
+                        context,
+                        context.tr("journey.delete_journey_message"),
+                        hasCancel: true,
+                        title: context.tr("journey.delete_journey_title"),
+                        confirmButtonText: context.tr("common.delete"),
+                        confirmVariant: AppButtonVariant.danger,
+                      )) {
                         await api.deleteRawDataFile(filename: item.name);
                         _loadList();
                       }

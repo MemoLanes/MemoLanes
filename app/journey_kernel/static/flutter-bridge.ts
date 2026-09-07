@@ -10,6 +10,7 @@
 
 import * as maplibregl from "maplibre-gl";
 import { MapController } from "./map-controller";
+import { LocationFollowController } from "./location-follow-controller";
 
 // Type definitions for Flutter message channels
 interface FlutterMessageChannel {
@@ -32,7 +33,6 @@ declare global {
     ) => void;
     getCurrentMapView?: () => string;
     refreshMapData?: () => Promise<boolean | null>;
-    setLowPowerMode?: (enabled: boolean) => void;
   }
 }
 
@@ -40,6 +40,7 @@ export class FlutterBridge {
   private mapController: MapController;
   private map: maplibregl.Map;
   private locationMarker: maplibregl.Marker;
+  private locationFollowController: LocationFollowController;
 
   constructor(mapController: MapController) {
     this.mapController = mapController;
@@ -53,6 +54,7 @@ export class FlutterBridge {
     this.locationMarker = new maplibregl.Marker({
       element: el,
     });
+    this.locationFollowController = new LocationFollowController(this.map);
   }
 
   /**
@@ -122,6 +124,7 @@ export class FlutterBridge {
   setupMapEventListeners(): void {
     // Notify Flutter when user drags the map
     this.map.on("dragstart", () => {
+      this.locationFollowController.cancel();
       this.notifyMapMoved();
     });
 
@@ -130,6 +133,7 @@ export class FlutterBridge {
       const fromUser =
         event.originalEvent && event.originalEvent.type !== "resize";
       if (fromUser) {
+        this.locationFollowController.cancel();
         this.notifyMapMoved();
       }
     });
@@ -145,36 +149,20 @@ export class FlutterBridge {
    */
   setupFlutterCallableMethods(): void {
     // Update location marker
-    window.updateLocationMarker = (() => {
-      let isFlying = false;
-      const onMoveEnd = () => {
-        isFlying = false;
-      };
-      this.map.on("moveend", onMoveEnd);
-      return (
-        lng: number,
-        lat: number,
-        show: boolean = true,
-        flyto: boolean = false,
-      ) => {
-        if (show) {
-          this.locationMarker.setLngLat([lng, lat]).addTo(this.map);
-
-          if (flyto && !isFlying) {
-            const currentZoom = this.map.getZoom();
-            isFlying = true;
-
-            this.map.flyTo({
-              center: [lng, lat],
-              zoom: currentZoom < 11 ? 16 : currentZoom,
-              essential: true,
-            });
-          }
-        } else {
-          this.locationMarker.remove();
-        }
-      };
-    })();
+    window.updateLocationMarker = (
+      lng: number,
+      lat: number,
+      show: boolean = true,
+      flyto: boolean = false,
+    ) => {
+      if (show) {
+        this.locationMarker.setLngLat([lng, lat]).addTo(this.map);
+        this.locationFollowController.update(lng, lat, flyto);
+      } else {
+        this.locationFollowController.cancel();
+        this.locationMarker.remove();
+      }
+    };
 
     // Get current map view
     window.getCurrentMapView = () => {
@@ -188,11 +176,6 @@ export class FlutterBridge {
 
     // Refresh map data - allows Flutter to trigger a data refresh
     window.refreshMapData = () => this.mapController.refreshMapData();
-
-    // Update low power mode status from Flutter
-    window.setLowPowerMode = (enabled: boolean) => {
-      this.mapController.getParams().lowPowerMode = enabled;
-    };
   }
 
   /**

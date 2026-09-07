@@ -1,9 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:memolanes/common/component/cards/line_painter.dart';
+import 'package:memolanes/common/component/app_dialog.dart';
+import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/constants/style_constants.dart';
 
-class SetupBottomSheet extends StatelessWidget {
-  const SetupBottomSheet({
+Future<T?> showSetupCard<T>(
+  BuildContext context, {
+  required WidgetBuilder builder,
+  bool barrierDismissible = true,
+  Color? barrierColor,
+}) {
+  return showAppDialog<T>(
+    context,
+    barrierDismissible: barrierDismissible,
+    barrierColor: barrierColor,
+    maxWidth: 440,
+    builder: builder,
+  );
+}
+
+class SetupDialogCard extends StatelessWidget {
+  const SetupDialogCard({
     super.key,
     required this.title,
     required this.child,
@@ -11,8 +27,10 @@ class SetupBottomSheet extends StatelessWidget {
     this.leading,
     this.showTitle = true,
     this.maxHeightFactor = 0.75,
-    this.contentPadding =
-        const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+    this.contentPadding = const EdgeInsets.symmetric(
+      horizontal: 20,
+      vertical: 4,
+    ),
   });
 
   final String title;
@@ -25,72 +43,32 @@ class SetupBottomSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * maxHeightFactor,
-      ),
-      decoration: const BoxDecoration(
-        color: Colors.black,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(16.0),
-          topRight: Radius.circular(16.0),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: Center(
-              child: CustomPaint(
-                size: const Size(40.0, 4.0),
-                painter: LinePainter(color: const Color(0xFFB5B5B5)),
-              ),
-            ),
-          ),
-          if (showTitle)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 0),
-              child: Row(
-                children: [
-                  leading ?? const SizedBox(width: 48),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(width: 48),
-                ],
-              ),
-            ),
-          Flexible(
-            child: SingleChildScrollView(
-              padding: contentPadding,
-              child: child,
-            ),
-          ),
-          if (actions.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-              child: Row(
-                children: [
-                  for (var i = 0; i < actions.length; i++) ...[
-                    if (i > 0) const SizedBox(width: 12),
-                    Expanded(child: actions[i]),
-                  ],
-                ],
-              ),
-            ),
-        ],
-      ),
+    return AppDialogCard(
+      title: title,
+      leading: leading,
+      showHeader: showTitle,
+      maxHeightFactor: maxHeightFactor,
+      contentPadding: contentPadding,
+      actions: actions.isEmpty
+          ? null
+          : AppDialogActions(spacing: 10, children: actions),
+      child: child,
     );
   }
+}
+
+@Deprecated('Use SetupDialogCard; UI v2 presents a centered dialog card.')
+class SetupBottomSheet extends SetupDialogCard {
+  const SetupBottomSheet({
+    super.key,
+    required super.title,
+    required super.child,
+    super.actions,
+    super.leading,
+    super.showTitle,
+    super.maxHeightFactor,
+    super.contentPadding,
+  });
 }
 
 class SetupTile extends StatelessWidget {
@@ -105,8 +83,10 @@ class SetupTile extends StatelessWidget {
     this.onTap,
     this.selected = false,
     this.minHeight,
-    this.contentPadding =
-        const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    this.contentPadding = const EdgeInsets.symmetric(
+      horizontal: 12,
+      vertical: 10,
+    ),
   });
 
   final IconData icon;
@@ -123,23 +103,36 @@ class SetupTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tile = Container(
-      constraints:
-          minHeight == null ? null : BoxConstraints(minHeight: minHeight!),
+      constraints: minHeight == null
+          ? null
+          : BoxConstraints(minHeight: minHeight!),
       padding: contentPadding,
       decoration: BoxDecoration(
-        color: const Color(0x1AFFFFFF),
-        borderRadius: BorderRadius.circular(10),
-        border: selected
-            ? Border.all(color: StyleConstants.defaultColor)
-            : Border.all(color: Colors.transparent),
+        color: selected
+            ? StyleConstants.softGreen.withValues(alpha: 0.82)
+            : StyleConstants.surfaceColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: selected
+              ? StyleConstants.primaryGreen
+              : StyleConstants.lineColor,
+          width: selected ? 1.4 : 1,
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(
-            icon,
-            color: StyleConstants.defaultColor,
-            size: 22,
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: selected
+                  ? StyleConstants.primaryGreen.withValues(alpha: 0.32)
+                  : StyleConstants.softGreen,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: Icon(icon, color: StyleConstants.deepGreen, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -153,10 +146,8 @@ class SetupTile extends StatelessWidget {
                     Flexible(
                       child: Text(
                         title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
+                        style: AppTypography.cardTitle.copyWith(
+                          color: StyleConstants.inkColor,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -173,17 +164,16 @@ class SetupTile extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
                       subtitle!,
-                      style: const TextStyle(
-                        color: Color(0xFFB0B0B0),
-                        fontSize: 12,
+                      style: AppTypography.caption.copyWith(
+                        color: StyleConstants.mutedInkColor,
                       ),
                     ),
                   ),
-                if (extraContent != null) extraContent!,
+                ?extraContent,
               ],
             ),
           ),
-          if (trailing != null) trailing!,
+          ?trailing,
         ],
       ),
     );
@@ -192,7 +182,7 @@ class SetupTile extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 10),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
         child: tile,
       ),
     );

@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:memolanes/constants/style_constants.dart';
 
 enum PopupPosition { auto, top, bottom, left, right }
 
@@ -114,14 +115,25 @@ class _PopupContent extends StatelessWidget {
       key: childKey,
       padding: contentPadding,
       constraints: const BoxConstraints(minWidth: 50),
-      decoration: contentDecoration ??
+      decoration:
+          contentDecoration ??
           BoxDecoration(
-            color: backgroundColor ?? Colors.black,
-            borderRadius: BorderRadius.circular(contentRadius ?? 10),
+            color: backgroundColor ?? StyleConstants.canvasColor,
+            borderRadius: BorderRadius.circular(contentRadius ?? 16),
+            border: backgroundColor == null
+                ? Border.all(color: StyleConstants.lineColor)
+                : null,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 10,
+                color: StyleConstants.shadowColor.withValues(
+                  alpha: StyleConstants.isDarkMode
+                      ? (backgroundColor == null ? 0.42 : 0.34)
+                      : (backgroundColor == null ? 0.12 : 0.1),
+                ),
+                blurRadius: backgroundColor == null ? 18 : 10,
+                offset: backgroundColor == null
+                    ? const Offset(0, 6)
+                    : Offset.zero,
               ),
             ],
           ),
@@ -171,7 +183,10 @@ class _PopupRoute extends PopupRoute<void> {
 
   @override
   Color? get barrierColor =>
-      barriersColor ?? Colors.black.withValues(alpha: 0.1);
+      barriersColor ??
+      StyleConstants.shadowColor.withValues(
+        alpha: StyleConstants.isDarkMode ? 0.28 : 0.1,
+      );
   @override
   bool get barrierDismissible => true;
   @override
@@ -211,14 +226,16 @@ class _PopupRoute extends PopupRoute<void> {
         _top = null;
         _bottom = screenSize.height - targetRect.top + (verticalOffset ?? 0);
         _scaleAlignDy = 1;
-        _left = targetRect.center.dx -
+        _left =
+            targetRect.center.dx -
             childRect.width / 2 +
             (horizontalOffset ?? 0);
         break;
       case PopupPosition.bottom:
         _top = targetRect.bottom + (verticalOffset ?? 0);
         _scaleAlignDy = 0;
-        _left = targetRect.center.dx -
+        _left =
+            targetRect.center.dx -
             childRect.width / 2 +
             (horizontalOffset ?? 0);
         break;
@@ -242,7 +259,8 @@ class _PopupRoute extends PopupRoute<void> {
           _bottom = screenSize.height - targetRect.top + (verticalOffset ?? 0);
           _scaleAlignDy = 1;
         }
-        _left = targetRect.center.dx -
+        _left =
+            targetRect.center.dx -
             childRect.width / 2 +
             (horizontalOffset ?? 0);
         break;
@@ -291,14 +309,21 @@ class _PopupRoute extends PopupRoute<void> {
   }
 
   @override
-  Widget buildPage(BuildContext context, Animation<double> animation,
-      Animation<double> secondaryAnimation) {
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) {
     return child;
   }
 
   @override
-  Widget buildTransitions(BuildContext context, Animation<double> animation,
-      Animation<double> secondaryAnimation, Widget child) {
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
     child = _PopupContent(
       childKey: _childKey,
       backgroundColor: backgroundColor,
@@ -308,8 +333,10 @@ class _PopupRoute extends PopupRoute<void> {
       child: child,
     );
 
-    final curvedAnimation =
-        CurvedAnimation(parent: animation, curve: animationCurve);
+    final curvedAnimation = CurvedAnimation(
+      parent: animation,
+      curve: animationCurve,
+    );
 
     return Stack(
       children: [
@@ -325,10 +352,7 @@ class _PopupRoute extends PopupRoute<void> {
               child: ScaleTransition(
                 alignment: FractionalOffset(_scaleAlignDx, _scaleAlignDy),
                 scale: curvedAnimation,
-                child: Material(
-                  color: Colors.transparent,
-                  child: child,
-                ),
+                child: Material(color: Colors.transparent, child: child),
               ),
             ),
           ),

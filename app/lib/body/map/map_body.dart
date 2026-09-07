@@ -74,8 +74,10 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
 
   Future<void> _syncTrackingModeWithGpsManager() async {
     final enable = _effectiveTrackingMode != TrackingMode.off;
-    final applied = await Provider.of<GpsManager>(context, listen: false)
-        .toggleMapTracking(enable);
+    final applied = await Provider.of<GpsManager>(
+      context,
+      listen: false,
+    ).toggleMapTracking(enable);
 
     // When we requested tracking but GpsManager could not enable (e.g. no
     // permission), set UI and MMKV to off so we do not persist invalid state.
@@ -139,6 +141,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     switch (state) {
       case AppLifecycleState.resumed:
         _syncTrackingModeWithGpsManager();
+        _mainMapKey.currentState?.manualRefresh();
         break;
 
       case AppLifecycleState.paused:
@@ -192,8 +195,8 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     // didUpdateWidget triggers refreshMapData(), no full page reload.
     final proxy =
         (widget.mode == MapMode.timeMachine && _journeyMapRendererProxy != null)
-            ? _journeyMapRendererProxy!
-            : _mapRendererProxy;
+        ? _journeyMapRendererProxy!
+        : _mapRendererProxy;
     return BaseMapWebview(
       key: _mainMapKey,
       mapRendererProxy: proxy,
@@ -236,10 +239,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final mode = widget.mode;
 
-    final children = <Widget>[
-      _buildMapLayer(),
-      _buildOverlay(context, mode),
-    ];
+    final children = <Widget>[_buildMapLayer(), _buildOverlay(context, mode)];
 
     return Stack(children: children);
   }

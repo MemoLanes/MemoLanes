@@ -122,6 +122,7 @@ fn cldr_supplies_the_english_province_names_it_is_pinned_for() {
     use geo_rasterizer::cldr::load_subdivisions;
     use geo_rasterizer::entities::apply_admin1_policy;
     use geo_rasterizer::names::subdivision_key;
+    use geo_rasterizer::overrides::Overrides;
     use std::collections::BTreeMap;
 
     let crate_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -146,6 +147,7 @@ fn cldr_supplies_the_english_province_names_it_is_pinned_for() {
     // plus the per-key claim counts its uniqueness rule needs. Routed through
     // the editorial step, same as the generator — the raw parse would chase
     // name keys for features policy does not ship.
+    let policy = geo_rasterizer::policy::get().unwrap();
     let mut features: BTreeMap<String, (String, Option<String>)> = BTreeMap::new();
     let mut claims: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for &worldview in Worldview::ALL {
@@ -164,6 +166,20 @@ fn cldr_supplies_the_english_province_names_it_is_pinned_for() {
         .unwrap()
         .features
         {
+            // Mirrors `province_name_sources`: a feature dropped later mints no
+            // key, and one dropped in every worldview ships nowhere.
+            let wv = worldview.spec().id;
+            let dropped_here = policy
+                .unparented
+                .iter()
+                .any(|u| u.worldview == wv && u.code == f.adm1_code)
+                || policy
+                    .merge
+                    .iter()
+                    .any(|m| m.worldview == wv && m.code == f.adm1_code);
+            if dropped_here {
+                continue;
+            }
             let key = subdivision_key(&f.iso_3166_2);
             claims
                 .entry(key.clone())
@@ -175,12 +191,22 @@ fn cldr_supplies_the_english_province_names_it_is_pinned_for() {
         }
     }
 
+    let overrides = Overrides::load(&crate_dir.join("geo_names_overrides.toml")).unwrap();
+
     let english = names(Locale::EnUs);
-    let (mut from_cldr, mut from_ne) = (0usize, 0usize);
+    let (mut from_cldr, mut from_ne, mut from_override) = (0usize, 0usize, 0usize);
     for (adm1_code, (key, name_en)) in &features {
+        let name_key = format!("province.{adm1_code}");
         let shipped = english
-            .get(&format!("province.{adm1_code}"))
+            .get(&name_key)
             .unwrap_or_else(|| panic!("no shipped en-US name for {adm1_code}"));
+        // Step 1: an override beats both sources, so these say nothing about
+        // whether the CLDR join still works.
+        if let Some(authored) = overrides.get_default(&name_key, Locale::EnUs) {
+            assert_eq!(shipped, authored, "{adm1_code} should carry its override");
+            from_override += 1;
+            continue;
+        }
         // Step 2 of the chain: CLDR, but only where exactly one NE feature
         // claims the key.
         match subdivisions.get(key).filter(|_| claims[key].len() == 1) {
@@ -201,6 +227,9 @@ fn cldr_supplies_the_english_province_names_it_is_pinned_for() {
 
     // Pinned against the pinned sources. A drop here means the ISO 3166-2 join
     // broke, not that the data moved: both sides are hash-verified.
-    assert_eq!(from_cldr, 4057, "provinces named by CLDR");
-    assert_eq!(from_ne, 493, "provinces that fell through to Natural Earth");
+    assert_eq!(
+        (from_cldr, from_ne, from_override),
+        (3095, 369, 18),
+        "(named by CLDR, fell through to Natural Earth, named by an English override)"
+    );
 }

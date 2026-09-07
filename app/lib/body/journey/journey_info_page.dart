@@ -2,9 +2,10 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/journey/journey_info_edit_page.dart';
 import 'package:memolanes/body/journey/journey_track_edit_page.dart';
+import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/base_map_webview.dart'
     show MapBounds;
-import 'package:memolanes/common/component/basic_bottom_sheet.dart';
+import 'package:memolanes/common/component/basic_dialog_card.dart';
 import 'package:memolanes/common/component/capsule_style_bar_content.dart';
 import 'package:memolanes/common/component/cards/card_label_tile.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
@@ -13,11 +14,11 @@ import 'package:memolanes/common/component/map_panel_page.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
+import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
 import 'package:memolanes/src/rust/api/import.dart';
-import 'package:memolanes/src/rust/api/utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:path_provider/path_provider.dart';
@@ -58,7 +59,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   double _panelMaxHeight(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
     final baseMaxHeight = _isPreviewMode ? 400.0 : 480.0;
-    final overlayBarHeight = mediaQuery.padding.top * 0.8 +
+    final overlayBarHeight =
+        mediaQuery.padding.top * 0.8 +
         CapsuleBarConstants.barContentHeight +
         CapsuleBarConstants.barBottomInset;
     final availableHeight = mediaQuery.size.height - overlayBarHeight;
@@ -72,7 +74,8 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   Future<void> _refreshJourneyInfo() async {
     final rendererAndBounds = widget.previewJourneyData != null
         ? await api.getMapRendererProxyForJourneyData(
-            journeyData: widget.previewJourneyData!)
+            journeyData: widget.previewJourneyData!,
+          )
         : await api.getMapRendererProxyForJourney(journeyId: _journeyHeader.id);
 
     if (_isPreviewMode) {
@@ -102,12 +105,13 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
 
   Future<void> _deleteJourneyInfo(BuildContext context) async {
     if (await showCommonDialog(
-        context, context.tr("journey.delete_journey_message"),
-        hasCancel: true,
-        title: context.tr("journey.delete_journey_title"),
-        confirmButtonText: context.tr("common.delete"),
-        confirmGroundColor: Colors.red,
-        confirmTextColor: Colors.white)) {
+      context,
+      context.tr("journey.delete_journey_message"),
+      hasCancel: true,
+      title: context.tr("journey.delete_journey_title"),
+      confirmButtonText: context.tr("common.delete"),
+      confirmVariant: AppButtonVariant.danger,
+    )) {
       await api.deleteJourney(journeyId: _journeyHeader.id);
       if (!context.mounted) return;
       popCurrentRoute(context, true);
@@ -120,14 +124,13 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     });
   }
 
-  Future<bool> _saveJourneyInfo(JourneyInfo journeyInfo) async {
+  Future<void> _saveJourneyInfo(JourneyInfo journeyInfo) async {
     await api.updateJourneyMetadata(
       id: _journeyHeader.id,
       journeyInfo: journeyInfo,
     );
     _journeyInfoChanged = true;
     await _refreshJourneyInfo();
-    return true;
   }
 
   void _handleBack() {
@@ -158,9 +161,11 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   }
 
   Future<CommonExportResult> _generateExportFile(
-      JourneyHeader journeyHeader, CommonExportFormat exportFormat) async {
+    JourneyHeader journeyHeader,
+    CommonExportFormat exportFormat,
+  ) async {
     final tmpDir = await getTemporaryDirectory();
-    final dateStr = naiveDateToString(date: journeyHeader.journeyDate);
+    final dateStr = journeyHeader.journeyDate.toSimpleDate().toString();
     final filePath =
         "${tmpDir.path}/$dateStr-${journeyHeader.revision}.${exportFormat.extension}";
     final exportType = switch (exportFormat) {
@@ -216,6 +221,10 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
         mapRendererProxy: mapRendererProxy,
         initialMapBounds: _initialMapBounds,
         maxHeight: isEditing ? 440 : _panelMaxHeight(context),
+        minHeight:
+            MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height
+            ? 32
+            : 100,
         expandPanel: true,
         loadingBody: const Center(child: CircularProgressIndicator()),
         onBack: _handleBack,
@@ -230,10 +239,10 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     return JourneyInfoEditPage(
       startTime: _journeyHeader.start,
       endTime: _journeyHeader.end,
-      journeyDate: _journeyHeader.journeyDate,
+      journeyDate: _journeyHeader.journeyDate.toSimpleDate(),
       note: _journeyHeader.note,
       journeyKind: _journeyHeader.journeyKind,
-      onSave: (journeyInfo, _) => _saveJourneyInfo(journeyInfo),
+      saveData: _saveJourneyInfo,
       popOnSave: false,
       onSaved: () {
         if (!mounted) return;
@@ -252,17 +261,13 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
           label: context.tr("journey.journey_date"),
           position: LabelTilePosition.top,
           trailing: LabelTileContent(
-            content: naiveDateToString(
-              date: _journeyHeader.journeyDate,
-            ),
+            content: _journeyHeader.journeyDate.toSimpleDate().toString(),
           ),
         ),
         LabelTile(
           label: context.tr("journey.journey_kind"),
           position: LabelTilePosition.middle,
-          trailing: LabelTileContent(
-            content: journeyKindName,
-          ),
+          trailing: LabelTileContent(content: journeyKindName),
         ),
         LabelTile(
           label: context.tr("journey.start_time"),
@@ -321,6 +326,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
               icon: Icons.share,
               label: context.tr("common.export"),
               onTap: _export,
+              variant: AppButtonVariant.secondary,
             ),
           ),
           const SizedBox(width: gap),
@@ -330,6 +336,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
               icon: Icons.edit,
               label: context.tr("journey.journey_info_edit_page_title"),
               onTap: _editJourneyInfo,
+              variant: AppButtonVariant.primary,
             ),
           ),
           const SizedBox(width: gap),
@@ -360,43 +367,16 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     required IconData icon,
     required String label,
     required VoidCallback onTap,
+    AppButtonVariant variant = AppButtonVariant.tonal,
   }) {
-    return SizedBox(
-      height: 64,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16.0),
-          child: Ink(
-            decoration: BoxDecoration(
-              color: const Color(0x1AFFFFFF),
-              borderRadius: BorderRadius.circular(16.0),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 7.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 22.0, color: Colors.white),
-                const SizedBox(height: 4.0),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12.0,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return AppButton(
+      label: label,
+      icon: icon,
+      onPressed: onTap,
+      variant: variant,
+      size: AppButtonSize.compact,
+      expand: true,
+      fontSize: 11,
     );
   }
 
@@ -412,10 +392,10 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
         panel: JourneyInfoEditPage(
           startTime: _journeyHeader.start,
           endTime: _journeyHeader.end,
-          journeyDate: _journeyHeader.journeyDate,
+          journeyDate: _journeyHeader.journeyDate.toSimpleDate(),
           note: _journeyHeader.note,
           journeyKind: _journeyHeader.journeyKind,
-          onSave: (JourneyInfo journeyInfo, _) async {
+          saveData: (JourneyInfo journeyInfo) async {
             await showLoadingDialog<String>(
               asyncTask: api.copyJourney(
                 journeyId: _journeyHeader.id,
@@ -435,14 +415,14 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   void _showMoreActionCard(BuildContext context) {
     showBasicCard(
       context,
-      child: OptionCard(
+      builder: (_) => OptionCard(
+        useSafeArea: false,
+        embedded: true,
         children: [
           CardLabelTile(
             position: CardLabelTilePosition.top,
             label: context.tr("journey.copy_journey"),
-            icon: Icons.copy,
             onTap: () async {
-              Navigator.pop(context);
               await _copyJourneyInfo(context);
             },
             top: false,
@@ -450,10 +430,7 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
           CardLabelTile(
             position: CardLabelTilePosition.bottom,
             label: context.tr("journey.delete_journey_title"),
-            color: const Color(0xFFEC4162),
-            icon: Icons.delete,
             onTap: () async {
-              Navigator.pop(context);
               await _deleteJourneyInfo(context);
             },
           ),

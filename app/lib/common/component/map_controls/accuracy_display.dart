@@ -2,25 +2,22 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/component/liquid_glass_surface.dart';
 import 'package:memolanes/common/gps_manager.dart';
+import 'package:memolanes/constants/app_typography.dart';
+import 'package:memolanes/constants/style_constants.dart';
 import 'package:provider/provider.dart';
 
 class AccuracyDisplay extends StatefulWidget {
-  const AccuracyDisplay({
-    super.key,
-  });
+  const AccuracyDisplay({super.key});
 
   @override
   State<AccuracyDisplay> createState() => _AccuracyDisplayState();
 }
 
-enum AccuracyLevel {
-  excellent,
-  good,
-  fair,
-  poor,
-}
+enum AccuracyLevel { excellent, good, fair, poor }
 
 AccuracyLevel getAccuracyLevel(double accuracy) {
   // TODO: tweak this
@@ -35,21 +32,21 @@ AccuracyLevel getAccuracyLevel(double accuracy) {
   }
 }
 
-String getSignalStatus(AccuracyLevel accuracyLevel) {
+String getSignalStatus(BuildContext context, AccuracyLevel accuracyLevel) {
   return switch (accuracyLevel) {
-    AccuracyLevel.excellent => "Excellent",
-    AccuracyLevel.good => "Good",
-    AccuracyLevel.fair => "Fair",
-    AccuracyLevel.poor => "Poor",
+    AccuracyLevel.excellent => context.tr('home.gps_signal.excellent'),
+    AccuracyLevel.good => context.tr('home.gps_signal.good'),
+    AccuracyLevel.fair => context.tr('home.gps_signal.fair'),
+    AccuracyLevel.poor => context.tr('home.gps_signal.poor'),
   };
 }
 
 Color getStatusColor(AccuracyLevel accuracyLevel) {
   return switch (accuracyLevel) {
-    AccuracyLevel.excellent => const Color(0xFFB4EC51),
-    AccuracyLevel.good => Colors.yellow,
-    AccuracyLevel.fair => Colors.orange,
-    AccuracyLevel.poor => Colors.red,
+    AccuracyLevel.excellent => StyleConstants.statusExcellentColor,
+    AccuracyLevel.good => StyleConstants.statusGoodColor,
+    AccuracyLevel.fair => StyleConstants.statusFairColor,
+    AccuracyLevel.poor => StyleConstants.statusPoorColor,
   };
 }
 
@@ -58,10 +55,9 @@ class _AccuracyDisplayState extends State<AccuracyDisplay> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(top: 8, bottom: 8),
-      width: 48,
-      height: 48,
+    return SizedBox(
+      width: 44,
+      height: 44,
       child: Stack(
         alignment: Alignment.center,
         clipBehavior: Clip.none,
@@ -73,43 +69,42 @@ class _AccuracyDisplayState extends State<AccuracyDisplay> {
               final hasData = position != null;
               final accuracyLevel = getAccuracyLevel(accuracy);
 
-              return Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: hasData ? Colors.black : Colors.black38,
-                  shape: BoxShape.circle,
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => {
-                      if (hasData) {setState(() => showDetail = !showDetail)}
-                    },
-                    borderRadius: BorderRadius.circular(24),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Center(
-                          child: Text(
-                            hasData ? '${accuracy.round()}m\nACC' : 'NO\nGPS',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: hasData ? Colors.white : Colors.white60,
-                              fontSize: 10,
-                              height: 1.0,
+              return LiquidGlassSurface(
+                circular: true,
+                backgroundAlpha: hasData ? 0.36 : 0.32,
+                child: SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => {
+                        if (hasData) {setState(() => showDetail = !showDetail)},
+                      },
+                      borderRadius: BorderRadius.circular(22),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Center(
+                            child: Text(
+                              hasData ? '${accuracy.round()}m\nACC' : 'NO\nGPS',
+                              textAlign: TextAlign.center,
+                              style: AppTypography.micro.copyWith(
+                                color: StyleConstants.mutedInkColor,
+                                height: 1.1,
+                              ),
                             ),
                           ),
-                        ),
-                        if (hasData)
-                          CustomPaint(
-                            size: const ui.Size(48, 48),
-                            painter: AccuracyTicksPainter(
-                              filledTicks: getFilledTicks(accuracyLevel),
-                              color: getStatusColor(accuracyLevel),
+                          if (hasData)
+                            CustomPaint(
+                              size: const ui.Size(44, 44),
+                              painter: AccuracyTicksPainter(
+                                filledTicks: getFilledTicks(accuracyLevel),
+                                color: getStatusColor(accuracyLevel),
+                              ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -124,88 +119,120 @@ class _AccuracyDisplayState extends State<AccuracyDisplay> {
                   final position = gpsState.latestPosition;
                   if (position != null) {
                     final accuracyLevel = getAccuracyLevel(position.accuracy);
-                    final signalStatus = getSignalStatus(accuracyLevel);
+                    final signalStatus = getSignalStatus(
+                      context,
+                      accuracyLevel,
+                    );
                     final statusColor = getStatusColor(accuracyLevel);
 
                     return GestureDetector(
                       onTap: () => setState(() => showDetail = false),
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.black,
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: BackdropFilter(
+                          filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: StyleConstants.glassColor.withValues(
+                                alpha: StyleConstants.isDarkMode ? 0.94 : 0.68,
+                              ),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: StyleConstants.glassBorderColor
+                                    .withValues(
+                                      alpha: StyleConstants.isDarkMode
+                                          ? 0.48
+                                          : 0.8,
+                                    ),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: StyleConstants.shadowColor.withValues(
+                                    alpha: StyleConstants.isDarkMode
+                                        ? 0.48
+                                        : 0.14,
+                                  ),
+                                  blurRadius: 22,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                            ),
+                            child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Column(
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Padding(
-                                      padding:
-                                          const EdgeInsets.only(right: 16.0),
-                                      child: Text(
-                                        '${position.accuracy.round()} m',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 32,
-                                          fontWeight: FontWeight.w400,
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            right: 16.0,
+                                          ),
+                                          child: Text(
+                                            '${position.accuracy.round()} m',
+                                            style: AppTypography.dataValue
+                                                .copyWith(
+                                                  color:
+                                                      StyleConstants.inkColor,
+                                                ),
+                                          ),
                                         ),
-                                      ),
+                                        Text(
+                                          context.tr('home.gps_accuracy'),
+                                          style: AppTypography.bodyLarge
+                                              .copyWith(
+                                                color: StyleConstants
+                                                    .mutedInkColor,
+                                              ),
+                                        ),
+                                      ],
                                     ),
-                                    const Text(
-                                      'Accuracy',
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 16,
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: statusColor,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        signalStatus,
+                                        style: AppTypography.caption.copyWith(
+                                          color: StyleConstants.isDarkMode
+                                              ? StyleConstants.inverseInkColor
+                                              : StyleConstants.surfaceColor,
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
+                                const SizedBox(height: 12),
+                                Text(
+                                  '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}',
+                                  style: AppTypography.caption.copyWith(
+                                    color: StyleConstants.mutedInkColor,
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: statusColor,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    signalStatus,
-                                    style: const TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w400,
-                                    ),
+                                ),
+                                Text(
+                                  position.timestamp
+                                      .toLocal()
+                                      .toString()
+                                      .substring(0, 19),
+                                  style: AppTypography.caption.copyWith(
+                                    color: StyleConstants.mutedInkColor,
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 12),
-                            Text(
-                              '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                              ),
-                            ),
-                            Text(
-                              position.timestamp
-                                  .toLocal()
-                                  .toString()
-                                  .substring(0, 19),
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     );
@@ -251,7 +278,9 @@ class AccuracyTicksPainter extends CustomPainter {
     const gapAngle = (totalArcSpan - (tickArcLength * 4)) / 3;
 
     for (int i = 0; i < 4; i++) {
-      paint.color = i < filledTicks ? color : Colors.grey.shade700;
+      paint.color = i < filledTicks
+          ? color
+          : StyleConstants.mutedInkColor.withValues(alpha: 0.52);
 
       final tickStartAngle = startAngle + (i * (tickArcLength + gapAngle));
 

@@ -32,36 +32,41 @@ import 'package:memolanes/constants/index.dart';
 import 'package:provider/provider.dart';
 
 void main() async {
-  runZonedGuarded(() async {
-    final startupStatus = await AppBootstrap.initAppRuntime();
-    if (startupStatus == AppStartupStatus.databaseVersionTooNew) {
-      runApp(_appRoot(const MyApp(home: DatabaseVersionTooNewGate())));
-      return;
-    }
+  runZonedGuarded(
+    () async {
+      final startupStatus = await AppBootstrap.initAppRuntime();
+      if (startupStatus == AppStartupStatus.databaseVersionTooNew) {
+        runApp(_appRoot(const MyApp(home: DatabaseVersionTooNewGate())));
+        return;
+      }
 
-    final gpsManager = GpsManager();
-    final updateNotifier = UpdateNotifier();
-    final achievementStatsStore = AchievementStatsStore();
+      final gpsManager = GpsManager();
+      final updateNotifier = UpdateNotifier();
+      final achievementStatsStore = AchievementStatsStore();
 
-    runApp(_appRoot(
-      MultiProvider(
-        providers: [
-          // Do NOT use `create: (_) => gpsManager` here
-          ChangeNotifierProvider.value(value: gpsManager),
-          ChangeNotifierProvider.value(value: updateNotifier),
-          ChangeNotifierProvider.value(value: achievementStatsStore),
-        ],
-        child: const MyApp(),
-      ),
-    ));
+      runApp(
+        _appRoot(
+          MultiProvider(
+            providers: [
+              // Do NOT use `create: (_) => gpsManager` here
+              ChangeNotifierProvider.value(value: gpsManager),
+              ChangeNotifierProvider.value(value: updateNotifier),
+              ChangeNotifierProvider.value(value: achievementStatsStore),
+            ],
+            child: const MyApp(),
+          ),
+        ),
+      );
 
-    AppBootstrap.startAppServices(
-      gpsManager: gpsManager,
-      updateNotifier: updateNotifier,
-    );
-  }, (error, stackTrace) {
-    log.error('Uncaught exception in Flutter: $error', stackTrace);
-  });
+      AppBootstrap.startAppServices(
+        gpsManager: gpsManager,
+        updateNotifier: updateNotifier,
+      );
+    },
+    (error, stackTrace) {
+      log.error('Uncaught exception in Flutter: $error', stackTrace);
+    },
+  );
 }
 
 Widget _appRoot(Widget child) {
@@ -90,22 +95,19 @@ class MyApp extends StatelessWidget {
       locale: context.locale,
       navigatorKey: navigatorKey,
       builder: (context, child) {
-        return GlobalLoadingOverlay(
-          child: child ?? const SizedBox.shrink(),
-        );
+        return GlobalLoadingOverlay(child: child ?? const SizedBox.shrink());
       },
       theme: ThemeData(
         useMaterial3: true,
-        fontFamilyFallback:
-            Platform.isIOS ? ['.AppleSystemUIFont', 'PingFang SC'] : null,
+        fontFamilyFallback: Platform.isIOS
+            ? ['.AppleSystemUIFont', 'PingFang SC']
+            : null,
         scaffoldBackgroundColor: const Color(0xFF141414),
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFFB6E13D),
           brightness: Brightness.dark,
         ),
-        iconTheme: const IconThemeData(
-          color: Colors.black87,
-        ),
+        iconTheme: const IconThemeData(color: Colors.black87),
         bottomNavigationBarTheme: const BottomNavigationBarThemeData(
           elevation: 8,
           backgroundColor: Colors.white,
@@ -149,9 +151,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
       final mainMapReady = AppBootstrap.mainMapReady;
       if (!mainMapReady.isCompleted) {
-        await showLoadingDialog(
-          asyncTask: mainMapReady.future,
-        );
+        await showLoadingDialog(asyncTask: mainMapReady.future);
       }
       if (!context.mounted) return;
       await tryShowPermissionSheetIfFirstTime();
@@ -169,7 +169,9 @@ class _MyHomePageState extends State<MyHomePage> {
 
         if (snapshot.hasError) {
           log.error(
-              'Deferred load failed ${snapshot.error}', snapshot.stackTrace);
+            'Deferred load failed ${snapshot.error}',
+            snapshot.stackTrace,
+          );
         }
 
         return const Center(child: CircularProgressIndicator());
@@ -210,17 +212,17 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget _buildDeferredTabBody(int index) {
     return switch (index) {
       2 => _buildDeferredBody(
-          _journeyLib ??= journey.loadLibrary(),
-          () => journey.JourneyBody(),
-        ),
+        _journeyLib ??= journey.loadLibrary(),
+        () => journey.JourneyBody(),
+      ),
       3 => _buildDeferredBody(
-          _achievementLib ??= achievement.loadLibrary(),
-          () => achievement.AchievementBody(),
-        ),
+        _achievementLib ??= achievement.loadLibrary(),
+        () => achievement.AchievementBody(),
+      ),
       4 => _buildDeferredBody(
-          _settingsLib ??= settings.loadLibrary(),
-          () => settings.SettingsBody(),
-        ),
+        _settingsLib ??= settings.loadLibrary(),
+        () => settings.SettingsBody(),
+      ),
       _ => throw RangeError('Invalid tab index: $index'),
     };
   }
@@ -229,10 +231,13 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
     final navBarBottomInset = StyleConstants.navBarBottomInset(context);
-    final horizontalSafeArea =
-        math.max(mediaQuery.viewPadding.left, mediaQuery.viewPadding.right);
-    final mapCopyrightTextMarkdown =
-        MapStyle.findById(MMKVUtil.getString(MMKVKey.mapStyle)).copyright;
+    final horizontalSafeArea = math.max(
+      mediaQuery.viewPadding.left,
+      mediaQuery.viewPadding.right,
+    );
+    final mapCopyrightTextMarkdown = MapStyle.findById(
+      MMKVUtil.getString(MMKVKey.mapStyle),
+    ).copyright;
     const mapCopyrightNavBarGap = 6.0;
     const mapCopyrightTrailingGap = 8.0;
 
@@ -262,15 +267,17 @@ class _MyHomePageState extends State<MyHomePage> {
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   child: SizedBox(
-                    width: mediaQuery.size.width -
+                    width:
+                        mediaQuery.size.width -
                         BottomNavBar.designHorizontalMargin * 2,
                     height: BottomNavBar.height,
                     child: BottomNavBar(
                       selectedIndex: _selectedIndex,
                       onIndexChanged: (index) =>
                           setState(() => _selectedIndex = index),
-                      hasUpdateNotification:
-                          context.watch<UpdateNotifier>().hasUpdateNotification,
+                      hasUpdateNotification: context
+                          .watch<UpdateNotifier>()
+                          .hasUpdateNotification,
                     ),
                   ),
                 ),
@@ -279,7 +286,8 @@ class _MyHomePageState extends State<MyHomePage> {
             if (_selectedIndex <= 1)
               Positioned(
                 right: mediaQuery.viewPadding.right + mapCopyrightTrailingGap,
-                bottom: navBarBottomInset +
+                bottom:
+                    navBarBottomInset +
                     BottomNavBar.height +
                     mapCopyrightNavBarGap,
                 child: MapCopyrightButton(

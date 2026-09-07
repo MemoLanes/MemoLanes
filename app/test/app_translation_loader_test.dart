@@ -25,14 +25,13 @@ void main() {
     // platform channel so the test doesn't need the plugin as a direct dep.
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.flutter.io/shared_preferences'),
-      (call) async => call.method == 'getAll' ? <String, Object>{} : null,
-    );
+          const MethodChannel('plugins.flutter.io/shared_preferences'),
+          (call) async => call.method == 'getAll' ? <String, Object>{} : null,
+        );
     await EasyLocalization.ensureInitialized();
   });
 
-  test('the loader merges region names nested like the UI translations',
-      () async {
+  test('the loader merges region names nested like the UI translations', () async {
     // `flutter test` serves the real declared assets, so this exercises the
     // actual generated region_names.en-US.json merged with the UI translations.
     final map = await loader.load('assets/translations', enUs);
@@ -47,8 +46,9 @@ void main() {
     expect(map.containsKey('home'), isTrue);
   });
 
-  testWidgets('displayName resolves via easy_localization, with fallbacks',
-      (tester) async {
+  testWidgets('displayName resolves via easy_localization, with fallbacks', (
+    tester,
+  ) async {
     // A real EasyLocalization + MaterialApp with the region-name loader — the
     // shipped path. The MaterialApp mounts the localization delegate, which is
     // what actually loads the merged translations into `Localization.instance`.
@@ -85,9 +85,6 @@ void main() {
       'NOP',
     );
     // 3. a miss with no ISO code → the raw key (never blank).
-    expect(
-      _entity(nameKey: 'continent.ZZ').displayName('iso'),
-      'continent.ZZ',
-    );
+    expect(_entity(nameKey: 'continent.ZZ').displayName('iso'), 'continent.ZZ');
   });
 }

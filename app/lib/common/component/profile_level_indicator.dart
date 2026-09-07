@@ -40,10 +40,7 @@ class ProfileLevelIndicator extends StatelessWidget {
                         ? const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [
-                              Color(0xFF66B6FF),
-                              Color(0xFFFF99CC),
-                            ],
+                            colors: [Color(0xFF66B6FF), Color(0xFFFF99CC)],
                           )
                         : null,
                     image: profileImage != null
@@ -54,11 +51,7 @@ class ProfileLevelIndicator extends StatelessWidget {
                         : null,
                   ),
                   child: profileImage == null
-                      ? const Icon(
-                          Icons.person,
-                          color: Colors.white,
-                          size: 32,
-                        )
+                      ? const Icon(Icons.person, color: Colors.white, size: 32)
                       : null,
                 ),
               ),
@@ -79,8 +72,10 @@ class ProfileLevelIndicator extends StatelessWidget {
               right: 0,
               child: Center(
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black,
                     borderRadius: BorderRadius.circular(12),
@@ -107,10 +102,7 @@ class CircularProgressPainter extends CustomPainter {
   final double progress;
   final double strokeWidth;
 
-  CircularProgressPainter({
-    required this.progress,
-    required this.strokeWidth,
-  });
+  CircularProgressPainter({required this.progress, required this.strokeWidth});
 
   @override
   void paint(Canvas canvas, ui.Size size) {

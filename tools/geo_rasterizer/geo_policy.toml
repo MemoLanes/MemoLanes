@@ -1,6 +1,6 @@
 # Editorial policy: what ships, and at what tier.
 # - hand-curated, committed, hashed as a provenance input (edits rebuild bins)
-# - logic-only changes (e.g. the `+00?` dedup rule) bump GEO_DATA_VERSION
+# - logic-only changes (e.g. the sole-unit dedup rule) bump GEO_DATA_VERSION
 # - rows are level-free: the code's namespace (ADM0_A3 vs adm1_code) sets the level
 schema = 1
 
@@ -36,27 +36,34 @@ merge = [
   { worldview = "chn", code = "PGA+00?", into = "CHN-1775" }, # Spratly Islands -> Hainan
 ]
 
-# Admin-2 features present in the admin-1 source, dropped until an ADM2 tier
-# exists; the parent leaf carries their land. Registry ids stay frozen.
-drop_admin2 = [
-  "HKG-5153",
-  "HKG-5154",
-  "HKG-5155",
-  "HKG-5156",
-  "HKG-5157",
-  "HKG-5158",
-  "HKG-5159",
-  "HKG-5160",
-  "HKG-5161",
-  "HKG-5162",
-  "HKG-5163",
-  "HKG-5164",
-  "HKG-5165",
-  "HKG-5166",
-  "HKG-5167",
-  "HKG-5168",
-  "HKG-5169",
-  "HKG-5170",
+# Countries whose admin-1 rows are the local-government tier, not the tier a
+# user means by "state" or "province". Dropped until an ADM2 tier exists; the
+# country leaf carries their land. Registry ids stay frozen.
+#
+# Keyed by country because the tier is a property of the country, never of
+# `TYPE_EN`: `County` is first-order in Sweden, Romania and Norway and
+# second-order in the UK. The source's own class strings are not evidence
+# either — Spain's 50 provinces are typed `Autonomous Community`, 72 of North
+# Macedonia's 84 municipalities are typed `Statistical Region`, and `GBR-2054`
+# (Leicestershire) is typed `Kingdom`.
+#
+# All-or-nothing per country, by construction: dropping part of a country's
+# units would leave holes rendering as the country beside siblings rendering as
+# provinces.
+drop_admin1_in = [
+  "BIH", # 10 cantons and 7 Republika Srpska regions; the two entities and Brčko have no rows
+  "ESP", # 50 provinces and 2 autonomous cities; the 17 autonomous communities have no rows
+  "FRA", # 101 departments; the 18 regions have no rows
+  "GBR", # 232 local authorities; England, Scotland, Wales and NI have no rows
+  "GIN", # 33 prefectures; the 7 regions have no rows
+  "HKG", # 18 districts, under a unit that ships at admin-1 itself
+  "ITA", # 110 provinces; the 20 regions have no rows
+  "LKA", # 25 districts; the 9 provinces have no rows
+  "MKD", # 84 municipalities
+  "MLT", # 68 local councils; the 5 regions have no rows
+  "MWI", # 28 districts
+  "SVN", # 193 municipalities
+  "UGA", # 112 districts and counties
 ]
 
 # Admin-1 entries this worldview's admin-0 leaves no land for; dropped instead

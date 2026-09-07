@@ -137,11 +137,8 @@ pub fn init(
         // TODO: redesign the callback to better handle locks and avoid deadlocks
         storage.set_finalized_journey_changed_callback(Box::new(move |storage| {
             let mut main_map_state = main_map_state_copy.lock().unwrap();
-            match reload_main_map_bitmap(storage, &mut main_map_state) {
-                Ok(()) => (),
-                Err(e) => {
-                    error!("Failed to get latest bitmap for main map renderer: {e:?}");
-                }
+            if let Err(e) = reload_main_map_bitmap(storage, &mut main_map_state) {
+                error!("Failed to get latest bitmap for main map renderer: {e:?}");
             }
         }));
         info!("main map renderer initialized");
@@ -464,6 +461,10 @@ pub fn on_location_update(raw_data: gps_processor::RawData, received_timestamp_m
         };
     };
 
+    // Tile-range generation uses the same mutex. Release it before the storage
+    // write so persistence does not extend renderer lock hold time.
+    drop(main_map_state);
+
     state
         .storage
         .record_gps_data(&raw_data, process_result, received_timestamp_ms);
@@ -522,7 +523,6 @@ pub fn get_current_main_map_layer_filter() -> LayerFilter {
 pub fn set_main_map_layer_filter(new_layer_filter: &LayerFilter) -> Result<()> {
     let state = get();
     let mut main_map_state = state.main_map_state.lock().unwrap();
-
     if *new_layer_filter != main_map_state.layer_filter {
         main_map_state.layer_filter = *new_layer_filter;
         reload_main_map_bitmap(&state.storage, &mut main_map_state)?;
@@ -563,33 +563,34 @@ pub fn has_ongoing_journey() -> Result<bool> {
         .is_some())
 }
 
-pub fn years_with_journey() -> Result<Vec<i32>> {
-    get().storage.with_db_txn(|txn| txn.years_with_journey())
-}
-
-pub fn months_with_journey(year: i32) -> Result<Vec<i32>> {
+/// Lists dates that contain journeys, optionally restricted to selected layers.
+///
+/// `None` includes every layer; an empty set returns no dates.
+pub fn journey_dates(journey_kinds: Option<HashSet<JourneyKind>>) -> Result<Vec<NaiveDate>> {
     get()
         .storage
-        .with_db_txn(|txn| txn.months_with_journey(year))
+        .with_db_txn(|txn| txn.query_journey_dates(journey_kinds.as_ref()))
 }
 
-pub fn days_with_journey(year: i32, month: i32) -> Result<Vec<i32>> {
-    get()
-        .storage
-        .with_db_txn(|txn| txn.days_with_journey(year, month))
-}
-
-pub fn list_journey_on_date(year: i32, month: u32, day: u32) -> Result<Vec<JourneyHeader>> {
+/// Lists journeys on a date, optionally restricted to selected layers.
+///
+/// `None` returns every journey on the date; an empty set returns none.
+pub fn list_journeys_on_date(
+    year: i32,
+    month: u32,
+    day: u32,
+    journey_kinds: Option<HashSet<JourneyKind>>,
+) -> Result<Vec<JourneyHeader>> {
     let date = NaiveDate::from_ymd_opt(year, month, day).unwrap();
     get()
         .storage
-        .with_db_txn(|txn| txn.query_journeys(Some(date), Some(date)))
+        .with_db_txn(|txn| txn.query_journeys(Some(date), Some(date), journey_kinds.as_ref()))
 }
 
 pub fn list_all_journeys() -> Result<Vec<JourneyHeader>> {
     get()
         .storage
-        .with_db_txn(|txn| txn.query_journeys(None, None))
+        .with_db_txn(|txn| txn.query_journeys(None, None, None))
 }
 
 pub fn has_journeys() -> Result<bool> {
@@ -869,7 +870,7 @@ pub fn contains_bitmap_journey() -> Result<bool> {
     // scan that involves deserializing all journey heads.
     let journey_headers = get()
         .storage
-        .with_db_txn(|txn| txn.query_journeys(None, None))?;
+        .with_db_txn(|txn| txn.query_journeys(None, None, None))?;
 
     Ok(journey_headers
         .iter()

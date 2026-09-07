@@ -67,6 +67,7 @@ flutter-fmt:
 [group: 'utils']
 flutter-check:
     @echo "🔍 Analyzing Flutter code"
+    @dart format --output=none --set-exit-if-changed .
     @flutter analyze
     @echo "✅ Flutter code analysis completed"
 
@@ -125,7 +126,9 @@ rust-test:
 [working-directory: 'journey_kernel']
 journey-kernel-test:
     @echo "🧪 Running Journey Kernel tests"
-    @cargo test -- --nocapture
+    @yarn wasm:dev
+    @cargo test --features wasm -- --nocapture
+    @yarn test
     @echo "✅ Journey Kernel tests completed"
 
 [group: 'utils']

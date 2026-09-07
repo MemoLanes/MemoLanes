@@ -9,10 +9,7 @@ const _groundExploreColor = Color(0xFFFFB86B);
 const _flightExploreColor = Color(0xFF4E8BFF);
 
 class AchievementSourceCard extends StatelessWidget {
-  const AchievementSourceCard({
-    super.key,
-    required this.stats,
-  });
+  const AchievementSourceCard({super.key, required this.stats});
 
   final AchievementAreaStats stats;
 
@@ -41,10 +38,7 @@ class AchievementSourceCard extends StatelessWidget {
                 ),
               ),
               SizedBox(height: compact ? 16 : 18),
-              _TotalAreaSummary(
-                value: stats.totalKm2,
-                compact: compact,
-              ),
+              _TotalAreaSummary(value: stats.totalKm2, compact: compact),
               const SizedBox(height: 18),
               _SourceCardsRow(compact: compact, stats: stats),
             ],
@@ -56,10 +50,7 @@ class AchievementSourceCard extends StatelessWidget {
 }
 
 class _TotalAreaSummary extends StatelessWidget {
-  const _TotalAreaSummary({
-    required this.value,
-    required this.compact,
-  });
+  const _TotalAreaSummary({required this.value, required this.compact});
 
   final double value;
   final bool compact;
@@ -101,10 +92,7 @@ class _TotalAreaSummary extends StatelessWidget {
             ],
           ),
           SizedBox(height: compact ? 10 : 12),
-          _TotalAreaNumber(
-            value: value,
-            compact: compact,
-          ),
+          _TotalAreaNumber(value: value, compact: compact),
         ],
       ),
     );
@@ -112,10 +100,7 @@ class _TotalAreaSummary extends StatelessWidget {
 }
 
 class _TotalAreaNumber extends StatelessWidget {
-  const _TotalAreaNumber({
-    required this.value,
-    required this.compact,
-  });
+  const _TotalAreaNumber({required this.value, required this.compact});
 
   final double value;
   final bool compact;
@@ -163,10 +148,7 @@ class _TotalAreaNumber extends StatelessWidget {
 }
 
 class _SourceCardsRow extends StatelessWidget {
-  const _SourceCardsRow({
-    required this.compact,
-    required this.stats,
-  });
+  const _SourceCardsRow({required this.compact, required this.stats});
 
   final bool compact;
   final AchievementAreaStats stats;
@@ -248,9 +230,7 @@ class _SourceMetricCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: accent.withValues(alpha: 0.045),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: accent.withValues(alpha: 0.14),
-        ),
+        border: Border.all(color: accent.withValues(alpha: 0.14)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -396,10 +376,7 @@ class _MetricValue extends StatelessWidget {
 }
 
 class _PercentText extends StatelessWidget {
-  const _PercentText({
-    required this.percentText,
-    required this.accent,
-  });
+  const _PercentText({required this.percentText, required this.accent});
 
   final String percentText;
   final Color accent;
@@ -431,10 +408,7 @@ class _PercentText extends StatelessWidget {
             TextSpan(text: sharePrefix),
             TextSpan(
               text: hasPercentPlaceholder ? percentText : '',
-              style: TextStyle(
-                color: accent,
-                fontWeight: FontWeight.w900,
-              ),
+              style: TextStyle(color: accent, fontWeight: FontWeight.w900),
             ),
             TextSpan(text: shareSuffix),
           ],
@@ -478,11 +452,7 @@ class _MetricIcon extends StatelessWidget {
         ],
       ),
       child: Center(
-        child: FaIcon(
-          icon,
-          color: accent,
-          size: compact ? 20 : 34,
-        ),
+        child: FaIcon(icon, color: accent, size: compact ? 20 : 34),
       ),
     );
   }
@@ -530,9 +500,7 @@ class _PlusBubble extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF17212B),
         shape: BoxShape.circle,
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Icon(
         Icons.add_rounded,

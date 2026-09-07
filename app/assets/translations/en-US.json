@@ -6,13 +6,17 @@
     "end_journey_title": "End Journey?",
     "end_journey_message": "Are you sure you want to end your current journey?",
     "double_back_exit": "Press back again to exit the app",
-    "map_data_source_copyright_title": "Data Source"
+    "map_data_source_copyright_title": "Data Source",
+    "gps_accuracy": "Accuracy",
+    "gps_signal": {
+      "excellent": "Strong",
+      "good": "Good",
+      "fair": "Fair",
+      "poor": "Weak"
+    }
   },
   "permission_sheet": {
     "title": "Authorize for the full experience",
-    "location_help_tooltip": "About location permission",
-    "battery_help_tooltip": "About battery optimization",
-    "notification_help_tooltip": "About notification permission",
     "enable_all": "Enable All",
     "allow": "Allow",
     "skip": "Skip",
@@ -82,7 +86,18 @@
       "discard_changes_confirm": "Unsaved changes will be lost. Do you want to continue?",
       "zoom_too_low": "Zoom in to draw."
     },
-    "no_data": "There's no data yet, go ahead and explore the world!",
+    "list": {
+      "filter_layers": "Filter layers",
+      "filter_all_layers": "All",
+      "filter_at_least_one_layer": "Select at least one layer.",
+      "empty_all_title": "No journeys yet",
+      "empty_all_description": "Start exploring and make your first journey.",
+      "empty_filtered_title": "No matching journeys",
+      "empty_filtered_description": "Try a different layer to see more journeys.",
+      "empty_month_title": "No journeys this month",
+      "empty_month_description": "Try another month or layer to see more journeys.",
+      "show_all_layers": "Show all journeys"
+    },
     "journey_date_is_empty": "JourneyDate is empty",
     "delete_journey_title": "Delete Journey",
     "delete_journey_message": "Delete this journey record?",
@@ -92,15 +107,9 @@
     "journey_info_edit_page_title": "Edit Journey Information",
     "copy_journey": "Copy Journey",
     "import_mldx_data": "Import MLDX Data",
-    "import_track_file": "Import Track File",
     "import_fog_of_world_data": "Import [Fog of World] Data",
-    "export_journey_as_kml": "Export as KML",
-    "export_journey_as_gpx": "Export as GPX",
-    "export_journey_as_mldx": "Export as MLDX",
-    "export_journey_as_fwss": "Export as FWSS",
     "delete_all": "Delete All Journeys",
     "delete_all_success": "All journeys are deleted!",
-    "preprocessor": "Preprocessor",
     "journey_date": "Journey Date",
     "journey_kind": "Journey Kind",
     "start_time": "Start Time",
@@ -140,14 +149,6 @@
     "menu_month": "Month",
     "menu_day": "Day"
   },
-  "preprocessor": {
-    "generic": "Generic Mode",
-    "flightTrack": "Flight Track Mode",
-    "none": "None",
-    "spare": "Spare Mode",
-    "description_md": "Preprocessor can optimize your journey data:\n- **Generic** suitable for most tracks, filtering out abnormal data and reasonably segmenting the data.\n- **FlightTrack** suitable for flight tracks, etc., using interpolation to complete missing parts of the path.\n- **Sparse**: Suitable for sparse data recorded at low frequency.",
-    "spare_md": "Based on the properties of the file, 'Spare Mode' has been automatically selected for you.\nYou can also try other preprocessors, but they may not perform well on low-density data."
-  },
   "import": {
     "shared_file": {
       "confirm_title": "Import data",
@@ -158,27 +159,57 @@
     "empty_data": "Journey is empty",
     "successful": "Import successful",
     "parsing_failed": "Data parsing failed",
-    "import_track_file": {
+    "preprocessor": {
+      "label": "Preprocessor",
+      "generic": "Generic Mode",
+      "flight_track": "Flight Track Mode",
+      "none": "None",
+      "spare": "Spare Mode",
+      "description_md": "Preprocessor can optimize your journey data:\n- **Generic** suitable for most tracks, filtering out abnormal data and reasonably segmenting the data.\n- **FlightTrack** suitable for flight tracks, etc., using interpolation to complete missing parts of the path.\n- **Sparse**: Suitable for sparse data recorded at low frequency.",
+      "spare_md": "Based on the properties of the file, 'Spare Mode' has been automatically selected for you.\nYou can also try other preprocessors, but they may not perform well on low-density data."
+    },
+    "journey_selection": {
+      "list_section_title": "Journeys to import ({})",
+      "select_all": "Select all",
+      "deselect_all": "Deselect all",
+      "confirm_import": "Import {} journeys",
+      "select_at_least_one": "Please select at least one journey to import."
+    },
+    "loading": {
+      "title": "Loading",
+      "description": "Large files may take a while. Please wait.",
+      "data_file": "Data file",
+      "keep_open_hint": "Keep this page open while processing"
+    },
+    "vector": {
+      "title": "Import Track File",
       "description_md": "The following track file formats are supported:\n\n1. **GPX** (`.gpx`)\n2. **KML** (`.kml`)\n3. **CSV** (`.csv`)"
     },
     "mldx_preview": {
       "title": "Archive Import",
       "skipped_identical": "{} identical journey(s) skipped",
       "new_count": "{} new journey(s)",
-      "list_section_title": "Journeys to import",
-      "select_all": "Select all",
-      "deselect_all": "Deselect all",
-      "confirm_import": "Confirm Import",
+      "summary_counts": "New {} · Conflicts {} · Skipped {}",
       "conflict_label": "Conflict",
       "conflict_force_confirm": "Force overwrite? Selected journey(s) will overwrite the local version of this journey.",
       "conflict_hint": "{} journey(s) conflict with local, unchecked by default.",
-      "select_at_least_one": "Please select at least one journey to import.",
       "all_skipped": "{} identical journey(s) skipped. Nothing to import.",
       "last_modified": "Modified: {}",
       "conflict_desc_import_newer": "Import version is newer",
       "conflict_desc_local_newer": "Local version is newer",
       "conflict_desc_same_time": "Same modified date; choose as needed",
       "conflict_desc_unknown": "Local modified date unavailable; choose carefully"
+    },
+    "vector_multi": {
+      "title": "Import Multiple Journeys",
+      "mode_title": "Multiple Journeys Detected",
+      "mode_message": "The tracks in this file can be imported as {} separate journeys. Would you like to combine them into one journey or import them separately?",
+      "single_action": "Import as One",
+      "separate_action": "Import Separately",
+      "point_count": "{} track points",
+      "missing_time_count": "{} points without time",
+      "unknown_time": "Time unknown",
+      "successful": "Successfully imported {} journeys"
     },
     "import_fow_data": {
       "description_md": "Import data generated from the Fog of World app.\n\nThis feature supports the following formats:\n1. Zip format: Compress the Fog of World cloud sync \"Sync\" folder into a Zip archive.\n2. Fwss format: Fog of World snapshot file.\n\nThe Fog of World app data does not include history. The exported data only contains the whole tracks from the start until the export point. If you have multiple historical Fog of World data, you can try uploading these to [Fog Machine - Time Machine](https://fogmachine.8bits.io/time-machine) and using the \"Export MemoLanes Archive\" feature.",
@@ -247,6 +278,11 @@
     "map_settings": {
       "title": "Map Settings",
       "style": "Map Style",
+      "fog_mode": "Fog Mode",
+      "fog_mode_name": {
+        "dark": "Dark",
+        "light": "Light"
+      },
       "style_name": {
         "maplibre": "MapLibre Demo Tile",
         "openfreemap": "OpenFreeMap"

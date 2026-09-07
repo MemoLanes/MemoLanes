@@ -4,6 +4,8 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/component/app_button.dart';
+import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
@@ -23,10 +25,8 @@ class RecordingHealthService extends ChangeNotifier {
   final _alert = _RecordingHealthAlert();
 
   bool get isRunning => _heartbeatTimer != null;
-  bool get isHeartbeatDetectionEnabled => MMKVUtil.getBool(
-        MMKVKey.isHeartbeatDetectionEnabled,
-        defaultValue: true,
-      );
+  bool get isHeartbeatDetectionEnabled =>
+      MMKVUtil.getBool(MMKVKey.isHeartbeatDetectionEnabled, defaultValue: true);
 
   void handleRecordingStatus(GpsRecordingStatus status) {
     if (defaultTargetPlatform != TargetPlatform.android) return;
@@ -102,8 +102,9 @@ class RecordingHealthService extends ChangeNotifier {
 }
 
 class _RecordingHealthAlert {
-  static final _helpPageUrl =
-      Uri.parse('https://app.memolanes.com/faqs/android-background-recording');
+  static final _helpPageUrl = Uri.parse(
+    'https://app.memolanes.com/faqs/android-background-recording',
+  );
 
   bool _isShowingWarning = false;
 
@@ -118,23 +119,23 @@ class _RecordingHealthAlert {
       final helpUrl = await _helpUrl();
       if (!context.mounted) return;
 
-      final disableHeartbeatDetection = await showDialog<bool>(
-        context: context,
+      final disableHeartbeatDetection = await showAppDialog<bool>(
+        context,
         barrierDismissible: false,
         builder: (dialogContext) => CommonDialog(
-          title: context.tr('recording_health.interruption_detected'),
-          content: '${context.tr('recording_health.freeze_warning')}\n\n'
-              '**[${context.tr('recording_health.view_help')} ↗]($helpUrl)**',
+          title: dialogContext.tr('recording_health.interruption_detected'),
+          content:
+              '${dialogContext.tr('recording_health.freeze_warning')}\n\n'
+              '**[${dialogContext.tr('recording_health.view_help')} ↗]($helpUrl)**',
           markdown: true,
           buttons: [
             DialogButton(
-              text: context.tr('recording_health.dont_remind_again'),
+              text: dialogContext.tr('recording_health.dont_remind_again'),
+              variant: AppButtonVariant.danger,
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              backgroundColor: Colors.red,
-              textColor: Colors.white,
             ),
             DialogButton(
-              text: context.tr('common.ok'),
+              text: dialogContext.tr('common.ok'),
               onPressed: () => Navigator.of(dialogContext).pop(false),
             ),
           ],

@@ -23,11 +23,7 @@ class JourneyTrackEditPage extends StatefulWidget {
   State<JourneyTrackEditPage> createState() => _JourneyTrackEditPageState();
 }
 
-enum _EditorToastRequest {
-  syncCurrentState,
-  saveSuccess,
-  clear,
-}
+enum _EditorToastRequest { syncCurrentState, saveSuccess, clear }
 
 class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
   static const int _minEditZoom = 13;
@@ -249,10 +245,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
       return;
     }
 
-    _applyMode(
-      OperationMode.edit,
-      clearLinkedDrawError: wasErrorLocked,
-    );
+    _applyMode(OperationMode.edit, clearLinkedDrawError: wasErrorLocked);
   }
 
   void _handleMapZoomUpdate(int? zoom) {
@@ -418,10 +411,9 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                                     barExtent: drawModeBarExtent,
                                     child: _DrawEntryModeButton(
                                       icon: Icons.draw_rounded,
-                                      label: context
-                                          .tr('journey.editor.free_draw'),
-                                      tooltip: context
-                                          .tr('journey.editor.free_draw'),
+                                      label: context.tr(
+                                        'journey.editor.free_draw',
+                                      ),
                                       isSelected: !_isLinkedDrawEnabled,
                                       onPressed: () => _handleDrawEntrySelected(
                                         DrawEntryMode.freehand,
@@ -435,8 +427,6 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                                       label: context.tr(
                                         'journey.editor.linked_draw',
                                       ),
-                                      tooltip: context
-                                          .tr('journey.editor.linked_draw'),
                                       isSelected: _isLinkedDrawEnabled,
                                       onPressed: () => _handleDrawEntrySelected(
                                         DrawEntryMode.linked,
@@ -493,9 +483,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
                       return;
                     }
 
-                    await showLoadingDialog(
-                      asyncTask: _editSession.commit(),
-                    );
+                    await showLoadingDialog(asyncTask: _editSession.commit());
                     if (!context.mounted) return;
                     _showToast(_EditorToastRequest.saveSuccess);
 
@@ -512,10 +500,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 }
 
 class _DrawModeItemSlot extends StatelessWidget {
-  const _DrawModeItemSlot({
-    required this.barExtent,
-    required this.child,
-  });
+  const _DrawModeItemSlot({required this.barExtent, required this.child});
 
   final double barExtent;
   final Widget child;
@@ -536,27 +521,22 @@ class _DrawEntryModeButton extends StatelessWidget {
   const _DrawEntryModeButton({
     required this.icon,
     required this.label,
-    required this.tooltip,
     required this.isSelected,
     required this.onPressed,
   });
 
   final IconData icon;
   final String label;
-  final String tooltip;
   final bool isSelected;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: FrostedBarItem(
-        icon: icon,
-        label: label,
-        isSelected: isSelected,
-        onTap: onPressed,
-      ),
+    return FrostedBarItem(
+      icon: icon,
+      label: label,
+      isSelected: isSelected,
+      onTap: onPressed,
     );
   }
 }

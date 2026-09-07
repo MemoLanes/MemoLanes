@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/component/cards/line_painter.dart';
+import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
@@ -15,6 +16,7 @@ class MapPanelPage extends StatelessWidget {
     this.initialMapView,
     this.initialMapBounds,
     this.maxHeight,
+    this.minHeight,
     this.expandPanel = false,
     this.loadingBody = const SizedBox.shrink(),
     this.onBack,
@@ -26,6 +28,7 @@ class MapPanelPage extends StatelessWidget {
   final MapBounds? initialMapBounds;
   final Widget panel;
   final double? maxHeight;
+  final double? minHeight;
   final bool expandPanel;
   final Widget loadingBody;
   final VoidCallback? onBack;
@@ -38,12 +41,13 @@ class MapPanelPage extends StatelessWidget {
       body: Stack(
         children: [
           SlidingUpPanel(
-            color: Colors.black,
+            color: StyleConstants.canvasColor,
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(16.0),
               topRight: Radius.circular(16.0),
             ),
             maxHeight: maxHeight ?? 400,
+            minHeight: minHeight ?? 100,
             defaultPanelState: PanelState.OPEN,
             panel: PointerInterceptor(
               child: Center(
@@ -71,15 +75,12 @@ class MapPanelPage extends StatelessWidget {
                     initialMapBounds: initialMapBounds,
                     initialMapBoundsPadding:
                         CapsuleStyleOverlayAppBar.mapFitPaddingForBottomOverlay(
-                      context,
-                      bottomOverlayHeight: maxHeight ?? 400,
-                    ),
+                          context,
+                          bottomOverlayHeight: maxHeight ?? 400,
+                        ),
                   ),
           ),
-          CapsuleStyleOverlayAppBar.overlayBar(
-            title: title,
-            onBack: onBack,
-          ),
+          CapsuleStyleOverlayAppBar.overlayBar(title: title, onBack: onBack),
         ],
       ),
     );

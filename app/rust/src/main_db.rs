@@ -1,9 +1,10 @@
 extern crate simplelog;
 use anyhow::{Context, Result};
 use auto_context::auto_context;
-use chrono::{DateTime, Local, NaiveDate, Timelike, Utc};
+use chrono::{DateTime, Local, NaiveDate, Utc};
 use protobuf::Message;
 use rusqlite::{Connection, OptionalExtension, Transaction};
+use std::collections::HashSet;
 use std::error::Error;
 use std::str::FromStr;
 use uuid::Uuid;
@@ -456,11 +457,19 @@ impl Txn<'_> {
         &self,
         from_date_inclusive: Option<NaiveDate>,
         to_date_inclusive: Option<NaiveDate>,
+        journey_kinds: Option<&HashSet<JourneyKind>>,
     ) -> Result<Vec<JourneyHeader>> {
-        let mut query = self.db_txn.prepare(
-            "SELECT header, type FROM journey WHERE journey_date >= (?1) AND journey_date <= (?2) ORDER BY journey_date DESC, timestamp_for_ordering DESC, id;",
-            // use `id` to break tie
-        )?;
+        let journey_kind = match journey_kinds {
+            Some(kinds) if kinds.is_empty() => return Ok(Vec::new()),
+            Some(kinds) if kinds.len() == 1 => kinds.iter().next().copied(),
+            _ => None,
+        };
+
+        // Use `id` to break ordering ties.
+        let mut query = self.db_txn.prepare(match journey_kind {
+            Some(_) => "SELECT header, type FROM journey WHERE journey_date >= ?1 AND journey_date <= ?2 AND journey_kind = ?3 ORDER BY journey_date DESC, timestamp_for_ordering DESC, id;",
+            None => "SELECT header, type FROM journey WHERE journey_date >= ?1 AND journey_date <= ?2 ORDER BY journey_date DESC, timestamp_for_ordering DESC, id;",
+        })?;
         let from = match from_date_inclusive {
             None => i32::MIN,
             Some(from_date) => utils::date_to_days_since_epoch(from_date),
@@ -469,7 +478,10 @@ impl Txn<'_> {
             None => i32::MAX,
             Some(to_date) => utils::date_to_days_since_epoch(to_date),
         };
-        let mut rows = query.query((from, to))?;
+        let mut rows = match journey_kind {
+            Some(journey_kind) => query.query((from, to, journey_kind.to_int()))?,
+            None => query.query((from, to))?,
+        };
         let mut results = Vec::new();
         while let Some(row) = rows.next()? {
             let header_bytes = row.get_ref(0)?.as_blob()?;
@@ -485,6 +497,35 @@ impl Txn<'_> {
             results.push(header);
         }
         Ok(results)
+    }
+
+    /// Returns distinct journey dates, optionally restricted to selected kinds.
+    /// This query only reads indexed relational columns and never decodes a
+    /// journey header.
+    #[auto_context]
+    pub fn query_journey_dates(
+        &self,
+        journey_kinds: Option<&HashSet<JourneyKind>>,
+    ) -> Result<Vec<NaiveDate>> {
+        let journey_kind = match journey_kinds {
+            Some(kinds) if kinds.is_empty() => return Ok(Vec::new()),
+            Some(kinds) if kinds.len() == 1 => kinds.iter().next().copied(),
+            _ => None,
+        };
+
+        let mut query = self.db_txn.prepare(match journey_kind {
+            Some(_) => "SELECT DISTINCT journey_date FROM journey WHERE journey_kind = ?1 ORDER BY journey_date;",
+            None => "SELECT DISTINCT journey_date FROM journey ORDER BY journey_date;",
+        })?;
+        let mut rows = match journey_kind {
+            Some(journey_kind) => query.query((journey_kind.to_int(),))?,
+            None => query.query(())?,
+        };
+        let mut dates = Vec::new();
+        while let Some(row) = rows.next()? {
+            dates.push(utils::date_of_days_since_epoch(row.get(0)?));
+        }
+        Ok(dates)
     }
 
     /// Returns finalized journey IDs in the inclusive date range, optionally
@@ -614,20 +655,8 @@ impl Txn<'_> {
 
                 let now = Local::now();
                 let recording_length_hours = (now.timestamp() - start.timestamp()) / 60 / 60;
-                let required_gap_mins = if recording_length_hours >= 48 {
-                    0 // let's just finalize it
-                } else if recording_length_hours >= 24 {
-                    2
-                } else {
-                    // if the local date changed since start, we should try to finalize it, otherwise we don't want that unless there is a huge gap (6h)
-                    if start.with_timezone(&Local).date_naive() == now.date_naive() {
-                        6 * 60
-                    } else if now.hour() <= 4 || recording_length_hours <= 8 {
-                        20
-                    } else {
-                        5
-                    }
-                };
+                let required_gap_mins =
+                    crate::journey_date_picker::min_gap(start, now, recording_length_hours);
 
                 let gap_mins = (now.timestamp() - end.timestamp()).max(0) / 60;
 
@@ -675,7 +704,7 @@ impl Txn<'_> {
 
     pub fn require_optimization(&self) -> Result<bool> {
         let result = self
-            .query_journeys(None, None)?
+            .query_journeys(None, None, None)?
             .iter()
             .any(GpsPostprocessor::outdated_algo);
         if result {
@@ -687,7 +716,7 @@ impl Txn<'_> {
     #[auto_context]
     pub fn optimize(&mut self) -> Result<()> {
         info!("Start optimizing main DB.");
-        let journey_headers = self.query_journeys(None, None)?;
+        let journey_headers = self.query_journeys(None, None, None)?;
         for journey_header in journey_headers {
             if GpsPostprocessor::outdated_algo(&journey_header) {
                 match self.get_journey_data(&journey_header.id)? {
