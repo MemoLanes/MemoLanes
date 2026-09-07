@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/service/location/location_service.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/gps_processor.dart';
@@ -49,6 +52,32 @@ class RecordingCoordinator {
     _persistedKeys.clear();
     _lastMeaningfulLiveUpdate = null;
   });
+
+  /// Restores a provider-owned backlog before live recording starts.
+  ///
+  /// The provider controls how data is stored and replayed. This coordinator
+  /// only supplies the common recording consumer and preserves the required
+  /// recovery-before-finalization ordering.
+  Future<bool> recoverPending(
+    Future<void> Function(LocationBatchConsumer consumer) recover, {
+    required bool remainActive,
+  }) async {
+    await start();
+    var completed = false;
+    var meaningful = false;
+    try {
+      await recover((locations, {required bool isReplay}) async {
+        if (await persistLocations(locations, isReplay: isReplay)) {
+          meaningful = true;
+        }
+      });
+      await tryAutoFinalize();
+      completed = true;
+      return meaningful;
+    } finally {
+      if (!completed || !remainActive) await stop();
+    }
+  }
 
   /// Persists a batch and returns whether Rust accepted a meaningful point.
   ///
@@ -108,7 +137,7 @@ class RecordingCoordinator {
       }
       return meaningful;
     });
-    if (finalized) await _onJourneyFinalized?.call();
+    if (finalized) _dispatchJourneyFinalized();
     return meaningful;
   }
 
@@ -131,7 +160,22 @@ class RecordingCoordinator {
       _lastMeaningfulLiveUpdate = _now();
       return result;
     });
-    if (finalized) await _onJourneyFinalized?.call();
+    if (finalized) _dispatchJourneyFinalized();
+  }
+
+  void _dispatchJourneyFinalized() {
+    final callback = _onJourneyFinalized;
+    if (callback == null) return;
+    scheduleMicrotask(() async {
+      try {
+        await callback();
+      } catch (error, stackTrace) {
+        log.error(
+          '[RecordingCoordinator] journey-finalized callback failed: $error',
+          stackTrace,
+        );
+      }
+    });
   }
 
   String _locationKey(LocationData location) =>

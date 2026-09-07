@@ -31,13 +31,6 @@ bool _positionTooOld(LocationData data, {int staleThresholdMs = 12 * 1000}) {
 
 class GpsManager extends ChangeNotifier {
   final ILocationService _locationService;
-  final Future<GpsRecordingStatus> Function()? _initialStateLoader;
-  final Future<bool> Function()? _permissionRequester;
-  final Future<bool> Function()? _finalizeJourneyOverride;
-  final Future<void> Function(bool)? _persistRecordingStateOverride;
-  final Future<void> Function(bool)? _configureKillNotificationOverride;
-  final void Function(String)? _showToastOverride;
-  final void Function(GpsRecordingStatus)? _recordingHealthUpdaterOverride;
   var recordingStatus = GpsRecordingStatus.none;
   var mapTracking = false;
   LocationData? latestPosition;
@@ -84,34 +77,11 @@ class GpsManager extends ChangeNotifier {
   // Otherwise we may start it before the app is fully ready (e.g. i18n not ready).
   bool _fullyReady = false;
 
-  GpsManager({
-    LocationServiceFactory? locationServiceFactory,
-    Future<GpsRecordingStatus> Function()? initialStateLoader,
-    Future<bool> Function()? permissionRequester,
-    Future<bool> Function()? finalizeJourney,
-    Future<void> Function(bool)? persistRecordingState,
-    Future<void> Function(bool)? configureKillNotification,
-    void Function(String)? showToast,
-    void Function(GpsRecordingStatus)? recordingHealthUpdater,
-    Future<bool> Function(List<RecordingLocationUpdate> updates)?
-    recordingWriter,
-    Future<bool> Function()? tryAutoFinalize,
-  }) : // Publicly named test seam initializes a private implementation field.
-       // ignore: prefer_initializing_formals
-       _initialStateLoader = initialStateLoader,
-       // ignore: prefer_initializing_formals
-       _permissionRequester = permissionRequester,
-       _finalizeJourneyOverride = finalizeJourney,
-       _persistRecordingStateOverride = persistRecordingState,
-       _configureKillNotificationOverride = configureKillNotification,
-       _showToastOverride = showToast,
-       _recordingHealthUpdaterOverride = recordingHealthUpdater,
-       _locationService =
-           (locationServiceFactory ?? createDefaultLocationService).call() {
+  GpsManager({LocationServiceFactory? locationServiceFactory})
+    : _locationService =
+          (locationServiceFactory ?? createDefaultLocationService).call() {
     _recordingCoordinator = RecordingCoordinator(
       onJourneyFinalized: _onJourneyFinalized,
-      onLocationUpdates: recordingWriter,
-      tryAutoFinalize: tryAutoFinalize,
     );
     _initialStateFuture = _initState();
   }
@@ -132,10 +102,7 @@ class GpsManager extends ChangeNotifier {
         });
       });
 
-      final initialStateLoader = _initialStateLoader;
-      if (initialStateLoader != null) {
-        recordingStatus = await initialStateLoader();
-      } else if (MMKVUtil.getBool(MMKVKey.isRecording) &&
+      if (MMKVUtil.getBool(MMKVKey.isRecording) &&
           await PermissionService().checkLocationPermission()) {
         recordingStatus = GpsRecordingStatus.recording;
       } else if (await api.hasOngoingJourney()) {
@@ -147,49 +114,36 @@ class GpsManager extends ChangeNotifier {
   }
 
   Future<void> _onJourneyFinalized() async {
-    // A provider may be awaiting its recording consumer while finalization is
-    // running. Never synchronously re-enter provider lifecycle operations from
-    // that delivery stack.
-    scheduleMicrotask(() => unawaited(_applyFinalizedJourneyState()));
-  }
-
-  Future<void> _applyFinalizedJourneyState() async {
-    try {
-      await _providerOperationMutex.protect(() async {
-        await _m.protect(() async {
-          if (_disposed) return;
-          if (recordingStatus == GpsRecordingStatus.paused) {
-            await _commitStateWithoutLock(
-              desiredRecordingStatus: GpsRecordingStatus.none,
-              desiredMapTracking: mapTracking,
-            );
-          }
-        });
+    await _providerOperationMutex.protect(() async {
+      await _m.protect(() async {
+        if (_disposed) return;
+        Fluttertoast.showToast(msg: tr('journey.finalize_saved'));
+        if (recordingStatus == GpsRecordingStatus.paused) {
+          recordingStatus = GpsRecordingStatus.none;
+          notifyListeners();
+          await _syncInternalStateWithoutLock();
+          MMKVUtil.putBool(MMKVKey.isRecording, false);
+        }
+        _notifyJourneyFinalized();
       });
-      if (_disposed) return;
-      _showToast(tr('journey.finalize_saved'));
-      _notifyJourneyFinalized();
-    } catch (error, stackTrace) {
-      log.error(
-        '[GpsManager] failed to apply finalized journey state: $error',
-        stackTrace,
-      );
-    }
+    });
   }
 
   void _notifyJourneyFinalized() {
     _journeyFinalizedController.add(null);
   }
 
-  _InternalState _desiredInternalState(
-    GpsRecordingStatus desiredRecordingStatus,
-    bool desiredMapTracking,
-  ) {
-    if (!_fullyReady) return _InternalState.off;
-    var newState = switch (desiredRecordingStatus) {
+  Future<void> _syncInternalStateWithoutLock() async {
+    // do nothing until fully ready, we will sync it again when it becomes ready
+    // for the first time.
+    if (!_fullyReady) {
+      return;
+    }
+
+    var newState = switch (recordingStatus) {
       GpsRecordingStatus.recording => _InternalState.recording,
       GpsRecordingStatus.paused ||
-      GpsRecordingStatus.none => switch (desiredMapTracking) {
+      GpsRecordingStatus.none => switch (mapTracking) {
         true => _InternalState.justForTracking,
         false => _InternalState.off,
       },
@@ -202,24 +156,86 @@ class GpsManager extends ChangeNotifier {
       // Map tracking should only use GPS when app is visible.
       newState = _InternalState.off;
     }
-    return newState;
+    var oldState = _internalState;
+    if (oldState != newState) {
+      // state changed
+
+      // turning off if needed
+      if (oldState != _InternalState.off) {
+        await _stopActiveStateWithoutLock(oldState);
+      }
+
+      // turnning on if needed
+      if (newState != _InternalState.off) {
+        log.info("[GpsManager] turning on gps stream. new state: $newState");
+        final recording = newState == _InternalState.recording;
+        _locationUpdateSub = _locationService.locations.listen(
+          _handleDisplayLocation,
+        );
+        if (recording) await _recordingCoordinator.start();
+        try {
+          await _locationService.start(
+            LocationStartOptions(
+              allowBackground: recording,
+              recordingConsumer: recording ? _persistLocations : null,
+            ),
+          );
+        } catch (error, stackTrace) {
+          log.error(
+            '[GpsManager] failed to start location service: $error',
+            stackTrace,
+          );
+          await _locationUpdateSub?.cancel();
+          _locationUpdateSub = null;
+          if (recording) {
+            await _recordingCoordinator.stop();
+          }
+          rethrow;
+        }
+        unawaited(_seedLastKnownPosition());
+
+        _lastPositionTooOldTimer ??= Timer.periodic(
+          const Duration(seconds: 1),
+          (timer) {
+            var latestPosition = this.latestPosition;
+            if (latestPosition != null) {
+              if (_positionTooOld(latestPosition)) {
+                this.latestPosition = null;
+                notifyListeners();
+              }
+            }
+          },
+        );
+
+        final unexpectedExitNotificationStatus =
+            await Permission.notification.isGranted &&
+            MMKVUtil.getBool(
+              MMKVKey.isUnexpectedExitNotificationEnabled,
+              defaultValue: true,
+            );
+        if (newState == _InternalState.recording &&
+            unexpectedExitNotificationStatus) {
+          await _notificationWhenAppIsKilledPlugin.setNotificationOnKillService(
+            ArgsForKillNotification(
+              title: tr("unexpected_exit_notification.notification_title"),
+              description: tr(
+                "unexpected_exit_notification.notification_message",
+              ),
+              argsForIos: ArgsForIos(
+                interruptionLevel: InterruptionLevel.critical,
+                useDefaultSound: true,
+              ),
+            ),
+          );
+        }
+      }
+      _internalState = newState;
+      RecordingHealthService.instance.handleRecordingStatus(recordingStatus);
+      notifyListeners();
+    }
   }
 
-  Future<void> _transitionInternalStateWithoutLock(
-    _InternalState newState,
-  ) async {
-    final oldState = _internalState;
-    if (oldState == newState) return;
-
-    if (oldState != _InternalState.off) {
-      await _stopActiveState(oldState);
-    }
-    if (newState != _InternalState.off) {
-      await _startActiveState(newState);
-    }
-  }
-
-  Future<void> _stopActiveState(_InternalState oldState) async {
+  Future<void> _stopActiveStateWithoutLock(_InternalState oldState) async {
     Object? firstError;
     StackTrace? firstStackTrace;
 
@@ -233,8 +249,8 @@ class GpsManager extends ChangeNotifier {
       }
     }
 
-    // Stop production and wait for provider-owned deliveries before stopping
-    // the consumer. Continue cleanup even when one platform operation fails.
+    // The provider must quiesce its consumer before the coordinator stops.
+    // Continue releasing GpsManager-owned resources if provider.stop throws.
     await attempt(_locationService.stop);
     await attempt(() async => _locationUpdateSub?.cancel());
     _locationUpdateSub = null;
@@ -243,7 +259,10 @@ class GpsManager extends ChangeNotifier {
     _lastPositionTooOldTimer?.cancel();
     _lastPositionTooOldTimer = null;
     if (oldState == _InternalState.recording) {
-      await attempt(() => _configureKillNotification(false));
+      await attempt(() async {
+        await _notificationWhenAppIsKilledPlugin
+            .cancelNotificationOnKillService();
+      });
       await attempt(_recordingCoordinator.stop);
     }
     _internalState = _InternalState.off;
@@ -251,176 +270,6 @@ class GpsManager extends ChangeNotifier {
     final error = firstError;
     if (error != null) {
       Error.throwWithStackTrace(error, firstStackTrace!);
-    }
-  }
-
-  Future<void> _startActiveState(_InternalState newState) async {
-    log.info('[GpsManager] turning on gps stream. new state: $newState');
-    final recording = newState == _InternalState.recording;
-    try {
-      _locationUpdateSub = _locationService.locations.listen(
-        _handleDisplayLocation,
-      );
-      if (recording) await _recordingCoordinator.start();
-      await _locationService.start(
-        LocationStartOptions(
-          allowBackground: recording,
-          recordingConsumer: recording ? _persistLocations : null,
-        ),
-      );
-      if (recording) await _configureKillNotification(true);
-
-      _lastPositionTooOldTimer ??= Timer.periodic(const Duration(seconds: 1), (
-        timer,
-      ) {
-        final position = latestPosition;
-        if (position != null && _positionTooOld(position)) {
-          latestPosition = null;
-          notifyListeners();
-        }
-      });
-      _internalState = newState;
-      unawaited(_seedLastKnownPosition());
-    } catch (error, stackTrace) {
-      log.error(
-        '[GpsManager] failed to start location service: $error',
-        stackTrace,
-      );
-      await _cleanupPartialStart(recording: recording);
-      Error.throwWithStackTrace(error, stackTrace);
-    }
-  }
-
-  Future<void> _cleanupPartialStart({required bool recording}) async {
-    Future<void> attempt(Future<void> Function() operation) async {
-      try {
-        await operation();
-      } catch (error, stackTrace) {
-        log.error(
-          '[GpsManager] partial-start cleanup failed: $error',
-          stackTrace,
-        );
-      }
-    }
-
-    await attempt(_locationService.stop);
-    await attempt(() async => _locationUpdateSub?.cancel());
-    _locationUpdateSub = null;
-    _lastPositionTooOldTimer?.cancel();
-    _lastPositionTooOldTimer = null;
-    latestPosition = null;
-    lastKnownPosition = null;
-    if (recording) {
-      await attempt(() => _configureKillNotification(false));
-      await attempt(_recordingCoordinator.stop);
-    }
-    _internalState = _InternalState.off;
-  }
-
-  Future<void> _commitStateWithoutLock({
-    required GpsRecordingStatus desiredRecordingStatus,
-    required bool desiredMapTracking,
-  }) async {
-    final desiredInternalState = _desiredInternalState(
-      desiredRecordingStatus,
-      desiredMapTracking,
-    );
-    try {
-      await _transitionInternalStateWithoutLock(desiredInternalState);
-      await _persistRecordingState(
-        desiredRecordingStatus == GpsRecordingStatus.recording,
-      );
-    } catch (error, stackTrace) {
-      await _forceSafeOffWithoutLock();
-      Error.throwWithStackTrace(error, stackTrace);
-    }
-
-    recordingStatus = desiredRecordingStatus;
-    mapTracking = desiredMapTracking;
-    _updateRecordingHealth();
-    notifyListeners();
-  }
-
-  Future<void> _forceSafeOffWithoutLock() async {
-    try {
-      if (_internalState != _InternalState.off) {
-        await _stopActiveState(_internalState);
-      } else {
-        await _cleanupPartialStart(
-          recording: recordingStatus == GpsRecordingStatus.recording,
-        );
-      }
-    } catch (error, stackTrace) {
-      log.error('[GpsManager] safe-off cleanup failed: $error', stackTrace);
-    }
-    _internalState = _InternalState.off;
-    recordingStatus = GpsRecordingStatus.none;
-    mapTracking = false;
-    try {
-      await _persistRecordingState(false);
-    } catch (error, stackTrace) {
-      log.error('[GpsManager] failed to persist safe-off: $error', stackTrace);
-    }
-    _updateRecordingHealth();
-    notifyListeners();
-  }
-
-  Future<void> _persistRecordingState(bool recording) async {
-    final persistRecordingState = _persistRecordingStateOverride;
-    if (persistRecordingState != null) {
-      await persistRecordingState(recording);
-      return;
-    }
-    if (!MMKVUtil.putBool(MMKVKey.isRecording, recording)) {
-      throw StateError('Failed to persist recording state');
-    }
-  }
-
-  Future<void> _configureKillNotification(bool recording) async {
-    final configure = _configureKillNotificationOverride;
-    if (configure != null) {
-      await configure(recording);
-      return;
-    }
-    if (!recording) {
-      await _notificationWhenAppIsKilledPlugin
-          .cancelNotificationOnKillService();
-      return;
-    }
-    final enabled =
-        await Permission.notification.isGranted &&
-        MMKVUtil.getBool(
-          MMKVKey.isUnexpectedExitNotificationEnabled,
-          defaultValue: true,
-        );
-    if (!enabled) return;
-    await _notificationWhenAppIsKilledPlugin.setNotificationOnKillService(
-      ArgsForKillNotification(
-        title: tr('unexpected_exit_notification.notification_title'),
-        description: tr('unexpected_exit_notification.notification_message'),
-        argsForIos: ArgsForIos(
-          interruptionLevel: InterruptionLevel.critical,
-          useDefaultSound: true,
-        ),
-      ),
-    );
-  }
-
-  void _showToast(String message) {
-    final showToast = _showToastOverride;
-    if (showToast != null) {
-      showToast(message);
-    } else {
-      Fluttertoast.showToast(msg: message);
-    }
-  }
-
-  void _updateRecordingHealth() {
-    final updater = _recordingHealthUpdaterOverride;
-    if (updater != null) {
-      updater(recordingStatus);
-    } else {
-      RecordingHealthService.instance.handleRecordingStatus(recordingStatus);
     }
   }
 
@@ -463,27 +312,28 @@ class GpsManager extends ChangeNotifier {
     await _initialStateFuture;
     await _providerOperationMutex.protect(() async {
       if (to == GpsRecordingStatus.recording &&
-          !await (_permissionRequester?.call() ??
-              checkAndRequestPermission())) {
+          !await checkAndRequestPermission()) {
         return;
       }
 
       await _m.protect(() async {
         final needToFinalize =
             recordingStatus != to && to == GpsRecordingStatus.none;
-        await _commitStateWithoutLock(
-          desiredRecordingStatus: to,
-          desiredMapTracking: mapTracking,
+        recordingStatus = to;
+
+        notifyListeners();
+
+        await _syncInternalStateWithoutLock();
+        MMKVUtil.putBool(
+          MMKVKey.isRecording,
+          recordingStatus == GpsRecordingStatus.recording,
         );
 
         if (needToFinalize) {
-          final finalized =
-              await (_finalizeJourneyOverride?.call() ??
-                  api.finalizeOngoingJourney());
-          if (finalized) {
-            _showToast(tr('journey.finalize_saved'));
+          if (await api.finalizeOngoingJourney()) {
+            Fluttertoast.showToast(msg: tr('journey.finalize_saved'));
           } else {
-            _showToast(tr('journey.finalize_empty'));
+            Fluttertoast.showToast(msg: tr('journey.finalize_empty'));
           }
           _notifyJourneyFinalized();
         }
@@ -498,10 +348,8 @@ class GpsManager extends ChangeNotifier {
 
     await _providerOperationMutex.protect(() async {
       await _m.protect(() async {
-        await _commitStateWithoutLock(
-          desiredRecordingStatus: recordingStatus,
-          desiredMapTracking: enable,
-        );
+        mapTracking = enable;
+        await _syncInternalStateWithoutLock();
       });
     });
     return true;
@@ -521,33 +369,19 @@ class GpsManager extends ChangeNotifier {
 
   Future<void> _readyToStart() async {
     await _initialStateFuture;
-    try {
-      await _providerOperationMutex.protect(() async {
-        await _m.protect(() async {
-          _fullyReady = true;
-
-          // Recovery must complete before auto-finalizing an old journey. The
-          // coordinator is started temporarily even when the restored public
-          // state is paused or off so recovered data has a valid consumer.
-          await _recordingCoordinator.start();
-          await _locationService.recoverPendingDeliveries(_persistLocations);
-          await _recordingCoordinator.tryAutoFinalize();
-          if (recordingStatus != GpsRecordingStatus.recording) {
-            await _recordingCoordinator.stop();
-          }
-          await _commitStateWithoutLock(
-            desiredRecordingStatus: recordingStatus,
-            desiredMapTracking: mapTracking,
-          );
-        });
+    await _providerOperationMutex.protect(() async {
+      await _m.protect(() async {
+        final meaningful = await _recordingCoordinator.recoverPending(
+          _locationService.recoverPendingDeliveries,
+          remainActive: recordingStatus == GpsRecordingStatus.recording,
+        );
+        if (meaningful && !_disposed) {
+          _recordingDataChangedController.add(null);
+        }
+        _fullyReady = true;
+        await _syncInternalStateWithoutLock();
       });
-    } catch (error, stackTrace) {
-      log.error('[GpsManager] startup recovery failed: $error', stackTrace);
-      await _providerOperationMutex.protect(() async {
-        await _m.protect(_forceSafeOffWithoutLock);
-      });
-      Error.throwWithStackTrace(error, stackTrace);
-    }
+    });
   }
 
   @override

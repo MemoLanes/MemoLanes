@@ -70,7 +70,8 @@ abstract interface class ILocationService {
 
   Stream<LocationData> get locations;
 
-  /// Starts acquisition. Repeating an equivalent start must be safe.
+  /// Starts acquisition. Repeating an equivalent start must be safe. If this
+  /// throws, the provider must have rolled itself back to a stopped state.
   Future<void> start(LocationStartOptions options);
 
   /// Reports app visibility and must tolerate duplicates and inactive states.
@@ -85,7 +86,8 @@ abstract interface class ILocationService {
   Future<void> recoverPendingDeliveries(LocationBatchConsumer consumer);
 
   /// Stops producing points and waits for all in-flight recording deliveries.
-  /// Repeating a stop must be safe.
+  /// Repeating a stop must be safe. If this throws, provider-owned resources
+  /// must still have been released as far as the platform permits.
   Future<void> stop();
 
   /// Permanently releases provider-owned subscriptions, timers, and streams.

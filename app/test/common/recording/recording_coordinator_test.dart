@@ -195,16 +195,105 @@ void main() {
 
   test('finalization callback may stop without re-entering the lock', () async {
     late RecordingCoordinator coordinator;
+    final callbackCompleted = Completer<void>();
     coordinator = RecordingCoordinator(
       onLocationUpdates: (_) async => true,
       tryAutoFinalize: () async => true,
-      onJourneyFinalized: () => coordinator.stop(),
+      onJourneyFinalized: () async {
+        await coordinator.stop();
+        callbackCompleted.complete();
+      },
     );
 
     await coordinator.start();
     await coordinator.tryAutoFinalize().timeout(const Duration(seconds: 1));
+    await callbackCompleted.future.timeout(const Duration(seconds: 1));
     await expectLater(
       coordinator.persistLocations([_location(10)], isReplay: false),
+      throwsStateError,
+    );
+  });
+
+  test('finalization notification does not hold the delivery future', () async {
+    final callbackStarted = Completer<void>();
+    final releaseCallback = Completer<void>();
+    final coordinator = RecordingCoordinator(
+      tryAutoFinalize: () async => true,
+      onJourneyFinalized: () async {
+        callbackStarted.complete();
+        await releaseCallback.future;
+      },
+    );
+
+    await coordinator.start();
+    await coordinator.tryAutoFinalize().timeout(const Duration(seconds: 1));
+    await callbackStarted.future;
+
+    releaseCallback.complete();
+    await coordinator.dispose();
+  });
+
+  test('recovers pending data before startup finalization', () async {
+    final events = <String>[];
+    final coordinator = RecordingCoordinator(
+      onLocationUpdates: (updates) async {
+        events.add('write:${updates.single.location.timestampMs}');
+        return true;
+      },
+      tryAutoFinalize: () async {
+        events.add('finalize');
+        return false;
+      },
+    );
+
+    final meaningful = await coordinator.recoverPending((consumer) async {
+      events.add('recover');
+      await consumer([_location(10)], isReplay: true);
+      events.add('recovered');
+    }, remainActive: false);
+
+    expect(events, ['recover', 'write:10', 'recovered', 'finalize']);
+    expect(meaningful, isTrue);
+    await expectLater(
+      coordinator.persistLocations([_location(20)], isReplay: false),
+      throwsStateError,
+    );
+  });
+
+  test(
+    'keeps the coordinator active after successful recovery when asked',
+    () async {
+      final written = <int>[];
+      final coordinator = RecordingCoordinator(
+        onLocationUpdates: (updates) async {
+          written.addAll(updates.map((update) => update.location.timestampMs));
+          return true;
+        },
+        tryAutoFinalize: () async => false,
+      );
+
+      await coordinator.recoverPending((_) async {}, remainActive: true);
+      await coordinator.persistLocations([_location(10)], isReplay: false);
+
+      expect(written, [10]);
+      await coordinator.dispose();
+    },
+  );
+
+  test('failed recovery leaves the coordinator inactive', () async {
+    final coordinator = RecordingCoordinator(
+      onLocationUpdates: (_) async => true,
+    );
+
+    await expectLater(
+      coordinator.recoverPending(
+        (_) async => throw StateError('recovery failed'),
+        remainActive: true,
+      ),
+      throwsStateError,
+    );
+    await expectLater(
+      coordinator.persistLocations([_location(10)], isReplay: true),
       throwsStateError,
     );
   });
