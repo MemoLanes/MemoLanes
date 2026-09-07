@@ -44,7 +44,6 @@ class RecordingCoordinator {
   Future<void> start() => _operationMutex.protect(() async {
     if (_recording) return;
     _recording = true;
-    _lastMeaningfulLiveUpdate = null;
   });
 
   /// Restores a provider-owned backlog before live recording starts.

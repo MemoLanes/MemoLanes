@@ -165,6 +165,32 @@ void main() {
     await coordinator.dispose();
   });
 
+  test('preserves live inactivity across recording restarts', () async {
+    final events = <String>[];
+    var now = DateTime.fromMillisecondsSinceEpoch(0);
+    final coordinator = RecordingCoordinator(
+      now: () => now,
+      tryAutoFinalize: () async {
+        events.add('finalize');
+        return true;
+      },
+      onLocationUpdates: (updates) async {
+        events.add('write:${updates.single.location.timestampMs}');
+        return true;
+      },
+    );
+
+    await coordinator.start();
+    await coordinator.persistLocations([_location(10)], isReplay: false);
+    await coordinator.stop();
+    now = now.add(const Duration(minutes: 2));
+    await coordinator.start();
+    await coordinator.persistLocations([_location(20)], isReplay: false);
+
+    expect(events, ['write:10', 'finalize', 'write:20']);
+    await coordinator.dispose();
+  });
+
   test('serializes explicit finalization behind an in-flight write', () async {
     final writeStarted = Completer<void>();
     final releaseWrite = Completer<void>();
