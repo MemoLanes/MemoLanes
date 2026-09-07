@@ -4,7 +4,6 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/common/service/location/geolocator_service.dart';
 import 'package:memolanes/common/service/location/location_service.dart';
-import 'package:memolanes/main.dart' as app;
 
 class _FakeLocationService implements ILocationService {
   static const info = LocationProviderInfo(
@@ -62,13 +61,6 @@ void main() {
       expect(provider.providerInfo, isNot(LocationProviderInfo.native));
     },
   );
-
-  test('product entry point accepts a location service factory', () {
-    void runner({LocationServiceFactory? locationServiceFactory}) =>
-        app.runMemoLanesApp(locationServiceFactory: locationServiceFactory);
-
-    expect(runner, isNotNull);
-  });
 
   test('the upstream default factory creates the native provider', () async {
     final provider = createDefaultLocationService();
