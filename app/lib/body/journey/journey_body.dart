@@ -176,10 +176,17 @@ class _JourneyBodyState extends State<JourneyBody> {
       return const Center(child: CircularProgressIndicator());
     }
 
+    final isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
     final firstDate = _controller.firstDate;
     if (firstDate == null) {
       return Padding(
-        padding: const EdgeInsets.fromLTRB(8, 16, 8, 140),
+        padding: EdgeInsets.fromLTRB(
+          8,
+          16,
+          8,
+          isLandscape ? StyleConstants.navBarSafeArea + 5 : 140,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -192,7 +199,7 @@ class _JourneyBodyState extends State<JourneyBody> {
       );
     }
 
-    if (MediaQuery.of(context).orientation == Orientation.landscape) {
+    if (isLandscape) {
       return _buildLandscapeBody(firstDate);
     }
 
