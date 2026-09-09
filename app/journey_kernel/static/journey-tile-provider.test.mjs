@@ -162,7 +162,7 @@ test("superseded decoded sources are released and callbacks describe committed c
   assert.equal(f.decodes[0].source.releases, 1);
   assert.equal(callbacks.length, 0);
   await f.commit(1, "2");
-  assert.deepEqual(callbacks[0].slice(0, 6), [110, 100, 1, 1, 8, 8]);
+  assert.deepEqual(callbacks[0].slice(0, 6), [110, 100, 1, 1, 8, 9]);
   assert.equal(callbacks[0][6], f.decodes[1].source.mainThreadBuffer);
   assert.equal(f.provider.getLoadedTileBuffer().generation, 1);
 });
@@ -256,6 +256,10 @@ test("Canvas keeps native source detail through map zoom 14", async () => {
       canvas.bufferSizePower,
       canvas.tileRequestPolicy,
     ),
-    [100, 100, 1, 1, 14],
+    [50, 50, 1, 1, 13],
+  );
+  assert.equal(
+    canvas.tileRequestPolicy.maxSourceZoom + canvas.bufferSizePower,
+    22,
   );
 });
