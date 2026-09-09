@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/app_checkbox.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
+import 'package:memolanes/constants/app_typography.dart';
+import 'package:memolanes/constants/style_constants.dart';
 
 class MultiJourneyImportListItem {
   const MultiJourneyImportListItem({
@@ -22,7 +25,7 @@ class MultiJourneyCollapsibleHeader {
   const MultiJourneyCollapsibleHeader({
     required this.expandedChild,
     required this.collapsedChild,
-    this.expandedHeight = 202,
+    this.expandedHeight = 220,
     this.collapsedHeight = 58,
   });
 
@@ -30,14 +33,14 @@ class MultiJourneyCollapsibleHeader {
     required Widget expandedContent,
     required IconData collapsedIcon,
     required String collapsedText,
-    double expandedHeight = 202,
+    double expandedHeight = 220,
     double collapsedHeight = 58,
   }) {
     return MultiJourneyCollapsibleHeader(
       expandedHeight: expandedHeight,
       collapsedHeight: collapsedHeight,
       expandedChild: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         child: expandedContent,
       ),
       collapsedChild: _CollapsedImportHeader(
@@ -66,19 +69,22 @@ class _CollapsedImportHeader extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          color: const Color(0x1AFFFFFF),
+          color: StyleConstants.softGreen,
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: StyleConstants.lineColor),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 18, color: const Color(0x99FFFFFF)),
+            Icon(icon, size: 18, color: StyleConstants.deepGreen),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 text,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 14, color: Color(0x99FFFFFF)),
+                style: AppTypography.body.copyWith(
+                  color: StyleConstants.mutedInkColor,
+                ),
               ),
             ),
           ],
@@ -132,6 +138,7 @@ class MultiJourneyImportPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: StyleConstants.canvasColor,
       appBar: CapsuleStyleAppBar(title: title),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -140,9 +147,10 @@ class MultiJourneyImportPage extends StatelessWidget {
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: FilledButton(
+              child: AppButton(
                 onPressed: confirmEnabled ? onConfirm : null,
-                child: Text(confirmLabel),
+                label: confirmLabel,
+                expand: true,
               ),
             ),
           ),
@@ -184,9 +192,9 @@ class MultiJourneyImportPage extends StatelessWidget {
           const Spacer(),
           TextButton.icon(
             onPressed: () => onToggleAll(!_allSelected),
-            icon: Icon(
-              _allSelected ? Icons.check_box : Icons.check_box_outline_blank,
-              size: 20,
+            icon: AppCheckbox(
+              value: _allSelected,
+              onChanged: (value) => onToggleAll(value),
             ),
             label: Text(_allSelected ? deselectAllLabel : selectAllLabel),
           ),
@@ -203,7 +211,9 @@ class MultiJourneyImportPage extends StatelessWidget {
       desc: item.description,
       prefix: AppCheckbox(
         value: selected,
-        onChanged: (value) => onToggleItem(item.keyValue, value),
+        onChanged: (value) {
+          onToggleItem(item.keyValue, value);
+        },
       ),
       trailing: item.trailing ?? const LabelTileContent(showArrow: true),
       onTap: () => onPreview(item.keyValue),
