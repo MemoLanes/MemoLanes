@@ -10,7 +10,15 @@ import 'package:memolanes/constants/style_constants.dart';
 
 enum OperationMode { move, edit, editReadonly, delete }
 
-enum DrawEntryMode { freehand, linked }
+enum DrawEntryMode {
+  freehand(Icons.draw_rounded, 'journey.editor.free_draw'),
+  linked(Icons.link_rounded, 'journey.editor.linked_draw');
+
+  const DrawEntryMode(this.icon, this.labelKey);
+
+  final IconData icon;
+  final String labelKey;
+}
 
 class ModeSwitchBar extends StatelessWidget {
   static const double extent = 56.0;
@@ -106,8 +114,8 @@ class ModeSwitchBar extends StatelessWidget {
                       },
                     ),
                     _EditorModeButton(
-                      icon: Icons.gesture_rounded,
-                      label: context.tr('journey.editor.draw'),
+                      icon: currentDrawMode.icon,
+                      label: context.tr(currentDrawMode.labelKey),
                       isSelected: _isDrawSelected,
                       selectedWidth: selectedModeWidth,
                       onTap: () {
@@ -333,8 +341,8 @@ class _DrawModeMenu extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             _DrawModeOption(
-              icon: Icons.draw_rounded,
-              label: context.tr('journey.editor.free_draw'),
+              icon: DrawEntryMode.freehand.icon,
+              label: context.tr(DrawEntryMode.freehand.labelKey),
               isSelected: currentMode == DrawEntryMode.freehand,
               onTap: () {
                 AppHaptics.selection();
@@ -343,8 +351,8 @@ class _DrawModeMenu extends StatelessWidget {
             ),
             const SizedBox(height: 3),
             _DrawModeOption(
-              icon: Icons.link_rounded,
-              label: context.tr('journey.editor.linked_draw'),
+              icon: DrawEntryMode.linked.icon,
+              label: context.tr(DrawEntryMode.linked.labelKey),
               isSelected: currentMode == DrawEntryMode.linked,
               onTap: () {
                 AppHaptics.selection();
