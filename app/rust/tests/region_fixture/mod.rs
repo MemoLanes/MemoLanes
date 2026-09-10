@@ -188,7 +188,7 @@ pub fn new_storage(temp_dir: &TempDir, geo_bytes: &[u8]) -> Storage {
     )
     .unwrap();
     storage
-        .init_or_change_geo_data(Worldview::Iso, geo_bytes)
+        .init_or_change_geo_data(Worldview::Iso, [0u8; 32], geo_bytes)
         .unwrap();
     storage
 }

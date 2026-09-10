@@ -84,10 +84,6 @@ jobs:
         working-directory: tools/geo_rasterizer
         run: cargo fetch
 
-      - name: Rust Code Check
-        working-directory: app
-        run: just rust-check
-
       # Cache the pinned Natural Earth source. Hash the geo_data_format Rust
       # source as a whole so source pin moves, worldview additions, and nearby
       # format changes all bust this cache without another file-list update.
@@ -120,6 +116,10 @@ jobs:
       - name: Geo Rasterize All Worldviews
         working-directory: app
         run: just rasterize-geo
+
+      - name: Rust Code Check
+        working-directory: app
+        run: just rust-check
       - name: Geo Tests
         if: steps.changes.outputs.geo == 'true'
         working-directory: app

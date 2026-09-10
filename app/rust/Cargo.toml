@@ -72,6 +72,7 @@ qr2term = "0.3"
 [build-dependencies]
 protobuf-codegen = "3.7"
 cargo_toml = "1.0"
+geo_data_format = { path = "geo_data_format" }
 
 [[bench]]
 name = "bench"

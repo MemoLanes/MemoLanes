@@ -64,7 +64,6 @@ class WorldviewManager {
   Future<void> _activateGeoData(achievement.Worldview worldview) async {
     await achievement.activateGeoData(
       worldview: worldview,
-      provenanceHashHex: await rootBundle.loadString(worldview.provenancePath),
       loadAsset: () async =>
           (await rootBundle.load(worldview.assetPath)).buffer.asUint8List(),
     );

@@ -8,6 +8,7 @@
 
 use std::collections::BTreeMap;
 use std::fs::File;
+use std::io::{BufReader, Read};
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
@@ -117,9 +118,9 @@ impl TileIndex {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct Section {
-    off: usize,
-    len: usize,
+pub struct Section {
+    pub off: usize,
+    pub len: usize,
 }
 
 #[derive(Debug)]
@@ -315,12 +316,13 @@ pub fn expected_total_len(header: &[u8]) -> Option<usize> {
     Some(total)
 }
 
-struct Header {
-    provenance_hash: [u8; 32],
-    meta: Section,
-    tile_index: Section,
-    border_offsets: Section,
-    border_blobs: Section,
+#[derive(Debug, Clone, Copy)]
+pub struct Header {
+    pub provenance_hash: [u8; 32],
+    pub meta: Section,
+    pub tile_index: Section,
+    pub border_offsets: Section,
+    pub border_blobs: Section,
 }
 
 fn parse_header(header: &[u8]) -> anyhow::Result<Header> {
@@ -410,4 +412,35 @@ impl GeoData {
             meta_compressed,
         })
     }
+}
+
+pub fn read_header(bin_path: &Path) -> anyhow::Result<Option<Header>> {
+    let f = match File::open(bin_path) {
+        Ok(f) => f,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => anyhow::bail!("geo_data: opening {}: {e}", bin_path.display()),
+    };
+    let file_len = f
+        .metadata()
+        .map_err(|e| anyhow::anyhow!("geo_data: stat {}: {e}", bin_path.display()))?
+        .len();
+    let mut buf = [0u8; HEADER_LEN];
+    let mut reader = BufReader::new(f);
+    let mut total = 0;
+    while total < HEADER_LEN {
+        let n = reader.read(&mut buf[total..])?;
+        if n == 0 {
+            return Ok(None);
+        }
+        total += n;
+    }
+    match expected_total_len(&buf) {
+        Some(expected) if expected as u64 == file_len => {}
+        _ => return Ok(None),
+    }
+    parse_header(&buf).map(Some)
+}
+
+pub fn read_provenance_hash(bin_path: &Path) -> anyhow::Result<Option<[u8; 32]>> {
+    Ok(read_header(bin_path)?.map(|header| header.provenance_hash))
 }

@@ -127,7 +127,7 @@ fn on_demand_areas_and_region_areas() {
     )
     .unwrap();
     storage
-        .init_or_change_geo_data(Worldview::Iso, &geo_bytes)
+        .init_or_change_geo_data(Worldview::Iso, [0u8; 32], &geo_bytes)
         .unwrap();
 
     // A Default journey and a Flight journey, in different blocks of France, so

@@ -16,3 +16,4 @@ target/
 # End of https://www.toptal.com/developers/gitignore/api/rust
 
 build_info.rs
+/src/geo_provenance.rs

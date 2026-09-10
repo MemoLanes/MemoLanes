@@ -85,7 +85,7 @@ fn region_read_api_lists_progress_and_completion() {
     };
     let storage = Storage::init(sub("t"), sub("d"), sub("s"), sub("c")).unwrap();
     storage
-        .init_or_change_geo_data(Worldview::Iso, &geo_bytes())
+        .init_or_change_geo_data(Worldview::Iso, [0u8; 32], &geo_bytes())
         .unwrap();
 
     // Default journey in France, Flight journey over Germany.
@@ -184,7 +184,7 @@ fn init_or_change_geo_data_rejects_mismatched_worldview_id() {
     )
     .unwrap();
     let err = storage
-        .init_or_change_geo_data(Worldview::Iso, &bytes)
+        .init_or_change_geo_data(Worldview::Iso, [0u8; 32], &bytes)
         .expect_err("mismatched worldview id must be rejected");
     assert!(
         err.to_string().contains("declares worldview"),
@@ -203,6 +203,6 @@ fn init_or_change_geo_data_rejects_invalid_bytes() {
     let storage = Storage::init(sub("t"), sub("d"), sub("s"), sub("c")).unwrap();
 
     assert!(storage
-        .init_or_change_geo_data(Worldview::Iso, b"not a geo asset")
+        .init_or_change_geo_data(Worldview::Iso, [0u8; 32], b"not a geo asset")
         .is_err());
 }

@@ -57,7 +57,8 @@ mod worldview;
 
 pub use cldr::*;
 pub use format::{
-    expected_total_len, write_geo_data, BorderBlobs, GeoData, TileEntry, TileIndex, HEADER_LEN,
+    expected_total_len, read_header, read_provenance_hash, write_geo_data, BorderBlobs, GeoData,
+    Header, Section, TileEntry, TileIndex, HEADER_LEN,
 };
 pub use locale::*;
 pub use packed_tile::PackedTile;

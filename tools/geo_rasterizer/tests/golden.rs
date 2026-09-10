@@ -32,33 +32,6 @@ fn emitted_asset_declares_its_worldview_id() {
 }
 
 #[test]
-fn emitted_asset_has_a_matching_provenance_sidecar() {
-    let out_dir = tempfile::tempdir().unwrap();
-    let out = out_dir.path().join("geo_data_iso.bin");
-    let status = Command::new(env!("CARGO_BIN_EXE_geo_rasterizer"))
-        .current_dir(env!("CARGO_MANIFEST_DIR"))
-        .args([
-            "--worldview",
-            "iso",
-            "--countries",
-            "tests/fixtures/synthetic.geojson",
-            "--admin1",
-            "tests/fixtures/synthetic_admin1.geojson",
-            "--registry",
-            "tests/fixtures/synthetic_registry",
-            "--output",
-        ])
-        .arg(&out)
-        .status()
-        .expect("run rasterizer");
-    assert!(status.success());
-
-    let data = GeoData::open(&out).unwrap();
-    let sidecar = std::fs::read_to_string(out_dir.path().join("geo_data_iso.provenance")).unwrap();
-    assert_eq!(sidecar.trim(), hex::encode(data.provenance_hash));
-}
-
-#[test]
 fn golden_output_is_byte_identical() {
     let out_dir = tempfile::tempdir().unwrap();
     let out = out_dir.path().join("synthetic.bin");

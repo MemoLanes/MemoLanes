@@ -1,3 +1,4 @@
+#![cfg(geo_bins_present)]
 //! End-to-end over the Flutter Rust Bridge–facing achievement API (`src/api/achievement.rs`),
 //! driven through the global app state exactly as the Flutter layer would.
 //!
@@ -14,7 +15,6 @@ pub mod test_utils;
 use std::collections::HashMap;
 
 use flutter_rust_bridge::DartFnFuture;
-use memolanes_core::geo::{GeoIndex, GeoLookup};
 use memolanes_core::{
     api::achievement::{
         activate_geo_data, get_explored_area, get_explored_area_by_layer, region_detail,
@@ -137,7 +137,6 @@ async fn api_achievement_explored_area_and_region_contract() {
 
     // --- Geo initializer against the real ISO asset. ---
     let asset = test_utils::geo_asset("iso");
-    let provenance = hex::encode(GeoIndex::open(&asset).unwrap().provenance_hash());
     let loads = Arc::new(AtomicUsize::new(0));
     let load_asset = {
         let loads = loads.clone();
@@ -147,7 +146,7 @@ async fn api_achievement_explored_area_and_region_contract() {
             Box::pin(std::future::ready(fs::read(&asset).unwrap()))
         }
     };
-    activate_geo_data(Worldview::Iso, provenance.clone(), &load_asset)
+    activate_geo_data(Worldview::Iso, &load_asset)
         .await
         .unwrap();
     assert_eq!(
@@ -155,7 +154,7 @@ async fn api_achievement_explored_area_and_region_contract() {
         1,
         "no installed copy → asset loaded"
     );
-    activate_geo_data(Worldview::Iso, provenance, &load_asset)
+    activate_geo_data(Worldview::Iso, &load_asset)
         .await
         .unwrap();
     assert_eq!(

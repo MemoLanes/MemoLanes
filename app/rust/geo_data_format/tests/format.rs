@@ -1,8 +1,9 @@
 use std::collections::BTreeMap;
 
 use geo_data_format::{
-    tile_xy, write_geo_data, GeoData, GeoEntity, GeoEntityId, GeoEntityKind, PackedTile, TileEntry,
-    TileMembership, CELLS_PER_TILE, NO_ENTITY, TILE_COUNT,
+    read_header, read_provenance_hash, tile_xy, write_geo_data, GeoData, GeoEntity, GeoEntityId,
+    GeoEntityKind, PackedTile, TileEntry, TileMembership, CELLS_PER_TILE, HEADER_LEN, MAGIC,
+    NO_ENTITY, TILE_COUNT,
 };
 
 fn entity(id: u32, iso: &str) -> GeoEntity {
@@ -160,4 +161,78 @@ fn rejects_entity_id_beyond_tile_index_range() {
     )
     .unwrap_err();
     assert!(err.to_string().contains("entity id"), "{err}");
+}
+
+/// A minimal but complete, well-formed `geo_data.bin` carrying `hash`.
+fn well_formed_bin(hash: [u8; 32]) -> Vec<u8> {
+    let tl = vec![TileMembership::None; TILE_COUNT];
+    let bl = BTreeMap::new();
+    write_geo_data(&[], "iso", &tl, &bl, hash).unwrap()
+}
+
+fn write_tmp(bytes: &[u8]) -> tempfile::NamedTempFile {
+    use std::io::Write;
+    let mut f = tempfile::NamedTempFile::new().unwrap();
+    f.write_all(bytes).unwrap();
+    f.flush().unwrap();
+    f
+}
+
+#[test]
+fn read_provenance_hash_returns_none_for_missing_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let missing = dir.path().join("does_not_exist.bin");
+    assert_eq!(read_provenance_hash(&missing).unwrap(), None);
+}
+
+#[test]
+fn read_provenance_hash_returns_none_for_short_file() {
+    let f = write_tmp(b"too short");
+    assert_eq!(read_provenance_hash(f.path()).unwrap(), None);
+}
+
+#[test]
+fn read_provenance_hash_returns_bytes_for_complete_file() {
+    let hash = [0xABu8; 32];
+    let f = write_tmp(&well_formed_bin(hash));
+    assert_eq!(read_provenance_hash(f.path()).unwrap(), Some(hash));
+}
+
+#[test]
+fn read_provenance_hash_rejects_torn_file() {
+    // A complete header (valid magic + hash) over a truncated body must be
+    // rejected: the file size won't match the length the header encodes, so
+    // the rasterizer's smart-skip rebuilds instead of trusting the stale hash.
+    let bytes = well_formed_bin([0xCDu8; 32]);
+    let f = write_tmp(&bytes[..bytes.len() - 1]);
+    assert_eq!(read_provenance_hash(f.path()).unwrap(), None);
+}
+
+#[test]
+fn read_provenance_hash_old_layout_does_not_false_match() {
+    // A file that is exactly MAGIC with no hash must not be accepted.
+    let f = write_tmp(MAGIC);
+    assert_eq!(read_provenance_hash(f.path()).unwrap(), None);
+}
+
+#[test]
+fn read_header_returns_section_spans() {
+    let hash = [0x7Eu8; 32];
+    let bytes = well_formed_bin(hash);
+    let f = write_tmp(&bytes);
+    let header = read_header(f.path()).unwrap().unwrap();
+    assert_eq!(header.provenance_hash, hash);
+    for (what, section) in [
+        ("meta", header.meta),
+        ("tile_index", header.tile_index),
+        ("border_offsets", header.border_offsets),
+        ("border_blobs", header.border_blobs),
+    ] {
+        assert!(
+            section.off >= HEADER_LEN && section.off + section.len <= bytes.len(),
+            "{what} span {}..{} outside the file",
+            section.off,
+            section.off + section.len
+        );
+    }
 }

@@ -34,11 +34,6 @@ impl Worldview {
         format!("assets/geo/geo_data_{}.bin", self.inner().spec().id)
     }
 
-    #[frb(sync, getter)]
-    pub fn provenance_path(&self) -> String {
-        format!("assets/geo/geo_data_{}.provenance", self.inner().spec().id)
-    }
-
     #[frb(sync)]
     pub fn from_id(id: &str) -> Option<Self> {
         GeoWorldview::from_id(id).ok().map(Self::from)
@@ -81,19 +76,16 @@ impl From<Worldview> for GeoWorldview {
 
 pub async fn activate_geo_data(
     worldview: Worldview,
-    provenance_hash_hex: String,
     load_asset: impl Fn() -> DartFnFuture<Vec<u8>>,
 ) -> Result<()> {
-    let provenance_hash: [u8; 32] = hex::decode(provenance_hash_hex.trim())
-        .ok()
-        .and_then(|bytes| bytes.try_into().ok())
-        .ok_or_else(|| anyhow::anyhow!("provenance hash must be 32 bytes of hex"))?;
+    let expected = crate::geo_provenance::bundled_provenance_hash(worldview.into())
+        .ok_or_else(|| anyhow::anyhow!("this build has no bundled geo data"))?;
     let storage = &crate::api::api::get().storage;
-    if storage.open_installed_geo_data(worldview.into(), provenance_hash)? {
+    if storage.open_installed_geo_data(worldview.into(), expected)? {
         return Ok(());
     }
     let bytes = load_asset().await;
-    storage.init_or_change_geo_data(worldview.into(), &bytes)
+    storage.init_or_change_geo_data(worldview.into(), expected, &bytes)
 }
 
 /// Explored area for a single layer.

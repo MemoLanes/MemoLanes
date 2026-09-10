@@ -11,6 +11,7 @@ extern crate lazy_static;
 mod frb_generated; /* AUTO INJECTED BY flutter_rust_bridge. This line may not be accurate, and you can change it according to your needs. */
 #[rustfmt::skip]
 pub mod build_info;
+pub mod geo_provenance;
 
 pub mod achievement;
 pub mod api;

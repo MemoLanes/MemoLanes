@@ -423,6 +423,7 @@ impl Storage {
     pub fn init_or_change_geo_data(
         &self,
         worldview: geo_data_format::Worldview,
+        expected_provenance_hash: [u8; 32],
         bytes: &[u8],
     ) -> Result<()> {
         let path = self.installed_geo_data_file(worldview);
@@ -434,7 +435,15 @@ impl Storage {
             std::io::Write::write_all(&mut file, bytes)?;
             file.sync_all()?;
         }
-        let staged = GeoIndex::open(&tmp).and_then(|geo| Self::check_worldview(&geo, worldview));
+        let staged = GeoIndex::open(&tmp).and_then(|geo| {
+            anyhow::ensure!(
+                geo.provenance_hash() == expected_provenance_hash,
+                "geo asset provenance {:?} does not match the expected {:?}",
+                geo.provenance_hash(),
+                expected_provenance_hash
+            );
+            Self::check_worldview(&geo, worldview)
+        });
         if let Err(e) = staged {
             let _ = remove_file(&tmp);
             return Err(e);

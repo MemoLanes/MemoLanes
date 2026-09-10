@@ -1,3 +1,4 @@
+#![cfg(geo_bins_present)]
 //! End-to-end ground-truth for the region achievement API over the *real*
 //! Natural Earth ADM0 rasterized worldview asset (`assets/geo/geo_data_iso.bin`).
 //!
@@ -14,6 +15,11 @@
 //!
 //! The asset is gitignored and produced by `just rasterize-geo`; the test skips
 //! when it is absent (e.g. a clean CI without the data step).
+//!
+//! Compiled only when `assets/geo/geo_data_*.bin` are present (`just rasterize-geo`).
+//! Without them this binary compiles to zero tests rather than to passing ones, so a
+//! bare clone never reports coverage it did not run. CI always has the bins
+//! (`rasterize-geo` is ungated), so its coverage is never narrowed.
 
 pub mod test_utils;
 
@@ -27,6 +33,7 @@ use memolanes_core::{
     achievement::layer::AchievementLayer,
     achievement::region::{self, region_levels, RegionKind},
     geo::{GeoIndex, GeoLookup},
+    geo_provenance::bundled_provenance_hash,
     journey_bitmap::{
         Block, BlockKey, JourneyBitmap, TileKey, BITMAP_WIDTH_OFFSET, MAP_WIDTH_OFFSET,
         TILE_WIDTH_OFFSET,
@@ -245,7 +252,12 @@ fn region_api_reports_correct_countries_and_areas() {
     )
     .unwrap();
     storage
-        .init_or_change_geo_data(Worldview::Iso, &geo_bytes)
+        .init_or_change_geo_data(
+            Worldview::Iso,
+            bundled_provenance_hash(Worldview::Iso)
+                .expect("geo_bins_present implies a compiled-in hash"),
+            &geo_bytes,
+        )
         .unwrap();
     for (i, tile, block, _) in &placements {
         insert(

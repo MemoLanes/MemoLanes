@@ -25,7 +25,7 @@ fn nothing_is_installed_in_a_fresh_support_dir() {
 fn installed_copy_is_reopened_by_a_later_storage_without_the_bytes() {
     let dir = TempDir::new("geo_install").unwrap();
     storage(&dir)
-        .init_or_change_geo_data(Worldview::Iso, &asset(HASH_A))
+        .init_or_change_geo_data(Worldview::Iso, HASH_A, &asset(HASH_A))
         .unwrap();
 
     let later = storage(&dir);
@@ -45,7 +45,7 @@ fn installed_copy_is_reopened_by_a_later_storage_without_the_bytes() {
 fn installed_copy_with_a_different_provenance_is_not_opened() {
     let dir = TempDir::new("geo_install").unwrap();
     storage(&dir)
-        .init_or_change_geo_data(Worldview::Iso, &asset(HASH_A))
+        .init_or_change_geo_data(Worldview::Iso, HASH_A, &asset(HASH_A))
         .unwrap();
 
     let later = storage(&dir);
@@ -60,10 +60,10 @@ fn reinstalling_replaces_the_previous_copy() {
     let dir = TempDir::new("geo_install").unwrap();
     let storage = storage(&dir);
     storage
-        .init_or_change_geo_data(Worldview::Iso, &asset(HASH_A))
+        .init_or_change_geo_data(Worldview::Iso, HASH_A, &asset(HASH_A))
         .unwrap();
     storage
-        .init_or_change_geo_data(Worldview::Iso, &asset(HASH_B))
+        .init_or_change_geo_data(Worldview::Iso, HASH_B, &asset(HASH_B))
         .unwrap();
     assert_eq!(active_hash(&storage), Some(HASH_B));
 
@@ -81,7 +81,7 @@ fn a_truncated_installed_copy_is_not_opened() {
     let dir = TempDir::new("geo_install").unwrap();
     let storage = storage(&dir);
     storage
-        .init_or_change_geo_data(Worldview::Iso, &asset(HASH_A))
+        .init_or_change_geo_data(Worldview::Iso, HASH_A, &asset(HASH_A))
         .unwrap();
     let path = storage.installed_geo_data_file(Worldview::Iso);
     let bytes = fs::read(&path).unwrap();
@@ -99,7 +99,7 @@ fn rejected_bytes_leave_no_installed_copy_behind() {
     let dir = TempDir::new("geo_install").unwrap();
     let storage = storage(&dir);
     assert!(storage
-        .init_or_change_geo_data(Worldview::Iso, b"not a geo asset")
+        .init_or_change_geo_data(Worldview::Iso, HASH_A, b"not a geo asset")
         .is_err());
     assert!(!storage.installed_geo_data_file(Worldview::Iso).exists());
     assert!(!storage
@@ -115,7 +115,7 @@ fn corrupt_border_blob_during_a_read_discards_the_installed_copy() {
     let bytes = asset(HASH_A);
     let first = storage(&dir);
     first
-        .init_or_change_geo_data(Worldview::Iso, &bytes)
+        .init_or_change_geo_data(Worldview::Iso, HASH_A, &bytes)
         .unwrap();
     insert_border_journey(&first, 1, 10).unwrap();
     let path = first.installed_geo_data_file(Worldview::Iso);
@@ -135,7 +135,18 @@ fn corrupt_border_blob_during_a_read_discards_the_installed_copy() {
         .open_installed_geo_data(Worldview::Iso, HASH_A)
         .unwrap());
     third
-        .init_or_change_geo_data(Worldview::Iso, &bytes)
+        .init_or_change_geo_data(Worldview::Iso, HASH_A, &bytes)
         .unwrap();
     assert!(fr_area_m2(&third).unwrap() > 0);
+}
+
+#[test]
+fn bytes_with_an_unexpected_provenance_are_rejected() {
+    let dir = TempDir::new("geo_install").unwrap();
+    let storage = storage(&dir);
+    assert!(storage
+        .init_or_change_geo_data(Worldview::Iso, HASH_B, &asset(HASH_A))
+        .is_err());
+    assert!(!storage.installed_geo_data_file(Worldview::Iso).exists());
+    assert_eq!(active_hash(&storage), None);
 }
