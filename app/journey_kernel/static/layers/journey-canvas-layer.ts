@@ -33,10 +33,14 @@ export class JourneyCanvasLayer implements JourneyLayer {
   private layerId: string;
   private sourceId: string;
   private poleLayer: CanvasPoleFoggyLayer;
-  private bgColor: string;
-  private fgColor: string;
+  private readonly trackColors: Uint32Array;
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
+  private raster?: {
+    image: ImageData;
+    pixels: Uint32Array;
+    coverage: Uint8Array;
+  };
   private _repaintCallback?: TileBufferCallback;
 
   constructor(
@@ -56,17 +60,25 @@ export class JourneyCanvasLayer implements JourneyLayer {
       bgColor,
     );
 
-    let r = Math.round(bgColor[0] * 255);
-    let g = Math.round(bgColor[1] * 255);
-    let b = Math.round(bgColor[2] * 255);
-    let a = bgColor[3];
-    this.bgColor = `rgba(${r}, ${g}, ${b}, ${a})`;
-
-    r = Math.round(fgColor[0] * 255);
-    g = Math.round(fgColor[1] * 255);
-    b = Math.round(fgColor[2] * 255);
-    a = fgColor[3];
-    this.fgColor = `rgba(${r}, ${g}, ${b}, ${a})`;
+    // A narrow feather around the original solid pixels softens stair steps
+    // without blurring away thin tracks. Mix premultiplied colors so both
+    // transparent tracks and custom translucent foregrounds keep their color.
+    const colors = new Uint8ClampedArray(256 * 4);
+    for (let index = 0; index < 256; index++) {
+      const coverage = index / 255;
+      const bgAlpha = bgColor[3] * (1 - coverage);
+      const fgAlpha = fgColor[3] * coverage;
+      const alpha = bgAlpha + fgAlpha;
+      for (let channel = 0; channel < 3; channel++) {
+        colors[index * 4 + channel] = alpha
+          ? (Math.round(bgColor[channel] * 255) * bgAlpha +
+              Math.round(fgColor[channel] * 255) * fgAlpha) /
+            alpha
+          : 0;
+      }
+      colors[index * 4 + 3] = alpha * 255;
+    }
+    this.trackColors = new Uint32Array(colors.buffer);
 
     this.canvas = document.createElement("canvas");
     const ctx = this.canvas.getContext("2d");
@@ -150,13 +162,35 @@ export class JourneyCanvasLayer implements JourneyLayer {
 
     const tileSize = Math.pow(2, bufferSizePower);
 
-    this.canvas.width = tileSize * w;
-    this.canvas.height = tileSize * h;
-
     const n = Math.pow(2, z);
-    // Initialize the canvas with a semi-transparent gray fog
-    this.ctx.fillStyle = this.bgColor;
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    const width = tileSize * w;
+    const height = tileSize * h;
+    if (this.canvas.width !== width) this.canvas.width = width;
+    if (this.canvas.height !== height) this.canvas.height = height;
+    if (
+      this.raster?.image.width !== width ||
+      this.raster.image.height !== height
+    ) {
+      const image = this.ctx.createImageData(width, height);
+      this.raster = {
+        image,
+        pixels: new Uint32Array(image.data.buffer),
+        coverage: new Uint8Array(width * height),
+      };
+    }
+    // Panning usually keeps the same dimensions. Reuse only the current
+    // raster, avoiding repeated allocations without retaining old viewports.
+    const { image, pixels, coverage } = this.raster;
+    pixels.fill(this.trackColors[0]);
+    coverage.fill(0);
+    const addCoverage = (offset: number, weight: number): void => {
+      if (coverage[offset] !== 255) {
+        // Keep partially revealed cells distinct from solid track cores.
+        const level = Math.min(254, coverage[offset] + weight);
+        coverage[offset] = level;
+        pixels[offset] = this.trackColors[level];
+      }
+    };
 
     for (let x = left; x < right; x++) {
       for (let y = top; y < bottom; y++) {
@@ -175,21 +209,56 @@ export class JourneyCanvasLayer implements JourneyLayer {
         );
 
         if (pixelCoords && pixelCoords.length > 0) {
-          // Draw each point from the pixel coordinates
-          this.ctx.fillStyle = this.fgColor;
-
           // Process pairs of coordinates (x,y)
           for (let i = 0; i < pixelCoords.length; i += 2) {
             const pointX = dx + pixelCoords[i];
             const pointY = dy + pixelCoords[i + 1];
-            // Clear the pixel first to remove the background
-            this.ctx.clearRect(pointX, pointY, 1, 1);
-            // Then draw with the foreground color
-            this.ctx.fillRect(pointX, pointY, 1, 1);
+            const center = pointY * width + pointX;
+            if (coverage[center] === 255) continue;
+            coverage[center] = 255;
+            pixels[center] = this.trackColors[255];
+            // A small, fixed 3x3 kernel fills diagonal notches more evenly
+            // than independent halos. Preserve solid cores and count each
+            // source pixel once, so duplicates and draw order have no effect.
+            // Canvas-space neighbors also keep internal tile seams invisible.
+            // Most points are interior: use fixed offsets to avoid checking
+            // canvas bounds and world wrapping for each of eight neighbors.
+            if (
+              pointX > 0 &&
+              pointX < width - 1 &&
+              pointY > 0 &&
+              pointY < height - 1
+            ) {
+              addCoverage(center - width - 1, 10);
+              addCoverage(center - width, 46);
+              addCoverage(center - width + 1, 10);
+              addCoverage(center - 1, 46);
+              addCoverage(center + 1, 46);
+              addCoverage(center + width - 1, 10);
+              addCoverage(center + width, 46);
+              addCoverage(center + width + 1, 10);
+              continue;
+            }
+            for (let oy = -1; oy <= 1; oy++) {
+              const py = pointY + oy;
+              if (py < 0 || py >= height) continue;
+              for (let ox = -1; ox <= 1; ox++) {
+                if (ox === 0 && oy === 0) continue;
+                let px = pointX + ox;
+                if (w === n) px = (px + width) % width;
+                else if (px < 0 || px >= width) continue;
+                // About 18% at edge neighbors and 4% at corners.
+                addCoverage(py * width + px, ox !== 0 && oy !== 0 ? 10 : 46);
+              }
+            }
           }
         }
       }
     }
+
+    // One upload at the existing resolution avoids per-point Canvas calls
+    // and does not increase the texture size sent to MapLibre.
+    this.ctx.putImageData(image, 0, 0);
 
     // This is a workaround for a maplibre 5.7.3 bug (or feature).
     //  for a map view of multi-worldview (map wrap arounds and lng may be out of -180 - 180 range),
@@ -238,5 +307,6 @@ export class JourneyCanvasLayer implements JourneyLayer {
         this._repaintCallback,
       );
     }
+    this.raster = undefined;
   }
 }

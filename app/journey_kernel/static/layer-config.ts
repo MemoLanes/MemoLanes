@@ -20,8 +20,10 @@ export const AVAILABLE_LAYERS: Record<string, LayerConfig> = {
   canvas: {
     name: "Canvas",
     layerClass: JourneyCanvasLayer,
-    bufferSizePower: 8,
-    tileRequestPolicy: { maxSourceZoom: MAX_MAP_ZOOM },
+    // 512px tiles add one level of detail without multiplying tile requests.
+    // z13 + bitmap exponent 9 already contains all native world detail (22).
+    bufferSizePower: 9,
+    tileRequestPolicy: { maxSourceZoom: 13 },
     description: "Uses Canvas API for rendering",
   },
 };
