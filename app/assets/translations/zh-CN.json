@@ -68,6 +68,8 @@
     "exit": "退出应用"
   },
   "journey": {
+    "picker_title": "选择旅途",
+    "picker_subtitle": "选择日期，再选择要查看或编辑的旅途",
     "editor_overview_title": "编辑旅途",
     "records_title": "当日记录",
     "editor": {
