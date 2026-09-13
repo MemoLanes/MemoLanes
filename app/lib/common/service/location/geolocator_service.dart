@@ -95,8 +95,9 @@ class GeoLocatorService implements ILocationService {
     _bufferFlushTimer?.cancel();
     _bufferFlushTimer = null;
 
-    _buffer.clear();
-    _firstBufferReceiveTime = null;
+    _flushBuffer();
+    // Let listeners enqueue the final buffered positions before stop returns.
+    await Future<void>.delayed(Duration.zero);
   }
 
   void _onPositionReceived(Position pos) {

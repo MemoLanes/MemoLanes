@@ -45,7 +45,8 @@ fn import_gpx_as_journey(path: &str) {
         api::on_location_update(ExtendedRawGPSPoint {
             raw_gps_point: p,
             received_timestamp_ms,
-        });
+        })
+        .unwrap();
     }
     assert!(api::finalize_ongoing_journey().unwrap(), "finalize {path}");
 }
