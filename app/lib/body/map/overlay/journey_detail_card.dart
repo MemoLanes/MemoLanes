@@ -9,7 +9,9 @@ import 'package:memolanes/common/component/app_date_picker_dialog.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/journey_kind_visuals.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
+import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/import.dart' show JourneyInfo;
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -171,18 +173,16 @@ class JourneyDetailCard extends StatefulWidget {
     required this.isEditing,
     required this.onExport,
     required this.onEdit,
-    required this.onDelete,
+    required this.onMore,
     required this.onSave,
-    required this.onSaved,
   });
 
   final JourneyHeader journey;
   final bool isEditing;
   final VoidCallback onExport;
   final VoidCallback onEdit;
-  final VoidCallback onDelete;
+  final VoidCallback onMore;
   final Future<void> Function(JourneyInfo journeyInfo) onSave;
-  final Future<void> Function() onSaved;
 
   @override
   State<JourneyDetailCard> createState() => _JourneyDetailCardState();
@@ -347,7 +347,13 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
           journeyKind: _journeyKind,
         ),
       );
-      await widget.onSaved();
+    } catch (error, stackTrace) {
+      log.error('Saving journey information failed: $error', stackTrace);
+      if (!mounted) return;
+      await showCommonDialog(
+        context,
+        context.tr('journey.editor.operation_failed'),
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -356,6 +362,7 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.isEditing;
+    final canEdit = isEditing && !_saving;
     final displayedKind = isEditing ? _journeyKind : journey.journeyKind;
     final kind = switch (displayedKind) {
       JourneyKind.defaultKind => context.tr('journey_kind.default'),
@@ -380,19 +387,19 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
               value: isEditing
                   ? _journeyDate.toString()
                   : journey.journeyDate.toSimpleDate().toString(),
-              onTap: isEditing ? _selectJourneyDate : null,
+              onTap: canEdit ? _selectJourneyDate : null,
             ),
             CompactJourneyInfoField(
               icon: Icons.sell_outlined,
               label: context.tr('journey.journey_kind'),
               value: kind,
-              onTap: isEditing ? _selectJourneyKind : null,
+              onTap: canEdit ? _selectJourneyKind : null,
             ),
             CompactJourneyInfoField(
               icon: Icons.schedule_rounded,
               label: context.tr('journey.start_time'),
               value: start == null ? '—' : timeFormat.format(start),
-              onTap: isEditing
+              onTap: canEdit
                   ? () async {
                       final selected = await _selectDateAndTime(_startTime);
                       if (selected != null && mounted) {
@@ -405,7 +412,7 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
               icon: Icons.schedule_rounded,
               label: context.tr('journey.end_time'),
               value: end == null ? '—' : timeFormat.format(end),
-              onTap: isEditing
+              onTap: canEdit
                   ? () async {
                       final selected = await _selectDateAndTime(_endTime);
                       if (selected != null && mounted) {
@@ -420,6 +427,7 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
                 label: context.tr('journey.note'),
                 trailing: TextField(
                   controller: _noteController,
+                  readOnly: !canEdit,
                   minLines: 1,
                   maxLines: 2,
                   textAlign: TextAlign.right,
@@ -472,6 +480,7 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
                             expand: true,
                             icon: Icons.ios_share_rounded,
                             label: context.tr('common.export'),
+                            variant: AppButtonVariant.secondary,
                             onPressed: widget.onExport,
                           ),
                         ),
@@ -491,10 +500,10 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
                           child: AppButton(
                             size: AppButtonSize.compact,
                             expand: true,
-                            icon: Icons.delete_outline_rounded,
-                            label: context.tr('common.delete'),
-                            variant: AppButtonVariant.danger,
-                            onPressed: widget.onDelete,
+                            icon: Icons.more_horiz_rounded,
+                            label: context.tr('common.more'),
+                            variant: AppButtonVariant.secondary,
+                            onPressed: widget.onMore,
                           ),
                         ),
                       ],

@@ -2,14 +2,15 @@ import 'dart:math' as math;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/body/journey/journey_export.dart';
 import 'package:memolanes/body/journey/journey_track_edit_page.dart';
-import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/component/map_glass_back_button.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -20,6 +21,7 @@ import 'package:memolanes/utils/nav_helper.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 import 'journey_detail_card.dart';
+import 'journey_more_dialog.dart';
 
 class JourneyMapDetailPage extends StatefulWidget {
   const JourneyMapDetailPage({
@@ -43,6 +45,7 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
   MapBounds? _mapBounds;
   bool _isEditingInformation = false;
   int _mapRevision = 0;
+  bool _moreActionInProgress = false;
 
   @override
   void initState() {
@@ -52,29 +55,27 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
     _mapBounds = widget.initialMapBounds;
   }
 
-  Future<void> _refreshJourney() async {
+  Future<void> _refreshJourney({required bool refreshMap}) async {
     final journeyId = _journey.id;
-    final allJourneys = await api.listAllJourneys();
-    JourneyHeader? latest;
-    for (final journey in allJourneys) {
-      if (journey.id == journeyId) {
-        latest = journey;
-        break;
-      }
-    }
+    final latest = await api.getJourneyHeader(journeyId: journeyId);
     if (!mounted) return;
     if (latest == null) {
-      Navigator.of(context).pop();
+      popCurrentRoute(context);
       return;
     }
-    final latestJourney = latest;
+    if (!refreshMap) {
+      // Metadata edits leave the track unchanged. Keep the WebView's key,
+      // renderer and viewport so saving does not reload or recenter the map.
+      setState(() => _journey = latest);
+      return;
+    }
 
     final rendererAndBounds = await api.getMapRendererProxyForJourney(
       journeyId: journeyId,
     );
     if (!mounted) return;
     setState(() {
-      _journey = latestJourney;
+      _journey = latest;
       _mapRendererProxy = rendererAndBounds.$1;
       _mapBounds = rendererAndBounds.$2;
       _mapRevision++;
@@ -83,25 +84,63 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
 
   Future<void> _saveJourneyInformation(JourneyInfo journeyInfo) async {
     await api.updateJourneyMetadata(id: _journey.id, journeyInfo: journeyInfo);
+    if (!mounted) return;
+    await _refreshJourney(refreshMap: false);
+    if (!mounted) return;
+    setState(() => _isEditingInformation = false);
   }
 
   Future<void> _deleteJourney() async {
-    final shouldDelete = await showCommonDialog(
-      context,
-      context.tr('journey.delete_journey_message'),
-      hasCancel: true,
-      title: context.tr('journey.delete_journey_title'),
-      confirmButtonText: context.tr('common.delete'),
-      confirmVariant: AppButtonVariant.danger,
-    );
-    if (!shouldDelete) return;
     await api.deleteJourney(journeyId: _journey.id);
     if (!mounted) return;
-    Navigator.of(context).pop();
+    popCurrentRoute(context);
   }
 
   Future<void> _exportJourney() async {
+    if (_moreActionInProgress) return;
     await showJourneyExportPicker(context, _journey);
+  }
+
+  Future<void> _showMore() async {
+    if (_moreActionInProgress) return;
+    _moreActionInProgress = true;
+    try {
+      final action = await showJourneyMoreDialog(context);
+      if (!mounted || action == null) return;
+      switch (action) {
+        case JourneyMoreAction.delete:
+          await _deleteJourney();
+          break;
+        case JourneyMoreAction.copy:
+          await api.copyJourney(journeyId: _journey.id);
+          if (!mounted) return;
+          await _showCopySuccess();
+          break;
+      }
+    } catch (error, stackTrace) {
+      log.error('Journey action failed: $error', stackTrace);
+      if (!mounted) return;
+      await showCommonDialog(
+        context,
+        context.tr('journey.editor.operation_failed'),
+      );
+    } finally {
+      _moreActionInProgress = false;
+    }
+  }
+
+  Future<void> _showCopySuccess() async {
+    final message = context.tr('journey.copy_journey_success');
+    try {
+      await Fluttertoast.showToast(msg: message);
+    } catch (error, stackTrace) {
+      // The database operation already succeeded. A toast failure must not
+      // report that copying failed and encourage the user to create duplicates.
+      log.error('Showing copy success toast failed: $error', stackTrace);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   Future<void> _openTrackEditor() async {
@@ -119,10 +158,11 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
       page: JourneyTrackEditPage(editSession: session),
     );
     if (!mounted) return;
-    await _refreshJourney();
+    await _refreshJourney(refreshMap: true);
   }
 
   Future<void> _showEditChoice() async {
+    if (_moreActionInProgress) return;
     final choice = await showDialog<_JourneyEditChoice>(
       context: context,
       barrierColor: StyleConstants.shadowColor.withValues(
@@ -189,13 +229,8 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
                       isEditing: _isEditingInformation,
                       onExport: _exportJourney,
                       onEdit: _showEditChoice,
-                      onDelete: _deleteJourney,
+                      onMore: _showMore,
                       onSave: _saveJourneyInformation,
-                      onSaved: () async {
-                        await _refreshJourney();
-                        if (!mounted) return;
-                        setState(() => _isEditingInformation = false);
-                      },
                     ),
                   ),
                 ),
