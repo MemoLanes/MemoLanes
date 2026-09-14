@@ -158,9 +158,10 @@ impl BitMap2D {
                 break;
             }
             let mut out = BitVec::repeat(false, new_side * new_side);
-            // Sparse coverage can OR only the occupied source pixels.
-            // Dense levels retain the bounded one-visit-per-output-pixel loop.
-            if prev.count_ones() < out.len() / 2 {
+            // Below 1/32 (3.125%) source occupancy, visit only occupied pixels.
+            // Keep a conservative cutoff: clustered pixels repeatedly write the
+            // same output bit, making this slower before coverage looks dense.
+            if prev.count_ones() < prev.len() / 32 {
                 for index in prev.iter_ones() {
                     let x = (index % current_side) / 2;
                     let y = (index / current_side) / 2;
@@ -422,6 +423,39 @@ mod tests {
                         Some(reference.as_bitvec()),
                         "exp={exp}, density={density}, level={level}"
                     );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn build_lods_matches_reference_near_sparse_threshold() {
+        for exp in 0..=9 {
+            let pixel_count = 1usize << (2 * exp);
+            let threshold = pixel_count / 32;
+            for occupied in [threshold.saturating_sub(1), threshold, threshold + 1] {
+                for clustered in [false, true] {
+                    let mut bitmap = BitMap2D::new(exp);
+                    for i in 0..occupied.min(pixel_count) {
+                        // An odd stride visits distinct pixels in a power-of-two
+                        // grid, contrasting dispersed pixels with adjacent ones.
+                        let index = if clustered {
+                            i
+                        } else {
+                            (i * 7919) % pixel_count
+                        };
+                        bitmap.set(index % bitmap.side(), index / bitmap.side(), true);
+                    }
+                    let mut reference = bitmap.clone();
+                    bitmap.build_lods();
+                    for level in 0..exp as usize {
+                        reference = reference.downscale();
+                        assert_eq!(
+                            bitmap.lod_level(level),
+                            Some(reference.as_bitvec()),
+                            "exp={exp}, occupied={occupied}, clustered={clustered}, level={level}"
+                        );
+                    }
                 }
             }
         }
