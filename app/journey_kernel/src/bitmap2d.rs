@@ -158,15 +158,25 @@ impl BitMap2D {
                 break;
             }
             let mut out = BitVec::repeat(false, new_side * new_side);
-            for y in 0..new_side {
-                for x in 0..new_side {
-                    let ox = x * 2;
-                    let oy = y * 2;
-                    let val = prev[oy * current_side + ox]
-                        || prev[oy * current_side + ox + 1]
-                        || prev[(oy + 1) * current_side + ox]
-                        || prev[(oy + 1) * current_side + ox + 1];
-                    out.set(y * new_side + x, val);
+            // Sparse coverage can OR only the occupied source pixels.
+            // Dense levels retain the bounded one-visit-per-output-pixel loop.
+            if prev.count_ones() < out.len() / 2 {
+                for index in prev.iter_ones() {
+                    let x = (index % current_side) / 2;
+                    let y = (index / current_side) / 2;
+                    out.set(y * new_side + x, true);
+                }
+            } else {
+                for y in 0..new_side {
+                    for x in 0..new_side {
+                        let ox = x * 2;
+                        let oy = y * 2;
+                        let val = prev[oy * current_side + ox]
+                            || prev[oy * current_side + ox + 1]
+                            || prev[(oy + 1) * current_side + ox]
+                            || prev[(oy + 1) * current_side + ox + 1];
+                        out.set(y * new_side + x, val);
+                    }
                 }
             }
             levels.push(out);
@@ -387,6 +397,34 @@ mod tests {
         assert_eq!(bm.lod_level(1).unwrap().len(), 16); // 4×4
         assert_eq!(bm.lod_level(2).unwrap().len(), 4); // 2×2
         assert_eq!(bm.lod_level(3).unwrap().len(), 1); // 1×1
+    }
+
+    #[test]
+    fn build_lods_matches_reference_at_varied_densities() {
+        for exp in 0..=11 {
+            for density in [0, 1, 10, 125, 500, 1000] {
+                let mut bitmap = BitMap2D::new(exp);
+                let mut random = 0x1234_5678u32;
+                for y in 0..bitmap.side() {
+                    for x in 0..bitmap.side() {
+                        random ^= random << 13;
+                        random ^= random >> 17;
+                        random ^= random << 5;
+                        bitmap.set(x, y, random % 1000 < density);
+                    }
+                }
+                let mut reference = bitmap.clone();
+                bitmap.build_lods();
+                for level in 0..exp as usize {
+                    reference = reference.downscale();
+                    assert_eq!(
+                        bitmap.lod_level(level),
+                        Some(reference.as_bitvec()),
+                        "exp={exp}, density={density}, level={level}"
+                    );
+                }
+            }
+        }
     }
 
     #[test]

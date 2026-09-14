@@ -273,10 +273,6 @@ export class MapController {
           this.params,
         );
 
-        // Initial tile buffer load
-        await this.journeyTileProvider.waitForTileBufferUpdate();
-        console.log("initial tile buffer loaded");
-
         // Register hooks for reactive property changes
         this.registerParamsHooks();
 
@@ -296,6 +292,11 @@ export class MapController {
 
         // Apply the actual map style (deferred until journey layer is added)
         this.applyMapStyle();
+
+        // The provider has already started loading. Let the basemap load
+        // overlap tile-buffer preparation before waiting for the initial data.
+        await this.journeyTileProvider.waitForTileBufferUpdate();
+        console.log("initial tile buffer loaded");
 
         // Set up retry logic for failed style loads
         this.setupStyleRetryLogic();

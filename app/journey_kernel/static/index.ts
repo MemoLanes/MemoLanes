@@ -11,7 +11,6 @@
  * Map-centric logic has been moved to MapController for better separation of concerns.
  */
 
-import { DebugPanel } from "./debug-panel";
 import init from "../pkg/journey_kernel.js";
 import { parseUrlHash, createReactiveParams, ReactiveParams } from "./params";
 import { FlutterBridge, notifyFlutterReady } from "./flutter-bridge";
@@ -21,8 +20,6 @@ import { displayPageMessage } from "./utils";
 import { MapController } from "./map-controller";
 
 import "./debug-panel.css";
-
-import VConsole from "vconsole";
 
 // ============================================================================
 // Window Interface Extensions
@@ -113,6 +110,10 @@ async function trySetup(): Promise<void> {
 
   // Initialize debug tooling (only when debug mode is enabled)
   if (params.debug) {
+    const [{ DebugPanel }, { default: VConsole }] = await Promise.all([
+      import("./debug-panel"),
+      import("vconsole"),
+    ]);
     const vConsole = new VConsole();
     vConsole.setOption("log.maxLogNumber", 5000);
     vConsole.setSwitchPosition(20, 500);
