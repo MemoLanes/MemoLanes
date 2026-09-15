@@ -202,32 +202,6 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
     });
   }
 
-  Widget _buildRawDataMoreMenu(BuildContext pageContext) {
-    return Builder(
-      builder: (menuContext) => ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 140),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(menuContext).pop();
-                _deleteRawData(pageContext);
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
-                alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              ),
-              child: Text(pageContext.tr('journey.delete_raw_data')),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final mapRendererProxy = _mapRendererProxy;
@@ -388,9 +362,6 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
           ),
           CapsuleStyleOverlayAppBar.overlayBar(
             title: context.tr("journey.journey_info_page_title"),
-            moreMenuContent: _hasRawData
-                ? _buildRawDataMoreMenu(context)
-                : null,
           ),
         ],
       ),
@@ -473,6 +444,21 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
               _trackEdit(context);
             },
           ),
+          if (_hasRawData) ...[
+            const SizedBox(height: 8),
+            AppOptionTile(
+              iconWidget: Icon(
+                Icons.delete_outline_rounded,
+                color: StyleConstants.dangerInkColor,
+                size: 20,
+              ),
+              title: context.tr('journey.delete_raw_data'),
+              onTap: () {
+                Navigator.of(dialogContext).pop();
+                _deleteRawData(context);
+              },
+            ),
+          ],
         ],
       ),
     );

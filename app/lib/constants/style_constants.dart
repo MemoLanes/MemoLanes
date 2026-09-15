@@ -22,6 +22,7 @@ class StyleConstants {
   static const Color shadowColor = Color(0xFF000000);
 
   // Translucent surfaces.
+  static const bool enableBackdropFilter = false;
   static const Color glassColor = Color(0xFF111814);
   static const Color glassBorderColor = Color(0xFF718078);
   static const Color glassHighlightColor = Color(0xFFE5F5E8);

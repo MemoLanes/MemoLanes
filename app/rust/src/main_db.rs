@@ -198,6 +198,35 @@ impl Txn<'_> {
         }
     }
 
+    #[auto_context]
+    pub fn copy_journey(&mut self, id: &str) -> Result<String> {
+        let header_bytes: Vec<u8> =
+            self.db_txn
+                .query_row("SELECT header FROM journey WHERE id = ?1;", [id], |row| {
+                    row.get(0)
+                })?;
+        let mut header = protos::journey::Header::parse_from_bytes(&header_bytes)?;
+        let original = JourneyHeader::of_proto(header.clone())?;
+        let new_id = Uuid::new_v4().to_string();
+        header.id = new_id.clone();
+        header.revision = generate_random_revision();
+
+        // Copy the stored payload verbatim for both bitmap and vector journeys.
+        // Do not run GPS postprocessing again on an existing track. Keep the
+        // raw-data attachment in sync with the copied header as well.
+        self.db_txn.execute(
+            "INSERT INTO journey (id, journey_date, timestamp_for_ordering, type, journey_kind, header, data, raw_data)
+             SELECT ?1, journey_date, timestamp_for_ordering, type, journey_kind, ?2, data, raw_data
+             FROM journey WHERE id = ?3;",
+            (&new_id, header.write_to_bytes()?, id),
+        )?;
+        self.set_invalidate_action(vec![CacheEntry {
+            date: original.journey_date,
+            kind: original.journey_kind,
+        }])?;
+        Ok(new_id)
+    }
+
     // TODO: consider return structured result so the caller know if it is skipped or other cases
     #[auto_context]
     pub fn insert_journey(&mut self, header: JourneyHeader, data: JourneyData) -> Result<()> {

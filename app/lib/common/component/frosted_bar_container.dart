@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:memolanes/constants/style_constants.dart';
 
 class FrostedBarContainer extends StatelessWidget {
   const FrostedBarContainer({
@@ -29,6 +30,7 @@ class FrostedBarContainer extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: BackdropFilter(
+        enabled: StyleConstants.enableBackdropFilter,
         filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
         child: Container(
           width: axis == Axis.vertical ? extent : null,
