@@ -4,7 +4,6 @@ import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/body/journey/compact_journey_info_card.dart';
 import 'package:memolanes/body/journey/journey_export.dart';
 import 'package:memolanes/body/journey/journey_info_edit_page.dart';
-import 'package:memolanes/body/journey/journey_raw_data_export.dart';
 import 'package:memolanes/body/journey/journey_track_edit_page.dart';
 import 'package:memolanes/common/component/basic_dialog_card.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
@@ -175,7 +174,11 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
   }
 
   Future<void> _export() async {
-    await showJourneyExportPicker(context, _journeyHeader);
+    await showJourneyExportPicker(
+      context,
+      _journeyHeader,
+      hasRawData: _hasRawData,
+    );
   }
 
   Future<void> _deleteRawData(BuildContext context) async {
@@ -207,18 +210,6 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(menuContext).pop();
-                showJourneyRawDataExportPicker(pageContext, _journeyHeader);
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
-                alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              ),
-              child: Text(pageContext.tr('journey.export_raw_data')),
-            ),
             TextButton(
               onPressed: () {
                 Navigator.of(menuContext).pop();
@@ -397,7 +388,6 @@ class _JourneyInfoPage extends State<JourneyInfoPage> {
           ),
           CapsuleStyleOverlayAppBar.overlayBar(
             title: context.tr("journey.journey_info_page_title"),
-            moreIcon: _hasRawData ? const Icon(Icons.raw_on, size: 22) : null,
             moreMenuContent: _hasRawData
                 ? _buildRawDataMoreMenu(context)
                 : null,

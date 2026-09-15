@@ -222,8 +222,17 @@ class _SettingsBodyState extends State<SettingsBody> {
             await showCommonExportWithFormatPicker(
               context: context,
               title: context.tr("data.export_data.export_all_title"),
-              formats: const [CommonExportFormat.mldx, CommonExportFormat.fwss],
-              exportFile: (format) async {
+              formatGroups: [
+                CommonExportFormatGroup(
+                  label: context.tr('data.export_data.journey_data_group'),
+                  formats: const [
+                    CommonExportFormat.mldx,
+                    CommonExportFormat.fwss,
+                  ],
+                ),
+              ],
+              exportFile: (selection) async {
+                final format = selection.format;
                 var tmpDir = await getTemporaryDirectory();
                 final now = DateTime.now();
                 final timestamp = DateFormat('yyyy-MM-dd-HH-mm-ss').format(now);
@@ -232,14 +241,16 @@ class _SettingsBodyState extends State<SettingsBody> {
                 final exportResult = switch (format) {
                   CommonExportFormat.mldx => await api.generateFullArchive(
                     targetFilepath: filepath,
-                    includeRawData: false,
+                    includeRawData: selection.includeRawData,
                   ),
                   CommonExportFormat.fwss => await api.exportAllJourneysAsFwss(
                     targetFilepath: filepath,
                   ),
                   CommonExportFormat.kml ||
                   CommonExportFormat.gpx ||
-                  CommonExportFormat.rawDataCsv => throw UnsupportedError(
+                  CommonExportFormat.rawDataCsv ||
+                  CommonExportFormat.rawDataGpx ||
+                  CommonExportFormat.rawDataKml => throw UnsupportedError(
                     'Unsupported export format: $format',
                   ),
                 };
