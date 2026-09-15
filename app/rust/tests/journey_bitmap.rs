@@ -12,6 +12,47 @@ use memolanes_core::{
 };
 
 #[test]
+fn deserialized_blocks_generate_mipmaps_across_sparse_threshold() {
+    let key = BlockKey::from_x_y(3, 7);
+    for occupied in [0, 1, 127, 128, 129] {
+        let points: Vec<_> = (0..occupied)
+            .map(|i| {
+                let index = (i * 7919) % 4096;
+                ((index % 64) as u8, (index / 64) as u8)
+            })
+            .collect();
+        let mut block = Block::new();
+        for &(x, y) in &points {
+            block.set_point(x, y, true);
+        }
+        let mut tile = Tile::new();
+        tile.set(&key, block);
+
+        // Only source pixels are serialized. Public queries must lazily build
+        // the correct mipmap after loading, on either side of the cutoff.
+        let restored = Tile::deserialize(&tile.serialize()).unwrap();
+        let block = restored.get(&key).unwrap();
+        assert_eq!(block.count(), occupied as u32);
+        for level in 0..=6 {
+            let side = 1 << level;
+            let scale = 64 / side;
+            for y in 0..side {
+                for x in 0..side {
+                    let expected = points
+                        .iter()
+                        .any(|&(px, py)| px as usize / scale == x && py as usize / scale == y);
+                    assert_eq!(
+                        block.get_at_level(x, y, level),
+                        expected,
+                        "occupied={occupied}, level={level}, x={x}, y={y}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn add_line_cross_antimeridian() {
     let mut journey_bitmap = JourneyBitmap::new();
 
