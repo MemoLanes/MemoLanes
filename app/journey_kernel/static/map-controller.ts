@@ -33,6 +33,7 @@ import { transformStyleWithProjection } from "./utils";
 import { JOURNEY_LAYER_ID } from "./layers/journey-layer-interface";
 import type { JourneyLayer } from "./layers/journey-layer-interface";
 import { MAX_MAP_ZOOM } from "./layer-config";
+import { waitForRenderedFrame } from "./display-ready";
 
 const DATA_POLL_INTERVAL_MS = 1_000;
 
@@ -317,6 +318,19 @@ export class MapController {
    */
   getMap(): MaplibreMap {
     return this.map;
+  }
+
+  /** Wait for a displayable frame from whichever renderer is currently active. */
+  waitForDisplay(): Promise<void> {
+    return waitForRenderedFrame(this.map, () => {
+      const layer = this.currentJourneyLayer;
+      return (
+        !this.webGLContextLost &&
+        !!this.map.getLayer(JOURNEY_LAYER_ID) &&
+        layer !== null &&
+        layer.isReadyForDisplay()
+      );
+    });
   }
 
   /**

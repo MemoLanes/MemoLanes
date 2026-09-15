@@ -136,10 +136,10 @@ async function trySetup(): Promise<void> {
 
   _setupDone = true;
 
-  // Notify Flutter that the map is ready (with small delay for rendering)
-  setTimeout(() => {
-    notifyFlutterReady();
-  }, 200);
+  // Initialization can finish before the renderer has displayable content.
+  // Keep Flutter's cover until that content reaches a completed map frame.
+  await mapController.waitForDisplay();
+  notifyFlutterReady();
 }
 
 // Export trySetup to window for Flutter to call

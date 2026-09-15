@@ -35,8 +35,11 @@ function fixture(t, bg, fg) {
   });
   t.mock.method(console, "log", () => {});
   const source = { setCoordinates() {}, play() {}, pause() {} };
+  let sourceExists = true;
+  let sourceLoaded = true;
   const map = {
-    getSource: () => source,
+    getSource: () => (sourceExists ? source : undefined),
+    isSourceLoaded: () => sourceLoaded,
     getLayer: () => undefined,
     removeSource() {},
   };
@@ -44,6 +47,10 @@ function fixture(t, bg, fg) {
   return {
     layer,
     allocations: () => allocations,
+    setSourceState({ exists = sourceExists, loaded = sourceLoaded } = {}) {
+      sourceExists = exists;
+      sourceLoaded = loaded;
+    },
     pixel: (x, y) =>
       Array.from(
         output.data.slice(
@@ -69,6 +76,37 @@ function fixture(t, bg, fg) {
     },
   };
 }
+
+test("is not ready before the first canvas redraw", (t) => {
+  const f = fixture(t);
+  assert.equal(f.layer.isReadyForDisplay(), false);
+});
+
+test("an empty but valid canvas redraw is ready for display", (t) => {
+  const f = fixture(t);
+  f.draw([]);
+  assert.equal(f.layer.isReadyForDisplay(), true);
+});
+
+test("a missing or unloaded source is not ready for display", (t) => {
+  const f = fixture(t);
+  f.draw([]);
+
+  f.setSourceState({ loaded: false });
+  assert.equal(f.layer.isReadyForDisplay(), false);
+
+  f.setSourceState({ exists: false, loaded: true });
+  assert.equal(f.layer.isReadyForDisplay(), false);
+});
+
+test("remove resets display readiness", (t) => {
+  const f = fixture(t);
+  f.draw([]);
+  assert.equal(f.layer.isReadyForDisplay(), true);
+
+  f.layer.remove();
+  assert.equal(f.layer.isReadyForDisplay(), false);
+});
 
 test("feather keeps solid track cores and untouched fog outside one cell", (t) => {
   const f = fixture(t);
