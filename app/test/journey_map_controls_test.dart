@@ -63,6 +63,37 @@ void main() {
     hasRawData: false,
   );
 
+  final journeyWithRawData = JourneyHeader(
+    id: 'with-raw-data',
+    revision: 'revision',
+    journeyDate: DateTime.utc(2023, 11, 14),
+    createdAt: DateTime.utc(2023, 11, 14),
+    journeyType: JourneyType.vector,
+    journeyKind: JourneyKind.defaultKind,
+    hasRawData: true,
+  );
+
+  testWidgets('journey information indicates attached raw data', (
+    tester,
+  ) async {
+    await pumpApp(
+      tester,
+      Scaffold(
+        body: JourneyDetailCard(
+          journey: journeyWithRawData,
+          isEditing: false,
+          onExport: () {},
+          onEdit: () {},
+          onMore: () {},
+          onSave: (_) async {},
+        ),
+      ),
+    );
+
+    expect(find.text('Raw Data'), findsOneWidget);
+    expect(find.text('Included'), findsOneWidget);
+  });
+
   testWidgets('export and more use the secondary button style', (tester) async {
     var exports = 0;
     var more = 0;

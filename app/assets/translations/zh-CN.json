@@ -127,6 +127,8 @@
     "delete_raw_data": "删除原始数据",
     "delete_raw_data_title": "删除原始数据",
     "delete_raw_data_message": "确认删除该旅程的原始数据？",
+    "raw_data": "原始数据",
+    "raw_data_included": "已包含",
     "delete_all": "删除所有旅程",
     "delete_all_success": "所有旅程已清除!",
     "journey_date": "旅程日期",

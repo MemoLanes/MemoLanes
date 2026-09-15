@@ -196,6 +196,12 @@ class ReadOnlyJourneyInfoCard extends StatelessWidget {
               label: context.tr('journey.end_time'),
               value: end == null ? '—' : timeFormat.format(end),
             ),
+            if (journey.hasRawData)
+              CompactJourneyInfoField(
+                icon: Icons.location_searching_rounded,
+                label: context.tr('journey.raw_data'),
+                value: context.tr('journey.raw_data_included'),
+              ),
             if (note != null && note.isNotEmpty)
               CompactJourneyInfoField(
                 icon: Icons.notes_rounded,

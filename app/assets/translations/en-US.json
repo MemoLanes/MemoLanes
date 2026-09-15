@@ -127,6 +127,8 @@
     "delete_raw_data": "Delete Raw Data",
     "delete_raw_data_title": "Delete Raw Data",
     "delete_raw_data_message": "Delete raw data for this journey?",
+    "raw_data": "Raw Data",
+    "raw_data_included": "Included",
     "delete_all": "Delete All Journeys",
     "delete_all_success": "All journeys are deleted!",
     "journey_date": "Journey Date",
