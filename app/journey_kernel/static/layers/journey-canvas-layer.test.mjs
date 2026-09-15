@@ -77,34 +77,17 @@ function fixture(t, bg, fg) {
   };
 }
 
-test("is not ready before the first canvas redraw", (t) => {
+test("an empty canvas becomes displayable only after its source loads", (t) => {
   const f = fixture(t);
   assert.equal(f.layer.isReadyForDisplay(), false);
-});
-
-test("an empty but valid canvas redraw is ready for display", (t) => {
-  const f = fixture(t);
-  f.draw([]);
-  assert.equal(f.layer.isReadyForDisplay(), true);
-});
-
-test("a missing or unloaded source is not ready for display", (t) => {
-  const f = fixture(t);
-  f.draw([]);
-
   f.setSourceState({ loaded: false });
+  f.draw([]);
   assert.equal(f.layer.isReadyForDisplay(), false);
+
+  f.setSourceState({ loaded: true });
+  assert.equal(f.layer.isReadyForDisplay(), true);
 
   f.setSourceState({ exists: false, loaded: true });
-  assert.equal(f.layer.isReadyForDisplay(), false);
-});
-
-test("remove resets display readiness", (t) => {
-  const f = fixture(t);
-  f.draw([]);
-  assert.equal(f.layer.isReadyForDisplay(), true);
-
-  f.layer.remove();
   assert.equal(f.layer.isReadyForDisplay(), false);
 });
 

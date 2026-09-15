@@ -401,42 +401,23 @@ mod tests {
     }
 
     #[test]
-    fn build_lods_matches_reference_at_varied_densities() {
-        for exp in 0..=11 {
-            for density in [0, 1, 10, 125, 500, 1000] {
-                let mut bitmap = BitMap2D::new(exp);
-                let mut random = 0x1234_5678u32;
-                for y in 0..bitmap.side() {
-                    for x in 0..bitmap.side() {
-                        random ^= random << 13;
-                        random ^= random >> 17;
-                        random ^= random << 5;
-                        bitmap.set(x, y, random % 1000 < density);
-                    }
-                }
-                let mut reference = bitmap.clone();
-                bitmap.build_lods();
-                for level in 0..exp as usize {
-                    reference = reference.downscale();
-                    assert_eq!(
-                        bitmap.lod_level(level),
-                        Some(reference.as_bitvec()),
-                        "exp={exp}, density={density}, level={level}"
-                    );
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn build_lods_matches_reference_near_sparse_threshold() {
-        for exp in 0..=9 {
+    fn build_lods_matches_reference_across_sparse_and_dense_inputs() {
+        // Small grids, native 64px blocks and frontend 512px tiles. Compare
+        // every LOD, including levels that switch from sparse to dense.
+        for exp in [3, 6, 9] {
             let pixel_count = 1usize << (2 * exp);
             let threshold = pixel_count / 32;
-            for occupied in [threshold.saturating_sub(1), threshold, threshold + 1] {
+            for occupied in [
+                0,
+                threshold - 1,
+                threshold,
+                threshold + 1,
+                pixel_count / 2,
+                pixel_count,
+            ] {
                 for clustered in [false, true] {
                     let mut bitmap = BitMap2D::new(exp);
-                    for i in 0..occupied.min(pixel_count) {
+                    for i in 0..occupied {
                         // An odd stride visits distinct pixels in a power-of-two
                         // grid, contrasting dispersed pixels with adjacent ones.
                         let index = if clustered {

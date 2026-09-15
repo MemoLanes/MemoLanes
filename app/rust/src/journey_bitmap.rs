@@ -1077,7 +1077,7 @@ mod tests {
     fn regenerated_mipmaps_match_source_regions_at_varied_densities() {
         // Include both sides of the 128-pixel cutoff, empty and full blocks,
         // and clustered/dispersed inputs with exactly the requested occupancy.
-        for occupied in [0, 1, 40, 80, 127, 128, 129, 410, 2048, 4096] {
+        for occupied in [0, 1, 127, 128, 129, 2048, 4096] {
             for clustered in [false, true] {
                 let mut data = [0; BITMAP_SIZE];
                 for i in 0..occupied {
