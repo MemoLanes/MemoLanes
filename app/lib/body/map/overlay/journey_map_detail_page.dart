@@ -10,6 +10,7 @@ import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/component/map_glass_back_button.dart';
+import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/style_constants.dart';
@@ -83,15 +84,23 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
   }
 
   Future<void> _saveJourneyInformation(JourneyInfo journeyInfo) async {
-    await api.updateJourneyMetadata(id: _journey.id, journeyInfo: journeyInfo);
-    if (!mounted) return;
-    await _refreshJourney(refreshMap: false);
+    await GlobalLoadingManager.instance.runWithLoading(() async {
+      await api.updateJourneyMetadata(
+        id: _journey.id,
+        journeyInfo: journeyInfo,
+      );
+      if (!mounted) return;
+      await _refreshJourney(refreshMap: false);
+    }, blockNavigation: true);
     if (!mounted) return;
     setState(() => _isEditingInformation = false);
   }
 
   Future<void> _deleteJourney() async {
-    await api.deleteJourney(journeyId: _journey.id);
+    await GlobalLoadingManager.instance.runWithLoading(
+      () => api.deleteJourney(journeyId: _journey.id),
+      blockNavigation: true,
+    );
     if (!mounted) return;
     popCurrentRoute(context);
   }
@@ -112,7 +121,10 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
           await _deleteJourney();
           break;
         case JourneyMoreAction.copy:
-          await api.copyJourney(journeyId: _journey.id);
+          await GlobalLoadingManager.instance.runWithLoading(
+            () => api.copyJourney(journeyId: _journey.id),
+            blockNavigation: true,
+          );
           if (!mounted) return;
           await _showCopySuccess();
           break;

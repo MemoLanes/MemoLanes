@@ -189,7 +189,7 @@ class JourneyDetailCard extends StatefulWidget {
 }
 
 class _JourneyDetailCardState extends State<JourneyDetailCard> {
-  static final DateTime _firstDate = DateTime(1990);
+  static final DateTime _firstDate = DateTime(1970);
 
   late SimpleDate _journeyDate;
   DateTime? _startTime;
