@@ -130,6 +130,7 @@ class _AccuracyDisplayState extends State<AccuracyDisplay> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(24),
                         child: BackdropFilter(
+                          enabled: StyleConstants.enableBackdropFilter,
                           filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                           child: Container(
                             padding: const EdgeInsets.all(16),

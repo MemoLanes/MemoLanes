@@ -108,6 +108,7 @@ class LiquidGlassSurface extends StatelessWidget {
       ),
       child: _clip(
         BackdropFilter(
+          enabled: StyleConstants.enableBackdropFilter,
           filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
           child: Stack(
             fit: StackFit.passthrough,
